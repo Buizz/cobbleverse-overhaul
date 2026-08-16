@@ -28,8 +28,37 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_direct_pokemon_additions_can_force_evolved_spawns(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        schemas = [
+            json.loads((PROJECT_ROOT / f"content/schemas/{name}.schema.json").read_text(encoding="utf-8"))
+            for name in ("cave", "forest", "route", "hex-world")
+        ]
+
+        self.assertIn("진화본으로 출현", script)
+        self.assertIn("data-${target}-spawn-as-evolved", script)
+        self.assertEqual(False, schemas[0]["$defs"]["pokemon_addition"]["properties"]["spawn_as_evolved"]["default"])
+        self.assertEqual(False, schemas[1]["$defs"]["pokemon_addition"]["properties"]["spawn_as_evolved"]["default"])
+        self.assertEqual(False, schemas[2]["$defs"]["pokemon_addition"]["properties"]["spawn_as_evolved"]["default"])
+        self.assertEqual(False, schemas[3]["$defs"]["route_pokemon_addition"]["properties"]["spawn_as_evolved"]["default"])
+
+    def test_world_pokemon_generations_limit_automatic_and_unavailable_pools(self) -> None:
+        world = content_manager.load_world_layout(PROJECT_ROOT, 1)
+        self.assertEqual([1], world["pokemon_generations"])
+        pokemon_map = content_manager.world_pokemon_map(PROJECT_ROOT, 1)
+        self.assertEqual([1], pokemon_map["pokemon_generations"])
+        self.assertTrue(pokemon_map["available_pokemon"])
+        self.assertTrue(pokemon_map["unavailable_pokemon"])
+        self.assertEqual({1}, {entry["generation"] for entry in pokemon_map["available_pokemon"]})
+        self.assertEqual({1}, {entry["generation"] for entry in pokemon_map["unavailable_pokemon"]})
+
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        self.assertIn('id="world-pokemon-generation-toggles"', page)
+        self.assertIn('data-world-pokemon-generation=', script)
+
     def test_forest_gate_uses_only_its_jigsaw_as_the_runtime_marker(self) -> None:
-        path = PROJECT_ROOT / "content/structures/gate/forest_gate.nbt"
+        path = PROJECT_ROOT / "content/structures/forest_gate/forest_gate.nbt"
         self.assertTrue(path.is_file())
         structure = content_manager._read_minecraft_structure_root(path.read_bytes())
         entry_markers = [
@@ -49,7 +78,7 @@ class ContentManagerTests(unittest.TestCase):
 
     def test_gate_resources_use_short_resource_directory(self) -> None:
         structures = content_manager.managed_structure_files(PROJECT_ROOT)
-        self.assertIn("cobbleventure:gate/forest_gate", structures)
+        self.assertIn("cobbleventure:forest_gate/forest_gate", structures)
         self.assertIn("cobbleventure:gate/default_gate", structures)
         self.assertNotIn("cobbleventure:forest_entrance/forest_gate", structures)
         self.assertNotIn("cobbleventure:forest_entrance/default_gate", structures)
@@ -1536,6 +1565,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("if (!level.getBlockState(position).isAir())", generator)
         self.assertNotIn("!path.walkable() || !level.getBlockState(position).is(BlockTags.LEAVES)", generator)
         self.assertIn("persistentLeaves", generator)
+        self.assertIn("placeOuterBarrier(", generator)
+        self.assertIn("MINIMUM_OUTER_BARRIER_HEIGHT = 32", generator)
+        self.assertNotIn("surfaceY + 2, worldZ), collision", generator)
         self.assertIn("Biomes.DARK_FOREST", generator)
         self.assertIn('ResourceLocation.fromNamespaceAndPath("cobbleventure", "forests")', riding_access)
         self.assertIn("behaviours.containsKey(RidingStyle.AIR)", riding_access)
@@ -1584,7 +1616,7 @@ class ContentManagerTests(unittest.TestCase):
             entrance = {
                 "id": "forest_entrance_viridian_main", "forest": forest["id"],
                 "entrance": forest["entrances"][0]["id"], "anchor": {"q": 1, "r": 0},
-                "facing": "east", "structure": "cobbleventure:gate/forest_gate", "rotation": 1,
+                "facing": "east", "structure": "cobbleventure:forest_gate/forest_gate", "rotation": 1,
                 "tree_log": "minecraft:spruce_log", "tree_leaves": "minecraft:spruce_leaves",
                 "wall_thickness": 7, "wall_height": 14, "opening_width": 7, "barrier_height": 32,
                 "pokemon_center_enabled": True,
@@ -1623,7 +1655,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('부착 지형별 입구 NBT', page)
         self.assertNotIn('id="forest-tool-structure"', page)
         self.assertNotIn('name="structure"', page)
-        self.assertIn('forest: "cobbleventure:gate/forest_gate"', script)
+        self.assertIn('forest: "cobbleventure:forest_gate/forest_gate"', script)
         self.assertIn('structure_variants: { ...defaultWorldEntranceStructures.caveVariants }', script)
         self.assertIn('setEmptyTerrainTile(dense.q, dense.r, "dense_forest")', script)
         self.assertIn('id="entrance-inspector-form"', page)
@@ -2909,6 +2941,38 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("encounter", npc["npc"]["behavior"])
         self.assertFalse(any(command["type"] == "start_battle" for command in npc["events"][0]["commands"]))
         self.assertEqual("standard", battle["battle"]["ai"]["difficulty"])
+
+    def test_npc_placement_profile_supports_optional_expected_level(self) -> None:
+        npc = content_manager._npc_event_template("resident", "주민")
+        npc["placement_profile"].pop("expected_level", None)
+        _, issues = content_manager._validate_payload(npc, content_manager.validate_content_file)
+        self.assertEqual([], issues)
+
+        npc["placement_profile"]["automatic_route_placement"] = True
+        _, issues = content_manager._validate_payload(npc, content_manager.validate_content_file)
+        self.assertTrue(any(issue.path == "$.placement_profile.automatic_route_placement" for issue in issues))
+
+    def test_web_exposes_npc_classification_and_automatic_placement_controls(self) -> None:
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('data-npc-filter="trainer"', page)
+        self.assertIn('name="npcExpectedLevel"', page)
+        self.assertIn('name="npcPreferredBiomes"', page)
+        self.assertIn('name="autoPlaceNpcs"', page)
+        for scope in ("route", "cave", "forest", "settlement"):
+            self.assertIn(f'data-trainer-population="{scope}"', page)
+        self.assertIn("바이옴 기본 트레이너 사용", script)
+        self.assertIn("직접 지정", script)
+        self.assertIn("automaticNpcCandidates", script)
+
+    def test_settlement_switch_preserves_saved_footprint_shape(self) -> None:
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function updateFacilityFormState(preferredFootprintShape = null)", script)
+        self.assertIn("preferredFootprintShape ?? shapeSelect.value", script)
+        self.assertIn(
+            "updateFacilityFormState(normalizeTownFootprintShape(document.town_footprint_shape))",
+            script,
+        )
 
     def test_web_separates_npc_and_battle_preset_pages(self) -> None:
         root = PROJECT_ROOT

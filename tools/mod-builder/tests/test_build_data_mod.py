@@ -36,6 +36,43 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertFalse(path.exists())
 
+    def test_automatic_npc_profiles_prioritize_biome_then_level(self) -> None:
+        profiles = [
+            {"npc": "test:npc/neutral", "classification": "trainer", "expected_level": 10, "preferred_biomes": [], "automatic_route_placement": True},
+            {"npc": "test:npc/forest", "classification": "trainer", "expected_level": 18, "preferred_biomes": ["minecraft:forest"], "automatic_route_placement": True},
+            {"npc": "test:npc/desert", "classification": "trainer", "expected_level": 10, "preferred_biomes": ["minecraft:desert"], "automatic_route_placement": True},
+        ]
+        ranked = build_data_mod._rank_npc_profiles(
+            profiles, classification="trainer", level=10,
+            biomes={"minecraft:forest"}, target="route",
+        )
+        self.assertEqual("test:npc/forest", ranked[0])
+        self.assertEqual("test:npc/desert", ranked[-1])
+
+    def test_direct_trainers_override_biome_defaults_without_duplicates(self) -> None:
+        profiles = [
+            {"npc": "test:npc/forest", "classification": "trainer", "expected_level": 12, "preferred_biomes": ["minecraft:forest"], "automatic_route_placement": True},
+            {"npc": "test:npc/direct", "classification": "trainer", "expected_level": 30, "preferred_biomes": ["minecraft:desert"], "automatic_route_placement": False},
+        ]
+        resolved = build_data_mod._resolved_trainer_ids(
+            profiles,
+            {"use_biome_defaults": True, "direct_trainers": ["test:npc/direct", "test:npc/forest"]},
+            level=12,
+            biomes={"minecraft:forest"},
+            target="route",
+        )
+        self.assertEqual(["test:npc/direct", "test:npc/forest"], resolved)
+
+    def test_town_npc_placement_keeps_residents_inside(self) -> None:
+        placements = build_data_mod._town_npc_placement_records(
+            ["test:npc/resident"], ["test:npc/trainer_a", "test:npc/trainer_b"],
+        )
+        self.assertEqual("indoor", placements[0]["placement_area"])
+        self.assertEqual(
+            {"indoor", "outdoor"},
+            {entry["placement_area"] for entry in placements if entry["classification"] == "trainer"},
+        )
+
     def test_route_presets_are_packaged_and_merged_into_world_connections(self) -> None:
         output = REPOSITORY_ROOT / build_data_mod.OUTPUT
         preset_path = output / "data/cobbleventure/routes/generation_1/route_custom_03.json"
@@ -980,7 +1017,7 @@ class DataModBuilderTests(unittest.TestCase):
 
             packaged = (
                 root / build_data_mod.OUTPUT
-                / "data/cobbleventure/structure/gate/forest_gate.nbt"
+                / "data/cobbleventure/structure/forest_gate/forest_gate.nbt"
             )
             self.assertEqual(authored, packaged.read_bytes())
 

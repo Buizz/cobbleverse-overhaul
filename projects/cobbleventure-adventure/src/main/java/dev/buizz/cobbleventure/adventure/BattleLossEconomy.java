@@ -94,12 +94,6 @@ final class BattleLossEconomy {
             return null;
         }
 
-        SettlementKey key = new SettlementKey(battleId, loser.getUUID());
-        StoredSettlement existing = SETTLEMENTS.get(key);
-        if (existing != null) {
-            return existing.settlement;
-        }
-
         List<BattleActor> opposingActors = new ArrayList<>();
         for (BattleActor opponent : opponents) {
             if (opponent.getSide() != loserActor.getSide()) {
@@ -114,6 +108,17 @@ final class BattleLossEconomy {
             .orElse(null);
         boolean wild = wildBattle || (namedOpponent != null
             && namedOpponent.getType() == ActorType.WILD);
+        if (!shouldChargeLoss(
+            wild, forfeited, PokemonCenterDefeatReturn.isPartyWiped(loser)
+        )) {
+            return null;
+        }
+
+        SettlementKey key = new SettlementKey(battleId, loser.getUUID());
+        StoredSettlement existing = SETTLEMENTS.get(key);
+        if (existing != null) {
+            return existing.settlement;
+        }
 
         BigInteger balance = PlayerExtensionKt.getCobbleDollars(loser).max(BigInteger.ZERO);
         BigInteger requested = BigInteger.valueOf(highestPartyLevel(loser))
@@ -144,6 +149,12 @@ final class BattleLossEconomy {
             new StoredSettlement(settlement, gameTime + SETTLEMENT_RETENTION_TICKS)
         );
         return settlement;
+    }
+
+    static boolean shouldChargeLoss(
+        boolean wildBattle, boolean forfeited, boolean partyWiped
+    ) {
+        return !wildBattle || (!forfeited && partyWiped);
     }
 
     private static int highestPartyLevel(ServerPlayer player) {

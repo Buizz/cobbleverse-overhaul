@@ -76,7 +76,9 @@ final class WorldPlanModels {
         double offsetBlocks, String facing, double spawnChance, String respawnPolicy
     ) {}
 
-    record RoutePokemonAddition(String species, int minLevel, int maxLevel) {}
+    record RoutePokemonAddition(
+        String species, int minLevel, int maxLevel, boolean spawnAsEvolved
+    ) {}
 
     record PokemonLevelOverride(String species, int minLevel, int maxLevel) {}
 

@@ -24,6 +24,7 @@
     "enabled": { "type": "boolean" },
     "name": { "$ref": "#/$defs/localized_text" },
     "description": { "$ref": "#/$defs/localized_text" },
+    "placement_profile": { "$ref": "#/$defs/placement_profile" },
     "tags": {
       "type": "array",
       "uniqueItems": true,
@@ -55,6 +56,26 @@
       "minProperties": 1,
       "propertyNames": { "pattern": "^[a-z]{2}_[a-z]{2}$" },
       "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "placement_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "preferred_biomes", "automatic_town_placement", "automatic_route_placement"],
+      "properties": {
+        "classification": { "enum": ["trainer", "ambient"] },
+        "expected_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "preferred_biomes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resource_id" }
+        },
+        "automatic_town_placement": { "type": "boolean" },
+        "automatic_route_placement": { "type": "boolean" }
+      },
+      "allOf": [{
+        "if": { "properties": { "classification": { "const": "ambient" } }, "required": ["classification"] },
+        "then": { "properties": { "automatic_route_placement": { "const": false } } }
+      }]
     },
     "vector3": {
       "type": "object",

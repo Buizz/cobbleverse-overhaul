@@ -210,8 +210,13 @@ public final class PersonalFarmPlots {
 
     private static boolean isProtectedAdventureDimension(ResourceKey<Level> dimension) {
         ResourceLocation location = dimension.location();
-        return location.getNamespace().equals("cobbleventure")
-            && location.getPath().startsWith("generation_");
+        if (!location.getNamespace().equals("cobbleventure")) {
+            return false;
+        }
+        String path = location.getPath();
+        return path.startsWith("generation_")
+            || path.equals("dungeons")
+            || path.equals("forests");
     }
 
     private static boolean mayEditFarmBlock(ServerPlayer player, BlockPos pos) {

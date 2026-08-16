@@ -9,7 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 
 /** World-owned queries consumed by the platform-neutral adventure rules. */
 public interface AdventureWorldContext {
-    record WildSpawnAddition(ResourceLocation species) {}
+    record WildSpawnAddition(ResourceLocation species, boolean spawnAsEvolved) {}
     record WildSpawnLevelRange(int minLevel, int maxLevel) {}
 
     record WildSpawnRule(

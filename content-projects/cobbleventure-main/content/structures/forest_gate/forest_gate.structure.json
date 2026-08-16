@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "structure": "content/structures/forest_entrance/default_gate.nbt",
+  "structure": "content/structures/forest_entrance/forest_gate.nbt",
   "anchors": [
-    {
-      "label": "npc1",
-      "type": "npc_position",
-      "position": [
-        9,
-        3,
-        12
-      ]
-    },
     {
       "label": "npc2",
       "type": "npc_position",
       "position": [
         20,
         3,
-        11
+        12
+      ]
+    },
+    {
+      "label": "npc1",
+      "type": "npc_position",
+      "position": [
+        9,
+        3,
+        13
       ]
     }
   ]

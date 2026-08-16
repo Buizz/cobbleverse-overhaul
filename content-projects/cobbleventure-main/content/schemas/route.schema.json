@@ -60,13 +60,24 @@
       "properties": {
         "inherit_biome": { "type": "boolean" },
         "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
-        "additions": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level" } },
+        "additions": { "type": "array", "items": { "$ref": "#/$defs/pokemon_addition" } },
         "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level" } }
       }
     },
     "npc_placements": {
       "type": "array",
       "items": { "$ref": "#/$defs/npc_placement" }
+    },
+    "automatic_npc_placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "count"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "use_biome_defaults": { "type": "boolean", "default": true },
+        "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } }
+      }
     }
   },
   "$defs": {
@@ -75,6 +86,17 @@
       "type": "object",
       "minProperties": 1,
       "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 100 }
+    },
+    "pokemon_addition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["species", "min_level", "max_level"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "spawn_as_evolved": { "type": "boolean", "default": false }
+      }
     },
     "pokemon_level": {
       "type": "object",

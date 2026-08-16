@@ -12,6 +12,7 @@
     "enabled": { "type": "boolean" },
     "name": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
     "description": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+    "placement_profile": { "$ref": "content-bundle.schema.json#/$defs/placement_profile" },
     "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
     "npc": { "$ref": "content-bundle.schema.json#/$defs/npc" },
     "interaction": {

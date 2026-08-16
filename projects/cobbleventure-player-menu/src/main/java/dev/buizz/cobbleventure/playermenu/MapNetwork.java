@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu;
 
+import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -88,6 +89,10 @@ public final class MapNetwork {
 
     private static void handleTeleport(MapTeleportPayload payload, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
+        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            context.reply(new MapTeleportResultPayload(false, "전투 중에는 순간이동할 수 없습니다."));
+            return;
+        }
         if (PENDING_TELEPORTS.containsKey(player.getUUID())) {
             context.reply(new MapTeleportResultPayload(false, "이미 이동을 준비하고 있습니다."));
             return;
@@ -200,6 +205,9 @@ public final class MapNetwork {
     }
 
     private static String performTeleport(ServerPlayer player, PendingTeleport pending) {
+        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            return "전투 중에는 순간이동할 수 없습니다.";
+        }
         ServerLevel level = player.getServer().getLevel(pending.dimension);
         if (level == null) {
             return "지도 차원을 불러오지 못했습니다.";

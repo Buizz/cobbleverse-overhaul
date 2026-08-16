@@ -25,8 +25,9 @@ import org.slf4j.Logger;
 final class ForestDimensionGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int UPDATE_FLAGS = 2;
-    private static final int LAYOUT_VERSION = 8;
+    private static final int LAYOUT_VERSION = 9;
     private static final int MARKER_Y = 210;
+    private static final int MINIMUM_OUTER_BARRIER_HEIGHT = 32;
 
     private ForestDimensionGenerator() {}
 
@@ -81,7 +82,10 @@ final class ForestDimensionGenerator {
             forest.getAsJsonArray("terrain_tiles"), bounds, cellSize
         );
         int baseSurfaceY = originY - 1;
-        int clearTop = originY + maximumTreeHeight + 6;
+        int outerBarrierHeight = Math.max(
+            MINIMUM_OUTER_BARRIER_HEIGHT, maximumTreeHeight + 8
+        );
+        int clearTop = originY + Math.max(maximumTreeHeight + 6, outerBarrierHeight + 1);
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
         for (int localX = minX; localX < maxX; localX++) {
@@ -137,14 +141,51 @@ final class ForestDimensionGenerator {
                     );
                     level.setBlock(cursor.set(worldX, surfaceY + 1, worldZ), plant, UPDATE_FLAGS);
                 }
-                level.setBlock(cursor.set(worldX, surfaceY + 2, worldZ), collision, UPDATE_FLAGS);
             }
         }
+        placeOuterBarrier(
+            level, cursor, terrain, originX, originZ, baseSurfaceY,
+            minX, minZ, maxX, maxZ,
+            outerBarrierHeight, collision
+        );
         LOGGER.info(
             "Authored forest generated: forest={}, dimension={}, bounds={}..{},{}..{}",
             forestId, level.dimension().location(), minX, maxX, minZ, maxZ
         );
         writeSignature(level, signatureMarker, signature);
+    }
+
+    private static void placeOuterBarrier(
+        ServerLevel level, BlockPos.MutableBlockPos cursor, TerrainTiles terrain,
+        int originX, int originZ, int baseSurfaceY,
+        int minX, int minZ, int maxX, int maxZ,
+        int height, BlockState collision
+    ) {
+        for (int localX = minX; localX < maxX; localX++) {
+            placeBarrierColumn(level, cursor, terrain, originX, originZ, baseSurfaceY,
+                localX, minZ, height, collision);
+            placeBarrierColumn(level, cursor, terrain, originX, originZ, baseSurfaceY,
+                localX, maxZ - 1, height, collision);
+        }
+        for (int localZ = minZ + 1; localZ < maxZ - 1; localZ++) {
+            placeBarrierColumn(level, cursor, terrain, originX, originZ, baseSurfaceY,
+                minX, localZ, height, collision);
+            placeBarrierColumn(level, cursor, terrain, originX, originZ, baseSurfaceY,
+                maxX - 1, localZ, height, collision);
+        }
+    }
+
+    private static void placeBarrierColumn(
+        ServerLevel level, BlockPos.MutableBlockPos cursor, TerrainTiles terrain,
+        int originX, int originZ, int baseSurfaceY,
+        int localX, int localZ, int height, BlockState collision
+    ) {
+        int surfaceY = baseSurfaceY + terrain.heightAt(localX, localZ);
+        int worldX = originX + localX;
+        int worldZ = originZ + localZ;
+        for (int offset = 1; offset <= height; offset++) {
+            level.setBlock(cursor.set(worldX, surfaceY + offset, worldZ), collision, UPDATE_FLAGS);
+        }
     }
 
     private static void applyForestBiome(

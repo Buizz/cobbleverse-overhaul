@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.playermenu.MapContent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +33,7 @@ import org.slf4j.Logger;
 final class PursuitEncounterSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     static final String ENTITY_TAG = "cobbleventure_pursuit_encounter";
+    static final String FORCE_EVOLVED_SPAWN_TAG = "cobbleventure_force_evolved_spawn";
     private static final int MAX_AMBIENT_POKEMON = 2;
     private static final int SPAWN_INTERVAL_TICKS = 20 * 4;
     private static final int ALERT_ANIMATION_TICKS = 18;
@@ -50,7 +52,9 @@ final class PursuitEncounterSystem {
         JsonObject settings = document.getAsJsonObject("random_encounters");
         if (settings == null || !settings.get("enabled").getAsBoolean()) return null;
         String biome = settings.get("pokemon_biome").getAsString();
+        Set<Integer> generations = configuredGenerations(settings, document);
         Set<String> habitats = new HashSet<>();
+        Set<String> rarities = new HashSet<>();
         boolean includeSecondary = false;
         for (JsonElement element : biomeProfiles.getAsJsonArray("profiles")) {
             JsonObject profile = element.getAsJsonObject();
@@ -60,6 +64,11 @@ final class PursuitEncounterSystem {
             }
             if (!matches) continue;
             habitats.add(profile.get("habitat").getAsString());
+            if (profile.has("settings") && profile.getAsJsonObject("settings").has("rarities")) {
+                for (JsonElement rarity : profile.getAsJsonObject("settings").getAsJsonArray("rarities")) {
+                    rarities.add(rarity.getAsString());
+                }
+            }
             includeSecondary |= !profile.has("settings")
                 || !profile.getAsJsonObject("settings").has("include_secondary")
                 || profile.getAsJsonObject("settings").get("include_secondary").getAsBoolean();
@@ -75,7 +84,11 @@ final class PursuitEncounterSystem {
             for (JsonElement element : pokemonHabitats.getAsJsonArray("pokemon")) {
                 JsonObject pokemon = element.getAsJsonObject();
                 String species = pokemon.get("id").getAsString();
-                if (excluded.contains(species)) continue;
+                if (excluded.contains(species)
+                    || !pokemon.has("implemented") || !pokemon.get("implemented").getAsBoolean()
+                    || !generations.contains(pokemon.get("generation").getAsInt())
+                    || pokemon.has("is_legendary") && pokemon.get("is_legendary").getAsBoolean()
+                    || pokemon.has("is_mythical") && pokemon.get("is_mythical").getAsBoolean()) continue;
                 JsonObject pokemonHabitatsValue = pokemon.getAsJsonObject("habitats");
                 String primary = pokemonHabitatsValue.get("primary").getAsString();
                 JsonElement secondaryValue = pokemonHabitatsValue.get("secondary");
@@ -87,8 +100,9 @@ final class PursuitEncounterSystem {
                 String rarity = pokemon.has("preferences")
                     && pokemon.getAsJsonObject("preferences").has("rarity")
                     ? pokemon.getAsJsonObject("preferences").get("rarity").getAsString() : "common";
+                if (!rarities.isEmpty() && !rarities.contains(rarity)) continue;
                 choices.put(species, new SpeciesChoice(
-                    species, defaultMinimumLevel, defaultMaximumLevel, rarityWeight(rarity)
+                    species, defaultMinimumLevel, defaultMaximumLevel, rarityWeight(rarity), false
                 ));
             }
         }
@@ -96,7 +110,9 @@ final class PursuitEncounterSystem {
             JsonObject addition = element.getAsJsonObject();
             String species = addition.get("species").getAsString();
             choices.put(species, new SpeciesChoice(
-                species, defaultMinimumLevel, defaultMaximumLevel, 20
+                species, defaultMinimumLevel, defaultMaximumLevel, 20,
+                addition.has("spawn_as_evolved")
+                    && addition.get("spawn_as_evolved").getAsBoolean()
             ));
         }
         if (settings.has("level_overrides")) {
@@ -106,7 +122,8 @@ final class PursuitEncounterSystem {
                 SpeciesChoice current = choices.get(species);
                 if (current != null) choices.put(species, new SpeciesChoice(
                     species, override.get("min_level").getAsInt(),
-                    override.get("max_level").getAsInt(), current.weight()
+                    override.get("max_level").getAsInt(), current.weight(),
+                    current.spawnAsEvolved()
                 ));
             }
         }
@@ -115,11 +132,35 @@ final class PursuitEncounterSystem {
             settings.get("maximum_distance").getAsInt(), List.copyOf(choices.values())
         );
         LOGGER.info(
-            "[Spawn diagnosis] Ambient encounter loaded: area={}, biome={}, habitats={}, species={}, spawnRadius={}-{}",
-            id, biome, habitats, config.species().size(),
+            "[Spawn diagnosis] Ambient encounter loaded: area={}, biome={}, generations={}, habitats={}, species={}, spawnRadius={}-{}",
+            id, biome, generations, habitats, config.species().size(),
             config.minimumDistance(), config.maximumDistance()
         );
         return config;
+    }
+
+    private static Set<Integer> configuredGenerations(JsonObject settings, JsonObject document) {
+        Set<Integer> result = new HashSet<>();
+        if (settings.has("generations")) {
+            for (JsonElement element : settings.getAsJsonArray("generations")) {
+                int generation = element.getAsInt();
+                if (generation >= 1 && generation <= 9) result.add(generation);
+            }
+        }
+        if (!result.isEmpty()) return Set.copyOf(result);
+        int documentGeneration = 1;
+        if (document.has("dimension")) {
+            String region = document.getAsJsonObject("dimension").get("region_id").getAsString();
+            int marker = region.indexOf("generation_");
+            if (marker >= 0 && marker + 11 < region.length()) {
+                char value = region.charAt(marker + 11);
+                if (value >= '1' && value <= '9') documentGeneration = value - '0';
+            }
+        }
+        MapContent world = MapContent.forGeneration(documentGeneration);
+        if (world != null) result.addAll(world.pokemonGenerations());
+        if (result.isEmpty()) result.add(documentGeneration);
+        return Set.copyOf(result);
     }
 
     private static int rarityWeight(String rarity) {
@@ -209,6 +250,7 @@ final class PursuitEncounterSystem {
         entity.moveTo(position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D, player.getYRot(), 0.0F);
         entity.setCountsTowardsSpawnCap(false);
         entity.addTag(ENTITY_TAG);
+        if (choice.spawnAsEvolved()) entity.addTag(FORCE_EVOLVED_SPAWN_TAG);
         if (!player.serverLevel().addFreshEntity(entity)) {
             LOGGER.warn(
                 "[Spawn diagnosis] Pursuit entity insertion rejected: player={}, area={}, species={}, level={}, position={}",
@@ -457,7 +499,9 @@ final class PursuitEncounterSystem {
     }
 
     record Config(String id, int minimumDistance, int maximumDistance, List<SpeciesChoice> species) {}
-    record SpeciesChoice(String species, int minLevel, int maxLevel, int weight) {}
+    record SpeciesChoice(
+        String species, int minLevel, int maxLevel, int weight, boolean spawnAsEvolved
+    ) {}
     private static final class State {
         private String areaId;
         private final Set<UUID> encounters = new HashSet<>();

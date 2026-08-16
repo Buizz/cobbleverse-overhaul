@@ -190,6 +190,18 @@
         "zones"
       ],
       "properties": {
+        "auto_place_npcs": { "type": "boolean", "default": false },
+        "trainer_population": {
+          "type": "object", "additionalProperties": false,
+          "required": ["enabled", "max_active", "use_biome_defaults", "direct_trainers"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "max_active": { "type": "integer", "minimum": 0, "maximum": 128 },
+            "use_biome_defaults": { "type": "boolean" },
+            "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+            "placement_areas": { "type": "array", "uniqueItems": true, "items": { "enum": ["indoor", "outdoor"] } }
+          }
+        },
         "max_ambient_npcs": { "type": "integer", "minimum": 0 },
         "default_wander_radius": { "type": "number", "minimum": 0 },
         "trainer_slots": {

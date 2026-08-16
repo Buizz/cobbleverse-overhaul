@@ -157,7 +157,7 @@ public final class PokemonCenterDefeatReturn {
         }
     }
 
-    private static boolean isPartyWiped(ServerPlayer player) {
+    static boolean isPartyWiped(ServerPlayer player) {
         PlayerPartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
         if (party.occupied() == 0) {
             return false;

@@ -42,7 +42,7 @@ FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
 HOUSE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/houses"
 TOWN_DECORATION_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/town_decorations"
 CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/cave_entrance"
-FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gate"
+FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/forest_gate"
 INTERIOR_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/interiors"
 GYM_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/gyms"
 LEAGUE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/league"
@@ -52,6 +52,8 @@ GYM_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/gyms.json")
 MUSIC_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/music-tracks.json"
 MUSIC_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/music-tracks.json")
 BATTLE_PRESET_SOURCE_DIR = CONTENT_ROOT / "battles"
+NPC_SOURCE_DIR = CONTENT_ROOT / "source"
+NPC_PLACEMENT_PROFILE_ENTRY = Path("data/cobbleventure/catalogs/npc-placement-profiles.json")
 BATTLE_PRESET_ENTRY_DIR = Path("data/cobbleventure/battles")
 BUILDING_SETTINGS_SOURCE = CONTENT_ROOT / "catalogs/building-settings.json"
 BUILDING_SETTINGS_ENTRY = Path("data/cobbleventure/building_settings.json")
@@ -206,13 +208,98 @@ def _settlement_data(root: Path) -> list[tuple[Path, dict[str, object]]]:
     return settlements
 
 
+def _npc_placement_profiles(root: Path) -> list[dict[str, object]]:
+    source_dir = _inside(root, root / NPC_SOURCE_DIR, "NPC 설정 디렉터리")
+    profiles: list[dict[str, object]] = []
+    for source_path in sorted(source_dir.rglob("*.json")) if source_dir.is_dir() else []:
+        try:
+            document = json.loads(source_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ModBuildError(f"NPC 설정을 읽을 수 없습니다: {source_path}") from error
+        profile = document.get("placement_profile") if isinstance(document, dict) else None
+        npc_id = document.get("id") if isinstance(document, dict) else None
+        if not isinstance(profile, dict) or not isinstance(npc_id, str):
+            continue
+        profiles.append({"npc": npc_id, **copy.deepcopy(profile)})
+    return profiles
+
+
+def _rank_npc_profiles(
+    profiles: list[dict[str, object]], *, classification: str, level: int,
+    biomes: set[str], target: str,
+) -> list[str]:
+    enabled_key = "automatic_route_placement" if target == "route" else "automatic_town_placement"
+    ranked: list[tuple[int, str]] = []
+    for profile in profiles:
+        if profile.get("classification") != classification or profile.get(enabled_key) is not True:
+            continue
+        preferred = {str(value) for value in profile.get("preferred_biomes", []) if isinstance(value, str)}
+        biome_score = 0 if preferred & biomes else 100 if preferred else 20
+        expected = profile.get("expected_level")
+        level_score = abs(expected - level) if isinstance(expected, int) else 15
+        npc_id = str(profile.get("npc", ""))
+        if npc_id:
+            ranked.append((biome_score + level_score, npc_id))
+    return [npc_id for _, npc_id in sorted(ranked, key=lambda item: (item[0], item[1]))]
+
+
+def _resolved_trainer_ids(
+    profiles: list[dict[str, object]], population: dict[str, object], *,
+    level: int, biomes: set[str], target: str,
+) -> list[str]:
+    known_ids = {str(profile.get("npc")) for profile in profiles if profile.get("classification") == "trainer"}
+    direct = [
+        str(value) for value in population.get("direct_trainers", [])
+        if isinstance(value, str) and value in known_ids
+    ]
+    automatic = [] if population.get("use_biome_defaults") is False else _rank_npc_profiles(
+        profiles, classification="trainer", level=level, biomes=biomes, target=target,
+    )
+    return list(dict.fromkeys([*direct, *automatic]))
+
+
+def _town_npc_placement_records(ambient: list[str], trainers: list[str]) -> list[dict[str, str]]:
+    """Assign residents indoors and distribute trainers across outdoor/indoor slots."""
+    return [
+        *({"npc": npc_id, "classification": "ambient", "placement_area": "indoor"} for npc_id in ambient),
+        *({"npc": npc_id, "classification": "trainer", "placement_area": "outdoor" if index % 2 == 0 else "indoor"} for index, npc_id in enumerate(trainers)),
+    ]
+
+
 def _package_settlements(
     root: Path,
     output: Path,
     settlements: list[tuple[Path, dict[str, object]]],
 ) -> None:
+    npc_profiles = _npc_placement_profiles(root)
+    profile_target = _inside(root, output / NPC_PLACEMENT_PROFILE_ENTRY, "생성 NPC 자동 배치 카탈로그")
+    profile_target.parent.mkdir(parents=True, exist_ok=True)
+    profile_target.write_text(
+        json.dumps({"schema_version": 1, "profiles": npc_profiles}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     for relative, data in settlements:
         packaged = copy.deepcopy(data)
+        placement = packaged.get("npc_placement") if isinstance(packaged.get("npc_placement"), dict) else {}
+        if placement.get("auto_place_npcs") is True:
+            scaling = packaged.get("content_profile", {}).get("level_scaling", {})
+            level = max(1, min(100, round(float(scaling.get("base_level", scaling.get("min_level", 5))) + float(scaling.get("trainer_offset", 0)))))
+            biomes = {
+                str(zone.get("biome"))
+                for zone in packaged.get("biome_layout", {}).get("zones", [])
+                if isinstance(zone, dict) and isinstance(zone.get("biome"), str)
+            }
+            ambient = _rank_npc_profiles(npc_profiles, classification="ambient", level=level, biomes=biomes, target="town")[:int(placement.get("max_ambient_npcs", 0))]
+            population = placement.get("trainer_population") if isinstance(placement.get("trainer_population"), dict) else {}
+            trainer_limit = int(population.get("max_active", packaged.get("content_profile", {}).get("trainers", {}).get("max_active", 0)))
+            trainers = _resolved_trainer_ids(npc_profiles, population, level=level, biomes=biomes, target="town")[:trainer_limit] if population.get("enabled", trainer_limit > 0) else []
+            placement["resolved_auto_npcs"] = {
+                "level": level,
+                "biomes": sorted(biomes),
+                "ambient": ambient,
+                "trainers": trainers,
+                "placements": _town_npc_placement_records(ambient, trainers),
+            }
         compiled_layout = _compile_town_layout(packaged, root=root)
         if int(compiled_layout.get("reroll_count", 0)) > 0:
             print(
@@ -1335,6 +1422,7 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
     if not source_dir.is_dir():
         raise ModBuildError(f"육각 월드 설정 디렉터리가 없습니다: {source_dir}")
     route_presets: dict[str, dict[str, object]] = {}
+    npc_profiles = _npc_placement_profiles(root)
     route_source = _inside(root, root / ROUTE_PRESET_CONFIG_DIR, "길 프리셋 디렉터리")
     for route_path in sorted(route_source.rglob("*.json")) if route_source.is_dir() else []:
         try:
@@ -1346,14 +1434,22 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
             raise ModBuildError(f"길 프리셋 ID가 올바르지 않습니다: {route_path}")
         if route_id in route_presets:
             raise ModBuildError(f"중복 길 프리셋 ID입니다: {route_id}")
-        route_presets[route_id] = route
+        automatic = route.get("automatic_npc_placement") if isinstance(route.get("automatic_npc_placement"), dict) else {}
+        packaged_route = copy.deepcopy(route)
+        if automatic.get("enabled") is True:
+            scaling = route.get("level_scaling", {})
+            level = round((int(scaling.get("minimum_level", 3)) + int(scaling.get("maximum_level", 7))) / 2) if scaling.get("mode") == "fixed" else max(1, 5 + int(scaling.get("offset", 0)))
+            packaged_route["automatic_npc_candidates"] = _resolved_trainer_ids(
+                npc_profiles, automatic, level=level, biomes=set(), target="route",
+            )[:int(automatic.get("count", 0))]
+        route_presets[route_id] = packaged_route
         route_target = _inside(
             root,
             output / GENERATED_ROUTE_PRESET_DIR / route_path.relative_to(route_source),
             "생성 길 프리셋",
         )
         route_target.parent.mkdir(parents=True, exist_ok=True)
-        route_target.write_text(json.dumps(route, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        route_target.write_text(json.dumps(packaged_route, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     for source_path in sorted(source_dir.rglob("*.json")):
         try:
@@ -1397,6 +1493,8 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
                 "pokemon_spawns": copy.deepcopy(preset.get("pokemon_spawns", {})),
                 "level_scaling": copy.deepcopy(preset.get("level_scaling", {"mode": "world", "offset": 0})),
                 "npc_placements": copy.deepcopy(preset.get("npc_placements", [])),
+                "automatic_npc_placement": copy.deepcopy(preset.get("automatic_npc_placement", {"enabled": False, "count": 0})),
+                "automatic_npc_candidates": copy.deepcopy(preset.get("automatic_npc_candidates", [])),
             }
             for source_key, target_key in (("boundary_profile", "boundary_profile"), ("terrain_profile", "terrain_profile")):
                 if corridor.get(source_key) is not None:
@@ -1413,6 +1511,8 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
             resolved["pokemon_spawns"] = copy.deepcopy(preset.get("pokemon_spawns", {}))
             resolved["level_scaling"] = copy.deepcopy(preset.get("level_scaling", {"mode": "world", "offset": 0}))
             resolved["npc_placements"] = copy.deepcopy(preset.get("npc_placements", []))
+            resolved["automatic_npc_placement"] = copy.deepcopy(preset.get("automatic_npc_placement", {"enabled": False, "count": 0}))
+            resolved["automatic_npc_candidates"] = copy.deepcopy(preset.get("automatic_npc_candidates", []))
             for source_key, target_key in (("boundary_profile", "boundary_profile"), ("terrain_profile", "terrain_profile")):
                 if corridor.get(source_key) is not None:
                     resolved[target_key] = copy.deepcopy(corridor[source_key])
@@ -1814,7 +1914,7 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
 
     for category, source_relative, label in (
         ("cave_entrance", CAVE_ENTRANCE_STRUCTURE_SOURCE_DIR, "동굴 입구"),
-        ("gate", FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR, "숲 입구"),
+        ("forest_gate", FOREST_ENTRANCE_STRUCTURE_SOURCE_DIR, "숲 입구"),
     ):
         entrance_source = _inside(root, root / source_relative, f"{label} NBT 원본")
         if not entrance_source.is_dir():

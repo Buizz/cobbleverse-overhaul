@@ -278,14 +278,18 @@ final class WorldGateSystem {
             return false;
         }
         Rotation rotation = rotation(gate.rotation());
-        Vec3i size = template.orElseThrow().getSize(rotation);
-        BlockPos origin = new BlockPos(
-            center.x() - size.getX() / 2,
-            groundY + 1,
-            center.z() - size.getZ() / 2
+        StructureTemplate structure = template.orElseThrow();
+        Vec3i size = structure.getSize(rotation);
+        int minX = center.x() - size.getX() / 2;
+        int minZ = center.z() - size.getZ() / 2;
+        BlockPos origin = rotatedTemplateOrigin(
+            minX, groundY + 1, minZ,
+            structure.getSize().getX(), structure.getSize().getZ(), rotation
         );
-        StructurePlaceSettings settings = new StructurePlaceSettings().setRotation(rotation);
-        if (!template.orElseThrow().placeInWorld(
+        StructurePlaceSettings settings = new StructurePlaceSettings()
+            .setRotation(rotation)
+            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+        if (!structure.placeInWorld(
             level, origin, origin, settings,
             RandomSource.create(level.getSeed() ^ origin.asLong()), 2
         )) {
@@ -308,6 +312,14 @@ final class WorldGateSystem {
         if (placement == null) {
             return false;
         }
+        ForestEntryMarker entry = placedForestEntryMarker(gate, placement);
+        if (entry == null) {
+            return false;
+        }
+        CobbleventureBootstrap.Point roadEndpoint = world.grid().worldCenter(gate.anchor());
+        layWorldForestEntranceRoad(
+            level, world, entry, roadEndpoint
+        );
         if (!placement.template().placeInWorld(
             level, placement.origin(), placement.origin(), placement.settings(),
             RandomSource.create(level.getSeed() ^ placement.origin().asLong()), 2
@@ -318,16 +330,8 @@ final class WorldGateSystem {
             );
             return false;
         }
-        ForestEntryMarker entry = placedForestEntryMarker(gate, placement);
-        if (entry == null) {
-            return false;
-        }
         FOREST_ENTRY_MARKERS.put(gate.id(), entry);
         level.setBlock(entry.position(), Blocks.AIR.defaultBlockState(), 2);
-        CobbleventureBootstrap.Point roadEndpoint = world.grid().worldCenter(gate.anchor());
-        layWorldForestEntranceRoad(
-            level, world, entry, roadEndpoint
-        );
         LOGGER.info(
             "Forest gate NBT placed on boundary: gate={}, entry={}, inward={}, origin={}",
             gate.id(), entry.position(), entry.inward(), placement.origin()
@@ -470,7 +474,9 @@ final class WorldGateSystem {
             minX, targetY - rotatedAnchor.getY(), minZ,
             size.getX(), size.getZ(), rotation
         );
-        StructurePlaceSettings settings = new StructurePlaceSettings().setRotation(rotation);
+        StructurePlaceSettings settings = new StructurePlaceSettings()
+            .setRotation(rotation)
+            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         int outsideOffset = (geometry.inward().getAxis() == Direction.Axis.X
             ? template.getSize(rotation).getX()
             : template.getSize(rotation).getZ()) + 1;

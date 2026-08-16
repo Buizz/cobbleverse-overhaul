@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import dev.buizz.cobbleventure.playermenu.MapContent;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -13,6 +14,11 @@ public final class HabitatSpawnRules {
     public static Set<ResourceLocation> allowedSpecies(
         ServerLevel level, double x, double z
     ) {
+        // Authored cave/forest encounters are spawned only by PursuitEncounterSystem.
+        // An empty natural pool prevents Cobblemon's independent spawner from duplicating them.
+        if (CobbleventureBootstrap.authoredEncounterWeights(level, x, z) != null) {
+            return Set.of();
+        }
         String dimension = level.dimension().location().toString();
         for (MapContent content : MapContent.all()) {
             if (!dimension.equals(content.dimension())) {
@@ -33,6 +39,12 @@ public final class HabitatSpawnRules {
             return Set.copyOf(result);
         }
         return null;
+    }
+
+    public static Map<ResourceLocation, Integer> authoredEncounterWeights(
+        ServerLevel level, double x, double z
+    ) {
+        return CobbleventureBootstrap.authoredEncounterWeights(level, x, z);
     }
 
     public static boolean allowsSpawnDetail(

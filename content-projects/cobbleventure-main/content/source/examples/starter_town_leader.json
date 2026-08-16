@@ -15,6 +15,13 @@
     "starter_town",
     "main_story"
   ],
+  "placement_profile": {
+    "classification": "trainer",
+    "expected_level": 12,
+    "preferred_biomes": ["minecraft:plains"],
+    "automatic_town_placement": true,
+    "automatic_route_placement": false
+  },
   "npc": {
     "display_name": {
       "ko_kr": "체육관 관장 웅",

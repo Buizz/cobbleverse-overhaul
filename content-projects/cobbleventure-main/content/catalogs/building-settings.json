@@ -41,7 +41,7 @@
       "interiors": [],
       "door_routes": {}
     },
-    "cobbleventure:gate/forest_gate": {
+    "cobbleventure:forest_gate/forest_gate": {
       "placement_y_offset": 0,
       "structure_category": "natural_feature",
       "no_interior_space": false,

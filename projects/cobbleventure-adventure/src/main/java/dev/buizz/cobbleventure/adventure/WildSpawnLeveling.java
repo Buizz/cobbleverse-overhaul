@@ -3,9 +3,14 @@ package dev.buizz.cobbleventure.adventure;
 import com.cobblemon.mod.common.api.events.CobblemonEvents;
 import com.cobblemon.mod.common.api.events.entity.SpawnEvent;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
+import com.cobblemon.mod.common.api.pokemon.evolution.Evolution;
+import com.cobblemon.mod.common.api.pokemon.evolution.PreEvolution;
+import com.cobblemon.mod.common.api.pokemon.requirement.Requirement;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.cobblemon.mod.common.pokemon.Species;
+import com.cobblemon.mod.common.pokemon.evolution.variants.LevelUpEvolution;
+import com.cobblemon.mod.common.pokemon.requirements.LevelRequirement;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +26,8 @@ final class WildSpawnLeveling {
     private static final int LEVEL_SPREAD = 2;
     private static final int INHERITED_SPAWN_WEIGHT = 4;
     private static final int INITIAL_DIAGNOSTIC_EVENTS = 20;
+    private static final String AUTHORED_PURSUIT_TAG = "cobbleventure_pursuit_encounter";
+    private static final String FORCE_EVOLVED_SPAWN_TAG = "cobbleventure_force_evolved_spawn";
     private static boolean registered;
     private static int spawnEvents;
     private static int canceledEvents;
@@ -63,9 +70,8 @@ final class WildSpawnLeveling {
             event.cancel();
             return;
         }
-        Set<ResourceLocation> habitatSpecies = CobbleventureAdventure.allowedWildSpecies(
-            level, entity.getX(), entity.getZ()
-        );
+        Set<ResourceLocation> habitatSpecies = entity.getTags().contains(AUTHORED_PURSUIT_TAG)
+            ? null : CobbleventureAdventure.allowedWildSpecies(level, entity.getX(), entity.getZ());
         if (shouldLog(eventNumber)) {
             LOGGER.info(
                 "[Spawn diagnosis] Natural spawn event #{}: species={}, dimension={}, position=({}, {}, {}), routeRule={}, habitatPool={}",
@@ -105,6 +111,7 @@ final class WildSpawnLeveling {
             if (!replacePokemon(pokemon, addition, levelValue)) {
                 logCancellation(eventNumber, entity, pokemon, "route-addition-replacement-failed", -1);
                 event.cancel();
+                return;
             }
         } else {
             pokemon.setLevel(levelFor(
@@ -112,6 +119,9 @@ final class WildSpawnLeveling {
                 averageLevel, pokemon.getLevel()
             ));
         }
+        boolean forceEvolvedSpawn = entity.getTags().contains(FORCE_EVOLVED_SPAWN_TAG)
+            || addition != null && addition.spawnAsEvolved();
+        if (!forceEvolvedSpawn) normalizeLevelEvolution(pokemon);
     }
 
     private static boolean shouldLog(int eventNumber) {
@@ -205,6 +215,48 @@ final class WildSpawnLeveling {
         pokemon.initializeMoveset(false);
         pokemon.checkGender();
         return true;
+    }
+
+    /**
+     * Walks backwards only across ordinary level evolutions whose required level has not
+     * been reached. Item/stone and other non-level evolution methods are intentionally kept.
+     */
+    private static void normalizeLevelEvolution(Pokemon pokemon) {
+        Species original = pokemon.getSpecies();
+        Species current = original;
+        int level = pokemon.getLevel();
+        while (true) {
+            PreEvolution preEvolution = current.getPreEvolution();
+            if (preEvolution == null) break;
+            Species previous = preEvolution.getSpecies();
+            Integer requiredLevel = levelRequirementFor(previous, current);
+            if (requiredLevel == null || level >= requiredLevel) break;
+            current = previous;
+        }
+        if (current != original) replacePokemon(pokemon, current.getResourceIdentifier(), level);
+    }
+
+    private static Integer levelRequirementFor(Species previous, Species current) {
+        ResourceLocation currentId = current.getResourceIdentifier();
+        for (Evolution evolution : previous.getEvolutions()) {
+            if (!(evolution instanceof LevelUpEvolution)) continue;
+            Species result = speciesFor(evolution.getResult().getSpecies());
+            if (result == null || !result.getResourceIdentifier().equals(currentId)) continue;
+            for (Requirement requirement : evolution.getRequirements()) {
+                if (requirement instanceof LevelRequirement levelRequirement) {
+                    return levelRequirement.getMinLevel();
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Species speciesFor(String value) {
+        if (value == null || value.isBlank()) return null;
+        Species species = PokemonSpecies.getByName(value);
+        if (species != null) return species;
+        ResourceLocation id = ResourceLocation.tryParse(value);
+        return id == null ? null : PokemonSpecies.getByIdentifier(id);
     }
 
     static int randomLevel(PokemonEntity entity, int minimum, int maximum) {

@@ -944,6 +944,8 @@ def validate_hex_worlds(
                                 _issue(issues, "error", path, f"{addition_path}.max_level", "최대 출현 레벨은 1부터 100 사이 정수여야 합니다.")
                             if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
                                 _issue(issues, "error", path, addition_path, "최소 출현 레벨은 최대 출현 레벨보다 클 수 없습니다.")
+                            if "spawn_as_evolved" in addition and not isinstance(addition["spawn_as_evolved"], bool):
+                                _issue(issues, "error", path, f"{addition_path}.spawn_as_evolved", "진화본 출현 여부는 true 또는 false여야 합니다.")
                     _validate_pokemon_level_overrides(
                         pokemon_spawns.get("level_overrides", []), issues, path,
                         f"{connection_path}.pokemon_spawns.level_overrides", known_pokemon
@@ -1275,9 +1277,12 @@ def _preview_biome_data(
             habitat_match = habitats.get("primary") == habitat or (settings.get("include_secondary", True) and habitats.get("secondary") == habitat)
             matches = habitat_match
             matches = matches and not entry.get("is_legendary", False) and not entry.get("is_mythical", False)
+            generations = settings.get("generations")
             generation = settings.get("generation", 0)
             series = settings.get("series")
-            if isinstance(series, str) and series:
+            if isinstance(generations, list) and generations:
+                matches = matches and entry.get("generation") in generations
+            elif isinstance(series, str) and series:
                 matches = matches and series in entry.get("series_appearances", [])
             else:
                 matches = matches and (not generation or entry.get("generation") == generation)
@@ -1374,6 +1379,10 @@ def load_world_layout(root: Path, generation: int = 1) -> dict[str, Any]:
 def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
     """Resolve the saved world layout into per-cell Pokemon spawn candidates."""
     world = load_world_layout(root, generation)
+    allowed_generations = sorted({
+        value for value in world.get("pokemon_generations", [generation])
+        if isinstance(value, int) and 1 <= value <= 9
+    }) or [generation]
     biome_catalog = load_biome_catalog(root)
     pokemon = load_pokemon_habitats(root).get("pokemon", [])
     pokemon_by_id = {
@@ -1424,8 +1433,7 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
         merged: dict[str, dict[str, Any]] = {}
         selected_variants: dict[str, int] = {}
         effective_settings = {
-            "generation": 0,
-            "series": POKEDEX_SERIES_BY_GENERATION[generation],
+            "generations": allowed_generations,
             **(settings or {}),
         }
         for profile_id in profile_ids:
@@ -1621,12 +1629,10 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
     for entry in pokemon:
         if entry.get("id") in available_ids:
             continue
+        if entry.get("generation") not in allowed_generations:
+            continue
         result = dict(entry)
-        result["unavailable_reason"] = (
-            "other_generation"
-            if entry.get("generation") != generation
-            else "no_matching_world_location"
-        )
+        result["unavailable_reason"] = "no_matching_world_location"
         unavailable.append(result)
     available.sort(key=lambda entry: entry.get("dex_number", 99999))
     unavailable.sort(key=lambda entry: entry.get("dex_number", 99999))
@@ -1634,6 +1640,7 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
     return {
         "generation": generation,
         "world_id": world.get("id", ""),
+        "pokemon_generations": allowed_generations,
         "summary": {
             "locations": len(locations),
             "available": len(available),
@@ -2666,6 +2673,13 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
         root.get("npc_placement"), issues, path, "$.npc_placement"
     )
     if placement is not None:
+        auto_place_npcs = placement.get("auto_place_npcs", False)
+        if not isinstance(auto_place_npcs, bool):
+            _issue(issues, "error", path, "$.npc_placement.auto_place_npcs", "boolean이어야 합니다.")
+        _validate_trainer_population(
+            placement.get("trainer_population"), issues, path,
+            "$.npc_placement.trainer_population",
+        )
         maximum = placement.get("max_ambient_npcs")
         if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum < 0:
             _issue(issues, "error", path, "$.npc_placement.max_ambient_npcs", "0 이상의 정수여야 합니다.")
@@ -3313,6 +3327,7 @@ def validate_npc_file(path: Path) -> tuple[str | None, list[Issue]]:
     if not isinstance(root.get("enabled"), bool):
         _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
     _localized_text(root.get("name"), issues, path, "$.name")
+    _validate_npc_placement_profile(root.get("placement_profile"), issues, path)
     npc = _require_object(root.get("npc"), issues, path, "$.npc")
     if npc is not None:
         _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
@@ -3478,6 +3493,65 @@ def validate_npc_file(path: Path) -> tuple[str | None, list[Issue]]:
     return npc_id, issues
 
 
+def _validate_npc_placement_profile(
+    value: Any, issues: list[Issue], path: Path
+) -> None:
+    """Validate optional placement metadata shared by trainer and ambient NPCs."""
+    if value is None:
+        return
+    profile = _require_object(value, issues, path, "$.placement_profile")
+    if profile is None:
+        return
+    classification = profile.get("classification")
+    if classification not in {"trainer", "ambient"}:
+        _issue(issues, "error", path, "$.placement_profile.classification", "trainer 또는 ambient여야 합니다.")
+    expected_level = profile.get("expected_level")
+    if expected_level is not None and (
+        not isinstance(expected_level, int) or isinstance(expected_level, bool)
+        or not 1 <= expected_level <= 100
+    ):
+        _issue(issues, "error", path, "$.placement_profile.expected_level", "예상 레벨은 비워 두거나 1~100 정수여야 합니다.")
+    preferred_biomes = _require_list(
+        profile.get("preferred_biomes"), issues, path, "$.placement_profile.preferred_biomes"
+    )
+    if preferred_biomes is not None:
+        for index, biome in enumerate(preferred_biomes):
+            _resource_id(biome, issues, path, f"$.placement_profile.preferred_biomes[{index}]")
+        if len(preferred_biomes) != len(set(value for value in preferred_biomes if isinstance(value, str))):
+            _issue(issues, "error", path, "$.placement_profile.preferred_biomes", "선호 바이옴은 중복될 수 없습니다.")
+    for field in ("automatic_town_placement", "automatic_route_placement"):
+        if not isinstance(profile.get(field), bool):
+            _issue(issues, "error", path, f"$.placement_profile.{field}", "boolean이어야 합니다.")
+    if classification == "ambient" and profile.get("automatic_route_placement") is True:
+        _issue(issues, "error", path, "$.placement_profile.automatic_route_placement", "단순 NPC는 길 자동 배치 대상이 될 수 없습니다.")
+
+
+def _validate_trainer_population(
+    value: Any, issues: list[Issue], path: Path, base: str
+) -> None:
+    if value is None:
+        return
+    population = _require_object(value, issues, path, base)
+    if population is None:
+        return
+    if not isinstance(population.get("enabled"), bool):
+        _issue(issues, "error", path, f"{base}.enabled", "boolean이어야 합니다.")
+    maximum = population.get("max_active", population.get("count"))
+    if not isinstance(maximum, int) or isinstance(maximum, bool) or not 0 <= maximum <= 128:
+        _issue(issues, "error", path, f"{base}.max_active", "최대 트레이너 수는 0~128 정수여야 합니다.")
+    use_defaults = population.get("use_biome_defaults", True)
+    if not isinstance(use_defaults, bool):
+        _issue(issues, "error", path, f"{base}.use_biome_defaults", "boolean이어야 합니다.")
+    direct = population.get("direct_trainers", [])
+    if not isinstance(direct, list):
+        _issue(issues, "error", path, f"{base}.direct_trainers", "직접 지정 트레이너는 배열이어야 합니다.")
+    else:
+        for index, trainer_id in enumerate(direct):
+            _resource_id(trainer_id, issues, path, f"{base}.direct_trainers[{index}]")
+        if len(direct) != len(set(value for value in direct if isinstance(value, str))):
+            _issue(issues, "error", path, f"{base}.direct_trainers", "직접 지정 트레이너는 중복될 수 없습니다.")
+
+
 def validate_battle_preset_file(path: Path) -> tuple[str | None, list[Issue]]:
     issues: list[Issue] = []
     try:
@@ -3549,6 +3623,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     if not isinstance(root.get("enabled"), bool):
         _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
     _localized_text(root.get("name"), issues, path, "$.name")
+    _validate_npc_placement_profile(root.get("placement_profile"), issues, path)
     npc = _require_object(root.get("npc"), issues, path, "$.npc")
     if npc is not None:
         _localized_text(npc.get("display_name"), issues, path, "$.npc.display_name")
@@ -3754,6 +3829,7 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
     if not isinstance(root.get("enabled"), bool):
         _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
     _localized_text(root.get("name"), issues, path, "$.name")
+    _validate_npc_placement_profile(root.get("placement_profile"), issues, path)
     if "description" in root:
         _localized_text(root.get("description"), issues, path, "$.description")
     tags = _require_list(root.get("tags"), issues, path, "$.tags")
@@ -6108,6 +6184,8 @@ def _validate_pursuit_encounters(encounters: Any, issues: list[Issue], path: Pat
         maximum = addition.get("max_level")
         if not isinstance(minimum, int) or not 1 <= minimum <= 100 or not isinstance(maximum, int) or not 1 <= maximum <= 100 or minimum > maximum:
             _issue(issues, "error", path, addition_path, "추가 포켓몬 레벨 범위는 1~100이며 최소가 최대보다 클 수 없습니다.")
+        if "spawn_as_evolved" in addition and not isinstance(addition["spawn_as_evolved"], bool):
+            _issue(issues, "error", path, f"{addition_path}.spawn_as_evolved", "진화본 출현 여부는 true 또는 false여야 합니다.")
     _validate_pokemon_level_overrides(encounters.get("level_overrides", []), issues, path, f"{base}.level_overrides")
 
 
@@ -6141,6 +6219,8 @@ def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
     trainer_settings = data.get("trainer_settings")
     if not isinstance(trainer_settings, dict) or not isinstance(trainer_settings.get("enabled"), bool):
         _issue(issues, "error", path, "$.trainer_settings", "트레이너 설정이 필요합니다.")
+    else:
+        _validate_trainer_population(trainer_settings, issues, path, "$.trainer_settings")
     entrances = data.get("entrances")
     entrance_ids: set[str] = set()
     if not isinstance(entrances, list) or not entrances:
@@ -6205,6 +6285,7 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
     if data.get("schema_version") != 1:
         _issue(issues, "error", path, "$.schema_version", "숲 문서 지원 버전은 1입니다.")
     _validate_pursuit_encounters(data.get("random_encounters"), issues, path)
+    _validate_trainer_population(data.get("trainer_settings"), issues, path, "$.trainer_settings")
     bounds = None
     dimension = data.get("dimension")
     if not isinstance(dimension, dict):
@@ -6447,6 +6528,8 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, f"{base}.max_level", "최대 레벨은 1~100 정수여야 합니다.")
                 if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
                     _issue(issues, "error", path, base, "최소 레벨은 최대 레벨보다 클 수 없습니다.")
+                if field == "additions" and "spawn_as_evolved" in entry and not isinstance(entry["spawn_as_evolved"], bool):
+                    _issue(issues, "error", path, f"{base}.spawn_as_evolved", "진화본 출현 여부는 true 또는 false여야 합니다.")
 
     placements = data.get("npc_placements")
     if not isinstance(placements, list):
@@ -6479,6 +6562,17 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, f"{base}.spawn_chance", "등장 확률은 0~1 숫자여야 합니다.")
             if placement.get("respawn_policy") not in {"always", "once_per_player"}:
                 _issue(issues, "error", path, f"{base}.respawn_policy", "등장 정책은 always 또는 once_per_player여야 합니다.")
+    automatic = data.get("automatic_npc_placement")
+    if automatic is not None:
+        if not isinstance(automatic, dict):
+            _issue(issues, "error", path, "$.automatic_npc_placement", "길 자동 NPC 배치 설정은 객체여야 합니다.")
+        else:
+            _validate_trainer_population(automatic, issues, path, "$.automatic_npc_placement")
+            if not isinstance(automatic.get("enabled"), bool):
+                _issue(issues, "error", path, "$.automatic_npc_placement.enabled", "boolean이어야 합니다.")
+            count = automatic.get("count")
+            if not isinstance(count, int) or isinstance(count, bool) or not 0 <= count <= 32:
+                _issue(issues, "error", path, "$.automatic_npc_placement.count", "자동 배치 수는 0~32 정수여야 합니다.")
     return route_id, issues
 
 
@@ -6574,6 +6668,15 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                         "",
                     )
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
+                profile = data.get("placement_profile", {})
+                inferred_trainer = bool(summary.get("battle_type"))
+                summary["classification"] = profile.get(
+                    "classification", "trainer" if inferred_trainer else "ambient"
+                )
+                summary["expected_level"] = profile.get("expected_level")
+                summary["preferred_biomes"] = profile.get("preferred_biomes", [])
+                summary["automatic_town_placement"] = profile.get("automatic_town_placement", False)
+                summary["automatic_route_placement"] = profile.get("automatic_route_placement", False)
             elif category == "battles":
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
             elif category == "routes":
@@ -6870,6 +6973,13 @@ def _trainer_template(slug: str, name: str) -> dict[str, Any]:
         "name": {"ko_kr": name},
         "description": {"ko_kr": f"{name} 트레이너 콘텐츠입니다."},
         "tags": ["trainer"],
+        "placement_profile": {
+            "classification": "trainer",
+            "expected_level": 5,
+            "preferred_biomes": [],
+            "automatic_town_placement": True,
+            "automatic_route_placement": True,
+        },
         "npc": {
             "display_name": {"ko_kr": f"반바지 꼬마 {name}"},
             "trainer_class": "cobbleventure:trainer_class/youngster",
@@ -7076,6 +7186,12 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
             "facility_placements": [],
         },
         "npc_placement": {
+            "auto_place_npcs": False,
+            "trainer_population": {
+                "enabled": False, "max_active": 0,
+                "use_biome_defaults": True, "direct_trainers": [],
+                "placement_areas": ["indoor", "outdoor"],
+            },
             "max_ambient_npcs": 8,
             "default_wander_radius": 5,
             "trainer_slots": [],
@@ -7094,6 +7210,12 @@ def _npc_event_template(slug: str, name: str) -> dict[str, Any]:
         "name": {"ko_kr": name},
         "description": {"ko_kr": f"{name} NPC 상호작용 콘텐츠입니다."},
         "tags": ["npc"],
+        "placement_profile": {
+            "classification": "ambient",
+            "preferred_biomes": [],
+            "automatic_town_placement": True,
+            "automatic_route_placement": False,
+        },
         "npc": {
             "display_name": {"ko_kr": name},
             "role": "default",
@@ -7489,7 +7611,7 @@ def _cave_template(slug: str, name: str, generation: str) -> dict[str, Any]:
             "additions": [],
             "level_overrides": [],
         },
-        "trainer_settings": {"enabled": False, "max_active": 0, "class_pool": [], "placements": []},
+        "trainer_settings": {"enabled": False, "max_active": 0, "use_biome_defaults": True, "direct_trainers": [], "class_pool": [], "placements": []},
         "entrances": [
             {
                 "id": "main",
@@ -7527,6 +7649,10 @@ def _forest_template(slug: str, name: str, generation: str) -> dict[str, Any]:
             "excluded_species": [],
             "additions": [],
             "level_overrides": [],
+        },
+        "trainer_settings": {
+            "enabled": False, "max_active": 0,
+            "use_biome_defaults": True, "direct_trainers": [],
         },
         "tree_barrier": {
             "min_height": 8,
@@ -7582,6 +7708,7 @@ def _route_template(slug: str, name: str) -> dict[str, Any]:
             "additions": [],
             "level_overrides": [],
         },
+        "automatic_npc_placement": {"enabled": False, "count": 0, "use_biome_defaults": True, "direct_trainers": []},
         "npc_placements": [],
     }
 
@@ -8501,7 +8628,9 @@ def _managed_structure_category(relative: Path) -> str:
         return "placeholder"
     if parts[:1] == ("town_decorations",):
         return "decoration"
-    if parts[:1] in {("cave_entrance",), ("forest_entrance",), ("gate",)}:
+    if parts[:1] in {
+        ("cave_entrance",), ("forest_entrance",), ("forest_gate",), ("gate",),
+    }:
         return "natural_feature"
     return "building"
 

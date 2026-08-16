@@ -19,8 +19,8 @@
     "road": "kanto.route_03",
     "settlement": "kanto.pallet_town",
     "building": "kanto.pallet_town",
-    "pokemon_center": "kanto.pallet_town",
-    "pokemart": "kanto.pallet_town",
+    "pokemon_center": "pwt.lobby",
+    "pokemart": "kanto.celadon_city",
     "battle": "battle.trainer",
     "gym": "battle.gym_leader"
   },

@@ -128,7 +128,9 @@ final class WorldPlanParser {
             JsonObject addition = element.getAsJsonObject();
             additions.add(new RoutePokemonAddition(
                 required(addition, "species"), addition.get("min_level").getAsInt(),
-                addition.get("max_level").getAsInt()
+                addition.get("max_level").getAsInt(),
+                addition.has("spawn_as_evolved")
+                    && addition.get("spawn_as_evolved").getAsBoolean()
             ));
         }
         Map<String, PokemonLevelOverride> levelOverrides = new java.util.LinkedHashMap<>();

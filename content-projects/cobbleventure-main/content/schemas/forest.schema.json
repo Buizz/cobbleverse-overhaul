@@ -44,6 +44,16 @@
         "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level_override" } }
       }
     },
+    "trainer_settings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "max_active", "use_biome_defaults", "direct_trainers"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "max_active": { "type": "integer", "minimum": 0, "maximum": 128 },
+        "use_biome_defaults": { "type": "boolean" },
+        "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } }
+      }
+    },
     "tree_barrier": {
       "type": "object", "additionalProperties": false,
       "required": ["min_height", "max_height", "trunk_blocks", "foliage_blocks", "barrier_block"],
@@ -94,7 +104,8 @@
       "properties": {
         "species": { "$ref": "#/$defs/resource_id" },
         "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 }
+        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "spawn_as_evolved": { "type": "boolean", "default": false }
       }
     },
     "pokemon_level_override": {

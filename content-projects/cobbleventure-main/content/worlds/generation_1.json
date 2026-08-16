@@ -3,6 +3,7 @@
   "schema_version": 2,
   "id": "cobbleventure:world/generation_1",
   "dimension": "cobbleventure:generation_1",
+  "pokemon_generations": [1],
   "seed_salt": 19960227,
   "grid": {
     "orientation": "pointy_top",
@@ -2722,7 +2723,7 @@
         "r": 2
       },
       "facing": "north",
-      "structure": "cobbleventure:gate/forest_gate",
+      "structure": "cobbleventure:forest_gate/forest_gate",
       "rotation": 0,
       "tree_log": "minecraft:spruce_log",
       "tree_leaves": "minecraft:spruce_leaves",
@@ -2741,7 +2742,7 @@
         "r": 0
       },
       "facing": "south",
-      "structure": "cobbleventure:gate/forest_gate",
+      "structure": "cobbleventure:forest_gate/forest_gate",
       "rotation": 2,
       "tree_log": "minecraft:spruce_log",
       "tree_leaves": "minecraft:spruce_leaves",
@@ -2777,7 +2778,7 @@
         "conditions": [],
         "deny_message": "아직 이 관문을 통과할 수 없습니다."
       },
-      "resource": "cobbleventure:gate/forest_gate"
+      "resource": "cobbleventure:forest_gate/forest_gate"
     }
   ],
   "environment_overrides": [],

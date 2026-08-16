@@ -6,6 +6,13 @@
   "name": { "ko_kr": "AI 맨", "en_us": "AI Man" },
   "description": { "ko_kr": "순차 이벤트 명령으로 대화와 선택형 배틀을 시험하는 EasyNPC입니다." },
   "tags": ["development", "battle_test"],
+  "placement_profile": {
+    "classification": "trainer",
+    "expected_level": 50,
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
   "npc": {
     "display_name": { "ko_kr": "AI 맨", "en_us": "AI Man" },
     "trainer_class": "cobbleventure:trainer_class/youngster",

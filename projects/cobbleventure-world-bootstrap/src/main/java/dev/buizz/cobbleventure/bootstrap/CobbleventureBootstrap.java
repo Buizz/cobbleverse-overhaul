@@ -69,6 +69,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.ChunkPos;
@@ -129,6 +130,14 @@ public final class CobbleventureBootstrap {
         EntityType.TADPOLE,
         EntityType.TROPICAL_FISH,
         EntityType.TURTLE
+    );
+    private static final Set<MobCategory> BLOCKED_VANILLA_MOB_CATEGORIES = Set.of(
+        MobCategory.CREATURE,
+        MobCategory.AMBIENT,
+        MobCategory.AXOLOTLS,
+        MobCategory.UNDERGROUND_WATER_CREATURE,
+        MobCategory.WATER_CREATURE,
+        MobCategory.WATER_AMBIENT
     );
     private static final int BCA_REFERENCE_SURFACE_Y = 68;
     private static final int LEGACY_SURFACE_Y = 69;
@@ -317,6 +326,7 @@ public final class CobbleventureBootstrap {
         LocalWeatherSystem.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
+        BattleMovementBoundary.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedOut);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
@@ -330,11 +340,13 @@ public final class CobbleventureBootstrap {
         if (event.getLevel().isClientSide()) {
             return;
         }
-        if (BLOCKED_VANILLA_MOBS.contains(event.getEntity().getType())) {
+        ResourceLocation joinedType = BuiltInRegistries.ENTITY_TYPE.getKey(
+            event.getEntity().getType()
+        );
+        if (isBlockedVanillaMob(event.getEntity().getType(), joinedType)) {
             event.setCanceled(true);
             return;
         }
-        ResourceLocation joinedType = BuiltInRegistries.ENTITY_TYPE.getKey(event.getEntity().getType());
         if (joinedType.getNamespace().equals("cobblemon")
             && (!(event.getEntity() instanceof PokemonEntity pokemonEntity)
                 || pokemonEntity.getPokemon().isWild())
@@ -381,6 +393,14 @@ public final class CobbleventureBootstrap {
         }
     }
 
+    private static boolean isBlockedVanillaMob(
+        EntityType<?> entityType, ResourceLocation entityId
+    ) {
+        return entityId.getNamespace().equals("minecraft")
+            && (BLOCKED_VANILLA_MOBS.contains(entityType)
+                || BLOCKED_VANILLA_MOB_CATEGORIES.contains(entityType.getCategory()));
+    }
+
     private static void logBlockedPokemon(Entity entity, String reason, int count) {
         if (count > INITIAL_SPAWN_DIAGNOSTIC_EVENTS && count % 100 != 0) {
             return;
@@ -399,7 +419,10 @@ public final class CobbleventureBootstrap {
     }
 
     private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) PursuitEncounterSystem.forget(player);
+        if (event.getEntity() instanceof ServerPlayer player) {
+            PursuitEncounterSystem.forget(player);
+            BattleMovementBoundary.forget(player);
+        }
     }
 
     private static void onChunkWatch(ChunkWatchEvent.Watch event) {
@@ -1651,7 +1674,6 @@ public final class CobbleventureBootstrap {
             level, settlement.center().x(), settlement.center().z()
         ).below();
         drawNativeTownRoadSkeleton(level, settlement);
-        connectTownRoadsToRegionalRoutes(level, settlement);
         LOGGER.info(
             "Native configured town base placed without BCA village: {} at {}, shape={}, road={}x{}",
             settlement.id(), villagePos, settlement.layoutShape(),
@@ -1675,13 +1697,32 @@ public final class CobbleventureBootstrap {
                 .getOrDefault(house.id(), List.of()).stream())
             .collect(Collectors.toSet());
         List<TownRoad> runtimeAccessRoads = new ArrayList<>();
-        layout.accessRoads().stream()
-            .filter(accessRoad -> !approximateHouseAccessRoads.contains(accessRoad))
-            .forEach(runtimeAccessRoads::add);
+        Map<TownRoad, Integer> runtimeAccessRoadWidths = new HashMap<>();
+        for (TownRoad accessRoad : layout.accessRoads()) {
+            if (approximateHouseAccessRoads.contains(accessRoad)) {
+                continue;
+            }
+            runtimeAccessRoads.add(accessRoad);
+            runtimeAccessRoadWidths.put(
+                accessRoad, Math.min(3, road.width())
+            );
+        }
+        for (String facilityId : layout.facilities().keySet()) {
+            int approachWidth = facilityApproachRoadWidth(facilityId, road.width());
+            for (TownRoad accessRoad : layout.buildingAccessRoads()
+                .getOrDefault(facilityId, List.of())) {
+                runtimeAccessRoadWidths.put(accessRoad, approachWidth);
+            }
+        }
         for (TownPlot house : layout.houses()) {
-            runtimeAccessRoads.addAll(townPlotAccessRoads(
+            for (TownRoad accessRoad : townPlotAccessRoads(
                 house, houseStructures.get(house.id())
-            ));
+            )) {
+                runtimeAccessRoads.add(accessRoad);
+                runtimeAccessRoadWidths.put(
+                    accessRoad, Math.min(3, road.width())
+                );
+            }
         }
         int removedNaturalTrees = clearTownChunkTrees(level, settlement);
         long townTreeClearFinishedAt = System.nanoTime();
@@ -1699,7 +1740,9 @@ public final class CobbleventureBootstrap {
                 roadColumns,
                 center.translate(accessRoad.x1(), accessRoad.z1()),
                 center.translate(accessRoad.x2(), accessRoad.z2()),
-                Math.min(3, road.width())
+                runtimeAccessRoadWidths.getOrDefault(
+                    accessRoad, Math.min(3, road.width())
+                )
             );
         }
         Map<Long, Integer> roadElevations = loadedRoadElevations(level, roadColumns);
@@ -1712,7 +1755,8 @@ public final class CobbleventureBootstrap {
             );
         }
         long paintingFinishedAt = System.nanoTime();
-        long roadsFinishedAt = paintingFinishedAt;
+        connectTownRoadsToRegionalRoutes(level, settlement);
+        long roadsFinishedAt = System.nanoTime();
 
         List<TownTemplatePlacement> housePlacements = new ArrayList<>();
         for (TownPlot house : layout.houses()) {
@@ -2295,7 +2339,6 @@ public final class CobbleventureBootstrap {
     }
 
     private static boolean placeFacilities(ServerLevel level, SettlementPlan settlement) {
-        List<FacilitySite> configuredSites = new ArrayList<>();
         for (FacilityPlacement facility : settlement.facilities()) {
             BlockPoint referencePosition;
             if (facility.mode().equals("instanced_entry")) {
@@ -2351,13 +2394,45 @@ public final class CobbleventureBootstrap {
                     level, settlement.id(), position, rotation
                 );
             }
-            if (facility.id().startsWith("facility_")
-                || facility.id().contains("gym")) {
-                configuredSites.add(new FacilitySite(facility, position));
+        }
+        restoreFacilityRoadNetwork(level, settlement);
+        return true;
+    }
+
+    private static int facilityApproachRoadWidth(
+        String facilityId, int defaultWidth
+    ) {
+        if (facilityId.equals("facility_department_store")) {
+            return 3;
+        }
+        if (facilityId.contains("gym")) {
+            return 5;
+        }
+        return defaultWidth;
+    }
+
+    private static void restoreFacilityRoadNetwork(
+        ServerLevel level, SettlementPlan settlement
+    ) {
+        Point center = new Point(settlement.center().x(), settlement.center().z());
+        TownLayout layout = generateTownLayout(settlement);
+        for (String facilityId : layout.facilities().keySet()) {
+            RoadProfile approach = new RoadProfile(
+                facilityApproachRoadWidth(
+                    facilityId, settlement.roadProfile().width()
+                ),
+                settlement.roadProfile().material()
+            );
+            for (TownRoad road : layout.buildingAccessRoads()
+                .getOrDefault(facilityId, List.of())) {
+                drawConfiguredRoad(
+                    level,
+                    center.translate(road.x1(), road.z1()),
+                    center.translate(road.x2(), road.z2()),
+                    approach, true, false, false
+                );
             }
         }
-        drawFacilityRoadNetwork(level, settlement, configuredSites);
-        return true;
     }
 
     private static void prepareExistingGymExteriors(
@@ -2873,134 +2948,19 @@ public final class CobbleventureBootstrap {
         );
     }
 
-    private static void drawFacilityRoadNetwork(
-        ServerLevel level, SettlementPlan settlement, List<FacilitySite> sites
-    ) {
-        if (sites.isEmpty()) return;
-        Point center = new Point(settlement.center().x(), settlement.center().z());
-        Map<String, List<TownRoad>> plannedRoads = generateTownLayout(settlement)
-            .buildingAccessRoads();
-        for (FacilitySite site : sites) {
-            RoadProfile approachProfile = site.facility().id().equals("facility_department_store")
-                ? new RoadProfile(3, settlement.roadProfile().material())
-                : site.facility().id().contains("gym")
-                    ? new RoadProfile(5, settlement.roadProfile().material())
-                : settlement.roadProfile();
-            List<TownRoad> facilityRoads = plannedRoads.get(site.facility().id());
-            if (facilityRoads == null || facilityRoads.isEmpty()) {
-                throw new IllegalStateException(
-                    "Compiled facility access road is missing: settlement="
-                        + settlement.id() + ", facility=" + site.facility().id()
-                );
-            }
-            for (TownRoad road : facilityRoads) {
-                drawConfiguredRoad(
-                    level,
-                    center.translate(road.x1(), road.z1()),
-                    center.translate(road.x2(), road.z2()),
-                    approachProfile
-                );
-            }
-        }
-        LOGGER.info(
-            "Entrance-aware facility roads completed: settlement={}, width={}, material={}, facilities={}",
-            settlement.id(), settlement.roadProfile().width(),
-            settlement.roadProfile().material(), sites.size()
-        );
-    }
-
-    private static void drawFacilityApproachRoad(
-        ServerLevel level,
-        FacilitySite site,
-        Point entrance,
-        Point road,
-        RoadProfile profile
-    ) {
-        int minX = site.origin().x();
-        int maxX = minX + Math.max(8, site.facility().footprintWidth()) - 1;
-        int minZ = site.origin().z();
-        boolean roadBehindBuilding = road.z() >= minZ
-            && road.x() >= minX && road.x() <= maxX;
-        if (roadBehindBuilding) {
-            int clearance = Math.max(2, site.facility().clearance());
-            int left = minX - clearance - 2;
-            int right = maxX + clearance + 2;
-            int detourX = Math.abs(entrance.x() - left) <= Math.abs(right - entrance.x())
-                ? left : right;
-            Point frontCorner = new Point(detourX, entrance.z());
-            Point rearCorner = new Point(detourX, road.z());
-            drawConfiguredRoad(level, entrance, frontCorner, profile);
-            drawConfiguredRoad(level, frontCorner, rearCorner, profile);
-            drawConfiguredRoad(level, rearCorner, road, profile);
-            return;
-        }
-        Point corner = new Point(road.x(), entrance.z());
-        drawConfiguredRoad(level, entrance, corner, profile);
-        drawConfiguredRoad(level, corner, road, profile);
-    }
-
-    private static List<Point> facilityEntrances(FacilitySite site) {
-        int width = Math.max(8, site.facility().footprintWidth());
-        int depth = Math.max(8, site.facility().footprintDepth());
-        int clearance = Math.max(2, site.facility().clearance());
-        if (site.facility().id().equals("facility_department_store")) {
-            int plazaZ = site.origin().z() + Math.min(19, depth - 1);
-            return List.of(
-                new Point(site.origin().x() + width / 2, site.origin().z() - clearance),
-                new Point(site.origin().x() - clearance, plazaZ),
-                new Point(site.origin().x() + width + clearance, plazaZ)
-            );
-        }
-        if (site.facility().id().equals("facility_pokemon_center")) {
-            return List.of(new Point(
-                site.origin().x() - clearance,
-                site.origin().z() + Math.min(10, depth - 1)
-            ));
-        }
-        if (site.facility().id().equals("facility_pokemart")) {
-            return List.of(new Point(
-                site.origin().x() + width + clearance,
-                site.origin().z() + Math.min(15, depth - 1)
-            ));
-        }
-        Point entrance = switch (facilityCanonicalEntranceFacing(site.facility().id())) {
-            case "east" -> new Point(
-                site.origin().x() + width + clearance,
-                site.origin().z() + depth / 2
-            );
-            case "west" -> new Point(
-                site.origin().x() - clearance,
-                site.origin().z() + (site.facility().id().contains("gym")
-                    ? Math.min(10, depth - 1) : depth / 2)
-            );
-            case "south" -> new Point(
-                site.origin().x() + width / 2,
-                site.origin().z() + depth + clearance
-            );
-            default -> new Point(
-                site.origin().x() + width / 2,
-                site.origin().z() - clearance
-            );
-        };
-        return List.of(entrance);
-    }
-
-    private static void drawConfiguredRoad(
-        ServerLevel level, Point start, Point end, RoadProfile profile
-    ) {
-        drawConfiguredRoad(level, start, end, profile, false);
-    }
-
-    private static void drawConfiguredRoad(
-        ServerLevel level, Point start, Point end, RoadProfile profile,
-        boolean townSurface
-    ) {
-        drawConfiguredRoad(level, start, end, profile, townSurface, false);
-    }
-
     private static void drawConfiguredRoad(
         ServerLevel level, Point start, Point end, RoadProfile profile,
         boolean townSurface, boolean useLoadedTerrain
+    ) {
+        drawConfiguredRoad(
+            level, start, end, profile, townSurface, useLoadedTerrain, true
+        );
+    }
+
+    private static void drawConfiguredRoad(
+        ServerLevel level, Point start, Point end, RoadProfile profile,
+        boolean townSurface, boolean useLoadedTerrain,
+        boolean clearConnectedTrees
     ) {
         Set<Long> roadColumns = new HashSet<>();
         collectConfiguredRoadColumns(
@@ -3009,7 +2969,9 @@ public final class CobbleventureBootstrap {
         Map<Long, Integer> elevations = useLoadedTerrain
             ? loadedRoadElevations(level, roadColumns)
             : naturalRoadElevations(level, roadColumns);
-        clearTreesIntersectingRoad(level, roadColumns, elevations);
+        if (clearConnectedTrees) {
+            clearTreesIntersectingRoad(level, roadColumns, elevations);
+        }
         for (long key : roadColumns) {
             paintConfiguredRoadColumn(
                 level, blockColumnX(key), blockColumnZ(key), profile.material(),
@@ -4419,6 +4381,7 @@ public final class CobbleventureBootstrap {
         runPendingWorldInitialization(event);
         runActiveWorldInitialization();
         tickCompletedTownGenerationDisplay();
+        BattleMovementBoundary.tick(event.getServer());
         try {
             PokemonCenterDefeatReturn.onServerTick(event);
         } catch (LinkageError | RuntimeException error) {
@@ -6014,11 +5977,34 @@ public final class CobbleventureBootstrap {
     private static String facilityMusicContextAt(ServerPlayer player) {
         for (FacilityMusicZone zone : activeFacilityMusicZones) {
             if (zone.contains(player.getX(), player.getY(), player.getZ())
-                && !player.serverLevel().canSeeSky(player.blockPosition())) {
+                && hasFacilityCeiling(player.serverLevel(), player.blockPosition(), zone)) {
                 return zone.context();
             }
         }
         return null;
+    }
+
+    private static boolean hasFacilityCeiling(
+        ServerLevel level, BlockPos playerPosition, FacilityMusicZone zone
+    ) {
+        int top = Math.min(zone.maxY(), playerPosition.getY() + 16);
+        for (int y = playerPosition.getY() + 2; y < top; y++) {
+            int roofBlocks = 0;
+            for (int offsetX = -1; offsetX <= 1; offsetX++) {
+                for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                    BlockState state = level.getBlockState(new BlockPos(
+                        playerPosition.getX() + offsetX, y,
+                        playerPosition.getZ() + offsetZ
+                    ));
+                    if (!state.isAir() && !state.is(BlockTags.LEAVES)
+                        && !state.is(BlockTags.LOGS)) {
+                        roofBlocks++;
+                    }
+                }
+            }
+            if (roofBlocks >= 3) return true;
+        }
+        return false;
     }
 
     private static Map<String, SettlementPlan> loadSettlementPlans(ServerLevel level) {
@@ -6608,6 +6594,20 @@ public final class CobbleventureBootstrap {
             }))
             .map(gate -> activeForestEncounters.get(gate.destinationForest()))
             .orElse(null);
+    }
+
+    /** Authored encounter weights used by display-only integrations such as CobbleNav. */
+    public static Map<ResourceLocation, Integer> authoredEncounterWeights(
+        ServerLevel level, double x, double z
+    ) {
+        PursuitEncounterSystem.Config config = pursuitEncounterAt(level, x, z);
+        if (config == null) return null;
+        Map<ResourceLocation, Integer> result = new LinkedHashMap<>();
+        for (PursuitEncounterSystem.SpeciesChoice choice : config.species()) {
+            ResourceLocation species = ResourceLocation.tryParse(choice.species());
+            if (species != null) result.put(species, choice.weight());
+        }
+        return Map.copyOf(result);
     }
 
     private record PursuitEncounterZone(
@@ -7839,7 +7839,7 @@ public final class CobbleventureBootstrap {
             .collect(Collectors.toUnmodifiableSet());
         List<AdventureWorldContext.WildSpawnAddition> additions = settings.additions().stream()
             .map(addition -> new AdventureWorldContext.WildSpawnAddition(
-                ResourceLocation.parse(addition.species())
+                ResourceLocation.parse(addition.species()), addition.spawnAsEvolved()
             ))
             .toList();
         Map<ResourceLocation, AdventureWorldContext.WildSpawnLevelRange> levelOverrides =
@@ -12731,8 +12731,6 @@ public final class CobbleventureBootstrap {
                 && z >= minZ && z < maxZ;
         }
     }
-
-    record FacilitySite(FacilityPlacement facility, BlockPoint origin) {}
 
     record RoadProfile(int width, String material) {}
 

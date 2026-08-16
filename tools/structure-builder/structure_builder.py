@@ -20,6 +20,15 @@ BUILDER_WORLD_NAME = "Cobbleventure Structure Builder"
 PACKAGED_BUILDER_ROOT = Path("pack/overrides/structure-builder")
 CELL_SIZE = 80
 COLUMNS = 8
+LEGACY_EXPORT_PATHS = {
+    Path("forest_gate/forest_gate.nbt"): (
+        Path("gate/forest_gate.nbt"),
+        Path("forest_entrance/forest_gate.nbt"),
+    ),
+    Path("gate/default_gate.nbt"): (
+        Path("forest_entrance/default_gate.nbt"),
+    ),
+}
 
 
 class StructureBuilderError(RuntimeError):
@@ -313,11 +322,20 @@ def import_exports(root: Path, world: Path) -> int:
     missing: list[str] = []
     for entry in catalog_entries(root):
         relative = Path(str(entry["source"])).relative_to(SOURCE_STRUCTURES)
-        exported = export_root / relative
-        if not exported.is_file():
+        exported_relative = next(
+            (
+                candidate for candidate in (
+                    relative, *LEGACY_EXPORT_PATHS.get(relative, ()),
+                )
+                if (export_root / candidate).is_file()
+            ),
+            None,
+        )
+        if exported_relative is None:
             missing.append(relative.as_posix())
             continue
-        relative_without_suffix = relative.with_suffix("")
+        exported = export_root / exported_relative
+        relative_without_suffix = exported_relative.with_suffix("")
         exported_metadata = (
             world.resolve()
             / "generated/cobbleventure_builder/structure_metadata/export"

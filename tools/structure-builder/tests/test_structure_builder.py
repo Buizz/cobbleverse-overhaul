@@ -309,6 +309,40 @@ class StructureBuilderTests(unittest.TestCase):
             ):
                 structure_builder.import_exports(REPOSITORY_ROOT, world)
 
+    def test_import_accepts_legacy_gate_export_paths_after_resource_rename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            world = Path(directory) / "world"
+            module = root / "tools/content-manager/content_manager.py"
+            module.parent.mkdir(parents=True)
+            shutil.copy2(CONTENT_MANAGER_PATH, module)
+            entries = []
+            for canonical, legacy in (
+                ("forest_gate/forest_gate.nbt", "forest_entrance/forest_gate.nbt"),
+                ("gate/default_gate.nbt", "forest_entrance/default_gate.nbt"),
+            ):
+                sample = PROJECT_ROOT / "content/structures" / canonical
+                source = root / "content/structures" / canonical
+                exported = (
+                    world / "generated/cobbleventure_builder/structures/export" / legacy
+                )
+                source.parent.mkdir(parents=True, exist_ok=True)
+                exported.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(sample, source)
+                shutil.copy2(sample, exported)
+                size = content_manager.read_minecraft_structure_size(sample.read_bytes())
+                entries.append({
+                    "source": f"content/structures/{canonical}",
+                    "size": list(size),
+                })
+
+            with mock.patch.object(
+                structure_builder, "catalog_entries", return_value=entries,
+            ):
+                changed = structure_builder.import_exports(root, world)
+
+            self.assertEqual(0, changed)
+
     def test_named_door_and_arrival_are_valid_builder_anchors(self) -> None:
         document = structure_builder._validate_structure_metadata({
             "schema_version": 1,
