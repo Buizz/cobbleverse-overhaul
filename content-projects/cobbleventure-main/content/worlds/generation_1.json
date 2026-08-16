@@ -10,7 +10,7 @@
   "grid": {
     "orientation": "pointy_top",
     "tile_radius_blocks": 64,
-    "map_radius_cells": 14,
+    "map_radius_cells": 15,
     "origin": {
       "x": 600,
       "y": 69,
@@ -2871,7 +2871,7 @@
           "r": 6
         },
         {
-          "q": 7,
+          "q": 6,
           "r": 6
         }
       ],
@@ -2890,10 +2890,6 @@
         },
         {
           "q": 6,
-          "r": 6
-        },
-        {
-          "q": 7,
           "r": 6
         }
       ],
@@ -3162,6 +3158,35 @@
       "pathfinding": "explicit",
       "from": "cobbleventure:settlement/lavender_town",
       "display_name": "보라타운 북쪽 길"
+    },
+    {
+      "id": "route_custom_18",
+      "route_preset": "cobbleventure:route/route_custom_18",
+      "anchors": [
+        {
+          "q": 6,
+          "r": 6
+        },
+        {
+          "q": 7,
+          "r": 6
+        }
+      ],
+      "cells": [
+        {
+          "q": 6,
+          "r": 6
+        },
+        {
+          "q": 7,
+          "r": 6
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "갈색시티 - 보라타운 길"
     }
   ],
   "forest_entrances": [

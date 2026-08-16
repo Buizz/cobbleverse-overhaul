@@ -138,7 +138,7 @@
       "material": "grass_path"
     },
     "generation_profile": {
-      "seed": 665544323,
+      "seed": 899002583,
       "depth": 4,
       "basic_buildings": [
         "cobbleventure:placeholder/basic_building_1",
@@ -150,7 +150,7 @@
           "one_story"
         ],
         "roofs": [
-          "gambrel"
+          "gable"
         ],
         "roof_colors": [
           "red",
@@ -171,6 +171,7 @@
       "use_biome_defaults": true,
       "direct_trainers": [],
       "placement_areas": [
+        "indoor",
         "outdoor"
       ]
     },

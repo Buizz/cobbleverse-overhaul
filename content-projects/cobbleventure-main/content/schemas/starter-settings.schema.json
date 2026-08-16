@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/starter-settings.schema.json",
+  "title": "Cobbleventure starter settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "default_generation", "generations"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "default_generation": { "type": "integer", "minimum": 1, "maximum": 9 },
+    "generations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["generation", "enabled", "town", "spawn"],
+        "properties": {
+          "generation": { "type": "integer", "minimum": 1, "maximum": 9 },
+          "enabled": { "type": "boolean" },
+          "town": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+          "spawn": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode"],
+            "properties": {
+              "mode": { "enum": ["town", "building", "slot"] },
+              "set_respawn": { "type": "boolean", "default": true },
+              "building": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+              "space": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+              "npc_slot": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+            },
+            "allOf": [
+              { "if": { "properties": { "mode": { "enum": ["building", "slot"] } } }, "then": { "required": ["building"] } },
+              { "if": { "properties": { "mode": { "const": "slot" } } }, "then": { "required": ["space", "npc_slot"] } }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

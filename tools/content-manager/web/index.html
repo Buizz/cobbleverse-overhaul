@@ -25,21 +25,22 @@
       </div>
       <nav aria-label="관리 메뉴">
         <button class="nav-item is-active" data-section="dashboard"><span>01</span>대시보드</button>
-        <button class="nav-item" data-section="trainers"><span>02</span>NPC</button>
-        <button class="nav-item" data-section="battles"><span>03</span>배틀 프리셋</button>
-        <button class="nav-item" data-section="league"><span>04</span>리그 운영</button>
-        <button class="nav-item" data-section="worlds"><span>05</span>월드맵</button>
-        <button class="nav-item" data-section="settlements"><span>06</span>마을 관리</button>
-        <button class="nav-item" data-section="routes"><span>07</span>길 관리</button>
-        <button class="nav-item" data-section="caves"><span>08</span>동굴 관리</button>
-        <button class="nav-item" data-section="forests"><span>09</span>숲 관리</button>
-        <button class="nav-item" data-section="space-connections"><span>10</span>공간 연결 관계</button>
-        <button class="nav-item" data-section="structures"><span>11</span>NBT 건물 설정</button>
-        <button class="nav-item" data-section="biomes"><span>12</span>바이옴 관리</button>
-        <button class="nav-item" data-section="definitions"><span>13</span>게임 데이터</button>
-        <button class="nav-item" data-section="economy"><span>14</span>경제 · 제작</button>
-        <button class="nav-item" data-section="music"><span>15</span>음악 설정</button>
-        <button class="nav-item" data-section="builds"><span>16</span>빌드 작업</button>
+        <button class="nav-item" data-section="starter-settings"><span>02</span>스타팅 설정</button>
+        <button class="nav-item" data-section="trainers"><span>03</span>NPC</button>
+        <button class="nav-item" data-section="battles"><span>04</span>배틀 프리셋</button>
+        <button class="nav-item" data-section="league"><span>05</span>리그 운영</button>
+        <button class="nav-item" data-section="worlds"><span>06</span>월드맵</button>
+        <button class="nav-item" data-section="settlements"><span>07</span>마을 관리</button>
+        <button class="nav-item" data-section="routes"><span>08</span>길 관리</button>
+        <button class="nav-item" data-section="caves"><span>09</span>동굴 관리</button>
+        <button class="nav-item" data-section="forests"><span>10</span>숲 관리</button>
+        <button class="nav-item" data-section="space-connections"><span>11</span>공간 연결 관계</button>
+        <button class="nav-item" data-section="structures"><span>12</span>NBT 건물 설정</button>
+        <button class="nav-item" data-section="biomes"><span>13</span>바이옴 관리</button>
+        <button class="nav-item" data-section="definitions"><span>14</span>게임 데이터</button>
+        <button class="nav-item" data-section="economy"><span>15</span>경제 · 제작</button>
+        <button class="nav-item" data-section="music"><span>16</span>음악 설정</button>
+        <button class="nav-item" data-section="builds"><span>17</span>빌드 작업</button>
       </nav>
       <div class="server-state"><i id="server-dot"></i><span><strong id="server-label">연결 확인 중</strong><small>로컬 전용 · 127.0.0.1</small></span></div>
     </aside>
@@ -243,6 +244,7 @@
               <label><span>영문 이름</span><input name="nameEn" disabled required></label>
               <label><span>길 종류</span><select name="routeType" disabled><option value="road">도로</option><option value="trail">자연 통로</option><option value="water">수로</option><option value="log_bridge">통나무다리</option></select></label>
               <label class="toggle"><input name="enabled" type="checkbox" disabled><span>이 길 사용</span></label>
+              <fieldset class="wide route-preset-group" data-log-bridge-layout hidden><legend>통나무다리 경로</legend><label><span>우회 형태</span><select name="bridgePattern" disabled><option value="straight">직선 위주</option><option value="u_turn">중간중간 ㄷ자</option><option value="zigzag">중간중간 ㄹ자</option><option value="alternating">ㄷ자와 ㄹ자 교차</option></select></label><label><span>우회 폭</span><input name="bridgeDetourBlocks" type="number" min="6" max="24" step="1" disabled></label><small class="wide">선택한 형태는 빌드 데이터에 저장됩니다. 우회 폭은 길이 배치된 육각 타일 안에서 자동으로 축소될 수 있습니다.</small></fieldset>
               <fieldset class="wide route-preset-group"><legend>통로 기본값</legend><label><span>통로 폭</span><input name="widthBlocks" type="number" min="12" max="256" disabled></label><label><span>가장자리 굴곡</span><input name="edgeNoise" type="number" min="0" max="0.35" step="0.01" disabled></label><label class="wide"><span>도로 BGM</span><select name="musicTrack" disabled></select></label></fieldset>
               <fieldset class="wide route-preset-group"><legend>지역 레벨</legend><label><span>계산 방식</span><select name="levelMode" disabled><option value="world">월드맵 지역 레벨 사용</option><option value="offset">월드맵 레벨 + 보정</option><option value="fixed">고정 범위</option></select></label><label><span>레벨 보정</span><input name="levelOffset" type="number" min="-100" max="100" disabled></label><label data-route-fixed-level><span>최소 레벨</span><input name="minimumLevel" type="number" min="1" max="100" disabled></label><label data-route-fixed-level><span>최대 레벨</span><input name="maximumLevel" type="number" min="1" max="100" disabled></label></fieldset>
               <fieldset class="wide route-preset-group route-pokemon-editor"><legend>길 서식지</legend><section class="route-pokemon-summary wide"><div><span>서식 포켓몬</span><b id="route-preset-pokemon-count">0종</b></div><p id="route-preset-pokemon-description">지나는 바이옴의 출현 목록을 사용합니다.</p><button type="button" class="button primary" id="edit-route-preset-pokemon" disabled>포켓몬 수정</button></section></fieldset>
@@ -837,6 +839,60 @@
           <div id="music-track-list" class="definition-list"></div>
           <div id="music-issues" class="issues empty">음악 카탈로그를 불러오는 중입니다.</div>
         </div>
+      </section>
+
+      <section class="page" id="starter-settings">
+        <div class="starter-heading panel panel-heading">
+          <div>
+            <p class="eyebrow">GAME START / SPAWN RULES</p>
+            <h2>세대별 스타팅 위치</h2>
+            <p>새 게임과 세대 이동 시 플레이어가 처음 나타날 마을, 건물, NPC 슬롯을 설정합니다.</p>
+          </div>
+          <div class="editor-heading-actions starter-heading-actions">
+            <span class="path-label">content/catalogs/starter-settings.json</span>
+            <div><label class="starter-default-generation"><span>게임 시작 세대</span><select id="starter-default-generation"></select></label><button id="validate-starter-settings" class="button secondary" type="button">설정 검증</button><button id="save-starter-settings" class="button primary" type="button">검증 후 저장</button></div>
+          </div>
+        </div>
+        <div class="starter-workspace">
+          <aside class="starter-generation-panel panel">
+            <header><div><p class="eyebrow">GENERATIONS</p><h3>스타팅 정보</h3></div><span id="starter-generation-count" class="count-pill">0</span></header>
+            <div id="starter-generation-list" class="starter-generation-list"></div>
+            <button id="add-starter-generation" class="starter-add-generation" type="button"><b>＋</b><span><strong>세대 스타팅 추가</strong><small>최대 9세대까지 설정할 수 있습니다.</small></span></button>
+            <p class="starter-generation-note"><b>i</b><span><strong>세대 이동에도 사용됩니다.</strong>새로운 세대가 해금되면 해당 세대의 시작 위치가 적용됩니다.</span></p>
+          </aside>
+
+          <section class="starter-editor panel">
+            <header class="starter-editor-header">
+              <div class="starter-editor-title"><b id="starter-generation-number">01</b><span><small id="starter-generation-code">GENERATION 01</small><h2 id="starter-generation-title">1세대 · 관동</h2></span></div>
+              <label class="starter-enable-toggle"><span><strong>이 세대 스타팅 사용</strong><small>세대 진입 시 설정한 위치에서 시작합니다.</small></span><input id="starter-generation-enabled" type="checkbox" checked><i></i></label>
+            </header>
+
+            <div class="starter-form-section">
+              <header><b>01</b><div><h3>시작 마을</h3><p>플레이어가 처음 도착할 마을을 선택하세요.</p></div><em>필수</em></header>
+              <label class="starter-field"><span>마을</span><select id="starter-town"></select></label>
+              <div class="starter-town-meta"><span><small>월드</small><strong id="starter-world-label">generation_1</strong></span><span><small>마을 데이터</small><strong id="starter-town-path">—</strong></span><span><small>배치 상태</small><strong id="starter-town-status">확인 중</strong></span></div>
+            </div>
+
+            <div class="starter-form-section">
+              <header><b>02</b><div><h3>시작 지점</h3><p>마을 안에서 플레이어가 나타날 정확한 단계를 정합니다.</p></div></header>
+              <div class="starter-spawn-modes" role="radiogroup" aria-label="시작 지점 방식">
+                <button type="button" data-starter-mode="town"><i>⌖</i><strong>마을 기본 위치</strong><small>마을의 player_spawn 앵커</small><em></em></button>
+                <button type="button" data-starter-mode="building"><i>▤</i><strong>건물 내부</strong><small>선택한 건물의 기본 위치</small><em></em></button>
+                <button type="button" data-starter-mode="slot"><i>◎</i><strong>NPC 슬롯</strong><small>건물 내부의 정확한 라벨</small><em></em></button>
+              </div>
+              <label class="starter-respawn-toggle"><input id="starter-set-respawn" type="checkbox" checked><span><strong>죽었을 때도 이 위치에서 부활</strong><small>선택한 마을·건물·NPC 슬롯을 이 세대의 개인 리스폰 지점으로 등록합니다.</small></span></label>
+              <div id="starter-building-fields" class="starter-nested-fields">
+                <label class="starter-field"><span>건물</span><select id="starter-building"></select><small>선택한 마을에 실제 배치된 건물만 표시합니다.</small></label>
+                <div id="starter-slot-field" class="starter-slot-field"><header><strong>NPC 슬롯</strong><small>NBT 구조물에 저장된 NPC 라벨</small></header><div id="starter-slot-list" class="starter-slot-list"></div></div>
+              </div>
+            </div>
+
+            <p id="starter-validation" class="starter-validation starter-editor-validation"><b>✓</b><span><strong>설정이 올바릅니다</strong><small>선택한 위치와 프로젝트 데이터를 확인했습니다.</small></span></p>
+
+            <footer class="starter-editor-footer"><div><strong>세대 설정 삭제</strong><small>현재 목록에서 이 세대의 스타팅 정보를 제거합니다.</small></div><button id="delete-starter-generation" class="button danger" type="button">설정 삭제</button></footer>
+          </section>
+        </div>
+        <div id="starter-issues" class="issues empty">변경 사항이 없습니다.</div>
       </section>
 
       <section class="page" id="builds">

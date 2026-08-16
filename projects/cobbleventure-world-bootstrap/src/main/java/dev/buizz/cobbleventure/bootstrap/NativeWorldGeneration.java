@@ -288,26 +288,31 @@ final class NativeWorldGeneration {
                     localX, y, localZ, Blocks.WATER.defaultBlockState()
                 );
             }
-            if (column.sample() != null
-                && column.sample().kind().equals("route")
-                && column.sample().surfaceStyle().equals("log_bridge")) {
-                CobbleventureBootstrap.LogBridgeDeckPlan deck =
-                    CobbleventureBootstrap.logBridgeDeckAt(world, worldX, worldZ);
-                if (deck != null) {
-                    if (deck.support()) {
-                        for (int y = groundY + 1; y < deck.y(); y++) {
-                            setBlock(
-                                chunk, position, oceanFloor, worldSurface,
-                                localX, y, localZ,
-                                Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState()
-                            );
-                        }
-                    }
+            CobbleventureBootstrap.LogBridgeDeckPlan deck =
+                CobbleventureBootstrap.logBridgeDeckAt(world, worldX, worldZ);
+            if (deck != null) {
+                if (!deck.overOcean()) {
                     setBlock(
                         chunk, position, oceanFloor, worldSurface,
-                        localX, deck.y(), localZ, deck.state()
+                        localX, groundY, localZ,
+                        CobbleventureBootstrap.worldRoadSurfaceBlock(
+                            world, worldX, worldZ
+                        )
                     );
                 }
+                if (deck.support()) {
+                    for (int y = groundY + 1; y < deck.y(); y++) {
+                        setBlock(
+                            chunk, position, oceanFloor, worldSurface,
+                            localX, y, localZ,
+                            Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState()
+                        );
+                    }
+                }
+                setBlock(
+                    chunk, position, oceanFloor, worldSurface,
+                    localX, deck.y(), localZ, deck.state()
+                );
             }
             boolean boundaryColumn = isBoundaryColumn(worldX, worldZ);
             if (column.blocked() && boundaryColumn) {

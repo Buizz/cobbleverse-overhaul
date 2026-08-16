@@ -1,16 +1,16 @@
 {
   "$schema": "../../schemas/route.schema.json",
   "schema_version": 1,
-  "id": "cobbleventure:route/route_custom_15",
+  "id": "cobbleventure:route/route_custom_18",
   "display_name": {
-    "ko_kr": "보라타운 - 연분홍시티 통나무다리",
-    "en_us": "보라타운 - 연분홍시티 통나무다리"
+    "ko_kr": "갈색시티 - 보라타운 길",
+    "en_us": "갈색시티 - 보라타운 길"
   },
   "auto_name": true,
   "enabled": true,
   "route_type": "log_bridge",
   "log_bridge_layout": {
-    "pattern": "alternating",
+    "pattern": "straight",
     "detour_blocks": 12
   },
   "corridor": {
@@ -32,6 +32,7 @@
     "enabled": false,
     "count": 0,
     "use_biome_defaults": true,
-    "direct_trainers": []
+    "direct_trainers": [],
+    "trigger_override": "proximity"
   }
 }

@@ -157,6 +157,9 @@ processResources {
     from(new File(contentDir, 'catalogs/pokemon-habitats.json')) {
         into 'data/cobbleventure/catalogs'
     }
+    from(new File(contentDir, 'catalogs/starter-settings.json')) {
+        into 'data/cobbleventure/catalogs'
+    }
     if (integrationBcaJar != null) {
         inputs.file integrationBcaJar
         from(zipTree(integrationBcaJar)) {

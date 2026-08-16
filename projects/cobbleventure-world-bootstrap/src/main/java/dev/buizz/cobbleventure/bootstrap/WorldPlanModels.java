@@ -67,10 +67,17 @@ final class WorldPlanModels {
         String id, String displayName, String from, String to, String routeBiome, int widthCells,
         String pathfinding, int detourCells, double corridorWidthBlocks,
         double edgeNoise, String boundaryProfile, TerrainProfile terrainProfile,
-        String surfaceStyle, String accessRequirement, List<HexCoord> cells,
+        String surfaceStyle, LogBridgeLayout logBridgeLayout,
+        String accessRequirement, List<HexCoord> cells,
         RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements,
         RegionalTrainerPopulation trainerPopulation
     ) {}
+
+    record LogBridgeLayout(String pattern, double detourBlocks) {
+        static LogBridgeLayout straight() {
+            return new LogBridgeLayout("straight", 18.0D);
+        }
+    }
 
     record RouteNpcPlacement(
         String id, String npc, int progressPercent, String side,
@@ -79,10 +86,17 @@ final class WorldPlanModels {
     ) {}
 
     record RegionalTrainerPopulation(
-        boolean enabled, int count, String triggerOverride, List<String> candidates
+        boolean enabled, int count, String triggerOverride, List<String> candidates,
+        Map<String, String> trainerTriggerOverrides
     ) {
         static RegionalTrainerPopulation disabled() {
-            return new RegionalTrainerPopulation(false, 0, "proximity", List.of());
+            return new RegionalTrainerPopulation(
+                false, 0, "proximity", List.of(), Map.of()
+            );
+        }
+
+        String triggerFor(String trainerId) {
+            return trainerTriggerOverrides.getOrDefault(trainerId, triggerOverride);
         }
     }
 

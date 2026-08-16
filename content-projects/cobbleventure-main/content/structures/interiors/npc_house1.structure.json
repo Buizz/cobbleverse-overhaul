@@ -1,11 +1,48 @@
 {
   "schema_version": 1,
-  "anchors": [],
+  "structure": "content/structures/interiors/npc_house1.nbt",
   "interior": {
     "id": "npc_house1",
     "width": 32,
     "depth": 32,
     "floor_height": 12,
     "floors": 1
-  }
+  },
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        17,
+        1,
+        1
+      ],
+      "safe_spawn": [
+        17,
+        1,
+        2
+      ],
+      "door_facing": "north",
+      "safe_side": "south"
+    },
+    {
+      "label": "npc2",
+      "type": "npc_position",
+      "position": [
+        14,
+        1,
+        6
+      ]
+    },
+    {
+      "label": "npc1",
+      "type": "npc_position",
+      "position": [
+        17,
+        1,
+        6
+      ]
+    }
+  ]
 }

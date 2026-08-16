@@ -11,7 +11,7 @@
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Cmd:"/cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_bug_catcher_doyun -2 7 rctmod:sample_bug_catcher_doyun tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_bug_catcher_doyun onwin {1:[\"scoreboard objectives add cvf_138a01bcb69b dummy\",\"scoreboard players set @1 cvf_138a01bcb69b 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}],ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\"text\":\"주변에 트레이너가 있습니다!\",\"color\":\"gold\"}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_CLOSE:[{Cmd:"/cobbleventure_proximity_battle @initiator @s cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_bug_catcher_doyun -2 7 rctmod:sample_bug_catcher_doyun tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_bug_catcher_doyun onwin {1:[\"scoreboard objectives add cvf_138a01bcb69b dummy\",\"scoreboard players set @1 cvf_138a01bcb69b 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"곤충채집소년 도윤\"}",
@@ -23,6 +23,7 @@
     PersistenceRequired:1b,
     PresetUUID:[I;422642180,-674082572,-1471207255,1140662351],
     SkinData:{Type:"CUSTOM",UUID:[I;554030396,346775299,-1258453688,-1088027809] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

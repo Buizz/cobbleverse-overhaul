@@ -71,6 +71,16 @@ public final class PokemonCenterDefeatReturn {
         }
     }
 
+    /** Uses the authored starting point until the player visits a Pokémon Center. */
+    public static void recordStarterFallback(
+        ServerPlayer player, ServerLevel level, BlockPos position
+    ) {
+        CompoundTag data = player.getPersistentData();
+        if (!data.getBoolean(CHECKPOINT_IS_CENTER)) {
+            saveCheckpoint(data, level, position, position, false);
+        }
+    }
+
     public static void recordCenterVisit(
         ServerPlayer player, ServerLevel level, BlockPos interior, BlockPos exit
     ) {

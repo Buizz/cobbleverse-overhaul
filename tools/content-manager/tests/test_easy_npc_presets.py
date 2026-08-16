@@ -64,6 +64,10 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             "cobbleventure_trainer_state complete @npc-uuid @initiator",
             preset,
         )
+        self.assertNotIn(
+            '2:["cobbleventure_trainer_state complete @npc-uuid @initiator"',
+            preset,
+        )
         self.assertIn(
             "/cobbleventure_trainer_state prepare @npc-uuid @initiator",
             preset,
@@ -84,8 +88,14 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         self.assertIn("ON_INTERACTION", interaction)
         self.assertNotIn("ON_DISTANCE_VERY_CLOSE", interaction)
-        self.assertIn("ON_DISTANCE_VERY_CLOSE", proximity)
         self.assertIn("ON_DISTANCE_CLOSE", proximity)
+        self.assertIn(
+            "/cobbleventure_proximity_battle @initiator @s", proximity
+        )
+        self.assertIn("ON_INTERACTION", proximity)
+        self.assertIn("cobbleventure_npc_preset_v4", proximity)
+        self.assertNotIn("ON_DISTANCE_VERY_CLOSE", proximity)
+        self.assertNotIn("/title @initiator actionbar", proximity)
         self.assertNotEqual(interaction, proximity)
 
     def test_encounter_uses_its_own_appearance_skin_and_arm_model(self) -> None:

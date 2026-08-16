@@ -23,5 +23,12 @@
     "additions": [],
     "level_overrides": []
   },
-  "npc_placements": []
+  "npc_placements": [],
+  "automatic_npc_placement": {
+    "enabled": true,
+    "count": 4,
+    "use_biome_defaults": true,
+    "direct_trainers": [],
+    "trigger_override": "proximity"
+  }
 }

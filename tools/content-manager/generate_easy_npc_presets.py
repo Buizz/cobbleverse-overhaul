@@ -543,6 +543,8 @@ def battle_command(document: dict, start_battle: dict | None = None) -> str:
     result_commands: dict[int, list[str]] = {}
     for side, result_key in ((1, "player_win"), (2, "player_loss")):
         commands = reward_commands(document, start_battle, result_key)
+        # Only a victory consumes the automatic challenge. A defeated player
+        # is challenged automatically again on the next approach.
         if result_key == "player_win":
             commands.append(
                 "cobbleventure_trainer_state complete @npc-uuid @initiator"
@@ -884,16 +886,25 @@ def encounter_preset_snbt(
     encounter_mode = trigger_override or encounter_mode
     if encounter_mode == "proximity":
         start_battle = next((action for action in candidate_actions if action.get("type") == "start_battle"), None)
-        proximity_action = (
-            command_action(battle_command(document, start_battle))
-            if start_battle else '{Type:"OPEN_DEFAULT_DIALOG"}'
-        )
-        event_actions = (
-            "ON_DISTANCE_VERY_CLOSE:[" + proximity_action + "],"
-            + "ON_DISTANCE_CLOSE:["
-            + command_action('/title @initiator actionbar {"text":"주변에 트레이너가 있습니다!","color":"gold"}')
-            + "]"
-        )
+        if start_battle:
+            # EasyNPC's nested distance events are not reliable enough for the
+            # warning -> battle transition. Start one Cobbleventure-owned
+            # horizontal-distance watcher when the NPC first notices a player.
+            event_actions = (
+                "ON_INTERACTION:["
+                + command_action(
+                    "/cobbleventure_trainer_state prepare @npc-uuid @initiator"
+                )
+                + ',{Type:"OPEN_DEFAULT_DIALOG"}],'
+                + "ON_DISTANCE_CLOSE:["
+                + command_action(
+                    "/cobbleventure_proximity_battle @initiator @s "
+                    + battle_command(document, start_battle).removeprefix("/")
+                )
+                + "]"
+            )
+        else:
+            event_actions = 'ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]'
     else:
         event_actions = (
             "ON_INTERACTION:["
@@ -927,6 +938,7 @@ def encounter_preset_snbt(
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
     SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}

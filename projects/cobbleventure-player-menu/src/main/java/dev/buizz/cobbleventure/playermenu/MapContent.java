@@ -65,7 +65,9 @@ public final class MapContent {
         this.pokemonGenerations = Set.copyOf(pokemonGenerations);
         this.dimension = dimension;
         this.tileRadiusBlocks = tileRadiusBlocks;
-        this.mapRadiusCells = mapRadiusCells;
+        this.mapRadiusCells = visibleMapRadius(
+            mapRadiusCells, tiles, towns, routes, caveEntrances, forestEntrances
+        );
         this.originX = originX;
         this.originY = originY;
         this.originZ = originZ;
@@ -179,6 +181,40 @@ public final class MapContent {
 
     public boolean contains(int q, int r) {
         return hexDistance(new Hex(0, 0), new Hex(q, r)) <= mapRadiusCells;
+    }
+
+    private static int visibleMapRadius(
+        int configuredRadius,
+        Map<Hex, BiomeTile> tiles,
+        List<Town> towns,
+        List<Route> routes,
+        List<CaveEntrance> caveEntrances,
+        List<ForestEntrance> forestEntrances
+    ) {
+        Hex origin = new Hex(0, 0);
+        int radius = configuredRadius;
+        for (Hex tile : tiles.keySet()) radius = Math.max(radius, hexDistance(origin, tile));
+        for (Route route : routes) {
+            for (Hex point : route.path()) radius = Math.max(radius, hexDistance(origin, point));
+        }
+        for (CaveEntrance entrance : caveEntrances) {
+            radius = Math.max(radius, hexDistance(origin, entrance.hex()));
+        }
+        for (ForestEntrance entrance : forestEntrances) {
+            radius = Math.max(radius, hexDistance(origin, entrance.hex()));
+        }
+        for (Town town : towns) {
+            int footprintRadius = switch (town.radiusCells()) {
+                case 19 -> 2;
+                case 3, 5, 7 -> 1;
+                default -> 0;
+            };
+            for (Hex relative : town.customFootprint()) {
+                footprintRadius = Math.max(footprintRadius, hexDistance(origin, relative));
+            }
+            radius = Math.max(radius, hexDistance(origin, town.hex()) + footprintRadius);
+        }
+        return radius;
     }
 
     private static List<MapContent> loadAll() {

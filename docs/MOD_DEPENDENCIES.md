@@ -46,6 +46,7 @@
 | `cobblemon_casino` | Cobblemon Casino | 필수 | 양쪽 | 슬롯머신, 블랙잭, 가챠와 카지노 칩 경제 | 2.0.0 / CF `1572769:8235485` |
 | `architectury_api` | Architectury API | 필수 | 양쪽 | CobbleFurnies 공용 API | 13.0.11 / CF `419699:8492726` |
 | `create` | Create | 필수 | 양쪽 | 체육관 벨트·선풍기·이동 장치와 기계 장식 | 6.0.10 / CF `328085:7963363` |
+| `copycats` | Create: Copycats+ | 필수 | 양쪽 | 재질을 입힐 수 있는 카피캣 블록과 문·패널·계단 확장 | 3.0.4 / CF `968398:7251823` |
 | `rctapi` | Radical Cobblemon Trainers API | 필수 | 양쪽 | 트레이너 데이터와 전투 연동 계약 | 0.15.2-beta / CF `1152792:7952419` |
 | `rctmod` | Radical Cobblemon Trainers | 필수 | 양쪽 | RCT JSON 로딩과 트레이너전 관리 | 0.18.1-beta / CF `1009534:7913180` |
 | `cobblefurnies` | CobbleFurnies | 필수 | 양쪽 | 프로젝트 체육관·리그 NBT의 가구 블록 | 1.2 / CF `1188698:8340192` |

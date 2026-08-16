@@ -52,7 +52,12 @@
         "max_active": { "type": "integer", "minimum": 0, "maximum": 128 },
         "use_biome_defaults": { "type": "boolean" },
         "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
-        "trigger_override": { "$ref": "#/$defs/trigger_override" }
+        "trigger_override": { "$ref": "#/$defs/trigger_override" },
+        "trainer_trigger_overrides": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+          "additionalProperties": { "$ref": "#/$defs/trigger_override" }
+        }
       }
     },
     "tree_barrier": {

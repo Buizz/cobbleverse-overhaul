@@ -23,6 +23,7 @@
     PersistenceRequired:1b,
     PresetUUID:[I;-439402356,2077315280,-1130280051,1507158680],
     SkinData:{Type:"CUSTOM",UUID:[I;-2043599629,139088278,-1441442447,-173202830] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

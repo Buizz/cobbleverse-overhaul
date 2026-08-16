@@ -47,6 +47,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          466,
+          137
         ]
       }
     },
@@ -175,6 +179,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          470,
+          90
         ]
       }
     },
@@ -341,7 +349,14 @@
     "building:cobbleventure:houses/five_story_gambrel": {},
     "building:cobbleventure:houses/five_story_shed": {},
     "building:cobbleventure:houses/one_story_flat": {},
-    "building:cobbleventure:houses/one_story_gable": {},
+    "building:cobbleventure:houses/one_story_gable": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:houses/one_story_gambrel": {},
     "building:cobbleventure:houses/one_story_shed": {},
     "building:cobbleventure:houses/two_story_flat": {},
@@ -357,7 +372,14 @@
     "building:cobbleventure:placeholder/fossil_laboratory": {},
     "building:cobbleventure:placeholder/gym_site": {},
     "building:cobbleventure:placeholder/hotel": {},
-    "building:cobbleventure:placeholder/laboratory": {},
+    "building:cobbleventure:placeholder/laboratory": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:placeholder/lighthouse": {},
     "building:cobbleventure:placeholder/mansion": {},
     "building:cobbleventure:placeholder/player_house": {

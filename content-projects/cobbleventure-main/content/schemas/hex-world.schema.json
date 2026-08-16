@@ -25,7 +25,7 @@
       "properties": {
         "orientation": { "const": "pointy_top" },
         "tile_radius_blocks": { "type": "integer", "minimum": 32, "maximum": 256 },
-        "map_radius_cells": { "type": "integer", "minimum": 3, "maximum": 14 },
+        "map_radius_cells": { "type": "integer", "minimum": 3, "maximum": 64 },
         "origin": { "$ref": "#/$defs/block_position" }
       }
     },
@@ -277,6 +277,15 @@
         "boundary_profile": { "$ref": "#/$defs/resource_id" },
         "terrain_profile": { "$ref": "#/$defs/terrain_profile" },
         "surface_style": { "enum": ["road", "natural", "water", "log_bridge"] },
+        "log_bridge_layout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pattern", "detour_blocks"],
+          "properties": {
+            "pattern": { "enum": ["straight", "u_turn", "zigzag", "alternating"] },
+            "detour_blocks": { "type": "number", "minimum": 6, "maximum": 24 }
+          }
+        },
         "music_track": { "$ref": "#/$defs/music_track" },
         "access_requirement": { "$ref": "#/$defs/resource_id" },
         "anchors": {

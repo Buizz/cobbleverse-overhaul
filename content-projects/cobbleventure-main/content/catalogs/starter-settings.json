@@ -1,0 +1,19 @@
+{
+  "$schema": "../schemas/starter-settings.schema.json",
+  "schema_version": 1,
+  "default_generation": 1,
+  "generations": [
+    {
+      "generation": 1,
+      "enabled": true,
+      "town": "cobbleventure:settlement/starter_town",
+      "spawn": {
+        "mode": "slot",
+        "set_respawn": true,
+        "building": "facility_player_house_1",
+        "space": "room_1",
+        "npc_slot": "start"
+      }
+    }
+  ]
+}

@@ -23,7 +23,7 @@ SPEC.loader.exec_module(build_data_mod)
 
 
 class TownNpcCapacityUnitTests(unittest.TestCase):
-    def test_seven_citizen_houses_accept_four_resolved_simple_npcs(self) -> None:
+    def test_exterior_only_houses_do_not_count_as_indoor_npc_capacity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
             settings = project / "content/catalogs/building-settings.json"
@@ -58,12 +58,9 @@ class TownNpcCapacityUnitTests(unittest.TestCase):
             )
 
             self.assertEqual(4, capacity["requested"])
-            self.assertEqual(7, capacity["available"])
-            assigned = build_data_mod._assign_town_npc_buildings(resolved, capacity)
-            self.assertEqual(
-                ["house_1", "house_2", "house_3", "house_4"],
-                [item["building"] for item in assigned["placements"]],
-            )
+            self.assertEqual(0, capacity["available"])
+            with self.assertRaises(build_data_mod.ModBuildError):
+                build_data_mod._assign_town_npc_buildings(resolved, capacity)
 
     def test_town_indoor_capacity_counts_reachable_slots_in_placed_houses(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -226,8 +223,12 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertEqual("cobbleventure:route/route_custom_03", route["route_preset"])
         self.assertEqual("road", route["surface_style"])
         self.assertEqual(12, route["corridor_width_blocks"])
+        self.assertNotIn("log_bridge_layout", route)
         self.assertEqual({"mode": "world", "offset": 0}, route["level_scaling"])
         self.assertEqual([], route["npc_placements"])
+        bridge = next(connection for connection in world["connections"] if connection["id"] == "route_custom_15")
+        self.assertEqual("log_bridge", bridge["surface_style"])
+        self.assertEqual({"pattern": "alternating", "detour_blocks": 12}, bridge["log_bridge_layout"])
 
     def test_settlement_data_uses_authored_load_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

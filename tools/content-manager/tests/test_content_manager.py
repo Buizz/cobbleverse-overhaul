@@ -199,12 +199,15 @@ class ContentManagerTests(unittest.TestCase):
         return gzip.compress(payload)
 
     @staticmethod
-    def _structure_nbt_with_blocks() -> bytes:
+    def _structure_nbt_with_blocks(*, npc_chair: bool = False) -> bytes:
         def nbt_string(value: str) -> bytes:
             encoded = value.encode("utf-8")
             return struct.pack(">H", len(encoded)) + encoded
 
-        palette = ["minecraft:stone", "minecraft:oak_planks", "minecraft:grass_block"]
+        palette = [
+            "minecraft:stone", "minecraft:oak_planks", "minecraft:grass_block",
+            "cobblefurnies:light_blue_chair",
+        ]
         palette_payload = b"".join(
             b"\x08" + nbt_string("Name") + nbt_string(block_name) + b"\x00"
             for block_name in palette
@@ -213,6 +216,8 @@ class ContentManagerTests(unittest.TestCase):
             (1, 0, 1, 0), (1, 2, 1, 1), (2, 0, 1, 2),
             (3, 0, 2, 1),
         ]
+        if npc_chair:
+            block_values.append((3, 1, 2, 3))
         blocks_payload = b"".join(
             b"\x09" + nbt_string("pos") + b"\x03" + struct.pack(">i", 3)
             + struct.pack(">iii", x, y, z)
@@ -700,6 +705,37 @@ class ContentManagerTests(unittest.TestCase):
         source = (CORE_ROOT / "projects" / "cobbleventure-player-menu" / "src" / "main" / "java" / "dev" / "buizz" / "cobbleventure" / "playermenu" / "MapContent.java").read_text(encoding="utf-8")
         self.assertIn('nullableString(habitats, "secondary")', source)
         self.assertIn("value.isJsonNull()", source)
+
+    def test_world_map_radius_covers_authored_visible_tiles(self) -> None:
+        world = content_manager.load_json(
+            PROJECT_ROOT / "content" / "worlds" / "generation_1.json"
+        )
+        configured_radius = world["grid"]["map_radius_cells"]
+        visible_cells = list(world.get("tiles", []))
+        visible_cells.extend(
+            point
+            for route in world.get("connections", [])
+            for point in route.get("cells", route.get("path", []))
+        )
+        self.assertGreater(len(visible_cells), 0)
+        self.assertTrue(
+            all(
+                content_manager._hex_distance((0, 0), (cell["q"], cell["r"]))
+                <= configured_radius
+                for cell in visible_cells
+            )
+        )
+
+        player_menu = CORE_ROOT / "projects" / "cobbleventure-player-menu"
+        map_source = (
+            player_menu / "src" / "main" / "java" / "dev" / "buizz"
+            / "cobbleventure" / "playermenu" / "MapContent.java"
+        ).read_text(encoding="utf-8")
+        editor_script = (
+            CORE_ROOT / "tools" / "content-manager" / "web" / "app.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("visibleMapRadius(", map_source)
+        self.assertIn("worldVisibleExtent(state.worldLayout)", editor_script)
 
     def test_world_layout_graph_can_be_saved_atomically(self) -> None:
         root = PROJECT_ROOT
@@ -3055,8 +3091,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("Array.from({ length: 6 }", script)
         self.assertIn("trainerPartyStrip(trainer)", script)
         self.assertIn("trainerPartyStrip(slot.trainer_id)", script)
+        self.assertIn("지역 기본 조우 정책", script)
+        self.assertIn("data-direct-trainer-policy", script)
+        self.assertIn("trainer_trigger_overrides", script)
         styles = (CORE_ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8")
-        self.assertIn("grid-template-columns:repeat(6,24px)", styles)
+        self.assertIn("grid-template-columns:repeat(6,36px)", styles)
         trainer_summaries = content_manager._list_documents(PROJECT_ROOT, "trainers")
         battle_trainer = next(entry for entry in trainer_summaries if entry.get("battle_type"))
         self.assertEqual(battle_trainer["team_size"], len(battle_trainer["team"]))
@@ -3089,8 +3128,8 @@ class ContentManagerTests(unittest.TestCase):
         root = PROJECT_ROOT
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
-        self.assertIn('data-section="trainers"><span>02</span>NPC', page)
-        self.assertIn('data-section="battles"><span>03</span>배틀 프리셋', page)
+        self.assertIn('data-section="trainers"><span>03</span>NPC', page)
+        self.assertIn('data-section="battles"><span>04</span>배틀 프리셋', page)
         self.assertIn('id="battle-list"', page)
         self.assertIn('id="battle-form"', page)
         self.assertIn('id="event-command-list"', page)
@@ -3297,9 +3336,15 @@ class ContentManagerTests(unittest.TestCase):
 
             route = content_manager.load_json(route_path)
             route["route_type"] = "log_bridge"
+            route["log_bridge_layout"] = {"pattern": "alternating", "detour_blocks": 12}
             route_path.write_text(json.dumps(route), encoding="utf-8")
             _, bridge_issues = content_manager.validate_route_file(route_path)
             self.assertFalse(any(issue.level == "error" for issue in bridge_issues))
+
+            route["log_bridge_layout"]["detour_blocks"] = 30
+            route_path.write_text(json.dumps(route), encoding="utf-8")
+            _, invalid_bridge_issues = content_manager.validate_route_file(route_path)
+            self.assertTrue(any("우회 폭" in issue.message for issue in invalid_bridge_issues))
 
             route_ids = {route_id}
             world = {
@@ -3324,8 +3369,8 @@ class ContentManagerTests(unittest.TestCase):
         html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         self.assertIn('data-section="routes"', html)
-        self.assertIn('<span>06</span>마을 관리', html)
-        self.assertIn('<span>07</span>길 관리', html)
+        self.assertIn('<span>07</span>마을 관리', html)
+        self.assertIn('<span>08</span>길 관리', html)
         self.assertNotIn('<span>06</span>마을 프리셋', html)
         self.assertNotIn('<span>07</span>길 프리셋', html)
         self.assertIn('routes: "길 관리"', script)
@@ -3337,6 +3382,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="edit-route-preset-pokemon"', html)
         self.assertIn('name="autoName"', html)
         self.assertIn('<option value="log_bridge">통나무다리</option>', html)
+        self.assertIn('name="bridgePattern"', html)
+        self.assertIn('name="bridgeDetourBlocks"', html)
+        self.assertIn('value="alternating">ㄷ자와 ㄹ자 교차', html)
+        self.assertIn('preset.log_bridge_layout', script)
         self.assertNotIn('data-create="routes"', html)
         self.assertNotIn('id="delete-routePreset"', html)
         self.assertNotIn("이전 방식 · 길에 직접 저장", script)
@@ -3349,6 +3398,33 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("progress_percent", script)
         self.assertIn('setWorldManagementTarget("routes"', script)
         self.assertIn('setWorldManagementTarget(selectedSettlement ? "settlements"', script)
+
+    def test_starter_settings_editor_is_exposed_in_web_ui(self) -> None:
+        web_root = CORE_ROOT / "tools/content-manager/web"
+        html = (web_root / "index.html").read_text(encoding="utf-8")
+        script = (web_root / "app.js").read_text(encoding="utf-8")
+        styles = (web_root / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-section="starter-settings"', html)
+        self.assertIn('<span>02</span>스타팅 설정', html)
+        self.assertIn('id="starter-default-generation"', html)
+        self.assertIn('data-starter-mode="town"', html)
+        self.assertIn('data-starter-mode="building"', html)
+        self.assertIn('data-starter-mode="slot"', html)
+        self.assertIn('id="starter-set-respawn"', html)
+        self.assertIn('id="starter-slot-list"', html)
+        self.assertNotIn('class="starter-preview panel"', html)
+        self.assertIn('"starter-settings": "스타팅 설정"', script)
+        self.assertIn("starterFacilityPlacements", script)
+        self.assertIn("starterBuildingSlots", script)
+        self.assertIn('request("/api/starter-settings"', script)
+        self.assertIn(".starter-workspace", styles)
+
+        catalog = content_manager.load_json(
+            PROJECT_ROOT / "content/catalogs/starter-settings.json"
+        )
+        self.assertTrue(catalog["generations"][0]["spawn"]["set_respawn"])
+        self.assertEqual([], content_manager.validate_starter_settings(PROJECT_ROOT, catalog))
 
     def test_world_route_clone_copies_full_route_configuration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -3568,17 +3644,26 @@ class ContentManagerTests(unittest.TestCase):
             options,
         )
 
-    def test_create_is_pinned_in_development_pack(self) -> None:
+    def test_create_and_copycats_are_pinned_in_authoring_packs(self) -> None:
         dependency_lock = content_manager.load_json(
             CORE_ROOT / "pack" / "dependencies.lock.json"
         )
-        create = next(item for item in dependency_lock["mods"] if item["id"] == "create")
+        mods = {item["id"]: item for item in dependency_lock["mods"]}
+        create = mods["create"]
         self.assertTrue(create["enabled"])
         self.assertEqual("required", create["classification"])
         self.assertEqual("both", create["side"])
         self.assertEqual("6.0.10", create["version"])
         self.assertEqual(328085, create["curseforge"]["project_id"])
         self.assertEqual(7963363, create["curseforge"]["file_id"])
+
+        copycats = mods["copycats"]
+        self.assertTrue(copycats["enabled"])
+        self.assertEqual("required", copycats["classification"])
+        self.assertEqual("both", copycats["side"])
+        self.assertEqual("3.0.4+mc.1.21.1-neoforge", copycats["version"])
+        self.assertEqual(968398, copycats["curseforge"]["project_id"])
+        self.assertEqual(7251823, copycats["curseforge"]["file_id"])
 
         profile = content_manager.load_json(
             CORE_ROOT / "pack" / "profiles" / "development-placeholder.json"
@@ -3587,7 +3672,9 @@ class ContentManagerTests(unittest.TestCase):
             (entry["projectID"], entry["fileID"]) for entry in profile["files"]
         }
         self.assertIn((328085, 7963363), profile_files)
+        self.assertIn((968398, 7251823), profile_files)
         self.assertIn("Create 6.0.10", profile["notice"])
+        self.assertIn("Create: Copycats+ 3.0.4", profile["notice"])
 
         builder_profile = content_manager.load_json(
             CORE_ROOT / "pack" / "profiles" / "structure-builder.json"
@@ -3597,7 +3684,9 @@ class ContentManagerTests(unittest.TestCase):
             for entry in builder_profile["files"]
         }
         self.assertIn((328085, 7963363), builder_files)
+        self.assertIn((968398, 7251823), builder_files)
         self.assertIn("Create 6.0.10", builder_profile["notice"])
+        self.assertIn("Create: Copycats+ 3.0.4", builder_profile["notice"])
 
     def test_local_api_health_and_validation(self) -> None:
         root = CORE_ROOT
@@ -4187,9 +4276,48 @@ class ContentManagerTests(unittest.TestCase):
             interior_sidecar.write_text(json.dumps(sidecar), encoding="utf-8")
             issues = content_manager.validate_building_npc_positions(root, settings)
             self.assertTrue(any(
-                issue.level == "error" and "2블록의 빈 공간" in issue.message
+                issue.level == "error" and "머리 위치는 비어" in issue.message
                 for issue in issues
             ))
+
+    def test_citizen_building_allows_npc_anchor_on_chair(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structures = root / "content/structures"
+            exterior = structures / "houses/test_house.nbt"
+            interior = structures / "interiors/test_room.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(self._structure_nbt((8, 5, 8)))
+            interior.write_bytes(self._structure_nbt_with_blocks(npc_chair=True))
+            exterior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{"type": "door", "label": "front", "position": [1, 1, 1]}],
+            }), encoding="utf-8")
+            interior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {"type": "door", "label": "back", "position": [0, 1, 0]},
+                    {"type": "npc_position", "label": "resident", "position": [3, 1, 2]},
+                ],
+            }), encoding="utf-8")
+
+            issues = content_manager.validate_building_npc_positions(root, {
+                "cobbleventure:houses/test_house": {
+                    "no_interior_space": False,
+                    "citizen_placement_allowed": True,
+                    "interiors": [{
+                        "key": "room", "structure": "cobbleventure:interiors/test_room",
+                    }],
+                    "door_routes": {
+                        "exterior:front": {"space": "room", "door": "back"},
+                    },
+                },
+            })
+
+            self.assertEqual([], issues)
+            self.assertTrue(content_manager._is_npc_seat_block("cobblefurnies:light_blue_chair"))
+            self.assertFalse(content_manager._is_npc_seat_block("minecraft:oak_planks"))
 
     def test_town_validation_rejects_more_indoor_npcs_than_building_slots(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

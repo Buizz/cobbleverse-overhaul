@@ -328,6 +328,7 @@ public final class CobbleventureBootstrap {
         LocalWeatherSystem.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
+        StarterSpawnSystem.register();
         BattleMovementBoundary.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedOut);
@@ -523,7 +524,6 @@ public final class CobbleventureBootstrap {
         activeSettlements = runtime.settlements();
         activeFacilityPortals = facilityPortals(runtime.settlements());
         activeFacilityMusicZones = facilityMusicZones(level, runtime.settlements());
-        spawnRouteNpcs(level, runtime.hexWorld());
         placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(level, runtime.hexWorld());
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
@@ -544,10 +544,15 @@ public final class CobbleventureBootstrap {
             GymInteriorSystem.initialize(event.getServer());
         }
         BuildingRuntimeSystem.initialize(event.getServer());
+        StarterSpawnSystem.initialize(event.getServer());
         prepareExistingGymExteriors(level, runtime.settlements());
         prepareExistingBuildingRuntime(level, runtime.settlements());
         prepareExistingTownNpcs(level, runtime.settlements());
         refreshExistingConfiguredVendors(level, runtime.settlements());
+        // Existing route NPCs are restored only after every structure system
+        // has finished. Otherwise a later NBT placement can overwrite their
+        // collision space and leave them embedded in a wall.
+        spawnRouteNpcs(level, runtime.hexWorld());
 
         if (Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)) {
             SettlementPlan starter = runtime.settlements().get(STARTER_SETTLEMENT);
@@ -752,10 +757,12 @@ public final class CobbleventureBootstrap {
         }
         int bridgeSamples = 0;
         int bridgeSupports = 0;
+        int bridgeLandTransitions = 0;
         for (ConnectionPath route : world.paths()) {
             if (!route.surfaceStyle().equals("log_bridge")) continue;
             boolean deckVerified = false;
             boolean supportVerified = false;
+            boolean landTransitionVerified = false;
             for (Point point : route.centerline()) {
                 for (int offsetX = -3; offsetX <= 3; offsetX++) {
                     for (int offsetZ = -3; offsetZ <= 3; offsetZ++) {
@@ -764,7 +771,8 @@ public final class CobbleventureBootstrap {
                         LogBridgeDeckPlan deck = logBridgeDeckAt(world, x, z);
                         if (deck == null) continue;
                         NativeTerrainColumn terrain = nativeTerrainColumn(world, x, z);
-                        if (terrain.groundY() > WATER_SURFACE_Y - 20) {
+                        if (deck.overOcean()
+                            && terrain.groundY() > WATER_SURFACE_Y - 20) {
                             throw new IllegalStateException(
                                 "Native log bridge raised the seabed: route=" + route.id()
                                     + ", position=" + new Point(x, z)
@@ -774,13 +782,29 @@ public final class CobbleventureBootstrap {
                         BlockState actualDeck = level.getBlockState(
                             new BlockPos(x, deck.y(), z)
                         );
-                        if (!actualDeck.is(deck.state().getBlock())) {
+                        if (!actualDeck.equals(deck.state())) {
                             throw new IllegalStateException(
                                 "Native log bridge deck is missing: route=" + route.id()
                                     + ", position=" + new Point(x, z)
                                     + ", expected=" + deck.state()
-                                    + ", actual=" + actualDeck
+                                + ", actual=" + actualDeck
                             );
+                        }
+                        if (!deck.overOcean() && !landTransitionVerified) {
+                            BlockState expectedRoad = worldRoadSurfaceBlock(world, x, z);
+                            BlockState actualRoad = level.getBlockState(
+                                new BlockPos(x, terrain.groundY(), z)
+                            );
+                            if (!actualRoad.equals(expectedRoad)) {
+                                throw new IllegalStateException(
+                                    "Native log bridge land transition has no road: route="
+                                        + route.id() + ", position=" + new Point(x, z)
+                                        + ", expected=" + expectedRoad
+                                        + ", actual=" + actualRoad
+                                );
+                            }
+                            bridgeLandTransitions++;
+                            landTransitionVerified = true;
                         }
                         if (!deckVerified) {
                             bridgeSamples++;
@@ -802,7 +826,7 @@ public final class CobbleventureBootstrap {
                         }
                     }
                 }
-                if (deckVerified && supportVerified) break;
+                if (deckVerified && supportVerified && landTransitionVerified) break;
             }
         }
         if (world.paths().stream().anyMatch(route ->
@@ -814,8 +838,8 @@ public final class CobbleventureBootstrap {
         }
         LOGGER.info(
             "Native JSON world verification succeeded: samples={}, logBridgeSamples={}, "
-                + "logBridgeSupports={}",
-            verified, bridgeSamples, bridgeSupports
+                + "logBridgeSupports={}, logBridgeLandTransitions={}",
+            verified, bridgeSamples, bridgeSupports, bridgeLandTransitions
         );
     }
 
@@ -2549,25 +2573,15 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             TownLayout layout = generateTownLayout(settlement);
-            Point center = new Point(settlement.center().x(), settlement.center().z());
-            int smallVariant = 0;
+            Map<String, String> houseStructures = resolveTownHouseStructures(
+                settlement, layout.houses()
+            );
             for (TownPlot house : layout.houses()) {
-                String compiledStructure = house.structure();
-                int paletteIndex = Math.min(
-                    settlement.basicBuildings().size() - 1,
-                    smallVariant++ % Math.max(1, settlement.basicBuildings().size())
-                );
-                String structure = compiledStructure != null && !compiledStructure.isBlank()
-                    ? compiledStructure : settlement.basicBuildings().get(paletteIndex);
-                int x = center.x() + (int) Math.round(house.x());
-                int z = center.z() + (int) Math.round(house.z());
-                int groundY = plannedTerrainGroundY(level, x, z);
-                BlockPoint origin = rotatedTemplateOrigin(
-                    x, groundY + BuildingRuntimeSystem.placementYOffset(structure), z,
-                    house.width(), house.depth(), house.rotation()
+                TownTemplatePlacement placement = townHouseRuntimePlacement(
+                    level, settlement, house, houseStructures.get(house.id())
                 );
                 BuildingRuntimeSystem.onStructurePlaced(
-                    level, structure, origin, house.rotation()
+                    level, placement.structure(), placement.position(), placement.rotation()
                 );
             }
             for (FacilityPlacement facility : settlement.facilities()) {
@@ -2614,18 +2628,54 @@ public final class CobbleventureBootstrap {
         Map<String, TownPlot> houses = layout.houses().stream().collect(Collectors.toMap(
             TownPlot::id, house -> house, (left, right) -> left, LinkedHashMap::new
         ));
+        Map<String, String> houseStructures = resolveTownHouseStructures(
+            settlement, layout.houses()
+        );
+        Map<String, Long> indoorCounts = settlement.automaticNpcPlacements().stream()
+            .filter(placement -> placement.placementArea().equals("indoor")
+                && placement.building() != null)
+            .collect(Collectors.groupingBy(
+                TownNpcPlacement::building, LinkedHashMap::new, Collectors.counting()
+            ));
         Set<BlockPos> reservedPositions = new HashSet<>();
         int spawned = 0;
         for (int index = 0; index < settlement.automaticNpcPlacements().size(); index++) {
             TownNpcPlacement placement = settlement.automaticNpcPlacements().get(index);
-            String spawnKey = settlement.id() + "|" + settlement.center().x() + ","
+            String legacySpawnKey = settlement.id() + "|" + settlement.center().x() + ","
                 + settlement.center().z() + "|" + index + "|" + placement.npc();
-            BlockPos position;
+            String spawnKey = placement.placementArea().equals("indoor")
+                ? legacySpawnKey + "|interior-v2" : legacySpawnKey;
+            ServerLevel spawnLevel = level;
+            BlockPos position = null;
             if (placement.placementArea().equals("indoor")) {
                 TownPlot house = placement.building() == null
                     ? null : houses.get(placement.building());
-                position = house == null ? null
-                    : indoorTownNpcPosition(level, settlement, house, placement.slot());
+                String structure = house == null ? null : houseStructures.get(house.id());
+                TownTemplatePlacement housePlacement = house == null || structure == null
+                    ? null : townHouseRuntimePlacement(level, settlement, house, structure);
+                BuildingRuntimeSystem.SpawnDestination destination = housePlacement == null
+                    ? null : BuildingRuntimeSystem.resolveAutomaticNpcSpawn(
+                        level, housePlacement.structure(), housePlacement.position(),
+                        housePlacement.rotation(), placement.slot()
+                    );
+                if (destination != null) {
+                    spawnLevel = destination.level();
+                    position = destination.position();
+                    BuildingRuntimeSystem.showAutomaticNpcPresence(
+                        level, housePlacement.structure(), housePlacement.position(),
+                        housePlacement.rotation(),
+                        indoorCounts.getOrDefault(placement.building(), 1L).intValue()
+                    );
+                }
+                if (!data.hasSpawnedTownNpc(spawnKey)
+                    && data.hasSpawnedTownNpc(legacySpawnKey) && house != null) {
+                    BlockPos legacyPosition = indoorTownNpcPosition(
+                        level, settlement, house, placement.slot()
+                    );
+                    if (legacyPosition != null) {
+                        BuildingRuntimeSystem.removeNearbyEasyNpc(level, legacyPosition);
+                    }
+                }
             } else {
                 position = outdoorTownNpcPosition(
                     level, settlement, layout, index, reservedPositions
@@ -2642,7 +2692,7 @@ public final class CobbleventureBootstrap {
             if (data.hasSpawnedTownNpc(spawnKey)) {
                 continue;
             }
-            if (BuildingRuntimeSystem.spawnNpc(level, placement.npc(), position)) {
+            if (BuildingRuntimeSystem.spawnNpc(spawnLevel, placement.npc(), position)) {
                 data.markTownNpcSpawned(spawnKey);
                 spawned++;
             }
@@ -2653,6 +2703,21 @@ public final class CobbleventureBootstrap {
                 settlement.id(), spawned, settlement.automaticNpcPlacements().size()
             );
         }
+    }
+
+    private static TownTemplatePlacement townHouseRuntimePlacement(
+        ServerLevel level, SettlementPlan settlement, TownPlot house, String structure
+    ) {
+        int x = settlement.center().x() + (int) Math.round(house.x());
+        int z = settlement.center().z() + (int) Math.round(house.z());
+        int roadX = settlement.center().x() + house.roadConnectionX();
+        int roadZ = settlement.center().z() + house.roadConnectionZ();
+        int groundY = loadedRoadSurfaceY(level, roadX, roadZ);
+        BlockPoint origin = rotatedTemplateOrigin(
+            x, groundY + BuildingRuntimeSystem.placementYOffset(structure), z,
+            house.width(), house.depth(), house.rotation()
+        );
+        return new TownTemplatePlacement(structure, origin, house.rotation());
     }
 
     private static BlockPos indoorTownNpcPosition(
@@ -6939,11 +7004,12 @@ public final class CobbleventureBootstrap {
                     if (placed >= maximum) break;
                     JsonObject placement = element.getAsJsonObject();
                     JsonObject position = placement.getAsJsonObject("position");
+                    String trainerId = requiredString(placement, "trainer_id");
                     String trigger = placement.has("trigger_override")
                         ? placement.get("trigger_override").getAsString()
-                        : regionalTrigger(settings);
+                        : regionalTrigger(settings, trainerId);
                     if (spawnRegionalNpc(
-                        level, requiredString(placement, "trainer_id"),
+                        level, trainerId,
                         new BlockPos(
                             position.get("x").getAsInt(), position.get("y").getAsInt(),
                             position.get("z").getAsInt()
@@ -6957,7 +7023,8 @@ public final class CobbleventureBootstrap {
                 && index < positions.size(); index++) {
                 if (spawnRegionalNpc(
                     level, candidates.get(index), positions.get(index),
-                    index % 2 == 0 ? 90.0F : -90.0F, regionalTrigger(settings)
+                    index % 2 == 0 ? 90.0F : -90.0F,
+                    regionalTrigger(settings, candidates.get(index))
                 )) placed++;
             }
             if (placed > 0) LOGGER.info("Cave NPC placement completed: cave={}, spawned={}", entry.getKey(), placed);
@@ -7034,14 +7101,19 @@ public final class CobbleventureBootstrap {
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 if (spawnRegionalNpc(
                     level, candidates.get(spawned), new BlockPos(x, y, z),
-                    index % 2 == 0 ? 90.0F : -90.0F, regionalTrigger(settings)
+                    index % 2 == 0 ? 90.0F : -90.0F,
+                    regionalTrigger(settings, candidates.get(spawned))
                 )) spawned++;
             }
             if (spawned > 0) LOGGER.info("Forest NPC placement completed: forest={}, spawned={}", entry.getKey(), spawned);
         }
     }
 
-    private static String regionalTrigger(JsonObject settings) {
+    private static String regionalTrigger(JsonObject settings, String trainerId) {
+        if (settings.has("trainer_trigger_overrides")) {
+            JsonObject overrides = settings.getAsJsonObject("trainer_trigger_overrides");
+            if (overrides.has(trainerId)) return overrides.get(trainerId).getAsString();
+        }
         return settings.has("trigger_override")
             ? settings.get("trigger_override").getAsString() : "proximity";
     }
@@ -7401,6 +7473,60 @@ public final class CobbleventureBootstrap {
                 grid, settlements.get(path.to()), path.centerline().getLast(),
                 path.id(), "to"
             );
+            if (path.surfaceStyle().equals("log_bridge")) {
+                Set<HexCoord> routeArea = new HashSet<>(path.cells());
+                HexSettlement from = settlements.get(path.from());
+                HexSettlement to = settlements.get(path.to());
+                if (from != null) routeArea.addAll(townFootprint(from));
+                if (to != null) routeArea.addAll(townFootprint(to));
+                Point first = path.centerline().getFirst();
+                if (!routeArea.contains(grid.worldToHex(first.x(), first.z()))) {
+                    throw new IllegalStateException(
+                        "Log bridge left its authored hex tiles: route=" + path.id()
+                            + ", point=" + first
+                    );
+                }
+                for (int index = 1; index < path.centerline().size(); index++) {
+                    Point previous = path.centerline().get(index - 1);
+                    Point current = path.centerline().get(index);
+                    if (previous.x() != current.x()
+                        && previous.z() != current.z()) {
+                        throw new IllegalStateException(
+                            "Log bridge segment is not axis-aligned: route=" + path.id()
+                                + ", from=" + previous + ", to=" + current
+                        );
+                    }
+                    if (!routeArea.contains(grid.worldToHex(current.x(), current.z()))) {
+                        throw new IllegalStateException(
+                            "Log bridge left its authored hex tiles: route=" + path.id()
+                                + ", point=" + current
+                        );
+                    }
+                }
+            }
+        }
+        verifySharedLogBridgeJunctions(paths);
+    }
+
+    private static void verifySharedLogBridgeJunctions(List<ConnectionPath> paths) {
+        for (int leftIndex = 0; leftIndex < paths.size(); leftIndex++) {
+            ConnectionPath left = paths.get(leftIndex);
+            if (!left.surfaceStyle().equals("log_bridge")) continue;
+            Set<HexCoord> leftCells = Set.copyOf(left.cells());
+            Set<Point> leftPoints = Set.copyOf(left.centerline());
+            for (int rightIndex = leftIndex + 1; rightIndex < paths.size(); rightIndex++) {
+                ConnectionPath right = paths.get(rightIndex);
+                if (!right.surfaceStyle().equals("log_bridge")
+                    || right.cells().stream().noneMatch(leftCells::contains)) {
+                    continue;
+                }
+                if (right.centerline().stream().noneMatch(leftPoints::contains)) {
+                    throw new IllegalStateException(
+                        "Log bridge routes sharing a world cell do not meet: left="
+                            + left.id() + ", right=" + right.id()
+                    );
+                }
+            }
         }
     }
 
@@ -7853,7 +7979,6 @@ public final class CobbleventureBootstrap {
         profiler.finishPhase("sealed-outer-decoration");
         progress.update(83, "직접 배치 길 생성 중");
         drawHexRoads(level, world);
-        spawnRouteNpcs(level, world);
         profiler.finishPhase("route-rendering");
     }
 
@@ -8617,16 +8742,28 @@ public final class CobbleventureBootstrap {
         if (closest > 2.5D) {
             return null;
         }
-        Direction.Axis axis = Math.abs(tangentX) >= Math.abs(tangentZ)
-            ? Direction.Axis.X : Direction.Axis.Z;
-        BlockState deck = closest >= 1.5D
-            ? Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState().setValue(
-                BlockStateProperties.AXIS, axis
-            )
-            : Blocks.SPRUCE_PLANKS.defaultBlockState();
-        boolean support = closest >= 1.5D
+        Direction facing = Math.abs(tangentX) >= Math.abs(tangentZ)
+            ? (tangentX >= 0.0D ? Direction.EAST : Direction.WEST)
+            : (tangentZ >= 0.0D ? Direction.SOUTH : Direction.NORTH);
+        BlockState deck = Blocks.CAMPFIRE.defaultBlockState()
+            .setValue(BlockStateProperties.LIT, false)
+            .setValue(BlockStateProperties.HORIZONTAL_FACING, facing);
+        boolean overOcean = logBridgeOverOceanAt(world, x, z);
+        boolean support = overOcean && closest >= 1.5D
             && Math.floorMod((int) Math.round(progress), 6) == 0;
-        return new LogBridgeDeckPlan(WATER_SURFACE_Y + 1, deck, support);
+        int deckY = overOcean
+            ? WATER_SURFACE_Y + 1
+            : roadUnderlyingGroundY(world, x, z) + 1;
+        return new LogBridgeDeckPlan(deckY, deck, support, overOcean);
+    }
+
+    private static boolean logBridgeOverOceanAt(
+        HexWorldPlan world, int x, int z
+    ) {
+        TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
+        return sample != null && sample.kind().equals("route")
+            && sample.surfaceStyle().equals("log_bridge")
+            && biomeAt(world, x + 0.5D, z + 0.5D, sample).contains("ocean");
     }
 
     private static RouteBounds routeBounds(List<Point> centerline) {
@@ -8745,14 +8882,23 @@ public final class CobbleventureBootstrap {
     ) {
         stats.columns++;
         int groundY = terrainGroundY(world, sample, x, z);
-        boolean aquatic = isAquatic(sample);
-        boolean coastalWater = isCoastalWater(world, sample, x, z, groundY);
-        boolean sandyShore = coastalWater || isSandyShore(world, sample, x, z, groundY);
+        boolean logBridge = sample.surfaceStyle().equals("log_bridge");
+        boolean bridgeOverOcean = logBridge && logBridgeOverOceanAt(world, x, z);
+        boolean aquatic = logBridge ? bridgeOverOcean : isAquatic(sample);
+        boolean coastalWater = !logBridge
+            && isCoastalWater(world, sample, x, z, groundY);
+        boolean sandyShore = !logBridge
+            && (coastalWater || isSandyShore(world, sample, x, z, groundY));
         String biome = biomeAt(world, x + 0.5D, z + 0.5D, sample);
-        BlockState surface = sandyShore
+        BlockState surface = logBridge
+            ? bridgeOverOcean ? Blocks.GRAVEL.defaultBlockState()
+                : roadSurfaceBlock(world, sample, x, z)
+            : sandyShore
             ? Blocks.SAND.defaultBlockState()
             : surfaceBlock(biome);
-        BlockState filler = sandyShore
+        BlockState filler = logBridge && bridgeOverOcean
+            ? Blocks.STONE.defaultBlockState()
+            : sandyShore
             ? Blocks.SAND.defaultBlockState()
             : fillerBlock(biome);
         BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos(x, 0, z);
@@ -9016,7 +9162,11 @@ public final class CobbleventureBootstrap {
     static int terrainGroundY(
         HexWorldPlan world, TerrainSample sample, double x, double z
     ) {
-        if (sample.kind().equals("route") && sample.surfaceStyle().equals("road")) {
+        if (sample.kind().equals("route") && (sample.surfaceStyle().equals("road")
+            || (sample.surfaceStyle().equals("log_bridge")
+                && !logBridgeOverOceanAt(
+                    world, (int) Math.floor(x), (int) Math.floor(z)
+                )))) {
             return roadColumnPlan(world, sample.owner(), x, z).groundY();
         }
         int groundY = baseTerrainGroundY(world, sample, x, z);
@@ -9043,7 +9193,10 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world, TerrainSample sample, double x, double z
     ) {
         int rawHeight = rawTerrainHeight(world, sample, x, z);
-        if (isAquatic(sample)) {
+        if (isAquatic(sample) && (!sample.surfaceStyle().equals("log_bridge")
+            || logBridgeOverOceanAt(
+                world, (int) Math.floor(x), (int) Math.floor(z)
+            ))) {
             return aquaticGroundY(world, sample, x, z, rawHeight);
         }
         rawHeight = settlementPadGroundY(world, sample, x, z, rawHeight);
@@ -9650,7 +9803,10 @@ public final class CobbleventureBootstrap {
     ) {
         TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
         int boundaryRockHeight = oceanBoundaryRockHeight(world, x, z);
-        if (boundaryRockHeight > 0 && (sample == null || isAquatic(sample))) {
+        boolean logBridge = sample != null && sample.kind().equals("route")
+            && sample.surfaceStyle().equals("log_bridge");
+        if (boundaryRockHeight > 0 && !logBridge
+            && (sample == null || isAquatic(sample))) {
             int topY = WATER_SURFACE_Y + boundaryRockHeight;
             String biome = sample == null ? "minecraft:deep_ocean" : sample.biome();
             return new NativeTerrainColumn(
@@ -9733,17 +9889,22 @@ public final class CobbleventureBootstrap {
         }
 
         int groundY = terrainGroundY(world, sample, x, z);
-        boolean aquatic = isAquatic(sample);
-        boolean coastalWater = isCoastalWater(world, sample, x, z, groundY);
-        boolean sandyShore = isSandyShore(world, sample, x, z, groundY);
+        logBridge = sample.surfaceStyle().equals("log_bridge");
+        boolean bridgeOverOcean = logBridge && logBridgeOverOceanAt(world, x, z);
+        boolean aquatic = logBridge ? bridgeOverOcean : isAquatic(sample);
+        boolean coastalWater = !logBridge
+            && isCoastalWater(world, sample, x, z, groundY);
+        boolean sandyShore = !logBridge
+            && isSandyShore(world, sample, x, z, groundY);
         String biome = biomeAt(world, x + 0.5D, z + 0.5D, sample);
-        BlockState surface = sample.surfaceStyle().equals("log_bridge")
-            ? Blocks.GRAVEL.defaultBlockState()
+        BlockState surface = logBridge
+            ? bridgeOverOcean ? Blocks.GRAVEL.defaultBlockState()
+                : roadSurfaceBlock(world, sample, x, z)
             : sample.surfaceStyle().equals("road") && !aquatic
             ? roadSurfaceBlock(world, sample, x, z)
             : sandyShore ? Blocks.SAND.defaultBlockState()
             : surfaceBlock(biome);
-        BlockState filler = sample.surfaceStyle().equals("log_bridge")
+        BlockState filler = logBridge && bridgeOverOcean
             ? Blocks.STONE.defaultBlockState()
             : sandyShore ? Blocks.SAND.defaultBlockState() : fillerBlock(biome);
         return new NativeTerrainColumn(
@@ -11494,7 +11655,7 @@ public final class CobbleventureBootstrap {
                 float yaw = (float) Math.toDegrees(Math.atan2(-point.tangentX(), point.tangentZ()));
                 if (spawnRegionalNpc(
                     level, population.candidates().get(index), new BlockPos(x, y, z), yaw,
-                    population.triggerOverride()
+                    population.triggerFor(population.candidates().get(index))
                 )) spawned++;
             }
         }
@@ -11530,11 +11691,60 @@ public final class CobbleventureBootstrap {
     static boolean spawnRegionalNpc(
         ServerLevel level, String npcId, BlockPos position, float yaw, String triggerOverride
     ) {
-        AABB nearby = new AABB(position).inflate(1.75D, 2.5D, 1.75D);
-        boolean occupied = level.getEntitiesOfClass(Entity.class, nearby).stream().anyMatch(entity ->
-            BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).getNamespace().equals("easy_npc")
+        BlockPos safePosition = findRegionalNpcPosition(level, position);
+        if (safePosition == null) {
+            LOGGER.warn(
+                "Regional NPC has no safe standing position: npc={}, requested={}",
+                npcId, position
+            );
+            return false;
+        }
+        if (!safePosition.equals(position)) {
+            LOGGER.info(
+                "Regional NPC position adjusted: npc={}, requested={}, resolved={}",
+                npcId, position, safePosition
+            );
+        }
+        AABB nearby = new AABB(safePosition).inflate(1.75D, 2.5D, 1.75D);
+        Set<Entity> nearbyEntities = new LinkedHashSet<>(
+            level.getEntitiesOfClass(Entity.class, nearby)
         );
-        if (occupied) return false;
+        if (!safePosition.equals(position)) {
+            nearbyEntities.addAll(level.getEntitiesOfClass(
+                Entity.class, new AABB(position).inflate(1.75D, 2.5D, 1.75D)
+            ));
+        }
+        List<Entity> existingNpcs = nearbyEntities.stream()
+            .filter(entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+            .getNamespace().equals("easy_npc"))
+            .toList();
+        Entity currentNpc = existingNpcs.stream()
+            .filter(entity -> entity.getTags().contains("cobbleventure_npc_preset_v4"))
+            .findFirst()
+            .orElse(null);
+        if (currentNpc != null) {
+            currentNpc.teleportTo(
+                safePosition.getX() + 0.5D, safePosition.getY(), safePosition.getZ() + 0.5D
+            );
+            currentNpc.setYRot(yaw);
+            for (Entity duplicate : existingNpcs) {
+                if (duplicate != currentNpc) duplicate.discard();
+            }
+            return true;
+        }
+        // Regional NPCs are authored from generated presets. Refresh the NPC
+        // occupying this slot once when its revision changes. Current NPCs are
+        // kept across restarts so their UUID-based per-player battle state is
+        // stable.
+        for (Entity existingNpc : existingNpcs) {
+            existingNpc.discard();
+        }
+        if (!existingNpcs.isEmpty()) {
+            LOGGER.info(
+                "Refreshing regional NPC preset: npc={}, position={}, replaced={}",
+                npcId, safePosition, existingNpcs.size()
+            );
+        }
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         String suffix = switch (triggerOverride) {
             case "interact" -> "__interact";
@@ -11542,23 +11752,71 @@ public final class CobbleventureBootstrap {
             default -> "";
         };
         String command = "easy_npc preset import_new data easy_npc:preset/encounter/"
-            + slug + suffix + ".npc.snbt " + position.getX() + " " + position.getY() + " " + position.getZ();
+            + slug + suffix + ".npc.snbt " + safePosition.getX() + " "
+            + safePosition.getY() + " " + safePosition.getZ();
         try {
             int result = level.getServer().getCommands().getDispatcher().execute(
                 command,
                 level.getServer().createCommandSourceStack()
                     .withLevel(level)
-                    .withPosition(Vec3.atLowerCornerOf(position))
+                    .withPosition(Vec3.atLowerCornerOf(safePosition))
                     .withRotation(new Vec2(0.0F, yaw))
                     .withPermission(4)
                     .withSuppressedOutput()
             );
-            if (result == 0) LOGGER.warn("Regional NPC command returned no result: npc={}, position={}", npcId, position);
+            if (result == 0) LOGGER.warn("Regional NPC command returned no result: npc={}, position={}", npcId, safePosition);
             return result != 0;
         } catch (CommandSyntaxException error) {
-            LOGGER.error("Regional NPC placement failed: npc={}, position={}", npcId, position, error);
+            LOGGER.error("Regional NPC placement failed: npc={}, position={}", npcId, safePosition, error);
             return false;
         }
+    }
+
+    private static BlockPos findRegionalNpcPosition(ServerLevel level, BlockPos requested) {
+        for (int radius = 0; radius <= 5; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (radius > 0 && Math.abs(dx) != radius && Math.abs(dz) != radius) continue;
+                    for (int vertical = 0; vertical <= 8; vertical++) {
+                        int[] offsets = vertical == 0
+                            ? new int[] {0} : new int[] {vertical, -vertical};
+                        for (int dy : offsets) {
+                            BlockPos candidate = requested.offset(dx, dy, dz);
+                            if (canRegionalNpcStandAt(level, candidate)
+                                && hasRegionalNpcExit(level, candidate)) {
+                                return candidate;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean canRegionalNpcStandAt(ServerLevel level, BlockPos feet) {
+        if (feet.getY() <= level.getMinBuildHeight()
+            || feet.getY() >= level.getMaxBuildHeight() - 1) return false;
+        BlockPos floor = feet.below();
+        BlockPos head = feet.above();
+        return !level.getBlockState(floor).getCollisionShape(level, floor).isEmpty()
+            && level.getFluidState(floor).isEmpty()
+            && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+            && level.getFluidState(feet).isEmpty()
+            && level.getBlockState(head).getCollisionShape(level, head).isEmpty()
+            && level.getFluidState(head).isEmpty();
+    }
+
+    private static boolean hasRegionalNpcExit(ServerLevel level, BlockPos feet) {
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            BlockPos adjacent = feet.relative(direction);
+            if (canRegionalNpcStandAt(level, adjacent)
+                || canRegionalNpcStandAt(level, adjacent.above())
+                || canRegionalNpcStandAt(level, adjacent.below())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void drawHexRoads(ServerLevel level, HexWorldPlan world) {
@@ -11612,8 +11870,6 @@ public final class CobbleventureBootstrap {
             double length = Math.max(1.0D, Math.hypot(dx, dz));
             double normalX = -dz / length;
             double normalZ = dx / length;
-            Direction.Axis routeAxis = Math.abs(dx) >= Math.abs(dz)
-                ? Direction.Axis.X : Direction.Axis.Z;
             for (int step = 0; step <= steps; step++) {
                 double factor = step / (double) steps;
                 int centerX = (int) Math.round(start.x() + dx * factor);
@@ -11621,32 +11877,27 @@ public final class CobbleventureBootstrap {
                 for (int side = -2; side <= 2; side++) {
                     int x = (int) Math.round(centerX + normalX * side);
                     int z = (int) Math.round(centerZ + normalZ * side);
-                    BlockState deck = Math.abs(side) == 2
-                        ? Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState().setValue(
-                            BlockStateProperties.AXIS, routeAxis
-                        )
-                        : Blocks.SPRUCE_PLANKS.defaultBlockState();
-                    int deckY = WATER_SURFACE_Y + 1;
                     LogBridgeDeckPlan plan = logBridgeDeckAt(world, x, z);
-                    if (plan != null && plan.support()) {
+                    if (plan == null) continue;
+                    if (plan.support()) {
                         TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
                         int floorY = terrainGroundY(world, sample, x, z);
-                        for (int y = floorY + 1; y < deckY; y++) {
+                        for (int y = floorY + 1; y < plan.y(); y++) {
                             level.setBlock(
                                 new BlockPos(x, y, z),
                                 Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState(), 2
                             );
                         }
                     }
-                    level.setBlock(new BlockPos(x, deckY, z), deck, 2);
-                    for (int y = deckY + 1; y <= deckY + 4; y++) {
+                    level.setBlock(new BlockPos(x, plan.y(), z), plan.state(), 2);
+                    for (int y = plan.y() + 1; y <= plan.y() + 4; y++) {
                         level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
                     }
                 }
             }
         }
         LOGGER.info(
-            "Log bridge completed: route={}, material=spruce_planks/stripped_spruce_log",
+            "Log bridge completed: route={}, deck=unlit_campfire, supports=stripped_spruce_log",
             connection.id()
         );
     }
@@ -11664,32 +11915,60 @@ public final class CobbleventureBootstrap {
         int repaired = 0;
         for (int x = chunk.getMinBlockX(); x <= chunk.getMaxBlockX(); x++) {
             for (int z = chunk.getMinBlockZ(); z <= chunk.getMaxBlockZ(); z++) {
-                TerrainSample sample = terrainAt(world, x + 0.5D, z + 0.5D);
-                if (sample == null || !sample.kind().equals("route")
-                    || !sample.surfaceStyle().equals("log_bridge")) {
-                    continue;
-                }
-                NativeTerrainColumn terrain = nativeTerrainColumn(world, x, z);
-                BlockPos floorPosition = new BlockPos(x, terrain.groundY(), z);
-                if (!level.getBlockState(floorPosition).is(Blocks.GRAVEL)) {
-                    level.setBlock(floorPosition, Blocks.GRAVEL.defaultBlockState(), 2);
-                    repaired++;
-                }
-                for (int y = terrain.groundY() + 1; y <= WATER_SURFACE_Y; y++) {
-                    BlockPos waterPosition = new BlockPos(x, y, z);
-                    if (!level.getBlockState(waterPosition).is(Blocks.WATER)) {
-                        level.setBlock(waterPosition, Blocks.WATER.defaultBlockState(), 2);
-                        repaired++;
-                    }
-                }
                 LogBridgeDeckPlan deck = logBridgeDeckAt(world, x, z);
                 if (deck == null) continue;
+                NativeTerrainColumn terrain = nativeTerrainColumn(world, x, z);
+                if (deck.overOcean()) {
+                    BlockPos floorPosition = new BlockPos(x, terrain.groundY(), z);
+                    if (!level.getBlockState(floorPosition).is(Blocks.GRAVEL)) {
+                        level.setBlock(floorPosition, Blocks.GRAVEL.defaultBlockState(), 2);
+                        repaired++;
+                    }
+                    for (int y = terrain.groundY() + 1; y <= WATER_SURFACE_Y; y++) {
+                        BlockPos waterPosition = new BlockPos(x, y, z);
+                        if (!level.getBlockState(waterPosition).is(Blocks.WATER)) {
+                            level.setBlock(waterPosition, Blocks.WATER.defaultBlockState(), 2);
+                            repaired++;
+                        }
+                    }
+                } else {
+                    int fillStart = Math.min(
+                        WATER_SURFACE_Y - 20, terrain.groundY() - 4
+                    );
+                    for (int y = fillStart; y < terrain.groundY(); y++) {
+                        BlockPos fillerPosition = new BlockPos(x, y, z);
+                        if (!level.getBlockState(fillerPosition).equals(terrain.filler())) {
+                            level.setBlock(fillerPosition, terrain.filler(), 2);
+                            repaired++;
+                        }
+                    }
+                    BlockState road = worldRoadSurfaceBlock(world, x, z);
+                    BlockPos roadPosition = new BlockPos(x, terrain.groundY(), z);
+                    if (!level.getBlockState(roadPosition).equals(road)) {
+                        level.setBlock(roadPosition, road, 2);
+                        repaired++;
+                    }
+                    for (int y = terrain.groundY() + 1; y < deck.y(); y++) {
+                        BlockPos airPosition = new BlockPos(x, y, z);
+                        if (!level.getBlockState(airPosition).isAir()) {
+                            level.setBlock(airPosition, Blocks.AIR.defaultBlockState(), 2);
+                            repaired++;
+                        }
+                    }
+                }
                 BlockPos oldDeckPosition = new BlockPos(x, WATER_SURFACE_Y, z);
-                BlockState oldDeck = level.getBlockState(oldDeckPosition);
-                if (oldDeck.is(Blocks.SPRUCE_PLANKS)
-                    || oldDeck.is(Blocks.STRIPPED_SPRUCE_LOG)) {
-                    level.setBlock(oldDeckPosition, Blocks.WATER.defaultBlockState(), 2);
-                    repaired++;
+                if (!oldDeckPosition.equals(new BlockPos(x, deck.y(), z))) {
+                    BlockState oldDeck = level.getBlockState(oldDeckPosition);
+                    if (oldDeck.is(Blocks.SPRUCE_PLANKS)
+                        || oldDeck.is(Blocks.STRIPPED_SPRUCE_LOG)
+                        || oldDeck.is(Blocks.CAMPFIRE)) {
+                        level.setBlock(
+                            oldDeckPosition, deck.overOcean()
+                                ? Blocks.WATER.defaultBlockState()
+                                : terrain.filler(), 2
+                        );
+                        repaired++;
+                    }
                 }
                 if (deck.support()) {
                     for (int y = terrain.groundY() + 1; y < deck.y(); y++) {
@@ -11761,6 +12040,17 @@ public final class CobbleventureBootstrap {
         controls = anchorRouteAtTownEdge(
             grid, settlements.get(connection.to()), controls, true
         );
+        if (connection.surfaceStyle().equals("log_bridge")) {
+            Set<HexCoord> routeArea = new HashSet<>(cells);
+            HexSettlement from = settlements.get(connection.from());
+            HexSettlement to = settlements.get(connection.to());
+            if (from != null) routeArea.addAll(townFootprint(from));
+            if (to != null) routeArea.addAll(townFootprint(to));
+            controls = orthogonalLogBridgeControls(
+                grid, controls, routeArea, connection.logBridgeLayout()
+            );
+            return List.copyOf(densifyRouteControls(controls, 12.0D));
+        }
         for (int pass = 0; pass < 2 && controls.size() > 2; pass++) {
             controls = smoothRouteControls(controls);
         }
@@ -11799,6 +12089,229 @@ public final class CobbleventureBootstrap {
             }
         }
         return List.copyOf(curved);
+    }
+
+    private static List<WarpedPoint> orthogonalLogBridgeControls(
+        HexGrid grid,
+        List<WarpedPoint> controls,
+        Set<HexCoord> routeArea,
+        LogBridgeLayout layout
+    ) {
+        if (controls.size() < 2) {
+            return controls;
+        }
+        List<WarpedPoint> orthogonal = new ArrayList<>();
+        appendRouteControl(orthogonal, controls.getFirst());
+        for (int segment = 1; segment < controls.size(); segment++) {
+            WarpedPoint start = controls.get(segment - 1);
+            WarpedPoint end = controls.get(segment);
+            boolean horizontalFirst = Math.floorMod(segment, 2) == 0;
+            WarpedPoint preferredElbow = horizontalFirst
+                ? new WarpedPoint(end.x(), start.z())
+                : new WarpedPoint(start.x(), end.z());
+            WarpedPoint alternateElbow = horizontalFirst
+                ? new WarpedPoint(start.x(), end.z())
+                : new WarpedPoint(end.x(), start.z());
+            List<WarpedPoint> bend = axisBend(start, preferredElbow, end);
+            if (!axisControlsInsideRouteArea(grid, routeArea, bend, 3)) {
+                bend = axisBend(start, alternateElbow, end);
+            }
+            if (!axisControlsInsideRouteArea(grid, routeArea, bend, 3)) {
+                bend = midpointAxisBend(start, end, horizontalFirst);
+            }
+            if (!axisControlsInsideRouteArea(grid, routeArea, bend, 3)) {
+                bend = midpointAxisBend(start, end, !horizontalFirst);
+            }
+            if (!axisControlsInsideRouteArea(grid, routeArea, bend, 3)) {
+                bend = axisBend(start, preferredElbow, end);
+            }
+            if (!axisControlsInsideRouteArea(grid, routeArea, bend, 0)) {
+                bend = axisBend(start, alternateElbow, end);
+            }
+            if (!axisControlsInsideRouteArea(grid, routeArea, bend, 0)) {
+                throw new IllegalStateException(
+                    "Could not keep axis-aligned log bridge inside its authored tiles: "
+                        + start + " -> " + end
+                );
+            }
+            for (int leg = 1; leg < bend.size(); leg++) {
+                appendPatternedLogBridgeSegment(
+                    grid, routeArea, orthogonal,
+                    bend.get(leg - 1), bend.get(leg),
+                    segment * 2 - 2 + leg, layout
+                );
+            }
+        }
+        return orthogonal;
+    }
+
+    private static List<WarpedPoint> axisBend(
+        WarpedPoint start, WarpedPoint elbow, WarpedPoint end
+    ) {
+        List<WarpedPoint> bend = new ArrayList<>();
+        appendRouteControl(bend, start);
+        appendRouteControl(bend, elbow);
+        appendRouteControl(bend, end);
+        return bend;
+    }
+
+    private static List<WarpedPoint> midpointAxisBend(
+        WarpedPoint start, WarpedPoint end, boolean horizontalMiddle
+    ) {
+        List<WarpedPoint> bend = new ArrayList<>();
+        appendRouteControl(bend, start);
+        if (horizontalMiddle) {
+            double middleZ = (start.z() + end.z()) * 0.5D;
+            appendRouteControl(bend, new WarpedPoint(start.x(), middleZ));
+            appendRouteControl(bend, new WarpedPoint(end.x(), middleZ));
+        } else {
+            double middleX = (start.x() + end.x()) * 0.5D;
+            appendRouteControl(bend, new WarpedPoint(middleX, start.z()));
+            appendRouteControl(bend, new WarpedPoint(middleX, end.z()));
+        }
+        appendRouteControl(bend, end);
+        return bend;
+    }
+
+    private static void appendPatternedLogBridgeSegment(
+        HexGrid grid,
+        Set<HexCoord> routeArea,
+        List<WarpedPoint> controls,
+        WarpedPoint start,
+        WarpedPoint end,
+        int segment,
+        LogBridgeLayout layout
+    ) {
+        if (start.equals(end)) {
+            return;
+        }
+        double dx = end.x() - start.x();
+        double dz = end.z() - start.z();
+        if (dx != 0.0D && dz != 0.0D) {
+            throw new IllegalArgumentException(
+                "Patterned log bridge segment must be axis-aligned"
+            );
+        }
+        double length = Math.abs(dx) + Math.abs(dz);
+        int pattern = logBridgePatternAt(layout.pattern(), segment);
+        if (length < 72.0D || pattern < 0) {
+            appendRouteControl(controls, end);
+            return;
+        }
+
+        double requested = Math.max(6.0D, Math.min(24.0D, layout.detourBlocks()));
+        for (double detour = requested; detour >= 6.0D; detour -= 2.0D) {
+            for (double direction : new double[] {1.0D, -1.0D}) {
+                List<WarpedPoint> candidate = patternedLogBridgeSegment(
+                    start, end, pattern, detour * direction
+                );
+                if (!axisControlsInsideRouteArea(grid, routeArea, candidate, 3)) continue;
+                for (int index = 1; index < candidate.size(); index++) {
+                    appendRouteControl(controls, candidate.get(index));
+                }
+                return;
+            }
+        }
+        appendRouteControl(controls, end);
+    }
+
+    private static int logBridgePatternAt(String pattern, int segment) {
+        return switch (pattern) {
+            case "u_turn" -> Math.floorMod(segment, 4) == 1 ? 0 : -1;
+            case "zigzag" -> Math.floorMod(segment, 4) == 1 ? 1 : -1;
+            case "alternating" -> Math.floorMod(segment, 6) == 1 ? 0
+                : Math.floorMod(segment, 6) == 4 ? 1 : -1;
+            default -> -1;
+        };
+    }
+
+    private static List<WarpedPoint> patternedLogBridgeSegment(
+        WarpedPoint start, WarpedPoint end, int pattern, double side
+    ) {
+        List<WarpedPoint> candidate = new ArrayList<>();
+        appendRouteControl(candidate, start);
+        double dx = end.x() - start.x();
+        double dz = end.z() - start.z();
+        double length = Math.abs(dx) + Math.abs(dz);
+        double directionX = Math.signum(dx);
+        double directionZ = Math.signum(dz);
+        if (pattern == 0) {
+            appendAlongRoute(candidate, start, directionX, directionZ, length * 0.34D);
+            appendAcrossRoute(candidate, directionX, directionZ, side);
+            appendAlongRoute(candidate, candidate.getLast(), directionX, directionZ, length * 0.32D);
+            appendAcrossRoute(candidate, directionX, directionZ, -side);
+        } else {
+            appendAlongRoute(candidate, start, directionX, directionZ, length * 0.25D);
+            appendAcrossRoute(candidate, directionX, directionZ, side);
+            appendAlongRoute(candidate, candidate.getLast(), directionX, directionZ, length * 0.25D);
+            appendAcrossRoute(candidate, directionX, directionZ, -side * 2.0D);
+            appendAlongRoute(candidate, candidate.getLast(), directionX, directionZ, length * 0.25D);
+            appendAcrossRoute(candidate, directionX, directionZ, side);
+        }
+        appendRouteControl(candidate, end);
+        return candidate;
+    }
+
+    private static boolean axisControlsInsideRouteArea(
+        HexGrid grid, Set<HexCoord> routeArea,
+        List<WarpedPoint> controls, int margin
+    ) {
+        for (int segment = 1; segment < controls.size(); segment++) {
+            WarpedPoint start = controls.get(segment - 1);
+            WarpedPoint end = controls.get(segment);
+            double dx = end.x() - start.x();
+            double dz = end.z() - start.z();
+            if (dx != 0.0D && dz != 0.0D) return false;
+            int steps = Math.max(1, (int) Math.ceil(Math.abs(dx) + Math.abs(dz)));
+            for (int step = 0; step <= steps; step++) {
+                double progress = step / (double) steps;
+                double x = start.x() + dx * progress;
+                double z = start.z() + dz * progress;
+                int stepSize = Math.max(1, margin);
+                for (int offsetX = -margin; offsetX <= margin; offsetX += stepSize) {
+                    for (int offsetZ = -margin; offsetZ <= margin; offsetZ += stepSize) {
+                        HexCoord cell = grid.worldToHex(x + offsetX, z + offsetZ);
+                        if (!routeArea.contains(cell)) return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private static void appendAlongRoute(
+        List<WarpedPoint> controls,
+        WarpedPoint start,
+        double directionX,
+        double directionZ,
+        double distance
+    ) {
+        appendRouteControl(controls, new WarpedPoint(
+            start.x() + directionX * distance,
+            start.z() + directionZ * distance
+        ));
+    }
+
+    private static void appendAcrossRoute(
+        List<WarpedPoint> controls,
+        double directionX,
+        double directionZ,
+        double distance
+    ) {
+        WarpedPoint start = controls.getLast();
+        appendRouteControl(controls, new WarpedPoint(
+            start.x() - directionZ * distance,
+            start.z() + directionX * distance
+        ));
+    }
+
+    private static void appendRouteControl(
+        List<WarpedPoint> controls, WarpedPoint point
+    ) {
+        if (!controls.isEmpty() && controls.getLast().equals(point)) {
+            return;
+        }
+        controls.add(point);
     }
 
     private static List<WarpedPoint> anchorRouteAtTownEdge(
@@ -12638,7 +13151,9 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world, TerrainSample sample, int x, int z
     ) {
         int choice = roadSurfaceChoice(world, x, z);
-        if (sample.kind().equals("route") && sample.surfaceStyle().equals("road")) {
+        if (sample.kind().equals("route") && (sample.surfaceStyle().equals("road")
+            || (sample.surfaceStyle().equals("log_bridge")
+                && !logBridgeOverOceanAt(world, x, z)))) {
             Direction stairDirection = roadColumnPlan(
                 world, sample.owner(), x, z
             ).stairDirection();
@@ -12791,26 +13306,86 @@ public final class CobbleventureBootstrap {
         LOGGER.info("Temporary generation waiting area removed at {}", center);
     }
 
+    static BuildingRuntimeSystem.SpawnDestination resolveStarterSpawn(
+        MinecraftServer server, StarterSpawnSystem.StarterConfig config
+    ) {
+        ResourceKey<Level> dimension = ResourceKey.create(
+            Registries.DIMENSION,
+            ResourceLocation.fromNamespaceAndPath(
+                "cobbleventure", "generation_" + config.generation()
+            )
+        );
+        ServerLevel level = server.getLevel(dimension);
+        if (level == null) {
+            LOGGER.error("Starter generation dimension is missing: {}", dimension.location());
+            return null;
+        }
+        if (config.generation() != 1) {
+            return new BuildingRuntimeSystem.SpawnDestination(
+                level, level.getSharedSpawnPos(), 0.0F
+            );
+        }
+        SettlementPlan settlement = activeSettlements.get(config.town());
+        if (settlement == null) {
+            LOGGER.error("Starter settlement is missing: {}", config.town());
+            return null;
+        }
+        if (config.mode().equals("town")) {
+            BlockPos safe = safeTeleportPosition(
+                level, settlement.playerSpawn().x(), settlement.playerSpawn().z()
+            );
+            return new BuildingRuntimeSystem.SpawnDestination(
+                level, safe == null ? settlement.playerSpawn().toBlockPos().above() : safe,
+                0.0F
+            );
+        }
+        FacilityPlacement facility = settlement.facilities().stream()
+            .filter(candidate -> candidate.id().equals(config.building()))
+            .findFirst().orElse(null);
+        if (facility == null) {
+            LOGGER.error(
+                "Starter building is missing: settlement={}, building={}",
+                settlement.id(), config.building()
+            );
+            return null;
+        }
+        BlockPoint resolved = facility.mode().equals("instanced_entry")
+            ? facility.instanceOrigin()
+            : resolveDirectFacilityPosition(level, settlement, facility);
+        BlockPoint position = resolved == null ? null
+            : applyBuildingPlacementYOffset(facility.structure(), resolved);
+        if (position == null) {
+            return null;
+        }
+        String rotation = facility.id().contains("gym") ? RGS_GYM_ROTATION : "none";
+        BlockPoint placedOrigin = facility.mode().equals("direct_template")
+            ? facilityPlacementOrigin(level, facility, position, rotation) : position;
+        BuildingRuntimeSystem.SpawnDestination destination =
+            BuildingRuntimeSystem.resolveStarterSpawn(
+                level, facility.structure(), placedOrigin, rotation,
+                config.space(), config.mode().equals("slot") ? config.npcSlot() : null
+            );
+        if (destination == null) {
+            LOGGER.error(
+                "Starter building destination is missing: settlement={}, building={}, space={}, slot={}",
+                settlement.id(), facility.id(), config.space(), config.npcSlot()
+            );
+        }
+        return destination;
+    }
+
     private static void movePlayerToStart(
         ServerPlayer player,
         ServerLevel level,
         BlockPos spawnPos
     ) {
-        player.teleportTo(
-            level,
-            spawnPos.getX() + 0.5D,
-            spawnPos.getY() + 1.0D,
-            spawnPos.getZ() + 0.5D,
-            0.0F,
-            0.0F
-        );
-        player.setRespawnPosition(GENERATION_ONE, spawnPos, 0.0F, true, false);
+        StarterSpawnSystem.movePlayerToDefaultStart(player, level, spawnPos);
         player.getPersistentData().putBoolean(PLAYER_STARTED, true);
         player.getPersistentData().remove(PLAYER_WAITING);
     }
 
     private static void moveWaitingPlayersToStart(ServerLevel level, BlockPos spawnPos) {
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : List.copyOf(level.players())) {
             if (player.getPersistentData().getBoolean(PLAYER_WAITING)) {
                 movePlayerToStart(player, level, spawnPos);
             }
@@ -13138,7 +13713,9 @@ public final class CobbleventureBootstrap {
         TerrainSample sample
     ) {}
 
-    record LogBridgeDeckPlan(int y, BlockState state, boolean support) {}
+    record LogBridgeDeckPlan(
+        int y, BlockState state, boolean support, boolean overOcean
+    ) {}
 
     static final class ShoreDistanceField {
         private final int minX;

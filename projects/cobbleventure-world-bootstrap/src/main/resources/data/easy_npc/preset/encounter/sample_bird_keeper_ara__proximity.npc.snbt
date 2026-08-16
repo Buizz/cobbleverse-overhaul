@@ -11,7 +11,7 @@
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_bird_keeper_ara tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_bird_keeper_ara onwin {1:[\"scoreboard objectives add cvf_b1ffe75d50ec dummy\",\"scoreboard players set @1 cvf_b1ffe75d50ec 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}],ON_DISTANCE_CLOSE:[{Cmd:"/title @initiator actionbar {\"text\":\"주변에 트레이너가 있습니다!\",\"color\":\"gold\"}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_CLOSE:[{Cmd:"/cobbleventure_proximity_battle @initiator @s cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_bird_keeper_ara tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_bird_keeper_ara onwin {1:[\"scoreboard objectives add cvf_b1ffe75d50ec dummy\",\"scoreboard players set @1 cvf_b1ffe75d50ec 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"새 조련사 아라\"}",
@@ -23,6 +23,7 @@
     PersistenceRequired:1b,
     PresetUUID:[I;1404383453,-292921490,-1139319566,-723599274],
     SkinData:{Type:"CUSTOM",UUID:[I;1132497999,-25470206,-1801480281,519337899] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

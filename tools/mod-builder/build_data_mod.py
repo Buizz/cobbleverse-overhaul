@@ -355,10 +355,10 @@ def _building_indoor_npc_capacity(
         for interior in interiors
         if isinstance(interior, dict) and interior.get("key") in reachable
     )
-    # A citizen-enabled building is itself one automatic placement unit. An
-    # authored interior may expose additional positions when multiple NPCs are
-    # intentionally allowed in the same building.
-    return max(1, explicit_slots)
+    # Automatic indoor NPCs live in the separately instanced building world.
+    # An exterior-only building therefore has no valid indoor capacity even if
+    # citizen placement is enabled for a future interior connection.
+    return explicit_slots
 
 
 def _town_indoor_npc_capacity(
@@ -1724,6 +1724,8 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
                 "automatic_npc_placement": copy.deepcopy(preset.get("automatic_npc_placement", {"enabled": False, "count": 0})),
                 "automatic_npc_candidates": copy.deepcopy(preset.get("automatic_npc_candidates", [])),
             }
+            if route_type == "log_bridge":
+                resolved["log_bridge_layout"] = copy.deepcopy(preset.get("log_bridge_layout", {"pattern": "straight", "detour_blocks": 18}))
             for source_key, target_key in (("boundary_profile", "boundary_profile"), ("terrain_profile", "terrain_profile")):
                 if corridor.get(source_key) is not None:
                     resolved[target_key] = copy.deepcopy(corridor[source_key])
@@ -1741,6 +1743,10 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
             resolved["npc_placements"] = copy.deepcopy(preset.get("npc_placements", []))
             resolved["automatic_npc_placement"] = copy.deepcopy(preset.get("automatic_npc_placement", {"enabled": False, "count": 0}))
             resolved["automatic_npc_candidates"] = copy.deepcopy(preset.get("automatic_npc_candidates", []))
+            if route_type == "log_bridge":
+                resolved["log_bridge_layout"] = copy.deepcopy(preset.get("log_bridge_layout", {"pattern": "straight", "detour_blocks": 18}))
+            else:
+                resolved.pop("log_bridge_layout", None)
             for source_key, target_key in (("boundary_profile", "boundary_profile"), ("terrain_profile", "terrain_profile")):
                 if corridor.get(source_key) is not None:
                     resolved[target_key] = copy.deepcopy(corridor[source_key])

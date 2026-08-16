@@ -362,6 +362,19 @@
       "reason": "체육관 퍼즐의 벨트·선풍기·이동 장치와 월드 기계 장식 구현"
     },
     {
+      "id": "copycats",
+      "display_name": "Create: Copycats+",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "3.0.4+mc.1.21.1-neoforge",
+      "curseforge": {
+        "project_id": 968398,
+        "file_id": 7251823
+      },
+      "reason": "Create 건축물에 재질을 입힐 수 있는 카피캣 블록과 문·패널·계단 확장"
+    },
+    {
       "id": "rctapi",
       "display_name": "Radical Cobblemon Trainers API",
       "classification": "required",

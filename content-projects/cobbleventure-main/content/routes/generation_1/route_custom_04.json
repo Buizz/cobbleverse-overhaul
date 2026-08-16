@@ -23,5 +23,15 @@
     "additions": [],
     "level_overrides": []
   },
-  "npc_placements": []
+  "npc_placements": [],
+  "automatic_npc_placement": {
+    "enabled": true,
+    "count": 2,
+    "use_biome_defaults": true,
+    "direct_trainers": [
+      "cobbleventure:npc/ai_test",
+      "cobbleventure:npc/sample_bug_catcher_doyun"
+    ],
+    "trigger_override": "proximity"
+  }
 }

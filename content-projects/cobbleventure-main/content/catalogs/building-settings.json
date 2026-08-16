@@ -3,6 +3,7 @@
   "buildings": {
     "cobbleventure:cave_entrance/ocean": {
       "placement_y_offset": -1,
+      "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -11,6 +12,7 @@
     },
     "cobbleventure:cave_entrance/plains": {
       "placement_y_offset": -1,
+      "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -19,6 +21,7 @@
     },
     "cobbleventure:cave_entrance/red_rock_mountain": {
       "placement_y_offset": -1,
+      "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -27,6 +30,7 @@
     },
     "cobbleventure:cave_entrance/snow_mountain": {
       "placement_y_offset": -1,
+      "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -35,6 +39,7 @@
     },
     "cobbleventure:cave_entrance/stone_mountain": {
       "placement_y_offset": -1,
+      "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -50,8 +55,18 @@
       "interiors": [],
       "door_routes": {}
     },
+    "cobbleventure:gate/default_gate": {
+      "placement_y_offset": 0,
+      "structure_category": "natural_feature",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
     "cobbleventure:gyms/base_gym": {
       "placement_y_offset": 0,
+      "structure_category": "gym_exterior",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -60,6 +75,7 @@
     },
     "cobbleventure:houses/five_story_flat": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -68,6 +84,7 @@
     },
     "cobbleventure:houses/five_story_gable": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -76,6 +93,7 @@
     },
     "cobbleventure:houses/five_story_gambrel": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -84,6 +102,7 @@
     },
     "cobbleventure:houses/five_story_shed": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -92,6 +111,7 @@
     },
     "cobbleventure:houses/one_story_flat": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -100,14 +120,30 @@
     },
     "cobbleventure:houses/one_story_gable": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/npc_house1"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
     },
     "cobbleventure:houses/one_story_gambrel": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -116,6 +152,7 @@
     },
     "cobbleventure:houses/one_story_shed": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -124,6 +161,7 @@
     },
     "cobbleventure:houses/two_story_flat": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -132,6 +170,7 @@
     },
     "cobbleventure:houses/two_story_gable": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -140,6 +179,7 @@
     },
     "cobbleventure:houses/two_story_gambrel": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -148,6 +188,7 @@
     },
     "cobbleventure:houses/two_story_shed": {
       "placement_y_offset": 0,
+      "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
@@ -156,6 +197,7 @@
     },
     "cobbleventure:interiors/gyms/base_gym_interior": {
       "placement_y_offset": 0,
+      "structure_category": "gym_interior",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -164,6 +206,7 @@
     },
     "cobbleventure:interiors/one_story_shed": {
       "placement_y_offset": 0,
+      "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -172,6 +215,7 @@
     },
     "cobbleventure:interiors/player_house": {
       "placement_y_offset": 0,
+      "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -180,6 +224,7 @@
     },
     "cobbleventure:league/kanto_league": {
       "placement_y_offset": 0,
+      "structure_category": "league",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -188,6 +233,7 @@
     },
     "cobbleventure:placeholder/basic_building_1": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -196,6 +242,7 @@
     },
     "cobbleventure:placeholder/basic_building_2": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -204,6 +251,7 @@
     },
     "cobbleventure:placeholder/basic_building_3": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -212,6 +260,7 @@
     },
     "cobbleventure:placeholder/battle_tower": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -220,6 +269,7 @@
     },
     "cobbleventure:placeholder/casino": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -228,6 +278,7 @@
     },
     "cobbleventure:placeholder/daycare": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -236,6 +287,7 @@
     },
     "cobbleventure:placeholder/fossil_laboratory": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -244,6 +296,7 @@
     },
     "cobbleventure:placeholder/gym_site": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -252,6 +305,7 @@
     },
     "cobbleventure:placeholder/hotel": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -260,14 +314,30 @@
     },
     "cobbleventure:placeholder/laboratory": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/laboratory"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
     },
     "cobbleventure:placeholder/lighthouse": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -276,6 +346,7 @@
     },
     "cobbleventure:placeholder/mansion": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -284,6 +355,7 @@
     },
     "cobbleventure:placeholder/player_house": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -306,6 +378,7 @@
     },
     "cobbleventure:placeholder/power_plant": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -314,6 +387,7 @@
     },
     "cobbleventure:placeholder/radio_tower": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -322,6 +396,7 @@
     },
     "cobbleventure:placeholder/tm_workshop": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -330,6 +405,7 @@
     },
     "cobbleventure:placeholder/train_station": {
       "placement_y_offset": 0,
+      "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -338,6 +414,7 @@
     },
     "cobbleventure:town_decorations/bench": {
       "placement_y_offset": 0,
+      "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -346,6 +423,7 @@
     },
     "cobbleventure:town_decorations/flower_bed": {
       "placement_y_offset": 0,
+      "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -354,6 +432,7 @@
     },
     "cobbleventure:town_decorations/fountain": {
       "placement_y_offset": 0,
+      "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -362,6 +441,7 @@
     },
     "cobbleventure:town_decorations/street_lamp": {
       "placement_y_offset": 0,
+      "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -370,16 +450,8 @@
     },
     "cobbleventure:town_decorations/street_tree": {
       "placement_y_offset": 0,
+      "structure_category": "decoration",
       "no_interior_space": true,
-      "fixed_npcs": {},
-      "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
-    },
-    "cobbleventure:gate/default_gate": {
-      "placement_y_offset": 0,
-      "structure_category": "natural_feature",
-      "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],

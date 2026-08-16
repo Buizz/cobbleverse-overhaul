@@ -33,6 +33,7 @@ public final class BattleIntroOverlay {
         String opponentName,
         int durationTicks
     ) {
+        BattleWarningOverlay.stop();
         state = new IntroState(
             playerEntityId,
             opponentEntityId,

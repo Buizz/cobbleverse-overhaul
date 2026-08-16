@@ -91,6 +91,11 @@
         "use_biome_defaults": { "type": "boolean", "default": true },
         "direct_trainers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "trigger_override": { "$ref": "#/$defs/trigger_override" },
+        "trainer_trigger_overrides": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+          "additionalProperties": { "$ref": "#/$defs/trigger_override" }
+        },
         "class_pool": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
         "placements": {
           "type": "array",

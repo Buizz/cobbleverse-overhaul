@@ -538,8 +538,53 @@ def validate_hex_worlds(
         if not isinstance(radius, int) or isinstance(radius, bool) or not 32 <= radius <= 256:
             _issue(issues, "error", path, "$.grid.tile_radius_blocks", "32 이상 256 이하의 정수여야 합니다.")
         map_radius = grid.get("map_radius_cells") if isinstance(grid, dict) else None
-        if map_radius is not None and (not isinstance(map_radius, int) or isinstance(map_radius, bool) or not 3 <= map_radius <= 14):
-            _issue(issues, "error", path, "$.grid.map_radius_cells", "3 이상 14 이하의 정수여야 합니다.")
+        if map_radius is not None and (not isinstance(map_radius, int) or isinstance(map_radius, bool) or not 3 <= map_radius <= 64):
+            _issue(issues, "error", path, "$.grid.map_radius_cells", "3 이상 64 이하의 정수여야 합니다.")
+        visible_coordinates: list[tuple[int, int]] = []
+        for field in ("tiles", "environment_overrides", "level_overrides", "music_overrides"):
+            for value in world.get(field, []) if isinstance(world.get(field, []), list) else []:
+                if isinstance(value, dict) and all(
+                    isinstance(value.get(axis), int) and not isinstance(value.get(axis), bool)
+                    for axis in ("q", "r")
+                ):
+                    visible_coordinates.append((value["q"], value["r"]))
+        for field in ("settlements", "objects", "cave_entrances", "forest_entrances"):
+            for value in world.get(field, []) if isinstance(world.get(field, []), list) else []:
+                anchor = value.get("anchor") if isinstance(value, dict) else None
+                if isinstance(anchor, dict) and all(
+                    isinstance(anchor.get(axis), int) and not isinstance(anchor.get(axis), bool)
+                    for axis in ("q", "r")
+                ):
+                    visible_coordinates.append((anchor["q"], anchor["r"]))
+                    if field == "settlements" and value.get("town_footprint_shape") == "custom":
+                        for relative in value.get("town_footprint_cells", []):
+                            if isinstance(relative, dict) and all(
+                                isinstance(relative.get(axis), int) and not isinstance(relative.get(axis), bool)
+                                for axis in ("q", "r")
+                            ):
+                                visible_coordinates.append((
+                                    anchor["q"] + relative["q"],
+                                    anchor["r"] + relative["r"],
+                                ))
+        for connection in world.get("connections", []) if isinstance(world.get("connections", []), list) else []:
+            if not isinstance(connection, dict):
+                continue
+            route_cells = connection.get("cells", connection.get("path", []))
+            for value in route_cells if isinstance(route_cells, list) else []:
+                if isinstance(value, dict) and all(
+                    isinstance(value.get(axis), int) and not isinstance(value.get(axis), bool)
+                    for axis in ("q", "r")
+                ):
+                    visible_coordinates.append((value["q"], value["r"]))
+        visible_radius = max(
+            (_hex_distance((0, 0), coordinate) for coordinate in visible_coordinates),
+            default=0,
+        )
+        if isinstance(map_radius, int) and not isinstance(map_radius, bool) and visible_radius > map_radius:
+            _issue(
+                issues, "error", path, "$.grid.map_radius_cells",
+                f"표시할 타일과 배치 요소를 포함하려면 반경이 최소 {visible_radius}이어야 합니다.",
+            )
         empty_terrain = world.get("empty_terrain", {"default_type": "high_forest", "tiles": []})
         empty_types = {"high_forest", "dense_forest", "ocean", "deep_ocean", "desert", "stone_mountain", "red_rock_mountain", "snow_mountain"}
         empty_coordinates: set[tuple[int, int]] = set()
@@ -3512,6 +3557,19 @@ def _validate_trainer_population(
             _resource_id(trainer_id, issues, path, f"{base}.direct_trainers[{index}]")
         if len(direct) != len(set(value for value in direct if isinstance(value, str))):
             _issue(issues, "error", path, f"{base}.direct_trainers", "직접 지정 트레이너는 중복될 수 없습니다.")
+    trigger = population.get("trigger_override", "proximity")
+    if trigger not in {"source", "interact", "proximity"}:
+        _issue(issues, "error", path, f"{base}.trigger_override", "지원하지 않는 지역 조우 정책입니다.")
+    overrides = population.get("trainer_trigger_overrides", {})
+    if not isinstance(overrides, dict):
+        _issue(issues, "error", path, f"{base}.trainer_trigger_overrides", "NPC별 조우 정책은 객체여야 합니다.")
+    else:
+        for trainer_id, trainer_trigger in overrides.items():
+            _resource_id(trainer_id, issues, path, f"{base}.trainer_trigger_overrides")
+            if trainer_id not in direct:
+                _issue(issues, "error", path, f"{base}.trainer_trigger_overrides", "직접 지정한 트레이너만 개별 조우 정책을 설정할 수 있습니다.")
+            if trainer_trigger not in {"source", "interact", "proximity"}:
+                _issue(issues, "error", path, f"{base}.trainer_trigger_overrides.{trainer_id}", "지원하지 않는 개별 조우 정책입니다.")
 
 
 def validate_battle_preset_file(path: Path) -> tuple[str | None, list[Issue]]:
@@ -4214,6 +4272,66 @@ def save_game_definitions(root: Path, data: Any) -> list[Issue]:
         candidate = Path(directory) / target.name
         candidate.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         issues = validate_game_definitions_file(candidate)
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(target)
+    return issues
+
+
+def validate_starter_settings(root: Path, data: Any) -> list[Issue]:
+    path = root / "content" / "catalogs" / "starter-settings.json"
+    issues: list[Issue] = []
+    document = _require_object(data, issues, path, "$")
+    if document is None:
+        return issues
+    if document.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "스타팅 설정 버전은 1이어야 합니다.")
+    default_generation = document.get("default_generation")
+    generations = _require_list(document.get("generations"), issues, path, "$.generations") or []
+    settlement_ids = {
+        item.get("id")
+        for item in _list_documents(root, "settlements")
+        if isinstance(item.get("id"), str)
+    }
+    seen: set[int] = set()
+    for index, value in enumerate(generations):
+        entry_path = f"$.generations[{index}]"
+        entry = _require_object(value, issues, path, entry_path)
+        if entry is None:
+            continue
+        generation = entry.get("generation")
+        if not isinstance(generation, int) or isinstance(generation, bool) or not 1 <= generation <= 9:
+            _issue(issues, "error", path, f"{entry_path}.generation", "세대는 1부터 9까지의 정수여야 합니다.")
+        elif generation in seen:
+            _issue(issues, "error", path, f"{entry_path}.generation", "같은 세대 설정이 중복되었습니다.")
+        else:
+            seen.add(generation)
+        town = entry.get("town")
+        if town not in settlement_ids:
+            _issue(issues, "error", path, f"{entry_path}.town", "프로젝트에 존재하는 시작 마을을 선택해야 합니다.")
+        spawn = _require_object(entry.get("spawn"), issues, path, f"{entry_path}.spawn")
+        if spawn is None:
+            continue
+        mode = spawn.get("mode")
+        if mode not in {"town", "building", "slot"}:
+            _issue(issues, "error", path, f"{entry_path}.spawn.mode", "시작 방식은 town, building, slot 중 하나여야 합니다.")
+        if "set_respawn" in spawn and not isinstance(spawn["set_respawn"], bool):
+            _issue(issues, "error", path, f"{entry_path}.spawn.set_respawn", "리스폰 지점 적용 여부는 true 또는 false여야 합니다.")
+        if mode in {"building", "slot"} and not isinstance(spawn.get("building"), str):
+            _issue(issues, "error", path, f"{entry_path}.spawn.building", "시작 건물 ID가 필요합니다.")
+        if mode == "slot":
+            for field in ("space", "npc_slot"):
+                if not isinstance(spawn.get(field), str) or not spawn[field]:
+                    _issue(issues, "error", path, f"{entry_path}.spawn.{field}", "NPC 슬롯의 내부 공간과 라벨이 필요합니다.")
+    if default_generation not in seen:
+        _issue(issues, "error", path, "$.default_generation", "기본 시작 세대는 등록된 세대 중 하나여야 합니다.")
+    return issues
+
+
+def save_starter_settings(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "starter-settings.json"
+    issues = validate_starter_settings(root, data)
     if not any(issue.level == "error" for issue in issues):
         temporary = target.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -5618,6 +5736,12 @@ def validate_repository(
         dependency_root / "pack" / "dependencies.lock.json", strict_pack
     )
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
+    starter_path = root / "content" / "catalogs" / "starter-settings.json"
+    if starter_path.is_file():
+        try:
+            issues.extend(validate_starter_settings(root, load_json(starter_path)))
+        except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+            _issue(issues, "error", starter_path, "$", f"스타팅 설정을 읽을 수 없습니다: {error}")
     issues.extend(validate_music_catalog_file(root / "content" / "catalogs" / "music-tracks.json"))
     issues.extend(validate_music_references(root))
     issues.extend(validate_gym_catalog_file(root / "content" / "catalogs" / "gyms.json", root / "content" / "structures"))
@@ -6441,6 +6565,16 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
         _issue(issues, "error", path, "$.enabled", "사용 여부는 true 또는 false여야 합니다.")
     if data.get("route_type") not in {"road", "trail", "water", "log_bridge"}:
         _issue(issues, "error", path, "$.route_type", "길 종류는 road, trail, water, log_bridge 중 하나여야 합니다.")
+    bridge_layout = data.get("log_bridge_layout")
+    if bridge_layout is not None:
+        if not isinstance(bridge_layout, dict):
+            _issue(issues, "error", path, "$.log_bridge_layout", "통나무다리 경로 설정은 객체여야 합니다.")
+        else:
+            if bridge_layout.get("pattern") not in {"straight", "u_turn", "zigzag", "alternating"}:
+                _issue(issues, "error", path, "$.log_bridge_layout.pattern", "직선, ㄷ자, ㄹ자 또는 ㄷ/ㄹ 교차 형태가 필요합니다.")
+            detour = bridge_layout.get("detour_blocks")
+            if not isinstance(detour, (int, float)) or isinstance(detour, bool) or not 6 <= detour <= 24:
+                _issue(issues, "error", path, "$.log_bridge_layout.detour_blocks", "우회 폭은 6 이상 24 이하 숫자여야 합니다.")
 
     corridor = data.get("corridor")
     if not isinstance(corridor, dict):
@@ -7704,6 +7838,7 @@ def _route_template(slug: str, name: str) -> dict[str, Any]:
         "auto_name": True,
         "enabled": True,
         "route_type": "road",
+        "log_bridge_layout": {"pattern": "straight", "detour_blocks": 18},
         "corridor": {"width_blocks": 12, "edge_noise": 0},
         "level_scaling": {"mode": "world", "offset": 0},
         "pokemon_spawns": {
@@ -9370,8 +9505,12 @@ def validate_building_npc_positions(
             feet = block_names.get((x, y, z), "minecraft:air")
             head = block_names.get((x, y + 1, z), "minecraft:air")
             floor = block_names.get((x, y - 1, z), "minecraft:air")
-            if feet not in free_blocks or head not in free_blocks:
-                _issue(issues, "error", sidecar, f"{anchor_path}.position", "NPC 발과 머리 위치에 2블록의 빈 공간이 필요합니다.")
+            seated = _is_npc_seat_block(feet)
+            if (feet not in free_blocks and not seated) or head not in free_blocks:
+                _issue(
+                    issues, "error", sidecar, f"{anchor_path}.position",
+                    "NPC 발 위치는 빈 공간 또는 의자여야 하며 머리 위치는 비어 있어야 합니다.",
+                )
                 continue
             if floor in free_blocks or floor == "minecraft:structure_void":
                 _issue(issues, "error", sidecar, f"{anchor_path}.position", "NPC 위치 바로 아래에 바닥 블록이 필요합니다.")
@@ -9438,6 +9577,15 @@ def validate_building_npc_positions(
                 "내부공간을 직접 연결한 건물에는 외부에서 접근 가능한 npc_position이 하나 이상 필요합니다.",
             )
     return issues
+
+
+def _is_npc_seat_block(block_name: str) -> bool:
+    """Return whether an authored block can act as an NPC seat."""
+    path = block_name.partition(":")[2] or block_name
+    return any(
+        path == suffix or path.endswith(f"_{suffix}")
+        for suffix in ("chair", "stool", "seat", "bench")
+    )
 
 
 @functools.lru_cache(maxsize=1)
@@ -10317,6 +10465,12 @@ def create_handler(
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/starter-settings":
+                try:
+                    self._json(200, load_json(root / "content" / "catalogs" / "starter-settings.json"))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/music-catalog":
                 try:
                     catalog, _ = sync_local_music_catalog(root, core_root)
@@ -10940,6 +11094,16 @@ def create_handler(
                 try:
                     payload = self._read_json()
                     issues = save_game_definitions(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/starter-settings":
+                try:
+                    payload = self._read_json()
+                    issues = save_starter_settings(root, payload)
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})
                     return

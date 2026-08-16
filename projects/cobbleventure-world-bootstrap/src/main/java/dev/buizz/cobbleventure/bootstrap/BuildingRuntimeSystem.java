@@ -23,6 +23,8 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.FloatTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -32,18 +34,24 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -114,6 +122,189 @@ final class BuildingRuntimeSystem {
                 instanceKey, settings
             );
         }
+    }
+
+    static SpawnDestination resolveStarterSpawn(
+        ServerLevel exterior, String exteriorStructure,
+        CobbleventureBootstrap.BlockPoint exteriorOrigin, String rotationName,
+        String requestedSpace, String npcSlot
+    ) {
+        BuildingSettings settings = settingsForStructure(exteriorStructure);
+        if (settings == null || settings.interiors.isEmpty()) {
+            return null;
+        }
+        InteriorSetting interior = requestedSpace == null || requestedSpace.isBlank()
+            ? settings.interiors.getFirst()
+            : settings.interiors.stream()
+                .filter(candidate -> candidate.key.equals(requestedSpace))
+                .findFirst().orElse(null);
+        if (interior == null) {
+            return null;
+        }
+        StructureMetadata metadata = METADATA.get(interior.structure);
+        ServerLevel level = exterior.getServer().getLevel(INTERIORS);
+        if (metadata == null || level == null) {
+            return null;
+        }
+        String key = instanceKey(
+            exterior, exteriorStructure, exteriorOrigin.toBlockPos()
+        );
+        BlockPos base = instanceOrigin(data(exterior.getServer()), key, false);
+        int index = settings.interiors.indexOf(interior);
+        BlockPos origin = base.offset(
+            (index % 4) * 128, placementYOffset(interior.structure), (index / 4) * 128
+        );
+        Anchor anchor = npcSlot == null || npcSlot.isBlank()
+            ? metadata.first("door") : metadata.namedNpc(npcSlot);
+        if (anchor == null) {
+            return null;
+        }
+        BlockPos local = anchor.safeSpawn == null ? anchor.position : anchor.safeSpawn;
+        BlockPos position = transform(origin, local, Rotation.NONE);
+        return new SpawnDestination(level, position, anchor.facing.toYRot());
+    }
+
+    static SpawnDestination resolveAutomaticNpcSpawn(
+        ServerLevel exterior, String exteriorStructure,
+        CobbleventureBootstrap.BlockPoint exteriorOrigin, String rotationName, int slot
+    ) {
+        BuildingSettings settings = settingsForStructure(exteriorStructure);
+        ServerLevel interiorsLevel = exterior.getServer().getLevel(INTERIORS);
+        if (settings == null || interiorsLevel == null || slot < 0) {
+            return null;
+        }
+        Set<String> reachable = reachableInteriorSpaces(settings);
+        String key = instanceKey(exterior, exteriorStructure, exteriorOrigin.toBlockPos());
+        BlockPos base = instanceOrigin(data(exterior.getServer()), key, false);
+        int remaining = slot;
+        for (int index = 0; index < settings.interiors.size(); index++) {
+            InteriorSetting interior = settings.interiors.get(index);
+            if (!reachable.contains(interior.key)) {
+                continue;
+            }
+            StructureMetadata metadata = METADATA.get(interior.structure);
+            if (metadata == null) {
+                continue;
+            }
+            for (Anchor anchor : metadata.anchors) {
+                if (!anchor.type.equals("npc_position")) {
+                    continue;
+                }
+                if (remaining-- > 0) {
+                    continue;
+                }
+                BlockPos origin = base.offset(
+                    (index % 4) * 128, placementYOffset(interior.structure),
+                    (index / 4) * 128
+                );
+                BlockPos position = transform(origin, anchor.position, Rotation.NONE);
+                return new SpawnDestination(interiorsLevel, position, anchor.facing.toYRot());
+            }
+        }
+        return null;
+    }
+
+    static void showAutomaticNpcPresence(
+        ServerLevel exterior, String exteriorStructure,
+        CobbleventureBootstrap.BlockPoint exteriorOrigin, String rotationName, int count
+    ) {
+        if (count <= 0) {
+            return;
+        }
+        StructureMetadata metadata = METADATA.get(exteriorStructure);
+        if (metadata == null) {
+            return;
+        }
+        Anchor door = metadata.first("door");
+        if (door == null) {
+            return;
+        }
+        Rotation rotation = rotation(rotationName);
+        BlockPos local = door.safeSpawn == null ? door.position : door.safeSpawn;
+        BlockPos markerPosition = transform(exteriorOrigin.toBlockPos(), local, rotation);
+        String instance = instanceKey(exterior, exteriorStructure, exteriorOrigin.toBlockPos());
+        String markerTag = "cv_npc_presence_" + Integer.toUnsignedString(instance.hashCode(), 36);
+        AABB search = new AABB(markerPosition).inflate(4.0D, 4.0D, 4.0D);
+        Display.TextDisplay display = exterior.getEntitiesOfClass(
+            Display.TextDisplay.class, search, entity -> entity.getTags().contains(markerTag)
+        ).stream().findFirst().orElse(null);
+        if (display == null) {
+            display = EntityType.TEXT_DISPLAY.create(exterior);
+            if (display == null) {
+                return;
+            }
+            display.addTag("cobbleventure_npc_presence");
+            display.addTag(markerTag);
+            display.setPos(
+                markerPosition.getX() + 0.5D, markerPosition.getY() + 2.35D,
+                markerPosition.getZ() + 0.5D
+            );
+            if (!exterior.addFreshEntity(display)) {
+                return;
+            }
+        }
+        configureNpcPresenceDisplay(display, count);
+    }
+
+    static void removeNearbyEasyNpc(ServerLevel level, BlockPos position) {
+        AABB nearby = new AABB(position).inflate(2.25D, 2.5D, 2.25D);
+        level.getEntities((Entity) null, nearby, BuildingRuntimeSystem::isEasyNpc)
+            .stream().min(java.util.Comparator.comparingDouble(
+                entity -> entity.distanceToSqr(Vec3.atCenterOf(position))
+            )).ifPresent(Entity::discard);
+    }
+
+    private static Set<String> reachableInteriorSpaces(BuildingSettings settings) {
+        Set<String> reachable = new HashSet<>();
+        reachable.add("exterior");
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (Map.Entry<String, RouteTarget> route : settings.routes.entrySet()) {
+                int separator = route.getKey().indexOf(':');
+                if (separator <= 0) {
+                    continue;
+                }
+                String source = route.getKey().substring(0, separator);
+                String target = route.getValue().space;
+                if (reachable.contains(source) && reachable.add(target)) {
+                    changed = true;
+                }
+                if (reachable.contains(target) && reachable.add(source)) {
+                    changed = true;
+                }
+            }
+        }
+        reachable.remove("exterior");
+        return reachable;
+    }
+
+    private static void configureNpcPresenceDisplay(Display.TextDisplay display, int count) {
+        CompoundTag data = display.saveWithoutId(new CompoundTag());
+        data.putString(
+            "text",
+            "{\"text\":\"◆ NPC " + count + "\",\"color\":\"#8dffad\",\"bold\":true}"
+        );
+        data.putString("billboard", "center");
+        data.putInt("background", 0x55000000);
+        data.putBoolean("shadow", true);
+        data.putBoolean("see_through", true);
+        data.putFloat("view_range", 0.75F);
+        CompoundTag transformation = new CompoundTag();
+        transformation.put("translation", floatList(0.0F, 0.0F, 0.0F));
+        transformation.put("scale", floatList(0.65F, 0.65F, 0.65F));
+        transformation.put("left_rotation", floatList(0.0F, 0.0F, 0.0F, 1.0F));
+        transformation.put("right_rotation", floatList(0.0F, 0.0F, 0.0F, 1.0F));
+        data.put("transformation", transformation);
+        display.load(data);
+    }
+
+    private static ListTag floatList(float... values) {
+        ListTag result = new ListTag();
+        for (float value : values) {
+            result.add(FloatTag.valueOf(value));
+        }
+        return result;
     }
 
     private static void loadMetadata(MinecraftServer server) {
@@ -464,6 +655,11 @@ final class BuildingRuntimeSystem {
     }
 
     static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
+        AABB nearby = new AABB(position).inflate(2.0D, 2.5D, 2.0D);
+        Set<java.util.UUID> existingNpcIds = new HashSet<>();
+        for (Entity entity : level.getEntities((Entity) null, nearby, BuildingRuntimeSystem::isEasyNpc)) {
+            existingNpcIds.add(entity.getUUID());
+        }
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         String preset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
         String command = "easy_npc preset import_new data " + preset + " "
@@ -479,11 +675,91 @@ final class BuildingRuntimeSystem {
             );
             if (result == 0) {
                 LOGGER.warn("Building NPC command returned no result: npc={}, position={}", npcId, position);
+            } else if (isNpcSeatBlock(level.getBlockState(position))) {
+                Entity spawnedNpc = level.getEntities(
+                    (Entity) null, nearby,
+                    entity -> isEasyNpc(entity) && !existingNpcIds.contains(entity.getUUID())
+                ).stream().min(java.util.Comparator.comparingDouble(
+                    entity -> entity.distanceToSqr(Vec3.atCenterOf(position))
+                )).orElse(null);
+                if (spawnedNpc == null || !seatNpc(level, spawnedNpc, position)) {
+                    LOGGER.warn("Building NPC was spawned but could not be seated: npc={}, position={}", npcId, position);
+                }
             }
             return result != 0;
         } catch (CommandSyntaxException error) {
             LOGGER.error("Building NPC placement failed: npc={}, position={}", npcId, position, error);
             return false;
+        }
+    }
+
+    private static boolean isEasyNpc(Entity entity) {
+        return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+            .getNamespace().equals("easy_npc");
+    }
+
+    private static boolean isNpcSeatBlock(BlockState state) {
+        String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+        return path.equals("chair") || path.endsWith("_chair")
+            || path.equals("stool") || path.endsWith("_stool")
+            || path.equals("seat") || path.endsWith("_seat")
+            || path.equals("bench") || path.endsWith("_bench");
+    }
+
+    private static boolean seatNpc(ServerLevel level, Entity npc, BlockPos position) {
+        ArmorStand seat = EntityType.ARMOR_STAND.create(level);
+        if (seat == null) {
+            return false;
+        }
+        BlockState state = level.getBlockState(position);
+        net.minecraft.core.Direction facing = state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
+            ? state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+            : net.minecraft.core.Direction.NORTH;
+        float yaw = facing.toYRot();
+        seat.setInvisible(true);
+        seat.setInvulnerable(true);
+        seat.setNoGravity(true);
+        seat.setSilent(true);
+        CompoundTag seatData = new CompoundTag();
+        seat.saveWithoutId(seatData);
+        seatData.putBoolean("Marker", true);
+        seat.load(seatData);
+        seat.addTag("cobbleventure_npc_seat");
+        seat.moveTo(
+            position.getX() + 0.5D, position.getY() + 0.45D,
+            position.getZ() + 0.5D, yaw, 0.0F
+        );
+        if (!level.addFreshEntity(seat)) {
+            return false;
+        }
+        npc.setYRot(yaw);
+        if (!npc.startRiding(seat, true)) {
+            seat.discard();
+            return false;
+        }
+        applySittingPose(level, npc, position, yaw);
+        return true;
+    }
+
+    private static void applySittingPose(
+        ServerLevel level, Entity npc, BlockPos position, float yaw
+    ) {
+        String command = "easy_npc pose set easy_npc:pose/humanoid/sitting " + npc.getUUID();
+        try {
+            int result = level.getServer().getCommands().getDispatcher().execute(
+                command,
+                level.getServer().createCommandSourceStack()
+                    .withLevel(level)
+                    .withPosition(Vec3.atCenterOf(position))
+                    .withRotation(new net.minecraft.world.phys.Vec2(0.0F, yaw))
+                    .withPermission(4)
+                    .withSuppressedOutput()
+            );
+            if (result == 0) {
+                LOGGER.warn("EasyNPC sitting pose command returned no result: npc={}", npc.getUUID());
+            }
+        } catch (CommandSyntaxException error) {
+            LOGGER.warn("EasyNPC sitting pose could not be applied: npc={}", npc.getUUID(), error);
         }
     }
 
@@ -738,6 +1014,12 @@ final class BuildingRuntimeSystem {
                 .findFirst().orElse(null);
         }
 
+        Anchor namedNpc(String id) {
+            return anchors.stream().filter(anchor -> anchor.id.equals(id)
+                && anchor.type.equals("npc_position"))
+                .findFirst().orElse(null);
+        }
+
     }
 
     private record InteriorSetting(String key, String structure) {
@@ -752,6 +1034,9 @@ final class BuildingRuntimeSystem {
     private record SpaceInstance(
         ServerLevel level, BlockPos origin, Rotation rotation, StructureMetadata metadata
     ) {
+    }
+
+    record SpawnDestination(ServerLevel level, BlockPos position, float yaw) {
     }
 
     private record BuildingSettings(

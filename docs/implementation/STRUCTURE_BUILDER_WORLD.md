@@ -40,6 +40,7 @@ content/structures/*.nbt
 | Cobblemon Casino, Cloth Config | 카지노 시설 블록과 설정 의존성 |
 | CobbleFurnies, Architectury API, Athena | 가구 블록과 모델 렌더링 |
 | Create 6.0.10 | Create 블록과 블록 엔티티가 포함된 건축 NBT를 손실 없이 편집·저장 |
+| Create: Copycats+ 3.0.4 | 카피캣 블록이 포함된 건축 NBT를 손실 없이 편집·저장 |
 | 프로젝트에 가져온 체육관 NBT | `gyms/*.nbt` 외관을 체크무늬에서 직접 수정 |
 | WorldEdit | 대형 건축 편집, 선택과 복사·붙여넣기 |
 | Cobbleventure Structure Builder | 부지 배치, NBT 캡처와 내보내기 |
@@ -54,6 +55,10 @@ Create는 메인 개발팩과 동일한 CurseForge 프로젝트 `328085`, 파일
 (`6.0.10`)을 사용한다. Create 블록이 포함된 NBT는 Create가 없는 월드에서 한 번이라도
 불러오고 다시 저장하면 블록 또는 블록 엔티티 정보가 유실될 수 있으므로 건축 월드에서도
 Create를 제거하지 않는다.
+
+Create: Copycats+도 메인 개발팩과 동일한 CurseForge 프로젝트 `968398`, 파일 `7251823`
+(`3.0.4+mc.1.21.1-neoforge`)을 사용한다. 카피캣 블록의 블록 상태와 재질 정보가 건축 NBT
+왕복 과정에서 유지되도록 건축 월드에도 항상 포함한다.
 
 ## 3. 건축 월드 생성
 

@@ -94,12 +94,26 @@ final class WorldPlanParser {
                 boundary,
                 value.has("terrain_profile")
                     ? terrainProfile(value) : new TerrainProfile(0, 0, 96.0D, 0),
-                required(value, "surface_style"), optional(value, "access_requirement"),
+                required(value, "surface_style"), logBridgeLayout(value),
+                optional(value, "access_requirement"),
                 coordinates(value, "cells"), routePokemonSpawns(value), routeNpcPlacements(value),
                 regionalTrainerPopulation(value, "automatic_npc_placement", "count")
             ));
         }
         return List.copyOf(result);
+    }
+
+    private static LogBridgeLayout logBridgeLayout(JsonObject connection) {
+        if (!connection.has("log_bridge_layout")
+            || !connection.get("log_bridge_layout").isJsonObject()) {
+            return LogBridgeLayout.straight();
+        }
+        JsonObject value = connection.getAsJsonObject("log_bridge_layout");
+        return new LogBridgeLayout(
+            value.has("pattern") ? required(value, "pattern") : "straight",
+            value.has("detour_blocks")
+                ? value.get("detour_blocks").getAsDouble() : 18.0D
+        );
     }
 
     private static List<RouteNpcPlacement> routeNpcPlacements(JsonObject connection) {
@@ -129,11 +143,18 @@ final class WorldPlanParser {
                 candidates.add(element.getAsString());
             }
         }
+        Map<String, String> trainerTriggerOverrides = new LinkedHashMap<>();
+        if (value.has("trainer_trigger_overrides")) {
+            for (Map.Entry<String, JsonElement> entry
+                : value.getAsJsonObject("trainer_trigger_overrides").entrySet()) {
+                trainerTriggerOverrides.put(entry.getKey(), entry.getValue().getAsString());
+            }
+        }
         return new RegionalTrainerPopulation(
             value.has("enabled") && value.get("enabled").getAsBoolean(),
             value.has(countField) ? value.get(countField).getAsInt() : 0,
             value.has("trigger_override") ? value.get("trigger_override").getAsString() : "proximity",
-            List.copyOf(candidates)
+            List.copyOf(candidates), Map.copyOf(trainerTriggerOverrides)
         );
     }
 

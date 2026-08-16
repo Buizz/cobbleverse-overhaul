@@ -1,10 +1,14 @@
 package dev.buizz.cobbleventure.playermenu;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.buizz.cobbleventure.playermenu.client.BattleIntroOverlay;
+import dev.buizz.cobbleventure.playermenu.client.BattleWarningOverlay;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -16,6 +20,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -28,8 +33,12 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 /** Delays a trainer battle while the initiating client displays a versus cut-in. */
 public final class BattleIntro {
     static final int DURATION_TICKS = 56;
+    static final double PROXIMITY_BATTLE_RANGE = 4.0D;
+    private static final double PROXIMITY_WARNING_RANGE = 8.0D;
     private static final String NETWORK_VERSION = "1";
     private static final Map<UUID, PendingBattle> PENDING = new HashMap<>();
+    private static final Map<ProximityKey, PendingProximityBattle> PROXIMITY_PENDING =
+        new HashMap<>();
 
     private BattleIntro() {}
 
@@ -42,6 +51,9 @@ public final class BattleIntro {
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(NETWORK_VERSION);
         registrar.playToClient(OpenPayload.TYPE, OpenPayload.STREAM_CODEC, BattleIntro::handleOpen);
+        registrar.playToClient(
+            WarningPayload.TYPE, WarningPayload.STREAM_CODEC, BattleIntro::handleWarning
+        );
     }
 
     private static void handleOpen(OpenPayload payload, IPayloadContext context) {
@@ -52,6 +64,14 @@ public final class BattleIntro {
             payload.opponentName(),
             payload.durationTicks()
         );
+    }
+
+    private static void handleWarning(WarningPayload payload, IPayloadContext context) {
+        if (payload.visible()) {
+            BattleWarningOverlay.start(payload.opponentName());
+        } else {
+            BattleWarningOverlay.dismiss();
+        }
     }
 
     private static void registerCommands(RegisterCommandsEvent event) {
@@ -70,6 +90,79 @@ public final class BattleIntro {
                                     StringArgumentType.getString(context, "battle_command")
                                 ))))))
         );
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_battle_warning")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .then(Commands.argument("opponent", EntityArgument.entity())
+                        .executes(context -> warn(
+                            EntityArgument.getPlayer(context, "player"),
+                            EntityArgument.getEntity(context, "opponent")
+                        ))))
+        );
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_proximity_battle")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .then(Commands.argument("opponent", EntityArgument.entity())
+                        .then(Commands.argument("battle_command", StringArgumentType.greedyString())
+                            .executes(context -> watchProximity(
+                                EntityArgument.getPlayer(context, "player"),
+                                EntityArgument.getEntity(context, "opponent"),
+                                StringArgumentType.getString(context, "battle_command")
+                            )))))
+        );
+    }
+
+    private static int warn(ServerPlayer player, Entity opponent) {
+        PacketDistributor.sendToPlayer(player, new WarningPayload(
+            opponent.getDisplayName().getString(), true
+        ));
+        return 1;
+    }
+
+    private static void dismissWarning(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, new WarningPayload("", false));
+    }
+
+    private static int watchProximity(
+        ServerPlayer player, Entity opponent, String battleCommand
+    ) {
+        String normalized = battleCommand.startsWith("/")
+            ? battleCommand.substring(1)
+            : battleCommand;
+        if (!normalized.startsWith("cobbleventure_battle_intro ")
+            && !normalized.startsWith("cobbleventure_scaled_trainer_battle ")) {
+            return 0;
+        }
+        int completed;
+        try {
+            completed = player.getServer().getCommands().getDispatcher().execute(
+                "cobbleventure_trainer_state prepare " + opponent.getUUID()
+                    + " " + player.getUUID(),
+                player.getServer().createCommandSourceStack()
+                    .withLevel(player.serverLevel())
+                    .withPermission(4)
+                    .withSuppressedOutput()
+            );
+        } catch (CommandSyntaxException error) {
+            return 0;
+        }
+        if (completed > 0) {
+            PROXIMITY_PENDING.remove(new ProximityKey(
+                player.getUUID(), opponent.getUUID()
+            ));
+            if (!hasProximityPending(player.getUUID())) dismissWarning(player);
+            return 1;
+        }
+        normalized = normalized
+            .replace("@initiator", player.getUUID().toString())
+            .replace("@s", opponent.getUUID().toString());
+        PROXIMITY_PENDING.put(
+            new ProximityKey(player.getUUID(), opponent.getUUID()),
+            new PendingProximityBattle(opponent, normalized)
+        );
+        return warn(player, opponent);
     }
 
     private static int start(
@@ -81,8 +174,20 @@ public final class BattleIntro {
             : battleCommand;
         if (!normalized.startsWith("tbcs battle ")) return 0;
 
+        // The actual battle runs after the intro. Resolve EasyNPC's contextual
+        // selectors now so a removed or relocated NPC cannot invalidate the
+        // delayed command source.
+        normalized = normalized
+            .replace("@initiator", player.getUUID().toString())
+            .replace("@s", opponent.getUUID().toString());
+        PROXIMITY_PENDING.keySet().removeIf(key -> key.playerId.equals(player.getUUID()));
+
         long executeAt = source.getServer().overworld().getGameTime() + DURATION_TICKS;
-        PENDING.put(player.getUUID(), new PendingBattle(source, normalized, executeAt));
+        Vec3 lockedPosition = player.position();
+        freezeForIntro(player, opponent, lockedPosition);
+        PENDING.put(player.getUUID(), new PendingBattle(
+            source, normalized, executeAt, opponent, lockedPosition
+        ));
         MusicPlayback.prepareBattle(player, battleId);
         PacketDistributor.sendToPlayer(player, new OpenPayload(
             player.getId(),
@@ -96,22 +201,106 @@ public final class BattleIntro {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         long gameTime = event.getServer().overworld().getGameTime();
+        Set<UUID> triggeredPlayers = new HashSet<>();
+        Iterator<Map.Entry<ProximityKey, PendingProximityBattle>> proximityIterator =
+            PROXIMITY_PENDING.entrySet().iterator();
+        while (proximityIterator.hasNext()) {
+            Map.Entry<ProximityKey, PendingProximityBattle> entry = proximityIterator.next();
+            UUID playerId = entry.getKey().playerId;
+            if (triggeredPlayers.contains(playerId)) {
+                proximityIterator.remove();
+                continue;
+            }
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(playerId);
+            PendingProximityBattle pending = entry.getValue();
+            Entity opponent = pending.opponent;
+            if (player == null) {
+                proximityIterator.remove();
+                continue;
+            }
+            if (!opponent.isAlive() || player.level() != opponent.level()) {
+                proximityIterator.remove();
+                if (!hasProximityPending(playerId)) dismissWarning(player);
+                continue;
+            }
+            double dx = player.getX() - opponent.getX();
+            double dz = player.getZ() - opponent.getZ();
+            double horizontalDistanceSquared = dx * dx + dz * dz;
+            if (horizontalDistanceSquared > PROXIMITY_WARNING_RANGE * PROXIMITY_WARNING_RANGE) {
+                proximityIterator.remove();
+                if (!hasProximityPending(playerId)) dismissWarning(player);
+                continue;
+            }
+            if (horizontalDistanceSquared > PROXIMITY_BATTLE_RANGE * PROXIMITY_BATTLE_RANGE) {
+                continue;
+            }
+            proximityIterator.remove();
+            triggeredPlayers.add(playerId);
+            event.getServer().getCommands().performPrefixedCommand(
+                event.getServer().createCommandSourceStack()
+                    .withLevel(player.serverLevel())
+                    .withPosition(opponent.position())
+                    .withPermission(4)
+                    .withSuppressedOutput(),
+                pending.battleCommand
+            );
+        }
+        if (!triggeredPlayers.isEmpty()) {
+            PROXIMITY_PENDING.keySet().removeIf(
+                key -> triggeredPlayers.contains(key.playerId)
+            );
+        }
+
         Iterator<Map.Entry<UUID, PendingBattle>> iterator = PENDING.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<UUID, PendingBattle> entry = iterator.next();
             PendingBattle pending = entry.getValue();
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(entry.getKey());
+            if (player == null || !pending.opponent.isAlive()
+                || player.level() != pending.opponent.level()) {
+                iterator.remove();
+                continue;
+            }
+            freezeForIntro(player, pending.opponent, pending.lockedPosition);
             if (pending.executeAt > gameTime) continue;
             iterator.remove();
-            if (event.getServer().getPlayerList().getPlayer(entry.getKey()) == null) continue;
             event.getServer().getCommands().performPrefixedCommand(
                 pending.source, pending.battleCommand
             );
         }
     }
 
+    private static void freezeForIntro(
+        ServerPlayer player, Entity opponent, Vec3 lockedPosition
+    ) {
+        double dx = opponent.getX() - lockedPosition.x;
+        double dz = opponent.getZ() - lockedPosition.z;
+        double dy = opponent.getEyeY() - player.getEyeY();
+        double horizontal = Math.max(0.0001D, Math.sqrt(dx * dx + dz * dz));
+        float yaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
+        float pitch = (float)-Math.toDegrees(Math.atan2(dy, horizontal));
+        player.setDeltaMovement(Vec3.ZERO);
+        player.teleportTo(
+            player.serverLevel(),
+            lockedPosition.x, lockedPosition.y, lockedPosition.z,
+            yaw, pitch
+        );
+    }
+
+    private static boolean hasProximityPending(UUID playerId) {
+        return PROXIMITY_PENDING.keySet().stream().anyMatch(
+            key -> key.playerId.equals(playerId)
+        );
+    }
+
     private record PendingBattle(
-        CommandSourceStack source, String battleCommand, long executeAt
+        CommandSourceStack source, String battleCommand, long executeAt,
+        Entity opponent, Vec3 lockedPosition
     ) {}
+
+    private record PendingProximityBattle(Entity opponent, String battleCommand) {}
+
+    private record ProximityKey(UUID playerId, UUID opponentId) {}
 
     record OpenPayload(
         int playerEntityId,
@@ -141,6 +330,36 @@ public final class BattleIntro {
                 buffer.readUtf(128),
                 buffer.readUtf(128),
                 Math.max(20, Math.min(100, buffer.readVarInt()))
+            );
+        }
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    record WarningPayload(
+        String opponentName,
+        boolean visible
+    ) implements CustomPacketPayload {
+        private static final Type<WarningPayload> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(
+                CobbleventurePlayerMenu.MOD_ID, "battle_warning_open"
+            )
+        );
+        private static final StreamCodec<RegistryFriendlyByteBuf, WarningPayload> STREAM_CODEC =
+            StreamCodec.ofMember(WarningPayload::write, WarningPayload::read);
+
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(opponentName, 128);
+            buffer.writeBoolean(visible);
+        }
+
+        private static WarningPayload read(RegistryFriendlyByteBuf buffer) {
+            return new WarningPayload(
+                buffer.readUtf(128),
+                buffer.readBoolean()
             );
         }
 

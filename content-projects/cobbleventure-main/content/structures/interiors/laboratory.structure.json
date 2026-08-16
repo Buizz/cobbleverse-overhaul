@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "structure": "content/structures/interiors/player_house.nbt",
+  "structure": "content/structures/interiors/laboratory.nbt",
   "interior": {
-    "id": "player_house",
+    "id": "laboratory",
     "width": 32,
     "depth": 32,
-    "floor_height": 10,
-    "floors": 2
+    "floor_height": 12,
+    "floors": 1
   },
   "anchors": [
     {
@@ -14,12 +14,12 @@
       "label": "door",
       "type": "door",
       "position": [
-        17,
+        15,
         1,
         1
       ],
       "safe_spawn": [
-        17,
+        15,
         1,
         2
       ],
@@ -27,19 +27,28 @@
       "safe_side": "south"
     },
     {
-      "label": "start",
+      "label": "professor_oak",
       "type": "npc_position",
       "position": [
-        15,
-        7,
+        16,
+        1,
+        14
+      ]
+    },
+    {
+      "label": "researcher2",
+      "type": "npc_position",
+      "position": [
+        12,
+        1,
         6
       ]
     },
     {
-      "label": "mom",
+      "label": "researcher1",
       "type": "npc_position",
       "position": [
-        17,
+        19,
         1,
         6
       ]
