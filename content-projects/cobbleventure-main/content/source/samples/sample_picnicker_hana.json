@@ -31,9 +31,9 @@
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/picnicker",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/picnicker_dana_01da"
+      "resource": "cobbleventure:trainer_skin/picnicker"
     },
     "behavior": {
       "movement": "stationary",

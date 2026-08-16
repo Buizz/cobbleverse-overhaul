@@ -31,9 +31,9 @@
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/fisherman",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/fisherman_dale_00df"
+      "resource": "cobbleventure:trainer_skin/fisherman"
     },
     "behavior": {
       "movement": "stationary",

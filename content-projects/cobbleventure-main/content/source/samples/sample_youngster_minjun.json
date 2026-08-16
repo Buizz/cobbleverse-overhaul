@@ -30,9 +30,9 @@
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/youngster",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/youngster_yasu_0063"
+      "resource": "cobbleventure:trainer_skin/youngster"
     },
     "behavior": {
       "movement": "stationary",

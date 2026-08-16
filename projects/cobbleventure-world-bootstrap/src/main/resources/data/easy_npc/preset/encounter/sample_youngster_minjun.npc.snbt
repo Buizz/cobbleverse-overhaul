@@ -22,7 +22,7 @@
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
     PresetUUID:[I;-634123543,-537570748,-2138164612,-28320211],
-    SkinData:{Type:"CUSTOM",UUID:[I;2112985218,1886540881,-2036828375,645114090] },
+    SkinData:{Type:"CUSTOM",UUID:[I;1796707780,344217995,-1091927257,-1240009112] },
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

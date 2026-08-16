@@ -51,6 +51,13 @@ class SampleNpcTests(unittest.TestCase):
             {"outfits": outfits},
             PROJECT_ROOT / "content" / "catalogs" / "trainer-classes.json",
         )
+        trainer_classes = json.loads(
+            (PROJECT_ROOT / "content" / "catalogs" / "trainer-classes.json").read_text(encoding="utf-8")
+        )["classes"]
+        cls.default_appearances_by_class = {
+            trainer_class["id"]: trainer_class["default_appearance"]
+            for trainer_class in trainer_classes
+        }
 
     def test_sample_documents_pass_individual_validation(self) -> None:
         issues = []
@@ -128,6 +135,15 @@ class SampleNpcTests(unittest.TestCase):
             self.assertEqual(
                 document["npc"]["trainer_class"], outfit["trainer_class"]
             )
+
+    def test_sample_npcs_use_trainer_class_default_appearances(self) -> None:
+        for document in self.sources:
+            default = self.default_appearances_by_class[document["npc"]["trainer_class"]]
+            appearance = document["npc"]["appearance"]
+
+            self.assertEqual(default["source"], appearance["source"], document["id"])
+            self.assertEqual(default["type"], appearance["type"], document["id"])
+            self.assertEqual(default["resource"], appearance["resource"], document["id"])
 
     def test_sample_trainers_cover_fixed_and_map_scaled_levels(self) -> None:
         modes = [battle["battle"]["level_mode"] for battle in self.battles.values()]

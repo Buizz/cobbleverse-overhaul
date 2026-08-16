@@ -30,9 +30,9 @@
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/bug_catcher",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/bug_catcher_rick_0066"
+      "resource": "cobbleventure:trainer_skin/bug_catcher"
     },
     "behavior": {
       "movement": "stationary",

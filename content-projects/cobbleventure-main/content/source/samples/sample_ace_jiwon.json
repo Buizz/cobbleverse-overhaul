@@ -31,9 +31,9 @@
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/ace_trainer_female",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/ace_trainer_alexa_0194"
+      "resource": "cobbleventure:trainer_skin/ace_trainer_female"
     },
     "behavior": {
       "movement": "stationary",

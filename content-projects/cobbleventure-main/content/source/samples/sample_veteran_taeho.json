@@ -31,9 +31,9 @@
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/veteran_male",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/veteran_armando_03fb"
+      "resource": "cobbleventure:trainer_skin/veteran_male"
     },
     "behavior": {
       "movement": "stationary",

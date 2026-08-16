@@ -29,9 +29,9 @@
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/school_kid",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/school_kid_brunore_001e"
+      "resource": "cobbleventure:trainer_skin/school_kid"
     },
     "behavior": {
       "movement": "stationary",
