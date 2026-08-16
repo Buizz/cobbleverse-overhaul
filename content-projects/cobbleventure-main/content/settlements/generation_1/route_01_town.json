@@ -53,36 +53,10 @@
       "z": -269
     }
   },
-  "content_profile": {
-    "pokemon": {
-      "spawn_profile": "cobbleventure:spawn/greenway_region",
-      "density_multiplier": 1.2,
-      "unconditional_spawns": [],
-      "biome_set": "cobbleventure:biome_set/starter_region"
-    },
-    "trainers": {
-      "population_profile": "cobbleventure:trainer_population/greenway_region",
-      "max_active": 14,
-      "class_pool": [
-        "cobbleventure:trainer_class/bug_catcher",
-        "cobbleventure:trainer_class/lass",
-        "cobbleventure:trainer_class/hiker"
-      ]
-    },
-    "level_scaling": {
-      "mode": "badge_and_region",
-      "base_level": 12,
-      "min_level": 8,
-      "max_level": 28,
-      "per_badge": 2,
-      "per_region": 3,
-      "pokemon_offset": 0,
-      "trainer_offset": 2
-    }
-  },
   "biome_layout": {
     "arrangement": "organic_patches",
     "transition_width": 12,
+    "pokemon_biome_set": "cobbleventure:biome_set/starter_region",
     "zones": [
       {
         "id": "central_forest",
@@ -3713,6 +3687,17 @@
     "facility_requirements": []
   },
   "npc_placement": {
+    "auto_place_npcs": false,
+    "trainer_population": {
+      "enabled": false,
+      "max_active": 14,
+      "use_biome_defaults": true,
+      "direct_trainers": [],
+      "placement_areas": [
+        "indoor",
+        "outdoor"
+      ]
+    },
     "max_ambient_npcs": 10,
     "default_wander_radius": 7,
     "trainer_slots": [],

@@ -266,12 +266,38 @@ def _town_npc_placement_records(ambient: list[str], trainers: list[str]) -> list
     ]
 
 
+def _settlement_world_levels(root: Path) -> dict[str, int]:
+    """Resolve each town's representative level from its world-map anchor."""
+    levels_by_settlement: dict[str, int] = {}
+    source_dir = _inside(root, root / HEX_WORLD_CONFIG_DIR, "육각 월드 설정 디렉터리")
+    for source_path in sorted(source_dir.rglob("*.json")) if source_dir.is_dir() else []:
+        try:
+            world = json.loads(source_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ModBuildError(f"육각 월드 설정을 읽을 수 없습니다: {source_path}") from error
+        overrides = {
+            (entry.get("q"), entry.get("r")): entry.get("average_level")
+            for entry in world.get("level_overrides", [])
+            if isinstance(entry, dict) and isinstance(entry.get("average_level"), int)
+        }
+        for node in world.get("settlements", []):
+            if not isinstance(node, dict) or not isinstance(node.get("anchor"), dict):
+                continue
+            settlement_id = node.get("settlement")
+            anchor = node["anchor"]
+            level = overrides.get((anchor.get("q"), anchor.get("r")))
+            if isinstance(settlement_id, str) and isinstance(level, int):
+                levels_by_settlement[settlement_id] = max(1, min(100, level))
+    return levels_by_settlement
+
+
 def _package_settlements(
     root: Path,
     output: Path,
     settlements: list[tuple[Path, dict[str, object]]],
 ) -> None:
     npc_profiles = _npc_placement_profiles(root)
+    world_levels = _settlement_world_levels(root)
     profile_target = _inside(root, output / NPC_PLACEMENT_PROFILE_ENTRY, "생성 NPC 자동 배치 카탈로그")
     profile_target.parent.mkdir(parents=True, exist_ok=True)
     profile_target.write_text(
@@ -282,8 +308,7 @@ def _package_settlements(
         packaged = copy.deepcopy(data)
         placement = packaged.get("npc_placement") if isinstance(packaged.get("npc_placement"), dict) else {}
         if placement.get("auto_place_npcs") is True:
-            scaling = packaged.get("content_profile", {}).get("level_scaling", {})
-            level = max(1, min(100, round(float(scaling.get("base_level", scaling.get("min_level", 5))) + float(scaling.get("trainer_offset", 0)))))
+            level = world_levels.get(str(packaged.get("id")), 5)
             biomes = {
                 str(zone.get("biome"))
                 for zone in packaged.get("biome_layout", {}).get("zones", [])
@@ -291,7 +316,7 @@ def _package_settlements(
             }
             ambient = _rank_npc_profiles(npc_profiles, classification="ambient", level=level, biomes=biomes, target="town")[:int(placement.get("max_ambient_npcs", 0))]
             population = placement.get("trainer_population") if isinstance(placement.get("trainer_population"), dict) else {}
-            trainer_limit = int(population.get("max_active", packaged.get("content_profile", {}).get("trainers", {}).get("max_active", 0)))
+            trainer_limit = int(population.get("max_active", 0))
             trainers = _resolved_trainer_ids(npc_profiles, population, level=level, biomes=biomes, target="town")[:trainer_limit] if population.get("enabled", trainer_limit > 0) else []
             placement["resolved_auto_npcs"] = {
                 "level": level,

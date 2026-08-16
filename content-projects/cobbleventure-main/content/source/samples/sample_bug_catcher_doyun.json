@@ -28,7 +28,7 @@
       "ko_kr": "곤충채집소년 도윤"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "trainer_class": "cobbleventure:trainer_class/bug_catcher",
     "appearance": {
       "source": "rct_single",
       "type": "skin",

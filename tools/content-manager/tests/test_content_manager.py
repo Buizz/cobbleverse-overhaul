@@ -1184,9 +1184,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("cave-entrance-quick-list", script)
         self.assertIn("data-select-cave-entrance", script)
         self.assertIn("waterY = layout.waterLevel", script)
-        self.assertIn('name="waterDepth"', page)
+        self.assertIn('name="fluidLevel"', page)
+        self.assertIn('name="fluidDepth"', page)
         self.assertIn("waterBottomY = waterY - waterDepth", script)
         self.assertEqual(cave["generator"]["water_depth"], 8)
+        self.assertIn('<option value="ice">얼음 동굴</option>', page)
+        self.assertIn('<option value="lava">용암 동굴</option>', page)
+        self.assertIn('fluidType: style === "lava" ? "lava" : "water"', script)
+        self.assertIn("function caveStyleShapeProfile(style)", script)
         self.assertNotIn('id="cave-layout-anchor-list"', page)
         self.assertNotIn('id="cave-entrance-list"', page)
         self.assertNotIn('id="cave-layout-connection-list"', page)
@@ -1879,7 +1884,7 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertEqual(
             "cobbleventure:biome_set/starter_region",
-            settlement["content_profile"]["pokemon"]["biome_set"],
+            settlement["biome_layout"]["pokemon_biome_set"],
         )
         self.assertIn("spawn_settings", settlement["biome_layout"]["zones"][0])
 
@@ -2314,30 +2319,28 @@ class ContentManagerTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        source["content_profile"]["pokemon"].pop("biome_set", None)
+        source["biome_layout"].pop("pokemon_biome_set", None)
 
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_settlement_file
         )
 
         self.assertFalse(
-            any(issue.path == "$.content_profile.pokemon.biome_set" for issue in issues)
+            any(issue.path == "$.biome_layout.pokemon_biome_set" for issue in issues)
         )
 
-    def test_settlement_level_scaling_requires_ordered_range(self) -> None:
+    def test_settlement_no_longer_owns_regional_content_or_level_scaling(self) -> None:
         root = PROJECT_ROOT
         source = json.loads(
             (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
                 encoding="utf-8"
             )
         )
-        source["content_profile"]["level_scaling"].update({
-            "min_level": 20, "base_level": 10, "max_level": 15,
-        })
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_settlement_file
         )
-        self.assertTrue(any("min_level <= base_level <= max_level" in issue.message for issue in issues))
+        self.assertNotIn("content_profile", source)
+        self.assertEqual([], [issue for issue in issues if issue.level == "error"])
 
     def test_settlement_connections_belong_to_world_map(self) -> None:
         root = PROJECT_ROOT
@@ -3005,6 +3008,17 @@ class ContentManagerTests(unittest.TestCase):
             "updateFacilityFormState(normalizeTownFootprintShape(document.town_footprint_shape))",
             script,
         )
+
+    def test_league_gym_leader_uses_shared_battle_entry_editor(self) -> None:
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('id="league-team-editor"', page)
+        self.assertIn('id="league-team-list" class="team-list"', page)
+        self.assertIn("연결된 배틀 프리셋의 포켓몬 엔트리를 NPC·배틀 편집기와 같은 형태로 수정합니다.", page)
+        self.assertIn("function loadLeagueBattlePreset", script)
+        self.assertIn('renderTeam("#league-team-list")', script)
+        self.assertIn('category=battles", { method: "POST", body: JSON.stringify(state.leagueBattlePreset)', script)
+        self.assertIn('body: JSON.stringify(state.leagueBattlePreset)', script)
 
     def test_web_separates_npc_and_battle_preset_pages(self) -> None:
         root = PROJECT_ROOT

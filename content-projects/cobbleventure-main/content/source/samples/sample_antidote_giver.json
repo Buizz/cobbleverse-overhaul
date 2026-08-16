@@ -27,7 +27,7 @@
       "ko_kr": "해독제를 나눠주는 약초꾼"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "trainer_class": "cobbleventure:trainer_class/picnicker",
     "appearance": {
       "source": "rct_single",
       "type": "skin",

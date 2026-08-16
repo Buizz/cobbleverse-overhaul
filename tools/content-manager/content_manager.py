@@ -1538,11 +1538,8 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
             zones = document.get("biome_layout", {}).get("zones", [])
             zone = zones[0] if zones and isinstance(zones[0], dict) else {}
         settings = zone.get("spawn_settings") if isinstance(zone.get("spawn_settings"), dict) else {}
-        unconditional = document.get("content_profile", {}).get("pokemon", {}).get("unconditional_spawns", [])
-        if not isinstance(unconditional, list):
-            unconditional = []
         profile_ids, candidates, habitat_variants = resolve(
-            biome, settings, unconditional, zone.get("habitat_profile"),
+            biome, settings, preferred_profile=zone.get("habitat_profile"),
         )
         custom_cells = {
             (entry["q"], entry["r"])
@@ -2107,118 +2104,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, f"$.anchors.{anchor_id}", "올바른 앵커 ID가 아닙니다.")
             _validate_block_position(position, issues, path, f"$.anchors.{anchor_id}")
 
-    content_profile = _require_object(
-        root.get("content_profile"), issues, path, "$.content_profile"
-    )
-    if content_profile is not None:
-        pokemon = _require_object(
-            content_profile.get("pokemon"), issues, path, "$.content_profile.pokemon"
-        )
-        if pokemon is not None:
-            _resource_id(
-                pokemon.get("spawn_profile"), issues, path,
-                "$.content_profile.pokemon.spawn_profile",
-            )
-            density = pokemon.get("density_multiplier")
-            if (
-                not isinstance(density, (int, float))
-                or isinstance(density, bool)
-                or not 0 < density <= 10
-            ):
-                _issue(
-                    issues, "error", path,
-                    "$.content_profile.pokemon.density_multiplier",
-                    "0보다 크고 10 이하인 숫자여야 합니다.",
-                )
-            biome_set = pokemon.get("biome_set")
-            if biome_set is not None:
-                _resource_id(biome_set, issues, path, "$.content_profile.pokemon.biome_set")
-            unconditional = pokemon.get("unconditional_spawns", [])
-            if not isinstance(unconditional, list):
-                _issue(issues, "error", path, "$.content_profile.pokemon.unconditional_spawns", "배열이어야 합니다.")
-            else:
-                for index, pokemon_id in enumerate(unconditional):
-                    _resource_id(pokemon_id, issues, path, f"$.content_profile.pokemon.unconditional_spawns[{index}]")
-
-        trainers = _require_object(
-            content_profile.get("trainers"), issues, path, "$.content_profile.trainers"
-        )
-        if trainers is not None:
-            _resource_id(
-                trainers.get("population_profile"), issues, path,
-                "$.content_profile.trainers.population_profile",
-            )
-            maximum_active = trainers.get("max_active")
-            if (
-                not isinstance(maximum_active, int)
-                or isinstance(maximum_active, bool)
-                or not 0 <= maximum_active <= 128
-            ):
-                _issue(
-                    issues, "error", path, "$.content_profile.trainers.max_active",
-                    "0 이상 128 이하의 정수여야 합니다.",
-                )
-            class_pool = _require_list(
-                trainers.get("class_pool"), issues, path,
-                "$.content_profile.trainers.class_pool",
-            )
-            if class_pool is not None:
-                seen_classes: set[str] = set()
-                for index, class_id in enumerate(class_pool):
-                    class_path = f"$.content_profile.trainers.class_pool[{index}]"
-                    parsed_class = _resource_id(class_id, issues, path, class_path)
-                    if parsed_class in seen_classes:
-                        _issue(issues, "error", path, class_path, f"중복 트레이너 클래스: {parsed_class}")
-                    elif parsed_class is not None:
-                        seen_classes.add(parsed_class)
-
-        scaling = _require_object(
-            content_profile.get("level_scaling"), issues, path,
-            "$.content_profile.level_scaling",
-        )
-        if scaling is not None:
-            if scaling.get("mode") not in {
-                "fixed", "badges", "region_progress", "badge_and_region", "player_average"
-            }:
-                _issue(
-                    issues, "error", path, "$.content_profile.level_scaling.mode",
-                    "지원하지 않는 레벨 스케일링 방식입니다.",
-                )
-            for field in ("base_level", "min_level", "max_level"):
-                value = scaling.get(field)
-                if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 100:
-                    _issue(
-                        issues, "error", path, f"$.content_profile.level_scaling.{field}",
-                        "1 이상 100 이하의 정수여야 합니다.",
-                    )
-            minimum = scaling.get("min_level")
-            base = scaling.get("base_level")
-            maximum = scaling.get("max_level")
-            if all(isinstance(value, int) and not isinstance(value, bool) for value in (minimum, base, maximum)):
-                if not minimum <= base <= maximum:
-                    _issue(
-                        issues, "error", path, "$.content_profile.level_scaling",
-                        "min_level <= base_level <= max_level 순서여야 합니다.",
-                    )
-            for field, limit in (("per_badge", 20), ("per_region", 30)):
-                value = scaling.get(field)
-                if (
-                    not isinstance(value, (int, float))
-                    or isinstance(value, bool)
-                    or not 0 <= value <= limit
-                ):
-                    _issue(
-                        issues, "error", path, f"$.content_profile.level_scaling.{field}",
-                        f"0 이상 {limit} 이하의 숫자여야 합니다.",
-                    )
-            for field in ("pokemon_offset", "trainer_offset"):
-                value = scaling.get(field)
-                if not isinstance(value, int) or isinstance(value, bool) or not -50 <= value <= 50:
-                    _issue(
-                        issues, "error", path, f"$.content_profile.level_scaling.{field}",
-                        "-50 이상 50 이하의 정수여야 합니다.",
-                    )
-
     biome_layout = _require_object(
         root.get("biome_layout"), issues, path, "$.biome_layout"
     )
@@ -2228,6 +2113,11 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
         transition_width = biome_layout.get("transition_width")
         if not isinstance(transition_width, int) or isinstance(transition_width, bool) or not 0 <= transition_width <= 64:
             _issue(issues, "error", path, "$.biome_layout.transition_width", "0 이상 64 이하의 정수여야 합니다.")
+        if biome_layout.get("pokemon_biome_set") is not None:
+            _resource_id(
+                biome_layout.get("pokemon_biome_set"), issues, path,
+                "$.biome_layout.pokemon_biome_set",
+            )
         biome_zones = _require_list(biome_layout.get("zones"), issues, path, "$.biome_layout.zones")
         seen_biome_zones: set[str] = set()
         if biome_zones is not None:
@@ -7219,27 +7109,10 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
             "special_district": {"x": -48, "y": 64, "z": 0},
             "gym_building": {"x": 48, "y": 64, "z": 0},
         },
-        "content_profile": {
-            "pokemon": {
-                "spawn_profile": f"cobbleventure:spawn/{slug}",
-                "density_multiplier": 1.0,
-                "biome_set": "cobbleventure:biome_set/starter_region",
-                "unconditional_spawns": [],
-            },
-            "trainers": {
-                "population_profile": f"cobbleventure:trainer_population/{slug}",
-                "max_active": 8,
-                "class_pool": ["cobbleventure:trainer_class/youngster"],
-            },
-            "level_scaling": {
-                "mode": "badge_and_region", "base_level": 5, "min_level": 3,
-                "max_level": 18, "per_badge": 2, "per_region": 3,
-                "pokemon_offset": 0, "trainer_offset": 1,
-            },
-        },
         "biome_layout": {
             "arrangement": "organic_patches",
             "transition_width": 12,
+            "pokemon_biome_set": "cobbleventure:biome_set/starter_region",
             "zones": [{
                 "id": "primary", "biome": "minecraft:plains",
                 "size_blocks": 256, "placement": "center", "weight": 1,

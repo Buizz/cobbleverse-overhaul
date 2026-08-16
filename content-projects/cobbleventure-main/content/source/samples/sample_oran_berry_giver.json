@@ -27,7 +27,7 @@
       "ko_kr": "오랭열매를 나눠주는 농부"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "trainer_class": "cobbleventure:trainer_class/camper",
     "appearance": {
       "source": "rct_single",
       "type": "skin",

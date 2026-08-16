@@ -21,6 +21,7 @@ PROJECT_ROOT = Path(os.environ.get(
     "COBBLEVENTURE_PROJECT_PATH", ROOT / "content-projects/cobbleventure-main"
 )).resolve()
 CATALOG = PROJECT_ROOT / "content" / "catalogs" / "trainer-outfits.json"
+TRAINER_CLASSES = PROJECT_ROOT / "content" / "catalogs" / "trainer-classes.json"
 CONTENT_ROOT = PROJECT_ROOT / "content" / "source"
 BATTLE_ROOT = PROJECT_ROOT / "content" / "battles"
 GYM_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "gyms.json"
@@ -40,6 +41,39 @@ def encounter_skin_uuid(document: dict, outfit: dict) -> str:
     if isinstance(resource, str) and resource:
         return str(uuid.uuid5(uuid.NAMESPACE_URL, resource + "/easy_npc_skin"))
     return outfit["adapters"]["easy_npc"]["custom_skin_uuid"]
+
+
+def encounter_outfits_by_class(catalog: dict, class_catalog_path: Path) -> dict[str, dict]:
+    """Combine authored equipment outfits with class-derived EasyNPC body settings."""
+    outfits = {outfit["trainer_class"]: outfit for outfit in catalog["outfits"]}
+    if not class_catalog_path.is_file():
+        return outfits
+    classes = json.loads(class_catalog_path.read_text(encoding="utf-8")).get("classes", [])
+    for trainer_class in classes:
+        class_id = trainer_class.get("id")
+        body = trainer_class.get("body", {})
+        appearance = trainer_class.get("default_appearance", {})
+        if not isinstance(class_id, str) or class_id in outfits:
+            continue
+        slug = class_id.rsplit("/", 1)[-1]
+        arm_model = body.get("arm_model", "classic")
+        outfits[class_id] = {
+            "id": f"cobbleventure:trainer_outfit/{slug}",
+            "trainer_class": class_id,
+            "display_name": trainer_class.get("display_name", {"ko_kr": slug}),
+            "base_skin": appearance.get("resource", "cobbleventure:trainer_skin/unimplemented"),
+            "fallback_skin": "cobbleventure:trainer_skin/unimplemented",
+            "arm_model": arm_model,
+            "equipment": {},
+            "adapters": {"easy_npc": {
+                "entity_type": "easy_npc:humanoid",
+                "skin_model": "humanoid",
+                "custom_skin_uuid": str(uuid.uuid5(uuid.NAMESPACE_URL, class_id + "/easy_npc_skin")),
+                "preset": f"cobbleventure:trainer/{slug}",
+                "root_scale": float(body.get("height_scale", 1.0)),
+            }},
+        }
+    return outfits
 
 
 def installed_rct_skin(resource: str) -> bytes | None:
@@ -996,7 +1030,9 @@ def generate(
     battle_root: Path = BATTLE_ROOT,
 ) -> list[Path]:
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
-    outfits_by_class = {outfit["trainer_class"]: outfit for outfit in catalog["outfits"]}
+    outfits_by_class = encounter_outfits_by_class(
+        catalog, catalog_path.with_name("trainer-classes.json")
+    )
     characters_by_id = roster_characters(
         json.loads(TRAINER_ROSTER.read_text(encoding="utf-8"))
     ) if TRAINER_ROSTER.is_file() else {}
@@ -1102,7 +1138,9 @@ def main() -> None:
     for path in generate(args.catalog.resolve(), args.content_root.resolve(), args.battle_root.resolve()):
         print(path)
     catalog = json.loads(args.catalog.resolve().read_text(encoding="utf-8"))
-    supported_classes = {outfit["trainer_class"] for outfit in catalog["outfits"]}
+    supported_classes = set(encounter_outfits_by_class(
+        catalog, args.catalog.resolve().with_name("trainer-classes.json")
+    ))
     for source in sorted(args.content_root.resolve().rglob("*.json")):
         document = json.loads(source.read_text(encoding="utf-8"))
         if (

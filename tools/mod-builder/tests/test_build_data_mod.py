@@ -73,6 +73,23 @@ class DataModBuilderTests(unittest.TestCase):
             {entry["placement_area"] for entry in placements if entry["classification"] == "trainer"},
         )
 
+    def test_settlement_auto_npc_level_comes_from_world_map(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            world_path = root / "content/worlds/generation_1.json"
+            world_path.parent.mkdir(parents=True)
+            world_path.write_text(json.dumps({
+                "level_overrides": [{"q": 3, "r": -2, "average_level": 37}],
+                "settlements": [{
+                    "settlement": "test:settlement/town",
+                    "anchor": {"q": 3, "r": -2},
+                }],
+            }), encoding="utf-8")
+            with mock.patch.object(build_data_mod, "HEX_WORLD_CONFIG_DIR", Path("content/worlds")):
+                levels = build_data_mod._settlement_world_levels(root)
+
+        self.assertEqual({"test:settlement/town": 37}, levels)
+
     def test_route_presets_are_packaged_and_merged_into_world_connections(self) -> None:
         output = REPOSITORY_ROOT / build_data_mod.OUTPUT
         preset_path = output / "data/cobbleventure/routes/generation_1/route_custom_03.json"

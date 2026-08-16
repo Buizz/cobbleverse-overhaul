@@ -240,9 +240,7 @@ function showIssues(target, payload) {
 
 function issueFieldLabel(path) {
   const labels = {
-    "$.content_profile.pokemon.biome_set": "바이옴 세트",
-    "$.content_profile.pokemon.spawn_profile": "포켓몬 스폰 프로필",
-    "$.content_profile.trainers.population_profile": "트레이너 인구 프로필"
+    "$.biome_layout.pokemon_biome_set": "포켓몬 출현 바이옴 세트"
   };
   return labels[path] || "";
 }
@@ -2832,7 +2830,7 @@ function trainerPopulationConfig(scope) {
   }
   state.settlement.npc_placement ||= { max_ambient_npcs: 0, default_wander_radius: 5, trainer_slots: [], zones: [] };
   state.settlement.npc_placement.trainer_population ||= {
-    enabled: false, max_active: state.settlement.content_profile?.trainers?.max_active || 0,
+    enabled: false, max_active: 0,
     use_biome_defaults: true, direct_trainers: [], placement_areas: ["indoor", "outdoor"]
   };
   return { value: state.settlement.npc_placement.trainer_population, countKey: "max_active" };
@@ -2908,9 +2906,14 @@ function trainerPopulationPreviewContext(scope) {
       biomes: settings?.pokemon_biome ? [settings.pokemon_biome] : [], target: scope
     };
   }
-  const scaling = state.settlement?.content_profile?.level_scaling || {};
+  const settlementNode = (state.worldLayout?.settlements || []).find(
+    (node) => node.settlement === state.settlement?.id
+  );
+  const authoredLevel = settlementNode?.anchor
+    ? levelOverrideAt(settlementNode.anchor.q, settlementNode.anchor.r)?.average_level
+    : null;
   return {
-    level: Math.max(1, Math.min(100, Math.round(Number(scaling.base_level || scaling.min_level || 5) + Number(scaling.trainer_offset || 0)))),
+    level: Math.max(1, Math.min(100, Math.round(Number(authoredLevel || 5)))),
     biomes: (state.settlement?.biome_layout?.zones || []).map((zone) => zone.biome).filter(Boolean), target: "town"
   };
 }
@@ -9317,20 +9320,8 @@ function renderSettlement() {
   form.elements.gymId.innerHTML = gymOptions(selectedGymId);
   setFormValue(form, "gymId", selectedGymId);
   setFormValue(form, "gymAnchor", gym.anchor || "gym_building");
-  setFormValue(form, "pokemonSpawnProfile", document.content_profile?.pokemon?.spawn_profile);
-  setFormValue(form, "pokemonDensity", document.content_profile?.pokemon?.density_multiplier ?? 1);
-  form.elements.pokemonBiomeSet.innerHTML = choiceOptions((state.biomeCatalog.sets || []).map((entry) => [entry.id, entry.display_name?.ko_kr || entry.id]), document.content_profile?.pokemon?.biome_set, true);
-  setFormValue(form, "pokemonBiomeSet", document.content_profile?.pokemon?.biome_set);
-  setFormValue(form, "unconditionalSpawns", (document.content_profile?.pokemon?.unconditional_spawns || []).join(", "));
-  setFormValue(form, "trainerPopulationProfile", document.content_profile?.trainers?.population_profile);
-  setFormValue(form, "trainerMaxActive", document.content_profile?.trainers?.max_active ?? 0);
-  setFormValue(form, "trainerClassPool", (document.content_profile?.trainers?.class_pool || []).join(", "));
-  const scaling = document.content_profile?.level_scaling || {};
-  setFormValue(form, "scaleMode", scaling.mode || "badge_and_region");
-  setFormValue(form, "scaleBase", scaling.base_level ?? 5); setFormValue(form, "scaleMin", scaling.min_level ?? 3);
-  setFormValue(form, "scaleMax", scaling.max_level ?? 18); setFormValue(form, "scalePerBadge", scaling.per_badge ?? 2);
-  setFormValue(form, "scalePerRegion", scaling.per_region ?? 3); setFormValue(form, "pokemonLevelOffset", scaling.pokemon_offset ?? 0);
-  setFormValue(form, "trainerLevelOffset", scaling.trainer_offset ?? 1);
+  form.elements.pokemonBiomeSet.innerHTML = choiceOptions((state.biomeCatalog.sets || []).map((entry) => [entry.id, entry.display_name?.ko_kr || entry.id]), document.biome_layout?.pokemon_biome_set, true);
+  setFormValue(form, "pokemonBiomeSet", document.biome_layout?.pokemon_biome_set);
   setFormValue(form, "maxAmbient", document.npc_placement?.max_ambient_npcs);
   setFormValue(form, "wanderRadius", document.npc_placement?.default_wander_radius);
   setFormValue(form, "autoPlaceNpcs", Boolean(document.npc_placement?.auto_place_npcs));
@@ -9632,27 +9623,10 @@ function updateSettlementFromForm() {
   if (specialBuildingEnabled) otherFacilities.push({ id: "special_district_building", mode: "direct_template", structure: form.elements.specialBuildingStructure.value.trim(), anchor: specialAnchorId });
   otherFacilities.push(...configuredFacilities.map((item) => item.placement));
   state.settlement.structure_profile.facility_placements = otherFacilities;
-  const pokemonContentProfile = {
-    spawn_profile: form.elements.pokemonSpawnProfile.value.trim(),
-    density_multiplier: number("pokemonDensity"),
-    unconditional_spawns: csvValues(form.elements.unconditionalSpawns.value)
-  };
   const biomeSet = form.elements.pokemonBiomeSet.value.trim();
-  if (biomeSet) pokemonContentProfile.biome_set = biomeSet;
-  state.settlement.content_profile = {
-    pokemon: pokemonContentProfile,
-    trainers: {
-      population_profile: form.elements.trainerPopulationProfile.value.trim(),
-      max_active: number("trainerMaxActive"),
-      class_pool: form.elements.trainerClassPool.value.split(",").map((value) => value.trim()).filter(Boolean)
-    },
-    level_scaling: {
-      mode: form.elements.scaleMode.value,
-      base_level: number("scaleBase"), min_level: number("scaleMin"), max_level: number("scaleMax"),
-      per_badge: number("scalePerBadge"), per_region: number("scalePerRegion"),
-      pokemon_offset: number("pokemonLevelOffset"), trainer_offset: number("trainerLevelOffset")
-    }
-  };
+  if (biomeSet) state.settlement.biome_layout.pokemon_biome_set = biomeSet;
+  else delete state.settlement.biome_layout.pokemon_biome_set;
+  delete state.settlement.content_profile;
   state.settlement.connections = [];
   state.settlement.npc_placement = state.settlement.npc_placement || { trainer_slots: [], zones: [] };
   state.settlement.npc_placement.max_ambient_npcs = number("maxAmbient");
@@ -9676,7 +9650,7 @@ async function previewSettlementZone(index) {
   updateSettlementFromForm();
   const zone = state.settlement.biome_layout.zones[index - 1];
   if (!zone?.habitat_profile) { toast("먼저 서식지 프로필을 선택하세요."); return; }
-  await runBiomePreview({ profile_id: zone.habitat_profile, settings: zone.spawn_settings, unconditional_spawns: state.settlement.content_profile.pokemon.unconditional_spawns }, `#biome${index}Preview`);
+  await runBiomePreview({ profile_id: zone.habitat_profile, settings: zone.spawn_settings }, `#biome${index}Preview`);
 }
 
 function parseEditor(selector) {

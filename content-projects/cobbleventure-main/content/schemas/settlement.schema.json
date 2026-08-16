@@ -15,7 +15,6 @@
     "bounds",
     "center",
     "anchors",
-    "content_profile",
     "biome_layout",
     "connections",
     "structure_profile",
@@ -48,39 +47,6 @@
       "propertyNames": { "pattern": "^[a-z0-9_.-]+$" },
       "additionalProperties": { "$ref": "#/$defs/block_position" }
     },
-    "content_profile": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["pokemon", "trainers", "level_scaling"],
-      "properties": {
-        "pokemon": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["spawn_profile", "density_multiplier"],
-          "properties": {
-            "spawn_profile": { "$ref": "#/$defs/resource_id" },
-            "density_multiplier": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
-            "biome_set": { "$ref": "#/$defs/resource_id" },
-            "unconditional_spawns": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } }
-          }
-        },
-        "trainers": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["population_profile", "max_active", "class_pool"],
-          "properties": {
-            "population_profile": { "$ref": "#/$defs/resource_id" },
-            "max_active": { "type": "integer", "minimum": 0, "maximum": 128 },
-            "class_pool": {
-              "type": "array",
-              "uniqueItems": true,
-              "items": { "$ref": "#/$defs/resource_id" }
-            }
-          }
-        },
-        "level_scaling": { "$ref": "#/$defs/level_scaling" }
-      }
-    },
     "biome_layout": {
       "type": "object",
       "additionalProperties": false,
@@ -88,6 +54,7 @@
       "properties": {
         "arrangement": { "enum": ["organic_patches", "sectors", "concentric"] },
         "transition_width": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "pokemon_biome_set": { "$ref": "#/$defs/resource_id" },
         "zones": {
           "type": "array",
           "minItems": 1,
@@ -294,21 +261,6 @@
       "properties": {
         "x": { "type": "integer" },
         "z": { "type": "integer" }
-      }
-    },
-    "level_scaling": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["mode", "base_level", "min_level", "max_level", "per_badge", "per_region", "pokemon_offset", "trainer_offset"],
-      "properties": {
-        "mode": { "enum": ["fixed", "badges", "region_progress", "badge_and_region", "player_average"] },
-        "base_level": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "max_level": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "per_badge": { "type": "number", "minimum": 0, "maximum": 20 },
-        "per_region": { "type": "number", "minimum": 0, "maximum": 30 },
-        "pokemon_offset": { "type": "integer", "minimum": -50, "maximum": 50 },
-        "trainer_offset": { "type": "integer", "minimum": -50, "maximum": 50 }
       }
     },
     "biome_zone": {

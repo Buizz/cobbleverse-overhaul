@@ -48,35 +48,10 @@
       "z": -35
     }
   },
-  "content_profile": {
-    "pokemon": {
-      "spawn_profile": "cobbleventure:spawn/lavender",
-      "density_multiplier": 0.9,
-      "unconditional_spawns": [],
-      "biome_set": "cobbleventure:biome_set/starter_region"
-    },
-    "trainers": {
-      "population_profile": "cobbleventure:trainer_population/lavender",
-      "max_active": 10,
-      "class_pool": [
-        "cobbleventure:trainer_class/psychic",
-        "cobbleventure:trainer_class/channeler"
-      ]
-    },
-    "level_scaling": {
-      "mode": "badge_and_region",
-      "base_level": 28,
-      "min_level": 22,
-      "max_level": 44,
-      "per_badge": 2,
-      "per_region": 3,
-      "pokemon_offset": 0,
-      "trainer_offset": 2
-    }
-  },
   "biome_layout": {
     "arrangement": "organic_patches",
     "transition_width": 10,
+    "pokemon_biome_set": "cobbleventure:biome_set/starter_region",
     "zones": [
       {
         "id": "lavender_woods",
@@ -3684,6 +3659,17 @@
     "facility_requirements": []
   },
   "npc_placement": {
+    "auto_place_npcs": false,
+    "trainer_population": {
+      "enabled": false,
+      "max_active": 10,
+      "use_biome_defaults": true,
+      "direct_trainers": [],
+      "placement_areas": [
+        "indoor",
+        "outdoor"
+      ]
+    },
     "max_ambient_npcs": 8,
     "default_wander_radius": 6,
     "trainer_slots": [],

@@ -27,7 +27,7 @@
       "ko_kr": "몬스터볼을 나눠주는 연구원"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "trainer_class": "cobbleventure:trainer_class/school_kid",
     "appearance": {
       "source": "rct_single",
       "type": "skin",

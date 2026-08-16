@@ -48,35 +48,10 @@
       "z": 104
     }
   },
-  "content_profile": {
-    "pokemon": {
-      "spawn_profile": "cobbleventure:spawn/celadon",
-      "density_multiplier": 1,
-      "unconditional_spawns": [],
-      "biome_set": "cobbleventure:biome_set/starter_region"
-    },
-    "trainers": {
-      "population_profile": "cobbleventure:trainer_population/celadon",
-      "max_active": 16,
-      "class_pool": [
-        "cobbleventure:trainer_class/lass",
-        "cobbleventure:trainer_class/beauty"
-      ]
-    },
-    "level_scaling": {
-      "mode": "badge_and_region",
-      "base_level": 32,
-      "min_level": 24,
-      "max_level": 48,
-      "per_badge": 2,
-      "per_region": 3,
-      "pokemon_offset": 0,
-      "trainer_offset": 2
-    }
-  },
   "biome_layout": {
     "arrangement": "organic_patches",
     "transition_width": 10,
+    "pokemon_biome_set": "cobbleventure:biome_set/starter_region",
     "zones": [
       {
         "id": "celadon_gardens",
@@ -14899,6 +14874,17 @@
     "facility_requirements": []
   },
   "npc_placement": {
+    "auto_place_npcs": false,
+    "trainer_population": {
+      "enabled": false,
+      "max_active": 16,
+      "use_biome_defaults": true,
+      "direct_trainers": [],
+      "placement_areas": [
+        "indoor",
+        "outdoor"
+      ]
+    },
     "max_ambient_npcs": 14,
     "default_wander_radius": 8,
     "trainer_slots": [],

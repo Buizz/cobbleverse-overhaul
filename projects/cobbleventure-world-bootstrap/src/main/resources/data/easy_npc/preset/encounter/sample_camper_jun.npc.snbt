@@ -1,0 +1,29 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"캠프보이 준 대화·배틀 테스트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"캠프보이 준",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"캠프보이 준\"}",
+    DialogData:{DialogDataSet:[{Label:"greeting",Name:"야외에서 단련한 힘을 확인해 보자!",Texts:[{Text:"야외에서 단련한 힘을 확인해 보자!"}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_camper_jun -1 9 rctmod:sample_camper_jun tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_camper_jun onwin {1:[\"scoreboard objectives add cvf_9f711adbff78 dummy\",\"scoreboard players set @1 cvf_9f711adbff78 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory",Name:"좋은 승부였어! 다음에 다시 겨뤄 보자.",Texts:[{Text:"좋은 승부였어! 다음에 다시 겨뤄 보자."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!",Texts:[{Text:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.880f,0.880f,0.880f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-1052466507,1858228697,-1882910830,-1087389772],
+    SkinData:{Type:"CUSTOM",UUID:[I;-1117941656,-980331197,-1883310445,-1585021613] },
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

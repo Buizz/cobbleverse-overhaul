@@ -47,6 +47,10 @@ class SampleNpcTests(unittest.TestCase):
             for outfit in outfits
             if outfit["trainer_class"] == "cobbleventure:trainer_class/youngster"
         )
+        cls.outfits_by_class = generator.encounter_outfits_by_class(
+            {"outfits": outfits},
+            PROJECT_ROOT / "content" / "catalogs" / "trainer-classes.json",
+        )
 
     def test_sample_documents_pass_individual_validation(self) -> None:
         issues = []
@@ -75,7 +79,8 @@ class SampleNpcTests(unittest.TestCase):
             self.assertEqual(set_flag["key"], first_command["conditions"][0]["key"])
             self.assertTrue(set_flag["value"])
 
-            preset = generator.encounter_preset_snbt(document, self.youngster_outfit)
+            outfit = self.outfits_by_class[document["npc"]["trainer_class"]]
+            preset = generator.encounter_preset_snbt(document, outfit)
             self.assertIn(
                 f"cobbleventurebag give @initiator {give_commands[0]['item']}",
                 preset,
@@ -104,13 +109,25 @@ class SampleNpcTests(unittest.TestCase):
 
             compiled = json.loads(json.dumps(trainer))
             compiled["_battle_presets"] = {battle["id"]: battle}
-            preset = generator.encounter_preset_snbt(compiled, self.youngster_outfit)
+            outfit = self.outfits_by_class[trainer["npc"]["trainer_class"]]
+            preset = generator.encounter_preset_snbt(compiled, outfit)
             trainer_slug = trainer["id"].rsplit("/", 1)[-1]
             if battle["battle"]["level_mode"] == "map_scaling":
                 self.assertIn("cobbleventure_scaled_trainer_battle", preset)
                 self.assertIn(f"rctmod:{trainer_slug}", preset)
             else:
                 self.assertIn(f"tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:{trainer_slug}", preset)
+
+    def test_sample_npcs_use_role_specific_trainer_classes(self) -> None:
+        classes = [document["npc"]["trainer_class"] for document in self.sources]
+
+        self.assertEqual(11, len(set(classes)))
+        self.assertEqual(1, classes.count("cobbleventure:trainer_class/youngster"))
+        for document in self.sources:
+            outfit = self.outfits_by_class[document["npc"]["trainer_class"]]
+            self.assertEqual(
+                document["npc"]["trainer_class"], outfit["trainer_class"]
+            )
 
     def test_sample_trainers_cover_fixed_and_map_scaled_levels(self) -> None:
         modes = [battle["battle"]["level_mode"] for battle in self.battles.values()]

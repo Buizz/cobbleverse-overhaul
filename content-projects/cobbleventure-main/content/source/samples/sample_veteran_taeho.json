@@ -29,7 +29,7 @@
       "ko_kr": "베테랑 트레이너 태호"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "trainer_class": "cobbleventure:trainer_class/veteran_male",
     "appearance": {
       "source": "rct_single",
       "type": "skin",

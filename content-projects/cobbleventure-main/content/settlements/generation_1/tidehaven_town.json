@@ -63,37 +63,10 @@
       "z": -103
     }
   },
-  "content_profile": {
-    "pokemon": {
-      "spawn_profile": "cobbleventure:spawn/tidehaven_region",
-      "density_multiplier": 1.1,
-      "unconditional_spawns": [],
-      "biome_set": "cobbleventure:biome_set/starter_region"
-    },
-    "trainers": {
-      "population_profile": "cobbleventure:trainer_population/tidehaven_region",
-      "max_active": 16,
-      "class_pool": [
-        "cobbleventure:trainer_class/swimmer_male",
-        "cobbleventure:trainer_class/swimmer_female",
-        "cobbleventure:trainer_class/sailor",
-        "cobbleventure:trainer_class/fisherman"
-      ]
-    },
-    "level_scaling": {
-      "mode": "badge_and_region",
-      "base_level": 28,
-      "min_level": 24,
-      "max_level": 44,
-      "per_badge": 2,
-      "per_region": 3,
-      "pokemon_offset": 1,
-      "trainer_offset": 2
-    }
-  },
   "biome_layout": {
     "arrangement": "organic_patches",
     "transition_width": 10,
+    "pokemon_biome_set": "cobbleventure:biome_set/starter_region",
     "zones": [
       {
         "id": "legacy_island_beach",
@@ -3724,6 +3697,17 @@
     "facility_requirements": []
   },
   "npc_placement": {
+    "auto_place_npcs": false,
+    "trainer_population": {
+      "enabled": false,
+      "max_active": 16,
+      "use_biome_defaults": true,
+      "direct_trainers": [],
+      "placement_areas": [
+        "indoor",
+        "outdoor"
+      ]
+    },
     "max_ambient_npcs": 12,
     "default_wander_radius": 7,
     "trainer_slots": [],
