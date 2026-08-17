@@ -38,7 +38,7 @@ import org.slf4j.Logger;
 public final class BattleIntro {
     private static final Logger LOGGER = LogUtils.getLogger();
     static final int DURATION_TICKS = 56;
-    static final double PROXIMITY_BATTLE_RANGE = 4.0D;
+    static final double PROXIMITY_BATTLE_RANGE = 6.0D;
     private static final double PROXIMITY_WARNING_RANGE = 8.0D;
     private static final String NETWORK_VERSION = "1";
     private static final Map<UUID, PendingBattle> PENDING = new HashMap<>();

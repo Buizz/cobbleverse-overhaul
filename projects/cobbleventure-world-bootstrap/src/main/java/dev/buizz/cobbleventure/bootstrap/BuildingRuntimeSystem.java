@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.playermenu.MusicPlayback;
+import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -408,10 +409,10 @@ final class BuildingRuntimeSystem {
                     for (Map.Entry<String, JsonElement> route
                         : value.getAsJsonObject("door_routes").entrySet()) {
                         JsonObject target = route.getValue().getAsJsonObject();
-                        List<Condition> conditions = new ArrayList<>();
+                        List<PlayerConditions.Condition> conditions = new ArrayList<>();
                         if (target.has("conditions")) {
                             for (JsonElement condition : target.getAsJsonArray("conditions")) {
-                                conditions.add(parseCondition(condition.getAsJsonObject()));
+                                conditions.add(PlayerConditions.parse(condition.getAsJsonObject()));
                             }
                         }
                         routes.put(route.getKey(), new RouteTarget(
@@ -443,29 +444,6 @@ final class BuildingRuntimeSystem {
         } catch (IOException | RuntimeException error) {
             throw new IllegalStateException("Invalid building settings: " + location, error);
         }
-    }
-
-    private static Condition parseCondition(JsonObject value) {
-        return switch (requiredString(value, "type")) {
-            case "variable" -> new VariableCondition(
-                value.has("source") ? value.get("source").getAsString() : "scoreboard",
-                requiredString(value, "key"),
-                value.has("operator") ? value.get("operator").getAsString() : ">=",
-                value.get("value").getAsDouble()
-            );
-            case "item" -> new ItemCondition(
-                requiredString(value, "item"),
-                value.has("count") ? value.get("count").getAsInt() : 1,
-                value.has("negate") && value.get("negate").getAsBoolean()
-            );
-            case "pokemon" -> new PokemonCondition(
-                requiredString(value, "species"),
-                value.has("negate") && value.get("negate").getAsBoolean()
-            );
-            default -> throw new IllegalStateException(
-                "Unsupported building door condition: " + requiredString(value, "type")
-            );
-        };
     }
 
     private static List<String> strings(
@@ -1163,7 +1141,8 @@ final class BuildingRuntimeSystem {
     }
 
     private record RouteTarget(
-        String space, String door, String conditionMode, List<Condition> conditions,
+        String space, String door, String conditionMode,
+        List<PlayerConditions.Condition> conditions,
         List<String> lockedDialogue, List<String> enterDialogue
     ) {
     }
@@ -1189,7 +1168,7 @@ final class BuildingRuntimeSystem {
 
     private record DoorTarget(
         ResourceKey<Level> dimension, BlockPos position,
-        List<Condition> conditions, String conditionMode,
+        List<PlayerConditions.Condition> conditions, String conditionMode,
         List<String> lockedDialogue, List<String> enterDialogue,
         boolean interior, String musicTrack
     ) {
@@ -1197,9 +1176,7 @@ final class BuildingRuntimeSystem {
             if (conditions.isEmpty()) {
                 return true;
             }
-            return conditionMode.equals("any")
-                ? conditions.stream().anyMatch(condition -> condition.matches(player))
-                : conditions.stream().allMatch(condition -> condition.matches(player));
+            return PlayerConditions.matches(player, conditionMode, conditions);
         }
     }
 
@@ -1211,57 +1188,6 @@ final class BuildingRuntimeSystem {
     private record PendingNpcSeat(
         ResourceKey<Level> dimension, BlockPos position, String npcId, int attempts
     ) {
-    }
-
-    private sealed interface Condition permits VariableCondition, ItemCondition, PokemonCondition {
-        boolean matches(ServerPlayer player);
-    }
-
-    private record VariableCondition(String source, String key, String operator, double value)
-        implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            double actual;
-            if (source.equals("persistent_data")) {
-                actual = player.getPersistentData().getDouble(key);
-            } else {
-                Objective objective = player.getScoreboard().getObjective(key);
-                actual = objective == null ? 0.0D
-                    : player.getScoreboard().getOrCreatePlayerScore(player, objective).get();
-            }
-            return switch (operator) {
-                case "==" -> actual == value;
-                case "!=" -> actual != value;
-                case ">" -> actual > value;
-                case "<" -> actual < value;
-                case "<=" -> actual <= value;
-                default -> actual >= value;
-            };
-        }
-    }
-
-    private record ItemCondition(String item, int count, boolean negate) implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            ResourceLocation id = ResourceLocation.tryParse(item);
-            Item required = id == null ? null : BuiltInRegistries.ITEM.get(id);
-            boolean present = required != null && player.getInventory().countItem(required) >= count;
-            return negate != present;
-        }
-    }
-
-    private record PokemonCondition(String species, boolean negate) implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            boolean present = false;
-            for (Pokemon pokemon : Cobblemon.INSTANCE.getStorage().getParty(player)) {
-                if (pokemon.getSpecies().getResourceIdentifier().toString().equals(species)) {
-                    present = true;
-                    break;
-                }
-            }
-            return negate != present;
-        }
     }
 
     static final class RuntimeData extends SavedData {

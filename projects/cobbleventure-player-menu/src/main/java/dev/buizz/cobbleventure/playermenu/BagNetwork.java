@@ -1,7 +1,10 @@
 package dev.buizz.cobbleventure.playermenu;
 
 import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.item.PokemonSelectingItem;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.util.PlayerExtensionsKt;
+import dev.buizz.cobbleventure.playermenu.client.PlayerMenuClient;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.NonNullList;
@@ -29,7 +32,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative bag storage, synchronization and item actions. */
 public final class BagNetwork {
-    private static final String VERSION = "4";
+    private static final String VERSION = "6";
     private static final int VANILLA_HOTBAR_SIZE = 9;
     private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(
         emptySnapshot(), emptyShortcuts(), 0L
@@ -84,6 +87,10 @@ public final class BagNetwork {
         PacketDistributor.sendToServer(new GiveToPokemonPayload(extended, slot, partySlot));
     }
 
+    public static void requestUseOnPokemon(boolean extended, int slot, int partySlot) {
+        PacketDistributor.sendToServer(new UseOnPokemonPayload(extended, slot, partySlot));
+    }
+
     public static void requestUseShortcut(int shortcutSlot) {
         PacketDistributor.sendToServer(new UseShortcutPayload(shortcutSlot));
     }
@@ -97,6 +104,7 @@ public final class BagNetwork {
         registrar.playToServer(SnapshotRequestPayload.TYPE, SnapshotRequestPayload.STREAM_CODEC, BagNetwork::handleSnapshotRequest);
         registrar.playToClient(SnapshotPayload.TYPE, SnapshotPayload.STREAM_CODEC, BagNetwork::handleSnapshot);
         registrar.playToServer(UseItemPayload.TYPE, UseItemPayload.STREAM_CODEC, BagNetwork::handleUseItem);
+        registrar.playToClient(ClientUsePayload.TYPE, ClientUsePayload.STREAM_CODEC, BagNetwork::handleClientUse);
         registrar.playToServer(MoveItemPayload.TYPE, MoveItemPayload.STREAM_CODEC, BagNetwork::handleMoveItem);
         registrar.playToServer(ShortcutPayload.TYPE, ShortcutPayload.STREAM_CODEC, BagNetwork::handleShortcut);
         registrar.playToServer(UseShortcutPayload.TYPE, UseShortcutPayload.STREAM_CODEC, BagNetwork::handleUseShortcut);
@@ -105,6 +113,8 @@ public final class BagNetwork {
         registrar.playToServer(DropPayload.TYPE, DropPayload.STREAM_CODEC, BagNetwork::handleDrop);
         registrar.playToServer(GiveToPokemonPayload.TYPE, GiveToPokemonPayload.STREAM_CODEC,
             BagNetwork::handleGiveToPokemon);
+        registrar.playToServer(UseOnPokemonPayload.TYPE, UseOnPokemonPayload.STREAM_CODEC,
+            BagNetwork::handleUseOnPokemon);
     }
 
     private static void handleSnapshotRequest(SnapshotRequestPayload payload, IPayloadContext context) {
@@ -127,6 +137,7 @@ public final class BagNetwork {
         if (!validSlot(payload.extended(), payload.slot())) return;
         ItemStack source = getStack(player, storage, payload.extended(), payload.slot());
         if (source.isEmpty()) return;
+        PacketDistributor.sendToPlayer(player, new ClientUsePayload(source.copyWithCount(1)));
 
         if (!payload.extended()) {
             useInventorySlot(player, payload.slot());
@@ -134,6 +145,10 @@ public final class BagNetwork {
             useExtendedSlot(player, storage, payload.slot());
         }
         sync(player, storage);
+    }
+
+    private static void handleClientUse(ClientUsePayload payload, IPayloadContext context) {
+        PlayerMenuClient.previewBagItemUse(payload.stack());
     }
 
     private static void handleMoveItem(MoveItemPayload payload, IPayloadContext context) {
@@ -194,6 +209,7 @@ public final class BagNetwork {
     private static void onServerTick(ServerTickEvent.Post event) {
         if (event.getServer().getTickCount() % 5 != 0) return;
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            BagConditionTracker.sync(player);
             NonNullList<ItemStack> storage = BagStorage.load(player);
             NonNullList<ItemStack> shortcuts = BagStorage.loadShortcuts(player);
             if (!syncVanillaHotbarShortcuts(player, storage, shortcuts)) continue;
@@ -460,6 +476,23 @@ public final class BagNetwork {
         ), true);
     }
 
+    private static void handleUseOnPokemon(UseOnPokemonPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)
+            || !validSlot(payload.extended(), payload.slot())
+            || payload.partySlot() < 0 || payload.partySlot() >= 6
+            || PlayerExtensionsKt.getBattleState(player) != null) return;
+        NonNullList<ItemStack> storage = BagStorage.load(player);
+        ItemStack source = getStack(player, storage, payload.extended(), payload.slot());
+        Pokemon pokemon = Cobblemon.INSTANCE.getStorage().getParty(player).get(payload.partySlot());
+        if (source.isEmpty() || pokemon == null
+            || !(source.getItem() instanceof PokemonSelectingItem selectingItem)
+            || !selectingItem.canUseOnPokemon(source, pokemon)) return;
+
+        ItemStack result = selectingItem.applyToPokemon(player, source, pokemon).getObject();
+        setStack(player, storage, payload.extended(), payload.slot(), result);
+        finishMutation(player, storage, payload.extended());
+    }
+
     private static ItemStack takeSelectedItems(ServerPlayer player, NonNullList<ItemStack> storage,
                                                boolean extended, int slot, int quantity) {
         ItemStack source = getStack(player, storage, extended, slot);
@@ -579,6 +612,7 @@ public final class BagNetwork {
 
     private static void finishMutation(ServerPlayer player, List<ItemStack> storage, boolean storageChanged) {
         if (storageChanged) BagStorage.save(player, storage);
+        BagConditionTracker.sync(player);
         markInventoryChanged(player);
         sync(player, storage);
     }
@@ -590,6 +624,7 @@ public final class BagNetwork {
     }
 
     static void syncExternalMutation(ServerPlayer player, List<ItemStack> storage) {
+        BagConditionTracker.sync(player);
         markInventoryChanged(player);
         sync(player, storage);
     }
@@ -664,6 +699,16 @@ public final class BagNetwork {
         public static final StreamCodec<RegistryFriendlyByteBuf, UseItemPayload> STREAM_CODEC = codec(
             UseItemPayload::new, UseItemPayload::extended, UseItemPayload::slot
         );
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record ClientUsePayload(ItemStack stack) implements CustomPacketPayload {
+        public static final Type<ClientUsePayload> TYPE = new Type<>(id("bag_client_use"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, ClientUsePayload> STREAM_CODEC =
+            StreamCodec.of(
+                (buffer, value) -> ItemStack.STREAM_CODEC.encode(buffer, value.stack),
+                buffer -> new ClientUsePayload(ItemStack.STREAM_CODEC.decode(buffer))
+            );
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
@@ -748,6 +793,19 @@ public final class BagNetwork {
         }
         private static GiveToPokemonPayload read(RegistryFriendlyByteBuf buffer) {
             return new GiveToPokemonPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record UseOnPokemonPayload(boolean extended, int slot, int partySlot) implements CustomPacketPayload {
+        public static final Type<UseOnPokemonPayload> TYPE = new Type<>(id("bag_use_on_pokemon"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, UseOnPokemonPayload> STREAM_CODEC =
+            StreamCodec.ofMember(UseOnPokemonPayload::write, UseOnPokemonPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeBoolean(extended); buffer.writeVarInt(slot); buffer.writeVarInt(partySlot);
+        }
+        private static UseOnPokemonPayload read(RegistryFriendlyByteBuf buffer) {
+            return new UseOnPokemonPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt());
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

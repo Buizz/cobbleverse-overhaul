@@ -142,6 +142,7 @@
         "repeat_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
         "win_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
         "loss_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+        "auto_state_key": { "type": "boolean", "default": true },
         "state_key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
         "victory_state_key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
         "item": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
@@ -155,17 +156,7 @@
         "currency_objective": { "type": "string", "minLength": 1 }
       }
     },
-    "condition": {
-      "type": "object",
-      "required": ["type"],
-      "properties": {
-        "type": { "enum": ["flag_equals", "has_item", "always"] },
-        "key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
-        "value": { "type": ["string", "number", "boolean"] },
-        "item": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
-        "count": { "type": "integer", "minimum": 1 }
-      }
-    },
+    "condition": { "$ref": "player-condition.schema.json#/$defs/condition" },
     "command": {
       "type": "object",
       "required": ["type"],

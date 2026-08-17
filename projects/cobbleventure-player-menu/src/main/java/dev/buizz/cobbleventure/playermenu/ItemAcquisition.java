@@ -40,7 +40,7 @@ public final class ItemAcquisition {
             player.getDisplayName(), itemName, count
         );
         PacketDistributor.sendToPlayer(
-            player, new AcquiredPayload(message, sound(item))
+            player, new AcquiredPayload(message, sound(player, item))
         );
     }
 
@@ -55,23 +55,24 @@ public final class ItemAcquisition {
         ItemAcquisitionOverlay.show(payload.message(), payload.sound());
     }
 
-    private static ResourceLocation sound(ItemStack stack) {
+    private static ResourceLocation sound(ServerPlayer player, ItemStack stack) {
         ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
         String path = itemId.getPath();
         if (stack.is(MACHINES) || itemId.getNamespace().equals("tmcraft")) {
-            return sound("machine_acquired");
+            return sound(player, "machine_acquired");
         }
         if (stack.is(KEY_ITEMS) || containsAny(
             path, "pokedex", "exp_share", "key", "badge", "map", "compass"
         )) {
-            return sound("key_item_acquired");
+            return sound(player, "key_item_acquired");
         }
-        return sound("item_acquired");
+        return sound(player, "item_acquired");
     }
 
-    private static ResourceLocation sound(String path) {
-        return ResourceLocation.fromNamespaceAndPath(
-            "cobbleventure_music", "music.event." + path
+    private static ResourceLocation sound(ServerPlayer player, String context) {
+        ResourceLocation configured = MusicPlayback.defaultSoundEvent(player, context);
+        return configured != null ? configured : ResourceLocation.fromNamespaceAndPath(
+            "minecraft", "entity.item.pickup"
         );
     }
 

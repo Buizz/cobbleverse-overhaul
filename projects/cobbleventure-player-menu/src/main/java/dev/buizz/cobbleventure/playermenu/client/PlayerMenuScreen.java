@@ -5,6 +5,7 @@ import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.buizz.cobbleventure.playermenu.PlayerOverviewNetwork;
+import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -76,6 +77,7 @@ public final class PlayerMenuScreen extends Screen {
 
     public PlayerMenuScreen() {
         super(Component.translatable("screen.cobbleventure_player_menu.title"));
+        BagNetwork.requestSnapshot();
     }
 
     @Override

@@ -59,24 +59,12 @@
 - `system_only`: 건물·주변 차단물·NPC를 생성하지 않는다. 조건 미충족 플레이어가
   관문 육각 타일에 들어오면 이전 위치로 되돌리고 `deny_message`를 액션바에 표시한다.
 
-`gate_mode`를 생략한 기존 관문은 `classic`으로 읽는다. `system_only`에는 조건이
-하나 이상 필요하며, 콘텐츠 매니저에서는 조건·조건 조합·차단 문구만 입력할 수 있다.
+`center_placement`는 가운데 배치물을 `gate`, `gate_npc`, `npc` 중에서 선택한다.
+`surrounding_type`은 `wall` 또는 주변 이동 불가 지형을 잇는 `natural`을 사용한다.
 
-`classic`의 `surrounding_type`은 통로 양옆의 표현 방식을 결정한다.
-
-- `wall`: `wall_block` 벽과 상부 배리어를 생성한다.
-- `trees`: `tree_log`, `tree_leaves`로 빽빽한 나무 군락을 만들고 수관 위를 배리어로 막는다.
-- `none`: 주변 차단물을 생성하지 않는다.
-
-조건은 다음 세 종류를 지원한다.
-
-- `variable`: `scoreboard` 점수 또는 플레이어 `persistent_data` 숫자를 비교한다.
-- `item`: 일반 플레이어 인벤토리에 지정 아이템이 수량 이상 있는지 확인한다.
-- `pokemon`: 현재 파티에 지정 종이 있는지 확인한다.
-
-빈 조건 배열은 `classic`에서 제한 없는 관문이다. `condition_mode`가 `all`이면 모든
-조건을, `any`이면 하나 이상의 조건을 만족해야 한다. `npc`를 생략하면 관문 건물만
-생성한다.
+관문 조건은 [공용 플레이어 조건 규격](PLAYER_CONDITIONS.md)을 그대로 사용한다.
+관문 전용 조건 타입이나 판정 의미를 추가하면 안 된다. 빈 `all` 조건 배열은 제한 없는
+관문이며, `any`이면 하나 이상의 조건을 만족해야 한다.
 
 시스템 차단 관문의 최소 예시는 다음과 같다.
 

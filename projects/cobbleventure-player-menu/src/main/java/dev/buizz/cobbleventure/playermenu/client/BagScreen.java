@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.api.item.PokemonSelectingItem;
+
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -598,6 +600,13 @@ public final class BagScreen extends Screen {
 
     private void useSelectedItem() {
         if (selectedSlot == null || selectedStack().isEmpty()) return;
+        if (selectedStack().getItem() instanceof PokemonSelectingItem) {
+            if (minecraft != null) minecraft.setScreen(new BagPokemonSelectScreen(
+                this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(),
+                BagPokemonSelectScreen.Action.USE
+            ));
+            return;
+        }
         PlayerMenuClient.useBagItem(selectedSlot.extended(), selectedSlot.slot());
         showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.used"));
         refreshTicks = 9;
@@ -636,7 +645,8 @@ public final class BagScreen extends Screen {
     private void giveToPokemon() {
         if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
         minecraft.setScreen(new BagPokemonSelectScreen(
-            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy()
+            this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(),
+            BagPokemonSelectScreen.Action.GIVE
         ));
     }
 
@@ -660,6 +670,11 @@ public final class BagScreen extends Screen {
         showStatus(Component.translatable(
             "screen.cobbleventure_player_menu.bag.given_to_pokemon", pokemonName
         ));
+        refreshTicks = 9;
+    }
+
+    void pokemonUseRequested() {
+        showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.used"));
         refreshTicks = 9;
     }
 

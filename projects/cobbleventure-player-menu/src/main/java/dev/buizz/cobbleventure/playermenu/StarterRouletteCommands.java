@@ -11,10 +11,18 @@ final class StarterRouletteCommands {
     static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(
             Commands.literal("starterroulette")
-                .executes(context -> StarterRouletteNetwork.open(context.getSource().getPlayerOrException()))
+                .executes(context -> StarterRouletteNetwork.queueOpen(context.getSource().getPlayerOrException()))
                 .then(Commands.argument("player", EntityArgument.player())
                     .requires(source -> source.hasPermission(2))
-                    .executes(context -> StarterRouletteNetwork.open(EntityArgument.getPlayer(context, "player"))))
+                    .executes(context -> StarterRouletteNetwork.queueOpen(EntityArgument.getPlayer(context, "player"))))
+        );
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_starter_roulette")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .executes(context -> StarterRouletteNetwork.queueOpen(
+                        EntityArgument.getPlayer(context, "player")
+                    )))
         );
         event.getDispatcher().register(
             Commands.literal("cobbleventure_starter_state")

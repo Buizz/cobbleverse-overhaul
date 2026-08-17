@@ -37,7 +37,12 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         preset = generator.encounter_preset_snbt(self.document, self.outfit)
 
         self.assertIn("DialogDataSet", preset)
-        self.assertIn("HAS_ITEM_IN_INVENTORY", preset)
+        item_objective = generator.item_condition_objective("cobblemon:potion", 1)
+        self.assertIn(
+            f'Name:"{item_objective}",Operation:"EQUALS",Type:"SCOREBOARD",Value:1',
+            preset,
+        )
+        self.assertNotIn("HAS_ITEM_IN_INVENTORY", preset)
         self.assertIn("tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:ai_test", preset)
         self.assertIn(
             "cobbleventure_battle_intro @initiator @s "
@@ -77,6 +82,51 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             preset,
         )
         self.assertIn("ON_INTERACTION", preset)
+
+    def test_event_preset_can_generate_a_unique_state_key_from_the_npc_id(self) -> None:
+        document = {
+            "id": "cobbleventure:npc/test/researcher",
+            "event_design": {
+                "mode": "preset",
+                "preset": {
+                    "type": "item",
+                    "initial_trigger": {"type": "interact", "range": 4},
+                    "first_text": {"ko_kr": "받아."},
+                    "repeat_text": {"ko_kr": "이미 줬어."},
+                    "auto_state_key": True,
+                    "item": "cobblemon:poke_ball",
+                    "item_count": 1,
+                },
+            },
+        }
+
+        materialized = generator.materialize_event_document(document)
+        condition = materialized["events"][0]["commands"][0]["conditions"][0]
+        set_flag = next(
+            command
+            for command in materialized["events"][0]["commands"]
+            if command["type"] == "set_flag"
+        )
+
+        self.assertEqual(
+            "cobbleventure:flag/npc/test/researcher/claimed", condition["key"]
+        )
+        self.assertEqual(condition["key"], set_flag["key"])
+
+    def test_shared_player_conditions_are_mirrored_for_easy_npc(self) -> None:
+        condition = {"type": "party_count", "operator": ">=", "value": 1}
+        objective = generator.player_condition_objective(condition)
+
+        self.assertEqual(
+            f'{{Name:"{objective}",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}}',
+            generator.easy_npc_condition(condition),
+        )
+        self.assertEqual(
+            generator.flag_objective("cobbleventure:flag/story/example"),
+            generator.easy_npc_condition({
+                "type": "flag", "key": "cobbleventure:flag/story/example", "value": True,
+            }).split('"')[1],
+        )
 
     def test_trigger_override_generates_independent_interaction_and_proximity_presets(self) -> None:
         interaction = generator.encounter_preset_snbt(
@@ -259,12 +309,12 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         )
         self.assertIn(
             'Actions:[{Type:"CLOSE_DIALOG"},'
-            '{Cmd:"/execute as @initiator run starterroulette",Debug:1b,'
+            '{Cmd:"/cobbleventure_starter_roulette @initiator",Debug:1b,'
             'ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}',
             preset,
         )
         self.assertEqual(
-            preset.count('/execute as @initiator run starterroulette'), 1
+            preset.count('/cobbleventure_starter_roulette @initiator'), 1
         )
         self.assertNotIn('ExecAsUser:1b', preset)
 

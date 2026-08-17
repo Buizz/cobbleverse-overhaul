@@ -17,9 +17,10 @@ import net.minecraft.world.item.ItemStack;
 
 /** A continuously scrolling row of Cobblemon models with a server-validated stop result. */
 public final class StarterRouletteScreen extends Screen {
-    private static final int WIDGET_COUNT = 7;
-    private static final int CENTER_WIDGET = WIDGET_COUNT / 2;
-    private static final int MIN_MODEL_SIZE = 52;
+    private static final int VISIBLE_WIDGET_COUNT = 7;
+    private static final int WIDGET_COUNT = VISIBLE_WIDGET_COUNT + 1;
+    private static final int CENTER_WIDGET = VISIBLE_WIDGET_COUNT / 2;
+    private static final int MIN_MODEL_SIZE = 32;
     private static final int MAX_MODEL_SIZE = 96;
     private static final long STEP_MILLIS = 135L;
     private static final long STOP_DURATION_MILLIS = 1_200L;
@@ -52,8 +53,23 @@ public final class StarterRouletteScreen extends Screen {
     @Override
     protected void init() {
         models.clear();
-        modelSize = Math.clamp((height * 35) / 100, MIN_MODEL_SIZE, MAX_MODEL_SIZE);
-        slotSpacing = modelSize + 16;
+        int horizontalPadding = 24;
+        int minimumGap = 4;
+        int widthLimitedSize = Math.max(
+            MIN_MODEL_SIZE,
+            (width - horizontalPadding - minimumGap * (VISIBLE_WIDGET_COUNT - 1))
+                / VISIBLE_WIDGET_COUNT
+        );
+        modelSize = Math.clamp(
+            Math.min((height * 35) / 100, widthLimitedSize),
+            MIN_MODEL_SIZE,
+            MAX_MODEL_SIZE
+        );
+        int widthLimitedSpacing = Math.max(
+            modelSize,
+            (width - horizontalPadding - modelSize) / (VISIBLE_WIDGET_COUNT - 1)
+        );
+        slotSpacing = Math.min(modelSize + 16, widthLimitedSpacing);
         int contentHeight = modelSize + 90;
         int contentTop = Math.max(8, (height - contentHeight) / 2);
         int titleY = contentTop;
@@ -114,7 +130,15 @@ public final class StarterRouletteScreen extends Screen {
         graphics.drawCenteredString(font, title, width / 2, Math.max(8, frameY - 18), 0xFFFFFFFF);
         graphics.drawCenteredString(font, status, width / 2, statusY, received ? 0xFF8EF0A7 : 0xFFE8EDF2);
 
+        int centerX = width / 2 - modelSize / 2;
+        int visibleRadius = VISIBLE_WIDGET_COUNT / 2;
+        int rouletteLeft = Math.max(0, centerX - visibleRadius * slotSpacing);
+        int rouletteRight = Math.min(
+            width, centerX + visibleRadius * slotSpacing + modelSize
+        );
+        graphics.enableScissor(rouletteLeft, 0, rouletteRight, height);
         super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.disableScissor();
         Species centered = species(sequenceAt(centerIndex));
         if (centered != null) {
             graphics.drawCenteredString(font, centered.getTranslatedName(), width / 2, nameY, 0xFFFFFFFF);

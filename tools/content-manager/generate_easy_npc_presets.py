@@ -230,7 +230,7 @@ def league_encounter_document(entry: dict) -> dict:
             "id": "on_interact",
             "trigger": {"type": "interact", "range": 4.0},
             "commands": [
-                {"type": "branch", "conditions": [{"type": "flag_equals", "key": clear_key, "value": True}], "target": "cleared"},
+                {"type": "branch", "conditions": [{"type": "flag", "key": clear_key, "value": True}], "target": "cleared"},
                 {"type": "label", "name": "challenge"},
                 *league_dialogue_commands(dialogue["challenge"], "challenge"),
                 {"type": "choices", "options": [
@@ -283,13 +283,25 @@ def flag_objective(resource_id: str) -> str:
     return "cvf_" + hashlib.sha1(resource_id.encode("utf-8")).hexdigest()[:12]
 
 
+def item_condition_objective(item_id: str, count: int) -> str:
+    """Stable boolean objective mirrored from vanilla inventory plus the server bag."""
+    key = f"{item_id}\0{count}"
+    return "cvi_" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
+
+
+def player_condition_objective(condition: dict) -> str:
+    """Stable boolean objective mirrored by the shared server condition tracker."""
+    normalized = json.dumps(condition, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "cvc_" + hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:12]
+
+
 def dialogue_label(resource_id: str) -> str:
     return resource_id.rsplit("/", 1)[-1]
 
 
 def easy_npc_condition(operation: dict) -> str | None:
     operation_type = operation.get("type")
-    if operation_type == "flag_equals":
+    if operation_type in {"flag", "flag_equals"}:
         value = operation.get("value")
         if isinstance(value, bool):
             value = 1 if value else 0
@@ -297,11 +309,17 @@ def easy_npc_condition(operation: dict) -> str | None:
             "{Name:" + quote(flag_objective(operation["key"]))
             + ',Operation:"EQUALS",Type:"SCOREBOARD",Value:' + str(value) + "}"
         )
-    if operation_type == "has_item":
+    if operation_type in {"item", "has_item"}:
+        count = int(operation.get("count", 1))
+        expected = 0 if operation.get("negate") else 1
         return (
-            "{Amount:" + str(int(operation.get("count", 1)))
-            + ",Name:" + quote(operation["item"])
-            + ',Type:"HAS_ITEM_IN_INVENTORY"}'
+            "{Name:" + quote(item_condition_objective(operation["item"], count))
+            + ',Operation:"EQUALS",Type:"SCOREBOARD",Value:' + str(expected) + "}"
+        )
+    if operation_type in {"variable", "badge", "pokemon", "party_count"}:
+        return (
+            "{Name:" + quote(player_condition_objective(operation))
+            + ',Operation:"EQUALS",Type:"SCOREBOARD",Value:1}'
         )
     if operation_type == "always":
         return None
@@ -662,7 +680,7 @@ def easy_npc_action(operation: dict, document: dict) -> str:
     if operation_type == "start_starter_roulette":
         return ",".join([
             '{Type:"CLOSE_DIALOG"}',
-            command_action("/execute as @initiator run starterroulette"),
+            command_action("/cobbleventure_starter_roulette @initiator"),
         ])
     if operation_type == "teleport_to_gate":
         selector = "@npc-uuid" if operation.get("subject") == "npc" else "@initiator"

@@ -366,8 +366,8 @@
             "if": {
               "properties": {
                 "properties": {
-                  "properties": { "building_enabled": { "const": false } },
-                  "required": ["building_enabled"]
+                  "properties": { "center_placement": { "const": "npc" } },
+                  "required": ["center_placement"]
                 }
               }
             },
@@ -396,98 +396,43 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "facing", "wall_block", "wall_thickness", "wall_height",
-        "opening_width", "barrier_height", "condition_mode", "conditions"
+        "facing", "center_placement", "surrounding_type",
+        "wall_thickness", "wall_height", "passage_width", "barrier_height",
+        "condition_mode", "conditions"
       ],
       "properties": {
         "facing": { "enum": ["north", "east", "south", "west"] },
-        "gate_mode": { "enum": ["classic", "npc_only", "system_only"] },
-        "building_enabled": { "type": "boolean" },
-        "surrounding_type": { "enum": ["wall", "trees", "none"] },
+        "center_placement": { "enum": ["gate", "gate_npc", "npc"] },
+        "surrounding_type": { "enum": ["wall", "natural"] },
         "wall_block": { "$ref": "#/$defs/resource_id" },
         "tree_log": { "$ref": "#/$defs/resource_id" },
         "tree_leaves": { "$ref": "#/$defs/resource_id" },
         "wall_thickness": { "type": "integer", "minimum": 1, "maximum": 15 },
         "wall_height": { "type": "integer", "minimum": 3, "maximum": 32 },
-        "opening_width": { "type": "integer", "minimum": 3, "maximum": 31 },
+        "passage_width": { "type": "integer", "minimum": 3, "maximum": 31 },
         "barrier_height": { "type": "integer", "minimum": 8, "maximum": 128 },
-        "condition_mode": { "enum": ["all", "any"] },
+        "condition_mode": { "$ref": "player-condition.schema.json#/$defs/mode" },
         "conditions": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/gate_condition" }
+          "$ref": "player-condition.schema.json#/$defs/condition_list"
         },
         "deny_message": { "type": "string", "minLength": 1, "maxLength": 256 },
         "npc": { "$ref": "#/$defs/resource_id" }
       },
       "allOf": [{
         "if": {
-          "properties": {
-            "gate_mode": { "const": "npc_only" }
-          },
-          "required": ["gate_mode"]
+          "properties": { "surrounding_type": { "const": "wall" } },
+          "required": ["surrounding_type"]
         },
-        "then": { "required": ["npc"] }
+        "then": { "required": ["wall_block"] }
       }, {
         "if": {
-          "properties": { "gate_mode": { "const": "system_only" } },
-          "required": ["gate_mode"]
+          "properties": {
+            "center_placement": { "enum": ["gate_npc", "npc"] }
+          },
+          "required": ["center_placement"]
         },
-        "then": {
-          "required": ["deny_message"],
-          "properties": { "conditions": { "minItems": 1 } }
-        }
+        "then": { "required": ["npc"] }
       }]
-    },
-    "gate_condition": {
-      "oneOf": [
-        { "$ref": "#/$defs/gate_variable_condition" },
-        { "$ref": "#/$defs/gate_item_condition" },
-        { "$ref": "#/$defs/gate_badge_condition" },
-        { "$ref": "#/$defs/gate_pokemon_condition" }
-      ]
-    },
-    "gate_variable_condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "source", "key", "operator", "value"],
-      "properties": {
-        "type": { "const": "variable" },
-        "source": { "enum": ["scoreboard", "persistent_data"] },
-        "key": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
-        "operator": { "enum": ["==", "!=", ">", ">=", "<", "<="] },
-        "value": { "type": "number" }
-      }
-    },
-    "gate_item_condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "item", "count"],
-      "properties": {
-        "type": { "const": "item" },
-        "item": { "$ref": "#/$defs/resource_id" },
-        "count": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
-        "negate": { "type": "boolean" }
-      }
-    },
-    "gate_pokemon_condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "species"],
-      "properties": {
-        "type": { "const": "pokemon" },
-        "species": { "$ref": "#/$defs/resource_id" },
-        "negate": { "type": "boolean" }
-      }
-    },
-    "gate_badge_condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "badge"],
-      "properties": {
-        "type": { "const": "badge" },
-        "badge": { "$ref": "#/$defs/resource_id" },
-        "negate": { "type": "boolean" }
-      }
     },
     "cave_entrance": {
       "type": "object",

@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -322,10 +323,10 @@ final class GymInteriorSystem {
             JsonObject connection = element.getAsJsonObject();
             String[] from = endpoint(requiredString(connection, "from"));
             String[] to = endpoint(requiredString(connection, "to"));
-            List<Condition> conditions = new ArrayList<>();
+            List<PlayerConditions.Condition> conditions = new ArrayList<>();
             if (connection.has("conditions")) {
                 for (JsonElement condition : connection.getAsJsonArray("conditions")) {
-                    conditions.add(parseCondition(condition.getAsJsonObject()));
+                    conditions.add(PlayerConditions.parse(condition.getAsJsonObject()));
                 }
             }
             connections.add(new GymConnection(
@@ -356,10 +357,10 @@ final class GymInteriorSystem {
                 if (!requiredString(connection, "from").startsWith("exterior:")) {
                     continue;
                 }
-                List<Condition> conditions = new ArrayList<>();
+                List<PlayerConditions.Condition> conditions = new ArrayList<>();
                 if (connection.has("conditions")) {
                     for (JsonElement condition : connection.getAsJsonArray("conditions")) {
-                        conditions.add(parseCondition(condition.getAsJsonObject()));
+                        conditions.add(PlayerConditions.parse(condition.getAsJsonObject()));
                     }
                 }
                 return new AccessPolicy(
@@ -391,14 +392,7 @@ final class GymInteriorSystem {
     }
 
     private static String flagObjective(String variable) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-1").digest(
-                variable.getBytes(StandardCharsets.UTF_8)
-            );
-            return "cvf_" + HexFormat.of().formatHex(digest).substring(0, 12);
-        } catch (NoSuchAlgorithmException error) {
-            throw new IllegalStateException("SHA-1 is unavailable", error);
-        }
+        return PlayerConditions.flagObjective(variable);
     }
 
     private static void addStaffMember(
@@ -484,10 +478,10 @@ final class GymInteriorSystem {
     private static GymConfig parseConfig(String settlementId, JsonObject gym, GymDefinition definition) {
         JsonObject entrance = gym.has("entrance") ? gym.getAsJsonObject("entrance") : null;
         JsonObject interior = gym.has("interior") ? gym.getAsJsonObject("interior") : null;
-        List<Condition> conditions = new ArrayList<>();
+        List<PlayerConditions.Condition> conditions = new ArrayList<>();
         if (entrance != null && entrance.has("conditions")) {
             for (JsonElement element : entrance.getAsJsonArray("conditions")) {
-                conditions.add(parseCondition(element.getAsJsonObject()));
+                conditions.add(PlayerConditions.parse(element.getAsJsonObject()));
             }
         } else {
             conditions.addAll(definition.access.conditions);
@@ -512,29 +506,6 @@ final class GymInteriorSystem {
             definition.connections,
             definition.staff
         );
-    }
-
-    private static Condition parseCondition(JsonObject value) {
-        return switch (requiredString(value, "type")) {
-            case "variable" -> new VariableCondition(
-                optionalString(value, "source", "scoreboard"),
-                requiredString(value, "key"),
-                optionalString(value, "operator", ">="),
-                value.get("value").getAsDouble()
-            );
-            case "item" -> new ItemCondition(
-                requiredString(value, "item"),
-                value.has("count") ? value.get("count").getAsInt() : 1,
-                value.has("negate") && value.get("negate").getAsBoolean()
-            );
-            case "pokemon" -> new PokemonCondition(
-                requiredString(value, "species"),
-                value.has("negate") && value.get("negate").getAsBoolean()
-            );
-            default -> throw new IllegalStateException(
-                "Unsupported gym condition: " + requiredString(value, "type")
-            );
-        };
     }
 
     private static void placeInterior(ServerLevel level, GymConfig gym) {
@@ -834,7 +805,7 @@ final class GymInteriorSystem {
     private record DoorTarget(
         ResourceKey<Level> dimension,
         BlockPos position,
-        List<Condition> conditions,
+        List<PlayerConditions.Condition> conditions,
         String conditionMode,
         List<String> lockedDialogue,
         List<String> enterDialogue
@@ -843,9 +814,7 @@ final class GymInteriorSystem {
             if (conditions.isEmpty()) {
                 return true;
             }
-            return conditionMode.equals("any")
-                ? conditions.stream().anyMatch(condition -> condition.matches(player))
-                : conditions.stream().allMatch(condition -> condition.matches(player));
+            return PlayerConditions.matches(player, conditionMode, conditions);
         }
     }
 
@@ -857,7 +826,7 @@ final class GymInteriorSystem {
     ) {}
 
     private record AccessPolicy(
-        String conditionMode, List<Condition> conditions,
+        String conditionMode, List<PlayerConditions.Condition> conditions,
         List<String> lockedDialogue, List<String> enterDialogue
     ) {}
 
@@ -905,7 +874,7 @@ final class GymInteriorSystem {
         final BlockPoint outsideOffset;
         final Direction facing;
         final String conditionMode;
-        final List<Condition> conditions;
+        final List<PlayerConditions.Condition> conditions;
         final List<String> lockedDialogue;
         final List<String> enterDialogue;
         final BlockPoint entryOffset;
@@ -920,7 +889,7 @@ final class GymInteriorSystem {
             List<InteriorModule> modules,
             BlockPoint doorOffset,
             BlockPoint outsideOffset, Direction facing, String conditionMode,
-            List<Condition> conditions, List<String> lockedDialogue,
+            List<PlayerConditions.Condition> conditions, List<String> lockedDialogue,
             List<String> enterDialogue, BlockPoint entryOffset,
             BlockPoint exitDoorOffset, List<GymConnection> connections,
             List<GymStaffMember> staff
@@ -961,54 +930,4 @@ final class GymInteriorSystem {
         }
     }
 
-    private sealed interface Condition permits VariableCondition, ItemCondition, PokemonCondition {
-        boolean matches(ServerPlayer player);
-    }
-
-    private record VariableCondition(String source, String key, String operator, double value)
-        implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            double actual;
-            if (source.equals("persistent_data")) {
-                actual = player.getPersistentData().getDouble(key);
-            } else {
-                Objective objective = player.getScoreboard().getObjective(key);
-                actual = objective == null ? 0.0D
-                    : player.getScoreboard().getOrCreatePlayerScore(player, objective).get();
-            }
-            return switch (operator) {
-                case "==" -> actual == value;
-                case "!=" -> actual != value;
-                case ">" -> actual > value;
-                case "<" -> actual < value;
-                case "<=" -> actual <= value;
-                default -> actual >= value;
-            };
-        }
-    }
-
-    private record ItemCondition(String item, int count, boolean negate) implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            ResourceLocation id = ResourceLocation.tryParse(item);
-            Item required = id == null ? null : BuiltInRegistries.ITEM.get(id);
-            boolean present = required != null && player.getInventory().countItem(required) >= count;
-            return negate != present;
-        }
-    }
-
-    private record PokemonCondition(String species, boolean negate) implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            boolean present = false;
-            for (Pokemon pokemon : Cobblemon.INSTANCE.getStorage().getParty(player)) {
-                if (pokemon.getSpecies().getResourceIdentifier().toString().equals(species)) {
-                    present = true;
-                    break;
-                }
-            }
-            return negate != present;
-        }
-    }
 }

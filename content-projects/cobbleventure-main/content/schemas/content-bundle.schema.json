@@ -420,8 +420,14 @@
         "type": {
           "enum": [
             "always",
+            "variable",
+            "flag",
             "flag_equals",
+            "item",
             "has_item",
+            "badge",
+            "pokemon",
+            "party_count",
             "next_dialogue",
             "close_dialogue",
             "start_battle",
@@ -452,10 +458,19 @@
             "cancelled": { "$ref": "#/$defs/resource_id" }
           }
         },
-        "key": { "$ref": "#/$defs/resource_id" },
+        "key": {
+          "oneOf": [
+            { "$ref": "#/$defs/resource_id" },
+            { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" }
+          ]
+        },
+        "source": { "enum": ["scoreboard", "persistent_data"] },
+        "operator": { "enum": ["==", "!=", ">", ">=", "<", "<="] },
         "value": { "type": ["string", "number", "boolean"] },
         "item": { "$ref": "#/$defs/resource_id" },
         "badge": { "$ref": "#/$defs/resource_id" },
+        "species": { "$ref": "#/$defs/resource_id" },
+        "negate": { "type": "boolean" },
         "count": { "type": "integer", "minimum": 1 },
         "mode": { "enum": ["fixed", "level_cap_multiplier"] },
         "amount": { "type": "integer", "minimum": 0 },

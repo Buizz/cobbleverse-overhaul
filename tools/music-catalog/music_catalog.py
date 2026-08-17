@@ -93,7 +93,8 @@ def load_catalog(path: Path) -> dict[str, Any]:
     for context in (
         "tile", "road", "settlement", "cave", "forest", "building",
         "pokemon_center", "pokemart", "trainer_encounter_boy",
-        "trainer_encounter_girl", "trainer_encounter_bad_guys", "battle", "gym",
+        "trainer_encounter_girl", "trainer_encounter_bad_guys",
+        "item_acquired", "key_item_acquired", "machine_acquired", "battle", "gym",
         "victory_wild", "victory_trainer", "victory_gym",
     ):
         track_id = defaults.get(context)

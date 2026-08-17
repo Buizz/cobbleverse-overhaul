@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.playermenu;
 import java.util.List;
 import net.minecraft.core.NonNullList;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /** Public server API for rewards, shops and quests that read or mutate a player's bag. */
@@ -69,6 +70,19 @@ public final class BagApi {
         }
         for (ItemStack stack : BagStorage.load(player)) {
             if (ItemStack.isSameItemSameComponents(stack, prototype)) total += stack.getCount();
+        }
+        return total;
+    }
+
+    /** Returns the total count by item type, ignoring stack components. */
+    public static int count(ServerPlayer player, Item item) {
+        int total = 0;
+        for (int slot = 0; slot < 36; slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (stack.is(item)) total += stack.getCount();
+        }
+        for (ItemStack stack : BagStorage.load(player)) {
+            if (stack.is(item)) total += stack.getCount();
         }
         return total;
     }

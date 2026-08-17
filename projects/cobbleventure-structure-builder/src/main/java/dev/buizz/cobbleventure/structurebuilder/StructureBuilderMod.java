@@ -47,6 +47,7 @@ import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -1639,8 +1640,29 @@ public final class StructureBuilderMod {
         if (!placed) {
             throw new BuilderException("NBT 배치에 실패했습니다: " + id);
         }
+        // StructureTemplate temporarily replaces block entities while placing them.
+        // CobbleFurnies treats that replacement as breaking the other fridge half.
+        repairKnownMultiblocks(
+            level, planned.origin(), expected, planned.entry().label()
+        );
+        syncPlacedBlockEntities(level, planned.origin(), expected);
         outlineNbtFootprint(level, planned.origin(), expected);
         placeLabel(level, planned);
+    }
+
+    private static void syncPlacedBlockEntities(
+        ServerLevel level, BlockPos origin, Vec3i size
+    ) {
+        BlockPos end = origin.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
+        for (BlockPos position : BlockPos.betweenClosed(origin, end)) {
+            BlockEntity blockEntity = level.getBlockEntity(position);
+            if (blockEntity == null) {
+                continue;
+            }
+            blockEntity.setChanged();
+            BlockState state = level.getBlockState(position);
+            level.sendBlockUpdated(position, state, state, 3);
+        }
     }
 
     private static ExportResult export(

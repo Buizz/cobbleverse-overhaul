@@ -267,6 +267,16 @@ public final class MusicPlayback {
         }
     }
 
+    /** Resolves a configured one-shot sound through the same tag catalog as BGM. */
+    static ResourceLocation defaultSoundEvent(ServerPlayer player, String context) {
+        MusicData music = load(player.serverLevel());
+        String track = music.defaults.get(context);
+        String soundEvent = track == null ? null : music.soundEvents.get(track);
+        return soundEvent == null ? null : ResourceLocation.fromNamespaceAndPath(
+            music.namespace, soundEvent
+        );
+    }
+
     private static MusicData load(ServerLevel level) {
         ResourceManager resources = level.getServer().getResourceManager();
         if (data != null && loadedFrom == resources) return data;

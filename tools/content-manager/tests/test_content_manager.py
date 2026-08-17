@@ -150,7 +150,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('"decoration", "natural_feature", "gym_exterior"', script)
         self.assertIn("[...groups.keys()]", script)
 
-    def test_local_ogg_files_are_registered_in_music_catalog_automatically(self) -> None:
+    def test_local_ogg_files_are_candidates_without_automatic_tags(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             core_root = Path(directory)
             project_root = core_root / "content-projects/cobbleventure-main"
@@ -183,24 +183,24 @@ class ContentManagerTests(unittest.TestCase):
                 project_root, core_root
             )
 
-            self.assertEqual(1, added)
-            self.assertEqual(3, len(catalog["tracks"]))
+            self.assertEqual(0, added)
+            self.assertEqual(2, len(catalog["tracks"]))
             self.assertEqual(0, catalog["local_library"]["removed"])
             self.assertEqual(1, catalog["local_library"]["missing_tracks"])
             self.assertEqual(
-                {"existing.ogg", "새 노래.ogg", "deleted.ogg"},
+                ["existing.ogg", "새 노래.ogg"],
+                catalog["local_library"]["files"],
+            )
+            self.assertEqual(1, catalog["local_library"]["unmapped_ogg"])
+            self.assertNotIn(
+                "새 노래.ogg",
                 {track["source_file"] for track in catalog["tracks"]},
             )
-            added_track = next(
-                track for track in catalog["tracks"] if track["source_file"] == "새 노래.ogg"
-            )
-            self.assertRegex(added_track["id"], r"^local\.track_[0-9a-f]{8}$")
-            self.assertEqual("새 노래", added_track["usage"])
             stored = json.loads(catalog_path.read_text(encoding="utf-8"))
             self.assertNotIn("local_library", stored)
             self.assertEqual(2, len(stored["review_candidates"]))
 
-    def test_music_root_recursively_migrates_and_registers_nested_ogg_files(self) -> None:
+    def test_music_root_recursively_lists_files_and_migrates_existing_tags(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             core_root = Path(directory)
             project_root = core_root / "content-projects/cobbleventure-main"
@@ -236,16 +236,17 @@ class ContentManagerTests(unittest.TestCase):
                 project_root, core_root
             )
 
-            self.assertEqual(1, added)
+            self.assertEqual(0, added)
             self.assertEqual(2, catalog["local_library"]["migrated"])
             self.assertEqual(
                 {
                     "another-red-bgm/existing.ogg",
                     "download/download.ogg",
-                    "custom/area/new.ogg",
                 },
                 {track["source_file"] for track in catalog["tracks"]},
             )
+            self.assertIn("custom/area/new.ogg", catalog["local_library"]["files"])
+            self.assertEqual(1, catalog["local_library"]["unmapped_ogg"])
             self.assertTrue(all("source_directory" not in track for track in catalog["tracks"]))
 
             catalog, added = content_manager.sync_local_music_catalog(
@@ -253,7 +254,7 @@ class ContentManagerTests(unittest.TestCase):
             )
             self.assertEqual(0, added)
             self.assertEqual(0, catalog["local_library"]["migrated"])
-            self.assertEqual(3, len(catalog["tracks"]))
+            self.assertEqual(2, len(catalog["tracks"]))
 
     def test_music_references_reject_paths_and_accept_tags_everywhere(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -308,9 +309,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('<select name="trainer_encounter_boy"></select>', markup)
         self.assertIn('<select name="trainer_encounter_girl"></select>', markup)
         self.assertIn('<select name="trainer_encounter_bad_guys"></select>', markup)
+        self.assertIn('<select name="item_acquired"></select>', markup)
+        self.assertIn('<select name="key_item_acquired"></select>', markup)
+        self.assertIn('<select name="machine_acquired"></select>', markup)
+        self.assertIn('placeholder="예: Victory"', markup)
+        self.assertIn("function normalizeMusicTag(value)", script)
         self.assertEqual(
             "encounter.trainer_boy",
             catalog["defaults"]["trainer_encounter_boy"],
+        )
+        self.assertEqual("event.item_acquired", catalog["defaults"]["item_acquired"])
+        self.assertEqual(
+            "event.key_item_acquired", catalog["defaults"]["key_item_acquired"]
+        )
+        self.assertEqual(
+            "event.machine_acquired", catalog["defaults"]["machine_acquired"]
         )
         self.assertIn('musicOptions(document.music_track || "", "cave")', script)
         self.assertIn('musicOptions(document.music_track || "", "forest")', script)
@@ -2039,16 +2052,17 @@ class ContentManagerTests(unittest.TestCase):
                 "id": "route_01_gate", "type": "gate", "anchor": {"q": 1, "r": -1},
                 "resource": "cobbleventure:gate/route_01", "rotation": 1,
                 "properties": {
-                    "facing": "east", "gate_mode": "classic", "building_enabled": True, "surrounding_type": "trees",
+                    "facing": "east", "center_placement": "gate_npc", "surrounding_type": "natural",
                     "wall_block": "minecraft:stone_bricks", "tree_log": "minecraft:oak_log",
                     "tree_leaves": "minecraft:oak_leaves",
-                    "wall_thickness": 5, "wall_height": 7, "opening_width": 7,
+                    "wall_thickness": 5, "wall_height": 7, "passage_width": 7,
                     "barrier_height": 24, "condition_mode": "all",
                     "conditions": [
                         {"type": "variable", "source": "scoreboard", "key": "badge_count", "operator": ">=", "value": 2},
                         {"type": "item", "item": "minecraft:paper", "count": 1},
                         {"type": "badge", "badge": "cobbleventure:badge/kanto/boulder"},
                         {"type": "pokemon", "species": "cobblemon:pikachu"},
+                        {"type": "party_count", "operator": ">=", "value": 1},
                     ],
                     "npc": "easy_npc:preset/encounter/gatekeeper.npc.snbt",
                     "deny_message": "배지 두 개가 필요합니다.",
@@ -2066,15 +2080,17 @@ class ContentManagerTests(unittest.TestCase):
             invalid_badge = json.loads(json.dumps(layout))
             invalid_badge["objects"][0]["properties"]["conditions"][2]["badge"] = "boulder"
             issues = content_manager.save_world_layout(candidate_root, invalid_badge, 2)
-            self.assertTrue(any("배지 리소스 ID" in issue.message for issue in issues))
-            npc_only = json.loads(json.dumps(gate))
-            npc_only["id"] = "npc_only_gate"
-            npc_only["anchor"] = {"q": 2, "r": -1}
-            npc_only.pop("resource")
-            npc_only["properties"]["gate_mode"] = "npc_only"
-            npc_only["properties"]["building_enabled"] = False
-            npc_only["properties"]["surrounding_type"] = "none"
-            layout["objects"].append(npc_only)
+            self.assertTrue(any(issue.path.endswith(".badge") for issue in issues))
+            invalid_party_count = json.loads(json.dumps(layout))
+            invalid_party_count["objects"][0]["properties"]["conditions"][4]["value"] = 7
+            issues = content_manager.save_world_layout(candidate_root, invalid_party_count, 2)
+            self.assertTrue(any("파티 포켓몬 수" in issue.message for issue in issues))
+            npc_center = json.loads(json.dumps(gate))
+            npc_center["id"] = "npc_center_gate"
+            npc_center["anchor"] = {"q": 2, "r": -1}
+            npc_center.pop("resource")
+            npc_center["properties"]["center_placement"] = "npc"
+            layout["objects"].append(npc_center)
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
             villain_base = {
                 "id": "rocket_hideout", "type": "villain_base", "anchor": {"q": 3, "r": -1},
@@ -2096,21 +2112,18 @@ class ContentManagerTests(unittest.TestCase):
             missing_legendary_nbt["objects"][3].pop("resource")
             issues = content_manager.save_world_layout(candidate_root, missing_legendary_nbt, 2)
             self.assertTrue(any("전설 포켓몬 장소 NBT" in issue.message for issue in issues))
-            system_only = json.loads(json.dumps(gate))
-            system_only["id"] = "story_lock"
-            system_only["anchor"] = {"q": 5, "r": -1}
-            system_only.pop("resource")
-            system_only["properties"]["gate_mode"] = "system_only"
-            system_only["properties"]["building_enabled"] = False
-            system_only["properties"]["surrounding_type"] = "none"
-            system_only["properties"].pop("npc")
-            system_only["properties"]["deny_message"] = "배지 두 개를 얻기 전에는 들어갈 수 없습니다."
-            layout["objects"].append(system_only)
+            gate_only = json.loads(json.dumps(gate))
+            gate_only["id"] = "story_lock"
+            gate_only["anchor"] = {"q": 5, "r": -1}
+            gate_only["properties"]["center_placement"] = "gate"
+            gate_only["properties"].pop("npc")
+            gate_only["properties"]["deny_message"] = "배지 두 개를 얻기 전에는 들어갈 수 없습니다."
+            layout["objects"].append(gate_only)
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
-            invalid_system = json.loads(json.dumps(layout))
-            invalid_system["objects"][4]["properties"]["conditions"] = []
-            issues = content_manager.save_world_layout(candidate_root, invalid_system, 2)
-            self.assertTrue(any("통과 조건" in issue.message for issue in issues))
+            invalid_center = json.loads(json.dumps(layout))
+            invalid_center["objects"][4]["properties"]["center_placement"] = "system_only"
+            issues = content_manager.save_world_layout(candidate_root, invalid_center, 2)
+            self.assertTrue(any("가운데 배치물" in issue.message for issue in issues))
             invisible = json.loads(json.dumps(layout))
             invisible["objects"][1]["properties"].pop("npc")
             issues = content_manager.save_world_layout(candidate_root, invisible, 2)
@@ -2127,14 +2140,27 @@ class ContentManagerTests(unittest.TestCase):
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="object-tool-facing"', page)
+        self.assertIn('data-map-tool="gate"', page)
+        self.assertIn('data-tool-options="gate"', page)
+        self.assertIn('id="generic-object-tool-type"', page)
+        self.assertIn('name="kind" value="gate"', page)
+        self.assertIn('g: "gate", o: "object"', script)
+        self.assertIn('else if (tool === "gate") placeGateWithTool(q, r)', script)
+        self.assertIn('customObject.type === "gate" ? "gate" : "object"', script)
         self.assertIn('id="object-tool-condition-builder"', page)
         self.assertIn('id="inspector-gate-condition-builder"', page)
         self.assertIn('["badge", "배지 클리어"]', script)
+        self.assertIn('["party_count", "파티 포켓몬 수"]', script)
         self.assertNotIn('id="object-tool-conditions"', page)
-        self.assertIn('id="object-tool-building-enabled"', page)
+        self.assertNotIn('id="object-tool-building-enabled"', page)
         self.assertIn('id="object-tool-surrounding-type"', page)
         self.assertIn('id="object-tool-tree-log"', page)
         self.assertIn('id="object-tool-gate-mode"', page)
+        self.assertIn('<option value="gate_npc">관문 + NPC</option>', page)
+        self.assertIn('<option value="natural">자연지물 · 주변 이동불가 지형과 연결</option>', page)
+        self.assertNotIn('<option value="system_only">', page)
+        self.assertNotIn('<option value="trees">', page)
+        self.assertIn('passage_width: normalizedOdd(values.openingWidth, 3, 31)', script)
         self.assertIn('name="objectGateMode"', page)
         self.assertIn('<option value="villain_base">빌런기지</option>', page)
         self.assertIn('["legendary_site", "전설 포켓몬 장소"]', script)
@@ -2142,11 +2168,31 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="objectNpc"', page)
         self.assertIn('id="edit-object-npc"', page)
         self.assertIn('name="npcRole"', page)
-        self.assertIn("validateGateConditions", script)
+        self.assertIn("validatePlayerConditions", script)
+        self.assertIn("playerConditionTypeOptions", script)
         self.assertIn("renderGateConditionEditor", script)
         self.assertIn("gateProperties", script)
         self.assertIn("renderWorldObjectNbtOptions", script)
         self.assertIn('teleport_to_gate: "관문으로 이동"', script)
+
+    def test_player_conditions_share_schema_runtime_ui_and_documentation(self) -> None:
+        schema = json.loads((
+            PROJECT_ROOT / "content" / "schemas" / "player-condition.schema.json"
+        ).read_text(encoding="utf-8"))
+        condition_types = {
+            schema["$defs"][name]["properties"]["type"].get("const")
+            for name in ("variable", "flag", "item", "badge", "pokemon", "party_count", "always")
+        }
+        self.assertEqual(
+            {"variable", "flag", "item", "badge", "pokemon", "party_count", "always"},
+            condition_types,
+        )
+        runtime_root = CORE_ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "java" / "dev" / "buizz" / "cobbleventure" / "bootstrap"
+        for filename in ("WorldGateSystem.java", "BuildingRuntimeSystem.java", "GymInteriorSystem.java"):
+            source = (runtime_root / filename).read_text(encoding="utf-8")
+            self.assertIn("PlayerConditions", source)
+            self.assertNotIn("interface Condition", source)
+        self.assertTrue((CORE_ROOT / "docs" / "implementation" / "PLAYER_CONDITIONS.md").is_file())
 
     def test_settlements_reference_web_biome_settings(self) -> None:
         root = PROJECT_ROOT

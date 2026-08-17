@@ -27,7 +27,17 @@ def _dialogue(command_id: str, text: Any) -> dict[str, Any]:
     }
 
 
-def compile_event_preset(design: dict[str, Any]) -> dict[str, Any]:
+def _automatic_state_key(document_id: str, preset_type: str) -> str:
+    namespace, _, path = document_id.partition(":")
+    namespace = namespace or "cobbleventure"
+    path = (path or "npc/new_npc").removeprefix("npc/")
+    suffix = "claimed" if preset_type == "item" else "talked"
+    return f"{namespace}:flag/npc/{path}/{suffix}"
+
+
+def compile_event_preset(
+    design: dict[str, Any], document_id: str = "cobbleventure:npc/new_npc"
+) -> dict[str, Any]:
     """Compile one normalized authoring preset into the EasyNPC adapter script."""
     preset = design["preset"]
     preset_type = preset["type"]
@@ -38,11 +48,15 @@ def compile_event_preset(design: dict[str, Any]) -> dict[str, Any]:
     if preset_type == "simple":
         commands.extend([_dialogue("greeting", first_text), {"type": "end"}])
     elif preset_type in {"repeat", "item"}:
-        state_key = preset.get("state_key", "cobbleventure:flag/npc/talked")
+        state_key = (
+            _automatic_state_key(document_id, preset_type)
+            if preset.get("auto_state_key", "state_key" not in preset) is True
+            else preset.get("state_key", "cobbleventure:flag/npc/talked")
+        )
         commands.extend([
             {
                 "type": "branch",
-                "conditions": [{"type": "flag_equals", "key": state_key, "value": True}],
+                "conditions": [{"type": "flag", "key": state_key, "value": True}],
                 "target": "repeat_greeting",
             },
             {"type": "label", "name": "first_greeting"},
@@ -66,7 +80,7 @@ def compile_event_preset(design: dict[str, Any]) -> dict[str, Any]:
             {
                 "type": "branch",
                 "conditions": [{
-                    "type": "flag_equals",
+                    "type": "flag",
                     "key": "cobbleventure:runtime/npc_instance_defeated",
                     "value": True,
                 }],
@@ -127,7 +141,7 @@ def materialize_event_document(document: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(design, dict) or design.get("mode") != "preset":
         return document
     result = copy.deepcopy(document)
-    result["events"] = [compile_event_preset(design)]
+    result["events"] = [compile_event_preset(design, str(document.get("id", "")))]
     result["_event_preset_materialized"] = True
     return result
 

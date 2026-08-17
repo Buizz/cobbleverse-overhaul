@@ -523,11 +523,8 @@
         "door_offset": { "$ref": "#/$defs/block_position" },
         "outside_offset": { "$ref": "#/$defs/block_position" },
         "facing": { "enum": ["north", "east", "south", "west"] },
-        "condition_mode": { "enum": ["all", "any"] },
-        "conditions": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/gym_condition" }
-        },
+        "condition_mode": { "$ref": "player-condition.schema.json#/$defs/mode" },
+        "conditions": { "$ref": "player-condition.schema.json#/$defs/condition_list" },
         "locked_dialogue": {
           "type": "array",
           "minItems": 1,
@@ -546,46 +543,6 @@
         "structure": { "$ref": "#/$defs/resource_id" },
         "entry_offset": { "$ref": "#/$defs/block_position" },
         "exit_door_offset": { "$ref": "#/$defs/block_position" }
-      }
-    },
-    "gym_condition": {
-      "oneOf": [
-        { "$ref": "#/$defs/gym_variable_condition" },
-        { "$ref": "#/$defs/gym_item_condition" },
-        { "$ref": "#/$defs/gym_pokemon_condition" }
-      ]
-    },
-    "gym_variable_condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "source", "key", "operator", "value"],
-      "properties": {
-        "type": { "const": "variable" },
-        "source": { "enum": ["scoreboard", "persistent_data"] },
-        "key": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$" },
-        "operator": { "enum": ["==", "!=", ">", ">=", "<", "<="] },
-        "value": { "type": "number" }
-      }
-    },
-    "gym_item_condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "item", "count"],
-      "properties": {
-        "type": { "const": "item" },
-        "item": { "$ref": "#/$defs/resource_id" },
-        "count": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
-        "negate": { "type": "boolean" }
-      }
-    },
-    "gym_pokemon_condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "species"],
-      "properties": {
-        "type": { "const": "pokemon" },
-        "species": { "$ref": "#/$defs/resource_id" },
-        "negate": { "type": "boolean" }
       }
     },
     "trainer_slot": {

@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.client.CobblemonClient;
 import com.cobblemon.mod.common.client.keybind.keybinds.SummaryBinding;
 import com.cobblemon.mod.common.item.PokedexItem;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -49,6 +50,9 @@ final class CobblemonMenuIntegration {
         }
 
         ItemStack pokedexStack = findPokedex(player.getInventory());
+        if (pokedexStack.isEmpty()) {
+            pokedexStack = findPokedex(BagNetwork.clientSnapshot().slots());
+        }
         if (!(pokedexStack.getItem() instanceof PokedexItem pokedex)) {
             return false;
         }
@@ -94,6 +98,13 @@ final class CobblemonMenuIntegration {
             if (stack.getItem() instanceof PokedexItem) {
                 return stack;
             }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static ItemStack findPokedex(List<ItemStack> stacks) {
+        for (ItemStack stack : stacks) {
+            if (stack.getItem() instanceof PokedexItem) return stack;
         }
         return ItemStack.EMPTY;
     }

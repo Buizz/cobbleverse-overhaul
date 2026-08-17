@@ -3,7 +3,7 @@ package dev.buizz.cobbleventure.bootstrap;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexGrid;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
-import dev.buizz.cobbleventure.playermenu.BadgeProgressNetwork;
+import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.pokemon.Pokemon;
@@ -65,10 +65,10 @@ final class WorldGateSystem {
             }
             JsonObject anchor = value.getAsJsonObject("anchor");
             JsonObject properties = value.getAsJsonObject("properties");
-            List<Condition> conditions = new ArrayList<>();
+            List<PlayerConditions.Condition> conditions = new ArrayList<>();
             if (properties.has("conditions")) {
                 for (JsonElement conditionElement : properties.getAsJsonArray("conditions")) {
-                    conditions.add(parseCondition(conditionElement.getAsJsonObject()));
+                    conditions.add(PlayerConditions.parse(conditionElement.getAsJsonObject()));
                 }
             }
             gates.add(new Gate(
@@ -79,15 +79,17 @@ final class WorldGateSystem {
                 nullableString(value, "resource"),
                 value.has("rotation") ? value.get("rotation").getAsInt() : 0,
                 optionalString(properties, "facing", "north"),
-                optionalString(properties, "gate_mode", "classic"),
-                optionalBoolean(properties, "building_enabled", true),
-                optionalString(properties, "surrounding_type", "wall"),
+                centerPlacement(properties),
+                !centerPlacement(properties).equals("npc"),
+                surroundingType(properties),
                 optionalString(properties, "wall_block", "minecraft:stone_bricks"),
                 optionalString(properties, "tree_log", "minecraft:oak_log"),
                 optionalString(properties, "tree_leaves", "minecraft:oak_leaves"),
                 optionalInt(properties, "wall_thickness", 5),
                 optionalInt(properties, "wall_height", 7),
-                optionalInt(properties, "opening_width", 7),
+                properties.has("passage_width")
+                    ? properties.get("passage_width").getAsInt()
+                    : optionalInt(properties, "opening_width", 7),
                 optionalInt(properties, "barrier_height", 24),
                 optionalString(properties, "condition_mode", "all"),
                 List.copyOf(conditions),
@@ -113,7 +115,7 @@ final class WorldGateSystem {
                 new HexCoord(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
                 requiredString(value, "structure"),
                 optionalInt(value, "rotation", 0),
-                direction, "classic", true, "none", "minecraft:mossy_stone_bricks",
+                direction, "gate", true, "none", "minecraft:mossy_stone_bricks",
                 optionalString(value, "tree_log", "minecraft:spruce_log"),
                 optionalString(value, "tree_leaves", "minecraft:spruce_leaves"),
                 optionalInt(value, "wall_thickness", 7),
@@ -128,29 +130,20 @@ final class WorldGateSystem {
         return List.copyOf(gates);
     }
 
-    private static Condition parseCondition(JsonObject value) {
-        String type = requiredString(value, "type");
-        return switch (type) {
-            case "variable" -> new VariableCondition(
-                optionalString(value, "source", "scoreboard"),
-                requiredString(value, "key"),
-                optionalString(value, "operator", ">="),
-                value.get("value").getAsDouble()
-            );
-            case "item" -> new ItemCondition(
-                requiredString(value, "item"), optionalInt(value, "count", 1),
-                value.has("negate") && value.get("negate").getAsBoolean()
-            );
-            case "badge" -> new BadgeCondition(
-                requiredString(value, "badge"),
-                value.has("negate") && value.get("negate").getAsBoolean()
-            );
-            case "pokemon" -> new PokemonCondition(
-                requiredString(value, "species"),
-                value.has("negate") && value.get("negate").getAsBoolean()
-            );
-            default -> throw new IllegalStateException("Unsupported gate condition: " + type);
-        };
+    private static String centerPlacement(JsonObject properties) {
+        if (properties.has("center_placement")) {
+            return properties.get("center_placement").getAsString();
+        }
+        String legacyMode = optionalString(properties, "gate_mode", "classic");
+        if (legacyMode.equals("npc_only")) {
+            return "npc";
+        }
+        return properties.has("npc") ? "gate_npc" : "gate";
+    }
+
+    private static String surroundingType(JsonObject properties) {
+        String type = optionalString(properties, "surrounding_type", "wall");
+        return type.equals("wall") ? "wall" : "natural";
     }
 
     static void placeAll(
@@ -164,9 +157,6 @@ final class WorldGateSystem {
     private static void place(
         ServerLevel level, HexWorldPlan world, Gate gate
     ) {
-        if (gate.gateMode().equals("system_only")) {
-            return;
-        }
         HexGrid grid = world.grid();
         CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
         BlockPos marker = new BlockPos(
@@ -189,16 +179,18 @@ final class WorldGateSystem {
         if (forestGate) {
             cacheForestEntryMarker(level, world, gate);
         }
-        if (gate.gateMode().equals("classic") && gate.surroundingType().equals("wall")) {
+        if (!forestGate && gate.surroundingType().equals("wall")) {
             placeWallSurroundings(
                 level, gate, center, horizontal,
                 halfLength, halfThickness, halfOpening, wallGroundHeights
             );
-        } else if (gate.gateMode().equals("classic") && gate.surroundingType().equals("trees")) {
-            placeTreeSurroundings(level, gate, center, horizontal, halfLength, halfThickness, halfOpening);
+        } else if (!forestGate && gate.surroundingType().equals("natural")) {
+            placeNaturalSurroundings(
+                level, world, gate, center, horizontal,
+                halfLength, halfThickness, halfOpening
+            );
         }
-        boolean shouldPlaceStructure = gate.gateMode().equals("classic")
-            && gate.buildingEnabled();
+        boolean shouldPlaceStructure = gate.buildingEnabled();
         GateStructurePlacement gatePlacement = null;
         boolean structurePlaced = true;
         if (shouldPlaceStructure) {
@@ -216,23 +208,21 @@ final class WorldGateSystem {
             );
             return;
         }
-        if (!forestGate && gate.gateMode().equals("classic")
-            && gate.surroundingType().equals("wall")) {
+        if (!forestGate && gate.surroundingType().equals("wall")) {
             repairWallSurroundingGaps(
                 level, gate, center, horizontal,
                 halfLength, halfThickness, halfOpening, wallGroundHeights,
                 gatePlacement == null ? null : gatePlacement.footprint()
             );
         }
-        if (!forestGate && gate.gateMode().equals("classic")
-            && !gate.surroundingType().equals("none")) {
+        if (!forestGate) {
             placeNaturalGateFunnels(
                 level, world, gate, center,
                 gatePlacement == null ? null : gatePlacement.occupiedFootprint(),
                 halfThickness, halfOpening
             );
         }
-        if (!forestGate && gate.gateMode().equals("classic")) {
+        if (!forestGate) {
             layGateApproachRoads(
                 level, world, gate, center,
                 gatePlacement == null ? null : gatePlacement.footprint(),
@@ -393,6 +383,7 @@ final class WorldGateSystem {
             ^ (long) z * 912931L ^ (long) depth * 42317861L;
         int visibleHeight = profile.minimumHeight()
             + Math.floorMod((int) (hash ^ hash >>> 32), variation);
+        visibleHeight = Math.max(gate.wallHeight(), visibleHeight);
         visibleHeight = Math.min(visibleHeight, gate.barrierHeight());
         if (terrainType.equals("high_forest")
             || terrainType.equals("dense_forest")) {
@@ -408,6 +399,36 @@ final class WorldGateSystem {
         placeOverheadBarrier(
             level, x, z, groundY, visibleHeight, gate.barrierHeight()
         );
+    }
+
+    /** Builds the full blocking strip from the inaccessible terrain on both sides. */
+    private static void placeNaturalSurroundings(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center, boolean horizontal,
+        int halfLength, int halfThickness, int halfOpening
+    ) {
+        Direction normal = facingDirection(gate.facing());
+        Direction sideways = normal.getClockWise();
+        for (int along = -halfLength; along <= halfLength; along++) {
+            if (Math.abs(along) <= halfOpening) {
+                continue;
+            }
+            Direction sampleDirection = along < 0
+                ? sideways.getOpposite() : sideways;
+            String terrainType = inaccessibleTerrainType(
+                world, center, sampleDirection
+            );
+            NaturalGateFunnelProfile profile = naturalGateFunnelProfile(terrainType);
+            for (int across = -halfThickness; across <= halfThickness; across++) {
+                int x = center.x() + (horizontal ? along : across);
+                int z = center.z() + (horizontal ? across : along);
+                placeNaturalGateFunnelColumn(
+                    level, world, gate, terrainType, profile, x, z,
+                    Math.max(1, Math.abs(along) - halfOpening),
+                    Math.abs(across) + 1
+                );
+            }
+        }
     }
 
     private static void placeForestFunnelColumn(
@@ -1091,16 +1112,6 @@ final class WorldGateSystem {
             if (gate.allows(player)) {
                 continue;
             }
-            if (gate.gateMode().equals("npc_only")) {
-                continue;
-            }
-            if (gate.gateMode().equals("system_only")) {
-                if (grid.worldToHex(player.getX(), player.getZ()).equals(gate.anchor())) {
-                    rejectFromSystemGate(player, grid, gate, previous, gameTime);
-                    return;
-                }
-                continue;
-            }
             CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
             boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
             double normal = horizontal ? player.getZ() - center.z() : player.getX() - center.x();
@@ -1384,72 +1395,13 @@ final class WorldGateSystem {
         return value.has(key) ? value.get(key).getAsBoolean() : fallback;
     }
 
-    sealed interface Condition permits
-        VariableCondition, ItemCondition, BadgeCondition, PokemonCondition {
-        boolean matches(ServerPlayer player);
-    }
-
-    record VariableCondition(String source, String key, String operator, double value)
-        implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            double actual;
-            if (source.equals("persistent_data")) {
-                actual = player.getPersistentData().getDouble(key);
-            } else {
-                Objective objective = player.getScoreboard().getObjective(key);
-                actual = objective == null ? 0.0D
-                    : player.getScoreboard().getOrCreatePlayerScore(player, objective).get();
-            }
-            return switch (operator) {
-                case "==" -> actual == value;
-                case "!=" -> actual != value;
-                case ">" -> actual > value;
-                case "<" -> actual < value;
-                case "<=" -> actual <= value;
-                default -> actual >= value;
-            };
-        }
-    }
-
-    record ItemCondition(String item, int count, boolean negate) implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            ResourceLocation id = ResourceLocation.tryParse(item);
-            Item required = id == null ? null : BuiltInRegistries.ITEM.get(id);
-            boolean present = required != null && player.getInventory().countItem(required) >= count;
-            return negate != present;
-        }
-    }
-
-    record BadgeCondition(String badge, boolean negate) implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            return negate != BadgeProgressNetwork.hasBadge(player, badge);
-        }
-    }
-
-    record PokemonCondition(String species, boolean negate) implements Condition {
-        @Override
-        public boolean matches(ServerPlayer player) {
-            boolean present = false;
-            for (Pokemon pokemon : Cobblemon.INSTANCE.getStorage().getParty(player)) {
-                if (pokemon.getSpecies().getResourceIdentifier().toString().equals(species)) {
-                    present = true;
-                    break;
-                }
-            }
-            return negate != present;
-        }
-    }
-
     record Gate(
         String id,
         HexCoord anchor,
         String structure,
         int rotation,
         String facing,
-        String gateMode,
+        String centerPlacement,
         boolean buildingEnabled,
         String surroundingType,
         String wallBlock,
@@ -1460,7 +1412,7 @@ final class WorldGateSystem {
         int openingWidth,
         int barrierHeight,
         String conditionMode,
-        List<Condition> conditions,
+        List<PlayerConditions.Condition> conditions,
         String denyMessage,
         String npc,
         String destinationForest,
@@ -1473,9 +1425,7 @@ final class WorldGateSystem {
             if (conditions.isEmpty()) {
                 return true;
             }
-            return conditionMode.equals("any")
-                ? conditions.stream().anyMatch(condition -> condition.matches(player))
-                : conditions.stream().allMatch(condition -> condition.matches(player));
+            return PlayerConditions.matches(player, conditionMode, conditions);
         }
 
         Gate withForestDestination(
@@ -1484,7 +1434,7 @@ final class WorldGateSystem {
             CobbleventureBootstrap.BlockPoint portalAnchor
         ) {
             return new Gate(
-                id, anchor, structure, rotation, facing, gateMode, buildingEnabled,
+                id, anchor, structure, rotation, facing, centerPlacement, buildingEnabled,
                 surroundingType, wallBlock, treeLog, treeLeaves, wallThickness,
                 wallHeight, openingWidth, barrierHeight, conditionMode, conditions,
                 denyMessage, npc, destinationForest, destinationEntrance,

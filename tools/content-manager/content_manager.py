@@ -198,10 +198,18 @@ def resolve_content_project(
     if (default_project / PROJECT_MANIFEST_NAME).is_file():
         return load_content_project(default_project, default_root=default_project)
     return load_content_project(core_root, default_root=core_root, require_manifest=False)
-OPERATION_TYPES = {
+PLAYER_CONDITION_TYPES = {
     "always",
+    "variable",
+    "flag",
     "flag_equals",
+    "item",
     "has_item",
+    "badge",
+    "pokemon",
+    "party_count",
+}
+OPERATION_TYPES = PLAYER_CONDITION_TYPES | {
     "next_dialogue",
     "close_dialogue",
     "start_battle",
@@ -1097,9 +1105,10 @@ def validate_hex_worlds(
             if not isinstance(properties, dict):
                 _issue(issues, "error", path, f"{object_path}.properties", "관문 설정 객체가 필요합니다.")
                 continue
-            building_enabled = properties.get("building_enabled", True)
-            if not isinstance(building_enabled, bool):
-                _issue(issues, "error", path, f"{object_path}.properties.building_enabled", "건물 생성 여부는 boolean이어야 합니다.")
+            center_placement = properties.get("center_placement")
+            if center_placement not in {"gate", "gate_npc", "npc"}:
+                _issue(issues, "error", path, f"{object_path}.properties.center_placement", "가운데 배치물은 gate, gate_npc, npc 중 하나여야 합니다.")
+            building_enabled = center_placement in {"gate", "gate_npc"}
             if building_enabled and (not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource)):
                 _issue(issues, "error", path, f"{object_path}.resource", "관문 건물 NBT 리소스 ID가 필요합니다.")
             rotation = custom_object.get("rotation")
@@ -1107,28 +1116,23 @@ def validate_hex_worlds(
                 _issue(issues, "error", path, f"{object_path}.rotation", "관문 NBT 회전은 0~3이어야 합니다.")
             if properties.get("facing") not in {"north", "east", "south", "west"}:
                 _issue(issues, "error", path, f"{object_path}.properties.facing", "관문 방향은 north/east/south/west 중 하나여야 합니다.")
-            gate_mode = properties.get("gate_mode", "classic")
-            if gate_mode not in {"classic", "npc_only", "system_only"}:
-                _issue(issues, "error", path, f"{object_path}.properties.gate_mode", "관문 방식은 classic, npc_only, system_only 중 하나여야 합니다.")
-            if properties.get("surrounding_type", "wall") not in {"wall", "trees", "none"}:
-                _issue(issues, "error", path, f"{object_path}.properties.surrounding_type", "주변 차단물은 wall, trees, none 중 하나여야 합니다.")
+            if properties.get("surrounding_type") not in {"wall", "natural"}:
+                _issue(issues, "error", path, f"{object_path}.properties.surrounding_type", "주변 장애물은 wall 또는 natural이어야 합니다.")
             surrounding_type = properties.get("surrounding_type", "wall")
-            block_fields = [("wall_block", "벽")]
-            if surrounding_type == "trees":
-                block_fields.extend((("tree_log", "나무 줄기"), ("tree_leaves", "나뭇잎")))
+            block_fields = [("wall_block", "벽")] if surrounding_type == "wall" else []
             for field, label in block_fields:
                 block = properties.get(field)
                 if not isinstance(block, str) or not RESOURCE_ID.fullmatch(block):
                     _issue(issues, "error", path, f"{object_path}.properties.{field}", f"관문 {label} 블록 리소스 ID가 필요합니다.")
             numeric_limits = {
                 "wall_thickness": (1, 15), "wall_height": (3, 32),
-                "opening_width": (3, 31), "barrier_height": (8, 128),
+                "passage_width": (3, 31), "barrier_height": (8, 128),
             }
             for field, (minimum, maximum) in numeric_limits.items():
                 number = properties.get(field)
                 if not isinstance(number, int) or isinstance(number, bool) or not minimum <= number <= maximum:
                     _issue(issues, "error", path, f"{object_path}.properties.{field}", f"{minimum}~{maximum} 범위 정수가 필요합니다.")
-                elif field in {"wall_thickness", "opening_width"} and number % 2 == 0:
+                elif field in {"wall_thickness", "passage_width"} and number % 2 == 0:
                     _issue(issues, "error", path, f"{object_path}.properties.{field}", "관문 중심 정렬을 위해 홀수여야 합니다.")
             if isinstance(properties.get("barrier_height"), int) and isinstance(properties.get("wall_height"), int) and properties["barrier_height"] <= properties["wall_height"]:
                 _issue(issues, "error", path, f"{object_path}.properties.barrier_height", "배리어 높이는 벽 높이보다 커야 합니다.")
@@ -1137,52 +1141,22 @@ def validate_hex_worlds(
             npc = properties.get("npc")
             if npc is not None and (not isinstance(npc, str) or not RESOURCE_ID.fullmatch(npc)):
                 _issue(issues, "error", path, f"{object_path}.properties.npc", "올바른 EasyNPC 프리셋 리소스 ID가 필요합니다.")
-            if gate_mode == "npc_only" and npc is None:
-                _issue(issues, "error", path, f"{object_path}.properties.npc", "NPC 전용 관문에는 NPC 프리셋이 필요합니다.")
-            if gate_mode == "system_only":
-                if npc is not None:
-                    _issue(issues, "error", path, f"{object_path}.properties.npc", "시스템 전용 관문에는 NPC를 지정할 수 없습니다.")
-                if building_enabled is not False or surrounding_type != "none":
-                    _issue(issues, "error", path, f"{object_path}.properties", "시스템 전용 관문은 건물과 주변 지형을 생성할 수 없습니다.")
+            if center_placement in {"gate_npc", "npc"} and npc is None:
+                _issue(issues, "error", path, f"{object_path}.properties.npc", "NPC가 포함된 가운데 배치물에는 NPC 프리셋이 필요합니다.")
+            if center_placement == "gate" and npc is not None:
+                _issue(issues, "error", path, f"{object_path}.properties.npc", "관문만 배치할 때는 NPC를 지정할 수 없습니다.")
             deny_message = properties.get("deny_message")
             if deny_message is not None and (not isinstance(deny_message, str) or not deny_message.strip() or len(deny_message) > 256):
                 _issue(issues, "error", path, f"{object_path}.properties.deny_message", "차단 문구는 1~256자의 문자열이어야 합니다.")
-            if gate_mode == "system_only" and deny_message is None:
-                _issue(issues, "error", path, f"{object_path}.properties.deny_message", "시스템 전용 관문에는 차단 문구가 필요합니다.")
             conditions = properties.get("conditions")
             if not isinstance(conditions, list):
                 _issue(issues, "error", path, f"{object_path}.properties.conditions", "관문 조건 배열이 필요합니다.")
                 continue
-            if gate_mode == "system_only" and not conditions:
-                _issue(issues, "error", path, f"{object_path}.properties.conditions", "시스템 전용 관문에는 통과 조건이 하나 이상 필요합니다.")
             for condition_index, condition in enumerate(conditions):
                 condition_path = f"{object_path}.properties.conditions[{condition_index}]"
-                if not isinstance(condition, dict):
-                    _issue(issues, "error", path, condition_path, "관문 조건은 객체여야 합니다.")
-                    continue
-                condition_type = condition.get("type")
-                if condition_type == "variable":
-                    if condition.get("source") not in {"scoreboard", "persistent_data"}:
-                        _issue(issues, "error", path, f"{condition_path}.source", "변수 출처는 scoreboard 또는 persistent_data여야 합니다.")
-                    if not isinstance(condition.get("key"), str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", condition["key"]):
-                        _issue(issues, "error", path, f"{condition_path}.key", "올바른 변수 키가 필요합니다.")
-                    if condition.get("operator") not in {"==", "!=", ">", ">=", "<", "<="}:
-                        _issue(issues, "error", path, f"{condition_path}.operator", "지원하지 않는 변수 비교 연산자입니다.")
-                    if not isinstance(condition.get("value"), (int, float)) or isinstance(condition.get("value"), bool):
-                        _issue(issues, "error", path, f"{condition_path}.value", "비교할 숫자 값이 필요합니다.")
-                elif condition_type == "item":
-                    if not isinstance(condition.get("item"), str) or not RESOURCE_ID.fullmatch(condition["item"]):
-                        _issue(issues, "error", path, f"{condition_path}.item", "올바른 아이템 리소스 ID가 필요합니다.")
-                    if not isinstance(condition.get("count"), int) or isinstance(condition.get("count"), bool) or condition["count"] < 1:
-                        _issue(issues, "error", path, f"{condition_path}.count", "아이템 수량은 1 이상 정수여야 합니다.")
-                elif condition_type == "badge":
-                    if not isinstance(condition.get("badge"), str) or not RESOURCE_ID.fullmatch(condition["badge"]):
-                        _issue(issues, "error", path, f"{condition_path}.badge", "올바른 배지 리소스 ID가 필요합니다.")
-                elif condition_type == "pokemon":
-                    if not isinstance(condition.get("species"), str) or not RESOURCE_ID.fullmatch(condition["species"]):
-                        _issue(issues, "error", path, f"{condition_path}.species", "올바른 포켓몬 종 리소스 ID가 필요합니다.")
-                else:
-                    _issue(issues, "error", path, f"{condition_path}.type", "관문 조건 타입은 variable/item/badge/pokemon 중 하나여야 합니다.")
+                _validate_player_condition(
+                    condition, issues, path, condition_path
+                )
     return issues
 
 
@@ -1949,7 +1923,9 @@ def _validate_operation(
     if operation_type not in OPERATION_TYPES:
         _issue(issues, "error", file, f"{data_path}.type", "지원하지 않는 조건 또는 행동 타입입니다.")
         return
-    if operation_type in {"next_dialogue", "open_dialogue"}:
+    if operation_type in PLAYER_CONDITION_TYPES:
+        _validate_player_condition(operation, issues, file, data_path)
+    elif operation_type in {"next_dialogue", "open_dialogue"}:
         target = _resource_id(operation.get("target"), issues, file, f"{data_path}.target")
         if target:
             dialogue_targets.append((data_path, target))
@@ -1970,17 +1946,12 @@ def _validate_operation(
             trainer = _resource_id(operation.get("trainer"), issues, file, f"{data_path}.trainer")
             if trainer and trainer != content_id:
                 _issue(issues, "error", file, f"{data_path}.trainer", "현재 콘텐츠의 트레이너 ID와 일치해야 합니다.")
-    elif operation_type in {"flag_equals", "set_flag"}:
+    elif operation_type == "set_flag":
         _resource_id(operation.get("key"), issues, file, f"{data_path}.key")
         if "value" not in operation or not isinstance(operation.get("value"), (str, int, float, bool)):
             _issue(issues, "error", file, f"{data_path}.value", "문자열, 숫자 또는 boolean 값이 필요합니다.")
     elif operation_type == "mark_clear":
         _resource_id(operation.get("key"), issues, file, f"{data_path}.key")
-    elif operation_type == "has_item":
-        _resource_id(operation.get("item"), issues, file, f"{data_path}.item")
-        count = operation.get("count", 1)
-        if not isinstance(count, int) or isinstance(count, bool) or count < 1:
-            _issue(issues, "error", file, f"{data_path}.count", "1 이상의 정수가 필요합니다.")
     elif operation_type == "give_item":
         _resource_id(operation.get("item"), issues, file, f"{data_path}.item")
         count = operation.get("count")
@@ -2054,7 +2025,7 @@ def _validate_block_position(
     return position
 
 
-def _validate_gym_condition(
+def _validate_player_condition(
     value: Any, issues: list[Issue], file: Path, data_path: str
 ) -> None:
     condition = _require_object(value, issues, file, data_path)
@@ -2079,8 +2050,27 @@ def _validate_gym_condition(
             _issue(issues, "error", file, f"{data_path}.count", "아이템 수량은 1 이상 정수여야 합니다.")
     elif condition_type == "pokemon":
         _resource_id(condition.get("species"), issues, file, f"{data_path}.species")
+    elif condition_type == "badge":
+        _resource_id(condition.get("badge"), issues, file, f"{data_path}.badge")
+    elif condition_type == "party_count":
+        if condition.get("operator") not in {"==", "!=", ">", ">=", "<", "<="}:
+            _issue(issues, "error", file, f"{data_path}.operator", "지원하지 않는 파티 수 비교 연산자입니다.")
+        number = condition.get("value")
+        if not isinstance(number, int) or isinstance(number, bool) or not 0 <= number <= 6:
+            _issue(issues, "error", file, f"{data_path}.value", "파티 포켓몬 수는 0~6 사이의 정수여야 합니다.")
+    elif condition_type in {"flag", "flag_equals"}:
+        _resource_id(condition.get("key"), issues, file, f"{data_path}.key")
+        if not isinstance(condition.get("value"), (str, int, float, bool)):
+            _issue(issues, "error", file, f"{data_path}.value", "플래그 비교 값이 필요합니다.")
+    elif condition_type == "has_item":
+        _resource_id(condition.get("item"), issues, file, f"{data_path}.item")
+        count = condition.get("count", 1)
+        if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+            _issue(issues, "error", file, f"{data_path}.count", "아이템 수량은 1 이상 정수여야 합니다.")
+    elif condition_type == "always":
+        return
     else:
-        _issue(issues, "error", file, f"{data_path}.type", "체육관 문 조건 타입은 variable/item/pokemon 중 하나여야 합니다.")
+        _issue(issues, "error", file, f"{data_path}.type", "지원하지 않는 공용 플레이어 조건 타입입니다.")
 
 
 def _validate_horizontal_bounds(
@@ -2575,7 +2565,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, "$.structure_profile.gym.entrance.conditions", "체육관 문 조건 배열이 필요합니다.")
                 else:
                     for index, condition in enumerate(conditions):
-                        _validate_gym_condition(
+                        _validate_player_condition(
                             condition, issues, path,
                             f"$.structure_profile.gym.entrance.conditions[{index}]",
                         )
@@ -4384,6 +4374,7 @@ def save_starter_settings(root: Path, data: Any) -> list[Issue]:
 MUSIC_CONTEXTS = (
     "tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart",
     "trainer_encounter_boy", "trainer_encounter_girl", "trainer_encounter_bad_guys",
+    "item_acquired", "key_item_acquired", "machine_acquired",
     "battle", "gym", "victory_wild", "victory_trainer", "victory_gym",
 )
 
@@ -4447,28 +4438,6 @@ def _music_source_directory(project_root: Path, core_root: Path, catalog: dict[s
     return source
 
 
-def _automatic_music_track(source_file: str, used_ids: set[str]) -> dict[str, str]:
-    stem = Path(source_file).stem
-    slug = re.sub(r"[^a-z0-9]+", "_", stem.lower()).strip("_") or "track"
-    digest = hashlib.sha1(source_file.encode("utf-8")).hexdigest()[:8]
-    base_id = f"local.{slug}_{digest}"
-    track_id = base_id
-    suffix = 2
-    while track_id in used_ids:
-        track_id = f"{base_id}_{suffix}"
-        suffix += 1
-    used_ids.add(track_id)
-    event_path = track_id.replace(".", "/")
-    return {
-        "id": track_id,
-        "sound_event": f"music.{track_id}",
-        "resource": f"music/{event_path}",
-        "source_file": source_file,
-        "category": "local",
-        "usage": stem,
-    }
-
-
 def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[str, Any], int]:
     catalog_path = project_root / "content" / "catalogs" / "music-tracks.json"
     catalog = load_json(catalog_path)
@@ -4512,51 +4481,23 @@ def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[
             track["source_file"] = relative
             track.pop("source_directory", None)
             migrated += 1
-    tracks_by_source: dict[str, dict[str, Any]] = {}
-    for track in tracks:
-        if not isinstance(track, dict) or not isinstance(track.get("source_file"), str):
-            continue
-        key = track["source_file"].replace("\\", "/").casefold()
-        tracks_by_source.setdefault(key, track)
-    used_ids = {
-        str(track.get("id")) for track in tracks
-        if isinstance(track, dict) and isinstance(track.get("id"), str)
+    # Folder contents are only candidates. A stable tag is created explicitly in
+    # the editor when a track is assigned a purpose; scanning must never create
+    # public IDs for every local file.
+    available_sources = {
+        path.relative_to(source).as_posix().casefold() for path in ogg_paths
     }
-    additions: list[dict[str, str]] = []
-    reconciled: list[dict[str, Any]] = []
-    retained_objects: set[int] = set()
-    available_sources: set[str] = set()
-    for path in ogg_paths:
-        relative = path.relative_to(source).as_posix()
-        available_sources.add(relative.casefold())
-        existing = tracks_by_source.get(relative.casefold())
-        if existing is not None:
-            existing["source_file"] = relative
-            existing.pop("source_directory", None)
-            reconciled.append(existing)
-            retained_objects.add(id(existing))
-            continue
-        added = _automatic_music_track(relative, used_ids)
-        additions.append(added)
-        reconciled.append(added)
-        retained_objects.add(id(added))
-    # Tags are the stable public reference. Keep their path mapping even when the
-    # optional local audio folder is absent so a project can be shared without OGGs.
-    for track in tracks:
-        if not isinstance(track, dict) or not isinstance(track.get("source_file"), str):
-            continue
-        source_key = track["source_file"].replace("\\", "/").casefold()
-        if id(track) in retained_objects or tracks_by_source.get(source_key) is not track:
-            continue
-        reconciled.append(track)
-        retained_objects.add(id(track))
-    catalog["tracks"] = reconciled
     missing_tracks = sum(
-        1 for track in reconciled
+        1 for track in tracks
         if isinstance(track.get("source_file"), str)
         and track["source_file"].replace("\\", "/").casefold() not in available_sources
     )
-    if additions or migrated:
+    mapped_sources = {
+        track["source_file"].replace("\\", "/").casefold()
+        for track in tracks
+        if isinstance(track, dict) and isinstance(track.get("source_file"), str)
+    }
+    if migrated:
         temporary = catalog_path.with_suffix(".json.tmp")
         temporary.write_text(
             json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -4565,15 +4506,18 @@ def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[
     catalog["local_library"] = {
         "directory": str(source),
         "registered_ogg": len(ogg_paths),
-        "registered_tracks": len(reconciled),
-        "available_tracks": len(reconciled) - missing_tracks,
+        "registered_tracks": len(tracks),
+        "available_tracks": len(tracks) - missing_tracks,
         "missing_tracks": missing_tracks,
+        "unmapped_ogg": sum(
+            1 for source_file in available_sources if source_file not in mapped_sources
+        ),
         "files": [path.relative_to(source).as_posix() for path in ogg_paths],
-        "added": len(additions),
+        "added": 0,
         "removed": 0,
         "migrated": migrated,
     }
-    return catalog, len(additions)
+    return catalog, 0
 
 
 def validate_music_references(root: Path) -> list[Issue]:
@@ -7572,7 +7516,7 @@ def _league_member_event_template(
             "commands": [
                 {
                     "type": "branch",
-                    "conditions": [{"type": "flag_equals", "key": clear_key, "value": True}],
+                    "conditions": [{"type": "flag", "key": clear_key, "value": True}],
                     "target": "cleared",
                 },
                 {"type": "label", "name": "challenge"},
@@ -9866,7 +9810,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 _issue(issues, "error", path, f"{route_path}.conditions", "문 잠금 조건 배열이 필요합니다.")
                 continue
             for condition_index, condition in enumerate(conditions):
-                _validate_gym_condition(
+                _validate_player_condition(
                     condition, issues, path,
                     f"{route_path}.conditions[{condition_index}]",
                 )

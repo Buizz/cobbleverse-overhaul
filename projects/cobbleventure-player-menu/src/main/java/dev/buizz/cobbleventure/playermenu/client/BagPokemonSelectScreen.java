@@ -1,7 +1,10 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import com.cobblemon.mod.common.client.CobblemonClient;
+import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -9,14 +12,16 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
-/** Party picker used to give a held item directly from the bag. */
+/** Party picker used for held-item assignment and Pokémon-targeting bag items. */
 final class BagPokemonSelectScreen extends Screen {
-    private static final int PANEL_WIDTH = 310;
-    private static final int PANEL_HEIGHT = 224;
+    enum Action { USE, GIVE }
     private static final int PANEL = 0xF01D2630;
     private static final int DARK = 0xFF10171E;
     private static final int LIGHT = 0xFF34444F;
     private static final int ACCENT = 0xFF5EE4E4;
+    private static final int HP_GREEN = 0xFF64D66D;
+    private static final int HP_YELLOW = 0xFFE6C84F;
+    private static final int HP_RED = 0xFFE86666;
     private static final int TEXT = 0xFFF4F4F4;
     private static final int MUTED = 0xFFA6A6A6;
 
@@ -24,54 +29,84 @@ final class BagPokemonSelectScreen extends Screen {
     private final boolean extended;
     private final int sourceSlot;
     private final ItemStack stack;
+    private final Action action;
+    private final List<ModelWidget> models = new ArrayList<>();
+    private final List<PokemonButton> pokemonButtons = new ArrayList<>();
     private int panelX;
     private int panelY;
+    private int panelWidth;
+    private int panelHeight;
+    private int cardWidth;
+    private int cardHeight;
 
-    BagPokemonSelectScreen(BagScreen parent, boolean extended, int sourceSlot, ItemStack stack) {
-        super(Component.translatable("screen.cobbleventure_player_menu.bag.pokemon_select.title"));
+    BagPokemonSelectScreen(BagScreen parent, boolean extended, int sourceSlot, ItemStack stack, Action action) {
+        super(Component.translatable("screen.cobbleventure_player_menu.bag.pokemon_select."
+            + (action == Action.USE ? "use_title" : "give_title")));
         this.parent = parent;
         this.extended = extended;
         this.sourceSlot = sourceSlot;
         this.stack = stack;
+        this.action = action;
     }
 
     @Override
     protected void init() {
-        panelX = (width - PANEL_WIDTH) / 2;
-        panelY = (height - PANEL_HEIGHT) / 2;
+        models.clear();
+        pokemonButtons.clear();
+        panelWidth = Math.min(540, Math.max(300, width - 24));
+        panelHeight = Math.min(278, Math.max(210, height - 16));
+        panelX = (width - panelWidth) / 2;
+        panelY = (height - panelHeight) / 2;
+        int gap = 7;
+        cardWidth = (panelWidth - 24 - gap) / 2;
+        cardHeight = Math.max(48, (panelHeight - 96 - gap * 2) / 3);
+        int cardTop = panelY + 53;
         for (int slot = 0; slot < 6; slot++) {
             Pokemon pokemon = CobblemonClient.INSTANCE.getStorage().getParty().get(slot);
             if (pokemon == null) continue;
             int column = slot % 2;
             int row = slot / 2;
-            addRenderableWidget(new PokemonButton(
+            int cardX = panelX + 8 + column * (cardWidth + gap);
+            int cardY = cardTop + row * (cardHeight + gap);
+            PokemonButton button = addRenderableWidget(new PokemonButton(
                 pokemon, slot,
-                panelX + 10 + column * 146,
-                panelY + 47 + row * 44,
-                140, 38
+                cardX, cardY, cardWidth, cardHeight
             ));
+            pokemonButtons.add(button);
+            int modelSize = Math.min(46, cardHeight - 6);
+            ModelWidget model = new ModelWidget(
+                cardX + 3, cardY + (cardHeight - modelSize) / 2,
+                modelSize, modelSize, pokemon.asRenderablePokemon(),
+                Math.max(0.85F, modelSize / 42.0F), 25.0F, 0.0D, false, false
+            );
+            model.active = false;
+            models.add(addRenderableWidget(model));
         }
         addRenderableWidget(new ActionButton(
             Component.translatable("screen.cobbleventure_player_menu.bag.cancel"),
-            panelX + PANEL_WIDTH - 74, panelY + PANEL_HEIGHT - 27, 64, 19, this::onClose
+            panelX + panelWidth - 76, panelY + panelHeight - 27, 66, 19, this::onClose
         ));
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         fillRoundedRect(graphics, panelX + 4, panelY + 5,
-            panelX + PANEL_WIDTH + 4, panelY + PANEL_HEIGHT + 5, 9, 0x99000000);
+            panelX + panelWidth + 4, panelY + panelHeight + 5, 9, 0x99000000);
         fillRoundedRect(graphics, panelX, panelY,
-            panelX + PANEL_WIDTH, panelY + PANEL_HEIGHT, 9, DARK);
+            panelX + panelWidth, panelY + panelHeight, 9, DARK);
         fillRoundedRect(graphics, panelX + 1, panelY + 1,
-            panelX + PANEL_WIDTH - 1, panelY + PANEL_HEIGHT - 1, 8, PANEL);
+            panelX + panelWidth - 1, panelY + panelHeight - 1, 8, PANEL);
         graphics.fill(panelX + 12, panelY + 1, panelX + 54, panelY + 3, ACCENT);
-        graphics.renderItem(stack, panelX + 11, panelY + 12);
-        graphics.drawString(font, title, panelX + 35, panelY + 11, TEXT, false);
+        graphics.drawString(font, title, panelX + 12, panelY + 10, TEXT, false);
         graphics.drawString(font,
-            font.plainSubstrByWidth(stack.getHoverName().getString(), PANEL_WIDTH - 46),
-            panelX + 35, panelY + 25, MUTED, false);
+            Component.translatable("screen.cobbleventure_player_menu.bag.pokemon_select."
+                + (action == Action.USE ? "use_hint" : "give_hint"), stack.getHoverName()),
+            panelX + 12, panelY + 25, MUTED, false);
+        graphics.renderItem(stack, panelX + panelWidth - 30, panelY + 9);
+        graphics.renderItemDecorations(font, stack, panelX + panelWidth - 30, panelY + 9);
+        graphics.fill(panelX + 8, panelY + 45, panelX + panelWidth - 8, panelY + 46, 0x553F505B);
         super.render(graphics, mouseX, mouseY, partialTick);
+        for (PokemonButton button : pokemonButtons) button.renderHeldItemTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
@@ -86,8 +121,13 @@ final class BagPokemonSelectScreen extends Screen {
     public boolean isPauseScreen() { return false; }
 
     private void select(Pokemon pokemon, int partySlot) {
-        PlayerMenuClient.giveBagItemToPokemon(extended, sourceSlot, partySlot);
-        parent.pokemonGiveRequested(pokemon.getDisplayName(false));
+        if (action == Action.USE) {
+            PlayerMenuClient.useBagItemOnPokemon(extended, sourceSlot, partySlot);
+            parent.pokemonUseRequested();
+        } else {
+            PlayerMenuClient.giveBagItemToPokemon(extended, sourceSlot, partySlot);
+            parent.pokemonGiveRequested(pokemon.getDisplayName(false));
+        }
         if (minecraft != null) minecraft.setScreen(parent);
     }
 
@@ -111,19 +151,53 @@ final class BagPokemonSelectScreen extends Screen {
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(), 8, border);
             fillRoundedRect(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1, 7, fill);
+            int detailsX = getX() + Math.min(50, getHeight());
+            int detailsWidth = Math.max(38, getWidth() - (detailsX - getX()) - 7);
             graphics.drawString(font,
-                font.plainSubstrByWidth(pokemon.getDisplayName(false).getString(), getWidth() - 34),
-                getX() + 8, getY() + 7, isHovered() ? ACCENT : TEXT, false);
+                font.plainSubstrByWidth(pokemon.getDisplayName(false).getString(), detailsWidth - 42),
+                detailsX, getY() + 6, isHovered() ? ACCENT : TEXT, false);
+            String level = Component.translatable(
+                "screen.cobbleventure_player_menu.bag.pokemon_select.level", pokemon.getLevel()
+            ).getString();
+            graphics.drawString(font, level, getX() + getWidth() - 7 - font.width(level),
+                getY() + 6, MUTED, false);
+
+            int maximumHealth = Math.max(1, pokemon.getMaxHealth());
+            int currentHealth = Math.max(0, pokemon.getCurrentHealth());
+            float healthRatio = Math.min(1.0F, currentHealth / (float) maximumHealth);
+            int barY = getY() + 20;
+            graphics.fill(detailsX, barY, detailsX + detailsWidth, barY + 5, 0xFF0B1116);
+            int healthWidth = Math.round((detailsWidth - 2) * healthRatio);
+            int healthColor = healthRatio > 0.5F ? HP_GREEN : healthRatio > 0.2F ? HP_YELLOW : HP_RED;
+            if (healthWidth > 0) {
+                graphics.fill(detailsX + 1, barY + 1, detailsX + 1 + healthWidth, barY + 4, healthColor);
+            }
+            String health = Component.translatable(
+                "screen.cobbleventure_player_menu.bag.pokemon_select.hp", currentHealth, maximumHealth
+            ).getString();
+            graphics.drawString(font, health, detailsX, barY + 7, MUTED, false);
+
             ItemStack held = pokemon.heldItem();
+            int heldY = getY() + getHeight() - 20;
             if (held.isEmpty()) {
                 graphics.drawString(font,
                     Component.translatable("screen.cobbleventure_player_menu.bag.no_held_item"),
-                    getX() + 8, getY() + 21, MUTED, false);
+                    detailsX, heldY + 5, MUTED, false);
             } else {
-                graphics.renderItem(held, getX() + getWidth() - 23, getY() + 11);
+                graphics.renderItem(held, detailsX, heldY);
                 graphics.drawString(font,
-                    font.plainSubstrByWidth(held.getHoverName().getString(), getWidth() - 38),
-                    getX() + 8, getY() + 21, MUTED, false);
+                    font.plainSubstrByWidth(held.getHoverName().getString(), detailsWidth - 19),
+                    detailsX + 18, heldY + 5, MUTED, false);
+            }
+        }
+
+        private void renderHeldItemTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+            ItemStack held = pokemon.heldItem();
+            int detailsX = getX() + Math.min(50, getHeight());
+            int heldY = getY() + getHeight() - 20;
+            if (!held.isEmpty() && mouseX >= detailsX && mouseX < detailsX + 16
+                && mouseY >= heldY && mouseY < heldY + 16) {
+                graphics.renderTooltip(font, held, mouseX, mouseY);
             }
         }
 

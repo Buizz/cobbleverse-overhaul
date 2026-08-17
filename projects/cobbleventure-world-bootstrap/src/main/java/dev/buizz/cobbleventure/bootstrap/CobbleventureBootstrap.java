@@ -70,6 +70,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
@@ -2845,6 +2846,21 @@ public final class CobbleventureBootstrap {
                 if (origin == null) {
                     continue;
                 }
+                int extent = Math.max(facility.footprintWidth(), facility.footprintDepth());
+                int cleanupMargin = 12;
+                AABB facilityBounds = new AABB(
+                    origin.x() - cleanupMargin,
+                    origin.y() - 4,
+                    origin.z() - cleanupMargin,
+                    origin.x() + extent + cleanupMargin,
+                    origin.y() + Math.max(16, facility.footprintHeight()) + 4,
+                    origin.z() + extent + cleanupMargin
+                );
+                for (Entity entity : level.getEntities(
+                    (Entity) null, facilityBounds, CobbleventureBootstrap::isConfiguredMerchant
+                )) {
+                    entity.discard();
+                }
                 for (FacilityWorkerPlacement worker : facilityWorkers(
                     facility.id(), settlement.vendorAssignments(), settlement.vendorUnits()
                 )) {
@@ -2854,15 +2870,6 @@ public final class CobbleventureBootstrap {
                     BlockPoint position = origin.plus(worker.offset());
                     BlockPos blockPosition = new BlockPos(position.x(), position.y(), position.z());
                     level.getChunkAt(blockPosition);
-                    AABB bounds = new AABB(blockPosition).inflate(2.0D);
-                    for (Entity entity : level.getEntities((Entity) null, bounds, candidate -> {
-                        ResourceLocation type = BuiltInRegistries.ENTITY_TYPE.getKey(candidate.getType());
-                        return type.equals(ResourceLocation.fromNamespaceAndPath(
-                            "cobbledollars", "cobble_merchant"
-                        ));
-                    })) {
-                        entity.discard();
-                    }
                     if (spawnConfiguredVendor(level, worker.vendorUnitId(), position)) {
                         refreshed++;
                     }
@@ -2872,6 +2879,12 @@ public final class CobbleventureBootstrap {
         if (refreshed > 0) {
             LOGGER.info("Configured shop vendors refreshed from economy catalog: {}", refreshed);
         }
+    }
+
+    private static boolean isConfiguredMerchant(Entity entity) {
+        return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).equals(
+            ResourceLocation.fromNamespaceAndPath("cobbledollars", "cobble_merchant")
+        );
     }
 
     private static void cleanupFacilityTemplateMarkers(
@@ -3153,6 +3166,12 @@ public final class CobbleventureBootstrap {
                 .replace("\\", "\\\\").replace("\"", "\\\"");
             merchant.putString("CustomName", "\"" + displayName + "\"");
             merchant.putBoolean("PersistenceRequired", true);
+            // Facility vendors are counter clerks, not free-roaming villagers.
+            // Keep both the serialized flag and the live entity state fixed so
+            // custom merchant implementations cannot walk out of the shop.
+            merchant.putBoolean("NoAI", true);
+            UUID merchantId = UUID.randomUUID();
+            merchant.putUUID("UUID", merchantId);
             ListTag shop = new ListTag();
             for (JsonElement categoryElement : definition.getAsJsonArray("categories")) {
                 JsonObject categoryJson = categoryElement.getAsJsonObject();
@@ -3185,6 +3204,15 @@ public final class CobbleventureBootstrap {
                 command, level.getServer().createCommandSourceStack()
                     .withLevel(level).withPermission(4).withSuppressedOutput()
             );
+            Entity spawned = level.getEntity(merchantId);
+            if (spawned instanceof Mob mob) {
+                mob.setNoAi(true);
+            } else if (result != 0) {
+                LOGGER.warn(
+                    "Configured merchant spawned but could not be fixed in place: {} at {}",
+                    vendorUnitId, position
+                );
+            }
             return result != 0;
         } catch (IOException | CommandSyntaxException | RuntimeException error) {
             LOGGER.error("Configured merchant spawn failed: {} at {}", vendorUnitId, position, error);

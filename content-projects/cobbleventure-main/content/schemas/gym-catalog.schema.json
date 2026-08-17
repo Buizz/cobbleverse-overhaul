@@ -36,8 +36,8 @@
       "properties": {
         "from": { "type": "string" },
         "to": { "type": "string" },
-        "condition_mode": { "enum": ["all", "any"] },
-        "conditions": { "type": "array", "items": { "type": "object" } },
+        "condition_mode": { "$ref": "player-condition.schema.json#/$defs/mode" },
+        "conditions": { "$ref": "player-condition.schema.json#/$defs/condition_list" },
         "locked_dialogue": { "type": "array", "items": { "type": "string" } },
         "enter_dialogue": { "type": "array", "items": { "type": "string" } }
       }

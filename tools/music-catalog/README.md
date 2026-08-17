@@ -1,9 +1,10 @@
 # 음악 카탈로그
 
 음원 원본은 Git에서 제외된 `local-assets/music`과 그 하위 폴더에 보관합니다.
-웹 에디터가 모든 하위 폴더의 OGG를 감지해 안정적인 사운드 ID와 루트 기준 상대
-파일 경로를 `content-projects/cobbleventure-main/content/catalogs/music-tracks.json`의
-`tracks`에 자동 등록합니다. MIDI는 자동 등록하지 않습니다.
+웹 에디터는 모든 하위 폴더의 OGG를 음원 후보로 보여주지만 태그를 자동 생성하지
+않습니다. 실제 사용할 곡을 고를 때 `Victory → 실제/경로.ogg`처럼 의미 있는 태그를
+직접 추가하며, 그 매핑만 `content-projects/cobbleventure-main/content/catalogs/music-tracks.json`의
+`tracks`에 저장합니다. MIDI는 후보 목록에 포함하지 않습니다.
 
 `review_candidates`는 어나더레드 고유곡일 가능성이 있거나 출처·사용 장면을
 확인해야 하는 후보입니다. 이 항목은 `sounds.json`에 포함되지 않습니다.

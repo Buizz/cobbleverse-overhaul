@@ -7,6 +7,7 @@ plugins {
 }
 
 def fieldMoveNpcMapFile = layout.buildDirectory.file('generated/field-move-map/field-move-npcs.json')
+def bagConditionMapFile = layout.buildDirectory.file('generated/bag-conditions/bag-conditions.json')
 def contentProjectDir = file(System.getenv('COBBLEVENTURE_PROJECT_PATH') ?: rootProject.file('../../content-projects/cobbleventure-main'))
 def contentDir = new File(contentProjectDir, 'content')
 
@@ -44,6 +45,54 @@ tasks.register('generateFieldMoveNpcMap') {
         def output = fieldMoveNpcMapFile.get().asFile
         output.parentFile.mkdirs()
         output.setText(JsonOutput.prettyPrint(JsonOutput.toJson([settlements: bySettlement])) + System.lineSeparator(), 'UTF-8')
+    }
+}
+
+tasks.register('generateBagConditionMap') {
+    def contentJson = fileTree(contentDir) { include '**/*.json' }
+    inputs.files(contentJson)
+    outputs.file(bagConditionMapFile)
+    doLast {
+        def parser = new JsonSlurper()
+        def conditions = [:]
+        def canonical
+        canonical = { value ->
+            if (value instanceof Map) {
+                return value.keySet().sort().collectEntries { key -> [(key): canonical(value[key])] }
+            }
+            if (value instanceof Collection) return value.collect { canonical(it) }
+            return value
+        }
+        def objectiveFor = { prefix, key ->
+            byte[] digest = java.security.MessageDigest.getInstance('SHA-1')
+                .digest(key.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+            String hash = digest.collect { String.format('%02x', it & 0xff) }.join()
+            prefix + hash.substring(0, 12)
+        }
+        def visit
+        visit = { value ->
+            if (value instanceof Map) {
+                if (value.type in ['item', 'has_item'] && value.item instanceof String) {
+                    int count = Math.max(1, (value.count ?: 1) as int)
+                    String key = value.item + '\u0000' + count
+                    String objective = objectiveFor('cvi_', key)
+                    conditions[objective] = [type: 'item', item: value.item, count: count]
+                } else if (value.type in ['variable', 'badge', 'pokemon', 'party_count']) {
+                    String normalized = JsonOutput.toJson(canonical(value))
+                    String objective = objectiveFor('cvc_', normalized)
+                    conditions[objective] = value
+                }
+                value.values().each { visit(it) }
+            } else if (value instanceof Collection) {
+                value.each { visit(it) }
+            }
+        }
+        contentJson.files.sort().each { file -> visit(parser.parse(file)) }
+
+        def output = bagConditionMapFile.get().asFile
+        output.parentFile.mkdirs()
+        output.setText(JsonOutput.prettyPrint(JsonOutput.toJson([conditions: conditions]))
+            + System.lineSeparator(), 'UTF-8')
     }
 }
 
@@ -88,6 +137,7 @@ neoForge {
 
 processResources {
     dependsOn tasks.named('generateFieldMoveNpcMap')
+    dependsOn tasks.named('generateBagConditionMap')
     def properties = [
         minecraft_version_range: minecraft_version_range,
         neo_version: neo_version,
@@ -139,6 +189,9 @@ processResources {
     }
     from(fieldMoveNpcMapFile) {
         into 'data/cobbleventure_player_menu/map'
+    }
+    from(bagConditionMapFile) {
+        into 'data/cobbleventure_player_menu/bag'
     }
 }
 

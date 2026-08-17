@@ -116,7 +116,10 @@
                 <label class="wide" data-event-preset-option="repeat"><span>두 번째부터 표시할 대사</span><textarea id="event-preset-repeat-text" rows="3" disabled>다시 만났네요.</textarea><small>여러 줄을 입력하면 재방문 대사도 위에서 아래로 차례대로 실행됩니다.</small></label>
                 <label data-event-preset-option="item"><span>지급 아이템</span><div class="item-picker-field"><input id="event-preset-item" value="cobblemon:poke_ball" readonly disabled><button type="button" data-item-picker="event-preset-item" data-item-picker-title="지급 아이템 선택" disabled>선택</button></div></label>
                 <label data-event-preset-option="item"><span>수량</span><input id="event-preset-item-count" type="number" min="1" step="1" value="1" disabled></label>
-                <label class="wide" data-event-preset-option="repeat"><span>대화 완료 플래그</span><input id="event-preset-flag" disabled><small>두 번째 대화부터 다른 대사를 표시하는 상태값입니다.</small></label>
+                <div class="wide event-preset-state-key" data-event-preset-option="repeat">
+                  <label class="event-preset-auto-flag"><input id="event-preset-flag-auto" type="checkbox" checked disabled><span><strong>고유 상태 ID 자동 생성</strong><small>NPC ID를 기준으로 겹치지 않는 완료 상태를 자동으로 만듭니다.</small></span></label>
+                  <label id="event-preset-flag-field"><span>완료 상태 ID</span><input id="event-preset-flag" disabled><small>자동 생성을 끈 경우에만 공유하거나 직접 만든 상태 ID를 입력합니다.</small></label>
+                </div>
                 <label class="wide" data-event-preset-option="battle"><span>배틀 프리셋</span><select id="event-preset-battle" disabled></select></label>
                 <label data-event-preset-option="battle"><span>NPC 고정 승리 상금</span><input id="event-preset-win-money" type="number" min="0" step="1" value="500" disabled><small>프리셋 적용 시 이벤트 명령이 아니라 위의 NPC 승리 상금 설정에 저장됩니다.</small></label>
                 <label data-event-preset-option="battle"><span>패배 시 잃는 금액</span><input id="event-preset-loss-money" type="number" min="0" step="1" value="0" disabled></label>
@@ -283,6 +286,7 @@
                 <button type="button" class="editor-tool" data-map-tool="route" title="길 만들기 (R)" aria-label="길 만들기"><span aria-hidden="true">⌁</span><small>길</small></button>
                 <button type="button" class="editor-tool" data-map-tool="settlement" title="마을 배치 (S)" aria-label="마을 배치"><span aria-hidden="true">⌂</span><small>마을</small></button>
                 <button type="button" class="editor-tool" data-map-tool="entrance" title="출입구 배치 (D)" aria-label="동굴 또는 숲 출입구 배치"><span aria-hidden="true">◈</span><small>출입구</small></button>
+                <button type="button" class="editor-tool" data-map-tool="gate" title="관문 배치 (G)" aria-label="관문 배치"><span aria-hidden="true">▣</span><small>관문</small></button>
                 <button type="button" class="editor-tool" data-map-tool="object" title="오브젝트 배치 (O)" aria-label="오브젝트 배치"><span aria-hidden="true">◆</span><small>오브젝트</small></button>
                 <button type="button" class="editor-tool" data-map-tool="eraser" title="지우개 (E)" aria-label="지우개"><span aria-hidden="true">◇</span><small>지우개</small></button>
                 <span class="tool-rail-spacer"></span>
@@ -345,19 +349,17 @@
                   </div>
                   <small>배치 후 길 도구에서 출입구 마커를 눌러 길을 연결하세요.</small>
                 </section>
-                <section class="tool-option-panel" data-tool-options="object" hidden>
-                  <label><span>오브젝트 ID</span><input id="object-tool-id" placeholder="landmark_01"></label>
-                  <label><span>오브젝트 타입</span><select id="object-tool-type"><option value="gate">관문</option><option value="villain_base">빌런기지</option></select></label>
-                  <label data-gate-mode><span>관문 방식</span><select id="object-tool-gate-mode"><option value="classic">실제 관문 · 건물과 지형</option><option value="npc_only">NPC 전용 관문</option><option value="system_only">시스템 차단 관문</option></select><small>시스템 차단은 타일에 진입한 조건 미충족 플레이어를 즉시 되돌립니다.</small></label>
-                  <label><span>관문 건물</span><select id="object-tool-building-enabled"><option value="true">NBT 건물 생성</option><option value="false">건물 없음 · NPC만 사용</option></select></label>
-                  <label data-object-resource><span>오브젝트 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default" placeholder="cobbleventure:villain_base/default"></label>
+                <section class="tool-option-panel gate-tool-panel" data-tool-options="gate" hidden>
+                  <label><span>관문 ID</span><input id="object-tool-id" placeholder="route_01_gate"></label>
+                  <label data-gate-mode><span>가운데 배치물</span><select id="object-tool-gate-mode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option></select><small>가운데에 놓을 건물과 관문지기 NPC 조합을 선택합니다.</small></label>
+                  <label data-object-resource><span>관문 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default" placeholder="cobbleventure:gate/route_01"></label>
                   <datalist id="world-object-nbt-options"></datalist>
                   <div class="inline-fields"><label><span>방향</span><select id="object-tool-facing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
-                  <label><span>주변 통로 차단물</span><select id="object-tool-surrounding-type"><option value="wall">벽</option><option value="trees">나무 군락</option><option value="none">없음 · NPC만 배치</option></select></label>
+                  <label><span>주변 장애물 종류</span><select id="object-tool-surrounding-type"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
                   <label data-gate-wall><span>벽 블록</span><input id="object-tool-wall-block" value="minecraft:stone_bricks"></label>
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input id="object-tool-tree-log" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input id="object-tool-tree-leaves" value="minecraft:oak_leaves"></label></div>
-                  <div class="inline-fields" data-gate-surrounding><label><span>차단물 두께</span><input id="object-tool-wall-thickness" type="number" min="1" max="15" step="2" value="5"></label><label><span>통로 폭</span><input id="object-tool-opening-width" type="number" min="3" max="31" step="2" value="7"></label></div>
-                  <div class="inline-fields" data-gate-surrounding><label><span>차단물 높이</span><input id="object-tool-wall-height" type="number" min="3" max="32" value="7"></label><label><span>배리어 높이</span><input id="object-tool-barrier-height" type="number" min="8" max="128" value="24"></label></div>
+                  <div class="inline-fields" data-gate-surrounding><label><span>장애물 두께</span><input id="object-tool-wall-thickness" type="number" min="1" max="15" step="2" value="5"></label><label><span>가운데 통로 폭</span><input id="object-tool-opening-width" type="number" min="3" max="31" step="2" value="7"></label></div>
+                  <div class="inline-fields" data-gate-surrounding><label><span>장애물 높이</span><input id="object-tool-wall-height" type="number" min="3" max="32" value="7"></label><label><span>배리어 높이</span><input id="object-tool-barrier-height" type="number" min="8" max="128" value="24"></label></div>
                   <label><span>NPC 프리셋 (선택)</span><select id="object-tool-npc"><option value="">NPC 없음</option></select><small>기존 NPC 프리셋을 참조합니다. 역할·외형·대화·액션은 NPC 화면에서 편집하세요.</small></label>
                   <button class="tool-action" id="edit-object-npc" type="button">선택한 NPC 프리셋 편집</button>
                   <label><span>조건 조합</span><select id="object-tool-condition-mode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label>
@@ -369,12 +371,19 @@
                   <label><span>차단 메시지</span><input id="object-tool-deny-message" value="아직 이 관문을 통과할 수 없습니다."></label>
                   <p class="tool-panel-note">건물과 주변 차단물을 각각 끌 수 있어 NPC만 길을 막는 관문도 만들 수 있습니다.</p>
                 </section>
+                <section class="tool-option-panel" data-tool-options="object" hidden>
+                  <label><span>오브젝트 ID</span><input id="generic-object-tool-id" placeholder="rocket_hideout"></label>
+                  <label><span>오브젝트 타입</span><select id="generic-object-tool-type"><option value="villain_base">빌런기지</option></select></label>
+                  <label><span>오브젝트 NBT</span><input id="generic-object-tool-resource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/rocket_hideout"></label>
+                  <label><span>NBT 회전</span><select id="generic-object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
+                  <p class="tool-panel-note">랜드마크와 특수 건물처럼 NBT 배치만 필요한 요소를 배치합니다. 진행 조건과 지형 연결은 관문 도구에서 관리합니다.</p>
+                </section>
                 <section class="tool-option-panel" data-tool-options="eraser" hidden>
                   <label><span>지울 레이어</span><select id="eraser-target"><option value="biome">바이옴</option><option value="climate">기후 오버라이드</option><option value="level">평균 레벨</option><option value="terrain">빈 지형</option><option value="object">오브젝트</option><option value="all">길을 제외한 모든 비마을 레이어</option></select></label>
                   <label><span>지우개 반경</span><input id="eraser-radius" type="range" min="0" max="5" value="0"><output id="eraser-radius-value">0</output></label>
                   <p class="tool-panel-note">길은 선택 도구에서 길 전체를 선택한 뒤 삭제합니다. 전용 길 설정도 함께 정리됩니다.</p>
                 </section>
-                <footer class="map-options-footer"><span>단축키 V/B/T/C/L/R/S/D/F/O/E</span><span>Space + 드래그 이동</span><span>마우스 휠 확대·축소</span></footer>
+                <footer class="map-options-footer"><span>단축키 V/B/T/C/L/R/S/D/F/G/O/E</span><span>Space + 드래그 이동</span><span>마우스 휠 확대·축소</span></footer>
               </div>
             </aside>
             <div class="world-map-canvas-wrap">
@@ -391,7 +400,7 @@
               <div class="tile-inspector-head"><div><p class="eyebrow" id="selection-inspector-kind">SELECTED TILE</p><h3 id="selected-tile-title">타일을 선택하세요</h3></div><div class="tile-inspector-head-actions"><span id="selected-tile-coord">Q — · R —</span><button class="button secondary" id="open-selected-management" type="button" hidden>관리 페이지로 이동</button></div></div>
               <div id="tile-inspector-empty" class="tile-inspector-empty"><b>⌁</b><p>지도에서 육각형 타일을 누르면<br>배치 정보를 편집할 수 있습니다.</p></div>
               <form id="tile-inspector-form" class="tile-inspector-form" hidden>
-                <fieldset><legend>이 타일의 기본 지형·오브젝트</legend><div class="placement-switch"><label><input type="radio" name="kind" value="empty"><span>빈 타일</span></label><label><input type="radio" name="kind" value="biome"><span>바이옴</span></label><label><input type="radio" name="kind" value="settlement"><span>마을</span></label><label><input type="radio" name="kind" value="object"><span>오브젝트</span></label></div></fieldset>
+                <fieldset><legend>이 타일의 기본 지형·배치 요소</legend><div class="placement-switch"><label><input type="radio" name="kind" value="empty"><span>빈 타일</span></label><label><input type="radio" name="kind" value="biome"><span>바이옴</span></label><label><input type="radio" name="kind" value="settlement"><span>마을</span></label><label><input type="radio" name="kind" value="gate"><span>관문</span></label><label><input type="radio" name="kind" value="object"><span>오브젝트</span></label></div></fieldset>
                 <label><span>이 타일의 BGM</span><select name="musicTrack"></select><small id="tile-music-resolution">비워 두면 종류별 기본값을 상속합니다.</small></label>
                 <label data-tile-field="biome"><span>바이옴</span><select name="biome"></select></label>
                 <label data-tile-field="biome"><span>바다회오리 경계</span><select name="whirlpoolBoundary"><option value="false">사용 안 함</option><option value="true">이 바다 외곽에 생성</option></select><small>해양 타일에 사용하면 같은 설정의 타일 군집 외곽에만 회오리가 나타납니다.</small></label>
@@ -399,18 +408,17 @@
                 <label data-tile-field="settlement"><span>마을</span><select name="settlement"></select><small>이미 배치된 마을을 선택하면 이 타일로 이동합니다.</small></label>
                 <label data-tile-field="settlement"><span>마을 바이옴</span><select name="townBiome"></select><small>이 월드맵에서 마을 전체에 적용할 바이옴입니다.</small></label>
                 <label data-terrain-connection-field><span>연결 높이 단계</span><input name="connectionHeight" type="number" min="-8" max="8" step="1"><small>같은 단계이면서 이동 조건도 같은 인접 타일끼리만 경계 높이를 이어 줍니다.</small></label>
-                <label data-tile-field="object" data-gate-mode><span>관문 방식</span><select name="objectGateMode"><option value="classic">실제 관문 · 건물과 지형</option><option value="npc_only">NPC 전용 관문</option><option value="system_only">시스템 차단 관문</option></select></label>
+                <label data-tile-field="object" data-gate-mode><span>가운데 배치물</span><select name="objectGateMode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option></select></label>
                 <section data-tile-field="object" class="custom-object-fields">
                   <label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label>
                   <label><span>타입</span><select name="objectType"><option value="gate">관문</option><option value="villain_base">빌런기지</option></select></label>
-                  <label><span>관문 건물</span><select name="objectBuildingEnabled"><option value="true">NBT 건물 생성</option><option value="false">건물 없음 · NPC만 사용</option></select></label>
                   <label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/default"></label>
                   <div class="inline-fields"><label><span>방향</span><select name="objectFacing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
-                  <label><span>주변 통로 차단물</span><select name="objectSurroundingType"><option value="wall">벽</option><option value="trees">나무 군락</option><option value="none">없음 · NPC만 배치</option></select></label>
+                  <label><span>주변 장애물 종류</span><select name="objectSurroundingType"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
                   <label data-gate-wall><span>벽 블록</span><input name="objectWallBlock" value="minecraft:stone_bricks"></label>
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input name="objectTreeLog" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input name="objectTreeLeaves" value="minecraft:oak_leaves"></label></div>
-                  <div class="inline-fields" data-gate-surrounding><label><span>차단물 두께</span><input name="objectWallThickness" type="number" min="1" max="15" step="2"></label><label><span>통로 폭</span><input name="objectOpeningWidth" type="number" min="3" max="31" step="2"></label></div>
-                  <div class="inline-fields" data-gate-surrounding><label><span>차단물 높이</span><input name="objectWallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="objectBarrierHeight" type="number" min="8" max="128"></label></div>
+                  <div class="inline-fields" data-gate-surrounding><label><span>장애물 두께</span><input name="objectWallThickness" type="number" min="1" max="15" step="2"></label><label><span>가운데 통로 폭</span><input name="objectOpeningWidth" type="number" min="3" max="31" step="2"></label></div>
+                  <div class="inline-fields" data-gate-surrounding><label><span>장애물 높이</span><input name="objectWallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="objectBarrierHeight" type="number" min="8" max="128"></label></div>
                   <label><span>NPC 프리셋 (선택)</span><input name="objectNpc"></label>
                   <label><span>조건 조합</span><select name="objectConditionMode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label>
                   <div class="gate-condition-builder" id="inspector-gate-condition-builder" data-gate-condition-editor>
@@ -856,7 +864,7 @@
 
       <section class="page" id="music">
         <div class="panel editor">
-          <div class="panel-heading"><div><p class="eyebrow">MUSIC RESOLUTION</p><h2>상황별 기본 음악</h2><p>개별 배정이 없을 때 사용할 음원 태그를 지정합니다. 실제 파일 경로는 아래 태그 매핑에서 관리합니다.</p></div><div class="editor-heading-actions"><button class="button secondary" id="refresh-music-library">로컬 음원 다시 읽기</button><button class="button primary" id="save-music-settings">음원 설정 저장</button></div></div>
+          <div class="panel-heading"><div><p class="eyebrow">MUSIC RESOLUTION</p><h2>상황별 기본 음악</h2><p>먼저 실제 사용할 곡에만 의미 있는 태그를 추가하고, 각 사용처에서는 그 태그를 선택합니다.</p></div><div class="editor-heading-actions"><button class="button secondary" id="refresh-music-library">로컬 음원 다시 읽기</button><button class="button primary" id="save-music-settings">음원 설정 저장</button></div></div>
           <form id="music-defaults-form" class="form-grid">
             <label><span>일반 타일 기본 BGM <code>default.tile</code></span><select name="tile"></select></label>
             <label><span>도로 기본 BGM <code>default.road</code></span><select name="road"></select></label>
@@ -869,21 +877,28 @@
             <label><span>남성 트레이너 조우 BGM <code>default.trainer_encounter_boy</code></span><select name="trainer_encounter_boy"></select></label>
             <label><span>여성 트레이너 조우 BGM <code>default.trainer_encounter_girl</code></span><select name="trainer_encounter_girl"></select></label>
             <label><span>악역 트레이너 조우 BGM <code>default.trainer_encounter_bad_guys</code></span><select name="trainer_encounter_bad_guys"></select></label>
+            <label><span>일반 아이템 획득 효과음 <code>default.item_acquired</code></span><select name="item_acquired"></select></label>
+            <label><span>중요 아이템 획득 효과음 <code>default.key_item_acquired</code></span><select name="key_item_acquired"></select></label>
+            <label><span>기술머신 획득 효과음 <code>default.machine_acquired</code></span><select name="machine_acquired"></select></label>
             <label><span>일반 배틀 기본 BGM <code>default.battle</code></span><select name="battle"></select></label>
             <label><span>체육관 배틀 기본 BGM <code>default.gym</code></span><select name="gym"></select></label>
             <label><span>야생 포켓몬 승리 BGM <code>default.victory_wild</code></span><select name="victory_wild"></select></label>
             <label><span>일반 트레이너 승리 BGM <code>default.victory_trainer</code></span><select name="victory_trainer"></select></label>
             <label><span>체육관 관장 승리 BGM <code>default.victory_gym</code></span><select name="victory_gym"></select></label>
           </form>
-          <div class="subsection-heading"><div><p class="eyebrow">TAG → ACTUAL PATH</p><h3>음원 태그 매핑</h3><small id="music-library-path">모든 사용처는 태그만 저장하고, 실제 OGG 경로는 이 목록에서 한 번만 관리합니다.</small></div><span class="count-pill" id="music-track-count">0</span></div>
+          <div class="subsection-heading"><div><p class="eyebrow">TAG → ACTUAL PATH</p><h3>사용할 음원 태그</h3><small id="music-library-path">폴더의 모든 파일이 태그가 되는 것은 아닙니다. 실제 사용할 때만 태그를 추가합니다.</small></div><span class="count-pill" id="music-track-count">0</span></div>
           <div class="music-tag-path-editor">
-            <label><span>변경할 음원 태그</span><select id="music-mapping-tag"></select></label>
+            <label><span>태그 이름</span><input id="music-mapping-tag" autocomplete="off" placeholder="예: Victory"></label>
             <label><span>연결할 실제 OGG 경로</span><input id="music-mapping-path" list="music-mapping-paths" autocomplete="off" placeholder="music 폴더 기준 경로"></label>
             <datalist id="music-mapping-paths"></datalist>
-            <button class="button secondary" id="apply-music-mapping" type="button">태그에 경로 연결</button>
-            <small>다른 태그가 이미 사용하는 경로를 선택하면 두 태그의 경로를 서로 교환합니다. 적용 후 위의 ‘음원 설정 저장’을 누르세요.</small>
+            <button class="button secondary" id="apply-music-mapping" type="button">태그 추가·수정</button>
+            <small><code>Victory</code>처럼 입력하면 저장용 태그는 <code>victory</code>로 정규화됩니다. 아래 태그는 행을 눌러 수정할 수 있습니다.</small>
           </div>
           <div id="music-track-list" class="music-file-list"></div>
+          <details class="music-local-library">
+            <summary>로컬 music 폴더의 전체 음원 후보 <span id="music-local-file-count">0곡</span></summary>
+            <div id="music-local-file-list" class="music-file-list"></div>
+          </details>
           <div id="music-issues" class="issues empty">음악 카탈로그를 불러오는 중입니다.</div>
         </div>
       </section>

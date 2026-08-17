@@ -3240,19 +3240,49 @@
       "rotation": 1,
       "properties": {
         "facing": "east",
-        "gate_mode": "classic",
-        "building_enabled": true,
+        "center_placement": "gate",
         "surrounding_type": "wall",
         "wall_block": "minecraft:stone_bricks",
         "tree_log": "minecraft:oak_log",
         "tree_leaves": "minecraft:oak_leaves",
         "wall_thickness": 5,
         "wall_height": 7,
-        "opening_width": 7,
+        "passage_width": 7,
         "barrier_height": 24,
         "condition_mode": "all",
         "conditions": [],
         "deny_message": "아직 이 관문을 통과할 수 없습니다."
+      },
+      "resource": "cobbleventure_builder:source/gate/default_gate"
+    },
+    {
+      "id": "starter_town_north_gate",
+      "type": "gate",
+      "anchor": {
+        "q": -5,
+        "r": 7
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "north",
+        "center_placement": "npc",
+        "surrounding_type": "natural",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "party_count",
+            "operator": ">=",
+            "value": 1
+          }
+        ],
+        "deny_message": "포켓몬 없이 마을 밖으로 나가는 건 위험합니다. 오박사에게 첫 파트너를 받은 뒤 다시 오세요.",
+        "npc": "easy_npc:preset/encounter/starter_town_gatekeeper_minho.npc.snbt"
       },
       "resource": "cobbleventure_builder:source/gate/default_gate"
     }

@@ -1,0 +1,57 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/starter_town_gatekeeper_minho",
+  "enabled": true,
+  "name": {
+    "ko_kr": "태초마을 길지기 민호"
+  },
+  "description": {
+    "ko_kr": "첫 포켓몬 없이 태초마을 북쪽 길로 나가려는 플레이어를 보호하는 길지기입니다."
+  },
+  "tags": [
+    "story",
+    "required",
+    "gatekeeper",
+    "starter_town"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [
+      "minecraft:plains"
+    ],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "길지기 민호"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/pokemon_ranger_male",
+    "appearance": {
+      "source": "custom",
+      "type": "skin",
+      "resource": "cobbleventure:trainer_skin/pokemon_ranger_male"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "simple",
+      "initial_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "first_text": {
+        "ko_kr": "이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사님께 먼저 다녀오렴."
+      }
+    }
+  }
+}

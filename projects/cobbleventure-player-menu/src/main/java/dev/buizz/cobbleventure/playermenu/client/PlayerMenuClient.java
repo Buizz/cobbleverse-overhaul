@@ -8,6 +8,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.components.toasts.Toast;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import com.cobblemon.mod.common.client.gui.startselection.StarterSelectionScreen;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -60,6 +62,23 @@ public final class PlayerMenuClient {
         BagNetwork.requestUse(extended, slot);
     }
 
+    /** Runs the client half of an item's use method after the server validates bag ownership. */
+    public static void previewBagItemUse(ItemStack stack) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null || minecraft.level == null || stack.isEmpty()) return;
+        ItemStack original = minecraft.player.getMainHandItem();
+        minecraft.player.setItemInHand(InteractionHand.MAIN_HAND, stack.copy());
+        try {
+            stack.getItem().use(minecraft.level, minecraft.player, InteractionHand.MAIN_HAND);
+        } finally {
+            if (minecraft.player.isUsingItem()
+                && minecraft.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
+                minecraft.player.stopUsingItem();
+            }
+            minecraft.player.setItemInHand(InteractionHand.MAIN_HAND, original);
+        }
+    }
+
     public static void moveBagItem(boolean sourceExtended, int sourceSlot,
                                    boolean targetExtended, int targetSlot, boolean singleItem) {
         BagNetwork.requestMove(sourceExtended, sourceSlot, targetExtended, targetSlot, singleItem);
@@ -79,6 +98,10 @@ public final class PlayerMenuClient {
 
     public static void giveBagItemToPokemon(boolean extended, int slot, int partySlot) {
         BagNetwork.requestGiveToPokemon(extended, slot, partySlot);
+    }
+
+    public static void useBagItemOnPokemon(boolean extended, int slot, int partySlot) {
+        BagNetwork.requestUseOnPokemon(extended, slot, partySlot);
     }
 
     public static void openPokenav() {

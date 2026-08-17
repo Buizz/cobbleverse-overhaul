@@ -24,7 +24,7 @@ class MusicCatalogTest(unittest.TestCase):
         )
 
     def test_catalog_uses_only_selected_ogg_tracks(self) -> None:
-        self.assertGreaterEqual(len(self.catalog["tracks"]), 28)
+        self.assertEqual(18, len(self.catalog["tracks"]))
         self.assertFalse(self.catalog["datapack_required"])
         self.assertFalse(self.catalog["source"]["audio_tracked_by_git"])
         self.assertTrue(
@@ -32,11 +32,14 @@ class MusicCatalogTest(unittest.TestCase):
         )
         track_ids = {track["id"] for track in self.catalog["tracks"]}
         self.assertTrue(set(self.catalog["defaults"].values()).issubset(track_ids))
+        self.assertFalse(any(track_id.startswith("local.") for track_id in track_ids))
 
     def test_sounds_manifest_uses_catalog_entries_only(self) -> None:
         manifest = music_catalog.build_sounds_manifest(self.catalog)
         self.assertEqual(len(self.catalog["tracks"]), len(manifest))
         self.assertIn("music.kanto.pallet_town", manifest)
+        self.assertIn("music.battle.victory_trainer", manifest)
+        self.assertIn("music.facility.pokemon_center", manifest)
         self.assertFalse(manifest["music.event.item_acquired"]["sounds"][0]["stream"])
         self.assertIn("music.event.key_item_acquired", manifest)
         self.assertIn("music.event.machine_acquired", manifest)
@@ -121,23 +124,31 @@ class MusicCatalogTest(unittest.TestCase):
     def test_build_selection_contains_defaults_and_authored_assignments_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
+            catalog = copy.deepcopy(self.catalog)
+            catalog["tracks"].append({
+                "id": "special.victory",
+                "sound_event": "music.special.victory",
+                "resource": "music/special/victory",
+                "source_file": "special/Victory.ogg",
+                "category": "victory",
+                "usage": "특수 승리",
+            })
             world = project / "content/worlds/generation_1.json"
             world.parent.mkdir(parents=True)
             world.write_text(
-                json.dumps({"music_overrides": [{"music_track": "pwt.lobby"}]}),
+                json.dumps({"music_overrides": [{"music_track": "special.victory"}]}),
                 encoding="utf-8",
             )
 
-            selected = music_catalog.select_used_tracks(self.catalog, project)
+            selected = music_catalog.select_used_tracks(catalog, project)
             selected_ids = {track["id"] for track in selected["tracks"]}
 
             self.assertEqual(
-                set(self.catalog["defaults"].values()) | {"pwt.lobby"}, selected_ids
+                set(self.catalog["defaults"].values()) | {"special.victory"}, selected_ids
             )
             self.assertIn("encounter.trainer_boy", selected_ids)
             self.assertIn("encounter.trainer_girl", selected_ids)
             self.assertIn("encounter.trainer_bad_guys", selected_ids)
-            self.assertNotIn("event.evolution", selected_ids)
 
     def test_build_selection_rejects_direct_audio_paths(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

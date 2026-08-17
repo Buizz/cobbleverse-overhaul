@@ -260,7 +260,7 @@ function musicTrack(trackId) {
 
 function musicTrackLabel(trackId) {
   const track = musicTrack(trackId);
-  return track ? `[${track.id}] ${track.source_file}` : trackId || "미지정";
+  return track ? `${track.id} : ${track.source_file}` : trackId || "미지정";
 }
 
 let musicComboboxRefreshPending = false;
@@ -437,7 +437,8 @@ function setMusicOverride(q, r, trackId) {
 const MUSIC_DEFAULT_CONTEXTS = [
   "tile", "road", "settlement", "cave", "forest", "building",
   "pokemon_center", "pokemart", "trainer_encounter_boy",
-  "trainer_encounter_girl", "trainer_encounter_bad_guys", "battle", "gym",
+  "trainer_encounter_girl", "trainer_encounter_bad_guys",
+  "item_acquired", "key_item_acquired", "machine_acquired", "battle", "gym",
   "victory_wild", "victory_trainer", "victory_gym",
 ];
 
@@ -452,23 +453,27 @@ function renderMusicSettings() {
   $("#music-track-count").textContent = `${tracks.length}개 태그`;
   const library = state.musicCatalog.local_library || {};
   const availableFiles = new Set((library.files || []).map((path) => path.toLocaleLowerCase()));
+  const mappedPaths = new Set(tracks.map((track) => track.source_file.toLocaleLowerCase()));
+  const unmappedCount = (library.files || []).filter((path) => !mappedPaths.has(path.toLocaleLowerCase())).length;
   const missingCount = tracks.filter((track) => !availableFiles.has(track.source_file.toLocaleLowerCase())).length;
   $("#music-library-path").textContent = library.directory
-    ? `${library.directory} · 실제 OGG ${library.registered_ogg ?? 0}곡 · 태그 ${tracks.length}개 · 파일 없음 ${missingCount}개`
-    : "음원 태그가 실제 OGG 경로를 가리킵니다. 로컬 파일이 없어도 태그와 사용처 설정은 보존됩니다.";
-  if (!musicTrack(state.musicMappingTag)) state.musicMappingTag = tracks[0]?.id || "";
-  const mappingTag = $("#music-mapping-tag");
-  mappingTag.innerHTML = musicOptions(state.musicMappingTag);
-  mappingTag.value = state.musicMappingTag;
+    ? `${library.directory} · 폴더 OGG ${library.registered_ogg ?? 0}곡 · 사용할 태그 ${tracks.length}개 · 미사용 후보 ${unmappedCount}곡 · 파일 없음 ${missingCount}개`
+    : "폴더의 파일은 후보일 뿐이며, 실제 사용하도록 추가한 태그만 이 목록에 저장됩니다.";
+  $("#music-mapping-tag").value = state.musicMappingTag;
   $("#music-mapping-paths").innerHTML = (library.files || []).map((path) => `<option value="${escapeHtml(path)}"></option>`).join("");
   $("#music-mapping-path").value = musicTrack(state.musicMappingTag)?.source_file || "";
-  $("#apply-music-mapping").disabled = !tracks.length || !(library.files || []).length;
+  $("#apply-music-mapping").disabled = !(library.files || []).length;
   $("#music-track-list").innerHTML = tracks.length
     ? tracks.map((track) => {
       const available = availableFiles.has(track.source_file.toLocaleLowerCase());
-      return `<div class="music-file-row ${available ? "" : "is-missing"}"><code>${escapeHtml(track.id)}</code><span title="${escapeHtml(track.source_file)}">${escapeHtml(track.source_file)}</span><small>${available ? "연결됨" : "파일 없음"}</small></div>`;
+      const isDefault = Object.values(state.musicCatalog.defaults || {}).includes(track.id);
+      return `<div class="music-file-row music-tag-row ${available ? "" : "is-missing"}" data-edit-music-tag="${escapeHtml(track.id)}"><code>${escapeHtml(track.id)}</code><span title="${escapeHtml(track.source_file)}">${escapeHtml(track.source_file)}</span><small>${available ? "사용" : "파일 없음"}</small><button type="button" data-delete-music-tag="${escapeHtml(track.id)}" ${isDefault ? "disabled title=\"기본 음악에서 먼저 다른 태그를 선택하세요.\"" : ""}>삭제</button></div>`;
     }).join("")
-    : '<div class="issues empty">등록된 음원 태그가 없습니다.</div>';
+    : '<div class="issues empty">아직 사용할 음원 태그가 없습니다. 위에서 태그와 경로를 추가하세요.</div>';
+  $("#music-local-file-count").textContent = `${(library.files || []).length}곡`;
+  $("#music-local-file-list").innerHTML = (library.files || []).length
+    ? library.files.map((path) => `<div class="music-file-row music-candidate-row"><span title="${escapeHtml(path)}">${escapeHtml(path)}</span><small>${mappedPaths.has(path.toLocaleLowerCase()) ? "태그 사용 중" : "미사용"}</small><button type="button" data-use-music-path="${escapeHtml(path)}">태그 추가</button></div>`).join("")
+    : '<div class="issues empty">music 폴더에 OGG 파일이 없습니다.</div>';
   showIssues("#music-issues", { valid: true, issues: [] });
 }
 
@@ -498,29 +503,93 @@ async function saveMusicSettings() {
 }
 
 function updateMusicMappingEditor() {
-  state.musicMappingTag = $("#music-mapping-tag").value;
-  $("#music-mapping-path").value = musicTrack(state.musicMappingTag)?.source_file || "";
+  state.musicMappingTag = normalizeMusicTag($("#music-mapping-tag").value);
+  const track = musicTrack(state.musicMappingTag);
+  if (track) $("#music-mapping-path").value = track.source_file;
+}
+
+function normalizeMusicTag(value) {
+  return String(value || "").trim().toLocaleLowerCase()
+    .replaceAll(" ", "_")
+    .replace(/[^a-z0-9_.-]+/g, "")
+    .replace(/^[._-]+|[._-]+$/g, "");
 }
 
 function applyMusicMapping() {
-  const track = musicTrack($("#music-mapping-tag").value);
+  const rawTag = $("#music-mapping-tag").value.trim();
+  const tagId = normalizeMusicTag(rawTag);
   const nextPath = $("#music-mapping-path").value.trim().replaceAll("\\", "/");
   const files = state.musicCatalog.local_library?.files || [];
   const actualPath = files.find((path) => path.toLocaleLowerCase() === nextPath.toLocaleLowerCase());
-  if (!track || !actualPath) {
+  if (!tagId) {
+    toast("영문, 숫자, 점, 밑줄 또는 하이픈으로 태그 이름을 입력해 주세요.");
+    return;
+  }
+  if (!actualPath) {
     toast("music 폴더에 실제 존재하는 OGG 경로를 선택해 주세요.");
+    return;
+  }
+  let track = musicTrack(tagId);
+  const other = (state.musicCatalog.tracks || []).find((candidate) => candidate !== track && candidate.source_file.toLocaleLowerCase() === actualPath.toLocaleLowerCase());
+  if (other) {
+    toast(`이 경로는 이미 ${other.id} 태그가 사용 중입니다.`);
+    return;
+  }
+  if (!track) {
+    track = {
+      id: tagId,
+      sound_event: `music.${tagId}`,
+      resource: `music/${tagId.replaceAll(".", "/")}`,
+      source_file: actualPath,
+      category: "custom",
+      usage: rawTag,
+    };
+    state.musicCatalog.tracks ||= [];
+    state.musicCatalog.tracks.push(track);
+    state.musicMappingTag = tagId;
+    renderMusicSettings();
+    toast(`${tagId} : ${actualPath} 태그를 추가했습니다.`);
     return;
   }
   if (track.source_file === actualPath) {
     toast("이미 이 경로에 연결되어 있습니다.");
     return;
   }
-  const previousPath = track.source_file;
-  const other = (state.musicCatalog.tracks || []).find((candidate) => candidate !== track && candidate.source_file.toLocaleLowerCase() === actualPath.toLocaleLowerCase());
   track.source_file = actualPath;
-  if (other) other.source_file = previousPath;
+  state.musicMappingTag = tagId;
   renderMusicSettings();
-  toast(other ? "두 음원 태그의 실제 경로를 교환했습니다." : "음원 태그에 새 실제 경로를 연결했습니다.");
+  toast(`${tagId} 태그의 실제 경로를 변경했습니다.`);
+}
+
+function handleMusicTagListClick(event) {
+  const remove = event.target.closest("[data-delete-music-tag]");
+  if (remove) {
+    event.stopPropagation();
+    const tagId = remove.dataset.deleteMusicTag;
+    if (Object.values(state.musicCatalog.defaults || {}).includes(tagId)) {
+      toast("기본 음악에서 먼저 다른 태그를 선택한 뒤 삭제해 주세요.");
+      return;
+    }
+    state.musicCatalog.tracks = (state.musicCatalog.tracks || []).filter((track) => track.id !== tagId);
+    if (state.musicMappingTag === tagId) state.musicMappingTag = "";
+    renderMusicSettings();
+    toast(`${tagId} 태그를 목록에서 제거했습니다.`);
+    return;
+  }
+  const row = event.target.closest("[data-edit-music-tag]");
+  if (!row) return;
+  state.musicMappingTag = row.dataset.editMusicTag;
+  renderMusicSettings();
+  $("#music-mapping-tag").focus();
+}
+
+function handleMusicCandidateClick(event) {
+  const button = event.target.closest("[data-use-music-path]");
+  if (!button) return;
+  state.musicMappingTag = "";
+  $("#music-mapping-tag").value = "";
+  $("#music-mapping-path").value = button.dataset.useMusicPath;
+  $("#music-mapping-tag").focus();
 }
 
 const starterRegionNames = { 1: "관동", 2: "성도", 3: "호연", 4: "신오", 5: "하나", 6: "칼로스", 7: "알로라", 8: "가라르", 9: "팔데아" };
@@ -1330,6 +1399,18 @@ function emptyTerrainAt(q, r) { return state.worldLayout?.empty_terrain?.tiles?.
 function emptyTerrainTone(type) { return ({ high_forest: "forest", dense_forest: "dense-forest", ocean: "water", deep_ocean: "water", desert: "arid", stone_mountain: "mountain", red_rock_mountain: "arid", snow_mountain: "snow" })[type] || "forest"; }
 function emptyTerrainLabel(type) { return ({ high_forest: "숲", dense_forest: "우거진 숲", ocean: "바다", deep_ocean: "심해", desert: "사막", stone_mountain: "돌산", red_rock_mountain: "적갈색 돌산", snow_mountain: "눈산" })[type] || type; }
 function emptyTerrainSymbol(type) { return ({ high_forest: "♣", dense_forest: "♠", ocean: "≈", deep_ocean: "≋", desert: "·", stone_mountain: "▲", red_rock_mountain: "◆", snow_mountain: "△" })[type] || "×"; }
+function gateCenterPlacement(properties = {}) {
+  if (["gate", "gate_npc", "npc"].includes(properties.center_placement)) return properties.center_placement;
+  if (properties.gate_mode === "npc_only") return "npc";
+  if (properties.gate_mode === "classic") return properties.npc ? "gate_npc" : "gate";
+  return properties.npc ? "npc" : "gate";
+}
+function gateSurroundingType(properties = {}) {
+  return properties.surrounding_type === "wall" ? "wall" : "natural";
+}
+function gatePassageWidth(properties = {}) {
+  return properties.passage_width || properties.opening_width || 7;
+}
 function settlementAt(q, r) { return state.worldLayout?.settlements?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function objectAt(q, r) { return state.worldLayout?.objects?.find((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function environmentOverrideAt(q, r) { return state.worldLayout?.environment_overrides?.find((entry) => entry.q === q && entry.r === r); }
@@ -1595,16 +1676,14 @@ function renderHexMap() {
     if (node.type === "legendary_site") {
       return `<g class="hex-custom-object legendary-site-object" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><path d="M0-15L4-5L14-4L6 3L9 13L0 7L-9 13L-6 3L-14-4L-4-5Z"></path><circle r="4"></circle><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
-    const gateMode = node.properties?.gate_mode || "classic";
-    if (gateMode === "system_only") {
-      return `<g class="hex-custom-object gate-object system-only" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><circle r="16"></circle><path d="M0-11L9-7V0Q9 8 0 13Q-9 8-9 0V-7Z"></path><text y="28">${escapeHtml(node.id)}</text></g>`;
-    }
-    if (gateMode === "npc_only") {
-      return `<g class="hex-custom-object gate-object npc-only" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
+    const centerPlacement = gateCenterPlacement(node.properties);
+    if (centerPlacement === "npc") {
+      return `<g class="hex-custom-object gate-object npc-only" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})"><circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
     const horizontal = ["north", "south"].includes(node.properties?.facing || "north");
     const wall = horizontal ? `<rect x="-${mapHexSize() - 7}" y="-4" width="${(mapHexSize() - 7) * 2}" height="8" rx="2"></rect>` : `<rect x="-4" y="-${mapHexSize() - 7}" width="8" height="${(mapHexSize() - 7) * 2}" rx="2"></rect>`;
-    return `<g class="hex-custom-object gate-object" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})">${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
+    const npcBadge = centerPlacement === "gate_npc" ? `<circle class="gate-npc-badge" cx="10" cy="-10" r="4"></circle>` : "";
+    return `<g class="hex-custom-object gate-object${centerPlacement === "gate_npc" ? " gate-with-npc" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})">${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path>${npcBadge}<text y="25">${escapeHtml(node.id)}</text></g>`;
   }).join("");
   const entranceUnderlays = [...(state.worldLayout.cave_entrances || []), ...(state.worldLayout.forest_entrances || [])]
     .filter((node, index, entries) => entries.findIndex((entry) => entry.anchor.q === node.anchor.q && entry.anchor.r === node.anchor.r) === index)
@@ -1627,7 +1706,9 @@ function renderHexMap() {
   svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer">${tiles}${levelOverlay}${townAreas}${routes}${draftRoute}${towns}${objects}${entranceUnderlays}${caveEntrances}${forestEntrances}${routeAnchors}${brushPreview}${dragPreview}</g>`;
   const routeCellCount = new Set((state.worldLayout.connections || []).flatMap((connection) => connectionPath(connection).map((cell) => `${cell.q},${cell.r}`))).size;
   const forestEntranceCount = (state.worldLayout.forest_entrances || []).length;
-  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 ${(state.worldLayout.environment_overrides || []).length}칸 · 레벨 ${(state.worldLayout.level_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳 · 숲 입구 ${forestEntranceCount}곳`;
+  const gateCount = (state.worldLayout.objects || []).filter((node) => node.type === "gate").length;
+  const objectCount = (state.worldLayout.objects || []).length - gateCount;
+  $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 ${(state.worldLayout.environment_overrides || []).length}칸 · 레벨 ${(state.worldLayout.level_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 관문 ${gateCount}곳 · 오브젝트 ${objectCount}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳 · 숲 입구 ${forestEntranceCount}곳`;
   $("#map-zoom").textContent = `${Math.round(state.mapZoom * 100)}%`;
   $$("[data-hex-q]").forEach((cell) => {
     const select = () => { if (!state.suppressMapClick) handleHexSelection(Number(cell.dataset.hexQ), Number(cell.dataset.hexR)); };
@@ -1756,6 +1837,7 @@ function handleHexSelection(q, r) {
     if ($("#world-entrance-kind").value === "forest") placeForestEntranceWithTool(q, r);
     else placeCaveEntranceWithTool(q, r);
   }
+  else if (tool === "gate") placeGateWithTool(q, r);
   else if (tool === "object") placeObjectWithTool(q, r);
   else if (tool === "eraser") eraseMapArea(q, r);
   else selectHex(q, r);
@@ -1893,26 +1975,32 @@ function placeForestEntranceWithTool(q, r) {
   state.selectedHex = { q, r }; state.selectedEntrance = { kind: "forest", id: entrance.id }; markWorldDirty(); refreshForestToolEntrances(); renderWorldLayout(); toast("독립 숲 입구와 입구 뒤 우거진 숲을 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
 }
 const gateResourceIdPattern = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
-function defaultGateCondition(type = "item") {
+function defaultPlayerCondition(type = "item") {
   if (type === "badge") return { type, badge: state.badgeCatalog.badges?.[0]?.id || "cobbleventure:badge/kanto/boulder", negate: false };
+  if (type === "flag") return { type, key: "cobbleventure:flag/example", value: true };
   if (type === "variable") return { type, source: "scoreboard", key: "quest.progress", operator: ">=", value: 1 };
   if (type === "pokemon") return { type, species: "cobblemon:pikachu", negate: false };
+  if (type === "party_count") return { type, operator: ">=", value: 1 };
   return { type: "item", item: "minecraft:diamond", count: 1, negate: false };
 }
-function gateConditionTypeOptions(selected) {
-  return [["item", "아이템 소지"], ["badge", "배지 클리어"], ["variable", "변수 비교"], ["pokemon", "파티 포켓몬"]]
+function playerConditionTypeOptions(selected, includeAlways = false) {
+  const entries = [["flag", "진행 플래그"], ["item", "아이템 소지"], ["badge", "배지 클리어"], ["variable", "숫자 변수 비교"], ["pokemon", "특정 파티 포켓몬"], ["party_count", "파티 포켓몬 수"]];
+  if (includeAlways) entries.push(["always", "항상"]);
+  return entries
     .map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`).join("");
 }
-function gateConditionBadgeOptions(selected) {
+function playerConditionBadgeOptions(selected) {
   const entries = (state.badgeCatalog.badges || []).map((badge) => [badge.id, `${badge.generation}세대 ${badge.order}번째 · ${badge.display_name?.ko_kr || badge.id}`]);
   if (selected && !entries.some(([id]) => id === selected)) entries.unshift([selected, selected]);
   return entries.map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
 }
-function gateConditionDetails(condition) {
+function playerConditionDetails(condition) {
   const selected = (value, expected) => value === expected ? "selected" : "";
-  if (condition.type === "badge") return `<label class="gate-condition-main"><span>배지</span><select data-gate-condition-field="badge">${gateConditionBadgeOptions(condition.badge)}</select></label><label><span>판정</span><select data-gate-condition-field="negate"><option value="false" ${selected(Boolean(condition.negate), false)}>클리어함</option><option value="true" ${selected(Boolean(condition.negate), true)}>클리어하지 않음</option></select></label>`;
+  if (condition.type === "badge") return `<label class="gate-condition-main"><span>배지</span><select data-gate-condition-field="badge">${playerConditionBadgeOptions(condition.badge)}</select></label><label><span>판정</span><select data-gate-condition-field="negate"><option value="false" ${selected(Boolean(condition.negate), false)}>클리어함</option><option value="true" ${selected(Boolean(condition.negate), true)}>클리어하지 않음</option></select></label>`;
+  if (["flag", "flag_equals"].includes(condition.type)) return `<label class="gate-condition-main"><span>진행 플래그 ID</span><input data-gate-condition-field="key" list="declared-variable-ids" value="${escapeHtml(condition.key || "")}" placeholder="cobbleventure:flag/story/example"></label><label><span>기준값</span><select data-gate-condition-field="value"><option value="true" ${selected(condition.value, true)}>완료</option><option value="false" ${selected(condition.value, false)}>미완료</option></select></label>`;
   if (condition.type === "variable") return `<label><span>저장 위치</span><select data-gate-condition-field="source"><option value="scoreboard" ${selected(condition.source, "scoreboard")}>스코어보드</option><option value="persistent_data" ${selected(condition.source, "persistent_data")}>플레이어 데이터</option></select></label><label class="gate-condition-main"><span>변수 키</span><input data-gate-condition-field="key" value="${escapeHtml(condition.key || "")}" placeholder="quest.chapter"></label><label><span>비교</span><select data-gate-condition-field="operator">${["==", "!=", ">", ">=", "<", "<="].map((operator) => `<option ${selected(condition.operator, operator)}>${operator}</option>`).join("")}</select></label><label><span>기준값</span><input data-gate-condition-field="value" type="number" value="${Number(condition.value) || 0}"></label>`;
   if (condition.type === "pokemon") return `<label class="gate-condition-main"><span>포켓몬 종 ID</span><input data-gate-condition-field="species" value="${escapeHtml(condition.species || "")}" placeholder="cobblemon:pikachu"></label><label><span>판정</span><select data-gate-condition-field="negate"><option value="false" ${selected(Boolean(condition.negate), false)}>파티에 있음</option><option value="true" ${selected(Boolean(condition.negate), true)}>파티에 없음</option></select></label>`;
+  if (condition.type === "party_count") return `<label><span>비교</span><select data-gate-condition-field="operator">${["==", "!=", ">", ">=", "<", "<="].map((operator) => `<option ${selected(condition.operator, operator)}>${operator}</option>`).join("")}</select></label><label class="gate-condition-main"><span>포켓몬 수</span><input data-gate-condition-field="value" type="number" min="0" max="6" step="1" value="${Math.max(0, Math.min(6, Math.floor(Number(condition.value) || 0)))}"></label>`;
   return `<label class="gate-condition-main"><span>아이템 ID</span><input data-gate-condition-field="item" list="declared-item-ids" value="${escapeHtml(condition.item || "")}" placeholder="minecraft:diamond"></label><label><span>수량</span><input data-gate-condition-field="count" type="number" min="1" value="${Math.max(1, Number(condition.count) || 1)}"></label><label><span>판정</span><select data-gate-condition-field="negate"><option value="false" ${selected(Boolean(condition.negate), false)}>소지함</option><option value="true" ${selected(Boolean(condition.negate), true)}>소지하지 않음</option></select></label>`;
 }
 function renderGateConditionEditor(editor, conditions = null) {
@@ -1921,10 +2009,10 @@ function renderGateConditionEditor(editor, conditions = null) {
   editor.gateConditions ||= [];
   const list = editor.querySelector("[data-gate-condition-list]");
   list.innerHTML = editor.gateConditions.length
-    ? editor.gateConditions.map((condition, index) => `<article class="gate-condition-row" data-gate-condition-index="${index}"><div class="gate-condition-row-head"><label><span>조건 종류</span><select data-gate-condition-type>${gateConditionTypeOptions(condition.type)}</select></label><button type="button" data-gate-condition-remove aria-label="조건 삭제">삭제</button></div><div class="gate-condition-fields">${gateConditionDetails(condition)}</div></article>`).join("")
+    ? editor.gateConditions.map((condition, index) => `<article class="gate-condition-row" data-gate-condition-index="${index}"><div class="gate-condition-row-head"><label><span>조건 종류</span><select data-gate-condition-type>${playerConditionTypeOptions(condition.type)}</select></label><button type="button" data-gate-condition-remove aria-label="조건 삭제">삭제</button></div><div class="gate-condition-fields">${playerConditionDetails(condition)}</div></article>`).join("")
     : `<p class="gate-condition-empty">아직 조건이 없습니다. 조건 추가를 눌러 통과 규칙을 만드세요.</p>`;
 }
-function validateGateConditions(conditions) {
+function validatePlayerConditions(conditions) {
   return (conditions || []).map((condition, index) => {
     const position = `${index + 1}번째 조건`;
     if (condition.type === "item") {
@@ -1935,6 +2023,10 @@ function validateGateConditions(conditions) {
       if (!gateResourceIdPattern.test(condition.badge || "")) throw new Error(`${position}의 배지를 선택해 주세요.`);
       return { type: "badge", badge: condition.badge, ...(condition.negate ? { negate: true } : {}) };
     }
+    if (["flag", "flag_equals"].includes(condition.type)) {
+      if (!gateResourceIdPattern.test(condition.key || "")) throw new Error(`${position}의 진행 플래그 ID가 올바르지 않습니다.`);
+      return { type: "flag", key: condition.key, value: condition.value !== false && condition.value !== "false" };
+    }
     if (condition.type === "pokemon") {
       if (!gateResourceIdPattern.test(condition.species || "")) throw new Error(`${position}의 포켓몬 종 ID가 올바르지 않습니다.`);
       return { type: "pokemon", species: condition.species, ...(condition.negate ? { negate: true } : {}) };
@@ -1943,18 +2035,23 @@ function validateGateConditions(conditions) {
       if (!["scoreboard", "persistent_data"].includes(condition.source) || !String(condition.key || "").trim() || !["==", "!=", ">", ">=", "<", "<="].includes(condition.operator) || !Number.isFinite(Number(condition.value))) throw new Error(`${position}의 변수 비교 설정이 올바르지 않습니다.`);
       return { type: "variable", source: condition.source, key: condition.key.trim(), operator: condition.operator, value: Number(condition.value) };
     }
+    if (condition.type === "party_count") {
+      const value = Number(condition.value);
+      if (!["==", "!=", ">", ">=", "<", "<="].includes(condition.operator) || !Number.isInteger(value) || value < 0 || value > 6) throw new Error(`${position}의 파티 포켓몬 수 설정이 올바르지 않습니다.`);
+      return { type: "party_count", operator: condition.operator, value };
+    }
     throw new Error(`${position}의 종류를 선택해 주세요.`);
   });
 }
 function gateConditionsFromEditor(selector) {
-  return validateGateConditions($(selector)?.gateConditions || []);
+  return validatePlayerConditions($(selector)?.gateConditions || []);
 }
 function initializeGateConditionEditor(editor) {
   if (!editor || editor.dataset.initialized) return;
   editor.dataset.initialized = "true";
   renderGateConditionEditor(editor, []);
   editor.addEventListener("click", (event) => {
-    if (event.target.closest("[data-gate-condition-add]")) editor.gateConditions.push(defaultGateCondition());
+    if (event.target.closest("[data-gate-condition-add]")) editor.gateConditions.push(defaultPlayerCondition());
     else {
       const remove = event.target.closest("[data-gate-condition-remove]");
       if (!remove) return;
@@ -1968,14 +2065,15 @@ function initializeGateConditionEditor(editor) {
     if (!row) return;
     const index = Number(row.dataset.gateConditionIndex);
     if (event.target.matches("[data-gate-condition-type]")) {
-      editor.gateConditions[index] = defaultGateCondition(event.target.value);
+      editor.gateConditions[index] = defaultPlayerCondition(event.target.value);
       renderGateConditionEditor(editor);
       return;
     }
     const field = event.target.dataset.gateConditionField;
     if (!field) return;
     let value = event.target.value;
-    if (["count", "value"].includes(field)) value = Number(value);
+    if (field === "value" && ["flag", "flag_equals"].includes(editor.gateConditions[index].type)) value = value === "true";
+    else if (["count", "value"].includes(field)) value = Number(value);
     if (field === "negate") value = value === "true";
     editor.gateConditions[index][field] = value;
   });
@@ -1986,37 +2084,30 @@ function normalizedOdd(value, minimum, maximum) {
   return number;
 }
 function gateProperties(values) {
-  const gateMode = values.gateMode || "classic";
-  if (gateMode === "npc_only" && !values.npc.trim()) throw new Error("NPC 전용 관문에는 NPC 프리셋을 지정해 주세요.");
-  const conditions = gateMode === "npc_only" ? [] : validateGateConditions(values.conditions);
-  if (gateMode === "system_only" && !conditions.length) throw new Error("시스템 차단 관문에는 통과 조건을 하나 이상 지정해 주세요.");
+  const centerPlacement = values.gateMode || "gate";
+  const hasNpc = centerPlacement === "gate_npc" || centerPlacement === "npc";
+  if (hasNpc && !values.npc.trim()) throw new Error("NPC가 포함된 관문에는 NPC 프리셋을 지정해 주세요.");
+  const conditions = validatePlayerConditions(values.conditions);
   const wallHeight = Math.max(3, Math.min(32, Math.round(Number(values.wallHeight) || 7)));
   const properties = {
-    facing: values.facing, gate_mode: gateMode, building_enabled: gateMode === "classic",
-    surrounding_type: gateMode === "classic" ? values.surroundingType : "none", wall_block: values.wallBlock.trim(),
+    facing: values.facing, center_placement: centerPlacement,
+    surrounding_type: values.surroundingType, wall_block: values.wallBlock.trim(),
     tree_log: values.treeLog.trim() || "minecraft:oak_log",
     tree_leaves: values.treeLeaves.trim() || "minecraft:oak_leaves",
-    wall_thickness: normalizedOdd(values.wallThickness, 1, 15),
-    wall_height: wallHeight, opening_width: normalizedOdd(values.openingWidth, 3, 31),
+    wall_thickness: normalizedOdd(values.wallThickness, 1, 15), wall_height: wallHeight,
+    passage_width: normalizedOdd(values.openingWidth, 3, 31),
     barrier_height: Math.max(wallHeight + 1, Math.min(128, Math.round(Number(values.barrierHeight) || 24))),
     condition_mode: values.conditionMode, conditions,
-    deny_message: values.denyMessage.trim() || (gateMode === "system_only" ? "조건을 달성하지 않아 이 지역에 들어갈 수 없습니다." : "아직 이 관문을 통과할 수 없습니다.")
+    deny_message: values.denyMessage.trim() || "아직 이 관문을 통과할 수 없습니다."
   };
-  if (gateMode !== "system_only" && values.npc.trim()) properties.npc = values.npc.trim();
+  if (hasNpc) properties.npc = values.npc.trim();
   return properties;
 }
-function placeObjectWithTool(q, r) {
-  const id = $("#object-tool-id").value.trim(); const type = $("#object-tool-type").value.trim(); const resource = $("#object-tool-resource").value.trim();
-  if (!/^[a-z0-9_.-]+$/.test(id) || !/^[a-z0-9_.-]+$/.test(type)) { toast("오브젝트 ID와 타입을 영문 소문자 형식으로 입력해 주세요."); return; }
-  if (reservedWorldObjectTypes.has(type)) {
-    if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast(`${reservedWorldObjectTypes.get(type)} NBT 리소스를 선택해 주세요.`); return; }
-    if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
-    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
-    state.worldLayout.objects.push({ id, type, anchor: { q, r }, resource, rotation: Number($("#object-tool-rotation").value) });
-    state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout(); return;
-  }
+function placeGateWithTool(q, r) {
+  const id = $("#object-tool-id").value.trim(); const type = "gate"; const resource = $("#object-tool-resource").value.trim();
+  if (!/^[a-z0-9_.-]+$/.test(id)) { toast("관문 ID를 영문 소문자 형식으로 입력해 주세요."); return; }
   const gateMode = $("#object-tool-gate-mode").value;
-  const buildingEnabled = gateMode === "classic";
+  const buildingEnabled = gateMode === "gate" || gateMode === "gate_npc";
   if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
   state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
@@ -2024,6 +2115,17 @@ function placeObjectWithTool(q, r) {
   const object = { id, type, anchor: { q, r }, rotation: Number($("#object-tool-rotation").value), properties };
   if (buildingEnabled) object.resource = resource;
   state.worldLayout.objects.push(object); state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+}
+function placeObjectWithTool(q, r) {
+  const id = $("#generic-object-tool-id").value.trim();
+  const type = $("#generic-object-tool-type").value.trim();
+  const resource = $("#generic-object-tool-resource").value.trim();
+  if (!/^[a-z0-9_.-]+$/.test(id) || !reservedWorldObjectTypes.has(type)) { toast("오브젝트 ID와 타입을 확인해 주세요."); return; }
+  if (!gateResourceIdPattern.test(resource)) { toast(`${reservedWorldObjectTypes.get(type)} NBT 리소스를 선택해 주세요.`); return; }
+  if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
+  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
+  state.worldLayout.objects.push({ id, type, anchor: { q, r }, resource, rotation: Number($("#generic-object-tool-rotation").value) });
+  state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
 function updateWorldSaveState() { $("#world-save-state").textContent = state.worldDirty ? "저장하지 않은 변경" : "저장된 상태"; $("#world-save-state").classList.toggle("is-dirty", state.worldDirty); }
@@ -2040,7 +2142,7 @@ function renderWorldObjectNbtOptions() {
 }
 
 function ensureWorldObjectTypeOptions() {
-  [$("#object-tool-type"), $("#tile-inspector-form").elements.objectType].forEach((select) => {
+  [$("#generic-object-tool-type"), $("#tile-inspector-form").elements.objectType].forEach((select) => {
     for (const [value, label] of reservedWorldObjectTypes) {
       if (!select.querySelector(`option[value="${value}"]`)) select.insertAdjacentHTML("beforeend", `<option value="${value}">${label}</option>`);
     }
@@ -2048,41 +2150,44 @@ function ensureWorldObjectTypeOptions() {
 }
 
 function updateGateOptionVisibility() {
-  const toolPanel = $('[data-tool-options="object"]');
-  const toolIsGate = $("#object-tool-type").value === "gate";
+  const toolPanel = $('[data-tool-options="gate"]');
   const toolMode = $("#object-tool-gate-mode").value;
-  const toolBuilding = toolMode === "classic";
+  const toolBuilding = toolMode === "gate" || toolMode === "gate_npc";
+  const toolHasNpc = toolMode === "gate_npc" || toolMode === "npc";
   const toolSurrounding = $("#object-tool-surrounding-type").value;
-  toolPanel.querySelector("[data-gate-mode]").hidden = !toolIsGate;
-  $("#object-tool-building-enabled").closest("label").hidden = true;
-  ["object-tool-surrounding-type", "object-tool-wall-block", "object-tool-tree-log", "object-tool-tree-leaves", "object-tool-wall-thickness", "object-tool-opening-width", "object-tool-wall-height", "object-tool-barrier-height"].forEach((id) => { $(`#${id}`).closest("label").hidden = !toolIsGate || toolMode !== "classic"; });
-  ["object-tool-facing", "object-tool-rotation"].forEach((id) => { $(`#${id}`).closest("label").hidden = !toolIsGate || toolMode === "system_only"; });
-  $("#object-tool-npc").closest("label").hidden = !toolIsGate || toolMode === "system_only";
-  ["object-tool-condition-mode", "object-tool-deny-message"].forEach((id) => { $(`#${id}`).closest("label").hidden = !toolIsGate || toolMode === "npc_only"; });
-  $("#object-tool-condition-builder").hidden = !toolIsGate || toolMode === "npc_only";
-  $("#edit-object-npc").hidden = !toolIsGate || toolMode === "system_only";
-  toolPanel.querySelector("[data-object-resource]").hidden = toolIsGate && !toolBuilding;
-  toolPanel.querySelectorAll("[data-gate-wall]").forEach((field) => { field.hidden = !toolIsGate || toolSurrounding !== "wall"; });
-  toolPanel.querySelectorAll("[data-gate-trees]").forEach((field) => { field.hidden = !toolIsGate || toolSurrounding !== "trees"; });
-  toolPanel.querySelectorAll("[data-gate-surrounding]").forEach((field) => { field.hidden = !toolIsGate || toolSurrounding === "none"; });
+  toolPanel.querySelector("[data-gate-mode]").hidden = false;
+  $("#object-tool-wall-block").closest("label").hidden = toolSurrounding !== "wall";
+  ["object-tool-tree-log", "object-tool-tree-leaves"].forEach((id) => { $(`#${id}`).closest("label").hidden = true; });
+  ["object-tool-facing", "object-tool-surrounding-type", "object-tool-wall-thickness", "object-tool-opening-width", "object-tool-wall-height", "object-tool-barrier-height"].forEach((id) => { $(`#${id}`).closest("label").hidden = false; });
+  $("#object-tool-rotation").closest("label").hidden = !toolBuilding;
+  $("#object-tool-npc").closest("label").hidden = !toolHasNpc;
+  ["object-tool-condition-mode", "object-tool-deny-message"].forEach((id) => { $(`#${id}`).closest("label").hidden = false; });
+  $("#object-tool-condition-builder").hidden = false;
+  $("#edit-object-npc").hidden = !toolHasNpc;
+  toolPanel.querySelector("[data-object-resource]").hidden = !toolBuilding;
+  toolPanel.querySelectorAll("[data-gate-wall]").forEach((field) => { field.hidden = toolSurrounding !== "wall"; });
+  toolPanel.querySelectorAll("[data-gate-trees]").forEach((field) => { field.hidden = true; });
+  toolPanel.querySelectorAll("[data-gate-surrounding]").forEach((field) => { field.hidden = false; });
 
   const form = $("#tile-inspector-form");
   const objectFields = form.querySelector('section[data-tile-field="object"]');
   const inspectorIsGate = form.elements.objectType.value === "gate";
   const inspectorMode = form.elements.objectGateMode.value;
-  const inspectorBuilding = inspectorMode === "classic";
+  const inspectorBuilding = inspectorMode === "gate" || inspectorMode === "gate_npc";
+  const inspectorHasNpc = inspectorMode === "gate_npc" || inspectorMode === "npc";
   const inspectorSurrounding = form.elements.objectSurroundingType.value;
   form.querySelector("[data-gate-mode]").hidden = !inspectorIsGate;
-  form.elements.objectBuildingEnabled.closest("label").hidden = true;
-  ["objectSurroundingType", "objectWallBlock", "objectTreeLog", "objectTreeLeaves", "objectWallThickness", "objectOpeningWidth", "objectWallHeight", "objectBarrierHeight"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate || inspectorMode !== "classic"; });
-  ["objectFacing", "objectRotation"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate || inspectorMode === "system_only"; });
-  form.elements.objectNpc.closest("label").hidden = !inspectorIsGate || inspectorMode === "system_only";
-  ["objectConditionMode", "objectDenyMessage"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate || inspectorMode === "npc_only"; });
-  $("#inspector-gate-condition-builder").hidden = !inspectorIsGate || inspectorMode === "npc_only";
+  ["objectSurroundingType", "objectWallThickness", "objectOpeningWidth", "objectWallHeight", "objectBarrierHeight", "objectFacing"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate; });
+  form.elements.objectWallBlock.closest("label").hidden = !inspectorIsGate || inspectorSurrounding !== "wall";
+  ["objectTreeLog", "objectTreeLeaves"].forEach((name) => { form.elements[name].closest("label").hidden = true; });
+  form.elements.objectRotation.closest("label").hidden = !inspectorIsGate || !inspectorBuilding;
+  form.elements.objectNpc.closest("label").hidden = !inspectorIsGate || !inspectorHasNpc;
+  ["objectConditionMode", "objectDenyMessage"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate; });
+  $("#inspector-gate-condition-builder").hidden = !inspectorIsGate;
   objectFields.querySelector("[data-object-resource]").hidden = inspectorIsGate && !inspectorBuilding;
   objectFields.querySelectorAll("[data-gate-wall]").forEach((field) => { field.hidden = !inspectorIsGate || inspectorSurrounding !== "wall"; });
-  objectFields.querySelectorAll("[data-gate-trees]").forEach((field) => { field.hidden = !inspectorIsGate || inspectorSurrounding !== "trees"; });
-  objectFields.querySelectorAll("[data-gate-surrounding]").forEach((field) => { field.hidden = !inspectorIsGate || inspectorSurrounding === "none"; });
+  objectFields.querySelectorAll("[data-gate-trees]").forEach((field) => { field.hidden = true; });
+  objectFields.querySelectorAll("[data-gate-surrounding]").forEach((field) => { field.hidden = !inspectorIsGate; });
 }
 
 function selectedRoute() {
@@ -2414,7 +2519,7 @@ function renderTileInspector() {
   const routes = routesAt(selected.q, selected.r);
   const musicOverride = musicOverrideAt(selected.q, selected.r);
   const musicContext = town || townArea ? "settlement" : routes.length ? "road" : "tile";
-  const kind = customObject ? "object" : town ? "settlement" : tile ? "biome" : "empty";
+  const kind = customObject ? (customObject.type === "gate" ? "gate" : "object") : town ? "settlement" : tile ? "biome" : "empty";
   const selectedSettlement = town?.settlement || townArea?.settlement;
   setWorldManagementTarget(selectedSettlement ? "settlements" : "", selectedSettlement || "");
   $("#selected-tile-title").textContent = customObject ? customObject.id : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
@@ -2435,24 +2540,24 @@ function renderTileInspector() {
   form.elements.objectId.value = customObject?.id || "";
   form.elements.objectType.value = customObject?.type || "gate";
   form.elements.objectResource.value = customObject?.resource || "";
-  form.elements.objectGateMode.value = customObject?.properties?.gate_mode || "classic";
-  form.elements.objectBuildingEnabled.value = String(customObject?.properties?.building_enabled ?? true);
+  form.elements.objectGateMode.value = gateCenterPlacement(customObject?.properties);
   form.elements.objectFacing.value = customObject?.properties?.facing || "north";
   form.elements.objectRotation.value = customObject?.rotation || 0;
-  form.elements.objectSurroundingType.value = customObject?.properties?.surrounding_type || "wall";
+  form.elements.objectSurroundingType.value = gateSurroundingType(customObject?.properties);
   form.elements.objectWallBlock.value = customObject?.properties?.wall_block || "minecraft:stone_bricks";
   form.elements.objectTreeLog.value = customObject?.properties?.tree_log || "minecraft:oak_log";
   form.elements.objectTreeLeaves.value = customObject?.properties?.tree_leaves || "minecraft:oak_leaves";
   form.elements.objectWallThickness.value = customObject?.properties?.wall_thickness || 5;
   form.elements.objectWallHeight.value = customObject?.properties?.wall_height || 7;
-  form.elements.objectOpeningWidth.value = customObject?.properties?.opening_width || 7;
+  form.elements.objectOpeningWidth.value = gatePassageWidth(customObject?.properties);
   form.elements.objectBarrierHeight.value = customObject?.properties?.barrier_height || 24;
   form.elements.objectNpc.value = customObject?.properties?.npc || "";
   form.elements.objectConditionMode.value = customObject?.properties?.condition_mode || "all";
   renderGateConditionEditor($("#inspector-gate-condition-builder"), customObject?.properties?.conditions || []);
   form.elements.objectDenyMessage.value = customObject?.properties?.deny_message || "아직 이 관문을 통과할 수 없습니다.";
   updateGateOptionVisibility();
-  $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== kind);
+  const tileFieldKind = kind === "gate" ? "object" : kind;
+  $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== tileFieldKind);
   const routePanel = $("#route-overlay-panel");
   routePanel.hidden = !routes.length;
   $("#route-overlay-list").innerHTML = routes.map((route) => `<div class="route-overlay-item"><span>${escapeHtml(route.id)} · ${escapeHtml(route.surface_style)}</span><button type="button" data-remove-route="${escapeHtml(route.id)}">연결 삭제</button></div>`).join("");
@@ -2463,8 +2568,8 @@ function renderTileInspector() {
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
   const objectSummary = reservedWorldObjectTypes.has(customObject?.type)
     ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(reservedWorldObjectTypes.get(customObject.type))} · NBT 배치 예약</span><small>${escapeHtml(customObject.resource || "NBT 미지정")} · 전용 동작은 추후 설계</small>`
-    : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>조건부 관문 · ${{ classic: "실제 관문", npc_only: "NPC 전용", system_only: "시스템 차단" }[customObject.properties?.gate_mode || "classic"]}</span><small>${customObject.properties?.gate_mode === "system_only" ? "타일 진입 감지 · 조건과 차단 문구 사용" : customObject.properties?.gate_mode === "npc_only" ? "NPC proximity 이벤트로 제지" : `${customObject.properties?.surrounding_type || "wall"} 차단물 · 중앙 NBT 건물`}</small>` : "";
-  $("#tile-summary").innerHTML = (kind === "object" ? objectSummary : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
+    : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>관문 · ${{ gate: "관문", gate_npc: "관문 + NPC", npc: "NPC" }[gateCenterPlacement(customObject.properties)]}</span><small>${gateSurroundingType(customObject.properties) === "wall" ? "벽" : "주변 지형형 자연지물"} · 가운데 통로 ${gatePassageWidth(customObject.properties)}블록</small>` : "";
+  $("#tile-summary").innerHTML = (["gate", "object"].includes(kind) ? objectSummary : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
   renderWorldPokemonPanel();
 }
 
@@ -2746,7 +2851,7 @@ function renderWorldPokemonPanel() {
 }
 
 const mapToolCopy = {
-  select: ["선택 도구", "기존 타일·마을·길·입구·오브젝트를 선택하거나 이동합니다."],
+  select: ["선택 도구", "기존 타일·마을·길·입구·관문·오브젝트를 선택하거나 이동합니다."],
   biome: ["바이옴 브러시", "기본 바이옴 레이어를 클릭하거나 드래그해 칠합니다."],
   terrain: ["빈 지형 브러시", "접근 불가 배경 지형을 칠합니다."],
   climate: ["기후 오버라이드", "온도·습도·날씨를 좌표별로 덮어씁니다."],
@@ -2754,7 +2859,8 @@ const mapToolCopy = {
   route: ["길 만들기", "마을 자동 연결 또는 타일 경유 경로를 만듭니다."],
   settlement: ["마을 배치", "빈 타일에 관리 중인 마을을 새로 배치합니다."],
   entrance: ["출입구 배치", "동굴·숲 출입구 종류와 포켓몬센터 여부를 정해 배치합니다."],
-  object: ["오브젝트 배치", "확장 가능한 커스텀 오브젝트를 배치합니다."],
+  gate: ["관문 배치", "건물·지형 연결·NPC·통과 조건을 하나의 관문 시스템으로 배치합니다."],
+  object: ["오브젝트 배치", "진행 판정이 없는 랜드마크와 특수 건물 NBT를 배치합니다."],
   eraser: ["지우개", "선택한 월드 레이어를 제거합니다."]
 };
 function renderMapToolOptions() {
@@ -2778,7 +2884,7 @@ function renderMapToolOptions() {
   $("#forest-tool-forest").innerHTML = state.forests.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentForest && state.forests.some((item) => item.id === currentForest)) $("#forest-tool-forest").value = currentForest;
   refreshForestToolEntrances();
-  const help = { select: "선택 도구 · 기존 타일·마을·길·출입구·오브젝트 선택 및 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", level: "평균 레벨 브러시 · 레벨링 오버레이에 표시", route: "길 도구 · 새 길 생성 (마을·출입구·센터 지정 출입구를 끝점으로 사용 가능)", settlement: "마을 도구 · 새 마을 배치", entrance: "출입구 도구 · 동굴·숲 출입구 배치", object: "오브젝트 도구 · 새 오브젝트 배치", eraser: "지우개 · 선택 레이어 제거" };
+  const help = { select: "선택 도구 · 기존 타일·마을·길·출입구·관문·오브젝트 선택 및 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", level: "평균 레벨 브러시 · 레벨링 오버레이에 표시", route: "길 도구 · 새 길 생성 (마을·출입구·센터 지정 출입구를 끝점으로 사용 가능)", settlement: "마을 도구 · 새 마을 배치", entrance: "출입구 도구 · 동굴·숲 출입구 배치", gate: "관문 도구 · 지형과 진행 조건을 포함한 관문 배치", object: "오브젝트 도구 · 랜드마크 NBT 배치", eraser: "지우개 · 선택 레이어 제거" };
   $("#map-interaction-help").textContent = help[tool];
   $("#world-hex-map").dataset.activeTool = tool;
   renderRouteCreator();
@@ -2973,7 +3079,7 @@ function applyTilePlacement() {
   const { q, r } = state.selectedHex || {}; if (q === undefined) return;
   const form = $("#tile-inspector-form");
   const kind = form.elements.kind.value;
-  if (kind === "object") {
+  if (kind === "gate" || kind === "object") {
     const id = form.elements.objectId.value.trim(); const type = form.elements.objectType.value.trim();
     if (!/^[a-z0-9_.-]+$/.test(id) || !/^[a-z0-9_.-]+$/.test(type)) { toast("오브젝트 ID와 타입은 영문 소문자, 숫자, ., _, -만 사용할 수 있습니다."); return; }
     const duplicate = state.worldLayout.objects.find((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r));
@@ -2986,7 +3092,7 @@ function applyTilePlacement() {
       markWorldDirty(); renderWorldLayout(); return;
     }
     const gateMode = form.elements.objectGateMode.value;
-    const buildingEnabled = gateMode === "classic";
+    const buildingEnabled = gateMode === "gate" || gateMode === "gate_npc";
     if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
     let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, gateMode, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: gateConditionsFromEditor("#inspector-gate-condition-builder"), denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
     const object = { id, type, anchor: { q, r }, rotation: Number(form.elements.objectRotation.value), properties };
@@ -3049,14 +3155,20 @@ function clearSelectedTile() {
 }
 
 function handleTileInspectorChange(event) {
+  const form = event.currentTarget;
   if (event.target.name === "musicTrack") {
     const { q, r } = state.selectedHex;
     setMusicOverride(q, r, event.target.value);
     markWorldDirty(); renderTileInspector(); return;
   }
   if (event.target.name === "kind") {
-    $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== event.target.value);
-    if (event.target.value === "settlement" || event.target.value === "object") return;
+    const selectedKind = event.target.value;
+    const tileFieldKind = selectedKind === "gate" ? "object" : selectedKind;
+    $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== tileFieldKind);
+    if (selectedKind === "gate") form.elements.objectType.value = "gate";
+    if (selectedKind === "object" && form.elements.objectType.value === "gate") form.elements.objectType.value = reservedWorldObjectTypes.keys().next().value;
+    updateGateOptionVisibility();
+    if (["settlement", "gate", "object"].includes(selectedKind)) return;
   }
   applyTilePlacement();
 }
@@ -5284,7 +5396,7 @@ function eventCommandSummary(command) {
   };
   if (command.type === "branch") {
     const condition = command.conditions?.[0] || { type: "always" };
-    const detail = condition.type === "flag_equals" ? `${condition.key} = ${String(condition.value)}` : condition.type === "has_item" ? `${condition.item} × ${condition.count || 1} 보유` : "항상";
+    const detail = playerConditionSummary(condition);
     return `${detail} → ${command.target || "라벨 없음"}`;
   }
   if (command.type === "label") return command.name || "이름 없는 라벨";
@@ -5306,11 +5418,30 @@ function eventCommandSummary(command) {
   return command.type;
 }
 
-function defaultNpcDialogueFlag() {
+function playerConditionSummary(condition) {
+  if (["flag", "flag_equals"].includes(condition.type)) return `${condition.key} = ${String(condition.value)}`;
+  if (["item", "has_item"].includes(condition.type)) return `${condition.item} × ${condition.count || 1} ${condition.negate ? "미소지" : "소지"}`;
+  if (condition.type === "badge") return `${condition.badge} ${condition.negate ? "미클리어" : "클리어"}`;
+  if (condition.type === "pokemon") return `${condition.species} ${condition.negate ? "없음" : "있음"}`;
+  if (condition.type === "party_count") return `파티 수 ${condition.operator || ">="} ${condition.value ?? 1}`;
+  if (condition.type === "variable") return `${condition.key} ${condition.operator || ">="} ${condition.value ?? 0}`;
+  return "항상";
+}
+
+function defaultNpcDialogueFlag(type = $("#event-preset-type")?.value || "repeat") {
   const rawId = String(state.trainer?.id || "cobbleventure:npc/new_npc");
   const [namespace = "cobbleventure", path = "npc/new_npc"] = rawId.split(":");
   const slug = path.replace(/^npc\//, "").replace(/[^a-z0-9_/.-]+/gi, "_");
-  return `${namespace}:flag/npc/${slug}/talked`;
+  return `${namespace}:flag/npc/${slug}/${type === "item" ? "claimed" : "talked"}`;
+}
+
+function updateEventPresetFlagMode(refreshAutomaticValue = true) {
+  const automatic = $("#event-preset-flag-auto").checked;
+  const field = $("#event-preset-flag");
+  if (automatic && refreshAutomaticValue) field.value = defaultNpcDialogueFlag();
+  field.readOnly = automatic;
+  field.disabled = automatic || $("#event-preset-flag-auto").disabled;
+  $("#event-preset-flag-field").closest(".event-preset-state-key")?.classList.toggle("is-auto", automatic);
 }
 
 function defaultProgressionClearKey(type) {
@@ -5391,6 +5522,7 @@ function renderEventPresetFields() {
   customClearKey.value = clearKey.value === "__custom__" ? selectedClearKey : "";
   updatePresetClearKeyMode();
   $("#event-after-victory-field").hidden = state.trainer?.event_design?.mode !== "preset" || !battleTypes.includes(type);
+  updateEventPresetFlagMode();
 }
 
 function dialogueLines(value) {
@@ -5423,7 +5555,10 @@ function renderNormalizedEventPreset() {
   renderEventPresetFields();
   $("#event-preset-first-text").value = localizedPresetText(preset.first_text, "안녕하세요!");
   $("#event-preset-repeat-text").value = localizedPresetText(preset.repeat_text, "다시 만났네요.");
-  $("#event-preset-flag").value = preset.state_key || defaultNpcDialogueFlag();
+  const automaticStateKey = preset.auto_state_key === true || (preset.auto_state_key == null && !preset.state_key);
+  $("#event-preset-flag-auto").checked = automaticStateKey;
+  $("#event-preset-flag").value = automaticStateKey ? defaultNpcDialogueFlag(preset.type) : (preset.state_key || defaultNpcDialogueFlag(preset.type));
+  updateEventPresetFlagMode(false);
   $("#event-preset-item").value = preset.item || "cobblemon:poke_ball";
   $("#event-preset-item-count").value = preset.item_count ?? 1;
   if (preset.battle && [...$("#event-preset-battle").options].some((option) => option.value === preset.battle)) $("#event-preset-battle").value = preset.battle;
@@ -5458,7 +5593,8 @@ function applyNormalizedEventPreset() {
   }
   if (["repeat", "item"].includes(type)) {
     preset.repeat_text = { ko_kr: $("#event-preset-repeat-text").value.trim() || "다시 만났네요." };
-    preset.state_key = $("#event-preset-flag").value.trim() || defaultNpcDialogueFlag();
+    preset.auto_state_key = $("#event-preset-flag-auto").checked;
+    if (!preset.auto_state_key) preset.state_key = $("#event-preset-flag").value.trim() || defaultNpcDialogueFlag(type);
   }
   if (type === "item") {
     preset.item = $("#event-preset-item").value.trim() || "cobblemon:poke_ball";
@@ -5558,7 +5694,7 @@ function applyEventScriptPreset() {
   } else {
     const flag = $("#event-preset-flag").value.trim() || defaultNpcDialogueFlag();
     event.commands = [
-      { type: "branch", conditions: [{ type: "flag_equals", key: flag, value: true }], target: "repeat_greeting" },
+      { type: "branch", conditions: [{ type: "flag", key: flag, value: true }], target: "repeat_greeting" },
       ...dialogueCommands("first_greeting", firstText),
     ];
     if (type === "item") event.commands.push({ type: "give_item", item: $("#event-preset-item").value.trim() || "cobblemon:poke_ball", count: Math.max(1, Number($("#event-preset-item-count").value) || 1) });
@@ -5625,16 +5761,24 @@ function renderEventValueEditor(value, field = "value", prefix = "command") {
 }
 
 function renderConditionEditor(condition, conditionIndex) {
-  const type = condition.type || "always";
+  const type = condition.type === "flag_equals" ? "flag" : condition.type === "has_item" ? "item" : (condition.type || "always");
   let details = "";
-  if (type === "flag_equals") {
+  if (type === "flag") {
     details = `<label class="wide"><span>변수 ID</span><input list="declared-variable-ids" data-condition-field="key" value="${escapeHtml(condition.key || "")}" placeholder="cobbleventure:flag/example"><small>게임 데이터에서 선언한 진행 변수를 선택하거나 직접 입력할 수 있습니다.</small></label>${renderEventValueEditor(condition.value ?? true, "value", "condition")}`;
-  } else if (type === "has_item") {
+  } else if (type === "item") {
     details = `<label class="wide"><span>아이템 ID</span><input list="declared-item-ids" data-condition-field="item" value="${escapeHtml(condition.item || "")}" placeholder="cobblemon:potion"><small>선언한 퀘스트 아이템 또는 실제 게임 아이템 ID를 사용할 수 있습니다.</small></label><label><span>필요 수량</span><input data-condition-field="count" data-value-type="number" type="number" min="1" step="1" value="${escapeHtml(condition.count ?? 1)}"></label>`;
+  } else if (type === "badge") {
+    details = `<label class="wide"><span>배지</span><select data-condition-field="badge">${playerConditionBadgeOptions(condition.badge)}</select></label><label><span>판정</span><select data-condition-field="negate"><option value="false" ${condition.negate ? "" : "selected"}>클리어함</option><option value="true" ${condition.negate ? "selected" : ""}>클리어하지 않음</option></select></label>`;
+  } else if (type === "pokemon") {
+    details = `<label class="wide"><span>포켓몬 종 ID</span><input data-condition-field="species" value="${escapeHtml(condition.species || "")}" placeholder="cobblemon:pikachu"></label><label><span>판정</span><select data-condition-field="negate"><option value="false" ${condition.negate ? "" : "selected"}>파티에 있음</option><option value="true" ${condition.negate ? "selected" : ""}>파티에 없음</option></select></label>`;
+  } else if (type === "party_count") {
+    details = `<label><span>비교</span><select data-condition-field="operator">${["==", "!=", ">", ">=", "<", "<="].map((operator) => `<option ${condition.operator === operator ? "selected" : ""}>${operator}</option>`).join("")}</select></label><label><span>포켓몬 수</span><input data-condition-field="value" data-value-type="number" type="number" min="0" max="6" step="1" value="${condition.value ?? 1}"></label>`;
+  } else if (type === "variable") {
+    details = `<label><span>저장 위치</span><select data-condition-field="source"><option value="scoreboard" ${condition.source === "scoreboard" ? "selected" : ""}>스코어보드</option><option value="persistent_data" ${condition.source === "persistent_data" ? "selected" : ""}>플레이어 데이터</option></select></label><label class="wide"><span>변수 키</span><input data-condition-field="key" value="${escapeHtml(condition.key || "")}"></label><label><span>비교</span><select data-condition-field="operator">${["==", "!=", ">", ">=", "<", "<="].map((operator) => `<option ${condition.operator === operator ? "selected" : ""}>${operator}</option>`).join("")}</select></label><label><span>기준값</span><input data-condition-field="value" data-value-type="number" type="number" value="${condition.value ?? 0}"></label>`;
   } else {
     details = '<p class="command-help wide">별도의 검사 없이 이 분기로 이동합니다.</p>';
   }
-  return `<div class="event-subrow" data-condition-index="${conditionIndex}"><label><span>조건 종류</span><select data-condition-field="type" data-condition-rerender="true"><option value="flag_equals" ${type === "flag_equals" ? "selected" : ""}>플래그 비교</option><option value="has_item" ${type === "has_item" ? "selected" : ""}>아이템 보유</option><option value="always" ${type === "always" ? "selected" : ""}>항상</option></select></label>${details}<button type="button" class="remove-bag-item" data-condition-remove="${conditionIndex}">조건 삭제</button></div>`;
+  return `<div class="event-subrow" data-condition-index="${conditionIndex}"><label><span>조건 종류</span><select data-condition-field="type" data-condition-rerender="true">${playerConditionTypeOptions(type, true)}</select></label>${details}<button type="button" class="remove-bag-item" data-condition-remove="${conditionIndex}">조건 삭제</button></div>`;
 }
 
 function renderChoiceEditor(option, optionIndex) {
@@ -5686,8 +5830,9 @@ function renderEventScript() {
   renderEventDesignMode();
   if (state.trainer?.event_design?.mode === "preset") {
     $("#event-command-list").innerHTML = '<div class="issues empty">행동 프리셋이 빌드 시 EasyNPC 이벤트로 자동 변환됩니다.</div>';
-    ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+    ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
     $$('[data-item-picker]').forEach((button) => { button.disabled = false; });
+    updateEventPresetFlagMode(false);
     updatePresetClearKeyMode();
     return;
   }
@@ -5710,13 +5855,14 @@ function renderEventScript() {
   $("#event-warning-offset").value = trigger.warning_offset ?? 2;
   $("#event-range-label").textContent = trigger.type === "proximity" ? "자동 발동 거리" : "대화 가능 거리";
   $("#event-warning-offset-field").hidden = trigger.type !== "proximity";
-  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
   $$('[data-item-picker]').forEach((button) => { button.disabled = false; });
   const presetFlag = $("#event-preset-flag");
   if (presetFlag.dataset.npcId !== state.trainer.id) {
     presetFlag.dataset.npcId = state.trainer.id;
     presetFlag.value = defaultNpcDialogueFlag();
   }
+  updateEventPresetFlagMode(false);
   renderEventPresetFields();
   list.innerHTML = event.commands.map((command, index) => {
     const expanded = expandedEventCommands.has(index);
@@ -5735,7 +5881,7 @@ function renderEventScript() {
 
 function defaultEventCommand(type) {
   const defaults = {
-    branch: { type, conditions: [{ type: "flag_equals", key: "cobbleventure:flag/example", value: true }], target: "target_label" },
+    branch: { type, conditions: [{ type: "flag", key: "cobbleventure:flag/example", value: true }], target: "target_label" },
     label: { type, name: "new_label" },
     dialogue: { type, id: "dialogue", speaker: "npc", text: { ko_kr: "대사를 입력하세요." } },
     choices: { type, options: [{ id: "continue", text: { ko_kr: "계속" }, target: "next" }] },
@@ -5818,11 +5964,13 @@ function handleEventCommandInput(event) {
   if (event.target.dataset.commandField) setEventNestedValue(command, event.target.dataset.commandField, parseValue(event.target));
   else if (event.target.dataset.conditionField) {
     const condition = command.conditions[Number(event.target.closest("[data-condition-index]").dataset.conditionIndex)];
-    condition[event.target.dataset.conditionField] = parseValue(event.target);
+    const conditionField = event.target.dataset.conditionField;
+    condition[conditionField] = conditionField === "negate"
+      ? event.target.value === "true" : parseValue(event.target);
     if (event.target.dataset.conditionRerender) {
       Object.keys(condition).forEach((key) => { if (key !== "type") delete condition[key]; });
-      if (event.target.value === "flag_equals") Object.assign(condition, { type: "flag_equals", key: "cobbleventure:flag/example", value: true });
-      else if (event.target.value === "has_item") Object.assign(condition, { type: "has_item", item: "cobblemon:potion", count: 1 });
+      Object.assign(condition, event.target.value === "always"
+        ? { type: "always" } : defaultPlayerCondition(event.target.value));
     }
   } else if (event.target.dataset.optionField) {
     const option = command.options[Number(event.target.closest("[data-option-index]").dataset.optionIndex)];
@@ -5879,7 +6027,7 @@ function handleEventCommandClick(event) {
     return;
   }
   if (remove) { script.commands.splice(Number(remove.dataset.commandRemove), 1); expandedEventCommands.clear(); }
-  else if (addCondition && row) script.commands[Number(row.dataset.eventCommand)].conditions.push({ type: "flag_equals", key: "cobbleventure:flag/example", value: true });
+  else if (addCondition && row) script.commands[Number(row.dataset.eventCommand)].conditions.push({ type: "flag", key: "cobbleventure:flag/example", value: true });
   else if (removeCondition && row) {
     const conditions = script.commands[Number(row.dataset.eventCommand)].conditions;
     conditions.splice(Number(removeCondition.dataset.conditionRemove), 1);
@@ -5913,14 +6061,15 @@ function renderEntryRoutes() {
   list.innerHTML = interaction.entry_routes.map((route, index) => {
     const condition = route.conditions?.[0] || { type: "always" };
     const isFallback = !route.conditions?.length;
-    const detailFields = condition.type === "flag_equals"
+    const conditionType = condition.type === "flag_equals" ? "flag" : condition.type === "has_item" ? "item" : condition.type;
+    const detailFields = conditionType === "flag"
       ? `<label><span>플래그 ID</span><input data-route-field="key" value="${escapeHtml(condition.key || "")}"></label><label><span>값</span><select data-route-field="value"><option value="true">true</option><option value="false">false</option></select></label>`
-      : condition.type === "has_item"
+      : conditionType === "item"
         ? `<label><span>아이템 ID</span><input data-route-field="item" value="${escapeHtml(condition.item || "")}"></label><label><span>수량</span><input type="number" min="1" data-route-field="count" value="${Number(condition.count || 1)}"></label>`
         : '<span class="route-fallback-note">위 조건이 모두 실패하면 이 대화로 시작합니다.</span>';
     return `<article class="bag-item-row entry-route-row" data-entry-route="${index}">
       <span class="bag-item-index">${String(index + 1).padStart(2, "0")}</span>
-      <label><span>시작 조건</span><select data-route-field="type"><option value="flag_equals">플래그 비교</option><option value="has_item">아이템 보유</option><option value="always">기본 경로</option></select></label>
+      <label><span>시작 조건</span><select data-route-field="type"><option value="flag">진행 플래그</option><option value="item">아이템 소지</option><option value="always">기본 경로</option></select></label>
       ${detailFields}
       <label><span>시작 대화</span><select data-route-field="entry">${options}</select></label>
       <button type="button" class="remove-bag-item" data-remove-entry-route="${index}" ${isFallback ? "disabled" : ""}>삭제</button>
@@ -5929,9 +6078,9 @@ function renderEntryRoutes() {
   $$("[data-entry-route]").forEach((row) => {
     const route = interaction.entry_routes[Number(row.dataset.entryRoute)];
     const condition = route.conditions?.[0] || { type: "always" };
-    row.querySelector('[data-route-field="type"]').value = condition.type;
+    row.querySelector('[data-route-field="type"]').value = condition.type === "flag_equals" ? "flag" : condition.type === "has_item" ? "item" : condition.type;
     row.querySelector('[data-route-field="entry"]').value = route.entry;
-    if (condition.type === "flag_equals") row.querySelector('[data-route-field="value"]').value = String(condition.value ?? true);
+    if (["flag", "flag_equals"].includes(condition.type)) row.querySelector('[data-route-field="value"]').value = String(condition.value ?? true);
   });
 }
 
@@ -5948,7 +6097,7 @@ function updateEntryRoute(event) {
       route.conditions = [];
       state.trainer.interaction.entry_routes.splice(index, 1);
       state.trainer.interaction.entry_routes.push(route);
-    } else if (type === "flag_equals") route.conditions = [{ type, key: "cobbleventure:flag/example", value: true }];
+    } else if (type === "flag") route.conditions = [{ type, key: "cobbleventure:flag/example", value: true }];
     else route.conditions = [{ type, item: "cobblemon:potion", count: 1 }];
     renderEntryRoutes();
   } else {
@@ -5966,7 +6115,7 @@ function addEntryRoute() {
   const fallbackIndex = routes.findIndex((route) => !route.conditions?.length);
   const fallback = routes[fallbackIndex];
   routes.splice(fallbackIndex < 0 ? routes.length : fallbackIndex, 0, {
-    conditions: [{ type: "flag_equals", key: "cobbleventure:flag/example", value: true }],
+    conditions: [{ type: "flag", key: "cobbleventure:flag/example", value: true }],
     entry: fallback?.entry || state.trainer.interaction.nodes.find((node) => node.type === "dialogue")?.id
   });
   renderEntryRoutes();
@@ -12114,6 +12263,8 @@ $("#save-music-settings").addEventListener("click", saveMusicSettings);
 $("#refresh-music-library").addEventListener("click", refreshMusicLibrary);
 $("#music-mapping-tag").addEventListener("change", updateMusicMappingEditor);
 $("#apply-music-mapping").addEventListener("click", applyMusicMapping);
+$("#music-track-list").addEventListener("click", handleMusicTagListClick);
+$("#music-local-file-list").addEventListener("click", handleMusicCandidateClick);
 $("#definitions").addEventListener("input", handleDefinitionInput);
 $("#definitions").addEventListener("change", handleDefinitionInput);
 $("#definitions").addEventListener("click", handleDefinitionClick);
@@ -12243,10 +12394,8 @@ $("#edit-object-npc").addEventListener("click", async () => {
 });
 initializeGateConditionEditor($("#object-tool-condition-builder"));
 initializeGateConditionEditor($("#inspector-gate-condition-builder"));
-$("#object-tool-building-enabled").addEventListener("change", updateGateOptionVisibility);
 $("#object-tool-gate-mode").addEventListener("change", updateGateOptionVisibility);
 $("#object-tool-surrounding-type").addEventListener("change", updateGateOptionVisibility);
-$("#object-tool-type").addEventListener("change", updateGateOptionVisibility);
 $("#battle-form").addEventListener("change", (event) => {
   const form = event.currentTarget;
   if (event.target.name === "battleType") form.elements.format.value = event.target.value === "doubles" ? "GEN_9_DOUBLES" : "GEN_9_SINGLES";
@@ -12283,6 +12432,7 @@ $("#add-pokemon").addEventListener("click", addPokemon);
 $("#add-event-command").addEventListener("click", addEventCommand);
 $("#event-design-mode").addEventListener("change", changeEventDesignMode);
 $("#event-preset-type").addEventListener("change", renderEventPresetFields);
+$("#event-preset-flag-auto").addEventListener("change", () => updateEventPresetFlagMode(true));
 $("#event-preset-clear-key").addEventListener("change", () => updatePresetClearKeyMode(true));
 $("#apply-event-preset").addEventListener("click", applyEventScriptPreset);
 $("#event-preset-builder").addEventListener("click", (event) => {
@@ -12478,7 +12628,7 @@ $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#delete-world-layout").addEventListener("click", deleteWorldLayout);
 $("#add-generation").addEventListener("click", addGeneration);
 $("#tile-inspector-form").addEventListener("change", (event) => {
-  if (["objectType", "objectGateMode", "objectBuildingEnabled", "objectSurroundingType"].includes(event.target.name)) updateGateOptionVisibility();
+  if (["objectType", "objectGateMode", "objectSurroundingType"].includes(event.target.name)) updateGateOptionVisibility();
   handleTileInspectorChange(event);
 });
 $("#entrance-inspector-form").addEventListener("change", handleEntranceInspectorChange);
@@ -12602,7 +12752,7 @@ $("#world-hex-map").addEventListener("pointercancel", (event) => { state.dragged
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) { state.spacePanActive = true; state.brushPreview = null; $("#world-hex-map").classList.add("is-space-panning"); renderHexMap(); event.preventDefault(); return; }
   if (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.ctrlKey || event.metaKey || event.altKey) return;
-  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", l: "level", r: "route", s: "settlement", d: "entrance", f: "entrance", o: "object", e: "eraser" })[event.key.toLowerCase()];
+  const tool = ({ v: "select", b: "biome", t: "terrain", c: "climate", l: "level", r: "route", s: "settlement", d: "entrance", f: "entrance", g: "gate", o: "object", e: "eraser" })[event.key.toLowerCase()];
   if (tool) { setActiveMapTool(tool); event.preventDefault(); }
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });
