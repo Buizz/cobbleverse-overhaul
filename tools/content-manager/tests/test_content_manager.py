@@ -3919,6 +3919,34 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("Create 6.0.10", builder_profile["notice"])
         self.assertIn("Create: Copycats+ 3.0.4", builder_profile["notice"])
 
+    def test_content_studio_serves_bundled_pretendard_webfont(self) -> None:
+        server = content_manager.ThreadingHTTPServer(
+            ("127.0.0.1", 0), content_manager.create_handler(CORE_ROOT)
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base_url = f"http://127.0.0.1:{server.server_port}"
+            with urllib.request.urlopen(base_url) as response:
+                page = response.read().decode("utf-8")
+            with urllib.request.urlopen(f"{base_url}/typography.css") as response:
+                typography = response.read().decode("utf-8")
+            with urllib.request.urlopen(
+                f"{base_url}/fonts/PretendardVariable.woff2"
+            ) as response:
+                font_content_type = response.headers.get_content_type()
+                pretendard = response.read()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.assertIn('href="/typography.css"', page)
+        self.assertIn('font-family: "Pretendard Variable"', typography)
+        self.assertIn("--text-caption: 12px", typography)
+        self.assertEqual("font/woff2", font_content_type)
+        self.assertTrue(pretendard.startswith(b"wOF2"))
+
     def test_local_api_health_and_validation(self) -> None:
         root = CORE_ROOT
         server = content_manager.ThreadingHTTPServer(

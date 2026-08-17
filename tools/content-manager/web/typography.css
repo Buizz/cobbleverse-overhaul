@@ -1,0 +1,142 @@
+@font-face {
+  font-family: "Pretendard Variable";
+  src: url("/fonts/PretendardVariable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: swap;
+}
+
+:root {
+  --font-ui: "Pretendard Variable", Pretendard, "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  --text-caption: 12px;
+  --text-label: 13px;
+  --text-control: 14px;
+  --text-body: 15px;
+  --text-section: 20px;
+  --text-page: clamp(28px, 3vw, 38px);
+  font-family: var(--font-ui);
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  font-size: var(--text-control) !important;
+  line-height: 1.45;
+}
+
+.button,
+.nav-item,
+button:not(.mini-button):not(.forest-anchor-delete):not(.economy-icon-add) {
+  font-size: var(--text-label) !important;
+  line-height: 1.35;
+}
+
+label,
+legend,
+label > span,
+.field-label,
+[class*="-label"] {
+  font-size: var(--text-label) !important;
+  line-height: 1.45;
+}
+
+small,
+.eyebrow,
+.path-label,
+[class*="-caption"],
+[class*="-description"],
+[class*="-hint"],
+[class*="-kicker"],
+[class*="-meta"],
+[class*="-note"],
+[class*="-status"],
+[class*="-summary"] {
+  font-size: var(--text-caption) !important;
+  line-height: 1.5;
+}
+
+.count-pill,
+.project-chip > span,
+.stat-card > span,
+.event-preset-auto-flag strong,
+.event-preset-builder > footer > span,
+[class*="-badge"],
+[class*="-chip"],
+[class*="-pill"] {
+  font-size: var(--text-caption) !important;
+  line-height: 1.35;
+}
+
+code,
+pre,
+.code-editor,
+.path-label,
+.issue-path,
+.document-button small,
+[class*="-path"],
+[class*="-coordinate"] {
+  font-family: var(--font-mono);
+}
+
+code,
+.path-label,
+.issue-path,
+.document-button small {
+  font-size: var(--text-caption) !important;
+}
+
+h1 {
+  font-size: var(--text-page);
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: var(--text-section);
+  line-height: 1.3;
+}
+
+p,
+.notice,
+.issue,
+.issues,
+.auto-npc-preview,
+.route-fallback-note {
+  line-height: 1.6;
+}
+
+/* The economy workspace has its own dense stylesheet; all readable copy follows the same floor. */
+.economy-manager :is(span, strong, small, code, p, b, i, label) {
+  font-size: var(--text-caption) !important;
+  line-height: 1.45;
+}
+
+.economy-empty {
+  font-size: var(--text-caption) !important;
+}
+
+/* Icon-only controls keep their visual glyph scale while text controls use the shared scale. */
+.mini-button,
+.forest-anchor-delete,
+.economy-icon-add,
+.economy-offer-row > button,
+.economy-assignment-row > button,
+.economy-product-row > button,
+.economy-corner-row > button {
+  line-height: 1;
+}

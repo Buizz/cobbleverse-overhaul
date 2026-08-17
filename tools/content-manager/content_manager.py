@@ -258,6 +258,7 @@ STATIC_CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8",
     ".png": "image/png",
+    ".woff2": "font/woff2",
 }
 HABITAT_IDS = {"plains", "forest", "arid", "mountain", "cave", "wetland", "freshwater", "ocean", "snow", "volcanic", "urban", "special"}
 RARITY_IDS = {"common", "medium", "uncommon", "rare", "legendary"}
@@ -10379,6 +10380,10 @@ def create_handler(
                 "/space-connections.js": web_root / "space-connections.js",
                 "/styles.css": web_root / "styles.css",
                 "/economy.css": web_root / "economy.css",
+                "/typography.css": web_root / "typography.css",
+                "/fonts/PretendardVariable.woff2": web_root
+                / "fonts"
+                / "PretendardVariable.woff2",
                 "/pokemon-entry-clipboard.mjs": core_root
                 / "projects"
                 / "cobbleventure-battle-ai"
