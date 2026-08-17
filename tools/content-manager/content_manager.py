@@ -28,6 +28,12 @@ from urllib import error as urllib_error
 from urllib import request as urllib_request
 from urllib.parse import parse_qs, urlparse
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from tools.npc_event_presets import BATTLE_PRESETS, materialize_event_document
+
 
 RESOURCE_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9_./-]+$")
 MOD_ID = re.compile(r"^[a-z][a-z0-9_-]*$")
@@ -207,6 +213,7 @@ OPERATION_TYPES = {
     "take_money",
     "grant_loot",
     "grant_field_move",
+    "start_starter_roulette",
     "start_quest",
     "complete_quest",
     "teleport",
@@ -1168,11 +1175,14 @@ def validate_hex_worlds(
                         _issue(issues, "error", path, f"{condition_path}.item", "올바른 아이템 리소스 ID가 필요합니다.")
                     if not isinstance(condition.get("count"), int) or isinstance(condition.get("count"), bool) or condition["count"] < 1:
                         _issue(issues, "error", path, f"{condition_path}.count", "아이템 수량은 1 이상 정수여야 합니다.")
+                elif condition_type == "badge":
+                    if not isinstance(condition.get("badge"), str) or not RESOURCE_ID.fullmatch(condition["badge"]):
+                        _issue(issues, "error", path, f"{condition_path}.badge", "올바른 배지 리소스 ID가 필요합니다.")
                 elif condition_type == "pokemon":
                     if not isinstance(condition.get("species"), str) or not RESOURCE_ID.fullmatch(condition["species"]):
                         _issue(issues, "error", path, f"{condition_path}.species", "올바른 포켓몬 종 리소스 ID가 필요합니다.")
                 else:
-                    _issue(issues, "error", path, f"{condition_path}.type", "관문 조건 타입은 variable/item/pokemon 중 하나여야 합니다.")
+                    _issue(issues, "error", path, f"{condition_path}.type", "관문 조건 타입은 variable/item/badge/pokemon 중 하나여야 합니다.")
     return issues
 
 
@@ -3558,7 +3568,7 @@ def _validate_trainer_population(
         if len(direct) != len(set(value for value in direct if isinstance(value, str))):
             _issue(issues, "error", path, f"{base}.direct_trainers", "직접 지정 트레이너는 중복될 수 없습니다.")
     trigger = population.get("trigger_override", "proximity")
-    if trigger not in {"source", "interact", "proximity"}:
+    if trigger not in {"source", "preset", "interact", "proximity"}:
         _issue(issues, "error", path, f"{base}.trigger_override", "지원하지 않는 지역 조우 정책입니다.")
     overrides = population.get("trainer_trigger_overrides", {})
     if not isinstance(overrides, dict):
@@ -3568,7 +3578,7 @@ def _validate_trainer_population(
             _resource_id(trainer_id, issues, path, f"{base}.trainer_trigger_overrides")
             if trainer_id not in direct:
                 _issue(issues, "error", path, f"{base}.trainer_trigger_overrides", "직접 지정한 트레이너만 개별 조우 정책을 설정할 수 있습니다.")
-            if trainer_trigger not in {"source", "interact", "proximity"}:
+            if trainer_trigger not in {"source", "preset", "interact", "proximity"}:
                 _issue(issues, "error", path, f"{base}.trainer_trigger_overrides.{trainer_id}", "지원하지 않는 개별 조우 정책입니다.")
 
 
@@ -3636,6 +3646,38 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     npc_id = _resource_id(root.get("id"), issues, path, "$.id")
     if root.get("schema_version") != 4:
         _issue(issues, "error", path, "$.schema_version", "NPC 이벤트 스크립트 버전은 4입니다.")
+    event_design = _require_object(root.get("event_design"), issues, path, "$.event_design")
+    if event_design is not None:
+        design_mode = event_design.get("mode")
+        if design_mode == "preset":
+            preset = _require_object(event_design.get("preset"), issues, path, "$.event_design.preset")
+            if preset is not None:
+                preset_type = preset.get("type")
+                if preset_type not in {"simple", "repeat", "item", *BATTLE_PRESETS}:
+                    _issue(issues, "error", path, "$.event_design.preset.type", "지원하지 않는 NPC 행동 프리셋입니다.")
+                trigger = _require_object(preset.get("initial_trigger"), issues, path, "$.event_design.preset.initial_trigger")
+                if trigger is not None:
+                    trigger_type = trigger.get("type")
+                    if trigger_type not in {"interact", "proximity"}:
+                        _issue(issues, "error", path, "$.event_design.preset.initial_trigger.type", "말 걸기 또는 범위 진입 트리거가 필요합니다.")
+                    trigger_range = trigger.get("range")
+                    if not isinstance(trigger_range, (int, float)) or isinstance(trigger_range, bool) or trigger_range <= 0:
+                        _issue(issues, "error", path, "$.event_design.preset.initial_trigger.range", "0보다 큰 발동 거리가 필요합니다.")
+                _localized_text(preset.get("first_text"), issues, path, "$.event_design.preset.first_text")
+                if preset_type in BATTLE_PRESETS:
+                    _resource_id(preset.get("battle"), issues, path, "$.event_design.preset.battle")
+                    after_victory = _require_object(preset.get("after_victory_trigger"), issues, path, "$.event_design.preset.after_victory_trigger")
+                    if after_victory is not None and after_victory.get("type") != "interact":
+                        _issue(issues, "error", path, "$.event_design.preset.after_victory_trigger.type", "승리 후에는 플레이어가 말을 걸 때만 시작할 수 있습니다.")
+                try:
+                    root = materialize_event_document(root)
+                except (KeyError, TypeError, ValueError) as error:
+                    _issue(issues, "error", path, "$.event_design.preset", str(error))
+        elif design_mode == "easy_npc_events":
+            if not isinstance(root.get("events"), list):
+                _issue(issues, "error", path, "$.events", "직접 이벤트 설계에는 events 목록이 필요합니다.")
+        else:
+            _issue(issues, "error", path, "$.event_design.mode", "preset 또는 easy_npc_events여야 합니다.")
     if npc_id and ":npc/" not in npc_id:
         _issue(issues, "error", path, "$.id", "NPC ID는 namespace:npc/path 형식이어야 합니다.")
     if "placement" in root:
@@ -3720,7 +3762,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     command_types = {
         "branch", "label", "dialogue", "choices", "goto", "start_battle",
         "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move",
-        "teleport_to_gate", "end",
+        "start_starter_roulette", "teleport_to_gate", "end",
     }
     for event_index, event_value in enumerate(events):
         event_path = f"$.events[{event_index}]"
@@ -3803,7 +3845,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                             _issue(issues, "error", path, f"{command_path}.results.{key}", "지원하지 않는 배틀 결과입니다.")
                         elif isinstance(target, str):
                             targets.append((f"{command_path}.results.{key}", target))
-            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move"}:
+            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move", "start_starter_roulette"}:
                 _validate_operation(command, issues, path, command_path, npc_id, [])
             elif command_type == "teleport_to_gate":
                 gate = command.get("gate")
@@ -4340,7 +4382,7 @@ def save_starter_settings(root: Path, data: Any) -> list[Issue]:
 
 
 MUSIC_CONTEXTS = (
-    "tile", "road", "settlement", "building", "pokemon_center", "pokemart",
+    "tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart",
     "battle", "gym",
 )
 
@@ -4432,25 +4474,86 @@ def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[
     source = _music_source_directory(project_root, core_root, catalog)
     source.mkdir(parents=True, exist_ok=True)
     tracks = catalog.setdefault("tracks", [])
-    registered = {
-        str(track.get("source_file", "")).replace("\\", "/").casefold()
-        for track in tracks if isinstance(track, dict)
-    }
+    ogg_paths = sorted(
+        (
+            path for path in source.rglob("*")
+            if path.is_file() and path.suffix.lower() == ".ogg"
+        ),
+        key=lambda value: value.as_posix().casefold(),
+    )
+    ogg_paths_by_name: dict[str, list[Path]] = {}
+    for path in ogg_paths:
+        ogg_paths_by_name.setdefault(path.name.casefold(), []).append(path.resolve())
+    migrated = 0
+    for track in tracks:
+        if not isinstance(track, dict) or not isinstance(track.get("source_file"), str):
+            continue
+        source_file = Path(track["source_file"])
+        source_directory = track.get("source_directory")
+        candidate: Path | None = None
+        if isinstance(source_directory, str):
+            candidate = (core_root / source_directory / source_file).resolve()
+        else:
+            direct_candidate = (source / source_file).resolve()
+            if direct_candidate.is_file():
+                candidate = direct_candidate
+            else:
+                matches = ogg_paths_by_name.get(source_file.name.casefold(), [])
+                if len(matches) == 1:
+                    candidate = matches[0]
+        if candidate is None or not candidate.is_file():
+            continue
+        try:
+            relative = candidate.relative_to(source).as_posix()
+        except ValueError:
+            continue
+        if track["source_file"] != relative or "source_directory" in track:
+            track["source_file"] = relative
+            track.pop("source_directory", None)
+            migrated += 1
+    tracks_by_source: dict[str, dict[str, Any]] = {}
+    for track in tracks:
+        if not isinstance(track, dict) or not isinstance(track.get("source_file"), str):
+            continue
+        key = track["source_file"].replace("\\", "/").casefold()
+        tracks_by_source.setdefault(key, track)
     used_ids = {
         str(track.get("id")) for track in tracks
         if isinstance(track, dict) and isinstance(track.get("id"), str)
     }
     additions: list[dict[str, str]] = []
-    for path in sorted(source.rglob("*"), key=lambda value: value.as_posix().casefold()):
-        if not path.is_file() or path.suffix.lower() != ".ogg":
-            continue
+    reconciled: list[dict[str, Any]] = []
+    reused = 0
+    for path in ogg_paths:
         relative = path.relative_to(source).as_posix()
-        if relative.casefold() in registered:
+        existing = tracks_by_source.get(relative.casefold())
+        if existing is not None:
+            existing["source_file"] = relative
+            existing.pop("source_directory", None)
+            reconciled.append(existing)
+            reused += 1
             continue
-        additions.append(_automatic_music_track(relative, used_ids))
-        registered.add(relative.casefold())
-    if additions:
-        tracks.extend(additions)
+        added = _automatic_music_track(relative, used_ids)
+        additions.append(added)
+        reconciled.append(added)
+    removed = max(0, len(tracks) - reused)
+    catalog["tracks"] = reconciled
+    available_sources = {
+        track["source_file"].casefold() for track in reconciled
+        if isinstance(track.get("source_file"), str)
+    }
+    review_candidates = catalog.get("review_candidates", [])
+    removed_reviews = 0
+    if isinstance(review_candidates, list):
+        retained_reviews = [
+            candidate for candidate in review_candidates
+            if isinstance(candidate, dict)
+            and isinstance(candidate.get("source_file"), str)
+            and candidate["source_file"].replace("\\", "/").casefold() in available_sources
+        ]
+        removed_reviews = len(review_candidates) - len(retained_reviews)
+        catalog["review_candidates"] = retained_reviews
+    if additions or migrated or removed or removed_reviews:
         temporary = catalog_path.with_suffix(".json.tmp")
         temporary.write_text(
             json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -4458,8 +4561,10 @@ def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[
         temporary.replace(catalog_path)
     catalog["local_library"] = {
         "directory": str(source),
-        "registered_ogg": len(tracks),
+        "registered_ogg": len(reconciled),
         "added": len(additions),
+        "removed": removed,
+        "migrated": migrated,
     }
     return catalog, len(additions)
 
@@ -5838,9 +5943,10 @@ def validate_repository(
                 battle_type = content_data.get("battle", {}).get("battle_type")
                 if content_data.get("schema_version") in {3, 4}:
                     if content_data.get("schema_version") == 4:
+                        compiled_content = materialize_event_document(content_data)
                         referenced_battles = {
                             command.get("battle")
-                            for event in content_data.get("events", [])
+                            for event in compiled_content.get("events", [])
                             if isinstance(event, dict)
                             for command in event.get("commands", [])
                             if isinstance(command, dict) and command.get("type") == "start_battle"
@@ -6776,9 +6882,10 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
             if category == "trainers":
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "")
                 if data.get("schema_version") in {3, 4}:
+                    compiled_data = materialize_event_document(data) if data.get("schema_version") == 4 else data
                     battle_refs = [
                         command.get("battle")
-                        for event in data.get("events", [])
+                        for event in compiled_data.get("events", [])
                         for command in event.get("commands", [])
                         if isinstance(command, dict) and command.get("type") == "start_battle"
                     ] if data.get("schema_version") == 4 else [
@@ -7322,6 +7429,7 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
                 "anchor": "gym_building",
             },
             "facility_placements": [],
+            "decoration_placements": [],
         },
         "npc_placement": {
             "auto_place_npcs": False,
@@ -7367,16 +7475,11 @@ def _npc_event_template(slug: str, name: str) -> dict[str, Any]:
                 "invulnerable": True, "collision": True,
             },
         },
-        "events": [{
-            "id": "on_interact",
-            "trigger": {"type": "interact", "range": 4.0},
-            "commands": [
-                {"type": "label", "name": "start"},
-                {"type": "dialogue", "id": "greeting", "speaker": "npc", "text": {"ko_kr": f"안녕! 나는 {name}(이)야."}},
-                {"type": "label", "name": "end"},
-                {"type": "end"},
-            ],
-        }],
+        "event_design": {"mode": "preset", "preset": {
+            "type": "simple",
+            "initial_trigger": {"type": "interact", "range": 4.0},
+            "first_text": {"ko_kr": f"안녕! 나는 {name}(이)야."},
+        }},
     }
 
 
@@ -7453,6 +7556,7 @@ def _league_member_event_template(
                 "invulnerable": True, "collision": True,
             },
         },
+        "event_design": {"mode": "easy_npc_events"},
         "events": [{
             "id": "on_interact",
             "trigger": {"type": "interact", "range": 4.0},

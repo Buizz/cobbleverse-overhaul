@@ -39,6 +39,7 @@ public final class MusicPlayback {
     private static final long BATTLE_START_GRACE_TICKS = 20L * 10L;
     private static final Map<UUID, String> PLAYING = new HashMap<>();
     private static final Map<UUID, BattleMusic> BATTLE_MUSIC = new HashMap<>();
+    private static final Map<UUID, String> ENCOUNTER_MUSIC = new HashMap<>();
     private static final Map<UUID, String> INTERIOR_MUSIC = new HashMap<>();
     private static ResourceManager loadedFrom;
     private static MusicData data;
@@ -50,6 +51,7 @@ public final class MusicPlayback {
         NeoForge.EVENT_BUS.addListener(MusicPlayback::registerCommands);
         NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerChangedDimension);
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -58,6 +60,14 @@ public final class MusicPlayback {
 
     private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) reset(player);
+    }
+
+    private static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            // The client sound engine discards the old level's sound instance. Keep the
+            // authored context, but force the next location tick to send it again.
+            PLAYING.remove(player.getUUID());
+        }
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -86,12 +96,29 @@ public final class MusicPlayback {
     static int prepareBattle(ServerPlayer player, String battleId) {
         MusicData music = load(player.serverLevel());
         String track = music.resolveBattle(battleId);
+        ENCOUNTER_MUSIC.remove(player.getUUID());
         BATTLE_MUSIC.put(player.getUUID(), new BattleMusic(
             track,
             player.serverLevel().getGameTime() + BATTLE_START_GRACE_TICKS
         ));
         play(player, music, track);
         return 1;
+    }
+
+    static void prepareEncounter(ServerPlayer player, String track) {
+        MusicData music = load(player.serverLevel());
+        if (track == null || !music.soundEvents.containsKey(track)) {
+            LOGGER.warn("Unknown trainer encounter music: {}", track);
+            return;
+        }
+        ENCOUNTER_MUSIC.put(player.getUUID(), track);
+        play(player, music, track);
+    }
+
+    static void cancelEncounter(ServerPlayer player) {
+        if (ENCOUNTER_MUSIC.remove(player.getUUID()) != null) {
+            PLAYING.remove(player.getUUID());
+        }
     }
 
     /** Starts a building interior track, falling back to the generic interior default. */
@@ -124,6 +151,7 @@ public final class MusicPlayback {
     private static void reset(ServerPlayer player) {
         PLAYING.remove(player.getUUID());
         BATTLE_MUSIC.remove(player.getUUID());
+        ENCOUNTER_MUSIC.remove(player.getUUID());
         INTERIOR_MUSIC.remove(player.getUUID());
     }
 
@@ -131,6 +159,23 @@ public final class MusicPlayback {
         ServerPlayer player, int q, int r, String areaKind, String areaOwner
     ) {
         MusicData music = load(player.serverLevel());
+        if (tickPriority(player, music)) return;
+        play(player, music, music.resolveLocation(new Cell(q, r), areaKind, areaOwner));
+    }
+
+    /** Resolves music for an authored cave or forest region in a separate dimension. */
+    public static void tickDimension(ServerPlayer player, String areaKind, String areaOwner) {
+        MusicData music = load(player.serverLevel());
+        if (tickPriority(player, music)) return;
+        play(player, music, music.resolveDimension(areaKind, areaOwner));
+    }
+
+    /** Re-sends retained battle, encounter, or building music after a dimension change. */
+    public static void tickRetainedContext(ServerPlayer player) {
+        tickPriority(player, load(player.serverLevel()));
+    }
+
+    private static boolean tickPriority(ServerPlayer player, MusicData music) {
         UUID playerId = player.getUUID();
         long gameTime = player.serverLevel().getGameTime();
         BattleMusic battleMusic = BATTLE_MUSIC.get(playerId);
@@ -142,20 +187,25 @@ public final class MusicPlayback {
             }
             battleMusic.started = true;
             play(player, music, battleMusic.track);
-            return;
+            return true;
         }
         if (battleMusic != null) {
-            if (!battleMusic.started && gameTime <= battleMusic.expiresAt) return;
+            if (!battleMusic.started && gameTime <= battleMusic.expiresAt) return true;
             BATTLE_MUSIC.remove(playerId);
+        }
+
+        String encounterTrack = ENCOUNTER_MUSIC.get(playerId);
+        if (encounterTrack != null) {
+            play(player, music, encounterTrack);
+            return true;
         }
 
         String interiorTrack = INTERIOR_MUSIC.get(playerId);
         if (interiorTrack != null) {
             play(player, music, interiorTrack);
-            return;
+            return true;
         }
-
-        play(player, music, music.resolveLocation(new Cell(q, r), areaKind, areaOwner));
+        return false;
     }
 
     private static void play(ServerPlayer player, MusicData music, String track) {
@@ -182,6 +232,7 @@ public final class MusicPlayback {
         }
         PLAYING.clear();
         BATTLE_MUSIC.clear();
+        ENCOUNTER_MUSIC.clear();
         INTERIOR_MUSIC.clear();
         return data;
     }
@@ -249,6 +300,8 @@ public final class MusicPlayback {
         private final Map<String, String> routeMusic;
         private final Map<String, String> worldSettlementMusic;
         private final Map<String, String> settlementMusic;
+        private final Map<String, String> caveMusic;
+        private final Map<String, String> forestMusic;
         private final Map<String, JsonObject> battles;
         private final Map<String, String> gymByTrainer;
         private final Map<String, String> gymMusic;
@@ -262,6 +315,8 @@ public final class MusicPlayback {
             Map<String, String> routeMusic,
             Map<String, String> worldSettlementMusic,
             Map<String, String> settlementMusic,
+            Map<String, String> caveMusic,
+            Map<String, String> forestMusic,
             Map<String, JsonObject> battles,
             Map<String, String> gymByTrainer,
             Map<String, String> gymMusic
@@ -274,6 +329,8 @@ public final class MusicPlayback {
             this.routeMusic = routeMusic;
             this.worldSettlementMusic = worldSettlementMusic;
             this.settlementMusic = settlementMusic;
+            this.caveMusic = caveMusic;
+            this.forestMusic = forestMusic;
             this.battles = battles;
             this.gymByTrainer = gymByTrainer;
             this.gymMusic = gymMusic;
@@ -310,6 +367,9 @@ public final class MusicPlayback {
                     if (track != null) settlementMusic.put(settlement.get("id").getAsString(), track);
                 });
 
+            Map<String, String> caveMusic = musicByDocument(resources, "caves");
+            Map<String, String> forestMusic = musicByDocument(resources, "forests");
+
             Map<String, JsonObject> battles = new HashMap<>();
             resources.listResources("battles", location -> location.getPath().endsWith(".json"))
                 .forEach((location, resource) -> {
@@ -330,7 +390,8 @@ public final class MusicPlayback {
             }
             return new MusicData(
                 namespace, defaults, soundEvents, tileMusic, coordinateOverrides,
-                routeMusic, worldSettlementMusic, settlementMusic, battles,
+                routeMusic, worldSettlementMusic, settlementMusic, caveMusic,
+                forestMusic, battles,
                 gymByTrainer, gymMusic
             );
         }
@@ -339,8 +400,22 @@ public final class MusicPlayback {
             return new MusicData(
                 CONTENT_NAMESPACE,
                 Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
-                Map.of(), Map.of(), Map.of(), Map.of()
+                Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of()
             );
+        }
+
+        private static Map<String, String> musicByDocument(
+            ResourceManager resources, String directory
+        ) {
+            Map<String, String> result = new HashMap<>();
+            resources.listResources(
+                directory, location -> location.getPath().endsWith(".json")
+            ).forEach((location, resource) -> {
+                JsonObject document = readResource(location, resource);
+                String track = optionalString(document, "music_track");
+                if (track != null) result.put(document.get("id").getAsString(), track);
+            });
+            return result;
         }
 
         private static JsonObject readResource(ResourceLocation location, Resource resource) {
@@ -389,6 +464,16 @@ public final class MusicPlayback {
                 return first(routeMusic.get(areaOwner), defaults.get("road"));
             }
             return first(tileMusic.get(cell), defaults.get("tile"));
+        }
+
+        private String resolveDimension(String areaKind, String areaOwner) {
+            if ("cave".equals(areaKind)) {
+                return first(caveMusic.get(areaOwner), defaults.get("cave"), defaults.get("tile"));
+            }
+            if ("forest".equals(areaKind)) {
+                return first(forestMusic.get(areaOwner), defaults.get("forest"), defaults.get("tile"));
+            }
+            return defaults.get("tile");
         }
 
         private String resolveBattle(String battleId) {

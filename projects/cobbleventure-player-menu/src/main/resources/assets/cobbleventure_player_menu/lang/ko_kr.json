@@ -168,5 +168,7 @@
   "message.cobbleventure_player_menu.location_title.route": "도로에 진입했습니다",
   "message.cobbleventure_player_menu.location_title.route_number": "%s번 도로",
   "message.cobbleventure_player_menu.location_title.mt_moon_west": "달맞이산 서쪽 길",
-  "message.cobbleventure_player_menu.location_title.mt_moon_east": "달맞이산 동쪽 길"
+  "message.cobbleventure_player_menu.location_title.mt_moon_east": "달맞이산 동쪽 길",
+  "message.cobbleventure_player_menu.item_acquired": "%1$s는 %2$s을(를) 획득했다.",
+  "message.cobbleventure_player_menu.items_acquired": "%1$s는 %2$s ×%3$s개를 획득했다."
 }

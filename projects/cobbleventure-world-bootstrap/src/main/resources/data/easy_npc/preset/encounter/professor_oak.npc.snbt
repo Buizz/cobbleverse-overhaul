@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"오박사 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"오박사",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"오박사\"}",
+    DialogData:{DialogDataSet:[{Label:"greeting_1",Name:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다.",Texts:[{Text:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다."}],Buttons:[{Label:"next",Name:"다음",Actions:[{Cmd:"greeting_2",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"greeting_2",Name:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!",Texts:[{Text:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!"}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/starterroulette @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;773792025,414405938,-1180208149,1785129115],
+    SkinData:{Type:"CUSTOM",UUID:[I;-284269829,1807177415,-2000416670,714829734] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

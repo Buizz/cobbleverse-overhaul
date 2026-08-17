@@ -3,7 +3,7 @@
     author:"Cobbleventure",
     category:"Cobbleventure Encounters",
     created:0L,
-    description:"체육관 관장 마티스 대화·배틀 테스트 NPC",
+    description:"체육관 관장 마티스 EasyNPC 이벤트 NPC",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
     name:"체육관 관장 마티스",

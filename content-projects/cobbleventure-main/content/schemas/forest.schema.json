@@ -11,6 +11,7 @@
     "id": { "$ref": "#/$defs/resource_id" },
     "enabled": { "type": "boolean" },
     "display_name": { "$ref": "#/$defs/localized_text" },
+    "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
     "dimension": {
       "type": "object", "additionalProperties": false,
       "required": ["id", "region_id", "origin", "bounds"],
@@ -99,7 +100,7 @@
   },
   "$defs": {
     "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
-    "trigger_override": { "enum": ["source", "interact", "proximity"] },
+    "trigger_override": { "enum": ["preset", "source", "interact", "proximity"] },
     "localized_text": { "type": "object", "minProperties": 1, "properties": { "ko_kr": { "type": "string", "minLength": 1 }, "en_us": { "type": "string", "minLength": 1 } }, "additionalProperties": { "type": "string", "minLength": 1 } },
     "block_position": { "type": "object", "additionalProperties": false, "required": ["x", "y", "z"], "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "z": { "type": "integer" } } },
     "point": { "type": "object", "additionalProperties": false, "required": ["x", "z"], "properties": { "x": { "type": "integer" }, "z": { "type": "integer" } } },

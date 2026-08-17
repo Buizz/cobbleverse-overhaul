@@ -30,10 +30,11 @@ class SampleNpcTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.source_root = PROJECT_ROOT / "content" / "source" / "samples"
         cls.battle_root = PROJECT_ROOT / "content" / "battles" / "samples"
-        cls.sources = [
+        cls.raw_sources = [
             json.loads(path.read_text(encoding="utf-8"))
             for path in sorted(cls.source_root.glob("*.json"))
         ]
+        cls.sources = [generator.materialize_event_document(document) for document in cls.raw_sources]
         cls.battles = {
             document["id"]: document
             for path in sorted(cls.battle_root.glob("*.json"))
@@ -70,6 +71,17 @@ class SampleNpcTests(unittest.TestCase):
 
         self.assertEqual([], issues)
 
+    def test_standard_samples_store_presets_instead_of_easy_npc_event_commands(self) -> None:
+        for document in self.raw_sources:
+            self.assertEqual("preset", document["event_design"]["mode"])
+            self.assertNotIn("events", document)
+            preset = document["event_design"]["preset"]
+            if preset["type"] == "battle":
+                self.assertEqual(
+                    {"type": "interact", "range": 4},
+                    preset["after_victory_trigger"],
+                )
+
     def test_has_four_one_time_item_givers(self) -> None:
         item_givers = [document for document in self.sources if "item_giver" in document["tags"]]
 
@@ -89,9 +101,11 @@ class SampleNpcTests(unittest.TestCase):
             outfit = self.outfits_by_class[document["npc"]["trainer_class"]]
             preset = generator.encounter_preset_snbt(document, outfit)
             self.assertIn(
-                f"cobbleventurebag give @initiator {give_commands[0]['item']}",
+                f"cobbleventurebag acquire @initiator {give_commands[0]['item']}",
                 preset,
             )
+            self.assertIn('Label:"cv_item_acquired"', preset)
+            self.assertIn('Cmd:"cv_item_acquired",Type:"OPEN_NAMED_DIALOG"', preset)
             self.assertIn(generator.flag_objective(set_flag["key"]), preset)
 
     def test_has_ten_trainers_with_matching_battles(self) -> None:

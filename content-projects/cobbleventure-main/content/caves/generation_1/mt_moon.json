@@ -9,6 +9,7 @@
   },
   "cave_type": "cobbleventure:cave_type/natural_rock",
   "style": "dripstone",
+  "music_track": "kanto.mt_moon",
   "dimension": {
     "id": "cobbleventure:dungeons",
     "region_id": "generation_1/mt_moon",

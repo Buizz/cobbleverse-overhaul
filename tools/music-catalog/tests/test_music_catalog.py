@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import tempfile
@@ -36,6 +37,9 @@ class MusicCatalogTest(unittest.TestCase):
         manifest = music_catalog.build_sounds_manifest(self.catalog)
         self.assertEqual(len(self.catalog["tracks"]), len(manifest))
         self.assertIn("music.kanto.pallet_town", manifest)
+        self.assertFalse(manifest["music.event.item_acquired"]["sounds"][0]["stream"])
+        self.assertIn("music.event.key_item_acquired", manifest)
+        self.assertIn("music.event.machine_acquired", manifest)
         self.assertNotIn("Title.ogg", json.dumps(manifest, ensure_ascii=False))
 
     def test_music_notification_uses_full_sound_event_ids(self) -> None:
@@ -44,12 +48,20 @@ class MusicCatalogTest(unittest.TestCase):
         self.assertEqual("태초마을", entry["title"])
         self.assertTrue(entry["album"])
         self.assertTrue(entry["author"])
+        encounter = manifest["cobbleventure_music:music.encounter.trainer_boy"]
+        self.assertIn("Let's Go", encounter["album"])
+        self.assertEqual(
+            "Hiroaki Tsutsumi, Kon Shirasu, Shota Kageyama",
+            encounter["author"],
+        )
 
     def test_external_audio_check_does_not_copy_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
             first = self.catalog["tracks"][0]
-            (source / first["source_file"]).touch()
+            source_file = source / first["source_file"]
+            source_file.parent.mkdir(parents=True, exist_ok=True)
+            source_file.touch()
             missing = music_catalog.check_external_audio(self.catalog, source)
             self.assertEqual(len(self.catalog["tracks"]) - 1, len(missing))
             self.assertNotIn(first["source_file"], missing)
@@ -60,7 +72,9 @@ class MusicCatalogTest(unittest.TestCase):
             source = root / "source"
             source.mkdir()
             for track in self.catalog["tracks"]:
-                (source / track["source_file"]).write_bytes(b"OggS-test")
+                source_file = source / track["source_file"]
+                source_file.parent.mkdir(parents=True, exist_ok=True)
+                source_file.write_bytes(b"OggS-test")
             (source / "unused.ogg").write_bytes(b"must-not-be-copied")
 
             staging = root / "staging"
@@ -73,6 +87,35 @@ class MusicCatalogTest(unittest.TestCase):
             self.assertFalse(any(path.name == "unused.ogg" for path in copied))
             self.assertTrue(
                 (staging / "assets/musicnotification/musics.json").is_file()
+            )
+
+    def test_resource_pack_supports_track_source_directory_override(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog = copy.deepcopy(self.catalog)
+            catalog["tracks"] = catalog["tracks"][:2]
+            overridden = catalog["tracks"][1]
+            overridden["source_file"] = "override.ogg"
+            overridden["source_directory"] = "local-assets/music/download"
+
+            default_source = root / catalog["source"]["local_directory"]
+            override_source = root / overridden["source_directory"]
+            default_source.mkdir(parents=True)
+            override_source.mkdir(parents=True)
+            default_file = default_source / catalog["tracks"][0]["source_file"]
+            default_file.parent.mkdir(parents=True, exist_ok=True)
+            default_file.write_bytes(b"default")
+            (override_source / overridden["source_file"]).write_bytes(b"override")
+
+            staging = root / "staging"
+            music_catalog.stage_resource_pack(
+                catalog, default_source, staging, root
+            )
+
+            copied = staging / "assets/cobbleventure_music/sounds"
+            self.assertEqual(
+                b"override",
+                (copied / f"{overridden['resource']}.ogg").read_bytes(),
             )
 
     def test_build_selection_contains_defaults_and_authored_assignments_only(self) -> None:

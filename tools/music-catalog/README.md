@@ -1,8 +1,8 @@
 # 음악 카탈로그
 
-어나더레드 BGM 원본은 Git에서 제외된 `local-assets/music/another-red-bgm`에
-보관합니다. 웹 에디터가 이 폴더의 OGG를 감지해 안정적인 사운드 ID와 원본
-파일명을 `content-projects/cobbleventure-main/content/catalogs/music-tracks.json`의
+음원 원본은 Git에서 제외된 `local-assets/music`과 그 하위 폴더에 보관합니다.
+웹 에디터가 모든 하위 폴더의 OGG를 감지해 안정적인 사운드 ID와 루트 기준 상대
+파일 경로를 `content-projects/cobbleventure-main/content/catalogs/music-tracks.json`의
 `tracks`에 자동 등록합니다. MIDI는 자동 등록하지 않습니다.
 
 `review_candidates`는 어나더레드 고유곡일 가능성이 있거나 출처·사용 장면을
@@ -15,7 +15,7 @@
 
 ```powershell
 py -3 tools\music-catalog\music_catalog.py `
-  --check-source local-assets\music\another-red-bgm
+  --check-source local-assets\music
 ```
 
 ## 리소스팩 생성

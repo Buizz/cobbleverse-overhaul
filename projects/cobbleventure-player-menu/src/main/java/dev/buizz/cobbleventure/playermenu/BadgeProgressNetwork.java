@@ -42,6 +42,11 @@ public final class BadgeProgressNetwork {
         return clientBadges;
     }
 
+    /** Returns whether the server-side player progression contains this badge. */
+    public static boolean hasBadge(ServerPlayer player, String badge) {
+        return badges(player).contains(badge);
+    }
+
     public static void requestSnapshot() {
         clientBadges = List.of();
         PacketDistributor.sendToServer(new BadgeRequestPayload());

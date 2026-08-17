@@ -3,9 +3,17 @@
   "schema_version": 4,
   "id": "cobbleventure:npc/ai_test",
   "enabled": true,
-  "name": { "ko_kr": "AI 맨", "en_us": "AI Man" },
-  "description": { "ko_kr": "순차 이벤트 명령으로 대화와 선택형 배틀을 시험하는 EasyNPC입니다." },
-  "tags": ["development", "battle_test"],
+  "name": {
+    "ko_kr": "AI 맨",
+    "en_us": "AI Man"
+  },
+  "description": {
+    "ko_kr": "순차 이벤트 명령으로 대화와 선택형 배틀을 시험하는 EasyNPC입니다."
+  },
+  "tags": [
+    "development",
+    "battle_test"
+  ],
   "placement_profile": {
     "classification": "trainer",
     "expected_level": 50,
@@ -14,7 +22,10 @@
     "automatic_route_placement": false
   },
   "npc": {
-    "display_name": { "ko_kr": "AI 맨", "en_us": "AI Man" },
+    "display_name": {
+      "ko_kr": "AI 맨",
+      "en_us": "AI Man"
+    },
     "trainer_class": "cobbleventure:trainer_class/youngster",
     "battle_rewards": {
       "money": {
@@ -44,71 +55,164 @@
   "events": [
     {
       "id": "on_interact",
-      "trigger": { "type": "interact", "range": 4.0 },
+      "trigger": {
+        "type": "interact",
+        "range": 4.0
+      },
       "commands": [
         {
           "type": "branch",
-          "conditions": [{ "type": "flag_equals", "key": "cobbleventure:runtime/npc_instance_defeated", "value": true }],
+          "conditions": [
+            {
+              "type": "flag_equals",
+              "key": "cobbleventure:runtime/npc_instance_defeated",
+              "value": true
+            }
+          ],
           "target": "after_victory"
         },
         {
           "type": "branch",
-          "conditions": [{ "type": "has_item", "item": "cobblemon:potion", "count": 1 }],
+          "conditions": [
+            {
+              "type": "has_item",
+              "item": "cobblemon:potion",
+              "count": 1
+            }
+          ],
           "target": "prepared_greeting"
         },
-        { "type": "label", "name": "greeting" },
+        {
+          "type": "label",
+          "name": "greeting"
+        },
         {
           "type": "dialogue",
           "id": "greeting",
           "speaker": "npc",
-          "text": { "ko_kr": "잠깐! 나는 배틀 연습 중인 AI 맨이야. 준비가 됐다면 나와 승부하자!" }
+          "text": {
+            "ko_kr": "잠깐! 나는 배틀 연습 중인 AI 맨이야. 준비가 됐다면 나와 승부하자!"
+          }
         },
         {
           "type": "choices",
           "options": [
-            { "id": "battle", "text": { "ko_kr": "승부한다" }, "target": "battle" },
-            { "id": "cancel", "text": { "ko_kr": "다음에" }, "target": "end" }
+            {
+              "id": "battle",
+              "text": {
+                "ko_kr": "승부한다"
+              },
+              "target": "battle"
+            },
+            {
+              "id": "cancel",
+              "text": {
+                "ko_kr": "다음에"
+              },
+              "target": "end"
+            }
           ]
         },
-        { "type": "label", "name": "prepared_greeting" },
+        {
+          "type": "label",
+          "name": "prepared_greeting"
+        },
         {
           "type": "dialogue",
           "id": "prepared_greeting",
           "speaker": "npc",
-          "text": { "ko_kr": "상처약까지 챙겼구나! 준비가 철저한데? 바로 승부하자!" }
+          "text": {
+            "ko_kr": "상처약까지 챙겼구나! 준비가 철저한데? 바로 승부하자!"
+          }
         },
         {
           "type": "choices",
-          "options": [{ "id": "battle", "text": { "ko_kr": "승부한다" }, "target": "battle" }]
+          "options": [
+            {
+              "id": "battle",
+              "text": {
+                "ko_kr": "승부한다"
+              },
+              "target": "battle"
+            }
+          ]
         },
-        { "type": "label", "name": "battle" },
+        {
+          "type": "label",
+          "name": "battle"
+        },
         {
           "type": "start_battle",
           "battle": "cobbleventure:battle/ai_test",
-          "results": { "player_win": "victory_reward", "player_loss": "after_defeat" }
+          "results": {
+            "player_win": "victory_reward",
+            "player_loss": "after_defeat"
+          }
         },
-        { "type": "label", "name": "victory_reward" },
-        { "type": "set_flag", "key": "cobbleventure:flag/trainer/ai_test/defeated", "value": true },
-        { "type": "grant_loot", "loot_table": "cobbleventure:trainer/ai_test_rewards" },
-        { "type": "goto", "target": "after_victory" },
-        { "type": "label", "name": "after_victory" },
+        {
+          "type": "label",
+          "name": "victory_reward"
+        },
+        {
+          "type": "set_flag",
+          "key": "cobbleventure:flag/trainer/ai_test/defeated",
+          "value": true
+        },
+        {
+          "type": "grant_loot",
+          "loot_table": "cobbleventure:trainer/ai_test_rewards"
+        },
+        {
+          "type": "goto",
+          "target": "after_victory"
+        },
+        {
+          "type": "label",
+          "name": "after_victory"
+        },
         {
           "type": "dialogue",
           "id": "after_victory",
           "speaker": "npc",
-          "text": { "ko_kr": "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘." }
+          "text": {
+            "ko_kr": "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘."
+          }
         },
-        { "type": "choices", "options": [{ "id": "close", "text": { "ko_kr": "다음에 또 보자" }, "target": "end" }] },
-        { "type": "label", "name": "after_defeat" },
+        {
+          "type": "choices",
+          "options": [
+            {
+              "id": "close",
+              "text": {
+                "ko_kr": "다음에 또 보자"
+              },
+              "target": "end"
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "name": "after_defeat"
+        },
         {
           "type": "dialogue",
           "id": "after_defeat",
           "speaker": "npc",
-          "text": { "ko_kr": "좋은 승부였어. 준비가 되면 다시 도전해 줘!" }
+          "text": {
+            "ko_kr": "좋은 승부였어. 준비가 되면 다시 도전해 줘!"
+          }
         },
-        { "type": "label", "name": "end" },
-        { "type": "end" }
+        {
+          "type": "label",
+          "name": "end"
+        },
+        {
+          "type": "end"
+        }
       ]
     }
-  ]
+  ],
+  "event_design": {
+    "mode": "easy_npc_events"
+  }
 }

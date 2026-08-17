@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    { "id": "#tmcraft:tm_moves", "required": false },
+    { "id": "#tmcraft:tutor_moves", "required": false },
+    { "id": "#tmcraft:egg_moves", "required": false },
+    { "id": "#tmcraft:star_moves", "required": false }
+  ]
+}

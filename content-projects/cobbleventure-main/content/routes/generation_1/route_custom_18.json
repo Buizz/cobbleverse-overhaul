@@ -3,8 +3,8 @@
   "schema_version": 1,
   "id": "cobbleventure:route/route_custom_18",
   "display_name": {
-    "ko_kr": "갈색시티 - 보라타운 길",
-    "en_us": "갈색시티 - 보라타운 길"
+    "ko_kr": "갈색시티 - 보라타운 통나무다리",
+    "en_us": "갈색시티 - 보라타운 통나무다리"
   },
   "auto_name": true,
   "enabled": true,

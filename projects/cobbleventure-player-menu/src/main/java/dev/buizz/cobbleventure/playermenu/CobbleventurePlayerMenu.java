@@ -12,6 +12,7 @@ public final class CobbleventurePlayerMenu {
     public CobbleventurePlayerMenu(IEventBus modBus) {
         PlayerMenuItems.register(modBus);
         BagNetwork.register(modBus);
+        ItemAcquisition.register(modBus);
         MapNetwork.register(modBus);
         PlayerOverviewNetwork.register(modBus);
         BadgeProgressNetwork.register(modBus);

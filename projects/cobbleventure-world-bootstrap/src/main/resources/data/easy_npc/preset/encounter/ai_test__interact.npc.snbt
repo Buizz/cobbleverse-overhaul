@@ -3,7 +3,7 @@
     author:"Cobbleventure",
     category:"Cobbleventure Encounters",
     created:0L,
-    description:"AI 맨 대화·배틀 테스트 NPC",
+    description:"AI 맨 EasyNPC 이벤트 NPC",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
     name:"AI 맨",

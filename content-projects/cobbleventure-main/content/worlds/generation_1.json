@@ -3186,7 +3186,7 @@
       "edge_noise": 0,
       "surface_style": "road",
       "pathfinding": "explicit",
-      "display_name": "갈색시티 - 보라타운 길"
+      "display_name": "갈색시티 - 보라타운 통나무다리"
     }
   ],
   "forest_entrances": [
@@ -3254,7 +3254,7 @@
         "conditions": [],
         "deny_message": "아직 이 관문을 통과할 수 없습니다."
       },
-      "resource": "cobbleventure:forest_gate/forest_gate"
+      "resource": "cobbleventure_builder:source/gate/default_gate"
     }
   ],
   "environment_overrides": [],

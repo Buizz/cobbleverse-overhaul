@@ -1485,6 +1485,18 @@ def _compile_town_layout_attempt(
         if index not in blocked_road_indices
     ]
     decorations: list[dict[str, object]] = []
+    configured_decorations = profile.get("decoration_placements")
+    if isinstance(configured_decorations, list):
+        decorations = [
+            {
+                "type": str(item["type"]),
+                "x": int(item["x"]),
+                "z": int(item["z"]),
+                "rotation": str(item.get("rotation", "none")),
+            }
+            for item in configured_decorations
+            if isinstance(item, dict)
+        ]
 
     def try_add_decoration(
         kind: str, x: int, z: int, clearance: int, rotation: str = "none"
@@ -1514,7 +1526,7 @@ def _compile_town_layout_attempt(
         decorations.append({"type": kind, "x": x, "z": z, "rotation": rotation})
 
     road_edge = math.ceil(road_width / 2.0)
-    for road_index, road in enumerate(visible_roads):
+    for road_index, road in enumerate(visible_roads if configured_decorations is None else []):
         delta_x = int(road["x2"]) - int(road["x1"])
         delta_z = int(road["z2"]) - int(road["z1"])
         length = abs(delta_x) + abs(delta_z)
@@ -1568,7 +1580,7 @@ def _compile_town_layout_attempt(
                 decoration_kind,
                 decoration_x,
                 decoration_z,
-                2 if decoration_kind in {"bench", "flower_bed"} else 1,
+                2 if decoration_kind in {"street_lamp", "bench", "flower_bed"} else 1,
                 road_rotation,
             )
             tree_distance = distance + 12
@@ -1586,7 +1598,7 @@ def _compile_town_layout_attempt(
         for distance in range(road_edge + 7, road_edge + 32, 4)
         for sign_x, sign_z in ((1, 1), (-1, 1), (1, -1), (-1, -1))
     )
-    for offset_x, offset_z in fountain_offsets:
+    for offset_x, offset_z in fountain_offsets if configured_decorations is None else ():
         before = len(decorations)
         try_add_decoration("fountain", hub_x + offset_x, hub_z + offset_z, 3)
         if len(decorations) > before:

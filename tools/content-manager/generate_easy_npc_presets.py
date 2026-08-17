@@ -14,9 +14,14 @@ import struct
 import uuid
 import zipfile
 from pathlib import Path
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.npc_event_presets import materialize_event_document
 PROJECT_ROOT = Path(os.environ.get(
     "COBBLEVENTURE_PROJECT_PATH", ROOT / "content-projects/cobbleventure-main"
 )).resolve()
@@ -53,7 +58,10 @@ def encounter_outfits_by_class(catalog: dict, class_catalog_path: Path) -> dict[
         class_id = trainer_class.get("id")
         body = trainer_class.get("body", {})
         appearance = trainer_class.get("default_appearance", {})
-        if not isinstance(class_id, str) or class_id in outfits:
+        if not isinstance(class_id, str):
+            continue
+        if class_id in outfits:
+            outfits[class_id]["_trainer_class_tags"] = trainer_class.get("tags", [])
             continue
         slug = class_id.rsplit("/", 1)[-1]
         arm_model = body.get("arm_model", "classic")
@@ -64,6 +72,7 @@ def encounter_outfits_by_class(catalog: dict, class_catalog_path: Path) -> dict[
             "base_skin": appearance.get("resource", "cobbleventure:trainer_skin/unimplemented"),
             "fallback_skin": "cobbleventure:trainer_skin/unimplemented",
             "arm_model": arm_model,
+            "_trainer_class_tags": trainer_class.get("tags", []),
             "equipment": {},
             "adapters": {"easy_npc": {
                 "entity_type": "easy_npc:humanoid",
@@ -74,6 +83,20 @@ def encounter_outfits_by_class(catalog: dict, class_catalog_path: Path) -> dict[
             }},
         }
     return outfits
+
+
+def encounter_music_track(outfit: dict) -> str:
+    """Choose the trainer-appears theme from authored presentation data."""
+    tags = {
+        str(tag).lower() for tag in outfit.get("_trainer_class_tags", [])
+        if isinstance(tag, str)
+    }
+    class_slug = str(outfit.get("trainer_class", "")).rsplit("/", 1)[-1].lower()
+    if "villain" in tags or any(token in class_slug for token in ("villain", "rocket")):
+        return "encounter.trainer_bad_guys"
+    if "female" in tags or outfit.get("arm_model") == "slim":
+        return "encounter.trainer_girl"
+    return "encounter.trainer_boy"
 
 
 def installed_rct_skin(resource: str) -> bytes | None:
@@ -194,6 +217,7 @@ def league_encounter_document(entry: dict) -> dict:
             },
             **({"character": encounter["character"]} if encounter.get("character") else {}),
         },
+        "event_design": {"mode": "easy_npc_events"},
         "events": [{
             "id": "on_interact",
             "trigger": {"type": "interact", "range": 4.0},
@@ -296,7 +320,7 @@ def graph_reward_commands(document: dict, start_battle: dict, result_key: str = 
                     f"scoreboard players set @1 {objective} {value}",
                 ])
             elif action_type == "give_item":
-                commands.append(f"cobbleventurebag give @1 {action['item']} {int(action.get('count', 1))}")
+                commands.append(f"cobbleventurebag acquire @1 {action['item']} {int(action.get('count', 1))}")
             elif action_type == "grant_badge":
                 commands.append(f"cobbleventure_badge grant @1 {action['badge']}")
             elif action_type == "grant_loot":
@@ -349,7 +373,7 @@ def command_reward_commands(
                 f"scoreboard players set @1 {objective} {value}",
             ])
         elif command_type == "give_item":
-            result.append(f"cobbleventurebag give @1 {command['item']} {int(command.get('count', 1))}")
+            result.append(f"cobbleventurebag acquire @1 {command['item']} {int(command.get('count', 1))}")
         elif command_type == "grant_badge":
             result.append(f"cobbleventure_badge grant @1 {command['badge']}")
         elif command_type == "grant_loot":
@@ -461,7 +485,7 @@ def reward_commands(
     items = rewards.get("items", {})
     if items.get("mode") == "fixed":
         commands.extend(
-            f"cobbleventurebag give @1 {entry['item']} {int(entry['count'])}"
+            f"cobbleventurebag acquire @1 {entry['item']} {int(entry['count'])}"
             for entry in items.get("entries", [])
         )
     elif items.get("mode") == "loot_table":
@@ -621,7 +645,7 @@ def easy_npc_action(operation: dict, document: dict) -> str:
         return "{Cmd:" + quote(command) + ',Type:"SCOREBOARD"}'
     if operation_type == "give_item":
         return command_action(
-            f"/cobbleventurebag give @initiator {operation['item']} {operation.get('count', 1)}"
+            f"/cobbleventurebag acquire @initiator {operation['item']} {operation.get('count', 1)}"
         )
     if operation_type == "grant_badge":
         return command_action(f"/cobbleventure_badge grant @initiator {operation['badge']}")
@@ -629,6 +653,11 @@ def easy_npc_action(operation: dict, document: dict) -> str:
         return command_action(
             f"/cobbleventure_field_move grant @initiator {operation['move']}"
         )
+    if operation_type == "start_starter_roulette":
+        return ",".join([
+            '{Type:"CLOSE_DIALOG"}',
+            command_action("/starterroulette @initiator"),
+        ])
     if operation_type == "teleport_to_gate":
         selector = "@npc-uuid" if operation.get("subject") == "npc" else "@initiator"
         return command_action(
@@ -668,10 +697,37 @@ def event_target_action(commands: list[dict], target: str, document: dict) -> st
     return '{Type:"CLOSE_DIALOG"}'
 
 
-def event_script_dialogues(document: dict) -> str:
+def first_battle_dialogue_label(
+    document: dict, start_battle: dict | None
+) -> str | None:
+    if not start_battle:
+        return None
+    event = next(
+        (
+            event
+            for event in document.get("events", [])
+            if start_battle in event.get("commands", [])
+        ),
+        None,
+    )
+    if not event:
+        return None
+    for command in event.get("commands", []):
+        if command.get("type") == "dialogue":
+            return dialogue_label(command.get("id", "greeting"))
+    return None
+
+
+def event_script_dialogues(
+    document: dict, automatic_start_battle: dict | None = None
+) -> str:
     entries: list[str] = []
+    has_item_acquisition = False
     for event in document.get("events", []):
         commands = event.get("commands", [])
+        automatic_dialogue = first_battle_dialogue_label(
+            document, automatic_start_battle
+        )
         labels = {
             command.get("name"): index
             for index, command in enumerate(commands)
@@ -703,7 +759,16 @@ def event_script_dialogues(document: dict) -> str:
                 fields.append("Conditions:[" + ",".join(conditions) + "]")
             choice_command = commands[index + 1] if index + 1 < len(commands) else {}
             buttons: list[str] = []
-            if choice_command.get("type") == "dialogue":
+            if (
+                automatic_start_battle
+                and dialogue_label(dialogue_id) == automatic_dialogue
+            ):
+                buttons.append(
+                    '{Label:"battle",Name:"계속",Actions:['
+                    + easy_npc_action(automatic_start_battle, document)
+                    + "]}"
+                )
+            elif choice_command.get("type") == "dialogue":
                 buttons.append(
                     '{Label:"next",Name:"다음",Actions:[{Cmd:'
                     + quote(dialogue_label(choice_command.get("id", f"dialogue_{index + 1}")))
@@ -718,6 +783,8 @@ def event_script_dialogues(document: dict) -> str:
                     )
             if not buttons:
                 followup_actions: list[str] = []
+                gives_item = False
+                starts_starter_roulette = False
                 for value in commands[index + 1:]:
                     if value.get("type") in {"dialogue", "label", "choices", "end"}:
                         break
@@ -727,24 +794,47 @@ def event_script_dialogues(document: dict) -> str:
                         "mark_clear",
                         "teleport_to_gate",
                         "grant_field_move",
+                        "start_starter_roulette",
                     }:
                         followup_actions.append(easy_npc_action(value, document))
+                        gives_item = gives_item or value.get("type") == "give_item"
+                        starts_starter_roulette = (
+                            starts_starter_roulette
+                            or value.get("type") == "start_starter_roulette"
+                        )
                 if followup_actions:
+                    if gives_item:
+                        has_item_acquisition = True
+                    final_action = None if starts_starter_roulette else (
+                        '{Cmd:"cv_item_acquired",Type:"OPEN_NAMED_DIALOG"}'
+                        if gives_item else '{Type:"CLOSE_DIALOG"}'
+                    )
+                    actions = [*followup_actions]
+                    if final_action:
+                        actions.append(final_action)
                     buttons.append(
                         '{Label:"continue",Name:"계속",Actions:['
-                        + ",".join([*followup_actions, '{Type:"CLOSE_DIALOG"}'])
+                        + ",".join(actions)
                         + "]}"
                     )
             if not buttons:
                 buttons.append('{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}')
             fields.append("Buttons:[" + ",".join(buttons) + "]")
             entries.append("{" + ",".join(fields) + "}")
+    if has_item_acquisition:
+        entries.append(
+            '{Label:"cv_item_acquired",Name:"아이템을 획득했다.",'
+            'Texts:[{Text:"아이템을 가방에 넣었다."}],'
+            'Buttons:[{Label:"close",Name:"확인",Actions:[{Type:"CLOSE_DIALOG"}]}]}'
+        )
     return '{DialogDataSet:[' + ",".join(entries) + '],Type:"CUSTOM"}'
 
 
-def easy_npc_dialogues(document: dict) -> str:
+def easy_npc_dialogues(
+    document: dict, automatic_start_battle: dict | None = None
+) -> str:
     if document.get("schema_version") == 4:
-        return event_script_dialogues(document)
+        return event_script_dialogues(document, automatic_start_battle)
     if document.get("schema_version") == 3:
         graph = document["interaction"]
         routes = graph.get("entry_routes", [])
@@ -856,6 +946,7 @@ def preset_snbt(outfit: dict) -> str:
 def encounter_preset_snbt(
     document: dict, outfit: dict, trigger_override: str | None = None
 ) -> str:
+    document = materialize_event_document(document)
     adapter = outfit["adapters"]["easy_npc"]
     display = localized(document.get("npc", {}).get("display_name")) or localized(document.get("name"))
     preset_variant = f"/{trigger_override}" if trigger_override else ""
@@ -883,13 +974,22 @@ def encounter_preset_snbt(
             for choice in node.get("choices", [])
             for action in choice.get("actions", [])
         ]
-    encounter_mode = trigger_override or encounter_mode
+    if trigger_override in {"interact", "proximity"}:
+        encounter_mode = trigger_override
+    automatic_start_battle: dict | None = None
     if encounter_mode == "proximity":
         start_battle = next((action for action in candidate_actions if action.get("type") == "start_battle"), None)
         if start_battle:
+            automatic_start_battle = start_battle
+            first_dialogue = first_battle_dialogue_label(document, start_battle)
+            if not first_dialogue:
+                raise ValueError(
+                    f"자동 조우 트레이너에 첫 대화가 없습니다: {document['id']}"
+                )
             # EasyNPC's nested distance events are not reliable enough for the
-            # warning -> battle transition. Start one Cobbleventure-owned
-            # horizontal-distance watcher when the NPC first notices a player.
+            # warning -> dialogue transition. Start one Cobbleventure-owned
+            # horizontal-distance watcher when the NPC first notices a player;
+            # the generated Continue button starts the battle after the line.
             event_actions = (
                 "ON_INTERACTION:["
                 + command_action(
@@ -899,7 +999,9 @@ def encounter_preset_snbt(
                 + "ON_DISTANCE_CLOSE:["
                 + command_action(
                     "/cobbleventure_proximity_battle @initiator @s "
-                    + battle_command(document, start_battle).removeprefix("/")
+                    + encounter_music_track(outfit)
+                    + " easy_npc dialog open @s @initiator "
+                    + first_dialogue
                 )
                 + "]"
             )
@@ -918,7 +1020,7 @@ def encounter_preset_snbt(
     author:"Cobbleventure",
     category:"Cobbleventure Encounters",
     created:0L,
-    description:{quote(display + " 대화·배틀 테스트 NPC")},
+    description:{quote(display + " EasyNPC 이벤트 NPC")},
     entityTypeId:{quote(adapter["entity_type"])},
     modified:0L,
     name:{quote(display)},
@@ -930,7 +1032,7 @@ def encounter_preset_snbt(
     ArmorDropChances:{drop_chances(outfit["equipment"])},
     ArmorItems:{armor_items(outfit["equipment"])},
     CustomName:{quote(custom_name)},
-    DialogData:{easy_npc_dialogues(document)},
+    DialogData:{easy_npc_dialogues(document, automatic_start_battle)},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{{Root:{{Scale:[{scale:.3f}f,{scale:.3f}f,{scale:.3f}f]}}}},
@@ -1079,7 +1181,7 @@ def generate(
         shutil.copyfile(source_skin, target_skin)
         written.append(target_skin)
     source_documents = [
-        json.loads(source.read_text(encoding="utf-8"))
+        materialize_event_document(json.loads(source.read_text(encoding="utf-8")))
         for source in sorted(content_root.rglob("*.json"))
     ]
     league_catalog_path = content_root.parent / "catalogs" / "league-progression.json"
@@ -1174,7 +1276,7 @@ def main() -> None:
         document = json.loads(source.read_text(encoding="utf-8"))
         if (
             document.get("enabled", True)
-            and (document.get("dialogue") or document.get("interaction") or document.get("events"))
+            and (document.get("dialogue") or document.get("interaction") or document.get("events") or document.get("event_design"))
             and document.get("npc", {}).get("trainer_class") in supported_classes
         ):
             print(f"{document['id']}: {spawn_command(document)}")

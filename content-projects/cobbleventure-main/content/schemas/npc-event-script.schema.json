@@ -4,7 +4,7 @@
   "title": "Cobbleventure NPC event script",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "enabled", "name", "tags", "npc", "events"],
+  "required": ["schema_version", "id", "enabled", "name", "tags", "npc", "event_design"],
   "properties": {
     "$schema": { "type": "string" },
     "schema_version": { "const": 4 },
@@ -15,6 +15,27 @@
     "placement_profile": { "$ref": "content-bundle.schema.json#/$defs/placement_profile" },
     "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
     "npc": { "$ref": "content-bundle.schema.json#/$defs/npc" },
+    "event_design": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "preset"],
+          "properties": {
+            "mode": { "const": "preset" },
+            "preset": { "$ref": "#/$defs/eventPreset" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "easy_npc_events" }
+          }
+        }
+      ]
+    },
     "events": {
       "type": "array",
       "minItems": 1,
@@ -57,7 +78,83 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_design": {
+            "properties": { "mode": { "const": "easy_npc_events" } },
+            "required": ["mode"]
+          }
+        }
+      },
+      "then": { "required": ["events"] }
+    }
+  ],
   "$defs": {
+    "eventTrigger": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "range"],
+          "properties": {
+            "type": { "const": "interact" },
+            "range": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "range"],
+          "properties": {
+            "type": { "const": "proximity" },
+            "range": { "type": "number", "exclusiveMinimum": 0 },
+            "warning_offset": { "type": "number", "minimum": 0 },
+            "indicator": { "enum": ["trainer_nearby"] }
+          }
+        }
+      ]
+    },
+    "eventPreset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "initial_trigger", "first_text"],
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "enum": ["battle", "gym", "elite", "champion"] } } },
+          "then": { "required": ["battle", "after_victory_trigger", "win_text", "loss_text"] }
+        }
+      ],
+      "properties": {
+        "type": { "enum": ["simple", "repeat", "item", "battle", "gym", "elite", "champion"] },
+        "initial_trigger": { "$ref": "#/$defs/eventTrigger" },
+        "after_victory_trigger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "range"],
+          "properties": {
+            "type": { "const": "interact" },
+            "range": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "first_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+        "repeat_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+        "win_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+        "loss_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
+        "state_key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "victory_state_key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "item": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "item_count": { "type": "integer", "minimum": 1 },
+        "battle": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "clear_key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "badge": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "win_item": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "win_item_count": { "type": "integer", "minimum": 1 },
+        "loss_money": { "type": "integer", "minimum": 0 },
+        "currency_objective": { "type": "string", "minLength": 1 }
+      }
+    },
     "condition": {
       "type": "object",
       "required": ["type"],
@@ -77,7 +174,7 @@
           "enum": [
             "branch", "label", "dialogue", "choices", "goto", "start_battle",
             "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move",
-            "teleport_to_gate", "end"
+            "start_starter_roulette", "teleport_to_gate", "end"
           ]
         },
         "conditions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } },

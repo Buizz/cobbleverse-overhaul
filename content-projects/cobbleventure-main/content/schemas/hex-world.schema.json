@@ -442,6 +442,7 @@
       "oneOf": [
         { "$ref": "#/$defs/gate_variable_condition" },
         { "$ref": "#/$defs/gate_item_condition" },
+        { "$ref": "#/$defs/gate_badge_condition" },
         { "$ref": "#/$defs/gate_pokemon_condition" }
       ]
     },
@@ -475,6 +476,16 @@
       "properties": {
         "type": { "const": "pokemon" },
         "species": { "$ref": "#/$defs/resource_id" },
+        "negate": { "type": "boolean" }
+      }
+    },
+    "gate_badge_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "badge"],
+      "properties": {
+        "type": { "const": "badge" },
+        "badge": { "$ref": "#/$defs/resource_id" },
         "negate": { "type": "boolean" }
       }
     },

@@ -135,6 +135,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/facility_placement" }
         },
+        "decoration_placements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/decoration_placement" }
+        },
         "facility_requirements": {
           "type": "array",
           "items": { "$ref": "#/$defs/facility_requirement" }
@@ -366,6 +370,17 @@
           "then": { "required": ["anchor", "facility_type", "label", "footprint"] }
         }
       ]
+    },
+    "decoration_placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "x", "z", "rotation"],
+      "properties": {
+        "type": { "enum": ["street_lamp", "street_tree", "bench", "flower_bed", "fountain"] },
+        "x": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "z": { "type": "integer", "minimum": -1024, "maximum": 1024 },
+        "rotation": { "enum": ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"] }
+      }
     },
     "facility_footprint": {
       "type": "object",

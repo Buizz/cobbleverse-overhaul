@@ -43,6 +43,19 @@ final class BagCommands {
                                     ItemArgument.getItem(context, "item"),
                                     IntegerArgumentType.getInteger(context, "count")
                                 ))))))
+                .then(Commands.literal("acquire")
+                    .then(Commands.argument("targets", EntityArgument.players())
+                        .then(Commands.argument("item", ItemArgument.item(event.getBuildContext()))
+                            .executes(context -> acquire(
+                                EntityArgument.getPlayers(context, "targets"),
+                                ItemArgument.getItem(context, "item"), 1
+                            ))
+                            .then(Commands.argument("count", IntegerArgumentType.integer(1, 6400))
+                                .executes(context -> acquire(
+                                    EntityArgument.getPlayers(context, "targets"),
+                                    ItemArgument.getItem(context, "item"),
+                                    IntegerArgumentType.getInteger(context, "count")
+                                ))))))
                 .then(Commands.literal("loot")
                     .then(Commands.argument("targets", EntityArgument.players())
                         .then(Commands.argument("loot_table", ResourceLocationArgument.id())
@@ -58,16 +71,8 @@ final class BagCommands {
         int recipients = 0;
         int insertedTotal = 0;
         for (ServerPlayer player : players) {
-            int remaining = count;
-            int insertedForPlayer = 0;
             ItemStack sample = item.createItemStack(1, false);
-            while (remaining > 0) {
-                int batch = Math.min(remaining, sample.getMaxStackSize());
-                BagApi.InsertResult result = BagApi.insert(player, item.createItemStack(batch, false), false);
-                insertedForPlayer += result.inserted();
-                remaining -= batch;
-                if (!result.complete()) break;
-            }
+            int insertedForPlayer = insert(player, item, sample, count);
             if (insertedForPlayer > 0) recipients++;
             insertedTotal += insertedForPlayer;
         }
@@ -77,6 +82,35 @@ final class BagCommands {
             "commands.cobbleventure_player_menu.bag.give", finalInsertedTotal, players.size()
         ), true);
         return recipients;
+    }
+
+    private static int acquire(Collection<ServerPlayer> players, ItemInput item, int count)
+        throws CommandSyntaxException {
+        int recipients = 0;
+        for (ServerPlayer player : players) {
+            ItemStack sample = item.createItemStack(1, false);
+            int inserted = insert(player, item, sample, count);
+            if (inserted <= 0) continue;
+            ItemAcquisition.show(player, sample, inserted);
+            recipients++;
+        }
+        return recipients;
+    }
+
+    private static int insert(ServerPlayer player, ItemInput item, ItemStack sample, int count)
+        throws CommandSyntaxException {
+        int remaining = count;
+        int inserted = 0;
+        while (remaining > 0) {
+            int batch = Math.min(remaining, sample.getMaxStackSize());
+            BagApi.InsertResult result = BagApi.insert(
+                player, item.createItemStack(batch, false), false
+            );
+            inserted += result.inserted();
+            remaining -= batch;
+            if (!result.complete()) break;
+        }
+        return inserted;
     }
 
     private static int giveLoot(CommandSourceStack source, Collection<ServerPlayer> players,

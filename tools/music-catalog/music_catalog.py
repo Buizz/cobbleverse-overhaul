@@ -26,6 +26,15 @@ class MusicCatalogError(RuntimeError):
     pass
 
 
+def _is_local_music_directory(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    normalized = value.replace("\\", "/").rstrip("/")
+    return normalized == "local-assets/music" or normalized.startswith(
+        "local-assets/music/"
+    )
+
+
 def load_catalog(path: Path) -> dict[str, Any]:
     try:
         catalog = json.loads(path.read_text(encoding="utf-8"))
@@ -40,10 +49,8 @@ def load_catalog(path: Path) -> dict[str, Any]:
     if not isinstance(source, dict) or source.get("audio_tracked_by_git") is not False:
         raise MusicCatalogError("음원은 Git 추적 대상에서 제외해야 합니다.")
     local_directory = source.get("local_directory")
-    if not isinstance(local_directory, str) or not local_directory.startswith(
-        "local-assets/music/"
-    ):
-        raise MusicCatalogError("로컬 음원은 local-assets/music 아래에 있어야 합니다.")
+    if not _is_local_music_directory(local_directory):
+        raise MusicCatalogError("로컬 음원은 local-assets/music 또는 그 아래에 있어야 합니다.")
     notification = catalog.get("music_notification")
     if not isinstance(notification, dict) or notification.get("enabled") is not True:
         raise MusicCatalogError("Music Notification 메타데이터가 필요합니다.")
@@ -72,11 +79,18 @@ def load_catalog(path: Path) -> dict[str, Any]:
             raise MusicCatalogError(
                 f"선택된 음악은 OGG여야 합니다: {track['source_file']}"
             )
+        source_directory = track.get("source_directory")
+        if source_directory is not None and (
+            not _is_local_music_directory(source_directory)
+        ):
+            raise MusicCatalogError(
+                f"tracks[{index}].source_directory는 local-assets/music 또는 그 아래여야 합니다."
+            )
     defaults = catalog.get("defaults")
     if not isinstance(defaults, dict):
         raise MusicCatalogError("상황별 기본 음악 설정이 필요합니다.")
     track_ids = seen["id"]
-    for context in ("tile", "road", "settlement", "battle", "gym"):
+    for context in ("tile", "road", "settlement", "cave", "forest", "battle", "gym"):
         track_id = defaults.get(context)
         if track_id not in track_ids:
             raise MusicCatalogError(
@@ -92,7 +106,7 @@ def build_sounds_manifest(catalog: dict[str, Any]) -> dict[str, Any]:
             "sounds": [
                 {
                     "name": f"{namespace}:{track['resource']}",
-                    "stream": True,
+                    "stream": track.get("stream", True),
                 }
             ]
         }
@@ -105,19 +119,34 @@ def build_music_notification_manifest(catalog: dict[str, Any]) -> dict[str, Any]
     metadata = catalog["music_notification"]
     return {
         f"{namespace}:{track['sound_event']}": {
-            "album": metadata["album"],
-            "author": metadata["author"],
+            "album": track.get("album", metadata["album"]),
+            "author": track.get("author", metadata["author"]),
             "title": track["usage"],
         }
         for track in catalog["tracks"]
     }
 
 
-def check_external_audio(catalog: dict[str, Any], source_dir: Path) -> list[str]:
+def _track_source_path(
+    track: dict[str, Any],
+    source_dir: Path,
+    repository_root: Path | None = None,
+) -> Path:
+    source_directory = track.get("source_directory")
+    if repository_root is not None and source_directory is not None:
+        return repository_root / source_directory / track["source_file"]
+    return source_dir / track["source_file"]
+
+
+def check_external_audio(
+    catalog: dict[str, Any],
+    source_dir: Path,
+    repository_root: Path | None = None,
+) -> list[str]:
     return [
         track["source_file"]
         for track in catalog["tracks"]
-        if not (source_dir / track["source_file"]).is_file()
+        if not _track_source_path(track, source_dir, repository_root).is_file()
     ]
 
 
@@ -177,9 +206,12 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def stage_resource_pack(
-    catalog: dict[str, Any], source_dir: Path, staging_dir: Path
+    catalog: dict[str, Any],
+    source_dir: Path,
+    staging_dir: Path,
+    repository_root: Path | None = None,
 ) -> None:
-    missing = check_external_audio(catalog, source_dir)
+    missing = check_external_audio(catalog, source_dir, repository_root)
     if missing:
         raise MusicCatalogError(
             "로컬 음원 폴더에 선택 파일이 없습니다: " + ", ".join(missing)
@@ -208,17 +240,23 @@ def stage_resource_pack(
     for track in catalog["tracks"]:
         target = sounds_root / f"{track['resource']}.ogg"
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_dir / track["source_file"], target)
+        shutil.copy2(
+            _track_source_path(track, source_dir, repository_root),
+            target,
+        )
 
 
 def build_resource_pack(
-    catalog: dict[str, Any], source_dir: Path, output: Path
+    catalog: dict[str, Any],
+    source_dir: Path,
+    output: Path,
+    repository_root: Path | None = None,
 ) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="cobbleventure-music-") as directory:
         temporary_root = Path(directory)
         staging_dir = temporary_root / "resourcepack"
-        stage_resource_pack(catalog, source_dir, staging_dir)
+        stage_resource_pack(catalog, source_dir, staging_dir, repository_root)
         temporary_zip = temporary_root / "Cobbleventure-Music.zip"
         with zipfile.ZipFile(
             temporary_zip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
@@ -264,7 +302,7 @@ def main() -> int:
             write_manifest(selected_catalog, output)
         elif args.check_source is None:
             source_dir = root / catalog["source"]["local_directory"]
-            build_resource_pack(selected_catalog, source_dir, output)
+            build_resource_pack(selected_catalog, source_dir, output, root)
     except MusicCatalogError as error:
         parser.error(str(error))
 

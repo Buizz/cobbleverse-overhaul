@@ -4737,6 +4737,11 @@ public final class CobbleventureBootstrap {
                 PursuitEncounterSystem.tick(
                     player, pursuitEncounterAt(dungeons, player.getX(), player.getZ()), gameTime
                 );
+                if (gameTime % 10L == 0L) {
+                    MusicPlayback.tickDimension(
+                        player, "cave", caveIdAt(player.getX(), player.getZ())
+                    );
+                }
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
                 handleCavePortal(player, level, dungeons, gameTime);
@@ -4762,12 +4767,20 @@ public final class CobbleventureBootstrap {
                         player, level, forestWorld.grid(), forestWorld.gates(), gameTime
                     );
                 }
+                if (gameTime % 10L == 0L) {
+                    MusicPlayback.tickDimension(
+                        player, "forest", forestRegion.forestId()
+                    );
+                }
                 continue;
             }
             if (player.serverLevel() != level) {
                 PursuitEncounterSystem.tick(player, null, gameTime);
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
+                if (gameTime % 10L == 0L) {
+                    MusicPlayback.tickRetainedContext(player);
+                }
                 continue;
             }
             PokemonCenterDefeatReturn.ensureFallback(
@@ -6954,6 +6967,24 @@ public final class CobbleventureBootstrap {
                 return dx * dx + dz * dz;
             }))
             .map(gate -> activeForestEncounters.get(gate.destinationForest()))
+            .orElse(null);
+    }
+
+    private static String caveIdAt(double x, double z) {
+        return activeCaveDocuments.entrySet().stream()
+            .filter(entry -> {
+                JsonObject dimension = entry.getValue().getAsJsonObject("dimension");
+                JsonObject origin = dimension.getAsJsonObject("origin");
+                JsonObject bounds = dimension.getAsJsonObject("bounds");
+                int originX = origin.get("x").getAsInt();
+                int originZ = origin.get("z").getAsInt();
+                return x >= originX + bounds.get("min_x").getAsInt()
+                    && x <= originX + bounds.get("max_x").getAsInt()
+                    && z >= originZ + bounds.get("min_z").getAsInt()
+                    && z <= originZ + bounds.get("max_z").getAsInt();
+            })
+            .map(Map.Entry::getKey)
+            .findFirst()
             .orElse(null);
     }
 
@@ -11298,49 +11329,140 @@ public final class CobbleventureBootstrap {
             if (template == null) {
                 continue;
             }
-            int radius = template.size() / 2;
-            clearVegetationAroundPlot(
-                level, x - radius, z - radius, template.size(), template.size(), 0
+            TownDecorationPlacement placement = townDecorationPlacement(
+                level, decoration, template, ground
             );
-            if (placeTownDecorationTemplate(level, decoration, template, ground)) {
+            if (placement == null
+                || townDecorationIntersectsBuilding(settlement, placement, 1)
+                || !isTownDecorationVolumeClear(level, placement)) {
+                continue;
+            }
+            clearVegetationAroundPlot(
+                level, placement.minX(), placement.minZ(),
+                placement.width(), placement.depth(), 0
+            );
+            if (placeTownDecorationTemplate(level, template, placement)) {
                 placed[template.counterIndex()]++;
             }
         }
         return placed;
     }
 
-    private static boolean placeTownDecorationTemplate(
+    private static TownDecorationPlacement townDecorationPlacement(
         ServerLevel level, TownDecoration decoration,
         TownDecorationTemplate template, BlockPos ground
     ) {
-        int radius = template.size() / 2;
+        ResourceLocation structureId = ResourceLocation.tryParse(template.structure());
+        if (structureId == null) {
+            return null;
+        }
+        var loaded = level.getStructureManager().get(structureId);
+        if (loaded.isEmpty()) {
+            LOGGER.error("Town decoration template is missing: {}", template.structure());
+            return null;
+        }
+        var size = loaded.orElseThrow().getSize();
+        boolean quarterTurn = decoration.rotation().equals("clockwise_90")
+            || decoration.rotation().equals("counterclockwise_90");
+        int width = quarterTurn ? size.getZ() : size.getX();
+        int depth = quarterTurn ? size.getX() : size.getZ();
+        int minX = ground.getX() - width / 2;
+        int minZ = ground.getZ() - depth / 2;
         BlockPoint origin = rotatedTemplateOrigin(
-            ground.getX() - radius,
+            minX,
             ground.getY() + BuildingRuntimeSystem.placementYOffset(template.structure()),
-            ground.getZ() - radius,
-            template.size(), template.size(), decoration.rotation()
+            minZ,
+            size.getX(), size.getZ(), decoration.rotation()
         );
+        return new TownDecorationPlacement(
+            origin, minX, minZ, width, depth, size.getY(), decoration.rotation()
+        );
+    }
+
+    private static boolean placeTownDecorationTemplate(
+        ServerLevel level, TownDecorationTemplate template,
+        TownDecorationPlacement placement
+    ) {
         return placeTemplateLoaded(
-            level, template.structure(), origin, decoration.rotation()
+            level, template.structure(), placement.origin(), placement.rotation()
         );
+    }
+
+    private static boolean townDecorationIntersectsBuilding(
+        SettlementPlan settlement, TownDecorationPlacement decoration, int clearance
+    ) {
+        Point center = new Point(settlement.center().x(), settlement.center().z());
+        TownLayout layout = generateTownLayout(settlement);
+        for (TownPlot plot : layout.houses()) {
+            if (townDecorationIntersectsPlot(center, plot, decoration, clearance)) {
+                return true;
+            }
+        }
+        for (TownPlot plot : layout.facilities().values()) {
+            if (townDecorationIntersectsPlot(center, plot, decoration, clearance)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean townDecorationIntersectsPlot(
+        Point center, TownPlot plot, TownDecorationPlacement decoration, int clearance
+    ) {
+        int plotMinX = center.x() + (int) Math.round(plot.x());
+        int plotMinZ = center.z() + (int) Math.round(plot.z());
+        int decorationMaxX = decoration.minX() + decoration.width();
+        int decorationMaxZ = decoration.minZ() + decoration.depth();
+        return decoration.minX() - clearance < plotMinX + plot.width()
+            && decorationMaxX + clearance > plotMinX
+            && decoration.minZ() - clearance < plotMinZ + plot.depth()
+            && decorationMaxZ + clearance > plotMinZ;
+    }
+
+    private static boolean isTownDecorationVolumeClear(
+        ServerLevel level, TownDecorationPlacement decoration
+    ) {
+        int minimumY = decoration.origin().y() + 1;
+        int maximumY = Math.min(
+            level.getMaxBuildHeight() - 1,
+            decoration.origin().y() + decoration.height() - 1
+        );
+        for (int x = decoration.minX(); x < decoration.minX() + decoration.width(); x++) {
+            for (int z = decoration.minZ(); z < decoration.minZ() + decoration.depth(); z++) {
+                BlockState ground = level.getBlockState(
+                    new BlockPos(x, decoration.origin().y(), z)
+                );
+                if (!ground.isAir() && !isNaturalVegetation(ground)
+                    && !isTownDecorationGround(ground)) {
+                    return false;
+                }
+                for (int y = minimumY; y <= maximumY; y++) {
+                    BlockState state = level.getBlockState(new BlockPos(x, y, z));
+                    if (!state.isAir() && !isNaturalVegetation(state)) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     private static TownDecorationTemplate townDecorationTemplate(String type) {
         return switch (type) {
             case "street_lamp" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/street_lamp", 5, 8, 0
+                "cobbleventure:town_decorations/street_lamp", 0
             );
             case "street_tree" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/street_tree", 5, 8, 1
+                "cobbleventure:town_decorations/street_tree", 1
             );
             case "bench" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/bench", 5, 8, 2
+                "cobbleventure:town_decorations/bench", 2
             );
             case "flower_bed" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/flower_bed", 5, 5, 3
+                "cobbleventure:town_decorations/flower_bed", 3
             );
             case "fountain" -> new TownDecorationTemplate(
-                "cobbleventure:town_decorations/fountain", 7, 7, 4
+                "cobbleventure:town_decorations/fountain", 4
             );
             default -> null;
         };
@@ -13626,7 +13748,12 @@ public final class CobbleventureBootstrap {
     ) {}
 
     record TownDecorationTemplate(
-        String structure, int size, int height, int counterIndex
+        String structure, int counterIndex
+    ) {}
+
+    record TownDecorationPlacement(
+        BlockPoint origin, int minX, int minZ,
+        int width, int depth, int height, String rotation
     ) {}
 
     private static final class PreviewRandom {

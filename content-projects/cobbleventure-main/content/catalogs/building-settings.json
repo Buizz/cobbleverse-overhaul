@@ -316,7 +316,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "fixed_npcs": {},
+      "fixed_npcs": {
+        "room_1:professor_oak": "cobbleventure:npc/professor_oak"
+      },
       "citizen_placement_allowed": false,
       "interiors": [
         {

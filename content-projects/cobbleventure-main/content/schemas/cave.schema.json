@@ -15,6 +15,7 @@
     "id": { "$ref": "#/$defs/resource_id" },
     "enabled": { "type": "boolean" },
     "display_name": { "$ref": "#/$defs/localized_text" },
+    "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
     "cave_type": { "$ref": "#/$defs/resource_id" },
     "style": { "enum": ["rock", "dripstone", "crystal", "lush", "ice", "lava"] },
     "dimension": {
@@ -133,7 +134,7 @@
   },
   "$defs": {
     "resource_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
-    "trigger_override": { "enum": ["source", "interact", "proximity"] },
+    "trigger_override": { "enum": ["preset", "source", "interact", "proximity"] },
     "localized_text": {
       "type": "object", "minProperties": 1,
       "properties": { "ko_kr": { "type": "string", "minLength": 1 }, "en_us": { "type": "string", "minLength": 1 } },

@@ -12,11 +12,13 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Vec3i;
@@ -55,6 +57,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
 /** Applies builder-authored anchors and building NPC assignments after template placement. */
@@ -75,26 +78,30 @@ final class BuildingRuntimeSystem {
     private static final Map<String, StructureMetadata> METADATA = new LinkedHashMap<>();
     private static final Map<String, BuildingSettings> SETTINGS = new LinkedHashMap<>();
     private static final Map<DoorKey, DoorTarget> DOORS = new HashMap<>();
+    private static final Map<UUID, PendingNpcSeat> PENDING_NPC_SEATS = new LinkedHashMap<>();
 
     private BuildingRuntimeSystem() {
     }
 
     static void register() {
         NeoForge.EVENT_BUS.addListener(BuildingRuntimeSystem::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(BuildingRuntimeSystem::onServerTick);
     }
 
     static void initialize(MinecraftServer server) {
         METADATA.clear();
         SETTINGS.clear();
         DOORS.clear();
+        PENDING_NPC_SEATS.clear();
         loadMetadata(server);
         loadSettings(server);
         if (!METADATA.isEmpty() && server.getLevel(INTERIORS) == null) {
             throw new IllegalStateException("Cobbleventure building_interiors dimension is missing");
         }
+        int restored = restorePersistedBuildingInstances(server);
         LOGGER.info(
-            "Building runtime loaded: metadata={}, configured={}",
-            METADATA.size(), SETTINGS.size()
+            "Building runtime loaded: metadata={}, configured={}, restoredInstances={}",
+            METADATA.size(), SETTINGS.size(), restored
         );
     }
 
@@ -117,6 +124,18 @@ final class BuildingRuntimeSystem {
             return;
         }
         if (settings != null && !settings.routes.isEmpty()) {
+            if (!hasExteriorRouteDoor(level, metadata, origin.toBlockPos(), rotation, settings)) {
+                LOGGER.warn(
+                    "Configured building runtime skipped because its exterior door is absent: "
+                        + "dimension={}, structure={}, origin={}, rotation={}",
+                    level.dimension().location(), structure, origin, rotationName
+                );
+                return;
+            }
+            data(level.getServer()).rememberBuildingInstance(
+                level.dimension().location().toString(), structure,
+                origin.toBlockPos(), rotationName
+            );
             prepareConfiguredInteriors(
                 level, structure, metadata, origin.toBlockPos(), rotation,
                 instanceKey, settings
@@ -511,6 +530,83 @@ final class BuildingRuntimeSystem {
         return bestMatch == null ? null : SETTINGS.get(bestMatch);
     }
 
+    private static boolean hasExteriorRouteDoor(
+        ServerLevel level, StructureMetadata metadata, BlockPos origin,
+        Rotation rotation, BuildingSettings settings
+    ) {
+        boolean hasExteriorRoute = false;
+        for (String route : settings.routes.keySet()) {
+            if (!route.startsWith("exterior:")) {
+                continue;
+            }
+            hasExteriorRoute = true;
+            Anchor anchor = metadata.namedDoor(route.substring("exterior:".length()));
+            if (anchor != null
+                && level.getBlockState(transform(origin, anchor.position, rotation)).getBlock()
+                    instanceof DoorBlock) {
+                return true;
+            }
+        }
+        return !hasExteriorRoute;
+    }
+
+    private static int restorePersistedBuildingInstances(MinecraftServer server) {
+        int restored = 0;
+        for (PersistedBuildingInstance instance : data(server).buildingInstances()) {
+            ResourceLocation dimensionId = ResourceLocation.tryParse(instance.dimension);
+            if (dimensionId == null) {
+                LOGGER.warn("Ignoring building runtime instance with invalid dimension: {}", instance);
+                continue;
+            }
+            ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, dimensionId));
+            StructureMetadata metadata = METADATA.get(instance.structure);
+            BuildingSettings settings = settingsForStructure(instance.structure);
+            if (level == null || metadata == null || settings == null || settings.routes.isEmpty()) {
+                continue;
+            }
+            String rotationName = instance.rotation;
+            if (rotationName == null || rotationName.isBlank()
+                || !hasExteriorRouteDoor(
+                    level, metadata, instance.origin, rotation(rotationName), settings
+                )) {
+                rotationName = detectExteriorRotation(level, instance.origin, metadata, settings);
+            }
+            if (rotationName == null) {
+                LOGGER.warn(
+                    "Persisted building runtime door could not be found: dimension={}, "
+                        + "structure={}, origin={}",
+                    instance.dimension, instance.structure, instance.origin
+                );
+                continue;
+            }
+            onStructurePlaced(
+                level, instance.structure,
+                new CobbleventureBootstrap.BlockPoint(
+                    instance.origin.getX(), instance.origin.getY(), instance.origin.getZ()
+                ),
+                rotationName
+            );
+            restored++;
+        }
+        return restored;
+    }
+
+    private static String detectExteriorRotation(
+        ServerLevel level, BlockPos origin, StructureMetadata metadata,
+        BuildingSettings settings
+    ) {
+        for (String rotationName : List.of(
+            "none", "clockwise_90", "clockwise_180", "counterclockwise_90"
+        )) {
+            if (hasExteriorRouteDoor(
+                level, metadata, origin, rotation(rotationName), settings
+            )) {
+                return rotationName;
+            }
+        }
+        return null;
+    }
+
     private static void applyFixedNpcs(
         ServerLevel level, StructureMetadata metadata,
         BlockPos origin, Rotation rotation, String instanceKey,
@@ -655,15 +751,12 @@ final class BuildingRuntimeSystem {
     }
 
     static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
-        AABB nearby = new AABB(position).inflate(2.0D, 2.5D, 2.0D);
-        Set<java.util.UUID> existingNpcIds = new HashSet<>();
-        for (Entity entity : level.getEntities((Entity) null, nearby, BuildingRuntimeSystem::isEasyNpc)) {
-            existingNpcIds.add(entity.getUUID());
-        }
+        UUID spawnedNpcId = UUID.randomUUID();
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         String preset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
-        String command = "easy_npc preset import_new data " + preset + " "
-            + position.getX() + " " + position.getY() + " " + position.getZ();
+        String command = "easy_npc preset import data " + preset + " "
+            + position.getX() + " " + position.getY() + " " + position.getZ()
+            + " " + spawnedNpcId;
         try {
             int result = level.getServer().getCommands().getDispatcher().execute(
                 command,
@@ -676,20 +769,63 @@ final class BuildingRuntimeSystem {
             if (result == 0) {
                 LOGGER.warn("Building NPC command returned no result: npc={}, position={}", npcId, position);
             } else if (isNpcSeatBlock(level.getBlockState(position))) {
-                Entity spawnedNpc = level.getEntities(
-                    (Entity) null, nearby,
-                    entity -> isEasyNpc(entity) && !existingNpcIds.contains(entity.getUUID())
-                ).stream().min(java.util.Comparator.comparingDouble(
-                    entity -> entity.distanceToSqr(Vec3.atCenterOf(position))
-                )).orElse(null);
-                if (spawnedNpc == null || !seatNpc(level, spawnedNpc, position)) {
-                    LOGGER.warn("Building NPC was spawned but could not be seated: npc={}, position={}", npcId, position);
+                Entity spawnedNpc = level.getEntity(spawnedNpcId);
+                if (spawnedNpc == null) {
+                    PENDING_NPC_SEATS.put(
+                        spawnedNpcId,
+                        new PendingNpcSeat(
+                            level.dimension(), position.immutable(), npcId, 0
+                        )
+                    );
+                } else if (!seatNpc(level, spawnedNpc, position)) {
+                    LOGGER.warn(
+                        "Building NPC was spawned but could not ride its seat: npc={}, uuid={}, position={}",
+                        npcId, spawnedNpcId, position
+                    );
                 }
             }
             return result != 0;
         } catch (CommandSyntaxException error) {
             LOGGER.error("Building NPC placement failed: npc={}, position={}", npcId, position, error);
             return false;
+        }
+    }
+
+    private static void onServerTick(ServerTickEvent.Post event) {
+        if (PENDING_NPC_SEATS.isEmpty()) {
+            return;
+        }
+        Iterator<Map.Entry<UUID, PendingNpcSeat>> iterator =
+            PENDING_NPC_SEATS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, PendingNpcSeat> entry = iterator.next();
+            PendingNpcSeat pending = entry.getValue();
+            ServerLevel level = event.getServer().getLevel(pending.dimension);
+            Entity npc = level == null ? null : level.getEntity(entry.getKey());
+            if (npc != null) {
+                if (!seatNpc(level, npc, pending.position)) {
+                    LOGGER.warn(
+                        "Building NPC was spawned but could not ride its delayed seat: "
+                            + "npc={}, uuid={}, position={}",
+                        pending.npcId, entry.getKey(), pending.position
+                    );
+                }
+                iterator.remove();
+                continue;
+            }
+            if (pending.attempts >= 20) {
+                LOGGER.warn(
+                    "Building NPC was imported but its entity never became available: "
+                        + "npc={}, uuid={}, position={}",
+                    pending.npcId, entry.getKey(), pending.position
+                );
+                iterator.remove();
+            } else {
+                entry.setValue(new PendingNpcSeat(
+                    pending.dimension, pending.position, pending.npcId,
+                    pending.attempts + 1
+                ));
+            }
         }
     }
 
@@ -744,7 +880,8 @@ final class BuildingRuntimeSystem {
     private static void applySittingPose(
         ServerLevel level, Entity npc, BlockPos position, float yaw
     ) {
-        String command = "easy_npc pose set easy_npc:pose/humanoid/sitting " + npc.getUUID();
+        String command = "easy_npc pose set easy_npc:pose/humanoid/chair_sitting "
+            + npc.getUUID();
         try {
             int result = level.getServer().getCommands().getDispatcher().execute(
                 command,
@@ -1066,6 +1203,16 @@ final class BuildingRuntimeSystem {
         }
     }
 
+    private record PersistedBuildingInstance(
+        String dimension, String structure, BlockPos origin, String rotation
+    ) {
+    }
+
+    private record PendingNpcSeat(
+        ResourceKey<Level> dimension, BlockPos position, String npcId, int attempts
+    ) {
+    }
+
     private sealed interface Condition permits VariableCondition, ItemCondition, PokemonCondition {
         boolean matches(ServerPlayer player);
     }
@@ -1121,6 +1268,8 @@ final class BuildingRuntimeSystem {
         private final Set<String> spawned = new HashSet<>();
         private final Set<String> prepared = new HashSet<>();
         private final Map<String, Integer> instanceSlots = new LinkedHashMap<>();
+        private final Map<String, PersistedBuildingInstance> buildingInstances =
+            new LinkedHashMap<>();
         private int nextInstanceSlot;
 
         static RuntimeData load(CompoundTag tag, HolderLookup.Provider registries) {
@@ -1128,6 +1277,10 @@ final class BuildingRuntimeSystem {
             readSet(tag.getString("spawned"), data.spawned);
             readSet(tag.getString("prepared"), data.prepared);
             readSlots(tag.getString("instanceSlots"), data.instanceSlots);
+            readBuildingInstances(
+                tag.getString("buildingInstances"), data.buildingInstances
+            );
+            data.recoverLegacyBuildingInstances();
             data.nextInstanceSlot = data.instanceSlots.values().stream()
                 .mapToInt(Integer::intValue)
                 .max()
@@ -1174,6 +1327,26 @@ final class BuildingRuntimeSystem {
             }
         }
 
+        void rememberBuildingInstance(
+            String dimension, String structure, BlockPos origin, String rotation
+        ) {
+            PersistedBuildingInstance instance = new PersistedBuildingInstance(
+                dimension, structure, origin.immutable(), rotation
+            );
+            String key = instanceKey(instance);
+            PersistedBuildingInstance existing = buildingInstances.get(key);
+            if (existing == null
+                || ((existing.rotation == null || existing.rotation.isBlank())
+                    && rotation != null && !rotation.isBlank())) {
+                buildingInstances.put(key, instance);
+                setDirty();
+            }
+        }
+
+        List<PersistedBuildingInstance> buildingInstances() {
+            return List.copyOf(buildingInstances.values());
+        }
+
         @Override
         public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
             tag.putString("spawned", String.join("\n", spawned));
@@ -1186,7 +1359,66 @@ final class BuildingRuntimeSystem {
                 serializedSlots.append(entry.getValue()).append('\t').append(entry.getKey());
             }
             tag.putString("instanceSlots", serializedSlots.toString());
+            StringBuilder serializedBuildings = new StringBuilder();
+            for (PersistedBuildingInstance instance : buildingInstances.values()) {
+                if (!serializedBuildings.isEmpty()) {
+                    serializedBuildings.append('\n');
+                }
+                serializedBuildings.append(instance.dimension).append('\t')
+                    .append(instance.structure).append('\t')
+                    .append(instance.origin.getX()).append('\t')
+                    .append(instance.origin.getY()).append('\t')
+                    .append(instance.origin.getZ()).append('\t')
+                    .append(instance.rotation == null ? "" : instance.rotation);
+            }
+            tag.putString("buildingInstances", serializedBuildings.toString());
             return tag;
+        }
+
+        private void recoverLegacyBuildingInstances() {
+            for (String preparedKey : prepared) {
+                int marker = preparedKey.indexOf("|space|");
+                if (marker <= 0) {
+                    continue;
+                }
+                PersistedBuildingInstance instance = parseLegacyInstanceKey(
+                    preparedKey.substring(0, marker)
+                );
+                if (instance != null) {
+                    buildingInstances.putIfAbsent(instanceKey(instance), instance);
+                }
+            }
+        }
+
+        private static PersistedBuildingInstance parseLegacyInstanceKey(String key) {
+            String[] fields = key.split("\\|", 3);
+            if (fields.length != 3) {
+                return null;
+            }
+            String[] coordinates = fields[2].split(",", 3);
+            if (coordinates.length != 3) {
+                return null;
+            }
+            try {
+                return new PersistedBuildingInstance(
+                    fields[0], fields[1],
+                    new BlockPos(
+                        Integer.parseInt(coordinates[0]),
+                        Integer.parseInt(coordinates[1]),
+                        Integer.parseInt(coordinates[2])
+                    ),
+                    null
+                );
+            } catch (NumberFormatException ignored) {
+                LOGGER.warn("Ignoring invalid legacy building runtime instance: {}", key);
+                return null;
+            }
+        }
+
+        private static String instanceKey(PersistedBuildingInstance instance) {
+            return instance.dimension + "|" + instance.structure + "|"
+                + instance.origin.getX() + "," + instance.origin.getY() + ","
+                + instance.origin.getZ();
         }
 
         private static void readSet(String serialized, Set<String> target) {
@@ -1213,6 +1445,34 @@ final class BuildingRuntimeSystem {
                     }
                 } catch (NumberFormatException ignored) {
                     LOGGER.warn("Ignoring invalid building interior slot: {}", line);
+                }
+            }
+        }
+
+        private static void readBuildingInstances(
+            String serialized, Map<String, PersistedBuildingInstance> target
+        ) {
+            if (serialized.isBlank()) {
+                return;
+            }
+            for (String line : serialized.split("\\n")) {
+                String[] fields = line.split("\\t", -1);
+                if (fields.length != 6) {
+                    LOGGER.warn("Ignoring invalid building runtime instance: {}", line);
+                    continue;
+                }
+                try {
+                    PersistedBuildingInstance instance = new PersistedBuildingInstance(
+                        fields[0], fields[1],
+                        new BlockPos(
+                            Integer.parseInt(fields[2]), Integer.parseInt(fields[3]),
+                            Integer.parseInt(fields[4])
+                        ),
+                        fields[5]
+                    );
+                    target.put(instanceKey(instance), instance);
+                } catch (NumberFormatException ignored) {
+                    LOGGER.warn("Ignoring invalid building runtime instance: {}", line);
                 }
             }
         }

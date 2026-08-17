@@ -649,7 +649,7 @@ class DataModBuilderTests(unittest.TestCase):
             for decoration in layout["decorations"]:
                 decoration_types.add(decoration["type"])
                 clearance = {
-                    "street_lamp": 1,
+                    "street_lamp": 2,
                     "bench": 2,
                     "street_tree": 2,
                     "flower_bed": 2,
@@ -673,6 +673,22 @@ class DataModBuilderTests(unittest.TestCase):
             {"street_lamp", "bench", "street_tree", "flower_bed", "fountain"},
             decoration_types,
         )
+
+    def test_manual_town_decorations_replace_automatic_placements(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        configured = [
+            {"type": "street_lamp", "x": 17, "z": -9, "rotation": "clockwise_90"},
+            {"type": "fountain", "x": -12, "z": 21, "rotation": "none"},
+        ]
+        source["structure_profile"]["decoration_placements"] = configured
+
+        layout = build_data_mod._compile_town_layout(source)
+
+        self.assertEqual(configured, layout["decorations"])
 
     def test_generated_town_decoration_structures_exist(self) -> None:
         structure_root = (

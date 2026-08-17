@@ -6,6 +6,7 @@
   "display_name": {
     "ko_kr": "상록숲"
   },
+  "music_track": "kanto.viridian_forest",
   "dimension": {
     "id": "cobbleventure:forests",
     "region_id": "generation_1/viridian_forest",

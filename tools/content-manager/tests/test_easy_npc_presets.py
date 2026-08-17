@@ -92,11 +92,54 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn(
             "/cobbleventure_proximity_battle @initiator @s", proximity
         )
+        self.assertIn(
+            "easy_npc dialog open @s @initiator greeting", proximity
+        )
+        self.assertIn(
+            'Label:"greeting",Name:"잠깐! 나는 배틀 연습 중인 AI 맨이야.',
+            proximity,
+        )
+        self.assertIn('Label:"battle",Name:"계속",Actions:', proximity)
+        self.assertIn("cobbleventure_battle_intro @initiator @s", proximity)
+        self.assertIn("encounter.trainer_boy", proximity)
         self.assertIn("ON_INTERACTION", proximity)
         self.assertIn("cobbleventure_npc_preset_v4", proximity)
         self.assertNotIn("ON_DISTANCE_VERY_CLOSE", proximity)
         self.assertNotIn("/title @initiator actionbar", proximity)
         self.assertNotEqual(interaction, proximity)
+
+    def test_normalized_battle_routes_completed_trainer_to_victory_dialogue(self) -> None:
+        sample = json.loads(
+            (
+                PROJECT_ROOT
+                / "content/source/samples/sample_youngster_minjun.json"
+            ).read_text(encoding="utf-8")
+        )
+        battle = json.loads(
+            (
+                PROJECT_ROOT
+                / "content/battles/samples/sample_youngster_minjun.json"
+            ).read_text(encoding="utf-8")
+        )
+        sample["_battle_presets"] = {battle["id"]: battle}
+
+        preset = generator.encounter_preset_snbt(sample, self.outfit, "proximity")
+
+        self.assertIn(
+            'Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1',
+            preset,
+        )
+        self.assertIn('Label:"victory",Name:"좋은 승부였어!', preset)
+        victory = preset.split('Label:"victory"', 1)[1].split("}]", 1)[0]
+        self.assertNotIn("cobbleventure_battle_intro", victory)
+
+    def test_encounter_music_uses_presentation_metadata(self) -> None:
+        girl = {**self.outfit, "arm_model": "slim"}
+        villain = {**self.outfit, "_trainer_class_tags": ["villain"]}
+
+        self.assertEqual("encounter.trainer_boy", generator.encounter_music_track(self.outfit))
+        self.assertEqual("encounter.trainer_girl", generator.encounter_music_track(girl))
+        self.assertEqual("encounter.trainer_bad_guys", generator.encounter_music_track(villain))
 
     def test_encounter_uses_its_own_appearance_skin_and_arm_model(self) -> None:
         first = json.loads(json.dumps(self.document))
@@ -153,7 +196,7 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         preset = generator.encounter_preset_snbt(document, outfit)
 
         self.assertIn("cobbledollars give @1 1200", preset)
-        self.assertIn("cobbleventurebag give @1 cobblemon:rare_candy 2", preset)
+        self.assertIn("cobbleventurebag acquire @1 cobblemon:rare_candy 2", preset)
         self.assertIn(entry["encounter"]["rewards"]["badge_id"], preset)
 
     def test_compiles_each_league_dialogue_line_as_a_sequential_dialogue(self) -> None:
@@ -180,6 +223,24 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn('Label:"challenge_1"', dialogues)
         self.assertIn('Name:"다음",Actions:[{Cmd:"challenge_2",Type:"OPEN_NAMED_DIALOG"}]', dialogues)
         self.assertIn('Label:"challenge_2"', dialogues)
+
+    def test_professor_oak_closes_dialogue_then_opens_starter_roulette(self) -> None:
+        document = json.loads(
+            (
+                PROJECT_ROOT
+                / "content/source/story/professor_oak.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        preset = generator.encounter_preset_snbt(document, self.outfit)
+
+        self.assertIn('Label:"greeting_1"', preset)
+        self.assertIn('Cmd:"greeting_2",Type:"OPEN_NAMED_DIALOG"', preset)
+        self.assertIn(
+            'Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/starterroulette @initiator"',
+            preset,
+        )
+        self.assertEqual(preset.count('/starterroulette @initiator'), 1)
 
     def test_npc_money_setting_overrides_legacy_event_money(self) -> None:
         commands = self.document["events"][0]["commands"]

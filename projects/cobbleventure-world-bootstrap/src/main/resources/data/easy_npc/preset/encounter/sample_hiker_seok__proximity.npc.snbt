@@ -3,7 +3,7 @@
     author:"Cobbleventure",
     category:"Cobbleventure Encounters",
     created:0L,
-    description:"등산가 석 대화·배틀 테스트 NPC",
+    description:"등산가 석 EasyNPC 이벤트 NPC",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
     name:"등산가 석",
@@ -11,11 +11,11 @@
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_CLOSE:[{Cmd:"/cobbleventure_proximity_battle @initiator @s cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_hiker_seok 1 12 rctmod:sample_hiker_seok tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_hiker_seok onwin {1:[\"scoreboard objectives add cvf_27814461305e dummy\",\"scoreboard players set @1 cvf_27814461305e 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_CLOSE:[{Cmd:"/cobbleventure_proximity_battle @initiator @s encounter.trainer_boy easy_npc dialog open @s @initiator greeting",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"등산가 석\"}",
-    DialogData:{DialogDataSet:[{Label:"greeting",Name:"산길에서 단련한 근성을 받아 봐라!",Texts:[{Text:"산길에서 단련한 근성을 받아 봐라!"}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_hiker_seok 1 12 rctmod:sample_hiker_seok tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_hiker_seok onwin {1:[\"scoreboard objectives add cvf_27814461305e dummy\",\"scoreboard players set @1 cvf_27814461305e 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory",Name:"좋은 승부였어! 다음에 다시 겨뤄 보자.",Texts:[{Text:"좋은 승부였어! 다음에 다시 겨뤄 보자."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!",Texts:[{Text:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[{Label:"greeting",Name:"산길에서 단련한 근성을 받아 봐라!",Texts:[{Text:"산길에서 단련한 근성을 받아 봐라!"}],Buttons:[{Label:"battle",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_hiker_seok 1 12 rctmod:sample_hiker_seok tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_hiker_seok onwin {1:[\"scoreboard objectives add cvf_27814461305e dummy\",\"scoreboard players set @1 cvf_27814461305e 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]},{Label:"victory",Name:"좋은 승부였어! 다음에 다시 겨뤄 보자.",Priority:100,Texts:[{Text:"좋은 승부였어! 다음에 다시 겨뤄 보자."}],Conditions:[{Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!",Texts:[{Text:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[1.050f,1.050f,1.050f]}},

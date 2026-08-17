@@ -31,7 +31,7 @@
         "audio_tracked_by_git": { "const": false },
         "local_directory": {
           "type": "string",
-          "pattern": "^local-assets/music/[a-z0-9_.-]+$"
+          "pattern": "^local-assets/music(?:/[a-z0-9_.-]+)*$"
         },
         "notes": { "type": "string", "minLength": 1 }
       }
@@ -49,14 +49,22 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tile", "road", "settlement", "building", "pokemon_center", "pokemart", "battle", "gym"],
+      "required": ["tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart", "battle", "gym"],
       "properties": {
         "tile": { "$ref": "#/$defs/trackId" },
         "road": { "$ref": "#/$defs/trackId" },
         "settlement": { "$ref": "#/$defs/trackId" },
+        "cave": { "$ref": "#/$defs/trackId" },
+        "forest": { "$ref": "#/$defs/trackId" },
         "building": { "$ref": "#/$defs/trackId" },
         "pokemon_center": { "$ref": "#/$defs/trackId" },
         "pokemart": { "$ref": "#/$defs/trackId" },
+        "trainer_encounter_boy": { "$ref": "#/$defs/trackId" },
+        "trainer_encounter_girl": { "$ref": "#/$defs/trackId" },
+        "trainer_encounter_bad_guys": { "$ref": "#/$defs/trackId" },
+        "item_acquired": { "$ref": "#/$defs/trackId" },
+        "key_item_acquired": { "$ref": "#/$defs/trackId" },
+        "machine_acquired": { "$ref": "#/$defs/trackId" },
         "battle": { "$ref": "#/$defs/trackId" },
         "gym": { "$ref": "#/$defs/trackId" }
       }
@@ -95,8 +103,15 @@
           "pattern": "^[a-z0-9_./-]+$"
         },
         "source_file": { "type": "string", "pattern": "(?i)\\.ogg$" },
+        "source_directory": {
+          "type": "string",
+          "pattern": "^local-assets/music(?:/[a-z0-9_.-]+)*$"
+        },
         "category": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
-        "usage": { "type": "string", "minLength": 1 }
+        "usage": { "type": "string", "minLength": 1 },
+        "stream": { "type": "boolean" },
+        "album": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 }
       }
     },
     "reviewCandidate": {

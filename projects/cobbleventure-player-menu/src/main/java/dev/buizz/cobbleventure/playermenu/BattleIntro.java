@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.playermenu;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.playermenu.client.BattleIntroOverlay;
 import dev.buizz.cobbleventure.playermenu.client.BattleWarningOverlay;
 import java.util.HashMap;
@@ -19,6 +20,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
@@ -29,9 +31,11 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import org.slf4j.Logger;
 
 /** Delays a trainer battle while the initiating client displays a versus cut-in. */
 public final class BattleIntro {
+    private static final Logger LOGGER = LogUtils.getLogger();
     static final int DURATION_TICKS = 56;
     static final double PROXIMITY_BATTLE_RANGE = 4.0D;
     private static final double PROXIMITY_WARNING_RANGE = 8.0D;
@@ -105,12 +109,14 @@ public final class BattleIntro {
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("player", EntityArgument.player())
                     .then(Commands.argument("opponent", EntityArgument.entity())
-                        .then(Commands.argument("battle_command", StringArgumentType.greedyString())
-                            .executes(context -> watchProximity(
-                                EntityArgument.getPlayer(context, "player"),
-                                EntityArgument.getEntity(context, "opponent"),
-                                StringArgumentType.getString(context, "battle_command")
-                            )))))
+                        .then(Commands.argument("encounter_track", StringArgumentType.word())
+                            .then(Commands.argument("battle_command", StringArgumentType.greedyString())
+                                .executes(context -> watchProximity(
+                                    EntityArgument.getPlayer(context, "player"),
+                                    EntityArgument.getEntity(context, "opponent"),
+                                    StringArgumentType.getString(context, "encounter_track"),
+                                    StringArgumentType.getString(context, "battle_command")
+                                ))))))
         );
     }
 
@@ -126,42 +132,60 @@ public final class BattleIntro {
     }
 
     private static int watchProximity(
-        ServerPlayer player, Entity opponent, String battleCommand
+        ServerPlayer player, Entity opponent, String encounterTrack, String triggerCommand
     ) {
-        String normalized = battleCommand.startsWith("/")
-            ? battleCommand.substring(1)
-            : battleCommand;
+        String normalized = triggerCommand.startsWith("/")
+            ? triggerCommand.substring(1)
+            : triggerCommand;
         if (!normalized.startsWith("cobbleventure_battle_intro ")
-            && !normalized.startsWith("cobbleventure_scaled_trainer_battle ")) {
+            && !normalized.startsWith("cobbleventure_scaled_trainer_battle ")
+            && !normalized.startsWith("easy_npc dialog open ")) {
+            LOGGER.warn(
+                "Rejected proximity encounter command for npc {}: {}",
+                opponent.getUUID(), normalized
+            );
             return 0;
         }
-        int completed;
+        int completed = 0;
         try {
             completed = player.getServer().getCommands().getDispatcher().execute(
                 "cobbleventure_trainer_state prepare " + opponent.getUUID()
-                    + " " + player.getUUID(),
+                    + " " + player.getGameProfile().getName(),
                 player.getServer().createCommandSourceStack()
                     .withLevel(player.serverLevel())
                     .withPermission(4)
                     .withSuppressedOutput()
             );
         } catch (CommandSyntaxException error) {
-            return 0;
+            // A state lookup failure must not silently disable the encounter.
+            // Continue as an undefeated trainer and leave a useful diagnosis in
+            // the server log. The victory callback can still record completion.
+            LOGGER.warn(
+                "Unable to read proximity trainer state: npc={}, player={}",
+                opponent.getUUID(), player.getGameProfile().getName(), error
+            );
         }
         if (completed > 0) {
             PROXIMITY_PENDING.remove(new ProximityKey(
                 player.getUUID(), opponent.getUUID()
             ));
-            if (!hasProximityPending(player.getUUID())) dismissWarning(player);
+            clearProximityFeedbackIfIdle(player);
             return 1;
         }
         normalized = normalized
-            .replace("@initiator", player.getUUID().toString())
-            .replace("@s", opponent.getUUID().toString());
+            .replace("@initiator", player.getUUID().toString());
+        normalized = replaceFirstSelector(
+            normalized, "@s", opponent.getUUID().toString()
+        );
         PROXIMITY_PENDING.put(
             new ProximityKey(player.getUUID(), opponent.getUUID()),
             new PendingProximityBattle(opponent, normalized)
         );
+        LOGGER.debug(
+            "Registered proximity trainer encounter: npc={}, player={}",
+            opponent.getUUID(), player.getGameProfile().getName()
+        );
+        MusicPlayback.prepareEncounter(player, encounterTrack);
         return warn(player, opponent);
     }
 
@@ -174,20 +198,27 @@ public final class BattleIntro {
             : battleCommand;
         if (!normalized.startsWith("tbcs battle ")) return 0;
 
-        // The actual battle runs after the intro. Resolve EasyNPC's contextual
-        // selectors now so a removed or relocated NPC cannot invalidate the
-        // delayed command source.
+        // Resolve the player macro now, but preserve the nested TBCS @s. TBCS
+        // must resolve that selector from the living NPC command source; a UUID
+        // literal is not accepted as its trainer participant.
         normalized = normalized
-            .replace("@initiator", player.getUUID().toString())
-            .replace("@s", opponent.getUUID().toString());
-        PROXIMITY_PENDING.keySet().removeIf(key -> key.playerId.equals(player.getUUID()));
+            .replace("@initiator", player.getUUID().toString());
+        // The proximity iterator owns pending-entry removal. Mutating its map
+        // recursively from this command can fail when several trainers notice
+        // the same player in one tick.
+        dismissWarning(player);
 
         long executeAt = source.getServer().overworld().getGameTime() + DURATION_TICKS;
         Vec3 lockedPosition = player.position();
-        freezeForIntro(player, opponent, lockedPosition);
-        PENDING.put(player.getUUID(), new PendingBattle(
-            source, normalized, executeAt, opponent, lockedPosition
-        ));
+        PendingBattle pending = new PendingBattle(
+            opponent.createCommandSourceStack()
+                .withPermission(4)
+                .withSuppressedOutput(),
+            normalized, executeAt, opponent, lockedPosition,
+            player.getYRot(), player.getXRot()
+        );
+        PENDING.put(player.getUUID(), pending);
+        freezeForIntro(player, pending);
         MusicPlayback.prepareBattle(player, battleId);
         PacketDistributor.sendToPlayer(player, new OpenPayload(
             player.getId(),
@@ -220,7 +251,7 @@ public final class BattleIntro {
             }
             if (!opponent.isAlive() || player.level() != opponent.level()) {
                 proximityIterator.remove();
-                if (!hasProximityPending(playerId)) dismissWarning(player);
+                clearProximityFeedbackIfIdle(player);
                 continue;
             }
             double dx = player.getX() - opponent.getX();
@@ -228,7 +259,7 @@ public final class BattleIntro {
             double horizontalDistanceSquared = dx * dx + dz * dz;
             if (horizontalDistanceSquared > PROXIMITY_WARNING_RANGE * PROXIMITY_WARNING_RANGE) {
                 proximityIterator.remove();
-                if (!hasProximityPending(playerId)) dismissWarning(player);
+                clearProximityFeedbackIfIdle(player);
                 continue;
             }
             if (horizontalDistanceSquared > PROXIMITY_BATTLE_RANGE * PROXIMITY_BATTLE_RANGE) {
@@ -242,7 +273,7 @@ public final class BattleIntro {
                     .withPosition(opponent.position())
                     .withPermission(4)
                     .withSuppressedOutput(),
-                pending.battleCommand
+                pending.triggerCommand
             );
         }
         if (!triggeredPlayers.isEmpty()) {
@@ -261,7 +292,7 @@ public final class BattleIntro {
                 iterator.remove();
                 continue;
             }
-            freezeForIntro(player, pending.opponent, pending.lockedPosition);
+            freezeForIntro(player, pending);
             if (pending.executeAt > gameTime) continue;
             iterator.remove();
             event.getServer().getCommands().performPrefixedCommand(
@@ -270,21 +301,30 @@ public final class BattleIntro {
         }
     }
 
-    private static void freezeForIntro(
-        ServerPlayer player, Entity opponent, Vec3 lockedPosition
-    ) {
-        double dx = opponent.getX() - lockedPosition.x;
-        double dz = opponent.getZ() - lockedPosition.z;
-        double dy = opponent.getEyeY() - player.getEyeY();
+    private static void freezeForIntro(ServerPlayer player, PendingBattle pending) {
+        double dx = pending.opponent.getX() - pending.lockedPosition.x;
+        double dz = pending.opponent.getZ() - pending.lockedPosition.z;
+        double dy = pending.opponent.getEyeY() - player.getEyeY();
         double horizontal = Math.max(0.0001D, Math.sqrt(dx * dx + dz * dz));
-        float yaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
-        float pitch = (float)-Math.toDegrees(Math.atan2(dy, horizontal));
+        float targetYaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
+        float targetPitch = (float)-Math.toDegrees(Math.atan2(dy, horizontal));
+        pending.cameraYaw = smoothRotation(pending.cameraYaw, targetYaw, 0.18F, 9.0F);
+        pending.cameraPitch = smoothRotation(pending.cameraPitch, targetPitch, 0.16F, 5.0F);
         player.setDeltaMovement(Vec3.ZERO);
         player.teleportTo(
             player.serverLevel(),
-            lockedPosition.x, lockedPosition.y, lockedPosition.z,
-            yaw, pitch
+            pending.lockedPosition.x, pending.lockedPosition.y, pending.lockedPosition.z,
+            pending.cameraYaw, pending.cameraPitch
         );
+    }
+
+    private static float smoothRotation(
+        float current, float target, float easing, float maximumStep
+    ) {
+        float difference = Mth.wrapDegrees(target - current);
+        if (Math.abs(difference) < 0.15F) return target;
+        float step = Mth.clamp(difference * easing, -maximumStep, maximumStep);
+        return current + step;
     }
 
     private static boolean hasProximityPending(UUID playerId) {
@@ -293,12 +333,45 @@ public final class BattleIntro {
         );
     }
 
-    private record PendingBattle(
-        CommandSourceStack source, String battleCommand, long executeAt,
-        Entity opponent, Vec3 lockedPosition
-    ) {}
+    private static void clearProximityFeedbackIfIdle(ServerPlayer player) {
+        if (hasProximityPending(player.getUUID())) return;
+        dismissWarning(player);
+        MusicPlayback.cancelEncounter(player);
+    }
 
-    private record PendingProximityBattle(Entity opponent, String battleCommand) {}
+    private static String replaceFirstSelector(
+        String command, String selector, String replacement
+    ) {
+        int index = command.indexOf(selector);
+        if (index < 0) return command;
+        return command.substring(0, index) + replacement
+            + command.substring(index + selector.length());
+    }
+
+    private static final class PendingBattle {
+        private final CommandSourceStack source;
+        private final String battleCommand;
+        private final long executeAt;
+        private final Entity opponent;
+        private final Vec3 lockedPosition;
+        private float cameraYaw;
+        private float cameraPitch;
+
+        private PendingBattle(
+            CommandSourceStack source, String battleCommand, long executeAt,
+            Entity opponent, Vec3 lockedPosition, float cameraYaw, float cameraPitch
+        ) {
+            this.source = source;
+            this.battleCommand = battleCommand;
+            this.executeAt = executeAt;
+            this.opponent = opponent;
+            this.lockedPosition = lockedPosition;
+            this.cameraYaw = cameraYaw;
+            this.cameraPitch = cameraPitch;
+        }
+    }
+
+    private record PendingProximityBattle(Entity opponent, String triggerCommand) {}
 
     private record ProximityKey(UUID playerId, UUID opponentId) {}
 

@@ -1,0 +1,86 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/professor_oak",
+  "enabled": true,
+  "name": {
+    "ko_kr": "오박사",
+    "en_us": "Professor Oak"
+  },
+  "description": {
+    "ko_kr": "태초마을 연구소에서 플레이어의 첫 포켓몬 선택을 돕는 오박사입니다."
+  },
+  "tags": [
+    "story",
+    "required",
+    "professor",
+    "starter"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "오박사",
+      "en_us": "Professor Oak"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/scientist",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/prof_prof_oak_01ff"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_design": {
+    "mode": "easy_npc_events"
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "label",
+          "name": "greeting"
+        },
+        {
+          "type": "dialogue",
+          "id": "greeting_1",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "어서 오너라! 나는 포켓몬을 연구하는 오박사란다.",
+            "en_us": "Welcome! I'm Professor Oak, a Pokémon researcher."
+          }
+        },
+        {
+          "type": "dialogue",
+          "id": "greeting_2",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!",
+            "en_us": "Let's choose the first Pokémon that will join you on your adventure!"
+          }
+        },
+        {
+          "type": "start_starter_roulette"
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

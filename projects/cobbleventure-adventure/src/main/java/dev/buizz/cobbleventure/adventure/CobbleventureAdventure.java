@@ -44,6 +44,7 @@ public final class CobbleventureAdventure {
         TrainerBattleLevelScaling.register();
         TrainerMoneyRewards.register();
         BattleWeatherSystem.register();
+        BattlePokemonPositioning.register();
     }
 
     public static void registerWorldContext(AdventureWorldContext context) {

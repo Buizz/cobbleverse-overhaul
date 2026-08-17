@@ -42,99 +42,29 @@
       "collision": true
     }
   },
-  "events": [
-    {
-      "id": "on_interact",
-      "trigger": {
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "battle",
+      "initial_trigger": {
         "type": "interact",
         "range": 4
       },
-      "commands": [
-        {
-          "type": "label",
-          "name": "greeting"
-        },
-        {
-          "type": "dialogue",
-          "id": "greeting",
-          "speaker": "npc",
-          "text": {
-            "ko_kr": "잠깐 쉬어 가기 전에 가볍게 승부할래?"
-          }
-        },
-        {
-          "type": "choices",
-          "options": [
-            {
-              "id": "battle",
-              "text": {
-                "ko_kr": "승부한다"
-              },
-              "target": "battle"
-            },
-            {
-              "id": "cancel",
-              "text": {
-                "ko_kr": "다음에"
-              },
-              "target": "end"
-            }
-          ]
-        },
-        {
-          "type": "label",
-          "name": "battle"
-        },
-        {
-          "type": "start_battle",
-          "battle": "cobbleventure:battle/sample_picnicker_hana",
-          "results": {
-            "player_win": "victory",
-            "player_loss": "defeat",
-            "cancelled": "end"
-          }
-        },
-        {
-          "type": "label",
-          "name": "victory"
-        },
-        {
-          "type": "set_flag",
-          "key": "cobbleventure:flag/trainer/sample_picnicker_hana/defeated",
-          "value": true
-        },
-        {
-          "type": "dialogue",
-          "id": "victory",
-          "speaker": "npc",
-          "text": {
-            "ko_kr": "좋은 승부였어! 다음에 다시 겨뤄 보자."
-          }
-        },
-        {
-          "type": "goto",
-          "target": "end"
-        },
-        {
-          "type": "label",
-          "name": "defeat"
-        },
-        {
-          "type": "dialogue",
-          "id": "defeat",
-          "speaker": "npc",
-          "text": {
-            "ko_kr": "멋진 승부였어. 준비가 되면 언제든 다시 도전해!"
-          }
-        },
-        {
-          "type": "label",
-          "name": "end"
-        },
-        {
-          "type": "end"
-        }
-      ]
+      "first_text": {
+        "ko_kr": "잠깐 쉬어 가기 전에 가볍게 승부할래?"
+      },
+      "battle": "cobbleventure:battle/sample_picnicker_hana",
+      "after_victory_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "win_text": {
+        "ko_kr": "좋은 승부였어! 다음에 다시 겨뤄 보자."
+      },
+      "loss_text": {
+        "ko_kr": "멋진 승부였어. 준비가 되면 언제든 다시 도전해!"
+      },
+      "victory_state_key": "cobbleventure:flag/trainer/sample_picnicker_hana/defeated"
     }
-  ]
+  }
 }
