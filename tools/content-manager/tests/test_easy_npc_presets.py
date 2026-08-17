@@ -138,7 +138,8 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         self.assertIn("ON_INTERACTION", interaction)
         self.assertNotIn("ON_DISTANCE_VERY_CLOSE", interaction)
-        self.assertIn("ON_DISTANCE_CLOSE", proximity)
+        self.assertIn("ON_DISTANCE_NEAR", proximity)
+        self.assertNotIn("ON_DISTANCE_CLOSE", proximity)
         self.assertIn(
             "/cobbleventure_proximity_battle @initiator @s", proximity
         )

@@ -26,6 +26,12 @@ repositories {
 }
 
 dependencies {
+    jarJar(implementation("dev.buizz.cobbleventure:shared-ai-core:0.1.0-SNAPSHOT")) {
+        version {
+            strictly '[0.1,0.2)'
+            prefer '0.1.0-SNAPSHOT'
+        }
+    }
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"

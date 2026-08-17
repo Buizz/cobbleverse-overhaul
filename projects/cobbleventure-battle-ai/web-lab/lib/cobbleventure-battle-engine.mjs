@@ -33,6 +33,10 @@ import {
   toAiActionCandidate,
   toAiTraceCandidate,
 } from "./common-battle-ai.mjs";
+import {
+  decideTwoTurnJson,
+  decideWinRateJson,
+} from "./shared-ai-core.mjs";
 
 const ENGINE_VERSION = "0.9.7";
 const DEFAULT_MAX_TURNS = 200;
@@ -13373,11 +13377,11 @@ function automaticMoveCandidates(
         const volatile =
           cleanId(effect.volatileStatus) === "flinch" ? 18 : 0;
         const boosts =
-          Object.values(effect.selfBoosts).reduce(
+          Object.values(effect.selfBoosts ?? {}).reduce(
             (value, amount) => value + Math.max(0, amount) * 12,
             0,
           ) +
-          Object.values(effect.boosts).reduce(
+          Object.values(effect.boosts ?? {}).reduce(
             (value, amount) => value + Math.max(0, -amount) * 10,
             0,
           );
@@ -16459,312 +16463,6 @@ function projectedSimpleGimmickCandidate({
   };
 }
 
-function applyWinProbabilityDecisionPolicy({
-  state,
-  sideIndex,
-  opponentStrategy,
-  heuristicDecision,
-  moveCandidates,
-  switchCandidates,
-  itemCandidates,
-  gimmick,
-  gimmickMove,
-  gimmickCandidate,
-  lockedSelection,
-  maxNodes = 8,
-}) {
-  const searchStartedAt =
-    typeof performance !== "undefined" ? performance.now() : Date.now();
-  if (lockedSelection) {
-    return {
-      ...heuristicDecision,
-      diagnostics: {
-        ...heuristicDecision.diagnostics,
-        policy: "win-probability-simulated",
-        policyOverride: false,
-        simulationSkipped: "locked-selection",
-      },
-    };
-  }
-  const policyCandidates = simpleSearchPolicyCandidates({
-    moveCandidates,
-    switchCandidates,
-    itemCandidates,
-    gimmick,
-    gimmickMove,
-  });
-  const heuristicCandidate = policyCandidates.find((candidate) => {
-    return (
-      simpleCommandKey(candidate.policyCommand) ===
-      simpleCommandKey(heuristicDecision.command)
-    );
-  });
-  const ownCandidates = boundedSearchCandidates(
-    policyCandidates,
-    heuristicDecision.command,
-    4,
-  );
-  const opponentSide = sideIndex === 0 ? 1 : 0;
-  const opponentDecision = chooseSimpleAiDecision(
-    state,
-    opponentSide,
-    "expert",
-    opponentStrategy ?? "balanced",
-  );
-  const opponentCandidates = boundedSearchCandidates(
-    simpleSearchPolicyCandidates({
-      moveCandidates: opponentDecision.moveCandidates,
-      switchCandidates: opponentDecision.switchCandidates,
-      itemCandidates: opponentDecision.itemCandidates,
-      gimmick: opponentDecision.command.gimmick ?? null,
-      gimmickMove: opponentDecision.command.gimmick
-        ? opponentDecision.selectedMove
-        : null,
-    }),
-    opponentDecision.command,
-    2,
-  );
-  const opponentDistribution =
-    simpleSearchActionDistribution(opponentCandidates);
-  const currentWinProbability = simpleSearchWinProbability(state, sideIndex);
-  const context = {
-    maxNodes,
-    searchNodes: 0,
-    searchFailures: 0,
-    cacheHits: 0,
-    budgetExhausted: false,
-  };
-  const evaluatedCandidates = [];
-
-  for (const candidate of ownCandidates) {
-    const outcomes = [];
-    for (const opponentEntry of opponentDistribution) {
-      const commands =
-        sideIndex === 0
-          ? [
-              candidate.policyCommand,
-              opponentEntry.candidate.policyCommand,
-            ]
-          : [
-              opponentEntry.candidate.policyCommand,
-              candidate.policyCommand,
-            ];
-      try {
-        const nextState = cachedSimpleSearchTransition(context, state, commands);
-        if (!nextState) continue;
-        outcomes.push({
-          opponentId: opponentEntry.candidate.id,
-          opponentCommand: opponentEntry.candidate.policyCommand,
-          opponentProbability: opponentEntry.probability,
-          winProbability: simpleSearchWinProbability(nextState, sideIndex),
-        });
-      } catch {
-        context.searchFailures += 1;
-      }
-    }
-    if (outcomes.length === 0) continue;
-    const coveredProbability = outcomes.reduce(
-      (total, outcome) => total + outcome.opponentProbability,
-      0,
-    );
-    const expectedWinProbability =
-      outcomes.reduce(
-        (total, outcome) =>
-          total + outcome.winProbability * outcome.opponentProbability,
-        0,
-      ) / Math.max(Number.EPSILON, coveredProbability);
-    const worstWinProbability = Math.min(
-      ...outcomes.map((outcome) => outcome.winProbability),
-    );
-    const winProbabilityDelta =
-      expectedWinProbability - currentWinProbability;
-    evaluatedCandidates.push({
-      ...candidate,
-      oneTurnEvaluation: {
-        qValue: roundedSearchProbability(expectedWinProbability),
-        delta: roundedSearchProbability(winProbabilityDelta),
-        winProbabilityBefore:
-          roundedSearchProbability(currentWinProbability),
-        winProbabilityAfter:
-          roundedSearchProbability(expectedWinProbability),
-        winProbabilityDelta:
-          roundedSearchProbability(winProbabilityDelta),
-        componentDeltas: {},
-        reasons: [
-          {
-            component: "simulatedWinProbability",
-            label: "실제 다음 상태",
-            contribution: roundedSearchProbability(winProbabilityDelta),
-            message:
-              "상대의 유력 행동과 실제 1턴 전투 결과를 시뮬레이션해 승률을 계산했습니다.",
-          },
-        ],
-      },
-      winRateSimulation: {
-        expectedWinProbability:
-          roundedSearchProbability(expectedWinProbability),
-        worstWinProbability: roundedSearchProbability(worstWinProbability),
-        outcomes: outcomes.map((outcome) => ({
-          opponentId: outcome.opponentId,
-          opponentCommand: structuredClone(outcome.opponentCommand),
-          opponentProbability: roundedSearchProbability(
-            outcome.opponentProbability,
-          ),
-          winProbability: roundedSearchProbability(outcome.winProbability),
-        })),
-      },
-    });
-  }
-  const evaluationByCommand = new Map(
-    evaluatedCandidates.map((candidate) => [
-      simpleCommandKey(candidate.policyCommand),
-      candidate,
-    ]),
-  );
-  const evaluatedHeuristic = heuristicCandidate
-    ? evaluationByCommand.get(
-        simpleCommandKey(heuristicCandidate.policyCommand),
-      ) ?? heuristicCandidate
-    : null;
-  const selected = selectWinProbabilityCandidate(
-    evaluatedCandidates,
-    evaluatedHeuristic,
-    { minimumGain: 0.02 },
-  );
-  if (!selected) {
-    return {
-      ...heuristicDecision,
-      diagnostics: {
-        ...heuristicDecision.diagnostics,
-        policy: "win-probability-simulated",
-        policyOverride: false,
-        minimumGain: 0.02,
-        simulationSkipped: "no-valid-outcome",
-        simulationNodes: context.searchNodes,
-        simulationFailures: context.searchFailures,
-        simulationCacheHits: context.cacheHits,
-      },
-    };
-  }
-  const heuristicWinProbability = Number(
-    evaluatedHeuristic?.oneTurnEvaluation?.winProbabilityAfter,
-  );
-  const selectedWinProbability = Number(
-    selected.oneTurnEvaluation?.winProbabilityAfter,
-  );
-  const policyOverride =
-    simpleCommandKey(selected.policyCommand) !==
-    simpleCommandKey(heuristicDecision.command);
-  const enrichedMoveCandidates = moveCandidates.map((candidate) => {
-    const evaluated = evaluationByCommand.get(
-      simpleCommandKey({ move: candidate.slot }),
-    );
-    return evaluated
-      ? {
-          ...candidate,
-          oneTurnEvaluation: evaluated.oneTurnEvaluation,
-          winRateSimulation: evaluated.winRateSimulation,
-        }
-      : candidate;
-  });
-  const enrichedSwitchCandidates = switchCandidates.map((candidate) => {
-    const evaluated = evaluationByCommand.get(
-      simpleCommandKey({ switch: candidate.slot }),
-    );
-    return evaluated
-      ? {
-          ...candidate,
-          oneTurnEvaluation: evaluated.oneTurnEvaluation,
-          winRateSimulation: evaluated.winRateSimulation,
-        }
-      : candidate;
-  });
-  const selectedIsSwitch = selected.policyKind === "switch";
-  const selectedMove = selectedIsSwitch
-    ? null
-    : selected.policyKind === "gimmick"
-      ? selected
-      : enrichedMoveCandidates.find(
-          (candidate) => candidate.slot === selected.policyCommand.move,
-        ) ?? selected;
-  const selectedSwitch = selectedIsSwitch
-    ? enrichedSwitchCandidates.find(
-        (candidate) => candidate.slot === selected.policyCommand.switch,
-      ) ?? selected
-    : null;
-  const evaluatedGimmick = gimmick
-    ? evaluationByCommand.get(
-        simpleCommandKey({ move: gimmickMove?.slot, gimmick }),
-      )
-    : null;
-  return {
-    ...heuristicDecision,
-    command: selected.policyCommand,
-    selectedMove,
-    selectedSwitch,
-    moveCandidates: enrichedMoveCandidates,
-    switchCandidates: enrichedSwitchCandidates,
-    gimmickCandidate:
-      selected.policyKind === "gimmick" && gimmickCandidate
-        ? {
-            ...gimmickCandidate,
-            oneTurnEvaluation:
-              evaluatedGimmick?.oneTurnEvaluation ??
-              gimmickCandidate.oneTurnEvaluation,
-            winRateSimulation: evaluatedGimmick?.winRateSimulation,
-          }
-        : null,
-    diagnostics: {
-      ...heuristicDecision.diagnostics,
-      selectionSource: policyOverride
-        ? "win-probability-simulated"
-        : heuristicDecision.diagnostics.selectionSource,
-      policy: "win-probability-simulated",
-      policyOverride,
-      minimumGain: 0.02,
-      simulationNodes: context.searchNodes,
-      simulationFailures: context.searchFailures,
-      simulationCacheHits: context.cacheHits,
-      simulationBudget: context.maxNodes,
-      simulationBudgetExhausted: context.budgetExhausted,
-      simulationElapsedMs: Math.round(
-        ((typeof performance !== "undefined"
-          ? performance.now()
-          : Date.now()) -
-          searchStartedAt) *
-          100,
-      ) / 100,
-      ownCandidateCount: ownCandidates.length,
-      opponentCandidateCount: opponentCandidates.length,
-      opponentDistribution: opponentDistribution.map((entry) => ({
-        id: entry.candidate.id,
-        command: structuredClone(entry.candidate.policyCommand),
-        probability: roundedSearchProbability(entry.probability),
-      })),
-      heuristicAction: evaluatedHeuristic
-        ? {
-            kind: evaluatedHeuristic.policyKind,
-            id: evaluatedHeuristic.id,
-            slot: evaluatedHeuristic.slot,
-            winProbabilityAfter: heuristicWinProbability,
-          }
-        : null,
-      probabilityAction: {
-        kind: selected.policyKind,
-        id: selected.id,
-        slot: selected.slot,
-        winProbabilityAfter: selectedWinProbability,
-      },
-      probabilityGain:
-        Number.isFinite(heuristicWinProbability) &&
-        Number.isFinite(selectedWinProbability)
-          ? Math.round(
-              (selectedWinProbability - heuristicWinProbability) * 10_000,
-            ) / 10_000
-          : null,
-    },
-  };
-}
 
 function simpleSearchPolicyCandidates({
   moveCandidates = [],
@@ -16814,114 +16512,6 @@ function simpleSearchPolicyCandidates({
   );
 }
 
-function boundedSearchCandidates(candidates, selectedCommand, limit) {
-  const bounded = candidates.slice(0, limit);
-  const selectedKey = simpleCommandKey(selectedCommand);
-  const selected = candidates.find(
-    (candidate) => simpleCommandKey(candidate.policyCommand) === selectedKey,
-  );
-  if (
-    selected &&
-    !bounded.some(
-      (candidate) =>
-        simpleCommandKey(candidate.policyCommand) === selectedKey,
-    )
-  ) {
-    bounded[bounded.length - 1] = selected;
-  }
-  return bounded;
-}
-
-function simpleSearchActionDistribution(candidates, temperature = 70) {
-  if (candidates.length === 0) return [];
-  const maximum = Math.max(
-    ...candidates.map((candidate) => Number(candidate.score ?? 0)),
-  );
-  const weighted = candidates.map((candidate) => ({
-    candidate,
-    weight: Math.exp(
-      Math.max(
-        -20,
-        (Number(candidate.score ?? 0) - maximum) /
-          Math.max(1, temperature),
-      ),
-    ),
-  }));
-  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-  return weighted.map((entry) => ({
-    ...entry,
-    probability: total > 0 ? entry.weight / total : 1 / weighted.length,
-  }));
-}
-
-function roundedSearchProbability(value) {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue)
-    ? Math.round(numericValue * 10_000) / 10_000
-    : null;
-}
-
-const SIMPLE_SEARCH_TRANSITION_CACHE_LIMIT = 512;
-const SIMPLE_SEARCH_TRANSITION_CACHE = new Map();
-const SIMPLE_SEARCH_STATE_HASH_CACHE = new WeakMap();
-
-function simpleSearchStateHash(state) {
-  const cached = SIMPLE_SEARCH_STATE_HASH_CACHE.get(state);
-  if (cached) return cached;
-  const searchState = { ...state };
-  delete searchState.aiTrace;
-  delete searchState.turnSnapshots;
-  const hash = JSON.stringify(searchState);
-  SIMPLE_SEARCH_STATE_HASH_CACHE.set(state, hash);
-  return hash;
-}
-
-function simpleSearchTransitionKey(state, commands) {
-  return `${simpleSearchStateHash(state)}|${commands
-    .map((command) => simpleCommandKey(command))
-    .join("|")}`;
-}
-
-function cachedSimpleSearchTransition(context, state, commands) {
-  const key = simpleSearchTransitionKey(state, commands);
-  const cached = SIMPLE_SEARCH_TRANSITION_CACHE.get(key);
-  if (cached) {
-    SIMPLE_SEARCH_TRANSITION_CACHE.delete(key);
-    SIMPLE_SEARCH_TRANSITION_CACHE.set(key, cached);
-    context.cacheHits += 1;
-    return cached;
-  }
-  if (context.searchNodes >= context.maxNodes) {
-    context.budgetExhausted = true;
-    return null;
-  }
-  const nextState = simulateSimpleTurn(state, commands, {
-    historyTurns: 1,
-    suppressRandomSecondaries: true,
-  });
-  context.searchNodes += 1;
-  SIMPLE_SEARCH_TRANSITION_CACHE.set(key, nextState);
-  if (SIMPLE_SEARCH_TRANSITION_CACHE.size > SIMPLE_SEARCH_TRANSITION_CACHE_LIMIT) {
-    const oldestKey = SIMPLE_SEARCH_TRANSITION_CACHE.keys().next().value;
-    SIMPLE_SEARCH_TRANSITION_CACHE.delete(oldestKey);
-  }
-  return nextState;
-}
-
-function searchCandidatesFromDecision(decision, limit) {
-  return boundedSearchCandidates(
-    simpleSearchPolicyCandidates({
-      moveCandidates: decision.moveCandidates,
-      switchCandidates: decision.switchCandidates,
-      gimmick: decision.command.gimmick ?? null,
-      gimmickMove: decision.command.gimmick
-        ? decision.selectedMove
-        : null,
-    }),
-    decision.command,
-    limit,
-  );
-}
 
 function simpleSearchWinProbability(state, sideIndex) {
   return estimateBattleWinProbability(
@@ -16929,158 +16519,74 @@ function simpleSearchWinProbability(state, sideIndex) {
   ).probability;
 }
 
-function simpleSearchReliabilityPenalty(candidate) {
-  const successProbability = Math.max(
-    0,
-    Math.min(1, Number(candidate?.protectSuccessProbability ?? 1)),
-  );
-  return (1 - successProbability) * 0.18;
+
+
+
+function toSharedSearchAction(candidate) {
+  const sharedFinite = (value, fallback = 0) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  };
+  return {
+    id: simpleCommandKey(candidate.policyCommand),
+    kind: candidate.policyKind ?? "move",
+    score: sharedFinite(candidate.score),
+    successProbability: Math.max(
+      0,
+      Math.min(1, sharedFinite(candidate.protectSuccessProbability, 1)),
+    ),
+    expectedDamage: sharedFinite(candidate.expectedDamage),
+    nonConsecutive: NON_CONSECUTIVE_MOVES.has(cleanId(candidate.id)),
+    statusMove: candidate.category === "Status",
+    guaranteedKnockout: candidate.koChance === "guaranteed",
+    opponentKnockoutBeforeActionProbability: sharedFinite(
+      candidate.opponentKnockoutBeforeActionProbability,
+    ),
+    heuristicSelected: candidate.searchHeuristicSelected === true,
+  };
 }
 
-function evaluateSecondTurnSearch({
-  context,
+function sharedSearchPolicyRuntime({
   state,
   sideIndex,
   strategy,
   opponentStrategy,
-}) {
-  if (state.status !== "running") {
-    const probability = simpleSearchWinProbability(state, sideIndex);
-    return {
-      expectedWinProbability: probability,
-      worstWinProbability: probability,
-      searchValue: probability,
-      ownCommand: null,
-      opponentDistribution: [],
-      outcomes: [],
-    };
-  }
-  const opponentSide = sideIndex === 0 ? 1 : 0;
-  const ownDecision = chooseSimpleAiDecision(
-    state,
-    sideIndex,
-    "expert",
-    strategy,
-  );
-  const opponentDecision = chooseSimpleAiDecision(
-    state,
-    opponentSide,
-    "expert",
-    opponentStrategy,
-  );
-  const ownCandidates = searchCandidatesFromDecision(ownDecision, 2);
-  const opponentCandidates = searchCandidatesFromDecision(opponentDecision, 1);
-  const opponentDistribution =
-    simpleSearchActionDistribution(opponentCandidates);
-  const evaluations = [];
-
-  for (const ownCandidate of ownCandidates) {
-    const outcomes = [];
-    for (const opponentEntry of opponentDistribution) {
-      const commands =
-        sideIndex === 0
-          ? [
-              ownCandidate.policyCommand,
-              opponentEntry.candidate.policyCommand,
-            ]
-          : [
-              opponentEntry.candidate.policyCommand,
-              ownCandidate.policyCommand,
-            ];
-      try {
-        const nextState = cachedSimpleSearchTransition(context, state, commands);
-        if (!nextState) continue;
-        outcomes.push({
-          opponentCommand: opponentEntry.candidate.policyCommand,
-          opponentId: opponentEntry.candidate.id,
-          opponentProbability: opponentEntry.probability,
-          winProbability: simpleSearchWinProbability(nextState, sideIndex),
-        });
-      } catch {
-        context.searchFailures += 1;
-      }
-    }
-    if (outcomes.length === 0) continue;
-    const coveredProbability = outcomes.reduce(
-      (sum, outcome) => sum + outcome.opponentProbability,
-      0,
-    );
-    const reliabilityPenalty = simpleSearchReliabilityPenalty(ownCandidate);
-    const expectedWinProbability = Math.max(
-      0,
-      outcomes.reduce(
-        (sum, outcome) =>
-          sum + outcome.winProbability * outcome.opponentProbability,
-        0,
-      ) /
-        Math.max(Number.EPSILON, coveredProbability) -
-        reliabilityPenalty,
-    );
-    const worstWinProbability = Math.max(
-      0,
-      Math.min(...outcomes.map((outcome) => outcome.winProbability)) -
-        reliabilityPenalty,
-    );
-    evaluations.push({
-      ownCommand: ownCandidate.policyCommand,
-      ownId: ownCandidate.id,
-      expectedWinProbability,
-      worstWinProbability,
-      searchValue:
-        expectedWinProbability * 0.8 + worstWinProbability * 0.2,
-      outcomes,
-    });
-  }
-
-  evaluations.sort(
-    (left, right) =>
-      right.searchValue - left.searchValue ||
-      right.expectedWinProbability - left.expectedWinProbability,
-  );
-  const selected = evaluations[0];
-  return selected
-    ? {
-        ...selected,
-        opponentDistribution: opponentDistribution.map((entry) => ({
-          id: entry.candidate.id,
-          command: entry.candidate.policyCommand,
-          probability: entry.probability,
-        })),
-      }
-    : null;
-}
-
-function applyTwoTurnExpectimaxDecisionPolicy({
-  state,
-  sideIndex,
-  strategy,
-  opponentStrategy,
-  exactOpponentCommand = null,
-  heuristicDecision,
   moveCandidates,
   switchCandidates,
   itemCandidates,
   gimmick,
   gimmickMove,
-  gimmickCandidate,
-  lockedSelection,
-  maxNodes = 10,
+  heuristicDecision,
 }) {
-  const searchStartedAt =
-    typeof performance !== "undefined" ? performance.now() : Date.now();
-  if (lockedSelection) {
-    return {
-      ...heuristicDecision,
-      diagnostics: {
-        ...heuristicDecision.diagnostics,
-        policy: "expectimax-two-turn",
-        policyOverride: false,
-        searchSkipped: "locked-selection",
-      },
-    };
-  }
-
-  const ownCandidates = boundedSearchCandidates(
+  const searchStateJson = (value) => {
+    const searchable = { ...value };
+    delete searchable.aiTrace;
+    delete searchable.turnSnapshots;
+    return JSON.stringify(searchable);
+  };
+  const initialStateId = searchStateJson(state);
+  const states = new Map([[initialStateId, state]]);
+  const candidateCache = new Map();
+  const candidateById = new Map();
+  const stateFor = (stateId) => {
+    if (states.has(stateId)) return states.get(stateId);
+    try {
+      const restored = JSON.parse(stateId);
+      states.set(stateId, restored);
+      return restored;
+    } catch {
+      return null;
+    }
+  };
+  const markHeuristic = (candidates, command) => {
+    const selectedKey = simpleCommandKey(command);
+    return candidates.map((candidate) => ({
+      ...candidate,
+      searchHeuristicSelected:
+        simpleCommandKey(candidate.policyCommand) === selectedKey,
+    }));
+  };
+  const rootCandidates = markHeuristic(
     simpleSearchPolicyCandidates({
       moveCandidates,
       switchCandidates,
@@ -17089,430 +16595,318 @@ function applyTwoTurnExpectimaxDecisionPolicy({
       gimmickMove,
     }),
     heuristicDecision.command,
-    3,
   );
-  const opponentSide = sideIndex === 0 ? 1 : 0;
-  const opponentDecision = exactOpponentCommand
-    ? null
-    : chooseSimpleAiDecision(
-        state,
-        opponentSide,
+
+  const candidatesFor = (stateId, requestedSide) => {
+    const cacheKey = `${stateId}|${requestedSide}`;
+    if (candidateCache.has(cacheKey)) return candidateCache.get(cacheKey);
+    const currentState = stateFor(stateId);
+    if (!currentState) return [];
+    let candidates;
+    if (stateId === initialStateId && requestedSide === sideIndex) {
+      candidates = rootCandidates;
+    } else {
+      const decision = chooseSimpleAiDecision(
+        currentState,
+        requestedSide,
         "expert",
-        opponentStrategy ?? "balanced",
+        requestedSide === sideIndex
+          ? strategy
+          : opponentStrategy ?? "balanced",
       );
-  const opponentCandidates = exactOpponentCommand
-    ? [
-        {
-          id: `exact:${simpleCommandKey(exactOpponentCommand)}`,
-          type: Number.isInteger(exactOpponentCommand.switch)
-            ? "switch"
-            : "move",
-          score: 0,
-          policyCommand: structuredClone(exactOpponentCommand),
-        },
-      ]
-    : boundedSearchCandidates(
+      candidates = markHeuristic(
         simpleSearchPolicyCandidates({
-          moveCandidates: opponentDecision.moveCandidates,
-          switchCandidates: opponentDecision.switchCandidates,
-          itemCandidates: opponentDecision.itemCandidates,
-          gimmick: opponentDecision.command.gimmick ?? null,
-          gimmickMove: opponentDecision.command.gimmick
-            ? opponentDecision.selectedMove
+          moveCandidates: decision.moveCandidates,
+          switchCandidates: decision.switchCandidates,
+          itemCandidates:
+            stateId === initialStateId ? decision.itemCandidates : [],
+          gimmick: decision.command.gimmick ?? null,
+          gimmickMove: decision.command.gimmick
+            ? decision.selectedMove
             : null,
         }),
-        opponentDecision.command,
-        2,
+        decision.command,
       );
-  const opponentDistribution = exactOpponentCommand
-    ? [{ candidate: opponentCandidates[0], probability: 1 }]
-    : simpleSearchActionDistribution(opponentCandidates);
-  const evaluations = [];
-  const context = {
-    maxNodes,
-    searchNodes: 0,
-    searchFailures: 0,
-    cacheHits: 0,
-    budgetExhausted: false,
-    maxDepthReached: 1,
+    }
+    const byId = new Map(
+      candidates.map((candidate) => [
+        simpleCommandKey(candidate.policyCommand),
+        candidate,
+      ]),
+    );
+    candidateCache.set(cacheKey, candidates);
+    candidateById.set(cacheKey, byId);
+    return candidates;
   };
 
-  for (const ownCandidate of ownCandidates) {
-    const outcomes = [];
-    for (const opponentEntry of opponentDistribution) {
-      const commands =
-        sideIndex === 0
-          ? [
-              ownCandidate.policyCommand,
-              opponentEntry.candidate.policyCommand,
-            ]
-          : [
-              opponentEntry.candidate.policyCommand,
-              ownCandidate.policyCommand,
-            ];
-      try {
-        const nextState = cachedSimpleSearchTransition(
-          context,
-          state,
-          commands,
-        );
-        if (!nextState) continue;
-        const probability = simpleSearchWinProbability(nextState, sideIndex);
-        outcomes.push({
-          opponentCommand: opponentEntry.candidate.policyCommand,
-          opponentId: opponentEntry.candidate.id,
-          opponentProbability: opponentEntry.probability,
-          winProbability: probability,
-          evaluatedWinProbability: probability,
-          riskWinProbability: probability,
-          nextState,
-        });
-      } catch {
-        context.searchFailures += 1;
-      }
+  const candidateCallback = (stateId, requestedSide) =>
+    JSON.stringify(
+      candidatesFor(stateId, requestedSide).map(toSharedSearchAction),
+    );
+  const registerCandidate = (stateId, requestedSide, candidate) => {
+    const candidates = candidatesFor(stateId, requestedSide);
+    candidates.push(candidate);
+    candidateById
+      .get(`${stateId}|${requestedSide}`)
+      ?.set(simpleCommandKey(candidate.policyCommand), candidate);
+  };
+  const transitionCallback = (stateId, zeroActionId, oneActionId) => {
+    try {
+      candidatesFor(stateId, 0);
+      candidatesFor(stateId, 1);
+      const zero = candidateById.get(`${stateId}|0`)?.get(zeroActionId);
+      const one = candidateById.get(`${stateId}|1`)?.get(oneActionId);
+      if (!zero || !one) return null;
+      const nextState = simulateSimpleTurn(
+        stateFor(stateId),
+        [zero.policyCommand, one.policyCommand],
+        { historyTurns: 1, suppressRandomSecondaries: true },
+      );
+      const id = searchStateJson(nextState);
+      states.set(id, nextState);
+      return id;
+    } catch {
+      return null;
     }
-    if (outcomes.length === 0) continue;
-    const coveredProbability = outcomes.reduce(
-      (sum, outcome) => sum + outcome.opponentProbability,
-      0,
-    );
-    const reliabilityPenalty = simpleSearchReliabilityPenalty(ownCandidate);
-    const expectedWinProbability = Math.max(
-      0,
-      outcomes.reduce(
-        (sum, outcome) =>
-          sum +
-          outcome.evaluatedWinProbability * outcome.opponentProbability,
-        0,
-      ) /
-        Math.max(Number.EPSILON, coveredProbability) -
-        reliabilityPenalty,
-    );
-    const worstWinProbability = Math.max(
-      0,
-      Math.min(...outcomes.map((outcome) => outcome.riskWinProbability)) -
-        reliabilityPenalty,
-    );
-    const searchValue =
-      expectedWinProbability * 0.8 + worstWinProbability * 0.2;
-    evaluations.push({
-      ...ownCandidate,
-      rawOutcomes: outcomes,
-      searchEvaluation: {
-        expectedWinProbability:
-          roundedSearchProbability(expectedWinProbability),
-        worstWinProbability: roundedSearchProbability(worstWinProbability),
-        searchValue: roundedSearchProbability(searchValue),
-        outcomes: outcomes.map((outcome) => ({
-          opponentCommand: outcome.opponentCommand,
-          opponentId: outcome.opponentId,
-          opponentProbability: roundedSearchProbability(
-            outcome.opponentProbability,
-          ),
-          winProbability: roundedSearchProbability(outcome.winProbability),
-          evaluatedWinProbability: roundedSearchProbability(
-            outcome.evaluatedWinProbability,
-          ),
-          riskWinProbability: roundedSearchProbability(
-            outcome.riskWinProbability,
-          ),
-          continuation: outcome.continuation
-            ? {
-                ownCommand: outcome.continuation.ownCommand,
-                ownId: outcome.continuation.ownId,
-                expectedWinProbability: roundedSearchProbability(
-                  outcome.continuation.expectedWinProbability,
-                ),
-                worstWinProbability: roundedSearchProbability(
-                  outcome.continuation.worstWinProbability,
-                ),
-                searchValue: roundedSearchProbability(
-                  outcome.continuation.searchValue,
-                ),
-              }
-            : null,
-        })),
-      },
-    });
-  }
+  };
+  return {
+    rootCandidates,
+    initialStateId,
+    candidatesFor,
+    registerCandidate,
+    candidateCallback,
+    transitionCallback,
+    winProbabilityCallback: (stateId, requestedSide) =>
+      simpleSearchWinProbability(stateFor(stateId), requestedSide),
+    terminalCallback: (stateId) => stateFor(stateId)?.status !== "running",
+  };
+}
 
-  evaluations.sort(
-    (left, right) =>
-      Number(right.searchEvaluation.searchValue) -
-        Number(left.searchEvaluation.searchValue) ||
-      Number(right.score ?? 0) - Number(left.score ?? 0),
+function sharedEvaluationById(decision) {
+  return new Map(
+    (decision.evaluations ?? []).map((evaluation) => [
+      evaluation.action?.id,
+      evaluation,
+    ]),
   );
-  const preliminarySearchGap =
-    evaluations.length > 1
-      ? Number(evaluations[0].searchEvaluation.searchValue) -
-        Number(evaluations[1].searchEvaluation.searchValue)
-      : Infinity;
-  const continuationBeam =
-    preliminarySearchGap <= 0.04 ? evaluations.slice(0, 2) : [];
-  if (continuationBeam.length > 0) context.maxDepthReached = 2;
-  for (const candidate of continuationBeam) {
-    const beamOutcome = [...candidate.rawOutcomes].sort(
-      (left, right) =>
-        right.opponentProbability - left.opponentProbability ||
-        left.winProbability - right.winProbability,
-    )[0];
-    const continuation = evaluateSecondTurnSearch({
-      context,
-      state: beamOutcome.nextState,
-      sideIndex,
-      strategy,
-      opponentStrategy: opponentStrategy ?? "balanced",
-    });
-    if (continuation) {
-      const immediateWeight = 1 - SECOND_TURN_SEARCH_DISCOUNT;
-      beamOutcome.evaluatedWinProbability =
-        beamOutcome.winProbability * immediateWeight +
-        continuation.expectedWinProbability * SECOND_TURN_SEARCH_DISCOUNT;
-      beamOutcome.riskWinProbability =
-        beamOutcome.winProbability * immediateWeight +
-        continuation.worstWinProbability * SECOND_TURN_SEARCH_DISCOUNT;
-      beamOutcome.continuation = continuation;
-    }
-    const coveredProbability = candidate.rawOutcomes.reduce(
-      (sum, outcome) => sum + outcome.opponentProbability,
-      0,
-    );
-    const expectedWinProbability =
-      candidate.rawOutcomes.reduce(
-        (sum, outcome) =>
-          sum +
-          outcome.evaluatedWinProbability * outcome.opponentProbability,
-        0,
-      ) / Math.max(Number.EPSILON, coveredProbability);
-    const worstWinProbability = Math.min(
-      ...candidate.rawOutcomes.map((outcome) => outcome.riskWinProbability),
-    );
-    candidate.searchEvaluation = {
-      ...candidate.searchEvaluation,
-      expectedWinProbability:
-        roundedSearchProbability(expectedWinProbability),
-      worstWinProbability: roundedSearchProbability(worstWinProbability),
-      searchValue: roundedSearchProbability(
-        expectedWinProbability * 0.8 + worstWinProbability * 0.2,
-      ),
-      outcomes: candidate.rawOutcomes.map((outcome) => ({
-        opponentCommand: outcome.opponentCommand,
-        opponentId: outcome.opponentId,
-        opponentProbability: roundedSearchProbability(
-          outcome.opponentProbability,
-        ),
-        winProbability: roundedSearchProbability(outcome.winProbability),
-        evaluatedWinProbability: roundedSearchProbability(
-          outcome.evaluatedWinProbability,
-        ),
-        riskWinProbability: roundedSearchProbability(
-          outcome.riskWinProbability,
-        ),
-        continuation: outcome.continuation
-          ? {
-              ownCommand: outcome.continuation.ownCommand,
-              ownId: outcome.continuation.ownId,
-              expectedWinProbability: roundedSearchProbability(
-                outcome.continuation.expectedWinProbability,
-              ),
-              worstWinProbability: roundedSearchProbability(
-                outcome.continuation.worstWinProbability,
-              ),
-              searchValue: roundedSearchProbability(
-                outcome.continuation.searchValue,
-              ),
-            }
-          : null,
-      })),
-    };
-  }
-  evaluations.sort(
-    (left, right) =>
-      Number(right.searchEvaluation.searchValue) -
-        Number(left.searchEvaluation.searchValue) ||
-      Number(right.score ?? 0) - Number(left.score ?? 0),
+}
+
+function sharedSearchEvaluation(evaluation) {
+  if (!evaluation) return null;
+  return {
+    expectedWinProbability: evaluation.expectedWinProbability,
+    worstWinProbability: evaluation.worstWinProbability,
+    searchValue: evaluation.searchValue,
+    outcomes: (evaluation.outcomes ?? []).map((outcome) => ({
+      opponentCommand: JSON.parse(outcome.opponentAction.id),
+      opponentId: outcome.opponentAction.id,
+      opponentProbability: outcome.opponentProbability,
+      winProbability: outcome.winProbability,
+      evaluatedWinProbability: outcome.evaluatedWinProbability,
+      riskWinProbability: outcome.riskWinProbability,
+      continuation: outcome.continuation
+        ? {
+            ownCommand: outcome.continuation.action
+              ? JSON.parse(outcome.continuation.action.id)
+              : null,
+            ownId: outcome.continuation.action?.id ?? null,
+            expectedWinProbability:
+              outcome.continuation.expectedWinProbability,
+            worstWinProbability: outcome.continuation.worstWinProbability,
+            searchValue: outcome.continuation.searchValue,
+          }
+        : null,
+    })),
+  };
+}
+
+function applySharedSearchDecision({
+  policy,
+  sideIndex,
+  coreDecision,
+  runtime,
+  heuristicDecision,
+  moveCandidates,
+  switchCandidates,
+  gimmickCandidate,
+  maxNodes,
+  exactOpponentCommand,
+}) {
+  const selected = runtime.rootCandidates.find(
+    (candidate) =>
+      simpleCommandKey(candidate.policyCommand) === coreDecision.selected?.id,
   );
-  const initiallySelected = evaluations[0];
-  const immediateNonConsecutiveCandidate = evaluations
-    .filter(
-      (candidate) =>
-        candidate.policyKind === "move" &&
-        candidate.category !== "Status" &&
-        NON_CONSECUTIVE_MOVES.has(cleanId(candidate.id)),
-    )
-    .sort(
-      (left, right) =>
-        Number(right.expectedDamage ?? 0) -
-          Number(left.expectedDamage ?? 0) ||
-        Number(right.score ?? 0) - Number(left.score ?? 0),
-    )[0] ?? null;
-  const plannedContinuationMoves = (
-    initiallySelected?.searchEvaluation?.outcomes ?? []
-  )
-    .map((outcome) => outcome.continuation?.ownCommand?.move)
-    .filter(Number.isInteger);
-  const continuationDefersNonConsecutiveMove =
-    plannedContinuationMoves.length > 0 &&
-    plannedContinuationMoves.every(
-      (slot) => slot === immediateNonConsecutiveCandidate?.slot,
-    );
-  const selectedDamage = Number(initiallySelected?.expectedDamage ?? 0);
-  const nonConsecutiveDamage = Number(
-    immediateNonConsecutiveCandidate?.expectedDamage ?? 0,
-  );
-  const nonConsecutiveDamageLead =
-    nonConsecutiveDamage - selectedDamage;
-  const startsUsefulNonConsecutiveCycle =
-    nonConsecutiveDamageLead >= Math.max(8, selectedDamage * 0.08) &&
-    Number(
-      immediateNonConsecutiveCandidate?.opponentKnockoutBeforeActionProbability ??
-        0,
-    ) <=
-      Number(
-        initiallySelected?.opponentKnockoutBeforeActionProbability ?? 0,
-      ) +
-        0.05;
-  const deferredNonConsecutiveMove =
-    initiallySelected &&
-    immediateNonConsecutiveCandidate &&
-    initiallySelected.policyKind === "move" &&
-    initiallySelected.slot !== immediateNonConsecutiveCandidate.slot &&
-    initiallySelected.category !== "Status" &&
-    initiallySelected.koChance !== "guaranteed" &&
-    (continuationDefersNonConsecutiveMove ||
-      startsUsefulNonConsecutiveCycle);
-  const selected = deferredNonConsecutiveMove
-    ? immediateNonConsecutiveCandidate
-    : initiallySelected;
-  for (const candidate of evaluations) {
-    delete candidate.rawOutcomes;
-  }
   if (!selected) {
     return {
       ...heuristicDecision,
       diagnostics: {
         ...heuristicDecision.diagnostics,
-        policy: "expectimax-two-turn",
+        policy,
         policyOverride: false,
-        searchNodes: context.searchNodes,
-        searchFailures: context.searchFailures,
-        searchCacheHits: context.cacheHits,
-        searchBudget: context.maxNodes,
-        searchBudgetExhausted: context.budgetExhausted,
-        searchDepthTurns: context.maxDepthReached,
-        searchDepthLimit: 2,
-        preliminarySearchGap:
-          roundedSearchProbability(preliminarySearchGap),
-        continuationBeamCount: continuationBeam.length,
         searchSkipped: "no-valid-outcome",
       },
     };
   }
-
-  const evaluationByCommand = new Map(
-    evaluations.map((candidate) => [
-      simpleCommandKey(candidate.policyCommand),
-      candidate.searchEvaluation,
-    ]),
-  );
-  const enrichedMoveCandidates = moveCandidates.map((candidate) => ({
-    ...candidate,
-    searchEvaluation: evaluationByCommand.get(
-      simpleCommandKey({ move: candidate.slot }),
-    ),
-  }));
-  const enrichedSwitchCandidates = heuristicDecision.switchCandidates.map(
-    (candidate) => ({
+  const evaluationById = sharedEvaluationById(coreDecision);
+  const decorate = (candidate, command) => {
+    const evaluation = evaluationById.get(simpleCommandKey(command));
+    return {
       ...candidate,
-      searchEvaluation: evaluationByCommand.get(
-        simpleCommandKey({ switch: candidate.slot }),
-      ),
-    }),
+      ...(policy === "win-probability-simulated"
+        ? {
+            oneTurnEvaluation: evaluation
+              ? {
+                  qValue: evaluation.expectedWinProbability,
+                  winProbabilityAfter: evaluation.expectedWinProbability,
+                }
+              : candidate.oneTurnEvaluation,
+            winRateSimulation: evaluation
+              ? {
+                  expectedWinProbability: evaluation.expectedWinProbability,
+                  worstWinProbability: evaluation.worstWinProbability,
+                  outcomes: sharedSearchEvaluation(evaluation).outcomes,
+                }
+              : candidate.winRateSimulation,
+          }
+        : {
+            searchEvaluation:
+              sharedSearchEvaluation(evaluation) ?? candidate.searchEvaluation,
+          }),
+    };
+  };
+  const enrichedMoves = moveCandidates.map((candidate) =>
+    decorate(candidate, { move: candidate.slot }),
+  );
+  const enrichedSwitches = switchCandidates.map((candidate) =>
+    decorate(candidate, { switch: candidate.slot }),
   );
   const selectedIsSwitch = selected.policyKind === "switch";
-  const selectedMove = selectedIsSwitch
-    ? null
-    : enrichedMoveCandidates.find(
-        (candidate) => candidate.slot === selected.policyCommand.move,
-      ) ?? heuristicDecision.selectedMove;
+  const selectedIsItem = selected.policyKind === "item";
+  const selectedMove =
+    selectedIsSwitch || selectedIsItem
+      ? null
+      : enrichedMoves.find(
+          (candidate) => candidate.slot === selected.policyCommand.move,
+        ) ?? selected;
   const selectedSwitch = selectedIsSwitch
-    ? enrichedSwitchCandidates.find(
+    ? enrichedSwitches.find(
         (candidate) => candidate.slot === selected.policyCommand.switch,
       ) ?? selected
     : null;
-  const enrichedGimmickCandidate =
-    gimmickCandidate && gimmick && gimmickMove
-      ? {
-          ...gimmickCandidate,
-          searchEvaluation: evaluationByCommand.get(
-            simpleCommandKey({ move: gimmickMove.slot, gimmick }),
-          ),
-        }
-      : null;
-  const policyOverride =
-    simpleCommandKey(selected.policyCommand) !==
-    simpleCommandKey(heuristicDecision.command);
-
   return {
     ...heuristicDecision,
     command: selected.policyCommand,
     selectedMove,
     selectedSwitch,
-    moveCandidates: enrichedMoveCandidates,
-    switchCandidates: enrichedSwitchCandidates,
-    gimmickCandidate: enrichedGimmickCandidate,
+    selectedItem: selectedIsItem ? selected : null,
+    moveCandidates: enrichedMoves,
+    switchCandidates: enrichedSwitches,
+    gimmickCandidate:
+      selected.policyKind === "gimmick" ? gimmickCandidate : null,
     diagnostics: {
       ...heuristicDecision.diagnostics,
-      selectionSource: "expectimax-two-turn",
-      policy: "expectimax-two-turn",
-      policyOverride,
-      searchDepthTurns: context.maxDepthReached,
-      searchDepthLimit: 2,
-      searchNodes: context.searchNodes,
-      searchFailures: context.searchFailures,
-      searchCacheHits: context.cacheHits,
-      searchBudget: context.maxNodes,
-      searchBudgetExhausted: context.budgetExhausted,
-      preliminarySearchGap:
-        roundedSearchProbability(preliminarySearchGap),
-      continuationBeamCount: continuationBeam.length,
-      searchElapsedMs: Math.round(
-        ((typeof performance !== "undefined"
-          ? performance.now()
-          : Date.now()) -
-          searchStartedAt) *
-          100,
-      ) / 100,
-      ownCandidateCount: ownCandidates.length,
-      opponentCandidateCount: opponentCandidates.length,
-      exactOpponentCommand: exactOpponentCommand
-        ? structuredClone(exactOpponentCommand)
-        : null,
-      heuristicCommand: structuredClone(heuristicDecision.command),
+      selectionSource: coreDecision.policyOverride
+        ? policy
+        : heuristicDecision.diagnostics.selectionSource,
+      policy,
+      policyOverride: coreDecision.policyOverride,
+      searchNodes: coreDecision.visitedNodes,
+      simulationNodes: coreDecision.visitedNodes,
+      searchCacheHits: coreDecision.cacheHits,
+      simulationCacheHits: coreDecision.cacheHits,
+      searchBudget: maxNodes,
+      simulationBudget: maxNodes,
+      searchBudgetExhausted: coreDecision.budgetExhausted,
+      simulationBudgetExhausted: coreDecision.budgetExhausted,
+      searchDepthTurns: coreDecision.depthTurns,
+      searchDepthLimit: policy === "expectimax-two-turn" ? 2 : 1,
+      ownCandidateCount: runtime.rootCandidates.length,
+      opponentCandidateCount: exactOpponentCommand
+        ? 1
+        : runtime.candidatesFor(
+            runtime.initialStateId,
+            sideIndex === 0 ? 1 : 0,
+          ).length,
+      opponentDistribution: exactOpponentCommand
+        ? [
+            {
+              id: `exact:${simpleCommandKey(exactOpponentCommand)}`,
+              command: structuredClone(exactOpponentCommand),
+              probability: 1,
+            },
+          ]
+        : undefined,
       searchCommand: structuredClone(selected.policyCommand),
-      expectedWinProbability:
-        selected.searchEvaluation.expectedWinProbability,
-      worstWinProbability: selected.searchEvaluation.worstWinProbability,
-      searchValue: selected.searchEvaluation.searchValue,
-      nonConsecutiveDeferralGuard: deferredNonConsecutiveMove
-        ? {
-            deferredMove: initiallySelected.id,
-            selectedMove: selected.id,
-            reason:
-              startsUsefulNonConsecutiveCycle
-                ? "Using the stronger non-consecutive move now starts its cooldown cycle without losing the later use window."
-                : "The search continuation postponed the same non-consecutive move to the next turn.",
-            expectedDamageLead:
-              Math.round(nonConsecutiveDamageLead * 100) / 100,
-          }
-        : null,
-      opponentDistribution: opponentDistribution.map((entry) => ({
-        id: entry.candidate.id,
-        command: structuredClone(entry.candidate.policyCommand),
-        probability: roundedSearchProbability(entry.probability),
-      })),
     },
   };
+}
+
+function applySharedWinProbabilityDecisionPolicy(options) {
+  if (options.lockedSelection) return options.heuristicDecision;
+  const runtime = sharedSearchPolicyRuntime(options);
+  const decision = JSON.parse(
+    decideWinRateJson(
+      runtime.initialStateId,
+      options.sideIndex,
+      options.maxNodes ?? 8,
+      runtime.candidateCallback,
+      runtime.transitionCallback,
+      runtime.winProbabilityCallback,
+      runtime.terminalCallback,
+    ),
+  );
+  return applySharedSearchDecision({
+    policy: "win-probability-simulated",
+    coreDecision: decision,
+    runtime,
+    ...options,
+  });
+}
+
+function applySharedTwoTurnExpectimaxDecisionPolicy(options) {
+  if (options.lockedSelection) return options.heuristicDecision;
+  const runtime = sharedSearchPolicyRuntime(options);
+  let exactOpponentActionJson = null;
+  if (options.exactOpponentCommand) {
+    const exactCandidate = {
+      policyKind: Number.isInteger(options.exactOpponentCommand.switch)
+        ? "switch"
+        : "move",
+      policyCommand: options.exactOpponentCommand,
+      score: 0,
+    };
+    exactOpponentActionJson = JSON.stringify(
+      toSharedSearchAction(exactCandidate),
+    );
+    const opponentSide = options.sideIndex === 0 ? 1 : 0;
+    runtime.registerCandidate(runtime.initialStateId, opponentSide, exactCandidate);
+  }
+  let decision;
+  try {
+    decision = JSON.parse(
+      decideTwoTurnJson(
+        runtime.initialStateId,
+        options.sideIndex,
+        options.maxNodes ?? 10,
+        runtime.candidateCallback,
+        runtime.transitionCallback,
+        runtime.winProbabilityCallback,
+        runtime.terminalCallback,
+        exactOpponentActionJson,
+      ),
+    );
+  } catch (error) {
+    throw new Error(
+      `shared AI two-turn search failed: ${error?.message ?? String(error)}`,
+      { cause: error },
+    );
+  }
+  return applySharedSearchDecision({
+    policy: "expectimax-two-turn",
+    coreDecision: decision,
+    runtime,
+    ...options,
+  });
 }
 
 function trainerItemFutureMatchupValue(
@@ -18492,7 +17886,7 @@ export function chooseSimpleAiDecision(
     };
   }
   if (difficulty === "expert_search") {
-    return applyTwoTurnExpectimaxDecisionPolicy({
+    return applySharedTwoTurnExpectimaxDecisionPolicy({
       state,
       sideIndex,
       strategy,
@@ -18511,7 +17905,7 @@ export function chooseSimpleAiDecision(
   if (difficulty !== "expert_winrate") {
     return itemAwareHeuristicDecision;
   }
-  return applyWinProbabilityDecisionPolicy({
+  return applySharedWinProbabilityDecisionPolicy({
     state,
     sideIndex,
     opponentStrategy: options.opponentStrategy,
@@ -18606,7 +18000,7 @@ export function applySimpleCheaterKnowledge(
     "expert",
     strategy,
   );
-  const exactDecision = applyTwoTurnExpectimaxDecisionPolicy({
+  const exactDecision = applySharedTwoTurnExpectimaxDecisionPolicy({
     state,
     sideIndex,
     strategy,

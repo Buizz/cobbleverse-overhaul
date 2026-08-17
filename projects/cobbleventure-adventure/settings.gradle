@@ -9,3 +9,5 @@ plugins {
 }
 
 rootProject.name = 'cobbleventure-adventure'
+
+includeBuild('../cobbleventure-battle-ai')

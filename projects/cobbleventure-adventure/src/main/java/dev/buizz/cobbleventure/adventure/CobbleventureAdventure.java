@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.adventure;
 
+import dev.buizz.cobbleventure.adventure.battleai.CobbleventureBattleAIRegistration;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
@@ -36,6 +37,7 @@ public final class CobbleventureAdventure {
     private static volatile AdventureWorldContext worldContext = EMPTY_WORLD_CONTEXT;
 
     public CobbleventureAdventure() {
+        CobbleventureBattleAIRegistration.register();
         FieldMoveRidingAccess.register();
         WildSpawnLeveling.register();
         PokemonCenterDefeatReturn.register();

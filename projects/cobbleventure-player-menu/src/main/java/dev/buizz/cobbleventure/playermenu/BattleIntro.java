@@ -39,7 +39,8 @@ public final class BattleIntro {
     private static final Logger LOGGER = LogUtils.getLogger();
     static final int DURATION_TICKS = 56;
     static final double PROXIMITY_BATTLE_RANGE = 6.0D;
-    private static final double PROXIMITY_WARNING_RANGE = 8.0D;
+    private static final double PROXIMITY_WARNING_RANGE = 9.0D;
+    private static final double PROXIMITY_REGISTRATION_RANGE = 16.0D;
     private static final String NETWORK_VERSION = "1";
     private static final Map<UUID, PendingBattle> PENDING = new HashMap<>();
     private static final Map<ProximityKey, PendingProximityBattle> PROXIMITY_PENDING =
@@ -165,14 +166,15 @@ public final class BattleIntro {
         );
         PROXIMITY_PENDING.put(
             new ProximityKey(player.getUUID(), opponent.getUUID()),
-            new PendingProximityBattle(opponent, dialogueLabel, normalized)
+            new PendingProximityBattle(
+                opponent, encounterTrack, dialogueLabel, normalized
+            )
         );
         LOGGER.debug(
             "Registered proximity trainer encounter: npc={}, player={}",
             opponent.getUUID(), player.getGameProfile().getName()
         );
-        MusicPlayback.prepareEncounter(player, encounterTrack);
-        return warn(player, opponent);
+        return 1;
     }
 
     private static boolean prepareTrainerState(ServerPlayer player, Entity opponent) {
@@ -267,6 +269,7 @@ public final class BattleIntro {
                 )
                 || BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) {
                 pending.armed = false;
+                pending.warningActive = false;
                 continue;
             }
             if (!opponent.isAlive() || player.level() != opponent.level()) {
@@ -277,10 +280,24 @@ public final class BattleIntro {
             double dx = player.getX() - opponent.getX();
             double dz = player.getZ() - opponent.getZ();
             double horizontalDistanceSquared = dx * dx + dz * dz;
-            if (horizontalDistanceSquared > PROXIMITY_WARNING_RANGE * PROXIMITY_WARNING_RANGE) {
+            if (horizontalDistanceSquared
+                > PROXIMITY_REGISTRATION_RANGE * PROXIMITY_REGISTRATION_RANGE) {
                 proximityIterator.remove();
                 clearProximityFeedbackIfIdle(player);
                 continue;
+            }
+            if (horizontalDistanceSquared
+                > PROXIMITY_WARNING_RANGE * PROXIMITY_WARNING_RANGE) {
+                if (pending.warningActive) {
+                    pending.warningActive = false;
+                    clearProximityFeedbackIfIdle(player);
+                }
+                continue;
+            }
+            if (!pending.warningActive) {
+                pending.warningActive = true;
+                MusicPlayback.prepareEncounter(player, pending.encounterTrack);
+                warn(player, opponent);
             }
             if (!pending.armed) {
                 if (horizontalDistanceSquared
@@ -321,7 +338,10 @@ public final class BattleIntro {
         }
         if (!triggeredPlayers.isEmpty()) {
             PROXIMITY_PENDING.forEach((key, pending) -> {
-                if (triggeredPlayers.contains(key.playerId)) pending.armed = false;
+                if (triggeredPlayers.contains(key.playerId)) {
+                    pending.armed = false;
+                    pending.warningActive = false;
+                }
             });
         }
 
@@ -409,8 +429,9 @@ public final class BattleIntro {
     }
 
     private static boolean hasProximityPending(UUID playerId) {
-        return PROXIMITY_PENDING.keySet().stream().anyMatch(
-            key -> key.playerId.equals(playerId)
+        return PROXIMITY_PENDING.entrySet().stream().anyMatch(
+            entry -> entry.getKey().playerId.equals(playerId)
+                && entry.getValue().warningActive
         ) || DIALOGUE_PENDING.keySet().stream().anyMatch(
             key -> key.playerId.equals(playerId)
         );
@@ -456,14 +477,18 @@ public final class BattleIntro {
 
     private static final class PendingProximityBattle {
         private final Entity opponent;
+        private final String encounterTrack;
         private final String dialogueLabel;
         private final String battleCommand;
         private boolean armed = true;
+        private boolean warningActive;
 
         private PendingProximityBattle(
-            Entity opponent, String dialogueLabel, String battleCommand
+            Entity opponent, String encounterTrack,
+            String dialogueLabel, String battleCommand
         ) {
             this.opponent = opponent;
+            this.encounterTrack = encounterTrack;
             this.dialogueLabel = dialogueLabel;
             this.battleCommand = battleCommand;
         }

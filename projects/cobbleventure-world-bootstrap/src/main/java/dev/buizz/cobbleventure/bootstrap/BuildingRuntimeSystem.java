@@ -729,6 +729,14 @@ final class BuildingRuntimeSystem {
     }
 
     static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
+        if (!isNpcSeatBlock(level.getBlockState(position))
+            && !canNpcStandAt(level, position)) {
+            LOGGER.warn(
+                "Building NPC spawn position is obstructed: npc={}, position={}",
+                npcId, position
+            );
+            return false;
+        }
         UUID spawnedNpcId = UUID.randomUUID();
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         String preset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
@@ -818,6 +826,26 @@ final class BuildingRuntimeSystem {
             || path.equals("stool") || path.endsWith("_stool")
             || path.equals("seat") || path.endsWith("_seat")
             || path.equals("bench") || path.endsWith("_bench");
+    }
+
+    private static boolean canNpcStandAt(ServerLevel level, BlockPos feet) {
+        if (feet.getY() <= level.getMinBuildHeight()
+            || feet.getY() >= level.getMaxBuildHeight() - 1) {
+            return false;
+        }
+        BlockPos floor = feet.below();
+        BlockPos head = feet.above();
+        AABB npcBounds = new AABB(
+            feet.getX() + 0.15D, feet.getY(), feet.getZ() + 0.15D,
+            feet.getX() + 0.85D, feet.getY() + 1.9D, feet.getZ() + 0.85D
+        );
+        return !level.getBlockState(floor).getCollisionShape(level, floor).isEmpty()
+            && level.getFluidState(floor).isEmpty()
+            && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+            && level.getFluidState(feet).isEmpty()
+            && level.getBlockState(head).getCollisionShape(level, head).isEmpty()
+            && level.getFluidState(head).isEmpty()
+            && level.noCollision(npcBounds);
     }
 
     private static boolean seatNpc(ServerLevel level, Entity npc, BlockPos position) {

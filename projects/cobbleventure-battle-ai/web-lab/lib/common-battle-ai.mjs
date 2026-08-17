@@ -1,5 +1,6 @@
 import MOVE_ROLE_CATALOG from "../../data/ai/ai-move-role-classification.json" with { type: "json" };
 import POKEMON_ROLE_OVERRIDES from "../../data/ai/ai-pokemon-role-overrides.json" with { type: "json" };
+import { estimateWinProbabilityJson } from "./shared-ai-core.mjs";
 const DIFFICULTY_LABELS = {
   novice: "초급",
   standard: "보통",
@@ -1609,55 +1610,22 @@ function normalizedBattleValueSide(side = {}) {
 }
 
 export function evaluateBattleStateValue(state = {}) {
-  const own = normalizedBattleValueSide(state.own);
-  const opponent = normalizedBattleValueSide(state.opponent);
-  const fieldAdvantage = finiteNumber(state.fieldAdvantage, 0);
-  const ownAceAliveRatio = own.aceAliveCount / own.aceCandidateCount;
-  const opponentAceAliveRatio =
-    opponent.aceAliveCount / opponent.aceCandidateCount;
-  const ownAceHpRatio = own.aceHpRatio / own.aceCandidateCount;
-  const opponentAceHpRatio =
-    opponent.aceHpRatio / opponent.aceCandidateCount;
-  const components = {
-    pokemonCount: (own.livingCount - opponent.livingCount) * 70,
-    totalHp: (own.totalHpRatio - opponent.totalHpRatio) * 24,
-    aceSurvival:
-      (ownAceAliveRatio - opponentAceAliveRatio) * 54 +
-      (ownAceHpRatio - opponentAceHpRatio) * 84,
-    status:
-      (opponent.statusBurden - own.statusBurden) * 9,
-    boosts:
-      (own.positiveBoosts - opponent.positiveBoosts) * 7,
-    hazards:
-      (opponent.hazardLayers - own.hazardLayers) * 5,
-    gimmicks:
-      (own.gimmicksRemaining - opponent.gimmicksRemaining) * 4,
-    uniqueCounters:
-      (own.uniqueCountersAlive - opponent.uniqueCountersAlive) * 16,
-    matchupCoverage:
-      (own.matchupCoverage - opponent.matchupCoverage) * 36,
-    safeKoCoverage:
-      (own.safeKoCoverage - opponent.safeKoCoverage) * 22,
-    benchReadiness:
-      (own.benchReadiness - opponent.benchReadiness) * 16,
-    sweepPotential:
-      (own.sweepPotential - opponent.sweepPotential) * 22,
-    field: fieldAdvantage,
+  const sharedState = {
+    ...state,
+    own: normalizedBattleValueSide(state.own),
+    opponent: normalizedBattleValueSide(state.opponent),
+    fieldAdvantage: finiteNumber(state.fieldAdvantage, 0),
   };
-  const value =
-    Math.round(
-      Object.values(components).reduce(
-        (total, component) => total + component,
-        0,
-      ) * 100,
-    ) / 100;
+  const shared = JSON.parse(
+    estimateWinProbabilityJson(JSON.stringify(sharedState)),
+  );
   return {
-    value,
-    components,
+    value: shared.rawValue,
+    components: shared.components,
     state: {
-      own,
-      opponent,
-      fieldAdvantage,
+      own: shared.state.own,
+      opponent: shared.state.opponent,
+      fieldAdvantage: shared.state.fieldAdvantage,
       field: { ...(state.field ?? {}) },
     },
   };
@@ -1861,11 +1829,59 @@ function winEstimateFromEvaluation(state, evaluation, options = {}) {
 }
 
 export function estimateBattleWinProbability(state = {}, options = {}) {
-  return winEstimateFromEvaluation(
-    state,
-    evaluateBattleStateValue(state),
-    options,
+  const ownLiving = finiteNumber(state.own?.livingCount, 0);
+  const opponentLiving = finiteNumber(state.opponent?.livingCount, 0);
+  const terminal = ownLiving <= 0 || opponentLiving <= 0;
+  const suppliedConfidence = finiteNumber(
+    options.informationConfidence,
+    finiteNumber(state.informationConfidence),
   );
+  const informationConfidence = clampProbability(
+    suppliedConfidence ??
+      (terminal ? 1 : 0.45 + battleStateInformationCoverage(state) * 0.45),
+  );
+  const sharedState = {
+    ...state,
+    own: normalizedBattleValueSide(state.own),
+    opponent: normalizedBattleValueSide(state.opponent),
+    fieldAdvantage: finiteNumber(state.fieldAdvantage, 0),
+    informationConfidence,
+  };
+  const shared = JSON.parse(
+    estimateWinProbabilityJson(
+      JSON.stringify(sharedState),
+      finiteNumber(options.calibration?.intercept, 0),
+      finiteNumber(options.calibration?.slope, 1),
+    ),
+  );
+  return {
+    probability: shared.probability,
+    probabilityPercent: shared.probabilityPercent,
+    confidence: shared.confidence,
+    modelVersion: shared.modelVersion,
+    featureSchemaVersion: shared.featureSchemaVersion,
+    terminal: shared.terminal,
+    terminalOutcome: shared.terminalOutcome,
+    rawValue: shared.rawValue,
+    rawProbability: shared.rawProbability,
+    calibration: {
+      intercept: finiteNumber(options.calibration?.intercept, 0),
+      slope: finiteNumber(options.calibration?.slope, 1),
+    },
+    topFactors: shared.topFactors.map(({ component, contribution }) => ({
+      component,
+      label: WIN_PROBABILITY_COMPONENT_LABELS[component] ?? component,
+      contribution,
+      direction:
+        contribution > 0
+          ? "favorable"
+          : contribution < 0
+            ? "unfavorable"
+            : "neutral",
+      message: `${WIN_PROBABILITY_COMPONENT_LABELS[component] ?? component} 항목은 현재 승률을 ${contribution > 0 ? "높이는" : "낮추는"} 주요 요인입니다.`,
+    })),
+    components: shared.components,
+  };
 }
 
 function applyProjectedSideDelta(side, delta = {}) {

@@ -32,7 +32,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative bag storage, synchronization and item actions. */
 public final class BagNetwork {
-    private static final String VERSION = "6";
+    private static final String VERSION = "7";
     private static final int VANILLA_HOTBAR_SIZE = 9;
     private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(
         emptySnapshot(), emptyShortcuts(), 0L
@@ -62,13 +62,6 @@ public final class BagNetwork {
 
     public static void requestUse(boolean extended, int slot) {
         PacketDistributor.sendToServer(new UseItemPayload(extended, slot));
-    }
-
-    public static void requestMove(boolean sourceExtended, int sourceSlot,
-                                   boolean targetExtended, int targetSlot, boolean singleItem) {
-        PacketDistributor.sendToServer(new MoveItemPayload(
-            sourceExtended, sourceSlot, targetExtended, targetSlot, singleItem
-        ));
     }
 
     public static void requestShortcut(boolean extended, int slot, int shortcutSlot) {
@@ -105,7 +98,6 @@ public final class BagNetwork {
         registrar.playToClient(SnapshotPayload.TYPE, SnapshotPayload.STREAM_CODEC, BagNetwork::handleSnapshot);
         registrar.playToServer(UseItemPayload.TYPE, UseItemPayload.STREAM_CODEC, BagNetwork::handleUseItem);
         registrar.playToClient(ClientUsePayload.TYPE, ClientUsePayload.STREAM_CODEC, BagNetwork::handleClientUse);
-        registrar.playToServer(MoveItemPayload.TYPE, MoveItemPayload.STREAM_CODEC, BagNetwork::handleMoveItem);
         registrar.playToServer(ShortcutPayload.TYPE, ShortcutPayload.STREAM_CODEC, BagNetwork::handleShortcut);
         registrar.playToServer(UseShortcutPayload.TYPE, UseShortcutPayload.STREAM_CODEC, BagNetwork::handleUseShortcut);
         registrar.playToServer(UsePokenavPayload.TYPE, UsePokenavPayload.STREAM_CODEC, BagNetwork::handleUsePokenav);
@@ -151,47 +143,6 @@ public final class BagNetwork {
         PlayerMenuClient.previewBagItemUse(payload.stack());
     }
 
-    private static void handleMoveItem(MoveItemPayload payload, IPayloadContext context) {
-        if (!(context.player() instanceof ServerPlayer player)
-            || !validSlot(payload.sourceExtended(), payload.sourceSlot())
-            || !validSlot(payload.targetExtended(), payload.targetSlot())
-            || payload.sourceExtended() == payload.targetExtended() && payload.sourceSlot() == payload.targetSlot()) {
-            return;
-        }
-        NonNullList<ItemStack> storage = BagStorage.load(player);
-        ItemStack source = getStack(player, storage, payload.sourceExtended(), payload.sourceSlot());
-        ItemStack target = getStack(player, storage, payload.targetExtended(), payload.targetSlot());
-        if (source.isEmpty()) return;
-
-        if (payload.singleItem()) {
-            if (target.isEmpty()) {
-                setStack(player, storage, payload.targetExtended(), payload.targetSlot(), source.copyWithCount(1));
-                source.shrink(1);
-                setStack(player, storage, payload.sourceExtended(), payload.sourceSlot(), source);
-            } else if (ItemStack.isSameItemSameComponents(source, target) && target.getCount() < target.getMaxStackSize()) {
-                target.grow(1);
-                source.shrink(1);
-                setStack(player, storage, payload.sourceExtended(), payload.sourceSlot(), source);
-            } else {
-                return;
-            }
-        } else if (target.isEmpty()) {
-            setStack(player, storage, payload.targetExtended(), payload.targetSlot(), source);
-            setStack(player, storage, payload.sourceExtended(), payload.sourceSlot(), ItemStack.EMPTY);
-        } else if (ItemStack.isSameItemSameComponents(source, target)
-            && target.getCount() < target.getMaxStackSize()) {
-            int moved = Math.min(source.getCount(), target.getMaxStackSize() - target.getCount());
-            target.grow(moved);
-            source.shrink(moved);
-            setStack(player, storage, payload.sourceExtended(), payload.sourceSlot(), source);
-        } else {
-            setStack(player, storage, payload.sourceExtended(), payload.sourceSlot(), target);
-            setStack(player, storage, payload.targetExtended(), payload.targetSlot(), source);
-        }
-
-        finishMutation(player, storage, payload.sourceExtended() || payload.targetExtended());
-    }
-
     private static void handleShortcut(ShortcutPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)
             || !validSlot(payload.extended(), payload.slot())
@@ -212,9 +163,38 @@ public final class BagNetwork {
             BagConditionTracker.sync(player);
             NonNullList<ItemStack> storage = BagStorage.load(player);
             NonNullList<ItemStack> shortcuts = BagStorage.loadShortcuts(player);
-            if (!syncVanillaHotbarShortcuts(player, storage, shortcuts)) continue;
+            boolean changed = BagStorage.normalize(storage);
+            changed |= refillInventoryStacks(player.getInventory(), storage);
+            boolean shortcutsChanged = syncVanillaHotbarShortcuts(player, storage, shortcuts);
+            if (changed && !shortcutsChanged) {
+                BagStorage.save(player, storage);
+                markInventoryChanged(player);
+            }
+            if (!changed && !shortcutsChanged) continue;
             sync(player, storage);
         }
+    }
+
+    /** Keeps every existing vanilla inventory stack full whenever the extended bag has supplies. */
+    private static boolean refillInventoryStacks(Inventory inventory, List<ItemStack> storage) {
+        boolean changed = false;
+        for (int inventorySlot = 0; inventorySlot < 36; inventorySlot++) {
+            ItemStack target = inventory.getItem(inventorySlot);
+            if (target.isEmpty() || target.getCount() >= target.getMaxStackSize()) continue;
+            int needed = target.getMaxStackSize() - target.getCount();
+            for (int storageSlot = 0; storageSlot < storage.size() && needed > 0; storageSlot++) {
+                ItemStack supply = storage.get(storageSlot);
+                if (!ItemStack.isSameItemSameComponents(target, supply)) continue;
+                int moved = Math.min(needed, supply.getCount());
+                target.grow(moved);
+                supply.shrink(moved);
+                needed -= moved;
+                changed = true;
+                if (supply.isEmpty()) storage.set(storageSlot, ItemStack.EMPTY);
+            }
+        }
+        if (changed) BagStorage.normalize(storage);
+        return changed;
     }
 
     /** Mirrors shortcut slots 1-9 into Minecraft's real hotbar and keeps their stacks replenished. */
@@ -709,22 +689,6 @@ public final class BagNetwork {
                 (buffer, value) -> ItemStack.STREAM_CODEC.encode(buffer, value.stack),
                 buffer -> new ClientUsePayload(ItemStack.STREAM_CODEC.decode(buffer))
             );
-        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
-    }
-
-    public record MoveItemPayload(boolean sourceExtended, int sourceSlot, boolean targetExtended,
-                                  int targetSlot, boolean singleItem) implements CustomPacketPayload {
-        public static final Type<MoveItemPayload> TYPE = new Type<>(id("bag_move_item"));
-        public static final StreamCodec<RegistryFriendlyByteBuf, MoveItemPayload> STREAM_CODEC =
-            StreamCodec.ofMember(MoveItemPayload::write, MoveItemPayload::read);
-        private void write(RegistryFriendlyByteBuf buffer) {
-            buffer.writeBoolean(sourceExtended); buffer.writeVarInt(sourceSlot);
-            buffer.writeBoolean(targetExtended); buffer.writeVarInt(targetSlot); buffer.writeBoolean(singleItem);
-        }
-        private static MoveItemPayload read(RegistryFriendlyByteBuf buffer) {
-            return new MoveItemPayload(buffer.readBoolean(), buffer.readVarInt(), buffer.readBoolean(),
-                buffer.readVarInt(), buffer.readBoolean());
-        }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

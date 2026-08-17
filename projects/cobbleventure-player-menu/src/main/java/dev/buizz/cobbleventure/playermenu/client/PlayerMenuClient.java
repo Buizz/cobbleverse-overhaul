@@ -79,11 +79,6 @@ public final class PlayerMenuClient {
         }
     }
 
-    public static void moveBagItem(boolean sourceExtended, int sourceSlot,
-                                   boolean targetExtended, int targetSlot, boolean singleItem) {
-        BagNetwork.requestMove(sourceExtended, sourceSlot, targetExtended, targetSlot, singleItem);
-    }
-
     public static void assignBagItemToShortcut(boolean extended, int slot, int shortcutIndex) {
         BagNetwork.requestShortcut(extended, slot, shortcutIndex);
     }

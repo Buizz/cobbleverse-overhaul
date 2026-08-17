@@ -1,0 +1,35 @@
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+description = '웹 실험실과 Minecraft가 함께 실행하는 단일 전투 AI 코어'
+
+kotlin {
+    jvm {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+        }
+    }
+    js(IR) {
+        nodejs()
+        binaries.library()
+        generateTypeScriptDefinitions()
+        compilerOptions {
+            moduleKind = org.jetbrains.kotlin.gradle.dsl.JsModuleKind.MODULE_ES
+        }
+    }
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0'
+            }
+        }
+        commonTest {
+            dependencies {
+                implementation kotlin('test')
+            }
+        }
+    }
+}

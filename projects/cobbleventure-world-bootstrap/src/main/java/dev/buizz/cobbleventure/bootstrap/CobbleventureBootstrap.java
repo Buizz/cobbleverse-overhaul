@@ -182,6 +182,8 @@ public final class CobbleventureBootstrap {
     private static final int GYM_LOT_CLEARANCE = 6;
     private static final int GYM_LOT_SEARCH_RADIUS = 86;
     private static final int GYM_ROAD_SEARCH_RADIUS = 42;
+    private static final int REGIONAL_NPC_ENTRANCE_CLEARANCE = 12;
+    private static final int TOWN_NPC_ENTRANCE_CLEARANCE = 10;
     private static final ResourceLocation BCA_BERRY_TARGET =
         ResourceLocation.fromNamespaceAndPath("bca", "berry_plant");
     private static final int BCA_BERRY_VARIANT_LIMIT = 73;
@@ -538,8 +540,8 @@ public final class CobbleventureBootstrap {
             throw new IllegalStateException("Cobbleventure forests dimension is missing");
         }
         ForestDimensionGenerator.generate(forests, level.getSeed(), activeForestDocuments);
-        spawnForestNpcs(forests, activeForestDocuments);
         WorldGateSystem.placeForestDimensionGates(forests, runtime.hexWorld().gates());
+        spawnForestNpcs(forests, activeForestDocuments);
         if (!Boolean.getBoolean(TOWN_SEQUENCE_PERFORMANCE_TEST_PROPERTY)
             && !Boolean.getBoolean(HEX_WORLD_TEST_PROPERTY)) {
             GymInteriorSystem.initialize(event.getServer());
@@ -2797,6 +2799,9 @@ public final class CobbleventureBootstrap {
             if (insideAnyTownPlot(settlement, layout, x, z)) {
                 continue;
             }
+            if (isNearTownNpcEntrance(settlement, layout, x, z)) {
+                continue;
+            }
             BlockPos position = safeTeleportPosition(level, x, z);
             if (position != null && reservedPositions.stream().noneMatch(reserved -> {
                 int deltaX = reserved.getX() - position.getX();
@@ -2807,6 +2812,26 @@ public final class CobbleventureBootstrap {
             }
         }
         return null;
+    }
+
+    private static boolean isNearTownNpcEntrance(
+        SettlementPlan settlement, TownLayout layout, int x, int z
+    ) {
+        int clearanceSquared = TOWN_NPC_ENTRANCE_CLEARANCE
+            * TOWN_NPC_ENTRANCE_CLEARANCE;
+        for (Point exit : layout.externalExits()) {
+            int dx = x - settlement.center().x() - exit.x();
+            int dz = z - settlement.center().z() - exit.z();
+            if (dx * dx + dz * dz < clearanceSquared) return true;
+        }
+        for (List<TownRoad> roads : layout.buildingAccessRoads().values()) {
+            for (TownRoad road : roads) {
+                int dx = x - settlement.center().x() - road.x2();
+                int dz = z - settlement.center().z() - road.z2();
+                if (dx * dx + dz * dz < clearanceSquared) return true;
+            }
+        }
+        return false;
     }
 
     private static boolean insideAnyTownPlot(
@@ -7002,14 +7027,11 @@ public final class CobbleventureBootstrap {
         return activeCaveDocuments.entrySet().stream()
             .filter(entry -> {
                 JsonObject dimension = entry.getValue().getAsJsonObject("dimension");
-                JsonObject origin = dimension.getAsJsonObject("origin");
                 JsonObject bounds = dimension.getAsJsonObject("bounds");
-                int originX = origin.get("x").getAsInt();
-                int originZ = origin.get("z").getAsInt();
-                return x >= originX + bounds.get("min_x").getAsInt()
-                    && x <= originX + bounds.get("max_x").getAsInt()
-                    && z >= originZ + bounds.get("min_z").getAsInt()
-                    && z <= originZ + bounds.get("max_z").getAsInt();
+                return x >= bounds.get("min_x").getAsInt()
+                    && x <= bounds.get("max_x").getAsInt()
+                    && z >= bounds.get("min_z").getAsInt()
+                    && z <= bounds.get("max_z").getAsInt();
             })
             .map(Map.Entry::getKey)
             .findFirst()
@@ -7092,6 +7114,7 @@ public final class CobbleventureBootstrap {
 
     private static List<BlockPos> caveTrainerPositions(JsonObject cave) {
         List<BlockPos> result = new ArrayList<>();
+        List<BlockPos> entrances = caveEntrancePositions(cave);
         if (cave.has("generator")) {
             JsonObject generator = cave.getAsJsonObject("generator");
             if (generator.has("manual_layout")) {
@@ -7100,26 +7123,45 @@ public final class CobbleventureBootstrap {
                     for (JsonElement element : layout.getAsJsonArray("anchors")) {
                         JsonObject position = element.getAsJsonObject().getAsJsonObject("position");
                         for (int offset : new int[] {3, -3}) {
-                            result.add(new BlockPos(
+                            BlockPos candidate = new BlockPos(
                                 position.get("x").getAsInt() + offset,
                                 position.get("y").getAsInt() + 1,
                                 position.get("z").getAsInt()
-                            ));
+                            );
+                            if (!isNearRegionalEntrance(candidate, entrances)) {
+                                result.add(candidate);
+                            }
                         }
                     }
                 }
             }
         }
-        if (result.isEmpty() && cave.has("entrances")) {
-            for (JsonElement element : cave.getAsJsonArray("entrances")) {
-                JsonObject anchor = element.getAsJsonObject().getAsJsonObject("destination_anchor");
-                result.add(new BlockPos(
-                    anchor.get("x").getAsInt(), anchor.get("y").getAsInt(),
-                    anchor.get("z").getAsInt()
-                ));
-            }
+        return List.copyOf(result);
+    }
+
+    private static List<BlockPos> caveEntrancePositions(JsonObject cave) {
+        if (!cave.has("entrances")) return List.of();
+        List<BlockPos> result = new ArrayList<>();
+        for (JsonElement element : cave.getAsJsonArray("entrances")) {
+            JsonObject anchor = element.getAsJsonObject().getAsJsonObject("destination_anchor");
+            result.add(new BlockPos(
+                anchor.get("x").getAsInt(), anchor.get("y").getAsInt(),
+                anchor.get("z").getAsInt()
+            ));
         }
         return List.copyOf(result);
+    }
+
+    private static boolean isNearRegionalEntrance(
+        BlockPos candidate, List<BlockPos> entrances
+    ) {
+        int clearanceSquared = REGIONAL_NPC_ENTRANCE_CLEARANCE
+            * REGIONAL_NPC_ENTRANCE_CLEARANCE;
+        return entrances.stream().anyMatch(entrance -> {
+            int dx = candidate.getX() - entrance.getX();
+            int dz = candidate.getZ() - entrance.getZ();
+            return dx * dx + dz * dz < clearanceSquared;
+        });
     }
 
     private static void spawnForestNpcs(
@@ -7137,11 +7179,13 @@ public final class CobbleventureBootstrap {
             if (maximum == 0) continue;
             JsonObject origin = forest.getAsJsonObject("dimension").getAsJsonObject("origin");
             int originX = origin.get("x").getAsInt();
+            int originY = origin.get("y").getAsInt();
             int originZ = origin.get("z").getAsInt();
             Map<String, JsonObject> uniquePoints = new LinkedHashMap<>();
             for (JsonElement pathElement : forest.getAsJsonArray("paths")) {
                 for (JsonElement pointElement : pathElement.getAsJsonObject().getAsJsonArray("points")) {
                     JsonObject point = pointElement.getAsJsonObject();
+                    if (isNearForestEntrance(forest, point)) continue;
                     uniquePoints.putIfAbsent(
                         point.get("x").getAsInt() + "," + point.get("z").getAsInt(), point
                     );
@@ -7157,15 +7201,29 @@ public final class CobbleventureBootstrap {
                 JsonObject point = points.get(pointIndex);
                 int x = originX + point.get("x").getAsInt() + (index % 2 == 0 ? 2 : -2);
                 int z = originZ + point.get("z").getAsInt();
-                int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 if (spawnRegionalNpc(
-                    level, candidates.get(spawned), new BlockPos(x, y, z),
+                    level, candidates.get(spawned), new BlockPos(x, originY, z),
                     index % 2 == 0 ? 90.0F : -90.0F,
                     regionalTrigger(settings, candidates.get(spawned))
                 )) spawned++;
             }
             if (spawned > 0) LOGGER.info("Forest NPC placement completed: forest={}, spawned={}", entry.getKey(), spawned);
         }
+    }
+
+    private static boolean isNearForestEntrance(JsonObject forest, JsonObject point) {
+        if (!forest.has("entrances")) return false;
+        int x = point.get("x").getAsInt();
+        int z = point.get("z").getAsInt();
+        int clearanceSquared = REGIONAL_NPC_ENTRANCE_CLEARANCE
+            * REGIONAL_NPC_ENTRANCE_CLEARANCE;
+        for (JsonElement element : forest.getAsJsonArray("entrances")) {
+            JsonObject entrance = element.getAsJsonObject().getAsJsonObject("position");
+            int dx = x - entrance.get("x").getAsInt();
+            int dz = z - entrance.get("z").getAsInt();
+            if (dx * dx + dz * dz < clearanceSquared) return true;
+        }
+        return false;
     }
 
     private static String regionalTrigger(JsonObject settings, String trainerId) {
@@ -11796,11 +11854,36 @@ public final class CobbleventureBootstrap {
             RegionalTrainerPopulation population = route.trainerPopulation();
             int count = Math.min(population.count(), population.candidates().size());
             for (int index = 0; population.enabled() && index < count; index++) {
-                int progress = Math.round((index + 1) * 100.0F / (count + 1));
-                RouteNpcPoint point = routeNpcPoint(route.centerline(), progress);
+                int preferredProgress = Math.round((index + 1) * 100.0F / (count + 1));
+                RouteNpcPoint point = null;
+                int x = 0;
+                int z = 0;
                 double side = index % 2 == 0 ? 1.0D : -1.0D;
-                int x = (int) Math.round(point.x() + point.normalX() * 3.0D * side);
-                int z = (int) Math.round(point.z() + point.normalZ() * 3.0D * side);
+                for (int attempt = 0; attempt <= 18; attempt++) {
+                    int step = (attempt + 1) / 2 * 5;
+                    int progress = Math.max(5, Math.min(
+                        95, preferredProgress + (attempt % 2 == 0 ? -step : step)
+                    ));
+                    RouteNpcPoint candidate = routeNpcPoint(route.centerline(), progress);
+                    int candidateX = (int) Math.round(
+                        candidate.x() + candidate.normalX() * 3.0D * side
+                    );
+                    int candidateZ = (int) Math.round(
+                        candidate.z() + candidate.normalZ() * 3.0D * side
+                    );
+                    if (isRegionalEntranceHex(world, candidateX, candidateZ)) continue;
+                    point = candidate;
+                    x = candidateX;
+                    z = candidateZ;
+                    break;
+                }
+                if (point == null) {
+                    LOGGER.warn(
+                        "Route trainer has no position outside entrance tiles: route={}, npc={}",
+                        route.id(), population.candidates().get(index)
+                    );
+                    continue;
+                }
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 float yaw = (float) Math.toDegrees(Math.atan2(-point.tangentX(), point.tangentZ()));
                 if (spawnRegionalNpc(
@@ -11810,6 +11893,14 @@ public final class CobbleventureBootstrap {
             }
         }
         if (spawned > 0) LOGGER.info("Route NPC placement completed: spawned={}", spawned);
+    }
+
+    private static boolean isRegionalEntranceHex(HexWorldPlan world, int x, int z) {
+        HexCoord coordinate = world.grid().worldToHex(x + 0.5D, z + 0.5D);
+        return world.gates().stream().anyMatch(gate -> gate.anchor().equals(coordinate))
+            || world.caveEntrances().stream().anyMatch(
+                entrance -> entrance.anchor().equals(coordinate)
+            );
     }
 
     private static RouteNpcPoint routeNpcPoint(List<Point> centerline, int progressPercent) {
@@ -11923,14 +12014,17 @@ public final class CobbleventureBootstrap {
     }
 
     private static BlockPos findRegionalNpcPosition(ServerLevel level, BlockPos requested) {
-        for (int radius = 0; radius <= 5; radius++) {
-            for (int dx = -radius; dx <= radius; dx++) {
-                for (int dz = -radius; dz <= radius; dz++) {
-                    if (radius > 0 && Math.abs(dx) != radius && Math.abs(dz) != radius) continue;
-                    for (int vertical = 0; vertical <= 8; vertical++) {
-                        int[] offsets = vertical == 0
-                            ? new int[] {0} : new int[] {vertical, -vertical};
-                        for (int dy : offsets) {
+        for (int vertical = 0; vertical <= 8; vertical++) {
+            int[] offsets = vertical == 0
+                ? new int[] {0} : new int[] {vertical, -vertical};
+            for (int dy : offsets) {
+                for (int radius = 0; radius <= 5; radius++) {
+                    for (int dx = -radius; dx <= radius; dx++) {
+                        for (int dz = -radius; dz <= radius; dz++) {
+                            if (radius > 0 && Math.abs(dx) != radius
+                                && Math.abs(dz) != radius) {
+                                continue;
+                            }
                             BlockPos candidate = requested.offset(dx, dy, dz);
                             if (canRegionalNpcStandAt(level, candidate)
                                 && hasRegionalNpcExit(level, candidate)) {
@@ -11949,12 +12043,17 @@ public final class CobbleventureBootstrap {
             || feet.getY() >= level.getMaxBuildHeight() - 1) return false;
         BlockPos floor = feet.below();
         BlockPos head = feet.above();
+        AABB npcBounds = new AABB(
+            feet.getX() + 0.15D, feet.getY(), feet.getZ() + 0.15D,
+            feet.getX() + 0.85D, feet.getY() + 1.9D, feet.getZ() + 0.85D
+        );
         return !level.getBlockState(floor).getCollisionShape(level, floor).isEmpty()
             && level.getFluidState(floor).isEmpty()
             && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
             && level.getFluidState(feet).isEmpty()
             && level.getBlockState(head).getCollisionShape(level, head).isEmpty()
-            && level.getFluidState(head).isEmpty();
+            && level.getFluidState(head).isEmpty()
+            && level.noCollision(npcBounds);
     }
 
     private static boolean hasRegionalNpcExit(ServerLevel level, BlockPos feet) {

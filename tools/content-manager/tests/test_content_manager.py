@@ -1779,6 +1779,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("server.forceTimeSynchronization()", bootstrap)
         self.assertIn("ForestDimensionGenerator.generate", bootstrap)
         self.assertIn("WorldGateSystem.placeForestDimensionGates", bootstrap)
+        self.assertLess(
+            bootstrap.index("WorldGateSystem.placeForestDimensionGates(forests"),
+            bootstrap.index("spawnForestNpcs(forests"),
+        )
+        self.assertIn("level.noCollision(npcBounds)", bootstrap)
+        self.assertIn("isNearForestEntrance(forest, point)", bootstrap)
+        self.assertIn("isNearRegionalEntrance(candidate, entrances)", bootstrap)
+        self.assertIn("isRegionalEntranceHex(world, candidateX, candidateZ)", bootstrap)
+        self.assertIn("gate.anchor().equals(coordinate)", bootstrap)
+        self.assertIn("entrance.anchor().equals(coordinate)", bootstrap)
+        self.assertIn("isNearTownNpcEntrance(settlement, layout, x, z)", bootstrap)
         self.assertIn("getLevel(gate.forestDimension())", gates)
         self.assertIn("destinationLevel, x + 0.5D", gates)
         self.assertIn("safeForestStandY", gates)
@@ -3525,8 +3536,9 @@ class ContentManagerTests(unittest.TestCase):
             runtime = content_manager.load_json(
                 output / "cobbleventure" / "ai-profiles" / "ai_test.json"
             )
-            self.assertEqual("rct", rct["ai"]["type"])
-            self.assertEqual(0.15, rct["ai"]["data"]["maxSelectMargin"])
+            self.assertEqual("cobbleventure", rct["ai"]["type"])
+            self.assertEqual("standard", rct["ai"]["data"]["difficulty"])
+            self.assertEqual("balanced", rct["ai"]["data"]["strategy"])
             self.assertEqual("standard", runtime["difficulty"])
             self.assertEqual("balanced", runtime["strategy"])
 
@@ -3543,9 +3555,36 @@ class ContentManagerTests(unittest.TestCase):
         }
         rct = content_manager.export_rct_trainer(source)
         runtime = content_manager.export_ai_runtime_profile(source)
-        self.assertEqual("rct", rct["ai"]["type"])
-        self.assertEqual(0.0, rct["ai"]["data"]["maxSelectMargin"])
+        self.assertEqual("cobbleventure", rct["ai"]["type"])
+        self.assertEqual(0.35, rct["ai"]["data"]["cheatProbability"])
         self.assertEqual(0.35, runtime["options"]["cheatProbability"])
+
+    def test_enabled_battle_mechanics_are_exported_to_rct_pokemon_gimmicks(self) -> None:
+        root = PROJECT_ROOT
+        source = content_manager.load_json(
+            root / "content" / "battles" / "examples" / "ai_test.json"
+        )
+        source["battle"]["mechanics"].update({
+            "mega_evolution": True,
+            "z_move": True,
+            "dynamax": True,
+            "terastallization": True,
+        })
+        source["battle"]["team"][0]["gigantamax_factor"] = True
+
+        rct = content_manager.export_rct_trainer(source)
+
+        self.assertEqual({
+            "megaEvolution": True,
+            "zMove": True,
+            "dynamax": True,
+            "terastallization": True,
+        }, rct["ai"]["data"]["mechanics"])
+        self.assertEqual({
+            "tera": "auto",
+            "dynamax": True,
+            "gmax": True,
+        }, rct["team"][0]["gimmicks"])
 
     def test_create_document_writes_valid_template_and_rejects_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -4598,6 +4637,13 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual([], issues)
             self.assertTrue(content_manager._is_npc_seat_block("cobblefurnies:light_blue_chair"))
             self.assertFalse(content_manager._is_npc_seat_block("minecraft:oak_planks"))
+            runtime = (
+                CORE_ROOT
+                / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/BuildingRuntimeSystem.java"
+            ).read_text(encoding="utf-8")
+            self.assertIn("!isNpcSeatBlock(level.getBlockState(position))", runtime)
+            self.assertIn("canNpcStandAt(level, position)", runtime)
+            self.assertIn("level.noCollision(npcBounds)", runtime)
 
     def test_town_validation_rejects_more_indoor_npcs_than_building_slots(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

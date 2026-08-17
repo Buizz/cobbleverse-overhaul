@@ -48,7 +48,7 @@ final class BattleMovementBoundary {
         if (boundary == null || !boundary.battleId.equals(battle.getBattleId())) {
             BOUNDARIES.put(player.getUUID(), new Boundary(
                 battle.getBattleId(), player.serverLevel().dimension(),
-                player.position(), player.position(), player.getYRot(), player.getXRot()
+                player.position(), player.getYRot(), player.getXRot()
             ));
             return;
         }
@@ -60,15 +60,13 @@ final class BattleMovementBoundary {
         boolean outsideArena = dx * dx + dz * dz > HORIZONTAL_RADIUS_SQUARED
             || Math.abs(current.y - boundary.anchor.y) > VERTICAL_RADIUS;
         boolean teleported = !changedDimension
-            && current.distanceToSqr(boundary.lastSafePosition) > MAX_TICK_TRAVEL_SQUARED;
+            && current.distanceToSqr(boundary.previousPosition) > MAX_TICK_TRAVEL_SQUARED;
         if (changedDimension || outsideArena || teleported) {
             restore(player, server, boundary);
             warn(player, boundary);
             return;
         }
-        boundary.lastSafePosition = current;
-        boundary.yRot = player.getYRot();
-        boundary.xRot = player.getXRot();
+        boundary.previousPosition = current;
     }
 
     private static void onTeleport(EntityTeleportEvent event) {
@@ -92,9 +90,9 @@ final class BattleMovementBoundary {
         player.stopRiding();
         player.teleportTo(
             destination,
-            boundary.lastSafePosition.x,
-            boundary.lastSafePosition.y,
-            boundary.lastSafePosition.z,
+            boundary.anchor.x,
+            boundary.anchor.y,
+            boundary.anchor.z,
             boundary.yRot,
             boundary.xRot
         );
@@ -115,19 +113,19 @@ final class BattleMovementBoundary {
         private final UUID battleId;
         private final ResourceKey<Level> dimension;
         private final Vec3 anchor;
-        private Vec3 lastSafePosition;
-        private float yRot;
-        private float xRot;
+        private final float yRot;
+        private final float xRot;
+        private Vec3 previousPosition;
         private long nextMessageTick;
 
         private Boundary(
             UUID battleId, ResourceKey<Level> dimension, Vec3 anchor,
-            Vec3 lastSafePosition, float yRot, float xRot
+            float yRot, float xRot
         ) {
             this.battleId = battleId;
             this.dimension = dimension;
             this.anchor = anchor;
-            this.lastSafePosition = lastSafePosition;
+            this.previousPosition = anchor;
             this.yRot = yRot;
             this.xRot = xRot;
         }

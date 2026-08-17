@@ -20,7 +20,9 @@
 - [ ] 여러 팀 조합으로 학습한 보정 계수의 기본 모델 승격
 - [ ] `TeamPreviewValue` 구현
 - [x] 상대 행동 분포와 실제 1턴 상태를 포함한 기대 승률 `Q(s, a)` 계산
-- [ ] `expert_winrate`의 후보 선택 기준을 완전한 기대 승률로 전환
+- [x] `expert_winrate`의 후보 선택 기준을 완전한 기대 승률로 전환
+- [x] `heuristic-logistic-v3`와 1턴·2턴 탐색을 Kotlin Multiplatform `commonMain` 단일 구현으로 이전
+- [x] 웹 실험실은 Kotlin/JS, RCT 실제 행동 응답은 같은 코어의 JVM 변형에 연결
 
 현재 기준선 모델은 `heuristic-logistic-v3`다. 기존 상태 특징 점수를
 로지스틱 함수에 통과시켜 확률 범위로 정규화하며, 아직 실제 승패 데이터로

@@ -29,12 +29,12 @@
       "trainerIds": ["sv9-speed-offense", "champions-mega-raichu-x-rain"],
       "focus": ["weather", "switch", "speed-control"],
       "previousBaseline": {
-        "winnerTrainerId": "sv9-speed-offense",
-        "turns": 28
-      },
-      "baseline": {
         "winnerTrainerId": null,
         "turns": 29
+      },
+      "baseline": {
+        "winnerTrainerId": "sv9-speed-offense",
+        "turns": 26
       }
     },
     {
@@ -43,12 +43,12 @@
       "trainerIds": ["sv9-hazard-balance", "dbingsu-server-party"],
       "focus": ["hazard", "salt-cure", "long-game"],
       "previousBaseline": {
-        "winnerTrainerId": "dbingsu-server-party",
-        "turns": 19
-      },
-      "baseline": {
         "winnerTrainerId": "sv9-hazard-balance",
         "turns": 30
+      },
+      "baseline": {
+        "winnerTrainerId": "dbingsu-server-party",
+        "turns": 23
       }
     },
     {
@@ -58,11 +58,11 @@
       "focus": ["trick-room", "switch", "future-matchup"],
       "previousBaseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 21
+        "turns": 48
       },
       "baseline": {
         "winnerTrainerId": "dbingsu-server-party",
-        "turns": 48
+        "turns": 26
       }
     },
     {
@@ -72,11 +72,11 @@
       "focus": ["setup", "screens", "survival"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-screens-offense",
-        "turns": 24
+        "turns": 20
       },
       "baseline": {
         "winnerTrainerId": "sv9-screens-offense",
-        "turns": 20
+        "turns": 24
       }
     },
     {
@@ -86,11 +86,11 @@
       "focus": ["mega", "priority", "switch", "trick-room"],
       "previousBaseline": {
         "winnerTrainerId": "champions-mega-mawile-dual-mode",
-        "turns": 27
+        "turns": 37
       },
       "baseline": {
-        "winnerTrainerId": "champions-mega-mawile-dual-mode",
-        "turns": 37
+        "winnerTrainerId": "sv9-trick-room-balance",
+        "turns": 33
       }
     },
     {
@@ -100,11 +100,11 @@
       "focus": ["weather", "switch", "ace-preservation"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 36
+        "turns": 39
       },
       "baseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 39
+        "turns": 31
       }
     },
     {
@@ -114,11 +114,11 @@
       "focus": ["weather", "trick-room", "counter-switch"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 71
+        "turns": 65
       },
       "baseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 65
+        "turns": 73
       }
     },
     {
@@ -128,11 +128,11 @@
       "focus": ["salt-cure", "switch", "hazard"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 40
+        "turns": 19
       },
       "baseline": {
         "winnerTrainerId": "sv9-modern-bulky-offense",
-        "turns": 19
+        "turns": 22
       }
     },
     {
@@ -142,11 +142,11 @@
       "focus": ["weather", "trick-room", "gimmick", "switch"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 12
+        "turns": 14
       },
       "baseline": {
         "winnerTrainerId": "sv9-sand-balance",
-        "turns": 14
+        "turns": 15
       }
     }
   ]

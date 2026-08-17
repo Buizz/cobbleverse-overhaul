@@ -78,7 +78,6 @@ public final class BagScreen extends Screen {
     private int scrollRow;
     private int refreshTicks;
     private int statusTicks;
-    private BagSlotRef draggedSlot;
     private boolean scrollbarDragging;
     private boolean contentDragging;
     private double lastDragY;
@@ -217,13 +216,6 @@ public final class BagScreen extends Screen {
                 break;
             }
         }
-        if (draggedSlot != null && !draggedSlot.stack().isEmpty()) {
-            graphics.pose().pushPose();
-            graphics.pose().translate(0.0F, 0.0F, 300.0F);
-            graphics.renderItem(draggedSlot.stack(), mouseX - 8, mouseY - 8);
-            graphics.renderItemDecorations(font, draggedSlot.stack(), mouseX - 8, mouseY - 8);
-            graphics.pose().popPose();
-        }
     }
 
     @Override
@@ -248,7 +240,6 @@ public final class BagScreen extends Screen {
                     return true;
                 }
                 select(itemButton.slot);
-                if (!itemButton.slot.stack().isEmpty()) draggedSlot = itemButton.slot;
                 return true;
             }
         }
@@ -286,20 +277,6 @@ public final class BagScreen extends Screen {
         if (scrollbarDragging || contentDragging) {
             scrollbarDragging = false;
             contentDragging = false;
-            draggedSlot = null;
-            return true;
-        }
-        if (draggedSlot != null && (button == 0 || button == 1)) {
-            ItemSlotButton target = itemButtonAt(mouseX, mouseY);
-            if (target != null && target.slot != null
-                && !target.slot.samePosition(draggedSlot)) {
-                PlayerMenuClient.moveBagItem(
-                    draggedSlot.extended(), draggedSlot.slot(),
-                    target.slot.extended(), target.slot.slot(), button == 1
-                );
-            }
-            draggedSlot = null;
-            refreshTicks = 9;
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -897,8 +874,10 @@ public final class BagScreen extends Screen {
             }
             graphics.fill(getX() + 8, getY() + getHeight() - 1,
                 getX() + getWidth() - 8, getY() + getHeight(), SEPARATOR_COLOR);
-            graphics.drawCenteredString(font, font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6),
-                getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, text);
+            String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6);
+            graphics.drawString(font, label,
+                getX() + (getWidth() - font.width(label)) / 2,
+                getY() + (getHeight() - 8) / 2, text, false);
         }
 
         @Override

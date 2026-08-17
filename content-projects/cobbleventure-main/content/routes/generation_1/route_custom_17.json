@@ -3,8 +3,8 @@
   "schema_version": 1,
   "id": "cobbleventure:route/route_custom_17",
   "display_name": {
-    "ko_kr": "보라타운 북쪽 길",
-    "en_us": "보라타운 북쪽 길"
+    "ko_kr": "보라타운 - 돌산터널 길",
+    "en_us": "Lavender Town - Rock Tunnel Road"
   },
   "auto_name": true,
   "enabled": true,

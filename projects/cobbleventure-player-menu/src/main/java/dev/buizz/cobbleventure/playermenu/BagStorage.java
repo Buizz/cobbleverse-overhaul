@@ -1,6 +1,9 @@
 package dev.buizz.cobbleventure.playermenu;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -35,6 +38,7 @@ public final class BagStorage {
     }
 
     public static void save(ServerPlayer player, List<ItemStack> slots) {
+        normalize(slots);
         ListTag items = new ListTag();
         for (int slot = 0; slot < Math.min(SLOT_COUNT, slots.size()); slot++) {
             ItemStack stack = slots.get(slot);
@@ -111,5 +115,61 @@ public final class BagStorage {
             incoming.shrink(moved);
         }
         return originalCount - incoming.getCount();
+    }
+
+    /** Compacts equal stacks so every stack except the final remainder is full. */
+    public static boolean normalize(List<ItemStack> slots) {
+        List<StackGroup> groups = new ArrayList<>();
+        Map<Integer, List<Integer>> buckets = new HashMap<>();
+        for (ItemStack stack : slots) {
+            if (stack.isEmpty()) continue;
+            int hash = ItemStack.hashItemAndComponents(stack);
+            List<Integer> candidates = buckets.computeIfAbsent(hash, ignored -> new ArrayList<>());
+            StackGroup matched = null;
+            for (int candidate : candidates) {
+                StackGroup group = groups.get(candidate);
+                if (ItemStack.isSameItemSameComponents(group.prototype, stack)) {
+                    matched = group;
+                    break;
+                }
+            }
+            if (matched == null) {
+                candidates.add(groups.size());
+                groups.add(new StackGroup(stack.copyWithCount(1), stack.getCount()));
+            } else {
+                matched.count += stack.getCount();
+            }
+        }
+
+        List<ItemStack> normalized = new ArrayList<>(slots.size());
+        for (StackGroup group : groups) {
+            int remaining = group.count;
+            while (remaining > 0) {
+                int count = Math.min(remaining, group.prototype.getMaxStackSize());
+                normalized.add(group.prototype.copyWithCount(count));
+                remaining -= count;
+            }
+        }
+        while (normalized.size() < slots.size()) normalized.add(ItemStack.EMPTY);
+
+        boolean changed = false;
+        for (int slot = 0; slot < slots.size(); slot++) {
+            ItemStack before = slots.get(slot);
+            ItemStack after = normalized.get(slot);
+            if (before.getCount() != after.getCount()
+                || !ItemStack.isSameItemSameComponents(before, after)) changed = true;
+            slots.set(slot, after);
+        }
+        return changed;
+    }
+
+    private static final class StackGroup {
+        private final ItemStack prototype;
+        private int count;
+
+        private StackGroup(ItemStack prototype, int count) {
+            this.prototype = prototype;
+            this.count = count;
+        }
     }
 }

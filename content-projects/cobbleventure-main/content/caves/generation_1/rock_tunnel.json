@@ -1,0 +1,310 @@
+{
+  "$schema": "../../schemas/cave.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:cave/rock_tunnel",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "돌산터널",
+    "en_us": "Rock Tunnel"
+  },
+  "cave_type": "cobbleventure:cave_type/natural_rock",
+  "style": "rock",
+  "music_track": "kanto.mt_moon",
+  "dimension": {
+    "id": "cobbleventure:dungeons",
+    "region_id": "generation_1/rock_tunnel",
+    "origin": {
+      "x": 1024,
+      "y": 48,
+      "z": 64
+    },
+    "bounds": {
+      "min_x": 672,
+      "min_z": -32,
+      "max_x": 1376,
+      "max_z": 224
+    }
+  },
+  "generator": {
+    "layout": "natural_network",
+    "seed_salt": 1710,
+    "main_rooms": 7,
+    "branch_count": 3,
+    "loop_chance": 0.25,
+    "vertical_range": 24,
+    "room_radius": {
+      "min": 10,
+      "max": 25
+    },
+    "tunnel_radius": {
+      "min": 4,
+      "max": 7
+    },
+    "surface_roughness": 0.28,
+    "water_level": 34,
+    "water_depth": 5,
+    "grand_room_scale": 1.55,
+    "elevated_crossing": false,
+    "bridge_clearance": 12,
+    "path_types": [
+      {
+        "id": "natural",
+        "weight": 65,
+        "width": 5,
+        "floor": "natural"
+      },
+      {
+        "id": "rugged",
+        "weight": 25,
+        "width": 5,
+        "floor": "rugged"
+      },
+      {
+        "id": "worked",
+        "weight": 10,
+        "width": 5,
+        "floor": "worked"
+      }
+    ],
+    "decorations": {
+      "cluster_density": 0.9,
+      "patch_radius": {
+        "min": 2,
+        "max": 4
+      },
+      "dripstone_length": {
+        "min": 1,
+        "max": 3
+      },
+      "route_clearance": 5
+    },
+    "manual_layout": {
+      "enabled": true,
+      "anchors": [
+        {
+          "id": "cerulean_gallery",
+          "kind": "room",
+          "room_type": "rock",
+          "position": {
+            "x": 770,
+            "y": 46,
+            "z": 4
+          },
+          "radius_x": 22,
+          "radius_z": 17,
+          "height": 15
+        },
+        {
+          "id": "lower_passage",
+          "kind": "junction",
+          "room_type": "rock",
+          "position": {
+            "x": 900,
+            "y": 38,
+            "z": 42
+          },
+          "radius_x": 15,
+          "radius_z": 13,
+          "height": 12
+        },
+        {
+          "id": "echoing_cavern",
+          "kind": "grand",
+          "room_type": "rock",
+          "position": {
+            "x": 1030,
+            "y": 43,
+            "z": 88
+          },
+          "radius_x": 42,
+          "radius_z": 34,
+          "height": 30
+        },
+        {
+          "id": "upper_fork",
+          "kind": "junction",
+          "room_type": "rock",
+          "position": {
+            "x": 1165,
+            "y": 52,
+            "z": 126
+          },
+          "radius_x": 16,
+          "radius_z": 14,
+          "height": 13
+        },
+        {
+          "id": "lavender_gallery",
+          "kind": "room",
+          "room_type": "rock",
+          "position": {
+            "x": 1285,
+            "y": 46,
+            "z": 184
+          },
+          "radius_x": 21,
+          "radius_z": 17,
+          "height": 15
+        },
+        {
+          "id": "hidden_chamber",
+          "kind": "landmark",
+          "room_type": "rock",
+          "position": {
+            "x": 1060,
+            "y": 34,
+            "z": 170
+          },
+          "radius_x": 19,
+          "radius_z": 18,
+          "height": 16
+        }
+      ],
+      "connections": [
+        {
+          "id": "cerulean_entry",
+          "from": "cerulean",
+          "to": "cerulean_gallery",
+          "kind": "tunnel",
+          "path_type": "worked",
+          "width": 7
+        },
+        {
+          "id": "cerulean_descent",
+          "from": "cerulean_gallery",
+          "to": "lower_passage",
+          "kind": "stairs",
+          "path_type": "rugged",
+          "width": 6
+        },
+        {
+          "id": "lower_to_echoing",
+          "from": "lower_passage",
+          "to": "echoing_cavern",
+          "kind": "tunnel",
+          "path_type": "natural",
+          "width": 6
+        },
+        {
+          "id": "echoing_to_upper",
+          "from": "echoing_cavern",
+          "to": "upper_fork",
+          "kind": "stairs",
+          "path_type": "rugged",
+          "width": 6
+        },
+        {
+          "id": "upper_to_lavender",
+          "from": "upper_fork",
+          "to": "lavender_gallery",
+          "kind": "stairs",
+          "path_type": "worked",
+          "width": 6
+        },
+        {
+          "id": "lavender_exit",
+          "from": "lavender_gallery",
+          "to": "lavender",
+          "kind": "tunnel",
+          "path_type": "worked",
+          "width": 7
+        },
+        {
+          "id": "hidden_branch",
+          "from": "echoing_cavern",
+          "to": "hidden_chamber",
+          "kind": "stairs",
+          "path_type": "natural",
+          "width": 5
+        },
+        {
+          "id": "hidden_loop",
+          "from": "hidden_chamber",
+          "to": "upper_fork",
+          "kind": "stairs",
+          "path_type": "rugged",
+          "width": 5
+        }
+      ]
+    }
+  },
+  "requires_flash": true,
+  "random_encounters": {
+    "enabled": true,
+    "minimum_distance": 14,
+    "maximum_distance": 22,
+    "minimum_level": 16,
+    "maximum_level": 22,
+    "pokemon_biome": "minecraft:dripstone_caves",
+    "inherit_biome": true,
+    "excluded_species": [],
+    "additions": [
+      {
+        "species": "cobblemon:geodude",
+        "min_level": 16,
+        "max_level": 20
+      },
+      {
+        "species": "cobblemon:machop",
+        "min_level": 17,
+        "max_level": 21
+      },
+      {
+        "species": "cobblemon:onix",
+        "min_level": 18,
+        "max_level": 22
+      },
+      {
+        "species": "cobblemon:cubone",
+        "min_level": 17,
+        "max_level": 21
+      }
+    ],
+    "level_overrides": []
+  },
+  "trainer_settings": {
+    "enabled": true,
+    "max_active": 6,
+    "use_biome_defaults": true,
+    "direct_trainers": [
+      "cobbleventure:npc/sample_hiker_seok",
+      "cobbleventure:npc/sample_veteran_taeho"
+    ],
+    "trigger_override": "proximity",
+    "class_pool": [
+      "cobbleventure:trainer_class/hiker",
+      "cobbleventure:trainer_class/pokemaniac"
+    ],
+    "placements": []
+  },
+  "entrances": [
+    {
+      "id": "cerulean",
+      "display_name": "블루시티 방면 입구",
+      "destination_anchor": {
+        "x": 704,
+        "y": 48,
+        "z": 0
+      },
+      "fallback_anchor": {
+        "x": 712,
+        "y": 49,
+        "z": 0
+      }
+    },
+    {
+      "id": "lavender",
+      "display_name": "보라타운 방면 입구",
+      "destination_anchor": {
+        "x": 1344,
+        "y": 48,
+        "z": 192
+      },
+      "fallback_anchor": {
+        "x": 1336,
+        "y": 49,
+        "z": 192
+      }
+    }
+  ]
+}

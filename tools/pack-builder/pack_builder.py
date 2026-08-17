@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -66,6 +67,36 @@ def _png_dimensions(data: bytes, label: str) -> tuple[int, int]:
     if width < 400 or height < 400 or width != height:
         raise PackError(f"{label}은 400x400 이상의 정사각형 PNG여야 합니다: {width}x{height}")
     return width, height
+
+
+def _normalized_resource_pack(source: Path, pack_format: int) -> bytes:
+    try:
+        with zipfile.ZipFile(source) as archive:
+            names = archive.namelist()
+            if "pack.mcmeta" not in names or not any(
+                name.startswith("assets/") for name in names
+            ):
+                raise PackError(
+                    f"로컬 리소스팩 루트에 pack.mcmeta와 assets/가 필요합니다: {source}"
+                )
+            metadata = json.loads(archive.read("pack.mcmeta").decode("utf-8-sig"))
+            if not isinstance(metadata, dict) or not isinstance(metadata.get("pack"), dict):
+                raise PackError(f"로컬 리소스팩 pack.mcmeta 형식이 올바르지 않습니다: {source}")
+            metadata["pack"]["pack_format"] = pack_format
+            output = io.BytesIO()
+            with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as normalized:
+                for name in sorted(names):
+                    if name == "pack.mcmeta":
+                        normalized.writestr(
+                            _zip_info(name), _json_bytes(metadata)
+                        )
+                    elif name.endswith("/"):
+                        normalized.writestr(_zip_info(name, directory=True), b"")
+                    else:
+                        normalized.writestr(_zip_info(name), archive.read(name))
+            return output.getvalue()
+    except (OSError, zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PackError(f"로컬 리소스팩을 읽을 수 없습니다: {source}: {error}") from error
 
 
 def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
@@ -135,6 +166,39 @@ def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
     if output.suffix.lower() != ".zip":
         raise PackError("출력 파일 확장자는 .zip이어야 합니다.")
 
+    local_resourcepacks: list[tuple[Path, str, int]] = []
+    configured_resourcepacks = profile.get("local_resourcepacks", [])
+    if not isinstance(configured_resourcepacks, list):
+        raise PackError("$.local_resourcepacks는 배열이어야 합니다.")
+    seen_targets: set[str] = set()
+    local_assets = (root / "local-assets").resolve()
+    for index, configured in enumerate(configured_resourcepacks):
+        item_path = f"$.local_resourcepacks[{index}]"
+        if not isinstance(configured, dict):
+            raise PackError(f"{item_path}는 객체여야 합니다.")
+        source_value = _required_string(configured, "source", item_path)
+        target = _required_string(configured, "target", item_path)
+        if PurePosixPath(target).name != target or not target.lower().endswith(".zip"):
+            raise PackError(f"{item_path}.target은 경로 없는 ZIP 파일명이어야 합니다.")
+        target_key = target.casefold()
+        if target_key in seen_targets:
+            raise PackError(f"중복 로컬 리소스팩 대상 파일명: {target}")
+        seen_targets.add(target_key)
+        pack_format = configured.get("pack_format")
+        if not isinstance(pack_format, int) or isinstance(pack_format, bool) or pack_format < 1:
+            raise PackError(f"{item_path}.pack_format은 양의 정수여야 합니다.")
+        source = _inside(root, root / source_value, "로컬 리소스팩")
+        try:
+            source.relative_to(local_assets)
+        except ValueError as error:
+            raise PackError(
+                f"{item_path}.source는 local-assets 아래 파일이어야 합니다."
+            ) from error
+        if not source.is_file():
+            raise PackError(f"로컬 리소스팩 파일이 없습니다: {source}")
+        _normalized_resource_pack(source, pack_format)
+        local_resourcepacks.append((source, target, pack_format))
+
     icon = _inside(root, root / profile["icon"], "아이콘")
     if not icon.is_file():
         raise PackError(f"아이콘 파일이 없습니다: {icon}")
@@ -146,6 +210,7 @@ def load_profile(root: Path, profile_path: Path) -> dict[str, Any]:
     profile["_overrides_path"] = overrides
     profile["_output_path"] = output
     profile["_icon_path"] = icon
+    profile["_local_resourcepacks"] = local_resourcepacks
     return profile
 
 
@@ -234,6 +299,12 @@ def build_pack(root: Path, profile_path: Path) -> Path:
                 "overrides/cobbleventure-pack-info.json",
                 _json_bytes(pack_info),
             )
+            for source, target, pack_format in profile["_local_resourcepacks"]:
+                _write_bytes(
+                    archive,
+                    f"overrides/config/paxi/resourcepacks/{target}",
+                    _normalized_resource_pack(source, pack_format),
+                )
             for source in sorted(overrides.rglob("*")):
                 if source.is_symlink():
                     raise PackError(f"overrides에 심볼릭 링크를 사용할 수 없습니다: {source}")

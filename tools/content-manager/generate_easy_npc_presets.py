@@ -1018,7 +1018,7 @@ def encounter_preset_snbt(
                     "/cobbleventure_trainer_state prepare @npc-uuid @initiator"
                 )
                 + ',{Type:"OPEN_DEFAULT_DIALOG"}],'
-                + "ON_DISTANCE_CLOSE:["
+                + "ON_DISTANCE_NEAR:["
                 + command_action(
                     "/cobbleventure_proximity_battle @initiator @s "
                     + encounter_music_track(outfit, music_defaults)

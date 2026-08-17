@@ -1,5 +1,7 @@
 plugins {
     id 'base'
+    id 'org.jetbrains.kotlin.multiplatform' version '2.2.20' apply false
+    id 'org.jetbrains.kotlin.plugin.serialization' version '2.2.20' apply false
 }
 
 allprojects {
@@ -12,27 +14,31 @@ allprojects {
 }
 
 subprojects {
-    apply plugin: 'java-library'
+    if (name != 'shared-ai-core') {
+        apply plugin: 'java-library'
+    }
 
-    java {
-        toolchain {
-            languageVersion = JavaLanguageVersion.of(21)
+    plugins.withId('java-library') {
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(21)
+            }
+            withSourcesJar()
         }
-        withSourcesJar()
-    }
 
-    tasks.withType(JavaCompile).configureEach {
-        options.release = 21
-        options.encoding = 'UTF-8'
-    }
+        tasks.withType(JavaCompile).configureEach {
+            options.release = 21
+            options.encoding = 'UTF-8'
+        }
 
-    dependencies {
-        testImplementation platform('org.junit:junit-bom:5.10.3')
-        testImplementation 'org.junit.jupiter:junit-jupiter'
-        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    }
+        dependencies {
+            testImplementation platform('org.junit:junit-bom:5.10.3')
+            testImplementation 'org.junit.jupiter:junit-jupiter'
+            testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        }
 
-    test {
-        useJUnitPlatform()
+        test {
+            useJUnitPlatform()
+        }
     }
 }

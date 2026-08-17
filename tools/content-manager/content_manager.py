@@ -8265,7 +8265,10 @@ def _rct_stats(stats: Any) -> dict[str, int]:
     }
 
 
-def _rct_team_member(member: dict[str, Any]) -> dict[str, Any]:
+def _rct_team_member(
+    member: dict[str, Any], mechanics: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    mechanics = mechanics or {}
     result: dict[str, Any] = {
         "species": _short_resource_id(member.get("species")),
         "level": member.get("level"),
@@ -8293,36 +8296,40 @@ def _rct_team_member(member: dict[str, Any]) -> dict[str, Any]:
         result["heldItem"] = _short_resource_id(held_item)
     if member.get("shiny"):
         result["shiny"] = True
-    if member.get("gigantamax_factor"):
-        result["gmaxFactor"] = True
+    gimmicks: dict[str, Any] = {}
     tera_type = member.get("tera_type")
-    if isinstance(tera_type, str) and tera_type != "auto":
-        result["teraType"] = tera_type
+    if mechanics.get("terastallization") and isinstance(tera_type, str):
+        gimmicks["tera"] = tera_type
+    if mechanics.get("dynamax"):
+        gimmicks["dynamax"] = True
+        if member.get("gigantamax_factor"):
+            gimmicks["gmax"] = True
+    if gimmicks:
+        result["gimmicks"] = gimmicks
     return result
 
 
 def export_rct_trainer(document: dict[str, Any]) -> dict[str, Any]:
     battle = document["battle"]
     ai = battle["ai"]
-    # The Cobbleventure decision engine is still a platform-independent module
-    # and is not registered as an RCT AI type in Minecraft yet. Keep its full
-    # configuration in the separate runtime profile, while exporting a valid
-    # built-in RCT controller so generated trainers can battle in game today.
-    select_margin = {
-        "easy": 0.35,
-        "standard": 0.15,
-        "hard": 0.05,
-        "cheater": 0.0,
-    }.get(ai["difficulty"], 0.15)
+    mechanics = battle.get("mechanics", {})
     ai_data: dict[str, Any] = {
-        "maxSelectMargin": select_margin,
-        "canTera": bool(battle.get("mechanics", {}).get("terastallization")),
+        "difficulty": ai["difficulty"],
+        "strategy": ai["strategy"],
+        "mechanics": {
+            "megaEvolution": bool(mechanics.get("mega_evolution")),
+            "zMove": bool(mechanics.get("z_move")),
+            "dynamax": bool(mechanics.get("dynamax")),
+            "terastallization": bool(mechanics.get("terastallization")),
+        },
     }
+    if ai["difficulty"] == "cheater":
+        ai_data["cheatProbability"] = ai["options"]["cheat_probability"]
     result: dict[str, Any] = {
         "name": document.get("name", {}).get("ko_kr") or document["id"],
-        "ai": {"type": "rct", "data": ai_data},
+        "ai": {"type": ai["controller"], "data": ai_data},
         "team": [
-            _rct_team_member(member)
+            _rct_team_member(member, mechanics)
             for member in battle.get("team", [])
         ],
     }

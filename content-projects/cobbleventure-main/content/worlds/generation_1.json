@@ -2298,6 +2298,48 @@
         "snow_mountain": "cobbleventure:cave_entrance/snow_mountain"
       },
       "pokemon_center_enabled": true
+    },
+    {
+      "id": "cobbleventure:cave_entrance/rock_tunnel_cerulean",
+      "cave": "cobbleventure:cave/rock_tunnel",
+      "entrance": "cerulean",
+      "anchor": {
+        "q": 11,
+        "r": -2
+      },
+      "facing": "west",
+      "structure": "cobbleventure:cave_entrance/stone_mountain",
+      "structure_variants": {
+        "high_forest": "cobbleventure:cave_entrance/plains",
+        "desert": "cobbleventure:cave_entrance/red_rock_mountain",
+        "ocean": "cobbleventure:cave_entrance/ocean",
+        "deep_ocean": "cobbleventure:cave_entrance/ocean",
+        "stone_mountain": "cobbleventure:cave_entrance/stone_mountain",
+        "red_rock_mountain": "cobbleventure:cave_entrance/red_rock_mountain",
+        "snow_mountain": "cobbleventure:cave_entrance/snow_mountain"
+      },
+      "pokemon_center_enabled": true
+    },
+    {
+      "id": "cobbleventure:cave_entrance/rock_tunnel_lavender",
+      "cave": "cobbleventure:cave/rock_tunnel",
+      "entrance": "lavender",
+      "anchor": {
+        "q": 10,
+        "r": 0
+      },
+      "facing": "south",
+      "structure": "cobbleventure:cave_entrance/stone_mountain",
+      "structure_variants": {
+        "high_forest": "cobbleventure:cave_entrance/plains",
+        "desert": "cobbleventure:cave_entrance/red_rock_mountain",
+        "ocean": "cobbleventure:cave_entrance/ocean",
+        "deep_ocean": "cobbleventure:cave_entrance/ocean",
+        "stone_mountain": "cobbleventure:cave_entrance/stone_mountain",
+        "red_rock_mountain": "cobbleventure:cave_entrance/red_rock_mountain",
+        "snow_mountain": "cobbleventure:cave_entrance/snow_mountain"
+      },
+      "pokemon_center_enabled": true
     }
   ],
   "connections": [
@@ -3123,7 +3165,8 @@
       "surface_style": "road",
       "pathfinding": "explicit",
       "from": "cobbleventure:settlement/cerulean_city",
-      "display_name": "블루시티 동쪽 길"
+      "to": "cobbleventure:cave_entrance/rock_tunnel_cerulean",
+      "display_name": "블루시티 - 돌산터널 길"
     },
     {
       "id": "route_custom_17",
@@ -3157,7 +3200,8 @@
       "surface_style": "road",
       "pathfinding": "explicit",
       "from": "cobbleventure:settlement/lavender_town",
-      "display_name": "보라타운 북쪽 길"
+      "to": "cobbleventure:cave_entrance/rock_tunnel_lavender",
+      "display_name": "보라타운 - 돌산터널 길"
     },
     {
       "id": "route_custom_18",

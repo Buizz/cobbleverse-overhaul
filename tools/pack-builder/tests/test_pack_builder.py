@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import struct
 import sys
@@ -64,6 +65,14 @@ class PackBuilderTests(unittest.TestCase):
         profile_path.write_text(json.dumps(profile), encoding="utf-8")
         return profile_path.relative_to(root)
 
+    def _write_resource_pack(self, path: Path, pack_format: int = 4) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("pack.mcmeta", json.dumps({
+                "pack": {"pack_format": pack_format, "description": "Test font"}
+            }))
+            archive.writestr("assets/minecraft/font/default.json", "{}")
+
     def test_builds_and_validates_minimal_curseforge_zip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -112,6 +121,31 @@ class PackBuilderTests(unittest.TestCase):
             self._write_png(root / "pack" / "assets" / "icon.png", 399, 400)
             with self.assertRaises(pack_builder.PackError):
                 pack_builder.load_profile(root, profile_path)
+
+    def test_embeds_local_resource_pack_for_paxi_and_updates_pack_format(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            profile_path = self._fixture(root)
+            resource_pack = root / "local-assets" / "BaskinRobbins.zip"
+            self._write_resource_pack(resource_pack)
+            absolute_profile = root / profile_path
+            profile = json.loads(absolute_profile.read_text(encoding="utf-8"))
+            profile["local_resourcepacks"] = [{
+                "source": "local-assets/BaskinRobbins.zip",
+                "target": "BaskinRobbins.zip",
+                "pack_format": 34,
+            }]
+            absolute_profile.write_text(json.dumps(profile), encoding="utf-8")
+
+            output = pack_builder.build_pack(root, profile_path)
+            with zipfile.ZipFile(output) as modpack:
+                embedded = modpack.read(
+                    "overrides/config/paxi/resourcepacks/BaskinRobbins.zip"
+                )
+            with zipfile.ZipFile(io.BytesIO(embedded)) as resource:
+                metadata = json.loads(resource.read("pack.mcmeta"))
+                self.assertIn("assets/minecraft/font/default.json", resource.namelist())
+            self.assertEqual(34, metadata["pack"]["pack_format"])
 
 if __name__ == "__main__":
     unittest.main()
