@@ -16,5 +16,13 @@ final class StarterRouletteCommands {
                     .requires(source -> source.hasPermission(2))
                     .executes(context -> StarterRouletteNetwork.open(EntityArgument.getPlayer(context, "player"))))
         );
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_starter_state")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .executes(context -> StarterRouletteNetwork.syncState(
+                        EntityArgument.getPlayer(context, "player")
+                    )))
+        );
     }
 }

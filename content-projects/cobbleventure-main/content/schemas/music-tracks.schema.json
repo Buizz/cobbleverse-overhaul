@@ -49,7 +49,7 @@
     "defaults": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart", "battle", "gym"],
+      "required": ["tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart", "trainer_encounter_boy", "trainer_encounter_girl", "trainer_encounter_bad_guys", "battle", "gym", "victory_wild", "victory_trainer", "victory_gym"],
       "properties": {
         "tile": { "$ref": "#/$defs/trackId" },
         "road": { "$ref": "#/$defs/trackId" },
@@ -66,7 +66,10 @@
         "key_item_acquired": { "$ref": "#/$defs/trackId" },
         "machine_acquired": { "$ref": "#/$defs/trackId" },
         "battle": { "$ref": "#/$defs/trackId" },
-        "gym": { "$ref": "#/$defs/trackId" }
+        "gym": { "$ref": "#/$defs/trackId" },
+        "victory_wild": { "$ref": "#/$defs/trackId" },
+        "victory_trainer": { "$ref": "#/$defs/trackId" },
+        "victory_gym": { "$ref": "#/$defs/trackId" }
       }
     },
     "tracks": {
@@ -96,13 +99,13 @@
         "usage"
       ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "id": { "description": "콘텐츠의 모든 사용처가 저장하는 안정적인 음원 태그", "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "sound_event": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "resource": {
           "type": "string",
           "pattern": "^[a-z0-9_./-]+$"
         },
-        "source_file": { "type": "string", "pattern": "(?i)\\.ogg$" },
+        "source_file": { "description": "음원 태그가 가리키는 local-assets/music 기준 실제 OGG 경로", "type": "string", "pattern": "(?i)\\.ogg$" },
         "source_directory": {
           "type": "string",
           "pattern": "^local-assets/music(?:/[a-z0-9_.-]+)*$"

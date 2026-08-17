@@ -26,6 +26,13 @@ final class BattleOnlyPokeBallUse {
 
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.FAIL);
+        // A client may already have predicted PokeBallItem.use and reduced its
+        // hotbar stack. Send the authoritative inventory even though the server
+        // never consumed the item, so modded clients cannot remain desynchronised.
+        player.containerMenu.sendAllDataToRemote();
+        if (player.containerMenu != player.inventoryMenu) {
+            player.inventoryMenu.sendAllDataToRemote();
+        }
         player.displayClientMessage(Component.translatable(
             "message.cobbleventure_bootstrap.poke_ball_requires_battle"
         ), true);

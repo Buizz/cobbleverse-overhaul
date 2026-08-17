@@ -93,7 +93,8 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             "/cobbleventure_proximity_battle @initiator @s", proximity
         )
         self.assertIn(
-            "easy_npc dialog open @s @initiator greeting", proximity
+            "encounter.trainer_boy greeting cobbleventure_battle_intro",
+            proximity,
         )
         self.assertIn(
             'Label:"greeting",Name:"잠깐! 나는 배틀 연습 중인 AI 맨이야.',
@@ -140,6 +141,15 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertEqual("encounter.trainer_boy", generator.encounter_music_track(self.outfit))
         self.assertEqual("encounter.trainer_girl", generator.encounter_music_track(girl))
         self.assertEqual("encounter.trainer_bad_guys", generator.encounter_music_track(villain))
+        configured = {
+            "trainer_encounter_boy": "custom.encounter_boy",
+            "trainer_encounter_girl": "custom.encounter_girl",
+            "trainer_encounter_bad_guys": "custom.encounter_villain",
+        }
+        self.assertEqual(
+            "custom.encounter_girl",
+            generator.encounter_music_track(girl, configured),
+        )
 
     def test_encounter_uses_its_own_appearance_skin_and_arm_model(self) -> None:
         first = json.loads(json.dumps(self.document))
@@ -237,10 +247,26 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn('Label:"greeting_1"', preset)
         self.assertIn('Cmd:"greeting_2",Type:"OPEN_NAMED_DIALOG"', preset)
         self.assertIn(
-            'Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/starterroulette @initiator"',
+            'Cmd:"/cobbleventure_starter_state @initiator",Debug:1b,'
+            'ExecAsUser:0b,PermLevel:2,Type:"COMMAND"',
             preset,
         )
-        self.assertEqual(preset.count('/starterroulette @initiator'), 1)
+        self.assertIn('Label:"starter_received"', preset)
+        self.assertIn(
+            'Conditions:[{Name:"cv_starter_recv",Operation:"EQUALS",'
+            'Type:"SCOREBOARD",Value:1}]',
+            preset,
+        )
+        self.assertIn(
+            'Actions:[{Type:"CLOSE_DIALOG"},'
+            '{Cmd:"/execute as @initiator run starterroulette",Debug:1b,'
+            'ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}',
+            preset,
+        )
+        self.assertEqual(
+            preset.count('/execute as @initiator run starterroulette'), 1
+        )
+        self.assertNotIn('ExecAsUser:1b', preset)
 
     def test_npc_money_setting_overrides_legacy_event_money(self) -> None:
         commands = self.document["events"][0]["commands"]
@@ -300,6 +326,7 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         preset = generator.encounter_preset_snbt(self.document, self.outfit)
 
         self.assertIn('2:[\\"cobbledollars remove @1 250\\"', preset)
+        self.assertNotIn('matches ..-1 run scoreboard players set @1 cobbleventure_money 0', preset)
 
     def test_generates_progression_clear_scoreboard_command(self) -> None:
         commands = self.document["events"][0]["commands"]

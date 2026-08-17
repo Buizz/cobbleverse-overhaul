@@ -184,10 +184,11 @@ class ContentManagerTests(unittest.TestCase):
             )
 
             self.assertEqual(1, added)
-            self.assertEqual(2, len(catalog["tracks"]))
-            self.assertEqual(1, catalog["local_library"]["removed"])
+            self.assertEqual(3, len(catalog["tracks"]))
+            self.assertEqual(0, catalog["local_library"]["removed"])
+            self.assertEqual(1, catalog["local_library"]["missing_tracks"])
             self.assertEqual(
-                {"existing.ogg", "새 노래.ogg"},
+                {"existing.ogg", "새 노래.ogg", "deleted.ogg"},
                 {track["source_file"] for track in catalog["tracks"]},
             )
             added_track = next(
@@ -197,10 +198,7 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("새 노래", added_track["usage"])
             stored = json.loads(catalog_path.read_text(encoding="utf-8"))
             self.assertNotIn("local_library", stored)
-            self.assertEqual(
-                ["새 노래.ogg"],
-                [candidate["source_file"] for candidate in stored["review_candidates"]],
-            )
+            self.assertEqual(2, len(stored["review_candidates"]))
 
     def test_music_root_recursively_migrates_and_registers_nested_ogg_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -257,6 +255,33 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(0, catalog["local_library"]["migrated"])
             self.assertEqual(3, len(catalog["tracks"]))
 
+    def test_music_references_reject_paths_and_accept_tags_everywhere(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog = root / "content/catalogs/music-tracks.json"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text(
+                json.dumps({"tracks": [{"id": "battle.trainer"}]}),
+                encoding="utf-8",
+            )
+            cave = root / "content/caves/generation_1/test.json"
+            cave.parent.mkdir(parents=True)
+            cave.write_text(
+                json.dumps({"music_track": "music/Battle trainer.ogg"}),
+                encoding="utf-8",
+            )
+            forest = root / "content/forests/generation_1/test.json"
+            forest.parent.mkdir(parents=True)
+            forest.write_text(
+                json.dumps({"music_track": "battle.trainer"}),
+                encoding="utf-8",
+            )
+
+            issues = content_manager.validate_music_references(root)
+
+            self.assertEqual(1, len(issues))
+            self.assertIn("음원 경로를 직접 참조할 수 없습니다", issues[0].message)
+
     def test_cave_and_forest_music_settings_are_available(self) -> None:
         catalog = content_manager.load_json(
             PROJECT_ROOT / "content/catalogs/music-tracks.json"
@@ -280,6 +305,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(catalog["defaults"]["forest"], forest["music_track"])
         self.assertIn('<select name="cave"></select>', markup)
         self.assertIn('<select name="forest"></select>', markup)
+        self.assertIn('<select name="trainer_encounter_boy"></select>', markup)
+        self.assertIn('<select name="trainer_encounter_girl"></select>', markup)
+        self.assertIn('<select name="trainer_encounter_bad_guys"></select>', markup)
+        self.assertEqual(
+            "encounter.trainer_boy",
+            catalog["defaults"]["trainer_encounter_boy"],
+        )
         self.assertIn('musicOptions(document.music_track || "", "cave")', script)
         self.assertIn('musicOptions(document.music_track || "", "forest")', script)
 

@@ -4383,7 +4383,8 @@ def save_starter_settings(root: Path, data: Any) -> list[Issue]:
 
 MUSIC_CONTEXTS = (
     "tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart",
-    "battle", "gym",
+    "trainer_encounter_boy", "trainer_encounter_girl", "trainer_encounter_bad_guys",
+    "battle", "gym", "victory_wild", "victory_trainer", "victory_gym",
 )
 
 
@@ -4523,37 +4524,39 @@ def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[
     }
     additions: list[dict[str, str]] = []
     reconciled: list[dict[str, Any]] = []
-    reused = 0
+    retained_objects: set[int] = set()
+    available_sources: set[str] = set()
     for path in ogg_paths:
         relative = path.relative_to(source).as_posix()
+        available_sources.add(relative.casefold())
         existing = tracks_by_source.get(relative.casefold())
         if existing is not None:
             existing["source_file"] = relative
             existing.pop("source_directory", None)
             reconciled.append(existing)
-            reused += 1
+            retained_objects.add(id(existing))
             continue
         added = _automatic_music_track(relative, used_ids)
         additions.append(added)
         reconciled.append(added)
-    removed = max(0, len(tracks) - reused)
+        retained_objects.add(id(added))
+    # Tags are the stable public reference. Keep their path mapping even when the
+    # optional local audio folder is absent so a project can be shared without OGGs.
+    for track in tracks:
+        if not isinstance(track, dict) or not isinstance(track.get("source_file"), str):
+            continue
+        source_key = track["source_file"].replace("\\", "/").casefold()
+        if id(track) in retained_objects or tracks_by_source.get(source_key) is not track:
+            continue
+        reconciled.append(track)
+        retained_objects.add(id(track))
     catalog["tracks"] = reconciled
-    available_sources = {
-        track["source_file"].casefold() for track in reconciled
+    missing_tracks = sum(
+        1 for track in reconciled
         if isinstance(track.get("source_file"), str)
-    }
-    review_candidates = catalog.get("review_candidates", [])
-    removed_reviews = 0
-    if isinstance(review_candidates, list):
-        retained_reviews = [
-            candidate for candidate in review_candidates
-            if isinstance(candidate, dict)
-            and isinstance(candidate.get("source_file"), str)
-            and candidate["source_file"].replace("\\", "/").casefold() in available_sources
-        ]
-        removed_reviews = len(review_candidates) - len(retained_reviews)
-        catalog["review_candidates"] = retained_reviews
-    if additions or migrated or removed or removed_reviews:
+        and track["source_file"].replace("\\", "/").casefold() not in available_sources
+    )
+    if additions or migrated:
         temporary = catalog_path.with_suffix(".json.tmp")
         temporary.write_text(
             json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -4561,9 +4564,13 @@ def sync_local_music_catalog(project_root: Path, core_root: Path) -> tuple[dict[
         temporary.replace(catalog_path)
     catalog["local_library"] = {
         "directory": str(source),
-        "registered_ogg": len(reconciled),
+        "registered_ogg": len(ogg_paths),
+        "registered_tracks": len(reconciled),
+        "available_tracks": len(reconciled) - missing_tracks,
+        "missing_tracks": missing_tracks,
+        "files": [path.relative_to(source).as_posix() for path in ogg_paths],
         "added": len(additions),
-        "removed": removed,
+        "removed": 0,
         "migrated": migrated,
     }
     return catalog, len(additions)
@@ -4586,23 +4593,25 @@ def validate_music_references(root: Path) -> list[Issue]:
             for key, child in value.items():
                 child_path = f"{json_path}.{key}"
                 if key == "music_track" and child not in track_ids:
+                    message = (
+                        f"음원 경로를 직접 참조할 수 없습니다. 음원 태그를 사용하세요: {child}"
+                        if isinstance(child, str) and ("/" in child or "\\" in child or child.lower().endswith(".ogg"))
+                        else f"등록되지 않은 음원 태그입니다: {child}"
+                    )
                     _issue(
                         issues, "error", path, child_path,
-                        f"활성 음악 목록에 없는 음악 ID입니다: {child}",
+                        message,
                     )
                 inspect(child, path, child_path)
         elif isinstance(value, list):
             for index, child in enumerate(value):
                 inspect(child, path, f"{json_path}[{index}]")
 
-    candidates = [root / "content" / "catalogs" / "gyms.json"]
-    for directory in (
-        root / "content" / "worlds",
-        root / "content" / "settlements",
-        root / "content" / "battles",
-    ):
-        if directory.is_dir():
-            candidates.extend(sorted(directory.rglob("*.json")))
+    content_root = root / "content"
+    candidates = [
+        path for path in sorted(content_root.rglob("*.json"))
+        if "schemas" not in path.parts and path != catalog_path
+    ] if content_root.is_dir() else []
     for path in candidates:
         try:
             inspect(load_json(path), path)

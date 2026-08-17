@@ -41,7 +41,7 @@ const state = {
   leagueBattlePreset: null, leagueBattlePath: "", leagueBattleId: "", leagueBattleRequest: 0, teamEditorTarget: "#team-list",
   badgeCatalog: { schema_version: 1, badges: [], regions_without_gym_badges: [] },
   gameDefinitions: { schema_version: 1, items: [], variables: [] },
-  musicCatalog: { schema_version: 1, tracks: [], defaults: {} },
+  musicCatalog: { schema_version: 1, tracks: [], defaults: {} }, musicMappingTag: "",
   economy: { schema_version: 2, vanilla_crafting_disabled: true, standard_prices: [], shop_catalogs: [], vendor_units: [], pokemon_drop_rules: [], pokemon_drop_overrides: [], npc_recipes: [], resolved_shop_catalogs: [], resolved_vendor_units: [], resolved_standard_prices: [], resolved_pokemon_drops: [], editor_catalog: { items: [], species: [], filters: {} } },
   economyView: { catalogSearch: "", vendorSearch: "", selectedVendorId: "", selectedCatalogId: "", vendorProductGroup: "balls", vendorProductSearch: "", pokemonSearch: "", pokemonType: "", pokemonGeneration: "", pokemonLimit: 50 },
   structureBuilder: null,
@@ -260,7 +260,7 @@ function musicTrack(trackId) {
 
 function musicTrackLabel(trackId) {
   const track = musicTrack(trackId);
-  return track ? track.source_file : trackId || "미지정";
+  return track ? `[${track.id}] ${track.source_file}` : trackId || "미지정";
 }
 
 let musicComboboxRefreshPending = false;
@@ -434,22 +434,41 @@ function setMusicOverride(q, r, trackId) {
   if (trackId) state.worldLayout.music_overrides.push({ q, r, music_track: trackId });
 }
 
+const MUSIC_DEFAULT_CONTEXTS = [
+  "tile", "road", "settlement", "cave", "forest", "building",
+  "pokemon_center", "pokemart", "trainer_encounter_boy",
+  "trainer_encounter_girl", "trainer_encounter_bad_guys", "battle", "gym",
+  "victory_wild", "victory_trainer", "victory_gym",
+];
+
 function renderMusicSettings() {
   const form = $("#music-defaults-form");
   if (!form) return;
-  for (const context of ["tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart", "battle", "gym"]) {
+  for (const context of MUSIC_DEFAULT_CONTEXTS) {
     form.elements[context].innerHTML = musicOptions(state.musicCatalog.defaults?.[context] || "");
     form.elements[context].value = state.musicCatalog.defaults?.[context] || "";
   }
   const tracks = state.musicCatalog.tracks || [];
-  $("#music-track-count").textContent = `${tracks.length}곡`;
+  $("#music-track-count").textContent = `${tracks.length}개 태그`;
   const library = state.musicCatalog.local_library || {};
+  const availableFiles = new Set((library.files || []).map((path) => path.toLocaleLowerCase()));
+  const missingCount = tracks.filter((track) => !availableFiles.has(track.source_file.toLocaleLowerCase())).length;
   $("#music-library-path").textContent = library.directory
-    ? `${library.directory} · 현재 OGG ${library.registered_ogg ?? tracks.length}곡`
-    : "로컬 music 폴더의 OGG 파일을 자동으로 등록합니다. 리소스팩에는 실제 배정된 곡만 포함됩니다.";
+    ? `${library.directory} · 실제 OGG ${library.registered_ogg ?? 0}곡 · 태그 ${tracks.length}개 · 파일 없음 ${missingCount}개`
+    : "음원 태그가 실제 OGG 경로를 가리킵니다. 로컬 파일이 없어도 태그와 사용처 설정은 보존됩니다.";
+  if (!musicTrack(state.musicMappingTag)) state.musicMappingTag = tracks[0]?.id || "";
+  const mappingTag = $("#music-mapping-tag");
+  mappingTag.innerHTML = musicOptions(state.musicMappingTag);
+  mappingTag.value = state.musicMappingTag;
+  $("#music-mapping-paths").innerHTML = (library.files || []).map((path) => `<option value="${escapeHtml(path)}"></option>`).join("");
+  $("#music-mapping-path").value = musicTrack(state.musicMappingTag)?.source_file || "";
+  $("#apply-music-mapping").disabled = !tracks.length || !(library.files || []).length;
   $("#music-track-list").innerHTML = tracks.length
-    ? tracks.map((track) => `<div class="music-file-row"><span>${escapeHtml(track.source_file)}</span><small>OGG</small></div>`).join("")
-    : '<div class="issues empty">music 폴더에 OGG 음원이 없습니다.</div>';
+    ? tracks.map((track) => {
+      const available = availableFiles.has(track.source_file.toLocaleLowerCase());
+      return `<div class="music-file-row ${available ? "" : "is-missing"}"><code>${escapeHtml(track.id)}</code><span title="${escapeHtml(track.source_file)}">${escapeHtml(track.source_file)}</span><small>${available ? "연결됨" : "파일 없음"}</small></div>`;
+    }).join("")
+    : '<div class="issues empty">등록된 음원 태그가 없습니다.</div>';
   showIssues("#music-issues", { valid: true, issues: [] });
 }
 
@@ -470,12 +489,38 @@ async function refreshMusicLibrary() {
 async function saveMusicSettings() {
   const form = $("#music-defaults-form");
   state.musicCatalog.defaults = Object.fromEntries(
-    ["tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart", "battle", "gym"].map((context) => [context, form.elements[context].value])
+    MUSIC_DEFAULT_CONTEXTS.map((context) => [context, form.elements[context].value])
   );
   const result = await request("/api/music-catalog", { method: "PUT", body: JSON.stringify(state.musicCatalog) });
   showIssues("#music-issues", result.data);
-  toast(result.ok ? "상황별 기본 음악을 저장했습니다." : "음악 기본값을 확인해 주세요.");
+  toast(result.ok ? "음원 태그 매핑과 상황별 기본 음악을 저장했습니다." : "음원 설정을 확인해 주세요.");
   if (result.ok) renderMusicSettings();
+}
+
+function updateMusicMappingEditor() {
+  state.musicMappingTag = $("#music-mapping-tag").value;
+  $("#music-mapping-path").value = musicTrack(state.musicMappingTag)?.source_file || "";
+}
+
+function applyMusicMapping() {
+  const track = musicTrack($("#music-mapping-tag").value);
+  const nextPath = $("#music-mapping-path").value.trim().replaceAll("\\", "/");
+  const files = state.musicCatalog.local_library?.files || [];
+  const actualPath = files.find((path) => path.toLocaleLowerCase() === nextPath.toLocaleLowerCase());
+  if (!track || !actualPath) {
+    toast("music 폴더에 실제 존재하는 OGG 경로를 선택해 주세요.");
+    return;
+  }
+  if (track.source_file === actualPath) {
+    toast("이미 이 경로에 연결되어 있습니다.");
+    return;
+  }
+  const previousPath = track.source_file;
+  const other = (state.musicCatalog.tracks || []).find((candidate) => candidate !== track && candidate.source_file.toLocaleLowerCase() === actualPath.toLocaleLowerCase());
+  track.source_file = actualPath;
+  if (other) other.source_file = previousPath;
+  renderMusicSettings();
+  toast(other ? "두 음원 태그의 실제 경로를 교환했습니다." : "음원 태그에 새 실제 경로를 연결했습니다.");
 }
 
 const starterRegionNames = { 1: "관동", 2: "성도", 3: "호연", 4: "신오", 5: "하나", 6: "칼로스", 7: "알로라", 8: "가라르", 9: "팔데아" };
@@ -12067,6 +12112,8 @@ $("#add-game-variable").addEventListener("click", () => addGameDefinition("varia
 $("#save-game-definitions").addEventListener("click", saveGameDefinitions);
 $("#save-music-settings").addEventListener("click", saveMusicSettings);
 $("#refresh-music-library").addEventListener("click", refreshMusicLibrary);
+$("#music-mapping-tag").addEventListener("change", updateMusicMappingEditor);
+$("#apply-music-mapping").addEventListener("click", applyMusicMapping);
 $("#definitions").addEventListener("input", handleDefinitionInput);
 $("#definitions").addEventListener("change", handleDefinitionInput);
 $("#definitions").addEventListener("click", handleDefinitionClick);

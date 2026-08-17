@@ -57,6 +57,17 @@
           "name": "greeting"
         },
         {
+          "type": "branch",
+          "conditions": [
+            {
+              "type": "flag_equals",
+              "key": "cobbleventure:flag/story/starter_received",
+              "value": true
+            }
+          ],
+          "target": "starter_received"
+        },
+        {
           "type": "dialogue",
           "id": "greeting_1",
           "speaker": "npc",
@@ -76,6 +87,22 @@
         },
         {
           "type": "start_starter_roulette"
+        },
+        {
+          "type": "end"
+        },
+        {
+          "type": "label",
+          "name": "starter_received"
+        },
+        {
+          "type": "dialogue",
+          "id": "starter_received",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "이미 첫 포켓몬을 골랐구나. 그 아이와 함께 멋진 모험을 해 보렴!",
+            "en_us": "You've already chosen your first Pokémon. Have a wonderful adventure together!"
+          }
         },
         {
           "type": "end"

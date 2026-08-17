@@ -11,11 +11,11 @@
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Cmd:"/cobbleventure_starter_state @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"오박사\"}",
-    DialogData:{DialogDataSet:[{Label:"greeting_1",Name:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다.",Texts:[{Text:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다."}],Buttons:[{Label:"next",Name:"다음",Actions:[{Cmd:"greeting_2",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"greeting_2",Name:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!",Texts:[{Text:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!"}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/starterroulette @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[{Label:"greeting_1",Name:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다.",Texts:[{Text:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다."}],Buttons:[{Label:"next",Name:"다음",Actions:[{Cmd:"greeting_2",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"greeting_2",Name:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!",Texts:[{Text:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!"}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/execute as @initiator run starterroulette",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]},{Label:"starter_received",Name:"이미 첫 포켓몬을 골랐구나. 그 아이와 함께 멋진 모험을 ",Priority:99,Texts:[{Text:"이미 첫 포켓몬을 골랐구나. 그 아이와 함께 멋진 모험을 해 보렴!"}],Conditions:[{Name:"cv_starter_recv",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},

@@ -113,7 +113,8 @@ final class TrainerBattleLevelScaling {
         ));
 
         String introCommand = "cobbleventure_battle_intro "
-            + player.getUUID() + " " + opponent.getUUID() + " " + battleId + " " + scaledCommand;
+            + player.getGameProfile().getName() + " " + opponent.getUUID() + " "
+            + battleId + " " + scaledCommand;
         source.getServer().getCommands().performPrefixedCommand(source, introCommand);
         return 1;
     }

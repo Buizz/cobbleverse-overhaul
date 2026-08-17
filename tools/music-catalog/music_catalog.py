@@ -90,7 +90,12 @@ def load_catalog(path: Path) -> dict[str, Any]:
     if not isinstance(defaults, dict):
         raise MusicCatalogError("상황별 기본 음악 설정이 필요합니다.")
     track_ids = seen["id"]
-    for context in ("tile", "road", "settlement", "cave", "forest", "battle", "gym"):
+    for context in (
+        "tile", "road", "settlement", "cave", "forest", "building",
+        "pokemon_center", "pokemart", "trainer_encounter_boy",
+        "trainer_encounter_girl", "trainer_encounter_bad_guys", "battle", "gym",
+        "victory_wild", "victory_trainer", "victory_gym",
+    ):
         track_id = defaults.get(context)
         if track_id not in track_ids:
             raise MusicCatalogError(
@@ -182,6 +187,13 @@ def select_used_tracks(
     catalog: dict[str, Any], project_root: Path
 ) -> dict[str, Any]:
     used = collect_used_track_ids(project_root, catalog)
+    known = {track["id"] for track in catalog["tracks"]}
+    unknown = sorted(used - known)
+    if unknown:
+        raise MusicCatalogError(
+            "경로 또는 등록되지 않은 값을 직접 참조하지 말고 음원 태그를 사용해야 합니다: "
+            + ", ".join(unknown)
+        )
     selected = copy.deepcopy(catalog)
     selected["tracks"] = [
         track for track in catalog["tracks"] if track["id"] in used

@@ -134,7 +134,25 @@ class MusicCatalogTest(unittest.TestCase):
             self.assertEqual(
                 set(self.catalog["defaults"].values()) | {"pwt.lobby"}, selected_ids
             )
+            self.assertIn("encounter.trainer_boy", selected_ids)
+            self.assertIn("encounter.trainer_girl", selected_ids)
+            self.assertIn("encounter.trainer_bad_guys", selected_ids)
             self.assertNotIn("event.evolution", selected_ids)
+
+    def test_build_selection_rejects_direct_audio_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            world = project / "content/worlds/generation_1.json"
+            world.parent.mkdir(parents=True)
+            world.write_text(
+                json.dumps({"music_track": "another-red-bgm/Battle trainer.ogg"}),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                music_catalog.MusicCatalogError, "음원 태그"
+            ):
+                music_catalog.select_used_tracks(self.catalog, project)
 
 
 if __name__ == "__main__":

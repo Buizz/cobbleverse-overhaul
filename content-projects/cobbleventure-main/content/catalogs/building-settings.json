@@ -115,8 +115,22 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/npc_house1"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
     },
     "cobbleventure:houses/one_story_gable": {
       "placement_y_offset": 0,
@@ -147,8 +161,22 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/npc_house1"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
     },
     "cobbleventure:houses/one_story_shed": {
       "placement_y_offset": 0,
@@ -156,8 +184,22 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/npc_house1"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
     },
     "cobbleventure:houses/two_story_flat": {
       "placement_y_offset": 0,

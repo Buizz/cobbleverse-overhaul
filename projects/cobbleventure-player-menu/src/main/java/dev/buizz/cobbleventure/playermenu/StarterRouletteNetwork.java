@@ -17,8 +17,15 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -31,6 +38,10 @@ public final class StarterRouletteNetwork {
     private static final int STARTER_LEVEL = 5;
     private static final int SEQUENCE_LENGTH = 96;
     private static final long SESSION_LIFETIME_MILLIS = 5L * 60L * 1000L;
+    private static final String STARTER_RECEIVED_OBJECTIVE = "cv_starter_recv";
+    private static final ResourceLocation POKEDEX_ITEM = ResourceLocation.fromNamespaceAndPath(
+        "cobblemon", "pokedex_red"
+    );
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
 
     private StarterRouletteNetwork() {}
@@ -67,6 +78,14 @@ public final class StarterRouletteNetwork {
         StarterRouletteOpenPayload payload = new StarterRouletteOpenPayload(token, species);
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, payload);
         return 1;
+    }
+
+    static int syncState(ServerPlayer player) {
+        GeneralPlayerData data = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
+        boolean selected = data.getStarterSelected();
+        setStarterReceivedScore(player, selected);
+        if (selected) ensurePokedex(player);
+        return selected ? 1 : 0;
     }
 
     public static void claim(UUID token, int sequenceIndex) {
@@ -131,6 +150,10 @@ public final class StarterRouletteNetwork {
         StarterEntry selected = session.sequence().get(payload.sequenceIndex());
         Cobblemon.INSTANCE.getStarterHandler().chooseStarter(player, selected.category(), selected.categoryIndex());
         boolean awarded = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player).getStarterSelected();
+        if (awarded) {
+            setStarterReceivedScore(player, true);
+            ensurePokedex(player);
+        }
         context.reply(new StarterRouletteResultPayload(
             awarded,
             awarded ? "screen.cobbleventure_player_menu.starter.received" : "screen.cobbleventure_player_menu.starter.failed",
@@ -140,6 +163,31 @@ public final class StarterRouletteNetwork {
 
     private static void handleResult(StarterRouletteResultPayload payload, IPayloadContext context) {
         StarterRouletteClient.result(payload.success(), payload.translationKey(), payload.species());
+    }
+
+    private static void setStarterReceivedScore(ServerPlayer player, boolean selected) {
+        Scoreboard scoreboard = player.getScoreboard();
+        Objective objective = scoreboard.getObjective(STARTER_RECEIVED_OBJECTIVE);
+        if (objective == null) {
+            objective = scoreboard.addObjective(
+                STARTER_RECEIVED_OBJECTIVE,
+                ObjectiveCriteria.DUMMY,
+                Component.literal(STARTER_RECEIVED_OBJECTIVE),
+                ObjectiveCriteria.RenderType.INTEGER,
+                false,
+                null
+            );
+        }
+        scoreboard.getOrCreatePlayerScore(player, objective).set(selected ? 1 : 0);
+    }
+
+    private static void ensurePokedex(ServerPlayer player) {
+        Item item = BuiltInRegistries.ITEM.get(POKEDEX_ITEM);
+        if (item == Items.AIR) return;
+        ItemStack pokedex = new ItemStack(item);
+        if (BagApi.count(player, pokedex) > 0) return;
+        BagApi.InsertResult result = BagApi.insert(player, pokedex, true);
+        if (result.complete()) ItemAcquisition.show(player, pokedex, 1);
     }
 
     private record StarterEntry(String category, int categoryIndex, String species) {}

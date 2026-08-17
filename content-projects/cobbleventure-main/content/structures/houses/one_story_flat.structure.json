@@ -1,18 +1,18 @@
 {
   "schema_version": 1,
-  "structure": "content/structures/houses/one_story_shed.nbt",
+  "structure": "content/structures/houses/one_story_flat.nbt",
   "anchors": [
     {
       "id": "door",
       "label": "door",
       "type": "door",
       "position": [
-        14,
+        11,
         1,
         3
       ],
       "safe_spawn": [
-        14,
+        11,
         1,
         2
       ],

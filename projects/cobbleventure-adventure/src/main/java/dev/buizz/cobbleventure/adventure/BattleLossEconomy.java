@@ -120,10 +120,15 @@ final class BattleLossEconomy {
             return existing.settlement;
         }
 
-        BigInteger balance = PlayerExtensionKt.getCobbleDollars(loser).max(BigInteger.ZERO);
+        BigInteger balance = PlayerExtensionKt.getCobbleDollars(loser);
         BigInteger requested = BigInteger.valueOf(highestPartyLevel(loser))
             .multiply(MONEY_PER_HIGHEST_LEVEL);
-        BigInteger amount = requested.min(balance);
+        // NPC trainer losses always charge the full penalty. Unlike wild and
+        // player battles, an insufficient balance becomes CobbleDollars debt.
+        boolean npcTrainerBattle = !wild && playerRecipient == null;
+        BigInteger amount = npcTrainerBattle
+            ? requested
+            : requested.min(balance.max(BigInteger.ZERO));
         PlayerExtensionKt.setCobbleDollars(loser, balance.subtract(amount));
 
         if (playerRecipient != null && amount.signum() > 0) {

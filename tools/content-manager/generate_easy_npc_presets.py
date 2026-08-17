@@ -32,10 +32,13 @@ BATTLE_ROOT = PROJECT_ROOT / "content" / "battles"
 GYM_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "gyms.json"
 LEAGUE_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "league-progression.json"
 TRAINER_ROSTER = PROJECT_ROOT / "content" / "catalogs" / "trainer-roster.json"
+MUSIC_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "music-tracks.json"
 RESOURCE_ROOT = ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources"
 PACK_OVERRIDE = ROOT / "pack" / "overrides" / "development-placeholder"
 INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"
 INSTANCE_DEFEATED_OBJECTIVE = "cv_npc_defeated"
+STARTER_RECEIVED_FLAG = "cobbleventure:flag/story/starter_received"
+STARTER_RECEIVED_OBJECTIVE = "cv_starter_recv"
 SUPPORTED_LANGUAGES = {"ko_kr", "en_us"}
 EXPORT_LANGUAGE = os.environ.get("COBBLEVENTURE_EXPORT_LANGUAGE", "ko_kr")
 
@@ -85,18 +88,23 @@ def encounter_outfits_by_class(catalog: dict, class_catalog_path: Path) -> dict[
     return outfits
 
 
-def encounter_music_track(outfit: dict) -> str:
+def encounter_music_track(
+    outfit: dict, music_defaults: dict[str, str] | None = None
+) -> str:
     """Choose the trainer-appears theme from authored presentation data."""
+    defaults = music_defaults or {}
     tags = {
         str(tag).lower() for tag in outfit.get("_trainer_class_tags", [])
         if isinstance(tag, str)
     }
     class_slug = str(outfit.get("trainer_class", "")).rsplit("/", 1)[-1].lower()
     if "villain" in tags or any(token in class_slug for token in ("villain", "rocket")):
-        return "encounter.trainer_bad_guys"
+        return defaults.get(
+            "trainer_encounter_bad_guys", "encounter.trainer_bad_guys"
+        )
     if "female" in tags or outfit.get("arm_model") == "slim":
-        return "encounter.trainer_girl"
-    return "encounter.trainer_boy"
+        return defaults.get("trainer_encounter_girl", "encounter.trainer_girl")
+    return defaults.get("trainer_encounter_boy", "encounter.trainer_boy")
 
 
 def installed_rct_skin(resource: str) -> bytes | None:
@@ -270,6 +278,8 @@ def flag_objective(resource_id: str) -> str:
     """Map a long content flag id to a stable Minecraft scoreboard objective."""
     if resource_id == INSTANCE_DEFEATED_FLAG:
         return INSTANCE_DEFEATED_OBJECTIVE
+    if resource_id == STARTER_RECEIVED_FLAG:
+        return STARTER_RECEIVED_OBJECTIVE
     return "cvf_" + hashlib.sha1(resource_id.encode("utf-8")).hexdigest()[:12]
 
 
@@ -342,8 +352,6 @@ def graph_reward_commands(document: dict, start_battle: dict, result_key: str = 
                         "scoreboard players operation @1 cv_reward_tmp *= #multiplier cv_reward_tmp",
                         f"scoreboard players operation @1 {currency} {'-=' if action_type == 'take_money' else '+='} @1 cv_reward_tmp",
                     ])
-                if action_type == "take_money":
-                    commands.append(f"execute if score @1 {currency} matches ..-1 run scoreboard players set @1 {currency} 0")
         target = node.get("next")
     return commands
 
@@ -400,8 +408,6 @@ def command_reward_commands(
                     "scoreboard players operation @1 cv_reward_tmp *= #multiplier cv_reward_tmp",
                     f"scoreboard players operation @1 {currency} {'-=' if command_type == 'take_money' else '+='} @1 cv_reward_tmp",
                 ])
-            if command_type == "take_money":
-                result.append(f"execute if score @1 {currency} matches ..-1 run scoreboard players set @1 {currency} 0")
         elif command_type == "goto":
             index = labels.get(command.get("target"), len(commands)) + 1
             continue
@@ -656,7 +662,7 @@ def easy_npc_action(operation: dict, document: dict) -> str:
     if operation_type == "start_starter_roulette":
         return ",".join([
             '{Type:"CLOSE_DIALOG"}',
-            command_action("/starterroulette @initiator"),
+            command_action("/execute as @initiator run starterroulette"),
         ])
     if operation_type == "teleport_to_gate":
         selector = "@npc-uuid" if operation.get("subject") == "npc" else "@initiator"
@@ -722,7 +728,6 @@ def event_script_dialogues(
     document: dict, automatic_start_battle: dict | None = None
 ) -> str:
     entries: list[str] = []
-    has_item_acquisition = False
     for event in document.get("events", []):
         commands = event.get("commands", [])
         automatic_dialogue = first_battle_dialogue_label(
@@ -783,7 +788,6 @@ def event_script_dialogues(
                     )
             if not buttons:
                 followup_actions: list[str] = []
-                gives_item = False
                 starts_starter_roulette = False
                 for value in commands[index + 1:]:
                     if value.get("type") in {"dialogue", "label", "choices", "end"}:
@@ -797,17 +801,13 @@ def event_script_dialogues(
                         "start_starter_roulette",
                     }:
                         followup_actions.append(easy_npc_action(value, document))
-                        gives_item = gives_item or value.get("type") == "give_item"
                         starts_starter_roulette = (
                             starts_starter_roulette
                             or value.get("type") == "start_starter_roulette"
                         )
                 if followup_actions:
-                    if gives_item:
-                        has_item_acquisition = True
-                    final_action = None if starts_starter_roulette else (
-                        '{Cmd:"cv_item_acquired",Type:"OPEN_NAMED_DIALOG"}'
-                        if gives_item else '{Type:"CLOSE_DIALOG"}'
+                    final_action = (
+                        None if starts_starter_roulette else '{Type:"CLOSE_DIALOG"}'
                     )
                     actions = [*followup_actions]
                     if final_action:
@@ -821,12 +821,6 @@ def event_script_dialogues(
                 buttons.append('{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}')
             fields.append("Buttons:[" + ",".join(buttons) + "]")
             entries.append("{" + ",".join(fields) + "}")
-    if has_item_acquisition:
-        entries.append(
-            '{Label:"cv_item_acquired",Name:"아이템을 획득했다.",'
-            'Texts:[{Text:"아이템을 가방에 넣었다."}],'
-            'Buttons:[{Label:"close",Name:"확인",Actions:[{Type:"CLOSE_DIALOG"}]}]}'
-        )
     return '{DialogDataSet:[' + ",".join(entries) + '],Type:"CUSTOM"}'
 
 
@@ -944,7 +938,8 @@ def preset_snbt(outfit: dict) -> str:
 
 
 def encounter_preset_snbt(
-    document: dict, outfit: dict, trigger_override: str | None = None
+    document: dict, outfit: dict, trigger_override: str | None = None,
+    music_defaults: dict[str, str] | None = None,
 ) -> str:
     document = materialize_event_document(document)
     adapter = outfit["adapters"]["easy_npc"]
@@ -977,6 +972,14 @@ def encounter_preset_snbt(
     if trigger_override in {"interact", "proximity"}:
         encounter_mode = trigger_override
     automatic_start_battle: dict | None = None
+    needs_starter_state = any(
+        action.get("type") == "start_starter_roulette"
+        for action in candidate_actions
+    )
+    starter_state_actions = (
+        command_action("/cobbleventure_starter_state @initiator") + ","
+        if needs_starter_state else ""
+    )
     if encounter_mode == "proximity":
         start_battle = next((action for action in candidate_actions if action.get("type") == "start_battle"), None)
         if start_battle:
@@ -992,6 +995,7 @@ def encounter_preset_snbt(
             # the generated Continue button starts the battle after the line.
             event_actions = (
                 "ON_INTERACTION:["
+                + starter_state_actions
                 + command_action(
                     "/cobbleventure_trainer_state prepare @npc-uuid @initiator"
                 )
@@ -999,17 +1003,24 @@ def encounter_preset_snbt(
                 + "ON_DISTANCE_CLOSE:["
                 + command_action(
                     "/cobbleventure_proximity_battle @initiator @s "
-                    + encounter_music_track(outfit)
-                    + " easy_npc dialog open @s @initiator "
+                    + encounter_music_track(outfit, music_defaults)
+                    + " "
                     + first_dialogue
+                    + " "
+                    + battle_command(document, start_battle).removeprefix("/")
                 )
                 + "]"
             )
         else:
-            event_actions = 'ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]'
+            event_actions = (
+                "ON_DISTANCE_VERY_CLOSE:["
+                + starter_state_actions
+                + '{Type:"OPEN_DEFAULT_DIALOG"}]'
+            )
     else:
         event_actions = (
             "ON_INTERACTION:["
+            + starter_state_actions
             + command_action(
                 "/cobbleventure_trainer_state prepare @npc-uuid @initiator"
             )
@@ -1151,6 +1162,11 @@ def generate(
     battle_root: Path = BATTLE_ROOT,
 ) -> list[Path]:
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    music_catalog_path = catalog_path.with_name("music-tracks.json")
+    music_defaults = (
+        json.loads(music_catalog_path.read_text(encoding="utf-8")).get("defaults", {})
+        if music_catalog_path.is_file() else {}
+    )
     outfits_by_class = encounter_outfits_by_class(
         catalog, catalog_path.with_name("trainer-classes.json")
     )
@@ -1231,14 +1247,19 @@ def generate(
         slug = document["id"].rsplit("/", 1)[-1]
         preset = RESOURCE_ROOT / "data" / "easy_npc" / "preset" / "encounter" / f"{slug}.npc.snbt"
         preset.parent.mkdir(parents=True, exist_ok=True)
-        preset.write_text(encounter_preset_snbt(document, outfit), encoding="utf-8", newline="\n")
+        preset.write_text(
+            encounter_preset_snbt(document, outfit, music_defaults=music_defaults),
+            encoding="utf-8", newline="\n",
+        )
         written.append(preset)
         for trigger_override in ("interact", "proximity"):
             override_preset = preset.with_name(
                 f"{slug}__{trigger_override}.npc.snbt"
             )
             override_preset.write_text(
-                encounter_preset_snbt(document, outfit, trigger_override),
+                encounter_preset_snbt(
+                    document, outfit, trigger_override, music_defaults
+                ),
                 encoding="utf-8",
                 newline="\n",
             )

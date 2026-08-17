@@ -11,7 +11,7 @@
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_CLOSE:[{Cmd:"/cobbleventure_proximity_battle @initiator @s encounter.trainer_girl easy_npc dialog open @s @initiator greeting",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_CLOSE:[{Cmd:"/cobbleventure_proximity_battle @initiator @s encounter.trainer_girl greeting cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_picnicker_hana 0 10 rctmod:sample_picnicker_hana tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_picnicker_hana onwin {1:[\"scoreboard objectives add cvf_068a78bba678 dummy\",\"scoreboard players set @1 cvf_068a78bba678 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"피크닉걸 하나\"}",

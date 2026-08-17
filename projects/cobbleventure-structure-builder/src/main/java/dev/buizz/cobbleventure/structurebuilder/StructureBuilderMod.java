@@ -30,6 +30,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -54,6 +55,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -91,6 +93,18 @@ public final class StructureBuilderMod {
     private static final int INTERIOR_ORIGIN_X = 512;
     private static final int INTERIOR_ORIGIN_Z = -280;
     private static final int INTERIOR_CELL_SIZE = 96;
+    private static final Map<ResourceLocation, ResourceLocation> FRIDGE_LOWER_BY_UPPER = Map.of(
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "light_freezer"),
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "light_fridge"),
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "dark_freezer"),
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "dark_fridge")
+    );
+    private static final Map<ResourceLocation, ResourceLocation> FRIDGE_UPPER_BY_LOWER = Map.of(
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "light_fridge"),
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "light_freezer"),
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "dark_fridge"),
+        ResourceLocation.fromNamespaceAndPath("cobblefurnies", "dark_freezer")
+    );
     private static int shutdownTicks = -1;
 
     public StructureBuilderMod(IEventBus modBus) {
@@ -433,20 +447,23 @@ public final class StructureBuilderMod {
             requireCurrentCatalog(data, catalog);
             int saved = 0;
             List<String> removedDoorAnchors = new ArrayList<>();
+            List<String> repairedMultiblocks = new ArrayList<>();
             for (PlannedEntry planned : editablePlan(catalog, data)) {
                 if (planned.entry().category().equals("interiors")
                     && data.interior(planned.entry().label()).isPresent()) {
                     continue;
                 }
-                removedDoorAnchors.addAll(
-                    export(source.getServer().overworld(), catalog, planned)
-                );
+                ExportResult result = export(source.getServer().overworld(), catalog, planned);
+                removedDoorAnchors.addAll(result.removedDoorAnchors());
+                repairedMultiblocks.addAll(result.repairedMultiblocks());
                 saved++;
             }
             for (InteriorPlot interior : data.interiors()) {
-                removedDoorAnchors.addAll(
-                    exportInterior(source.getServer().overworld(), interior)
+                ExportResult result = exportInterior(
+                    source.getServer().overworld(), interior
                 );
+                removedDoorAnchors.addAll(result.removedDoorAnchors());
+                repairedMultiblocks.addAll(result.repairedMultiblocks());
                 saved++;
             }
             int count = saved;
@@ -454,6 +471,7 @@ public final class StructureBuilderMod {
                 () -> Component.literal(
                     "[Structure Builder] " + count + "개 부지를 NBT로 내보냈습니다."
                         + removedDoorAnchorNotice(removedDoorAnchors)
+                        + repairedMultiblockNotice(repairedMultiblocks)
                 ),
                 true
             );
@@ -471,20 +489,21 @@ public final class StructureBuilderMod {
             PlannedEntry planned = find(catalog, data, requested);
             Optional<InteriorPlot> resized = planned.entry().category().equals("interiors")
                 ? data.interior(planned.entry().label()) : Optional.empty();
-            List<String> removedDoorAnchors;
+            ExportResult result;
             if (resized.isPresent()) {
-                removedDoorAnchors = exportInterior(
+                result = exportInterior(
                     source.getServer().overworld(), resized.get()
                 );
             } else {
-                removedDoorAnchors = export(
+                result = export(
                     source.getServer().overworld(), catalog, planned
                 );
             }
             source.sendSuccess(
                 () -> Component.literal(
                     "[Structure Builder] NBT 내보내기 완료: " + planned.entry().source()
-                        + removedDoorAnchorNotice(removedDoorAnchors)
+                        + removedDoorAnchorNotice(result.removedDoorAnchors())
+                        + repairedMultiblockNotice(result.repairedMultiblocks())
                 ),
                 true
             );
@@ -673,9 +692,9 @@ public final class StructureBuilderMod {
         EditContext current = findContext(catalog, builderData, player.blockPosition());
         Optional<InteriorPlot> dynamic = builderData.interiors().stream()
             .filter(plot -> plot.key().equals(current.key())).findFirst();
-        List<String> removedDoorAnchors;
+        ExportResult result;
         if (dynamic.isPresent()) {
-            removedDoorAnchors = exportInterior(player.serverLevel(), dynamic.get());
+            result = exportInterior(player.serverLevel(), dynamic.get());
         } else {
             PlannedEntry planned = editablePlan(catalog, builderData).stream()
                 .filter(value -> value.entry().exportId().equals(current.key()))
@@ -683,11 +702,12 @@ public final class StructureBuilderMod {
                 .orElseThrow(() -> new BuilderException(
                     "현재 위치에 저장할 NBT 부지가 없습니다."
                 ));
-            removedDoorAnchors = export(player.serverLevel(), catalog, planned);
+            result = export(player.serverLevel(), catalog, planned);
         }
         player.sendSystemMessage(Component.literal(
             "[Structure Builder] 현재 NBT 저장 완료: " + current.label()
-                + removedDoorAnchorNotice(removedDoorAnchors)
+                + removedDoorAnchorNotice(result.removedDoorAnchors())
+                + repairedMultiblockNotice(result.repairedMultiblocks())
         ));
         BuilderEditorNetwork.sendSnapshot(player);
     }
@@ -1449,8 +1469,9 @@ public final class StructureBuilderMod {
             Catalog catalog = loadCatalog(source.getServer());
             requireCurrentCatalog(builderData, catalog);
             Optional<InteriorPlot> dynamic = builderData.interior(id);
+            ExportResult result;
             if (dynamic.isPresent()) {
-                exportInterior(source.getServer().overworld(), dynamic.get());
+                result = exportInterior(source.getServer().overworld(), dynamic.get());
             } else {
                 PlannedEntry planned = editablePlan(catalog, builderData)
                     .stream()
@@ -1460,10 +1481,14 @@ public final class StructureBuilderMod {
                     .orElseThrow(() -> new BuilderException(
                         "내부 공간을 찾을 수 없습니다: " + id
                     ));
-                export(source.getServer().overworld(), catalog, planned);
+                result = export(source.getServer().overworld(), catalog, planned);
             }
             source.sendSuccess(
-                () -> Component.literal("[Structure Builder] 내부 NBT 내보내기 완료: " + id),
+                () -> Component.literal(
+                    "[Structure Builder] 내부 NBT 내보내기 완료: " + id
+                        + removedDoorAnchorNotice(result.removedDoorAnchors())
+                        + repairedMultiblockNotice(result.repairedMultiblocks())
+                ),
                 true
             );
             return 1;
@@ -1618,10 +1643,13 @@ public final class StructureBuilderMod {
         placeLabel(level, planned);
     }
 
-    private static List<String> export(
+    private static ExportResult export(
         ServerLevel level, Catalog catalog, PlannedEntry planned
     ) {
         planned = authoredPlot(level, catalog, planned);
+        List<String> repairedMultiblocks = repairKnownMultiblocks(
+            level, planned.origin(), planned.entry().size(), planned.entry().label()
+        );
         List<String> removedDoorAnchors = reconcileDoorAnchors(
             level, planned.entry().exportId(), planned.origin()
         );
@@ -1637,7 +1665,7 @@ public final class StructureBuilderMod {
             throw new BuilderException("NBT 파일 저장에 실패했습니다: " + exportId);
         }
         exportAnchors(level.getServer(), planned);
-        return removedDoorAnchors;
+        return new ExportResult(removedDoorAnchors, repairedMultiblocks);
     }
 
     private static PlannedEntry authoredPlot(
@@ -1742,7 +1770,10 @@ public final class StructureBuilderMod {
         );
     }
 
-    private static List<String> exportInterior(ServerLevel level, InteriorPlot plot) {
+    private static ExportResult exportInterior(ServerLevel level, InteriorPlot plot) {
+        List<String> repairedMultiblocks = repairKnownMultiblocks(
+            level, plot.origin(), plot.size(), plot.id()
+        );
         List<String> removedDoorAnchors = reconcileDoorAnchors(
             level, plot.key(), plot.origin()
         );
@@ -1762,7 +1793,96 @@ public final class StructureBuilderMod {
             "content/structures/interiors/" + plot.id() + ".nbt",
             plot.spec(), null, true
         );
-        return removedDoorAnchors;
+        return new ExportResult(removedDoorAnchors, repairedMultiblocks);
+    }
+
+    private static List<String> repairKnownMultiblocks(
+        ServerLevel level, BlockPos origin, Vec3i size, String label
+    ) {
+        BlockPos end = origin.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
+        List<MultiblockRepair> repairs = new ArrayList<>();
+        List<String> invalid = new ArrayList<>();
+        for (BlockPos position : BlockPos.betweenClosed(origin, end)) {
+            BlockState state = level.getBlockState(position);
+            ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+            ResourceLocation expectedId = FRIDGE_LOWER_BY_UPPER.get(blockId);
+            Direction direction = Direction.DOWN;
+            if (expectedId == null) {
+                expectedId = FRIDGE_UPPER_BY_LOWER.get(blockId);
+                direction = Direction.UP;
+            }
+            if (expectedId == null) {
+                continue;
+            }
+
+            BlockPos counterpart = position.relative(direction);
+            BlockPos relative = position.subtract(origin);
+            if (counterpart.getY() < origin.getY() || counterpart.getY() > end.getY()) {
+                invalid.add(format(relative) + "의 " + blockId
+                    + " 짝 블록이 NBT 범위를 벗어납니다");
+                continue;
+            }
+            BlockState counterpartState = level.getBlockState(counterpart);
+            ResourceLocation counterpartId = BuiltInRegistries.BLOCK.getKey(
+                counterpartState.getBlock()
+            );
+            if (counterpartId.equals(expectedId)) {
+                continue;
+            }
+            if (!counterpartState.isAir()) {
+                invalid.add(format(relative) + "의 " + blockId + " 짝 위치 "
+                    + format(counterpart.subtract(origin)) + "에 " + counterpartId
+                    + " 블록이 있습니다");
+                continue;
+            }
+            repairs.add(new MultiblockRepair(counterpart, expectedId, state));
+        }
+        if (!invalid.isEmpty()) {
+            throw new BuilderException(
+                "멀티블록 가구가 손상되어 저장하지 않았습니다: "
+                    + String.join(", ", invalid)
+                    + ". 표시된 위치의 가구를 다시 배치하세요."
+            );
+        }
+
+        List<String> repaired = new ArrayList<>();
+        for (MultiblockRepair repair : repairs) {
+            BlockState repairedState = matchingFurnitureState(repair.expectedId(), repair.reference());
+            if (!level.setBlock(repair.position(), repairedState, 3)
+                || !BuiltInRegistries.BLOCK.getKey(level.getBlockState(repair.position()).getBlock())
+                    .equals(repair.expectedId())) {
+                throw new BuilderException(
+                    "멀티블록 가구 자동 복구에 실패했습니다: "
+                        + format(repair.position().subtract(origin))
+                );
+            }
+            repaired.add(label + " " + format(repair.position().subtract(origin))
+                + "=" + repair.expectedId());
+        }
+        if (!repaired.isEmpty()) {
+            LOGGER.warn("Repaired orphaned multiblocks before exporting {}: {}", label, repaired);
+        }
+        return List.copyOf(repaired);
+    }
+
+    private static BlockState matchingFurnitureState(
+        ResourceLocation blockId, BlockState reference
+    ) {
+        BlockState state = BuiltInRegistries.BLOCK.get(blockId).defaultBlockState();
+        if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)
+            && reference.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+            state = state.setValue(
+                BlockStateProperties.HORIZONTAL_FACING,
+                reference.getValue(BlockStateProperties.HORIZONTAL_FACING)
+            );
+        }
+        if (state.hasProperty(BlockStateProperties.OPEN)
+            && reference.hasProperty(BlockStateProperties.OPEN)) {
+            state = state.setValue(
+                BlockStateProperties.OPEN, reference.getValue(BlockStateProperties.OPEN)
+            );
+        }
+        return state;
     }
 
     private static List<String> reconcileDoorAnchors(
@@ -1798,6 +1918,12 @@ public final class StructureBuilderMod {
         return removed.isEmpty()
             ? ""
             : " 사라진 문 앵커 자동 해제: " + String.join(", ", removed);
+    }
+
+    private static String repairedMultiblockNotice(List<String> repaired) {
+        return repaired.isEmpty()
+            ? ""
+            : " 멀티블록 가구 자동 복구: " + String.join(", ", repaired);
     }
 
     private static void exportMetadata(
@@ -2152,6 +2278,16 @@ public final class StructureBuilderMod {
         private int rows(int count) {
             return (count + columns - 1) / columns;
         }
+    }
+
+    private record ExportResult(
+        List<String> removedDoorAnchors, List<String> repairedMultiblocks
+    ) {
+    }
+
+    private record MultiblockRepair(
+        BlockPos position, ResourceLocation expectedId, BlockState reference
+    ) {
     }
 
     private record Entry(

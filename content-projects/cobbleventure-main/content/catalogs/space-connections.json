@@ -39,6 +39,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          439,
+          165
         ]
       }
     },
@@ -59,6 +63,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          463,
+          178
         ]
       }
     },
@@ -67,6 +75,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          462,
+          173
         ]
       }
     },
@@ -348,7 +360,14 @@
     "building:cobbleventure:houses/five_story_gable": {},
     "building:cobbleventure:houses/five_story_gambrel": {},
     "building:cobbleventure:houses/five_story_shed": {},
-    "building:cobbleventure:houses/one_story_flat": {},
+    "building:cobbleventure:houses/one_story_flat": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:houses/one_story_gable": {
       "route_1": {
         "condition_mode": "all",
@@ -357,8 +376,22 @@
         "enter_dialogue": []
       }
     },
-    "building:cobbleventure:houses/one_story_gambrel": {},
-    "building:cobbleventure:houses/one_story_shed": {},
+    "building:cobbleventure:houses/one_story_gambrel": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "building:cobbleventure:houses/one_story_shed": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:houses/two_story_flat": {},
     "building:cobbleventure:houses/two_story_gable": {},
     "building:cobbleventure:houses/two_story_gambrel": {},

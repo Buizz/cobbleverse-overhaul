@@ -104,8 +104,13 @@ class SampleNpcTests(unittest.TestCase):
                 f"cobbleventurebag acquire @initiator {give_commands[0]['item']}",
                 preset,
             )
-            self.assertIn('Label:"cv_item_acquired"', preset)
-            self.assertIn('Cmd:"cv_item_acquired",Type:"OPEN_NAMED_DIALOG"', preset)
+            self.assertNotIn('Label:"cv_item_acquired"', preset)
+            self.assertNotIn('Cmd:"cv_item_acquired",Type:"OPEN_NAMED_DIALOG"', preset)
+            self.assertIn(
+                f'/cobbleventurebag acquire @initiator {give_commands[0]["item"]}',
+                preset,
+            )
+            self.assertIn('{Type:"CLOSE_DIALOG"}', preset)
             self.assertIn(generator.flag_objective(set_flag["key"]), preset)
 
     def test_has_ten_trainers_with_matching_battles(self) -> None:

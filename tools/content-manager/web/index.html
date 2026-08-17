@@ -856,20 +856,33 @@
 
       <section class="page" id="music">
         <div class="panel editor">
-          <div class="panel-heading"><div><p class="eyebrow">MUSIC RESOLUTION</p><h2>상황별 기본 음악</h2><p>개별 배정이 없을 때 재생할 곡을 지정합니다.</p></div><div class="editor-heading-actions"><button class="button secondary" id="refresh-music-library">로컬 음원 다시 읽기</button><button class="button primary" id="save-music-settings">음악 기본값 저장</button></div></div>
+          <div class="panel-heading"><div><p class="eyebrow">MUSIC RESOLUTION</p><h2>상황별 기본 음악</h2><p>개별 배정이 없을 때 사용할 음원 태그를 지정합니다. 실제 파일 경로는 아래 태그 매핑에서 관리합니다.</p></div><div class="editor-heading-actions"><button class="button secondary" id="refresh-music-library">로컬 음원 다시 읽기</button><button class="button primary" id="save-music-settings">음원 설정 저장</button></div></div>
           <form id="music-defaults-form" class="form-grid">
-            <label><span>일반 타일 기본 BGM</span><select name="tile"></select></label>
-            <label><span>도로 기본 BGM</span><select name="road"></select></label>
-            <label><span>마을 기본 BGM</span><select name="settlement"></select></label>
-            <label><span>동굴 기본 BGM</span><select name="cave"></select></label>
-            <label><span>숲 기본 BGM</span><select name="forest"></select></label>
-            <label><span>일반 건물 내부 기본 BGM</span><select name="building"></select></label>
-            <label><span>포켓몬센터 내부 BGM</span><select name="pokemon_center"></select></label>
-            <label><span>포켓몬상점 내부 BGM</span><select name="pokemart"></select></label>
-            <label><span>일반 배틀 기본 BGM</span><select name="battle"></select></label>
-            <label><span>체육관 배틀 기본 BGM</span><select name="gym"></select></label>
+            <label><span>일반 타일 기본 BGM <code>default.tile</code></span><select name="tile"></select></label>
+            <label><span>도로 기본 BGM <code>default.road</code></span><select name="road"></select></label>
+            <label><span>마을 기본 BGM <code>default.settlement</code></span><select name="settlement"></select></label>
+            <label><span>동굴 기본 BGM <code>default.cave</code></span><select name="cave"></select></label>
+            <label><span>숲 기본 BGM <code>default.forest</code></span><select name="forest"></select></label>
+            <label><span>일반 건물 내부 기본 BGM <code>default.building</code></span><select name="building"></select></label>
+            <label><span>포켓몬센터 내부 BGM <code>default.pokemon_center</code></span><select name="pokemon_center"></select></label>
+            <label><span>포켓몬상점 내부 BGM <code>default.pokemart</code></span><select name="pokemart"></select></label>
+            <label><span>남성 트레이너 조우 BGM <code>default.trainer_encounter_boy</code></span><select name="trainer_encounter_boy"></select></label>
+            <label><span>여성 트레이너 조우 BGM <code>default.trainer_encounter_girl</code></span><select name="trainer_encounter_girl"></select></label>
+            <label><span>악역 트레이너 조우 BGM <code>default.trainer_encounter_bad_guys</code></span><select name="trainer_encounter_bad_guys"></select></label>
+            <label><span>일반 배틀 기본 BGM <code>default.battle</code></span><select name="battle"></select></label>
+            <label><span>체육관 배틀 기본 BGM <code>default.gym</code></span><select name="gym"></select></label>
+            <label><span>야생 포켓몬 승리 BGM <code>default.victory_wild</code></span><select name="victory_wild"></select></label>
+            <label><span>일반 트레이너 승리 BGM <code>default.victory_trainer</code></span><select name="victory_trainer"></select></label>
+            <label><span>체육관 관장 승리 BGM <code>default.victory_gym</code></span><select name="victory_gym"></select></label>
           </form>
-          <div class="subsection-heading"><div><p class="eyebrow">LOCAL MUSIC LIBRARY</p><h3>music 폴더 음원</h3><small id="music-library-path">폴더에 현재 존재하는 OGG만 표시하며, 위의 모든 사용처 선택 목록도 이 목록을 사용합니다.</small></div><span class="count-pill" id="music-track-count">0</span></div>
+          <div class="subsection-heading"><div><p class="eyebrow">TAG → ACTUAL PATH</p><h3>음원 태그 매핑</h3><small id="music-library-path">모든 사용처는 태그만 저장하고, 실제 OGG 경로는 이 목록에서 한 번만 관리합니다.</small></div><span class="count-pill" id="music-track-count">0</span></div>
+          <div class="music-tag-path-editor">
+            <label><span>변경할 음원 태그</span><select id="music-mapping-tag"></select></label>
+            <label><span>연결할 실제 OGG 경로</span><input id="music-mapping-path" list="music-mapping-paths" autocomplete="off" placeholder="music 폴더 기준 경로"></label>
+            <datalist id="music-mapping-paths"></datalist>
+            <button class="button secondary" id="apply-music-mapping" type="button">태그에 경로 연결</button>
+            <small>다른 태그가 이미 사용하는 경로를 선택하면 두 태그의 경로를 서로 교환합니다. 적용 후 위의 ‘음원 설정 저장’을 누르세요.</small>
+          </div>
           <div id="music-track-list" class="music-file-list"></div>
           <div id="music-issues" class="issues empty">음악 카탈로그를 불러오는 중입니다.</div>
         </div>

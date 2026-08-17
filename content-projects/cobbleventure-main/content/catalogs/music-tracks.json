@@ -23,8 +23,14 @@
     "building": "kanto.pallet_town",
     "pokemon_center": "local.1_19_pokemon_center_752ef28a",
     "pokemart": "kanto.celadon_city",
+    "trainer_encounter_boy": "encounter.trainer_boy",
+    "trainer_encounter_girl": "encounter.trainer_girl",
+    "trainer_encounter_bad_guys": "encounter.trainer_bad_guys",
     "battle": "battle.trainer",
-    "gym": "battle.gym_leader"
+    "gym": "battle.gym_leader",
+    "victory_wild": "battle.victory_wild",
+    "victory_trainer": "battle.victory_trainer",
+    "victory_gym": "battle.victory_gym_leader"
   },
   "tracks": [
     {

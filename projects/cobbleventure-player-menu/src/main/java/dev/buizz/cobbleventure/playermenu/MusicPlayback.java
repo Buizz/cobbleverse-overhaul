@@ -1,6 +1,10 @@
 package dev.buizz.cobbleventure.playermenu;
 
 import com.cobblemon.mod.common.battles.BattleRegistry;
+import com.cobblemon.mod.common.api.battles.model.actor.BattleActor;
+import com.cobblemon.mod.common.api.events.CobblemonEvents;
+import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
+import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -12,6 +16,7 @@ import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -37,8 +42,10 @@ public final class MusicPlayback {
     private static final String CONTENT_NAMESPACE = "cobbleventure";
     private static final String NETWORK_VERSION = "1";
     private static final long BATTLE_START_GRACE_TICKS = 20L * 10L;
+    private static final long VICTORY_MUSIC_TICKS = 20L * 8L;
     private static final Map<UUID, String> PLAYING = new HashMap<>();
     private static final Map<UUID, BattleMusic> BATTLE_MUSIC = new HashMap<>();
+    private static final Map<UUID, VictoryMusic> VICTORY_MUSIC = new HashMap<>();
     private static final Map<UUID, String> ENCOUNTER_MUSIC = new HashMap<>();
     private static final Map<UUID, String> INTERIOR_MUSIC = new HashMap<>();
     private static ResourceManager loadedFrom;
@@ -52,6 +59,9 @@ public final class MusicPlayback {
         NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerLoggedOut);
         NeoForge.EVENT_BUS.addListener(MusicPlayback::onPlayerChangedDimension);
+        CobblemonEvents.BATTLE_VICTORY.subscribe(
+            (Consumer<BattleVictoryEvent>) MusicPlayback::onBattleVictory
+        );
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -99,6 +109,7 @@ public final class MusicPlayback {
         ENCOUNTER_MUSIC.remove(player.getUUID());
         BATTLE_MUSIC.put(player.getUUID(), new BattleMusic(
             track,
+            music.resolveVictory(battleId),
             player.serverLevel().getGameTime() + BATTLE_START_GRACE_TICKS
         ));
         play(player, music, track);
@@ -151,8 +162,30 @@ public final class MusicPlayback {
     private static void reset(ServerPlayer player) {
         PLAYING.remove(player.getUUID());
         BATTLE_MUSIC.remove(player.getUUID());
+        VICTORY_MUSIC.remove(player.getUUID());
         ENCOUNTER_MUSIC.remove(player.getUUID());
         INTERIOR_MUSIC.remove(player.getUUID());
+    }
+
+    private static void onBattleVictory(BattleVictoryEvent event) {
+        for (BattleActor actor : event.getWinners()) {
+            if (!(actor instanceof PlayerBattleActor playerActor)) continue;
+            ServerPlayer player = playerActor.getEntity();
+            if (player == null) continue;
+            UUID playerId = player.getUUID();
+            MusicData music = load(player.serverLevel());
+            BattleMusic battleMusic = BATTLE_MUSIC.remove(playerId);
+            String track = battleMusic != null
+                ? battleMusic.victoryTrack
+                : music.defaults.get(event.getBattle().isPvW()
+                    ? "victory_wild" : "victory_trainer");
+            if (track == null || !music.soundEvents.containsKey(track)) continue;
+            ENCOUNTER_MUSIC.remove(playerId);
+            VICTORY_MUSIC.put(playerId, new VictoryMusic(
+                track, player.serverLevel().getGameTime() + VICTORY_MUSIC_TICKS
+            ));
+            play(player, music, track);
+        }
     }
 
     public static void tick(
@@ -178,11 +211,25 @@ public final class MusicPlayback {
     private static boolean tickPriority(ServerPlayer player, MusicData music) {
         UUID playerId = player.getUUID();
         long gameTime = player.serverLevel().getGameTime();
+        VictoryMusic victoryMusic = VICTORY_MUSIC.get(playerId);
+        if (victoryMusic != null) {
+            if (gameTime <= victoryMusic.expiresAt) {
+                play(player, music, victoryMusic.track);
+                return true;
+            }
+            VICTORY_MUSIC.remove(playerId);
+        }
         BattleMusic battleMusic = BATTLE_MUSIC.get(playerId);
-        boolean battling = BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null;
+        var activeBattle = BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player);
+        boolean battling = activeBattle != null;
         if (battling) {
             if (battleMusic == null) {
-                battleMusic = new BattleMusic(music.defaults.get("battle"), gameTime);
+                battleMusic = new BattleMusic(
+                    music.defaults.get("battle"),
+                    music.defaults.get(activeBattle.isPvW()
+                        ? "victory_wild" : "victory_trainer"),
+                    gameTime
+                );
                 BATTLE_MUSIC.put(playerId, battleMusic);
             }
             battleMusic.started = true;
@@ -232,6 +279,7 @@ public final class MusicPlayback {
         }
         PLAYING.clear();
         BATTLE_MUSIC.clear();
+        VICTORY_MUSIC.clear();
         ENCOUNTER_MUSIC.clear();
         INTERIOR_MUSIC.clear();
         return data;
@@ -282,14 +330,18 @@ public final class MusicPlayback {
 
     private static final class BattleMusic {
         private final String track;
+        private final String victoryTrack;
         private final long expiresAt;
         private boolean started;
 
-        private BattleMusic(String track, long expiresAt) {
+        private BattleMusic(String track, String victoryTrack, long expiresAt) {
             this.track = track;
+            this.victoryTrack = victoryTrack;
             this.expiresAt = expiresAt;
         }
     }
+
+    private record VictoryMusic(String track, long expiresAt) {}
 
     private static final class MusicData {
         private final String namespace;
@@ -486,6 +538,15 @@ public final class MusicPlayback {
             String gym = trainer == null ? null : gymByTrainer.get(trainer);
             if (gym != null) return first(gymMusic.get(gym), defaults.get("gym"));
             return defaults.get("battle");
+        }
+
+        private String resolveVictory(String battleId) {
+            JsonObject preset = battles.get(battleId);
+            if (preset == null) return defaults.get("victory_trainer");
+            JsonObject battle = preset.getAsJsonObject("battle");
+            String trainer = optionalString(battle, "trainer_id");
+            String gym = trainer == null ? null : gymByTrainer.get(trainer);
+            return defaults.get(gym == null ? "victory_trainer" : "victory_gym");
         }
 
         private static String first(String... values) {

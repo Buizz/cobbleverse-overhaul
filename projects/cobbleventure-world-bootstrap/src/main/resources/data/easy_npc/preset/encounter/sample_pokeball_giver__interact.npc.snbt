@@ -15,7 +15,7 @@
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"몬스터볼을 나눠주는 연구원\"}",
-    DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가.",Texts:[{Text:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:poke_ball 5",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_fb2bd55cfd00:1",Type:"SCOREBOARD"},{Cmd:"cv_item_acquired",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"repeat_greeting",Name:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!",Priority:100,Texts:[{Text:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!"}],Conditions:[{Name:"cvf_fb2bd55cfd00",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"cv_item_acquired",Name:"아이템을 획득했다.",Texts:[{Text:"아이템을 가방에 넣었다."}],Buttons:[{Label:"close",Name:"확인",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가.",Texts:[{Text:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:poke_ball 5",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_fb2bd55cfd00:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat_greeting",Name:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!",Priority:100,Texts:[{Text:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!"}],Conditions:[{Name:"cvf_fb2bd55cfd00",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.800f,0.800f,0.800f]}},
