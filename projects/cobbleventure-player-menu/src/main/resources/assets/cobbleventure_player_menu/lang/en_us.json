@@ -50,6 +50,8 @@
   "screen.cobbleventure_player_menu.bag.pokemon_select.give_hint": "Choose who should hold %s",
   "screen.cobbleventure_player_menu.bag.pokemon_select.level": "Lv.%s",
   "screen.cobbleventure_player_menu.bag.pokemon_select.hp": "HP %s/%s",
+  "screen.cobbleventure_player_menu.bag.pokemon_select.exp": "EXP %s/%s",
+  "screen.cobbleventure_player_menu.bag.pokemon_select.exp_max": "EXP MAX",
   "screen.cobbleventure_player_menu.bag.no_held_item": "No held item",
   "screen.cobbleventure_player_menu.bag.given_to_pokemon": "Gave the item to %s",
   "screen.cobbleventure_player_menu.bag.give_failed": "This item cannot be given to that Pokémon",

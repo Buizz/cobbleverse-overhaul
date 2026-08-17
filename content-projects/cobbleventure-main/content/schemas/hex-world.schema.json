@@ -416,6 +416,7 @@
           "$ref": "player-condition.schema.json#/$defs/condition_list"
         },
         "deny_message": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "deny_dialog": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "npc": { "$ref": "#/$defs/resource_id" }
       },
       "allOf": [{

@@ -22,6 +22,7 @@ final class BagPokemonSelectScreen extends Screen {
     private static final int HP_GREEN = 0xFF64D66D;
     private static final int HP_YELLOW = 0xFFE6C84F;
     private static final int HP_RED = 0xFFE86666;
+    private static final int EXP_BLUE = 0xFF59BCE8;
     private static final int TEXT = 0xFFF4F4F4;
     private static final int MUTED = 0xFFA6A6A6;
 
@@ -54,7 +55,7 @@ final class BagPokemonSelectScreen extends Screen {
         models.clear();
         pokemonButtons.clear();
         panelWidth = Math.min(540, Math.max(300, width - 24));
-        panelHeight = Math.min(278, Math.max(210, height - 16));
+        panelHeight = Math.min(310, Math.max(210, height - 16));
         panelX = (width - panelWidth) / 2;
         panelY = (height - panelHeight) / 2;
         int gap = 7;
@@ -165,20 +166,51 @@ final class BagPokemonSelectScreen extends Screen {
             int maximumHealth = Math.max(1, pokemon.getMaxHealth());
             int currentHealth = Math.max(0, pokemon.getCurrentHealth());
             float healthRatio = Math.min(1.0F, currentHealth / (float) maximumHealth);
-            int barY = getY() + 20;
-            graphics.fill(detailsX, barY, detailsX + detailsWidth, barY + 5, 0xFF0B1116);
+            boolean compact = getHeight() < 62;
+            int healthBarY = getY() + (compact ? 18 : 27);
+            graphics.fill(detailsX, healthBarY, detailsX + detailsWidth, healthBarY + 4, 0xFF0B1116);
             int healthWidth = Math.round((detailsWidth - 2) * healthRatio);
             int healthColor = healthRatio > 0.5F ? HP_GREEN : healthRatio > 0.2F ? HP_YELLOW : HP_RED;
             if (healthWidth > 0) {
-                graphics.fill(detailsX + 1, barY + 1, detailsX + 1 + healthWidth, barY + 4, healthColor);
+                graphics.fill(detailsX + 1, healthBarY + 1,
+                    detailsX + 1 + healthWidth, healthBarY + 3, healthColor);
             }
-            String health = Component.translatable(
-                "screen.cobbleventure_player_menu.bag.pokemon_select.hp", currentHealth, maximumHealth
-            ).getString();
-            graphics.drawString(font, health, detailsX, barY + 7, MUTED, false);
+
+            int levelStartExperience = pokemon.getExperienceGroup().getExperience(pokemon.getLevel());
+            int currentLevelExperience = Math.max(0, pokemon.getExperience() - levelStartExperience);
+            boolean maximumLevel = !pokemon.canLevelUpFurther();
+            int requiredExperience = maximumLevel ? 1 : Math.max(
+                1, pokemon.getExperienceGroup().getExperience(pokemon.getLevel() + 1) - levelStartExperience
+            );
+            float experienceRatio = maximumLevel
+                ? 1.0F
+                : Math.min(1.0F, currentLevelExperience / (float) requiredExperience);
+            int experienceBarY = getY() + (compact ? 25 : 42);
+            graphics.fill(detailsX, experienceBarY,
+                detailsX + detailsWidth, experienceBarY + 4, 0xFF0B1116);
+            int experienceWidth = Math.round((detailsWidth - 2) * experienceRatio);
+            if (experienceWidth > 0) {
+                graphics.fill(detailsX + 1, experienceBarY + 1,
+                    detailsX + 1 + experienceWidth, experienceBarY + 3, EXP_BLUE);
+            }
+            if (!compact) {
+                String health = Component.translatable(
+                    "screen.cobbleventure_player_menu.bag.pokemon_select.hp", currentHealth, maximumHealth
+                ).getString();
+                graphics.drawString(font, health, detailsX, getY() + 17, MUTED, false);
+                String experience = maximumLevel
+                    ? Component.translatable("screen.cobbleventure_player_menu.bag.pokemon_select.exp_max").getString()
+                    : Component.translatable(
+                        "screen.cobbleventure_player_menu.bag.pokemon_select.exp",
+                        currentLevelExperience, requiredExperience
+                    ).getString();
+                graphics.drawString(font,
+                    font.plainSubstrByWidth(experience, detailsWidth),
+                    detailsX, getY() + 32, MUTED, false);
+            }
 
             ItemStack held = pokemon.heldItem();
-            int heldY = getY() + getHeight() - 20;
+            int heldY = getY() + getHeight() - 18;
             if (held.isEmpty()) {
                 graphics.drawString(font,
                     Component.translatable("screen.cobbleventure_player_menu.bag.no_held_item"),
@@ -194,7 +226,7 @@ final class BagPokemonSelectScreen extends Screen {
         private void renderHeldItemTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
             ItemStack held = pokemon.heldItem();
             int detailsX = getX() + Math.min(50, getHeight());
-            int heldY = getY() + getHeight() - 20;
+            int heldY = getY() + getHeight() - 18;
             if (!held.isEmpty() && mouseX >= detailsX && mouseX < detailsX + 16
                 && mouseY >= heldY && mouseY < heldY + 16) {
                 graphics.renderTooltip(font, held, mouseX, mouseY);

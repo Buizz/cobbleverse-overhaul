@@ -27,18 +27,21 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.JigsawBlock;
 import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.RespawnAnchorBlock;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
 import org.slf4j.Logger;
@@ -94,6 +97,7 @@ final class WorldGateSystem {
                 optionalString(properties, "condition_mode", "all"),
                 List.copyOf(conditions),
                 optionalString(properties, "deny_message", "아직 이 관문을 통과할 수 없습니다."),
+                optionalString(properties, "deny_dialog", "greeting"),
                 nullableString(properties, "npc"),
                 nullableString(properties, "destination_forest"),
                 nullableString(properties, "destination_entrance"),
@@ -122,7 +126,7 @@ final class WorldGateSystem {
                 optionalInt(value, "wall_height", 14),
                 optionalInt(value, "opening_width", 7),
                 optionalInt(value, "barrier_height", 32),
-                "all", List.of(), "숲 입구입니다.", null,
+                "all", List.of(), "숲 입구입니다.", "greeting", null,
                 requiredString(value, "forest"), requiredString(value, "entrance"),
                 null, null, null
             ));
@@ -167,6 +171,14 @@ final class WorldGateSystem {
         if (markerState.is(Blocks.RESPAWN_ANCHOR)) {
             if (forestGate) {
                 cacheForestEntryMarker(level, world, gate);
+            } else if (gate.surroundingType().equals("natural")
+                && !gate.buildingEnabled()
+                && markerState.getValue(RespawnAnchorBlock.CHARGE) < 1) {
+                refreshNpcNaturalGate(level, world, gate, center);
+                level.setBlock(
+                    marker,
+                    markerState.setValue(RespawnAnchorBlock.CHARGE, 1), 2
+                );
             }
             return;
         }
@@ -232,11 +244,35 @@ final class WorldGateSystem {
         if (gate.npc() != null) {
             spawnNpc(level, gate, center, centerY);
         }
-        level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
+        BlockState completedMarker = Blocks.RESPAWN_ANCHOR.defaultBlockState();
+        if (!forestGate && gate.surroundingType().equals("natural")
+            && !gate.buildingEnabled()) {
+            completedMarker = completedMarker.setValue(RespawnAnchorBlock.CHARGE, 1);
+        }
+        level.setBlock(marker, completedMarker, 2);
         LOGGER.info(
             "World gate generated: id={}, anchor={}, facing={}, building={}, surroundings={}",
             gate.id(), gate.anchor(), gate.facing(), gate.buildingEnabled(), gate.surroundingType()
         );
+    }
+
+    /** Refreshes the old solid leaf wall once when an existing NPC-only gate is loaded. */
+    private static void refreshNpcNaturalGate(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center
+    ) {
+        boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
+        int halfLength = Math.max(16, world.grid().radius() - 3);
+        int halfThickness = gate.wallThickness() / 2;
+        int halfOpening = gate.openingWidth() / 2;
+        placeNaturalSurroundings(
+            level, world, gate, center, horizontal,
+            halfLength, halfThickness, halfOpening
+        );
+        placeNaturalGateFunnels(
+            level, world, gate, center, null, halfThickness, halfOpening
+        );
+        LOGGER.info("NPC natural gate visuals refreshed: gate={}", gate.id());
     }
 
     private static void placeWallSurroundings(
@@ -377,7 +413,10 @@ final class WorldGateSystem {
         ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
         NaturalGateFunnelProfile profile, int x, int z, int depth, int band
     ) {
-        int groundY = groundY(level, x, z);
+        int groundY = terrainType.equals("high_forest")
+            || terrainType.equals("dense_forest")
+            ? forestFunnelGroundY(level, x, z)
+            : groundY(level, x, z);
         int variation = profile.maximumHeight() - profile.minimumHeight() + 1;
         long hash = world.seed() ^ (long) x * 73428767L
             ^ (long) z * 912931L ^ (long) depth * 42317861L;
@@ -385,9 +424,10 @@ final class WorldGateSystem {
             + Math.floorMod((int) (hash ^ hash >>> 32), variation);
         visibleHeight = Math.max(gate.wallHeight(), visibleHeight);
         visibleHeight = Math.min(visibleHeight, gate.barrierHeight());
+        int barrierStartHeight = visibleHeight;
         if (terrainType.equals("high_forest")
             || terrainType.equals("dense_forest")) {
-            placeForestFunnelColumn(
+            barrierStartHeight = placeForestFunnelColumn(
                 level, terrainType, x, z, groundY, visibleHeight,
                 depth, band
             );
@@ -397,7 +437,7 @@ final class WorldGateSystem {
             );
         }
         placeOverheadBarrier(
-            level, x, z, groundY, visibleHeight, gate.barrierHeight()
+            level, x, z, groundY, barrierStartHeight, gate.barrierHeight()
         );
     }
 
@@ -431,7 +471,7 @@ final class WorldGateSystem {
         }
     }
 
-    private static void placeForestFunnelColumn(
+    private static int placeForestFunnelColumn(
         ServerLevel level, String terrainType, int x, int z, int groundY,
         int visibleHeight, int depth, int band
     ) {
@@ -441,17 +481,71 @@ final class WorldGateSystem {
         BlockState leaves = persistentLeaves(terrainType.equals("dense_forest")
             ? Blocks.SPRUCE_LEAVES.defaultBlockState()
             : Blocks.DARK_OAK_LEAVES.defaultBlockState());
+        for (int height = 1; height <= 128 && groundY + height < level.getMaxBuildHeight(); height++) {
+            BlockPos position = new BlockPos(x, groundY + height, z);
+            BlockState existing = level.getBlockState(position);
+            if (existing.is(Blocks.BARRIER)
+                || existing.is(BlockTags.LOGS)
+                || existing.getBlock() instanceof LeavesBlock) {
+                level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+            }
+        }
         level.setBlock(
             new BlockPos(x, groundY, z),
             Math.floorMod(x + z, 3) == 0
                 ? Blocks.MOSS_BLOCK.defaultBlockState()
                 : Blocks.PODZOL.defaultBlockState(), 2
         );
-        boolean trunk = Math.floorMod(depth * 3 + band * 5 + x - z, 7) == 0;
-        for (int height = 1; height <= visibleHeight; height++) {
-            BlockState state = trunk && height < visibleHeight - 1 ? log : leaves;
-            level.setBlock(new BlockPos(x, groundY + height, z), state, 2);
+        int pattern = Math.floorMod(
+            depth * 31 + band * 17 + x * 7 - z * 11, 29
+        );
+        int shrubHeight = 2 + Math.floorMod(pattern, 3);
+        for (int height = 1; height <= shrubHeight; height++) {
+            level.setBlock(new BlockPos(x, groundY + height, z), leaves, 2);
         }
+
+        // Keep most of the blocking strip as an irregular, low understory.
+        // Sparse trunks are placed behind that edge and receive a small crown,
+        // instead of stretching every leaf column into a rectangular tree wall.
+        boolean trunk = band > 1 && pattern <= 2;
+        if (!trunk) {
+            return shrubHeight;
+        }
+        int trunkHeight = Math.max(5, visibleHeight - Math.floorMod(pattern + depth, 3));
+        for (int height = 1; height <= trunkHeight; height++) {
+            level.setBlock(new BlockPos(x, groundY + height, z), log, 2);
+        }
+        for (int crownY = trunkHeight - 1; crownY <= trunkHeight + 1; crownY++) {
+            int radius = crownY == trunkHeight + 1 ? 0 : 1;
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (Math.abs(dx) + Math.abs(dz) > radius) {
+                        continue;
+                    }
+                    BlockPos crown = new BlockPos(x + dx, groundY + crownY, z + dz);
+                    BlockState current = level.getBlockState(crown);
+                    if (current.isAir() || current.is(Blocks.BARRIER)
+                        || current.getBlock() instanceof LeavesBlock) {
+                        level.setBlock(crown, leaves, 2);
+                    }
+                }
+            }
+        }
+        return trunkHeight + 1;
+    }
+
+    private static int forestFunnelGroundY(ServerLevel level, int x, int z) {
+        int heightmapGround = groundY(level, x, z);
+        if (!level.getBlockState(new BlockPos(x, heightmapGround, z)).is(Blocks.BARRIER)) {
+            return heightmapGround;
+        }
+        for (int y = heightmapGround; y > level.getMinBuildHeight(); y--) {
+            BlockState state = level.getBlockState(new BlockPos(x, y, z));
+            if (state.is(Blocks.MOSS_BLOCK) || state.is(Blocks.PODZOL)) {
+                return y;
+            }
+        }
+        return heightmapGround;
     }
 
     private static void placeTerrainFunnelColumn(
@@ -600,7 +694,10 @@ final class WorldGateSystem {
         ServerLevel level, int x, int z, int groundY, int visibleHeight, int barrierHeight
     ) {
         for (int height = visibleHeight + 1; height <= barrierHeight; height++) {
-            level.setBlock(new BlockPos(x, groundY + height, z), Blocks.BARRIER.defaultBlockState(), 2);
+            BlockPos position = new BlockPos(x, groundY + height, z);
+            if (level.getBlockState(position).isAir()) {
+                level.setBlock(position, Blocks.BARRIER.defaultBlockState(), 2);
+            }
         }
     }
 
@@ -1132,7 +1229,7 @@ final class WorldGateSystem {
             double z = horizontal ? center.z() + safeNormal : player.getZ();
             player.teleportTo(player.serverLevel(), x, player.getY(), z, player.getYRot(), player.getXRot());
             LAST_POSITIONS.put(player.getUUID(), new Vec3(x, player.getY(), z));
-            showDenyMessage(player, gate, gameTime);
+            showDenyFeedback(player, grid, gate, gameTime);
             return;
         }
     }
@@ -1298,13 +1395,55 @@ final class WorldGateSystem {
         }
         player.teleportTo(player.serverLevel(), x, y, z, player.getYRot(), player.getXRot());
         LAST_POSITIONS.put(player.getUUID(), new Vec3(x, y, z));
-        showDenyMessage(player, gate, gameTime);
+        showDenyFeedback(player, grid, gate, gameTime);
     }
 
-    private static void showDenyMessage(ServerPlayer player, Gate gate, long gameTime) {
+    private static void showDenyFeedback(
+        ServerPlayer player, HexGrid grid, Gate gate, long gameTime
+    ) {
         if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
-            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 40L);
-            player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
+            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 60L);
+            if (gate.npc() == null || !openGateNpcDialog(player, grid, gate)) {
+                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
+            }
+        }
+    }
+
+    private static boolean openGateNpcDialog(
+        ServerPlayer player, HexGrid grid, Gate gate
+    ) {
+        CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
+        int centerY = groundY(player.serverLevel(), center.x(), center.z()) + 1;
+        AABB search = new AABB(
+            center.x() - 8.0D, centerY - 4.0D, center.z() - 8.0D,
+            center.x() + 8.0D, centerY + 5.0D, center.z() + 8.0D
+        );
+        Entity npc = player.serverLevel().getEntitiesOfClass(
+            Entity.class, search,
+            entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+                .getNamespace().equals("easy_npc")
+                && entity.getTags().contains("cobbleventure_npc_preset_v4")
+        ).stream().min(java.util.Comparator.comparingDouble(
+            entity -> entity.distanceToSqr(center.x() + 0.5D, centerY, center.z() + 0.5D)
+        )).orElse(null);
+        if (npc == null) {
+            LOGGER.warn("Gate denial dialog NPC was not found: gate={}, npc={}", gate.id(), gate.npc());
+            return false;
+        }
+        String command = "easy_npc dialog open " + npc.getStringUUID() + " "
+            + player.getGameProfile().getName() + " " + gate.denyDialog();
+        try {
+            int result = player.getServer().getCommands().getDispatcher().execute(
+                command,
+                player.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+            );
+            if (result == 0) {
+                LOGGER.warn("Gate denial dialog command returned no result: gate={}, npc={}", gate.id(), npc.getUUID());
+            }
+            return result != 0;
+        } catch (CommandSyntaxException error) {
+            LOGGER.error("Gate denial dialog failed: gate={}, npc={}", gate.id(), npc.getUUID(), error);
+            return false;
         }
     }
 
@@ -1414,6 +1553,7 @@ final class WorldGateSystem {
         String conditionMode,
         List<PlayerConditions.Condition> conditions,
         String denyMessage,
+        String denyDialog,
         String npc,
         String destinationForest,
         String destinationEntrance,
@@ -1437,7 +1577,7 @@ final class WorldGateSystem {
                 id, anchor, structure, rotation, facing, centerPlacement, buildingEnabled,
                 surroundingType, wallBlock, treeLog, treeLeaves, wallThickness,
                 wallHeight, openingWidth, barrierHeight, conditionMode, conditions,
-                denyMessage, npc, destinationForest, destinationEntrance,
+                denyMessage, denyDialog, npc, destinationForest, destinationEntrance,
                 dimension, destination, portalAnchor
             );
         }

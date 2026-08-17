@@ -2098,7 +2098,8 @@ function gateProperties(values) {
     passage_width: normalizedOdd(values.openingWidth, 3, 31),
     barrier_height: Math.max(wallHeight + 1, Math.min(128, Math.round(Number(values.barrierHeight) || 24))),
     condition_mode: values.conditionMode, conditions,
-    deny_message: values.denyMessage.trim() || "아직 이 관문을 통과할 수 없습니다."
+    deny_message: values.denyMessage.trim() || "아직 이 관문을 통과할 수 없습니다.",
+    deny_dialog: values.denyDialog.trim() || "greeting"
   };
   if (hasNpc) properties.npc = values.npc.trim();
   return properties;
@@ -2111,7 +2112,7 @@ function placeGateWithTool(q, r) {
   if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
   state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
-  let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, gateMode, surroundingType: $("#object-tool-surrounding-type").value, wallBlock: $("#object-tool-wall-block").value, treeLog: $("#object-tool-tree-log").value, treeLeaves: $("#object-tool-tree-leaves").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: gateConditionsFromEditor("#object-tool-condition-builder"), denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value }); } catch (error) { toast(error.message); return; }
+  let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, gateMode, surroundingType: $("#object-tool-surrounding-type").value, wallBlock: $("#object-tool-wall-block").value, treeLog: $("#object-tool-tree-log").value, treeLeaves: $("#object-tool-tree-leaves").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: gateConditionsFromEditor("#object-tool-condition-builder"), denyDialog: $("#object-tool-deny-dialog").value, denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value }); } catch (error) { toast(error.message); return; }
   const object = { id, type, anchor: { q, r }, rotation: Number($("#object-tool-rotation").value), properties };
   if (buildingEnabled) object.resource = resource;
   state.worldLayout.objects.push(object); state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
@@ -2161,6 +2162,7 @@ function updateGateOptionVisibility() {
   ["object-tool-facing", "object-tool-surrounding-type", "object-tool-wall-thickness", "object-tool-opening-width", "object-tool-wall-height", "object-tool-barrier-height"].forEach((id) => { $(`#${id}`).closest("label").hidden = false; });
   $("#object-tool-rotation").closest("label").hidden = !toolBuilding;
   $("#object-tool-npc").closest("label").hidden = !toolHasNpc;
+  $("#object-tool-deny-dialog").closest("label").hidden = !toolHasNpc;
   ["object-tool-condition-mode", "object-tool-deny-message"].forEach((id) => { $(`#${id}`).closest("label").hidden = false; });
   $("#object-tool-condition-builder").hidden = false;
   $("#edit-object-npc").hidden = !toolHasNpc;
@@ -2182,6 +2184,7 @@ function updateGateOptionVisibility() {
   ["objectTreeLog", "objectTreeLeaves"].forEach((name) => { form.elements[name].closest("label").hidden = true; });
   form.elements.objectRotation.closest("label").hidden = !inspectorIsGate || !inspectorBuilding;
   form.elements.objectNpc.closest("label").hidden = !inspectorIsGate || !inspectorHasNpc;
+  form.elements.objectDenyDialog.closest("label").hidden = !inspectorIsGate || !inspectorHasNpc;
   ["objectConditionMode", "objectDenyMessage"].forEach((name) => { form.elements[name].closest("label").hidden = !inspectorIsGate; });
   $("#inspector-gate-condition-builder").hidden = !inspectorIsGate;
   objectFields.querySelector("[data-object-resource]").hidden = inspectorIsGate && !inspectorBuilding;
@@ -2554,6 +2557,7 @@ function renderTileInspector() {
   form.elements.objectNpc.value = customObject?.properties?.npc || "";
   form.elements.objectConditionMode.value = customObject?.properties?.condition_mode || "all";
   renderGateConditionEditor($("#inspector-gate-condition-builder"), customObject?.properties?.conditions || []);
+  form.elements.objectDenyDialog.value = customObject?.properties?.deny_dialog || "greeting";
   form.elements.objectDenyMessage.value = customObject?.properties?.deny_message || "아직 이 관문을 통과할 수 없습니다.";
   updateGateOptionVisibility();
   const tileFieldKind = kind === "gate" ? "object" : kind;
@@ -3094,7 +3098,7 @@ function applyTilePlacement() {
     const gateMode = form.elements.objectGateMode.value;
     const buildingEnabled = gateMode === "gate" || gateMode === "gate_npc";
     if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
-    let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, gateMode, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: gateConditionsFromEditor("#inspector-gate-condition-builder"), denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
+    let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, gateMode, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: gateConditionsFromEditor("#inspector-gate-condition-builder"), denyDialog: form.elements.objectDenyDialog.value, denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
     const object = { id, type, anchor: { q, r }, rotation: Number(form.elements.objectRotation.value), properties };
     if (buildingEnabled) object.resource = resource;
     state.worldLayout.objects.push(object); markWorldDirty(); renderWorldLayout(); return;

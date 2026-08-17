@@ -19,15 +19,14 @@
   "rotation": 1,
   "properties": {
     "facing": "east",
-    "gate_mode": "classic",
-    "building_enabled": true,
-    "surrounding_type": "trees",
+    "center_placement": "gate_npc",
+    "surrounding_type": "natural",
     "wall_block": "minecraft:stone_bricks",
     "tree_log": "minecraft:oak_log",
     "tree_leaves": "minecraft:oak_leaves",
     "wall_thickness": 5,
     "wall_height": 7,
-    "opening_width": 7,
+    "passage_width": 7,
     "barrier_height": 24,
     "condition_mode": "all",
     "conditions": [
@@ -42,6 +41,7 @@
       { "type": "pokemon", "species": "cobblemon:pikachu" }
     ],
     "npc": "easy_npc:preset/encounter/gatekeeper.npc.snbt",
+    "deny_dialog": "greeting",
     "deny_message": "배지 두 개가 필요합니다."
   }
 }
@@ -51,22 +51,17 @@
 `west`면 남북 방향(ㅣ)으로 놓인다. `rotation`은 NBT만 0°, 90°, 180°, 270°로
 회전한다. 벽 두께와 통로 폭은 중심 정렬을 위해 홀수만 허용한다.
 
-`gate_mode`는 관문의 제지 방식을 결정한다.
-
-- `classic`: 중앙 NBT 건물과 주변 차단물을 만들고 관문 통로 횡단을 판정한다.
-- `npc_only`: 지형이나 건물을 생성하지 않고 NPC만 배치한다. 제지는 NPC의
-  `proximity` 이벤트와 `teleport_to_gate` 액션으로 처리한다.
-- `system_only`: 건물·주변 차단물·NPC를 생성하지 않는다. 조건 미충족 플레이어가
-  관문 육각 타일에 들어오면 이전 위치로 되돌리고 `deny_message`를 액션바에 표시한다.
-
 `center_placement`는 가운데 배치물을 `gate`, `gate_npc`, `npc` 중에서 선택한다.
 `surrounding_type`은 `wall` 또는 주변 이동 불가 지형을 잇는 `natural`을 사용한다.
+`natural`의 숲 경계는 낮은 관목층과 간격을 둔 나무 수관으로 표현하고, 그 위의
+보이지 않는 배리어가 비행과 점프 우회를 막는다.
+기존 월드의 NPC 단독 자연 관문은 다음 서버 로드에서 한 번 새 수목 형태로 갱신된다.
 
 관문 조건은 [공용 플레이어 조건 규격](PLAYER_CONDITIONS.md)을 그대로 사용한다.
 관문 전용 조건 타입이나 판정 의미를 추가하면 안 된다. 빈 `all` 조건 배열은 제한 없는
 관문이며, `any`이면 하나 이상의 조건을 만족해야 한다.
 
-시스템 차단 관문의 최소 예시는 다음과 같다.
+NPC가 없는 차단 관문의 최소 예시는 다음과 같다.
 
 ```json
 {
@@ -76,15 +71,14 @@
   "rotation": 0,
   "properties": {
     "facing": "north",
-    "gate_mode": "system_only",
-    "building_enabled": false,
-    "surrounding_type": "none",
+    "center_placement": "gate",
+    "surrounding_type": "wall",
     "wall_block": "minecraft:stone_bricks",
     "tree_log": "minecraft:oak_log",
     "tree_leaves": "minecraft:oak_leaves",
     "wall_thickness": 5,
     "wall_height": 7,
-    "opening_width": 7,
+    "passage_width": 7,
     "barrier_height": 24,
     "condition_mode": "all",
     "conditions": [{
@@ -105,9 +99,10 @@
 `gatekeeper`(관문지키미)로 지정하고 대화·분기·행동을 구성한 뒤, 월드맵 관문의
 `npc`가 생성된 EasyNPC 프리셋을 참조한다.
 
-`npc_only`의 자연스러운 제지 연출은 NPC 이벤트의 트리거를 `proximity`로 두고,
-조건 불충족 대화 뒤 `teleport_to_gate`를 실행하도록 구성한다. NPC 외형·대화·트리거는
-관문 화면에 복제하지 않는다. 시스템 안전망이 필요하면 `system_only`를 사용한다.
+조건을 만족하지 못한 플레이어가 통로를 건너면 시스템이 안전한 쪽으로 되돌린 뒤,
+가까운 관문지기 EasyNPC에서 `deny_dialog` 라벨의 대화를 자동으로 연다. 기본 라벨은
+`greeting`이다. NPC를 찾지 못했거나 대화 명령이 실패한 경우에만 `deny_message`를
+액션바에 표시한다. NPC 외형과 대화 본문은 NPC 화면에서 관리한다.
 
 NPC 이벤트에는 `teleport_to_gate` 액션을 넣을 수 있다. 좌표 대신 월드맵 관문 ID를
 참조하므로 관문을 다른 타일로 옮겨도 NPC 이벤트를 수정할 필요가 없다.

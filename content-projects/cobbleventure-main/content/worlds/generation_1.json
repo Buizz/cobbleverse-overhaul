@@ -3281,6 +3281,7 @@
             "value": 1
           }
         ],
+        "deny_dialog": "greeting",
         "deny_message": "포켓몬 없이 마을 밖으로 나가는 건 위험합니다. 오박사에게 첫 파트너를 받은 뒤 다시 오세요.",
         "npc": "easy_npc:preset/encounter/starter_town_gatekeeper_minho.npc.snbt"
       },

@@ -50,6 +50,8 @@
   "screen.cobbleventure_player_menu.bag.pokemon_select.give_hint": "%s을(를) 지니게 할 대상을 선택하세요",
   "screen.cobbleventure_player_menu.bag.pokemon_select.level": "Lv.%s",
   "screen.cobbleventure_player_menu.bag.pokemon_select.hp": "HP %s/%s",
+  "screen.cobbleventure_player_menu.bag.pokemon_select.exp": "EXP %s/%s",
+  "screen.cobbleventure_player_menu.bag.pokemon_select.exp_max": "EXP MAX",
   "screen.cobbleventure_player_menu.bag.no_held_item": "소지품 없음",
   "screen.cobbleventure_player_menu.bag.given_to_pokemon": "%s에게 아이템을 주었습니다",
   "screen.cobbleventure_player_menu.bag.give_failed": "이 아이템은 포켓몬에게 줄 수 없습니다",

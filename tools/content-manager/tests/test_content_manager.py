@@ -2065,6 +2065,7 @@ class ContentManagerTests(unittest.TestCase):
                         {"type": "party_count", "operator": ">=", "value": 1},
                     ],
                     "npc": "easy_npc:preset/encounter/gatekeeper.npc.snbt",
+                    "deny_dialog": "greeting",
                     "deny_message": "배지 두 개가 필요합니다.",
                 },
             }
@@ -2085,6 +2086,10 @@ class ContentManagerTests(unittest.TestCase):
             invalid_party_count["objects"][0]["properties"]["conditions"][4]["value"] = 7
             issues = content_manager.save_world_layout(candidate_root, invalid_party_count, 2)
             self.assertTrue(any("파티 포켓몬 수" in issue.message for issue in issues))
+            invalid_dialog = json.loads(json.dumps(layout))
+            invalid_dialog["objects"][0]["properties"]["deny_dialog"] = "Greeting 1"
+            issues = content_manager.save_world_layout(candidate_root, invalid_dialog, 2)
+            self.assertTrue(any(issue.path.endswith(".deny_dialog") for issue in issues))
             npc_center = json.loads(json.dumps(gate))
             npc_center["id"] = "npc_center_gate"
             npc_center["anchor"] = {"q": 2, "r": -1}
@@ -2167,6 +2172,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="world-object-nbt-options"', page)
         self.assertIn('name="objectNpc"', page)
         self.assertIn('id="edit-object-npc"', page)
+        self.assertIn('id="object-tool-deny-dialog"', page)
+        self.assertIn('name="objectDenyDialog"', page)
+        self.assertIn('deny_dialog: values.denyDialog.trim() || "greeting"', script)
         self.assertIn('name="npcRole"', page)
         self.assertIn("validatePlayerConditions", script)
         self.assertIn("playerConditionTypeOptions", script)
@@ -2174,6 +2182,19 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("gateProperties", script)
         self.assertIn("renderWorldObjectNbtOptions", script)
         self.assertIn('teleport_to_gate: "관문으로 이동"', script)
+
+    def test_world_gate_denial_opens_easy_npc_dialog_and_uses_organic_forest_edge(self) -> None:
+        runtime = (
+            CORE_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/WorldGateSystem.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn('String command = "easy_npc dialog open "', runtime)
+        self.assertIn("gate.denyDialog()", runtime)
+        self.assertIn("if (gate.npc() == null || !openGateNpcDialog", runtime)
+        self.assertIn("int shrubHeight = 2 +", runtime)
+        self.assertIn("boolean trunk = band > 1", runtime)
+        self.assertIn("refreshNpcNaturalGate", runtime)
+        self.assertIn("RespawnAnchorBlock.CHARGE", runtime)
 
     def test_player_conditions_share_schema_runtime_ui_and_documentation(self) -> None:
         schema = json.loads((

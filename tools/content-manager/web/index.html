@@ -369,7 +369,8 @@
                     <div class="gate-condition-list" data-gate-condition-list></div>
                     <small>아이템, 배지, 변수, 파티 포켓몬 조건을 필요한 만큼 추가할 수 있습니다.</small>
                   </section>
-                  <label><span>차단 메시지</span><input id="object-tool-deny-message" value="아직 이 관문을 통과할 수 없습니다."></label>
+                  <label data-gate-npc-dialog><span>차단 안내 대화 라벨</span><input id="object-tool-deny-dialog" value="greeting"><small>자동 차단 시 이 EasyNPC 대화를 엽니다.</small></label>
+                  <label><span>대화 실패·NPC 없음 메시지</span><input id="object-tool-deny-message" value="아직 이 관문을 통과할 수 없습니다."></label>
                   <p class="tool-panel-note">건물과 주변 차단물을 각각 끌 수 있어 NPC만 길을 막는 관문도 만들 수 있습니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="object" hidden>
@@ -427,7 +428,8 @@
                     <div class="gate-condition-list" data-gate-condition-list></div>
                     <small>아이템, 배지, 변수, 파티 포켓몬 조건을 필요한 만큼 추가할 수 있습니다.</small>
                   </div>
-                  <label><span>차단 메시지</span><input name="objectDenyMessage"></label>
+                  <label data-gate-npc-dialog><span>차단 안내 대화 라벨</span><input name="objectDenyDialog"><small>자동 차단 시 이 EasyNPC 대화를 엽니다.</small></label>
+                  <label><span>대화 실패·NPC 없음 메시지</span><input name="objectDenyMessage"></label>
                 </section>
                 <section class="route-overlay-panel" id="route-overlay-panel" hidden><div><b>길 오버레이</b><small>기본 바이옴 위에 겹쳐진 연결입니다.</small></div><div id="route-overlay-list"></div></section>
                 <div class="tile-summary" id="tile-summary"></div>

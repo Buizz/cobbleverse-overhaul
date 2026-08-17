@@ -1149,6 +1149,12 @@ def validate_hex_worlds(
             deny_message = properties.get("deny_message")
             if deny_message is not None and (not isinstance(deny_message, str) or not deny_message.strip() or len(deny_message) > 256):
                 _issue(issues, "error", path, f"{object_path}.properties.deny_message", "차단 문구는 1~256자의 문자열이어야 합니다.")
+            deny_dialog = properties.get("deny_dialog")
+            if deny_dialog is not None and (
+                not isinstance(deny_dialog, str)
+                or not re.fullmatch(r"[a-z0-9_.-]+", deny_dialog)
+            ):
+                _issue(issues, "error", path, f"{object_path}.properties.deny_dialog", "차단 대화 라벨은 영문 소문자 형식이어야 합니다.")
             conditions = properties.get("conditions")
             if not isinstance(conditions, list):
                 _issue(issues, "error", path, f"{object_path}.properties.conditions", "관문 조건 배열이 필요합니다.")

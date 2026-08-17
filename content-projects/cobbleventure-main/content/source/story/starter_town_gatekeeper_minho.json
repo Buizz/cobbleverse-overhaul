@@ -27,7 +27,7 @@
     "display_name": {
       "ko_kr": "길지기 민호"
     },
-    "role": "default",
+    "role": "gatekeeper",
     "trainer_class": "cobbleventure:trainer_class/pokemon_ranger_male",
     "appearance": {
       "source": "custom",
