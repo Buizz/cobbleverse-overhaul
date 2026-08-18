@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.CobblemonSounds;
 import com.cobblemon.mod.common.api.item.PokemonSelectingItem;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
@@ -52,6 +53,7 @@ public final class BagScreen extends Screen {
     private static final int SEPARATOR_COLOR = 0x553F505B;
 
     private final Screen parent;
+    private final MenuOpeningEffect openingEffect = new MenuOpeningEffect();
     private final List<CategoryButton> categoryButtons = new ArrayList<>();
     private final List<ItemSlotButton> itemButtons = new ArrayList<>();
     private final List<BagSlotRef> filteredSlots = new ArrayList<>();
@@ -92,6 +94,7 @@ public final class BagScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        openingEffect.start(minecraft, CobblemonSounds.PC_ON, 1.06F, 0.38F);
         categoryButtons.clear();
         itemButtons.clear();
 
@@ -203,18 +206,26 @@ public final class BagScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        drawPanel(graphics, panelX, panelY, panelWidth, panelHeight);
-        renderHeader(graphics);
-        renderContentBackground(graphics);
-        renderScrollbar(graphics);
-        renderDetails(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        openingEffect.begin(graphics, width, height);
+        try {
+            drawPanel(graphics, panelX, panelY, panelWidth, panelHeight);
+            renderHeader(graphics);
+            renderContentBackground(graphics);
+            renderScrollbar(graphics);
+            renderDetails(graphics);
+            super.render(graphics, mouseX, mouseY, partialTick);
 
-        for (ItemSlotButton button : itemButtons) {
-            if (button.visible && button.isMouseOver(mouseX, mouseY) && !button.stack().isEmpty()) {
-                graphics.renderTooltip(font, button.stack(), mouseX, mouseY);
-                break;
+            if (openingEffect.finished()) {
+                for (ItemSlotButton button : itemButtons) {
+                    if (button.visible && button.isMouseOver(mouseX, mouseY)
+                        && !button.stack().isEmpty()) {
+                        graphics.renderTooltip(font, button.stack(), mouseX, mouseY);
+                        break;
+                    }
+                }
             }
+        } finally {
+            openingEffect.end(graphics);
         }
     }
 
@@ -225,6 +236,7 @@ public final class BagScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!openingEffect.finished()) return true;
         if (button == 0 && isOverScrollbar(mouseX, mouseY)) {
             scrollbarDragging = true;
             updateScrollbarDrag(mouseY);
@@ -254,6 +266,7 @@ public final class BagScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (!openingEffect.finished()) return true;
         if (scrollbarDragging && button == 0) {
             updateScrollbarDrag(mouseY);
             return true;
@@ -284,6 +297,7 @@ public final class BagScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (!openingEffect.finished()) return true;
         if (Screen.hasControlDown() && keyCode == GLFW.GLFW_KEY_F) {
             setFocused(searchBox);
             searchBox.setFocused(true);
@@ -331,6 +345,7 @@ public final class BagScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (!openingEffect.finished()) return true;
         if (scrollY != 0.0D) {
             scrollBy(scrollY > 0.0D ? -1 : 1);
             return true;

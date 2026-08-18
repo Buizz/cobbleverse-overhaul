@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.CobblemonSounds;
 import com.mojang.authlib.GameProfile;
 import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
 import java.math.BigInteger;
@@ -44,6 +45,7 @@ public final class TrainerCardScreen extends Screen {
     );
 
     private final Screen parent;
+    private final MenuOpeningEffect openingEffect = new MenuOpeningEffect();
     private TrainerCardProgress progress;
     private final boolean liveProgress;
     private final Map<String, CardLeader> leaderModels = new HashMap<>();
@@ -78,6 +80,7 @@ public final class TrainerCardScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        openingEffect.start(minecraft, CobblemonSounds.POKEDEX_CLICK_SHORT, 0.96F, 0.3F);
         if (liveProgress) {
             BadgeProgressNetwork.requestSnapshot();
             ProgressionNetwork.requestSnapshot();
@@ -120,9 +123,14 @@ public final class TrainerCardScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, PAGE_BACKGROUND);
-        drawCard(graphics, mouseX, mouseY, partialTick);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        openingEffect.begin(graphics, width, height);
+        try {
+            graphics.fill(0, 0, width, height, PAGE_BACKGROUND);
+            drawCard(graphics, mouseX, mouseY, partialTick);
+            super.render(graphics, mouseX, mouseY, partialTick);
+        } finally {
+            openingEffect.end(graphics);
+        }
     }
 
     @Override
@@ -132,6 +140,7 @@ public final class TrainerCardScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (!openingEffect.finished()) return true;
         if (keyCode == GLFW.GLFW_KEY_LEFT && showingBack && progress.pages().size() > 1) {
             changePage(-1);
             return true;
@@ -145,6 +154,12 @@ public final class TrainerCardScreen extends Screen {
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!openingEffect.finished()) return true;
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override

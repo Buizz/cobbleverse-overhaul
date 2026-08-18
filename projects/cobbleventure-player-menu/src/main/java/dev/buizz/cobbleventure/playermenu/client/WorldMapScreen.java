@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import com.cobblemon.mod.common.CobblemonSounds;
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
 import com.cobblemon.mod.common.pokemon.RenderablePokemon;
@@ -51,6 +52,7 @@ public final class WorldMapScreen extends Screen {
     private static final int MAX_POKEMON_MODELS = 96;
 
     private final Screen parent;
+    private final MenuOpeningEffect openingEffect = new MenuOpeningEffect();
     private MapContent content = MapContent.instance();
     private MapContent.Hex selected = new MapContent.Hex(0, 0);
     private AbstractButton teleportButton;
@@ -77,6 +79,7 @@ public final class WorldMapScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        openingEffect.start(minecraft, CobblemonSounds.POKEDEX_CLICK_SHORT, 0.9F, 0.28F);
         if (!generationInitialized) {
             selectPlayerGeneration();
             generationInitialized = true;
@@ -131,44 +134,55 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, PAGE_BACKGROUND);
-        int titleWidth = Math.max(116, font.width(title) + 34);
-        drawRibbonPanel(graphics, (width - titleWidth) / 2, 4, titleWidth, 23, PANEL_COLOR);
-        graphics.fill((width - titleWidth) / 2 + 12, 5,
-            (width - titleWidth) / 2 + 42, 7, ACCENT_COLOR);
-        graphics.drawCenteredString(font, title, width / 2, 11, TEXT);
-        Layout layout = layout();
-        MapContent.CaveEntrance hoveredCave = caveAtMouse(layout, mouseX, mouseY);
-        MapContent.ForestEntrance hoveredForest = hoveredCave == null
-            ? forestAtMouse(layout, mouseX, mouseY) : null;
-        graphics.drawCenteredString(
-            font,
-            Component.translatable("screen.cobbleventure_player_menu.world_map.generation", content.generation()),
-            layout.mapLeft() + 52,
-            11,
-            TEXT
-        );
-        drawMap(graphics, layout, mouseX, mouseY, hoveredCave, hoveredForest);
-        drawInfoPanel(graphics, layout, hoveredCave, hoveredForest);
-        graphics.drawString(
-            font,
-            Component.translatable("screen.cobbleventure_player_menu.world_map.hint"),
-            MARGIN,
-            height - FOOTER_HEIGHT + 10,
-            MUTED_TEXT,
-            false
-        );
-        super.render(graphics, mouseX, mouseY, partialTick);
-        for (PokemonHover hover : pokemonHovers) {
-            if (hover.contains(mouseX, mouseY)) {
-                graphics.renderTooltip(font, Component.literal(hover.name()), mouseX, mouseY);
-                break;
+        openingEffect.begin(graphics, width, height);
+        try {
+            graphics.fill(0, 0, width, height, PAGE_BACKGROUND);
+            int titleWidth = Math.max(116, font.width(title) + 34);
+            drawRibbonPanel(graphics, (width - titleWidth) / 2, 4, titleWidth, 23, PANEL_COLOR);
+            graphics.fill((width - titleWidth) / 2 + 12, 5,
+                (width - titleWidth) / 2 + 42, 7, ACCENT_COLOR);
+            graphics.drawCenteredString(font, title, width / 2, 11, TEXT);
+            Layout layout = layout();
+            MapContent.CaveEntrance hoveredCave = caveAtMouse(layout, mouseX, mouseY);
+            MapContent.ForestEntrance hoveredForest = hoveredCave == null
+                ? forestAtMouse(layout, mouseX, mouseY) : null;
+            graphics.drawCenteredString(
+                font,
+                Component.translatable(
+                    "screen.cobbleventure_player_menu.world_map.generation",
+                    content.generation()
+                ),
+                layout.mapLeft() + 52,
+                11,
+                TEXT
+            );
+            drawMap(graphics, layout, mouseX, mouseY, hoveredCave, hoveredForest);
+            drawInfoPanel(graphics, layout, hoveredCave, hoveredForest);
+            graphics.drawString(
+                font,
+                Component.translatable("screen.cobbleventure_player_menu.world_map.hint"),
+                MARGIN,
+                height - FOOTER_HEIGHT + 10,
+                MUTED_TEXT,
+                false
+            );
+            super.render(graphics, mouseX, mouseY, partialTick);
+            if (openingEffect.finished()) {
+                for (PokemonHover hover : pokemonHovers) {
+                    if (hover.contains(mouseX, mouseY)) {
+                        graphics.renderTooltip(font, Component.literal(hover.name()), mouseX, mouseY);
+                        break;
+                    }
+                }
             }
+        } finally {
+            openingEffect.end(graphics);
         }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!openingEffect.finished()) return true;
         if (super.mouseClicked(mouseX, mouseY, button)) return true;
         Layout layout = layout();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && layout.mapContains(mouseX, mouseY)) {
@@ -185,6 +199,7 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (!openingEffect.finished()) return true;
         MapContent.Hex next = switch (keyCode) {
             case GLFW.GLFW_KEY_LEFT -> new MapContent.Hex(selected.q() - 1, selected.r());
             case GLFW.GLFW_KEY_RIGHT -> new MapContent.Hex(selected.q() + 1, selected.r());
@@ -203,6 +218,7 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (!openingEffect.finished()) return true;
         Layout layout = layout();
         if (layout.mapContains(mouseX, mouseY) && scrollY != 0.0D) {
             changeZoom(scrollY > 0.0D ? 1 : -1, mouseX, mouseY);
@@ -226,6 +242,7 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (!openingEffect.finished()) return true;
         Layout layout = layout();
         if ((button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
             && layout.mapContains(mouseX, mouseY)) {
