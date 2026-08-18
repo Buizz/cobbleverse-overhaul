@@ -1,5 +1,8 @@
 package dev.buizz.cobbleventure.playermenu;
 
+import com.cobblemon.mod.common.api.Priority;
+import com.cobblemon.mod.common.api.events.CobblemonEvents;
+import com.cobblemon.mod.common.api.events.pokemon.ExperienceGainedEvent;
 import com.cobblemon.mod.common.api.storage.pc.link.PCLink;
 import com.cobblemon.mod.common.api.storage.pc.link.PCLinkManager;
 import com.cobblemon.mod.common.net.messages.client.storage.pc.OpenPCPacket;
@@ -53,6 +56,10 @@ public final class ProgressionNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(ProgressionNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(ProgressionNetwork::registerCommands);
+        CobblemonEvents.EXPERIENCE_GAINED_EVENT_PRE.subscribe(
+            Priority.HIGHEST,
+            ProgressionNetwork::applyLevelCap
+        );
     }
 
     public static ClientSnapshot clientSnapshot() { return clientSnapshot; }
@@ -64,6 +71,17 @@ public final class ProgressionNetwork {
     public static int levelCap(ServerPlayer player) {
         int stored = player.getPersistentData().getInt(LEVEL_CAP_KEY);
         return stored <= 0 ? DEFAULT_LEVEL_CAP : Math.max(1, Math.min(100, stored));
+    }
+
+    private static void applyLevelCap(ExperienceGainedEvent.Pre event) {
+        ServerPlayer owner = event.getPokemon().getOwnerPlayer();
+        if (owner == null) {
+            return;
+        }
+
+        int cap = levelCap(owner);
+        int maximumExperience = event.getPokemon().getExperienceToLevel(cap);
+        event.setExperience(Math.min(event.getExperience(), maximumExperience));
     }
 
     public static void requestSnapshot() {

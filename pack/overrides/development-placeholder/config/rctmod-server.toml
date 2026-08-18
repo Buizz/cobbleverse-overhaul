@@ -3,3 +3,9 @@
 # Keep natural trainer spawning disabled while allowing spawner blocks and commands.
 maxTrainersPerPlayer = 0
 spawnTrainerAssociation = false
+
+[Players]
+# Cobbleventure owns the authoritative per-player cap (5, then Gym rewards).
+# Disable RCT's independent series-derived cap so the two systems cannot disagree.
+initialLevelCap = 5
+allowOverLeveling = true
