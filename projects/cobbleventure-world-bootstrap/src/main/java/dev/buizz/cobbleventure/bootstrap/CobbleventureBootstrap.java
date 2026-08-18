@@ -229,6 +229,10 @@ public final class CobbleventureBootstrap {
         "cobbleventureWhirlpoolMessageCooldown";
     private static final String WHIRLPOOL_REQUIREMENT =
         "cobbleventure:field_move/whirlpool";
+    private static final List<String> SUPPORTED_FIELD_MOVES = List.of(
+        "surf", "fly", "flash", "defog", "rock_climb", "whirlpool",
+        "strength", "rock_smash"
+    );
     private static final String CAVE_ROAD_ANCHOR = "cobbleventure:road_anchor";
     private static volatile List<FacilityPortal> activeFacilityPortals = List.of();
     private static volatile List<FacilityMusicZone> activeFacilityMusicZones = List.of();
@@ -6064,25 +6068,47 @@ public final class CobbleventureBootstrap {
             Commands.literal("cobbleventure_field_move")
                 .then(Commands.literal("grant")
                     .requires(source -> source.hasPermission(2))
-                    .then(Commands.argument("move", StringArgumentType.word())
+                    .then(fieldMoveArgument()
                         .executes(context -> setFieldMove(
                             context.getSource().getPlayerOrException(),
                             StringArgumentType.getString(context, "move"), true
                         )))
                     .then(Commands.argument("targets", EntityArgument.players())
-                        .then(Commands.argument("move", StringArgumentType.word())
+                        .then(fieldMoveArgument()
                             .executes(context -> setFieldMove(
                                 EntityArgument.getPlayers(context, "targets"),
                                 StringArgumentType.getString(context, "move"), true
                             )))))
                 .then(Commands.literal("revoke")
                     .requires(source -> source.hasPermission(2))
-                    .then(Commands.argument("move", StringArgumentType.word())
+                    .then(fieldMoveArgument()
                         .executes(context -> setFieldMove(
                             context.getSource().getPlayerOrException(),
                             StringArgumentType.getString(context, "move"), false
-                        ))))
-                .then(Commands.argument("move", StringArgumentType.word())
+                        )))
+                    .then(Commands.argument("targets", EntityArgument.players())
+                        .then(fieldMoveArgument()
+                            .executes(context -> setFieldMove(
+                                EntityArgument.getPlayers(context, "targets"),
+                                StringArgumentType.getString(context, "move"), false
+                            )))))
+                .then(Commands.literal("on")
+                    .requires(source -> source.hasPermission(2))
+                    .then(Commands.argument("targets", EntityArgument.players())
+                        .then(fieldMoveArgument()
+                            .executes(context -> setFieldMove(
+                                EntityArgument.getPlayers(context, "targets"),
+                                StringArgumentType.getString(context, "move"), true
+                            )))))
+                .then(Commands.literal("off")
+                    .requires(source -> source.hasPermission(2))
+                    .then(Commands.argument("targets", EntityArgument.players())
+                        .then(fieldMoveArgument()
+                            .executes(context -> setFieldMove(
+                                EntityArgument.getPlayers(context, "targets"),
+                                StringArgumentType.getString(context, "move"), false
+                            )))))
+                .then(fieldMoveArgument()
                     .then(Commands.literal("on")
                         .executes(context -> setFieldMoveActive(
                             context.getSource().getPlayerOrException(),
@@ -6099,6 +6125,18 @@ public final class CobbleventureBootstrap {
                             StringArgumentType.getString(context, "move")
                         ))))
         );
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<
+        CommandSourceStack, String
+    > fieldMoveArgument() {
+        return Commands.argument("move", StringArgumentType.word())
+            .suggests((context, builder) -> {
+                for (String move : SUPPORTED_FIELD_MOVES) {
+                    builder.suggest(move);
+                }
+                return builder.buildFuture();
+            });
     }
 
     private static int teleportToPokemonCenter(

@@ -11,6 +11,7 @@ import java.util.Locale;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -82,16 +83,24 @@ public final class ProgressionNetwork {
 
     private static void registerCommands(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-        var unlockFeature = Commands.argument("feature", StringArgumentType.word())
-            .suggests((context, builder) -> {
-                for (Feature feature : Feature.values()) builder.suggest(feature.id());
-                return builder.buildFuture();
-            })
+        var unlockFeature = featureArgument()
             .executes(context -> setFeature(
+                context.getSource(),
                 EntityArgument.getPlayers(context, "players"),
                 StringArgumentType.getString(context, "feature"), true));
-        var lockFeature = Commands.argument("feature", StringArgumentType.word())
+        var lockFeature = featureArgument()
             .executes(context -> setFeature(
+                context.getSource(),
+                EntityArgument.getPlayers(context, "players"),
+                StringArgumentType.getString(context, "feature"), false));
+        var enableFeature = featureArgument()
+            .executes(context -> setFeature(
+                context.getSource(),
+                EntityArgument.getPlayers(context, "players"),
+                StringArgumentType.getString(context, "feature"), true));
+        var disableFeature = featureArgument()
+            .executes(context -> setFeature(
+                context.getSource(),
                 EntityArgument.getPlayers(context, "players"),
                 StringArgumentType.getString(context, "feature"), false));
         var levelCap = Commands.argument("level", IntegerArgumentType.integer(1, 100))
@@ -111,19 +120,52 @@ public final class ProgressionNetwork {
                 .then(Commands.argument("players", EntityArgument.players()).then(unlockFeature)))
             .then(Commands.literal("lock")
                 .then(Commands.argument("players", EntityArgument.players()).then(lockFeature)))
+            .then(Commands.literal("on")
+                .then(Commands.argument("players", EntityArgument.players()).then(enableFeature)))
+            .then(Commands.literal("off")
+                .then(Commands.argument("players", EntityArgument.players()).then(disableFeature)))
             .then(Commands.literal("level_cap")
                 .then(Commands.argument("players", EntityArgument.players()).then(levelCap))));
     }
 
-    private static int setFeature(Iterable<ServerPlayer> players, String id, boolean unlocked) {
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<
+        CommandSourceStack, String
+    > featureArgument() {
+        return Commands.argument("feature", StringArgumentType.word())
+            .suggests((context, builder) -> {
+                for (Feature feature : Feature.values()) {
+                    builder.suggest(feature.id());
+                }
+                return builder.buildFuture();
+            });
+    }
+
+    private static int setFeature(
+        CommandSourceStack source, Iterable<ServerPlayer> players,
+        String id, boolean unlocked
+    ) {
         Feature feature = Feature.parse(id.toLowerCase(Locale.ROOT));
-        if (feature == null) return 0;
+        if (feature == null) {
+            source.sendFailure(Component.literal(
+                "[Cobbleventure] 알 수 없는 메뉴 기능입니다: " + id
+            ));
+            return 0;
+        }
         int changed = 0;
+        int targets = 0;
         for (ServerPlayer player : players) {
+            targets++;
             if (isUnlocked(player, feature) != unlocked) changed++;
             player.getPersistentData().putBoolean(FEATURE_PREFIX + feature.id, unlocked);
             sync(player);
         }
+        int changedCount = changed;
+        int targetCount = targets;
+        source.sendSuccess(() -> Component.literal(
+            "[Cobbleventure] " + feature.id + " 메뉴 기능 "
+                + (unlocked ? "ON" : "OFF") + " · 대상 " + targetCount
+                + "명, 변경 " + changedCount + "명"
+        ), true);
         return changed;
     }
 

@@ -116,16 +116,29 @@
 | `content/catalogs/boundary-profiles.json` | 벽·토루·수목 경계의 크기, 재료와 충돌 방식 |
 | `content/settlements/generation_1/*.json` | 마을 건물, NPC, 체육관과 콘텐츠 설정 |
 
-## 필드 기술 테스트
+## 진행 기능과 필드 기술 테스트
 
 현재 해금 상태는 플레이어 영속 데이터에 저장한다. 운영자 또는 퀘스트 명령에서
 다음 명령을 호출할 수 있다.
 
 ```mcfunction
-/cobbleventure_field_move grant rock_climb
-/cobbleventure_field_move grant surf
-/cobbleventure_field_move revoke surf
+/cobbleventure_progress on @s map
+/cobbleventure_progress on @s settlement_teleport
+/cobbleventure_progress off @s pc
+
+/cobbleventure_field_move on @s rock_climb
+/cobbleventure_field_move on @s surf
+/cobbleventure_field_move off @s surf
 ```
+
+메뉴 기능은 `map`, `settlement_teleport`, `pc`를 지원한다. 비전머신은 `surf`,
+`fly`, `flash`, `defog`, `rock_climb`, `whirlpool`, `strength`, `rock_smash`를
+지원하며 명령 입력 중 자동완성된다. 기존 `unlock/lock`, `grant/revoke` 문법도
+호환을 위해 유지한다.
+
+`/cobbleventure_field_move <move> on|off|toggle`은 권한 지급 명령이 아니라,
+이미 보유한 플래시·괴력·바위깨기·락클레임의 사용 상태를 바꾸는 플레이어용
+명령이다.
 
 코블몬 파티가 실제로 해당 기술을 배웠는지 자동 판정하는 부분은 코블몬 API 어댑터가
 추가되면 같은 해금 값을 갱신하도록 연결한다.
