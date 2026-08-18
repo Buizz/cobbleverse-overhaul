@@ -40,6 +40,8 @@ public final class CobbleventureAdventure {
         CobbleventureBattleAIRegistration.register();
         FieldMoveRidingAccess.register();
         WildSpawnLeveling.register();
+        AuthoredFishingEncounters.register();
+        HeadbuttEncounters.register();
         PokemonCenterDefeatReturn.register();
         BattleOnlyPokeBallUse.register();
         TrainerBattleState.register();

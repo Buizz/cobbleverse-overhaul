@@ -27,6 +27,8 @@ final class WildSpawnLeveling {
     private static final int INHERITED_SPAWN_WEIGHT = 4;
     private static final int INITIAL_DIAGNOSTIC_EVENTS = 20;
     private static final String AUTHORED_PURSUIT_TAG = "cobbleventure_pursuit_encounter";
+    static final String AUTHORED_METHOD_ENCOUNTER_TAG =
+        "cobbleventure_authored_method_encounter";
     private static final String FORCE_EVOLVED_SPAWN_TAG = "cobbleventure_force_evolved_spawn";
     private static boolean registered;
     private static int spawnEvents;
@@ -48,6 +50,9 @@ final class WildSpawnLeveling {
     private static void onPokemonSpawn(SpawnEvent<PokemonEntity> event) {
         PokemonEntity entity = event.getEntity();
         if (!(entity.level() instanceof ServerLevel level)) {
+            return;
+        }
+        if (entity.getTags().contains(AUTHORED_METHOD_ENCOUNTER_TAG)) {
             return;
         }
         Pokemon pokemon = entity.getPokemon();
@@ -142,7 +147,7 @@ final class WildSpawnLeveling {
         }
     }
 
-    private static int levelFor(
+    static int levelFor(
         PokemonEntity entity, ResourceLocation species,
         AdventureWorldContext.WildSpawnRule rule, Integer averageLevel, int fallback
     ) {
@@ -152,7 +157,7 @@ final class WildSpawnLeveling {
         return averageLevel == null ? fallback : randomLevel(entity, averageLevel);
     }
 
-    private static AdventureWorldContext.WildSpawnAddition selectAddition(
+    static AdventureWorldContext.WildSpawnAddition selectAddition(
         PokemonEntity entity, Pokemon pokemon,
         AdventureWorldContext.WildSpawnRule rule
     ) {
@@ -173,7 +178,7 @@ final class WildSpawnLeveling {
             ? weightedAddition(rule.additions(), choice) : null;
     }
 
-    private static AdventureWorldContext.WildSpawnAddition randomAddition(
+    static AdventureWorldContext.WildSpawnAddition randomAddition(
         PokemonEntity entity, List<AdventureWorldContext.WildSpawnAddition> additions
     ) {
         int totalWeight = additions.stream()
@@ -192,7 +197,7 @@ final class WildSpawnLeveling {
         return additions.get(additions.size() - 1);
     }
 
-    private static boolean shouldCancel(
+    static boolean shouldCancel(
         Pokemon pokemon, AdventureWorldContext.WildSpawnRule rule
     ) {
         if (!rule.inheritBiome()) {
@@ -203,7 +208,7 @@ final class WildSpawnLeveling {
         );
     }
 
-    private static boolean replacePokemon(
+    static boolean replacePokemon(
         Pokemon pokemon, AdventureWorldContext.WildSpawnAddition addition,
         int level
     ) {
@@ -217,7 +222,7 @@ final class WildSpawnLeveling {
         return choices.get(entity.getRandom().nextInt(choices.size()));
     }
 
-    private static boolean replacePokemon(
+    static boolean replacePokemon(
         Pokemon pokemon, ResourceLocation speciesId, int level
     ) {
         Species species = PokemonSpecies.getByIdentifier(speciesId);
@@ -237,7 +242,7 @@ final class WildSpawnLeveling {
      * Walks backwards only across ordinary level evolutions whose required level has not
      * been reached. Item/stone and other non-level evolution methods are intentionally kept.
      */
-    private static void normalizeLevelEvolution(Pokemon pokemon) {
+    static void normalizeLevelEvolution(Pokemon pokemon) {
         Species original = pokemon.getSpecies();
         Species current = original;
         int level = pokemon.getLevel();
