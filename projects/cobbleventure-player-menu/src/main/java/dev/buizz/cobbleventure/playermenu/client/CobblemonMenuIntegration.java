@@ -39,15 +39,7 @@ final class CobblemonMenuIntegration {
     }
 
     static boolean openOwnedPokedex() {
-        LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null) {
-            return false;
-        }
-
-        ItemStack pokedexStack = findPokedex(player.getInventory());
-        if (pokedexStack.isEmpty()) {
-            pokedexStack = findPokedex(BagNetwork.clientSnapshot().slots());
-        }
+        ItemStack pokedexStack = ownedPokedex();
         if (!(pokedexStack.getItem() instanceof PokedexItem pokedex)) {
             return false;
         }
@@ -56,6 +48,23 @@ final class CobblemonMenuIntegration {
             .getPokedexUsageContext()
             .openPokedexGUI(pokedex.getType(), null);
         return true;
+    }
+
+    static boolean hasOwnedPokedex() {
+        return !ownedPokedex().isEmpty();
+    }
+
+    private static ItemStack ownedPokedex() {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return ItemStack.EMPTY;
+        }
+
+        ItemStack pokedexStack = findPokedex(player.getInventory());
+        if (pokedexStack.isEmpty()) {
+            pokedexStack = findPokedex(BagNetwork.clientSnapshot().slots());
+        }
+        return pokedexStack;
     }
 
     static int partySize() {

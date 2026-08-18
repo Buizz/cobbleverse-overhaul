@@ -1,13 +1,16 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import dev.buizz.cobbleventure.playermenu.BagNetwork;
+import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.ModList;
-import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 
 enum PlayerMenuEntry {
     POKEMON("pokemon", false, "poke_ball"),
@@ -84,8 +87,18 @@ enum PlayerMenuEntry {
         };
     }
 
+    boolean enabled() {
+        if (!unlocked()) return false;
+        return switch (this) {
+            case POKENAV -> connected() && hasPokenav();
+            case POKEDEX -> connected() && CobblemonMenuIntegration.hasOwnedPokedex();
+            default -> true;
+        };
+    }
+
     OpenResult open() {
         if (!unlocked()) return OpenResult.LOCKED;
+        if (this == POKENAV && !hasPokenav()) return OpenResult.MISSING_POKENAV;
         if (this == BAG) {
             PlayerMenuClient.openBag();
             return OpenResult.OPENED;
@@ -126,6 +139,18 @@ enum PlayerMenuEntry {
 
     private boolean isCobblemonEntry() {
         return this == POKEMON || this == PC || this == POKEDEX;
+    }
+
+    private static boolean hasPokenav() {
+        if (Minecraft.getInstance().player == null) return false;
+        Inventory inventory = Minecraft.getInstance().player.getInventory();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            if (BagNetwork.isPokenavItem(inventory.getItem(slot))) return true;
+        }
+        for (ItemStack stack : BagNetwork.clientSnapshot().slots()) {
+            if (BagNetwork.isPokenavItem(stack)) return true;
+        }
+        return false;
     }
 
     enum OpenResult {

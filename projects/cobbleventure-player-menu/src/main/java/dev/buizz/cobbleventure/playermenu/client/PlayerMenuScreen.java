@@ -45,6 +45,10 @@ public final class PlayerMenuScreen extends Screen {
     private static final int ROW_HOVER_COLOR = 0xB0374650;
     private static final int ROW_SELECTED_COLOR = 0xFFF0F3F5;
     private static final int ROW_SELECTED_INNER_COLOR = 0xFFD9E0E5;
+    private static final int ROW_DISABLED_COLOR = 0xD0374148;
+    private static final int ROW_DISABLED_BORDER_COLOR = 0xFF59636A;
+    private static final int DISABLED_TEXT_COLOR = 0xFF858D92;
+    private static final int DISABLED_ICON_COLOR = 0xFF30383E;
     private static final int PRIMARY_TEXT_COLOR = 0xFFF4F4F4;
     private static final int SECONDARY_TEXT_COLOR = 0xFFD0D0D0;
     private static final int MUTED_TEXT_COLOR = 0xFFA6A6A6;
@@ -349,7 +353,7 @@ public final class PlayerMenuScreen extends Screen {
         }
 
         PlayerMenuEntry entry = PlayerMenuEntry.values()[selectedIndex];
-        renderIcon(graphics, entry.icon(), x + 17, y + 11, 1.5F);
+        renderIcon(graphics, entry.icon(), x + 17, y + 11, 1.5F, entry.enabled());
         graphics.drawString(font, entry.title(), x + 39, y + 10, PRIMARY_TEXT_COLOR, false);
 
         Component availability = Component.translatable(
@@ -661,16 +665,19 @@ public final class PlayerMenuScreen extends Screen {
 
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            boolean selected = index == selectedIndex;
+            boolean enabled = entry.enabled();
+            active = enabled;
+            boolean selected = index == selectedIndex && enabled;
             long now = System.currentTimeMillis();
             float step = Math.min(1.0F, (now - lastAnimationAt) / 80.0F);
             lastAnimationAt = now;
-            float hoverTarget = isHovered() && !selected ? 1.0F : 0.0F;
+            float hoverTarget = enabled && isHovered() && !selected ? 1.0F : 0.0F;
             hoverProgress += (hoverTarget - hoverProgress) * step;
-            int fillColor = selected
-                ? ROW_SELECTED_COLOR
+            int fillColor = !enabled ? ROW_DISABLED_COLOR
+                : selected ? ROW_SELECTED_COLOR
                 : blendColor(ROW_COLOR, ROW_HOVER_COLOR, hoverProgress);
-            int textColor = selected ? SELECTED_TEXT_COLOR : PRIMARY_TEXT_COLOR;
+            int textColor = !enabled ? DISABLED_TEXT_COLOR
+                : selected ? SELECTED_TEXT_COLOR : PRIMARY_TEXT_COLOR;
 
             float rowTransition = rowTransitionProgress(index);
             graphics.pose().pushPose();
@@ -679,7 +686,12 @@ public final class PlayerMenuScreen extends Screen {
             int centerY = getY() + getHeight() / 2;
             int visualLeft = selected ? getX() - 8 : getX();
             int visualRight = getX() + getWidth() - 3;
-            if (selected) {
+            if (!enabled) {
+                fillRoundedRect(graphics, visualLeft, getY(), visualRight, getY() + getHeight(),
+                    getHeight() / 2, ROW_DISABLED_BORDER_COLOR);
+                fillRoundedRect(graphics, visualLeft + 1, getY() + 1, visualRight - 1,
+                    getY() + getHeight() - 1, Math.max(1, getHeight() / 2 - 1), fillColor);
+            } else if (selected) {
                 fillRoundedRect(graphics, visualLeft, getY(), visualRight, getY() + getHeight(),
                     getHeight() / 2, CONNECTED_COLOR);
                 fillRoundedRect(graphics, visualLeft + 1, getY() + 1, visualRight - 1,
@@ -696,11 +708,13 @@ public final class PlayerMenuScreen extends Screen {
             int iconCenterX = selected ? getX() + 14 : getX() + 18;
             int iconRadius = selected ? Math.min(11, getHeight() / 2 + 1) : Math.min(9, getHeight() / 2 - 1);
             fillCircle(graphics, iconCenterX, centerY, iconRadius + 1,
-                selected ? CONNECTED_COLOR : PANEL_LIGHT_COLOR);
+                !enabled ? ROW_DISABLED_BORDER_COLOR
+                    : selected ? CONNECTED_COLOR : PANEL_LIGHT_COLOR);
             fillCircle(graphics, iconCenterX, centerY, iconRadius,
-                selected ? ROW_SELECTED_INNER_COLOR : PANEL_DARK_COLOR);
+                !enabled ? DISABLED_ICON_COLOR
+                    : selected ? ROW_SELECTED_INNER_COLOR : PANEL_DARK_COLOR);
             float iconY = centerY - 8.0F * iconScale;
-            renderIcon(graphics, icon, iconCenterX, Math.round(iconY), iconScale);
+            renderIcon(graphics, icon, iconCenterX, Math.round(iconY), iconScale, enabled);
 
             String shortcut = PlayerMenuKeyMappings.keyName(entry).getString();
             String clippedShortcut = font.plainSubstrByWidth(shortcut, 30);
@@ -708,7 +722,8 @@ public final class PlayerMenuScreen extends Screen {
             int shortcutX = getX() + getWidth() - 13 - shortcutWidth;
             graphics.drawString(font, clippedShortcut, shortcutX,
                 getY() + (getHeight() - 8) / 2,
-                selected ? 0xFF58656D : CONNECTED_COLOR, false);
+                !enabled ? DISABLED_TEXT_COLOR
+                    : selected ? 0xFF58656D : CONNECTED_COLOR, false);
 
             int titleX = getX() + 34;
             int titleWidth = Math.max(12, shortcutX - titleX - 4);
@@ -722,7 +737,8 @@ public final class PlayerMenuScreen extends Screen {
                 false
             );
 
-            int dotColor = entry.connected() ? CONNECTED_COLOR : PENDING_COLOR;
+            int dotColor = !enabled ? ROW_DISABLED_BORDER_COLOR
+                : entry.connected() ? CONNECTED_COLOR : PENDING_COLOR;
             int dotY = getY() + getHeight() / 2 - 2;
             graphics.fill(
                 getX() + getWidth() - 9,
@@ -731,17 +747,6 @@ public final class PlayerMenuScreen extends Screen {
                 dotY + 4,
                 dotColor
             );
-            if (!entry.unlocked()) {
-                int slashColor = selected ? 0xBB7D3535 : 0xCCB7B7B7;
-                int left = getX() + 30;
-                int right = getX() + getWidth() - 13;
-                int top = getY() + 4;
-                int bottom = getY() + getHeight() - 4;
-                for (int x = left; x < right; x++) {
-                    int y = top + Math.floorMod(x - left, 9);
-                    if (y < bottom) graphics.fill(x, y, x + 1, y + 2, slashColor);
-                }
-            }
             graphics.pose().popPose();
         }
 
@@ -756,12 +761,15 @@ public final class PlayerMenuScreen extends Screen {
         ItemStack icon,
         int centerX,
         int topY,
-        float scale
+        float scale,
+        boolean enabled
     ) {
         graphics.pose().pushPose();
         graphics.pose().translate(centerX - 8.0F * scale, topY, 0.0F);
         graphics.pose().scale(scale, scale, 1.0F);
+        if (!enabled) RenderSystem.setShaderColor(0.48F, 0.48F, 0.48F, 0.72F);
         graphics.renderItem(icon, 0, 0);
+        if (!enabled) RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         graphics.pose().popPose();
     }
 }

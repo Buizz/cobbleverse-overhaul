@@ -373,13 +373,13 @@ public final class BagNetwork {
         NonNullList<ItemStack> storage = BagStorage.load(player);
         Inventory inventory = player.getInventory();
         for (int slot = 0; slot < 36; slot++) {
-            if (!isPokenav(inventory.getItem(slot))) continue;
+            if (!isPokenavItem(inventory.getItem(slot))) continue;
             useInventorySlot(player, slot);
             sync(player, storage);
             return;
         }
         for (int slot = 0; slot < storage.size(); slot++) {
-            if (!isPokenav(storage.get(slot))) continue;
+            if (!isPokenavItem(storage.get(slot))) continue;
             useExtendedSlot(player, storage, slot);
             sync(player, storage);
             return;
@@ -584,7 +584,7 @@ public final class BagNetwork {
         return slot >= 0 && slot < (extended ? BagStorage.SLOT_COUNT : 36);
     }
 
-    private static boolean isPokenav(ItemStack stack) {
+    public static boolean isPokenavItem(ItemStack stack) {
         if (stack.isEmpty()) return false;
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
         return id.getNamespace().equals("cobblenav") && id.getPath().startsWith("pokenav_item");
