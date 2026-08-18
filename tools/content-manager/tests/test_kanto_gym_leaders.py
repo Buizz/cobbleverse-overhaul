@@ -13,6 +13,34 @@ import generate_easy_npc_presets as generator  # noqa: E402
 
 
 class KantoGymLeaderTests(unittest.TestCase):
+    def test_red_blue_gym_lineups_and_challenge_caps_match_generation_one(self) -> None:
+        expected = {
+            "brock": (["geodude", "onix"], [12, 14], 14),
+            "misty": (["staryu", "starmie"], [18, 21], 21),
+            "lt_surge": (["voltorb", "pikachu", "raichu"], [21, 18, 24], 24),
+            "erika": (["victreebel", "tangela", "vileplume"], [29, 24, 29], 29),
+            "koga": (["koffing", "koffing", "muk", "weezing"], [37, 37, 39, 43], 43),
+            "sabrina": (["kadabra", "mrmime", "venomoth", "alakazam"], [38, 37, 38, 43], 43),
+            "blaine": (["growlithe", "ponyta", "rapidash", "arcanine"], [42, 40, 42, 47], 47),
+            "giovanni_gym": (
+                ["rhyhorn", "dugtrio", "nidoqueen", "nidoking", "rhydon"],
+                [45, 42, 44, 45, 50],
+                50,
+            ),
+        }
+        league = content_manager.load_json(PROJECT_ROOT / "content/catalogs/league-progression.json")
+        leaders = [entry for entry in league["entries"] if entry["role"] == "gym_leader"]
+
+        for entry, (slug, (species, levels, level_cap)) in zip(leaders, expected.items(), strict=True):
+            battle = content_manager.load_json(
+                PROJECT_ROOT / f"content/battles/gym_leaders/{slug}.json"
+            )["battle"]
+            self.assertEqual(species, [member["species"].split(":", 1)[1] for member in battle["team"]])
+            self.assertEqual(levels, [member["level"] for member in battle["team"]])
+            self.assertEqual(level_cap, entry["level_cap"])
+            self.assertEqual([], battle["bag"])
+            self.assertFalse(any(battle["mechanics"].values()))
+
     def test_catalog_has_exactly_eight_kanto_gyms(self) -> None:
         catalog = content_manager.load_json(PROJECT_ROOT / "content/catalogs/gyms.json")
         self.assertEqual(

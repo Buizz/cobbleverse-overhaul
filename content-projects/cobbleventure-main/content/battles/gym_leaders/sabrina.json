@@ -3,170 +3,20 @@
   "schema_version": 1,
   "id": "cobbleventure:battle/gym_leader/sabrina",
   "enabled": true,
-  "name": {
-    "ko_kr": "관동 체육관 관장 초련",
-    "en_us": "관동 체육관 관장 Sabrina"
-  },
+  "name": { "ko_kr": "관동 체육관 관장 초련", "en_us": "관동 체육관 관장 Sabrina" },
   "battle": {
     "format": "GEN_9_SINGLES",
     "battle_type": "singles",
-    "ai": {
-      "controller": "cobbleventure",
-      "difficulty": "standard",
-      "strategy": "balanced",
-      "options": {}
-    },
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
     "level_mode": "fixed",
-    "rules": {
-      "can_forfeit": true
-    },
-    "bag": [
-      {
-        "item": "cobblemon:full_restore",
-        "quantity": 2
-      },
-      {
-        "item": "cobblemon:full_heal",
-        "quantity": 1
-      }
-    ],
-    "mechanics": {
-      "mega_evolution": false,
-      "z_move": false,
-      "dynamax": false,
-      "terastallization": true
-    },
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      {
-        "species": "cobblemon:xatu",
-        "level": 20,
-        "form": null,
-        "aspects": [],
-        "gender": "female",
-        "nature": "rash",
-        "ability": "synchronize",
-        "held_item": null,
-        "gimmick": null,
-        "moves": [
-          "tackle"
-        ],
-        "ivs": {
-          "hp": 25,
-          "attack": 25,
-          "defense": 25,
-          "special_attack": 25,
-          "special_defense": 25,
-          "speed": 25
-        },
-        "evs": {},
-        "tera_type": "auto",
-        "shiny": false,
-        "gigantamax_factor": false
-      },
-      {
-        "species": "cobblemon:jynx",
-        "level": 20,
-        "form": null,
-        "aspects": [],
-        "gender": "female",
-        "nature": "jolly",
-        "ability": "forewarn",
-        "held_item": null,
-        "gimmick": null,
-        "moves": [
-          "tackle"
-        ],
-        "ivs": {
-          "hp": 25,
-          "attack": 25,
-          "defense": 25,
-          "special_attack": 25,
-          "special_defense": 25,
-          "speed": 25
-        },
-        "evs": {},
-        "tera_type": "auto",
-        "shiny": false,
-        "gigantamax_factor": false
-      },
-      {
-        "species": "cobblemon:lunatone",
-        "level": 21,
-        "form": null,
-        "aspects": [],
-        "gender": "random",
-        "nature": "quirky",
-        "ability": "levitate",
-        "held_item": null,
-        "gimmick": null,
-        "moves": [
-          "tackle"
-        ],
-        "ivs": {
-          "hp": 25,
-          "attack": 25,
-          "defense": 25,
-          "special_attack": 25,
-          "special_defense": 25,
-          "speed": 25
-        },
-        "evs": {},
-        "tera_type": "auto",
-        "shiny": false,
-        "gigantamax_factor": false
-      },
-      {
-        "species": "cobblemon:wyrdeer",
-        "level": 21,
-        "form": null,
-        "aspects": [],
-        "gender": "female",
-        "nature": "bold",
-        "ability": "frisk",
-        "held_item": null,
-        "gimmick": null,
-        "moves": [
-          "tackle"
-        ],
-        "ivs": {
-          "hp": 25,
-          "attack": 25,
-          "defense": 25,
-          "special_attack": 25,
-          "special_defense": 25,
-          "speed": 25
-        },
-        "evs": {},
-        "tera_type": "auto",
-        "shiny": false,
-        "gigantamax_factor": false
-      },
-      {
-        "species": "cobblemon:alakazam",
-        "level": 23,
-        "form": null,
-        "aspects": [],
-        "gender": "male",
-        "nature": "sassy",
-        "ability": "synchronize",
-        "held_item": "cobblemon:wise_glasses",
-        "gimmick": null,
-        "moves": [
-          "tackle"
-        ],
-        "ivs": {
-          "hp": 25,
-          "attack": 25,
-          "defense": 25,
-          "special_attack": 25,
-          "special_defense": 25,
-          "speed": 25
-        },
-        "evs": {},
-        "tera_type": "auto",
-        "shiny": false,
-        "gigantamax_factor": false
-      }
+      { "species": "cobblemon:kadabra", "level": 38, "gender": "random", "moves": ["disable", "psybeam", "recover", "psychic"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:mrmime", "level": 37, "gender": "random", "moves": ["confusion", "barrier", "lightscreen", "doubleslap"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:venomoth", "level": 38, "gender": "random", "moves": ["poisonpowder", "leechlife", "stunspore", "psybeam"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:alakazam", "level": 43, "gender": "random", "moves": ["psybeam", "recover", "psywave", "reflect"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
     ],
     "trainer_id": "cobbleventure:npc/gym_leader/sabrina"
   }
