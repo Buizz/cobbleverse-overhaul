@@ -10347,6 +10347,9 @@ def create_handler(
     structure_cache_generated_at = (
         int(saved_structure_cache.get("generated_at", 0)) if saved_structure_cache else 0
     )
+    structure_cache_signature = tuple(
+        tuple(entry) for entry in saved_structure_cache.get("signature", [])
+    ) if saved_structure_cache else ()
     structure_cache_generation = 1 if saved_structure_cache else 0
     structure_cache_error: str | None = None
     structure_viewer_catalog_lock = threading.Lock()
@@ -10360,7 +10363,8 @@ def create_handler(
         nonlocal root, active_project, editor_catalog
         nonlocal structure_size_catalog, structure_viewer_catalog
         nonlocal building_settings_catalog, structure_cache_generated_at
-        nonlocal structure_cache_generation, structure_cache_error
+        nonlocal structure_cache_signature, structure_cache_generation
+        nonlocal structure_cache_error
         project = load_content_project(
             project_path, default_root=default_project_root, require_manifest=True
         )
@@ -10383,6 +10387,9 @@ def create_handler(
                 structure_cache_generated_at = (
                     int(saved_cache.get("generated_at", 0)) if saved_cache else 0
                 )
+                structure_cache_signature = tuple(
+                    tuple(entry) for entry in saved_cache.get("signature", [])
+                ) if saved_cache else ()
                 structure_cache_generation += 1
                 structure_cache_error = None
                 structure_model_cache.clear()
@@ -10391,7 +10398,8 @@ def create_handler(
     def refresh_structure_cache() -> None:
         nonlocal structure_size_catalog, structure_viewer_catalog
         nonlocal building_settings_catalog, structure_cache_generated_at
-        nonlocal structure_cache_generation, structure_cache_error
+        nonlocal structure_cache_signature, structure_cache_generation
+        nonlocal structure_cache_error
         observed_generation = structure_cache_generation
         observed_root = root
         with structure_cache_refresh_lock:
@@ -10415,6 +10423,9 @@ def create_handler(
                 structure_viewer_catalog = refreshed["viewer_catalog"]
                 building_settings_catalog = refreshed["building_settings"]
                 structure_cache_generated_at = int(refreshed["generated_at"])
+                structure_cache_signature = tuple(
+                    tuple(entry) for entry in refreshed["signature"]
+                )
                 structure_cache_generation += 1
                 structure_cache_error = None
                 structure_model_cache.clear()
@@ -10426,8 +10437,13 @@ def create_handler(
             daemon=True,
         ).start()
 
-    def ensure_structure_cache() -> None:
+    def ensure_structure_cache(validate_signature: bool = False) -> None:
         if structure_size_catalog is None or building_settings_catalog is None:
+            refresh_structure_cache()
+            return
+        if validate_signature and (
+            structure_catalog_signature(root, core_root) != structure_cache_signature
+        ):
             refresh_structure_cache()
 
     def load_installed_cobbleverse_rct_png(resource_group: str, resource_id: str) -> bytes | None:
@@ -10909,7 +10925,10 @@ def create_handler(
                 return
             if request.path == "/api/space-connections":
                 try:
-                    ensure_structure_cache()
+                    # Space editing must see NBTs and sidecar anchors created while
+                    # the web server is already running. Other catalog endpoints
+                    # keep the fast startup cache until an explicit refresh.
+                    ensure_structure_cache(validate_signature=True)
                     self._json(200, space_connections_payload(
                         root, copy.deepcopy(building_settings_catalog or {})
                     ))

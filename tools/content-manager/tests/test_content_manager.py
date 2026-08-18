@@ -4886,6 +4886,73 @@ class ContentManagerTests(unittest.TestCase):
             self.assertIsNone(loaded)
             start.assert_not_called()
 
+    def test_space_connections_api_refreshes_new_door_anchors_while_server_is_running(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exterior = root / "content/structures/facilities/store.nbt"
+            interior = root / "content/structures/interiors/store.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(self._structure_nbt((16, 8, 16)))
+            interior.write_bytes(self._structure_nbt((20, 10, 20)))
+            catalogs = root / "content/catalogs"
+            catalogs.mkdir(parents=True)
+            (catalogs / "building-settings.json").write_text(json.dumps({
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:facilities/store": {
+                        "fixed_npcs": {}, "citizen_placement_allowed": False,
+                        "interiors": [{
+                            "key": "room_1",
+                            "structure": "cobbleventure:interiors/store",
+                        }],
+                        "door_routes": {},
+                    },
+                },
+            }), encoding="utf-8")
+
+            with mock.patch.object(content_manager, "structure_mod_roots", return_value=[]):
+                content_manager.save_structure_web_cache(
+                    root, content_manager.build_structure_web_cache(root)
+                )
+                handler = content_manager.create_handler(root)
+                server = content_manager.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    exterior.with_suffix(".structure.json").write_text(json.dumps({
+                        "schema_version": 1,
+                        "anchors": [{
+                            "type": "door", "label": "front",
+                            "position": [8, 1, 1],
+                        }],
+                    }), encoding="utf-8")
+                    interior.with_suffix(".structure.json").write_text(json.dumps({
+                        "schema_version": 1,
+                        "anchors": [{
+                            "type": "door", "label": "exit",
+                            "position": [10, 1, 1],
+                        }],
+                    }), encoding="utf-8")
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{server.server_port}/api/space-connections"
+                    ) as response:
+                        payload = json.load(response)
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+
+            structures = payload["structures"]
+            self.assertEqual(
+                [{"label": "front", "position": [8, 1, 1]}],
+                structures["cobbleventure:facilities/store"]["door_anchors"],
+            )
+            self.assertEqual(
+                [{"label": "exit", "position": [10, 1, 1]}],
+                structures["cobbleventure:interiors/store"]["door_anchors"],
+            )
+
     def test_residential_building_rejects_fixed_npc_assignment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
