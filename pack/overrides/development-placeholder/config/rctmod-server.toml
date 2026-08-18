@@ -7,5 +7,5 @@ spawnTrainerAssociation = false
 [Players]
 # Cobbleventure owns the authoritative per-player cap (5, then Gym rewards).
 # Disable RCT's independent series-derived cap so the two systems cannot disagree.
-initialLevelCap = 5
+initialLevelCap = 20
 allowOverLeveling = true

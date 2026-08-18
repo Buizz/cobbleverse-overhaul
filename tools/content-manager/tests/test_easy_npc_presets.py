@@ -265,11 +265,14 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             (PROJECT_ROOT / "content/catalogs/league-progression.json").read_text(encoding="utf-8")
         )
         entry = next(item for item in league["entries"] if item["role"] == "gym_leader")
+        post_victory_cap = generator.league_post_victory_level_caps(
+            league["entries"]
+        )[entry["id"]]
         entry = json.loads(json.dumps(entry))
         entry["encounter"]["rewards"].update({
             "money": 1200, "item": "cobblemon:rare_candy", "item_count": 2,
         })
-        document = generator.league_encounter_document(entry)
+        document = generator.league_encounter_document(entry, post_victory_cap)
         battle_id = entry["encounter"]["battle_id"]
         battle_path = PROJECT_ROOT / "content/battles/gym_leaders" / f"{battle_id.rsplit('/', 1)[-1]}.json"
         battle = json.loads(battle_path.read_text(encoding="utf-8"))
@@ -285,8 +288,30 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn("cobbleventurebag acquire @1 cobblemon:rare_candy 2", preset)
         self.assertIn(entry["encounter"]["rewards"]["badge_id"], preset)
         self.assertIn(
-            f"cobbleventure_progress level_cap @1 {entry['level_cap']}",
+            f"cobbleventure_progress level_cap @1 {post_victory_cap}",
             preset,
+        )
+
+    def test_gym_caps_advance_to_next_challenge_and_end_unrestricted(self) -> None:
+        entries = [
+            {
+                "id": "cobbleventure:league/test/first", "role": "gym_leader",
+                "generation": 1, "region": "cobbleventure:region/test",
+                "order": 1, "level_cap": 20,
+            },
+            {
+                "id": "cobbleventure:league/test/second", "role": "gym_leader",
+                "generation": 1, "region": "cobbleventure:region/test",
+                "order": 2, "level_cap": 25,
+            },
+        ]
+
+        self.assertEqual(
+            {
+                "cobbleventure:league/test/first": 25,
+                "cobbleventure:league/test/second": 100,
+            },
+            generator.league_post_victory_level_caps(entries),
         )
 
     def test_compiles_each_league_dialogue_line_as_a_sequential_dialogue(self) -> None:

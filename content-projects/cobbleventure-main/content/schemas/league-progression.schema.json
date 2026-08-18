@@ -36,7 +36,10 @@
         "order": { "type": "integer", "minimum": 1, "maximum": 99 },
         "trainer_card_order": { "type": "integer", "minimum": 1, "maximum": 99 },
         "trainer_card_visible": { "type": "boolean" },
-        "level_cap": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "level_cap": {
+          "type": "integer", "minimum": 1, "maximum": 100,
+          "description": "이 관장에게 도전하기 전에 적용되는 레벨캡"
+        },
         "trainer_id": { "$ref": "#/$defs/resource_id" },
         "encounter": {
           "type": "object",

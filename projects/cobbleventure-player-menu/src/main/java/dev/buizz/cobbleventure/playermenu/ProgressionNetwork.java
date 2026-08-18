@@ -7,9 +7,14 @@ import com.cobblemon.mod.common.api.storage.pc.link.PCLink;
 import com.cobblemon.mod.common.api.storage.pc.link.PCLinkManager;
 import com.cobblemon.mod.common.net.messages.client.storage.pc.OpenPCPacket;
 import com.cobblemon.mod.common.util.PlayerExtensionsKt;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import java.io.IOException;
+import java.io.Reader;
 import java.util.Locale;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -19,6 +24,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
@@ -33,7 +39,11 @@ public final class ProgressionNetwork {
     private static final String VERSION = "1";
     private static final String FEATURE_PREFIX = "cobbleventureFeature.";
     private static final String LEVEL_CAP_KEY = "cobbleventureCurrentLevelCap";
-    private static final int DEFAULT_LEVEL_CAP = 5;
+    private static final int FALLBACK_INITIAL_LEVEL_CAP = 20;
+    private static final ResourceLocation LEAGUE_PROGRESSION = ResourceLocation.fromNamespaceAndPath(
+        CobbleventurePlayerMenu.MOD_ID,
+        "league/league-progression.json"
+    );
     private static volatile ClientSnapshot clientSnapshot = ClientSnapshot.locked();
 
     private ProgressionNetwork() {}
@@ -70,7 +80,44 @@ public final class ProgressionNetwork {
 
     public static int levelCap(ServerPlayer player) {
         int stored = player.getPersistentData().getInt(LEVEL_CAP_KEY);
-        return stored <= 0 ? DEFAULT_LEVEL_CAP : Math.max(1, Math.min(100, stored));
+        if (stored > 0) {
+            return Math.max(1, Math.min(100, stored));
+        }
+
+        int initial = initialLevelCap(player.getServer());
+        player.getPersistentData().putInt(LEVEL_CAP_KEY, initial);
+        return initial;
+    }
+
+    private static int initialLevelCap(MinecraftServer server) {
+        var resource = server.getResourceManager().getResource(LEAGUE_PROGRESSION);
+        if (resource.isEmpty()) {
+            return FALLBACK_INITIAL_LEVEL_CAP;
+        }
+
+        try (Reader reader = resource.orElseThrow().openAsReader()) {
+            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            int selectedGeneration = Integer.MAX_VALUE;
+            int selectedOrder = Integer.MAX_VALUE;
+            int selectedCap = FALLBACK_INITIAL_LEVEL_CAP;
+            for (JsonElement element : root.getAsJsonArray("entries")) {
+                JsonObject entry = element.getAsJsonObject();
+                if (!"gym_leader".equals(entry.get("role").getAsString())) {
+                    continue;
+                }
+                int generation = entry.get("generation").getAsInt();
+                int order = entry.get("order").getAsInt();
+                if (generation < selectedGeneration
+                    || (generation == selectedGeneration && order < selectedOrder)) {
+                    selectedGeneration = generation;
+                    selectedOrder = order;
+                    selectedCap = entry.get("level_cap").getAsInt();
+                }
+            }
+            return Math.max(1, Math.min(100, selectedCap));
+        } catch (IOException | RuntimeException exception) {
+            return FALLBACK_INITIAL_LEVEL_CAP;
+        }
     }
 
     private static void applyLevelCap(ExperienceGainedEvent.Pre event) {
@@ -224,7 +271,9 @@ public final class ProgressionNetwork {
     }
 
     public record ClientSnapshot(boolean map, boolean settlementTeleport, boolean pc, int levelCap) {
-        static ClientSnapshot locked() { return new ClientSnapshot(false, false, false, DEFAULT_LEVEL_CAP); }
+        static ClientSnapshot locked() {
+            return new ClientSnapshot(false, false, false, FALLBACK_INITIAL_LEVEL_CAP);
+        }
         public boolean unlocked(Feature feature) {
             return switch (feature) {
                 case MAP -> map;

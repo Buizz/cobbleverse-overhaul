@@ -197,7 +197,7 @@
               <label class="wide"><span>리그 항목 ID</span><input name="id" placeholder="cobbleventure:league/generation_1/leader_1" disabled></label>
               <label><span>역할</span><select name="role" disabled><option value="gym_leader">체육관 관장</option><option value="elite_four">사천왕</option><option value="champion">챔피언</option></select></label>
               <label><span>주 속성</span><select name="primaryType" disabled><option value="normal">노말</option><option value="fire">불꽃</option><option value="water">물</option><option value="electric">전기</option><option value="grass">풀</option><option value="ice">얼음</option><option value="fighting">격투</option><option value="poison">독</option><option value="ground">땅</option><option value="flying">비행</option><option value="psychic">에스퍼</option><option value="bug">벌레</option><option value="rock">바위</option><option value="ghost">고스트</option><option value="dragon">드래곤</option><option value="dark">악</option><option value="steel">강철</option><option value="fairy">페어리</option></select></label>
-              <label><span>레벨캡</span><input name="levelCap" type="number" min="1" max="100" disabled></label>
+              <label><span>도전 전 레벨캡</span><input name="levelCap" type="number" min="1" max="100" disabled><small>이 관장에게 도전하기 전까지 적용됩니다. 승리하면 다음 관장의 레벨캡으로 넘어갑니다.</small></label>
               <label><span>한국어 이름</span><input name="nameKo" disabled></label>
               <label><span>영문 이름</span><input name="nameEn" disabled></label>
               <label><span>세대</span><input name="generation" type="number" min="1" max="9" disabled></label>
@@ -738,7 +738,7 @@
               <label><span>공간 키</span><input name="id" placeholder="large_arena" required pattern="[a-z0-9][a-z0-9_]*"></label>
               <label><span>너비</span><input name="width" type="number" min="5" max="80" value="32"></label>
               <label><span>깊이</span><input name="depth" type="number" min="5" max="80" value="32"></label>
-              <label><span>층 높이</span><input name="floorHeight" type="number" min="3" max="12" value="12"></label>
+              <label><span>층 높이</span><input name="floorHeight" type="number" min="3" max="80" value="12"></label>
               <label><span>층수</span><input name="floors" type="number" min="1" max="8" value="1"></label>
               <button class="button secondary" id="create-interior-space" type="submit">빈 내부 NBT 만들기</button>
             </form>
@@ -1089,7 +1089,7 @@
           <label><span>세대</span><input name="generation" type="number" min="1" max="9" value="1" required></label>
           <label class="wide"><span>지역 ID</span><input name="region" value="cobbleventure:region/kanto" required></label>
           <label><span>리그 순서</span><input name="order" type="number" min="1" max="99" value="1" required></label>
-          <label><span>레벨캡</span><input name="levelCap" type="number" min="1" max="100" value="15" required></label>
+          <label><span>도전 전 레벨캡</span><input name="levelCap" type="number" min="1" max="100" value="20" required><small>마지막 관장 승리 후에는 제한이 자동 해제됩니다.</small></label>
           <label><span>주 속성</span><select name="primaryType"><option value="normal">노말</option><option value="fire">불꽃</option><option value="water">물</option><option value="electric">전기</option><option value="grass">풀</option><option value="ice">얼음</option><option value="fighting">격투</option><option value="poison">독</option><option value="ground">땅</option><option value="flying">비행</option><option value="psychic">에스퍼</option><option value="bug">벌레</option><option value="rock">바위</option><option value="ghost">고스트</option><option value="dragon">드래곤</option><option value="dark">악</option><option value="steel">강철</option><option value="fairy">페어리</option></select></label>
           <fieldset class="wide league-member-gym-fields"><legend>관장 전용 설정</legend><label><span>승리 배지</span><select name="badgeId" required></select></label><label><span>기존 외형</span><select name="rosterCharacter"></select></label><label class="wide"><span>NPC 외형 리소스</span><input name="appearanceResource" value="rctmod:trainers/single/kanto_brock" required></label><label><span>승리 상금</span><input name="rewardMoney" type="number" min="0" value="0" required></label><label class="wide"><span>승리 아이템 ID</span><input name="rewardItem" placeholder="비워 두면 지급하지 않음"></label></fieldset>
           <fieldset class="wide league-member-display-badge-fields" hidden><legend>리그 표시</legend><label><span>표시 배지</span><select name="displayBadgeId"></select><small>선택하면 사천왕·챔피언 목록에도 배지가 함께 표시됩니다.</small></label></fieldset>

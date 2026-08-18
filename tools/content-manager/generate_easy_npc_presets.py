@@ -181,7 +181,27 @@ def league_dialogue_commands(value: str | list[str], base_id: str) -> list[dict]
     ]
 
 
-def league_encounter_document(entry: dict) -> dict:
+def league_post_victory_level_caps(entries: list[dict]) -> dict[str, int]:
+    """Return the next Gym's challenge cap, or 100 after the final Gym."""
+    groups: dict[tuple[int, str], list[dict]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or entry.get("role") != "gym_leader":
+            continue
+        key = (int(entry.get("generation", 1)), str(entry.get("region", "")))
+        groups.setdefault(key, []).append(entry)
+
+    result: dict[str, int] = {}
+    for group in groups.values():
+        ordered = sorted(group, key=lambda item: (int(item["order"]), str(item["id"])))
+        for index, entry in enumerate(ordered):
+            result[entry["id"]] = (
+                int(ordered[index + 1]["level_cap"])
+                if index + 1 < len(ordered) else 100
+            )
+    return result
+
+
+def league_encounter_document(entry: dict, post_victory_level_cap: int = 100) -> dict:
     """Compile a concise league-authoring entry into a normal NPC event document."""
     encounter = entry["encounter"]
     dialogue = encounter["dialogue"]
@@ -208,7 +228,7 @@ def league_encounter_document(entry: dict) -> dict:
         })
     victory_rewards.append({"type": "grant_badge", "badge": rewards["badge_id"]})
     victory_rewards.append({
-        "type": "set_level_cap", "level_cap": int(entry["level_cap"]),
+        "type": "set_level_cap", "level_cap": int(post_victory_level_cap),
     })
     return {
         "$schema": "../../../schemas/npc-event-script.schema.json",
@@ -1249,8 +1269,9 @@ def generate(
     league_catalog_path = content_root.parent / "catalogs" / "league-progression.json"
     if league_catalog_path.is_file():
         league_entries = json.loads(league_catalog_path.read_text(encoding="utf-8")).get("entries", [])
+        post_victory_caps = league_post_victory_level_caps(league_entries)
         generated_leaders = [
-            league_encounter_document(entry)
+            league_encounter_document(entry, post_victory_caps[entry["id"]])
             for entry in league_entries
             if isinstance(entry, dict) and entry.get("role") == "gym_leader"
             and isinstance(entry.get("encounter"), dict)
