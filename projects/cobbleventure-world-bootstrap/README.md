@@ -119,7 +119,8 @@
 ## 진행 기능과 필드 기술 테스트
 
 현재 해금 상태는 플레이어 영속 데이터에 저장한다. 운영자 또는 퀘스트 명령에서
-다음 명령을 호출할 수 있다.
+다음 명령을 호출할 수 있다. 전체 문법과 지원 ID는
+[메뉴·비전머신 권한 커맨드](../../docs/COMMANDS_MENU_AND_FIELD_MOVES.md)에 정리되어 있다.
 
 ```mcfunction
 /cobbleventure_progress on @s map
