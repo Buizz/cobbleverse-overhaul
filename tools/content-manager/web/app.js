@@ -5338,6 +5338,7 @@ const eventCommandLabels = {
   goto: "라벨로 이동", start_battle: "배틀 시작", set_flag: "플래그 변경",
   give_money: "돈 지급", take_money: "돈 차감", give_item: "아이템 지급", grant_loot: "루트 테이블 지급", grant_badge: "배지 기록", grant_field_move: "비전머신 획득", mark_clear: "클리어 처리", teleport_to_gate: "관문으로 이동", end: "이벤트 종료",
   start_starter_roulette: "스타팅 룰렛 시작",
+  unlock_feature: "기능 잠금 해제", set_level_cap: "레벨캡 변경",
 };
 const fieldMoveChoices = [
   ["surf", "파도타기"], ["fly", "공중날기"], ["flash", "플래쉬"], ["defog", "안개제거"],
@@ -5416,6 +5417,8 @@ function eventCommandSummary(command) {
   if (command.type === "grant_loot") return command.loot_table || "루트 테이블 없음";
   if (command.type === "grant_badge") return badgeById(command.badge)?.display_name?.ko_kr || command.badge || "배지 없음";
   if (command.type === "grant_field_move") return `${fieldMoveChoices.find(([id]) => id === command.move)?.[1] || command.move || "비전머신 없음"} 획득`;
+  if (command.type === "unlock_feature") return `${[["map", "지도"], ["settlement_teleport", "마을 순간이동"], ["pc", "포켓몬 PC"]].find(([id]) => id === command.feature)?.[1] || command.feature} 해제`;
+  if (command.type === "set_level_cap") return `Lv.${command.level_cap || 5}`;
   if (command.type === "start_starter_roulette") return "대화 중인 플레이어의 스타팅 포켓몬 룰렛 열기";
   if (command.type === "teleport_to_gate") return `${command.subject === "npc" ? "NPC" : "플레이어"} → ${command.gate || "관문 없음"} · ${command.side || "front"}`;
   if (command.type === "end") return "이벤트 실행 종료";
@@ -5565,6 +5568,7 @@ function renderNormalizedEventPreset() {
   updateEventPresetFlagMode(false);
   $("#event-preset-item").value = preset.item || "cobblemon:poke_ball";
   $("#event-preset-item-count").value = preset.item_count ?? 1;
+  $("#event-preset-after-item-text").value = localizedPresetText(preset.after_item_text, "방금 준 아이템을 잘 활용해 보세요.");
   if (preset.battle && [...$("#event-preset-battle").options].some((option) => option.value === preset.battle)) $("#event-preset-battle").value = preset.battle;
   $("#event-preset-loss-money").value = preset.loss_money ?? 0;
   $("#event-preset-currency").value = preset.currency_objective || "cobbleventure_money";
@@ -5603,6 +5607,7 @@ function applyNormalizedEventPreset() {
   if (type === "item") {
     preset.item = $("#event-preset-item").value.trim() || "cobblemon:poke_ball";
     preset.item_count = Math.max(1, Number($("#event-preset-item-count").value) || 1);
+    preset.after_item_text = { ko_kr: $("#event-preset-after-item-text").value.trim() || "방금 준 아이템을 잘 활용해 보세요." };
   }
   if (eventPresetIsBattle(type)) {
     Object.assign(preset, {
@@ -5649,6 +5654,7 @@ function applyEventScriptPreset() {
   const type = $("#event-preset-type").value;
   const firstText = $("#event-preset-first-text").value.trim() || "안녕하세요!";
   const repeatText = $("#event-preset-repeat-text").value.trim() || "다시 만났네요.";
+  const afterItemText = $("#event-preset-after-item-text").value.trim() || "방금 준 아이템을 잘 활용해 보세요.";
   if (type === "simple") {
     event.commands = [
       ...dialogueCommands("greeting", firstText),
@@ -5701,7 +5707,12 @@ function applyEventScriptPreset() {
       { type: "branch", conditions: [{ type: "flag", key: flag, value: true }], target: "repeat_greeting" },
       ...dialogueCommands("first_greeting", firstText),
     ];
-    if (type === "item") event.commands.push({ type: "give_item", item: $("#event-preset-item").value.trim() || "cobblemon:poke_ball", count: Math.max(1, Number($("#event-preset-item-count").value) || 1) });
+    if (type === "item") {
+      event.commands.push(
+        { type: "give_item", item: $("#event-preset-item").value.trim() || "cobblemon:poke_ball", count: Math.max(1, Number($("#event-preset-item-count").value) || 1) },
+        ...dialogueCommands("item_explanation", afterItemText),
+      );
+    }
     event.commands.push(
       { type: "set_flag", key: flag, value: true },
       { type: "goto", target: "end" },
@@ -5820,6 +5831,8 @@ function renderEventCommandEditor(command) {
   if (command.type === "grant_loot") return `<div class="event-command-fields">${eventField("루트 테이블 ID", "loot_table", command.loot_table || "", { wide: true, help: "확률과 아이템 구성은 별도의 루트 테이블에서 관리합니다." })}</div>`;
   if (command.type === "grant_badge") return `<div class="event-command-fields">${eventField("기록할 배지", "badge", command.badge || "", { choices: (state.badgeCatalog.badges || []).map((badge) => [badge.id, `${badge.generation}세대 ${badge.order}번째 · ${badge.display_name?.ko_kr || badge.id}`]), wide: true, help: "아이템을 지급하지 않고 트레이너 카드 진행도에 기록합니다." })}</div>`;
   if (command.type === "grant_field_move") return `<div class="event-command-fields">${eventField("획득할 비전머신", "move", command.move || "surf", { choices: fieldMoveChoices, wide: true, help: "대화 중인 플레이어의 비전머신 플래그를 영구 해금합니다." })}</div>`;
+  if (command.type === "unlock_feature") return `<div class="event-command-fields">${eventField("잠금 해제할 기능", "feature", command.feature || "map", { choices: [["map", "지도"], ["settlement_teleport", "마을 순간이동"], ["pc", "포켓몬 PC"]], wide: true, help: "대화 중인 플레이어에게 선택한 기능을 영구 해금합니다." })}</div>`;
+  if (command.type === "set_level_cap") return `<div class="event-command-fields">${eventField("새 레벨캡", "level_cap", command.level_cap ?? 5, { type: "number", valueType: "number", min: 1, max: 100, step: 1, wide: true })}</div>`;
   if (command.type === "start_starter_roulette") return '<div class="event-command-fields"><p class="command-help wide">EasyNPC 대화창을 닫은 뒤, 대화 중인 플레이어에게 스타팅 포켓몬 룰렛을 엽니다. 이미 스타팅을 선택한 플레이어에게는 다시 열리지 않습니다.</p></div>';
   if (command.type === "teleport_to_gate") {
     const gates = (state.worldLayout?.objects || []).filter((object) => object.type === "gate").map((gate) => [gate.id, gate.id]);
@@ -5834,7 +5847,7 @@ function renderEventScript() {
   renderEventDesignMode();
   if (state.trainer?.event_design?.mode === "preset") {
     $("#event-command-list").innerHTML = '<div class="issues empty">행동 프리셋이 빌드 시 EasyNPC 이벤트로 자동 변환됩니다.</div>';
-    ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+    ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-after-item-text", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
     $$('[data-item-picker]').forEach((button) => { button.disabled = false; });
     updateEventPresetFlagMode(false);
     updatePresetClearKeyMode();
@@ -5859,7 +5872,7 @@ function renderEventScript() {
   $("#event-warning-offset").value = trigger.warning_offset ?? 2;
   $("#event-range-label").textContent = trigger.type === "proximity" ? "자동 발동 거리" : "대화 가능 거리";
   $("#event-warning-offset-field").hidden = trigger.type !== "proximity";
-  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-after-item-text", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
   $$('[data-item-picker]').forEach((button) => { button.disabled = false; });
   const presetFlag = $("#event-preset-flag");
   if (presetFlag.dataset.npcId !== state.trainer.id) {
@@ -5899,6 +5912,8 @@ function defaultEventCommand(type) {
     grant_loot: { type, loot_table: "cobbleventure:rewards/example" },
     grant_badge: { type, badge: state.badgeCatalog.badges?.[0]?.id || "cobbleventure:badge/kanto/boulder" },
     grant_field_move: { type, move: "surf" },
+    unlock_feature: { type, feature: "map" },
+    set_level_cap: { type, level_cap: 5 },
     start_starter_roulette: { type },
     teleport_to_gate: { type, gate: (state.worldLayout?.objects || []).find((object) => object.type === "gate")?.id || "gate_01", subject: "player", side: "front" },
     end: { type },
@@ -9179,6 +9194,27 @@ function selectedGymFacility() {
   }];
 }
 
+function ensureGymDoorAccessFields() {
+  if ($("#gym-door-access-fields")) return;
+  $("#gym-config-fields").insertAdjacentHTML("afterend", `<fieldset class="wide gym-door-access-fields" id="gym-door-access-fields"><legend>체육관 문 진행 조건</legend><label class="toggle wide"><input type="checkbox" name="gymRequirePrevious"><span>이전 체육관 클리어 필요</span><small>리그 구성에서 현재 체육관 바로 앞 관장의 배지를 자동 조건으로 연결합니다.</small></label><label><span>일반 조건 결합</span><select name="gymConditionMode"><option value="all">모든 조건 달성</option><option value="any">조건 중 하나 달성</option></select></label><label class="wide"><span>추가 조건식 (JSON 배열)</span><textarea name="gymConditions" rows="4" placeholder='[{"type":"flag","key":"cobbleventure:flag/example","value":true}]'></textarea><small>아이템·플래그·배지 등의 일반 조건을 추가합니다.</small></label><label class="wide"><span>잠긴 문 대사</span><textarea name="gymLockedDialogue" rows="2">문이 잠겨 있다.</textarea></label><label class="toggle wide"><input type="checkbox" name="gymBlockingNpcEnabled"><span>조건 미달성 시 길막용 NPC 사용</span></label><label class="wide"><span>문 앞 NPC</span><select name="gymBlockingNpc"><option value="">NPC를 선택하세요</option></select><small>선택한 NPC 프리셋을 체육관 문 앞에 생성합니다.</small></label></fieldset>`);
+}
+
+function previousGymBadge(gymDefinition) {
+  const leaderId = gymDefinition?.staff?.leader?.league_entry_id;
+  const current = (state.leagueProgression.entries || []).find((entry) => entry.id === leaderId);
+  if (!current) return "";
+  const previous = (state.leagueProgression.entries || [])
+    .filter((entry) => entry.role === "gym_leader" && entry.region === current.region && Number(entry.order) < Number(current.order))
+    .sort((a, b) => Number(b.order) - Number(a.order))[0];
+  return previous?.encounter?.rewards?.badge_id || "";
+}
+
+function gymBlockingNpcOptions(selected = "") {
+  return '<option value="">NPC를 선택하세요</option>' + (state.trainers || []).map((trainer) =>
+    `<option value="${escapeHtml(trainer.id)}"${trainer.id === selected ? " selected" : ""}>${escapeHtml(trainer.npc?.display_name?.ko_kr || trainer.name?.ko_kr || trainer.id)}</option>`
+  ).join("");
+}
+
 function facilityCanonicalEntranceFacing(id) {
   if (["department_store", "facility_department_store"].includes(id)) return "north";
   if (["pokemon_center", "facility_pokemon_center"].includes(id)) return "west";
@@ -10420,9 +10456,10 @@ function updateFacilityFormState(preferredFootprintShape = null) {
     form.elements[name].disabled = !buildingEnabled || !manualPlacement;
   }
   const gymEnabled = form.elements.gymEnabled.checked;
-  for (const name of ["gymId"]) {
+  for (const name of ["gymId", "gymRequirePrevious", "gymConditionMode", "gymConditions", "gymLockedDialogue", "gymBlockingNpcEnabled", "gymBlockingNpc"]) {
     form.elements[name].disabled = !gymEnabled;
   }
+  if (gymEnabled) form.elements.gymBlockingNpc.disabled = !form.elements.gymBlockingNpcEnabled.checked;
   $$("#facility-option-list [data-facility-id]").forEach((row) => {
     const enabled = row.querySelector(".facility-enabled").checked;
     row.classList.toggle("is-selected", enabled);
@@ -10445,6 +10482,7 @@ function renderSettlementAutoNpcPreview() {
 
 function renderSettlement() {
   const document = state.settlement;
+  ensureGymDoorAccessFields();
   const form = $("#settlement-form");
   ensureVillageDensityControl(form);
   $("#selected-settlement-editor").hidden = false;
@@ -10507,6 +10545,15 @@ function renderSettlement() {
   form.elements.gymId.innerHTML = gymOptions(selectedGymId);
   setFormValue(form, "gymId", selectedGymId);
   setFormValue(form, "gymAnchor", gym.anchor || "gym_building");
+  const entrance = gym.entrance || {};
+  setFormValue(form, "gymRequirePrevious", Boolean(entrance.require_previous_gym));
+  setFormValue(form, "gymConditionMode", entrance.condition_mode || "all");
+  setFormValue(form, "gymConditions", JSON.stringify(entrance.conditions || [], null, 2));
+  setFormValue(form, "gymLockedDialogue", (entrance.locked_dialogue || ["문이 잠겨 있다."]).join("\n"));
+  const blocker = entrance.blocking_npc || {};
+  setFormValue(form, "gymBlockingNpcEnabled", Boolean(blocker.enabled));
+  form.elements.gymBlockingNpc.innerHTML = gymBlockingNpcOptions(blocker.npc_profile || "");
+  setFormValue(form, "gymBlockingNpc", blocker.npc_profile || "");
   form.elements.pokemonBiomeSet.innerHTML = choiceOptions((state.biomeCatalog.sets || []).map((entry) => [entry.id, entry.display_name?.ko_kr || entry.id]), document.biome_layout?.pokemon_biome_set, true);
   setFormValue(form, "pokemonBiomeSet", document.biome_layout?.pokemon_biome_set);
   setFormValue(form, "maxAmbient", document.npc_placement?.max_ambient_npcs);
@@ -10800,7 +10847,18 @@ function updateSettlementFromForm() {
     gym_id: gymDefinition?.id || "",
     structure: gymDefinition?.exterior?.structure || "",
     theme: gymDefinition?.theme || "normal",
-    anchor: gymAnchor
+    anchor: gymAnchor,
+    entrance: {
+      require_previous_gym: form.elements.gymRequirePrevious.checked,
+      previous_badge: form.elements.gymRequirePrevious.checked ? previousGymBadge(gymDefinition) : "",
+      condition_mode: form.elements.gymConditionMode.value || "all",
+      conditions: (() => { try { const value = JSON.parse(form.elements.gymConditions.value || "[]"); return Array.isArray(value) ? value : []; } catch { return state.settlement.structure_profile.gym?.entrance?.conditions || []; } })(),
+      locked_dialogue: form.elements.gymLockedDialogue.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+      blocking_npc: {
+        enabled: form.elements.gymBlockingNpcEnabled.checked,
+        npc_profile: form.elements.gymBlockingNpc.value
+      }
+    }
   };
   // Keep legacy fields synchronized while older data packs are still accepted.
   state.settlement.structure_profile.gym_theme = gymDefinition?.theme || "normal";

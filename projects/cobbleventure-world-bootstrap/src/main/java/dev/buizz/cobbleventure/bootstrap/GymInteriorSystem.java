@@ -9,6 +9,7 @@ import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.playermenu.PlayerConditions;
+import dev.buizz.cobbleventure.playermenu.BadgeProgressNetwork;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +21,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -32,9 +36,12 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -45,6 +52,7 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -66,6 +74,7 @@ final class GymInteriorSystem {
     private static final Map<String, GymConfig> GYMS = new LinkedHashMap<>();
     private static final Map<String, GymDefinition> DEFINITIONS = new LinkedHashMap<>();
     private static final Map<DoorKey, DoorTarget> DOORS = new HashMap<>();
+    private static final Map<String, UUID> BLOCKING_NPCS = new HashMap<>();
 
     private GymInteriorSystem() {
     }
@@ -78,6 +87,7 @@ final class GymInteriorSystem {
         GYMS.clear();
         DEFINITIONS.clear();
         DOORS.clear();
+        BLOCKING_NPCS.clear();
         loadConfigs(server);
         if (GYMS.isEmpty()) {
             return;
@@ -140,16 +150,17 @@ final class GymInteriorSystem {
         BlockPoint outsideOffset = rotatePoint(gym.outsideOffset, size.getX(), size.getZ(), exteriorRotation);
         BlockPos door = origin.offset(doorOffset.x, doorOffset.y, doorOffset.z);
         BlockPos destination = gym.instanceOrigin.offset(gym.entryOffset.x, gym.entryOffset.y, gym.entryOffset.z);
+        BlockPos outside = origin.offset(outsideOffset.x, outsideOffset.y, outsideOffset.z);
         registerDoor(level, door, new DoorTarget(
-            INTERIORS, destination, gym.conditions, gym.conditionMode,
+            INTERIORS, destination, blocker(gym, level, outside), gym.previousBadge,
+            gym.conditions, gym.conditionMode,
             gym.lockedDialogue, gym.enterDialogue
         ));
         BlockPos exitDoor = gym.instanceOrigin.offset(
             gym.exitDoorOffset.x, gym.exitDoorOffset.y, gym.exitDoorOffset.z
         );
-        BlockPos outside = origin.offset(outsideOffset.x, outsideOffset.y, outsideOffset.z);
         registerDoor(interiors, exitDoor, new DoorTarget(
-            level.dimension(), outside, List.of(), "all", List.of(), List.of()
+            level.dimension(), outside, null, null, List.of(), "all", List.of(), List.of()
         ));
     }
 
@@ -184,11 +195,17 @@ final class GymInteriorSystem {
         AccessPolicy reverseAccess = connection.toSpace.equals("exterior") ? gymAccess : open;
         registerDoor(sourceSpace.level, sourceDoor, new DoorTarget(
             targetSpace.level.dimension(), destination,
+            connection.fromSpace.equals("exterior")
+                ? blocker(gym, sourceSpace.level, sourceSpace.position(source.safeSpawn)) : null,
+            connection.fromSpace.equals("exterior") ? gym.previousBadge : null,
             forwardAccess.conditions, forwardAccess.conditionMode,
             forwardAccess.lockedDialogue, forwardAccess.enterDialogue
         ));
         registerDoor(targetSpace.level, targetDoor, new DoorTarget(
             sourceSpace.level.dimension(), reverseDestination,
+            connection.toSpace.equals("exterior")
+                ? blocker(gym, targetSpace.level, targetSpace.position(target.safeSpawn)) : null,
+            connection.toSpace.equals("exterior") ? gym.previousBadge : null,
             reverseAccess.conditions, reverseAccess.conditionMode,
             reverseAccess.lockedDialogue, reverseAccess.enterDialogue
         ));
@@ -486,6 +503,21 @@ final class GymInteriorSystem {
         } else {
             conditions.addAll(definition.access.conditions);
         }
+        String previousBadge = entrance != null
+            && entrance.has("require_previous_gym")
+            && entrance.get("require_previous_gym").getAsBoolean()
+            ? nullableString(entrance, "previous_badge") : null;
+        String blockingNpcPreset = null;
+        if (entrance != null && entrance.has("blocking_npc")) {
+            JsonObject blocker = entrance.getAsJsonObject("blocking_npc");
+            if (blocker.has("enabled") && blocker.get("enabled").getAsBoolean()) {
+                String profile = nullableString(blocker, "npc_profile");
+                if (profile != null) {
+                    String slug = profile.substring(Math.max(profile.lastIndexOf('/'), profile.lastIndexOf(':')) + 1);
+                    blockingNpcPreset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
+                }
+            }
+        }
         return new GymConfig(
             settlementId,
             definition.displayName,
@@ -497,13 +529,14 @@ final class GymInteriorSystem {
             point(entrance, "door_offset", DEFAULT_DOOR),
             point(entrance, "outside_offset", DEFAULT_OUTSIDE),
             direction(optionalString(entrance, "facing", "north")),
+            previousBadge,
             optionalString(entrance, "condition_mode", definition.access.conditionMode),
             List.copyOf(conditions),
-            strings(entrance, "locked_dialogue", definition.access.lockedDialogue),
+            nonEmptyStrings(entrance, "locked_dialogue", List.of("문이 잠겨 있다.")),
             strings(entrance, "enter_dialogue", definition.access.enterDialogue),
             point(interior, "entry_offset", DEFAULT_ENTRY),
             point(interior, "exit_door_offset", DEFAULT_DOOR),
-            definition.connections,
+            definition.connections, blockingNpcPreset,
             definition.staff
         );
     }
@@ -531,6 +564,7 @@ final class GymInteriorSystem {
                 if (!placed) {
                     throw new IllegalStateException("Gym interior module placement failed: " + module.structure);
                 }
+                StructurePlacementFixes.afterPlacement(level, moduleOrigin, size);
                 sanitize(level, moduleOrigin, size);
             }
             level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
@@ -683,9 +717,11 @@ final class GymInteriorSystem {
         }
         player.getPersistentData().putLong(INTERACTION_COOLDOWN, gameTime + 10L);
         if (!target.allows(player)) {
+            ensureBlockingNpc(player.getServer(), target.blocker);
             sendDialogue(player, target.lockedDialogue);
             return;
         }
+        removeBlockingNpc(player.getServer(), target.blocker);
         sendDialogue(player, target.enterDialogue);
         ServerLevel destination = player.getServer().getLevel(target.dimension);
         if (destination == null) {
@@ -698,6 +734,10 @@ final class GymInteriorSystem {
             target.position.getY(),
             target.position.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
+        );
+        destination.playSound(
+            null, target.position, SoundEvents.WOODEN_DOOR_OPEN,
+            SoundSource.BLOCKS, 0.9F, 1.0F
         );
     }
 
@@ -726,6 +766,36 @@ final class GymInteriorSystem {
             throw new IllegalStateException(
                 "Gym staff NPC placement failed: " + gym.settlementId + "/" + staff.role, error
             );
+        }
+    }
+
+    private static BlockingNpc blocker(GymConfig gym, ServerLevel level, BlockPos position) {
+        if (gym.blockingNpcPreset == null) return null;
+        return new BlockingNpc(gym.settlementId, level.dimension(), position, gym.blockingNpcPreset);
+    }
+
+    private static void ensureBlockingNpc(MinecraftServer server, BlockingNpc blocker) {
+        if (blocker == null || BLOCKING_NPCS.containsKey(blocker.key)) return;
+        ServerLevel level = server.getLevel(blocker.dimension);
+        if (level == null) return;
+        AABB search = new AABB(blocker.position).inflate(2.0D);
+        Set<UUID> before = new HashSet<>();
+        for (Entity entity : level.getEntities((Entity) null, search)) before.add(entity.getUUID());
+        GymConfig gym = GYMS.get(blocker.key);
+        if (gym == null) return;
+        spawnNpc(level, gym, new GymStaffMember("door_blocker", blocker.preset, new BlockPoint(0, 0, 0)), blocker.position);
+        level.getEntities((Entity) null, search, entity -> !before.contains(entity.getUUID()))
+            .stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(Vec3.atCenterOf(blocker.position))))
+            .ifPresent(entity -> BLOCKING_NPCS.put(blocker.key, entity.getUUID()));
+    }
+
+    private static void removeBlockingNpc(MinecraftServer server, BlockingNpc blocker) {
+        if (blocker == null) return;
+        UUID uuid = BLOCKING_NPCS.remove(blocker.key);
+        ServerLevel level = server.getLevel(blocker.dimension);
+        if (uuid != null && level != null) {
+            Entity entity = level.getEntity(uuid);
+            if (entity != null) entity.discard();
         }
     }
 
@@ -762,6 +832,11 @@ final class GymInteriorSystem {
             values.add(element.getAsString());
         }
         return List.copyOf(values);
+    }
+
+    private static List<String> nonEmptyStrings(JsonObject parent, String key, List<String> fallback) {
+        List<String> values = strings(parent, key, fallback);
+        return values.isEmpty() ? fallback : values;
     }
 
     private static String requiredString(JsonObject value, String key) {
@@ -805,18 +880,27 @@ final class GymInteriorSystem {
     private record DoorTarget(
         ResourceKey<Level> dimension,
         BlockPos position,
+        BlockingNpc blocker,
+        String requiredBadge,
         List<PlayerConditions.Condition> conditions,
         String conditionMode,
         List<String> lockedDialogue,
         List<String> enterDialogue
     ) {
         boolean allows(ServerPlayer player) {
+            if (requiredBadge != null && !BadgeProgressNetwork.hasBadge(player, requiredBadge)) {
+                return false;
+            }
             if (conditions.isEmpty()) {
                 return true;
             }
             return PlayerConditions.matches(player, conditionMode, conditions);
         }
     }
+
+    private record BlockingNpc(
+        String key, ResourceKey<Level> dimension, BlockPos position, String preset
+    ) {}
 
     private record GymDefinition(
         String id, String displayName, String theme, String exteriorStructure,
@@ -873,6 +957,7 @@ final class GymInteriorSystem {
         final BlockPoint doorOffset;
         final BlockPoint outsideOffset;
         final Direction facing;
+        final String previousBadge;
         final String conditionMode;
         final List<PlayerConditions.Condition> conditions;
         final List<String> lockedDialogue;
@@ -880,6 +965,7 @@ final class GymInteriorSystem {
         final BlockPoint entryOffset;
         final BlockPoint exitDoorOffset;
         final List<GymConnection> connections;
+        final String blockingNpcPreset;
         final List<GymStaffMember> staff;
         BlockPos instanceOrigin;
 
@@ -888,10 +974,12 @@ final class GymInteriorSystem {
             String exteriorStructure, ModuleMetadata exteriorMetadata,
             List<InteriorModule> modules,
             BlockPoint doorOffset,
-            BlockPoint outsideOffset, Direction facing, String conditionMode,
+            BlockPoint outsideOffset, Direction facing, String previousBadge,
+            String conditionMode,
             List<PlayerConditions.Condition> conditions, List<String> lockedDialogue,
             List<String> enterDialogue, BlockPoint entryOffset,
             BlockPoint exitDoorOffset, List<GymConnection> connections,
+            String blockingNpcPreset,
             List<GymStaffMember> staff
         ) {
             this.settlementId = settlementId;
@@ -904,6 +992,7 @@ final class GymInteriorSystem {
             this.doorOffset = doorOffset;
             this.outsideOffset = outsideOffset;
             this.facing = facing;
+            this.previousBadge = previousBadge;
             this.conditionMode = conditionMode;
             this.conditions = conditions;
             this.lockedDialogue = lockedDialogue;
@@ -911,6 +1000,7 @@ final class GymInteriorSystem {
             this.entryOffset = entryOffset;
             this.exitDoorOffset = exitDoorOffset;
             this.connections = connections;
+            this.blockingNpcPreset = blockingNpcPreset;
             this.staff = staff;
         }
 

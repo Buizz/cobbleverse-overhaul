@@ -25,7 +25,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.levelgen.Heightmap;
 import org.slf4j.Logger;
@@ -42,8 +41,8 @@ final class PursuitEncounterSystem {
     private static final int PURSUIT_TICKS = 20 * 12;
     private static final int PURSUIT_ACCELERATION_TICKS = 20 * 2;
     private static final int AGGRO_COOLDOWN_TICKS = 40;
-    private static final double INITIAL_PURSUIT_EFFECTIVE_SPEED = 0.075D;
-    private static final double MAXIMUM_PURSUIT_EFFECTIVE_SPEED = 0.105D;
+    private static final double INITIAL_PURSUIT_SPEED_MULTIPLIER = 0.75D;
+    private static final double MAXIMUM_PURSUIT_SPEED_MULTIPLIER = 1.0D;
     private static final double DETECTION_DISTANCE_SQUARED = 12.0D * 12.0D;
     private static final double DESPAWN_DISTANCE_SQUARED = 48.0D * 48.0D;
     private static final Map<UUID, State> STATES = new HashMap<>();
@@ -443,7 +442,7 @@ final class PursuitEncounterSystem {
         }
         if (age < WARNING_TICKS) return;
         entity.getLookControl().setLookAt(player, 30.0F, 30.0F);
-        entity.getNavigation().moveTo(player, pursuitSpeed(entity, age));
+        entity.getNavigation().moveTo(player, pursuitSpeed(age));
         if (entity.distanceToSqr(player) <= 2.5D * 2.5D && entity.canBattle(player)) {
             entity.getNavigation().stop();
             if (state.battleStartTick < 0L) {
@@ -482,15 +481,13 @@ final class PursuitEncounterSystem {
         }
     }
 
-    private static double pursuitSpeed(PokemonEntity entity, long pursuitAge) {
+    private static double pursuitSpeed(long pursuitAge) {
         double progress = Math.min(
             1.0D,
             Math.max(0L, pursuitAge - WARNING_TICKS) / (double) PURSUIT_ACCELERATION_TICKS
         );
-        double effectiveSpeed = INITIAL_PURSUIT_EFFECTIVE_SPEED
-            + (MAXIMUM_PURSUIT_EFFECTIVE_SPEED - INITIAL_PURSUIT_EFFECTIVE_SPEED) * progress;
-        double movementAttribute = entity.getAttributeValue(Attributes.MOVEMENT_SPEED);
-        return movementAttribute <= 0.0D ? 0.0D : effectiveSpeed / movementAttribute;
+        return INITIAL_PURSUIT_SPEED_MULTIPLIER
+            + (MAXIMUM_PURSUIT_SPEED_MULTIPLIER - INITIAL_PURSUIT_SPEED_MULTIPLIER) * progress;
     }
 
     static void forget(ServerPlayer player) {

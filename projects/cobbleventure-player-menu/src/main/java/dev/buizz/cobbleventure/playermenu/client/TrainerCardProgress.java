@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 import java.util.List;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -24,6 +25,8 @@ record TrainerCardProgress(List<LeaguePage> pages) {
     }
 
     int currentLevelCap() {
+        int synchronizedCap = ProgressionNetwork.clientSnapshot().levelCap();
+        if (synchronizedCap > 0) return synchronizedCap;
         int lastConfiguredCap = 100;
         for (LeaguePage page : pages) {
             for (Challenge challenge : page.challenges()) {

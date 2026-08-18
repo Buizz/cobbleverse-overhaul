@@ -329,6 +329,7 @@ public final class CobbleventureBootstrap {
         RockSmashPuzzleBlocks.register(modBus);
         FlashCaveEffects.register();
         LocalWeatherSystem.register(modBus);
+        GateDialogueNetwork.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
         StarterSpawnSystem.register();
@@ -4545,10 +4546,16 @@ public final class CobbleventureBootstrap {
                 .addProcessor(new FacilityTerrainPreservationProcessor(
                     facilityGroundLevelY(facility, position)
                 ));
-            return template.get().placeInWorld(
+            boolean placed = template.get().placeInWorld(
                 level, blockPos, blockPos, settings,
                 RandomSource.create(level.getSeed() ^ blockPos.asLong()), 2
             );
+            if (placed) {
+                StructurePlacementFixes.afterPlacement(
+                    level, blockPos, template.get().getSize(rotation)
+                );
+            }
+            return placed;
         } finally {
             releaseForcedChunks(level, forcedChunks);
         }
@@ -4599,6 +4606,9 @@ public final class CobbleventureBootstrap {
         if (!placed && logFailure) {
             LOGGER.error("Template placement failed for {} at {}", structure, position);
         }
+        if (placed) {
+            StructurePlacementFixes.afterPlacement(level, blockPos, template.orElseThrow().getSize());
+        }
         return placed;
     }
 
@@ -4617,10 +4627,16 @@ public final class CobbleventureBootstrap {
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
-        return template.get().placeInWorld(
+        boolean placed = template.get().placeInWorld(
             level, blockPos, blockPos, settings,
             RandomSource.create(level.getSeed() ^ blockPos.asLong()), 2
         );
+        if (placed) {
+            StructurePlacementFixes.afterPlacement(
+                level, blockPos, template.get().getSize(rotation)
+            );
+        }
+        return placed;
     }
 
     private static Rotation structureRotation(String rotationName) {
@@ -4817,7 +4833,7 @@ public final class CobbleventureBootstrap {
                 HexWorldPlan forestWorld = activeHexWorld;
                 if (forestWorld != null) {
                     WorldGateSystem.tick(
-                        player, level, forestWorld.grid(), forestWorld.gates(), gameTime
+                        player, level, forestWorld, gameTime
                     );
                 }
                 if (gameTime % 10L == 0L) {
@@ -4850,7 +4866,7 @@ public final class CobbleventureBootstrap {
             }
             HexWorldPlan world = activeHexWorld;
             if (world != null) {
-                WorldGateSystem.tick(player, level, world.grid(), world.gates(), gameTime);
+                WorldGateSystem.tick(player, level, world, gameTime);
                 if (gameTime % 10L == 0L) {
                     String facilityMusic = facilityMusicContextAt(player);
                     if (facilityMusic == null) MusicPlayback.leaveInterior(player);
@@ -6012,7 +6028,7 @@ public final class CobbleventureBootstrap {
                                         return WorldGateSystem.teleportToGate(
                                             context.getSource().getLevel(),
                                             EntityArgument.getEntities(context, "targets"),
-                                            activeHexWorld.grid(), activeHexWorld.gates(),
+                                            activeHexWorld,
                                             StringArgumentType.getString(context, "gate"),
                                             StringArgumentType.getString(context, "side")
                                         );

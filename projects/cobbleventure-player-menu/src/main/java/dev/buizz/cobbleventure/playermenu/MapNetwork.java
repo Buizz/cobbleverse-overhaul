@@ -89,6 +89,10 @@ public final class MapNetwork {
 
     private static void handleTeleport(MapTeleportPayload payload, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
+        if (!ProgressionNetwork.isUnlocked(player, ProgressionNetwork.Feature.SETTLEMENT_TELEPORT)) {
+            context.reply(new MapTeleportResultPayload(false, "마을 순간이동 기능을 아직 사용할 수 없습니다."));
+            return;
+        }
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             context.reply(new MapTeleportResultPayload(false, "전투 중에는 순간이동할 수 없습니다."));
             return;

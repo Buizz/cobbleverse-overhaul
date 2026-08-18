@@ -351,6 +351,10 @@ def graph_reward_commands(document: dict, start_battle: dict, result_key: str = 
                 commands.append(f"cobbleventurebag acquire @1 {action['item']} {int(action.get('count', 1))}")
             elif action_type == "grant_badge":
                 commands.append(f"cobbleventure_badge grant @1 {action['badge']}")
+            elif action_type == "unlock_feature":
+                commands.append(f"cobbleventure_progress unlock @1 {action['feature']}")
+            elif action_type == "set_level_cap":
+                commands.append(f"cobbleventure_progress level_cap @1 {int(action['level_cap'])}")
             elif action_type == "grant_loot":
                 commands.append(f"cobbleventurebag loot @1 {action['loot_table']}")
             elif action_type in {"give_money", "take_money"}:
@@ -402,6 +406,10 @@ def command_reward_commands(
             result.append(f"cobbleventurebag acquire @1 {command['item']} {int(command.get('count', 1))}")
         elif command_type == "grant_badge":
             result.append(f"cobbleventure_badge grant @1 {command['badge']}")
+        elif command_type == "unlock_feature":
+            result.append(f"cobbleventure_progress unlock @1 {command['feature']}")
+        elif command_type == "set_level_cap":
+            result.append(f"cobbleventure_progress level_cap @1 {int(command['level_cap'])}")
         elif command_type == "grant_loot":
             result.append(f"cobbleventurebag loot @1 {command['loot_table']}")
         elif command_type == "grant_field_move":
@@ -677,10 +685,18 @@ def easy_npc_action(operation: dict, document: dict) -> str:
         return command_action(
             f"/cobbleventure_field_move grant @initiator {operation['move']}"
         )
+    if operation_type == "unlock_feature":
+        return command_action(f"/cobbleventure_progress unlock @initiator {operation['feature']}")
+    if operation_type == "set_level_cap":
+        return command_action(f"/cobbleventure_progress level_cap @initiator {int(operation['level_cap'])}")
     if operation_type == "start_starter_roulette":
+        continuation = operation.get("target")
+        command = "/cobbleventure_starter_roulette @initiator"
+        if continuation:
+            command += f" @s {dialogue_label(continuation)}"
         return ",".join([
             '{Type:"CLOSE_DIALOG"}',
-            command_action("/cobbleventure_starter_roulette @initiator"),
+            command_action(command),
         ])
     if operation_type == "teleport_to_gate":
         selector = "@npc-uuid" if operation.get("subject") == "npc" else "@initiator"
@@ -806,9 +822,13 @@ def event_script_dialogues(
                     )
             if not buttons:
                 followup_actions: list[str] = []
+                followup_dialogue: str | None = None
                 starts_starter_roulette = False
                 for value in commands[index + 1:]:
-                    if value.get("type") in {"dialogue", "label", "choices", "end"}:
+                    if value.get("type") == "dialogue":
+                        followup_dialogue = dialogue_label(value.get("id", "dialogue"))
+                        break
+                    if value.get("type") in {"label", "choices", "end"}:
                         break
                     if value.get("type") in {
                         "give_item",
@@ -816,6 +836,8 @@ def event_script_dialogues(
                         "mark_clear",
                         "teleport_to_gate",
                         "grant_field_move",
+                        "unlock_feature",
+                        "set_level_cap",
                         "start_starter_roulette",
                     }:
                         followup_actions.append(easy_npc_action(value, document))
@@ -825,7 +847,10 @@ def event_script_dialogues(
                         )
                 if followup_actions:
                     final_action = (
-                        None if starts_starter_roulette else '{Type:"CLOSE_DIALOG"}'
+                        None if starts_starter_roulette
+                        else "{Cmd:" + quote(followup_dialogue) + ',Type:"OPEN_NAMED_DIALOG"}'
+                        if followup_dialogue
+                        else '{Type:"CLOSE_DIALOG"}'
                     )
                     actions = [*followup_actions]
                     if final_action:

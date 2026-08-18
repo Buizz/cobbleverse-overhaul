@@ -443,7 +443,9 @@
             "complete_quest",
             "teleport",
             "open_dialogue",
-            "teleport_to_gate"
+            "teleport_to_gate",
+            "unlock_feature",
+            "set_level_cap"
           ]
         },
         "target": { "$ref": "#/$defs/resource_id" },
@@ -482,6 +484,8 @@
           "enum": ["surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash"]
         },
         "gate": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "feature": { "enum": ["map", "settlement_teleport", "pc"] },
+        "level_cap": { "type": "integer", "minimum": 1, "maximum": 100 },
         "subject": { "enum": ["player", "npc"] },
         "side": { "enum": ["front", "back", "center"] }
       }

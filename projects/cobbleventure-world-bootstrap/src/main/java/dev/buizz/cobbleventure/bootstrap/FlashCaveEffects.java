@@ -28,8 +28,11 @@ final class FlashCaveEffects {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String CONTENT_NAMESPACE = "cobbleventure";
     private static final String APPLIED_EFFECT = "cobbleventureFlashAppliedEffect";
+    private static final String DARKNESS = "darkness";
     private static final String BLINDNESS = "blindness";
     private static final String NIGHT_VISION = "night_vision";
+    private static final double CLEAR_ENTRANCE_RADIUS = 14.0D;
+    private static final double FULL_BLINDNESS_RADIUS = 40.0D;
     private static volatile List<FlashRegion> flashRegions = List.of();
     private static boolean registered;
 
@@ -62,10 +65,13 @@ final class FlashCaveEffects {
     }
 
     private static void applyVisionRule(ServerPlayer player) {
-        boolean requiresFlash = flashRegions.stream().anyMatch(region -> region.contains(player));
-        String desiredEffect = requiresFlash
-            ? FieldMoveRidingAccess.isActive(player, "flash") ? NIGHT_VISION : BLINDNESS
-            : "";
+        FlashRegion region = flashRegions.stream()
+            .filter(candidate -> candidate.contains(player))
+            .findFirst()
+            .orElse(null);
+        String desiredEffect = region == null ? ""
+            : FieldMoveRidingAccess.isActive(player, "flash")
+                ? NIGHT_VISION : region.visionEffect(player);
         String appliedEffect = player.getPersistentData().getString(APPLIED_EFFECT);
 
         if (!appliedEffect.equals(desiredEffect)) {
@@ -77,7 +83,9 @@ final class FlashCaveEffects {
             player.getPersistentData().putString(APPLIED_EFFECT, desiredEffect);
         }
 
-        if (BLINDNESS.equals(desiredEffect)) {
+        if (DARKNESS.equals(desiredEffect)) {
+            ensureInfiniteEffect(player, MobEffects.DARKNESS);
+        } else if (BLINDNESS.equals(desiredEffect)) {
             ensureInfiniteEffect(player, MobEffects.BLINDNESS);
         } else if (NIGHT_VISION.equals(desiredEffect)) {
             ensureInfiniteEffect(player, MobEffects.NIGHT_VISION);
@@ -97,7 +105,9 @@ final class FlashCaveEffects {
     }
 
     private static void removeAppliedEffect(ServerPlayer player, String appliedEffect) {
-        if (BLINDNESS.equals(appliedEffect)) {
+        if (DARKNESS.equals(appliedEffect)) {
+            player.removeEffect(MobEffects.DARKNESS);
+        } else if (BLINDNESS.equals(appliedEffect)) {
             player.removeEffect(MobEffects.BLINDNESS);
         } else if (NIGHT_VISION.equals(appliedEffect)) {
             player.removeEffect(MobEffects.NIGHT_VISION);
@@ -130,12 +140,23 @@ final class FlashCaveEffects {
                     throw new IllegalArgumentException("Invalid cave dimension ID");
                 }
                 JsonObject bounds = dimension.getAsJsonObject("bounds");
+                List<Entrance> entrances = new ArrayList<>();
+                for (var element : cave.getAsJsonArray("entrances")) {
+                    JsonObject anchor = element.getAsJsonObject()
+                        .getAsJsonObject("destination_anchor");
+                    entrances.add(new Entrance(
+                        anchor.get("x").getAsDouble(),
+                        anchor.get("y").getAsDouble(),
+                        anchor.get("z").getAsDouble()
+                    ));
+                }
                 regions.add(new FlashRegion(
                     ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimensionId),
                     bounds.get("min_x").getAsInt(),
                     bounds.get("min_z").getAsInt(),
                     bounds.get("max_x").getAsInt(),
-                    bounds.get("max_z").getAsInt()
+                    bounds.get("max_z").getAsInt(),
+                    List.copyOf(entrances)
                 ));
             } catch (IOException | RuntimeException error) {
                 LOGGER.error("Failed to load Flash cave definition {}", location, error);
@@ -149,12 +170,36 @@ final class FlashCaveEffects {
         int minX,
         int minZ,
         int maxX,
-        int maxZ
+        int maxZ,
+        List<Entrance> entrances
     ) {
         boolean contains(ServerPlayer player) {
             return player.level().dimension().equals(dimension)
                 && player.getX() >= minX && player.getX() <= maxX
                 && player.getZ() >= minZ && player.getZ() <= maxZ;
+        }
+
+        String visionEffect(ServerPlayer player) {
+            double nearestDistanceSquared = entrances.stream()
+                .mapToDouble(entrance -> entrance.distanceSquared(player))
+                .min()
+                .orElse(Double.POSITIVE_INFINITY);
+            if (nearestDistanceSquared <= CLEAR_ENTRANCE_RADIUS * CLEAR_ENTRANCE_RADIUS) {
+                return "";
+            }
+            if (nearestDistanceSquared < FULL_BLINDNESS_RADIUS * FULL_BLINDNESS_RADIUS) {
+                return DARKNESS;
+            }
+            return BLINDNESS;
+        }
+    }
+
+    private record Entrance(double x, double y, double z) {
+        double distanceSquared(ServerPlayer player) {
+            double dx = player.getX() - x;
+            double dy = player.getY() - y;
+            double dz = player.getZ() - z;
+            return dx * dx + dy * dy + dz * dz;
         }
     }
 }

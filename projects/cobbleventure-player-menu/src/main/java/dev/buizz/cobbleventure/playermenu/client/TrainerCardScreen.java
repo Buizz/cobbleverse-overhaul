@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import dev.buizz.cobbleventure.playermenu.BadgeProgressNetwork;
+import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -47,6 +48,7 @@ public final class TrainerCardScreen extends Screen {
     private final boolean liveProgress;
     private final Map<String, CardLeader> leaderModels = new HashMap<>();
     private int badgeSnapshotHash;
+    private int progressionSnapshotHash;
     private int pageIndex;
     private int animationTick;
     private boolean showingBack;
@@ -76,7 +78,10 @@ public final class TrainerCardScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        if (liveProgress) BadgeProgressNetwork.requestSnapshot();
+        if (liveProgress) {
+            BadgeProgressNetwork.requestSnapshot();
+            ProgressionNetwork.requestSnapshot();
+        }
         cardWidth = Math.min(CARD_MAX_WIDTH, Math.max(180, width - 24));
         cardHeight = Math.min(CARD_MAX_HEIGHT, Math.max(150, height - 42));
         cardX = (width - cardWidth) / 2;
@@ -103,8 +108,10 @@ public final class TrainerCardScreen extends Screen {
         animationTick++;
         if (!liveProgress) return;
         int currentHash = BadgeProgressNetwork.clientBadges().hashCode();
-        if (currentHash != badgeSnapshotHash) {
+        int progressHash = ProgressionNetwork.clientSnapshot().hashCode();
+        if (currentHash != badgeSnapshotHash || progressHash != progressionSnapshotHash) {
             badgeSnapshotHash = currentHash;
+            progressionSnapshotHash = progressHash;
             progress = TrainerCardProgress.current();
             pageIndex = Math.min(pageIndex, Math.max(0, progress.pages().size() - 1));
             updateButtons();

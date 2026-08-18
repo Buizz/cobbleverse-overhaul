@@ -8,7 +8,7 @@ import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
+import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
@@ -32,14 +32,9 @@ final class CobblemonMenuIntegration {
     }
 
     static boolean requestRemotePc() {
-        Minecraft minecraft = Minecraft.getInstance();
-        ClientPacketListener connection = minecraft.getConnection();
-        if (connection == null) {
-            return false;
-        }
-
-        minecraft.setScreen(null);
-        connection.sendCommand("pc");
+        if (Minecraft.getInstance().getConnection() == null) return false;
+        Minecraft.getInstance().setScreen(null);
+        ProgressionNetwork.requestPc();
         return true;
     }
 

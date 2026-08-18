@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.buizz.cobbleventure.playermenu.PlayerOverviewNetwork;
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
+import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -125,6 +126,7 @@ public final class PlayerMenuScreen extends Screen {
             rows.add(row);
         }
         PlayerOverviewNetwork.requestSnapshot();
+        ProgressionNetwork.requestSnapshot();
         initPartyModels();
         int fieldMoveToggleWidth = Math.max(30, (infoWidth - 26) / 4);
         rockClimbToggleButton = addRenderableWidget(Button.builder(
@@ -465,6 +467,9 @@ public final class PlayerMenuScreen extends Screen {
             case ACTION_FAILED -> Component.translatable(
                 "screen.cobbleventure_player_menu.status.action_failed"
             );
+            case LOCKED -> Component.translatable(
+                "screen.cobbleventure_player_menu.status.locked", entry.title()
+            );
             case UNAVAILABLE -> Component.translatable(
                 "screen.cobbleventure_player_menu.status.coming_soon",
                 entry.title()
@@ -726,6 +731,17 @@ public final class PlayerMenuScreen extends Screen {
                 dotY + 4,
                 dotColor
             );
+            if (!entry.unlocked()) {
+                int slashColor = selected ? 0xBB7D3535 : 0xCCB7B7B7;
+                int left = getX() + 30;
+                int right = getX() + getWidth() - 13;
+                int top = getY() + 4;
+                int bottom = getY() + getHeight() - 4;
+                for (int x = left; x < right; x++) {
+                    int y = top + Math.floorMod(x - left, 9);
+                    if (y < bottom) graphics.fill(x, y, x + 1, y + 2, slashColor);
+                }
+            }
             graphics.pose().popPose();
         }
 

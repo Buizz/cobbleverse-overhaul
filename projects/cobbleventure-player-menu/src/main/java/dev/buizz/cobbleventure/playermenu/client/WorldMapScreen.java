@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.pokemon.RenderablePokemon;
 import com.cobblemon.mod.common.pokemon.Species;
 import dev.buizz.cobbleventure.playermenu.MapContent;
 import dev.buizz.cobbleventure.playermenu.MapNetwork;
+import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -303,33 +304,25 @@ public final class WorldMapScreen extends Screen {
         for (MapContent.CaveEntrance entrance : content.caveEntrances()) {
             ScreenPoint point = hexCenter(center, size, entrance.hex().q(), entrance.hex().r());
             boolean hovered = entrance.equals(hoveredCave);
-            drawCaveMarker(graphics, point.x(), point.y(), Math.max(4, size / 2), hovered);
-            if (hovered) {
-                MapContent.CaveInfo cave = content.cave(entrance.caveId());
-                String label = cave == null ? entrance.name() : cave.name();
-                label = font.plainSubstrByWidth(label, Math.max(54, size * 8));
-                int labelWidth = font.width(label);
-                int labelY = point.y() - Math.max(4, size / 2) - 12;
-                graphics.fill(point.x() - labelWidth / 2 - 3, labelY - 2,
-                    point.x() + (labelWidth + 1) / 2 + 3, labelY + 10, 0xD010171E);
-                graphics.drawString(font, label, point.x() - labelWidth / 2, labelY, ACCENT_COLOR, false);
-            }
+            int markerRadius = Math.max(6, size * 2 / 3);
+            drawCaveMarker(graphics, point.x(), point.y(), markerRadius, hovered);
+            MapContent.CaveInfo cave = content.cave(entrance.caveId());
+            drawMapLocationLabel(
+                graphics, point.x(), point.y(), markerRadius,
+                cave == null ? entrance.name() : cave.name(), hovered
+            );
         }
 
         for (MapContent.ForestEntrance entrance : content.forestEntrances()) {
             ScreenPoint point = hexCenter(center, size, entrance.hex().q(), entrance.hex().r());
             boolean hovered = entrance.equals(hoveredForest);
-            drawForestMarker(graphics, point.x(), point.y(), Math.max(4, size / 2), hovered);
-            if (hovered) {
-                MapContent.ForestInfo forest = content.forest(entrance.forestId());
-                String label = forest == null ? entrance.name() : forest.name();
-                label = font.plainSubstrByWidth(label, Math.max(54, size * 8));
-                int labelWidth = font.width(label);
-                int labelY = point.y() - Math.max(4, size / 2) - 12;
-                graphics.fill(point.x() - labelWidth / 2 - 3, labelY - 2,
-                    point.x() + (labelWidth + 1) / 2 + 3, labelY + 10, 0xD010171E);
-                graphics.drawString(font, label, point.x() - labelWidth / 2, labelY, ACCENT_COLOR, false);
-            }
+            int markerRadius = Math.max(6, size * 2 / 3);
+            drawForestMarker(graphics, point.x(), point.y(), markerRadius, hovered);
+            MapContent.ForestInfo forest = content.forest(entrance.forestId());
+            drawMapLocationLabel(
+                graphics, point.x(), point.y(), markerRadius,
+                forest == null ? entrance.name() : forest.name(), hovered
+            );
         }
 
         ScreenPoint selectedPoint = hexCenter(center, size, selected.q(), selected.r());
@@ -542,17 +535,31 @@ public final class WorldMapScreen extends Screen {
         GuiGraphics graphics, int centerX, int centerY, int radius, boolean hovered
     ) {
         int border = hovered ? ACCENT_COLOR : CAVE_BORDER;
-        for (int row = 0; row <= radius; row++) {
-            int halfWidth = Math.max(1, row);
-            graphics.fill(centerX - halfWidth, centerY - radius + row,
-                centerX + halfWidth + 1, centerY - radius + row + 1, border);
+        int sideRadius = Math.max(3, radius - 3);
+        drawRockPeak(graphics, centerX - radius + 2, centerY + 2, sideRadius, border);
+        drawRockPeak(graphics, centerX + radius - 2, centerY + 2, sideRadius, border);
+        drawRockPeak(graphics, centerX, centerY, radius, border);
+        int openingRadius = Math.max(2, radius / 2);
+        for (int row = 0; row <= openingRadius; row++) {
+            int halfWidth = Math.max(1, openingRadius - Math.abs(openingRadius - row));
+            graphics.fill(centerX - halfWidth, centerY + row,
+                centerX + halfWidth + 1, centerY + row + 1, CAVE_OPENING);
         }
-        graphics.fill(centerX - radius, centerY, centerX + radius + 1, centerY + radius, border);
-        graphics.fill(centerX - Math.max(1, radius - 2), centerY,
-            centerX + Math.max(1, radius - 2) + 1, centerY + radius, CAVE_OPENING);
+        graphics.fill(centerX - openingRadius, centerY + openingRadius,
+            centerX + openingRadius + 1, centerY + radius + 1, CAVE_OPENING);
         if (hovered) {
             graphics.fill(centerX - radius - 2, centerY + radius + 1,
                 centerX + radius + 3, centerY + radius + 2, ACCENT_COLOR);
+        }
+    }
+
+    private static void drawRockPeak(
+        GuiGraphics graphics, int centerX, int centerY, int radius, int color
+    ) {
+        for (int row = 0; row <= radius; row++) {
+            int halfWidth = Math.max(1, row);
+            graphics.fill(centerX - halfWidth, centerY - radius + row,
+                centerX + halfWidth + 1, centerY - radius + row + 1, color);
         }
     }
 
@@ -560,18 +567,42 @@ public final class WorldMapScreen extends Screen {
         GuiGraphics graphics, int centerX, int centerY, int radius, boolean hovered
     ) {
         int border = hovered ? ACCENT_COLOR : FOREST_BORDER;
-        int trunkWidth = Math.max(1, radius / 3);
-        for (int row = 0; row <= radius; row++) {
-            int halfWidth = Math.max(1, radius - row / 2);
-            graphics.fill(centerX - halfWidth, centerY - radius + row,
-                centerX + halfWidth + 1, centerY - radius + row + 1, border);
-        }
-        graphics.fill(centerX - trunkWidth, centerY,
-            centerX + trunkWidth + 1, centerY + radius + 1, FOREST_OPENING);
+        int sideRadius = Math.max(3, radius - 3);
+        drawTreeMarker(graphics, centerX - radius + 2, centerY + 2, sideRadius, border);
+        drawTreeMarker(graphics, centerX + radius - 2, centerY + 2, sideRadius, border);
+        drawTreeMarker(graphics, centerX, centerY, radius, border);
         if (hovered) {
             graphics.fill(centerX - radius - 2, centerY + radius + 1,
                 centerX + radius + 3, centerY + radius + 2, ACCENT_COLOR);
         }
+    }
+
+    private static void drawTreeMarker(
+        GuiGraphics graphics, int centerX, int centerY, int radius, int color
+    ) {
+        for (int row = 0; row <= radius; row++) {
+            int halfWidth = Math.max(1, row);
+            graphics.fill(centerX - halfWidth, centerY - radius + row,
+                centerX + halfWidth + 1, centerY - radius + row + 1, color);
+        }
+        int trunkWidth = Math.max(1, radius / 4);
+        graphics.fill(centerX - trunkWidth, centerY,
+            centerX + trunkWidth + 1, centerY + radius / 2 + 1, FOREST_OPENING);
+    }
+
+    private void drawMapLocationLabel(
+        GuiGraphics graphics, int centerX, int centerY, int radius, String value, boolean hovered
+    ) {
+        String label = font.plainSubstrByWidth(value, Math.max(54, radius * 16));
+        int labelWidth = font.width(label);
+        int labelY = centerY - radius - 12;
+        graphics.fill(centerX - labelWidth / 2 - 3, labelY - 2,
+            centerX + (labelWidth + 1) / 2 + 3, labelY + 10,
+            hovered ? 0xE010171E : 0xB010171E);
+        graphics.drawString(
+            font, label, centerX - labelWidth / 2, labelY,
+            hovered ? ACCENT_COLOR : TEXT, false
+        );
     }
 
     private int drawLabelValue(GuiGraphics graphics, int x, int y, int width, String label, String value) {
@@ -650,8 +681,9 @@ public final class WorldMapScreen extends Screen {
         if (teleportButton == null) return;
         MapNetwork.ClientSnapshot snapshot = MapNetwork.clientSnapshot();
         MapContent.Town town = content.townAt(selected.q(), selected.r());
-        boolean permitted = snapshot.administrator() || snapshot.creative()
-            || town != null && snapshot.visited().contains(town.id());
+        boolean permitted = ProgressionNetwork.clientSnapshot().settlementTeleport()
+            && (snapshot.administrator() || snapshot.creative()
+                || town != null && snapshot.visited().contains(town.id()));
         teleportButton.visible = permitted;
         teleportButton.active = permitted;
         teleportButton.setMessage(Component.translatable(

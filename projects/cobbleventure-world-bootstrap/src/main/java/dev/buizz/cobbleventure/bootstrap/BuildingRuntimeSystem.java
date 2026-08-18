@@ -55,6 +55,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -661,6 +663,9 @@ final class BuildingRuntimeSystem {
                     index++;
                     continue;
                 }
+                StructurePlacementFixes.afterPlacement(
+                    interiorsLevel, origin, template.orElseThrow().getSize()
+                );
                 runtime.markPrepared(preparedKey);
             }
             spaces.put(interior.key, new SpaceInstance(
@@ -984,6 +989,10 @@ final class BuildingRuntimeSystem {
             destination,
             target.position.getX() + 0.5D, target.position.getY(), target.position.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
+        );
+        destination.playSound(
+            null, target.position, SoundEvents.WOODEN_DOOR_OPEN,
+            SoundSource.BLOCKS, 0.9F, 1.0F
         );
         if (target.interior) MusicPlayback.enterInterior(player, target.musicTrack);
         else MusicPlayback.leaveInterior(player);

@@ -7,6 +7,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.fml.ModList;
+import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 
 enum PlayerMenuEntry {
     POKEMON("pokemon", false, "poke_ball"),
@@ -74,7 +75,17 @@ enum PlayerMenuEntry {
         return connected || (isCobblemonEntry() && ModList.get().isLoaded("cobblemon"));
     }
 
+    boolean unlocked() {
+        ProgressionNetwork.ClientSnapshot progress = ProgressionNetwork.clientSnapshot();
+        return switch (this) {
+            case MAP -> progress.map();
+            case PC -> progress.pc();
+            default -> true;
+        };
+    }
+
     OpenResult open() {
+        if (!unlocked()) return OpenResult.LOCKED;
         if (this == BAG) {
             PlayerMenuClient.openBag();
             return OpenResult.OPENED;
@@ -123,6 +134,7 @@ enum PlayerMenuEntry {
         MISSING_POKEDEX,
         MISSING_POKENAV,
         ACTION_FAILED,
+        LOCKED,
         UNAVAILABLE
     }
 }

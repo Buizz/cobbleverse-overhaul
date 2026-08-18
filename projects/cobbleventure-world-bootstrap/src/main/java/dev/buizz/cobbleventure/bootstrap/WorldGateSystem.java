@@ -53,6 +53,7 @@ final class WorldGateSystem {
     private static final String FOREST_PORTAL_COOLDOWN = "cobbleventureForestPortalCooldown";
     private static final String FOREST_ENTRY_MARKER = "cobbleventure:forest_entry";
     private static final Map<UUID, Vec3> LAST_POSITIONS = new HashMap<>();
+    private static final Map<UUID, PendingGateDenial> PENDING_DENIALS = new HashMap<>();
     private static final Map<String, ForestEntryMarker> FOREST_ENTRY_MARKERS = new HashMap<>();
     private static final Map<String, ForestEntryMarker> FOREST_EXIT_MARKERS = new HashMap<>();
 
@@ -162,7 +163,7 @@ final class WorldGateSystem {
         ServerLevel level, HexWorldPlan world, Gate gate
     ) {
         HexGrid grid = world.grid();
-        CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
+        CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
         BlockPos marker = new BlockPos(
             center.x(), grid.origin().y() - 16, center.z()
         );
@@ -336,7 +337,7 @@ final class WorldGateSystem {
             for (int depth = 1; depth <= profile.length(); depth++) {
                 double progress = depth / (double) profile.length();
                 int corridorHalfWidth = gateHalfWidth
-                    + (int) Math.round(profile.flare() * progress);
+                    + (int) Math.ceil(profile.flare() * progress);
                 for (int lateralSign : new int[] {-1, 1}) {
                     for (int band = 1; band <= profile.bandWidth(); band++) {
                         int lateral = lateralSign * (corridorHalfWidth + band);
@@ -348,10 +349,16 @@ final class WorldGateSystem {
                             || !placedColumns.add(new BlockPos(x, 0, z).asLong())) {
                             continue;
                         }
-                        placeNaturalGateFunnelColumn(
-                            level, world, gate, terrainType, profile,
-                            x, z, depth, band
-                        );
+                        if (band <= 2) {
+                            placeNaturalBarrierColumn(
+                                level, gate, terrainType, x, z
+                            );
+                        } else {
+                            decorateNaturalGateFunnel(
+                                level, world, gate, terrainType,
+                                x, z, depth, band
+                            );
+                        }
                         terrainColumns.merge(terrainType, 1, Integer::sum);
                     }
                 }
@@ -382,6 +389,68 @@ final class WorldGateSystem {
         );
     }
 
+    /**
+     * Keeps the authored hex anchor on its boundary axis while snapping the
+     * perpendicular axis to the nearest route centerline. This puts the NBT,
+     * opening, NPC, collision threshold, and approach road on one shared line.
+     */
+    private static CobbleventureBootstrap.Point alignedGateCenter(
+        HexWorldPlan world, Gate gate
+    ) {
+        CobbleventureBootstrap.Point authored = world.grid().worldCenter(gate.anchor());
+        Direction normal = facingDirection(gate.facing());
+        double maximumDistance = world.grid().radius() * 1.35D;
+        double bestScore = Double.POSITIVE_INFINITY;
+        double bestX = authored.x();
+        double bestZ = authored.z();
+        for (WorldPlanModels.ConnectionPath path : world.paths()) {
+            List<CobbleventureBootstrap.Point> points = path.centerline();
+            for (int index = 1; index < points.size(); index++) {
+                CobbleventureBootstrap.Point start = points.get(index - 1);
+                CobbleventureBootstrap.Point end = points.get(index);
+                double dx = end.x() - start.x();
+                double dz = end.z() - start.z();
+                double lengthSquared = dx * dx + dz * dz;
+                if (lengthSquared < 1.0D) {
+                    continue;
+                }
+                double alignment = Math.abs(
+                    (dx * normal.getStepX() + dz * normal.getStepZ())
+                        / Math.sqrt(lengthSquared)
+                );
+                if (alignment < 0.65D) {
+                    continue;
+                }
+                double projection = ((authored.x() - start.x()) * dx
+                    + (authored.z() - start.z()) * dz) / lengthSquared;
+                projection = Math.max(0.0D, Math.min(1.0D, projection));
+                double projectedX = start.x() + dx * projection;
+                double projectedZ = start.z() + dz * projection;
+                double distance = Math.hypot(
+                    projectedX - authored.x(), projectedZ - authored.z()
+                );
+                if (distance > maximumDistance) {
+                    continue;
+                }
+                double lateral = normal.getAxis() == Direction.Axis.X
+                    ? Math.abs(projectedZ - authored.z())
+                    : Math.abs(projectedX - authored.x());
+                double score = lateral + distance * 0.12D;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestX = projectedX;
+                    bestZ = projectedZ;
+                }
+            }
+        }
+        if (!Double.isFinite(bestScore)) {
+            return authored;
+        }
+        return normal.getAxis() == Direction.Axis.X
+            ? new CobbleventureBootstrap.Point(authored.x(), (int) Math.round(bestZ))
+            : new CobbleventureBootstrap.Point((int) Math.round(bestX), authored.z());
+    }
+
     private static String inaccessibleTerrainType(
         HexWorldPlan world, CobbleventureBootstrap.Point center,
         Direction outward
@@ -398,47 +467,162 @@ final class WorldGateSystem {
         String terrainType
     ) {
         return switch (terrainType) {
-            case "dense_forest" -> new NaturalGateFunnelProfile(18, 11, 7, 7, 11);
-            case "high_forest" -> new NaturalGateFunnelProfile(16, 10, 6, 6, 10);
+            case "dense_forest" -> new NaturalGateFunnelProfile(18, 11, 7);
+            case "high_forest" -> new NaturalGateFunnelProfile(16, 10, 6);
             case "stone_mountain", "red_rock_mountain", "snow_mountain" ->
-                new NaturalGateFunnelProfile(18, 12, 8, 5, 9);
+                new NaturalGateFunnelProfile(18, 12, 8);
             case "ocean", "deep_ocean" ->
-                new NaturalGateFunnelProfile(16, 11, 7, 4, 8);
-            case "desert" -> new NaturalGateFunnelProfile(15, 10, 7, 3, 6);
-            default -> new NaturalGateFunnelProfile(15, 9, 6, 5, 8);
+                new NaturalGateFunnelProfile(16, 11, 7);
+            case "desert" -> new NaturalGateFunnelProfile(15, 10, 7);
+            default -> new NaturalGateFunnelProfile(15, 9, 6);
         };
     }
 
-    private static void placeNaturalGateFunnelColumn(
-        ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
-        NaturalGateFunnelProfile profile, int x, int z, int depth, int band
+    private static void placeNaturalBarrierColumn(
+        ServerLevel level, Gate gate, String terrainType, int x, int z
     ) {
         int groundY = terrainType.equals("high_forest")
             || terrainType.equals("dense_forest")
             ? forestFunnelGroundY(level, x, z)
             : groundY(level, x, z);
-        int variation = profile.maximumHeight() - profile.minimumHeight() + 1;
-        long hash = world.seed() ^ (long) x * 73428767L
-            ^ (long) z * 912931L ^ (long) depth * 42317861L;
-        int visibleHeight = profile.minimumHeight()
-            + Math.floorMod((int) (hash ^ hash >>> 32), variation);
-        visibleHeight = Math.max(gate.wallHeight(), visibleHeight);
-        visibleHeight = Math.min(visibleHeight, gate.barrierHeight());
-        int barrierStartHeight = visibleHeight;
+        for (int height = 1; height <= gate.barrierHeight(); height++) {
+            BlockPos position = new BlockPos(x, groundY + height, z);
+            BlockState existing = level.getBlockState(position);
+            // Preserve complete naturally generated trees. Their collision closes
+            // the same part of the boundary without shearing trunks or crowns.
+            if (existing.is(BlockTags.LOGS)
+                || existing.getBlock() instanceof LeavesBlock) {
+                continue;
+            }
+            if (existing.isAir() || existing.canBeReplaced()) {
+                level.setBlock(position, Blocks.BARRIER.defaultBlockState(), 2);
+            }
+        }
+    }
+
+    private static void decorateNaturalGateFunnel(
+        ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
+        int x, int z, int depth, int band
+    ) {
+        int groundY = groundY(level, x, z);
+        long hash = mixGateSeed(world.seed(), x, z, depth, band);
         if (terrainType.equals("high_forest")
             || terrainType.equals("dense_forest")) {
-            barrierStartHeight = placeForestFunnelColumn(
-                level, terrainType, x, z, groundY, visibleHeight,
-                depth, band
-            );
-        } else {
-            placeTerrainFunnelColumn(
-                level, world, terrainType, x, z, groundY, visibleHeight
-            );
+            BlockState floor = Math.floorMod((int) (hash >>> 8), 4) == 0
+                ? Blocks.MOSS_BLOCK.defaultBlockState()
+                : Blocks.PODZOL.defaultBlockState();
+            if (level.getBlockState(new BlockPos(x, groundY + 1, z)).canBeReplaced()) {
+                level.setBlock(new BlockPos(x, groundY, z), floor, 2);
+            }
+            // Trees are spaced and always created with their complete crown. The
+            // inner decoration band stays low so foliage never clips the gate.
+            if (band >= 5 && Math.floorMod((int) hash, 17) == 0) {
+                int height = 7 + Math.floorMod((int) (hash >>> 16), 4);
+                placeNaturalTree(
+                    level, new BlockPos(x, groundY, z), height,
+                    blockState(gate.treeLog()),
+                    persistentLeaves(blockState(gate.treeLeaves()))
+                );
+            } else if (Math.floorMod((int) (hash >>> 24), 5) <= 1) {
+                BlockState leaves = persistentLeaves(blockState(gate.treeLeaves()));
+                int shrubHeight = 1 + Math.floorMod((int) (hash >>> 32), 2);
+                for (int height = 1; height <= shrubHeight; height++) {
+                    BlockPos position = new BlockPos(x, groundY + height, z);
+                    if (level.getBlockState(position).canBeReplaced()) {
+                        level.setBlock(position, leaves, 2);
+                    }
+                }
+            }
+            return;
         }
-        placeOverheadBarrier(
-            level, x, z, groundY, barrierStartHeight, gate.barrierHeight()
-        );
+        // Non-forest surroundings already provide their natural terrain. Add a
+        // few irregular boulders instead of extruding every column into a wall.
+        if (Math.floorMod((int) hash, 11) != 0) {
+            return;
+        }
+        int boulderHeight = 1 + Math.floorMod((int) (hash >>> 12), 3);
+        for (int height = 1; height <= boulderHeight; height++) {
+            BlockPos position = new BlockPos(x, groundY + height, z);
+            if (!level.getBlockState(position).canBeReplaced()) {
+                break;
+            }
+            BlockState state = switch (terrainType) {
+                case "desert" -> Blocks.SANDSTONE.defaultBlockState();
+                case "red_rock_mountain" -> Blocks.RED_SANDSTONE.defaultBlockState();
+                case "snow_mountain" -> height == boulderHeight
+                    ? Blocks.SNOW_BLOCK.defaultBlockState()
+                    : Blocks.STONE.defaultBlockState();
+                default -> Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+            };
+            level.setBlock(position, state, 2);
+        }
+    }
+
+    private static long mixGateSeed(long seed, int x, int z, int depth, int band) {
+        long value = seed ^ (long) x * 0x9E3779B97F4A7C15L
+            ^ (long) z * 0xC2B2AE3D27D4EB4FL
+            ^ (long) depth * 0x165667B19E3779F9L
+            ^ (long) band * 0x85EBCA77C2B2AE63L;
+        value ^= value >>> 30;
+        value *= 0xBF58476D1CE4E5B9L;
+        value ^= value >>> 27;
+        value *= 0x94D049BB133111EBL;
+        return value ^ value >>> 31;
+    }
+
+    private static boolean placeNaturalTree(
+        ServerLevel level, BlockPos ground, int height,
+        BlockState log, BlockState leaves
+    ) {
+        int crownBase = ground.getY() + Math.max(4, height - 4);
+        int crownTop = ground.getY() + height + 2;
+        if (crownTop >= level.getMaxBuildHeight()) {
+            return false;
+        }
+        for (int y = ground.getY() + 1; y <= ground.getY() + height; y++) {
+            BlockState existing = level.getBlockState(new BlockPos(ground.getX(), y, ground.getZ()));
+            if (!existing.isAir() && !existing.canBeReplaced()) {
+                return false;
+            }
+        }
+        for (int y = crownBase; y <= crownTop; y++) {
+            int distanceFromTop = crownTop - y;
+            int radius = distanceFromTop <= 1 ? 1 : distanceFromTop <= 3 ? 2 : 3;
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (dx * dx + dz * dz > radius * radius + 1) {
+                        continue;
+                    }
+                    BlockPos position = new BlockPos(ground.getX() + dx, y, ground.getZ() + dz);
+                    BlockState existing = level.getBlockState(position);
+                    if (!existing.isAir() && !existing.canBeReplaced()
+                        && !existing.getBlock().equals(leaves.getBlock())) {
+                        return false;
+                    }
+                }
+            }
+        }
+        for (int y = 1; y <= height; y++) {
+            level.setBlock(ground.above(y), log, 2);
+        }
+        for (int y = crownBase; y <= crownTop; y++) {
+            int distanceFromTop = crownTop - y;
+            int radius = distanceFromTop <= 1 ? 1 : distanceFromTop <= 3 ? 2 : 3;
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (dx * dx + dz * dz > radius * radius + 1
+                        || (dx == 0 && dz == 0 && y <= ground.getY() + height)) {
+                        continue;
+                    }
+                    BlockPos position = new BlockPos(ground.getX() + dx, y, ground.getZ() + dz);
+                    if (level.getBlockState(position).isAir()
+                        || level.getBlockState(position).canBeReplaced()) {
+                        level.setBlock(position, leaves, 2);
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     /** Builds the full blocking strip from the inaccessible terrain on both sides. */
@@ -458,80 +642,12 @@ final class WorldGateSystem {
             String terrainType = inaccessibleTerrainType(
                 world, center, sampleDirection
             );
-            NaturalGateFunnelProfile profile = naturalGateFunnelProfile(terrainType);
             for (int across = -halfThickness; across <= halfThickness; across++) {
                 int x = center.x() + (horizontal ? along : across);
                 int z = center.z() + (horizontal ? across : along);
-                placeNaturalGateFunnelColumn(
-                    level, world, gate, terrainType, profile, x, z,
-                    Math.max(1, Math.abs(along) - halfOpening),
-                    Math.abs(across) + 1
-                );
+                placeNaturalBarrierColumn(level, gate, terrainType, x, z);
             }
         }
-    }
-
-    private static int placeForestFunnelColumn(
-        ServerLevel level, String terrainType, int x, int z, int groundY,
-        int visibleHeight, int depth, int band
-    ) {
-        BlockState log = terrainType.equals("dense_forest")
-            ? Blocks.SPRUCE_LOG.defaultBlockState()
-            : Blocks.DARK_OAK_LOG.defaultBlockState();
-        BlockState leaves = persistentLeaves(terrainType.equals("dense_forest")
-            ? Blocks.SPRUCE_LEAVES.defaultBlockState()
-            : Blocks.DARK_OAK_LEAVES.defaultBlockState());
-        for (int height = 1; height <= 128 && groundY + height < level.getMaxBuildHeight(); height++) {
-            BlockPos position = new BlockPos(x, groundY + height, z);
-            BlockState existing = level.getBlockState(position);
-            if (existing.is(Blocks.BARRIER)
-                || existing.is(BlockTags.LOGS)
-                || existing.getBlock() instanceof LeavesBlock) {
-                level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-            }
-        }
-        level.setBlock(
-            new BlockPos(x, groundY, z),
-            Math.floorMod(x + z, 3) == 0
-                ? Blocks.MOSS_BLOCK.defaultBlockState()
-                : Blocks.PODZOL.defaultBlockState(), 2
-        );
-        int pattern = Math.floorMod(
-            depth * 31 + band * 17 + x * 7 - z * 11, 29
-        );
-        int shrubHeight = 2 + Math.floorMod(pattern, 3);
-        for (int height = 1; height <= shrubHeight; height++) {
-            level.setBlock(new BlockPos(x, groundY + height, z), leaves, 2);
-        }
-
-        // Keep most of the blocking strip as an irregular, low understory.
-        // Sparse trunks are placed behind that edge and receive a small crown,
-        // instead of stretching every leaf column into a rectangular tree wall.
-        boolean trunk = band > 1 && pattern <= 2;
-        if (!trunk) {
-            return shrubHeight;
-        }
-        int trunkHeight = Math.max(5, visibleHeight - Math.floorMod(pattern + depth, 3));
-        for (int height = 1; height <= trunkHeight; height++) {
-            level.setBlock(new BlockPos(x, groundY + height, z), log, 2);
-        }
-        for (int crownY = trunkHeight - 1; crownY <= trunkHeight + 1; crownY++) {
-            int radius = crownY == trunkHeight + 1 ? 0 : 1;
-            for (int dx = -radius; dx <= radius; dx++) {
-                for (int dz = -radius; dz <= radius; dz++) {
-                    if (Math.abs(dx) + Math.abs(dz) > radius) {
-                        continue;
-                    }
-                    BlockPos crown = new BlockPos(x + dx, groundY + crownY, z + dz);
-                    BlockState current = level.getBlockState(crown);
-                    if (current.isAir() || current.is(Blocks.BARRIER)
-                        || current.getBlock() instanceof LeavesBlock) {
-                        level.setBlock(crown, leaves, 2);
-                    }
-                }
-            }
-        }
-        return trunkHeight + 1;
     }
 
     private static int forestFunnelGroundY(ServerLevel level, int x, int z) {
@@ -547,56 +663,6 @@ final class WorldGateSystem {
         }
         return heightmapGround;
     }
-
-    private static void placeTerrainFunnelColumn(
-        ServerLevel level, HexWorldPlan world, String terrainType,
-        int x, int z, int groundY, int visibleHeight
-    ) {
-        for (int height = 1; height <= visibleHeight; height++) {
-            int y = groundY + height;
-            BlockState state = switch (terrainType) {
-                case "red_rock_mountain" -> CobbleventureBootstrap.redRockMountainBlock(
-                    world, x, y, z
-                );
-                case "snow_mountain" -> height == visibleHeight
-                    ? Blocks.SNOW_BLOCK.defaultBlockState()
-                    : Blocks.STONE.defaultBlockState();
-                case "desert" -> height == visibleHeight
-                    ? Blocks.SAND.defaultBlockState()
-                    : Blocks.SANDSTONE.defaultBlockState();
-                case "ocean", "deep_ocean", "stone_mountain" ->
-                    CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
-                default -> Blocks.STONE.defaultBlockState();
-            };
-            level.setBlock(new BlockPos(x, y, z), state, 2);
-        }
-    }
-
-    private static void placeTreeSurroundings(
-        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
-        boolean horizontal, int halfLength, int halfThickness, int halfOpening
-    ) {
-        BlockState log = blockState(gate.treeLog());
-        BlockState leaves = persistentLeaves(blockState(gate.treeLeaves()));
-        for (int along = -halfLength; along <= halfLength; along++) {
-            for (int across = -halfThickness; across <= halfThickness; across++) {
-                int x = center.x() + (horizontal ? along : across);
-                int z = center.z() + (horizontal ? across : along);
-                int groundY = groundY(level, x, z);
-                boolean opening = Math.abs(along) <= halfOpening;
-                for (int height = 1; height <= gate.wallHeight(); height++) {
-                    BlockState state = opening ? Blocks.AIR.defaultBlockState() : leaves;
-                    if (!opening && across == 0 && Math.floorMod(along, 4) == 0
-                        && height < gate.wallHeight()) {
-                        state = log;
-                    }
-                    level.setBlock(new BlockPos(x, groundY + height, z), state, 2);
-                }
-                placeOverheadBarrier(level, x, z, groundY, gate.wallHeight(), gate.barrierHeight());
-            }
-        }
-    }
-
     private static BlockState persistentLeaves(BlockState state) {
         return state.hasProperty(LeavesBlock.PERSISTENT)
             ? state.setValue(LeavesBlock.PERSISTENT, true)
@@ -806,7 +872,7 @@ final class WorldGateSystem {
             );
             return false;
         }
-        CobbleventureBootstrap.Point roadEndpoint = world.grid().worldCenter(gate.anchor());
+        CobbleventureBootstrap.Point roadEndpoint = alignedGateCenter(world, gate);
         layWorldForestEntranceRoad(
             level, world, entry, roadEndpoint, placement.footprint()
         );
@@ -929,7 +995,7 @@ final class WorldGateSystem {
                 level, geometry.x(), geometry.z()
             );
         }
-        CobbleventureBootstrap.Point endpoint = world.grid().worldCenter(gate.anchor());
+        CobbleventureBootstrap.Point endpoint = alignedGateCenter(world, gate);
         double deltaX = endpoint.x() - geometry.x();
         double deltaZ = endpoint.z() - geometry.z();
         int length = Math.max(1, (int) Math.ceil(Math.hypot(deltaX, deltaZ)));
@@ -1058,7 +1124,7 @@ final class WorldGateSystem {
         HexWorldPlan world, Gate gate
     ) {
         HexGrid grid = world.grid();
-        CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
+        CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
         Direction inward = facingDirection(gate.facing());
         double forwardX = inward.getStepX();
         double forwardZ = inward.getStepZ();
@@ -1192,11 +1258,16 @@ final class WorldGateSystem {
     }
 
     static void tick(
-        ServerPlayer player, ServerLevel generationLevel, HexGrid grid,
-        List<Gate> gates, long gameTime
+        ServerPlayer player, ServerLevel generationLevel, HexWorldPlan world,
+        long gameTime
     ) {
+        HexGrid grid = world.grid();
+        List<Gate> gates = world.gates();
         Vec3 previous = LAST_POSITIONS.put(player.getUUID(), player.position());
         if (previous == null || player.isSpectator()) {
+            return;
+        }
+        if (handlePendingDenial(player, gameTime)) {
             return;
         }
         for (Gate gate : gates) {
@@ -1209,28 +1280,112 @@ final class WorldGateSystem {
             if (gate.allows(player)) {
                 continue;
             }
-            CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
+            CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
             boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
             double normal = horizontal ? player.getZ() - center.z() : player.getX() - center.x();
             double previousNormal = horizontal ? previous.z - center.z() : previous.x - center.x();
             double lateral = horizontal ? player.getX() - center.x() : player.getZ() - center.z();
-            double limit = gate.wallThickness() / 2.0D + 1.25D;
-            boolean crossed = normal * previousNormal <= 0.0D
-                && Math.abs(normal - previousNormal) < 12.0D;
-            if (Math.abs(lateral) > gate.openingWidth() / 2.0D + 1.5D
-                || (!crossed && Math.abs(normal) > limit)) {
-                continue;
-            }
+            double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
             double side = previousNormal == 0.0D
                 ? (gate.facing().equals("north") || gate.facing().equals("west") ? -1.0D : 1.0D)
                 : Math.signum(previousNormal);
-            double safeNormal = side * (limit + 0.75D);
-            double x = horizontal ? player.getX() : center.x() + safeNormal;
-            double z = horizontal ? center.z() + safeNormal : player.getZ();
-            player.teleportTo(player.serverLevel(), x, player.getY(), z, player.getYRot(), player.getXRot());
-            LAST_POSITIONS.put(player.getUUID(), new Vec3(x, player.getY(), z));
-            showDenyFeedback(player, grid, gate, gameTime);
+            boolean crossed = side > 0.0D
+                ? previousNormal > threshold && normal <= threshold
+                : previousNormal < -threshold && normal >= -threshold;
+            if (Math.abs(lateral) > gate.openingWidth() / 2.0D + 0.5D
+                || !crossed || Math.abs(normal - previousNormal) >= 12.0D) {
+                continue;
+            }
+            beginGateDenial(
+                player, world, gate, center, horizontal,
+                side, threshold, lateral, gameTime
+            );
             return;
+        }
+    }
+
+    private static void beginGateDenial(
+        ServerPlayer player, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center, boolean horizontal,
+        double side, double threshold, double lateral, long gameTime
+    ) {
+        double clampedLateral = Math.max(
+            -gate.openingWidth() / 2.0D + 0.4D,
+            Math.min(gate.openingWidth() / 2.0D - 0.4D, lateral)
+        );
+        double lockedNormal = side * (threshold + 0.12D);
+        double retreatNormal = side * (threshold + 6.0D);
+        double lockedX = horizontal ? center.x() + clampedLateral : center.x() + lockedNormal;
+        double lockedZ = horizontal ? center.z() + lockedNormal : center.z() + clampedLateral;
+        double retreatX = horizontal ? center.x() + clampedLateral : center.x() + retreatNormal;
+        double retreatZ = horizontal ? center.z() + retreatNormal : center.z() + clampedLateral;
+        double lockedY = groundY(
+            player.serverLevel(), (int) Math.floor(lockedX), (int) Math.floor(lockedZ)
+        ) + 1.0D;
+        double retreatY = groundY(
+            player.serverLevel(), (int) Math.floor(retreatX), (int) Math.floor(retreatZ)
+        ) + 1.0D;
+        PendingGateDenial pending = new PendingGateDenial(
+            new Vec3(lockedX, lockedY, lockedZ),
+            new Vec3(retreatX, retreatY, retreatZ), gameTime
+        );
+        PENDING_DENIALS.put(player.getUUID(), pending);
+        holdPlayer(player, pending.lockedPosition);
+        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+        if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
+            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 20L);
+            if (gate.npc() == null || !openGateNpcDialog(player, world, gate)) {
+                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
+                pending.finished = true;
+            }
+        }
+    }
+
+    private static boolean handlePendingDenial(ServerPlayer player, long gameTime) {
+        PendingGateDenial pending = PENDING_DENIALS.get(player.getUUID());
+        if (pending == null) {
+            return false;
+        }
+        if (pending.finished
+            || (!pending.sawDialogue && gameTime - pending.startedAt > 80L)
+            || gameTime - pending.startedAt > 20L * 90L) {
+            PENDING_DENIALS.remove(player.getUUID());
+            player.teleportTo(
+                player.serverLevel(), pending.retreatPosition.x(),
+                pending.retreatPosition.y(), pending.retreatPosition.z(),
+                player.getYRot(), player.getXRot()
+            );
+            player.setDeltaMovement(Vec3.ZERO);
+            LAST_POSITIONS.put(player.getUUID(), pending.retreatPosition);
+            return true;
+        }
+        holdPlayer(player, pending.lockedPosition);
+        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+        return true;
+    }
+
+    private static void holdPlayer(ServerPlayer player, Vec3 position) {
+        player.setDeltaMovement(Vec3.ZERO);
+        player.hurtMarked = true;
+        if (player.position().distanceToSqr(position) > 0.01D) {
+            player.teleportTo(
+                player.serverLevel(), position.x(), position.y(), position.z(),
+                player.getYRot(), player.getXRot()
+            );
+        }
+    }
+
+    static void updateGateDialogueState(ServerPlayer player, boolean open) {
+        PendingGateDenial pending = PENDING_DENIALS.get(player.getUUID());
+        if (pending == null) {
+            return;
+        }
+        if (open) {
+            pending.sawDialogue = true;
+            pending.dialogueOpen = true;
+        } else if (pending.sawDialogue && pending.dialogueOpen) {
+            pending.dialogueOpen = false;
+            pending.finished = true;
         }
     }
 
@@ -1371,48 +1526,10 @@ final class WorldGateSystem {
             && level.getFluidState(head).isEmpty();
     }
 
-    private static void rejectFromSystemGate(
-        ServerPlayer player, HexGrid grid,
-        Gate gate, Vec3 previous, long gameTime
-    ) {
-        double x = previous.x;
-        double y = previous.y;
-        double z = previous.z;
-        if (grid.worldToHex(previous.x, previous.z).equals(gate.anchor())) {
-            CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
-            double dx = player.getX() - center.x();
-            double dz = player.getZ() - center.z();
-            double length = Math.hypot(dx, dz);
-            if (length < 0.01D) {
-                dx = 0.0D;
-                dz = -1.0D;
-                length = 1.0D;
-            }
-            double distance = grid.radius() + 3.0D;
-            x = center.x() + dx / length * distance;
-            z = center.z() + dz / length * distance;
-            y = groundY(player.serverLevel(), (int) Math.floor(x), (int) Math.floor(z)) + 1.0D;
-        }
-        player.teleportTo(player.serverLevel(), x, y, z, player.getYRot(), player.getXRot());
-        LAST_POSITIONS.put(player.getUUID(), new Vec3(x, y, z));
-        showDenyFeedback(player, grid, gate, gameTime);
-    }
-
-    private static void showDenyFeedback(
-        ServerPlayer player, HexGrid grid, Gate gate, long gameTime
-    ) {
-        if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
-            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 60L);
-            if (gate.npc() == null || !openGateNpcDialog(player, grid, gate)) {
-                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
-            }
-        }
-    }
-
     private static boolean openGateNpcDialog(
-        ServerPlayer player, HexGrid grid, Gate gate
+        ServerPlayer player, HexWorldPlan world, Gate gate
     ) {
-        CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
+        CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
         int centerY = groundY(player.serverLevel(), center.x(), center.z()) + 1;
         AABB search = new AABB(
             center.x() - 8.0D, centerY - 4.0D, center.z() - 8.0D,
@@ -1449,19 +1566,21 @@ final class WorldGateSystem {
 
     static void forget(ServerPlayer player) {
         LAST_POSITIONS.remove(player.getUUID());
+        PENDING_DENIALS.remove(player.getUUID());
     }
 
     static int teleportToGate(
         ServerLevel level,
         Iterable<? extends Entity> targets,
-        HexGrid grid,
-        List<Gate> gates,
+        HexWorldPlan world,
         String gateId,
         String side
     ) {
+        HexGrid grid = world.grid();
+        List<Gate> gates = world.gates();
         Gate gate = gates.stream().filter(value -> value.id().equals(gateId)).findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Unknown world gate: " + gateId));
-        CobbleventureBootstrap.Point center = grid.worldCenter(gate.anchor());
+        CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
         double distance = gate.wallThickness() / 2.0D + 3.0D;
         double directionX = switch (gate.facing()) {
             case "east" -> 1.0D;
@@ -1610,10 +1729,25 @@ final class WorldGateSystem {
     private record NaturalGateFunnelProfile(
         int length,
         int flare,
-        int bandWidth,
-        int minimumHeight,
-        int maximumHeight
+        int bandWidth
     ) {}
+
+    private static final class PendingGateDenial {
+        private final Vec3 lockedPosition;
+        private final Vec3 retreatPosition;
+        private final long startedAt;
+        private boolean sawDialogue;
+        private boolean dialogueOpen;
+        private boolean finished;
+
+        private PendingGateDenial(
+            Vec3 lockedPosition, Vec3 retreatPosition, long startedAt
+        ) {
+            this.lockedPosition = lockedPosition;
+            this.retreatPosition = retreatPosition;
+            this.startedAt = startedAt;
+        }
+    }
 
     private record ForestTemplatePlacement(
         StructureTemplate template,

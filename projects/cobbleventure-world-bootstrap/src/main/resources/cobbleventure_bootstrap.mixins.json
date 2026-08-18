@@ -11,6 +11,7 @@
     "CobblenavSpawnDataHelperMixin"
   ],
   "client": [
+    "BattleFontMixin",
     "BattleGeneralActionSelectionMixin",
     "BiomePrecipitationMixin"
   ],

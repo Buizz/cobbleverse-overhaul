@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.playermenu;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -22,7 +23,14 @@ final class StarterRouletteCommands {
                 .then(Commands.argument("player", EntityArgument.player())
                     .executes(context -> StarterRouletteNetwork.queueOpen(
                         EntityArgument.getPlayer(context, "player")
-                    )))
+                    ))
+                    .then(Commands.argument("npc", EntityArgument.entity())
+                        .then(Commands.argument("dialogue", StringArgumentType.word())
+                            .executes(context -> StarterRouletteNetwork.queueOpen(
+                                EntityArgument.getPlayer(context, "player"),
+                                EntityArgument.getEntity(context, "npc"),
+                                StringArgumentType.getString(context, "dialogue")
+                            )))))
         );
         event.getDispatcher().register(
             Commands.literal("cobbleventure_starter_state")

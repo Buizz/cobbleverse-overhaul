@@ -19,6 +19,7 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 /** Full-screen, main-series-inspired trainer versus cut-in. */
 @EventBusSubscriber(modid = CobbleventurePlayerMenu.MOD_ID, value = Dist.CLIENT)
 public final class BattleIntroOverlay {
+    private static final int PORTRAIT_Y_OFFSET = 6;
     private static final ResourceLocation LAYER = ResourceLocation.fromNamespaceAndPath(
         CobbleventurePlayerMenu.MOD_ID, "battle_intro"
     );
@@ -87,8 +88,8 @@ public final class BattleIntroOverlay {
         // Portraits intentionally break out above the coloured band. Keeping
         // the scissor at the band edge clipped heads and hats behind its top
         // border, making the trainers look embedded in the panel.
-        int portraitTop = Math.max(0, bandTop - bandHeight / 2);
-        int portraitBottom = bandBottom - Math.max(24, bandHeight / 7);
+        int portraitTop = Math.max(0, bandTop - bandHeight / 2) + PORTRAIT_Y_OFFSET;
+        int portraitBottom = bandBottom - Math.max(24, bandHeight / 7) + PORTRAIT_Y_OFFSET;
         renderPortrait(
             graphics,
             own,

@@ -125,7 +125,7 @@ final class NaturalCaveGenerator {
             prepareRoomFloor(level, room, settings.style());
         }
         decorateRooms(level, layout, seed, settings);
-        buildEntranceLandmarks(level, layout, entrances);
+        buildEntranceLandmarks(level, layout, entrances, settings.requiresFlash());
         int flooded = floodSubmergedCave(
             level, blobs, settings.waterLevel(), settings.waterDepth(), settings.style()
         );
@@ -790,7 +790,8 @@ final class NaturalCaveGenerator {
     }
 
     private static void buildEntranceLandmarks(
-        ServerLevel level, CaveLayout layout, List<Entrance> entrances
+        ServerLevel level, CaveLayout layout, List<Entrance> entrances,
+        boolean requiresFlash
     ) {
         for (Entrance entrance : entrances) {
             PathPoint portal = new PathPoint(
@@ -838,12 +839,14 @@ final class NaturalCaveGenerator {
             openEntranceToOutside(
                 level, centerX, centerZ, inward, sideX, sideZ
             );
-            for (int depth : new int[] {4, 10, 16}) {
-                int x = centerX + inward.getStepX() * depth;
-                int z = centerZ + inward.getStepZ() * depth;
-                level.setBlock(
-                    new BlockPos(x, floorY, z), Blocks.GLOWSTONE.defaultBlockState(), 2
-                );
+            if (!requiresFlash) {
+                for (int depth : new int[] {4, 10, 16}) {
+                    int x = centerX + inward.getStepX() * depth;
+                    int z = centerZ + inward.getStepZ() * depth;
+                    level.setBlock(
+                        new BlockPos(x, floorY, z), Blocks.GLOWSTONE.defaultBlockState(), 2
+                    );
+                }
             }
         }
     }

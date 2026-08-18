@@ -44,7 +44,14 @@ final class PlayerMenuItems {
         public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
             ItemStack stack = player.getItemInHand(hand);
             if (level.isClientSide()) {
-                PlayerMenuClient.openWorldMap();
+                if (ProgressionNetwork.clientSnapshot().map()) {
+                    PlayerMenuClient.openWorldMap();
+                } else {
+                    ProgressionNetwork.requestSnapshot();
+                    player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("지도 기능은 아직 잠겨 있습니다."), true
+                    );
+                }
             }
             return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
         }

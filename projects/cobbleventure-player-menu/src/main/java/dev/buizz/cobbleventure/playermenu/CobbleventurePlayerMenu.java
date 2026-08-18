@@ -16,6 +16,7 @@ public final class CobbleventurePlayerMenu {
         MapNetwork.register(modBus);
         PlayerOverviewNetwork.register(modBus);
         BadgeProgressNetwork.register(modBus);
+        ProgressionNetwork.register(modBus);
         StarterRouletteNetwork.register(modBus);
         BattleIntro.register(modBus);
         MusicPlayback.register(modBus);

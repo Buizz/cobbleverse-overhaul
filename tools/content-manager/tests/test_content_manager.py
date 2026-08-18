@@ -2086,7 +2086,14 @@ class ContentManagerTests(unittest.TestCase):
                 "grid": {"orientation": "pointy_top", "tile_radius_blocks": 64, "map_radius_cells": 6, "origin": {"x": 0, "y": 69, "z": 0}},
                 "empty_terrain": {"default_type": "high_forest", "tiles": []},
                 "tiles": [], "environment_overrides": [], "level_overrides": [],
-                "settlements": [], "cave_entrances": [], "connections": [], "objects": [gate],
+                "settlements": [], "cave_entrances": [],
+                "connections": [{
+                    "id": "gate_test_route", "from": None, "to": None,
+                    "cells": [{"q": q, "r": -1} for q in range(1, 6)],
+                    "corridor_width_blocks": 12, "edge_noise": 0,
+                    "surface_style": "road", "pathfinding": "explicit",
+                }],
+                "objects": [gate],
             }
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
             invalid_badge = json.loads(json.dumps(layout))
@@ -2101,6 +2108,10 @@ class ContentManagerTests(unittest.TestCase):
             invalid_dialog["objects"][0]["properties"]["deny_dialog"] = "Greeting 1"
             issues = content_manager.save_world_layout(candidate_root, invalid_dialog, 2)
             self.assertTrue(any(issue.path.endswith(".deny_dialog") for issue in issues))
+            off_route = json.loads(json.dumps(layout))
+            off_route["objects"][0]["anchor"] = {"q": 0, "r": 1}
+            issues = content_manager.save_world_layout(candidate_root, off_route, 2)
+            self.assertTrue(any("길의 셀 위" in issue.message for issue in issues))
             npc_center = json.loads(json.dumps(gate))
             npc_center["id"] = "npc_center_gate"
             npc_center["anchor"] = {"q": 2, "r": -1}
@@ -2199,11 +2210,20 @@ class ContentManagerTests(unittest.TestCase):
             CORE_ROOT
             / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/WorldGateSystem.java"
         ).read_text(encoding="utf-8")
+        dialogue_network = (
+            CORE_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/GateDialogueNetwork.java"
+        ).read_text(encoding="utf-8")
         self.assertIn('String command = "easy_npc dialog open "', runtime)
         self.assertIn("gate.denyDialog()", runtime)
         self.assertIn("if (gate.npc() == null || !openGateNpcDialog", runtime)
-        self.assertIn("int shrubHeight = 2 +", runtime)
-        self.assertIn("boolean trunk = band > 1", runtime)
+        self.assertIn("if (band <= 2)", runtime)
+        self.assertIn("placeNaturalBarrierColumn", runtime)
+        self.assertIn("placeNaturalTree", runtime)
+        self.assertIn("alignedGateCenter", runtime)
+        self.assertIn("handlePendingDenial", runtime)
+        self.assertIn("pending.finished = true", runtime)
+        self.assertIn("gate_dialogue_state", dialogue_network)
         self.assertIn("refreshNpcNaturalGate", runtime)
         self.assertIn("RespawnAnchorBlock.CHARGE", runtime)
 
@@ -3398,6 +3418,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="event-preset-builder"', page)
         self.assertIn('id="apply-event-preset"', page)
         self.assertIn('id="event-preset-battle"', page)
+        self.assertIn('id="event-preset-after-item-text"', page)
         self.assertIn('id="event-preset-loss-money"', page)
         self.assertIn('id="event-preset-badge"', page)
         self.assertIn('id="event-preset-clear-key"', page)

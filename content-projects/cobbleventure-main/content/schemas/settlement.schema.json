@@ -523,6 +523,17 @@
         "door_offset": { "$ref": "#/$defs/block_position" },
         "outside_offset": { "$ref": "#/$defs/block_position" },
         "facing": { "enum": ["north", "east", "south", "west"] },
+        "require_previous_gym": { "type": "boolean" },
+        "previous_badge": { "type": "string" },
+        "blocking_npc": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "npc_profile"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "npc_profile": { "type": "string" }
+          }
+        },
         "condition_mode": { "$ref": "player-condition.schema.json#/$defs/mode" },
         "conditions": { "$ref": "player-condition.schema.json#/$defs/condition_list" },
         "locked_dialogue": {

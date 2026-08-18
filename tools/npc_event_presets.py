@@ -67,6 +67,10 @@ def compile_event_preset(
                 "type": "give_item", "item": preset.get("item", "cobblemon:poke_ball"),
                 "count": max(1, int(preset.get("item_count", 1))),
             })
+            commands.append(_dialogue(
+                "item_explanation",
+                preset.get("after_item_text", {"ko_kr": "방금 준 아이템을 잘 활용해 보세요."}),
+            ))
         commands.extend([
             {"type": "set_flag", "key": state_key, "value": True},
             {"type": "goto", "target": "end"},
@@ -209,6 +213,13 @@ def infer_event_design(document: dict[str, Any]) -> dict[str, Any] | None:
         if item:
             preset["item"] = item.get("item")
             preset["item_count"] = item.get("count", 1)
+            item_index = commands.index(item)
+            followup = next((
+                command for command in commands[item_index + 1:]
+                if command.get("type") == "dialogue"
+            ), None)
+            if followup:
+                preset["after_item_text"] = _localized(followup.get("text"))
     return {"mode": "preset", "preset": preset}
 
 

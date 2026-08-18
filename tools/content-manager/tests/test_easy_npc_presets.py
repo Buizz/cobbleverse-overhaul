@@ -96,11 +96,13 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
                     "auto_state_key": True,
                     "item": "cobblemon:poke_ball",
                     "item_count": 1,
+                    "after_item_text": {"ko_kr": "이 비전머신은 어두운 동굴에서 사용해."},
                 },
             },
         }
 
         materialized = generator.materialize_event_document(document)
+        commands = materialized["events"][0]["commands"]
         condition = materialized["events"][0]["commands"][0]["conditions"][0]
         set_flag = next(
             command
@@ -112,6 +114,17 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             "cobbleventure:flag/npc/test/researcher/claimed", condition["key"]
         )
         self.assertEqual(condition["key"], set_flag["key"])
+        reward_index = next(index for index, command in enumerate(commands) if command["type"] == "give_item")
+        self.assertEqual("dialogue", commands[reward_index + 1]["type"])
+        self.assertEqual("이 비전머신은 어두운 동굴에서 사용해.", commands[reward_index + 1]["text"]["ko_kr"])
+        self.assertLess(reward_index + 1, commands.index(set_flag))
+
+        dialogues = generator.event_script_dialogues(materialized)
+        reward_action = '/cobbleventurebag acquire @initiator cobblemon:poke_ball 1'
+        followup_action = 'Cmd:"item_explanation",Type:"OPEN_NAMED_DIALOG"'
+        self.assertIn(reward_action, dialogues)
+        self.assertIn(followup_action, dialogues)
+        self.assertLess(dialogues.index(reward_action), dialogues.index(followup_action))
 
     def test_shared_player_conditions_are_mirrored_for_easy_npc(self) -> None:
         condition = {"type": "party_count", "operator": ">=", "value": 1}
@@ -121,6 +134,18 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             f'{{Name:"{objective}",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}}',
             generator.easy_npc_condition(condition),
         )
+
+    def test_progression_unlock_actions_use_server_owned_commands(self) -> None:
+        unlock = generator.easy_npc_action(
+            {"type": "unlock_feature", "feature": "pc"}, self.document
+        )
+        level_cap = generator.easy_npc_action(
+            {"type": "set_level_cap", "level_cap": 25}, self.document
+        )
+
+        self.assertIn("/cobbleventure_progress unlock @initiator pc", unlock)
+        self.assertIn("/cobbleventure_progress level_cap @initiator 25", level_cap)
+        self.assertIn('PermLevel:2,Type:"COMMAND"', unlock)
         self.assertEqual(
             generator.flag_objective("cobbleventure:flag/story/example"),
             generator.easy_npc_condition({
@@ -310,13 +335,19 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         )
         self.assertIn(
             'Actions:[{Type:"CLOSE_DIALOG"},'
-            '{Cmd:"/cobbleventure_starter_roulette @initiator",Debug:1b,'
+            '{Cmd:"/cobbleventure_starter_roulette @initiator @s starter_chosen_praise",Debug:1b,'
             'ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}',
             preset,
         )
         self.assertEqual(
-            preset.count('/cobbleventure_starter_roulette @initiator'), 1
+            preset.count('/cobbleventure_starter_roulette @initiator @s starter_chosen_praise'), 1
         )
+        self.assertIn('Label:"starter_chosen_praise"', preset)
+        self.assertIn('Label:"pokedex_offer"', preset)
+        self.assertIn(
+            'cobbleventurebag acquire @initiator cobblemon:pokedex_red 1', preset
+        )
+        self.assertIn('Label:"pokedex_explanation"', preset)
         self.assertNotIn('ExecAsUser:1b', preset)
 
     def test_npc_money_setting_overrides_legacy_event_money(self) -> None:

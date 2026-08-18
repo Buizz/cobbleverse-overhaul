@@ -42,6 +42,7 @@
 | [마을 중심 트레이너 배치 계획](SETTLEMENT_TRAINER_PLACEMENT.md) | 마을 슬롯·구역·인구 예산 기반 NPC 배치 | 후속 구현 예정 |
 | [진행 및 콘텐츠 해금](PROGRESSION.md) | 아키텍처별 관장 순서, 배지, 리그 자격과 포켓몬 해금 | 개요 작성 |
 | [트레이너 및 전투](TRAINER_BATTLE.md) | 영구 NPC, 트레이너 팀, AI, 재대결 | 개요 작성 |
+| [NPC 이벤트 스크립트 V2 구현 계획](NPC_EVENT_SCRIPT_V2.md) | CVES 전용 언어, RPG Maker식 트리 편집기, 비동기 중단·재개와 EasyNPC 어댑터 | 계획 작성 |
 | [경제 및 보상](ECONOMY_REWARDS.md) | 상점, 배틀타워, 보상표, 병뚜껑과 성장 재화 | 개요 작성 |
 | [플레이어 챔피언](CHAMPION_SYSTEM.md) | 도전 자격, PvP 결과, 챔피언 유지와 일일 보상 | 개요 작성 |
 | [운영·호환성 및 배포](OPERATIONS_COMPATIBILITY.md) | 관리자 도구, 복구, 성능, 설치, 업데이트, 라이선스 | 개요 작성 |

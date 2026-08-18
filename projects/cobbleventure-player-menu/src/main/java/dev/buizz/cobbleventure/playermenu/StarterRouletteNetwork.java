@@ -14,16 +14,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
@@ -42,13 +39,12 @@ public final class StarterRouletteNetwork {
     private static final int STARTER_LEVEL = 5;
     private static final int SEQUENCE_LENGTH = 96;
     private static final int OPEN_DELAY_TICKS = 2;
+    private static final int CONTINUATION_DELAY_TICKS = 20;
     private static final long SESSION_LIFETIME_MILLIS = 5L * 60L * 1000L;
     private static final String STARTER_RECEIVED_OBJECTIVE = "cv_starter_recv";
-    private static final ResourceLocation POKEDEX_ITEM = ResourceLocation.fromNamespaceAndPath(
-        "cobblemon", "pokedex_red"
-    );
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
-    private static final Map<UUID, Integer> PENDING_OPENS = new HashMap<>();
+    private static final Map<UUID, PendingOpen> PENDING_OPENS = new HashMap<>();
+    private static final Map<UUID, PendingDialogue> PENDING_DIALOGUES = new HashMap<>();
 
     private StarterRouletteNetwork() {}
 
@@ -62,13 +58,20 @@ public final class StarterRouletteNetwork {
     }
 
     static int queueOpen(ServerPlayer player) {
+        return queueOpen(player, null, "");
+    }
+
+    static int queueOpen(ServerPlayer player, Entity npc, String dialogue) {
         int openAt = player.getServer().getTickCount() + OPEN_DELAY_TICKS;
-        PENDING_OPENS.put(player.getUUID(), openAt);
+        Continuation continuation = npc == null || dialogue == null || dialogue.isBlank()
+            ? null
+            : new Continuation(npc.getUUID(), dialogue);
+        PENDING_OPENS.put(player.getUUID(), new PendingOpen(openAt, continuation));
         LOGGER.info("Starter roulette queued: player={}, openAtTick={}", player.getGameProfile().getName(), openAt);
         return 1;
     }
 
-    static int open(ServerPlayer player) {
+    static int open(ServerPlayer player, Continuation continuation) {
         GeneralPlayerData data = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
         int partySize = Cobblemon.INSTANCE.getStorage().getParty(player).occupied();
         LOGGER.info(
@@ -95,7 +98,9 @@ public final class StarterRouletteNetwork {
 
         List<StarterEntry> sequence = shuffledSequence(pool);
         UUID token = UUID.randomUUID();
-        SESSIONS.put(player.getUUID(), new Session(token, sequence, System.currentTimeMillis() + SESSION_LIFETIME_MILLIS));
+        SESSIONS.put(player.getUUID(), new Session(
+            token, sequence, System.currentTimeMillis() + SESSION_LIFETIME_MILLIS, continuation
+        ));
         List<String> species = sequence.stream().map(StarterEntry::species).toList();
         StarterRouletteOpenPayload payload = new StarterRouletteOpenPayload(token, species);
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player, payload);
@@ -109,17 +114,46 @@ public final class StarterRouletteNetwork {
     private static void onServerTick(ServerTickEvent.Post event) {
         int currentTick = event.getServer().getTickCount();
         List<UUID> ready = PENDING_OPENS.entrySet().stream()
-            .filter(entry -> entry.getValue() <= currentTick)
+            .filter(entry -> entry.getValue().openAtTick() <= currentTick)
             .map(Map.Entry::getKey)
             .toList();
         for (UUID playerId : ready) {
-            PENDING_OPENS.remove(playerId);
+            PendingOpen pending = PENDING_OPENS.remove(playerId);
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(playerId);
             if (player == null) {
                 LOGGER.warn("Starter roulette opening cancelled: player {} is no longer online", playerId);
                 continue;
             }
-            open(player);
+            open(player, pending.continuation());
+        }
+
+        List<UUID> dialogueReady = PENDING_DIALOGUES.entrySet().stream()
+            .filter(entry -> entry.getValue().openAtTick() <= currentTick)
+            .map(Map.Entry::getKey)
+            .toList();
+        for (UUID playerId : dialogueReady) {
+            PendingDialogue pending = PENDING_DIALOGUES.remove(playerId);
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(playerId);
+            if (player == null) continue;
+            Entity npc = null;
+            for (var level : event.getServer().getAllLevels()) {
+                npc = level.getEntity(pending.continuation().npcId());
+                if (npc != null) break;
+            }
+            if (npc == null) {
+                LOGGER.warn("Starter follow-up dialogue cancelled: NPC {} is unavailable", pending.continuation().npcId());
+                continue;
+            }
+            String command = "easy_npc dialog open " + npc.getUUID() + " "
+                + player.getUUID() + " " + pending.continuation().dialogue();
+            event.getServer().getCommands().performPrefixedCommand(
+                event.getServer().createCommandSourceStack()
+                    .withLevel(player.serverLevel())
+                    .withPosition(npc.position())
+                    .withPermission(4)
+                    .withSuppressedOutput(),
+                command
+            );
         }
     }
 
@@ -128,7 +162,6 @@ public final class StarterRouletteNetwork {
         int partySize = Cobblemon.INSTANCE.getStorage().getParty(player).occupied();
         boolean selected = data.getStarterSelected() || partySize > 0;
         setStarterReceivedScore(player, selected);
-        if (selected) ensurePokedex(player);
         LOGGER.info(
             "Starter state synchronized: player={}, starterSelected={}, partySize={}, received={}",
             player.getGameProfile().getName(), data.getStarterSelected(), partySize, selected
@@ -206,7 +239,12 @@ public final class StarterRouletteNetwork {
         );
         if (awarded) {
             setStarterReceivedScore(player, true);
-            ensurePokedex(player);
+            if (session.continuation() != null) {
+                PENDING_DIALOGUES.put(player.getUUID(), new PendingDialogue(
+                    player.getServer().getTickCount() + CONTINUATION_DELAY_TICKS,
+                    session.continuation()
+                ));
+            }
         }
         context.reply(new StarterRouletteResultPayload(
             awarded,
@@ -240,17 +278,16 @@ public final class StarterRouletteNetwork {
         scoreboard.getOrCreatePlayerScore(player, objective).set(selected ? 1 : 0);
     }
 
-    private static void ensurePokedex(ServerPlayer player) {
-        Item item = BuiltInRegistries.ITEM.get(POKEDEX_ITEM);
-        if (item == Items.AIR) return;
-        ItemStack pokedex = new ItemStack(item);
-        if (BagApi.count(player, pokedex) > 0) return;
-        BagApi.InsertResult result = BagApi.insert(player, pokedex, true);
-        if (result.complete()) ItemAcquisition.show(player, pokedex, 1);
-    }
-
     private record StarterEntry(String category, int categoryIndex, String species) {}
-    private record Session(UUID token, List<StarterEntry> sequence, long expiresAt) {}
+    private record Continuation(UUID npcId, String dialogue) {}
+    private record PendingOpen(int openAtTick, Continuation continuation) {}
+    private record PendingDialogue(int openAtTick, Continuation continuation) {}
+    private record Session(
+        UUID token,
+        List<StarterEntry> sequence,
+        long expiresAt,
+        Continuation continuation
+    ) {}
 
     public record StarterRouletteOpenPayload(UUID token, List<String> species) implements CustomPacketPayload {
         public static final Type<StarterRouletteOpenPayload> TYPE = new Type<>(id("starter_roulette_open"));

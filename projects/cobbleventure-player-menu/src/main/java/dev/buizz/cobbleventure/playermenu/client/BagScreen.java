@@ -29,8 +29,8 @@ import org.lwjgl.glfw.GLFW;
 
 /** 검색, 포켓 분류와 실제 인벤토리 조작을 제공하는 가방 화면. */
 public final class BagScreen extends Screen {
-    private static final int PANEL_MAX_WIDTH = 640;
-    private static final int PANEL_MAX_HEIGHT = 360;
+    private static final int PANEL_MAX_WIDTH = 560;
+    private static final int PANEL_MAX_HEIGHT = 320;
     private static final int PANEL_PADDING = 8;
     private static final int TAB_HEIGHT = 22;
     private static final int SLOT_SIZE = 20;
@@ -95,8 +95,8 @@ public final class BagScreen extends Screen {
         categoryButtons.clear();
         itemButtons.clear();
 
-        panelWidth = Math.min(PANEL_MAX_WIDTH, Math.max(292, width - 16));
-        panelHeight = Math.min(PANEL_MAX_HEIGHT, Math.max(214, height - 16));
+        panelWidth = Math.min(PANEL_MAX_WIDTH, Math.max(292, width - 28));
+        panelHeight = Math.min(PANEL_MAX_HEIGHT, Math.max(214, height - 24));
         panelX = (width - panelWidth) / 2;
         panelY = (height - panelHeight) / 2;
 

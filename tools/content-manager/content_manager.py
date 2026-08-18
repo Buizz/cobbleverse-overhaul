@@ -226,6 +226,8 @@ OPERATION_TYPES = PLAYER_CONDITION_TYPES | {
     "complete_quest",
     "teleport",
     "teleport_to_gate",
+    "unlock_feature",
+    "set_level_cap",
     "open_dialogue",
 }
 VALID_LOCK_STATUSES = {"draft", "locked"}
@@ -919,6 +921,7 @@ def validate_hex_worlds(
             connections = []
         seen_connections: set[str] = set()
         connection_degrees: dict[str, int] = {}
+        connection_cells: set[tuple[int, int]] = set()
         for index, connection in enumerate(connections):
             connection_path = f"$.connections[{index}]"
             if not isinstance(connection, dict):
@@ -1036,6 +1039,7 @@ def validate_hex_worlds(
                     _issue(issues, "error", path, f"{connection_path}.cells[{cell_index}]", "정수 axial 좌표 q, r이 필요합니다.")
                     continue
                 coordinates.append((cell["q"], cell["r"]))
+            connection_cells.update(coordinates)
             for cell_index in range(1, len(coordinates)):
                 q1, r1 = coordinates[cell_index - 1]
                 q2, r2 = coordinates[cell_index]
@@ -1102,6 +1106,14 @@ def validate_hex_worlds(
                 continue
             if object_type != "gate":
                 continue
+            if isinstance(anchor, dict) and all(
+                isinstance(anchor.get(key), int) and not isinstance(anchor.get(key), bool)
+                for key in ("q", "r")
+            ) and (anchor["q"], anchor["r"]) not in connection_cells:
+                _issue(
+                    issues, "error", path, f"{object_path}.anchor",
+                    "관문은 직접 그린 길의 셀 위에 배치해야 합니다.",
+                )
             properties = custom_object.get("properties")
             if not isinstance(properties, dict):
                 _issue(issues, "error", path, f"{object_path}.properties", "관문 설정 객체가 필요합니다.")
@@ -1985,6 +1997,13 @@ def _validate_operation(
             "surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash",
         }:
             _issue(issues, "error", file, f"{data_path}.move", "지원하는 비전머신 ID가 필요합니다.")
+    elif operation_type == "unlock_feature":
+        if operation.get("feature") not in {"map", "settlement_teleport", "pc"}:
+            _issue(issues, "error", file, f"{data_path}.feature", "지도, 마을 순간이동 또는 포켓몬 PC 기능 ID가 필요합니다.")
+    elif operation_type == "set_level_cap":
+        level_cap = operation.get("level_cap")
+        if not isinstance(level_cap, int) or isinstance(level_cap, bool) or not 1 <= level_cap <= 100:
+            _issue(issues, "error", file, f"{data_path}.level_cap", "레벨캡은 1~100 정수여야 합니다.")
     elif operation_type in {"start_quest", "complete_quest", "teleport"}:
         _resource_id(operation.get("target"), issues, file, f"{data_path}.target")
     elif operation_type == "teleport_to_gate":
@@ -3661,6 +3680,8 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                     if not isinstance(trigger_range, (int, float)) or isinstance(trigger_range, bool) or trigger_range <= 0:
                         _issue(issues, "error", path, "$.event_design.preset.initial_trigger.range", "0보다 큰 발동 거리가 필요합니다.")
                 _localized_text(preset.get("first_text"), issues, path, "$.event_design.preset.first_text")
+                if preset_type == "item" and "after_item_text" in preset:
+                    _localized_text(preset.get("after_item_text"), issues, path, "$.event_design.preset.after_item_text")
                 if preset_type in BATTLE_PRESETS:
                     _resource_id(preset.get("battle"), issues, path, "$.event_design.preset.battle")
                     after_victory = _require_object(preset.get("after_victory_trigger"), issues, path, "$.event_design.preset.after_victory_trigger")
@@ -3759,7 +3780,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     command_types = {
         "branch", "label", "dialogue", "choices", "goto", "start_battle",
         "set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move",
-        "start_starter_roulette", "teleport_to_gate", "end",
+        "start_starter_roulette", "teleport_to_gate", "unlock_feature", "set_level_cap", "end",
     }
     for event_index, event_value in enumerate(events):
         event_path = f"$.events[{event_index}]"
@@ -3842,7 +3863,7 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                             _issue(issues, "error", path, f"{command_path}.results.{key}", "지원하지 않는 배틀 결과입니다.")
                         elif isinstance(target, str):
                             targets.append((f"{command_path}.results.{key}", target))
-            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move", "start_starter_roulette"}:
+            elif command_type in {"set_flag", "mark_clear", "give_money", "take_money", "give_item", "grant_loot", "grant_badge", "grant_field_move", "unlock_feature", "set_level_cap", "start_starter_roulette"}:
                 _validate_operation(command, issues, path, command_path, npc_id, [])
             elif command_type == "teleport_to_gate":
                 gate = command.get("gate")
