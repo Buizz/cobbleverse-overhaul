@@ -2576,6 +2576,16 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                     entrance, issues, path, "$.structure_profile.gym.entrance"
                 )
             if entrance is not None:
+                for field in (
+                    "require_previous_gym", "previous_badge", "condition_mode",
+                    "conditions", "locked_dialogue", "blocking_npc",
+                ):
+                    if field in entrance:
+                        _issue(
+                            issues, "error", path,
+                            f"$.structure_profile.gym.entrance.{field}",
+                            "체육관 출입 조건은 마을이 아니라 체육관 카탈로그의 access에서 설정해야 합니다.",
+                        )
                 for field in ("door_offset", "outside_offset"):
                     if field in entrance:
                         _validate_block_position(
@@ -2584,24 +2594,11 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                         )
                 if entrance.get("facing", "north") not in {"north", "east", "south", "west"}:
                     _issue(issues, "error", path, "$.structure_profile.gym.entrance.facing", "방향은 north/east/south/west 중 하나여야 합니다.")
-                if entrance.get("condition_mode", "all") not in {"all", "any"}:
-                    _issue(issues, "error", path, "$.structure_profile.gym.entrance.condition_mode", "조건 조합은 all 또는 any여야 합니다.")
-                conditions = entrance.get("conditions", [])
-                if not isinstance(conditions, list):
-                    _issue(issues, "error", path, "$.structure_profile.gym.entrance.conditions", "체육관 문 조건 배열이 필요합니다.")
-                else:
-                    for index, condition in enumerate(conditions):
-                        _validate_player_condition(
-                            condition, issues, path,
-                            f"$.structure_profile.gym.entrance.conditions[{index}]",
-                        )
-                for field in ("locked_dialogue", "enter_dialogue"):
+                for field in ("enter_dialogue",):
                     if field not in entrance:
                         continue
                     dialogue = entrance[field]
-                    if not isinstance(dialogue, list) or (
-                        field == "locked_dialogue" and not dialogue
-                    ) or any(not isinstance(line, str) or not line.strip() for line in dialogue):
+                    if not isinstance(dialogue, list) or any(not isinstance(line, str) or not line.strip() for line in dialogue):
                         _issue(issues, "error", path, f"$.structure_profile.gym.entrance.{field}", "비어 있지 않은 대사 문자열 배열이어야 합니다.")
             interior = gym.get("interior")
             if interior is not None:
@@ -5516,6 +5513,41 @@ def validate_gym_catalog_file(path: Path, structure_root: Path | None = None) ->
         theme = gym.get("theme")
         if not isinstance(theme, str) or not CHOICE_ID.fullmatch(theme):
             _issue(issues, "error", path, f"{gym_path}.theme", "소문자 타입 ID가 필요합니다.")
+        access = gym.get("access")
+        if access is not None:
+            access = _require_object(access, issues, path, f"{gym_path}.access")
+        if access is not None:
+            if not isinstance(access.get("require_previous_gym"), bool):
+                _issue(issues, "error", path, f"{gym_path}.access.require_previous_gym", "참/거짓 값이어야 합니다.")
+            if access.get("condition_mode", "all") not in {"all", "any"}:
+                _issue(issues, "error", path, f"{gym_path}.access.condition_mode", "조건 조합은 all 또는 any여야 합니다.")
+            conditions = access.get("conditions", [])
+            if not isinstance(conditions, list):
+                _issue(issues, "error", path, f"{gym_path}.access.conditions", "체육관 문 조건 배열이 필요합니다.")
+            else:
+                for condition_index, condition in enumerate(conditions):
+                    _validate_player_condition(
+                        condition, issues, path,
+                        f"{gym_path}.access.conditions[{condition_index}]",
+                    )
+            dialogue = access.get("locked_dialogue")
+            if not isinstance(dialogue, list) or not dialogue or any(
+                not isinstance(line, str) or not line.strip() for line in dialogue
+            ):
+                _issue(issues, "error", path, f"{gym_path}.access.locked_dialogue", "비어 있지 않은 잠금 메시지 배열이어야 합니다.")
+            blocker = _require_object(
+                access.get("blocking_npc"), issues, path,
+                f"{gym_path}.access.blocking_npc",
+            )
+            if blocker is not None:
+                enabled = blocker.get("enabled")
+                if not isinstance(enabled, bool):
+                    _issue(issues, "error", path, f"{gym_path}.access.blocking_npc.enabled", "참/거짓 값이어야 합니다.")
+                profile = blocker.get("npc_profile")
+                if enabled:
+                    _resource_id(profile, issues, path, f"{gym_path}.access.blocking_npc.npc_profile")
+                elif not isinstance(profile, str):
+                    _issue(issues, "error", path, f"{gym_path}.access.blocking_npc.npc_profile", "NPC ID 문자열이 필요합니다.")
         exterior = _require_object(gym.get("exterior"), issues, path, f"{gym_path}.exterior")
         connection_anchors_by_space: dict[str, set[str]] = {}
         if exterior is not None:
@@ -5707,6 +5739,13 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
         "display_name": {"ko_kr": name.strip()},
         "theme": "normal",
         "exterior": {"structure": "cobbleventure:gyms/base_gym"},
+        "access": {
+            "require_previous_gym": False,
+            "condition_mode": "all",
+            "conditions": [],
+            "locked_dialogue": ["문이 잠겨 있다."],
+            "blocking_npc": {"enabled": False, "npc_profile": ""},
+        },
         "interior": {"modules": [{"id": "main", "structure": interior_structure, "position": [0, 0, 0], "rotation": "none"}], "connections": []},
         "staff": {"leader": {"league_entry_id": "", "anchor": "leader"}, "trainers": []},
     }

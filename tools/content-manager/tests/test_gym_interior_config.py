@@ -25,17 +25,6 @@ class GymInteriorConfigTests(unittest.TestCase):
             "door_offset": {"x": 12, "y": 3, "z": 3},
             "outside_offset": {"x": 12, "y": 4, "z": 1},
             "facing": "north",
-            "condition_mode": "all",
-            "conditions": [
-                {
-                    "type": "variable",
-                    "source": "scoreboard",
-                    "key": "previous_badge",
-                    "operator": ">=",
-                    "value": 1,
-                }
-            ],
-            "locked_dialogue": ["문이 잠겨 있다."],
             "enter_dialogue": ["체육관 문이 열렸다."],
         }
         gym["interior"] = {
@@ -53,15 +42,14 @@ class GymInteriorConfigTests(unittest.TestCase):
             _, issues = content_manager.validate_settlement_file(path)
             return issues
 
-    def test_accepts_condition_aware_instanced_gym(self) -> None:
+    def test_accepts_instanced_gym_geometry(self) -> None:
         self.assertEqual([], self.validate(self.settlement))
 
-    def test_rejects_invalid_gym_condition(self) -> None:
+    def test_rejects_gym_access_policy_in_settlement(self) -> None:
         document = copy.deepcopy(self.settlement)
-        condition = document["structure_profile"]["gym"]["entrance"]["conditions"][0]
-        condition["operator"] = "contains"
+        document["structure_profile"]["gym"]["entrance"]["require_previous_gym"] = True
         issues = self.validate(document)
-        self.assertTrue(any(issue.path.endswith(".operator") for issue in issues))
+        self.assertTrue(any("require_previous_gym" in issue.path or "require_previous_gym" in issue.message for issue in issues))
 
 
 if __name__ == "__main__":

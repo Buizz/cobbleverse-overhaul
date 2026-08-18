@@ -666,6 +666,22 @@
               <label><span>체육관 배틀 BGM</span><select name="musicTrack" disabled></select><small>비워 두면 체육관 기본값을 사용합니다.</small></label>
               <label class="wide"><span>공용 외관 템플릿 NBT</span><select name="exteriorStructure" disabled></select><small>모든 체육관이 base_gym 하나를 사용하며, 속성 타입에 따라 지정 색상 블록만 자동 치환됩니다.</small></label>
               <label class="toggle"><input type="checkbox" name="enabled" disabled><span>이 체육관 사용</span></label>
+              <section class="gym-access-editor wide" id="gym-access-editor">
+                <header><div><p class="eyebrow">DOOR ACCESS</p><h3>체육관 출입 조건</h3><small>이 체육관의 문을 열 수 있는 진행 조건과 문 앞 안내 NPC를 설정합니다.</small></div><span class="gym-access-status" id="gym-access-status">조건 없음</span></header>
+                <div class="gym-access-grid">
+                  <label class="toggle wide"><input type="checkbox" name="gymRequirePrevious" disabled><span>이전 체육관 클리어 필요</span><small>리그 구성의 관장 순서를 기준으로 바로 앞 관장의 배지를 자동으로 요구합니다.</small></label>
+                  <output class="gym-previous-requirement wide" id="gym-previous-requirement">이전 체육관 조건을 사용하지 않습니다.</output>
+                  <label><span>추가 조건 조합</span><select name="gymConditionMode" disabled><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select><small>이전 체육관 조건은 추가 조건과 별도로 항상 충족해야 합니다.</small></label>
+                  <label><span>잠긴 문 메시지</span><input name="gymLockedDialogue" value="문이 잠겨 있다." disabled></label>
+                  <div class="gate-condition-builder wide" id="gym-condition-builder" data-gate-condition-editor>
+                    <header><span>추가 통과 조건</span><button type="button" data-gate-condition-add>+ 조건 추가</button></header>
+                    <div class="gate-condition-list" data-gate-condition-list></div>
+                    <small>아이템, 배지, 진행 플래그, 변수, 파티 포켓몬 조건을 GUI로 조합합니다.</small>
+                  </div>
+                  <label class="toggle wide"><input type="checkbox" name="gymBlockingNpcEnabled" disabled><span>조건 미달성 시 문 앞 NPC 사용</span><small>선택한 NPC가 외부 출입문 앞의 안전 위치에 자동 배치됩니다.</small></label>
+                  <label class="wide"><span>문 앞 NPC 프리셋</span><select name="gymBlockingNpc" disabled><option value="">NPC를 선택하세요</option></select></label>
+                </div>
+              </section>
             </form>
             <div class="subsection-heading"><div><p class="eyebrow">GYM STAFF</p><h3>관장과 기타 트레이너</h3><small>내부 NBT의 NPC 라벨에 배치합니다. 관장은 한 명, 기타 트레이너는 필요한 만큼 추가할 수 있습니다.</small></div><button class="button secondary" id="add-gym-trainer" disabled>기타 트레이너 추가</button></div>
             <div id="gym-staff-editor" class="cave-entry-list"><div class="issues empty">체육관을 선택하세요.</div></div>

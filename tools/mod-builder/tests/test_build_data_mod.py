@@ -132,6 +132,43 @@ class DataModBuilderTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         build_data_mod.build(REPOSITORY_ROOT)
 
+    def test_compiled_gym_access_resolves_previous_badge_from_league_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalogs = root / build_data_mod.CONTENT_ROOT / "catalogs"
+            catalogs.mkdir(parents=True)
+            gym_catalog = catalogs / "gyms.json"
+            gym_catalog.write_text(json.dumps({
+                "gyms": [{
+                    "id": "cobbleventure:gym/second",
+                    "staff": {"leader": {"league_entry_id": "league:second"}},
+                    "access": {
+                        "require_previous_gym": True,
+                        "previous_badge": "stale:badge/value",
+                    },
+                }],
+            }), encoding="utf-8")
+            (catalogs / "league-progression.json").write_text(json.dumps({
+                "entries": [
+                    {
+                        "id": "league:first", "role": "gym_leader",
+                        "region": "region:test", "order": 1,
+                        "encounter": {"rewards": {"badge_id": "badge:test/first"}},
+                    },
+                    {
+                        "id": "league:second", "role": "gym_leader",
+                        "region": "region:test", "order": 2,
+                        "encounter": {"rewards": {"badge_id": "badge:test/second"}},
+                    },
+                ],
+            }), encoding="utf-8")
+
+            compiled = build_data_mod._compiled_gym_catalog(root, gym_catalog)
+
+            self.assertEqual(
+                "badge:test/first", compiled["gyms"][0]["access"]["previous_badge"]
+            )
+
     def test_does_not_register_legacy_village_structures(self) -> None:
         path = (
             REPOSITORY_ROOT

@@ -136,6 +136,27 @@ def _compiled_gym_catalog(root: Path, gym_catalog: Path) -> dict[str, object]:
         rewards = encounter.get("rewards", {})
         if isinstance(rewards, dict) and rewards.get("badge_id"):
             leader["badge_id"] = rewards["badge_id"]
+        access = gym.get("access")
+        if isinstance(access, dict):
+            access.pop("previous_badge", None)
+            if access.get("require_previous_gym") is True and isinstance(entry, dict):
+                region = entry.get("region")
+                order = entry.get("order")
+                previous = [
+                    candidate for candidate in entries.values()
+                    if isinstance(candidate, dict)
+                    and candidate.get("role") == "gym_leader"
+                    and candidate.get("region") == region
+                    and isinstance(candidate.get("order"), int)
+                    and isinstance(order, int)
+                    and candidate["order"] < order
+                ]
+                if previous:
+                    previous.sort(key=lambda candidate: candidate["order"], reverse=True)
+                    previous_rewards = previous[0].get("encounter", {}).get("rewards", {})
+                    badge_id = previous_rewards.get("badge_id") if isinstance(previous_rewards, dict) else None
+                    if isinstance(badge_id, str) and badge_id:
+                        access["previous_badge"] = badge_id
     return catalog
 
 

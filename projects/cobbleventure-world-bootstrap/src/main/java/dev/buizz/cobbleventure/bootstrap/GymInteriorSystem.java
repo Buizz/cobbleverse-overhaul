@@ -54,6 +54,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
 /** Creates isolated modular gym interiors and turns authored entrance anchors into data-driven doors. */
@@ -73,12 +74,14 @@ final class GymInteriorSystem {
     private static final Map<String, GymDefinition> DEFINITIONS = new LinkedHashMap<>();
     private static final Map<DoorKey, DoorTarget> DOORS = new HashMap<>();
     private static final Map<String, UUID> BLOCKING_NPCS = new HashMap<>();
+    private static final Map<String, DoorTarget> BLOCKING_TARGETS = new HashMap<>();
 
     private GymInteriorSystem() {
     }
 
     static void register() {
         NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onServerTick);
     }
 
     static void initialize(MinecraftServer server) {
@@ -86,6 +89,7 @@ final class GymInteriorSystem {
         DEFINITIONS.clear();
         DOORS.clear();
         BLOCKING_NPCS.clear();
+        BLOCKING_TARGETS.clear();
         loadConfigs(server);
         if (GYMS.isEmpty()) {
             return;
@@ -150,7 +154,7 @@ final class GymInteriorSystem {
         BlockPos destination = gym.instanceOrigin.offset(gym.entryOffset.x, gym.entryOffset.y, gym.entryOffset.z);
         BlockPos outside = origin.offset(outsideOffset.x, outsideOffset.y, outsideOffset.z);
         registerDoor(level, door, new DoorTarget(
-            INTERIORS, destination, blocker(gym, level, outside), gym.previousBadge,
+            INTERIORS, destination, blocker(gym, level, blockerPosition(door, outside)), gym.previousBadge,
             gym.conditions, gym.conditionMode,
             gym.lockedDialogue, gym.enterDialogue
         ));
@@ -194,7 +198,7 @@ final class GymInteriorSystem {
         registerDoor(sourceSpace.level, sourceDoor, new DoorTarget(
             targetSpace.level.dimension(), destination,
             connection.fromSpace.equals("exterior")
-                ? blocker(gym, sourceSpace.level, sourceSpace.position(source.safeSpawn)) : null,
+                ? blocker(gym, sourceSpace.level, blockerPosition(sourceDoor, sourceSpace.position(source.safeSpawn))) : null,
             connection.fromSpace.equals("exterior") ? gym.previousBadge : null,
             forwardAccess.conditions, forwardAccess.conditionMode,
             forwardAccess.lockedDialogue, forwardAccess.enterDialogue
@@ -202,7 +206,7 @@ final class GymInteriorSystem {
         registerDoor(targetSpace.level, targetDoor, new DoorTarget(
             sourceSpace.level.dimension(), reverseDestination,
             connection.toSpace.equals("exterior")
-                ? blocker(gym, targetSpace.level, targetSpace.position(target.safeSpawn)) : null,
+                ? blocker(gym, targetSpace.level, blockerPosition(targetDoor, targetSpace.position(target.safeSpawn))) : null,
             connection.toSpace.equals("exterior") ? gym.previousBadge : null,
             reverseAccess.conditions, reverseAccess.conditionMode,
             reverseAccess.lockedDialogue, reverseAccess.enterDialogue
@@ -321,11 +325,12 @@ final class GymInteriorSystem {
             );
         }
         List<GymConnection> connections = parseConnections(interior);
+        GymAccess access = gymAccess(gym, interior);
         return new GymDefinition(
             requiredString(gym, "id"), localizedName(gym.getAsJsonObject("display_name")),
             requiredString(gym, "theme"), exteriorStructure, exteriorMetadata,
             clearVariable(leaderTrainerId), List.copyOf(modules), List.copyOf(staffMembers),
-            connections, accessPolicy(interior)
+            connections, access.policy, access.previousBadge, access.blockingNpcPreset
         );
     }
 
@@ -365,7 +370,40 @@ final class GymInteriorSystem {
         return new String[] {value.substring(0, separator), value.substring(separator + 1)};
     }
 
-    private static AccessPolicy accessPolicy(JsonObject interior) {
+    private static GymAccess gymAccess(JsonObject gym, JsonObject interior) {
+        if (gym.has("access")) {
+            JsonObject access = gym.getAsJsonObject("access");
+            List<PlayerConditions.Condition> conditions = new ArrayList<>();
+            if (access.has("conditions")) {
+                for (JsonElement condition : access.getAsJsonArray("conditions")) {
+                    conditions.add(PlayerConditions.parse(condition.getAsJsonObject()));
+                }
+            }
+            String previousBadge = access.has("require_previous_gym")
+                && access.get("require_previous_gym").getAsBoolean()
+                ? nullableString(access, "previous_badge") : null;
+            String blockingNpcPreset = null;
+            if (access.has("blocking_npc")) {
+                JsonObject blocker = access.getAsJsonObject("blocking_npc");
+                if (blocker.has("enabled") && blocker.get("enabled").getAsBoolean()) {
+                    String profile = nullableString(blocker, "npc_profile");
+                    if (profile != null) {
+                        String slug = profile.substring(Math.max(profile.lastIndexOf('/'), profile.lastIndexOf(':')) + 1);
+                        blockingNpcPreset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
+                    }
+                }
+            }
+            return new GymAccess(
+                new AccessPolicy(
+                    optionalString(access, "condition_mode", "all"),
+                    List.copyOf(conditions),
+                    nonEmptyStrings(access, "locked_dialogue", List.of("문이 잠겨 있다.")),
+                    List.of()
+                ),
+                previousBadge,
+                blockingNpcPreset
+            );
+        }
         if (interior != null && interior.has("connections")) {
             for (JsonElement element : interior.getAsJsonArray("connections")) {
                 JsonObject connection = element.getAsJsonObject();
@@ -378,15 +416,17 @@ final class GymInteriorSystem {
                         conditions.add(PlayerConditions.parse(condition.getAsJsonObject()));
                     }
                 }
-                return new AccessPolicy(
-                    optionalString(connection, "condition_mode", "all"),
-                    List.copyOf(conditions),
+                return new GymAccess(new AccessPolicy(
+                    optionalString(connection, "condition_mode", "all"), List.copyOf(conditions),
                     strings(connection, "locked_dialogue", List.of("문이 잠겨 있다.")),
                     strings(connection, "enter_dialogue", List.of())
-                );
+                ), null, null);
             }
         }
-        return new AccessPolicy("all", List.of(), List.of("문이 잠겨 있다."), List.of());
+        return new GymAccess(
+            new AccessPolicy("all", List.of(), List.of("문이 잠겨 있다."), List.of()),
+            null, null
+        );
     }
 
     private static String localizedName(JsonObject value) {
@@ -493,29 +533,6 @@ final class GymInteriorSystem {
     private static GymConfig parseConfig(String settlementId, JsonObject gym, GymDefinition definition) {
         JsonObject entrance = gym.has("entrance") ? gym.getAsJsonObject("entrance") : null;
         JsonObject interior = gym.has("interior") ? gym.getAsJsonObject("interior") : null;
-        List<PlayerConditions.Condition> conditions = new ArrayList<>();
-        if (entrance != null && entrance.has("conditions")) {
-            for (JsonElement element : entrance.getAsJsonArray("conditions")) {
-                conditions.add(PlayerConditions.parse(element.getAsJsonObject()));
-            }
-        } else {
-            conditions.addAll(definition.access.conditions);
-        }
-        String previousBadge = entrance != null
-            && entrance.has("require_previous_gym")
-            && entrance.get("require_previous_gym").getAsBoolean()
-            ? nullableString(entrance, "previous_badge") : null;
-        String blockingNpcPreset = null;
-        if (entrance != null && entrance.has("blocking_npc")) {
-            JsonObject blocker = entrance.getAsJsonObject("blocking_npc");
-            if (blocker.has("enabled") && blocker.get("enabled").getAsBoolean()) {
-                String profile = nullableString(blocker, "npc_profile");
-                if (profile != null) {
-                    String slug = profile.substring(Math.max(profile.lastIndexOf('/'), profile.lastIndexOf(':')) + 1);
-                    blockingNpcPreset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
-                }
-            }
-        }
         return new GymConfig(
             settlementId,
             definition.displayName,
@@ -527,14 +544,14 @@ final class GymInteriorSystem {
             point(entrance, "door_offset", DEFAULT_DOOR),
             point(entrance, "outside_offset", DEFAULT_OUTSIDE),
             direction(optionalString(entrance, "facing", "north")),
-            previousBadge,
-            optionalString(entrance, "condition_mode", definition.access.conditionMode),
-            List.copyOf(conditions),
-            nonEmptyStrings(entrance, "locked_dialogue", List.of("문이 잠겨 있다.")),
+            definition.previousBadge,
+            definition.access.conditionMode,
+            definition.access.conditions,
+            definition.access.lockedDialogue,
             strings(entrance, "enter_dialogue", definition.access.enterDialogue),
             point(interior, "entry_offset", DEFAULT_ENTRY),
             point(interior, "exit_door_offset", DEFAULT_DOOR),
-            definition.connections, blockingNpcPreset,
+            definition.connections, definition.blockingNpcPreset,
             definition.staff
         );
     }
@@ -680,6 +697,9 @@ final class GymInteriorSystem {
     private static void registerDoorBlocks(ServerLevel level, BlockPos lower, DoorTarget target) {
         DOORS.put(new DoorKey(level.dimension(), lower.immutable()), target);
         DOORS.put(new DoorKey(level.dimension(), lower.above().immutable()), target);
+        if (target.blocker != null) {
+            BLOCKING_TARGETS.put(target.blocker.key, target);
+        }
     }
 
     private static BlockPos pairedDoorPosition(ServerLevel level, BlockPos lower) {
@@ -722,7 +742,6 @@ final class GymInteriorSystem {
             sendDialogue(player, target.lockedDialogue);
             return;
         }
-        removeBlockingNpc(player.getServer(), target.blocker);
         sendDialogue(player, target.enterDialogue);
         ServerLevel destination = player.getServer().getLevel(target.dimension);
         if (destination == null) {
@@ -770,7 +789,17 @@ final class GymInteriorSystem {
 
     private static BlockingNpc blocker(GymConfig gym, ServerLevel level, BlockPos position) {
         if (gym.blockingNpcPreset == null) return null;
-        return new BlockingNpc(gym.settlementId, level.dimension(), position, gym.blockingNpcPreset);
+        return new BlockingNpc(
+            gym.settlementId, level.dimension(), position, gym.blockingNpcPreset
+        );
+    }
+
+    private static BlockPos blockerPosition(BlockPos door, BlockPos safeSpawn) {
+        int deltaX = door.getX() - safeSpawn.getX();
+        int deltaZ = door.getZ() - safeSpawn.getZ();
+        return Math.abs(deltaX) >= Math.abs(deltaZ)
+            ? safeSpawn.offset(0, 0, 2)
+            : safeSpawn.offset(2, 0, 0);
     }
 
     private static void ensureBlockingNpc(MinecraftServer server, BlockingNpc blocker) {
@@ -789,12 +818,25 @@ final class GymInteriorSystem {
     }
 
     private static void removeBlockingNpc(MinecraftServer server, BlockingNpc blocker) {
-        if (blocker == null) return;
         UUID uuid = BLOCKING_NPCS.remove(blocker.key);
         ServerLevel level = server.getLevel(blocker.dimension);
-        if (uuid != null && level != null) {
-            Entity entity = level.getEntity(uuid);
-            if (entity != null) entity.discard();
+        if (uuid == null || level == null) return;
+        Entity entity = level.getEntity(uuid);
+        if (entity != null) entity.discard();
+    }
+
+    private static void onServerTick(ServerTickEvent.Post event) {
+        MinecraftServer server = event.getServer();
+        if (server.getTickCount() % 20 != 0 || BLOCKING_TARGETS.isEmpty()) return;
+        for (DoorTarget target : BLOCKING_TARGETS.values()) {
+            BlockingNpc blocker = target.blocker;
+            boolean blockedPlayerNearby = server.getPlayerList().getPlayers().stream().anyMatch(player ->
+                player.level().dimension().equals(blocker.dimension)
+                    && player.distanceToSqr(Vec3.atCenterOf(blocker.position)) <= 48.0D * 48.0D
+                    && !target.allows(player)
+            );
+            if (blockedPlayerNearby) ensureBlockingNpc(server, blocker);
+            else removeBlockingNpc(server, blocker);
         }
     }
 
@@ -905,7 +947,12 @@ final class GymInteriorSystem {
         String id, String displayName, String theme, String exteriorStructure,
         ModuleMetadata exteriorMetadata,
         String clearVariable, List<InteriorModule> modules, List<GymStaffMember> staff,
-        List<GymConnection> connections, AccessPolicy access
+        List<GymConnection> connections, AccessPolicy access,
+        String previousBadge, String blockingNpcPreset
+    ) {}
+
+    private record GymAccess(
+        AccessPolicy policy, String previousBadge, String blockingNpcPreset
     ) {}
 
     private record AccessPolicy(

@@ -8336,6 +8336,37 @@ function gymOptions(selected = "") {
     .join("");
 }
 
+function previousGymEntry(gymDefinition) {
+  const leaderId = gymDefinition?.staff?.leader?.league_entry_id;
+  const current = (state.leagueProgression.entries || []).find((entry) => entry.id === leaderId);
+  if (!current) return null;
+  return (state.leagueProgression.entries || [])
+    .filter((entry) => entry.role === "gym_leader" && entry.region === current.region && Number(entry.order) < Number(current.order))
+    .sort((a, b) => Number(b.order) - Number(a.order))[0] || null;
+}
+
+function renderGymAccessSummary(gym) {
+  const form = $("#gym-form");
+  if (!form || !gym) return;
+  const previous = previousGymEntry(gym);
+  const badgeId = previous?.encounter?.rewards?.badge_id || "";
+  const badge = badgeById(badgeId);
+  const requirement = $("#gym-previous-requirement");
+  if (!form.elements.gymRequirePrevious.checked) {
+    requirement.innerHTML = "이전 체육관 조건을 사용하지 않습니다.";
+  } else if (!previous || !badgeId) {
+    requirement.innerHTML = "<strong>선행 체육관 없음</strong><small>첫 번째 관장이거나 리그 순서·승리 배지가 연결되지 않았습니다.</small>";
+  } else {
+    requirement.innerHTML = `${badgeSprite(badge, 1)}<span><strong>${escapeHtml(previous.display_name?.ko_kr || previous.id)} 클리어</strong><small>${escapeHtml(badge?.display_name?.ko_kr || badgeId)} · 리그 ${Number(previous.order)}번째 관장</small></span>`;
+  }
+  const conditions = $("#gym-condition-builder")?.gateConditions?.length || 0;
+  const parts = [];
+  if (form.elements.gymRequirePrevious.checked) parts.push("이전 배지");
+  if (conditions) parts.push(`추가 조건 ${conditions}개`);
+  if (form.elements.gymBlockingNpcEnabled.checked) parts.push("문 앞 NPC");
+  $("#gym-access-status").textContent = parts.length ? parts.join(" · ") : "자유 출입";
+}
+
 function renderGymList() {
   const gyms = state.gymCatalog.gyms || [];
   const list = $("#gym-list");
@@ -8586,7 +8617,8 @@ function renderGymEditor() {
   renderGymList();
   const gym = selectedGym();
   const form = $("#gym-form");
-  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#gym-editor-badge").hidden = true; $("#gym-editor-type").hidden = true; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#add-gym-trainer").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; state.gymLayout.selected = null; renderGymStaff(); renderGymModules(); renderGymLayout(); return; }
+  const conditionEditor = $("#gym-condition-builder");
+  if (!gym) { form.reset(); [...form.elements].forEach((element) => { element.disabled = true; }); renderGateConditionEditor(conditionEditor, []); $("#gym-previous-requirement").textContent = "체육관을 선택하세요."; $("#gym-access-status").textContent = "조건 없음"; $("#gym-editor-title").textContent = "체육관을 선택하세요"; $("#gym-editor-badge").hidden = true; $("#gym-editor-type").hidden = true; $("#delete-gym").disabled = true; $("#preview-gym-exterior").disabled = true; $("#add-gym-module").disabled = true; $("#add-gym-trainer").disabled = true; $("#gym-json").disabled = true; $("#apply-gym-json").disabled = true; state.gymLayout.selected = null; renderGymStaff(); renderGymModules(); renderGymLayout(); return; }
   const leaderEntry = leagueEntryForGym(gym);
   const type = leaderEntry?.primary_type || gym.theme || "normal";
   const badge = badgeById(leagueEntryBadgeId(leaderEntry));
@@ -8602,7 +8634,18 @@ function renderGymEditor() {
   setFormValue(form, "musicTrack", gym.music_track || "");
   form.elements.exteriorStructure.innerHTML = `<option value="${standardGymExterior}">${standardGymExterior}</option>`;
   setFormValue(form, "exteriorStructure", standardGymExterior);
+  const access = gym.access || {};
+  setFormValue(form, "gymRequirePrevious", Boolean(access.require_previous_gym));
+  setFormValue(form, "gymConditionMode", access.condition_mode || "all");
+  setFormValue(form, "gymLockedDialogue", (access.locked_dialogue || ["문이 잠겨 있다."]).join(" "));
+  const blockingNpc = access.blocking_npc || {};
+  setFormValue(form, "gymBlockingNpcEnabled", Boolean(blockingNpc.enabled));
+  form.elements.gymBlockingNpc.innerHTML = gymBlockingNpcOptions(blockingNpc.npc_profile || "");
+  setFormValue(form, "gymBlockingNpc", blockingNpc.npc_profile || "");
+  renderGateConditionEditor(conditionEditor, access.conditions || []);
+  renderGymAccessSummary(gym);
   [...form.elements].forEach((element) => { element.disabled = false; }); form.elements.id.disabled = true;
+  form.elements.gymBlockingNpc.disabled = !form.elements.gymBlockingNpcEnabled.checked;
   for (const selector of ["#delete-gym", "#preview-gym-exterior", "#add-gym-module", "#add-gym-trainer", "#gym-json", "#apply-gym-json"]) $(selector).disabled = false;
   $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymStaff(); renderGymModules(); renderGymLayout();
 }
@@ -8615,11 +8658,31 @@ function updateGymFromForm() {
   if (form.elements.musicTrack.value) gym.music_track = form.elements.musicTrack.value;
   else delete gym.music_track;
   gym.exterior = { structure: standardGymExterior };
+  gym.access = {
+    require_previous_gym: form.elements.gymRequirePrevious.checked,
+    condition_mode: form.elements.gymConditionMode.value || "all",
+    conditions: structuredClone($("#gym-condition-builder")?.gateConditions || []),
+    locked_dialogue: [form.elements.gymLockedDialogue.value.trim() || "문이 잠겨 있다."],
+    blocking_npc: {
+      enabled: form.elements.gymBlockingNpcEnabled.checked,
+      npc_profile: form.elements.gymBlockingNpc.value
+    }
+  };
+  form.elements.gymBlockingNpc.disabled = !form.elements.gymBlockingNpcEnabled.checked;
+  renderGymAccessSummary(gym);
   $("#gym-json").value = JSON.stringify(gym, null, 2); renderGymList();
 }
 
 async function saveGyms() {
   updateGymFromForm();
+  const gym = selectedGym();
+  try {
+    gym.access.conditions = gateConditionsFromEditor("#gym-condition-builder");
+    if (gym.access.blocking_npc.enabled && !gym.access.blocking_npc.npc_profile) throw new Error("문 앞 NPC를 선택해 주세요.");
+  } catch (error) {
+    toast(error.message || "체육관 출입 조건을 확인해 주세요.");
+    return;
+  }
   const result = await request("/api/gyms", { method: "PUT", body: JSON.stringify(state.gymCatalog) });
   showIssues("#gym-issues", result.data); toast(result.ok ? "체육관 외관과 내부 구성을 저장했습니다." : "체육관 설정을 확인해 주세요.");
   if (result.ok) { const refreshed = await request("/api/gyms"); if (refreshed.ok) state.gymCatalog = refreshed.data; renderGymEditor(); }
@@ -9192,21 +9255,6 @@ function selectedGymFacility() {
     structure, color: "#ef233c",
     footprint
   }];
-}
-
-function ensureGymDoorAccessFields() {
-  if ($("#gym-door-access-fields")) return;
-  $("#gym-config-fields").insertAdjacentHTML("afterend", `<fieldset class="wide gym-door-access-fields" id="gym-door-access-fields"><legend>체육관 문 진행 조건</legend><label class="toggle wide"><input type="checkbox" name="gymRequirePrevious"><span>이전 체육관 클리어 필요</span><small>리그 구성에서 현재 체육관 바로 앞 관장의 배지를 자동 조건으로 연결합니다.</small></label><label><span>일반 조건 결합</span><select name="gymConditionMode"><option value="all">모든 조건 달성</option><option value="any">조건 중 하나 달성</option></select></label><label class="wide"><span>추가 조건식 (JSON 배열)</span><textarea name="gymConditions" rows="4" placeholder='[{"type":"flag","key":"cobbleventure:flag/example","value":true}]'></textarea><small>아이템·플래그·배지 등의 일반 조건을 추가합니다.</small></label><label class="wide"><span>잠긴 문 대사</span><textarea name="gymLockedDialogue" rows="2">문이 잠겨 있다.</textarea></label><label class="toggle wide"><input type="checkbox" name="gymBlockingNpcEnabled"><span>조건 미달성 시 길막용 NPC 사용</span></label><label class="wide"><span>문 앞 NPC</span><select name="gymBlockingNpc"><option value="">NPC를 선택하세요</option></select><small>선택한 NPC 프리셋을 체육관 문 앞에 생성합니다.</small></label></fieldset>`);
-}
-
-function previousGymBadge(gymDefinition) {
-  const leaderId = gymDefinition?.staff?.leader?.league_entry_id;
-  const current = (state.leagueProgression.entries || []).find((entry) => entry.id === leaderId);
-  if (!current) return "";
-  const previous = (state.leagueProgression.entries || [])
-    .filter((entry) => entry.role === "gym_leader" && entry.region === current.region && Number(entry.order) < Number(current.order))
-    .sort((a, b) => Number(b.order) - Number(a.order))[0];
-  return previous?.encounter?.rewards?.badge_id || "";
 }
 
 function gymBlockingNpcOptions(selected = "") {
@@ -10456,10 +10504,9 @@ function updateFacilityFormState(preferredFootprintShape = null) {
     form.elements[name].disabled = !buildingEnabled || !manualPlacement;
   }
   const gymEnabled = form.elements.gymEnabled.checked;
-  for (const name of ["gymId", "gymRequirePrevious", "gymConditionMode", "gymConditions", "gymLockedDialogue", "gymBlockingNpcEnabled", "gymBlockingNpc"]) {
+  for (const name of ["gymId"]) {
     form.elements[name].disabled = !gymEnabled;
   }
-  if (gymEnabled) form.elements.gymBlockingNpc.disabled = !form.elements.gymBlockingNpcEnabled.checked;
   $$("#facility-option-list [data-facility-id]").forEach((row) => {
     const enabled = row.querySelector(".facility-enabled").checked;
     row.classList.toggle("is-selected", enabled);
@@ -10482,7 +10529,6 @@ function renderSettlementAutoNpcPreview() {
 
 function renderSettlement() {
   const document = state.settlement;
-  ensureGymDoorAccessFields();
   const form = $("#settlement-form");
   ensureVillageDensityControl(form);
   $("#selected-settlement-editor").hidden = false;
@@ -10545,15 +10591,6 @@ function renderSettlement() {
   form.elements.gymId.innerHTML = gymOptions(selectedGymId);
   setFormValue(form, "gymId", selectedGymId);
   setFormValue(form, "gymAnchor", gym.anchor || "gym_building");
-  const entrance = gym.entrance || {};
-  setFormValue(form, "gymRequirePrevious", Boolean(entrance.require_previous_gym));
-  setFormValue(form, "gymConditionMode", entrance.condition_mode || "all");
-  setFormValue(form, "gymConditions", JSON.stringify(entrance.conditions || [], null, 2));
-  setFormValue(form, "gymLockedDialogue", (entrance.locked_dialogue || ["문이 잠겨 있다."]).join("\n"));
-  const blocker = entrance.blocking_npc || {};
-  setFormValue(form, "gymBlockingNpcEnabled", Boolean(blocker.enabled));
-  form.elements.gymBlockingNpc.innerHTML = gymBlockingNpcOptions(blocker.npc_profile || "");
-  setFormValue(form, "gymBlockingNpc", blocker.npc_profile || "");
   form.elements.pokemonBiomeSet.innerHTML = choiceOptions((state.biomeCatalog.sets || []).map((entry) => [entry.id, entry.display_name?.ko_kr || entry.id]), document.biome_layout?.pokemon_biome_set, true);
   setFormValue(form, "pokemonBiomeSet", document.biome_layout?.pokemon_biome_set);
   setFormValue(form, "maxAmbient", document.npc_placement?.max_ambient_npcs);
@@ -10847,18 +10884,7 @@ function updateSettlementFromForm() {
     gym_id: gymDefinition?.id || "",
     structure: gymDefinition?.exterior?.structure || "",
     theme: gymDefinition?.theme || "normal",
-    anchor: gymAnchor,
-    entrance: {
-      require_previous_gym: form.elements.gymRequirePrevious.checked,
-      previous_badge: form.elements.gymRequirePrevious.checked ? previousGymBadge(gymDefinition) : "",
-      condition_mode: form.elements.gymConditionMode.value || "all",
-      conditions: (() => { try { const value = JSON.parse(form.elements.gymConditions.value || "[]"); return Array.isArray(value) ? value : []; } catch { return state.settlement.structure_profile.gym?.entrance?.conditions || []; } })(),
-      locked_dialogue: form.elements.gymLockedDialogue.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
-      blocking_npc: {
-        enabled: form.elements.gymBlockingNpcEnabled.checked,
-        npc_profile: form.elements.gymBlockingNpc.value
-      }
-    }
+    anchor: gymAnchor
   };
   // Keep legacy fields synchronized while older data packs are still accepted.
   state.settlement.structure_profile.gym_theme = gymDefinition?.theme || "normal";
@@ -12456,6 +12482,9 @@ $("#edit-object-npc").addEventListener("click", async () => {
 });
 initializeGateConditionEditor($("#object-tool-condition-builder"));
 initializeGateConditionEditor($("#inspector-gate-condition-builder"));
+initializeGateConditionEditor($("#gym-condition-builder"));
+$("#gym-condition-builder").addEventListener("click", () => queueMicrotask(updateGymFromForm));
+$("#gym-condition-builder").addEventListener("change", () => queueMicrotask(updateGymFromForm));
 $("#object-tool-gate-mode").addEventListener("change", updateGateOptionVisibility);
 $("#object-tool-surrounding-type").addEventListener("change", updateGateOptionVisibility);
 $("#battle-form").addEventListener("change", (event) => {

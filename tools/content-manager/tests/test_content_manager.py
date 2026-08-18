@@ -5196,6 +5196,28 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.validate_gym_catalog_file(catalog, structures)
             self.assertFalse(any(issue.level == "error" for issue in issues), issues)
 
+            document["gyms"][0]["access"] = {
+                "require_previous_gym": True,
+                "condition_mode": "all",
+                "conditions": [{
+                    "type": "item", "item": "cobblemon:potion", "count": 2,
+                }],
+                "locked_dialogue": ["문이 잠겨 있다."],
+                "blocking_npc": {
+                    "enabled": True,
+                    "npc_profile": "cobbleventure:npc/gym_guide",
+                },
+            }
+            catalog.write_text(json.dumps(document), encoding="utf-8")
+            issues = content_manager.validate_gym_catalog_file(catalog, structures)
+            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+
+            document["gyms"][0]["access"]["conditions"][0]["count"] = 0
+            catalog.write_text(json.dumps(document), encoding="utf-8")
+            issues = content_manager.validate_gym_catalog_file(catalog, structures)
+            self.assertTrue(any(issue.path.endswith(".access.conditions[0].count") for issue in issues))
+            document["gyms"][0]["access"]["conditions"][0]["count"] = 2
+
             document["gyms"][0]["interior"]["connections"][0]["from"] = "exterior:missing"
             catalog.write_text(json.dumps(document), encoding="utf-8")
             issues = content_manager.validate_gym_catalog_file(catalog, structures)
