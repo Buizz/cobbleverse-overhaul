@@ -18,10 +18,20 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:ekans", "min_level": 6, "max_level": 12 },
+      { "species": "cobblemon:rattata", "min_level": 8, "max_level": 12 },
+      { "species": "cobblemon:sandshrew", "min_level": 6, "max_level": 12 },
+      { "species": "cobblemon:spearow", "min_level": 8, "max_level": 12 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:ekans", "min_level": 6, "max_level": 12 },
+      { "species": "cobblemon:rattata", "min_level": 8, "max_level": 12 },
+      { "species": "cobblemon:sandshrew", "min_level": 6, "max_level": 12 },
+      { "species": "cobblemon:spearow", "min_level": 8, "max_level": 12 }
+    ]
   },
   "npc_placements": []
 }

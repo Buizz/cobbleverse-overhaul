@@ -18,10 +18,22 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:doduo", "min_level": 18, "max_level": 28 },
+      { "species": "cobblemon:fearow", "min_level": 25, "max_level": 29 },
+      { "species": "cobblemon:raticate", "min_level": 23, "max_level": 29 },
+      { "species": "cobblemon:rattata", "min_level": 18, "max_level": 22 },
+      { "species": "cobblemon:spearow", "min_level": 20, "max_level": 22 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:doduo", "min_level": 18, "max_level": 28 },
+      { "species": "cobblemon:fearow", "min_level": 25, "max_level": 29 },
+      { "species": "cobblemon:raticate", "min_level": 23, "max_level": 29 },
+      { "species": "cobblemon:rattata", "min_level": 18, "max_level": 22 },
+      { "species": "cobblemon:spearow", "min_level": 20, "max_level": 22 }
+    ]
   },
   "npc_placements": []
 }

@@ -22,10 +22,28 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:bellsprout", "min_level": 22, "max_level": 26 },
+      { "species": "cobblemon:ditto", "min_level": 23, "max_level": 26 },
+      { "species": "cobblemon:gloom", "min_level": 28, "max_level": 30 },
+      { "species": "cobblemon:oddish", "min_level": 22, "max_level": 26 },
+      { "species": "cobblemon:pidgeotto", "min_level": 28, "max_level": 30 },
+      { "species": "cobblemon:pidgey", "min_level": 23, "max_level": 27 },
+      { "species": "cobblemon:venonat", "min_level": 24, "max_level": 28 },
+      { "species": "cobblemon:weepinbell", "min_level": 28, "max_level": 30 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:bellsprout", "min_level": 22, "max_level": 26 },
+      { "species": "cobblemon:ditto", "min_level": 23, "max_level": 26 },
+      { "species": "cobblemon:gloom", "min_level": 28, "max_level": 30 },
+      { "species": "cobblemon:oddish", "min_level": 22, "max_level": 26 },
+      { "species": "cobblemon:pidgeotto", "min_level": 28, "max_level": 30 },
+      { "species": "cobblemon:pidgey", "min_level": 23, "max_level": 27 },
+      { "species": "cobblemon:venonat", "min_level": 24, "max_level": 28 },
+      { "species": "cobblemon:weepinbell", "min_level": 28, "max_level": 30 }
+    ]
   },
   "npc_placements": [],
   "automatic_npc_placement": {

@@ -18,10 +18,22 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:bellsprout", "min_level": 13, "max_level": 16 },
+      { "species": "cobblemon:mankey", "min_level": 10, "max_level": 16 },
+      { "species": "cobblemon:meowth", "min_level": 10, "max_level": 16 },
+      { "species": "cobblemon:oddish", "min_level": 13, "max_level": 16 },
+      { "species": "cobblemon:pidgey", "min_level": 13, "max_level": 16 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:bellsprout", "min_level": 13, "max_level": 16 },
+      { "species": "cobblemon:mankey", "min_level": 10, "max_level": 16 },
+      { "species": "cobblemon:meowth", "min_level": 10, "max_level": 16 },
+      { "species": "cobblemon:oddish", "min_level": 13, "max_level": 16 },
+      { "species": "cobblemon:pidgey", "min_level": 13, "max_level": 16 }
+    ]
   },
   "npc_placements": []
 }

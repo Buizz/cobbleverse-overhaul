@@ -18,10 +18,26 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:bellsprout", "min_level": 19, "max_level": 22 },
+      { "species": "cobblemon:growlithe", "min_level": 18, "max_level": 20 },
+      { "species": "cobblemon:mankey", "min_level": 17, "max_level": 20 },
+      { "species": "cobblemon:meowth", "min_level": 17, "max_level": 20 },
+      { "species": "cobblemon:oddish", "min_level": 19, "max_level": 22 },
+      { "species": "cobblemon:pidgey", "min_level": 19, "max_level": 22 },
+      { "species": "cobblemon:vulpix", "min_level": 18, "max_level": 20 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:bellsprout", "min_level": 19, "max_level": 22 },
+      { "species": "cobblemon:growlithe", "min_level": 18, "max_level": 20 },
+      { "species": "cobblemon:mankey", "min_level": 17, "max_level": 20 },
+      { "species": "cobblemon:meowth", "min_level": 17, "max_level": 20 },
+      { "species": "cobblemon:oddish", "min_level": 19, "max_level": 22 },
+      { "species": "cobblemon:pidgey", "min_level": 19, "max_level": 22 },
+      { "species": "cobblemon:vulpix", "min_level": 18, "max_level": 20 }
+    ]
   },
   "npc_placements": []
 }

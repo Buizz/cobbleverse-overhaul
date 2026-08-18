@@ -233,13 +233,23 @@
     "enabled": true,
     "minimum_distance": 16,
     "maximum_distance": 24,
-    "minimum_level": 8,
-    "maximum_level": 14,
+    "minimum_level": 6,
+    "maximum_level": 12,
     "pokemon_biome": "minecraft:dripstone_caves",
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:clefairy", "min_level": 8, "max_level": 12 },
+      { "species": "cobblemon:geodude", "min_level": 7, "max_level": 10 },
+      { "species": "cobblemon:paras", "min_level": 8, "max_level": 12 },
+      { "species": "cobblemon:zubat", "min_level": 6, "max_level": 12 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:clefairy", "min_level": 8, "max_level": 12 },
+      { "species": "cobblemon:geodude", "min_level": 7, "max_level": 10 },
+      { "species": "cobblemon:paras", "min_level": 8, "max_level": 12 },
+      { "species": "cobblemon:zubat", "min_level": 6, "max_level": 12 }
+    ]
   },
   "trainer_settings": {
     "enabled": true,

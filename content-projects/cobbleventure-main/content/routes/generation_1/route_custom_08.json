@@ -18,10 +18,14 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:tentacool", "min_level": 5, "max_level": 40 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:tentacool", "min_level": 5, "max_level": 40 }
+    ]
   },
   "npc_placements": []
 }

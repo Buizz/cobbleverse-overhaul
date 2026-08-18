@@ -30,12 +30,24 @@
     "minimum_distance": 16,
     "maximum_distance": 24,
     "minimum_level": 3,
-    "maximum_level": 7,
+    "maximum_level": 6,
     "pokemon_biome": "minecraft:old_growth_spruce_taiga",
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:caterpie", "min_level": 3, "max_level": 5 },
+      { "species": "cobblemon:kakuna", "min_level": 4, "max_level": 6 },
+      { "species": "cobblemon:metapod", "min_level": 4, "max_level": 6 },
+      { "species": "cobblemon:pikachu", "min_level": 3, "max_level": 5 },
+      { "species": "cobblemon:weedle", "min_level": 3, "max_level": 5 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:caterpie", "min_level": 3, "max_level": 5 },
+      { "species": "cobblemon:kakuna", "min_level": 4, "max_level": 6 },
+      { "species": "cobblemon:metapod", "min_level": 4, "max_level": 6 },
+      { "species": "cobblemon:pikachu", "min_level": 3, "max_level": 5 },
+      { "species": "cobblemon:weedle", "min_level": 3, "max_level": 5 }
+    ]
   },
   "trainer_settings": {
     "enabled": true,

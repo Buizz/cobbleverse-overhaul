@@ -233,34 +233,23 @@
     "enabled": true,
     "minimum_distance": 14,
     "maximum_distance": 22,
-    "minimum_level": 16,
-    "maximum_level": 22,
+    "minimum_level": 13,
+    "maximum_level": 18,
     "pokemon_biome": "minecraft:dripstone_caves",
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
     "additions": [
-      {
-        "species": "cobblemon:geodude",
-        "min_level": 16,
-        "max_level": 20
-      },
-      {
-        "species": "cobblemon:machop",
-        "min_level": 17,
-        "max_level": 21
-      },
-      {
-        "species": "cobblemon:onix",
-        "min_level": 18,
-        "max_level": 22
-      },
-      {
-        "species": "cobblemon:cubone",
-        "min_level": 17,
-        "max_level": 21
-      }
+      { "species": "cobblemon:geodude", "min_level": 16, "max_level": 18 },
+      { "species": "cobblemon:machop", "min_level": 15, "max_level": 17 },
+      { "species": "cobblemon:onix", "min_level": 13, "max_level": 17 },
+      { "species": "cobblemon:zubat", "min_level": 15, "max_level": 18 }
     ],
-    "level_overrides": []
+    "level_overrides": [
+      { "species": "cobblemon:geodude", "min_level": 16, "max_level": 18 },
+      { "species": "cobblemon:machop", "min_level": 15, "max_level": 17 },
+      { "species": "cobblemon:onix", "min_level": 13, "max_level": 17 },
+      { "species": "cobblemon:zubat", "min_level": 15, "max_level": 18 }
+    ]
   },
   "trainer_settings": {
     "enabled": true,

@@ -18,10 +18,16 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      { "species": "cobblemon:pidgey", "min_level": 2, "max_level": 5 },
+      { "species": "cobblemon:rattata", "min_level": 2, "max_level": 4 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:pidgey", "min_level": 2, "max_level": 5 },
+      { "species": "cobblemon:rattata", "min_level": 2, "max_level": 4 }
+    ]
   },
   "npc_placements": [],
   "automatic_npc_placement": {
