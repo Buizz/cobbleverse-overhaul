@@ -11344,6 +11344,22 @@ public final class CobbleventureBootstrap {
         return false;
     }
 
+    static boolean placeNaturalGateTree(
+        ServerLevel level, String log, String leaves, BlockPos ground, long seed
+    ) {
+        return placeVanillaTree(
+            level, ground.above(), new TreeProfile(log, leaves, 1, 5, 10), seed
+        );
+    }
+
+    static BlockState naturalGateGroundDecoration(
+        ServerLevel level, String terrainType, BlockPos ground, long seed
+    ) {
+        return openBiomeGroundDecoration(
+            level, emptyTerrainBiome(terrainType), ground, seed
+        );
+    }
+
     private static void decorateTownLandscape(
         ServerLevel level, HexWorldPlan world, SettlementPlan settlement
     ) {

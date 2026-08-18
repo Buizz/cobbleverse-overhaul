@@ -323,7 +323,9 @@ final class WorldGateSystem {
             String terrainType = inaccessibleTerrainType(
                 world, center, sampleDirection
             );
-            NaturalGateFunnelProfile profile = naturalGateFunnelProfile(terrainType);
+            NaturalGateFunnelProfile profile = naturalGateFunnelProfile(
+                terrainType, world.grid().radius()
+            );
             int edgeX = footprint == null
                 ? center.x() + forwardX * halfThickness
                 : normal.getAxis() == Direction.Axis.X
@@ -335,9 +337,8 @@ final class WorldGateSystem {
                     ? (forwardZ < 0 ? footprint.minZ() : footprint.maxZ())
                     : center.z();
             for (int depth = 1; depth <= profile.length(); depth++) {
-                double progress = depth / (double) profile.length();
                 int corridorHalfWidth = gateHalfWidth
-                    + (int) Math.ceil(profile.flare() * progress);
+                    + funnelFlareAt(profile, depth);
                 for (int lateralSign : new int[] {-1, 1}) {
                     for (int band = 1; band <= profile.bandWidth(); band++) {
                         int lateral = lateralSign * (corridorHalfWidth + band);
@@ -349,7 +350,7 @@ final class WorldGateSystem {
                             || !placedColumns.add(new BlockPos(x, 0, z).asLong())) {
                             continue;
                         }
-                        if (band <= 2) {
+                        if (band == 1) {
                             placeNaturalBarrierColumn(
                                 level, gate, terrainType, x, z
                             );
@@ -463,18 +464,34 @@ final class WorldGateSystem {
         );
     }
 
-    private static NaturalGateFunnelProfile naturalGateFunnelProfile(
-        String terrainType
+    private static int funnelFlareAt(
+        NaturalGateFunnelProfile profile, int depth
     ) {
+        if (profile.length() <= 1) {
+            return profile.flare();
+        }
+        double progress = Math.max(0.0D, Math.min(
+            1.0D, (depth - 1.0D) / (profile.length() - 1.0D)
+        ));
+        return (int) Math.floor(profile.flare() * progress);
+    }
+
+    private static NaturalGateFunnelProfile naturalGateFunnelProfile(
+        String terrainType, int tileRadius
+    ) {
+        // Reach almost to the far side of a tile. The old 15-18 block collar
+        // widened by roughly one block every two steps and then ended abruptly.
+        // A long, shallow shoulder reads as terrain converging on the gate.
+        int length = Math.max(36, tileRadius - 12);
         return switch (terrainType) {
-            case "dense_forest" -> new NaturalGateFunnelProfile(18, 11, 7);
-            case "high_forest" -> new NaturalGateFunnelProfile(16, 10, 6);
+            case "dense_forest" -> new NaturalGateFunnelProfile(length, 14, 9);
+            case "high_forest" -> new NaturalGateFunnelProfile(length, 13, 9);
             case "stone_mountain", "red_rock_mountain", "snow_mountain" ->
-                new NaturalGateFunnelProfile(18, 12, 8);
+                new NaturalGateFunnelProfile(length, 14, 8);
             case "ocean", "deep_ocean" ->
-                new NaturalGateFunnelProfile(16, 11, 7);
-            case "desert" -> new NaturalGateFunnelProfile(15, 10, 7);
-            default -> new NaturalGateFunnelProfile(15, 9, 6);
+                new NaturalGateFunnelProfile(length, 13, 8);
+            case "desert" -> new NaturalGateFunnelProfile(length, 12, 8);
+            default -> new NaturalGateFunnelProfile(length, 12, 8);
         };
     }
 
@@ -508,29 +525,25 @@ final class WorldGateSystem {
         long hash = mixGateSeed(world.seed(), x, z, depth, band);
         if (terrainType.equals("high_forest")
             || terrainType.equals("dense_forest")) {
-            BlockState floor = Math.floorMod((int) (hash >>> 8), 4) == 0
-                ? Blocks.MOSS_BLOCK.defaultBlockState()
-                : Blocks.PODZOL.defaultBlockState();
-            if (level.getBlockState(new BlockPos(x, groundY + 1, z)).canBeReplaced()) {
-                level.setBlock(new BlockPos(x, groundY, z), floor, 2);
+            BlockPos ground = new BlockPos(x, groundY, z);
+            // Use the same vanilla placed-feature path as the rest of the world.
+            // Candidate spacing keeps full crowns apart instead of drawing a
+            // handmade leaf wall whose trees are visibly clipped.
+            if (band >= 5
+                && Math.floorMod(depth + band * 3, 8) == 0
+                && Math.floorMod((int) hash, 3) == 0
+                && CobbleventureBootstrap.placeNaturalGateTree(
+                    level, gate.treeLog(), gate.treeLeaves(), ground, hash
+                )) {
+                return;
             }
-            // Trees are spaced and always created with their complete crown. The
-            // inner decoration band stays low so foliage never clips the gate.
-            if (band >= 5 && Math.floorMod((int) hash, 17) == 0) {
-                int height = 7 + Math.floorMod((int) (hash >>> 16), 4);
-                placeNaturalTree(
-                    level, new BlockPos(x, groundY, z), height,
-                    blockState(gate.treeLog()),
-                    persistentLeaves(blockState(gate.treeLeaves()))
-                );
-            } else if (Math.floorMod((int) (hash >>> 24), 5) <= 1) {
-                BlockState leaves = persistentLeaves(blockState(gate.treeLeaves()));
-                int shrubHeight = 1 + Math.floorMod((int) (hash >>> 32), 2);
-                for (int height = 1; height <= shrubHeight; height++) {
-                    BlockPos position = new BlockPos(x, groundY + height, z);
-                    if (level.getBlockState(position).canBeReplaced()) {
-                        level.setBlock(position, leaves, 2);
-                    }
+            if (Math.floorMod((int) (hash >>> 24), 4) != 0) {
+                BlockPos position = ground.above();
+                BlockState decoration = CobbleventureBootstrap
+                    .naturalGateGroundDecoration(level, terrainType, ground, hash);
+                if (decoration != null && level.getBlockState(position).isAir()
+                    && decoration.canSurvive(level, position)) {
+                    level.setBlock(position, decoration, 2);
                 }
             }
             return;
@@ -570,61 +583,6 @@ final class WorldGateSystem {
         return value ^ value >>> 31;
     }
 
-    private static boolean placeNaturalTree(
-        ServerLevel level, BlockPos ground, int height,
-        BlockState log, BlockState leaves
-    ) {
-        int crownBase = ground.getY() + Math.max(4, height - 4);
-        int crownTop = ground.getY() + height + 2;
-        if (crownTop >= level.getMaxBuildHeight()) {
-            return false;
-        }
-        for (int y = ground.getY() + 1; y <= ground.getY() + height; y++) {
-            BlockState existing = level.getBlockState(new BlockPos(ground.getX(), y, ground.getZ()));
-            if (!existing.isAir() && !existing.canBeReplaced()) {
-                return false;
-            }
-        }
-        for (int y = crownBase; y <= crownTop; y++) {
-            int distanceFromTop = crownTop - y;
-            int radius = distanceFromTop <= 1 ? 1 : distanceFromTop <= 3 ? 2 : 3;
-            for (int dx = -radius; dx <= radius; dx++) {
-                for (int dz = -radius; dz <= radius; dz++) {
-                    if (dx * dx + dz * dz > radius * radius + 1) {
-                        continue;
-                    }
-                    BlockPos position = new BlockPos(ground.getX() + dx, y, ground.getZ() + dz);
-                    BlockState existing = level.getBlockState(position);
-                    if (!existing.isAir() && !existing.canBeReplaced()
-                        && !existing.getBlock().equals(leaves.getBlock())) {
-                        return false;
-                    }
-                }
-            }
-        }
-        for (int y = 1; y <= height; y++) {
-            level.setBlock(ground.above(y), log, 2);
-        }
-        for (int y = crownBase; y <= crownTop; y++) {
-            int distanceFromTop = crownTop - y;
-            int radius = distanceFromTop <= 1 ? 1 : distanceFromTop <= 3 ? 2 : 3;
-            for (int dx = -radius; dx <= radius; dx++) {
-                for (int dz = -radius; dz <= radius; dz++) {
-                    if (dx * dx + dz * dz > radius * radius + 1
-                        || (dx == 0 && dz == 0 && y <= ground.getY() + height)) {
-                        continue;
-                    }
-                    BlockPos position = new BlockPos(ground.getX() + dx, y, ground.getZ() + dz);
-                    if (level.getBlockState(position).isAir()
-                        || level.getBlockState(position).canBeReplaced()) {
-                        level.setBlock(position, leaves, 2);
-                    }
-                }
-            }
-        }
-        return true;
-    }
-
     /** Builds the full blocking strip from the inaccessible terrain on both sides. */
     private static void placeNaturalSurroundings(
         ServerLevel level, HexWorldPlan world, Gate gate,
@@ -633,6 +591,10 @@ final class WorldGateSystem {
     ) {
         Direction normal = facingDirection(gate.facing());
         Direction sideways = normal.getClockWise();
+        decorateNaturalBoundary(
+            level, world, gate, center, horizontal,
+            halfLength, halfThickness, halfOpening, normal, sideways
+        );
         for (int along = -halfLength; along <= halfLength; along++) {
             if (Math.abs(along) <= halfOpening) {
                 continue;
@@ -642,10 +604,51 @@ final class WorldGateSystem {
             String terrainType = inaccessibleTerrainType(
                 world, center, sampleDirection
             );
-            for (int across = -halfThickness; across <= halfThickness; across++) {
-                int x = center.x() + (horizontal ? along : across);
-                int z = center.z() + (horizontal ? across : along);
-                placeNaturalBarrierColumn(level, gate, terrainType, x, z);
+            // Natural gates only need one collision plane. The configured wall
+            // thickness remains the visual setback for trees and the gate NBT,
+            // but no longer becomes a five-block-deep invisible slab.
+            int x = center.x() + (horizontal ? along : 0);
+            int z = center.z() + (horizontal ? 0 : along);
+            placeNaturalBarrierColumn(level, gate, terrainType, x, z);
+        }
+    }
+
+    private static void decorateNaturalBoundary(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center, boolean horizontal,
+        int halfLength, int halfThickness, int halfOpening,
+        Direction normal, Direction sideways
+    ) {
+        for (int along = -halfLength; along <= halfLength; along += 7) {
+            if (Math.abs(along) <= halfOpening + 9) {
+                continue;
+            }
+            Direction sampleDirection = along < 0
+                ? sideways.getOpposite() : sideways;
+            String terrainType = inaccessibleTerrainType(
+                world, center, sampleDirection
+            );
+            if (!terrainType.equals("high_forest")
+                && !terrainType.equals("dense_forest")) {
+                continue;
+            }
+            for (int side : new int[] {-1, 1}) {
+                long hash = mixGateSeed(
+                    world.seed(), center.x(), center.z(), along, side
+                );
+                int jitter = Math.floorMod((int) (hash >>> 18), 5) - 2;
+                int setback = halfThickness + 4
+                    + Math.floorMod((int) (hash >>> 28), 4);
+                int lateral = along + jitter;
+                int x = center.x() + (horizontal
+                    ? lateral : normal.getStepX() * side * setback);
+                int z = center.z() + (horizontal
+                    ? normal.getStepZ() * side * setback : lateral);
+                int groundY = groundY(level, x, z);
+                CobbleventureBootstrap.placeNaturalGateTree(
+                    level, gate.treeLog(), gate.treeLeaves(),
+                    new BlockPos(x, groundY, z), hash
+                );
             }
         }
     }
@@ -663,12 +666,6 @@ final class WorldGateSystem {
         }
         return heightmapGround;
     }
-    private static BlockState persistentLeaves(BlockState state) {
-        return state.hasProperty(LeavesBlock.PERSISTENT)
-            ? state.setValue(LeavesBlock.PERSISTENT, true)
-            : state;
-    }
-
     /**
      * Restores only air holes that a gate template's padded air volume cut into
      * the already generated wall. Existing NBT blocks are left untouched so the
