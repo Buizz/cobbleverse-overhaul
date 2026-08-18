@@ -4552,7 +4552,7 @@ public final class CobbleventureBootstrap {
             );
             if (placed) {
                 StructurePlacementFixes.afterPlacement(
-                    level, blockPos, template.get().getSize(rotation)
+                    level, blockPos, template.get(), settings
                 );
             }
             return placed;
@@ -4607,7 +4607,9 @@ public final class CobbleventureBootstrap {
             LOGGER.error("Template placement failed for {} at {}", structure, position);
         }
         if (placed) {
-            StructurePlacementFixes.afterPlacement(level, blockPos, template.orElseThrow().getSize());
+            StructurePlacementFixes.afterPlacement(
+                level, blockPos, template.orElseThrow(), settings
+            );
         }
         return placed;
     }
@@ -4633,7 +4635,7 @@ public final class CobbleventureBootstrap {
         );
         if (placed) {
             StructurePlacementFixes.afterPlacement(
-                level, blockPos, template.get().getSize(rotation)
+                level, blockPos, template.get(), settings
             );
         }
         return placed;

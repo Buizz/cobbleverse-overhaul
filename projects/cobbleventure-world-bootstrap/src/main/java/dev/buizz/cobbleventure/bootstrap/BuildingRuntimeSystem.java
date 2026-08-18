@@ -651,8 +651,9 @@ final class BuildingRuntimeSystem {
             String preparedKey = instanceKey + "|space|" + interior.key;
             if (!runtime.hasPrepared(preparedKey)) {
                 forceChunks(interiorsLevel, origin, template.orElseThrow().getSize());
+                StructurePlaceSettings placementSettings = new StructurePlaceSettings();
                 boolean placed = template.orElseThrow().placeInWorld(
-                    interiorsLevel, origin, origin, new StructurePlaceSettings(),
+                    interiorsLevel, origin, origin, placementSettings,
                     RandomSource.create(interiorsLevel.getSeed() ^ origin.asLong()), 2
                 );
                 if (!placed) {
@@ -664,7 +665,7 @@ final class BuildingRuntimeSystem {
                     continue;
                 }
                 StructurePlacementFixes.afterPlacement(
-                    interiorsLevel, origin, template.orElseThrow().getSize()
+                    interiorsLevel, origin, template.orElseThrow(), placementSettings
                 );
                 runtime.markPrepared(preparedKey);
             }

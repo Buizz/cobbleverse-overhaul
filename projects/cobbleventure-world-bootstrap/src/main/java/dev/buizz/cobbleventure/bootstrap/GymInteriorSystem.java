@@ -556,15 +556,18 @@ final class GymInteriorSystem {
                 BlockPos moduleOrigin = gym.instanceOrigin.offset(module.position.x, module.position.y, module.position.z);
                 Vec3i size = template.orElseThrow().getSize(module.rotation);
                 forceChunks(level, moduleOrigin, size);
+                StructurePlaceSettings settings = new StructurePlaceSettings()
+                    .setRotation(module.rotation);
                 boolean placed = template.orElseThrow().placeInWorld(
-                    level, moduleOrigin, moduleOrigin,
-                    new StructurePlaceSettings().setRotation(module.rotation),
+                    level, moduleOrigin, moduleOrigin, settings,
                     RandomSource.create(level.getSeed() ^ moduleOrigin.asLong()), 2
                 );
                 if (!placed) {
                     throw new IllegalStateException("Gym interior module placement failed: " + module.structure);
                 }
-                StructurePlacementFixes.afterPlacement(level, moduleOrigin, size);
+                StructurePlacementFixes.afterPlacement(
+                    level, moduleOrigin, template.orElseThrow(), settings
+                );
                 sanitize(level, moduleOrigin, size);
             }
             level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
