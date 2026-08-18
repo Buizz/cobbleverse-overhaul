@@ -70,6 +70,14 @@ public final class CobbleventureAdventure {
         return worldContext.wildSpawnRule(level, x, z);
     }
 
+    /** Public hook used by fishing, surfing, and field-interaction systems. */
+    public static AdventureWorldContext.WildSpawnRule authoredEncounterRule(
+        ServerLevel level, double x, double z,
+        AdventureWorldContext.WildEncounterMethod method
+    ) {
+        return worldContext.wildSpawnRule(level, x, z, method);
+    }
+
     static String authoredWeatherAt(ServerPlayer player) {
         return worldContext.authoredWeatherAt(player);
     }

@@ -165,15 +165,31 @@ final class WildSpawnLeveling {
         if (!rule.inheritBiome() || excluded) {
             return randomAddition(entity, rule.additions());
         }
-        int totalWeight = INHERITED_SPAWN_WEIGHT + rule.additions().size();
+        int additionWeight = rule.additions().stream()
+            .mapToInt(AdventureWorldContext.WildSpawnAddition::weight).sum();
+        int totalWeight = INHERITED_SPAWN_WEIGHT + additionWeight;
         int choice = entity.getRandom().nextInt(totalWeight);
-        return choice < rule.additions().size() ? rule.additions().get(choice) : null;
+        return choice < additionWeight
+            ? weightedAddition(rule.additions(), choice) : null;
     }
 
     private static AdventureWorldContext.WildSpawnAddition randomAddition(
         PokemonEntity entity, List<AdventureWorldContext.WildSpawnAddition> additions
     ) {
-        return additions.get(entity.getRandom().nextInt(additions.size()));
+        int totalWeight = additions.stream()
+            .mapToInt(AdventureWorldContext.WildSpawnAddition::weight).sum();
+        return weightedAddition(additions, entity.getRandom().nextInt(totalWeight));
+    }
+
+    private static AdventureWorldContext.WildSpawnAddition weightedAddition(
+        List<AdventureWorldContext.WildSpawnAddition> additions, int choice
+    ) {
+        int cursor = choice;
+        for (AdventureWorldContext.WildSpawnAddition addition : additions) {
+            cursor -= addition.weight();
+            if (cursor < 0) return addition;
+        }
+        return additions.get(additions.size() - 1);
     }
 
     private static boolean shouldCancel(

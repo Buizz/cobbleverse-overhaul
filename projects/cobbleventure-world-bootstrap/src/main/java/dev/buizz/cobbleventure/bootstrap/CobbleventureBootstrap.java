@@ -323,6 +323,16 @@ public final class CobbleventureBootstrap {
             }
 
             @Override
+            public AdventureWorldContext.WildSpawnRule wildSpawnRule(
+                ServerLevel level, double x, double z,
+                AdventureWorldContext.WildEncounterMethod method
+            ) {
+                return CobbleventureBootstrap.wildSpawnRule(
+                    level, x, z, method
+                );
+            }
+
+            @Override
             public String authoredWeatherAt(ServerPlayer player) {
                 return CobbleventureBootstrap.authoredWeatherAt(player);
             }
@@ -8611,6 +8621,15 @@ public final class CobbleventureBootstrap {
     static AdventureWorldContext.WildSpawnRule wildSpawnRule(
         ServerLevel level, double x, double z
     ) {
+        return wildSpawnRule(
+            level, x, z, AdventureWorldContext.WildEncounterMethod.LAND
+        );
+    }
+
+    static AdventureWorldContext.WildSpawnRule wildSpawnRule(
+        ServerLevel level, double x, double z,
+        AdventureWorldContext.WildEncounterMethod method
+    ) {
         if (!level.dimension().equals(GENERATION_ONE)) {
             return null;
         }
@@ -8622,13 +8641,19 @@ public final class CobbleventureBootstrap {
         if (route == null) {
             return null;
         }
-        RoutePokemonSpawns settings = route.pokemonSpawns();
+        RoutePokemonPool settings = route.pokemonSpawns().pool(
+            method.serializedName()
+        );
+        if (settings == null) {
+            return null;
+        }
         Set<ResourceLocation> excluded = settings.excludedSpecies().stream()
             .map(ResourceLocation::parse)
             .collect(Collectors.toUnmodifiableSet());
         List<AdventureWorldContext.WildSpawnAddition> additions = settings.additions().stream()
             .map(addition -> new AdventureWorldContext.WildSpawnAddition(
-                ResourceLocation.parse(addition.species()), addition.spawnAsEvolved()
+                ResourceLocation.parse(addition.species()), addition.spawnAsEvolved(),
+                addition.weight()
             ))
             .toList();
         Map<ResourceLocation, AdventureWorldContext.WildSpawnLevelRange> levelOverrides =
@@ -8639,7 +8664,8 @@ public final class CobbleventureBootstrap {
                 )
             ));
         return new AdventureWorldContext.WildSpawnRule(
-            settings.inheritBiome(), excluded, additions, levelOverrides
+            settings.inheritBiome(), excluded, additions, levelOverrides,
+            settings.enabled(), settings.triggerChance()
         );
     }
 

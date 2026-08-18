@@ -498,6 +498,19 @@
             <form method="dialog" class="route-pokemon-dialog-shell">
               <header><div><p class="eyebrow">ROUTE HABITAT</p><h2 id="route-pokemon-dialog-title">길 포켓몬 편집</h2><span id="route-pokemon-dialog-subtitle"></span></div><button value="close" class="dialog-close" aria-label="닫기">×</button></header>
               <div class="route-pokemon-layout">
+                <nav id="route-encounter-method-tabs" class="route-encounter-method-tabs" aria-label="조우 방식">
+                  <button type="button" data-route-encounter-method="land">일반 조우</button>
+                  <button type="button" data-route-encounter-method="surf">파도타기</button>
+                  <button type="button" data-route-encounter-method="old_rod">낡은낚싯대</button>
+                  <button type="button" data-route-encounter-method="good_rod">좋은낚싯대</button>
+                  <button type="button" data-route-encounter-method="super_rod">대단한낚싯대</button>
+                  <button type="button" data-route-encounter-method="headbutt">박치기</button>
+                </nav>
+                <section class="route-encounter-method-settings">
+                  <label class="route-inherit-toggle"><input id="route-encounter-method-enabled" type="checkbox"><span>이 조우 방식 사용</span></label>
+                  <label><span>발동 확률</span><input id="route-encounter-trigger-chance" type="number" min="0" max="100" step="1"><small>%</small></label>
+                  <p id="route-encounter-method-help">길을 걸을 때 발생하는 일반 야생 조우입니다.</p>
+                </section>
                 <section class="route-biome-pokemon"><div class="route-pokemon-section-head"><div><b>현재 출현 포켓몬</b><small>바이옴 포켓몬과 직접 추가한 포켓몬을 나눠 표시합니다.</small></div><label class="route-inherit-toggle"><input id="route-inherit-biome" type="checkbox"><span>기존 바이옴 포켓몬 사용</span></label></div><label class="route-pokemon-search"><span>목록 검색</span><input id="route-biome-pokemon-search" type="search" placeholder="이름·도감 번호"></label><div id="route-pokemon-level-editor" class="pokemon-level-editor" hidden><div><b id="route-pokemon-level-name">포켓몬 레벨</b><small>이 포켓몬만 기본 레벨 대신 지정 범위를 사용합니다.</small></div><label><span>최소 Lv.</span><input id="route-pokemon-level-min" type="number" min="1" max="100"></label><label><span>최대 Lv.</span><input id="route-pokemon-level-max" type="number" min="1" max="100"></label><button id="route-pokemon-level-apply" type="button" class="button primary">적용</button><button id="route-pokemon-level-reset" type="button" class="button secondary">기본값</button><button id="route-pokemon-level-close" type="button" class="pokemon-level-editor-close" aria-label="레벨 설정 닫기">×</button></div><div class="route-current-pokemon-lists"><section class="route-current-pokemon-group"><header><b>바이옴 포켓몬</b><span id="route-biome-pokemon-count">0종</span></header><div id="route-biome-pokemon-list" class="route-biome-pokemon-list"></div></section><section class="route-current-pokemon-group"><header><b>직접 추가된 포켓몬</b><span id="route-direct-pokemon-count">0종</span></header><div id="route-direct-pokemon-list" class="route-biome-pokemon-list route-direct-pokemon-list"></div></section></div></section>
                 <section class="route-custom-pokemon">
                   <div class="route-pokemon-section-head"><div><b>포켓몬 가져오기</b><small>도감에서 여러 종을 골라 이 길에 한 번에 추가합니다.</small></div><span id="route-custom-pokemon-count">0종 추가됨</span></div>

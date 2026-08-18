@@ -1010,9 +1010,16 @@ def validate_hex_worlds(
                                 _issue(issues, "error", path, addition_path, "최소 출현 레벨은 최대 출현 레벨보다 클 수 없습니다.")
                             if "spawn_as_evolved" in addition and not isinstance(addition["spawn_as_evolved"], bool):
                                 _issue(issues, "error", path, f"{addition_path}.spawn_as_evolved", "진화본 출현 여부는 true 또는 false여야 합니다.")
+                            weight = addition.get("weight", 1)
+                            if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 10000:
+                                _issue(issues, "error", path, f"{addition_path}.weight", "가중치는 1~10000 정수여야 합니다.")
                     _validate_pokemon_level_overrides(
                         pokemon_spawns.get("level_overrides", []), issues, path,
                         f"{connection_path}.pokemon_spawns.level_overrides", known_pokemon
+                    )
+                    _validate_route_encounter_pools(
+                        pokemon_spawns, issues, path,
+                        f"{connection_path}.pokemon_spawns"
                     )
             validate_access(connection.get("access_requirement"), path, f"{connection_path}.access_requirement")
             validate_access_height(
@@ -6666,6 +6673,57 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
     return forest_id, issues
 
 
+ROUTE_ENCOUNTER_METHODS = {"surf", "old_rod", "good_rod", "super_rod", "headbutt"}
+
+
+def _validate_route_encounter_pools(
+    pokemon: dict[str, Any], issues: list[Issue], path: Path, base: str
+) -> None:
+    pools = pokemon.get("encounter_pools")
+    if pools is None:
+        return
+    if not isinstance(pools, dict):
+        _issue(issues, "error", path, f"{base}.encounter_pools", "조우 방식별 포켓몬 설정은 객체여야 합니다.")
+        return
+    for method, pool in pools.items():
+        pool_path = f"{base}.encounter_pools.{method}"
+        if method not in ROUTE_ENCOUNTER_METHODS:
+            _issue(issues, "error", path, pool_path, f"지원하지 않는 조우 방식입니다: {method}")
+            continue
+        if not isinstance(pool, dict):
+            _issue(issues, "error", path, pool_path, "조우 풀 설정은 객체여야 합니다.")
+            continue
+        for field in ("enabled", "inherit_biome"):
+            if not isinstance(pool.get(field), bool):
+                _issue(issues, "error", path, f"{pool_path}.{field}", "true 또는 false가 필요합니다.")
+        chance = pool.get("trigger_chance")
+        if not isinstance(chance, (int, float)) or isinstance(chance, bool) or not 0 <= chance <= 1:
+            _issue(issues, "error", path, f"{pool_path}.trigger_chance", "발동 확률은 0 이상 1 이하 숫자여야 합니다.")
+        for field in ("excluded_species", "additions", "level_overrides"):
+            if not isinstance(pool.get(field), list):
+                _issue(issues, "error", path, f"{pool_path}.{field}", "배열이어야 합니다.")
+        for index, species in enumerate(pool.get("excluded_species", [])):
+            _resource_id(species, issues, path, f"{pool_path}.excluded_species[{index}]")
+        for field in ("additions", "level_overrides"):
+            for index, entry in enumerate(pool.get(field, [])):
+                entry_path = f"{pool_path}.{field}[{index}]"
+                if not isinstance(entry, dict):
+                    _issue(issues, "error", path, entry_path, "포켓몬과 레벨 범위 설정이 필요합니다.")
+                    continue
+                _resource_id(entry.get("species"), issues, path, f"{entry_path}.species")
+                minimum, maximum = entry.get("min_level"), entry.get("max_level")
+                if not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100:
+                    _issue(issues, "error", path, f"{entry_path}.min_level", "최소 레벨은 1~100 정수여야 합니다.")
+                if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 100:
+                    _issue(issues, "error", path, f"{entry_path}.max_level", "최대 레벨은 1~100 정수여야 합니다.")
+                if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
+                    _issue(issues, "error", path, entry_path, "최소 레벨은 최대 레벨보다 클 수 없습니다.")
+                if field == "additions":
+                    weight = entry.get("weight", 1)
+                    if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 10000:
+                        _issue(issues, "error", path, f"{entry_path}.weight", "가중치는 1~10000 정수여야 합니다.")
+
+
 def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
     issues: list[Issue] = []
     try:
@@ -6768,6 +6826,11 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, base, "최소 레벨은 최대 레벨보다 클 수 없습니다.")
                 if field == "additions" and "spawn_as_evolved" in entry and not isinstance(entry["spawn_as_evolved"], bool):
                     _issue(issues, "error", path, f"{base}.spawn_as_evolved", "진화본 출현 여부는 true 또는 false여야 합니다.")
+                if field == "additions":
+                    weight = entry.get("weight", 1)
+                    if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 10000:
+                        _issue(issues, "error", path, f"{base}.weight", "가중치는 1~10000 정수여야 합니다.")
+        _validate_route_encounter_pools(pokemon, issues, path, "$.pokemon_spawns")
 
     placements = data.get("npc_placements")
     if not isinstance(placements, list):

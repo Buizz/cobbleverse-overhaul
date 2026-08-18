@@ -101,18 +101,45 @@ final class WorldPlanModels {
     }
 
     record RoutePokemonAddition(
-        String species, int minLevel, int maxLevel, boolean spawnAsEvolved
+        String species, int minLevel, int maxLevel, boolean spawnAsEvolved,
+        int weight
     ) {}
 
     record PokemonLevelOverride(String species, int minLevel, int maxLevel) {}
 
+    record RoutePokemonPool(
+        boolean inheritBiome, Set<String> excludedSpecies,
+        List<RoutePokemonAddition> additions,
+        Map<String, PokemonLevelOverride> levelOverrides,
+        boolean enabled, double triggerChance
+    ) {
+        static RoutePokemonPool inherited() {
+            return new RoutePokemonPool(
+                true, Set.of(), List.of(), Map.of(), true, 1.0D
+            );
+        }
+    }
+
     record RoutePokemonSpawns(
         boolean inheritBiome, Set<String> excludedSpecies,
         List<RoutePokemonAddition> additions,
-        Map<String, PokemonLevelOverride> levelOverrides
+        Map<String, PokemonLevelOverride> levelOverrides,
+        Map<String, RoutePokemonPool> encounterPools
     ) {
         static RoutePokemonSpawns inherited() {
-            return new RoutePokemonSpawns(true, Set.of(), List.of(), Map.of());
+            return new RoutePokemonSpawns(
+                true, Set.of(), List.of(), Map.of(), Map.of()
+            );
+        }
+
+        RoutePokemonPool pool(String method) {
+            if (method == null || method.equals("land")) {
+                return new RoutePokemonPool(
+                    inheritBiome, excludedSpecies, additions, levelOverrides,
+                    true, 1.0D
+                );
+            }
+            return encounterPools.get(method);
         }
     }
 

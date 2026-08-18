@@ -9,19 +9,59 @@ import net.minecraft.resources.ResourceLocation;
 
 /** World-owned queries consumed by the platform-neutral adventure rules. */
 public interface AdventureWorldContext {
-    record WildSpawnAddition(ResourceLocation species, boolean spawnAsEvolved) {}
+    enum WildEncounterMethod {
+        LAND("land"), SURF("surf"), OLD_ROD("old_rod"),
+        GOOD_ROD("good_rod"), SUPER_ROD("super_rod"), HEADBUTT("headbutt");
+
+        private final String serializedName;
+
+        WildEncounterMethod(String serializedName) {
+            this.serializedName = serializedName;
+        }
+
+        public String serializedName() {
+            return serializedName;
+        }
+    }
+
+    record WildSpawnAddition(
+        ResourceLocation species, boolean spawnAsEvolved, int weight
+    ) {
+        public WildSpawnAddition(ResourceLocation species, boolean spawnAsEvolved) {
+            this(species, spawnAsEvolved, 1);
+        }
+
+        public WildSpawnAddition {
+            weight = Math.max(1, weight);
+        }
+    }
     record WildSpawnLevelRange(int minLevel, int maxLevel) {}
 
     record WildSpawnRule(
         boolean inheritBiome,
         Set<ResourceLocation> excludedSpecies,
         List<WildSpawnAddition> additions,
-        Map<ResourceLocation, WildSpawnLevelRange> levelOverrides
+        Map<ResourceLocation, WildSpawnLevelRange> levelOverrides,
+        boolean enabled,
+        double triggerChance
     ) {
+        public WildSpawnRule(
+            boolean inheritBiome,
+            Set<ResourceLocation> excludedSpecies,
+            List<WildSpawnAddition> additions,
+            Map<ResourceLocation, WildSpawnLevelRange> levelOverrides
+        ) {
+            this(
+                inheritBiome, excludedSpecies, additions, levelOverrides,
+                true, 1.0D
+            );
+        }
+
         public WildSpawnRule {
             excludedSpecies = Set.copyOf(excludedSpecies);
             additions = List.copyOf(additions);
             levelOverrides = Map.copyOf(levelOverrides);
+            triggerChance = Math.max(0.0D, Math.min(1.0D, triggerChance));
         }
     }
 
@@ -38,6 +78,17 @@ public interface AdventureWorldContext {
     }
 
     WildSpawnRule wildSpawnRule(ServerLevel level, double x, double z);
+
+    /**
+     * Returns the authored pool for a concrete encounter source. Implementations
+     * may keep supporting legacy worlds by exposing only the land pool.
+     */
+    default WildSpawnRule wildSpawnRule(
+        ServerLevel level, double x, double z, WildEncounterMethod method
+    ) {
+        return method == WildEncounterMethod.LAND
+            ? wildSpawnRule(level, x, z) : null;
+    }
 
     String authoredWeatherAt(ServerPlayer player);
 }

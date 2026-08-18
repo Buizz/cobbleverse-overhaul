@@ -318,7 +318,32 @@
         "level_overrides": {
           "type": "array",
           "items": { "$ref": "#/$defs/pokemon_level_override" }
-        }
+        },
+        "encounter_pools": { "$ref": "#/$defs/route_encounter_pools" }
+      }
+    },
+    "route_encounter_pools": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "surf": { "$ref": "#/$defs/route_encounter_pool" },
+        "old_rod": { "$ref": "#/$defs/route_encounter_pool" },
+        "good_rod": { "$ref": "#/$defs/route_encounter_pool" },
+        "super_rod": { "$ref": "#/$defs/route_encounter_pool" },
+        "headbutt": { "$ref": "#/$defs/route_encounter_pool" }
+      }
+    },
+    "route_encounter_pool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "inherit_biome", "excluded_species", "additions", "level_overrides", "trigger_chance"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "inherit_biome": { "type": "boolean" },
+        "excluded_species": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/resource_id" } },
+        "additions": { "type": "array", "items": { "$ref": "#/$defs/route_pokemon_addition" } },
+        "level_overrides": { "type": "array", "items": { "$ref": "#/$defs/pokemon_level_override" } },
+        "trigger_chance": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },
     "route_pokemon_addition": {
@@ -329,7 +354,8 @@
         "species": { "$ref": "#/$defs/resource_id" },
         "min_level": { "type": "integer", "minimum": 1, "maximum": 100 },
         "max_level": { "type": "integer", "minimum": 1, "maximum": 100 },
-        "spawn_as_evolved": { "type": "boolean", "default": false }
+        "spawn_as_evolved": { "type": "boolean", "default": false },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 10000, "default": 1 }
       }
     },
     "pokemon_level_override": {

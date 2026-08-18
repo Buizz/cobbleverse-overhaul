@@ -163,18 +163,45 @@ final class WorldPlanParser {
             return RoutePokemonSpawns.inherited();
         }
         JsonObject value = connection.getAsJsonObject("pokemon_spawns");
+        RoutePokemonPool land = routePokemonPool(value, true);
+        Map<String, RoutePokemonPool> encounterPools = new LinkedHashMap<>();
+        if (value.has("encounter_pools")
+            && value.get("encounter_pools").isJsonObject()) {
+            for (Map.Entry<String, JsonElement> entry
+                : value.getAsJsonObject("encounter_pools").entrySet()) {
+                if (entry.getValue().isJsonObject()) {
+                    encounterPools.put(
+                        entry.getKey(), routePokemonPool(
+                            entry.getValue().getAsJsonObject(), false
+                        )
+                    );
+                }
+            }
+        }
+        return new RoutePokemonSpawns(
+            land.inheritBiome(), land.excludedSpecies(), land.additions(),
+            land.levelOverrides(), Map.copyOf(encounterPools)
+        );
+    }
+
+    private static RoutePokemonPool routePokemonPool(
+        JsonObject value, boolean legacyLandPool
+    ) {
         Set<String> excluded = new java.util.LinkedHashSet<>();
-        for (JsonElement element : value.getAsJsonArray("excluded_species")) {
+        for (JsonElement element : value.has("excluded_species")
+            ? value.getAsJsonArray("excluded_species") : List.<JsonElement>of()) {
             excluded.add(element.getAsString());
         }
         List<RoutePokemonAddition> additions = new ArrayList<>();
-        for (JsonElement element : value.getAsJsonArray("additions")) {
+        for (JsonElement element : value.has("additions")
+            ? value.getAsJsonArray("additions") : List.<JsonElement>of()) {
             JsonObject addition = element.getAsJsonObject();
             additions.add(new RoutePokemonAddition(
                 required(addition, "species"), addition.get("min_level").getAsInt(),
                 addition.get("max_level").getAsInt(),
                 addition.has("spawn_as_evolved")
-                    && addition.get("spawn_as_evolved").getAsBoolean()
+                    && addition.get("spawn_as_evolved").getAsBoolean(),
+                addition.has("weight") ? addition.get("weight").getAsInt() : 1
             ));
         }
         Map<String, PokemonLevelOverride> levelOverrides = new java.util.LinkedHashMap<>();
@@ -188,9 +215,12 @@ final class WorldPlanParser {
                 levelOverrides.put(parsed.species(), parsed);
             }
         }
-        return new RoutePokemonSpawns(
-            value.get("inherit_biome").getAsBoolean(), Set.copyOf(excluded),
-            List.copyOf(additions), Map.copyOf(levelOverrides)
+        return new RoutePokemonPool(
+            !value.has("inherit_biome") || value.get("inherit_biome").getAsBoolean(),
+            Set.copyOf(excluded), List.copyOf(additions), Map.copyOf(levelOverrides),
+            legacyLandPool || !value.has("enabled") || value.get("enabled").getAsBoolean(),
+            value.has("trigger_chance")
+                ? value.get("trigger_chance").getAsDouble() : 1.0D
         );
     }
 
