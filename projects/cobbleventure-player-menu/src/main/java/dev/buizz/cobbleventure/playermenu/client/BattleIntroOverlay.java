@@ -19,7 +19,7 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 /** Full-screen, main-series-inspired trainer versus cut-in. */
 @EventBusSubscriber(modid = CobbleventurePlayerMenu.MOD_ID, value = Dist.CLIENT)
 public final class BattleIntroOverlay {
-    private static final int PORTRAIT_Y_OFFSET = 6;
+    private static final int PORTRAIT_Y_OFFSET = 21;
     private static final ResourceLocation LAYER = ResourceLocation.fromNamespaceAndPath(
         CobbleventurePlayerMenu.MOD_ID, "battle_intro"
     );
