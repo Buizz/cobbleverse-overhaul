@@ -479,19 +479,19 @@ final class WorldGateSystem {
     private static NaturalGateFunnelProfile naturalGateFunnelProfile(
         String terrainType, int tileRadius
     ) {
-        // Reach almost to the far side of a tile. The old 15-18 block collar
-        // widened by roughly one block every two steps and then ended abruptly.
-        // A long, shallow shoulder reads as terrain converging on the gate.
+        // Reach almost to the far side of a tile, but keep the final opening
+        // narrow. Length controls how gradually the terrain converges; flare
+        // controls its actual width and must not scale up with that length.
         int length = Math.max(36, tileRadius - 12);
         return switch (terrainType) {
-            case "dense_forest" -> new NaturalGateFunnelProfile(length, 14, 9);
-            case "high_forest" -> new NaturalGateFunnelProfile(length, 13, 9);
+            case "dense_forest" -> new NaturalGateFunnelProfile(length, 5, 4);
+            case "high_forest" -> new NaturalGateFunnelProfile(length, 5, 4);
             case "stone_mountain", "red_rock_mountain", "snow_mountain" ->
-                new NaturalGateFunnelProfile(length, 14, 8);
+                new NaturalGateFunnelProfile(length, 5, 3);
             case "ocean", "deep_ocean" ->
-                new NaturalGateFunnelProfile(length, 13, 8);
-            case "desert" -> new NaturalGateFunnelProfile(length, 12, 8);
-            default -> new NaturalGateFunnelProfile(length, 12, 8);
+                new NaturalGateFunnelProfile(length, 4, 3);
+            case "desert" -> new NaturalGateFunnelProfile(length, 4, 3);
+            default -> new NaturalGateFunnelProfile(length, 4, 3);
         };
     }
 
@@ -529,7 +529,7 @@ final class WorldGateSystem {
             // Use the same vanilla placed-feature path as the rest of the world.
             // Candidate spacing keeps full crowns apart instead of drawing a
             // handmade leaf wall whose trees are visibly clipped.
-            if (band >= 5
+            if (band >= 3
                 && Math.floorMod(depth + band * 3, 8) == 0
                 && Math.floorMod((int) hash, 3) == 0
                 && CobbleventureBootstrap.placeNaturalGateTree(
