@@ -802,11 +802,9 @@ final class GymInteriorSystem {
     }
 
     private static BlockPos blockerPosition(BlockPos door, BlockPos safeSpawn) {
-        int deltaX = door.getX() - safeSpawn.getX();
-        int deltaZ = door.getZ() - safeSpawn.getZ();
-        return Math.abs(deltaX) >= Math.abs(deltaZ)
-            ? safeSpawn.offset(0, 0, 2)
-            : safeSpawn.offset(2, 0, 0);
+        int outsideX = Integer.signum(safeSpawn.getX() - door.getX());
+        int outsideZ = Integer.signum(safeSpawn.getZ() - door.getZ());
+        return safeSpawn.offset(outsideX, 0, outsideZ);
     }
 
     private static void ensureBlockingNpc(MinecraftServer server, BlockingNpc blocker) {

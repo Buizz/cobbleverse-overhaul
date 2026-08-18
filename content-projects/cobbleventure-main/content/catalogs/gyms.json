@@ -37,6 +37,18 @@
           }
         ]
       },
+      "access": {
+        "require_previous_gym": false,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [
+          "문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."
+        ],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "staff": {
         "leader": {
           "league_entry_id": "cobbleventure:league/kanto/boulder",
@@ -53,6 +65,16 @@
         "en_us": "Cerulean Gym"
       },
       "theme": "water",
+      "access": {
+        "require_previous_gym": true,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": ["문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "exterior": {
         "structure": "cobbleventure:gyms/base_gym"
       },
@@ -96,6 +118,16 @@
         "en_us": "Vermilion Gym"
       },
       "theme": "electric",
+      "access": {
+        "require_previous_gym": true,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": ["문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "exterior": {
         "structure": "cobbleventure:gyms/base_gym"
       },
@@ -139,6 +171,16 @@
         "en_us": "Celadon Gym"
       },
       "theme": "grass",
+      "access": {
+        "require_previous_gym": true,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": ["문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "exterior": {
         "structure": "cobbleventure:gyms/base_gym"
       },
@@ -182,6 +224,16 @@
         "en_us": "Fuchsia Gym"
       },
       "theme": "poison",
+      "access": {
+        "require_previous_gym": true,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": ["문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "exterior": {
         "structure": "cobbleventure:gyms/base_gym"
       },
@@ -225,6 +277,16 @@
         "en_us": "Saffron Gym"
       },
       "theme": "psychic",
+      "access": {
+        "require_previous_gym": true,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": ["문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "exterior": {
         "structure": "cobbleventure:gyms/base_gym"
       },
@@ -268,6 +330,16 @@
         "en_us": "Cinnabar Gym"
       },
       "theme": "fire",
+      "access": {
+        "require_previous_gym": true,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": ["문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "exterior": {
         "structure": "cobbleventure:gyms/base_gym"
       },
@@ -311,6 +383,16 @@
         "en_us": "Viridian Gym"
       },
       "theme": "ground",
+      "access": {
+        "require_previous_gym": true,
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": ["문은 굳게 잠겨 있다. 먼저 앞선 체육관 관장에게 승리해야 한다."],
+        "blocking_npc": {
+          "enabled": true,
+          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+        }
+      },
       "exterior": {
         "structure": "cobbleventure:gyms/base_gym"
       },

@@ -284,6 +284,10 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn("cobbledollars give @1 1200", preset)
         self.assertIn("cobbleventurebag acquire @1 cobblemon:rare_candy 2", preset)
         self.assertIn(entry["encounter"]["rewards"]["badge_id"], preset)
+        self.assertIn(
+            f"cobbleventure_progress level_cap @1 {entry['level_cap']}",
+            preset,
+        )
 
     def test_compiles_each_league_dialogue_line_as_a_sequential_dialogue(self) -> None:
         league = json.loads(

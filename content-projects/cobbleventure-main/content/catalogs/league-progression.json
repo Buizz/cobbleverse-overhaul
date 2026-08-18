@@ -13,7 +13,7 @@
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 1,
-      "level_cap": 56,
+      "level_cap": 20,
       "encounter": {
         "character": "cobbleventure:character/brock",
         "battle_id": "cobbleventure:battle/gym_leader/brock",
@@ -45,7 +45,7 @@
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 2,
-      "level_cap": 51,
+      "level_cap": 23,
       "encounter": {
         "character": "cobbleventure:character/misty",
         "battle_id": "cobbleventure:battle/gym_leader/misty",
@@ -77,7 +77,7 @@
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 3,
-      "level_cap": 20,
+      "level_cap": 28,
       "encounter": {
         "character": "cobbleventure:character/lt_surge",
         "battle_id": "cobbleventure:battle/gym_leader/lt_surge",
@@ -109,7 +109,7 @@
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 4,
-      "level_cap": 28,
+      "level_cap": 40,
       "encounter": {
         "character": "cobbleventure:character/erika",
         "battle_id": "cobbleventure:battle/gym_leader/erika",
@@ -141,7 +141,7 @@
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 5,
-      "level_cap": 40,
+      "level_cap": 50,
       "encounter": {
         "character": "cobbleventure:character/koga",
         "battle_id": "cobbleventure:battle/gym_leader/koga",
@@ -173,7 +173,7 @@
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 6,
-      "level_cap": 23,
+      "level_cap": 51,
       "encounter": {
         "character": "cobbleventure:character/sabrina",
         "battle_id": "cobbleventure:battle/gym_leader/sabrina",
@@ -205,7 +205,7 @@
       "generation": 1,
       "region": "cobbleventure:region/kanto",
       "order": 7,
-      "level_cap": 50,
+      "level_cap": 56,
       "encounter": {
         "character": "cobbleventure:character/blaine",
         "battle_id": "cobbleventure:battle/gym_leader/blaine",

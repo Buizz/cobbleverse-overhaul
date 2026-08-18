@@ -207,6 +207,9 @@ def league_encounter_document(entry: dict) -> dict:
             "count": int(rewards.get("item_count", 1)),
         })
     victory_rewards.append({"type": "grant_badge", "badge": rewards["badge_id"]})
+    victory_rewards.append({
+        "type": "set_level_cap", "level_cap": int(entry["level_cap"]),
+    })
     return {
         "$schema": "../../../schemas/npc-event-script.schema.json",
         "schema_version": 4,
