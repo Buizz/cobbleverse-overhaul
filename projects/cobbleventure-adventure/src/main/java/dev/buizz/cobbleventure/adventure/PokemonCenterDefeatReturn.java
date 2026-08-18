@@ -122,8 +122,10 @@ public final class PokemonCenterDefeatReturn {
                 continue;
             }
             iterator.remove();
-            if (isPartyWiped(player)) {
-                startRecovery(player, server, gameTime, pending.settlement);
+            if (pending.forceRecovery || isPartyWiped(player)) {
+                startRecovery(
+                    player, server, gameTime, pending.settlement, pending.forceRecovery
+                );
             } else {
                 BattleLossEconomy.announce(player, pending.settlement);
             }
@@ -154,7 +156,7 @@ public final class PokemonCenterDefeatReturn {
                 long gameTime = player.getServer().overworld().getGameTime();
                 PENDING_RETURNS.put(
                     player.getUUID(),
-                    new PendingReturn(gameTime + RETURN_DELAY_TICKS, settlement)
+                    new PendingReturn(gameTime + RETURN_DELAY_TICKS, settlement, false)
                 );
             }
         }
@@ -162,8 +164,19 @@ public final class PokemonCenterDefeatReturn {
 
     private static void onBattleFled(BattleFledEvent event) {
         ServerPlayer player = event.getPlayer().getEntity();
-        if (player != null) {
-            BattleLossEconomy.announce(player, BattleLossEconomy.settle(event));
+        if (player == null) {
+            return;
+        }
+
+        BattleLossEconomy.Settlement settlement = BattleLossEconomy.settle(event);
+        if (event.getBattle().isPvN()) {
+            long gameTime = player.getServer().overworld().getGameTime();
+            PENDING_RETURNS.put(
+                player.getUUID(),
+                new PendingReturn(gameTime + RETURN_DELAY_TICKS, settlement, true)
+            );
+        } else {
+            BattleLossEconomy.announce(player, settlement);
         }
     }
 
@@ -184,7 +197,8 @@ public final class PokemonCenterDefeatReturn {
         ServerPlayer player,
         MinecraftServer server,
         long gameTime,
-        BattleLossEconomy.Settlement settlement
+        BattleLossEconomy.Settlement settlement,
+        boolean forfeited
     ) {
         CompoundTag data = player.getPersistentData();
         ResourceLocation dimensionId = ResourceLocation.tryParse(
@@ -217,10 +231,12 @@ public final class PokemonCenterDefeatReturn {
             false,
             false
         ));
-        player.sendSystemMessage(Component.translatable(
-            "message.cobbleventure_bootstrap.no_usable_pokemon",
-            player.getDisplayName()
-        ));
+        if (!forfeited) {
+            player.sendSystemMessage(Component.translatable(
+                "message.cobbleventure_bootstrap.no_usable_pokemon",
+                player.getDisplayName()
+            ));
+        }
         ACTIVE_RECOVERIES.put(player.getUUID(), new RecoverySequence(
             dimension,
             position,
@@ -352,10 +368,16 @@ public final class PokemonCenterDefeatReturn {
     private static final class PendingReturn {
         private long returnAt;
         private final BattleLossEconomy.Settlement settlement;
+        private final boolean forceRecovery;
 
-        private PendingReturn(long returnAt, BattleLossEconomy.Settlement settlement) {
+        private PendingReturn(
+            long returnAt,
+            BattleLossEconomy.Settlement settlement,
+            boolean forceRecovery
+        ) {
             this.returnAt = returnAt;
             this.settlement = settlement;
+            this.forceRecovery = forceRecovery;
         }
     }
 }

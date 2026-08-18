@@ -12,7 +12,6 @@
   ],
   "client": [
     "BattleFontMixin",
-    "BattleGeneralActionSelectionMixin",
     "BiomePrecipitationMixin",
     "GymBlockerEntityRenderMixin",
     "GymBlockerPickMixin"
