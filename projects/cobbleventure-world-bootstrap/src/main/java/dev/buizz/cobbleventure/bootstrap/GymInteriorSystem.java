@@ -54,6 +54,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
@@ -81,6 +83,10 @@ final class GymInteriorSystem {
 
     static void register() {
         NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onEntityInteract);
+        NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onEntityInteractSpecific);
+        NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onAttackEntity);
+        NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(GymInteriorSystem::onServerTick);
     }
 
@@ -739,6 +745,7 @@ final class GymInteriorSystem {
         player.getPersistentData().putLong(INTERACTION_COOLDOWN, gameTime + 10L);
         if (!target.allows(player)) {
             ensureBlockingNpc(player.getServer(), target.blocker);
+            syncBlockerVisibility(player.getServer());
             sendDialogue(player, target.lockedDialogue);
             return;
         }
@@ -814,7 +821,13 @@ final class GymInteriorSystem {
         spawnNpc(level, gym, new GymStaffMember("door_blocker", blocker.preset, new BlockPoint(0, 0, 0)), blocker.position);
         level.getEntities((Entity) null, search, entity -> !before.contains(entity.getUUID()))
             .stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(Vec3.atCenterOf(blocker.position))))
-            .ifPresent(entity -> BLOCKING_NPCS.put(blocker.key, entity.getUUID()));
+            .ifPresent(entity -> {
+                entity.noPhysics = true;
+                entity.setInvulnerable(true);
+                entity.setNoGravity(true);
+                entity.setDeltaMovement(Vec3.ZERO);
+                BLOCKING_NPCS.put(blocker.key, entity.getUUID());
+            });
     }
 
     private static void removeBlockingNpc(MinecraftServer server, BlockingNpc blocker) {
@@ -838,6 +851,62 @@ final class GymInteriorSystem {
             if (blockedPlayerNearby) ensureBlockingNpc(server, blocker);
             else removeBlockingNpc(server, blocker);
         }
+        syncBlockerVisibility(server);
+    }
+
+    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            syncBlockerVisibility(player);
+        }
+    }
+
+    private static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getEntity() instanceof ServerPlayer player
+            && isHiddenBlocker(player, event.getTarget().getUUID())) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.FAIL);
+        }
+    }
+
+    private static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
+        if (event.getEntity() instanceof ServerPlayer player
+            && isHiddenBlocker(player, event.getTarget().getUUID())) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.FAIL);
+        }
+    }
+
+    private static void onAttackEntity(AttackEntityEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player
+            && isHiddenBlocker(player, event.getTarget().getUUID())) {
+            event.setCanceled(true);
+        }
+    }
+
+    private static boolean isHiddenBlocker(ServerPlayer player, UUID entityId) {
+        for (Map.Entry<String, UUID> entry : BLOCKING_NPCS.entrySet()) {
+            if (!entry.getValue().equals(entityId)) continue;
+            DoorTarget target = BLOCKING_TARGETS.get(entry.getKey());
+            return target != null && target.allows(player);
+        }
+        return false;
+    }
+
+    private static void syncBlockerVisibility(MinecraftServer server) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            syncBlockerVisibility(player);
+        }
+    }
+
+    private static void syncBlockerVisibility(ServerPlayer player) {
+        List<UUID> hidden = new ArrayList<>();
+        for (Map.Entry<String, UUID> entry : BLOCKING_NPCS.entrySet()) {
+            DoorTarget target = BLOCKING_TARGETS.get(entry.getKey());
+            if (target != null && target.allows(player)) {
+                hidden.add(entry.getValue());
+            }
+        }
+        GymBlockerVisibilityNetwork.sync(player, hidden);
     }
 
     private static void forceChunks(ServerLevel level, BlockPos origin, Vec3i size) {

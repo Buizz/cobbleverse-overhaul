@@ -334,6 +334,7 @@ public final class CobbleventureBootstrap {
         FlashCaveEffects.register();
         LocalWeatherSystem.register(modBus);
         GateDialogueNetwork.register(modBus);
+        GymBlockerVisibilityNetwork.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
         DoorTransitionSound.register();

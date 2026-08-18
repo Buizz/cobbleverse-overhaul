@@ -13,7 +13,9 @@
   "client": [
     "BattleFontMixin",
     "BattleGeneralActionSelectionMixin",
-    "BiomePrecipitationMixin"
+    "BiomePrecipitationMixin",
+    "GymBlockerEntityRenderMixin",
+    "GymBlockerPickMixin"
   ],
   "injectors": {
     "defaultRequire": 1
