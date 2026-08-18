@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -229,13 +228,6 @@ final class WorldGateSystem {
             );
         }
         if (!forestGate) {
-            placeNaturalGateFunnels(
-                level, world, gate, center,
-                gatePlacement == null ? null : gatePlacement.occupiedFootprint(),
-                halfThickness, halfOpening
-            );
-        }
-        if (!forestGate) {
             layGateApproachRoads(
                 level, world, gate, center,
                 gatePlacement == null ? null : gatePlacement.footprint(),
@@ -270,9 +262,6 @@ final class WorldGateSystem {
             level, world, gate, center, horizontal,
             halfLength, halfThickness, halfOpening
         );
-        placeNaturalGateFunnels(
-            level, world, gate, center, null, halfThickness, halfOpening
-        );
         LOGGER.info("NPC natural gate visuals refreshed: gate={}", gate.id());
     }
 
@@ -296,98 +285,6 @@ final class WorldGateSystem {
                 placeOverheadBarrier(level, x, z, groundY, gate.wallHeight(), gate.barrierHeight());
             }
         }
-    }
-
-    /**
-     * Continues the gate collar into the configured inaccessible background.
-     * The two shoulders flare away from the building, so the open terrain is
-     * gradually funneled down to the gate instead of meeting a straight wall.
-     */
-    private static void placeNaturalGateFunnels(
-        ServerLevel level, HexWorldPlan world, Gate gate,
-        CobbleventureBootstrap.Point center, StructureFootprint footprint,
-        int halfThickness, int halfOpening
-    ) {
-        Direction normal = facingDirection(gate.facing());
-        Direction sideways = normal.getClockWise();
-        int gateHalfWidth = structureHalfWidth(
-            center, footprint, normal, halfOpening
-        );
-        Set<Long> placedColumns = new java.util.HashSet<>();
-        Map<String, Integer> terrainColumns = new HashMap<>();
-        for (int directionSign : new int[] {-1, 1}) {
-            int forwardX = normal.getStepX() * directionSign;
-            int forwardZ = normal.getStepZ() * directionSign;
-            Direction sampleDirection = directionSign < 0
-                ? normal.getOpposite() : normal;
-            String terrainType = inaccessibleTerrainType(
-                world, center, sampleDirection
-            );
-            NaturalGateFunnelProfile profile = naturalGateFunnelProfile(
-                terrainType, world.grid().radius()
-            );
-            int edgeX = footprint == null
-                ? center.x() + forwardX * halfThickness
-                : normal.getAxis() == Direction.Axis.X
-                    ? (forwardX < 0 ? footprint.minX() : footprint.maxX())
-                    : center.x();
-            int edgeZ = footprint == null
-                ? center.z() + forwardZ * halfThickness
-                : normal.getAxis() == Direction.Axis.Z
-                    ? (forwardZ < 0 ? footprint.minZ() : footprint.maxZ())
-                    : center.z();
-            for (int depth = 1; depth <= profile.length(); depth++) {
-                int corridorHalfWidth = gateHalfWidth
-                    + funnelFlareAt(profile, depth);
-                for (int lateralSign : new int[] {-1, 1}) {
-                    for (int band = 1; band <= profile.bandWidth(); band++) {
-                        int lateral = lateralSign * (corridorHalfWidth + band);
-                        int x = edgeX + forwardX * depth
-                            + sideways.getStepX() * lateral;
-                        int z = edgeZ + forwardZ * depth
-                            + sideways.getStepZ() * lateral;
-                        if ((footprint != null && footprint.contains(x, z))
-                            || !placedColumns.add(new BlockPos(x, 0, z).asLong())) {
-                            continue;
-                        }
-                        if (band == 1) {
-                            placeNaturalBarrierColumn(
-                                level, gate, terrainType, x, z
-                            );
-                        } else {
-                            decorateNaturalGateFunnel(
-                                level, world, gate, terrainType,
-                                x, z, depth, band
-                            );
-                        }
-                        terrainColumns.merge(terrainType, 1, Integer::sum);
-                    }
-                }
-            }
-        }
-        LOGGER.info(
-            "Natural gate funnel placed: gate={}, terrainColumns={}, columns={}, gateHalfWidth={}",
-            gate.id(), terrainColumns, placedColumns.size(), gateHalfWidth
-        );
-    }
-
-    private static int structureHalfWidth(
-        CobbleventureBootstrap.Point center, StructureFootprint footprint,
-        Direction normal, int fallback
-    ) {
-        if (footprint == null) {
-            return fallback;
-        }
-        if (normal.getAxis() == Direction.Axis.X) {
-            return Math.max(
-                Math.abs(footprint.minZ() - center.z()),
-                Math.abs(footprint.maxZ() - center.z())
-            );
-        }
-        return Math.max(
-            Math.abs(footprint.minX() - center.x()),
-            Math.abs(footprint.maxX() - center.x())
-        );
     }
 
     /**
@@ -464,37 +361,6 @@ final class WorldGateSystem {
         );
     }
 
-    private static int funnelFlareAt(
-        NaturalGateFunnelProfile profile, int depth
-    ) {
-        if (profile.length() <= 1) {
-            return profile.flare();
-        }
-        double progress = Math.max(0.0D, Math.min(
-            1.0D, (depth - 1.0D) / (profile.length() - 1.0D)
-        ));
-        return (int) Math.floor(profile.flare() * progress);
-    }
-
-    private static NaturalGateFunnelProfile naturalGateFunnelProfile(
-        String terrainType, int tileRadius
-    ) {
-        // Reach almost to the far side of a tile, but keep the final opening
-        // narrow. Length controls how gradually the terrain converges; flare
-        // controls its actual width and must not scale up with that length.
-        int length = Math.max(36, tileRadius - 12);
-        return switch (terrainType) {
-            case "dense_forest" -> new NaturalGateFunnelProfile(length, 5, 4);
-            case "high_forest" -> new NaturalGateFunnelProfile(length, 5, 4);
-            case "stone_mountain", "red_rock_mountain", "snow_mountain" ->
-                new NaturalGateFunnelProfile(length, 5, 3);
-            case "ocean", "deep_ocean" ->
-                new NaturalGateFunnelProfile(length, 4, 3);
-            case "desert" -> new NaturalGateFunnelProfile(length, 4, 3);
-            default -> new NaturalGateFunnelProfile(length, 4, 3);
-        };
-    }
-
     private static void placeNaturalBarrierColumn(
         ServerLevel level, Gate gate, String terrainType, int x, int z
     ) {
@@ -517,20 +383,20 @@ final class WorldGateSystem {
         }
     }
 
-    private static void decorateNaturalGateFunnel(
+    private static void decorateNaturalShoulderColumn(
         ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
-        int x, int z, int depth, int band
+        int x, int z, int distance, int offset
     ) {
         int groundY = groundY(level, x, z);
-        long hash = mixGateSeed(world.seed(), x, z, depth, band);
+        long hash = mixGateSeed(world.seed(), x, z, distance, offset);
         if (terrainType.equals("high_forest")
             || terrainType.equals("dense_forest")) {
             BlockPos ground = new BlockPos(x, groundY, z);
             // Use the same vanilla placed-feature path as the rest of the world.
             // Candidate spacing keeps full crowns apart instead of drawing a
             // handmade leaf wall whose trees are visibly clipped.
-            if (band >= 3
-                && Math.floorMod(depth + band * 3, 8) == 0
+            if (Math.abs(offset) >= 3
+                && Math.floorMod(distance + Math.abs(offset) * 3, 8) == 0
                 && Math.floorMod((int) hash, 3) == 0
                 && CobbleventureBootstrap.placeNaturalGateTree(
                     level, gate.treeLog(), gate.treeLeaves(), ground, hash
@@ -593,7 +459,7 @@ final class WorldGateSystem {
         Direction sideways = normal.getClockWise();
         decorateNaturalBoundary(
             level, world, gate, center, horizontal,
-            halfLength, halfThickness, halfOpening, normal, sideways
+            halfLength, halfThickness, halfOpening, sideways
         );
         for (int along = -halfLength; along <= halfLength; along++) {
             if (Math.abs(along) <= halfOpening) {
@@ -617,40 +483,38 @@ final class WorldGateSystem {
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center, boolean horizontal,
         int halfLength, int halfThickness, int halfOpening,
-        Direction normal, Direction sideways
+        Direction sideways
     ) {
-        for (int along = -halfLength; along <= halfLength; along += 7) {
-            if (Math.abs(along) <= halfOpening + 9) {
-                continue;
-            }
-            Direction sampleDirection = along < 0
+        int availableLength = Math.max(1, halfLength - halfOpening);
+        int maximumDepth = Math.max(7, Math.min(12, halfThickness + 7));
+        for (int shoulderSign : new int[] {-1, 1}) {
+            Direction sampleDirection = shoulderSign < 0
                 ? sideways.getOpposite() : sideways;
             String terrainType = inaccessibleTerrainType(
                 world, center, sampleDirection
             );
-            if (!terrainType.equals("high_forest")
-                && !terrainType.equals("dense_forest")) {
-                continue;
-            }
-            for (int side : new int[] {-1, 1}) {
-                long hash = mixGateSeed(
-                    world.seed(), center.x(), center.z(), along, side
+            for (int distance = halfOpening + 2;
+                distance <= halfLength; distance++) {
+                double progress = (distance - halfOpening) / (double) availableLength;
+                int shoulderDepth = Math.max(
+                    1, (int) Math.floor(maximumDepth * progress)
                 );
-                int jitter = Math.floorMod((int) (hash >>> 18), 5) - 2;
-                int setback = halfThickness + 4
-                    + Math.floorMod((int) (hash >>> 28), 4);
-                int lateral = along + jitter;
-                int x = center.x() + (horizontal
-                    ? lateral : normal.getStepX() * side * setback);
-                int z = center.z() + (horizontal
-                    ? normal.getStepZ() * side * setback : lateral);
-                int groundY = groundY(level, x, z);
-                CobbleventureBootstrap.placeNaturalGateTree(
-                    level, gate.treeLog(), gate.treeLeaves(),
-                    new BlockPos(x, groundY, z), hash
-                );
+                int along = shoulderSign * distance;
+                for (int offset = -shoulderDepth;
+                    offset <= shoulderDepth; offset++) {
+                    int x = center.x() + (horizontal ? along : offset);
+                    int z = center.z() + (horizontal ? offset : along);
+                    decorateNaturalShoulderColumn(
+                        level, world, gate, terrainType,
+                        x, z, distance, offset
+                    );
+                }
             }
         }
+        LOGGER.info(
+            "Natural gate shoulders placed: gate={}, halfLength={}, maxDepth={}, opening={}",
+            gate.id(), halfLength, maximumDepth, halfOpening * 2 + 1
+        );
     }
 
     private static int forestFunnelGroundY(ServerLevel level, int x, int z) {
@@ -803,45 +667,7 @@ final class WorldGateSystem {
             minX + size.getX() - 1,
             minZ + size.getZ() - 1
         );
-        return new GateStructurePlacement(
-            footprint,
-            occupiedStructureFootprint(
-                level, footprint, groundY, groundY + size.getY() - 1
-            )
-        );
-    }
-
-    /** Finds the visible NBT edge instead of treating saved air padding as a wall. */
-    private static StructureFootprint occupiedStructureFootprint(
-        ServerLevel level, StructureFootprint fallback, int minimumY, int maximumY
-    ) {
-        int minX = fallback.maxX();
-        int minZ = fallback.maxZ();
-        int maxX = fallback.minX();
-        int maxZ = fallback.minZ();
-        boolean found = false;
-        for (int x = fallback.minX(); x <= fallback.maxX(); x++) {
-            for (int z = fallback.minZ(); z <= fallback.maxZ(); z++) {
-                boolean occupied = false;
-                for (int y = minimumY + 1; y <= maximumY; y++) {
-                    BlockState state = level.getBlockState(new BlockPos(x, y, z));
-                    if (!state.isAir() && !state.is(Blocks.BARRIER)
-                        && !state.is(Blocks.JIGSAW)) {
-                        occupied = true;
-                        break;
-                    }
-                }
-                if (!occupied) {
-                    continue;
-                }
-                found = true;
-                minX = Math.min(minX, x);
-                minZ = Math.min(minZ, z);
-                maxX = Math.max(maxX, x);
-                maxZ = Math.max(maxZ, z);
-            }
-        }
-        return found ? new StructureFootprint(minX, minZ, maxX, maxZ) : fallback;
+        return new GateStructurePlacement(footprint);
     }
 
     private static boolean placeForestStructure(
@@ -1718,16 +1544,7 @@ final class WorldGateSystem {
         }
     }
 
-    private record GateStructurePlacement(
-        StructureFootprint footprint,
-        StructureFootprint occupiedFootprint
-    ) {}
-
-    private record NaturalGateFunnelProfile(
-        int length,
-        int flare,
-        int bandWidth
-    ) {}
+    private record GateStructurePlacement(StructureFootprint footprint) {}
 
     private static final class PendingGateDenial {
         private final Vec3 lockedPosition;
