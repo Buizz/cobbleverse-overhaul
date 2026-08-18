@@ -36,8 +36,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
@@ -731,6 +729,7 @@ final class GymInteriorSystem {
             player.sendSystemMessage(Component.literal("[체육관 문] 이동할 공간을 찾을 수 없습니다."));
             return;
         }
+        ResourceKey<Level> sourceDimension = player.level().dimension();
         player.teleportTo(
             destination,
             target.position.getX() + 0.5D,
@@ -738,10 +737,7 @@ final class GymInteriorSystem {
             target.position.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
         );
-        destination.playSound(
-            null, target.position, SoundEvents.WOODEN_DOOR_OPEN,
-            SoundSource.BLOCKS, 0.9F, 1.0F
-        );
+        DoorTransitionSound.afterTeleport(player, sourceDimension, target.position);
     }
 
     private static void sendDialogue(ServerPlayer player, List<String> lines) {

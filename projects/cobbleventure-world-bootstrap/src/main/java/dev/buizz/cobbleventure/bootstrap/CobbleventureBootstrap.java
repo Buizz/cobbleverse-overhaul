@@ -336,6 +336,7 @@ public final class CobbleventureBootstrap {
         GateDialogueNetwork.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
+        DoorTransitionSound.register();
         StarterSpawnSystem.register();
         BattleMovementBoundary.register();
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
@@ -460,6 +461,7 @@ public final class CobbleventureBootstrap {
         scheduledTownDebrisCleanup.clear();
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
+        DoorTransitionSound.reset();
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
         if (level == null) {
             throw new IllegalStateException("Cobbleventure generation_1 dimension is missing");

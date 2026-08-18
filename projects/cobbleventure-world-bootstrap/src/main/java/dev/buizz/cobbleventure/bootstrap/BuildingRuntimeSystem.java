@@ -55,8 +55,6 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -986,15 +984,13 @@ final class BuildingRuntimeSystem {
             player.sendSystemMessage(Component.literal("[건물 문] 이동할 공간을 찾을 수 없습니다."));
             return;
         }
+        ResourceKey<Level> sourceDimension = player.level().dimension();
         player.teleportTo(
             destination,
             target.position.getX() + 0.5D, target.position.getY(), target.position.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
         );
-        destination.playSound(
-            null, target.position, SoundEvents.WOODEN_DOOR_OPEN,
-            SoundSource.BLOCKS, 0.9F, 1.0F
-        );
+        DoorTransitionSound.afterTeleport(player, sourceDimension, target.position);
         if (target.interior) MusicPlayback.enterInterior(player, target.musicTrack);
         else MusicPlayback.leaveInterior(player);
     }
