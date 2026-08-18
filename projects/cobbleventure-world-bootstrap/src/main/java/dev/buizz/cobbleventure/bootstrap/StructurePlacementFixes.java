@@ -29,11 +29,6 @@ final class StructurePlacementFixes {
         id("cobblefurnies", "light_fridge"), id("cobblefurnies", "light_freezer"),
         id("cobblefurnies", "dark_fridge"), id("cobblefurnies", "dark_freezer")
     );
-    private static final List<Block> COPYCAT_BLOCKS = BuiltInRegistries.BLOCK.entrySet().stream()
-        .filter(entry -> isCopycatBlock(entry.getKey().location()))
-        .map(Map.Entry::getValue)
-        .toList();
-
     private StructurePlacementFixes() {
     }
 
@@ -61,22 +56,40 @@ final class StructurePlacementFixes {
         StructurePlaceSettings settings
     ) {
         int restored = 0;
-        for (Block copycatBlock : COPYCAT_BLOCKS) {
+        // Resolve this after registries have finished loading. Keeping this list in a static
+        // field can capture only Create's blocks when this helper is initialized before
+        // Copycats+ finishes registering its multi-state blocks.
+        for (Block copycatBlock : copycatBlocks()) {
             for (StructureTemplate.StructureBlockInfo info
                 : template.filterBlocks(origin, settings, copycatBlock)) {
                 CompoundTag sourceData = info.nbt();
                 if (sourceData == null) {
                     continue;
                 }
-                BlockEntity blockEntity = level.getBlockEntity(info.pos());
-                if (blockEntity == null || !level.getBlockState(info.pos()).is(copycatBlock)) {
+                BlockState state = level.getBlockState(info.pos());
+                if (!state.is(copycatBlock)) {
                     continue;
                 }
                 try {
-                    blockEntity.loadWithComponents(sourceData.copy(), level.registryAccess());
-                    blockEntity.setChanged();
-                    BlockState state = level.getBlockState(info.pos());
-                    level.sendBlockUpdated(info.pos(), state, state, 3);
+                    // Copycats+ multi-state entities keep per-part material/model caches.
+                    // Loading NBT into the empty instance made by StructureTemplate can leave
+                    // those caches on the black copycat base. Recreate the entity from the
+                    // authored NBT so its storage is initialized before the data is read.
+                    BlockEntity restoredEntity = BlockEntity.loadStatic(
+                        info.pos(), state, sourceData.copy(), level.registryAccess()
+                    );
+                    if (restoredEntity == null) {
+                        LOGGER.warn(
+                            "Copycat material NBT could not create a block entity at {} for {}",
+                            info.pos(), BuiltInRegistries.BLOCK.getKey(copycatBlock)
+                        );
+                        continue;
+                    }
+                    level.removeBlockEntity(info.pos());
+                    level.setBlockEntity(restoredEntity);
+                    restoredEntity.setChanged();
+                    level.sendBlockUpdated(info.pos(), state, state, 16);
+                    level.getChunkSource().blockChanged(info.pos());
                     restored++;
                 } catch (RuntimeException error) {
                     LOGGER.warn(
@@ -89,6 +102,13 @@ final class StructurePlacementFixes {
         if (restored > 0) {
             LOGGER.debug("Restored {} copycat material block entities at {}", restored, origin);
         }
+    }
+
+    private static List<Block> copycatBlocks() {
+        return BuiltInRegistries.BLOCK.entrySet().stream()
+            .filter(entry -> isCopycatBlock(entry.getKey().location()))
+            .map(Map.Entry::getValue)
+            .toList();
     }
 
     private static void repairFridges(ServerLevel level, BlockPos origin, Vec3i size) {
