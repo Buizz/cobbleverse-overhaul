@@ -532,6 +532,17 @@ def recolor_house_roof_nbt(structure_nbt: bytes, roof_color: str) -> bytes:
             bytes((TAG_STRING,)) + _string("Name") + _string(target_block)
         )
         recolored = recolored.replace(template_palette_entry, target_palette_entry)
+        # Copycat block entities validate their rendered Material against the
+        # consumed Item when the server loads them. Recoloring only Material.Name
+        # leaves Item.id on the white template block and Copycats+ consequently
+        # resets the material to its black copycat base.
+        template_item_entry = (
+            bytes((TAG_STRING,)) + _string("id") + _string(template_block)
+        )
+        target_item_entry = (
+            bytes((TAG_STRING,)) + _string("id") + _string(target_block)
+        )
+        recolored = recolored.replace(template_item_entry, target_item_entry)
     if target_palette == template_palette:
         return structure_nbt
     return gzip.compress(recolored, mtime=0)
