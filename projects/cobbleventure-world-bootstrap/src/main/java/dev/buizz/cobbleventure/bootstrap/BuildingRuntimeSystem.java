@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.block.entity.DisplayCaseBlockEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -1041,6 +1042,15 @@ final class BuildingRuntimeSystem {
     }
 
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getLevel().getBlockEntity(event.getPos()) instanceof DisplayCaseBlockEntity displayCase
+            && !displayCase.getStack().isEmpty()) {
+            // A filled display case is part of the authored scenery. Cobblemon swaps or
+            // returns its item on any further click, so consume the interaction on both
+            // client and server before the block can hand that item to the player.
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            return;
+        }
         if (event.getLevel().isClientSide() || !(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
