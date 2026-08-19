@@ -222,7 +222,13 @@
       "required": true
     }
   ],
-  "local_resourcepacks": [],
+  "local_resourcepacks": [
+    {
+      "source": "local-assets/PokemonBW-Minecraft.zip",
+      "target": "PokemonBW.zip",
+      "pack_format": 34
+    }
+  ],
   "overrides_directory": "pack/overrides/development-placeholder",
   "output": "dist/cobbleventure-development-0.1.6-curseforge.zip"
 }
