@@ -25,6 +25,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /** Returns a player with a fully fainted party to their latest generated Pokémon Center. */
@@ -45,6 +46,7 @@ public final class PokemonCenterDefeatReturn {
     private static final long RECOVERY_COMPLETE_TICKS = 105L;
     private static final Map<UUID, PendingReturn> PENDING_RETURNS = new HashMap<>();
     private static final Map<UUID, RecoverySequence> ACTIVE_RECOVERIES = new HashMap<>();
+    private static final Map<UUID, UUID> FORFEITED_BATTLES = new HashMap<>();
     private static boolean registered;
 
     private PokemonCenterDefeatReturn() {}
@@ -60,6 +62,15 @@ public final class PokemonCenterDefeatReturn {
         CobblemonEvents.BATTLE_FLED.subscribe(
             (Consumer<BattleFledEvent>) PokemonCenterDefeatReturn::onBattleFled
         );
+        NeoForge.EVENT_BUS.addListener(PokemonCenterDefeatReturn::onServerTick);
+    }
+
+    /** Records a validated server-side forfeit before Cobblemon resolves it as a loss. */
+    public static void recordForfeit(PlayerBattleActor actor) {
+        ServerPlayer player = actor.getEntity();
+        if (player != null) {
+            FORFEITED_BATTLES.put(player.getUUID(), actor.getBattle().getBattleId());
+        }
     }
 
     public static void ensureFallback(
@@ -151,6 +162,7 @@ public final class PokemonCenterDefeatReturn {
     public static void recoverAfterTickFailure(MinecraftServer server) {
         PENDING_RETURNS.clear();
         ACTIVE_RECOVERIES.clear();
+        FORFEITED_BATTLES.clear();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (isPartyWiped(player)) {
                 Cobblemon.INSTANCE.getStorage().getParty(player).heal();
@@ -166,11 +178,16 @@ public final class PokemonCenterDefeatReturn {
             }
             ServerPlayer player = actor.getEntity();
             if (player != null) {
-                BattleLossEconomy.Settlement settlement = BattleLossEconomy.settle(event, actor);
+                boolean forfeited = consumeForfeit(
+                    player.getUUID(), event.getBattle().getBattleId()
+                );
+                BattleLossEconomy.Settlement settlement = BattleLossEconomy.settle(
+                    event, actor, forfeited
+                );
                 long gameTime = player.getServer().overworld().getGameTime();
                 PENDING_RETURNS.put(
                     player.getUUID(),
-                    new PendingReturn(gameTime + RETURN_DELAY_TICKS, settlement, false)
+                    new PendingReturn(gameTime + RETURN_DELAY_TICKS, settlement, forfeited)
                 );
             }
         }
@@ -183,7 +200,8 @@ public final class PokemonCenterDefeatReturn {
         }
 
         BattleLossEconomy.Settlement settlement = BattleLossEconomy.settle(event);
-        if (event.getBattle().isPvN()) {
+        consumeForfeit(player.getUUID(), event.getBattle().getBattleId());
+        if (!event.getBattle().isPvW()) {
             long gameTime = player.getServer().overworld().getGameTime();
             PENDING_RETURNS.put(
                 player.getUUID(),
@@ -192,6 +210,10 @@ public final class PokemonCenterDefeatReturn {
         } else {
             BattleLossEconomy.announce(player, settlement);
         }
+    }
+
+    private static boolean consumeForfeit(UUID playerId, UUID battleId) {
+        return FORFEITED_BATTLES.remove(playerId, battleId);
     }
 
     static boolean isPartyWiped(ServerPlayer player) {

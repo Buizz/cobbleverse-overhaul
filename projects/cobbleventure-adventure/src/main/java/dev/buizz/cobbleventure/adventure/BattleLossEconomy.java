@@ -28,12 +28,18 @@ final class BattleLossEconomy {
     private BattleLossEconomy() {}
 
     static Settlement settle(BattleVictoryEvent event, PlayerBattleActor loser) {
+        return settle(event, loser, false);
+    }
+
+    static Settlement settle(
+        BattleVictoryEvent event, PlayerBattleActor loser, boolean forfeited
+    ) {
         return settle(
             event.getBattle().getBattleId(),
             loser,
             event.getWinners(),
             event.getBattle().isPvW(),
-            false
+            forfeited
         );
     }
 
@@ -185,6 +191,7 @@ final class BattleLossEconomy {
             this.wild = wild;
             this.forfeited = forfeited;
         }
+
     }
 
     private record SettlementKey(UUID battleId, UUID playerId) {}
