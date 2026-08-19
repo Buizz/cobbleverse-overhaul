@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"체육관 관장 민화 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"체육관 관장 민화 [V5]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"체육관 관장 민화\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.900f,0.900f,0.900f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;1115739342,718101860,-1154834789,795939483],
+    SkinData:{Type:"CUSTOM",UUID:[I;1478020090,1828475133,-2036593952,1234428039] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/gym_leaders/erika"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

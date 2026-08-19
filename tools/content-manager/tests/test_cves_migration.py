@@ -198,6 +198,21 @@ class CvesGymLeaderMigrationTests(unittest.TestCase):
         self.assertEqual(1, len(differences))
         self.assertIn("post_victory_level_cap", differences[0])
 
+    def test_every_kanto_gym_leader_matches_the_league_progression_contract(self) -> None:
+        league = json.loads(LEAGUE_SOURCE.read_text(encoding="utf-8"))
+        entries = sorted(
+            (value for value in league["entries"] if value.get("role") == "gym_leader"),
+            key=lambda value: value["order"],
+        )
+        self.assertEqual(8, len(entries))
+        for index, entry in enumerate(entries):
+            slug = entry["encounter"]["battle_id"].rsplit("/", 1)[-1]
+            cap = entries[index + 1]["level_cap"] if index + 1 < len(entries) else 100
+            source = PROJECT_ROOT / f"content/events/cobbleventure/gym_leaders/{slug}.cves"
+            program = parse(source.read_text(encoding="utf-8"), str(source))
+            with self.subTest(slug=slug):
+                self.assertEqual((), compare_gym_leader_migration(entry, program, cap))
+
 
 if __name__ == "__main__":
     unittest.main()

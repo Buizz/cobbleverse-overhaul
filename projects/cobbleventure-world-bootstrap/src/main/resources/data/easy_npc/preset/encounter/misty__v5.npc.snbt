@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"체육관 관장 이슬 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"체육관 관장 이슬 [V5]",
+    variantType:"ALEX",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"체육관 관장 이슬\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.900f,0.900f,0.900f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-799017886,-1793960968,-2056045661,235647138],
+    SkinData:{Type:"CUSTOM",UUID:[I;1771048592,1711755980,-1420171292,-1347588207] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/gym_leaders/misty"],
+    VariantType:"ALEX",
+    id:"easy_npc:humanoid"
+  }
+}

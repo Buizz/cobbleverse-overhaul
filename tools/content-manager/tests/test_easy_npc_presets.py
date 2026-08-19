@@ -138,7 +138,6 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         outfits = generator.encounter_outfits_by_class(
             catalog, PROJECT_ROOT / "content/catalogs/trainer-classes.json"
         )
-
         preset = generator.v5_encounter_preset_snbt(
             document, outfits[document["npc"]["trainer_class"]], binding_tag
         )
@@ -385,6 +384,50 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             "preset/encounter/brock__v5.npc.snbt"
         ).read_text(encoding="utf-8")
         self.assertEqual(preset, checked_in)
+
+    def test_every_kanto_gym_leader_has_an_inert_checked_in_v5_preset(self) -> None:
+        league = json.loads(
+            (PROJECT_ROOT / "content/catalogs/league-progression.json").read_text(encoding="utf-8")
+        )
+        entries = [value for value in league["entries"] if value.get("role") == "gym_leader"]
+        caps = generator.league_post_victory_level_caps(entries)
+        catalog = json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
+        )
+        outfits = generator.encounter_outfits_by_class(
+            catalog, PROJECT_ROOT / "content/catalogs/trainer-classes.json"
+        )
+        characters = generator.roster_characters(json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-roster.json").read_text(encoding="utf-8")
+        ))
+        self.assertEqual(8, len(entries))
+        for entry in entries:
+            document = generator.league_encounter_document(entry, caps[entry["id"]])
+            slug = document["id"].rsplit("/", 1)[-1]
+            character = characters.get(document.get("npc", {}).get("character"), {})
+            arm_model = character.get("body", {}).get("arm_model") or character.get(
+                "appearance", {}
+            ).get("arm_model")
+            if arm_model:
+                document["_easy_npc_arm_model"] = arm_model
+            binding = generator.cves_binding_tag_for_relative(
+                PROJECT_ROOT / "content/source",
+                Path("gym_leaders") / f"{slug}.json",
+                document,
+            )
+            preset = generator.v5_encounter_preset_snbt(
+                document, outfits[document["npc"]["trainer_class"]], binding
+            )
+            checked_in = (
+                ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+                f"preset/encounter/{slug}__v5.npc.snbt"
+            ).read_text(encoding="utf-8")
+            with self.subTest(slug=slug):
+                self.assertEqual(f"cves_binding/cobbleventure/gym_leaders/{slug}", binding)
+                self.assertIn("ActionEventSet:{}", preset)
+                self.assertIn("DialogDataSet:[]", preset)
+                self.assertNotIn("cobbleventure_battle_intro", preset)
+                self.assertEqual(preset, checked_in)
 
     def test_gym_caps_advance_to_next_challenge_and_end_unrestricted(self) -> None:
         entries = [

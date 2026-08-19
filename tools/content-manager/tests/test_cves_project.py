@@ -24,7 +24,14 @@ class CvesProjectBuildTests(unittest.TestCase):
         self.assertEqual(
             [
                 Path("cobbleventure/event_script/examples/ai_test.json"),
+                Path("cobbleventure/event_script/gym_leaders/blaine.json"),
                 Path("cobbleventure/event_script/gym_leaders/brock.json"),
+                Path("cobbleventure/event_script/gym_leaders/erika.json"),
+                Path("cobbleventure/event_script/gym_leaders/giovanni_gym.json"),
+                Path("cobbleventure/event_script/gym_leaders/koga.json"),
+                Path("cobbleventure/event_script/gym_leaders/lt_surge.json"),
+                Path("cobbleventure/event_script/gym_leaders/misty.json"),
+                Path("cobbleventure/event_script/gym_leaders/sabrina.json"),
                 Path("cobbleventure/event_script/samples/sample_potion_giver.json"),
                 Path("cobbleventure/event_script/story/professor_oak.json"),
                 Path("cobbleventure/event_script/story/starter_town_gatekeeper_minho.json"),
@@ -34,7 +41,14 @@ class CvesProjectBuildTests(unittest.TestCase):
         self.assertEqual(
             [
                 Path("cobbleventure/npc_event_binding/examples/ai_test.json"),
+                Path("cobbleventure/npc_event_binding/gym_leaders/blaine.json"),
                 Path("cobbleventure/npc_event_binding/gym_leaders/brock.json"),
+                Path("cobbleventure/npc_event_binding/gym_leaders/erika.json"),
+                Path("cobbleventure/npc_event_binding/gym_leaders/giovanni_gym.json"),
+                Path("cobbleventure/npc_event_binding/gym_leaders/koga.json"),
+                Path("cobbleventure/npc_event_binding/gym_leaders/lt_surge.json"),
+                Path("cobbleventure/npc_event_binding/gym_leaders/misty.json"),
+                Path("cobbleventure/npc_event_binding/gym_leaders/sabrina.json"),
                 Path("cobbleventure/npc_event_binding/samples/sample_potion_giver.json"),
                 Path("cobbleventure/npc_event_binding/story/professor_oak.json"),
                 Path("cobbleventure/npc_event_binding/story/starter_town_gatekeeper_minho.json"),
@@ -43,7 +57,7 @@ class CvesProjectBuildTests(unittest.TestCase):
         )
         self.assertEqual(
             "cobbleventure:event_script/samples/sample_potion_giver",
-            build.bindings[2].document["script_id"],
+            build.bindings[9].document["script_id"],
         )
         sources = {
             entry["span"]["source"]

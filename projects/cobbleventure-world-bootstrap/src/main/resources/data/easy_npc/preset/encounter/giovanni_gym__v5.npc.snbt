@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"체육관 관장 비주기 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"체육관 관장 비주기 [V5]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"체육관 관장 비주기\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.900f,0.900f,0.900f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;934391868,-651603531,-1816590870,-1587133217],
+    SkinData:{Type:"CUSTOM",UUID:[I;562880135,400249824,-1120577368,1094912382] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/gym_leaders/giovanni_gym"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}
