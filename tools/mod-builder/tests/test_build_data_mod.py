@@ -23,6 +23,32 @@ SPEC.loader.exec_module(build_data_mod)
 
 
 class TownNpcCapacityUnitTests(unittest.TestCase):
+    def test_dimension_anchor_catalog_is_packaged_for_runtime_resolver(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / build_data_mod.DIMENSION_ANCHOR_CATALOG_SOURCE
+            output = root / "output"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(b'{"schema_version":1,"dimensions":[]}\n')
+
+            build_data_mod._package_dimension_anchor_catalog(root, output)
+
+            target = output / build_data_mod.DIMENSION_ANCHOR_CATALOG_ENTRY
+            self.assertEqual(source.read_bytes(), target.read_bytes())
+
+    def test_event_boundary_catalog_is_packaged_for_runtime_index(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / build_data_mod.EVENT_BOUNDARY_CATALOG_SOURCE
+            output = root / "output"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(b'{"schema_version":1,"regions":[],"anchors":[]}\n')
+
+            build_data_mod._package_event_boundary_catalog(root, output)
+
+            target = output / build_data_mod.EVENT_BOUNDARY_CATALOG_ENTRY
+            self.assertEqual(source.read_bytes(), target.read_bytes())
+
     def test_exterior_only_houses_do_not_count_as_indoor_npc_capacity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -305,6 +331,37 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertTrue(
             (output / "data/cobbleventure/ai-profiles/ai_test.json").is_file()
         )
+
+    def test_packages_generated_cves_runtime_data(self) -> None:
+        output = REPOSITORY_ROOT / build_data_mod.OUTPUT
+        script = output / "data/cobbleventure/event_script/story/professor_oak.json"
+        binding = output / "data/cobbleventure/npc_event_binding/story/professor_oak.json"
+        self.assertTrue(script.is_file())
+        self.assertTrue(binding.is_file())
+        self.assertEqual(
+            json.loads(script.read_text(encoding="utf-8"))["script_id"],
+            json.loads(binding.read_text(encoding="utf-8"))["script_id"],
+        )
+
+    def test_packages_authoritative_loot_tables(self) -> None:
+        source = (
+            PROJECT_ROOT
+            / "content/loot_tables/cobbleventure/trainer/ai_test_rewards.json"
+        )
+        output = (
+            REPOSITORY_ROOT
+            / build_data_mod.OUTPUT
+            / "data/cobbleventure/loot_table/trainer/ai_test_rewards.json"
+        )
+
+        self.assertTrue(source.is_file())
+        self.assertTrue(output.is_file())
+        self.assertEqual(source.read_bytes(), output.read_bytes())
+        self.assertFalse((
+            REPOSITORY_ROOT
+            / build_data_mod.SOURCE
+            / "data/cobbleventure/loot_table/trainer/ai_test_rewards.json"
+        ).exists())
 
     def test_materializes_gym_leader_runtime_references_from_league_entries(self) -> None:
         source = json.loads((PROJECT_ROOT / "content/catalogs/gyms.json").read_text(encoding="utf-8"))

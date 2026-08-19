@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
+import dev.buizz.cobbleventure.playermenu.ItemAcquisition;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.buizz.cobbleventure.playermenu.CobbleventurePlayerMenu;
 import net.minecraft.client.DeltaTracker;
@@ -24,7 +26,7 @@ public final class ItemAcquisitionOverlay {
     private static final ResourceLocation LAYER = ResourceLocation.fromNamespaceAndPath(
         CobbleventurePlayerMenu.MOD_ID, "item_acquired"
     );
-    private static final int DURATION_TICKS = 70;
+    private static final int DURATION_TICKS = ItemAcquisition.NOTICE_DURATION_TICKS;
     private static Notice notice;
 
     private ItemAcquisitionOverlay() {}

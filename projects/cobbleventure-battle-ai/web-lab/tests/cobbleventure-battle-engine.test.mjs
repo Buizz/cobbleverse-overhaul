@@ -21950,6 +21950,34 @@ test("Magician steals the target item after dealing damage", () => {
   assert.equal(resolved.sides[0].team[0].item, "leftovers");
   assert.equal(resolved.sides[1].team[0].item, "");
   assert.ok(resolved.events.some((event) => event.ability === "magician"));
+
+  const gemState = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Gem Magician", team: [pokemon({ ability: "magician", item: "normalgem" })] },
+        { name: "Gem Holder", team: [pokemon({ item: "leftovers", stats: { ...pokemon().stats, hp: 300 } })] },
+      ],
+    }),
+  );
+  const gemResolved = resolveSimpleTurn(gemState, [{ move: 1 }, { move: 1 }]);
+  assert.equal(gemResolved.sides[0].team[0].item, "leftovers");
+  assert.equal(gemResolved.sides[1].team[0].item, "");
+});
+
+test("Pickpocket transfers a contact attacker's item after damage", () => {
+  const contactMove = { ...pokemon().moves[0], flags: { contact: true } };
+  const state = createSimpleBattle(
+    setup({
+      sides: [
+        { name: "Holder", team: [pokemon({ item: "choiceband", moves: [contactMove], stats: { ...pokemon().stats, speed: 200 } })] },
+        { name: "Pickpocket", team: [pokemon({ ability: "pickpocket", item: "", moves: [contactMove], stats: { ...pokemon().stats, hp: 300, speed: 50 } })] },
+      ],
+    }),
+  );
+  const resolved = resolveSimpleTurn(state, [{ move: 1 }, { move: 1 }]);
+  assert.equal(resolved.sides[0].team[0].item, "");
+  assert.equal(resolved.sides[1].team[0].item, "choiceband");
+  assert.ok(resolved.events.some((event) => event.source === "pickpocket"));
 });
 
 test("Mirror Armor reflects opposing stat drops", () => {

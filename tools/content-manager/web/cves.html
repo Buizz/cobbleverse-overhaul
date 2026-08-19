@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CVES 이벤트 편집기 · Cobbleventure</title>
+    <meta name="description" content="공통 CVES AST 기반 NPC 이벤트 트리 편집기">
+    <link rel="stylesheet" href="/typography.css">
+    <link rel="stylesheet" href="/cves-editor.css">
+  </head>
+  <body>
+    <header class="studio-header">
+      <div class="title-group">
+        <a href="/" class="back-link" aria-label="Content Studio로 돌아가기">←</a>
+        <div><p>COBBLEVENTURE / CVES V5</p><h1>이벤트 스크립트</h1></div>
+      </div>
+      <div class="header-actions">
+        <span id="document-state" class="state-pill">문서 선택 대기</span>
+        <button id="validate-ast" class="button secondary" type="button" disabled>트리 검증</button>
+        <button id="save-script" class="button primary" type="button" disabled>CVES 저장</button>
+      </div>
+    </header>
+
+    <main class="editor-grid">
+      <aside class="script-column panel">
+        <div class="panel-heading"><div><small>AUTHORITY SOURCES</small><h2>.cves 원본</h2></div><div class="compact-actions"><button id="new-script" class="icon-button" type="button" title="새 CVES 원본">＋</button><button id="refresh-scripts" class="icon-button" type="button" title="목록 새로고침">↻</button></div></div>
+        <p class="panel-help">Git에서 관리되는 V5 원본만 표시합니다. V4 NPC 파일은 변경하지 않습니다.</p>
+        <div id="script-list" class="script-list" role="listbox" aria-label="CVES 스크립트"></div>
+      </aside>
+
+      <section class="tree-column panel">
+        <div class="panel-heading tree-heading">
+          <div><small id="script-id">NO SCRIPT</small><h2 id="script-path">이벤트 트리</h2></div>
+          <div class="tree-actions">
+            <button data-add="say" type="button" disabled>대사</button>
+            <button data-add="narrate" type="button" disabled>설명</button>
+            <button data-add="let" type="button" disabled>변수</button>
+            <button data-add="if" type="button" disabled>조건</button>
+            <button data-add="choice" type="button" disabled>선택지</button>
+            <button data-add="repeat" type="button" disabled>반복</button>
+            <button data-add="command" type="button" disabled>명령</button>
+          </div>
+        </div>
+        <div id="event-tree" class="event-tree empty"><p>왼쪽에서 CVES 원본을 선택하세요.</p></div>
+      </section>
+
+      <aside class="inspector-column panel">
+        <div class="panel-heading"><div><small>NODE INSPECTOR</small><h2>속성</h2></div><span id="node-kind" class="node-kind">—</span></div>
+        <div id="inspector" class="inspector-empty"><p>트리 노드를 선택하면 편집 가능한 속성이 표시됩니다.</p></div>
+        <div class="node-actions">
+          <button id="move-up" type="button" disabled>위로</button>
+          <button id="move-down" type="button" disabled>아래로</button>
+          <button id="delete-node" class="danger" type="button" disabled>삭제</button>
+        </div>
+      </aside>
+    </main>
+
+    <section class="lower-grid">
+      <div class="diagnostics panel">
+        <div class="panel-heading"><div><small>VALIDATION</small><h2>진단</h2></div><span id="diagnostic-count">0</span></div>
+        <div id="diagnostic-list" class="diagnostic-list"><p class="success">아직 검증하지 않았습니다.</p></div>
+      </div>
+      <details class="source-panel panel">
+        <summary><span><small>ADVANCED MODE</small><strong>CVES 텍스트 편집</strong></span><em>펼치기</em></summary>
+        <p>텍스트 적용 시 lexer와 parser를 거쳐 공통 AST를 교체합니다. 문법 오류에는 파일·줄·열이 표시됩니다.</p>
+        <textarea id="source-editor" spellcheck="false" aria-label="CVES 텍스트" disabled></textarea>
+        <div class="source-actions"><button id="apply-source" class="button secondary" type="button" disabled>텍스트를 트리에 적용</button></div>
+      </details>
+    </section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="new-script-dialog" class="editor-dialog">
+      <form id="new-script-form" method="dialog">
+        <div class="panel-heading"><div><small>NEW AUTHORITY SOURCE</small><h2>새 CVES 원본</h2></div><button id="close-new-script" class="icon-button" type="button">×</button></div>
+        <div class="dialog-body">
+          <label class="field"><span>리소스 경로</span><input name="path" placeholder="cobbleventure/story/new_event.cves" required></label>
+          <label class="field"><span>초기 트리거</span><select name="trigger"><option>interact</option><option>proximity_enter</option><option>proximity_exit</option></select></label>
+          <p>빈 기본 페이지가 있는 공통 AST를 만들며, 첫 저장 전까지 파일은 생성되지 않습니다.</p>
+        </div>
+        <div class="dialog-actions"><button id="cancel-new-script" class="button secondary" type="button">취소</button><button class="button primary" type="submit">트리 만들기</button></div>
+      </form>
+    </dialog>
+    <script type="module" src="/cves-editor.js"></script>
+  </body>
+</html>

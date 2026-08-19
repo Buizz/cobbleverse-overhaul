@@ -314,6 +314,10 @@ for (const id of [...moveIds].sort()) {
     accuracy: move.accuracy,
     priority: move.priority,
     target: move.target,
+    flags: Object.entries(move.flags ?? {})
+      .filter(([, enabled]) => enabled === true)
+      .map(([flag]) => flag)
+      .sort(),
     tags: classification.tags,
     tagLabels: classification.tagLabels,
     roleScores: classification.scores,

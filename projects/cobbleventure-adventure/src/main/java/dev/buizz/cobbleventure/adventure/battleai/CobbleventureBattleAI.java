@@ -5,12 +5,16 @@ import com.cobblemon.mod.common.battles.ActiveBattlePokemon;
 import com.cobblemon.mod.common.battles.BattleSide;
 import com.cobblemon.mod.common.battles.ShowdownActionResponse;
 import com.cobblemon.mod.common.battles.ShowdownMoveset;
+import com.cobblemon.mod.common.battles.SwitchActionResponse;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.gitlab.srcmc.rctapi.api.RCTApi;
 import com.gitlab.srcmc.rctapi.api.ai.RCTBattleAI;
 import com.gitlab.srcmc.rctapi.api.ai.config.RCTBattleAIConfig;
 import com.gitlab.srcmc.rctapi.api.models.Gimmicks;
 import com.gitlab.srcmc.rctapi.api.trainer.TrainerNPC;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * In-game adapter for Cobbleventure AI profiles.
@@ -21,6 +25,7 @@ import com.gitlab.srcmc.rctapi.api.trainer.TrainerNPC;
  */
 public final class CobbleventureBattleAI extends RCTBattleAI {
     private final CobbleventureBattleAIConfig profile;
+    private final Map<UUID, PendingBatonPass> pendingBatonPassTargets = new ConcurrentHashMap<>();
 
     CobbleventureBattleAI(
             CobbleventureBattleAIConfig profile,
@@ -39,6 +44,18 @@ public final class CobbleventureBattleAI extends RCTBattleAI {
             boolean forceSwitch
     ) {
         applyMechanicPolicy(active, moveset);
+        UUID battleId = battle.getBattleId();
+        BattleProjectionLogCapture.capture(battleId, battle.getBattleLog());
+        if (forceSwitch) {
+            PendingBatonPass pending = pendingBatonPassTargets.remove(battleId);
+            if (pending != null && ShowdownBattleLogObservation.hasMoveSince(
+                    battle.getBattleLog(), pending.logCursor(), pending.position(), "batonpass")) {
+                SwitchActionResponse response = new SwitchActionResponse(pending.target());
+                if (response.isValid(active, moveset, true)) return response;
+            }
+        } else {
+            pendingBatonPassTargets.remove(battleId);
+        }
         if (usesJvmSearch()) {
             try {
                 CobblemonBattleSearch.PlannedResponse planned = CobblemonBattleSearch.plan(
@@ -50,6 +67,10 @@ public final class CobbleventureBattleAI extends RCTBattleAI {
                         forceSwitch
                 );
                 if (planned != null && planned.response().isValid(active, moveset, forceSwitch)) {
+                    if (planned.batonPassTarget() != null) {
+                        pendingBatonPassTargets.put(battleId, new PendingBatonPass(
+                                planned.batonPassTarget(), battle.getBattleLog().size(), active.getPNX()));
+                    }
                     return planned.response();
                 }
             } catch (RuntimeException ignored) {
@@ -110,4 +131,6 @@ public final class CobbleventureBattleAI extends RCTBattleAI {
                     );
                 });
     }
+
+    private record PendingBatonPass(UUID target, int logCursor, String position) {}
 }

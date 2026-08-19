@@ -1,0 +1,18 @@
+{
+  "$schema": "../schemas/dimension-anchors.schema.json",
+  "schema_version": 1,
+  "dimensions": [
+    {
+      "id": "cobbleventure:generation_1",
+      "anchors": {
+        "world/spawn": {
+          "x": 0,
+          "y": 80,
+          "z": 0,
+          "yaw": 0,
+          "pitch": 0
+        }
+      }
+    }
+  ]
+}

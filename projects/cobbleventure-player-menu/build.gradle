@@ -122,6 +122,12 @@ dependencies {
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
 }
 
 neoForge {

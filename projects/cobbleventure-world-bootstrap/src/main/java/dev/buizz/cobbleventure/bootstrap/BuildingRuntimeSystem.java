@@ -7,6 +7,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.event.EventLocationRef;
+import dev.buizz.cobbleventure.adventure.event.EventMovementFailureReason;
+import dev.buizz.cobbleventure.adventure.event.EventLocationResolverRegistry;
 import dev.buizz.cobbleventure.playermenu.MusicPlayback;
 import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 import java.io.IOException;
@@ -79,6 +82,7 @@ final class BuildingRuntimeSystem {
     private static final Map<String, StructureMetadata> METADATA = new LinkedHashMap<>();
     private static final Map<String, BuildingSettings> SETTINGS = new LinkedHashMap<>();
     private static final Map<DoorKey, DoorTarget> DOORS = new HashMap<>();
+    private static final Map<String, EventSpaceInstance> EVENT_SPACES = new LinkedHashMap<>();
     private static final Map<UUID, PendingNpcSeat> PENDING_NPC_SEATS = new LinkedHashMap<>();
 
     private BuildingRuntimeSystem() {
@@ -93,6 +97,7 @@ final class BuildingRuntimeSystem {
         METADATA.clear();
         SETTINGS.clear();
         DOORS.clear();
+        EVENT_SPACES.clear();
         PENDING_NPC_SEATS.clear();
         loadMetadata(server);
         loadSettings(server);
@@ -109,6 +114,13 @@ final class BuildingRuntimeSystem {
     static void onStructurePlaced(
         ServerLevel level, String structure, CobbleventureBootstrap.BlockPoint origin,
         String rotationName
+    ) {
+        onStructurePlaced(level, structure, origin, rotationName, null);
+    }
+
+    static void onStructurePlaced(
+        ServerLevel level, String structure, CobbleventureBootstrap.BlockPoint origin,
+        String rotationName, String eventSpaceId
     ) {
         StructureMetadata metadata = METADATA.get(structure);
         if (metadata == null) {
@@ -135,13 +147,59 @@ final class BuildingRuntimeSystem {
             }
             data(level.getServer()).rememberBuildingInstance(
                 level.dimension().location().toString(), structure,
-                origin.toBlockPos(), rotationName
+                origin.toBlockPos(), rotationName, eventSpaceId
             );
             prepareConfiguredInteriors(
                 level, structure, metadata, origin.toBlockPos(), rotation,
-                instanceKey, settings
+                instanceKey, settings, eventSpaceId
             );
         }
+    }
+
+    static EventLocationResolverRegistry.Resolution resolveEventSpace(
+        MinecraftServer server, EventLocationRef.Resource destination
+    ) {
+        if (!destination.resourceId().contains(":building/")) {
+            return null;
+        }
+        EventSpaceInstance registration = EVENT_SPACES.get(destination.resourceId());
+        if (registration == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.DESTINATION_NOT_FOUND
+            );
+        }
+        if (destination.anchor() == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_REQUIRED
+            );
+        }
+        int separator = destination.anchor().indexOf('/');
+        if (separator <= 0 || separator == destination.anchor().length() - 1) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_NOT_FOUND
+            );
+        }
+        String spaceKey = destination.anchor().substring(0, separator);
+        String anchorId = destination.anchor().substring(separator + 1);
+        SpaceInstance space = registration.spaces.get(spaceKey);
+        Anchor anchor = space == null ? null : space.metadata.anchors.stream()
+            .filter(candidate -> candidate.id.equals(anchorId))
+            .findFirst().orElse(null);
+        if (anchor == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_NOT_FOUND
+            );
+        }
+        BlockPos local = anchor.safeSpawn == null ? anchor.position : anchor.safeSpawn;
+        BlockPos position = transform(space.origin, local, space.rotation);
+        float yaw = space.rotation.rotate(anchor.facing).toYRot();
+        return EventLocationResolverRegistry.Resolution.resolved(
+            new EventLocationResolverRegistry.ResolvedLocation(
+                space.level.dimension().location().toString(),
+                position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D,
+                yaw, null
+            )
+        );
     }
 
     static SpawnDestination resolveStarterSpawn(
@@ -562,7 +620,7 @@ final class BuildingRuntimeSystem {
                 new CobbleventureBootstrap.BlockPoint(
                     instance.origin.getX(), instance.origin.getY(), instance.origin.getZ()
                 ),
-                rotationName
+                rotationName, instance.eventSpaceId
             );
             restored++;
         }
@@ -617,7 +675,7 @@ final class BuildingRuntimeSystem {
     private static void prepareConfiguredInteriors(
         ServerLevel exterior, String exteriorStructure, StructureMetadata exteriorMetadata,
         BlockPos exteriorOrigin, Rotation exteriorRotation, String instanceKey,
-        BuildingSettings settings
+        BuildingSettings settings, String eventSpaceId
     ) {
         ServerLevel interiorsLevel = exterior.getServer().getLevel(INTERIORS);
         if (interiorsLevel == null) {
@@ -625,7 +683,7 @@ final class BuildingRuntimeSystem {
         }
         Map<String, SpaceInstance> spaces = new LinkedHashMap<>();
         spaces.put("exterior", new SpaceInstance(
-            exterior, exteriorOrigin, exteriorRotation, exteriorMetadata
+            exterior, exteriorOrigin, exteriorRotation, exteriorMetadata, null
         ));
         RuntimeData runtime = data(exterior.getServer());
         BlockPos base = instanceOrigin(runtime, instanceKey, false);
@@ -668,13 +726,26 @@ final class BuildingRuntimeSystem {
                 runtime.markPrepared(preparedKey);
             }
             spaces.put(interior.key, new SpaceInstance(
-                interiorsLevel, origin, Rotation.NONE, metadata
+                interiorsLevel, origin, Rotation.NONE, metadata,
+                template.orElseThrow().getSize()
             ));
             applyFixedNpcs(
                 interiorsLevel, metadata, origin, Rotation.NONE,
                 instanceKey + "|" + interior.key, settings.fixedNpcs, interior.key
             );
             index++;
+        }
+
+        if (eventSpaceId != null && !eventSpaceId.isBlank()) {
+            EventSpaceInstance existing = EVENT_SPACES.get(eventSpaceId);
+            if (existing != null && !existing.instanceKey.equals(instanceKey)) {
+                throw new IllegalStateException(
+                    "Duplicate building event space ID: " + eventSpaceId
+                );
+            }
+            EVENT_SPACES.put(
+                eventSpaceId, new EventSpaceInstance(instanceKey, Map.copyOf(spaces))
+            );
         }
 
         for (Map.Entry<String, RouteTarget> route : settings.routes.entrySet()) {
@@ -730,6 +801,23 @@ final class BuildingRuntimeSystem {
                 )
             );
         }
+    }
+
+    /** Returns authored facility IDs whose registered interior contains the player. */
+    static Set<String> activeEventSpaces(ServerPlayer player) {
+        Set<String> result = new HashSet<>();
+        BlockPos position = player.blockPosition();
+        for (Map.Entry<String, EventSpaceInstance> eventSpace : EVENT_SPACES.entrySet()) {
+            for (Map.Entry<String, SpaceInstance> space : eventSpace.getValue().spaces.entrySet()) {
+                if (space.getKey().equals("exterior")) continue;
+                SpaceInstance instance = space.getValue();
+                if (instance.level == player.serverLevel() && instance.contains(position)) {
+                    result.add(eventSpace.getKey());
+                    break;
+                }
+            }
+        }
+        return Set.copyOf(result);
     }
 
     static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
@@ -1182,7 +1270,16 @@ final class BuildingRuntimeSystem {
     }
 
     private record SpaceInstance(
-        ServerLevel level, BlockPos origin, Rotation rotation, StructureMetadata metadata
+        ServerLevel level, BlockPos origin, Rotation rotation, StructureMetadata metadata,
+        Vec3i size
+    ) {
+        boolean contains(BlockPos position) {
+            return BuildingEventSpaceBounds.contains(origin, size, position);
+        }
+    }
+
+    private record EventSpaceInstance(
+        String instanceKey, Map<String, SpaceInstance> spaces
     ) {
     }
 
@@ -1215,7 +1312,8 @@ final class BuildingRuntimeSystem {
     }
 
     private record PersistedBuildingInstance(
-        String dimension, String structure, BlockPos origin, String rotation
+        String dimension, String structure, BlockPos origin, String rotation,
+        String eventSpaceId
     ) {
     }
 
@@ -1288,16 +1386,19 @@ final class BuildingRuntimeSystem {
         }
 
         void rememberBuildingInstance(
-            String dimension, String structure, BlockPos origin, String rotation
+            String dimension, String structure, BlockPos origin, String rotation,
+            String eventSpaceId
         ) {
             PersistedBuildingInstance instance = new PersistedBuildingInstance(
-                dimension, structure, origin.immutable(), rotation
+                dimension, structure, origin.immutable(), rotation, eventSpaceId
             );
             String key = instanceKey(instance);
             PersistedBuildingInstance existing = buildingInstances.get(key);
             if (existing == null
                 || ((existing.rotation == null || existing.rotation.isBlank())
-                    && rotation != null && !rotation.isBlank())) {
+                    && rotation != null && !rotation.isBlank())
+                || ((existing.eventSpaceId == null || existing.eventSpaceId.isBlank())
+                    && eventSpaceId != null && !eventSpaceId.isBlank())) {
                 buildingInstances.put(key, instance);
                 setDirty();
             }
@@ -1329,7 +1430,8 @@ final class BuildingRuntimeSystem {
                     .append(instance.origin.getX()).append('\t')
                     .append(instance.origin.getY()).append('\t')
                     .append(instance.origin.getZ()).append('\t')
-                    .append(instance.rotation == null ? "" : instance.rotation);
+                    .append(instance.rotation == null ? "" : instance.rotation).append('\t')
+                    .append(instance.eventSpaceId == null ? "" : instance.eventSpaceId);
             }
             tag.putString("buildingInstances", serializedBuildings.toString());
             return tag;
@@ -1367,7 +1469,7 @@ final class BuildingRuntimeSystem {
                         Integer.parseInt(coordinates[1]),
                         Integer.parseInt(coordinates[2])
                     ),
-                    null
+                    null, null
                 );
             } catch (NumberFormatException ignored) {
                 LOGGER.warn("Ignoring invalid legacy building runtime instance: {}", key);
@@ -1417,7 +1519,7 @@ final class BuildingRuntimeSystem {
             }
             for (String line : serialized.split("\\n")) {
                 String[] fields = line.split("\\t", -1);
-                if (fields.length != 6) {
+                if (fields.length != 6 && fields.length != 7) {
                     LOGGER.warn("Ignoring invalid building runtime instance: {}", line);
                     continue;
                 }
@@ -1428,7 +1530,7 @@ final class BuildingRuntimeSystem {
                             Integer.parseInt(fields[2]), Integer.parseInt(fields[3]),
                             Integer.parseInt(fields[4])
                         ),
-                        fields[5]
+                        fields[5], fields.length == 7 && !fields[6].isBlank() ? fields[6] : null
                     );
                     target.put(instanceKey(instance), instance);
                 } catch (NumberFormatException ignored) {

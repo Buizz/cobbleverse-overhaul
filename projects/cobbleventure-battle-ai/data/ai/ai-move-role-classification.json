@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-25T13:15:44.868Z",
-  "source": "projects/cobbleverse-battle-ai/data/ai/ai-move-role-classification.csv",
+  "generatedAt": "2026-08-18T23:31:47.854Z",
+  "source": "projects/cobbleventure-battle-ai/data/ai/ai-move-role-classification.csv",
   "roles": [
     "lead",
     "ace",
@@ -46,6 +46,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -83,6 +84,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -117,6 +119,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -156,6 +159,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -190,6 +194,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -218,6 +223,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -252,6 +258,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -286,6 +293,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -320,6 +328,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentAllyOrSelf",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -348,6 +357,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -382,6 +392,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -419,6 +430,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -447,6 +459,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -475,6 +488,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -509,6 +523,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -543,6 +558,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -577,6 +593,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -611,6 +628,7 @@
       "accuracy": true,
       "priority": 2,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -648,6 +666,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -676,6 +695,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -710,6 +730,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -744,6 +765,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -778,6 +800,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -812,6 +835,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -851,6 +875,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -879,6 +904,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -913,6 +939,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -947,6 +974,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -984,6 +1012,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1018,6 +1047,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allyTeam",
+      "flags": [],
       "tags": [
         "TEAM_SUPPORT"
       ],
@@ -1050,6 +1080,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentAlly",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1078,6 +1109,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1106,6 +1138,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1140,6 +1173,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1174,6 +1208,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -1211,6 +1246,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1245,6 +1281,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1273,6 +1310,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1307,6 +1345,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -1344,6 +1383,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1378,6 +1418,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "SCREEN_SUPPORT"
       ],
@@ -1410,6 +1451,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1438,6 +1480,7 @@
       "accuracy": 100,
       "priority": -4,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1472,6 +1515,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -1509,6 +1553,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -1546,6 +1591,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1580,6 +1626,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -1617,6 +1664,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -1651,6 +1699,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -1683,6 +1732,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1711,6 +1761,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "PIVOT"
       ],
@@ -1743,6 +1794,7 @@
       "accuracy": 100,
       "priority": -3,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -1780,6 +1832,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1806,6 +1859,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -1843,6 +1897,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -1880,6 +1935,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -1917,6 +1973,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1945,6 +2002,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -1973,6 +2031,7 @@
       "accuracy": true,
       "priority": 1,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -2007,6 +2066,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -2039,6 +2099,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2073,6 +2134,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2107,6 +2169,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2141,6 +2204,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2175,6 +2239,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -2212,6 +2277,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2246,6 +2312,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2280,6 +2347,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -2317,6 +2385,7 @@
       "accuracy": 70,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -2354,6 +2423,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -2382,6 +2452,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -2417,6 +2488,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2451,6 +2523,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -2488,6 +2561,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2522,6 +2596,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -2554,6 +2629,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2588,6 +2664,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -2625,6 +2702,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2659,6 +2737,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2693,6 +2772,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2727,6 +2807,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -2762,6 +2843,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2796,6 +2878,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2830,6 +2913,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2864,6 +2948,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -2901,6 +2986,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -2935,6 +3021,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -2967,6 +3054,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3001,6 +3089,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3035,6 +3124,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3069,6 +3159,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3103,6 +3194,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3137,6 +3229,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3171,6 +3264,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3205,6 +3299,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -3237,6 +3332,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -3274,6 +3370,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -3313,6 +3410,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3347,6 +3445,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -3381,6 +3480,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3415,6 +3515,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -3452,6 +3553,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3486,6 +3588,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -3518,6 +3621,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -3546,6 +3650,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -3578,6 +3683,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -3615,6 +3721,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -3655,6 +3762,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -3683,6 +3791,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -3711,6 +3820,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3745,6 +3855,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -3777,6 +3888,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3811,6 +3923,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -3845,6 +3958,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "PIVOT",
         "FIELD_CONTROL"
@@ -3880,6 +3994,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -3912,6 +4027,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -3949,6 +4065,7 @@
       "accuracy": 90,
       "priority": -6,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -3986,6 +4103,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -4020,6 +4138,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -4057,6 +4176,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4085,6 +4205,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -4122,6 +4243,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -4159,6 +4281,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -4196,6 +4319,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentAlly",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4224,6 +4348,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -4256,6 +4381,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -4293,6 +4419,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -4330,6 +4457,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -4362,6 +4490,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "scripted",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4388,6 +4517,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -4420,6 +4550,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4448,6 +4579,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -4482,6 +4614,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -4514,6 +4647,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -4548,6 +4682,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4576,6 +4711,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4604,6 +4740,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4632,6 +4769,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -4669,6 +4807,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -4703,6 +4842,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4731,6 +4871,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4759,6 +4900,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4787,6 +4929,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "DISRUPT",
         "SPEED_CONTROL"
@@ -4822,6 +4965,7 @@
       "accuracy": 100,
       "priority": -5,
       "target": "scripted",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -4848,6 +4992,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "HAZARD_REMOVE"
       ],
@@ -4880,6 +5025,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -4912,6 +5058,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -4949,6 +5096,7 @@
       "accuracy": true,
       "priority": 3,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -4983,6 +5131,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -5020,6 +5169,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5054,6 +5204,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5088,6 +5239,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -5120,6 +5272,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -5146,6 +5299,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -5178,6 +5332,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -5210,6 +5365,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5244,6 +5400,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5278,6 +5435,7 @@
       "accuracy": 50,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -5310,6 +5468,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5344,6 +5503,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -5372,6 +5532,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -5400,6 +5561,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -5428,6 +5590,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "HAZARD_REMOVE"
       ],
@@ -5460,6 +5623,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -5488,6 +5652,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -5525,6 +5690,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5559,6 +5725,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -5599,6 +5766,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5633,6 +5801,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5667,6 +5836,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -5699,6 +5869,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5733,6 +5904,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5767,6 +5939,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5801,6 +5974,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -5833,6 +6007,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -5861,6 +6036,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -5898,6 +6074,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -5933,6 +6110,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -5965,6 +6143,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -5999,6 +6178,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6033,6 +6213,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6070,6 +6251,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -6102,6 +6284,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -6130,6 +6313,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6167,6 +6351,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6204,6 +6389,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6238,6 +6424,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentAlly",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -6266,6 +6453,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6300,6 +6488,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -6332,6 +6521,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6366,6 +6556,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6403,6 +6594,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6437,6 +6629,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6471,6 +6664,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -6497,6 +6691,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6534,6 +6729,7 @@
       "accuracy": 90,
       "priority": -6,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -6571,6 +6767,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6605,6 +6802,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6639,6 +6837,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6676,6 +6875,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6710,6 +6910,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6744,6 +6945,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6778,6 +6980,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6812,6 +7015,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6846,6 +7050,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6883,6 +7088,7 @@
       "accuracy": 50,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6920,6 +7126,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -6954,6 +7161,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -6991,6 +7199,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -7023,6 +7232,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -7055,6 +7265,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -7089,6 +7300,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -7124,6 +7336,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -7156,6 +7369,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -7184,6 +7398,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -7210,6 +7425,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -7247,6 +7463,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -7284,6 +7501,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -7321,6 +7539,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -7349,6 +7568,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -7383,6 +7603,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -7415,6 +7636,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -7441,6 +7663,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -7475,6 +7698,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -7509,6 +7733,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -7537,6 +7762,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -7574,6 +7800,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -7608,6 +7835,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -7645,6 +7873,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -7679,6 +7908,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -7714,6 +7944,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -7748,6 +7979,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -7776,6 +8008,7 @@
       "accuracy": 100,
       "priority": 2,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "PRIORITY",
@@ -7813,6 +8046,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -7845,6 +8079,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -7877,6 +8112,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -7911,6 +8147,7 @@
       "accuracy": 100,
       "priority": 3,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "PRIORITY",
@@ -7948,6 +8185,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -7980,6 +8218,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8014,6 +8253,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -8046,6 +8286,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -8078,6 +8319,7 @@
       "accuracy": 100,
       "priority": 2,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "PRIORITY",
@@ -8115,6 +8357,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8149,6 +8392,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8183,6 +8427,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8217,6 +8462,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8251,6 +8497,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8285,6 +8532,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -8313,6 +8561,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -8339,6 +8588,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -8376,6 +8626,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8410,6 +8661,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8444,6 +8696,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8478,6 +8731,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8512,6 +8766,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8546,6 +8801,7 @@
       "accuracy": 100,
       "priority": 2,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -8585,6 +8841,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8619,6 +8876,7 @@
       "accuracy": 30,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -8645,6 +8903,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -8671,6 +8930,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8705,6 +8965,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8739,6 +9000,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8773,6 +9035,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8807,6 +9070,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -8844,6 +9108,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -8876,6 +9141,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -8910,6 +9176,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -8938,6 +9205,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -8975,6 +9243,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9001,6 +9270,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -9038,6 +9308,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9072,6 +9343,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9100,6 +9372,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9128,6 +9401,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9162,6 +9436,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9196,6 +9471,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9233,6 +9509,7 @@
       "accuracy": 70,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9270,6 +9547,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9298,6 +9576,7 @@
       "accuracy": 100,
       "priority": -3,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9335,6 +9614,7 @@
       "accuracy": true,
       "priority": 2,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -9372,6 +9652,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9406,6 +9687,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9434,6 +9716,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9462,6 +9745,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9496,6 +9780,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9530,6 +9815,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9567,6 +9853,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9601,6 +9888,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9638,6 +9926,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9675,6 +9964,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9709,6 +9999,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9735,6 +10026,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -9767,6 +10059,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -9801,6 +10094,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -9833,6 +10127,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9870,6 +10165,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9907,6 +10203,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -9944,6 +10241,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -9972,6 +10270,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10006,6 +10305,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -10034,6 +10334,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -10071,6 +10372,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -10099,6 +10401,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10133,6 +10436,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -10168,6 +10472,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -10205,6 +10510,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10239,6 +10545,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -10276,6 +10583,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10310,6 +10618,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -10347,6 +10656,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD",
         "SPEED_CONTROL"
@@ -10382,6 +10692,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10416,6 +10727,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10450,6 +10762,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10484,6 +10797,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10518,6 +10832,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10552,6 +10867,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -10584,6 +10900,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10618,6 +10935,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -10655,6 +10973,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10689,6 +11008,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -10726,6 +11046,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10760,6 +11081,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -10792,6 +11114,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10826,6 +11149,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -10863,6 +11187,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10897,6 +11222,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10931,6 +11257,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10965,6 +11292,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -10999,6 +11327,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -11031,6 +11360,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11065,6 +11395,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11099,6 +11430,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11133,6 +11465,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11167,6 +11500,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -11204,6 +11538,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -11241,6 +11576,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11275,6 +11611,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11309,6 +11646,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11343,6 +11681,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11377,6 +11716,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11411,6 +11751,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11445,6 +11786,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11479,6 +11821,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11513,6 +11856,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -11550,6 +11894,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -11576,6 +11921,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11610,6 +11956,7 @@
       "accuracy": 55,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -11642,6 +11989,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11676,6 +12024,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -11708,6 +12057,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -11742,6 +12092,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -11774,6 +12125,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -11806,6 +12158,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -11838,6 +12191,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -11866,6 +12220,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -11892,6 +12247,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -11920,6 +12276,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -11948,6 +12305,7 @@
       "accuracy": 30,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -11974,6 +12332,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -12011,6 +12370,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -12045,6 +12405,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12071,6 +12432,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -12103,6 +12465,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -12140,6 +12503,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12168,6 +12532,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12196,6 +12561,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12222,6 +12588,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -12254,6 +12621,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -12286,6 +12654,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -12321,6 +12690,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -12358,6 +12728,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -12395,6 +12766,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allyTeam",
+      "flags": [],
       "tags": [
         "TEAM_SUPPORT"
       ],
@@ -12427,6 +12799,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12455,6 +12828,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "HAZARD_REMOVE"
       ],
@@ -12487,6 +12861,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -12519,6 +12894,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12547,6 +12923,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -12581,6 +12958,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12609,6 +12987,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12635,6 +13014,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -12669,6 +13049,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12695,6 +13076,7 @@
       "accuracy": true,
       "priority": 5,
       "target": "adjacentAlly",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -12732,6 +13114,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -12766,6 +13149,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -12798,6 +13182,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -12832,6 +13217,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -12869,6 +13255,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -12901,6 +13288,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentAlly",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12929,6 +13317,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -12957,6 +13346,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -12989,6 +13379,7 @@
       "accuracy": 30,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -13015,6 +13406,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13049,6 +13441,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allies",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -13077,6 +13470,7 @@
       "accuracy": 70,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -13114,6 +13508,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -13151,6 +13546,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -13188,6 +13584,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13222,6 +13619,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13256,6 +13654,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -13291,6 +13690,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -13326,6 +13726,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -13358,6 +13759,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -13395,6 +13797,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13429,6 +13832,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -13461,6 +13865,7 @@
       "accuracy": 60,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -13493,6 +13898,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -13530,6 +13936,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13564,6 +13971,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -13601,6 +14009,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13635,6 +14044,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -13672,6 +14082,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13706,6 +14117,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -13745,6 +14157,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13779,6 +14192,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13813,6 +14227,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13847,6 +14262,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -13884,6 +14300,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -13916,6 +14333,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13950,6 +14368,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -13984,6 +14403,7 @@
       "accuracy": 50,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -14021,6 +14441,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14055,6 +14476,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14089,6 +14511,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -14117,6 +14540,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -14145,6 +14569,7 @@
       "accuracy": true,
       "priority": 1,
       "target": "all",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -14182,6 +14607,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -14210,6 +14636,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14244,6 +14671,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -14281,6 +14709,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -14318,6 +14747,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14352,6 +14782,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -14391,6 +14822,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -14426,6 +14858,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -14463,6 +14896,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allies",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -14491,6 +14925,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14525,6 +14960,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -14557,6 +14993,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -14594,6 +15031,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14628,6 +15066,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14662,6 +15101,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14696,6 +15136,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -14724,6 +15165,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14758,6 +15200,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -14793,6 +15236,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14827,6 +15271,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14861,6 +15306,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14895,6 +15341,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -14929,6 +15376,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -14966,6 +15414,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15000,6 +15449,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15034,6 +15484,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15062,6 +15513,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -15094,6 +15546,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -15131,6 +15584,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15165,6 +15619,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allies",
+      "flags": [],
       "tags": [
         "RECOVERY",
         "TEAM_SUPPORT"
@@ -15200,6 +15655,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -15237,6 +15693,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "SCREEN_SUPPORT"
       ],
@@ -15269,6 +15726,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -15306,6 +15764,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15340,6 +15799,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15368,6 +15828,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -15400,6 +15861,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15426,6 +15888,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15460,6 +15923,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15488,6 +15952,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15522,6 +15987,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allies",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15550,6 +16016,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "HAZARD_REMOVE"
       ],
@@ -15582,6 +16049,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15616,6 +16084,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15650,6 +16119,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -15689,6 +16159,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15723,6 +16194,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -15760,6 +16232,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -15794,6 +16267,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15822,6 +16296,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -15854,6 +16329,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -15891,6 +16367,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -15925,6 +16402,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15953,6 +16431,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -15981,6 +16460,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -16007,6 +16487,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -16044,6 +16525,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -16081,6 +16563,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -16118,6 +16601,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -16146,6 +16630,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16180,6 +16665,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16214,6 +16700,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16248,6 +16735,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -16285,6 +16773,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16319,6 +16808,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16353,6 +16843,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -16387,6 +16878,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16421,6 +16913,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16455,6 +16948,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16489,6 +16983,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16523,6 +17018,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16557,6 +17053,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16591,6 +17088,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16625,6 +17123,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16659,6 +17158,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16693,6 +17193,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16727,6 +17228,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16761,6 +17263,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -16793,6 +17296,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16827,6 +17331,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -16855,6 +17360,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -16883,6 +17389,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "adjacentFoe",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -16911,6 +17418,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -16945,6 +17453,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -16982,6 +17491,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -17017,6 +17527,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -17049,6 +17560,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -17081,6 +17593,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -17118,6 +17631,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "scripted",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17144,6 +17658,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -17178,6 +17693,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -17210,6 +17726,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -17247,6 +17764,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -17284,6 +17802,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -17318,6 +17837,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17346,6 +17866,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -17380,6 +17901,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -17412,6 +17934,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17440,6 +17963,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -17477,6 +18001,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17505,6 +18030,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17533,6 +18059,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17561,6 +18088,7 @@
       "accuracy": 100,
       "priority": -5,
       "target": "scripted",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17587,6 +18115,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -17615,6 +18144,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -17649,6 +18179,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "SCREEN_SUPPORT"
       ],
@@ -17681,6 +18212,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -17715,6 +18247,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -17752,6 +18285,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -17784,6 +18318,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -17818,6 +18353,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -17855,6 +18391,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -17887,6 +18424,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -17919,6 +18457,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -17956,6 +18495,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -17993,6 +18533,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18027,6 +18568,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18061,6 +18603,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18095,6 +18638,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18129,6 +18673,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -18161,6 +18706,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -18196,6 +18742,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18230,6 +18777,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18264,6 +18812,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -18296,6 +18845,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18322,6 +18872,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18350,6 +18901,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18376,6 +18928,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18410,6 +18963,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18444,6 +18998,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18478,6 +19033,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18506,6 +19062,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18532,6 +19089,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18566,6 +19124,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -18603,6 +19162,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -18635,6 +19195,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18663,6 +19224,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -18700,6 +19262,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -18737,6 +19300,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18771,6 +19335,7 @@
       "accuracy": 100,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -18805,6 +19370,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -18842,6 +19408,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18876,6 +19443,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18904,6 +19472,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -18932,6 +19501,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -18966,6 +19536,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19000,6 +19571,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -19037,6 +19609,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "randomNormal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -19077,6 +19650,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19111,6 +19685,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -19148,6 +19723,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -19176,6 +19752,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19210,6 +19787,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "PIVOT"
       ],
@@ -19242,6 +19820,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19276,6 +19855,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -19308,6 +19888,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19342,6 +19923,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -19370,6 +19952,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19404,6 +19987,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "randomNormal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -19444,6 +20028,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19478,6 +20063,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -19515,6 +20101,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -19541,6 +20128,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19575,6 +20163,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -19615,6 +20204,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -19647,6 +20237,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19681,6 +20272,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19715,6 +20307,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19749,6 +20342,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -19781,6 +20375,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19815,6 +20410,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -19847,6 +20443,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19881,6 +20478,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19915,6 +20513,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -19949,6 +20548,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -19986,6 +20586,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -20018,6 +20619,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20052,6 +20654,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -20084,6 +20687,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -20118,6 +20722,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20152,6 +20757,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20186,6 +20792,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -20214,6 +20821,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -20242,6 +20850,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -20270,6 +20879,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -20298,6 +20908,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20332,6 +20943,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20366,6 +20978,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -20403,6 +21016,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -20440,6 +21054,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -20466,6 +21081,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -20503,6 +21119,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -20540,6 +21157,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20574,6 +21192,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20608,6 +21227,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20642,6 +21262,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20676,6 +21297,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20710,6 +21332,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -20742,6 +21365,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -20779,6 +21403,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20813,6 +21438,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -20841,6 +21467,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -20869,6 +21496,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20903,6 +21531,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -20937,6 +21566,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -20974,6 +21604,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21000,6 +21631,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -21035,6 +21667,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21061,6 +21694,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21089,6 +21723,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -21123,6 +21758,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -21160,6 +21796,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21188,6 +21825,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "PRIORITY",
@@ -21225,6 +21863,7 @@
       "accuracy": true,
       "priority": 3,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -21262,6 +21901,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -21294,6 +21934,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -21326,6 +21967,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -21360,6 +22002,7 @@
       "accuracy": true,
       "priority": 2,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -21397,6 +22040,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -21429,6 +22073,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "randomNormal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -21469,6 +22114,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -21501,6 +22147,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "HAZARD_REMOVE"
@@ -21536,6 +22183,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -21570,6 +22218,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -21604,6 +22253,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -21636,6 +22286,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -21668,6 +22319,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21696,6 +22348,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "SCREEN_SUPPORT"
       ],
@@ -21728,6 +22381,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21756,6 +22410,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21784,6 +22439,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -21816,6 +22472,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -21848,6 +22505,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -21880,6 +22538,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21906,6 +22565,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -21938,6 +22598,7 @@
       "accuracy": 100,
       "priority": -4,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -21972,6 +22633,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -21998,6 +22660,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "PIVOT"
       ],
@@ -22030,6 +22693,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22064,6 +22728,7 @@
       "accuracy": true,
       "priority": -6,
       "target": "normal",
+      "flags": [],
       "tags": [
         "FORCE_SWITCH"
       ],
@@ -22096,6 +22761,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -22133,6 +22799,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22167,6 +22834,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -22199,6 +22867,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -22227,6 +22896,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22261,6 +22931,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22295,6 +22966,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22329,6 +23001,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -22366,6 +23039,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -22403,6 +23077,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -22431,6 +23106,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22465,6 +23141,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -22502,6 +23179,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -22534,6 +23212,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -22562,6 +23241,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -22594,6 +23274,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -22620,6 +23301,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -22657,6 +23339,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22691,6 +23374,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "SCREEN_SUPPORT"
       ],
@@ -22723,6 +23407,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22757,6 +23442,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -22789,6 +23475,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -22826,6 +23513,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -22858,6 +23546,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22892,6 +23581,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -22929,6 +23619,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22963,6 +23654,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -22997,6 +23689,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23031,6 +23724,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT",
         "SPEED_CONTROL"
@@ -23066,6 +23760,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23100,6 +23795,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -23132,6 +23828,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -23164,6 +23861,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -23201,6 +23899,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -23238,6 +23937,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -23270,6 +23970,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23304,6 +24005,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23338,6 +24040,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -23375,6 +24078,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -23401,6 +24105,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -23436,6 +24141,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23470,6 +24176,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23504,6 +24211,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23538,6 +24246,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -23575,6 +24284,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23609,6 +24319,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -23648,6 +24359,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -23676,6 +24388,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23710,6 +24423,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "PIVOT"
       ],
@@ -23742,6 +24456,7 @@
       "accuracy": 30,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -23768,6 +24483,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23802,6 +24518,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST",
         "DISRUPT"
@@ -23837,6 +24554,7 @@
       "accuracy": 100,
       "priority": -3,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -23874,6 +24592,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -23902,6 +24621,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -23930,6 +24650,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -23964,6 +24685,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -23996,6 +24718,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24030,6 +24753,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -24067,6 +24791,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24101,6 +24826,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -24129,6 +24855,7 @@
       "accuracy": 55,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -24161,6 +24888,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -24198,6 +24926,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24232,6 +24961,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -24260,6 +24990,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -24288,6 +25019,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24322,6 +25054,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -24357,6 +25090,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -24394,6 +25128,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24428,6 +25163,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24462,6 +25198,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -24494,6 +25231,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -24526,6 +25264,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -24558,6 +25297,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -24590,6 +25330,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -24618,6 +25359,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24652,6 +25394,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24686,6 +25429,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24720,6 +25464,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24754,6 +25499,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24788,6 +25534,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -24820,6 +25567,7 @@
       "accuracy": 70,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24854,6 +25602,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -24886,6 +25635,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24920,6 +25670,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -24954,6 +25705,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -24988,6 +25740,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -25022,6 +25775,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -25054,6 +25808,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -25086,6 +25841,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -25114,6 +25870,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -25146,6 +25903,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -25183,6 +25941,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -25220,6 +25979,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -25246,6 +26006,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -25283,6 +26044,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -25320,6 +26082,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -25354,6 +26117,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -25388,6 +26152,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -25425,6 +26190,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -25459,6 +26225,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -25487,6 +26254,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -25519,6 +26287,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -25547,6 +26316,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -25579,6 +26349,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "foeSide",
+      "flags": [],
       "tags": [
         "HAZARD_SET",
         "HAZARD_REMOVE"
@@ -25614,6 +26385,7 @@
       "accuracy": true,
       "priority": 4,
       "target": "self",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -25651,6 +26423,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -25688,6 +26461,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -25722,6 +26496,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -25756,6 +26531,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -25784,6 +26560,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -25810,6 +26587,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -25838,6 +26616,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -25875,6 +26654,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -25909,6 +26689,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -25941,6 +26722,7 @@
       "accuracy": true,
       "priority": 3,
       "target": "normal",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER"
@@ -25975,6 +26757,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -26012,6 +26795,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "foeSide",
+      "flags": [],
       "tags": [
         "HAZARD_SET",
         "HAZARD_REMOVE"
@@ -26047,6 +26831,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -26084,6 +26869,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26118,6 +26904,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -26155,6 +26942,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -26192,6 +26980,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26226,6 +27015,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "foeSide",
+      "flags": [],
       "tags": [
         "HAZARD_SET",
         "HAZARD_REMOVE"
@@ -26261,6 +27051,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -26289,6 +27080,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -26326,6 +27118,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -26358,6 +27151,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26392,6 +27186,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -26432,6 +27227,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -26469,6 +27265,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26503,6 +27300,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26537,6 +27335,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26571,6 +27370,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -26603,6 +27403,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -26631,6 +27432,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "DISRUPT",
         "SPEED_CONTROL"
@@ -26666,6 +27468,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "randomNormal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -26698,6 +27501,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26732,6 +27536,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -26760,6 +27565,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -26792,6 +27598,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26826,6 +27633,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -26854,6 +27662,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -26888,6 +27697,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -26927,6 +27737,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -26959,6 +27770,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -26996,6 +27808,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -27033,6 +27846,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27059,6 +27873,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -27096,6 +27911,7 @@
       "accuracy": 55,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27124,6 +27940,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -27158,6 +27975,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -27192,6 +28010,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -27226,6 +28045,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27254,6 +28074,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27282,6 +28103,7 @@
       "accuracy": 75,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27310,6 +28132,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -27342,6 +28165,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -27374,6 +28198,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -27406,6 +28231,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -27438,6 +28264,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -27475,6 +28302,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY"
       ],
@@ -27507,6 +28335,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -27541,6 +28370,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -27575,6 +28405,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -27607,6 +28438,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27635,6 +28467,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -27667,6 +28500,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -27699,6 +28533,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL",
         "SPEED_CONTROL"
@@ -27734,6 +28569,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -27766,6 +28602,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27794,6 +28631,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT",
         "SPEED_CONTROL"
@@ -27829,6 +28667,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -27861,6 +28700,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -27893,6 +28733,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -27921,6 +28762,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -27956,6 +28798,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -27990,6 +28833,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacent",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -28018,6 +28862,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -28046,6 +28891,7 @@
       "accuracy": true,
       "priority": -6,
       "target": "self",
+      "flags": [],
       "tags": [
         "PIVOT"
       ],
@@ -28078,6 +28924,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28112,6 +28959,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -28144,6 +28992,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE"
@@ -28179,6 +29028,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -28211,6 +29061,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28245,6 +29096,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28279,6 +29131,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28313,6 +29166,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "randomNormal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -28351,6 +29205,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28385,6 +29240,7 @@
       "accuracy": 70,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -28422,6 +29278,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28456,6 +29313,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28490,6 +29348,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -28529,6 +29388,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28563,6 +29423,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28597,6 +29458,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28631,6 +29493,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28665,6 +29528,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD",
         "SPEED_CONTROL"
@@ -28700,6 +29564,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -28732,6 +29597,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "HAZARD_REMOVE"
       ],
@@ -28764,6 +29630,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -28796,6 +29663,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -28830,6 +29698,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -28862,6 +29731,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -28894,6 +29764,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "foeSide",
+      "flags": [],
       "tags": [
         "HAZARD_SET",
         "HAZARD_REMOVE"
@@ -28929,6 +29800,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD",
         "DISRUPT",
@@ -28967,6 +29839,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29001,6 +29874,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -29029,6 +29903,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -29061,6 +29936,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "DISRUPT"
       ],
@@ -29093,6 +29969,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -29121,6 +29998,7 @@
       "accuracy": true,
       "priority": -7,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -29153,6 +30031,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29187,6 +30066,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29221,6 +30101,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29255,6 +30136,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29289,6 +30171,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29323,6 +30206,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -29349,6 +30233,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29383,6 +30268,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29417,6 +30303,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29451,6 +30338,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29485,6 +30373,7 @@
       "accuracy": 100,
       "priority": 3,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -29524,6 +30413,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "randomNormal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -29556,6 +30446,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -29593,6 +30484,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -29632,6 +30524,7 @@
       "accuracy": 95,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -29669,6 +30562,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -29695,6 +30589,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -29723,6 +30618,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29757,6 +30653,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -29789,6 +30686,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29823,6 +30721,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -29855,6 +30754,7 @@
       "accuracy": true,
       "priority": -1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29889,6 +30789,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -29926,6 +30827,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -29963,6 +30865,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -29997,6 +30900,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30031,6 +30935,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30065,6 +30970,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30099,6 +31005,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30133,6 +31040,7 @@
       "accuracy": 100,
       "priority": 1,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",
@@ -30172,6 +31080,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -30204,6 +31113,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -30241,6 +31151,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -30278,6 +31189,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -30310,6 +31222,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30344,6 +31257,7 @@
       "accuracy": true,
       "priority": -6,
       "target": "normal",
+      "flags": [],
       "tags": [
         "FORCE_SWITCH"
       ],
@@ -30376,6 +31290,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30410,6 +31325,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30444,6 +31360,7 @@
       "accuracy": true,
       "priority": 3,
       "target": "allySide",
+      "flags": [],
       "tags": [
         "PRIORITY",
         "FINISHER",
@@ -30481,6 +31398,7 @@
       "accuracy": 80,
       "priority": 0,
       "target": "allAdjacentFoes",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -30518,6 +31436,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30552,6 +31471,7 @@
       "accuracy": 85,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -30584,6 +31504,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "any",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30618,6 +31539,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "RECOVERY",
         "TEAM_SUPPORT"
@@ -30653,6 +31575,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -30681,6 +31604,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "all",
+      "flags": [],
       "tags": [
         "FIELD_CONTROL"
       ],
@@ -30713,6 +31637,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -30750,6 +31675,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "self",
+      "flags": [],
       "tags": [
         "SETUP_BOOST"
       ],
@@ -30782,6 +31708,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -30810,6 +31737,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE"
       ],
@@ -30842,6 +31770,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [],
       "tagLabels": [],
       "roleScores": {
@@ -30868,6 +31797,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -30902,6 +31832,7 @@
       "accuracy": true,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "STATUS_SPREAD"
       ],
@@ -30934,6 +31865,7 @@
       "accuracy": 50,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "RISKY_NUKE",
@@ -30971,6 +31903,7 @@
       "accuracy": 90,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -31005,6 +31938,7 @@
       "accuracy": 100,
       "priority": 0,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE"
@@ -31039,6 +31973,7 @@
       "accuracy": 100,
       "priority": 2,
       "target": "normal",
+      "flags": [],
       "tags": [
         "ACE_DAMAGE",
         "ACE_COVERAGE",

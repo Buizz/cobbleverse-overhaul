@@ -1,0 +1,32 @@
+{
+  "$schema": "../schemas/event-boundaries.schema.json",
+  "schema_version": 1,
+  "regions": [
+    {
+      "id": "cobbleventure:event_region/starter_origin",
+      "dimension": "cobbleventure:generation_1",
+      "box": {
+        "min_x": -16,
+        "min_y": -64,
+        "min_z": -16,
+        "max_x": 16,
+        "max_y": 319,
+        "max_z": 16
+      }
+    }
+  ],
+  "anchors": [
+    {
+      "id": "cobbleventure:event_anchor/world_spawn",
+      "dimension": "cobbleventure:generation_1",
+      "box": {
+        "min_x": 0,
+        "min_y": 80,
+        "min_z": 0,
+        "max_x": 0,
+        "max_y": 80,
+        "max_z": 0
+      }
+    }
+  ]
+}

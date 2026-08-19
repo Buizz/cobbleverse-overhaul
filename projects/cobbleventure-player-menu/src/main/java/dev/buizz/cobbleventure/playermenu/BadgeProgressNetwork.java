@@ -68,16 +68,16 @@ public final class BadgeProgressNetwork {
                         .executes(context -> {
                             String badge = StringArgumentType.getString(context, "badge");
                             if (ResourceLocation.tryParse(badge) == null || !badge.startsWith("cobbleventure:badge/")) return 0;
-                            int changed = 0;
+                            int targets = 0;
                             for (ServerPlayer player : EntityArgument.getPlayers(context, "players")) {
+                                targets++;
                                 Set<String> badges = badges(player);
                                 if (badges.add(badge)) {
                                     write(player, badges);
-                                    changed++;
                                 }
                                 PacketDistributor.sendToPlayer(player, new BadgeSnapshotPayload(List.copyOf(badges)));
                             }
-                            return changed;
+                            return targets;
                         }))))
             .then(Commands.literal("revoke")
                 .then(Commands.argument("players", EntityArgument.players())

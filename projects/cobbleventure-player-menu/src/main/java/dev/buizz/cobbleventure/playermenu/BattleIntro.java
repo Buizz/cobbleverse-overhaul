@@ -41,11 +41,18 @@ public final class BattleIntro {
     static final double PROXIMITY_BATTLE_RANGE = 6.0D;
     private static final double PROXIMITY_WARNING_RANGE = 9.0D;
     private static final double PROXIMITY_REGISTRATION_RANGE = 16.0D;
+    private static final double BATTLE_CENTER_FOCUS_HEIGHT = 0.85D;
+    private static final long POST_BATTLE_PROXIMITY_GRACE_TICKS = 100L;
     private static final String NETWORK_VERSION = "1";
     private static final Map<UUID, PendingBattle> PENDING = new HashMap<>();
     private static final Map<ProximityKey, PendingProximityBattle> PROXIMITY_PENDING =
         new HashMap<>();
     private static final Map<ProximityKey, PendingEncounterDialogue> DIALOGUE_PENDING =
+        new HashMap<>();
+    private static final Map<ProximityKey, Entity> PROXIMITY_EXIT_BLOCKED =
+        new HashMap<>();
+    private static final Set<UUID> ACTIVE_BATTLE_PLAYERS = new HashSet<>();
+    private static final Map<UUID, Long> POST_BATTLE_PROXIMITY_GRACE =
         new HashMap<>();
 
     private BattleIntro() {}
@@ -152,20 +159,29 @@ public final class BattleIntro {
             );
             return 0;
         }
+        ProximityKey key = new ProximityKey(player.getUUID(), opponent.getUUID());
         if (prepareTrainerState(player, opponent)) {
-            PROXIMITY_PENDING.remove(new ProximityKey(
-                player.getUUID(), opponent.getUUID()
-            ));
+            PROXIMITY_PENDING.remove(key);
+            PROXIMITY_EXIT_BLOCKED.remove(key);
             clearProximityFeedbackIfIdle(player);
             return 1;
         }
+        long gameTime = player.getServer().overworld().getGameTime();
+        Long graceUntil = POST_BATTLE_PROXIMITY_GRACE.get(player.getUUID());
+        if (graceUntil != null) {
+            if (gameTime < graceUntil) return 1;
+            POST_BATTLE_PROXIMITY_GRACE.remove(player.getUUID());
+        }
+        // A battle or encounter that just used this trainer must be left before
+        // EasyNPC's distance event is allowed to register it again.
+        if (PROXIMITY_EXIT_BLOCKED.containsKey(key)) return 1;
         normalized = normalized
             .replace("@initiator", player.getGameProfile().getName());
         normalized = replaceFirstSelector(
             normalized, "@s", opponent.getUUID().toString()
         );
         PROXIMITY_PENDING.put(
-            new ProximityKey(player.getUUID(), opponent.getUUID()),
+            key,
             new PendingProximityBattle(
                 opponent, encounterTrack, dialogueLabel, normalized
             )
@@ -246,6 +262,44 @@ public final class BattleIntro {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         long gameTime = event.getServer().overworld().getGameTime();
+        for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+            UUID playerId = player.getUUID();
+            if (BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) {
+                ACTIVE_BATTLE_PLAYERS.add(playerId);
+            } else if (ACTIVE_BATTLE_PLAYERS.remove(playerId)) {
+                POST_BATTLE_PROXIMITY_GRACE.put(
+                    playerId, gameTime + POST_BATTLE_PROXIMITY_GRACE_TICKS
+                );
+                dismissWarning(player);
+            }
+        }
+        ACTIVE_BATTLE_PLAYERS.removeIf(
+            id -> event.getServer().getPlayerList().getPlayer(id) == null
+        );
+        POST_BATTLE_PROXIMITY_GRACE.entrySet().removeIf(
+            entry -> entry.getValue() <= gameTime
+                || event.getServer().getPlayerList().getPlayer(entry.getKey()) == null
+        );
+        Iterator<Map.Entry<ProximityKey, Entity>> blockedIterator =
+            PROXIMITY_EXIT_BLOCKED.entrySet().iterator();
+        while (blockedIterator.hasNext()) {
+            Map.Entry<ProximityKey, Entity> entry = blockedIterator.next();
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(
+                entry.getKey().playerId
+            );
+            Entity opponent = entry.getValue();
+            if (player == null || !opponent.isAlive()
+                || player.level() != opponent.level()) {
+                blockedIterator.remove();
+                continue;
+            }
+            double dx = player.getX() - opponent.getX();
+            double dz = player.getZ() - opponent.getZ();
+            if (dx * dx + dz * dz
+                > PROXIMITY_WARNING_RANGE * PROXIMITY_WARNING_RANGE) {
+                blockedIterator.remove();
+            }
+        }
         Set<UUID> triggeredPlayers = new HashSet<>();
         Iterator<Map.Entry<ProximityKey, PendingProximityBattle>> proximityIterator =
             PROXIMITY_PENDING.entrySet().iterator();
@@ -268,8 +322,9 @@ public final class BattleIntro {
                     key -> key.playerId.equals(playerId)
                 )
                 || BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) {
-                pending.armed = false;
-                pending.warningActive = false;
+                PROXIMITY_EXIT_BLOCKED.put(entry.getKey(), opponent);
+                proximityIterator.remove();
+                dismissWarning(player);
                 continue;
             }
             if (!opponent.isAlive() || player.level() != opponent.level()) {
@@ -318,6 +373,7 @@ public final class BattleIntro {
                 continue;
             }
             proximityIterator.remove();
+            PROXIMITY_EXIT_BLOCKED.put(entry.getKey(), opponent);
             triggeredPlayers.add(playerId);
             String openDialogue = "easy_npc dialog open " + opponent.getUUID()
                 + " " + player.getUUID() + " " + pending.dialogueLabel;
@@ -337,12 +393,18 @@ public final class BattleIntro {
             );
         }
         if (!triggeredPlayers.isEmpty()) {
-            PROXIMITY_PENDING.forEach((key, pending) -> {
-                if (triggeredPlayers.contains(key.playerId)) {
-                    pending.armed = false;
-                    pending.warningActive = false;
+            Iterator<Map.Entry<ProximityKey, PendingProximityBattle>> remainingIterator =
+                PROXIMITY_PENDING.entrySet().iterator();
+            while (remainingIterator.hasNext()) {
+                Map.Entry<ProximityKey, PendingProximityBattle> entry =
+                    remainingIterator.next();
+                if (triggeredPlayers.contains(entry.getKey().playerId)) {
+                    PROXIMITY_EXIT_BLOCKED.put(
+                        entry.getKey(), entry.getValue().opponent
+                    );
+                    remainingIterator.remove();
                 }
-            });
+            }
         }
 
         Iterator<Map.Entry<ProximityKey, PendingEncounterDialogue>> dialogueIterator =
@@ -392,9 +454,13 @@ public final class BattleIntro {
     }
 
     private static void freezeForIntro(ServerPlayer player, PendingBattle pending) {
-        double dx = pending.opponent.getX() - pending.lockedPosition.x;
-        double dz = pending.opponent.getZ() - pending.lockedPosition.z;
-        double dy = pending.opponent.getEyeY() - player.getEyeY();
+        double focusX = (pending.lockedPosition.x + pending.opponent.getX()) * 0.5D;
+        double focusY = (pending.lockedPosition.y + pending.opponent.getY()) * 0.5D
+            + BATTLE_CENTER_FOCUS_HEIGHT;
+        double focusZ = (pending.lockedPosition.z + pending.opponent.getZ()) * 0.5D;
+        double dx = focusX - pending.lockedPosition.x;
+        double dz = focusZ - pending.lockedPosition.z;
+        double dy = focusY - player.getEyeY();
         double horizontal = Math.max(0.0001D, Math.sqrt(dx * dx + dz * dz));
         float targetYaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
         float targetPitch = (float)-Math.toDegrees(Math.atan2(dy, horizontal));

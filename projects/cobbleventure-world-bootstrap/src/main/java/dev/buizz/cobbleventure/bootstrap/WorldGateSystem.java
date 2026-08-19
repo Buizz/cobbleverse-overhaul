@@ -173,11 +173,11 @@ final class WorldGateSystem {
                 cacheForestEntryMarker(level, world, gate);
             } else if (gate.surroundingType().equals("natural")
                 && !gate.buildingEnabled()
-                && markerState.getValue(RespawnAnchorBlock.CHARGE) < 1) {
+                && markerState.getValue(RespawnAnchorBlock.CHARGE) < 2) {
                 refreshNpcNaturalGate(level, world, gate, center);
                 level.setBlock(
                     marker,
-                    markerState.setValue(RespawnAnchorBlock.CHARGE, 1), 2
+                    markerState.setValue(RespawnAnchorBlock.CHARGE, 2), 2
                 );
             }
             return;
@@ -198,7 +198,7 @@ final class WorldGateSystem {
             );
         } else if (!forestGate && gate.surroundingType().equals("natural")) {
             placeNaturalSurroundings(
-                level, world, gate, center, horizontal,
+                level, world, gate, center,
                 halfLength, halfThickness, halfOpening
             );
         }
@@ -240,7 +240,7 @@ final class WorldGateSystem {
         BlockState completedMarker = Blocks.RESPAWN_ANCHOR.defaultBlockState();
         if (!forestGate && gate.surroundingType().equals("natural")
             && !gate.buildingEnabled()) {
-            completedMarker = completedMarker.setValue(RespawnAnchorBlock.CHARGE, 1);
+            completedMarker = completedMarker.setValue(RespawnAnchorBlock.CHARGE, 2);
         }
         level.setBlock(marker, completedMarker, 2);
         LOGGER.info(
@@ -254,12 +254,11 @@ final class WorldGateSystem {
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center
     ) {
-        boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
         int halfLength = Math.max(16, world.grid().radius() - 3);
         int halfThickness = gate.wallThickness() / 2;
         int halfOpening = gate.openingWidth() / 2;
         placeNaturalSurroundings(
-            level, world, gate, center, horizontal,
+            level, world, gate, center,
             halfLength, halfThickness, halfOpening
         );
         LOGGER.info("NPC natural gate visuals refreshed: gate={}", gate.id());
@@ -377,6 +376,9 @@ final class WorldGateSystem {
                 || existing.getBlock() instanceof LeavesBlock) {
                 continue;
             }
+            if (height == 1 && !existing.isAir() && existing.canBeReplaced()) {
+                continue;
+            }
             if (existing.isAir() || existing.canBeReplaced()) {
                 level.setBlock(position, Blocks.BARRIER.defaultBlockState(), 2);
             }
@@ -449,72 +451,120 @@ final class WorldGateSystem {
         return value ^ value >>> 31;
     }
 
-    /** Builds the full blocking strip from the inaccessible terrain on both sides. */
+    /**
+     * Builds the two filled wedges shown by the gate authoring model: the
+     * inaccessible terrain is broad at the left/right hex edges and converges
+     * toward two tips beside the central passage. Nothing radiates from the
+     * gate toward its front or back.
+     */
     private static void placeNaturalSurroundings(
         ServerLevel level, HexWorldPlan world, Gate gate,
-        CobbleventureBootstrap.Point center, boolean horizontal,
+        CobbleventureBootstrap.Point center,
         int halfLength, int halfThickness, int halfOpening
     ) {
         Direction normal = facingDirection(gate.facing());
         Direction sideways = normal.getClockWise();
-        decorateNaturalBoundary(
-            level, world, gate, center, horizontal,
-            halfLength, halfThickness, halfOpening, sideways
+        clearLegacyNaturalBarrierLine(
+            level, gate, center, sideways, halfLength, halfOpening
         );
-        for (int along = -halfLength; along <= halfLength; along++) {
-            if (Math.abs(along) <= halfOpening) {
-                continue;
-            }
-            Direction sampleDirection = along < 0
-                ? sideways.getOpposite() : sideways;
-            String terrainType = inaccessibleTerrainType(
-                world, center, sampleDirection
-            );
-            // Natural gates only need one collision plane. The configured wall
-            // thickness remains the visual setback for trees and the gate NBT,
-            // but no longer becomes a five-block-deep invisible slab.
-            int x = center.x() + (horizontal ? along : 0);
-            int z = center.z() + (horizontal ? 0 : along);
-            placeNaturalBarrierColumn(level, gate, terrainType, x, z);
-        }
+        placeNaturalGateWedges(
+            level, world, gate, center, normal, sideways,
+            halfLength, halfThickness, halfOpening
+        );
     }
 
-    private static void decorateNaturalBoundary(
+    private static void placeNaturalGateWedges(
         ServerLevel level, HexWorldPlan world, Gate gate,
-        CobbleventureBootstrap.Point center, boolean horizontal,
-        int halfLength, int halfThickness, int halfOpening,
-        Direction sideways
+        CobbleventureBootstrap.Point center, Direction normal, Direction sideways,
+        int halfLength, int halfThickness, int halfOpening
     ) {
         int availableLength = Math.max(1, halfLength - halfOpening);
-        int maximumDepth = Math.max(7, Math.min(12, halfThickness + 7));
+        int maximumDepth = Math.max(
+            halfThickness + 4,
+            (int) Math.round(halfLength * 0.52D)
+        );
         for (int shoulderSign : new int[] {-1, 1}) {
             Direction sampleDirection = shoulderSign < 0
                 ? sideways.getOpposite() : sideways;
             String terrainType = inaccessibleTerrainType(
                 world, center, sampleDirection
             );
-            for (int distance = halfOpening + 2;
+            for (int distance = halfOpening + 1;
                 distance <= halfLength; distance++) {
                 double progress = (distance - halfOpening) / (double) availableLength;
-                int shoulderDepth = Math.max(
-                    1, (int) Math.floor(maximumDepth * progress)
+                double curvedProgress = progress * progress * (3.0D - 2.0D * progress);
+                long edgeHash = mixGateSeed(
+                    world.seed(), center.x(), center.z(), distance, shoulderSign
                 );
-                int along = shoulderSign * distance;
+                int edgeVariation = progress < 0.15D
+                    ? 0 : Math.floorMod((int) edgeHash, 5) - 2;
+                int shoulderDepth = Math.max(
+                    1,
+                    Math.min(
+                        maximumDepth,
+                        1 + (int) Math.round((maximumDepth - 1) * curvedProgress)
+                            + edgeVariation
+                    )
+                );
+                int lateral = shoulderSign * distance;
                 for (int offset = -shoulderDepth;
                     offset <= shoulderDepth; offset++) {
-                    int x = center.x() + (horizontal ? along : offset);
-                    int z = center.z() + (horizontal ? offset : along);
+                    int x = center.x() + sideways.getStepX() * lateral
+                        + normal.getStepX() * offset;
+                    int z = center.z() + sideways.getStepZ() * lateral
+                        + normal.getStepZ() * offset;
                     decorateNaturalShoulderColumn(
                         level, world, gate, terrainType,
                         x, z, distance, offset
+                    );
+                    placeNaturalBarrierColumn(
+                        level, gate, terrainType, x, z
                     );
                 }
             }
         }
         LOGGER.info(
-            "Natural gate shoulders placed: gate={}, halfLength={}, maxDepth={}, opening={}",
+            "Natural gate wedges placed: gate={}, halfLength={}, maxDepth={}, opening={}",
             gate.id(), halfLength, maximumDepth, halfOpening * 2 + 1
         );
+    }
+
+    /** Removes the obsolete center-to-edge collision line before wedge refresh. */
+    private static void clearLegacyNaturalBarrierLine(
+        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
+        Direction sideways, int halfLength, int halfOpening
+    ) {
+        for (int lateral = -halfLength; lateral <= halfLength; lateral++) {
+            if (Math.abs(lateral) <= halfOpening) {
+                continue;
+            }
+            int x = center.x() + sideways.getStepX() * lateral;
+            int z = center.z() + sideways.getStepZ() * lateral;
+            int groundY = naturalBarrierGroundY(level, x, z);
+            for (int height = 1; height <= gate.barrierHeight(); height++) {
+                BlockPos position = new BlockPos(x, groundY + height, z);
+                if (level.getBlockState(position).is(Blocks.BARRIER)) {
+                    level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+                }
+            }
+        }
+    }
+
+    private static int naturalBarrierGroundY(ServerLevel level, int x, int z) {
+        int top = groundY(level, x, z);
+        if (!level.getBlockState(new BlockPos(x, top, z)).is(Blocks.BARRIER)) {
+            return top;
+        }
+        for (int y = top; y > level.getMinBuildHeight(); y--) {
+            BlockState state = level.getBlockState(new BlockPos(x, y, z));
+            if (state.is(Blocks.BARRIER) || state.is(BlockTags.LOGS)
+                || state.getBlock() instanceof LeavesBlock || state.isAir()
+                || state.canBeReplaced()) {
+                continue;
+            }
+            return y;
+        }
+        return top;
     }
 
     private static int forestFunnelGroundY(ServerLevel level, int x, int z) {

@@ -1,0 +1,7 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사님께 먼저 다녀오렴."
+    }
+  }
+}

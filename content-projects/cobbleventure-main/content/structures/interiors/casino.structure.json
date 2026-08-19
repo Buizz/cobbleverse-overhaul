@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/interiors/casino.nbt",
+  "interior": {
+    "id": "casino",
+    "width": 48,
+    "depth": 48,
+    "floor_height": 12,
+    "floors": 1
+  },
+  "anchors": []
+}

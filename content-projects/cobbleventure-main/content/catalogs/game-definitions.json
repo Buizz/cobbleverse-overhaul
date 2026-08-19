@@ -4,6 +4,30 @@
   "items": [],
   "variables": [
     {
+      "id": "cobbleventure:flag/story/starter_received",
+      "scope": "player", "type": "boolean", "default": false,
+      "display_name": { "ko_kr": "스타팅 포켓몬 수령", "en_us": "Starter Pokémon Received" },
+      "description": { "ko_kr": "플레이어가 스타팅 룰렛에서 첫 포켓몬을 확정했는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/story/pokedex_received",
+      "scope": "player", "type": "boolean", "default": false,
+      "display_name": { "ko_kr": "포켓몬 도감 수령", "en_us": "Pokédex Received" },
+      "description": { "ko_kr": "플레이어가 오박사에게 포켓몬 도감을 받았는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/sample/sample_potion_giver/claimed",
+      "scope": "player", "type": "boolean", "default": false,
+      "display_name": { "ko_kr": "상처약 샘플 보상 수령", "en_us": "Sample Potion Reward Claimed" },
+      "description": { "ko_kr": "플레이어가 샘플 여행자에게 상처약 보상을 받았는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/trainer/ai_test/defeated",
+      "scope": "player", "type": "boolean", "default": false,
+      "display_name": { "ko_kr": "AI 맨 격파", "en_us": "AI Man Defeated" },
+      "description": { "ko_kr": "플레이어가 개발용 AI 맨 트레이너에게 승리했는지 기록합니다." }
+    },
+    {
       "id": "cobbleventure:flag/gym/kanto/brock/defeated",
       "scope": "player", "type": "boolean", "default": false,
       "display_name": { "ko_kr": "웅 체육관 클리어", "en_us": "Brock Gym Cleared" },

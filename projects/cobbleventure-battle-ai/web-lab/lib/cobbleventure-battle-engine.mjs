@@ -2,7 +2,6 @@ const ENGINE_ID = "cobbleventure-simple";
 import {
   DYNAMAX_BLOCKED_WEIGHT_MOVES,
   resolveDynamicPower,
-  resolveDynamicPostHit,
   SUPPORTED_DYNAMIC_POWER_MOVES,
 } from "./native-dynamic-power.mjs";
 import {
@@ -22,6 +21,7 @@ import {
   estimateBattleWinProbability,
   evaluateOneTurnBattleState,
   evaluatePokemonRoleProgress,
+  evaluateSetupLikelihood,
   evaluateSetupThreat,
   scoreAiMoveCandidate,
   scoreAiProjectedGimmickCandidate,
@@ -34,9 +34,50 @@ import {
   toAiTraceCandidate,
 } from "./common-battle-ai.mjs";
 import {
+  buildSharedBattleActionsJson,
+  applySharedDamageJson,
+  applySharedDirectDamageJson,
+  applySharedBoostJson,
+  applySharedFieldJson,
+  applySharedSideConditionJson,
+  applySharedStatusJson,
+  applySharedVolatileJson,
+  calculateSharedBaseDamage,
+  calculateSharedModifiedDamage,
   decideTwoTurnJson,
   decideWinRateJson,
+  deriveBatonPassFactsJson,
+  deriveEntryHazardDamageJson,
+  deriveHazardLayerFactsJson,
+  deriveRecoveryFactsJson,
+  deriveResidualPressureJson,
+  deriveSaltCureDamageJson,
+  deriveSharedSwitchMatchupObservationJson,
+  evaluateSharedDamageFactorsJson,
+  evaluateSharedBattleOutcomeJson,
+  evaluateSharedDamagePipelineJson,
+  evaluateSharedDamageStatsJson,
+  evaluateSharedDynamaxExpiryJson,
+  evaluateSharedEndTurnResidualJson,
+  evaluateSharedEffectiveStatJson,
+  evaluateSharedFaintReplacementJson,
+  evaluateSharedForcedSwitchJson,
+  evaluateSharedHitReactionsJson,
+  evaluateSharedPostHitJson,
+  evaluateSharedSwitchPhaseJson,
+  evaluateSharedTimedEffectJson,
+  extractBattleValueSideJson,
+  generateSharedSearchActionsJson,
+  legalSharedSearchCandidatesJson,
+  orderSharedBattleActionsJson,
+  rollSharedSecondaryJson,
+  scoreSharedTrainerItemCandidateJson,
+  transitionSharedSearchStateJson,
 } from "./shared-ai-core.mjs";
+import {
+  toSharedBattleState,
+  toSharedTurnCommands,
+} from "./shared-battle-state-adapter.mjs";
 
 const ENGINE_VERSION = "0.9.7";
 const DEFAULT_MAX_TURNS = 200;
@@ -44,22 +85,6 @@ const DEFAULT_FIELD_DURATION = 5;
 const SECOND_TURN_SEARCH_DISCOUNT = 0.72;
 const GIMMICK_KINDS = ["mega", "zmove", "dynamax", "terastallize"];
 const PRE_MOVE_GIMMICKS = new Set(["mega", "dynamax", "gigantamax", "terastallize"]);
-const SIDE_CONDITION_DURATIONS = {
-  auroraveil: 5,
-  craftyshield: 1,
-  lightscreen: 5,
-  luckychant: 5,
-  matblock: 1,
-  quickguard: 1,
-  reflect: 5,
-  safeguard: 5,
-  tailwind: 4,
-  wideguard: 1,
-};
-const LAYERED_SIDE_CONDITIONS = {
-  spikes: 3,
-  toxicspikes: 2,
-};
 const CHARGING_MOVES = new Set([
   "bounce",
   "dig",
@@ -96,37 +121,6 @@ const SELF_DESTRUCT_MOVES = new Set([
   "selfdestruct",
 ]);
 const DAMP_BLOCKED_MOVES = new Set([...SELF_DESTRUCT_MOVES, "mindblown"]);
-const TRACE_BLOCKED_ABILITIES = new Set([
-  "asoneglastrier",
-  "asonespectrier",
-  "battlebond",
-  "comatose",
-  "commander",
-  "deltastream",
-  "desolateland",
-  "disguise",
-  "gulpmissile",
-  "hadronengine",
-  "illusion",
-  "imposter",
-  "multitype",
-  "neutralizinggas",
-  "orichalcumpulse",
-  "powerconstruct",
-  "primordialsea",
-  "protosynthesis",
-  "quarkdrive",
-  "receiver",
-  "rkssystem",
-  "schooling",
-  "shieldsdown",
-  "stancechange",
-  "teraformzero",
-  "terashift",
-  "trace",
-  "wonderguard",
-  "zenmode",
-]);
 const ROLLING_LOCK_MOVES = new Set(["iceball", "rollout"]);
 const RAMPAGE_LOCK_MOVES = new Set(["outrage", "petaldance", "thrash"]);
 const NON_CONSECUTIVE_MOVES = new Set(["bloodmoon", "gigatonhammer"]);
@@ -427,14 +421,6 @@ const SUPPORTED_ABILITIES = new Set([
   ...IMPLEMENTED_ABILITIES,
   ...INTENTIONAL_NO_EFFECT_ABILITIES,
 ]);
-const STATUS_IMMUNITY_ABILITIES = {
-  brn: new Set(["waterveil"]),
-  par: new Set(["limber"]),
-  psn: new Set(["immunity"]),
-  tox: new Set(["immunity"]),
-  slp: new Set(["insomnia", "vitalspirit"]),
-};
-
 const TRAPPING_VOLATILES = new Set([
   "block",
   "fairylock",
@@ -1146,6 +1132,9 @@ function createRng(seed, restoredState = false) {
     snapshot() {
       return state;
     },
+    restore(snapshot) {
+      state = Number(snapshot) >>> 0;
+    },
   };
 }
 
@@ -1290,18 +1279,38 @@ function makesContact(move) {
   );
 }
 
+const sharedContactOutcomeCache = new Map();
+
+function sharedContactOutcome(attacker, move) {
+  const key = [
+    cleanId(attacker?.item),
+    makesContact(move) ? 1 : 0,
+    hasMoveFlag(move, "punch") ? 1 : 0,
+  ].join(":");
+  const cached = sharedContactOutcomeCache.get(key);
+  if (cached) return cached;
+  const outcome = JSON.parse(
+    evaluateSharedPostHitJson(
+      JSON.stringify({
+        moveContact: makesContact(move),
+        movePunch: hasMoveFlag(move, "punch"),
+        attackerItem: attacker?.item ?? "",
+      }),
+    ),
+  );
+  if (sharedContactOutcomeCache.size >= 16) {
+    sharedContactOutcomeCache.delete(sharedContactOutcomeCache.keys().next().value);
+  }
+  sharedContactOutcomeCache.set(key, outcome);
+  return outcome;
+}
+
 function makesEffectiveContact(attacker, move) {
-  return !(
-    cleanId(attacker?.item) === "punchingglove" &&
-    hasMoveFlag(move, "punch")
-  ) && makesContact(move);
+  return sharedContactOutcome(attacker, move).effectiveContact;
 }
 
 function triggersContactPunishment(attacker, move) {
-  return (
-    makesEffectiveContact(attacker, move) &&
-    cleanId(attacker?.item) !== "protectivepads"
-  );
+  return sharedContactOutcome(attacker, move).contactPunishment;
 }
 
 function hasMoveFlag(move, flag) {
@@ -1332,22 +1341,29 @@ function absorbingAbilityForMove(defender, move, attacker = null) {
   return "";
 }
 
-function isSheerForceBoostedMove(attacker, move) {
-  return (
-    activeAbility(attacker) === "sheerforce" &&
-    Array.isArray(move?.secondaries) &&
-    move.secondaries.length > 0
-  );
-}
+const sharedSecondaryChanceCache = new Map();
 
 function secondaryEffectChance(attacker, effect) {
-  const baseChance = Math.max(
-    0,
-    Math.min(100, Number(effect?.chance ?? 100)),
+  const chance = Number(effect?.chance ?? 100);
+  const ability = activeAbility(attacker);
+  const key = `${ability}:${chance}`;
+  if (sharedSecondaryChanceCache.has(key)) {
+    return sharedSecondaryChanceCache.get(key);
+  }
+  const result = JSON.parse(
+    rollSharedSecondaryJson(
+      JSON.stringify({
+        chance,
+        attackerAbility: ability,
+        blocked: true,
+      }),
+    ),
   );
-  return activeAbility(attacker) === "serenegrace"
-    ? Math.min(100, baseChance * 2)
-    : baseChance;
+  if (sharedSecondaryChanceCache.size >= 32) {
+    sharedSecondaryChanceCache.delete(sharedSecondaryChanceCache.keys().next().value);
+  }
+  sharedSecondaryChanceCache.set(key, result.effectiveChance);
+  return result.effectiveChance;
 }
 
 function activateAbsorbingAbility(
@@ -1439,49 +1455,6 @@ function priorityBlockingAbility(pokemon) {
   return ["armortail", "queenlymajesty"].includes(ability) ? ability : "";
 }
 
-function statusBlockedByAbility(pokemon, status) {
-  const ability = activeAbility(pokemon);
-  if (ability === "purifyingsalt") return true;
-  if (ability === "thermalexchange" && status === "brn") return true;
-  if (ability === "waterbubble" && status === "brn") return true;
-  return Boolean(STATUS_IMMUNITY_ABILITIES[status]?.has(ability));
-}
-
-function abilityDamageModifier(defender, move, attacker = null) {
-  if (ignoresDefenderAbility(attacker)) return 1;
-  const ability = activeAbility(defender);
-  let modifier = 1;
-  if (
-    (ability === "multiscale" || ability === "shadowshield") &&
-    defender.hp >= defender.stats.hp
-  ) {
-    modifier *= 0.5;
-  }
-  if (ability === "thickfat" && (move.type === "Fire" || move.type === "Ice")) {
-    modifier *= 0.5;
-  }
-  if (ability === "purifyingsalt" && move.type === "Ghost") {
-    modifier *= 0.5;
-  }
-  if (ability === "heatproof" && move.type === "Fire") {
-    modifier *= 0.5;
-  }
-  if (ability === "waterbubble" && move.type === "Fire") {
-    modifier *= 0.5;
-  }
-  if (ability === "furcoat" && move.category === "Physical") {
-    modifier *= 0.5;
-  }
-  if (ability === "fluffy") {
-    if (makesEffectiveContact(attacker, move)) modifier *= 0.5;
-    if (move.type === "Fire") modifier *= 2;
-  }
-  if (ability === "dryskin" && move.type === "Fire") {
-    modifier *= 1.25;
-  }
-  return modifier;
-}
-
 function preventsCriticalHit(defender, attacker = null) {
   return (
     !ignoresDefenderAbility(attacker) &&
@@ -1495,12 +1468,8 @@ function criticalDamageModifier(attacker, defender, critical) {
 }
 
 function secondaryEffectBlockSource(attacker, defender, move) {
-  if (move?.category === "Status") return "";
-  if (cleanId(defender.item) === "covertcloak") return "covertcloak";
-  return activeAbility(defender) === "shielddust" &&
-    !ignoresDefenderAbility(attacker)
-    ? "shielddust"
-    : "";
+  return sharedPostHitOutcome(move, attacker, defender, 1, 1)
+    .secondaryBlockSource;
 }
 
 function secondaryEffectsBlocked(attacker, defender, move) {
@@ -1548,83 +1517,64 @@ function paradoxBoostStat(pokemon, state = null) {
     .sort((left, right) => pokemon.stats[right] - pokemon.stats[left])[0];
 }
 
+function sharedEffectiveStatPokemon(pokemon) {
+  const statValue = (stat) => {
+    const value = Number(pokemon?.stats?.[stat] ?? 1);
+    return Number.isFinite(value) ? Math.max(1, Math.floor(value)) : 1;
+  };
+  const hp = Number(pokemon?.hp ?? 0);
+  return {
+    id: String(pokemon?.id ?? pokemon?.name ?? ""),
+    baseSpecies: String(pokemon?.baseSpecies ?? ""),
+    types: pokemon?.types ?? [],
+    ability: String(pokemon?.ability ?? ""),
+    item: String(pokemon?.item ?? ""),
+    status: String(pokemon?.status ?? ""),
+    hp: Number.isFinite(hp) ? Math.floor(hp) : 0,
+    maximumHp: statValue("hp"),
+    stats: {
+      hp: statValue("hp"),
+      attack: statValue("attack"),
+      defence: statValue("defence"),
+      specialAttack: statValue("specialAttack"),
+      specialDefence: statValue("specialDefence"),
+      speed: statValue("speed"),
+    },
+    boosts: pokemon?.boosts ?? {},
+    dynamaxTurns: Number(pokemon?.dynamaxTurns ?? 0),
+    canEvolve: pokemon?.canEvolve === true,
+    gastroAcid: Boolean(pokemon?.volatiles?.gastroacid),
+    neutralizingGasSuppressed: Boolean(
+      pokemon?.volatiles?.neutralizinggas &&
+        cleanId(pokemon?.ability) !== "neutralizinggas",
+    ),
+    paradoxSource: String(pokemon?.abilityState?.paradoxSource ?? ""),
+    paradoxStat: String(pokemon?.abilityState?.paradoxStat ?? ""),
+  };
+}
+
+const SHARED_EFFECTIVE_STAT_CACHE_LIMIT = 16384;
+const sharedEffectiveStatCache = new Map();
+
 function effectiveStat(pokemon, stat, options = {}) {
-  let stage = pokemon.boosts?.[stat] ?? 0;
-  if (options.ignoreStages) stage = 0;
-  if (options.ignoreNegative && stage < 0) stage = 0;
-  if (options.ignorePositive && stage > 0) stage = 0;
-  let value = pokemon.stats[stat] * stageMultiplier(stage);
-  if (
-    ["attack", "specialAttack"].includes(stat) &&
-    cleanId(pokemon.item) === "lightball" &&
-    cleanId(pokemon.baseSpecies || pokemon.id || pokemon.name) === "pikachu"
-  ) {
-    value *= 2;
+  if (!Number.isFinite(Number(pokemon?.stats?.[stat]))) return Number.NaN;
+  const inputJson = JSON.stringify({
+    pokemon: sharedEffectiveStatPokemon(pokemon),
+    stat,
+    weather: effectiveWeather(options.state),
+    terrain: String(options.state?.field?.terrain?.id ?? ""),
+    ignoreStages: options.ignoreStages === true,
+    ignoreNegative: options.ignoreNegative === true,
+    ignorePositive: options.ignorePositive === true,
+  });
+  const cached = sharedEffectiveStatCache.get(inputJson);
+  if (cached != null) return cached;
+  const value = JSON.parse(evaluateSharedEffectiveStatJson(inputJson)).value;
+  if (sharedEffectiveStatCache.size >= SHARED_EFFECTIVE_STAT_CACHE_LIMIT) {
+    sharedEffectiveStatCache.clear();
   }
-  if (
-    ["attack", "specialAttack"].includes(stat) &&
-    activeAbility(pokemon) === "defeatist" &&
-    pokemon.hp <= Math.floor(pokemon.stats.hp / 2)
-  ) {
-    value *= 0.5;
-  }
-  if (
-    ["attack", "specialDefence"].includes(stat) &&
-    activeAbility(pokemon) === "flowergift" &&
-    ["sunnyday", "desolateland"].includes(effectiveWeather(options.state))
-  ) {
-    value *= 1.5;
-  }
-  if (stat === "attack") {
-    if (pokemon.status === "brn" && activeAbility(pokemon) !== "guts") value *= 0.5;
-    if (doublesPhysicalAttack(activeAbility(pokemon))) value *= 2;
-    if (
-      activeAbility(pokemon) === "gorillatactics" &&
-      pokemon.dynamaxTurns <= 0
-    ) {
-      value *= 1.5;
-    }
-    if (pokemon.item === "choiceband") value *= 1.5;
-    if (
-      activeAbility(pokemon) === "orichalcumpulse" &&
-      ["sunnyday", "desolateland"].includes(
-        effectiveWeather(options.state),
-      )
-    ) {
-      value *= 4 / 3;
-    }
-  }
-  if (stat === "specialAttack") {
-    if (pokemon.item === "choicespecs") value *= 1.5;
-    if (
-      activeAbility(pokemon) === "solarpower" &&
-      ["sunnyday", "desolateland"].includes(effectiveWeather(options.state))
-    ) {
-      value *= 1.5;
-    }
-    if (
-      activeAbility(pokemon) === "hadronengine" &&
-      cleanId(options.state?.field?.terrain?.id) === "electricterrain"
-    ) {
-      value *= 4 / 3;
-    }
-  }
-  if (stat === "specialDefence" && pokemon.item === "assaultvest") value *= 1.5;
-  if (
-    ["defence", "specialDefence"].includes(stat) &&
-    pokemon.item === "eviolite" &&
-    pokemon.canEvolve
-  ) {
-    value *= 1.5;
-  }
-  if (stat === "speed") {
-    if (pokemon.status === "par") value *= 0.5;
-    if (pokemon.item === "choicescarf") value *= 1.5;
-  }
-  if (paradoxBoostStat(pokemon, options.state) === stat) {
-    value *= stat === "speed" ? 1.5 : 1.3;
-  }
-  return Math.max(1, value);
+  sharedEffectiveStatCache.set(inputJson, value);
+  return value;
 }
 
 function hasSideCondition(state, sideIndex, condition) {
@@ -1825,126 +1775,190 @@ function resolveEstimatedMovePower(
 }
 
 function damageBase(attacker, defender, move, options = {}) {
-  const physical = move.category === "Physical";
-  const defenderIgnoresAttackerStages =
-    activeAbility(defender) === "unaware" &&
-    !ignoresDefenderAbility(attacker);
-  const attackerIgnoresDefenderStages =
-    activeAbility(attacker) === "unaware";
-  let attack = effectiveStat(
-    attacker,
-    physical ? "attack" : "specialAttack",
-    {
-      ignoreNegative: options.critical,
-      ignoreStages: defenderIgnoresAttackerStages,
-      state: options.state,
-    },
+  const stats = JSON.parse(
+    evaluateSharedDamageStatsJson(
+      JSON.stringify(sharedDamageStatInput(attacker, defender, move, options)),
+    ),
   );
-  if (!physical && activeAbility(defender) === "vesselofruin") {
-    attack *= 0.75;
-  }
+  const { attack, defence } = stats;
   if (
-    physical &&
-    activeAbility(defender) === "tabletsofruin" &&
-    !ignoresDefenderAbility(attacker)
+    ![attacker.level, move.power, attack, defence].every(Number.isFinite)
   ) {
-    attack *= 0.75;
+    return Number.NaN;
   }
-  let defence = effectiveStat(
-    defender,
-    physical ? "defence" : "specialDefence",
-    {
-      ignorePositive: options.critical,
-      ignoreStages: attackerIgnoresDefenderStages,
-      state: options.state,
-    },
-  );
-  if (!physical && activeAbility(attacker) === "beadsofruin") {
-    defence *= 0.75;
-  }
-  if (physical && activeAbility(attacker) === "swordofruin") {
-    defence *= 0.75;
-  }
-  if (
-    !physical &&
-    effectiveWeather(options.state) === "sandstorm" &&
-    defender.types.includes("Rock")
-  ) {
-    defence *= 1.5;
-  }
-  return Math.floor(
-    (((Math.floor((2 * attacker.level) / 5) + 2) *
-      move.power *
-      attack) /
-      defence) /
-      50 +
-      2,
+  return calculateSharedBaseDamage(
+    attacker.level,
+    move.power,
+    attack,
+    defence,
   );
 }
 
-function fieldDamageModifier(
-  state,
-  attackerSide,
-  attacker,
-  defenderSide,
-  defender,
-  move,
-  critical = false,
-) {
-  let modifier = abilityDamageModifier(defender, move, attacker);
-  if (!state) return modifier;
-  const weather = effectiveWeather(state);
-  if (weather === "sunnyday" || weather === "desolateland") {
-    if (move.type === "Fire") modifier *= 1.5;
-    if (move.type === "Water") modifier *= 0.5;
-  } else if (weather === "raindance" || weather === "primordialsea") {
-    if (move.type === "Water") modifier *= 1.5;
-    if (move.type === "Fire") modifier *= 0.5;
-  }
+function sharedDamageStatInput(attacker, defender, move, options = {}) {
+  return {
+    attacker: sharedEffectiveStatPokemon(attacker),
+    defender: sharedEffectiveStatPokemon(defender),
+    category: String(move?.category ?? "Physical"),
+    weather: effectiveWeather(options.state),
+    terrain: String(options.state?.field?.terrain?.id ?? ""),
+    critical: options.critical === true,
+  };
+}
 
-  const terrain = cleanId(state.field?.terrain?.id);
-  if (isGrounded(attacker)) {
-    if (terrain === "electricterrain" && move.type === "Electric") {
-      modifier *= 1.3;
-    } else if (terrain === "grassyterrain" && move.type === "Grass") {
-      modifier *= 1.3;
-    } else if (terrain === "psychicterrain" && move.type === "Psychic") {
-      modifier *= 1.3;
-    }
+function sharedDamageTypePokemon(pokemon) {
+  const hp = Number(pokemon?.hp ?? 0);
+  const maximumHp = Number(pokemon?.stats?.hp ?? 1);
+  return {
+    id: String(pokemon?.id ?? pokemon?.name ?? ""),
+    types: pokemon?.types ?? [],
+    originalTypes: pokemon?.originalTypes ?? pokemon?.types ?? [],
+    ability: String(pokemon?.ability ?? ""),
+    item: String(pokemon?.item ?? ""),
+    hp: Number.isFinite(hp) ? Math.floor(hp) : 0,
+    maximumHp: Number.isFinite(maximumHp) ? Math.max(1, Math.floor(maximumHp)) : 1,
+    terastallized: pokemon?.terastallized === true,
+    teraType: String(pokemon?.teraType ?? ""),
+    stellarBoostedTypes: pokemon?.stellarBoostedTypes ?? [],
+    gastroAcid: Boolean(pokemon?.volatiles?.gastroacid),
+    neutralizingGasSuppressed: Boolean(
+      pokemon?.volatiles?.neutralizinggas &&
+        cleanId(pokemon?.ability) !== "neutralizinggas",
+    ),
+    teraShellActive: pokemon?.abilityState?.teraShellActive === true,
+  };
+}
+
+function sharedDamageTypeInput(attacker, defender, move, state) {
+  return {
+    attacker: sharedDamageTypePokemon(attacker),
+    defender: sharedDamageTypePokemon(defender),
+    move: {
+      id: String(move?.id ?? ""),
+      type: String(move?.type ?? "Normal"),
+      sound: isSoundMove(move),
+    },
+    weather: effectiveWeather(state),
+  };
+}
+
+function sharedDamageModifierPokemon(pokemon) {
+  const hp = Number(pokemon?.hp ?? 0);
+  const maximumHp = Number(pokemon?.stats?.hp ?? 1);
+  const consecutiveMoveCount = Number(pokemon?.consecutiveMove?.count ?? 0);
+  return {
+    id: String(pokemon?.id ?? pokemon?.name ?? ""),
+    familyId: pokemonFamilyId(pokemon),
+    types: pokemon?.types ?? [],
+    ability: String(pokemon?.ability ?? ""),
+    item: String(pokemon?.item ?? ""),
+    gender: String(pokemon?.gender ?? ""),
+    hp: Number.isFinite(hp) ? Math.floor(hp) : 0,
+    maximumHp: Number.isFinite(maximumHp) ? Math.max(1, Math.floor(maximumHp)) : 1,
+    gastroAcid: Boolean(pokemon?.volatiles?.gastroacid),
+    neutralizingGasSuppressed: Boolean(
+      pokemon?.volatiles?.neutralizinggas &&
+        cleanId(pokemon?.ability) !== "neutralizinggas",
+    ),
+    flashFireBoosted: pokemon?.abilityState?.flashFireBoosted === true,
+    helpingHand: Boolean(pokemon?.volatiles?.helpinghand),
+    tarShot: Boolean(pokemon?.volatiles?.tarshot),
+    consecutiveMoveId: String(pokemon?.consecutiveMove?.id ?? ""),
+    consecutiveMoveCount: Number.isFinite(consecutiveMoveCount)
+      ? Math.floor(consecutiveMoveCount)
+      : 0,
+  };
+}
+
+function sharedDamageModifierInput(attacker, defender, move, context) {
+  const defenderAlreadyActed =
+    typeof context.defenderActed === "boolean"
+      ? context.defenderActed
+      : context.state?.currentActions
+        ? defender.turnState?.acted === true
+        : Number.isInteger(context.attackerSide) &&
+            Number.isInteger(context.defenderSide) &&
+            context.state
+          ? effectiveSpeed(attacker, context.state, context.attackerSide) <
+            effectiveSpeed(defender, context.state, context.defenderSide)
+          : false;
+  const attackerFaintedAllies =
+    context.state && Number.isInteger(context.attackerSide)
+      ? context.state.sides[context.attackerSide].team.filter(
+          (pokemon) => pokemon !== attacker && (pokemon.fainted || pokemon.hp <= 0),
+        ).length
+      : 0;
+  const activeAbilitySources = (context.state?.sides ?? []).map(
+    (_, sideIndex) => {
+      const pokemon = activePokemon(context.state, sideIndex);
+      return {
+        ability: String(pokemon?.ability ?? ""),
+        fainted: pokemon?.fainted === true,
+        gastroAcid: Boolean(pokemon?.volatiles?.gastroacid),
+        neutralizingGasSuppressed: Boolean(
+          pokemon?.volatiles?.neutralizinggas &&
+            cleanId(pokemon?.ability) !== "neutralizinggas",
+        ),
+      };
+    },
+  );
+  const defenderSideConditions = Number.isInteger(context.defenderSide)
+    ? Object.entries(
+        context.state?.sides?.[context.defenderSide]?.conditions ?? {},
+      )
+        .filter(([, condition]) => Number(condition?.turns ?? 0) > 0)
+        .map(([id]) => id)
+    : [];
+  const movePower = Number(move?.power ?? 0);
+  return {
+    attacker: sharedDamageModifierPokemon(attacker),
+    defender: sharedDamageModifierPokemon(defender),
+    move: {
+      id: String(move?.id ?? ""),
+      type: String(move?.type ?? "Normal"),
+      category: String(move?.category ?? "Status"),
+      power: Number.isFinite(movePower) ? movePower : 0,
+      contact: makesContact(move),
+      punch: hasMoveFlag(move, "punch"),
+      bite: hasMoveFlag(move, "bite"),
+      slicing: hasMoveFlag(move, "slicing"),
+      recoil: Boolean(move?.recoil),
+      hasSecondaries: Array.isArray(move?.secondaries) && move.secondaries.length > 0,
+    },
+    weather: effectiveWeather(context.state),
+    terrain: String(context.state?.field?.terrain?.id ?? ""),
+    activeAbilitySources,
+    defenderSideConditions,
+    defenderAlreadyActed,
+    attackerFaintedAllies,
+    critical: context.critical === true,
+  };
+}
+
+const SHARED_DAMAGE_PIPELINE_CACHE_LIMIT = 16384;
+const sharedDamagePipelineCache = new Map();
+
+function sharedDamageFactorsInput(attacker, defender, move, context) {
+  return {
+    type: sharedDamageTypeInput(attacker, defender, move, context.state),
+    modifiers: sharedDamageModifierInput(attacker, defender, move, context),
+  };
+}
+
+function sharedDamagePipelineResult(attacker, defender, move, context) {
+  const inputJson = JSON.stringify({
+    level: attacker.level,
+    power: move.power,
+    stats: sharedDamageStatInput(attacker, defender, move, context),
+    factors: sharedDamageFactorsInput(attacker, defender, move, context),
+  });
+  const cached = sharedDamagePipelineCache.get(inputJson);
+  if (cached) return cached;
+  const result = JSON.parse(evaluateSharedDamagePipelineJson(inputJson));
+  if (sharedDamagePipelineCache.size >= SHARED_DAMAGE_PIPELINE_CACHE_LIMIT) {
+    sharedDamagePipelineCache.clear();
   }
-  if (
-    terrain === "mistyterrain" &&
-    isGrounded(defender) &&
-    move.type === "Dragon"
-  ) {
-    modifier *= 0.5;
-  }
-  if (attacker.volatiles?.helpinghand && move.power > 0) {
-    modifier *= 1.5;
-  }
-  if (defender.volatiles?.tarshot && move.type === "Fire") {
-    modifier *= 2;
-  }
-  if (
-    !critical &&
-    activeAbility(attacker) !== "infiltrator" &&
-    Number.isInteger(defenderSide)
-  ) {
-    if (hasSideCondition(state, defenderSide, "auroraveil")) {
-      modifier *= 0.5;
-    } else if (
-      move.category === "Physical" &&
-      hasSideCondition(state, defenderSide, "reflect")
-    ) {
-      modifier *= 0.5;
-    } else if (
-      move.category === "Special" &&
-      hasSideCondition(state, defenderSide, "lightscreen")
-    ) {
-      modifier *= 0.5;
-    }
-  }
-  return modifier;
+  sharedDamagePipelineCache.set(inputJson, result);
+  return result;
 }
 
 export function calculateDamageRange(attacker, defender, move, context = {}) {
@@ -1959,285 +1973,30 @@ export function calculateDamageRange(attacker, defender, move, context = {}) {
   ) {
     return { minimum: 0, maximum: 0, stab: 1, effectiveness: 1 };
   }
-  const moveType = cleanId(move.type);
-  const currentSameType = attacker.types.some(
-    (type) => cleanId(type) === moveType,
-  );
-  const originalSameType = attacker.originalTypes?.some(
-    (type) => cleanId(type) === moveType,
-  );
-  let stab = 1;
-  if (isStellarTerastallized(attacker)) {
-    const stellarBoostAvailable = !(attacker.stellarBoostedTypes ?? []).some(
-      (type) => cleanId(type) === moveType,
+  if (!Number.isFinite(attacker.level) || !Number.isFinite(move.power)) {
+    const factors = JSON.parse(
+      evaluateSharedDamageFactorsJson(
+        JSON.stringify(sharedDamageFactorsInput(attacker, defender, move, context)),
+      ),
     );
-    stab = originalSameType ? 1.5 : 1;
-    if (stellarBoostAvailable) stab = originalSameType ? 2 : 1.2;
-  } else if (attacker.terastallized) {
-    const teraSameType = cleanId(attacker.teraType) === moveType;
-    if (teraSameType) {
-      stab = originalSameType ? 2 : 1.5;
-    } else if (originalSameType) {
-      stab = 1.5;
-    }
-    if (activeAbility(attacker) === "adaptability" && teraSameType) {
-      stab = stab === 2 ? 2.25 : 2;
-    }
-  } else if (currentSameType) {
-    stab = activeAbility(attacker) === "adaptability" ? 2 : 1.5;
+    return {
+      minimum: Number.NaN,
+      maximum: Number.NaN,
+      baseDamage: Number.NaN,
+      totalModifier: Number.NaN,
+      ...factors,
+    };
   }
-  let effectiveness = moveEffectiveness(move, defender.types, attacker, defender);
-  if (
-    effectiveWeather(context.state) === "deltastream" &&
-    defender.types.includes("Flying") &&
-    ["Electric", "Ice", "Rock"].includes(move.type) &&
-    effectiveness > 1
-  ) {
-    effectiveness /= 2;
-  }
-  const base = damageBase(attacker, defender, move, context);
-  let itemModifier =
-    attacker.item === "lifeorb"
-      ? 1.3
-      : isOgerponPokemon(attacker) &&
-          [
-            "cornerstonemask",
-            "hearthflamemask",
-            "wellspringmask",
-          ].includes(cleanId(attacker.item))
-        ? 1.2
-        : 1;
-  if (
-    move.category !== "Status" &&
-    cleanId(attacker.item) === `${cleanId(move.type)}gem`
-  ) {
-    itemModifier *= 1.3;
-  }
-  const typeBoostingItems = {
-    blackglasses: "Dark",
-    blackbelt: "Fighting",
-    charcoal: "Fire",
-    charcoalstick: "Fire",
-    dragonfang: "Dragon",
-    magnet: "Electric",
-    miracleseed: "Grass",
-    mysticwater: "Water",
-    nevermeltice: "Ice",
-    pixieplate: "Fairy",
-    sharpbeak: "Flying",
-    spelltag: "Ghost",
-  };
-  if (typeBoostingItems[cleanId(attacker.item)] === move.type) {
-    itemModifier *= 1.2;
-  }
-  if (cleanId(attacker.item) === "expertbelt" && effectiveness > 1) {
-    itemModifier *= 1.2;
-  }
-  if (
-    cleanId(attacker.item) === "wiseglasses" &&
-    move.category === "Special"
-  ) {
-    itemModifier *= 1.1;
-  }
-  if (
-    cleanId(attacker.item) === "punchingglove" &&
-    hasMoveFlag(move, "punch")
-  ) {
-    itemModifier *= 1.1;
-  }
-  if (
-    cleanId(attacker.item) === "metronome" &&
-    cleanId(attacker.consecutiveMove?.id) === cleanId(move.id)
-  ) {
-    itemModifier *= 1 + Math.min(5, attacker.consecutiveMove.count) * 0.2;
-  }
-  let abilityModifier = 1;
-  const auraAbility =
-    move.type === "Dark"
-      ? "darkaura"
-      : move.type === "Fairy"
-        ? "fairyaura"
-        : "";
-  if (auraAbility && hasActiveAbility(context.state, auraAbility)) {
-    abilityModifier *= hasActiveAbility(context.state, "aurabreak")
-      ? 0.75
-      : 4 / 3;
-  }
-  if (
-    activeAbility(attacker) === "toughclaws" &&
-    makesEffectiveContact(attacker, move)
-  ) {
-    abilityModifier *= 1.3;
-  }
-  if (activeAbility(attacker) === "technician" && move.power > 0 && move.power <= 60) {
-    abilityModifier *= 1.5;
-  }
-  if (activeAbility(attacker) === "ironfist" && hasMoveFlag(move, "punch")) {
-    abilityModifier *= 1.2;
-  }
-  if (activeAbility(attacker) === "strongjaw" && hasMoveFlag(move, "bite")) {
-    abilityModifier *= 1.5;
-  }
-  if (activeAbility(attacker) === "sharpness" && hasMoveFlag(move, "slicing")) {
-    abilityModifier *= 1.5;
-  }
-  if (activeAbility(attacker) === "dragonsmaw" && move.type === "Dragon") {
-    abilityModifier *= 1.5;
-  }
-  if (activeAbility(attacker) === "transistor" && move.type === "Electric") {
-    abilityModifier *= 1.3;
-  }
-  if (activeAbility(attacker) === "waterbubble" && move.type === "Water") {
-    abilityModifier *= 2;
-  }
-  if (
-    activeAbility(attacker) === "sandforce" &&
-    effectiveWeather(context.state) === "sandstorm" &&
-    ["Rock", "Ground", "Steel"].includes(move.type)
-  ) {
-    abilityModifier *= 1.3;
-  }
-  if (activeAbility(attacker) === "hustle" && move.category === "Physical") {
-    abilityModifier *= 1.5;
-  }
-  if (
-    activeAbility(attacker) === "reckless" &&
-    (move.recoil || hasCrashOnFailure(move))
-  ) {
-    abilityModifier *= 1.2;
-  }
-  if (activeAbility(attacker) === "analytic") {
-    const defenderAlreadyActed =
-      typeof context.defenderActed === "boolean"
-        ? context.defenderActed
-        : context.state?.currentActions
-          ? defender.turnState?.acted === true
-          : Number.isInteger(context.attackerSide) &&
-              Number.isInteger(context.defenderSide) &&
-              context.state
-            ? effectiveSpeed(attacker, context.state, context.attackerSide) <
-              effectiveSpeed(defender, context.state, context.defenderSide)
-            : false;
-    if (defenderAlreadyActed) abilityModifier *= 1.3;
-  }
-  if (activeAbility(attacker) === "rivalry" && attacker.gender && defender.gender) {
-    abilityModifier *= attacker.gender === defender.gender ? 1.25 : 0.75;
-  }
-  if (isSheerForceBoostedMove(attacker, move)) {
-    abilityModifier *= 1.3;
-  }
-  if (
-    activeAbility(attacker) === "flashfire" &&
-    attacker.abilityState?.flashFireBoosted &&
-    move.type === "Fire"
-  ) {
-    abilityModifier *= 1.5;
-  }
-  if (
-    activeAbility(attacker) === "overgrow" &&
-    move.type === "Grass" &&
-    attacker.hp <= Math.floor(attacker.stats.hp / 3)
-  ) {
-    abilityModifier *= 1.5;
-  }
-  if (
-    activeAbility(attacker) === "blaze" &&
-    move.type === "Fire" &&
-    attacker.hp <= Math.floor(attacker.stats.hp / 3)
-  ) {
-    abilityModifier *= 1.5;
-  }
-  if (
-    activeAbility(attacker) === "torrent" &&
-    move.type === "Water" &&
-    attacker.hp <= Math.floor(attacker.stats.hp / 3)
-  ) {
-    abilityModifier *= 1.5;
-  }
-  if (
-    activeAbility(attacker) === "swarm" &&
-    move.type === "Bug" &&
-    attacker.hp <= Math.floor(attacker.stats.hp / 3)
-  ) {
-    abilityModifier *= 1.5;
-  }
-  if (
-    activeAbility(attacker) === "tintedlens" &&
-    effectiveness > 0 &&
-    effectiveness < 1
-  ) {
-    abilityModifier *= 2;
-  }
-  if (
-    ["filter", "solidrock", "prismarmor"].includes(activeAbility(defender)) &&
-    effectiveness > 1 &&
-    !ignoresDefenderAbility(attacker)
-  ) {
-    abilityModifier *= 0.75;
-  }
-  if (
-    activeAbility(attacker) === "supremeoverlord" &&
-    context.state &&
-    Number.isInteger(context.attackerSide)
-  ) {
-    const faintedAllies = context.state.sides[context.attackerSide].team.filter(
-      (pokemon) => pokemon !== attacker && (pokemon.fainted || pokemon.hp <= 0),
-    ).length;
-    abilityModifier *= 1 + Math.min(5, faintedAllies) * 0.1;
-  }
-  let fieldModifier = fieldDamageModifier(
-    context.state,
-    context.attackerSide,
-    attacker,
-    context.defenderSide,
-    defender,
-    move,
-    context.critical,
-  );
-  if (
-    ["chartiberry", "colburberry", "yacheberry"].includes(
-      cleanId(defender.item),
-    ) &&
-    heldItemType(defender.item) === move.type &&
-    effectiveness > 1
-  ) {
-    fieldModifier *= 0.5;
-  }
+  const pipeline = sharedDamagePipelineResult(attacker, defender, move, context);
   return {
-    minimum:
-      effectiveness === 0
-        ? 0
-        : Math.max(
-            1,
-            Math.floor(
-              base *
-                stab *
-                effectiveness *
-                itemModifier *
-                abilityModifier *
-                fieldModifier *
-                0.85,
-            ),
-          ),
-    maximum:
-      effectiveness === 0
-        ? 0
-        : Math.max(
-            1,
-            Math.floor(
-              base *
-                stab *
-                effectiveness *
-                itemModifier *
-                abilityModifier *
-                fieldModifier,
-            ),
-          ),
-    stab,
-    effectiveness,
-    itemModifier,
-    abilityModifier,
-    fieldModifier,
+    minimum: pipeline.minimum,
+    maximum: pipeline.maximum,
+    baseDamage: pipeline.baseDamage,
+    stab: pipeline.stab,
+    effectiveness: pipeline.effectiveness,
+    itemModifier: pipeline.itemModifier,
+    abilityModifier: pipeline.abilityModifier,
+    fieldModifier: pipeline.fieldModifier,
   };
 }
 
@@ -2707,76 +2466,47 @@ function updateForecastForms(state) {
   }
 }
 
-function forewarnMovePower(move) {
-  const moveId = cleanId(move?.id);
-  if (["fissure", "guillotine", "horndrill", "sheercold"].includes(moveId)) {
-    return 160;
-  }
-  if (["counter", "metalburst", "mirrorcoat"].includes(moveId)) return 120;
-  if (move?.dynamicPower) return 80;
-  return Math.max(0, Number(move?.power ?? 0));
-}
-
-function applyEntryAbilities(state, sideIndex, pokemon) {
+function applyEntryAbilities(state, sideIndex, pokemon, sharedPhase = null) {
   if (!pokemon || pokemon.fainted) return;
-  applyTeraShiftOnEntry(state, sideIndex, pokemon);
-  updateForecastForms(state);
+  const phase = sharedPhase ?? sharedSwitchPhaseOutcome(state, sideIndex, pokemon);
+  const phaseOperation = (code, source = "") =>
+    phase.operations.find(
+      (operation) => operation.code === code && (!source || operation.source === source),
+    );
+  const initialAbility = activeAbility(pokemon);
+  const initialAdapter = phaseOperation("entry_adapter", initialAbility);
+  if (initialAdapter?.effect === "terashift") {
+    applyTeraShiftOnEntry(state, sideIndex, pokemon);
+  }
+  if (initialAdapter?.effect === "forecast") {
+    updateForecastForms(state);
+  }
   const ability = activeAbility(pokemon);
   pokemon.abilityState ??= {};
-  if (ability === "neutralizinggas") {
+  if (phaseOperation("entry_adapter", "neutralizinggas")) {
     emitAbilityActivation(state, sideIndex, pokemon, ability);
   }
-  if (
-    ability === "intrepidsword" &&
-    pokemon.abilityState.intrepidSwordUsed !== true
-  ) {
-    pokemon.abilityState.intrepidSwordUsed = true;
+  const entryBoost = phaseOperation("entry_boost", ability);
+  if (entryBoost && ["intrepidsword", "dauntlessshield"].includes(ability)) {
+    if (entryBoost.setState) pokemon.abilityState[entryBoost.setState] = true;
     emitAbilityActivation(state, sideIndex, pokemon, ability);
-    applyBoosts(state, sideIndex, pokemon, { attack: 1 }, ability);
+    applyBoosts(state, sideIndex, pokemon, entryBoost.boosts, ability);
   }
-  if (
-    ability === "dauntlessshield" &&
-    pokemon.abilityState.dauntlessShieldUsed !== true
-  ) {
-    pokemon.abilityState.dauntlessShieldUsed = true;
+  if (entryBoost && ability.startsWith("embodyaspect")) {
     emitAbilityActivation(state, sideIndex, pokemon, ability);
-    applyBoosts(state, sideIndex, pokemon, { defence: 1 }, ability);
+    applyBoosts(state, sideIndex, pokemon, entryBoost.boosts, ability);
   }
-  const embodyBoosts = {
-    embodyaspectcornerstone: { defence: 1 },
-    embodyaspecthearthflame: { attack: 1 },
-    embodyaspectteal: { speed: 1 },
-    embodyaspectwellspring: { specialDefence: 1 },
-  }[ability];
-  if (embodyBoosts && pokemon.terastallized) {
-    emitAbilityActivation(state, sideIndex, pokemon, ability);
-    applyBoosts(state, sideIndex, pokemon, embodyBoosts, ability);
-  }
-  const entryWeather = {
-    desolateland: "desolateland",
-    drizzle: "raindance",
-    drought: "sunnyday",
-    deltastream: "deltastream",
-    orichalcumpulse: "sunnyday",
-    primordialsea: "primordialsea",
-    sandstream: "sandstorm",
-    snowwarning: "snow",
-  }[ability];
+  const entryWeather = phaseOperation("entry_weather", ability);
   if (entryWeather) {
     emitAbilityActivation(state, sideIndex, pokemon, ability);
-    setFieldEffect(state, sideIndex, pokemon, "weather", entryWeather, ability);
+    setFieldEffect(state, sideIndex, pokemon, "weather", entryWeather.effect, ability);
   }
-  const entryTerrain = {
-    electricsurge: "electricterrain",
-    grassysurge: "grassyterrain",
-    hadronengine: "electricterrain",
-    psychicsurge: "psychicterrain",
-  }[ability];
+  const entryTerrain = phaseOperation("entry_terrain", ability);
   if (entryTerrain) {
     emitAbilityActivation(state, sideIndex, pokemon, ability);
-    setFieldEffect(state, sideIndex, pokemon, "terrain", entryTerrain, ability);
+    setFieldEffect(state, sideIndex, pokemon, "terrain", entryTerrain.effect, ability);
   }
-  if (ability === "illusion" && !pokemon.volatiles?.illusion) {
+  if (phaseOperation("illusion", "illusion") && !pokemon.volatiles?.illusion) {
     const disguise = [...state.sides[sideIndex].team]
       .reverse()
       .find(
@@ -2795,11 +2525,30 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
       });
     }
   }
-  initializeParadoxAbility(state, sideIndex, pokemon, ability);
+  const paradox = phaseOperation("entry_adapter", ability);
+  if (paradox?.effect === "paradox") {
+    const previousSource = pokemon.abilityState?.paradoxSource;
+    const previousStat = pokemon.abilityState?.paradoxStat;
+    if (paradox.consumeItem) consumeHeldItem(state, sideIndex, pokemon, "Booster Energy");
+    pokemon.abilityState.paradoxStat = paradox.details?.stat ?? "";
+    pokemon.abilityState.paradoxSource = paradox.details?.source ?? "";
+    if (
+      previousSource !== pokemon.abilityState.paradoxSource ||
+      previousStat !== pokemon.abilityState.paradoxStat
+    ) {
+      emitAbilityActivation(state, sideIndex, pokemon, ability, {
+        stat: eventStat(pokemon.abilityState.paradoxStat),
+        source: pokemon.abilityState.paradoxSource === "boosterenergy"
+          ? "Booster Energy"
+          : "field",
+      });
+    }
+  }
   const targetSide = sideIndex === 0 ? 1 : 0;
   const target = activePokemon(state, targetSide);
   if (!target || target.fainted) return;
-  if (ability === "imposter" && !pokemon.volatiles?.transform) {
+  const adapter = phaseOperation("entry_adapter", ability);
+  if (adapter?.effect === "imposter" && !pokemon.volatiles?.transform) {
     emitAbilityActivation(state, sideIndex, pokemon, ability, {
       targetSide,
       target: target.name,
@@ -2807,9 +2556,9 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
     applyTransform(state, sideIndex, pokemon, target, ability);
     return;
   }
-  if (ability === "trace") {
-    const copiedAbility = cleanId(activeAbility(target));
-    if (copiedAbility && !TRACE_BLOCKED_ABILITIES.has(copiedAbility)) {
+  if (adapter?.effect === "trace") {
+    const copiedAbility = cleanId(adapter.details?.copiedAbility);
+    if (copiedAbility) {
       pokemon.abilityState.tracedOriginalAbility =
         cleanId(pokemon.baseAbility) || "trace";
       pokemon.abilityState.tracedAbility = copiedAbility;
@@ -2823,32 +2572,24 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
       return;
     }
   }
-  if (ability === "forewarn") {
-    const maximumPower = Math.max(0, ...target.moves.map(forewarnMovePower));
+  if (adapter?.effect === "forewarn") {
     const threateningMove = target.moves.find(
-      (move) => forewarnMovePower(move) === maximumPower,
+      (move) => cleanId(move.id) === cleanId(adapter.details?.moveId),
     );
-    if (threateningMove && maximumPower > 0) {
+    if (threateningMove) {
       emitAbilityActivation(state, sideIndex, pokemon, "forewarn", {
         targetSide,
         target: target.name,
         move: threateningMove.name,
         moveId: cleanId(threateningMove.id),
-        power: maximumPower,
+        power: Number(adapter.details?.power ?? 0),
       });
     }
   }
-  if (ability === "anticipation") {
-    const threateningMoves = target.moves
-      .filter((move) => {
-        const moveId = cleanId(move.id);
-        return (
-          ["fissure", "guillotine", "horndrill", "sheercold"].includes(moveId) ||
-          (move.category !== "Status" &&
-            moveEffectiveness(move, pokemon.types, target, pokemon) > 1)
-        );
-      })
-      .map((move) => cleanId(move.id));
+  if (adapter?.effect === "anticipation") {
+    const threateningMoves = String(adapter.details?.threateningMoves ?? "")
+      .split(",")
+      .filter(Boolean);
     if (threateningMoves.length > 0) {
       emitAbilityActivation(state, sideIndex, pokemon, "anticipation", {
         targetSide,
@@ -2857,30 +2598,29 @@ function applyEntryAbilities(state, sideIndex, pokemon) {
       });
     }
   }
-  if (ability === "frisk" && target.item) {
+  if (adapter?.effect === "frisk") {
     emitAbilityActivation(state, sideIndex, pokemon, ability, {
       targetSide,
       target: target.name,
-      item: target.item,
+      item: adapter.details?.item ?? target.item,
     });
   }
-  if (ability === "download") {
-    const defence = effectiveStat(target, "defence");
-    const specialDefence = effectiveStat(target, "specialDefence");
-    const boosts = defence < specialDefence ? { attack: 1 } : { specialAttack: 1 };
+  const download = phaseOperation("entry_boost", "download");
+  if (download) {
     emitAbilityActivation(state, sideIndex, pokemon, ability, {
       targetSide,
       target: target.name,
     });
-    applyBoosts(state, sideIndex, pokemon, boosts, ability);
+    applyBoosts(state, sideIndex, pokemon, download.boosts, ability);
     return;
   }
-  if (ability !== "intimidate") return;
+  const intimidate = phaseOperation("entry_boost", "intimidate");
+  if (!intimidate) return;
   emitAbilityActivation(state, sideIndex, pokemon, ability, {
     targetSide,
     target: target.name,
   });
-  applyBoosts(state, targetSide, target, { attack: -1 }, ability, sideIndex);
+  applyBoosts(state, targetSide, target, intimidate.boosts, ability, sideIndex);
 }
 
 function beastBoostStat(pokemon) {
@@ -2924,15 +2664,6 @@ function applyKnockoutAbility(state, sideIndex, pokemon, defeatedPokemon) {
   return applyBoosts(state, sideIndex, pokemon, boosts, ability);
 }
 
-function usableMove(pokemon, requestedSlot) {
-  const slot = Number(requestedSlot);
-  const requested = pokemon.moves[slot - 1];
-  if (requested && requested.pp > 0) return { move: requested, slot };
-  const fallbackIndex = pokemon.moves.findIndex((move) => move.pp > 0);
-  if (fallbackIndex < 0) return null;
-  return { move: pokemon.moves[fallbackIndex], slot: fallbackIndex + 1 };
-}
-
 function isMoveDisabledByVolatile(pokemon, move) {
   const moveId = cleanId(move?.id);
   if (!moveId) return false;
@@ -2945,18 +2676,6 @@ function isMoveImprisoned(state, side, move) {
   if (!opponent?.volatiles?.imprison) return false;
   const moveId = cleanId(move?.id);
   return opponent.moves.some((candidate) => cleanId(candidate.id) === moveId);
-}
-
-function usableMoveRespectingVolatiles(pokemon, requestedSlot) {
-  const selection = usableMove(pokemon, requestedSlot);
-  if (selection && !isMoveDisabledByVolatile(pokemon, selection.move)) {
-    return selection;
-  }
-  const fallbackIndex = pokemon.moves.findIndex(
-    (move) => move.pp > 0 && !isMoveDisabledByVolatile(pokemon, move),
-  );
-  if (fallbackIndex < 0) return selection;
-  return { move: pokemon.moves[fallbackIndex], slot: fallbackIndex + 1 };
 }
 
 function lockedMoveSelection(pokemon) {
@@ -3014,166 +2733,106 @@ function lockedMoveSelection(pokemon) {
   return null;
 }
 
-function chargingMoveSelection(pokemon) {
-  if (!pokemon.chargingMove?.id) return null;
-  const index = pokemon.moves.findIndex(
-    (move) => cleanId(move.id) === cleanId(pokemon.chargingMove.id),
+function buildActions(state, commands) {
+  const sharedState = toSharedBattleState(state);
+  const sharedCommands = toSharedTurnCommands(commands, sharedState);
+  const built = JSON.parse(
+    buildSharedBattleActionsJson(
+      JSON.stringify(sharedState),
+      JSON.stringify(sharedCommands),
+    ),
   );
-  if (index < 0) {
-    pokemon.chargingMove = null;
-    return null;
+  for (const cleanup of built.cleanups) {
+    const pokemon = activePokemon(state, cleanup.side);
+    if (cleanup.clearEncore) delete pokemon.volatiles.encore;
+    if (cleanup.clearLockedMove) pokemon.lockedMove = null;
+    if (cleanup.clearChoiceLock) pokemon.choiceLock = null;
+    if (cleanup.clearChargingMove) pokemon.chargingMove = null;
   }
-  return { move: pokemon.moves[index], slot: index + 1 };
-}
-
-function buildActions(state, commands, rng) {
-  return [0, 1].map((side) => {
-      const pokemon = activePokemon(state, side);
-      const chargingSelection = chargingMoveSelection(pokemon);
-      if (chargingSelection) {
-        return {
-          kind: "move",
-          side,
-          pokemon,
-          selected: chargingSelection,
-          locked: true,
-          lockSource: "charging",
-          noPpCost: true,
-          chargingRelease: true,
-          gimmick: "",
-          teraType: "",
-          priority: chargingSelection.move.priority ?? 0,
-          speed: effectiveSpeed(pokemon, state, side),
-          tie: rng.next(),
-        };
-      }
-      const lockedSelection = lockedMoveSelection(pokemon);
-      const item = cleanId(commands[side]?.item);
-      if (item) {
-        if (lockedSelection?.preventsSwitch) {
-          throw new Error(
-            `Side ${side + 1} cannot use an item while locked into ${lockedSelection.move.name}`,
-          );
-        }
-        return {
-          kind: "item",
-          side,
-          pokemon,
-          item,
-          targetSlot: Number(commands[side]?.itemTarget) || null,
-          selected: null,
-          priority: 10_002,
-          speed: effectiveSpeed(pokemon, state, side),
-          tie: rng.next(),
-        };
-      }
-      const switchSlot = Number(commands[side]?.switch);
-      if (Number.isInteger(switchSlot)) {
-        if (lockedSelection?.preventsSwitch) {
-          throw new Error(
-            `Side ${side + 1} cannot switch while locked into ${lockedSelection.move.name}`,
-          );
-        }
-        const target = state.sides[side].team[switchSlot - 1];
-        if (!target || target.fainted || switchSlot - 1 === state.sides[side].active) {
-          throw new Error(`Side ${side + 1} cannot switch to slot ${switchSlot}`);
-        }
-        if (isPokemonTrapped(state, side, pokemon)) {
-          throw new Error(`Side ${side + 1} cannot switch while trapped`);
-        }
-        return {
-          kind: "switch",
-          side,
-          pokemon,
-          switchSlot,
-          selected: null,
-          priority: 10_000,
-          speed: effectiveSpeed(pokemon, state, side),
-          tie: rng.next(),
-        };
-      }
-      const selected =
-        lockedSelection ??
-        usableMoveRespectingVolatiles(pokemon, commands[side]?.move);
-      return {
-        kind: "move",
-        side,
-        pokemon,
-        selected,
-        selfSwitchSlot: Number(commands[side]?.selfSwitchSlot) || null,
-        locked: Boolean(lockedSelection),
-        lockSource: lockedSelection?.lockSource ?? "",
-        noPpCost: Boolean(lockedSelection?.noPpCost),
-        gimmick: lockedSelection
-          ? ""
-          : String(commands[side]?.gimmick ?? ""),
-        teraType: String(commands[side]?.teraType ?? ""),
-        priority: selected?.move.priority ?? 0,
-        speed: effectiveSpeed(pokemon, state, side),
-        tie: rng.next(),
-      };
-    });
-}
-
-function sortActions(state, actions) {
-  const trickRoom =
-    Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0;
-  return actions.sort((left, right) => {
-    const priority = right.priority - left.priority;
-    if (priority !== 0) return priority;
-    const quickDraw = Number(Boolean(right.quickDraw)) - Number(Boolean(left.quickDraw));
-    if (quickDraw !== 0) return quickDraw;
-    const quickClaw = Number(Boolean(right.quickClaw)) - Number(Boolean(left.quickClaw));
-    if (quickClaw !== 0) return quickClaw;
-    const custap = Number(Boolean(right.custap)) - Number(Boolean(left.custap));
-    if (custap !== 0) return custap;
-    const speed = trickRoom
-      ? left.speed - right.speed
-      : right.speed - left.speed;
-    return speed || left.tie - right.tie;
+  return built.actions.map((action) => {
+    const pokemon = activePokemon(state, action.side);
+    const selected = action.moveSlot == null
+      ? null
+      : { move: pokemon.moves[action.moveSlot - 1], slot: action.moveSlot };
+    return {
+      kind: action.kind,
+      side: action.side,
+      pokemon,
+      item: action.item ?? "",
+      targetSlot: action.itemTargetSlot ?? null,
+      switchSlot: action.switchSlot ?? null,
+      selected,
+      selfSwitchSlot: action.selfSwitchSlot ?? null,
+      locked: action.locked,
+      lockSource: action.lockSource,
+      noPpCost: action.noPpCost,
+      chargingRelease: action.chargingRelease,
+      gimmick: action.gimmick,
+      teraType: action.teraType,
+      priority:
+        action.kind === "item"
+          ? 10_002
+          : action.kind === "switch"
+            ? 10_000
+            : selected?.move?.priority ?? 0,
+    };
   });
 }
 
-function markPursuitIntercepts(actions) {
-  for (const action of actions) {
-    if (
-      action.kind !== "move" ||
-      cleanId(action.selected?.move?.id) !== "pursuit"
-    ) {
-      continue;
+function applySharedActionOrder(state, actions, rng) {
+  const ordered = JSON.parse(
+    orderSharedBattleActionsJson(
+      JSON.stringify(toSharedBattleState(state)),
+      JSON.stringify({
+        rngState: rng.snapshot(),
+        actions: actions.map((action, inputIndex) => ({
+          inputIndex,
+          side: action.side,
+          kind: action.kind,
+          moveSlot: action.selected?.slot ?? null,
+        })),
+      }),
+    ),
+  );
+  rng.restore(ordered.rngState);
+  const decisions = new Map(
+    ordered.actions.map((decision) => [decision.inputIndex, decision]),
+  );
+  for (const [inputIndex, action] of actions.entries()) {
+    const decision = decisions.get(inputIndex);
+    Object.assign(action, decision);
+    if (decision.quickDraw) {
+      emitAbilityActivation(
+        state,
+        action.side,
+        activePokemon(state, action.side),
+        "quickdraw",
+        { move: action.selected?.move?.name },
+      );
     }
-    const targetAction = actions.find(
-      (candidate) =>
-        candidate.side !== action.side && candidate.kind === "switch",
-    );
-    if (!targetAction) continue;
-    action.pursuitTargetSwitch = true;
-    action.priority = 10_001;
+    if (decision.quickClaw) {
+      const pokemon = activePokemon(state, action.side);
+      state.events.push({
+        turn: state.turn,
+        type: "item_activate",
+        side: action.side,
+        pokemon: pokemon.name,
+        item: "quickclaw",
+        move: action.selected?.move?.name,
+      });
+    }
+    if (decision.custap) {
+      const pokemon = activePokemon(state, action.side);
+      consumeHeldItem(state, action.side, pokemon, action.selected?.move?.name);
+      markBerryEaten(pokemon, "custapberry");
+    }
   }
+  return ordered.actions.map((decision) => actions[decision.inputIndex]);
 }
 
 function nativeMaxMovePriority(pokemon, move) {
   const maxMove = resolveNativeMaxMove(pokemon, move);
   return cleanId(maxMove.id) === "maxguard" ? 4 : 0;
-}
-
-function effectiveMovePriority(state, action) {
-  if (action.kind === "item") return 10_002;
-  if (action.kind === "switch") return 10_000;
-  const move = action.selected?.move;
-  const pokemon = activePokemon(state, action.side);
-  if (pokemon.dynamaxTurns > 0) {
-    return nativeMaxMovePriority(pokemon, move);
-  }
-  if (
-    cleanId(move?.id) === "grassyglide" &&
-    cleanId(state.field?.terrain?.id) === "grassyterrain" &&
-    isGrounded(pokemon)
-  ) {
-    return 1;
-  }
-  if (cleanId(move?.id) === "thunderclap") return 1;
-  return movePriorityForPokemon(pokemon, move);
 }
 
 const TRAINER_BATTLE_ITEMS = {
@@ -3566,96 +3225,99 @@ function activatePreMoveGimmick(state, action) {
 }
 
 function prepareActionOrder(state, commands, rng) {
-  const actions = buildActions(state, commands, rng);
+  const actions = buildActions(state, commands);
   for (const action of actions) {
     if (action.kind === "move") reserveGimmick(state, action);
   }
   for (const action of actions) {
     if (action.kind === "move") activatePreMoveGimmick(state, action);
   }
-  for (const action of actions) {
-    action.priority = effectiveMovePriority(state, action);
-    action.speed = effectiveSpeed(
-      activePokemon(state, action.side),
-      state,
-      action.side,
-    );
-    if (
-      action.kind === "move" &&
-      action.selected &&
-      activeAbility(activePokemon(state, action.side)) === "quickdraw" &&
-      rng.next() < 0.3
-    ) {
-      action.quickDraw = true;
-      emitAbilityActivation(
-        state,
-        action.side,
-        activePokemon(state, action.side),
-        "quickdraw",
-        { move: action.selected?.move?.name },
-      );
-    }
-    const actionPokemon = activePokemon(state, action.side);
-    if (
-      action.kind === "move" &&
-      action.selected &&
-      cleanId(actionPokemon.item) === "quickclaw" &&
-      rng.next() < 0.2
-    ) {
-      action.quickClaw = true;
-      state.events.push({
-        turn: state.turn,
-        type: "item_activate",
-        side: action.side,
-        pokemon: actionPokemon.name,
-        item: "quickclaw",
-        move: action.selected.move.name,
-      });
-    }
-    if (
-      action.kind === "move" &&
-      action.selected &&
-      cleanId(actionPokemon.item) === "custapberry" &&
-      actionPokemon.hp <= Math.floor(actionPokemon.stats.hp / 4)
-    ) {
-      action.custap = true;
-      consumeHeldItem(state, action.side, actionPokemon, action.selected.move.name);
-      markBerryEaten(actionPokemon, "custapberry");
-    }
-  }
-  markPursuitIntercepts(actions);
-  return sortActions(state, actions);
+  return applySharedActionOrder(state, actions, rng);
 }
 
-function applyEntryHazards(state, sideIndex, pokemon) {
+function sharedSwitchPhaseOutcome(state, sideIndex, pokemon, outgoing = null) {
   const conditions = state.sides[sideIndex].conditions;
-  for (const wishId of ["healingwish", "lunardance"]) {
-    const wish = conditions[wishId];
-    if (!wish || pokemon.fainted) continue;
-    pokemon.hp = pokemon.stats.hp;
-    pokemon.status = "";
-    pokemon.statusTurns = 0;
-    pokemon.toxicCounter = 0;
-    state.events.push({
-      turn: state.turn,
-      type: "slot_condition_end",
-      side: sideIndex,
-      pokemon: pokemon.name,
-      effect: wishId,
-      source: wish.source,
-      remainingHp: pokemon.hp,
-      maximumHp: pokemon.stats.hp,
-    });
-    delete conditions[wishId];
-  }
-  if (cleanId(pokemon.item) === "heavydutyboots") {
-    const hazardsPresent = [
-      "stealthrock",
-      "spikes",
-      "toxicspikes",
-      "stickyweb",
-    ].some((hazard) => conditions[hazard]);
-    if (hazardsPresent) {
+  const opponent = activePokemon(state, sideIndex === 0 ? 1 : 0);
+  const disguise = [...state.sides[sideIndex].team]
+    .reverse()
+    .find((candidate) => candidate !== pokemon && !candidate.fainted && candidate.hp > 0);
+  return JSON.parse(
+    evaluateSharedSwitchPhaseJson(
+      JSON.stringify({
+        outgoingHp: Number(outgoing?.hp ?? 0),
+        outgoingMaximumHp: Number(outgoing?.stats?.hp ?? 1),
+        outgoingAbility: outgoing ? activeAbility(outgoing) : "",
+        outgoingStatus: outgoing?.status ?? "",
+        outgoingFainted: Boolean(outgoing?.fainted),
+        incomingHp: pokemon.hp,
+        incomingMaximumHp: pokemon.stats.hp,
+        incomingAbility: activeAbility(pokemon),
+        incomingSpecies: pokemon.id ?? pokemon.baseSpecies ?? "",
+        incomingItem: pokemon.item,
+        incomingTypes: pokemon.types,
+        incomingStats: Object.fromEntries(
+          ["attack", "defence", "specialAttack", "specialDefence", "speed"]
+            .map((stat) => [stat, Number(pokemon.stats?.[stat] ?? 0)]),
+        ),
+        incomingGrounded: isGrounded(pokemon),
+        incomingCanPoison: canReceiveStatus(pokemon, "psn", state, sideIndex, null),
+        incomingTerastallized: Boolean(pokemon.terastallized),
+        incomingStateFlags: Object.entries(pokemon.abilityState ?? {})
+          .filter(([, value]) => value === true)
+          .map(([key]) => key),
+        incomingStateValues: Object.fromEntries(
+          Object.entries(pokemon.abilityState ?? {})
+            .filter(([, value]) => typeof value === "string"),
+        ),
+        stealthRockLayers: Number(conditions.stealthrock?.layers ?? 0),
+        spikesLayers: Number(conditions.spikes?.layers ?? 0),
+        toxicSpikesLayers: Number(conditions.toxicspikes?.layers ?? 0),
+        stickyWebLayers: Number(conditions.stickyweb?.layers ?? 0),
+        healingWish: Boolean(conditions.healingwish),
+        lunarDance: Boolean(conditions.lunardance),
+        illusionDisguiseAvailable: Boolean(disguise),
+        opponentAlive: Boolean(opponent && !opponent.fainted && opponent.hp > 0),
+        opponentAbility: opponent ? activeAbility(opponent) : "",
+        opponentDefence: opponent ? effectiveStat(opponent, "defence") : 0,
+        opponentSpecialDefence: opponent ? effectiveStat(opponent, "specialDefence") : 0,
+        opponentItem: opponent?.item ?? "",
+        opponentMoves: (opponent?.moves ?? []).map((move) => ({
+          id: cleanId(move.id),
+          type: move.type,
+          category: move.category,
+          power: Number(move.power ?? 0),
+          ohko: ["fissure", "guillotine", "horndrill", "sheercold"].includes(cleanId(move.id)),
+          dynamicPower: Boolean(move.dynamicPower),
+        })),
+        weather: effectiveWeather(state),
+        terrain: state.field?.terrain?.id ?? "",
+      }),
+    ),
+  );
+}
+
+function applyEntryHazards(state, sideIndex, pokemon, sharedPhase = null) {
+  const conditions = state.sides[sideIndex].conditions;
+  const phase = sharedPhase ?? sharedSwitchPhaseOutcome(state, sideIndex, pokemon);
+  for (const operation of phase.operations) {
+    if (operation.code === "slot_heal") {
+      pokemon.hp = pokemon.stats.hp;
+      pokemon.status = "";
+      pokemon.statusTurns = 0;
+      pokemon.toxicCounter = 0;
+      state.events.push({
+        turn: state.turn,
+        type: "slot_condition_end",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        effect: operation.source,
+        source: conditions[operation.source]?.source,
+        remainingHp: pokemon.hp,
+        maximumHp: pokemon.stats.hp,
+      });
+      delete conditions[operation.source];
+    }
+    if (operation.code === "heavy_duty_boots") {
       state.events.push({
         turn: state.turn,
         type: "item_activate",
@@ -3665,52 +3327,31 @@ function applyEntryHazards(state, sideIndex, pokemon) {
         source: "entry_hazard",
       });
     }
-    return;
-  }
-  const hazardDamage = (amount, source) => {
-    if (activeAbility(pokemon) === "magicguard") {
+    if (operation.code === "hazard_blocked") {
       emitAbilityActivation(state, sideIndex, pokemon, "magicguard", {
-        source,
+        source: operation.effect,
         cause: "entry_hazard",
       });
-      return false;
     }
-    const applied = Math.min(pokemon.hp, Math.max(1, Math.floor(amount)));
-    pokemon.hp -= applied;
-    state.events.push({
-      turn: state.turn,
-      type: "damage",
-      side: sideIndex,
-      pokemon: pokemon.name,
-      source,
-      cause: "entry_hazard",
-      damage: applied,
-      remainingHp: pokemon.hp,
-      maximumHp: pokemon.stats.hp,
-      effectiveness: 1,
-    });
-    if (pokemon.hp > 0) {
-      tryConsumePinchBerry(state, sideIndex, pokemon, source);
+    if (operation.code === "hazard_damage") {
+      const applied = Math.min(pokemon.hp, operation.amount);
+      pokemon.hp -= applied;
+      state.events.push({
+        turn: state.turn,
+        type: "damage",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        source: operation.source,
+        cause: "entry_hazard",
+        damage: applied,
+        remainingHp: pokemon.hp,
+        maximumHp: pokemon.stats.hp,
+        effectiveness: 1,
+      });
+      if (pokemon.hp > 0) tryConsumePinchBerry(state, sideIndex, pokemon, operation.source);
+      markFainted(state, sideIndex, pokemon);
     }
-    return markFainted(state, sideIndex, pokemon);
-  };
-
-  if (conditions.stealthrock && !pokemon.fainted) {
-    const effectiveness = typeMultiplier("Rock", pokemon.types);
-    if (
-      effectiveness > 0 &&
-      hazardDamage((pokemon.stats.hp / 8) * effectiveness, "stealthrock")
-    ) {
-      return;
-    }
-  }
-  if (conditions.spikes && isGrounded(pokemon) && !pokemon.fainted) {
-    const layers = conditions.spikes.layers;
-    const divisor = layers === 1 ? 8 : layers === 2 ? 6 : 4;
-    if (hazardDamage(pokemon.stats.hp / divisor, "spikes")) return;
-  }
-  if (conditions.toxicspikes && isGrounded(pokemon) && !pokemon.fainted) {
-    if (pokemon.types.includes("Poison")) {
+    if (operation.code === "absorb_toxic_spikes") {
       delete conditions.toxicspikes;
       state.events.push({
         turn: state.turn,
@@ -3720,51 +3361,35 @@ function applyEntryHazards(state, sideIndex, pokemon) {
         effect: "toxicspikes",
         reason: "absorbed",
       });
-    } else {
-      applyStatus(
-        state,
-        sideIndex,
-        pokemon,
-        conditions.toxicspikes.layers >= 2 ? "tox" : "psn",
-        null,
-        "toxicspikes",
-      );
     }
-  }
-  if (conditions.stickyweb && isGrounded(pokemon) && !pokemon.fainted) {
-    applyBoosts(
-      state,
-      sideIndex,
-      pokemon,
-      { speed: -1 },
-      "stickyweb",
-    );
+    if (operation.code === "entry_status" && !pokemon.fainted) {
+      applyStatus(state, sideIndex, pokemon, operation.status, null, operation.source);
+    }
+    if (operation.code === "entry_boost" && operation.source === "stickyweb" && !pokemon.fainted) {
+      applyBoosts(state, sideIndex, pokemon, operation.boosts, operation.source);
+    }
   }
 }
 
 function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
   const side = state.sides[sideIndex];
   const outgoing = side.team[side.active];
-  if (
-    activeAbility(outgoing) === "regenerator" &&
-    !outgoing.fainted &&
-    outgoing.hp > 0
-  ) {
+  const incoming = side.team[switchSlot - 1];
+  const sharedPhase = sharedSwitchPhaseOutcome(state, sideIndex, incoming, outgoing);
+  const regenerator = sharedPhase.operations.find(
+    (operation) => operation.code === "regenerator",
+  );
+  if (regenerator) {
     emitAbilityActivation(state, sideIndex, outgoing, "regenerator");
     healPokemon(
       state,
       sideIndex,
       outgoing,
-      Math.max(1, Math.floor(outgoing.stats.hp / 3)),
+      regenerator.amount,
       "regenerator",
     );
   }
-  if (
-    activeAbility(outgoing) === "naturalcure" &&
-    outgoing.status &&
-    !outgoing.fainted &&
-    outgoing.hp > 0
-  ) {
+  if (sharedPhase.operations.some((operation) => operation.code === "naturalcure")) {
     emitAbilityActivation(state, sideIndex, outgoing, "naturalcure");
     curePokemonStatus(state, sideIndex, outgoing, "naturalcure");
   }
@@ -3811,8 +3436,8 @@ function switchActivePokemon(state, sideIndex, switchSlot, options = {}) {
     source: options.source,
     selection: options.selection ?? "manual_switch",
   });
-  applyEntryHazards(state, sideIndex, side.team[side.active]);
-  applyEntryAbilities(state, sideIndex, side.team[side.active]);
+  applyEntryHazards(state, sideIndex, side.team[side.active], sharedPhase);
+  applyEntryAbilities(state, sideIndex, side.team[side.active], sharedPhase);
 }
 
 function executeSwitch(state, action) {
@@ -3825,7 +3450,8 @@ function executeSelfSwitch(state, sideIndex, source, preferredSlot = null) {
   }
   const preferredIndex = Number(preferredSlot) - 1;
   const preferred = state.sides[sideIndex].team[preferredIndex];
-  const next =
+  const fallback = bestFaintReplacement(state, sideIndex);
+  const requested =
     Number.isInteger(preferredIndex) &&
     preferredIndex >= 0 &&
     preferredIndex !== state.sides[sideIndex].active &&
@@ -3833,7 +3459,16 @@ function executeSelfSwitch(state, sideIndex, source, preferredSlot = null) {
     !preferred.fainted &&
     preferred.hp > 0
       ? preferredIndex
-      : bestFaintReplacement(state, sideIndex);
+      : fallback;
+  const next = JSON.parse(
+    evaluateSharedForcedSwitchJson(
+      JSON.stringify({
+        activeSlot: state.sides[sideIndex].active,
+        teamHp: state.sides[sideIndex].team.map((pokemon) => pokemon.hp),
+        preferredSlot: requested,
+      }),
+    ),
+  ).selectedSlot;
   if (!Number.isInteger(next) || next < 0) return false;
   switchActivePokemon(state, sideIndex, next + 1, {
     automatic: true,
@@ -3849,18 +3484,19 @@ function executeForceSwitch(state, sideIndex, source, rng) {
   if (side.team[side.active].fainted) {
     return false;
   }
-  const candidates = side.team
-    .map((pokemon, index) => ({ pokemon, index }))
-    .filter(
-      ({ pokemon, index }) =>
-        index !== side.active && !pokemon.fainted && pokemon.hp > 0,
-    );
-  if (candidates.length === 0) return false;
-  const roll = Math.min(
-    candidates.length - 1,
-    Math.floor((rng?.next?.() ?? 0) * candidates.length),
+  const selection = JSON.parse(
+    evaluateSharedForcedSwitchJson(
+      JSON.stringify({
+        activeSlot: side.active,
+        teamHp: side.team.map((pokemon) => pokemon.hp),
+        randomSelection: true,
+        rngState: rng?.snapshot?.() ?? 0,
+      }),
+    ),
   );
-  const next = candidates[roll].index;
+  rng?.restore?.(selection.rngState);
+  const next = selection.selectedSlot;
+  if (!Number.isInteger(next) || next < 0) return false;
   switchActivePokemon(state, sideIndex, next + 1, {
     automatic: true,
     forced: true,
@@ -4540,57 +4176,67 @@ function canReceiveStatus(
   side = null,
   sourceSide = null,
 ) {
-  if (!status || pokemon.status || pokemon.fainted) return false;
-  if (activeAbility(pokemon) === "comatose") return false;
+  return sharedStatusApplication(
+    pokemon,
+    status,
+    state,
+    side,
+    sourceSide,
+  ).applied;
+}
+
+function sharedStatusApplication(
+  pokemon,
+  status,
+  state = null,
+  side = null,
+  sourceSide = null,
+  rngState = 0,
+) {
+  let flowerVeilProtected = false;
+  let sweetVeilProtected = false;
+  let leafGuardSun = false;
+  let safeguardProtected = false;
+  let terrain = "";
   if (state && Number.isInteger(side)) {
-    const terrain = cleanId(state.field?.terrain?.id);
+    terrain = cleanId(state.field?.terrain?.id);
     const sideAbilityPokemon = activePokemon(state, side);
-    if (
+    flowerVeilProtected = Boolean(
       pokemon.types.includes("Grass") &&
       activeAbility(sideAbilityPokemon) === "flowerveil" &&
-      sourceSide !== side
-    ) {
-      return false;
-    }
-    if (
+      sourceSide !== side,
+    );
+    sweetVeilProtected = Boolean(
       status === "slp" &&
-      activeAbility(activePokemon(state, side)) === "sweetveil"
-    ) {
-      return false;
-    }
-    if (
+      activeAbility(sideAbilityPokemon) === "sweetveil",
+    );
+    leafGuardSun = Boolean(
       activeAbility(pokemon) === "leafguard" &&
-      ["sunnyday", "desolateland"].includes(
-        effectiveWeather(state),
-      )
-    ) {
-      return false;
-    }
-    if (
-      isGrounded(pokemon) &&
-      (terrain === "mistyterrain" ||
-        (terrain === "electricterrain" && status === "slp"))
-    ) {
-      return false;
-    }
-    if (
+      ["sunnyday", "desolateland"].includes(effectiveWeather(state)),
+    );
+    safeguardProtected = Boolean(
       hasSideCondition(state, side, "safeguard") &&
-      sourceSide !== side
-    ) {
-      return false;
-    }
+      sourceSide !== side,
+    );
   }
-  if (status === "brn" && pokemon.types.includes("Fire")) return false;
-  if (status === "par" && pokemon.types.includes("Electric")) return false;
-  if (statusBlockedByAbility(pokemon, status)) return false;
-  if (
-    (status === "psn" || status === "tox") &&
-    (pokemon.types.includes("Poison") || pokemon.types.includes("Steel"))
-  ) {
-    return false;
-  }
-  if (status === "frz" && pokemon.types.includes("Ice")) return false;
-  return true;
+  return JSON.parse(
+    applySharedStatusJson(
+      JSON.stringify({
+        status,
+        currentStatus: pokemon.status,
+        fainted: pokemon.fainted,
+        types: pokemon.types,
+        ability: activeAbility(pokemon),
+        terrain,
+        grounded: isGrounded(pokemon),
+        flowerVeilProtected,
+        sweetVeilProtected,
+        leafGuardSun,
+        safeguardProtected,
+        rngState,
+      }),
+    ),
+  );
 }
 
 function applyStatus(
@@ -4602,11 +4248,19 @@ function applyStatus(
   source,
   sourceSide = null,
 ) {
-  if (!canReceiveStatus(pokemon, status, state, side, sourceSide)) return false;
-  pokemon.status = status;
-  pokemon.statusTurns =
-    status === "slp" ? 1 + Math.floor(rng.next() * 3) : 0;
-  pokemon.toxicCounter = status === "tox" ? 1 : 0;
+  const result = sharedStatusApplication(
+    pokemon,
+    status,
+    state,
+    side,
+    sourceSide,
+    rng?.snapshot?.() ?? 0,
+  );
+  rng?.restore?.(result.rngState);
+  if (!result.applied) return false;
+  pokemon.status = result.status;
+  pokemon.statusTurns = result.statusTurns;
+  pokemon.toxicCounter = result.toxicCounter;
   state.events.push({
     turn: state.turn,
     type: "status",
@@ -4848,101 +4502,43 @@ function applyProtectBlockEffect(
   return false;
 }
 
-function volatileDuration(id) {
-  return {
-    aquaring: null,
-    attract: null,
-    confusion: 4,
-    charge: 2,
-    disable: 4,
-    electrify: 1,
-    embargo: 5,
-    endure: 1,
-    encore: 3,
-    flinch: 1,
-    followme: 1,
-    gastroacid: null,
-    grudge: null,
-    healblock: 5,
-    helpinghand: 1,
-    imprison: null,
-    ingrain: null,
-    laserfocus: 2,
-    lockon: 2,
-    magiccoat: 1,
-    magnetrise: 5,
-    mindreader: 2,
-    miracleeye: null,
-    minimize: null,
-    nightmare: null,
-    noretreat: null,
-    octolock: null,
-    powder: 1,
-    protect: 1,
-    powershift: null,
-    powertrick: null,
-    ragepowder: 1,
-    smackdown: null,
-    taunt: 3,
-    tarshot: null,
-    telekinesis: 3,
-    torment: null,
-    uproar: 3,
-    yawn: 2,
-    perishsong: 4,
-  }[id] ?? null;
-}
-
 function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null) {
-  const normalized = cleanId(id);
-  if (!normalized || pokemon.fainted || pokemon.volatiles[normalized]) {
-    return false;
-  }
   const aromaVeilPokemon = activePokemon(state, side);
-  if (
-    AROMA_VEIL_VOLATILES.has(normalized) &&
-    Number.isInteger(sourceSide) &&
-    sourceSide !== side &&
-    activeAbility(aromaVeilPokemon) === "aromaveil"
-  ) {
-    emitAbilityActivation(state, side, aromaVeilPokemon, "aromaveil", {
-      source,
-      target: pokemon.name,
-    });
+  const sourcePokemon = Number.isInteger(sourceSide)
+    ? activePokemon(state, sourceSide)
+    : null;
+  const normalized = cleanId(id);
+  const result = JSON.parse(
+    applySharedVolatileJson(
+      JSON.stringify({
+        id: normalized,
+        fainted: pokemon.fainted,
+        alreadyActive: Boolean(pokemon.volatiles[normalized]),
+        ability: activeAbility(pokemon),
+        sourceIsOpponent:
+          Number.isInteger(sourceSide) && sourceSide !== side,
+        aromaVeilProtected: activeAbility(aromaVeilPokemon) === "aromaveil",
+        sourceItem: sourcePokemon?.item ?? "",
+      }),
+    ),
+  );
+  if (!result.applied) {
+    if (result.emitBlockActivation) {
+      const blocker = result.blockedBy === "aromaveil" ? aromaVeilPokemon : pokemon;
+      emitAbilityActivation(state, side, blocker, result.blockedBy, {
+        source,
+        ...(result.blockedBy === "aromaveil" ? { target: pokemon.name } : {}),
+      });
+    }
     return false;
   }
-  if (normalized === "confusion" && activeAbility(pokemon) === "owntempo") {
-    return false;
-  }
-  if (normalized === "flinch" && activeAbility(pokemon) === "innerfocus") {
-    emitAbilityActivation(state, side, pokemon, "innerfocus", { source });
-    return false;
-  }
-  if (
-    ["attract", "taunt"].includes(normalized) &&
-    activeAbility(pokemon) === "oblivious"
-  ) {
-    emitAbilityActivation(state, side, pokemon, "oblivious", { source });
-    return false;
-  }
-  const turns = volatileDuration(normalized);
-  pokemon.volatiles[normalized] = Number.isFinite(turns)
-    ? { id: normalized, turns }
+  pokemon.volatiles[normalized] = Number.isFinite(result.turns)
+    ? { id: normalized, turns: result.turns }
     : { id: normalized };
   pokemon.volatiles[normalized].source = source;
   pokemon.volatiles[normalized].sourceSide = sourceSide;
-  if (BINDING_VOLATILES.has(normalized)) {
-    const sourcePokemon = Number.isInteger(sourceSide)
-      ? activePokemon(state, sourceSide)
-      : null;
-    pokemon.volatiles[normalized].turns =
-      cleanId(sourcePokemon?.item) === "gribclaw" ||
-      cleanId(sourcePokemon?.item) === "gripclaw"
-        ? 7
-        : pokemon.volatiles[normalized].turns ?? 4;
-  }
-  if (normalized === "perishsong") {
-    pokemon.volatiles[normalized].count = 3;
+  if (Number.isFinite(result.perishCount)) {
+    pokemon.volatiles[normalized].count = result.perishCount;
   }
   state.events.push({
     turn: state.turn,
@@ -4950,7 +4546,7 @@ function applyVolatileStatus(state, side, pokemon, id, source, sourceSide = null
     side,
     pokemon: pokemon.name,
     effect: normalized,
-    duration: turns,
+    duration: result.eventDuration ?? null,
     source,
   });
   if (normalized === "confusion" && cleanId(source) !== "poisonpuppeteer") {
@@ -5598,14 +5194,20 @@ function applyWeatherRecoveryMove(state, side, pokemon, source) {
 }
 
 function setFieldEffect(state, side, pokemon, kind, id, source) {
-  const normalized = cleanId(id);
-  if (!normalized) return false;
   const currentWeather = cleanId(state.field?.weather?.id);
-  if (
-    kind === "weather" &&
-    PERSISTENT_ABILITY_WEATHERS.has(currentWeather) &&
-    !PERSISTENT_ABILITY_WEATHERS.has(normalized)
-  ) {
+  const result = JSON.parse(
+    applySharedFieldJson(
+      JSON.stringify({
+        kind,
+        id,
+        currentWeather,
+        sourceItem: pokemon.item,
+      }),
+    ),
+  );
+  const normalized = result.id;
+  if (!result.applied) {
+    if (!normalized) return false;
     state.events.push({
       turn: state.turn,
       type: "field_blocked",
@@ -5613,23 +5215,11 @@ function setFieldEffect(state, side, pokemon, kind, id, source) {
       pokemon: pokemon.name,
       fieldKind: kind,
       effect: normalized,
-      source: currentWeather,
+      source: result.blockedBy,
     });
     return false;
   }
-  let turns = DEFAULT_FIELD_DURATION;
-  if (kind === "terrain" && pokemon.item === "terrainextender") turns = 8;
-  if (kind === "weather") {
-    if (PERSISTENT_ABILITY_WEATHERS.has(normalized)) turns = null;
-    const weatherRocks = {
-      sunnyday: "heatrock",
-      raindance: "damprock",
-      sandstorm: "smoothrock",
-      snow: "icyrock",
-      hail: "icyrock",
-    };
-    if (pokemon.item === weatherRocks[normalized]) turns = 8;
-  }
+  const turns = result.turns ?? null;
   if (kind === "pseudoWeather") {
     state.field.pseudoWeather[normalized] = { id: normalized, turns };
   } else {
@@ -5690,13 +5280,22 @@ function endPersistentAbilityWeather(state, side, pokemon, reason) {
 }
 
 function setSideCondition(state, side, pokemon, condition, source) {
-  const id = cleanId(condition);
-  if (!id) return false;
-  const maximumLayers = LAYERED_SIDE_CONDITIONS[id];
-  if (maximumLayers) {
-    const previous = Number(state.sides[side].conditions[id]?.layers ?? 0);
-    const layers = Math.min(maximumLayers, previous + 1);
-    if (layers === previous) return false;
+  const requestedId = cleanId(condition);
+  const existing = state.sides[side].conditions[requestedId];
+  const result = JSON.parse(
+    applySharedSideConditionJson(
+      JSON.stringify({
+        id: requestedId,
+        previousLayers: Number(existing?.layers ?? 0),
+        alreadyActive: Boolean(existing),
+        sourceItem: pokemon.item,
+      }),
+    ),
+  );
+  if (!result.applied) return false;
+  const id = result.id;
+  if (Number.isFinite(result.layers)) {
+    const layers = result.layers;
     state.sides[side].conditions[id] = { id, layers, turns: null };
     state.events.push({
       turn: state.turn,
@@ -5709,27 +5308,7 @@ function setSideCondition(state, side, pokemon, condition, source) {
     });
     return true;
   }
-  if (id === "stealthrock" || id === "stickyweb") {
-    if (state.sides[side].conditions[id]) return false;
-    state.sides[side].conditions[id] = { id, layers: 1, turns: null };
-    state.events.push({
-      turn: state.turn,
-      type: "side_condition_start",
-      side,
-      pokemon: pokemon.name,
-      effect: id,
-      layers: 1,
-      source,
-    });
-    return true;
-  }
-  let turns = SIDE_CONDITION_DURATIONS[id] ?? DEFAULT_FIELD_DURATION;
-  if (
-    ["auroraveil", "lightscreen", "reflect"].includes(id) &&
-    pokemon.item === "lightclay"
-  ) {
-    turns = 8;
-  }
+  const turns = result.turns;
   state.sides[side].conditions[id] = { id, turns };
   state.events.push({
     turn: state.turn,
@@ -5748,16 +5327,25 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
   let loweredByOpponent = false;
   for (const [stat, amount] of Object.entries(boosts ?? {})) {
     if (!BOOST_STATS.includes(stat) || !Number.isFinite(amount)) continue;
-    const contraryAmount = activeAbility(pokemon) === "contrary" ? -amount : amount;
-    const modifiedAmount =
-      activeAbility(pokemon) === "simple" ? contraryAmount * 2 : contraryAmount;
-    const loweredByFoe =
-      modifiedAmount < 0 && Number.isInteger(sourceSide) && sourceSide !== side;
-    if (
-      loweredByFoe &&
-      activeAbility(pokemon) === "mirrorarmor" &&
-      cleanId(source) !== "mirrorarmor"
-    ) {
+    const flowerVeilPokemon = activePokemon(state, side);
+    const result = JSON.parse(
+      applySharedBoostJson(
+        JSON.stringify({
+          stat,
+          amount: Math.trunc(amount),
+          currentStage: Number(pokemon.boosts[stat] ?? 0),
+          ability: activeAbility(pokemon),
+          item: pokemon.item,
+          grassType: pokemon.types.includes("Grass"),
+          flowerVeilProtected:
+            activeAbility(flowerVeilPokemon) === "flowerveil",
+          source,
+          loweredByFoe:
+            Number.isInteger(sourceSide) && sourceSide !== side,
+        }),
+      ),
+    );
+    if (result.action === "reflect") {
       const sourcePokemon = activePokemon(state, sourceSide);
       emitAbilityActivation(state, side, pokemon, "mirrorarmor", {
         source,
@@ -5769,87 +5357,42 @@ function applyBoosts(state, side, pokemon, boosts, source, sourceSide = null) {
           state,
           sourceSide,
           sourcePokemon,
-          { [stat]: modifiedAmount },
+          { [stat]: result.appliedAmount },
           "mirrorarmor",
           side,
         );
       }
       continue;
     }
-    const flowerVeilPokemon = state ? activePokemon(state, side) : null;
-    if (
-      loweredByFoe &&
-      pokemon.types.includes("Grass") &&
-      activeAbility(flowerVeilPokemon) === "flowerveil"
-    ) {
-      emitAbilityActivation(state, side, flowerVeilPokemon, "flowerveil", {
-        source,
-        target: pokemon.name,
-      });
+    if (result.action === "block") {
+      if (result.blockedBy === "clearamulet") {
+        state.events.push({
+          turn: state.turn,
+          type: "item_activate",
+          side,
+          pokemon: pokemon.name,
+          item: "clearamulet",
+          source,
+        });
+      } else {
+        const blocker = result.blockedBy === "flowerveil" ? flowerVeilPokemon : pokemon;
+        emitAbilityActivation(state, side, blocker, result.blockedBy, {
+          source,
+          ...(result.blockedBy === "flowerveil" ? { target: pokemon.name } : {}),
+        });
+      }
       continue;
     }
-    if (loweredByFoe && cleanId(pokemon.item) === "clearamulet") {
-      state.events.push({
-        turn: state.turn,
-        type: "item_activate",
-        side,
-        pokemon: pokemon.name,
-        item: "clearamulet",
-        source,
-      });
-      continue;
-    }
-    if (
-      loweredByFoe &&
-      ["clearbody", "whitesmoke"].includes(activeAbility(pokemon))
-    ) {
-      emitAbilityActivation(state, side, pokemon, activeAbility(pokemon), {
-        source,
-      });
-      continue;
-    }
-    if (
-      loweredByFoe &&
-      stat === "attack" &&
-      cleanId(source) === "intimidate" &&
-      ["innerfocus", "oblivious"].includes(activeAbility(pokemon))
-    ) {
-      emitAbilityActivation(state, side, pokemon, activeAbility(pokemon), {
-        source,
-      });
-      continue;
-    }
-    if (
-      stat === "attack" &&
-      modifiedAmount < 0 &&
-      activeAbility(pokemon) === "hypercutter" &&
-      Number.isInteger(sourceSide) &&
-      sourceSide !== side
-    ) {
-      emitAbilityActivation(state, side, pokemon, "hypercutter", { source });
-      continue;
-    }
-    if (
-      stat === "accuracy" &&
-      modifiedAmount < 0 &&
-      activeAbility(pokemon) === "keeneye" &&
-      Number.isInteger(sourceSide) &&
-      sourceSide !== side
-    ) {
-      emitAbilityActivation(state, side, pokemon, "keeneye", { source });
-      continue;
-    }
-    const previous = pokemon.boosts[stat] ?? 0;
-    const next = Math.max(-6, Math.min(6, previous + modifiedAmount));
-    const applied = next - previous;
-    if (applied === 0) continue;
+    if (result.action !== "apply") continue;
+    const next = result.nextStage;
+    const applied = result.appliedAmount;
     pokemon.boosts[stat] = next;
     if (applied < 0) {
       pokemon.turnState ??= {};
       pokemon.turnState.statsLowered = true;
       loweredByOpponent =
         loweredByOpponent ||
-        (Number.isInteger(sourceSide) && sourceSide !== side);
+        result.loweredByFoe;
     }
     changed = true;
     state.events.push({
@@ -6038,19 +5581,25 @@ function healPokemon(state, side, pokemon, amount, source) {
 
 function applyDirectDamage(state, side, pokemon, amount, source, cause = "move") {
   if (pokemon.fainted || pokemon.hp <= 0) return 0;
-  if (
-    activeAbility(pokemon) === "magicguard" &&
-    !["move", "futureattack", "selfcost"].includes(cleanId(cause))
-  ) {
-    emitAbilityActivation(state, side, pokemon, "magicguard", {
-      source,
-      cause,
-    });
-    return 0;
-  }
-  const damage = Math.max(0, Math.min(pokemon.hp, Math.floor(amount)));
+  const result = JSON.parse(
+    applySharedDirectDamageJson(
+      JSON.stringify({
+        turn: state.turn,
+        side,
+        pokemon: pokemon.name,
+        amount: Math.floor(amount),
+        hp: pokemon.hp,
+        maximumHp: pokemon.stats.hp,
+        source,
+        cause,
+        magicGuard: activeAbility(pokemon) === "magicguard",
+      }),
+    ),
+  );
+  state.events.push(...result.events);
+  const damage = result.damage;
   if (damage <= 0) return 0;
-  pokemon.hp -= damage;
+  pokemon.hp = result.remainingHp;
   pokemon.turnState.damageTaken += damage;
   pokemon.turnState.lastDamage = {
     amount: damage,
@@ -6059,18 +5608,6 @@ function applyDirectDamage(state, side, pokemon, amount, source, cause = "move")
     source,
     sourceSide: null,
   };
-  state.events.push({
-    turn: state.turn,
-    type: "damage",
-    side,
-    pokemon: pokemon.name,
-    source,
-    cause,
-    damage,
-    remainingHp: pokemon.hp,
-    maximumHp: pokemon.stats.hp,
-    effectiveness: 1,
-  });
   if (pokemon.hp > 0) {
     tryConsumePinchBerry(state, side, pokemon, source);
   }
@@ -6137,6 +5674,49 @@ function fractionAmount(maximum, fraction) {
   return fraction
     ? Math.max(1, Math.floor((maximum * fraction[0]) / fraction[1]))
     : 0;
+}
+
+function sharedPostHitOutcome(
+  move,
+  attacker,
+  defender,
+  totalDamage = 0,
+  landedHits = 0,
+) {
+  return JSON.parse(
+    evaluateSharedPostHitJson(
+      JSON.stringify({
+        moveId: move.id,
+        moveName: move.name,
+        moveType: move.type,
+        moveCategory: move.category,
+        moveContact: makesContact(move),
+        movePunch: hasMoveFlag(move, "punch"),
+        moveHasSecondaries: (move.secondaries ?? []).length > 0,
+        moveVolatileStatus: move.volatileStatus ?? "",
+        bindingVolatile: BINDING_VOLATILES.has(cleanId(move.volatileStatus)),
+        drainNumerator: Number(move.drain?.[0] ?? 0),
+        drainDenominator: Number(move.drain?.[1] ?? 1),
+        recoilNumerator: Number(move.recoil?.[0] ?? 0),
+        recoilDenominator: Number(move.recoil?.[1] ?? 1),
+        landedHits,
+        totalDamage,
+        attackerHp: attacker.hp,
+        attackerMaximumHp: attacker.stats.hp,
+        attackerItem: attacker.item,
+        attackerAbility: activeAbility(attacker),
+        attackerFainted: attacker.fainted,
+        defenderHp: defender.hp,
+        defenderItem: defender.item,
+        defenderAbility: activeAbility(defender),
+        defenderStatus: defender.status,
+        ignoresDefenderAbility: ignoresDefenderAbility(attacker),
+        defenderItemRemovalBlocked:
+          activeAbility(defender) === "stickyhold" &&
+          !ignoresDefenderAbility(attacker),
+      }),
+    ),
+  );
 }
 
 function applyMoveEffect(
@@ -6235,14 +5815,7 @@ function canAct(state, side, pokemon, rng, options = {}) {
       effect: "confusion",
     });
     if (rng.next() < 1 / 3) {
-      if (activeAbility(pokemon) === "magicguard") {
-        emitAbilityActivation(state, side, pokemon, "magicguard", {
-          source: "confusion",
-          cause: "volatile",
-        });
-        return false;
-      }
-      const damage = Math.min(
+      const amount = Math.min(
         pokemon.hp,
         Math.max(
           1,
@@ -6255,19 +5828,23 @@ function canAct(state, side, pokemon, rng, options = {}) {
           ),
         ),
       );
-      pokemon.hp -= damage;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side,
-        pokemon: pokemon.name,
-        source: "confusion",
-        cause: "volatile",
-        damage,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
+      const result = JSON.parse(
+        applySharedDirectDamageJson(
+          JSON.stringify({
+            turn: state.turn,
+            side,
+            pokemon: pokemon.name,
+            amount,
+            hp: pokemon.hp,
+            maximumHp: pokemon.stats.hp,
+            source: "confusion",
+            cause: "volatile",
+            magicGuard: activeAbility(pokemon) === "magicguard",
+          }),
+        ),
+      );
+      state.events.push(...result.events);
+      pokemon.hp = result.remainingHp;
       markFainted(state, side, pokemon);
       return false;
     }
@@ -9275,171 +8852,74 @@ function executeMove(state, action, rng) {
         ? fixedEffectiveness === 0
           ? 0
           : Math.min(defender.hp, fixedDamage)
-        : range.effectiveness === 0
-        ? 0
-        : Math.max(
-            1,
-            Math.min(
-              defender.hp,
-              Math.floor(
-                damageBase(attacker, defender, chargedHitMove, {
-                  critical,
-                  state,
-                  defenderSide,
-                }) *
-                  range.stab *
-                  range.effectiveness *
-                  range.itemModifier *
-                  range.abilityModifier *
-                  range.fieldModifier *
-                  criticalModifier *
-                  randomFactor,
-              ),
-            ),
+        : calculateSharedModifiedDamage(
+            range.baseDamage,
+            range.stab,
+            range.effectiveness,
+            range.itemModifier,
+            range.abilityModifier,
+            range.fieldModifier,
+            criticalModifier,
+            randomFactor,
+            defender.hp,
           );
-    if (
-      damage >= defender.hp &&
-      defender.hp > 1 &&
-      (cleanId(move.id) === "falseswipe" || defender.volatiles?.endure)
-    ) {
-      damage = defender.hp - 1;
-      state.events.push({
-        turn: state.turn,
-        type: "damage_prevented",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: cleanId(move.id) === "falseswipe" ? move.name : "endure",
-        remainingHp: defender.hp,
-      });
-    }
-    if (
-      damage >= defender.hp &&
-      defender.hp >= defender.stats.hp &&
-      activeAbility(defender) === "sturdy" &&
-      !ignoresDefenderAbility(attacker)
-    ) {
-      damage = defender.hp - 1;
-      state.events.push({
-        turn: state.turn,
-        type: "damage_prevented",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: "sturdy",
-        remainingHp: defender.hp,
-      });
-    }
-    if (
-      damage >= defender.hp &&
-      defender.hp >= defender.stats.hp &&
-      cleanId(defender.item) === "focussash"
-    ) {
-      damage = defender.hp - 1;
-      consumeHeldItem(state, defenderSide, defender, "Focus Sash");
-      state.events.push({
-        turn: state.turn,
-        type: "damage_prevented",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: "Focus Sash",
-        remainingHp: defender.hp,
-      });
-    }
-    if (
-      damage >= defender.hp &&
-      cleanId(defender.item) === "focusband" &&
-      rng.next() < 0.1
-    ) {
-      damage = Math.max(0, defender.hp - 1);
-      state.events.push({
-        turn: state.turn,
-        type: "damage_prevented",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: "Focus Band",
-        remainingHp: defender.hp,
-      });
-    }
     const hitEffectiveness =
       fixedDamage === null ? range.effectiveness : fixedEffectiveness;
-    if (hitEffectiveness === 0) {
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: attacker.name,
-        move: move.name,
-        moveType: move.type,
-        damage: 0,
-        remainingHp: defender.hp,
-        maximumHp: defender.stats.hp,
-        stab: range.stab,
-        effectiveness: 0,
-        randomFactor: Math.round(randomFactor * 10_000) / 10_000,
-        critical: false,
-        hit,
-        hits: requestedHits,
-      });
-      break;
-    }
     const substitute = defender.volatiles?.substitute;
-    const substituteBlockedHit = Boolean(
-      damage > 0 &&
-        substitute &&
-        move.target !== "self" &&
-        activeAbility(attacker) !== "infiltrator",
+    const application = JSON.parse(
+      applySharedDamageJson(
+        JSON.stringify({
+          turn: state.turn,
+          attackerSide: action.side,
+          defenderSide,
+          attackerName: attacker.name,
+          defenderName: defender.name,
+          moveId: move.id,
+          moveName: move.name,
+          moveType: move.type,
+          moveTarget: move.target,
+          damage,
+          defenderHp: defender.hp,
+          defenderMaximumHp: defender.stats.hp,
+          substituteHp: substitute?.hp ?? null,
+          endure: Boolean(defender.volatiles?.endure),
+          sturdy: activeAbility(defender) === "sturdy",
+          focusSash: cleanId(defender.item) === "focussash",
+          focusBand: cleanId(defender.item) === "focusband",
+          disguise:
+            activeAbility(defender) === "disguise" &&
+            defender.abilityState?.disguiseBusted !== true,
+          attackerInfiltrator: activeAbility(attacker) === "infiltrator",
+          ignoresDefenderAbility: ignoresDefenderAbility(attacker),
+          stab: range.stab,
+          effectiveness: hitEffectiveness,
+          randomFactor,
+          critical,
+          hit,
+          hits: requestedHits,
+          rngState: rng.snapshot(),
+        }),
+      ),
     );
-    const disguiseBlockedHit = Boolean(
-      damage > 0 &&
-        !substituteBlockedHit &&
-        activeAbility(defender) === "disguise" &&
-        defender.abilityState?.disguiseBusted !== true &&
-        !ignoresDefenderAbility(attacker),
-    );
+    rng.restore(application.rngState);
+    if (application.consumeFocusSash) {
+      consumeHeldItem(state, defenderSide, defender, "Focus Sash");
+    }
+    const substituteBlockedHit = application.substituteBlocked;
+    const disguiseBlockedHit = application.disguiseBlocked;
     if (disguiseBlockedHit) {
       defender.abilityState ??= {};
       defender.abilityState.disguiseBusted = true;
-      damage = 0;
-      emitAbilityActivation(state, defenderSide, defender, "disguise", {
-        targetSide: action.side,
-        target: attacker.name,
-        move: move.name,
-        hit,
-      });
     }
-    let appliedDamage = damage;
+    damage = application.damage;
+    const appliedDamage = application.appliedDamage;
     if (substituteBlockedHit) {
-      appliedDamage = Math.min(damage, substitute.hp);
-      substitute.hp -= appliedDamage;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: "substitute",
-        cause: "substitute",
-        move: move.name,
-        moveType: move.type,
-        damage: appliedDamage,
-        remainingHp: defender.hp,
-        maximumHp: defender.stats.hp,
-        substituteHp: Math.max(0, substitute.hp),
-        effectiveness: range.effectiveness,
-        hit,
-      });
-      if (substitute.hp <= 0) {
+      substitute.hp = application.substituteHp;
+      if (application.substituteEnded) {
         delete defender.volatiles.substitute;
-        state.events.push({
-          turn: state.turn,
-          type: "volatile_end",
-          side: defenderSide,
-          pokemon: defender.name,
-          effect: "substitute",
-          source: move.name,
-        });
       }
     } else {
-      defender.hp -= damage;
+      defender.hp = application.remainingHp;
       if (damage > 0) {
         defender.turnState.damageTaken += damage;
         defender.turnState.lastDamage = {
@@ -9456,39 +8936,60 @@ function executeMove(state, action, rng) {
         defender.timesHit += 1;
       }
     }
+    state.events.push(...application.events);
+    if (application.immune) break;
     landedHits += 1;
     totalDamage += appliedDamage;
-    if (critical && damage > 0) {
-      state.events.push({
-        turn: state.turn,
-        type: "critical",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: attacker.name,
-        move: move.name,
-        hit,
-      });
-    }
     if (!substituteBlockedHit) {
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: defenderSide,
-        pokemon: defender.name,
-        source: attacker.name,
-        move: move.name,
-        moveType: move.type,
-        damage,
-        remainingHp: defender.hp,
-        maximumHp: defender.stats.hp,
-        stab: range.stab,
-        effectiveness:
-          fixedDamage === null ? range.effectiveness : fixedEffectiveness,
-        randomFactor: Math.round(randomFactor * 10_000) / 10_000,
-        critical,
-        hit,
-        hits: requestedHits,
-      });
+      const sharedHitReactionResult = JSON.parse(
+        evaluateSharedHitReactionsJson(
+          JSON.stringify({
+            damage,
+            attackerAlive: !attacker.fainted && attacker.hp > 0,
+            defenderAlive: !defender.fainted && defender.hp > 0,
+            attackerAbility: activeAbility(attacker),
+            defenderAbility: activeAbility(defender),
+            defenderItem: defender.item,
+            moveId: move.id,
+            moveType: move.type,
+            moveCategory: move.category,
+            superEffective: range.effectiveness > 1,
+            contactPunishment: triggersContactPunishment(attacker, move),
+            effectiveContact: makesEffectiveContact(attacker, move),
+            ignoresDefenderAbility: ignoresDefenderAbility(attacker),
+            attackerCanBurn: canReceiveStatus(attacker, "brn", state, action.side, defenderSide),
+            attackerCanPoison: canReceiveStatus(attacker, "psn", state, action.side, defenderSide),
+            attackerCanParalyze: canReceiveStatus(attacker, "par", state, action.side, defenderSide),
+            attackerCanSleep: canReceiveStatus(attacker, "slp", state, action.side, defenderSide),
+            defenderCanPoison: canReceiveStatus(defender, "psn", state, defenderSide, action.side),
+            attackerGrassType: attacker.types.includes("Grass"),
+            attackerOvercoat: activeAbility(attacker) === "overcoat",
+            oppositeGender: Boolean(defender.gender && attacker.gender && defender.gender !== attacker.gender),
+            attackerAlreadyAttracted: Boolean(attacker.volatiles?.attract),
+            attackerAlreadyDisabled: Boolean(attacker.volatiles?.disable),
+            moveIsMax: Boolean(move.isMaxMove),
+            moveIsFuture: hasMoveFlag(move, "futuremove"),
+            rngState: rng.snapshot(),
+            attackerItem: attacker.item,
+            defenderHasIllusion: Boolean(defender.volatiles?.illusion),
+            defenderGulpMissileForm: defender.abilityState?.gulpMissileForm ?? "",
+            attackerItemRemovalBlocked:
+              activeAbility(attacker) === "stickyhold" &&
+              !ignoresDefenderAbility(defender),
+            defenderItemRemovalBlocked:
+              activeAbility(defender) === "stickyhold" &&
+              !ignoresDefenderAbility(attacker),
+            attackerItemConsumedOnHit: Boolean(activatedGemItem && !gemConsumed),
+            defenderItemConsumedOnHit:
+              ["chartiberry", "colburberry", "yacheberry"].includes(cleanId(defender.item)) &&
+              heldItemType(defender.item) === move.type &&
+              range.effectiveness > 1,
+          }),
+        ),
+      );
+      rng.restore(sharedHitReactionResult.rngState);
+      const sharedHitReaction = (code) =>
+        sharedHitReactionResult.reactions.find((reaction) => reaction.code === code);
       if (damage > 0 && activatedGemItem && !gemConsumed) {
         consumeHeldItem(state, action.side, attacker, move.name);
         gemConsumed = true;
@@ -9505,12 +9006,7 @@ function executeMove(state, action, rng) {
         consumeHeldItem(state, defenderSide, defender, move.name);
         markBerryEaten(defender, berryId);
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        cleanId(defender.item) === "weaknesspolicy" &&
-        range.effectiveness > 1
-      ) {
+      if (sharedHitReaction("weaknesspolicy")) {
         consumeHeldItem(state, defenderSide, defender, move.name);
         applyBoosts(
           state,
@@ -9520,12 +9016,7 @@ function executeMove(state, action, rng) {
           "weaknesspolicy",
         );
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        cleanId(defender.item) === "marangaberry" &&
-        move.category === "Special"
-      ) {
+      if (sharedHitReaction("marangaberry")) {
         consumeHeldItem(state, defenderSide, defender, move.name);
         markBerryEaten(defender, "marangaberry");
         const ripenMultiplier = activeAbility(defender) === "ripen" ? 2 : 1;
@@ -9543,7 +9034,7 @@ function executeMove(state, action, rng) {
           "marangaberry",
         );
       }
-      if (damage > 0 && defender.volatiles?.illusion) {
+      if (sharedHitReaction("illusion")) {
         const displayedPokemon = defender.volatiles.illusion.displayedName;
         delete defender.volatiles.illusion;
         delete defender.displayName;
@@ -9556,15 +9047,7 @@ function executeMove(state, action, rng) {
           source: move.name,
         });
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        activeAbility(defender) === "pickpocket" &&
-        !ignoresDefenderAbility(attacker) &&
-        triggersContactPunishment(attacker, move) &&
-        !defender.item &&
-        attacker.item
-      ) {
+      if (sharedHitReaction("pickpocket")) {
         stealTargetItem(
           state,
           defenderSide,
@@ -9574,12 +9057,7 @@ function executeMove(state, action, rng) {
           "pickpocket",
         );
       }
-      if (
-        damage > 0 &&
-        triggersContactPunishment(attacker, move) &&
-        cleanId(defender.item) === "rockyhelmet" &&
-        !attacker.fainted
-      ) {
+      if (sharedHitReaction("rockyhelmet")) {
         applyDirectDamage(
           state,
           action.side,
@@ -9589,13 +9067,7 @@ function executeMove(state, action, rng) {
           "item",
         );
       }
-      if (
-        damage > 0 &&
-        triggersContactPunishment(attacker, move) &&
-        activeAbility(defender) === "gooey" &&
-        !ignoresDefenderAbility(attacker) &&
-        !attacker.fainted
-      ) {
+      if (sharedHitReaction("gooey")) {
         emitAbilityActivation(state, defenderSide, defender, "gooey", {
           targetSide: action.side,
           target: attacker.name,
@@ -9609,12 +9081,7 @@ function executeMove(state, action, rng) {
           defenderSide,
         );
       }
-      if (
-        damage > 0 &&
-        activeAbility(defender) === "cottondown" &&
-        !ignoresDefenderAbility(attacker) &&
-        !attacker.fainted
-      ) {
+      if (sharedHitReaction("cottondown")) {
         emitAbilityActivation(state, defenderSide, defender, "cottondown", {
           targetSide: action.side,
           target: attacker.name,
@@ -9628,13 +9095,9 @@ function executeMove(state, action, rng) {
           defenderSide,
         );
       }
-      const gulpMissileForm = defender.abilityState?.gulpMissileForm;
-      if (
-        damage > 0 &&
-        gulpMissileForm &&
-        activeAbility(defender) === "gulpmissile" &&
-        !ignoresDefenderAbility(attacker)
-      ) {
+      const gulpMissileReaction = sharedHitReaction("gulpmissile");
+      if (gulpMissileReaction) {
+        const gulpMissileForm = defender.abilityState?.gulpMissileForm;
         delete defender.abilityState.gulpMissileForm;
         emitAbilityActivation(state, defenderSide, defender, "gulpmissile", {
           form: gulpMissileForm,
@@ -9649,7 +9112,7 @@ function executeMove(state, action, rng) {
           "gulpmissile",
           "ability",
         );
-        if (!attacker.fainted && gulpMissileForm === "gulping") {
+        if (!attacker.fainted && gulpMissileReaction.boosts?.defence) {
           applyBoosts(
             state,
             action.side,
@@ -9658,25 +9121,19 @@ function executeMove(state, action, rng) {
             "gulpmissile",
             defenderSide,
           );
-        } else if (!attacker.fainted && gulpMissileForm === "gorging") {
+        } else if (!attacker.fainted && gulpMissileReaction.status) {
           applyStatus(
             state,
             action.side,
             attacker,
-            "par",
+            gulpMissileReaction.status,
             rng,
             "gulpmissile",
             defenderSide,
           );
         }
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        move.type === "Dark" &&
-        activeAbility(defender) === "justified" &&
-        !ignoresDefenderAbility(attacker)
-      ) {
+      if (sharedHitReaction("justified")) {
         emitAbilityActivation(state, defenderSide, defender, "justified", {
           targetSide: action.side,
           target: attacker.name,
@@ -9684,10 +9141,7 @@ function executeMove(state, action, rng) {
         applyBoosts(state, defenderSide, defender, { attack: 1 }, "justified");
       }
       if (
-        damage > 0 &&
-        activeAbility(attacker) === "magician" &&
-        !attacker.item &&
-        defender.item &&
+        sharedHitReaction("magician") &&
         stealTargetItem(
           state,
           action.side,
@@ -9704,15 +9158,7 @@ function executeMove(state, action, rng) {
         });
       }
       if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        activeAbility(defender) === "cursedbody" &&
-        !ignoresDefenderAbility(attacker) &&
-        !attacker.volatiles?.disable &&
-        !move.isMaxMove &&
-        !hasMoveFlag(move, "futuremove") &&
-        cleanId(move.id) !== "struggle" &&
-        rng.next() < 0.3 &&
+        sharedHitReaction("cursedbody") &&
         applyVolatileStatus(
           state,
           action.side,
@@ -9731,15 +9177,7 @@ function executeMove(state, action, rng) {
           moveId: cleanId(move.id),
         });
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        activeAbility(defender) === "poisonpoint" &&
-        !ignoresDefenderAbility(attacker) &&
-        triggersContactPunishment(attacker, move) &&
-        canReceiveStatus(attacker, "psn", state, action.side, defenderSide) &&
-        rng.next() < 0.3
-      ) {
+      if (sharedHitReaction("poisonpoint")) {
         emitAbilityActivation(state, defenderSide, defender, "poisonpoint", {
           targetSide: action.side,
           target: attacker.name,
@@ -9754,15 +9192,7 @@ function executeMove(state, action, rng) {
           defenderSide,
         );
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        activeAbility(defender) === "static" &&
-        !ignoresDefenderAbility(attacker) &&
-        triggersContactPunishment(attacker, move) &&
-        canReceiveStatus(attacker, "par", state, action.side, defenderSide) &&
-        rng.next() < 0.3
-      ) {
+      if (sharedHitReaction("static")) {
         state.events.push({
           turn: state.turn,
           type: "ability_activate",
@@ -9782,18 +9212,7 @@ function executeMove(state, action, rng) {
           defenderSide,
         );
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        !ignoresDefenderAbility(attacker) &&
-        triggersContactPunishment(attacker, move) &&
-        activeAbility(defender) === "cutecharm" &&
-        defender.gender &&
-        attacker.gender &&
-        defender.gender !== attacker.gender &&
-        !attacker.volatiles?.attract &&
-        rng.next() < 0.3
-      ) {
+      if (sharedHitReaction("cutecharm")) {
         emitAbilityActivation(state, defenderSide, defender, "cutecharm", {
           targetSide: action.side,
           target: attacker.name,
@@ -9807,25 +9226,14 @@ function executeMove(state, action, rng) {
           defenderSide,
         );
       }
-      if (
-        damage > 0 &&
-        !ignoresDefenderAbility(attacker) &&
-        activeAbility(defender) === "stamina" &&
-        defender.hp > 0
-      ) {
+      if (sharedHitReaction("stamina")) {
         emitAbilityActivation(state, defenderSide, defender, "stamina", {
           targetSide: action.side,
           target: attacker.name,
         });
         applyBoosts(state, defenderSide, defender, { defence: 1 }, "stamina");
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        move.type === "Fire" &&
-        activeAbility(defender) === "thermalexchange" &&
-        !ignoresDefenderAbility(attacker)
-      ) {
+      if (sharedHitReaction("thermalexchange")) {
         emitAbilityActivation(state, defenderSide, defender, "thermalexchange", {
           targetSide: action.side,
           target: attacker.name,
@@ -9838,13 +9246,7 @@ function executeMove(state, action, rng) {
           "thermalexchange",
         );
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        move.category === "Physical" &&
-        activeAbility(defender) === "weakarmor" &&
-        !ignoresDefenderAbility(attacker)
-      ) {
+      if (sharedHitReaction("weakarmor")) {
         emitAbilityActivation(state, defenderSide, defender, "weakarmor", {
           targetSide: action.side,
           target: attacker.name,
@@ -9857,12 +9259,7 @@ function executeMove(state, action, rng) {
           "weakarmor",
         );
       }
-      if (
-        damage > 0 &&
-        !ignoresDefenderAbility(attacker) &&
-        activeAbility(defender) === "toxicdebris" &&
-        move.category === "Physical"
-      ) {
+      if (sharedHitReaction("toxicdebris")) {
         emitAbilityActivation(state, defenderSide, defender, "toxicdebris", {
           targetSide: action.side,
           target: attacker.name,
@@ -9875,14 +9272,10 @@ function executeMove(state, action, rng) {
           "toxicdebris",
         );
       }
-      if (
-        damage > 0 &&
-        !ignoresDefenderAbility(attacker) &&
-        triggersContactPunishment(attacker, move) &&
-        ["roughskin", "ironbarbs"].includes(activeAbility(defender)) &&
-        !attacker.fainted
-      ) {
-        const contactDamageAbility = activeAbility(defender);
+      const contactDamageReaction =
+        sharedHitReaction("roughskin") ?? sharedHitReaction("ironbarbs");
+      if (contactDamageReaction) {
+        const contactDamageAbility = contactDamageReaction.code;
         emitAbilityActivation(
           state,
           defenderSide,
@@ -9902,15 +9295,7 @@ function executeMove(state, action, rng) {
           "ability",
         );
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        !ignoresDefenderAbility(attacker) &&
-        triggersContactPunishment(attacker, move) &&
-        activeAbility(defender) === "flamebody" &&
-        canReceiveStatus(attacker, "brn", state, action.side, defenderSide) &&
-        rng.next() < 0.3
-      ) {
+      if (sharedHitReaction("flamebody")) {
         emitAbilityActivation(state, defenderSide, defender, "flamebody", {
           targetSide: action.side,
           target: attacker.name,
@@ -9925,19 +9310,9 @@ function executeMove(state, action, rng) {
           defenderSide,
         );
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        !ignoresDefenderAbility(attacker) &&
-        triggersContactPunishment(attacker, move) &&
-        activeAbility(defender) === "effectspore" &&
-        !attacker.types.includes("Grass") &&
-        activeAbility(attacker) !== "overcoat" &&
-        rng.next() < 0.3
-      ) {
-        const effectSporeStatus = ["par", "psn", "slp"][
-          Math.min(2, Math.floor(rng.next() * 3))
-        ];
+      const effectSporeReaction = sharedHitReaction("effectspore");
+      if (effectSporeReaction) {
+        const effectSporeStatus = effectSporeReaction.status;
         if (
           applyStatus(
             state,
@@ -9956,14 +9331,7 @@ function executeMove(state, action, rng) {
           });
         }
       }
-      if (
-        damage > 0 &&
-        defender.hp > 0 &&
-        activeAbility(attacker) === "poisontouch" &&
-        makesEffectiveContact(attacker, move) &&
-        canReceiveStatus(defender, "psn", state, defenderSide, action.side) &&
-        rng.next() < 0.3
-      ) {
+      if (sharedHitReaction("poisontouch")) {
         emitAbilityActivation(state, action.side, attacker, "poisontouch", {
           targetSide: defenderSide,
           target: defender.name,
@@ -9993,6 +9361,13 @@ function executeMove(state, action, rng) {
       }
     }
   }
+  const postHit = sharedPostHitOutcome(
+    move,
+    attacker,
+    defender,
+    totalDamage,
+    landedHits,
+  );
   if (requestedHits > 1 && landedHits > 0) {
     state.events.push({
       turn: state.turn,
@@ -10029,12 +9404,8 @@ function executeMove(state, action, rng) {
   if (teraShellActive) {
     delete defender.abilityState.teraShellActive;
   }
-  if (totalDamage > 0 && move.drain) {
-    const drainedAmount = fractionAmount(totalDamage, move.drain);
-    if (
-      activeAbility(defender) === "liquidooze" &&
-      !ignoresDefenderAbility(attacker)
-    ) {
+  if (postHit.drainAmount > 0) {
+    if (postHit.drainAsDamage) {
       emitAbilityActivation(state, defenderSide, defender, "liquidooze", {
         targetSide: action.side,
         target: attacker.name,
@@ -10044,38 +9415,25 @@ function executeMove(state, action, rng) {
         state,
         action.side,
         attacker,
-        drainedAmount,
+        postHit.drainAmount,
         "liquidooze",
         "ability",
       );
     } else {
-      healPokemon(state, action.side, attacker, drainedAmount, move.name);
+      healPokemon(state, action.side, attacker, postHit.drainAmount, move.name);
     }
   }
-  if (
-    totalDamage > 0 &&
-    cleanId(attacker.item) === "shellbell" &&
-    !attacker.fainted
-  ) {
+  if (postHit.shellBellHealing > 0) {
     healPokemon(
       state,
       action.side,
       attacker,
-      Math.max(1, Math.floor(totalDamage / 8)),
+      postHit.shellBellHealing,
       "shellbell",
     );
   }
-  if (
-    totalDamage > 0 &&
-    move.recoil &&
-    activeAbility(attacker) !== "rockhead" &&
-    activeAbility(attacker) !== "magicguard" &&
-    !attacker.fainted
-  ) {
-    const recoil = Math.min(
-      attacker.hp,
-      fractionAmount(totalDamage, move.recoil),
-    );
+  if (postHit.recoilDamage > 0 && !attacker.fainted) {
+    const recoil = Math.min(attacker.hp, postHit.recoilDamage);
     attacker.hp -= recoil;
     state.events.push({
       turn: state.turn,
@@ -10090,14 +9448,8 @@ function executeMove(state, action, rng) {
       effectiveness: 1,
     });
   }
-  if (
-    totalDamage > 0 &&
-    attacker.item === "lifeorb" &&
-    activeAbility(attacker) !== "magicguard" &&
-    !attacker.fainted &&
-    !isSheerForceBoostedMove(attacker, move)
-  ) {
-    const recoil = Math.min(attacker.hp, Math.max(1, Math.floor(attacker.stats.hp / 10)));
+  if (postHit.lifeOrbDamage > 0 && !attacker.fainted) {
+    const recoil = Math.min(attacker.hp, postHit.lifeOrbDamage);
     attacker.hp -= recoil;
     state.events.push({
       turn: state.turn,
@@ -10112,22 +9464,14 @@ function executeMove(state, action, rng) {
       effectiveness: 1,
     });
   }
-  if (
-    landedHits > 0 &&
-    ["mindblown", "steelbeam"].includes(cleanId(move.id)) &&
-    !attacker.fainted
-  ) {
+  if (postHit.selfCost === "half_maximum_hp" && !attacker.fainted) {
     applySelfHpCost(state, action.side, attacker, move.name, [1, 2]);
   }
-  if (landedHits > 0 && cleanId(move.id) === "finalgambit" && !attacker.fainted) {
+  if (postHit.selfCost === "all_current_hp" && !attacker.fainted) {
     attacker.hp = 0;
     markFainted(state, action.side, attacker);
   }
-  if (
-    landedHits > 0 &&
-    SELF_DESTRUCT_MOVES.has(cleanId(move.id)) &&
-    !attacker.fainted
-  ) {
+  if (postHit.selfCost === "self_destruct" && !attacker.fainted) {
     const selfDamage = attacker.hp;
     attacker.hp = 0;
     state.events.push({
@@ -10144,8 +9488,7 @@ function executeMove(state, action, rng) {
     });
     markFainted(state, action.side, attacker);
   }
-  const curedStatus =
-    totalDamage > 0 ? resolveDynamicPostHit(move, defender) : "";
+  const curedStatus = postHit.curedStatus;
   if (curedStatus) {
     defender.status = "";
     defender.statusTurns = 0;
@@ -10159,25 +9502,30 @@ function executeMove(state, action, rng) {
       source: move.name,
     });
   }
-  if (landedHits > 0 && cleanId(move.id) === "clearsmog") {
+  const hasPostHitInstruction = (kind, effect = "") =>
+    postHit.instructions.some(
+      (instruction) =>
+        instruction.kind === kind && (!effect || instruction.effect === effect),
+    );
+  const postHitBoosts = (stat, amount) =>
+    postHit.instructions.some(
+      (instruction) =>
+        instruction.kind === "boost" && instruction.boosts?.[stat] === amount,
+    );
+  if (hasPostHitInstruction("reset_boosts")) {
     resetBoosts(state, defenderSide, defender, move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "hyperspacefury") {
+  if (postHitBoosts("defence", -1)) {
     applyBoosts(state, action.side, attacker, { defence: -1 }, move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "fakeout") {
+  if (hasPostHitInstruction("volatile", "flinch")) {
     applyVolatileStatus(state, defenderSide, defender, "flinch", move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "upperhand") {
-    applyVolatileStatus(state, defenderSide, defender, "flinch", move.name);
-  }
-  if (landedHits > 0 && cleanId(move.id) === "saltcure" && !defender.fainted) {
+  if (hasPostHitInstruction("volatile_if_alive", "saltcure") && !defender.fainted) {
     applyVolatileStatus(state, defenderSide, defender, "saltcure", move.name);
   }
   if (
-    landedHits > 0 &&
-    move.volatileStatus &&
-    BINDING_VOLATILES.has(cleanId(move.volatileStatus)) &&
+    hasPostHitInstruction("volatile_if_alive", move.volatileStatus) &&
     !defender.fainted
   ) {
     applyVolatileStatus(
@@ -10189,23 +9537,23 @@ function executeMove(state, action, rng) {
       action.side,
     );
   }
-  if (landedHits > 0 && cleanId(move.id) === "thousandwaves" && !defender.fainted) {
+  if (hasPostHitInstruction("volatile_if_alive", "thousandwaves") && !defender.fainted) {
     applyVolatileStatus(state, defenderSide, defender, "thousandwaves", move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "jawlock" && !defender.fainted) {
+  if (hasPostHitInstruction("volatile", "jawlock") && !defender.fainted) {
     applyVolatileStatus(state, defenderSide, defender, "jawlock", move.name);
     applyVolatileStatus(state, action.side, attacker, "jawlock", move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "rapidspin") {
+  if (hasPostHitInstruction("clear_hazards")) {
     removeHazardsAndTerrain(state, action.side, move.name, attacker);
   }
-  if (landedHits > 0 && cleanId(move.id) === "ceaselessedge") {
+  if (hasPostHitInstruction("side_condition", "spikes")) {
     setSideCondition(state, defenderSide, attacker, "spikes", move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "stoneaxe") {
+  if (hasPostHitInstruction("side_condition", "stealthrock")) {
     setSideCondition(state, defenderSide, attacker, "stealthrock", move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "doubleshock") {
+  if (hasPostHitInstruction("remove_type", "electric")) {
     const nextTypes = attacker.types.filter((type) => type !== "Electric");
     setPokemonTypes(
       state,
@@ -10215,7 +9563,7 @@ function executeMove(state, action, rng) {
       move.name,
     );
   }
-  if (landedHits > 0 && cleanId(move.id) === "burnup") {
+  if (hasPostHitInstruction("remove_type", "fire")) {
     const nextTypes = attacker.types.filter((type) => type !== "Fire");
     setPokemonTypes(
       state,
@@ -10225,28 +9573,20 @@ function executeMove(state, action, rng) {
       move.name,
     );
   }
-  if (landedHits > 0 && cleanId(move.id) === "smackdown" && !defender.fainted) {
+  if (hasPostHitInstruction("volatile_if_alive", "smackdown") && !defender.fainted) {
     applyVolatileStatus(state, defenderSide, defender, "smackdown", move.name);
   }
-  if (
-    landedHits > 0 &&
-    cleanId(move.id) === "thousandarrows" &&
-    !defender.fainted
-  ) {
-    applyVolatileStatus(state, defenderSide, defender, "smackdown", move.name);
-  }
-  if (landedHits > 0 && cleanId(move.id) === "sappyseed" && !defender.fainted) {
+  if (hasPostHitInstruction("leech_seed") && !defender.fainted) {
     applyLeechSeed(state, action.side, defenderSide, defender, move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "gmaxsnooze" && !defender.fainted) {
+  if (hasPostHitInstruction("yawn") && !defender.fainted) {
     applyYawn(state, action.side, defenderSide, defender, move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "orderup" && !attacker.fainted) {
+  if (postHitBoosts("attack", 1) && !attacker.fainted) {
     applyBoosts(state, action.side, attacker, { attack: 1 }, move.name);
   }
   if (
-    landedHits > 0 &&
-    ["relicsong", "polarflare"].includes(cleanId(move.id)) &&
+    hasPostHitInstruction("form_hint") &&
     !attacker.fainted
   ) {
     state.events.push({
@@ -10258,24 +9598,22 @@ function executeMove(state, action, rng) {
       note: "native-engine-form-change-placeholder",
     });
   }
-  if (landedHits > 0 && cleanId(move.id) === "fling" && attacker.item) {
+  if (hasPostHitInstruction("remove_attacker_item") && attacker.item) {
     removeTargetItem(state, action.side, attacker, move.name);
   }
   if (
-    landedHits > 0 &&
-    cleanId(move.id) === "naturalgift" &&
+    hasPostHitInstruction("consume_attacker_berry") &&
     cleanId(attacker.item).endsWith("berry")
   ) {
     consumeHeldItem(state, action.side, attacker, move.name);
   }
   if (
-    landedHits > 0 &&
-    ["surf", "dive"].includes(cleanId(move.id)) &&
-    activeAbility(attacker) === "gulpmissile" &&
+    hasPostHitInstruction("gulp_missile") &&
     !attacker.fainted
   ) {
-    const form =
-      attacker.hp > Math.floor(attacker.stats.hp / 2) ? "gulping" : "gorging";
+    const form = postHit.instructions.find(
+      (instruction) => instruction.kind === "gulp_missile",
+    )?.effect;
     attacker.abilityState.gulpMissileForm = form;
     emitAbilityActivation(state, action.side, attacker, "gulpmissile", {
       form,
@@ -10283,14 +9621,13 @@ function executeMove(state, action, rng) {
     });
   }
   if (
-    landedHits > 0 &&
-    cleanId(move.id) === "coreenforcer" &&
+    hasPostHitInstruction("suppress_ability") &&
     defender.turnState?.acted &&
     !defender.fainted
   ) {
     suppressAbility(state, defenderSide, defender, move.name);
   }
-  if (landedHits > 0 && cleanId(move.id) === "spitup") {
+  if (hasPostHitInstruction("end_stockpile")) {
     delete attacker.volatiles.stockpile;
     state.events.push({
       turn: state.turn,
@@ -10301,21 +9638,7 @@ function executeMove(state, action, rng) {
       source: move.name,
     });
   }
-  if (landedHits > 0 && cleanId(move.id) === "icespinner") {
-    for (const terrain of ["electricterrain", "grassyterrain", "mistyterrain", "psychicterrain"]) {
-      if (cleanId(state.field?.terrain?.id) !== terrain) continue;
-      state.events.push({
-        turn: state.turn,
-        type: "field_end",
-        fieldKind: "terrain",
-        effect: terrain,
-        source: move.name,
-      });
-      state.field.terrain = null;
-      break;
-    }
-  }
-  if (landedHits > 0 && ["steelroller", "freezyfrost"].includes(cleanId(move.id))) {
+  if (hasPostHitInstruction("clear_terrain") || hasPostHitInstruction("clear_terrain_and_boosts")) {
     if (state.field?.terrain) {
       state.events.push({
         turn: state.turn,
@@ -10326,18 +9649,27 @@ function executeMove(state, action, rng) {
       });
       state.field.terrain = null;
     }
-    if (cleanId(move.id) === "freezyfrost") {
+    if (hasPostHitInstruction("clear_terrain_and_boosts")) {
       resetBoosts(state, action.side, attacker, move.name);
       resetBoosts(state, defenderSide, defender, move.name);
     }
   }
-  if (landedHits > 0 && cleanId(move.id) === "mortalspin") {
+  if (hasPostHitInstruction("mortal_spin")) {
     removeHazardsAndTerrain(state, action.side, move.name, attacker);
     if (!defender.fainted) {
       applyStatus(state, defenderSide, defender, "psn", rng, move.name, action.side);
     }
   }
-  if (landedHits > 0 && cleanId(move.id) === "knockoff" && defender.item) {
+  if (hasPostHitInstruction("item_removal_blocked")) {
+    heldItemRemovalBlocked(
+      state,
+      defenderSide,
+      defender,
+      action.side,
+      move.name,
+    );
+  }
+  if (hasPostHitInstruction("remove_defender_item") && defender.item) {
     removeTargetItem(
       state,
       defenderSide,
@@ -10347,27 +9679,12 @@ function executeMove(state, action, rng) {
     );
   }
   if (
-    landedHits > 0 &&
-    ["covet", "thief"].includes(cleanId(move.id))
+    hasPostHitInstruction("steal_defender_item")
   ) {
     stealTargetItem(state, action.side, attacker, defenderSide, defender, move.name);
   }
   if (
-    landedHits > 0 &&
-    ["bugbite", "incinerate"].includes(cleanId(move.id)) &&
-    isConsumableBattleItem(defender.item)
-  ) {
-    removeTargetItem(
-      state,
-      defenderSide,
-      defender,
-      move.name,
-      action.side,
-    );
-  }
-  if (
-    landedHits > 0 &&
-    cleanId(move.id) === "pluck" &&
+    hasPostHitInstruction("remove_consumable_defender_item") &&
     isConsumableBattleItem(defender.item)
   ) {
     removeTargetItem(
@@ -10433,49 +9750,54 @@ function executeMove(state, action, rng) {
       );
     }
   }
-  if (!isSheerForceBoostedMove(attacker, move)) {
-    const secondaryBlockSource =
-      totalDamage > 0 &&
-      defender.hp > 0 &&
-      move.secondaries.length > 0 &&
-      secondaryEffectBlockSource(attacker, defender, move);
-    if (secondaryBlockSource === "shielddust") {
-      emitAbilityActivation(
-        state,
-        defenderSide,
-        defender,
-        secondaryBlockSource,
-        {
-          targetSide: action.side,
-          target: attacker.name,
-          move: move.name,
-        },
-      );
-    } else if (secondaryBlockSource === "covertcloak") {
-      state.events.push({
-        turn: state.turn,
-        type: "item_activate",
-        side: defenderSide,
-        pokemon: defender.name,
-        item: secondaryBlockSource,
-        source: move.name,
-      });
-    }
-    for (const secondary of move.secondaries) {
-      if (defender.hp <= 0) break;
-      if (secondaryBlockSource) continue;
-      if (rng.next() * 100 >= secondaryEffectChance(attacker, secondary)) continue;
-      applyMoveEffect(
-        state,
-        action.side,
-        attacker,
-        defenderSide,
-        defender,
-        secondary,
-        rng,
-        move.name,
-      );
-    }
+  const secondaryBlockSource = postHit.secondaryBlockSource;
+  if (secondaryBlockSource === "shielddust") {
+    emitAbilityActivation(
+      state,
+      defenderSide,
+      defender,
+      secondaryBlockSource,
+      {
+        targetSide: action.side,
+        target: attacker.name,
+        move: move.name,
+      },
+    );
+  } else if (secondaryBlockSource === "covertcloak") {
+    state.events.push({
+      turn: state.turn,
+      type: "item_activate",
+      side: defenderSide,
+      pokemon: defender.name,
+      item: secondaryBlockSource,
+      source: move.name,
+    });
+  }
+  for (const secondary of move.secondaries) {
+    if (defender.hp <= 0) break;
+    const roll = JSON.parse(
+      rollSharedSecondaryJson(
+        JSON.stringify({
+          chance: Number(secondary.chance ?? 100),
+          attackerAbility: activeAbility(attacker),
+          blocked: postHit.secondaryEffectsSuppressed,
+          defenderFainted: defender.fainted,
+          rngState: rng.snapshot(),
+        }),
+      ),
+    );
+    rng.restore(roll.rngState);
+    if (!roll.triggered) continue;
+    applyMoveEffect(
+      state,
+      action.side,
+      attacker,
+      defenderSide,
+      defender,
+      secondary,
+      rng,
+      move.name,
+    );
   }
   if (totalDamage > 0 && !defender.fainted && Object.keys(move.selfBoosts).length) {
     applyBoosts(
@@ -10708,10 +10030,20 @@ function bestFaintReplacement(state, sideIndex) {
 function advanceFaintedSides(state) {
   for (let sideIndex = 0; sideIndex < state.sides.length; sideIndex += 1) {
     const side = state.sides[sideIndex];
-    if (!side.team[side.active].fainted) continue;
-    if (state.manualFaintSwitchSides.includes(sideIndex)) continue;
+    const replacement = JSON.parse(
+      evaluateSharedFaintReplacementJson(
+        JSON.stringify({
+          activeSlot: side.active,
+          activeFainted: side.team[side.active].fainted,
+          manualSelection: state.manualFaintSwitchSides.includes(sideIndex),
+          teamHp: side.team.map((pokemon) => pokemon.hp),
+          teamFainted: side.team.map((pokemon) => pokemon.fainted),
+        }),
+      ),
+    );
+    if (!replacement.automatic) continue;
     const next = bestFaintReplacement(state, sideIndex);
-    if (next >= 0) {
+    if (replacement.eligibleSlots.includes(next)) {
       const faintedPokemon = side.team[side.active];
       side.active = next;
       side.team[next].activeTurns = 0;
@@ -10733,18 +10065,19 @@ function advanceFaintedSides(state) {
       applyEntryAbilities(state, sideIndex, side.team[next]);
     }
   }
-  const defeated = state.sides
-    .map((side, index) => ({
-      index,
-      defeated: side.team.every((pokemon) => pokemon.fainted),
-    }))
-    .filter((entry) => entry.defeated);
-  if (defeated.length === 0) return;
-  state.status = defeated.length === 2 ? "tie" : "completed";
-  state.winner =
-    defeated.length === 2
-      ? null
-      : state.sides[defeated[0].index === 0 ? 1 : 0].name;
+  const outcome = JSON.parse(
+    evaluateSharedBattleOutcomeJson(
+      JSON.stringify({
+        sideNames: state.sides.map((side) => side.name),
+        faintedTeams: state.sides.map((side) =>
+          side.team.map((pokemon) => pokemon.fainted),
+        ),
+      }),
+    ),
+  );
+  if (!outcome.completed) return;
+  state.status = outcome.status;
+  state.winner = outcome.winner;
   state.events.push({
     turn: state.turn,
     type: state.status === "tie" ? "tie" : "win",
@@ -10765,7 +10098,18 @@ export function replaceFaintedPokemon(previousState, sideIndex, switchSlot) {
   const targetIndex = Number(switchSlot) - 1;
   const faintedPokemon = side.team[side.active];
   const target = side.team[targetIndex];
-  if (!target || target.fainted || targetIndex === side.active) {
+  const replacement = JSON.parse(
+    evaluateSharedFaintReplacementJson(
+      JSON.stringify({
+        activeSlot: side.active,
+        activeFainted: faintedPokemon.fainted,
+        manualSelection: true,
+        teamHp: side.team.map((pokemon) => pokemon.hp),
+        teamFainted: side.team.map((pokemon) => pokemon.fainted),
+      }),
+    ),
+  );
+  if (!target || !replacement.eligibleSlots.includes(targetIndex)) {
     throw new Error(`Side ${sideIndex + 1} cannot switch to slot ${switchSlot}`);
   }
   side.active = targetIndex;
@@ -10823,26 +10167,17 @@ function applyFutureAttacks(state) {
       attackerSide: sourceSide,
       defenderSide: entry.targetSide,
     });
-    const damage =
-      range.effectiveness === 0
-        ? 0
-        : Math.max(
-            1,
-            Math.min(
-              target.hp,
-              Math.floor(
-                damageBase(source, target, attackMove, {
-                  state,
-                  defenderSide: entry.targetSide,
-                }) *
-                  range.stab *
-                  range.effectiveness *
-                  range.itemModifier *
-                  range.abilityModifier *
-                  range.fieldModifier,
-              ),
-            ),
-          );
+    const damage = calculateSharedModifiedDamage(
+      range.baseDamage,
+      range.stab,
+      range.effectiveness,
+      range.itemModifier,
+      range.abilityModifier,
+      range.fieldModifier,
+      1,
+      1,
+      target.hp,
+    );
     state.events.push({
       turn: state.turn,
       type: "future_attack",
@@ -10856,6 +10191,165 @@ function applyFutureAttacks(state) {
     applyDirectDamage(state, entry.targetSide, target, damage, entry.source, "future_attack");
   }
   state.futureAttacks = remaining;
+}
+
+function sharedEndTurnResidualInput(state, sideIndex, pokemon) {
+  const opposingSide = sideIndex === 0 ? 1 : sideIndex === 1 ? 0 : null;
+  const opposingPokemon =
+    opposingSide === null ? null : activePokemon(state, opposingSide);
+  return {
+    side: sideIndex,
+    hp: pokemon.hp,
+    maximumHp: pokemon.stats.hp,
+    types: pokemon.types,
+    status: pokemon.status,
+    toxicCounter: pokemon.toxicCounter,
+    ability: activeAbility(pokemon),
+    item: pokemon.item,
+    weather: effectiveWeather(state),
+    terrain: state.field?.terrain?.id ?? "",
+    grounded: isGrounded(pokemon),
+    effectivelyAsleep: isEffectivelyAsleep(pokemon),
+    opposingAbility: opposingPokemon ? activeAbility(opposingPokemon) : "",
+    opposingFainted: opposingPokemon?.fainted ?? true,
+    volatiles: Object.values(pokemon.volatiles ?? {}).map((volatile) => ({
+      id: volatile.id,
+      source: volatile.source ?? "",
+      sourceSide: volatile.sourceSide ?? null,
+      count: Number.isFinite(volatile.count) ? volatile.count : null,
+    })),
+  };
+}
+
+function sharedEndTurnResidual(state, sideIndex, pokemon) {
+  return JSON.parse(
+    evaluateSharedEndTurnResidualJson(
+      JSON.stringify(sharedEndTurnResidualInput(state, sideIndex, pokemon)),
+    ),
+  );
+}
+
+function applySharedResidualOperations(state, sideIndex, pokemon, result) {
+  for (const operation of result.operations ?? []) {
+    if (operation.kind === "toxic_counter") {
+      pokemon.toxicCounter = Number(operation.count ?? pokemon.toxicCounter);
+      continue;
+    }
+    if (operation.kind === "heal") {
+      if (["dryskin", "icebody", "poisonheal"].includes(operation.effect)) {
+        emitAbilityActivation(
+          state,
+          sideIndex,
+          pokemon,
+          operation.effect,
+          operation.effect === "poisonheal" ? { status: pokemon.status } : {},
+        );
+      }
+      healPokemon(
+        state,
+        sideIndex,
+        pokemon,
+        Number(operation.amount ?? 0),
+        operation.effect,
+      );
+      continue;
+    }
+    if (operation.kind === "boost") {
+      if (operation.effect === "speedboost") {
+        emitAbilityActivation(state, sideIndex, pokemon, "speedboost");
+      }
+      applyBoosts(
+        state,
+        sideIndex,
+        pokemon,
+        operation.boosts ?? {},
+        operation.effect,
+      );
+      continue;
+    }
+    if (operation.kind === "perish_tick") {
+      const perish = pokemon.volatiles?.perishsong;
+      if (perish) perish.count = Number(operation.count ?? 0);
+      state.events.push({
+        turn: state.turn,
+        type: "volatile_activate",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        effect: "perishsong",
+        count: Number(operation.count ?? 0),
+        source: operation.effect,
+      });
+      continue;
+    }
+    if (operation.kind === "faint") {
+      pokemon.hp = 0;
+      markFainted(state, sideIndex, pokemon);
+      continue;
+    }
+    if (operation.kind === "drain") {
+      const applied = Math.min(pokemon.hp, Number(operation.amount ?? 0));
+      pokemon.hp -= applied;
+      state.events.push({
+        turn: state.turn,
+        type: "damage",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        source: operation.effect,
+        cause: operation.cause,
+        damage: applied,
+        remainingHp: pokemon.hp,
+        maximumHp: pokemon.stats.hp,
+        effectiveness: 1,
+      });
+      const sourceSide = operation.sourceSide;
+      const leecher =
+        Number.isInteger(sourceSide) && state.sides[sourceSide]
+          ? activePokemon(state, sourceSide)
+          : null;
+      if (leecher && !leecher.fainted) {
+        healPokemon(
+          state,
+          sourceSide,
+          leecher,
+          applied,
+          operation.effect,
+        );
+      }
+      markFainted(state, sideIndex, pokemon);
+      continue;
+    }
+    if (operation.kind !== "damage") continue;
+    if (["dryskin", "solarpower"].includes(operation.effect)) {
+      emitAbilityActivation(state, sideIndex, pokemon, operation.effect);
+    }
+    if (operation.effect === "baddreams") {
+      const opposingSide = sideIndex === 0 ? 1 : 0;
+      const opposingPokemon = activePokemon(state, opposingSide);
+      emitAbilityActivation(
+        state,
+        opposingSide,
+        opposingPokemon,
+        "baddreams",
+        { targetSide: sideIndex, target: pokemon.name },
+      );
+    }
+    const applied = Math.min(pokemon.hp, Number(operation.amount ?? 0));
+    pokemon.hp -= applied;
+    state.events.push({
+      turn: state.turn,
+      type: "damage",
+      side: sideIndex,
+      pokemon: pokemon.name,
+      source: operation.effect,
+      cause: operation.cause,
+      damage: applied,
+      remainingHp: pokemon.hp,
+      maximumHp: pokemon.stats.hp,
+      effectiveness: 1,
+    });
+    markFainted(state, sideIndex, pokemon);
+  }
+  pokemon.toxicCounter = Number(result.toxicCounter ?? pokemon.toxicCounter);
 }
 
 function applyEndTurnEffects(state, rng) {
@@ -10901,386 +10395,10 @@ function applyEndTurnEffects(state, rng) {
       emitAbilityActivation(state, sideIndex, pokemon, "hydration");
       curePokemonStatus(state, sideIndex, pokemon, "hydration");
     }
-    if (
-      activeAbility(pokemon) === "dryskin" &&
-      ["raindance", "primordialsea"].includes(weather)
-    ) {
-      emitAbilityActivation(state, sideIndex, pokemon, "dryskin");
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
-        "dryskin",
-      );
-    } else if (
-      activeAbility(pokemon) === "dryskin" &&
-      ["sunnyday", "desolateland"].includes(weather)
-    ) {
-      emitAbilityActivation(state, sideIndex, pokemon, "dryskin");
-      applyDirectDamage(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
-        "dryskin",
-        "ability",
-      );
-      if (pokemon.fainted) continue;
-    }
-    if (
-      activeAbility(pokemon) === "solarpower" &&
-      ["sunnyday", "desolateland"].includes(weather)
-    ) {
-      emitAbilityActivation(state, sideIndex, pokemon, "solarpower");
-      applyDirectDamage(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
-        "solarpower",
-        "ability",
-      );
-      if (pokemon.fainted) continue;
-    }
-    if (
-      activeAbility(pokemon) === "icebody" &&
-      ["hail", "snow"].includes(weather)
-    ) {
-      emitAbilityActivation(state, sideIndex, pokemon, "icebody");
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
-        "icebody",
-      );
-    }
-    let damage = 0;
-    let source = "";
-    if (
-      activeAbility(pokemon) === "poisonheal" &&
-      ["psn", "tox"].includes(pokemon.status)
-    ) {
-      emitAbilityActivation(state, sideIndex, pokemon, "poisonheal", {
-        status: pokemon.status,
-      });
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
-        "poisonheal",
-      );
-      if (pokemon.status === "tox") {
-        pokemon.toxicCounter = Math.min(15, pokemon.toxicCounter + 1);
-      }
-    } else if (pokemon.status === "brn") {
-      damage = Math.max(1, Math.floor(pokemon.stats.hp / 16));
-      if (activeAbility(pokemon) === "heatproof") {
-        damage = Math.max(1, Math.floor(damage / 2));
-      }
-      source = "brn";
-    } else if (pokemon.status === "psn") {
-      damage = Math.max(1, Math.floor(pokemon.stats.hp / 8));
-      source = "psn";
-    } else if (pokemon.status === "tox") {
-      damage = Math.max(
-        1,
-        Math.floor(
-          (pokemon.stats.hp * Math.max(1, pokemon.toxicCounter)) / 16,
-        ),
-      );
-      pokemon.toxicCounter = Math.min(15, pokemon.toxicCounter + 1);
-      source = "tox";
-    }
-    if (damage > 0 && activeAbility(pokemon) !== "magicguard") {
-      const applied = Math.min(pokemon.hp, damage);
-      pokemon.hp -= applied;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        source,
-        cause: "status",
-        damage: applied,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
-      if (markFainted(state, sideIndex, pokemon)) continue;
-    }
-    const opposingSide = sideIndex === 0 ? 1 : 0;
-    const opposingPokemon = activePokemon(state, opposingSide);
-    if (
-      isEffectivelyAsleep(pokemon) &&
-      !opposingPokemon.fainted &&
-      activeAbility(opposingPokemon) === "baddreams"
-    ) {
-      emitAbilityActivation(
-        state,
-        opposingSide,
-        opposingPokemon,
-        "baddreams",
-        { targetSide: sideIndex, target: pokemon.name },
-      );
-      applyDirectDamage(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
-        "baddreams",
-        "ability",
-      );
-      if (pokemon.fainted) continue;
-    }
-    if (
-      weather === "sandstorm" &&
-      !["Rock", "Ground", "Steel"].some((type) =>
-        pokemon.types.includes(type),
-      ) &&
-      !["magicguard", "overcoat", "sandforce", "sandrush", "sandveil"].includes(
-        activeAbility(pokemon),
-      )
-    ) {
-      const applied = Math.min(
-        pokemon.hp,
-        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
-      );
-      pokemon.hp -= applied;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        source: "sandstorm",
-        cause: "weather",
-        damage: applied,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
-      if (markFainted(state, sideIndex, pokemon)) continue;
-    }
-    if (
-      cleanId(state.field?.terrain?.id) === "grassyterrain" &&
-      isGrounded(pokemon)
-    ) {
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
-        "grassyterrain",
-      );
-    }
-    if (pokemon.volatiles?.ingrain) {
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
-        pokemon.volatiles.ingrain.source || "Ingrain",
-      );
-    }
-    if (pokemon.volatiles?.aquaring) {
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
-        pokemon.volatiles.aquaring.source || "Aqua Ring",
-      );
-    }
-    if (activeAbility(pokemon) === "speedboost") {
-      state.events.push({
-        turn: state.turn,
-        type: "ability_activate",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        ability: "speedboost",
-      });
-      applyBoosts(state, sideIndex, pokemon, { speed: 1 }, "speedboost");
-    }
-    if (
-      pokemon.volatiles?.leechseed &&
-      activeAbility(pokemon) !== "magicguard"
-    ) {
-      const applied = Math.min(
-        pokemon.hp,
-        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
-      );
-      pokemon.hp -= applied;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        source: "Leech Seed",
-        cause: "volatile",
-        damage: applied,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
-      const sourceSide = pokemon.volatiles.leechseed.sourceSide;
-      const leecher =
-        Number.isInteger(sourceSide) && state.sides[sourceSide]
-          ? activePokemon(state, sourceSide)
-          : null;
-      if (leecher && !leecher.fainted) {
-        healPokemon(
-          state,
-          sourceSide,
-          leecher,
-          applied,
-          pokemon.volatiles.leechseed.source || "Leech Seed",
-        );
-      }
-      if (markFainted(state, sideIndex, pokemon)) continue;
-    }
-    if (pokemon.volatiles?.curse && activeAbility(pokemon) !== "magicguard") {
-      const applied = Math.min(
-        pokemon.hp,
-        Math.max(1, Math.floor(pokemon.stats.hp / 4)),
-      );
-      pokemon.hp -= applied;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        source: "Curse",
-        cause: "volatile",
-        damage: applied,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
-      if (markFainted(state, sideIndex, pokemon)) continue;
-    }
-    if (
-      pokemon.volatiles?.nightmare &&
-      isEffectivelyAsleep(pokemon) &&
-      activeAbility(pokemon) !== "magicguard"
-    ) {
-      const applied = Math.min(
-        pokemon.hp,
-        Math.max(1, Math.floor(pokemon.stats.hp / 4)),
-      );
-      pokemon.hp -= applied;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        source: pokemon.volatiles.nightmare.source || "Nightmare",
-        cause: "volatile",
-        damage: applied,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
-      if (markFainted(state, sideIndex, pokemon)) continue;
-    }
-    if (
-      pokemon.volatiles?.saltcure &&
-      activeAbility(pokemon) !== "magicguard"
-    ) {
-      const saltCureDivisor = pokemon.types.some((type) =>
-        ["Water", "Steel"].includes(type),
-      )
-        ? 4
-        : 8;
-      const applied = Math.min(
-        pokemon.hp,
-        Math.max(1, Math.floor(pokemon.stats.hp / saltCureDivisor)),
-      );
-      pokemon.hp -= applied;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        source: pokemon.volatiles.saltcure.source || "Salt Cure",
-        cause: "volatile",
-        damage: applied,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
-      if (markFainted(state, sideIndex, pokemon)) continue;
-    }
-    if (pokemon.volatiles?.octolock) {
-      applyBoosts(
-        state,
-        sideIndex,
-        pokemon,
-        { defence: -1, specialDefence: -1 },
-        pokemon.volatiles.octolock.source || "Octolock",
-      );
-    }
-    if (pokemon.volatiles?.perishsong) {
-      const perish = pokemon.volatiles.perishsong;
-      perish.count = Number.isFinite(perish.count) ? perish.count - 1 : 3;
-      state.events.push({
-        turn: state.turn,
-        type: "volatile_activate",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        effect: "perishsong",
-        count: perish.count,
-        source: perish.source || "Perish Song",
-      });
-      if (perish.count <= 0) {
-        pokemon.hp = 0;
-        if (markFainted(state, sideIndex, pokemon)) continue;
-      }
-    }
-    const binding = Object.values(pokemon.volatiles ?? {}).find((volatile) =>
-      BINDING_VOLATILES.has(cleanId(volatile?.id)),
-    );
-    if (binding && activeAbility(pokemon) !== "magicguard") {
-      const applied = Math.min(
-        pokemon.hp,
-        Math.max(1, Math.floor(pokemon.stats.hp / 8)),
-      );
-      pokemon.hp -= applied;
-      state.events.push({
-        turn: state.turn,
-        type: "damage",
-        side: sideIndex,
-        pokemon: pokemon.name,
-        source: binding.source || binding.id,
-        cause: "volatile",
-        damage: applied,
-        remainingHp: pokemon.hp,
-        maximumHp: pokemon.stats.hp,
-        effectiveness: 1,
-      });
-      if (markFainted(state, sideIndex, pokemon)) continue;
-    }
-    if (pokemon.item === "leftovers") {
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
-        "Leftovers",
-      );
-    } else if (
-      pokemon.item === "blacksludge" &&
-      pokemon.types.includes("Poison")
-    ) {
-      healPokemon(
-        state,
-        sideIndex,
-        pokemon,
-        Math.max(1, Math.floor(pokemon.stats.hp / 16)),
-        "Black Sludge",
-      );
-    }
+    const residual = sharedEndTurnResidual(state, sideIndex, pokemon);
+    applySharedResidualOperations(state, sideIndex, pokemon, residual);
+    if (pokemon.fainted) continue;
+
     if (
       cleanId(pokemon.item) === "toxicorb" &&
       canReceiveStatus(pokemon, "tox", state, sideIndex, sideIndex)
@@ -11365,14 +10483,21 @@ function applyEndTurnEffects(state, rng) {
     updateZenModeForm(state, sideIndex, side.team[side.active]);
   }
 }
+function sharedTimedEffect(kind, id, turns) {
+  return JSON.parse(
+    evaluateSharedTimedEffectJson(
+      JSON.stringify({ kind, id, turns: Number(turns) }),
+    ),
+  );
+}
 
 function advanceTimedEffects(state, rng) {
   for (const kind of ["weather", "terrain"]) {
     const effect = state.field[kind];
-    if (!effect) continue;
-    if (!Number.isFinite(effect.turns)) continue;
-    effect.turns -= 1;
-    if (effect.turns > 0) {
+    if (!effect || !Number.isFinite(effect.turns)) continue;
+    const result = sharedTimedEffect(kind, effect.id, effect.turns);
+    effect.turns = result.remainingTurns;
+    if (!result.ended) {
       state.events.push({
         turn: state.turn,
         type: "field_tick",
@@ -11401,8 +10526,9 @@ function advanceTimedEffects(state, rng) {
     }
   }
   for (const [id, effect] of Object.entries(state.field.pseudoWeather)) {
-    effect.turns -= 1;
-    if (effect.turns > 0) {
+    const result = sharedTimedEffect("pseudoWeather", id, effect.turns);
+    effect.turns = result.remainingTurns;
+    if (!result.ended) {
       state.events.push({
         turn: state.turn,
         type: "field_tick",
@@ -11423,8 +10549,9 @@ function advanceTimedEffects(state, rng) {
   for (const [sideIndex, side] of state.sides.entries()) {
     for (const [id, condition] of Object.entries(side.conditions)) {
       if (!Number.isFinite(condition.turns)) continue;
-      condition.turns -= 1;
-      if (condition.turns > 0) continue;
+      const result = sharedTimedEffect("sideCondition", id, condition.turns);
+      condition.turns = result.remainingTurns;
+      if (!result.ended) continue;
       state.events.push({
         turn: state.turn,
         type: "side_condition_end",
@@ -11436,16 +10563,17 @@ function advanceTimedEffects(state, rng) {
     for (const pokemon of side.team) {
       for (const [id, volatile] of Object.entries(pokemon.volatiles ?? {})) {
         if (!Number.isFinite(volatile?.turns)) continue;
-        volatile.turns -= 1;
-        if (volatile.turns > 0) continue;
-        if (id === "yawn") {
+        const result = sharedTimedEffect("volatile", id, volatile.turns);
+        volatile.turns = result.remainingTurns;
+        if (!result.ended) continue;
+        if (result.triggerStatus) {
           applyStatus(
             state,
             sideIndex,
             pokemon,
-            "slp",
+            result.triggerStatus,
             rng,
-            volatile.source || "Yawn",
+            volatile.source || id,
             volatile.sourceSide,
           );
         }
@@ -11461,7 +10589,6 @@ function advanceTimedEffects(state, rng) {
     }
   }
 }
-
 function endDynamax(state, sideIndex, pokemon, reason) {
   if (
     pokemon.dynamaxTurns <= 0 &&
@@ -11499,9 +10626,30 @@ function expireDynamax(state) {
   for (const [sideIndex, side] of state.sides.entries()) {
     for (const pokemon of side.team) {
       if (pokemon.dynamaxTurns <= 0) continue;
-      pokemon.dynamaxTurns -= 1;
-      if (pokemon.dynamaxTurns > 0) continue;
-      endDynamax(state, sideIndex, pokemon, "duration");
+      const result = JSON.parse(
+        evaluateSharedDynamaxExpiryJson(
+          JSON.stringify({
+            hp: pokemon.hp,
+            maximumHp: pokemon.stats.hp,
+            baseMaximumHp: pokemon.baseMaximumHp,
+            remainingTurns: pokemon.dynamaxTurns,
+          }),
+        ),
+      );
+      pokemon.dynamaxTurns = result.remainingTurns;
+      if (!result.ended) continue;
+      const dynamaxMode = pokemon.dynamaxMode;
+      pokemon.hp = result.hp;
+      pokemon.stats.hp = result.maximumHp;
+      pokemon.dynamaxMode = null;
+      state.events.push({
+        turn: state.turn,
+        type: "dynamax_end",
+        side: sideIndex,
+        pokemon: pokemon.name,
+        reason: "duration",
+        dynamaxMode,
+      });
     }
   }
 }
@@ -11857,59 +11005,18 @@ function estimatedSurvivalTurns(pokemon, incomingDamage) {
 }
 
 function aiEndTurnResidualDamage(pokemon, state) {
-  if (activeAbility(pokemon) === "magicguard") return 0;
-  let damage = 0;
-  if (
-    activeAbility(pokemon) === "poisonheal" &&
-    ["psn", "tox"].includes(pokemon.status)
-  ) {
-    damage -= Math.max(1, Math.floor(pokemon.stats.hp / 8));
-  } else if (pokemon.status === "brn") {
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / 16));
-    if (activeAbility(pokemon) === "heatproof") {
-      damage = Math.max(1, Math.floor(damage / 2));
+  const sideIndex = state.sides.findIndex((side) => side.team.includes(pokemon));
+  const result = sharedEndTurnResidual(state, sideIndex, pokemon);
+  return (result.operations ?? []).reduce((total, operation) => {
+    if (["damage", "drain"].includes(operation.kind)) {
+      return total + Number(operation.amount ?? 0);
     }
-  } else if (pokemon.status === "psn") {
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / 8));
-  } else if (pokemon.status === "tox") {
-    damage += Math.max(
-      1,
-      Math.floor(
-        (pokemon.stats.hp * Math.max(1, pokemon.toxicCounter)) / 16,
-      ),
-    );
-  }
-
-  if (
-    effectiveWeather(state) === "sandstorm" &&
-    !["Rock", "Ground", "Steel"].some((type) => pokemon.types.includes(type)) &&
-    !["magicguard", "overcoat", "sandforce", "sandrush", "sandveil"].includes(
-      activeAbility(pokemon),
-    )
-  ) {
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / 16));
-  }
-  if (pokemon.volatiles?.leechseed) {
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / 8));
-  }
-  if (pokemon.volatiles?.curse) {
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / 4));
-  }
-  if (pokemon.volatiles?.nightmare && isEffectivelyAsleep(pokemon)) {
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / 4));
-  }
-  if (pokemon.volatiles?.saltcure) {
-    damage += saltCureResidualDamage(pokemon);
-  }
-  if (
-    activeAbility(pokemon) === "dryskin" &&
-    ["sunnyday", "desolateland"].includes(effectiveWeather(state))
-  ) {
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / 8));
-  }
-  return damage;
+    if (operation.kind === "heal" && operation.effect === "poisonheal") {
+      return total - Number(operation.amount ?? 0);
+    }
+    return total;
+  }, 0);
 }
-
 function aiDamageThresholdChance(minimum, maximum, threshold) {
   if (threshold <= 0) return 1;
   if (maximum < threshold) return 0;
@@ -11921,10 +11028,14 @@ function aiDamageThresholdChance(minimum, maximum, threshold) {
 }
 
 function saltCureResidualDamage(target) {
-  const divisor = target.types.some((type) => ["Water", "Steel"].includes(type))
-    ? 4
-    : 8;
-  return Math.max(1, Math.floor(target.stats.hp / divisor));
+  return JSON.parse(
+    deriveSaltCureDamageJson(
+      JSON.stringify({
+        maxHp: target.stats.hp,
+        waterOrSteel: target.types.some((type) => ["Water", "Steel"].includes(type)),
+      }),
+    ),
+  );
 }
 
 function aiExpectedHitCount(move, attacker) {
@@ -12256,10 +11367,9 @@ function aiBatonPassProfile(
     ace.fainted ||
     ace.hp <= 0
   ) {
-    return {
-      batonPassAvailable: true,
-      batonPassTargetAvailable: false,
-    };
+    return JSON.parse(
+      deriveBatonPassFactsJson(JSON.stringify({ available: true })),
+    );
   }
 
   const passedSource = boostedPokemonForAi(source, additionalBoosts);
@@ -12270,21 +11380,6 @@ function aiBatonPassProfile(
     ...sweepBoostStats,
     ...defensiveBoostStats,
   ];
-  const currentSweepBoostTotal = sweepBoostStats.reduce(
-    (sum, stat) =>
-      sum + Math.max(0, Number(source.boosts?.[stat] ?? 0)),
-    0,
-  );
-  const currentDefensiveBoostTotal = defensiveBoostStats.reduce(
-    (sum, stat) =>
-      sum + Math.max(0, Number(source.boosts?.[stat] ?? 0)),
-    0,
-  );
-  const currentBoostTotal = transferableBoostStats.reduce(
-    (sum, stat) =>
-      sum + Math.max(0, Number(source.boosts?.[stat] ?? 0)),
-    0,
-  );
   const availableSetupBoostStats = new Set(
     source.moves
       .filter(
@@ -12302,10 +11397,6 @@ function aiBatonPassProfile(
         );
       }),
   );
-  const passedBoostTotal = transferableBoostStats.reduce(
-    (sum, stat) => sum + Math.max(0, Number(passedBoosts[stat] ?? 0)),
-    0,
-  );
   const projectedAce = clone(ace);
   projectedAce.boosts = Object.fromEntries(
     BOOST_STATS.map((stat) => [stat, Number(passedBoosts[stat] ?? 0)]),
@@ -12313,10 +11404,7 @@ function aiBatonPassProfile(
   const livingTargets = state.sides[opponentSide].team.filter(
     (target) => !target.fainted && target.hp > 0,
   );
-  let newKoTargets = 0;
-  let safeKoTargets = 0;
-  let pressureGain = 0;
-  for (const target of livingTargets) {
+  const targets = livingTargets.map((target) => {
     const baseline = bestAiAttackProfile(
       state,
       sideIndex,
@@ -12331,46 +11419,32 @@ function aiBatonPassProfile(
       opponentSide,
       target,
     );
-    const baselineKo = baseline.expectedDamage >= target.hp;
-    const boostedKo = boosted.expectedDamage >= target.hp;
-    if (boostedKo && !baselineKo) newKoTargets += 1;
-    if (boostedKo) safeKoTargets += 1;
-    pressureGain += Math.max(
-      0,
-      Math.min(1.25, boosted.expectedDamage / Math.max(1, target.hp)) -
-        Math.min(1.25, baseline.expectedDamage / Math.max(1, target.hp)),
-    );
-  }
-  const value =
-    passedBoostTotal * 14 +
-    newKoTargets * 55 +
-    safeKoTargets * 8 +
-    pressureGain * 36;
-  return {
-    batonPassAvailable: true,
-    batonPassTargetAvailable: true,
-    batonPassTargetSlot: aceIndex + 1,
-    batonPassTargetName: ace.name,
-    batonPassTargetAce: true,
-    batonPassCurrentBoostTotal: currentBoostTotal,
-    batonPassCurrentSweepBoostTotal: currentSweepBoostTotal,
-    batonPassCurrentDefensiveBoostTotal: currentDefensiveBoostTotal,
-    batonPassCanRaiseSweepFurther: sweepBoostStats.some((stat) =>
-      availableSetupBoostStats.has(stat),
+    return {
+      targetHp: target.hp,
+      baselineDamage: baseline.expectedDamage,
+      boostedDamage: boosted.expectedDamage,
+    };
+  });
+  return JSON.parse(
+    deriveBatonPassFactsJson(
+      JSON.stringify({
+        available: true,
+        targetAvailable: true,
+        targetSlot: aceIndex + 1,
+        targetName: ace.name,
+        targetAce: true,
+        currentBoosts: source.boosts ?? {},
+        passedBoosts,
+        canRaiseSweepFurther: sweepBoostStats.some((stat) =>
+          availableSetupBoostStats.has(stat),
+        ),
+        canRaiseDefenseFurther: defensiveBoostStats.some((stat) =>
+          availableSetupBoostStats.has(stat),
+        ),
+        targets,
+      }),
     ),
-    batonPassCanRaiseDefenseFurther: defensiveBoostStats.some((stat) =>
-      availableSetupBoostStats.has(stat),
-    ),
-    batonPassBoostTotal: passedBoostTotal,
-    batonPassAdditionalBoostTotal: Math.max(
-      0,
-      passedBoostTotal - currentBoostTotal,
-    ),
-    batonPassNewKoTargets: newKoTargets,
-    batonPassSafeKoTargets: safeKoTargets,
-    batonPassPressureGain: Math.round(pressureGain * 100) / 100,
-    batonPassTransferValue: Math.round(value * 100) / 100,
-  };
+  );
 }
 
 function aiBatonPassSetupPlan(state, sideIndex, source) {
@@ -12530,17 +11604,13 @@ function aiOpponentSetupThreatProfile({
   const aceQualified = opponentRoleProfile?.aceProfile?.qualifies === true;
   const turn = Math.max(1, Number(state.turn ?? 0) + 1);
 
-  let likelihood = 0.25;
-  if (turn <= 2) likelihood += 0.25;
-  if (damageRatio < 0.35) likelihood += 0.25;
-  else if (damageRatio < 0.55) likelihood += 0.18;
-  else if (damageRatio < 0.75) likelihood += 0.08;
-  else if (damageRatio >= 1) likelihood -= 0.4;
-  if (hpPercent >= 0.75) likelihood += 0.12;
-  if (setupRoleScore >= 4) likelihood += 0.16;
-  else if (setupRoleScore > 0) likelihood += 0.08;
-  if (aceQualified) likelihood += 0.08;
-  likelihood = Math.max(0, Math.min(1, Math.round(likelihood * 100) / 100));
+  const likelihood = evaluateSetupLikelihood({
+    turn,
+    immediateDamageRatio: damageRatio,
+    opponentHpPercent: hpPercent,
+    opponentRoleScore: setupRoleScore,
+    opponentAce: aceQualified,
+  });
   const setupThreatEvaluation = evaluateSetupThreat({
     setupMoves,
     setupLikelihood: likelihood,
@@ -12955,7 +12025,13 @@ function automaticMoveCandidates(
     ? -2000
     : -Math.min(220, 40 + conditionalPriorityFailureStreak * 35);
   const opponentBestDamage = opponentAttackThreats.reduce(
-    (best, threat) => Math.max(best, threat.expectedDamage),
+    (best, threat) =>
+      Math.max(
+        best,
+        Number.isFinite(Number(threat.expectedDamage))
+          ? Number(threat.expectedDamage)
+          : 0,
+      ),
     0,
   );
   const incomingDamageRatio =
@@ -13342,24 +12418,28 @@ function automaticMoveCandidates(
               (sum, amount) => sum + Math.max(0, -amount) * 13,
               0,
             );
-      const missingHp = Math.max(0, pokemon.stats.hp - pokemon.hp);
       const isRestMove = cleanId(displayMove.id) === "rest";
-      const recoveryAmount = isRestMove
-        ? missingHp
-        : displayMove.heal
-          ? Math.min(
-              missingHp,
-              fractionAmount(pokemon.stats.hp, displayMove.heal),
-            )
-          : 0;
-      const recoveryValue = recoveryAmount * 0.75;
-      const recoveryExposureTurns = isRestMove ? 3 : recoveryAmount > 0 ? 1 : 0;
-      const recoveryExpectedIncomingDamage =
-        recoveryExposureTurns > 0
-          ? opponentBestDamage * recoveryExposureTurns
-          : 0;
-      const recoveryNetHpChange =
-        recoveryAmount - recoveryExpectedIncomingDamage;
+      const recoveryFacts = JSON.parse(
+        deriveRecoveryFactsJson(
+          JSON.stringify({
+            currentHp: pokemon.hp,
+            maxHp: pokemon.stats.hp,
+            healFraction: displayMove.heal
+              ? Number(displayMove.heal[0] ?? 0) / Math.max(1, Number(displayMove.heal[1] ?? 1))
+              : 0,
+            fullHeal: isRestMove,
+            exposureTurns: isRestMove ? 3 : 1,
+            opponentBestDamage,
+          }),
+        ),
+      );
+      const {
+        recoveryAmount,
+        recoveryValue,
+        recoveryExposureTurns,
+        recoveryExpectedIncomingDamage,
+        recoveryNetHpChange,
+      } = recoveryFacts;
       const secondaryValue = displayMove.secondaries.reduce((sum, effect) => {
         if (secondaryEffectsBlocked(pokemon, defender, displayMove)) return sum;
         const chance = secondaryEffectChance(pokemon, effect) / 100;
@@ -14178,26 +13258,24 @@ function automaticMoveCandidates(
 }
 
 function predictedEntryHazardDamage(state, sideIndex, pokemon) {
-  if (
-    activeAbility(pokemon) === "magicguard" ||
-    cleanId(pokemon.item) === "heavydutyboots"
-  ) {
-    return 0;
-  }
   const conditions = state.sides[sideIndex]?.conditions ?? {};
-  let damage = 0;
-  if (conditions.stealthrock) {
-    const effectiveness = typeMultiplier("Rock", pokemon.types);
-    if (effectiveness > 0) {
-      damage += Math.max(1, Math.floor((pokemon.stats.hp / 8) * effectiveness));
-    }
-  }
-  if (conditions.spikes && isGrounded(pokemon)) {
-    const layers = Number(conditions.spikes.layers ?? 1);
-    const divisor = layers === 1 ? 8 : layers === 2 ? 6 : 4;
-    damage += Math.max(1, Math.floor(pokemon.stats.hp / divisor));
-  }
-  return Math.min(pokemon.hp, damage);
+  return JSON.parse(
+    deriveEntryHazardDamageJson(
+      JSON.stringify({
+        currentHp: pokemon.hp,
+        maximumHp: pokemon.stats.hp,
+        stealthRockLayers: conditions.stealthrock
+          ? Number(conditions.stealthrock.layers ?? 1)
+          : 0,
+        spikesLayers: conditions.spikes
+          ? Number(conditions.spikes.layers ?? 1)
+          : 0,
+        types: pokemon.types,
+        ability: activeAbility(pokemon),
+        item: pokemon.item,
+      }),
+    ),
+  ).damage;
 }
 
 function bestAiAttackProfile(
@@ -14928,58 +14006,41 @@ function simpleBattleValueSide(
   uniqueCounterSlots = new Set(),
   matchupMetrics = {},
 ) {
-  let livingCount = 0;
-  let totalHpRatio = 0;
-  let aceAliveCount = 0;
-  let aceHpRatio = 0;
-  let positiveBoosts = 0;
-  let statusBurden = 0;
-  let uniqueCountersAlive = 0;
-  let aceCandidateCount = 0;
-
-  side.team.forEach((member, index) => {
+  const members = side.team.map((member, index) => {
     const maxHp = Math.max(1, Number(member.stats?.hp ?? member.hp ?? 1));
     const hpRatio = Math.max(0, Math.min(1, Number(member.hp ?? 0) / maxHp));
     const living = member.fainted !== true && member.hp > 0;
     const isActive = index === side.active;
-    if (living) {
-      livingCount += 1;
-      const memberBoosts = positiveBoostTotal(member);
-      const sleepingWithoutCounterplay =
-        isActive &&
-        cleanId(member.status) === "slp" &&
-        !canExploitSleepForAi(member);
-      positiveBoosts += sleepingWithoutCounterplay
+    const memberBoosts = positiveBoostTotal(member);
+    const sleepingWithoutCounterplay =
+      isActive &&
+      cleanId(member.status) === "slp" &&
+      !canExploitSleepForAi(member);
+    return {
+      hpRatio,
+      living,
+      aceCandidate:
+        roleAnalysis?.roles?.[index]?.aceProfile?.qualifies === true,
+      positiveBoosts: sleepingWithoutCounterplay
         ? memberBoosts * 0.25
-        : memberBoosts;
-      statusBurden += simpleStatusBurden(member, { active: isActive });
-      if (uniqueCounterSlots.has(index + 1)) uniqueCountersAlive += 1;
-    }
-    totalHpRatio += hpRatio;
-    if (roleAnalysis?.roles?.[index]?.aceProfile?.qualifies === true) {
-      aceCandidateCount += 1;
-      if (living) aceAliveCount += 1;
-      aceHpRatio += hpRatio;
-    }
+        : memberBoosts,
+      statusBurden: simpleStatusBurden(member, { active: isActive }),
+      uniqueCounter: uniqueCounterSlots.has(index + 1),
+    };
   });
-
-  return {
-    teamSize: side.team.length,
-    livingCount,
-    totalHpRatio,
-    aceCandidateCount,
-    aceAliveCount,
-    aceHpRatio,
-    positiveBoosts,
-    statusBurden,
-    hazardLayers: simpleHazardLayerCount(side.conditions),
-    uniqueCountersAlive,
-    gimmicksRemaining: simpleRemainingGimmicks(side),
-    matchupCoverage: Number(matchupMetrics.matchupCoverage ?? 0),
-    safeKoCoverage: Number(matchupMetrics.safeKoCoverage ?? 0),
-    benchReadiness: Number(matchupMetrics.benchReadiness ?? 0),
-    sweepPotential: Number(matchupMetrics.sweepPotential ?? 0),
-  };
+  return JSON.parse(
+    extractBattleValueSideJson(
+      JSON.stringify({
+        members,
+        hazardLayers: simpleHazardLayerCount(side.conditions),
+        gimmicksRemaining: simpleRemainingGimmicks(side),
+        matchupCoverage: Number(matchupMetrics.matchupCoverage ?? 0),
+        safeKoCoverage: Number(matchupMetrics.safeKoCoverage ?? 0),
+        benchReadiness: Number(matchupMetrics.benchReadiness ?? 0),
+        sweepPotential: Number(matchupMetrics.sweepPotential ?? 0),
+      }),
+    ),
+  );
 }
 
 function simpleBattleStateValueSnapshot(
@@ -15105,13 +14166,11 @@ function candidateHazardLayerDelta(candidate) {
   const currentLayers = Number(
     candidate.opponentHazards?.[conditionId] ?? 0,
   );
-  const maximum =
-    conditionId === "spikes"
-      ? 3
-      : conditionId === "toxicspikes"
-        ? 2
-        : 1;
-  return currentLayers < maximum ? 1 : 0;
+  return JSON.parse(
+    deriveHazardLayerFactsJson(
+      JSON.stringify({ conditionId, currentLayers }),
+    ),
+  ).layerDelta;
 }
 
 function simpleMoveOneTurnOutcome({
@@ -15697,68 +14756,32 @@ function canExploitSleepForAi(pokemon) {
 
 function activeSwitchPressure(pokemon) {
   const maxHp = Math.max(1, Number(pokemon.stats?.hp ?? pokemon.hp ?? 1));
-  const hpPercent = Math.max(0, Math.min(1, pokemon.hp / maxHp));
   const ignoresResidualDamage = activeAbility(pokemon) === "magicguard";
   const yawn = pokemon.volatiles?.yawn;
   const yawnTurns = Number(yawn?.turns ?? 0);
   const sleepExploitable = canExploitSleepForAi(pokemon);
-  const yawnPenalty =
-    yawn && !sleepExploitable
-      ? yawnTurns <= 1
-        ? 220
-        : 110
-      : 0;
   const saltCureDamage = pokemon.volatiles?.saltcure && !ignoresResidualDamage
     ? saltCureResidualDamage(pokemon)
     : 0;
-  const saltCurePenalty =
-    saltCureDamage > 0
-      ? Math.min(
-          150,
-          saltCureDamage * (0.55 + (1 - hpPercent) * 0.9),
-        )
-      : 0;
   const toxicCounter =
     pokemon.status === "tox" && !ignoresResidualDamage
       ? Math.max(1, Number(pokemon.toxicCounter ?? 1))
       : 0;
-  const toxicNextDamage =
-    toxicCounter > 0
-      ? Math.max(1, Math.floor((maxHp * toxicCounter) / 16))
-      : 0;
-  const toxicFollowingDamage =
-    toxicCounter > 0
-      ? Math.max(1, Math.floor((maxHp * Math.min(15, toxicCounter + 1)) / 16))
-      : 0;
-  const toxicPenalty =
-    toxicCounter > 0
-      ? Math.min(
-          220,
-          (toxicNextDamage + toxicFollowingDamage) *
-            (0.5 + (1 - hpPercent) * 0.45),
-        )
-      : 0;
-  const toxicImmediateLethal =
-    toxicCounter > 0 && toxicNextDamage >= pokemon.hp;
-  const toxicTwoTurnLethal =
-    toxicCounter > 0 && toxicNextDamage + toxicFollowingDamage >= pokemon.hp;
-  const stayPressurePenalty =
-    Math.round((yawnPenalty + saltCurePenalty + toxicPenalty) * 100) / 100;
-  return {
-    stayPressurePenalty,
-    yawnSwitchPressure: yawnPenalty,
-    yawnTurns,
-    sleepExploitable,
-    saltCureSwitchPressure: Math.round(saltCurePenalty * 100) / 100,
-    saltCureResidualDamage: saltCureDamage,
-    toxicSwitchPressure: Math.round(toxicPenalty * 100) / 100,
-    toxicCounter,
-    toxicNextDamage,
-    toxicFollowingDamage,
-    toxicImmediateLethal,
-    toxicTwoTurnLethal,
-    urgentSwitchPressure: yawnPenalty >= 220 || toxicTwoTurnLethal,
-  };
+  return JSON.parse(
+    deriveResidualPressureJson(
+      JSON.stringify({
+        currentHp: pokemon.hp,
+        maxHp,
+        yawnActive: Boolean(yawn),
+        yawnTurns,
+        sleepExploitable,
+        saltCureActive: Boolean(pokemon.volatiles?.saltcure),
+        saltCureResidualDamage: saltCureDamage,
+        toxicCounter,
+        ignoresResidualDamage,
+      }),
+    ),
+  );
 }
 
 function switchEventOnPreviousTurn(state, sideIndex, pokemon) {
@@ -15884,10 +14907,7 @@ export function automaticSwitchCandidates(
     bestMove?.koChance === "guaranteed" &&
     bestMoveAccuracy >= 0.85 &&
     (currentActsFirst || currentSurvives);
-  const currentCanReachAction =
-    currentActsFirst ||
-    currentSurvives ||
-    moveCandidates.some(
+  const probabilisticActionRoute = moveCandidates.some(
       (candidate) =>
         Number(candidate.actionBeforeThreatProbability ?? 0) >= 0.5 &&
         Number(candidate.opponentKnockoutBeforeActionProbability ?? 0) < 0.5,
@@ -16084,30 +15104,38 @@ export function automaticSwitchCandidates(
         ...(currentThreat?.softChecks ?? []),
         ...(currentThreat?.revengeKillers ?? []),
       ].find((resource) => resource.slot === slot);
-      const emergencyEscape =
-        !currentCanReachAction &&
-        currentIncomingRatio >= currentHpPercent &&
-        targetIncomingRatio < hpPercent;
-      const noEffectiveMoveEscape =
-        currentOutgoingRatio <= 0.15 &&
-        targetOutgoingRatio >= currentOutgoingRatio + 0.1 &&
-        targetIncomingRatio < 0.5;
-
-      let matchupValue = -18;
-      matchupValue += (currentIncomingRatio - targetIncomingRatio) * 90;
-      matchupValue += (targetOutgoingRatio - currentOutgoingRatio) * 45;
-      matchupValue -= (hazardDamage / pokemon.stats.hp) * 100;
-      if (targetIncoming.expectedDamage === 0 && currentIncoming.expectedDamage > 0) {
-        matchupValue += 24;
-      }
-      if (emergencyEscape) matchupValue += 45;
-      if (noEffectiveMoveEscape) matchupValue += 32;
-      if (
-        currentOutgoingRatio <= 0.15 &&
-        targetOutgoingRatio >= currentOutgoingRatio + 0.1
-      ) {
-        matchupValue += 4 + (targetOutgoingRatio - currentOutgoingRatio) * 20;
-      }
+      const switchMatchupEvaluation = JSON.parse(
+        deriveSharedSwitchMatchupObservationJson(
+          JSON.stringify({
+            currentHp: current.hp,
+            currentMaximumHp: current.stats.hp,
+            targetHp: pokemon.hp,
+            targetMaximumHp: pokemon.stats.hp,
+            opponentHp: opponent.hp,
+            currentIncomingDamage: currentIncoming.expectedDamage,
+            targetIncomingDamage: targetIncoming.expectedDamage,
+            currentOutgoingDamage: currentAttack.expectedDamage,
+            targetOutgoingDamage: projectedExpectedDamage,
+            targetHazardDamage: hazardDamage,
+            currentAttackPriority: currentAttack.priority,
+            opponentAttackPriority: currentIncoming.priority,
+            currentSpeed: effectiveSpeed(current, state, sideIndex),
+            opponentSpeed: effectiveSpeed(opponent, state, opponentSide),
+            trickRoomActive:
+              Number(state.field?.pseudoWeather?.trickroom?.turns ?? 0) > 0,
+            probabilisticActionRoute,
+          }),
+        ),
+      );
+      const { facts: switchMatchupFacts, result: switchMatchup } =
+        switchMatchupEvaluation;
+      const {
+        matchupValue,
+        emergencyEscape,
+        noEffectiveMoveEscape,
+      } = switchMatchup;
+      const currentCanReachAction =
+        switchMatchupFacts.currentCanReachAction;
 
       const fieldSynergy = fieldSwitchSynergy(
         state,
@@ -16497,19 +15525,24 @@ function simpleSearchPolicyCandidates({
         ]
       : []),
   ];
-  const unique = new Map();
-  for (const candidate of candidates.filter(
-    (candidate) => candidate.legal !== false && candidate.disabled !== true,
-  )) {
+  const sourceById = new Map();
+  for (const candidate of candidates) {
+    if (candidate.legal === false || candidate.disabled === true) continue;
     const key = simpleCommandKey(candidate.policyCommand);
-    const previous = unique.get(key);
+    const previous = sourceById.get(key);
     if (!previous || Number(candidate.score ?? 0) > Number(previous.score ?? 0)) {
-      unique.set(key, candidate);
+      sourceById.set(key, candidate);
     }
   }
-  return [...unique.values()].sort(
-    (left, right) => Number(right.score ?? 0) - Number(left.score ?? 0),
+  const actions = JSON.parse(
+    generateSharedSearchActionsJson(
+      JSON.stringify(candidates.map(toSharedSearchCandidateObservation)),
+    ),
   );
+  return actions.map((action) => ({
+    ...sourceById.get(action.id),
+    sharedSearchAction: action,
+  }));
 }
 
 
@@ -16522,7 +15555,7 @@ function simpleSearchWinProbability(state, sideIndex) {
 
 
 
-function toSharedSearchAction(candidate) {
+function toSharedSearchCandidateObservation(candidate) {
   const sharedFinite = (value, fallback = 0) => {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
@@ -16543,7 +15576,433 @@ function toSharedSearchAction(candidate) {
       candidate.opponentKnockoutBeforeActionProbability,
     ),
     heuristicSelected: candidate.searchHeuristicSelected === true,
+    legal: candidate.legal !== false,
+    disabled: candidate.disabled === true,
   };
+}
+
+function toSharedSearchAction(candidate) {
+  const generated = candidate.sharedSearchAction ?? JSON.parse(
+    generateSharedSearchActionsJson(
+      JSON.stringify([toSharedSearchCandidateObservation(candidate)]),
+    ),
+  )[0];
+  return {
+    ...generated,
+    heuristicSelected: candidate.searchHeuristicSelected === true,
+  };
+}
+
+const SEARCH_HAZARD_IDS = ["stealthrock", "spikes", "toxicspikes", "stickyweb"];
+const SEARCH_RANK_IDS = ["attack", "specialAttack", "defence", "specialDefence", "speed"];
+const SEARCH_PERSISTENT_FIELD_IDS = new Set(["desolateland", "primordialsea", "deltastream"]);
+
+function toSharedTimedEffect(effect) {
+  if (!effect?.id) return null;
+  const id = cleanId(effect.id);
+  const persistent = effect.turns == null || SEARCH_PERSISTENT_FIELD_IDS.has(id);
+  return {
+    id,
+    turns: persistent ? 2147483647 : Math.max(0, Number(effect.turns ?? 0)),
+    persistent,
+  };
+}
+
+function toSharedSearchCombatProfile(pokemon, sideIndex, slot, override = null) {
+  const source = override ?? pokemon;
+  const stats = source.stats ?? pokemon.stats ?? {};
+  return {
+    id: cleanId(source.id ?? source.name ?? pokemon.id),
+    ability: cleanId(source.ability ?? pokemon.ability),
+    types: [...(source.types ?? pokemon.types ?? [])],
+    stats: {
+      hp: Math.max(1, Math.round(Number(stats.hp ?? pokemon.stats?.hp ?? 1))),
+      attack: Math.max(1, Math.round(Number(stats.attack ?? pokemon.stats?.attack ?? 1))),
+      defence: Math.max(1, Math.round(Number(stats.defence ?? pokemon.stats?.defence ?? 1))),
+      specialAttack: Math.max(1, Math.round(Number(stats.specialAttack ?? pokemon.stats?.specialAttack ?? 1))),
+      specialDefence: Math.max(1, Math.round(Number(stats.specialDefence ?? pokemon.stats?.specialDefence ?? 1))),
+      speed: Math.max(1, Math.round(Number(stats.speed ?? pokemon.stats?.speed ?? 1))),
+    },
+    moveSourceSide: sideIndex,
+    moveSourceSlot: slot,
+  };
+}
+
+function searchBaseProfile(pokemon, sideIndex, slot) {
+  pokemon.searchBaseMoves ??= structuredClone(pokemon.moves ?? []);
+  pokemon.searchBaseProfile ??= toSharedSearchCombatProfile(pokemon, sideIndex, slot);
+  return pokemon.searchBaseProfile;
+}
+
+function searchFormProfiles(pokemon, sideIndex, slot) {
+  const result = {};
+  for (const [key, form] of Object.entries(pokemon.speciesForms ?? {})) {
+    if (!form) continue;
+    const profile = toSharedSearchCombatProfile(pokemon, sideIndex, slot, form);
+    result[cleanId(form.id ?? key)] = profile;
+  }
+  return result;
+}
+
+function currentSearchProfile(state, pokemon, sideIndex, slot) {
+  const profile = toSharedSearchCombatProfile(pokemon, sideIndex, slot);
+  const remembered = pokemon.searchCurrentProfile;
+  if (remembered) {
+    profile.moveSourceSide = Number(remembered.moveSourceSide);
+    profile.moveSourceSlot = Number(remembered.moveSourceSlot);
+    return profile;
+  }
+  const transformedTarget = pokemon.volatiles?.transform?.target;
+  if (transformedTarget) {
+    const opponentSide = sideIndex === 0 ? 1 : 0;
+    const targetSlot = state.sides[opponentSide].team.findIndex(
+      (candidate) => candidate.name === transformedTarget,
+    );
+    if (targetSlot >= 0) {
+      profile.moveSourceSide = opponentSide;
+      profile.moveSourceSlot = targetSlot;
+    }
+  }
+  return profile;
+}
+
+function toSharedSearchProjectionState(state) {
+  const baseProfiles = state.sides.map((side, sideIndex) =>
+    side.team.map((pokemon, slot) => searchBaseProfile(pokemon, sideIndex, slot)),
+  );
+  return {
+    turn: Number(state.turn ?? 0),
+    active: state.sides.map((side) => Number(side.active ?? 0)),
+    hp: state.sides.map((side) => side.team.map((pokemon) => Number(pokemon.hp ?? 0))),
+    maxHp: state.sides.map((side) => side.team.map((pokemon) => Number(pokemon.maxHp ?? pokemon.hp ?? 0))),
+    gimmicksRemaining: state.sides.map((side) =>
+      !Object.values(side.usedGimmicks ?? {}).some(Boolean),
+    ),
+    itemCounts: state.sides.map(() => []),
+    hazards: state.sides.map((side) =>
+      SEARCH_HAZARD_IDS.map((id) => Number(side.conditions?.[id]?.layers ?? 0)),
+    ),
+    pressures: state.sides.map((side) =>
+      side.team.map((pokemon) => ({
+        yawn: Boolean(pokemon.volatiles?.yawn),
+        yawnTurns: Number(pokemon.volatiles?.yawn?.turns ?? 0),
+        saltCure: Boolean(pokemon.volatiles?.saltcure),
+        toxicCounter:
+          pokemon.status === "tox" ? Math.max(1, Number(pokemon.toxicCounter ?? 1)) : 0,
+        sleepTurns: pokemon.status === "slp" ? Math.max(1, Number(pokemon.statusTurns ?? 1)) : 0,
+      })),
+    ),
+    ranks: state.sides.map((side) =>
+      side.team.map((pokemon) =>
+        SEARCH_RANK_IDS.map((stat) => Number(pokemon.boosts?.[stat] ?? 0)),
+      ),
+    ),
+    heldItems: state.sides.map((side) =>
+      side.team.map((pokemon) => cleanId(pokemon.item)),
+    ),
+    abilityStates: state.sides.map((side) =>
+      side.team.map((pokemon) => [
+        ...Object.entries(pokemon.abilityState ?? {})
+          .filter(([, value]) => value === true)
+          .map(([key]) => key),
+        ...(pokemon.volatiles?.illusion ? ["illusion"] : []),
+        ...(pokemon.abilityState?.gulpMissileForm
+          ? [cleanId(pokemon.abilityState.gulpMissileForm)]
+          : []),
+      ].filter((value, index, values) => values.indexOf(value) === index)),
+    ),
+    field: {
+      weather: toSharedTimedEffect(state.field?.weather),
+      terrain: toSharedTimedEffect(state.field?.terrain),
+      pseudoWeather: Object.fromEntries(
+        Object.entries(state.field?.pseudoWeather ?? {})
+          .map(([id, effect]) => [cleanId(id), toSharedTimedEffect(effect)])
+          .filter(([, effect]) => effect),
+      ),
+    },
+    sideConditions: state.sides.map((side) =>
+      Object.fromEntries(
+        Object.entries(side.conditions ?? {})
+          .filter(([id, condition]) =>
+            !SEARCH_HAZARD_IDS.includes(cleanId(id)) && Number(condition?.turns ?? 0) > 0,
+          )
+          .map(([id, condition]) => [cleanId(id), toSharedTimedEffect(condition)])
+          .filter(([, effect]) => effect),
+      ),
+    ),
+    baseProfiles,
+    profiles: state.sides.map((side, sideIndex) =>
+      side.team.map((pokemon, slot) =>
+        currentSearchProfile(state, pokemon, sideIndex, slot),
+      ),
+    ),
+    formProfiles: state.sides.map((side, sideIndex) =>
+      side.team.map((pokemon, slot) => searchFormProfiles(pokemon, sideIndex, slot)),
+    ),
+  };
+}
+
+function projectedSearchAction(state, sideIndex, candidate) {
+  const command = candidate.policyCommand ?? {};
+  const pokemon = activePokemon(state, sideIndex);
+  const switchSlot = Number.isInteger(Number(command.switch)) ? Number(command.switch) - 1 : -1;
+  const switchTarget = state.sides[sideIndex].team[switchSlot];
+  const moveSlot = Number(command.move ?? 0);
+  const move = moveSlot > 0 ? pokemon.moves?.[moveSlot - 1] : null;
+  const moveId = cleanId(move?.id ?? candidate.id);
+  const hazardIndex = SEARCH_HAZARD_IDS.findIndex((id) =>
+    id === moveId ||
+    (id === "stealthrock" && moveId === "stoneaxe") ||
+    (id === "spikes" && moveId === "ceaselessedge"),
+  );
+  const pressure = moveId === "yawn"
+    ? "yawn"
+    : moveId === "saltcure"
+      ? "saltcure"
+      : moveId === "toxic"
+        ? "toxic"
+        : "";
+  const batonPassTarget = moveId === "batonpass"
+    ? state.sides[sideIndex].team.findIndex(
+        (member, index) => index !== state.sides[sideIndex].active && !member.fainted && member.hp > 0,
+      )
+    : -1;
+  const exactConditionalFailure =
+    candidate.conditionalPriorityRepeatFailure === true ||
+    candidate.upperHandExactOutcome === "failure";
+  const successProbability = exactConditionalFailure
+    ? 0
+    : candidate.upperHandExactOutcome
+      ? Number(candidate.upperHandSuccessProbability ?? 1)
+      : 1;
+  const opponent = activePokemon(state, sideIndex === 0 ? 1 : 0);
+  const projectedDamage = Number(candidate.expectedDamage ?? 0);
+  const projectedEffectiveness = move
+    ? moveEffectiveness(move, opponent.types, pokemon, opponent)
+    : 1;
+  const projectedAttackerItemConsumed = Boolean(
+    move && cleanId(pokemon.item) === `${cleanId(move.type)}gem`,
+  );
+  const projectedResistBerryConsumed = Boolean(
+    move &&
+    ["chartiberry", "colburberry", "yacheberry"].includes(cleanId(opponent.item)) &&
+    heldItemType(opponent.item) === move.type &&
+    projectedEffectiveness > 1,
+  );
+  const projectedDefenderItemConsumed = projectedResistBerryConsumed ||
+    (cleanId(opponent.item) === "weaknesspolicy" && projectedEffectiveness > 1) ||
+    (cleanId(opponent.item) === "marangaberry" && move?.category === "Special");
+  const hitReactions = move && projectedDamage > 0
+    ? JSON.parse(
+        evaluateSharedHitReactionsJson(
+          JSON.stringify({
+            damage: projectedDamage,
+            attackerAlive: pokemon.hp > 0,
+            defenderAlive: opponent.hp - projectedDamage > 0,
+            attackerAbility: activeAbility(pokemon),
+            defenderAbility: activeAbility(opponent),
+            defenderItem: opponent.item,
+            moveId,
+            moveType: move.type,
+            moveCategory: move.category,
+            superEffective: projectedEffectiveness > 1,
+            contactPunishment: triggersContactPunishment(pokemon, move),
+            effectiveContact: makesEffectiveContact(pokemon, move),
+            ignoresDefenderAbility: ignoresDefenderAbility(pokemon),
+            attackerGrassType: pokemon.types.includes("Grass"),
+            attackerOvercoat: activeAbility(pokemon) === "overcoat",
+            moveIsMax: Boolean(move.isMaxMove),
+            moveIsFuture: hasMoveFlag(move, "futuremove"),
+            resolveRandom: false,
+            attackerItem: pokemon.item,
+            defenderHasIllusion: Boolean(opponent.volatiles?.illusion),
+            defenderGulpMissileForm: opponent.abilityState?.gulpMissileForm ?? "",
+            attackerItemRemovalBlocked:
+              activeAbility(pokemon) === "stickyhold" &&
+              !ignoresDefenderAbility(opponent),
+            defenderItemRemovalBlocked:
+              activeAbility(opponent) === "stickyhold" &&
+              !ignoresDefenderAbility(pokemon),
+            attackerItemConsumedOnHit: projectedAttackerItemConsumed,
+            defenderItemConsumedOnHit: projectedResistBerryConsumed,
+          }),
+        ),
+      ).reactions
+    : [];
+  const postHitInstructions = move && projectedDamage > 0
+    ? sharedPostHitOutcome(
+        move,
+        projectedAttackerItemConsumed ? { ...pokemon, item: "" } : pokemon,
+        projectedDefenderItemConsumed ? { ...opponent, item: "" } : opponent,
+        Math.round(projectedDamage),
+        1,
+      ).instructions
+    : [];
+  const switchPhase = switchTarget
+    ? sharedSwitchPhaseOutcome(state, sideIndex, switchTarget, pokemon)
+    : null;
+  return {
+    sourceCandidate: candidate,
+    action: toSharedSearchAction(candidate),
+    side: sideIndex,
+    switchSlot,
+    itemIndex: Number(candidate.itemIndex ?? -1),
+    itemTargetSlot: command.item
+      ? Math.max(0, Number(command.itemTarget ?? state.sides[sideIndex].active + 1) - 1)
+      : -1,
+    healing: Number(candidate.healing ?? candidate.healAmount ?? 0),
+    damage: Number(candidate.expectedDamage ?? 0),
+    successProbability: Math.max(0, Math.min(1, successProbability)),
+    hazardIndex,
+    pressure,
+    selfBoosts: move?.selfBoosts ?? candidate.selfBoosts ?? {},
+    batonPassTarget,
+    consumesGimmick: Boolean(command.gimmick),
+    weather: cleanId(move?.weather ?? candidate.weather),
+    terrain: cleanId(move?.terrain ?? candidate.terrain),
+    pseudoWeather: cleanId(move?.pseudoWeather ?? candidate.pseudoWeather),
+    sideCondition: cleanId(move?.sideCondition ?? candidate.sideCondition),
+    fieldDuration: Number(candidate.fieldDuration ?? move?.duration ?? 0),
+    sideConditionDuration: Number(candidate.sideConditionDuration ?? move?.duration ?? 0),
+    hitReactions,
+    postHitInstructions,
+    switchPhase,
+  };
+}
+
+function applyProjectedCombatProfile(pokemon, profile, sourcePokemon, sideIndex, slot) {
+  if (!profile?.id) return;
+  const preserveHp = profile.moveSourceSide !== sideIndex || profile.moveSourceSlot !== slot;
+  const previousMaximumHp = Number(pokemon.stats?.hp ?? pokemon.hp ?? 1);
+  const previousDamage = Math.max(0, previousMaximumHp - Number(pokemon.hp ?? 0));
+  pokemon.id = profile.id;
+  pokemon.ability = cleanId(profile.ability);
+  pokemon.types = [...(profile.types ?? pokemon.types ?? [])];
+  pokemon.stats = {
+    ...pokemon.stats,
+    ...profile.stats,
+    hp: preserveHp ? previousMaximumHp : Number(profile.stats?.hp ?? previousMaximumHp),
+  };
+  if (!preserveHp && pokemon.hp > 0) {
+    pokemon.hp = Math.max(1, pokemon.stats.hp - previousDamage);
+  }
+  const sourceIsSelf = profile.moveSourceSide === sideIndex && profile.moveSourceSlot === slot;
+  const sourceMoves = sourceIsSelf
+    ? pokemon.searchBaseMoves
+    : sourcePokemon?.moves;
+  if (sourceMoves) pokemon.moves = structuredClone(sourceMoves);
+  pokemon.searchCurrentProfile = { ...profile };
+}
+
+function applySharedSearchProjection(state, projection, projectedActions) {
+  const next = structuredClone(state);
+  const profileSources = next.sides.map((side) =>
+    side.team.map((pokemon) => ({ moves: structuredClone(pokemon.moves ?? []) })),
+  );
+  next.turn = projection.turn;
+  next.field ??= { weather: null, terrain: null, pseudoWeather: {} };
+  const restoreTimedEffect = (effect) => effect
+    ? {
+        id: effect.id,
+        turns: effect.persistent ? null : Number(effect.turns ?? 0),
+      }
+    : null;
+  next.field.weather = restoreTimedEffect(projection.field?.weather);
+  next.field.terrain = restoreTimedEffect(projection.field?.terrain);
+  next.field.pseudoWeather = Object.fromEntries(
+    Object.entries(projection.field?.pseudoWeather ?? {})
+      .map(([id, effect]) => [id, restoreTimedEffect(effect)])
+      .filter(([, effect]) => effect),
+  );
+  for (const [sideIndex, side] of next.sides.entries()) {
+    const previousActive = side.active;
+    side.active = Number(projection.active?.[sideIndex] ?? side.active);
+    for (const [slot, pokemon] of side.team.entries()) {
+      const profile = projection.profiles?.[sideIndex]?.[slot];
+      const sourcePokemon = profileSources?.[profile?.moveSourceSide]?.[profile?.moveSourceSlot];
+      applyProjectedCombatProfile(pokemon, profile, sourcePokemon, sideIndex, slot);
+      pokemon.hp = Math.max(0, Number(projection.hp?.[sideIndex]?.[slot] ?? pokemon.hp));
+      pokemon.fainted = pokemon.hp <= 0;
+      pokemon.item = projection.heldItems?.[sideIndex]?.[slot] ?? pokemon.item;
+      const abilityStates = new Set(projection.abilityStates?.[sideIndex]?.[slot] ?? []);
+      if (!abilityStates.has("illusion") && pokemon.volatiles?.illusion) {
+        delete pokemon.volatiles.illusion;
+        delete pokemon.displayName;
+      }
+      pokemon.abilityState ??= {};
+      const gulpMissileForm = ["gulping", "gorging"].find((id) => abilityStates.has(id));
+      if (gulpMissileForm) pokemon.abilityState.gulpMissileForm = gulpMissileForm;
+      else delete pokemon.abilityState.gulpMissileForm;
+      pokemon.boosts ??= {};
+      for (const [rankIndex, stat] of SEARCH_RANK_IDS.entries()) {
+        pokemon.boosts[stat] = Number(
+          projection.ranks?.[sideIndex]?.[slot]?.[rankIndex] ?? pokemon.boosts[stat] ?? 0,
+        );
+      }
+      const pressure = projection.pressures?.[sideIndex]?.[slot];
+      if (pressure) {
+        pokemon.volatiles ??= {};
+        if (pressure.yawn) {
+          pokemon.volatiles.yawn = {
+            ...(pokemon.volatiles.yawn ?? { id: "yawn", source: "Yawn" }),
+            turns: pressure.yawnTurns,
+          };
+        } else {
+          delete pokemon.volatiles.yawn;
+        }
+        if (pressure.saltCure) {
+          pokemon.volatiles.saltcure ??= { id: "saltcure", source: "Salt Cure" };
+        } else {
+          delete pokemon.volatiles.saltcure;
+        }
+        if (pressure.toxicCounter > 0) {
+          pokemon.status = "tox";
+          pokemon.toxicCounter = pressure.toxicCounter;
+        } else if (pressure.sleepTurns > 0) {
+          pokemon.status = "slp";
+          pokemon.statusTurns = pressure.sleepTurns;
+          delete pokemon.toxicCounter;
+        } else if (pokemon.status === "slp") {
+          pokemon.status = null;
+          pokemon.statusTurns = 0;
+        }
+      }
+    }
+    for (const [hazardIndex, id] of SEARCH_HAZARD_IDS.entries()) {
+      const layers = Number(projection.hazards?.[sideIndex]?.[hazardIndex] ?? 0);
+      if (layers > 0) {
+        side.conditions[id] = { ...(side.conditions[id] ?? { id }), layers };
+      } else {
+        delete side.conditions[id];
+      }
+    }
+    for (const [id, condition] of Object.entries(side.conditions)) {
+      if (!SEARCH_HAZARD_IDS.includes(cleanId(id)) && condition?.turns != null) {
+        delete side.conditions[id];
+      }
+    }
+    for (const [id, effect] of Object.entries(projection.sideConditions?.[sideIndex] ?? {})) {
+      side.conditions[id] = {
+        ...(side.conditions[id] ?? { id }),
+        turns: effect.persistent ? null : Number(effect.turns ?? 0),
+      };
+    }
+    if (side.active !== previousActive) side.team[side.active].activeTurns = 0;
+    const action = projectedActions[sideIndex];
+    const gimmick = action?.sourceCandidate?.policyCommand?.gimmick;
+    if (gimmick) {
+      side.usedGimmicks ??= {};
+      side.usedGimmicks[gimmick] = true;
+    }
+  }
+  const defeated = next.sides.map((side) => side.team.every((pokemon) => pokemon.fainted));
+  if (defeated.some(Boolean)) {
+    next.status = defeated.every(Boolean) ? "tie" : "completed";
+    next.winner = defeated.every(Boolean)
+      ? null
+      : next.sides[defeated[0] ? 1 : 0].name;
+  }
+  return next;
 }
 
 function sharedSearchPolicyRuntime({
@@ -16628,6 +16087,22 @@ function sharedSearchPolicyRuntime({
         decision.command,
       );
     }
+    const legalIds = new Set(
+      JSON.parse(
+        legalSharedSearchCandidatesJson(
+          JSON.stringify({
+            state: toSharedSearchProjectionState(currentState),
+            sideIndex: requestedSide,
+            candidates: candidates.map((candidate) =>
+              projectedSearchAction(currentState, requestedSide, candidate),
+            ),
+          }),
+        ),
+      ).map((candidate) => candidate.action.id),
+    );
+    candidates = candidates.filter((candidate) =>
+      legalIds.has(simpleCommandKey(candidate.policyCommand)),
+    );
     const byId = new Map(
       candidates.map((candidate) => [
         simpleCommandKey(candidate.policyCommand),
@@ -16657,10 +16132,24 @@ function sharedSearchPolicyRuntime({
       const zero = candidateById.get(`${stateId}|0`)?.get(zeroActionId);
       const one = candidateById.get(`${stateId}|1`)?.get(oneActionId);
       if (!zero || !one) return null;
-      const nextState = simulateSimpleTurn(
-        stateFor(stateId),
-        [zero.policyCommand, one.policyCommand],
-        { historyTurns: 1, suppressRandomSecondaries: true },
+      const currentState = stateFor(stateId);
+      const projectedActions = [
+        projectedSearchAction(currentState, 0, zero),
+        projectedSearchAction(currentState, 1, one),
+      ];
+      const projection = JSON.parse(
+        transitionSharedSearchStateJson(
+          JSON.stringify({
+            state: toSharedSearchProjectionState(currentState),
+            sideZeroAction: projectedActions[0],
+            sideOneAction: projectedActions[1],
+          }),
+        ),
+      );
+      const nextState = applySharedSearchProjection(
+        currentState,
+        projection,
+        projectedActions,
       );
       const id = searchStateJson(nextState);
       states.set(id, nextState);
@@ -16672,6 +16161,7 @@ function sharedSearchPolicyRuntime({
   return {
     rootCandidates,
     initialStateId,
+    transitionCacheNamespace: `web-simple-v1:${initialStateId}`,
     candidatesFor,
     registerCandidate,
     candidateCallback,
@@ -16864,9 +16354,9 @@ function applySharedWinProbabilityDecisionPolicy(options) {
 }
 
 function applySharedTwoTurnExpectimaxDecisionPolicy(options) {
-  if (options.lockedSelection) return options.heuristicDecision;
   const runtime = sharedSearchPolicyRuntime(options);
   let exactOpponentActionJson = null;
+  let exactOwnActionJson = null;
   if (options.exactOpponentCommand) {
     const exactCandidate = {
       policyKind: Number.isInteger(options.exactOpponentCommand.switch)
@@ -16881,6 +16371,15 @@ function applySharedTwoTurnExpectimaxDecisionPolicy(options) {
     const opponentSide = options.sideIndex === 0 ? 1 : 0;
     runtime.registerCandidate(runtime.initialStateId, opponentSide, exactCandidate);
   }
+  if (options.lockedSelection) {
+    const lockedCandidate = runtime.rootCandidates.find(
+      (candidate) =>
+        candidate.policyKind === "move" &&
+        candidate.policyCommand?.move === options.lockedSelection.slot,
+    );
+    if (!lockedCandidate) return options.heuristicDecision;
+    exactOwnActionJson = JSON.stringify(toSharedSearchAction(lockedCandidate));
+  }
   let decision;
   try {
     decision = JSON.parse(
@@ -16893,6 +16392,8 @@ function applySharedTwoTurnExpectimaxDecisionPolicy(options) {
         runtime.winProbabilityCallback,
         runtime.terminalCallback,
         exactOpponentActionJson,
+        exactOwnActionJson,
+        runtime.transitionCacheNamespace,
       ),
     );
   } catch (error) {
@@ -17312,18 +16813,22 @@ function automaticTrainerItemCandidates(
         : side.itemUsesRemaining === 2
           ? 10
           : 6;
-    let score =
-      healing * 0.72 +
-      curedStatusValue +
-      (preventsImmediateKo ? 95 : 0) -
-      Math.min(90, incomingDamage * 0.2) +
-      roleValue.value -
-      resourceCost;
-    if (stillFaints && incomingDamage + residualDamage >= pokemon.hp) {
-      score -= 260;
-    }
-    if (id === "potion" && healing < 20) score -= 12;
-    if (currentMoveScore >= 180 && !preventsImmediateKo) score -= 35;
+    const score = JSON.parse(
+      scoreSharedTrainerItemCandidateJson(
+        JSON.stringify({
+          healing,
+          curedStatusValue,
+          preventsImmediateKnockout: preventsImmediateKo,
+          incomingDamage,
+          futureRoleValue: roleValue.value,
+          resourceCost,
+          lethalAfterUse:
+            stillFaints && incomingDamage + residualDamage >= pokemon.hp,
+          inefficientPotion: id === "potion" && healing < 20,
+          strongMoveAvailable: currentMoveScore >= 180,
+        }),
+      ),
+    ).score;
     uniqueItems.set(id, {
       id,
       name: effect.name,

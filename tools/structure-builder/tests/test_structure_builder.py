@@ -29,6 +29,37 @@ CONTENT_MANAGER_SPEC.loader.exec_module(content_manager)
 
 
 class StructureBuilderTests(unittest.TestCase):
+    def test_structure_metadata_allows_single_tall_interior(self) -> None:
+        document = structure_builder._validate_structure_metadata({
+            "schema_version": 1,
+            "anchors": [],
+            "interior": {
+                "id": "department_store",
+                "width": 64,
+                "depth": 64,
+                "floor_height": 80,
+                "floors": 1,
+            },
+        }, Path("department_store.structure.json"))
+
+        self.assertEqual(80, document["interior"]["floor_height"])
+
+    def test_structure_metadata_rejects_total_interior_height_over_limit(self) -> None:
+        with self.assertRaisesRegex(
+            structure_builder.StructureBuilderError, "전체 높이는 80 이하"
+        ):
+            structure_builder._validate_structure_metadata({
+                "schema_version": 1,
+                "anchors": [],
+                "interior": {
+                    "id": "too_tall",
+                    "width": 16,
+                    "depth": 16,
+                    "floor_height": 48,
+                    "floors": 2,
+                },
+            }, Path("too_tall.structure.json"))
+
     def test_anchor_id_allows_localized_display_label(self) -> None:
         document = structure_builder._validate_structure_metadata({
             "schema_version": 1,

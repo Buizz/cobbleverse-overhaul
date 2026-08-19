@@ -1,0 +1,70 @@
+# Cumulative entry adapter lifecycle, including switch reset.
+@@log
+|turn|1
+|switch|p1a: Lead|Lead, L50|160/160
+|switch|p2a: Target|Target, L50|180/180
+@@expect opening
+turn=1
+p1.hp=160
+p1.maxHp=160
+p2.hp=180
+p2.maxHp=180
+
+@@log
+|switch|p1a: Ditto|Ditto, L50|155/155
+|-transform|p1a: Ditto|p2a: Target|[from] ability: Imposter
+|-start|p2a: Target|protosynthesisspe
+|turn|2
+@@expect imposter-and-paradox
+turn=2
+p1.hp=155
+p1.maxHp=155
+p2.hp=180
+p2.maxHp=180
+p1.adapters=transformed
+p2.adapters=paradox
+
+@@log
+|switch|p1a: Tracer|Porygon2, L50|180/180
+|-ability|p1a: Tracer|Swift Swim|Trace|[from] ability: Trace|[of] p2a: Target
+|switch|p2a: Castform|Castform, L50|150/150
+|-formechange|p2a: Castform|Castform-Rainy|[from] ability: Forecast
+|turn|3
+@@expect trace-and-forecast
+turn=3
+p1.hp=180
+p1.maxHp=180
+p2.hp=150
+p2.maxHp=150
+p1.adapters=traced:swiftswim
+p2.adapters=forecast
+
+@@log
+|switch|p1a: Terapagos|Terapagos, L50|190/190
+|-activate|p1a: Terapagos|ability: Tera Shift
+|-formechange|p1a: Terapagos|Terapagos-Terastal|[from] ability: Tera Shift
+|switch|p2a: Frisker|Frisker, L50|140/140
+|-item|p1a: Terapagos|Leftovers|[from] ability: Frisk|[of] p2a: Frisker
+|turn|4
+@@expect tera-shift-and-frisk
+turn=4
+p1.hp=190
+p1.maxHp=190
+p2.hp=140
+p2.maxHp=140
+p1.adapters=form:terapagosterastal
+p2.adapters=frisked:leftovers
+
+@@log
+|switch|p1a: Watcher|Watcher, L50|170/170
+|-ability|p1a: Watcher|Anticipation
+|-activate|p2a: Frisker|ability: Forewarn|Fissure|[of] p1a: Watcher
+|turn|5
+@@expect anticipation-and-forewarn
+turn=5
+p1.hp=170
+p1.maxHp=170
+p2.hp=140
+p2.maxHp=140
+p1.adapters=anticipation
+p2.adapters=frisked:leftovers,forewarn:fissure

@@ -98,6 +98,10 @@ final class BattleMovementBoundary {
         );
         player.setDeltaMovement(Vec3.ZERO);
         player.resetFallDistance();
+        // The return itself is a large position change. Make it the new tick
+        // baseline so it is not detected as another forbidden teleport on the
+        // following tick and turned into a permanent restore loop.
+        boundary.previousPosition = player.position();
     }
 
     private static void warn(ServerPlayer player, Boundary boundary) {

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/facilities/department_store.nbt",
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        20,
+        1,
+        5
+      ],
+      "safe_spawn": [
+        20,
+        1,
+        4
+      ],
+      "door_facing": "north",
+      "safe_side": "north"
+    }
+  ]
+}

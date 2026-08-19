@@ -1,0 +1,9 @@
+{
+  "screen.cobbleventure_adventure.dialogue.title": "대화",
+  "screen.cobbleventure_adventure.dialogue.continue": "클릭 또는 Enter로 계속",
+  "screen.cobbleventure_adventure.dialogue.reveal": "클릭 또는 Enter로 빠르게 표시",
+  "screen.cobbleventure_adventure.dialogue.next_page": "클릭 또는 Enter로 다음 페이지",
+  "screen.cobbleventure_adventure.choice.title": "선택",
+  "screen.cobbleventure_adventure.choice.controls": "방향키로 이동 · Enter로 선택 · Esc로 취소",
+  "screen.cobbleventure_adventure.choice.reveal": "클릭 또는 Enter로 대사 표시"
+}

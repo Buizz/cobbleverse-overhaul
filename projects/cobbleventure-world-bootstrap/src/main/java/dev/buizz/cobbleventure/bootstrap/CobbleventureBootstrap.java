@@ -6,6 +6,10 @@ import dev.buizz.cobbleventure.adventure.AdventureWorldContext;
 import dev.buizz.cobbleventure.adventure.CobbleventureAdventure;
 import dev.buizz.cobbleventure.adventure.FieldMoveRidingAccess;
 import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
+import dev.buizz.cobbleventure.adventure.event.EventLocationRef;
+import dev.buizz.cobbleventure.adventure.event.EventMovementFailureReason;
+import dev.buizz.cobbleventure.adventure.event.EventLocationResolverRegistry;
+import dev.buizz.cobbleventure.adventure.event.EventBoundaryProviderRegistry;
 import dev.buizz.cobbleventure.playermenu.LocationAnnouncement;
 import dev.buizz.cobbleventure.playermenu.MusicPlayback;
 
@@ -237,6 +241,8 @@ public final class CobbleventureBootstrap {
     private static volatile List<FacilityPortal> activeFacilityPortals = List.of();
     private static volatile List<FacilityMusicZone> activeFacilityMusicZones = List.of();
     private static volatile Map<String, SettlementPlan> activeSettlements = Map.of();
+    private static volatile DimensionEventLocationResolver.Catalog activeDimensionAnchors;
+    private static volatile EventBoundaryCatalog activeEventBoundaries;
     private static volatile HexWorldPlan activeHexWorld;
     private static volatile List<PursuitEncounterZone> activeCaveEncounters = List.of();
     private static volatile Map<String, PursuitEncounterSystem.Config> activeForestEncounters = Map.of();
@@ -300,6 +306,45 @@ public final class CobbleventureBootstrap {
             ResourceLocation.fromNamespaceAndPath("cobbleventure", "sealed_forest_edge")
         );
     public CobbleventureBootstrap(IEventBus modBus) {
+        EventLocationResolverRegistry.register(
+            EventLocationRef.Resource.Kind.SETTLEMENT,
+            CobbleventureBootstrap::resolveEventSettlement
+        );
+        EventLocationResolverRegistry.register(
+            EventLocationRef.Resource.Kind.ANCHOR,
+            (server, destination) -> EventBoundaryCatalog.resolveAnchor(
+                activeEventBoundaries, destination
+            )
+        );
+        EventBoundaryProviderRegistry.register(player -> {
+            EventBoundaryCatalog catalog = activeEventBoundaries;
+            if (catalog == null) {
+                throw new IllegalStateException("event boundary catalog가 아직 준비되지 않았습니다.");
+            }
+            BlockPos position = player.blockPosition();
+            EventBoundaryProviderRegistry.Snapshot indexed = catalog.snapshot(
+                player.serverLevel().dimension().location().toString(),
+                position.getX(), position.getY(), position.getZ()
+            );
+            return new EventBoundaryProviderRegistry.Snapshot(
+                indexed.regions(), indexed.anchors(),
+                BuildingRuntimeSystem.activeEventSpaces(player), indexed.dimensions()
+            );
+        });
+        EventLocationResolverRegistry.register(
+            EventLocationRef.Resource.Kind.SPACE,
+            CobbleventureBootstrap::resolveEventSpace
+        );
+        EventLocationResolverRegistry.register(
+            EventLocationRef.Resource.Kind.ROUTE,
+            CobbleventureBootstrap::resolveEventRoute
+        );
+        EventLocationResolverRegistry.register(
+            EventLocationRef.Resource.Kind.DIMENSION,
+            (server, destination) -> DimensionEventLocationResolver.resolve(
+                activeDimensionAnchors, destination
+            )
+        );
         CobbleventureAdventure.registerWorldContext(new AdventureWorldContext() {
             @Override
             public Integer averageWildSpawnLevel(
@@ -357,6 +402,206 @@ public final class CobbleventureBootstrap {
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerTick);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onRegisterCommands);
+    }
+
+    private static EventLocationResolverRegistry.Resolution resolveEventSettlement(
+        MinecraftServer server,
+        EventLocationRef.Resource destination
+    ) {
+        Map<String, SettlementPlan> settlements = activeSettlements;
+        if (settlements.isEmpty()) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.WORLD_NOT_READY
+            );
+        }
+        SettlementPlan settlement = settlements.get(destination.resourceId());
+        if (settlement == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.DESTINATION_NOT_FOUND
+            );
+        }
+        if (!settlement.enabled()) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.DESTINATION_DISABLED
+            );
+        }
+        BlockPoint point = destination.anchor() == null
+            ? settlement.playerSpawn()
+            : settlement.anchors().get(destination.anchor());
+        if (point == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_NOT_FOUND
+            );
+        }
+        return EventLocationResolverRegistry.Resolution.resolved(
+            new EventLocationResolverRegistry.ResolvedLocation(
+                GENERATION_ONE.location().toString(),
+                point.x() + 0.5D, point.y(), point.z() + 0.5D,
+                null, null
+            )
+        );
+    }
+
+    private static EventLocationResolverRegistry.Resolution resolveEventSpace(
+        MinecraftServer server,
+        EventLocationRef.Resource destination
+    ) {
+        EventLocationResolverRegistry.Resolution building =
+            BuildingRuntimeSystem.resolveEventSpace(server, destination);
+        if (building != null) {
+            return building;
+        }
+        Map<String, JsonObject> caves = activeCaveDocuments;
+        Map<String, JsonObject> forests = activeForestDocuments;
+        if (caves.isEmpty() && forests.isEmpty()) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.WORLD_NOT_READY
+            );
+        }
+        JsonObject space = caves.get(destination.resourceId());
+        boolean cave = space != null;
+        if (space == null) space = forests.get(destination.resourceId());
+        if (space == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.DESTINATION_NOT_FOUND
+            );
+        }
+        if (space.has("enabled") && !space.get("enabled").getAsBoolean()) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.DESTINATION_DISABLED
+            );
+        }
+        if (destination.anchor() == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_REQUIRED
+            );
+        }
+        JsonObject dimension = space.getAsJsonObject("dimension");
+        String dimensionId = requiredString(dimension, "id");
+        BlockPoint point = cave
+            ? caveEventAnchor(space, destination.anchor())
+            : forestEventAnchor(space, destination.anchor());
+        if (point == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_NOT_FOUND
+            );
+        }
+        return EventLocationResolverRegistry.Resolution.resolved(
+            new EventLocationResolverRegistry.ResolvedLocation(
+                dimensionId, point.x() + 0.5D, point.y(), point.z() + 0.5D,
+                null, null
+            )
+        );
+    }
+
+    private static EventLocationResolverRegistry.Resolution resolveEventRoute(
+        MinecraftServer server,
+        EventLocationRef.Resource destination
+    ) {
+        HexWorldPlan world = activeHexWorld;
+        if (world == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.WORLD_NOT_READY
+            );
+        }
+        String prefix = "cobbleventure:route/";
+        String routeId = destination.resourceId().startsWith(prefix)
+            ? destination.resourceId().substring(prefix.length())
+            : destination.resourceId();
+        ConnectionPath route = world.paths().stream()
+            .filter(candidate -> candidate.id().equals(routeId))
+            .findFirst().orElse(null);
+        if (route == null || route.centerline().isEmpty()) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.DESTINATION_NOT_FOUND
+            );
+        }
+        int progress = switch (destination.anchor()) {
+            case "start" -> 0;
+            case "middle" -> 50;
+            case "end" -> 100;
+            case null -> -1;
+            default -> -2;
+        };
+        if (progress == -1) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_REQUIRED
+            );
+        }
+        if (progress == -2) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.ANCHOR_NOT_FOUND
+            );
+        }
+        ServerLevel level = server.getLevel(GENERATION_ONE);
+        if (level == null) {
+            return EventLocationResolverRegistry.Resolution.failed(
+                EventMovementFailureReason.DESTINATION_UNAVAILABLE
+            );
+        }
+        RouteNpcPoint point = routeNpcPoint(route.centerline(), progress);
+        int x = (int) Math.round(point.x());
+        int z = (int) Math.round(point.z());
+        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        float yaw = (float) Math.toDegrees(Math.atan2(-point.tangentX(), point.tangentZ()));
+        return EventLocationResolverRegistry.Resolution.resolved(
+            new EventLocationResolverRegistry.ResolvedLocation(
+                GENERATION_ONE.location().toString(), x + 0.5D, y, z + 0.5D, yaw, null
+            )
+        );
+    }
+
+    private static BlockPoint caveEventAnchor(JsonObject cave, String anchorId) {
+        if (cave.has("entrances")) {
+            for (JsonElement element : cave.getAsJsonArray("entrances")) {
+                JsonObject entrance = element.getAsJsonObject();
+                if (anchorId.equals(requiredString(entrance, "id"))) {
+                    return blockPointFrom(entrance.getAsJsonObject("fallback_anchor"));
+                }
+            }
+        }
+        if (!cave.has("generator")) return null;
+        JsonObject generator = cave.getAsJsonObject("generator");
+        if (!generator.has("manual_layout")) return null;
+        JsonObject layout = generator.getAsJsonObject("manual_layout");
+        if (!layout.has("anchors")) return null;
+        for (JsonElement element : layout.getAsJsonArray("anchors")) {
+            JsonObject anchor = element.getAsJsonObject();
+            if (!anchorId.equals(requiredString(anchor, "id"))) continue;
+            BlockPoint floor = blockPointFrom(anchor.getAsJsonObject("position"));
+            return new BlockPoint(floor.x(), floor.y() + 1, floor.z());
+        }
+        return null;
+    }
+
+    private static BlockPoint forestEventAnchor(JsonObject forest, String anchorId) {
+        if (!forest.has("entrances")) return null;
+        JsonObject origin = forest.getAsJsonObject("dimension").getAsJsonObject("origin");
+        int originX = origin.get("x").getAsInt();
+        int originY = origin.get("y").getAsInt();
+        int originZ = origin.get("z").getAsInt();
+        for (JsonElement element : forest.getAsJsonArray("entrances")) {
+            JsonObject entrance = element.getAsJsonObject();
+            if (!anchorId.equals(requiredString(entrance, "id"))) continue;
+            JsonObject position = entrance.getAsJsonObject("position");
+            int portalX = originX + position.get("x").getAsInt();
+            int portalZ = originZ + position.get("z").getAsInt();
+            return inwardDestination(portalX, originY, portalZ, originX, originZ);
+        }
+        return null;
+    }
+
+    private static BlockPoint inwardDestination(
+        int portalX, int y, int portalZ, int centerX, int centerZ
+    ) {
+        double towardCenterX = centerX - portalX;
+        double towardCenterZ = centerZ - portalZ;
+        double length = Math.hypot(towardCenterX, towardCenterZ);
+        int insetX = length < 0.01D ? 0
+            : (int) Math.round(towardCenterX / length * 6.0D);
+        int insetZ = length < 0.01D ? 0
+            : (int) Math.round(towardCenterZ / length * 6.0D);
+        return new BlockPoint(portalX + insetX, y, portalZ + insetZ);
     }
 
     private static void onEntityJoinLevel(EntityJoinLevelEvent event) {
@@ -472,11 +717,19 @@ public final class CobbleventureBootstrap {
         scheduledTownDebrisCleanup.clear();
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
+        activeDimensionAnchors = null;
+        activeEventBoundaries = null;
         DoorTransitionSound.reset();
         ServerLevel level = event.getServer().getLevel(GENERATION_ONE);
         if (level == null) {
             throw new IllegalStateException("Cobbleventure generation_1 dimension is missing");
         }
+        activeDimensionAnchors = DimensionEventLocationResolver.parse(
+            readJsonResource(level, "catalogs/dimension-anchors.json")
+        );
+        activeEventBoundaries = EventBoundaryCatalog.parse(
+            readJsonResource(level, "catalogs/event-boundaries.json")
+        );
         BootstrapSavedData data = event.getServer().overworld().getDataStorage()
             .computeIfAbsent(
                 new SavedData.Factory<>(BootstrapSavedData::create, BootstrapSavedData::load),
@@ -2496,7 +2749,8 @@ public final class CobbleventureBootstrap {
                 return false;
             }
             BuildingRuntimeSystem.onStructurePlaced(
-                level, facility.structure(), placedOrigin, rotation
+                level, facility.structure(), placedOrigin, rotation,
+                buildingEventSpaceId(settlement.id(), facility.id())
             );
             if (facility.mode().equals("direct_template")) {
                 if (!placeFacilityJigsawDecorations(level, facility, position)) {
@@ -2516,6 +2770,19 @@ public final class CobbleventureBootstrap {
         }
         restoreFacilityRoadNetwork(level, settlement);
         return true;
+    }
+
+    private static String buildingEventSpaceId(
+        String settlementId, String facilityId
+    ) {
+        int separator = settlementId.indexOf(':');
+        String namespace = separator < 0 ? "cobbleventure"
+            : settlementId.substring(0, separator);
+        String path = separator < 0 ? settlementId : settlementId.substring(separator + 1);
+        if (path.startsWith("settlement/")) {
+            path = path.substring("settlement/".length());
+        }
+        return namespace + ":building/" + path + "/" + facilityId;
     }
 
     private static int facilityApproachRoadWidth(
@@ -2618,7 +2885,8 @@ public final class CobbleventureBootstrap {
                         ? facilityPlacementOrigin(level, facility, position, rotation)
                         : position;
                     BuildingRuntimeSystem.onStructurePlaced(
-                        level, facility.structure(), placedOrigin, rotation
+                        level, facility.structure(), placedOrigin, rotation,
+                        buildingEventSpaceId(settlement.id(), facility.id())
                     );
                 }
             }
@@ -6998,15 +7266,8 @@ public final class CobbleventureBootstrap {
                 int portalX = originX + position.get("x").getAsInt();
                 int portalZ = originZ + position.get("z").getAsInt();
                 portalAnchor = new BlockPoint(portalX, originY, portalZ);
-                double towardCenterX = originX - portalX;
-                double towardCenterZ = originZ - portalZ;
-                double length = Math.hypot(towardCenterX, towardCenterZ);
-                int insetX = length < 0.01D ? 0
-                    : (int) Math.round(towardCenterX / length * 6.0D);
-                int insetZ = length < 0.01D ? 0
-                    : (int) Math.round(towardCenterZ / length * 6.0D);
-                destination = new BlockPoint(
-                    portalX + insetX, originY, portalZ + insetZ
+                destination = inwardDestination(
+                    portalX, originY, portalZ, originX, originZ
                 );
                 break;
             }

@@ -6,6 +6,7 @@ import gzip
 import json
 import math
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -38,6 +39,7 @@ HEX_WORLD_CONFIG_DIR = CONTENT_ROOT / "worlds"
 ROUTE_PRESET_CONFIG_DIR = CONTENT_ROOT / "routes"
 BOUNDARY_PROFILE_CONFIG = CONTENT_ROOT / "catalogs/boundary-profiles.json"
 GENERATED_CONTENT_DIR = Path("generated")
+CVES_SOURCE_DIR = CONTENT_ROOT / "events"
 FACILITY_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/placeholder"
 HOUSE_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/houses"
 TOWN_DECORATION_STRUCTURE_SOURCE_DIR = CONTENT_ROOT / "structures/town_decorations"
@@ -51,7 +53,12 @@ LEAGUE_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/league-progression.json"
 GYM_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/gyms.json")
 MUSIC_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/music-tracks.json"
 MUSIC_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/music-tracks.json")
+DIMENSION_ANCHOR_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/dimension-anchors.json"
+DIMENSION_ANCHOR_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/dimension-anchors.json")
+EVENT_BOUNDARY_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/event-boundaries.json"
+EVENT_BOUNDARY_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/event-boundaries.json")
 BATTLE_PRESET_SOURCE_DIR = CONTENT_ROOT / "battles"
+LOOT_TABLE_SOURCE_DIR = CONTENT_ROOT / "loot_tables"
 NPC_SOURCE_DIR = CONTENT_ROOT / "source"
 NPC_PLACEMENT_PROFILE_ENTRY = Path("data/cobbleventure/catalogs/npc-placement-profiles.json")
 BATTLE_PRESET_ENTRY_DIR = Path("data/cobbleventure/battles")
@@ -106,6 +113,79 @@ def _package_generated_trainer_content(root: Path, output: Path) -> None:
             output / "data" / "cobbleventure" / "ai-profiles",
             dirs_exist_ok=True,
         )
+
+
+def _package_generated_cves_content(root: Path, output: Path) -> None:
+    """Package compiled CVES IR and representation-neutral NPC bindings."""
+    generated = _inside(root, root / GENERATED_CONTENT_DIR, "생성 콘텐츠 디렉터리")
+    cves_data = generated / "cves" / "data"
+    if not cves_data.is_dir():
+        if (root / CVES_SOURCE_DIR).is_dir():
+            raise ModBuildError(
+                "생성된 CVES 데이터가 없습니다. 먼저 content-manager generate를 실행하세요."
+            )
+        return
+    shutil.copytree(cves_data, output / "data", dirs_exist_ok=True)
+
+
+def _package_dimension_anchor_catalog(root: Path, output: Path) -> None:
+    """Package the authoritative CVES dimension arrival registry unchanged."""
+    source = _inside(
+        root, root / DIMENSION_ANCHOR_CATALOG_SOURCE, "차원 앵커 카탈로그"
+    )
+    if not source.is_file():
+        return
+    target = _inside(
+        root, output / DIMENSION_ANCHOR_CATALOG_ENTRY, "생성 차원 앵커 카탈로그"
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(source.read_bytes())
+
+
+def _package_event_boundary_catalog(root: Path, output: Path) -> None:
+    """Package the explicit CVES region and anchor boundary index unchanged."""
+    source = _inside(root, root / EVENT_BOUNDARY_CATALOG_SOURCE, "이벤트 경계 카탈로그")
+    if not source.is_file():
+        return
+    target = _inside(
+        root, output / EVENT_BOUNDARY_CATALOG_ENTRY, "생성 이벤트 경계 카탈로그"
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(source.read_bytes())
+
+
+def _package_loot_tables(root: Path, output: Path) -> None:
+    """Package authoritative loot tables into Minecraft's singular resource folder."""
+    source_root = _inside(root, root / LOOT_TABLE_SOURCE_DIR, "loot table 원본 디렉터리")
+    if not source_root.is_dir():
+        return
+    for source in sorted(source_root.rglob("*.json")):
+        relative = source.relative_to(source_root)
+        if len(relative.parts) < 2:
+            raise ModBuildError(
+                f"loot table은 <namespace>/<path>.json 구조여야 합니다: {source}"
+            )
+        namespace = relative.parts[0]
+        resource_path = Path(*relative.parts[1:])
+        if not re.fullmatch(r"[a-z0-9_.-]+", namespace) or not re.fullmatch(
+            r"[a-z0-9_./-]+", resource_path.with_suffix("").as_posix()
+        ):
+            raise ModBuildError(f"올바르지 않은 loot table 원본 경로입니다: {source}")
+        try:
+            document = json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ModBuildError(f"loot table JSON을 읽을 수 없습니다: {source}: {error}") from error
+        if not isinstance(document, dict):
+            raise ModBuildError(f"loot table JSON 루트는 object여야 합니다: {source}")
+        target = _inside(
+            root,
+            output / "data" / namespace / "loot_table" / resource_path,
+            "패키징 loot table",
+        )
+        if target.exists():
+            raise ModBuildError(f"중복 loot table 출력 경로입니다: {target}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
 
 
 def _compiled_gym_catalog(root: Path, gym_catalog: Path) -> dict[str, object]:
@@ -2335,6 +2415,10 @@ def build(root: Path) -> Path:
     _package_settlements(root, output, settlements)
     _package_hex_worlds(root, output, settlements)
     _package_generated_trainer_content(root, output)
+    _package_generated_cves_content(root, output)
+    _package_dimension_anchor_catalog(root, output)
+    _package_event_boundary_catalog(root, output)
+    _package_loot_tables(root, output)
     _package_building_runtime_data(root, output)
     if first_generated is None:
         raise ModBuildError("생성할 BCA 마을 허브가 없습니다.")

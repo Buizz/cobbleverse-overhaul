@@ -1,0 +1,105 @@
+package dev.buizz.cobbleventure.adventure.event;
+
+import java.util.Objects;
+import java.util.UUID;
+import net.minecraft.resources.ResourceLocation;
+
+/** Runtime projection of an authored battle preset needed to launch TBCS. */
+public record EventBattlePreset(
+    String battleId,
+    String trainerId,
+    String format,
+    String levelMode,
+    int levelOffset,
+    int fallbackLevel,
+    Integer maxItemUses,
+    MoneyReward moneyReward
+) {
+    public EventBattlePreset {
+        requireResource(battleId, "battleId");
+        requireResource(trainerId, "trainerId");
+        requireText(format, "format");
+        requireText(levelMode, "levelMode");
+        if (fallbackLevel < 1 || fallbackLevel > 100) {
+            throw new IllegalArgumentException("fallbackLevel은 1..100 범위여야 합니다.");
+        }
+        if (levelOffset < -99 || levelOffset > 99) {
+            throw new IllegalArgumentException("levelOffset은 -99..99 범위여야 합니다.");
+        }
+        if (maxItemUses != null && maxItemUses < 0) {
+            throw new IllegalArgumentException("maxItemUses는 0 이상이어야 합니다.");
+        }
+    }
+
+    public record MoneyReward(
+        boolean enabled,
+        String mode,
+        int amount,
+        int fallbackRegionLevel,
+        int perLevel,
+        int offset,
+        boolean heldItemBonus,
+        String heldItem,
+        int heldItemMultiplier
+    ) {
+        public MoneyReward {
+            requireText(mode, "moneyReward.mode");
+            if (!mode.equals("fixed") && !mode.equals("regional_level")) {
+                throw new IllegalArgumentException("moneyReward.mode는 fixed 또는 regional_level이어야 합니다.");
+            }
+            if (amount < 0 || fallbackRegionLevel < 1 || fallbackRegionLevel > 100
+                || perLevel < 0 || heldItemMultiplier < 1) {
+                throw new IllegalArgumentException("moneyReward 수치 범위가 올바르지 않습니다.");
+            }
+            if (heldItemBonus) requireResource(heldItem, "moneyReward.heldItem");
+        }
+
+        public String prepareCommand(String playerName) {
+            if (!enabled) return null;
+            String base = "cobbleventure_reward prepare " + playerName + " ";
+            String calculation = mode.equals("fixed")
+                ? "fixed " + amount
+                : "regional " + fallbackRegionLevel + " " + perLevel + " " + offset;
+            return base + calculation + " " + heldItemBonus + " "
+                + (heldItemBonus ? heldItem : "minecraft:air") + " " + heldItemMultiplier;
+        }
+    }
+
+    public String launchCommand(String playerName, UUID opponentId) {
+        requireText(playerName, "playerName");
+        Objects.requireNonNull(opponentId, "opponentId");
+        String runtimeTrainerId = rctTrainerId();
+        String nested = "tbcs battle " + format + " " + playerName
+            + " vs @s as " + runtimeTrainerId;
+        if (maxItemUses != null) {
+            nested += " rules {maxItemUses:" + maxItemUses + "}";
+        }
+        if (levelMode.equals("map_scaling")) {
+            return "cobbleventure_scaled_trainer_battle " + playerName + " "
+                + opponentId + " " + battleId + " " + levelOffset + " "
+                + fallbackLevel + " " + runtimeTrainerId + " " + nested;
+        }
+        return "cobbleventure_battle_intro " + playerName + " " + opponentId
+            + " " + battleId + " " + nested;
+    }
+
+    public String rctTrainerId() {
+        String path = trainerId.substring(trainerId.indexOf(':') + 1);
+        int slash = path.lastIndexOf('/');
+        String slug = slash < 0 ? path : path.substring(slash + 1);
+        return "rctmod:" + slug;
+    }
+
+    private static void requireResource(String value, String name) {
+        requireText(value, name);
+        if (ResourceLocation.tryParse(value) == null) {
+            throw new IllegalArgumentException(name + "는 리소스 ID여야 합니다: " + value);
+        }
+    }
+
+    private static void requireText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + "가 필요합니다.");
+        }
+    }
+}

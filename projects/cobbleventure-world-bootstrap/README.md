@@ -18,6 +18,12 @@
 - `HexGeometry`: 월드 좌표와 육각 좌표 변환 및 전체 경계 계산
 - `TerrainSampler`: 블록 중심 지형 샘플과 왜곡 좌표 캐시
 - `CobbleventureBootstrap`: 서버 생명주기와 월드 계획·생성 작업 조율
+- CVES settlement 위치 provider: hex 변환 완료 앵커를 Adventure의 타입 resolver에 제공
+- CVES space 위치 provider: Cave·Forest 생성과 관문 이동이 사용하는 도착점을 공유
+- CVES 전역 anchor 위치 provider: 명시적 event boundary box의 결정적 중심점을 제공
+- CVES V5 EasyNPC 표현 프리셋: `__v5.npc.snbt`에는 외형과 `cves_binding/...` 태그만
+  포함하고 대사·조건·배틀 실행은 Adventure 런타임에 위임. 트레이너 상금은 battle
+  preset의 `money_reward`, 전리품은 CVES 승리 분기가 담당
 
 - `cobbleventure:generation_1` 전용 차원을 생성한다.
 - `cobbleventure:hex_map` `BiomeSource`와 `ChunkGenerator`가 패키징된
@@ -159,6 +165,19 @@
 검사하는 저수준 진단 명령이며 전체 마을 생성 테스트에는 사용하지 않는다.
 
 ## 빌드
+
+CVES의 `dimension(...)` 이동은 콘텐츠 원본
+`content/catalogs/dimension-anchors.json`에 등록된 앵커만 사용한다. 공간·마을 앵커나
+월드 원점을 자동 추론하지 않으며, 데이터 모드 빌드가 이 카탈로그를 런타임 리소스로
+포장한다.
+
+`region_enter/exit`와 `anchor_step`은
+`content/catalogs/event-boundaries.json`에 등록된 차원별 정수 box만 사용한다. 월드
+원점, 마을·도로 범위 또는 이동용 anchor를 이벤트 경계로 자동 변환하지 않는다.
+같은 문서의 anchor ID를 `anchor(...)` 이동에 명시하면 box 중심을 공통 안전 착지
+검사에 전달하며, 별도의 하위 anchor 이름은 받지 않는다.
+`building_enter/exit`는 authored 시설의 실제 내부 template box와 공개 building ID를
+사용하고, `dimension_enter/exit`는 현재 서버 차원 ID 전이를 사용한다.
 
 ```bat
 build.bat mod-bootstrap

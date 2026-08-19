@@ -47,6 +47,12 @@ public final class PlayerMenuClient {
         minecraft.setScreen(new WorldMapScreen(minecraft.screen));
     }
 
+    public static void openWorldMapSelection(String token) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null || token == null || token.isBlank()) return;
+        minecraft.setScreen(new WorldMapScreen(minecraft.screen, token));
+    }
+
     public static void openBag() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {

@@ -5,13 +5,16 @@ import com.cobblemon.mod.common.api.events.pokemon.RidePokemonEvent;
 import com.cobblemon.mod.common.api.riding.RidingStyle;
 import com.cobblemon.mod.common.api.riding.behaviour.RidingBehaviourSettings;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -22,6 +25,7 @@ public final class FieldMoveRidingAccess {
     private static final String MESSAGE_COOLDOWN = "cobbleventureRideFieldMoveMessageCooldown";
     private static final ResourceLocation FOREST_DIMENSION =
         ResourceLocation.fromNamespaceAndPath("cobbleventure", "forests");
+    private static final Map<UUID, RideMotionSnapshot> RIDE_MOTION = new HashMap<>();
     private static boolean registered;
 
     private FieldMoveRidingAccess() {}
@@ -111,8 +115,17 @@ public final class FieldMoveRidingAccess {
         }
 
         ServerPlayer player = event.getPlayer();
-        if (player.level().dimension().location().equals(FOREST_DIMENSION)
-            && behaviours.containsKey(RidingStyle.AIR)) {
+        boolean hasLand = behaviours.containsKey(RidingStyle.LAND);
+        boolean hasLiquid = behaviours.containsKey(RidingStyle.LIQUID);
+        boolean hasAir = behaviours.containsKey(RidingStyle.AIR);
+        boolean forest = player.level().dimension().location().equals(FOREST_DIMENSION);
+        boolean liquidAllowed = hasLiquid && isEnabled(player, "surf");
+        boolean airAllowed = hasAir && isEnabled(player, "fly") && !forest;
+        if (hasLand || liquidAllowed || airAllowed) {
+            return;
+        }
+
+        if (forest && hasAir && !hasLand && !liquidAllowed) {
             event.cancel();
             displayRideMessage(
                 player,
@@ -122,21 +135,18 @@ public final class FieldMoveRidingAccess {
         }
 
         List<String> missingMoves = new ArrayList<>(2);
-        if (behaviours.containsKey(RidingStyle.LIQUID) && !isEnabled(player, "surf")) {
+        if (hasLiquid && !isEnabled(player, "surf")) {
             missingMoves.add(displayName("surf"));
         }
-        if (behaviours.containsKey(RidingStyle.AIR) && !isEnabled(player, "fly")) {
+        if (hasAir && !isEnabled(player, "fly")) {
             missingMoves.add(displayName("fly"));
-        }
-        if (missingMoves.isEmpty()) {
-            return;
         }
 
         event.cancel();
         displayRideMessage(
             player,
-            "[Cobbleventure] 이 포켓몬에 탑승하려면 "
-                + String.join(" 및 ", missingMoves) + " 플래그가 필요합니다."
+            "[Cobbleventure] 이 포켓몬의 탑승 방식 중 하나를 사용하려면 "
+                + String.join(" 또는 ", missingMoves) + " 플래그가 필요합니다."
         );
     }
 
@@ -150,23 +160,106 @@ public final class FieldMoveRidingAccess {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
-            if (!player.level().dimension().location().equals(FOREST_DIMENSION)
-                || !(player.getVehicle()
-                    instanceof com.cobblemon.mod.common.entity.pokemon.PokemonEntity pokemon)) {
+            UUID playerId = player.getUUID();
+            if (!(player.getVehicle()
+                instanceof com.cobblemon.mod.common.entity.pokemon.PokemonEntity pokemon)) {
+                RIDE_MOTION.remove(playerId);
                 continue;
             }
             Map<RidingStyle, RidingBehaviourSettings> behaviours =
                 pokemon.getRideProp().getBehaviours();
-            if (behaviours == null || !behaviours.containsKey(RidingStyle.AIR)) {
+            var controller = pokemon.getRidingController();
+            var context = controller == null ? null : controller.getContext();
+            RidingStyle style = context == null ? null : context.getStyle();
+            RideMotionSnapshot previous = RIDE_MOTION.get(playerId);
+            if (previous == null || !previous.pokemonId().equals(pokemon.getUUID())
+                || !previous.dimension().equals(player.level().dimension().location())) {
+                previous = new RideMotionSnapshot(
+                    pokemon.getUUID(), player.level().dimension().location(), pokemon.position()
+                );
+            }
+
+            if (style == null || behaviours == null) {
+                rememberRidePosition(playerId, pokemon);
                 continue;
             }
-            player.stopRiding();
-            displayRideMessage(
-                player,
-                "[Cobbleventure] 숲에서는 공중을 날 수 있는 포켓몬에 탑승할 수 없습니다."
-            );
+
+            if (style == RidingStyle.AIR
+                && player.level().dimension().location().equals(FOREST_DIMENSION)) {
+                player.stopRiding();
+                RIDE_MOTION.remove(playerId);
+                displayRideMessage(
+                    player,
+                    "[Cobbleventure] 숲에서는 공중날기를 사용할 수 없습니다."
+                );
+                continue;
+            }
+            if (style == RidingStyle.LIQUID && !isEnabled(player, "surf")) {
+                blockLockedLiquidMovement(player, pokemon, previous);
+                continue;
+            }
+            if (style == RidingStyle.AIR && !isEnabled(player, "fly")) {
+                landLockedAirMovement(player, pokemon, previous);
+                continue;
+            }
+            rememberRidePosition(playerId, pokemon);
         }
     }
+
+    private static void blockLockedLiquidMovement(
+        ServerPlayer player,
+        com.cobblemon.mod.common.entity.pokemon.PokemonEntity pokemon,
+        RideMotionSnapshot previous
+    ) {
+        Vec3 current = pokemon.position();
+        Vec3 allowed = previous.position();
+        pokemon.setPos(allowed.x(), current.y(), allowed.z());
+        pokemon.setDeltaMovement(0.0D, 0.0D, 0.0D);
+        pokemon.hurtMarked = true;
+        RIDE_MOTION.put(player.getUUID(), new RideMotionSnapshot(
+            pokemon.getUUID(), player.level().dimension().location(), pokemon.position()
+        ));
+        displayRideMessage(
+            player, "[Cobbleventure] 수상 이동에는 파도타기 플래그가 필요합니다."
+        );
+    }
+
+    private static void landLockedAirMovement(
+        ServerPlayer player,
+        com.cobblemon.mod.common.entity.pokemon.PokemonEntity pokemon,
+        RideMotionSnapshot previous
+    ) {
+        Vec3 current = pokemon.position();
+        double correctedY = Math.min(current.y(), previous.position().y());
+        if (correctedY != current.y()) {
+            pokemon.setPos(current.x(), correctedY, current.z());
+        }
+        Vec3 movement = pokemon.getDeltaMovement();
+        pokemon.setDeltaMovement(
+            movement.x() * 0.35D,
+            -0.06D,
+            movement.z() * 0.35D
+        );
+        pokemon.hurtMarked = true;
+        RIDE_MOTION.put(player.getUUID(), new RideMotionSnapshot(
+            pokemon.getUUID(), player.level().dimension().location(), pokemon.position()
+        ));
+        displayRideMessage(
+            player, "[Cobbleventure] 공중 이동에는 공중날기 플래그가 필요합니다."
+        );
+    }
+
+    private static void rememberRidePosition(
+        UUID playerId, com.cobblemon.mod.common.entity.pokemon.PokemonEntity pokemon
+    ) {
+        RIDE_MOTION.put(playerId, new RideMotionSnapshot(
+            pokemon.getUUID(), pokemon.level().dimension().location(), pokemon.position()
+        ));
+    }
+
+    private record RideMotionSnapshot(
+        UUID pokemonId, ResourceLocation dimension, Vec3 position
+    ) {}
 
     private static String normalize(String move) {
         return move.toLowerCase(Locale.ROOT);

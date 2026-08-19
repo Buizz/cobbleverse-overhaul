@@ -187,6 +187,7 @@
       ],
       "properties": {
         "trainer_id": { "$ref": "#/$defs/resource_id" },
+        "money_reward": { "$ref": "#/$defs/npc_money_reward" },
         "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "format": { "enum": ["GEN_9_SINGLES", "GEN_9_DOUBLES"] },
         "battle_type": { "enum": ["singles", "doubles"] },

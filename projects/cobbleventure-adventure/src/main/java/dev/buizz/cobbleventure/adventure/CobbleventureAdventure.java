@@ -1,12 +1,27 @@
 package dev.buizz.cobbleventure.adventure;
 
 import dev.buizz.cobbleventure.adventure.battleai.CobbleventureBattleAIRegistration;
+import dev.buizz.cobbleventure.adventure.event.EventScriptRepository;
+import dev.buizz.cobbleventure.adventure.event.EventDialogueNetwork;
+import dev.buizz.cobbleventure.adventure.event.EventNpcBindingRepository;
+import dev.buizz.cobbleventure.adventure.event.EventNpcInteractionHandler;
+import dev.buizz.cobbleventure.adventure.event.EventNpcProximityHandler;
+import dev.buizz.cobbleventure.adventure.event.EventStarterRouletteBridge;
+import dev.buizz.cobbleventure.adventure.event.EventMapSelectionBridge;
+import dev.buizz.cobbleventure.adventure.event.EventItemGrantBridge;
+import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
+import dev.buizz.cobbleventure.adventure.event.EventBattlePresetRepository;
+import dev.buizz.cobbleventure.adventure.event.EventMovementBridge;
+import dev.buizz.cobbleventure.adventure.event.EventSessionAdminCommands;
+import dev.buizz.cobbleventure.adventure.event.EventPresentationBridge;
+import dev.buizz.cobbleventure.adventure.event.EventServerSignalBridge;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.bus.api.IEventBus;
 
 @Mod(CobbleventureAdventure.MOD_ID)
 public final class CobbleventureAdventure {
@@ -36,7 +51,21 @@ public final class CobbleventureAdventure {
 
     private static volatile AdventureWorldContext worldContext = EMPTY_WORLD_CONTEXT;
 
-    public CobbleventureAdventure() {
+    public CobbleventureAdventure(IEventBus modBus) {
+        EventScriptRepository.register();
+        EventNpcBindingRepository.register();
+        EventBattlePresetRepository.register();
+        EventNpcInteractionHandler.register();
+        EventNpcProximityHandler.register();
+        EventServerSignalBridge.register();
+        EventStarterRouletteBridge.register();
+        EventMapSelectionBridge.register();
+        EventItemGrantBridge.register();
+        EventBattleBridge.register();
+        EventMovementBridge.register();
+        EventSessionAdminCommands.register();
+        EventPresentationBridge.register();
+        EventDialogueNetwork.register(modBus);
         CobbleventureBattleAIRegistration.register();
         FieldMoveRidingAccess.register();
         WildSpawnLeveling.register();

@@ -1,0 +1,4 @@
+# One cumulative protocol corpus file per line.
+field-hazard-pressure.battlelog
+entry-adapters.battlelog
+timed-expiry-and-cures.battlelog

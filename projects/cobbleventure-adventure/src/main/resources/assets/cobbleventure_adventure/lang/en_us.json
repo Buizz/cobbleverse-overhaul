@@ -1,0 +1,9 @@
+{
+  "screen.cobbleventure_adventure.dialogue.title": "Dialogue",
+  "screen.cobbleventure_adventure.dialogue.continue": "Click or press Enter to continue",
+  "screen.cobbleventure_adventure.dialogue.reveal": "Click or press Enter to reveal",
+  "screen.cobbleventure_adventure.dialogue.next_page": "Click or press Enter for the next page",
+  "screen.cobbleventure_adventure.choice.title": "Choice",
+  "screen.cobbleventure_adventure.choice.controls": "Arrow keys to move · Enter to choose · Esc to cancel",
+  "screen.cobbleventure_adventure.choice.reveal": "Click or press Enter to reveal the prompt"
+}

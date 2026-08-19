@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
@@ -20,6 +22,9 @@ public final class BagStorage {
     private static final String ROOT_KEY = "cobbleventure_player_menu.bag";
     private static final String ITEMS_KEY = "Items";
     private static final String SHORTCUTS_KEY = "Shortcuts";
+    private static final String EVENT_REWARDS_KEY = "EventRewards";
+    private static final String REWARD_KIND_ITEM = "item";
+    private static final String REWARD_KIND_LOOT = "loot";
 
     private BagStorage() {}
 
@@ -39,6 +44,196 @@ public final class BagStorage {
 
     public static void save(ServerPlayer player, List<ItemStack> slots) {
         normalize(slots);
+        CompoundTag bag = bagTag(player);
+        bag.putInt("Version", 1);
+        bag.put(ITEMS_KEY, serializeItems(player, slots));
+        saveBagTag(player, bag);
+    }
+
+    /** Grants once and journals the result in the same persisted compound as the bag. */
+    public static EventRewardResult grantEventReward(
+        ServerPlayer player, String operationId, ItemStack prototype, int count
+    ) {
+        CompoundTag bag = bagTag(player);
+        ListTag rewards = bag.getList(EVENT_REWARDS_KEY, Tag.TAG_COMPOUND);
+        String itemId = BuiltInRegistries.ITEM.getKey(prototype.getItem()).toString();
+        for (int index = 0; index < rewards.size(); index++) {
+            CompoundTag entry = rewards.getCompound(index);
+            if (!operationId.equals(entry.getString("OperationId"))) continue;
+            if (!rewardKind(entry).equals(REWARD_KIND_ITEM)
+                || !itemId.equals(entry.getString("ItemId"))
+                || count != entry.getInt("Requested")) {
+                return new EventRewardResult(EventRewardStatus.CONFLICT, count, 0, count);
+            }
+            return new EventRewardResult(
+                EventRewardStatus.REPLAYED,
+                entry.getInt("Requested"),
+                entry.getInt("Granted"),
+                entry.getInt("Remaining")
+            );
+        }
+
+        NonNullList<ItemStack> working = load(player);
+        int remaining = count;
+        while (remaining > 0) {
+            int batch = Math.min(remaining, prototype.getMaxStackSize());
+            ItemStack offered = prototype.copyWithCount(batch);
+            BagStorage.add(working, offered);
+            if (!offered.isEmpty()) {
+                return new EventRewardResult(EventRewardStatus.FULL, count, 0, count);
+            }
+            remaining -= batch;
+        }
+
+        normalize(working);
+        CompoundTag entry = new CompoundTag();
+        entry.putInt("Version", 1);
+        entry.putString("Kind", REWARD_KIND_ITEM);
+        entry.putString("OperationId", operationId);
+        entry.putString("ItemId", itemId);
+        entry.putInt("Requested", count);
+        entry.putInt("Granted", count);
+        entry.putInt("Remaining", 0);
+        rewards.add(entry);
+        bag.putInt("Version", 1);
+        bag.put(ITEMS_KEY, serializeItems(player, working));
+        bag.put(EVENT_REWARDS_KEY, rewards);
+        saveBagTag(player, bag);
+        BagNetwork.syncExternalMutation(player, working);
+        return new EventRewardResult(EventRewardStatus.GRANTED, count, count, 0);
+    }
+
+    /**
+     * Expands a loot table once per operation and atomically grants every generated stack.
+     * A full bag journals the generated payload, so a retry neither rerolls nor partially grants it.
+     */
+    public static EventRewardResult grantEventLootReward(
+        ServerPlayer player,
+        String operationId,
+        String lootTableId,
+        int rollCount,
+        Supplier<List<ItemStack>> generator
+    ) {
+        CompoundTag bag = bagTag(player);
+        ListTag rewards = bag.getList(EVENT_REWARDS_KEY, Tag.TAG_COMPOUND);
+        CompoundTag entry = null;
+        List<ItemStack> generated = null;
+        for (int index = 0; index < rewards.size(); index++) {
+            CompoundTag candidate = rewards.getCompound(index);
+            if (!operationId.equals(candidate.getString("OperationId"))) continue;
+            if (!rewardKind(candidate).equals(REWARD_KIND_LOOT)
+                || !lootTableId.equals(candidate.getString("LootTableId"))
+                || rollCount != candidate.getInt("RollCount")) {
+                int failedCount = Math.max(1, candidate.getInt("Requested"));
+                return new EventRewardResult(
+                    EventRewardStatus.CONFLICT, failedCount, 0, failedCount
+                );
+            }
+            if (candidate.getBoolean("Granted")) {
+                return new EventRewardResult(
+                    EventRewardStatus.REPLAYED,
+                    candidate.getInt("Requested"),
+                    candidate.getInt("GrantedCount"),
+                    candidate.getInt("Remaining")
+                );
+            }
+            entry = candidate;
+            generated = deserializeStacks(player, candidate.getList("Generated", Tag.TAG_COMPOUND));
+            if (totalCount(generated) != candidate.getInt("Requested")) {
+                int failedCount = Math.max(1, candidate.getInt("Requested"));
+                return new EventRewardResult(
+                    EventRewardStatus.CONFLICT, failedCount, 0, failedCount
+                );
+            }
+            break;
+        }
+
+        if (entry == null) {
+            generated = sanitizeGenerated(generator.get());
+            entry = new CompoundTag();
+            entry.putInt("Version", 1);
+            entry.putString("Kind", REWARD_KIND_LOOT);
+            entry.putString("OperationId", operationId);
+            entry.putString("LootTableId", lootTableId);
+            entry.putInt("RollCount", rollCount);
+            entry.put("Generated", serializeStacks(player, generated));
+            int requested = totalCount(generated);
+            entry.putInt("Requested", requested);
+            entry.putInt("GrantedCount", 0);
+            entry.putInt("Remaining", requested);
+            rewards.add(entry);
+        }
+
+        int requested = entry.getInt("Requested");
+        NonNullList<ItemStack> working = load(player);
+        for (ItemStack stack : generated) {
+            ItemStack offered = stack.copy();
+            add(working, offered);
+            if (!offered.isEmpty()) {
+                bag.putInt("Version", 1);
+                bag.put(EVENT_REWARDS_KEY, rewards);
+                saveBagTag(player, bag);
+                return new EventRewardResult(
+                    EventRewardStatus.FULL, requested, 0, requested
+                );
+            }
+        }
+
+        normalize(working);
+        entry.putBoolean("Granted", true);
+        entry.putInt("GrantedCount", requested);
+        entry.putInt("Remaining", 0);
+        bag.putInt("Version", 1);
+        bag.put(ITEMS_KEY, serializeItems(player, working));
+        bag.put(EVENT_REWARDS_KEY, rewards);
+        saveBagTag(player, bag);
+        BagNetwork.syncExternalMutation(player, working);
+        return new EventRewardResult(
+            EventRewardStatus.GRANTED, requested, requested, 0
+        );
+    }
+
+    private static String rewardKind(CompoundTag entry) {
+        String kind = entry.getString("Kind");
+        return kind.isBlank() ? REWARD_KIND_ITEM : kind;
+    }
+
+    private static List<ItemStack> sanitizeGenerated(List<ItemStack> generated) {
+        List<ItemStack> result = new ArrayList<>();
+        if (generated == null) return result;
+        for (ItemStack stack : generated) {
+            if (stack != null && !stack.isEmpty()) result.add(stack.copy());
+        }
+        return result;
+    }
+
+    private static int totalCount(List<ItemStack> stacks) {
+        long total = 0;
+        for (ItemStack stack : stacks) total += stack.getCount();
+        if (total > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("생성된 루트 아이템 수가 너무 많습니다: " + total);
+        }
+        return (int) total;
+    }
+
+    private static ListTag serializeStacks(ServerPlayer player, List<ItemStack> stacks) {
+        ListTag serialized = new ListTag();
+        for (ItemStack stack : stacks) {
+            serialized.add(stack.save(player.registryAccess(), new CompoundTag()));
+        }
+        return serialized;
+    }
+
+    private static List<ItemStack> deserializeStacks(ServerPlayer player, ListTag serialized) {
+        List<ItemStack> stacks = new ArrayList<>();
+        for (int index = 0; index < serialized.size(); index++) {
+            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), serialized.getCompound(index));
+            if (!stack.isEmpty()) stacks.add(stack);
+        }
+        return stacks;
+    }
+
+    private static ListTag serializeItems(ServerPlayer player, List<ItemStack> slots) {
         ListTag items = new ListTag();
         for (int slot = 0; slot < Math.min(SLOT_COUNT, slots.size()); slot++) {
             ItemStack stack = slots.get(slot);
@@ -48,11 +243,7 @@ public final class BagStorage {
             entry.put("Stack", stack.save(player.registryAccess(), new CompoundTag()));
             items.add(entry);
         }
-
-        CompoundTag bag = bagTag(player);
-        bag.putInt("Version", 1);
-        bag.put(ITEMS_KEY, items);
-        saveBagTag(player, bag);
+        return items;
     }
 
     public static NonNullList<ItemStack> loadShortcuts(ServerPlayer player) {
@@ -172,4 +363,10 @@ public final class BagStorage {
             this.count = count;
         }
     }
+
+    public enum EventRewardStatus { GRANTED, REPLAYED, FULL, CONFLICT }
+
+    public record EventRewardResult(
+        EventRewardStatus status, int requested, int granted, int remaining
+    ) {}
 }

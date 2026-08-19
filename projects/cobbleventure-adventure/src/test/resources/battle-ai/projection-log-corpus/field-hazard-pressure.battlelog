@@ -1,0 +1,93 @@
+# Long cumulative Showdown protocol fixture: hazards, field, pressure, ranks and gimmick use.
+@@log
+|turn|1
+|switch|p1a: Hero|Hero, L50|200/200
+|switch|p2a: Rival|Rival, L50|200/200
+@@expect opening
+turn=1
+p1.hp=200
+p1.maxHp=200
+p2.hp=200
+p2.maxHp=200
+
+@@log
+|-weather|RainDance
+|-fieldstart|move: Electric Terrain
+|-fieldstart|move: Trick Room
+|-sidestart|p1: Hero|move: Reflect
+|-sidestart|p2: Rival|move: Spikes
+|move|p1a: Hero|Power-Up Punch|p2a: Rival
+|-damage|p2a: Rival|170/200
+|-boost|p1a: Hero|atk|1
+|turn|2
+@@expect field-and-rank
+turn=2
+p1.hp=200
+p1.maxHp=200
+p2.hp=170
+p2.maxHp=200
+p1.ranks=1,0,0,0,0
+p2.hazards=0,1,0,0
+field.weather=raindance:4:false
+field.terrain=electricterrain:4:false
+field.pseudo=trickroom:4:false
+p1.conditions=reflect:4:false
+
+@@log
+|move|p1a: Hero|Yawn|p2a: Rival
+|-start|p2a: Rival|move: Yawn
+|-status|p2a: Rival|tox
+|-damage|p2a: Rival|150/200 tox|[from] psn
+|-terastallize|p1a: Hero|Water
+|turn|3
+@@expect pressure-and-gimmick
+turn=3
+p1.hp=200
+p1.maxHp=200
+p2.hp=150
+p2.maxHp=200
+p1.ranks=1,0,0,0,0
+p2.hazards=0,1,0,0
+p2.pressure=1,1,0,2,0
+p1.gimmick=false
+field.weather=raindance:3:false
+field.terrain=electricterrain:3:false
+field.pseudo=trickroom:3:false
+p1.conditions=reflect:3:false
+
+@@log
+|-sidestart|p2: Rival|move: Spikes
+|switch|p2a: Tracer|Tracer, L50|180/200
+|-damage|p2a: Tracer|147/200|[from] Spikes
+|-ability|p2a: Tracer|Intimidate|Trace|[from] ability: Trace|[of] p1a: Hero
+|turn|4
+@@expect switch-reset-and-trace
+turn=4
+p1.hp=200
+p1.maxHp=200
+p2.hp=147
+p2.maxHp=200
+p1.ranks=1,0,0,0,0
+p2.hazards=0,2,0,0
+p2.adapters=traced:intimidate
+field.weather=raindance:2:false
+field.terrain=electricterrain:2:false
+field.pseudo=trickroom:2:false
+p1.conditions=reflect:2:false
+
+@@log
+|-weather|none
+|-fieldend|move: Electric Terrain
+|-fieldend|move: Trick Room
+|-sideend|p1: Hero|move: Reflect
+|-sideend|p2: Rival|move: Spikes
+|-damage|p1a: Hero|120/200
+|-clearboost|p1a: Hero
+|turn|5
+@@expect cleared-field
+turn=5
+p1.hp=120
+p1.maxHp=200
+p2.hp=147
+p2.maxHp=200
+p2.adapters=traced:intimidate

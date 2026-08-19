@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.events.starter.StarterChosenEvent;
 import com.cobblemon.mod.common.api.storage.player.GeneralPlayerData;
 import com.cobblemon.mod.common.config.starter.StarterCategory;
 import com.mojang.logging.LogUtils;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.buizz.cobbleventure.playermenu.client.StarterRouletteClient;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,6 +46,7 @@ public final class StarterRouletteNetwork {
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
     private static final Map<UUID, PendingOpen> PENDING_OPENS = new HashMap<>();
     private static final Map<UUID, PendingDialogue> PENDING_DIALOGUES = new HashMap<>();
+    private static final Map<UUID, PendingEventCallback> PENDING_EVENT_CALLBACKS = new HashMap<>();
 
     private StarterRouletteNetwork() {}
 
@@ -65,9 +67,18 @@ public final class StarterRouletteNetwork {
         int openAt = player.getServer().getTickCount() + OPEN_DELAY_TICKS;
         Continuation continuation = npc == null || dialogue == null || dialogue.isBlank()
             ? null
-            : new Continuation(npc.getUUID(), dialogue);
+            : new DialogueContinuation(npc.getUUID(), dialogue);
         PENDING_OPENS.put(player.getUUID(), new PendingOpen(openAt, continuation));
         LOGGER.info("Starter roulette queued: player={}, openAtTick={}", player.getGameProfile().getName(), openAt);
+        return 1;
+    }
+
+    static int queueEventOpen(ServerPlayer player, String callbackToken) {
+        if (callbackToken == null || callbackToken.isBlank()) return 0;
+        int openAt = player.getServer().getTickCount() + OPEN_DELAY_TICKS;
+        PENDING_OPENS.put(player.getUUID(), new PendingOpen(
+            openAt, new EventContinuation(callbackToken)
+        ));
         return 1;
     }
 
@@ -79,11 +90,14 @@ public final class StarterRouletteNetwork {
             player.getGameProfile().getName(), data.getStarterSelected(), data.getStarterLocked(), partySize
         );
         if (hasReceivedPokemon(player, data)) {
+            setStarterReceivedScore(player, true);
+            failContinuation(player, continuation, "already_received");
             LOGGER.info("Starter roulette rejected for {}: starter already received", player.getGameProfile().getName());
             player.sendSystemMessage(Component.translatable("commands.cobbleventure_player_menu.starter.already_selected"));
             return 0;
         }
         if (data.getStarterLocked()) {
+            failContinuation(player, continuation, "starter_locked");
             LOGGER.info("Starter roulette rejected for {}: starter selection is locked", player.getGameProfile().getName());
             player.sendSystemMessage(Component.translatable("commands.cobbleventure_player_menu.starter.locked"));
             return 0;
@@ -91,6 +105,7 @@ public final class StarterRouletteNetwork {
 
         List<StarterEntry> pool = starterPool(player);
         if (pool.isEmpty()) {
+            failContinuation(player, continuation, "empty_pool");
             LOGGER.warn("Starter roulette rejected for {}: configured starter pool is empty", player.getGameProfile().getName());
             player.sendSystemMessage(Component.translatable("commands.cobbleventure_player_menu.starter.empty"));
             return 0;
@@ -155,6 +170,28 @@ public final class StarterRouletteNetwork {
                 command
             );
         }
+
+        List<UUID> callbacksReady = PENDING_EVENT_CALLBACKS.entrySet().stream()
+            .filter(entry -> entry.getValue().openAtTick() <= currentTick)
+            .map(Map.Entry::getKey)
+            .toList();
+        for (UUID playerId : callbacksReady) {
+            PendingEventCallback pending = PENDING_EVENT_CALLBACKS.remove(playerId);
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(playerId);
+            if (player == null) continue;
+            String command = pending.species() == null
+                ? "cobbleventure_event starter_cancel " + player.getUUID() + " "
+                    + pending.token() + " " + pending.reason()
+                : "cobbleventure_event starter_result " + player.getUUID() + " "
+                    + pending.token() + " "
+                    + StringArgumentType.escapeIfRequired(pending.species());
+            event.getServer().getCommands().performPrefixedCommand(
+                event.getServer().createCommandSourceStack()
+                    .withPermission(4)
+                    .withSuppressedOutput(),
+                command
+            );
+        }
     }
 
     static int syncState(ServerPlayer player) {
@@ -171,6 +208,12 @@ public final class StarterRouletteNetwork {
 
     public static void claim(UUID token, int sequenceIndex) {
         net.neoforged.neoforge.network.PacketDistributor.sendToServer(new StarterRouletteClaimPayload(token, sequenceIndex));
+    }
+
+    public static void cancel(UUID token) {
+        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+            new StarterRouletteCancelPayload(token)
+        );
     }
 
     private static List<StarterEntry> starterPool(ServerPlayer player) {
@@ -207,6 +250,8 @@ public final class StarterRouletteNetwork {
             StarterRouletteNetwork::handleClaim);
         registrar.playToClient(StarterRouletteResultPayload.TYPE, StarterRouletteResultPayload.STREAM_CODEC,
             StarterRouletteNetwork::handleResult);
+        registrar.playToServer(StarterRouletteCancelPayload.TYPE, StarterRouletteCancelPayload.STREAM_CODEC,
+            StarterRouletteNetwork::handleCancel);
     }
 
     private static void handleOpen(StarterRouletteOpenPayload payload, IPayloadContext context) {
@@ -219,15 +264,23 @@ public final class StarterRouletteNetwork {
 
     private static void handleClaim(StarterRouletteClaimPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)) return;
-        Session session = SESSIONS.remove(player.getUUID());
-        if (session == null || !session.token().equals(payload.token()) || session.expiresAt() < System.currentTimeMillis()
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null || !session.token().equals(payload.token())) {
+            context.reply(new StarterRouletteResultPayload(false, "screen.cobbleventure_player_menu.starter.invalid_session", ""));
+            return;
+        }
+        SESSIONS.remove(player.getUUID());
+        if (session.expiresAt() < System.currentTimeMillis()
             || payload.sequenceIndex() < 0 || payload.sequenceIndex() >= session.sequence().size()) {
+            failContinuation(player, session.continuation(), "invalid_session");
             context.reply(new StarterRouletteResultPayload(false, "screen.cobbleventure_player_menu.starter.invalid_session", ""));
             return;
         }
 
         GeneralPlayerData data = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
         if (hasReceivedPokemon(player, data) || data.getStarterLocked()) {
+            if (hasReceivedPokemon(player, data)) setStarterReceivedScore(player, true);
+            failContinuation(player, session.continuation(), "starter_unavailable");
             context.reply(new StarterRouletteResultPayload(false, "screen.cobbleventure_player_menu.starter.unavailable", ""));
             return;
         }
@@ -239,12 +292,19 @@ public final class StarterRouletteNetwork {
         );
         if (awarded) {
             setStarterReceivedScore(player, true);
-            if (session.continuation() != null) {
+            if (session.continuation() instanceof DialogueContinuation dialogue) {
                 PENDING_DIALOGUES.put(player.getUUID(), new PendingDialogue(
                     player.getServer().getTickCount() + CONTINUATION_DELAY_TICKS,
-                    session.continuation()
+                    dialogue
+                ));
+            } else if (session.continuation() instanceof EventContinuation eventContinuation) {
+                PENDING_EVENT_CALLBACKS.put(player.getUUID(), new PendingEventCallback(
+                    player.getServer().getTickCount() + CONTINUATION_DELAY_TICKS,
+                    eventContinuation.token(), selected.species(), ""
                 ));
             }
+        } else {
+            failContinuation(player, session.continuation(), "starter_award_failed");
         }
         context.reply(new StarterRouletteResultPayload(
             awarded,
@@ -255,6 +315,24 @@ public final class StarterRouletteNetwork {
 
     private static void handleResult(StarterRouletteResultPayload payload, IPayloadContext context) {
         StarterRouletteClient.result(payload.success(), payload.translationKey(), payload.species());
+    }
+
+    private static void handleCancel(StarterRouletteCancelPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null || !session.token().equals(payload.token())) return;
+        SESSIONS.remove(player.getUUID());
+        failContinuation(player, session.continuation(), "client_cancelled");
+    }
+
+    private static void failContinuation(
+        ServerPlayer player, Continuation continuation, String reason
+    ) {
+        if (!(continuation instanceof EventContinuation eventContinuation)) return;
+        PENDING_EVENT_CALLBACKS.put(player.getUUID(), new PendingEventCallback(
+            player.getServer().getTickCount() + CONTINUATION_DELAY_TICKS,
+            eventContinuation.token(), null, reason
+        ));
     }
 
     private static boolean hasReceivedPokemon(ServerPlayer player, GeneralPlayerData data) {
@@ -279,9 +357,14 @@ public final class StarterRouletteNetwork {
     }
 
     private record StarterEntry(String category, int categoryIndex, String species) {}
-    private record Continuation(UUID npcId, String dialogue) {}
+    private sealed interface Continuation permits DialogueContinuation, EventContinuation {}
+    private record DialogueContinuation(UUID npcId, String dialogue) implements Continuation {}
+    private record EventContinuation(String token) implements Continuation {}
     private record PendingOpen(int openAtTick, Continuation continuation) {}
-    private record PendingDialogue(int openAtTick, Continuation continuation) {}
+    private record PendingDialogue(int openAtTick, DialogueContinuation continuation) {}
+    private record PendingEventCallback(
+        int openAtTick, String token, String species, String reason
+    ) {}
     private record Session(
         UUID token,
         List<StarterEntry> sequence,
@@ -315,6 +398,17 @@ public final class StarterRouletteNetwork {
         private void write(RegistryFriendlyByteBuf buffer) { buffer.writeUUID(token); buffer.writeVarInt(sequenceIndex); }
         private static StarterRouletteClaimPayload read(RegistryFriendlyByteBuf buffer) {
             return new StarterRouletteClaimPayload(buffer.readUUID(), buffer.readVarInt());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record StarterRouletteCancelPayload(UUID token) implements CustomPacketPayload {
+        public static final Type<StarterRouletteCancelPayload> TYPE = new Type<>(id("starter_roulette_cancel"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, StarterRouletteCancelPayload> STREAM_CODEC =
+            StreamCodec.ofMember(StarterRouletteCancelPayload::write, StarterRouletteCancelPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) { buffer.writeUUID(token); }
+        private static StarterRouletteCancelPayload read(RegistryFriendlyByteBuf buffer) {
+            return new StarterRouletteCancelPayload(buffer.readUUID());
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

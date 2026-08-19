@@ -52,6 +52,7 @@ public final class WorldMapScreen extends Screen {
     private static final int MAX_POKEMON_MODELS = 96;
 
     private final Screen parent;
+    private final String selectionToken;
     private final MenuOpeningEffect openingEffect = new MenuOpeningEffect();
     private MapContent content = MapContent.instance();
     private MapContent.Hex selected = new MapContent.Hex(0, 0);
@@ -62,6 +63,9 @@ public final class WorldMapScreen extends Screen {
     private AbstractButton zoomInButton;
     private AbstractButton resetViewButton;
     private long stateRevision = -1L;
+    private long selectionRevision = -1L;
+    private boolean selectionCompleted;
+    private boolean selectionCancelled;
     private int pokemonScroll;
     private int zoomLevel;
     private int panX;
@@ -72,8 +76,13 @@ public final class WorldMapScreen extends Screen {
     private final List<PokemonHover> pokemonHovers = new ArrayList<>();
 
     public WorldMapScreen(Screen parent) {
+        this(parent, null);
+    }
+
+    public WorldMapScreen(Screen parent, String selectionToken) {
         super(Component.translatable("screen.cobbleventure_player_menu.world_map.title"));
         this.parent = parent;
+        this.selectionToken = selectionToken;
     }
 
     @Override
@@ -104,7 +113,7 @@ public final class WorldMapScreen extends Screen {
         teleportButton = addRenderableWidget(new RibbonButton(
             Component.translatable("screen.cobbleventure_player_menu.world_map.teleport"),
             layout.infoLeft() + 9, layout.bottom() - 28, layout.infoWidth() - 18, 20,
-            this::requestTeleport));
+            this::requestDestination));
         Component closeLabel = Component.translatable(
             parent == null
                 ? "screen.cobbleventure_player_menu.world_map.close"
@@ -129,6 +138,19 @@ public final class WorldMapScreen extends Screen {
                 return;
             }
             updateTeleportButton();
+        }
+        if (selectionToken != null) {
+            MapNetwork.SelectionSnapshot selection = MapNetwork.selectionSnapshot();
+            if (selection.revision() != selectionRevision
+                && selectionToken.equals(selection.token())) {
+                selectionRevision = selection.revision();
+                selectionCompleted = selection.accepted();
+                if (selectionCompleted && minecraft != null) {
+                    minecraft.setScreen(parent);
+                    return;
+                }
+                updateTeleportButton();
+            }
         }
     }
 
@@ -261,7 +283,15 @@ public final class WorldMapScreen extends Screen {
 
     @Override
     public void onClose() {
-        if (minecraft != null) minecraft.setScreen(parent);
+        if (selectionToken != null && !selectionCompleted && !selectionCancelled) {
+            selectionCancelled = true;
+            MapNetwork.cancelSelection(selectionToken);
+        }
+        if (minecraft != null) {
+            minecraft.setScreen(
+                selectionToken == null || selectionCompleted ? parent : null
+            );
+        }
     }
 
     @Override
@@ -687,24 +717,39 @@ public final class WorldMapScreen extends Screen {
         return (hidden + columns - 1) / columns * columns;
     }
 
-    private void requestTeleport() {
+    private void requestDestination() {
         if (teleportButton == null || !teleportButton.active) return;
         teleportButton.active = false;
-        teleportButton.setMessage(Component.translatable("screen.cobbleventure_player_menu.world_map.teleporting"));
-        MapNetwork.requestTeleport(content.generation(), selected.q(), selected.r());
+        if (selectionToken != null) {
+            teleportButton.setMessage(Component.translatable(
+                "screen.cobbleventure_player_menu.world_map.selecting"
+            ));
+            MapNetwork.requestSelection(
+                selectionToken, content.generation(), selected.q(), selected.r()
+            );
+        } else {
+            teleportButton.setMessage(Component.translatable(
+                "screen.cobbleventure_player_menu.world_map.teleporting"
+            ));
+            MapNetwork.requestTeleport(content.generation(), selected.q(), selected.r());
+        }
     }
 
     private void updateTeleportButton() {
         if (teleportButton == null) return;
         MapNetwork.ClientSnapshot snapshot = MapNetwork.clientSnapshot();
         MapContent.Town town = content.townAt(selected.q(), selected.r());
-        boolean permitted = ProgressionNetwork.clientSnapshot().settlementTeleport()
-            && (snapshot.administrator() || snapshot.creative()
-                || town != null && snapshot.visited().contains(town.id()));
+        boolean privileged = snapshot.administrator() || snapshot.creative();
+        boolean permitted = selectionToken != null
+            ? town != null && (privileged || snapshot.visited().contains(town.id()))
+            : ProgressionNetwork.clientSnapshot().settlementTeleport()
+                && (privileged || town != null && snapshot.visited().contains(town.id()));
         teleportButton.visible = permitted;
         teleportButton.active = permitted;
         teleportButton.setMessage(Component.translatable(
-            snapshot.administrator()
+            selectionToken != null
+                ? "screen.cobbleventure_player_menu.world_map.select"
+                : snapshot.administrator()
                 ? "screen.cobbleventure_player_menu.world_map.debug_teleport"
                 : "screen.cobbleventure_player_menu.world_map.teleport"
         ));

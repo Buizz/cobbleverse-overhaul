@@ -39,7 +39,7 @@ build.bat generate ko_kr
 | `build.bat web` | 콘텐츠 관리 화면과 외부 로컬 도구용 Web API를 함께 실행한다. | `127.0.0.1:8765`에서 서버가 시작됨 |
 | `build.bat api` | 기존 자동화 호환을 위한 `web` 명령의 별칭이다. | `web`과 동일하게 실행됨 |
 | `build.bat test` | 콘텐츠 검증기와 로컬 Web API의 회귀 테스트를 실행한다. | 모든 Python 단위 테스트가 통과함 |
-| `build.bat generate` | 정규화 트레이너에서 RCT JSON과 실제 게임용 AI 런타임 프로필을 생성한다. | `generated/rct`와 `generated/cobbleventure/ai-profiles`에 같은 AI 설정이 생성됨 |
+| `build.bat generate` | 트레이너 런타임 데이터와 CVES Runtime IR·NPC 바인딩을 생성한다. | 기존 출력과 `generated/cves/data` 데이터팩 산출물이 생성됨 |
 | `build.bat pack-smoke` | 별도 팩 빌더로 최소 CurseForge 임포트 ZIP을 생성하고 검증한다. | `dist`에 ZIP과 SHA-256이 생성됨 |
 | `build.bat pack` | 일반 검증 후 별도 팩 빌더로 임시 개발 ZIP을 생성한다. | `dist`에 개발 ZIP과 SHA-256이 생성됨 |
 | `build.bat pack-release` | 정식 패키징 조건을 엄격 검증한다. | Lock이 `draft`인 현재는 실패하고 ZIP을 만들지 않음 |
@@ -57,6 +57,10 @@ build.bat generate ko_kr
 - 대화 노드·선택지 중복, 조건·동작 형식과 이동 대상 존재 여부
 - `start_battle`이 현재 콘텐츠의 `battle.trainer_id`를 가리키는지 여부
 - 진행 경로와 승리·패배 결과 동작의 참조
+- `content/events/<namespace>/**/*.cves`의 구문·타입·프로젝트 리소스 참조
+- `content/loot_tables/<namespace>/**/*.json`의 권위 ID, pool·roll·entry·function·condition
+  구조와 활성 모드 아이템 카탈로그 참조
+- `content/event-bindings`가 같은 프로젝트의 CVES script ID를 참조하는지 여부
 
 Cobblemon 1.8과 관련 모드 버전이 확정되기 전에는 다음 `draft` 경고가 나오는
 것이 정상이다. 경고만 있고 오류가 없으면 종료 코드 `0`으로 성공한다.
@@ -121,6 +125,47 @@ http://127.0.0.1:8765
 - NBT 뷰어를 관리 원본 29개와 포켓몬센터·상점·백화점 3개로 제한
 - NBT 건물 설정 화면에서 NPC 위치 라벨을 3D 마커로 확인하고 전역 NPC 콘텐츠 배정
 - 각 NBT는 시민 수용 가능 여부만 관리하고, 실제 시민 수와 분산 배치는 마을 설정이 관리
+- 사이드바의 `이벤트 스크립트 V5`에서 CVES 원본 목록, 중첩 페이지·조건·선택지 트리와 노드 속성 편집
+- CVES 트리의 대사·설명·조건·선택지·명령 추가/삭제/이동, 의미 검증과 결정적 formatter 저장
+- 새 CVES 권위 원본 트리 생성과 트리거별 필수 target·선택 인자 편집
+- 의미 검증기의 명령 계약에서 생성한 필수/선택 인자, 플래그, 속성, 결과 변수 전용 폼
+- 아이템·전투·플래그 등 프로젝트 리소스 자동 완성과 상대/절대/마을/도로/공간/차원 이동 목적지·앵커 선택
+- `not`/`all`/`any` 복합 조건 시각 조립, 하위 트리 접기와 같은 블록의 드래그 정렬
+- 앞선 명령 결과 타입의 대사 변수·필드 삽입과 `${name|josa:을/를}` 한국어 조사 미리보기
+- 페이지 우선순위·fallback·중첩 분기 실행 경로와 명시적 `AWAIT`/암시적 `WAIT` 완료 경계 표시
+- 다국어 항목 추가·삭제와 언어별 조사 삽입, 기본 도구 상자에서 고급 흐름 명령 숨김
+- 고급 CVES 텍스트를 lexer/parser로 공통 AST에 적용하고 파일·줄·열·문제 토큰 진단 확인
+
+V5 편집기는 `content/events/<namespace>/**/*.cves`만 권위 원본으로 읽고 쓴다.
+저장 직전 AST를 결정적으로 포맷하고 다시 parse·검증하며, 파일을 연 뒤 외부에서 원본이
+바뀌었으면 SHA-256 충돌로 저장을 거부한다. 기존 V4 NPC JSON과 EasyNPC 프리셋은 이
+화면의 저장 대상이 아니다. 일반·복합 조건은 중첩 시각 폼으로 만들며 표현 범위를
+벗어난 식은 standalone expression parser가 공통 AST로 변환한다. 명령·트리거 폼은 Python 의미 계약을 직접
+사용하므로 웹에 별도의 허용 명령이나 타입 목록을 중복 유지하지 않는다.
+
+V4 item preset을 단계적으로 이전할 때는 `content/source/<path>.json`과 대응하는
+`content/event-bindings/<namespace>/<path>.json`을 같은 상대 경로로 둔다. 프로젝트
+컴파일러가 상호작용 범위, claimed 플래그, 최초/반복 대사와 지급 아이템·수량을 V5와
+자동 비교한다. EasyNPC 생성기는 기존 V4 프리셋을 덮어쓰지 않고 `__v5.npc.snbt`
+표현 프리셋을 추가하며, 이 프리셋에는 `cves_binding/<namespace>/<path>` 태그와 외형만
+포함된다. 실제 배치 시 V4 프리셋과 V5 프리셋 중 하나만 선택해야 한다.
+
+V4 배틀 이벤트 이전도 같은 상대 경로 규칙을 사용한다. 프로젝트 컴파일러는 V4의
+`start_battle`을 발견하면 조건 대사와 선택지, battle 결과 승패 분기, 격파 플래그,
+전리품 및 battle preset의 `money_reward`가 V5 트리와 같은지 검사한다. V5의
+`has_item("namespace:item", count)` 조건은 타입 및 아이템 카탈로그 검사를 거치며,
+EasyNPC `__v5` 표현 프리셋에는 배틀·상금·전리품 명령이 들어가지 않는다.
+
+이동 문법과 프로젝트 위치 카탈로그의 통합 예제는
+`tests/fixtures/movement_showcase.cves`에 있다. 상대 좌표, 절대 `position`, settlement
+anchor와 route·dimension·space anchor, 독립 `anchor(event_anchor_id)`를 모두 사용하며
+formatter canonical 형식과 IR의 안정 operation ID를 회귀 검사한다.
+route·dimension·space 목적지는 명시적인 `anchor`가 필수지만 독립 `anchor(...)`에는
+하위 `anchor` 속성을 붙이지 않는다. `movement_result.failure_reason`은 성공 시 빈
+문자열이고 실패 시 사유 코드다.
+`tests/fixtures/map_selection.cves`는 기존 월드맵에서 방문한 settlement를 선택해 typed
+`location_ref`로 받은 뒤, 이를 별도 `teleport` await에 전달하는 선택·이동 분리 계약을
+고정한다. V1은 임의 hex·cave·forest 선택을 허용하지 않는다.
 
 건축 인스턴스 경로는 Git에 포함되지 않는
 `tools/content-manager/settings.local.json`에 저장된다. 웹 화면의 `빌드 및 검사`에서
@@ -208,6 +253,12 @@ python tools/content-manager/content_manager.py api --root .
 - `GET /api/project`: 현재 활성 코블벤처 프로젝트 조회
 - `PUT /api/project`: `project.json`이 있는 프로젝트 폴더 불러오기
 - `POST /api/project/pick`: Windows 프로젝트 폴더 선택창 열기
+- `GET /api/cves/scripts`: 현재 프로젝트의 CVES 권위 원본 목록과 script ID 조회
+- `GET /api/cves/script?path=<namespace/path.cves>`: CVES 원본, 공통 wire AST, 진단과 SHA-256 조회
+- `GET /api/cves/editor-contract`: 명령·트리거 타입 계약, 프로젝트 리소스와 위치 앵커 조회
+- `POST /api/cves/expression`: 단일 CVES 식을 위치 포함 진단과 canonical expression AST로 변환
+- `POST /api/cves/validate`: `source` 또는 `ast`를 parse·타입·리소스 교차 검증하고 결정적 CVES 반환
+- `PUT /api/cves/script`: wire AST와 `expected_digest`를 검증해 원자적으로 저장하며 외부 변경은 `409`로 거부
 - `GET /api/trainers`, `GET /api/settlements`: 관리 문서 목록
 - `GET /api/trainer-classes`: 트레이너 클래스와 기본 외형 카탈로그
 - `GET /api/editor-catalog`: Battle Web Lab과 공유하는 포켓몬·폼·기술·특성·도구 및 트레이너 가방 아이템 카탈로그

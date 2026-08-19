@@ -369,7 +369,7 @@ public final class StructureBuilderMod {
                         .then(Commands.argument("id", StringArgumentType.word())
                             .then(Commands.argument("width", IntegerArgumentType.integer(5, 80))
                                 .then(Commands.argument("depth", IntegerArgumentType.integer(5, 80))
-                                    .then(Commands.argument("floor_height", IntegerArgumentType.integer(3, 12))
+                                    .then(Commands.argument("floor_height", IntegerArgumentType.integer(3, 80))
                                         .then(Commands.argument("floors", IntegerArgumentType.integer(1, 8))
                                             .executes(context -> createInterior(
                                                 context.getSource(),
@@ -915,9 +915,9 @@ public final class StructureBuilderMod {
         Catalog catalog = loadCatalog(player.getServer());
         BuilderData builderData = data(player.getServer());
         if (width < 5 || width > 80 || depth < 5 || depth > 80
-            || floorHeight < 3 || floorHeight > 12 || floors < 1 || floors > 8
+            || floorHeight < 3 || floorHeight > 80 || floors < 1 || floors > 8
             || floorHeight * floors > 80) {
-            throw new BuilderException("너비·깊이 5~80, 층 높이 3~12, 층수 1~8 범위가 필요합니다.");
+            throw new BuilderException("너비·깊이 5~80, 층 높이 3~80, 층수 1~8, 전체 높이 80 이하가 필요합니다.");
         }
         EditContext context = findContext(catalog, builderData, player.blockPosition());
         if (!context.interior()) {

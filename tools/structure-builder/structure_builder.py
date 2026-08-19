@@ -195,11 +195,13 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             raise StructureBuilderError(f"내부 공간 ID가 필요합니다: {path}")
         for field, minimum, maximum in (
             ("width", 5, 80), ("depth", 5, 80),
-            ("floor_height", 3, 12), ("floors", 1, 8),
+            ("floor_height", 3, 80), ("floors", 1, 8),
         ):
             value = interior.get(field)
             if not isinstance(value, int) or not minimum <= value <= maximum:
                 raise StructureBuilderError(f"{field} 값이 올바르지 않습니다: {path}")
+        if interior["floor_height"] * interior["floors"] > 80:
+            raise StructureBuilderError(f"내부 공간 전체 높이는 80 이하여야 합니다: {path}")
     interior_structure = document.get("interior_structure")
     if interior_structure is not None and (
         not isinstance(interior_structure, str)

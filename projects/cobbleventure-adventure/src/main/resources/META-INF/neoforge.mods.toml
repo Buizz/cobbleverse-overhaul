@@ -55,3 +55,10 @@ type="required"
 versionRange="[0.14.1-beta,)"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="cobbleventure_player_menu"
+type="required"
+versionRange="${player_menu_version_range}"
+ordering="AFTER"
+side="BOTH"

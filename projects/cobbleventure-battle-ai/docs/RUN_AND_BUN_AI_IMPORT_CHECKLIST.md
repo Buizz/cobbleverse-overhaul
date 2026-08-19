@@ -15,26 +15,38 @@ G:\2026 MineCraft\Cobblemon-RunAndBunAI
 - 원본 AI의 테스트 시나리오는 우리 EvE/단위 테스트로 재작성한다.
 - 상대 미공개 정보나 이번 턴 확정 행동은 치터 난이도 전용 입력으로만 다룬다.
 
+## 후보 사실 공통화 상태
+
+- 랭크업 선택 가능성, 스윕 위험 티어, 대응 자원 희소성은 `SharedSetupThreatEvaluator`가 JVM과 웹에서 동일하게 계산한다.
+- 우선도·속도 우위·예상 피격량에서 행동 선후와 생존/행동 가능성을 만드는 계산은 `SharedActionReachabilityEvaluator`를 사용한다.
+- 위협별 카운터 분류와 유일 대응 자원 지정은 `SharedPreservationEvaluator`, 역할 완료와 소모 가능 판정은 `SharedRoleProgressEvaluator`가 담당한다.
+- 회복 중 노출 피해, 맹독·소금절이·하품의 잔류 압박, 설치물 최대 층수는 `SharedSustainmentFactDeriver`가 계산한다.
+- 배턴터치의 전달 랭크·신규 KO 대상·압박 증가량·전달 가치는 `SharedBatonPassFactDeriver`가 동일하게 집계한다.
+- 웹과 Minecraft는 각 엔진이 관측한 기술 목록·피해량·HP만 전달하고, 공통 규칙 점수식은 동일한 `RuleFactBag`을 소비한다.
+- Minecraft 어댑터는 Cobblemon이 보존한 공개 Showdown 로그에서 설치물 층수와 하품·소금절이·맹독 단계를 재구성하고, 2턴 탐색 상태에서도 같은 사실을 전이한다.
+- JVM 2턴 탐색은 공통 코어가 정의한 랭크업 기술의 공격·특공·방어·특방·스피드 변화를 상태에 적용하고, 배턴터치 뒤 에이스에게 랭크를 승계해 다음 턴 피해와 속도를 다시 계산한다.
+- 실제 Showdown 교체 요청에서도 배턴터치 실행 로그가 확인된 경우에만 탐색이 선택한 에이스 대상을 이어서 사용한다.
+
 ## 1차 이식 상태
 
 | 원본 규칙 | 우리 구현 위치 | 상태 | 메모 |
 |---|---|---|---|
-| `RunBunDecisionEngine` | `web-lab/lib/common-battle-ai.mjs` | 진행 중 | 기본 점수 + 규칙 보정 + 이유 로그 구조로 재구성 |
-| `ImmediateKoResponseRule` | `moveRuleAdjustments()` | 1차 구현 | 상대 랭크업 위협에 선공/우선도 확정 KO 보너스 |
-| `EntryHazardPlacementRule` | `moveRuleAdjustments()` | 1차 구현 | 스텔스록/압정/독압정/끈적끈적네트 설치 가치 |
-| `SetupOpportunityRule` | `moveRuleAdjustments()` | 1차 구현 | 낮은 피격량이면 랭크업 보너스, KO 위험이면 페널티 |
-| `SetupDisruptionRule` | `moveRuleAdjustments()` | 1차 구현 | 흑안개/클리어스모그/강제교체/도발 보정 |
-| `FreeSetupTurnRule` | `evaluateSetupThreat()`, 후보 점수 규칙 | 1차 구현 | 회복/설치/무의미한 교체가 만드는 상대 스윕 위험과 남은 대응 자원 수 반영 |
-| `SwitchMatchupRule` | `switchRuleAdjustments()` | 1차 구현 | 피격 감소, 공격 개선, 체력, 상태, 랭크 손실 보정 |
-| `ImmediateKoDominanceRule` | `moveRuleAdjustments()` | 1차 구현 | 안전한 확정 KO가 있으면 비공격 행동 억제 |
-| `ImmediateKoAttackPreferenceRule` | `moveRuleAdjustments()` | 1차 구현 | 안전한 확정 KO가 있으면 비마무리 공격 억제 |
-| `KoBeforeActionPenaltyRule` | `moveRuleAdjustments()` | 1차 구현 | 상대에게 후공 확정 KO를 당해 실행할 수 없는 공격기 억제 |
-| `GuaranteedKoSwitchPenaltyRule` | `switchRuleAdjustments()` | 1차 구현 | 안전한 확정 KO를 포기하는 교체 억제 |
-| `RecoveryMoveValueRule` | `moveRuleAdjustments()` | 1차 구현 | 저체력/예상 피격 후 저체력 회복 가치 보정 |
-| `PartingShotPivotRule` | `moveRuleAdjustments()`, `switchRuleAdjustments()` | 1차 구현 | 안전 피벗 기술 보너스와 즉시 교체 페널티 |
-| `RepeatedSwitchPenaltyRule` | `switchRuleAdjustments()` | 1차 구현 | 직전 턴 교체 후 재교체 억제 |
-| `LethalSwitchInRule` | `switchRuleAdjustments()` | 1차 구현 | 예상 공격에 진입 즉시 쓰러지는 교체 후보 억제 |
-| `DynamaxSwitchPenaltyRule` | `switchRuleAdjustments()` | 1차 구현 | 남은 다이맥스 턴 포기 비용 반영 |
+| `RunBunDecisionEngine` | `shared-ai-core`의 fact evaluator | 공통 코어 이전 | 웹과 Minecraft가 같은 KMP 점수 규칙과 이유 코드를 사용 |
+| `ImmediateKoResponseRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 상대 랭크업 위협에 선공/우선도 확정 KO 보너스 |
+| `EntryHazardPlacementRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 스텔스록/압정/독압정/끈적끈적네트 설치 가치 |
+| `SetupOpportunityRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 낮은 피격량이면 랭크업 보너스, KO 위험이면 페널티 |
+| `SetupDisruptionRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 흑안개/클리어스모그/강제교체/도발 보정 |
+| `FreeSetupTurnRule` | `SharedSetupThreatEvaluator`, 후보 점수 규칙 | 공통 코어 이전 | 회복/설치/무의미한 교체가 만드는 상대 스윕 위험과 남은 대응 자원 수 반영 |
+| `SwitchMatchupRule` | `SharedSwitchFactEvaluator` | 공통 코어 이전 | 피격 감소, 공격 개선, 체력, 상태, 랭크 손실 보정 |
+| `ImmediateKoDominanceRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 안전한 확정 KO가 있으면 비공격 행동 억제 |
+| `ImmediateKoAttackPreferenceRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 안전한 확정 KO가 있으면 비마무리 공격 억제 |
+| `KoBeforeActionPenaltyRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 상대에게 후공 확정 KO를 당해 실행할 수 없는 공격기 억제 |
+| `GuaranteedKoSwitchPenaltyRule` | `SharedSwitchFactEvaluator` | 공통 코어 이전 | 안전한 확정 KO를 포기하는 교체 억제 |
+| `RecoveryMoveValueRule` | `SharedMoveFactEvaluator` | 공통 코어 이전 | 저체력/예상 피격 후 저체력 회복 가치 보정 |
+| `PartingShotPivotRule` | `SharedMoveFactEvaluator`, `SharedSwitchFactEvaluator` | 공통 코어 이전 | 안전 피벗 기술 보너스와 즉시 교체 페널티 |
+| `RepeatedSwitchPenaltyRule` | `SharedSwitchFactEvaluator` | 공통 코어 이전 | 직전 턴 교체 후 재교체 억제 |
+| `LethalSwitchInRule` | `SharedSwitchFactEvaluator` | 공통 코어 이전 | 예상 공격에 진입 즉시 쓰러지는 교체 후보 억제 |
+| `DynamaxSwitchPenaltyRule` | `SharedSwitchFactEvaluator` | 공통 코어 이전 | 남은 다이맥스 턴 포기 비용 반영 |
 | 다이맥스 활성화 점수화 | `scoreAiDynamaxCandidate()` | 1차 구현 | 생존/화력 가치와 안전 랭크업 기회비용을 비교 |
 | `OneTurnSearchEngine` | `evaluateBattleStateValue()`, `evaluateOneTurnBattleState()` | 1차 구현 | 기술·교체와 메가진화·다이맥스·테라스탈 후 기대 HP, 생존, 에이스, 랭크, 상태, 설치물, 기믹, 유일 카운터 가치를 후보 점수와 이유에 연결 |
 
@@ -49,7 +61,7 @@ G:\2026 MineCraft\Cobblemon-RunAndBunAI
 
 ## 필요한 관측 필드
 
-- [ ] 후보별 `actsBeforeOpponent`
+- [x] 후보별 `actsBeforeOpponent`
 - [x] 후보별 `actionBeforeThreatProbability`, `opponentKnockoutBeforeActionProbability`
 - [ ] 후보별 `incomingDamageRatio`, `outgoingDamageRatio`
 - [x] 상대 전개 위협도 `setupThreatTier`, `sweepRiskAfterSetup`, `availableAnswersAfterSetup`

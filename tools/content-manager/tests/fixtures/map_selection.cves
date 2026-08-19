@@ -1,0 +1,16 @@
+event interact(range: 4) {
+  page default {
+    say npc "지도에서 방문한 마을을 목적지로 골라 줘."
+    id "travel/select" await map_selection -> destination
+    id "travel/go" await teleport player destination {
+      safe_landing: required
+      preload_chunks: true
+      fade: black
+    } -> movement
+    if !movement.arrived {
+      narrate "선택한 마을로 이동하지 못했습니다: ${movement.failure_reason}"
+      stop
+    }
+    say npc "${destination.name|josa:을/를} 목적지로 선택했어."
+  }
+}

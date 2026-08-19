@@ -1,0 +1,94 @@
+# Timed effects are checked over six turns, including status and rank cleanup.
+@@log
+|-weather|SunnyDay
+|-fieldstart|move: Grassy Terrain
+|-sidestart|p1: Hero|move: Light Screen
+|-sidestart|p2: Rival|move: Tailwind
+|turn|1
+|switch|p1a: Hero|Hero, L50|200/200
+|switch|p2a: Rival|Rival, L50|200/200
+|-status|p1a: Hero|slp
+|-status|p2a: Rival|tox
+|-boost|p1a: Hero|spa|2
+@@expect turn-one
+turn=1
+p1.hp=200
+p1.maxHp=200
+p2.hp=200
+p2.maxHp=200
+p1.pressure=0,0,0,0,2
+p2.pressure=0,0,0,1,0
+p1.ranks=0,2,0,0,0
+field.weather=sunnyday:5:false
+field.terrain=grassyterrain:5:false
+p1.conditions=lightscreen:5:false
+p2.conditions=tailwind:4:false
+
+@@log
+|-damage|p2a: Rival|187/200 tox|[from] psn
+|turn|2
+@@expect turn-two
+turn=2
+p1.hp=200
+p1.maxHp=200
+p2.hp=187
+p2.maxHp=200
+p1.pressure=0,0,0,0,1
+p2.pressure=0,0,0,2,0
+p1.ranks=0,2,0,0,0
+field.weather=sunnyday:4:false
+field.terrain=grassyterrain:4:false
+p1.conditions=lightscreen:4:false
+p2.conditions=tailwind:3:false
+
+@@log
+|-curestatus|p1a: Hero|slp
+|-clearboost|p1a: Hero
+|-damage|p2a: Rival|162/200 tox|[from] psn
+|turn|3
+@@expect turn-three-cure
+turn=3
+p1.hp=200
+p1.maxHp=200
+p2.hp=162
+p2.maxHp=200
+p2.pressure=0,0,0,3,0
+field.weather=sunnyday:3:false
+field.terrain=grassyterrain:3:false
+p1.conditions=lightscreen:3:false
+p2.conditions=tailwind:2:false
+
+@@log
+|-curestatus|p2a: Rival|tox
+|turn|4
+@@expect turn-four-cure
+turn=4
+p1.hp=200
+p1.maxHp=200
+p2.hp=162
+p2.maxHp=200
+field.weather=sunnyday:2:false
+field.terrain=grassyterrain:2:false
+p1.conditions=lightscreen:2:false
+p2.conditions=tailwind:1:false
+
+@@log
+|turn|5
+@@expect turn-five-tailwind-expired
+turn=5
+p1.hp=200
+p1.maxHp=200
+p2.hp=162
+p2.maxHp=200
+field.weather=sunnyday:1:false
+field.terrain=grassyterrain:1:false
+p1.conditions=lightscreen:1:false
+
+@@log
+|turn|6
+@@expect turn-six-all-expired
+turn=6
+p1.hp=200
+p1.maxHp=200
+p2.hp=162
+p2.maxHp=200

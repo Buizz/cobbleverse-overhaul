@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/event-boundaries.schema.json",
+  "title": "CVES indexed event boundaries",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "regions", "anchors"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "regions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/boundary" }
+    },
+    "anchors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/boundary" }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "dimension", "box"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource_id" },
+        "dimension": { "$ref": "#/$defs/resource_id" },
+        "box": { "$ref": "#/$defs/box" }
+      }
+    },
+    "box": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min_x", "min_y", "min_z", "max_x", "max_y", "max_z"],
+      "properties": {
+        "min_x": { "type": "integer" },
+        "min_y": { "type": "integer" },
+        "min_z": { "type": "integer" },
+        "max_x": { "type": "integer" },
+        "max_y": { "type": "integer" },
+        "max_z": { "type": "integer" }
+      }
+    }
+  }
+}

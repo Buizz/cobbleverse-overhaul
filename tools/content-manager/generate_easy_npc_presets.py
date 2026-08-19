@@ -1125,6 +1125,76 @@ def encounter_preset_snbt(
 '''
 
 
+def v5_encounter_preset_snbt(document: dict, outfit: dict, binding_tag: str) -> str:
+    """Render an inert EasyNPC representation whose interaction is owned by CVES."""
+    adapter = outfit["adapters"]["easy_npc"]
+    display = localized(document.get("npc", {}).get("display_name")) or localized(document.get("name"))
+    preset_uuid = str(uuid.uuid5(
+        uuid.NAMESPACE_URL, document["id"] + "/easy_npc_encounter/v5/" + binding_tag
+    ))
+    arm_model = document.get("_easy_npc_arm_model") or document.get("npc", {}).get(
+        "appearance", {}
+    ).get("arm_model") or outfit["arm_model"]
+    variant = "ALEX" if arm_model == "slim" else "STEVE"
+    scale = float(adapter["root_scale"])
+    custom_name = json.dumps({"text": display}, ensure_ascii=False, separators=(",", ":"))
+    return f'''{{
+  PresetMetadata:{{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:{quote(display + " CVES V5 NPC 표현 프리셋")},
+    entityTypeId:{quote(adapter["entity_type"])},
+    modified:0L,
+    name:{quote(display + " [V5]")},
+    variantType:"{variant}",
+    version:"1.0.0"
+  }},
+  data:{{
+    ActionData:{{ActionEventSet:{{}},ActionPermissionLevel:2}},
+    ArmorDropChances:{drop_chances(outfit["equipment"])},
+    ArmorItems:{armor_items(outfit["equipment"])},
+    CustomName:{quote(custom_name)},
+    DialogData:{{DialogDataSet:[],Type:"CUSTOM"}},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{{Root:{{Scale:[{scale:.3f}f,{scale:.3f}f,{scale:.3f}f]}}}},
+    ObjectiveData:{{HasObjectives:1b,ObjectiveDataSet:[{{Type:"LOOK_AT_PLAYER"}},{{Type:"LOOK_AT_RESET"}}]}},
+    PersistenceRequired:1b,
+    PresetUUID:{uuid_int_array(preset_uuid)},
+    SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
+    Tags:["cobbleventure_regional_npc",{quote(binding_tag)}],
+    VariantType:"{variant}",
+    id:{quote(adapter["entity_type"])}
+  }}
+}}
+'''
+
+
+def cves_binding_tag(content_root: Path, source: Path, document: dict) -> str | None:
+    """Resolve a representation tag by convention without adding it to V4 source."""
+    return cves_binding_tag_for_relative(
+        content_root, source.relative_to(content_root).with_suffix(".json"), document
+    )
+
+
+def cves_binding_tag_for_relative(
+    content_root: Path, relative: Path, document: dict
+) -> str | None:
+    """Resolve a tag for generated representations that have a virtual V4 source path."""
+    npc_id = document.get("id")
+    if not isinstance(npc_id, str) or ":" not in npc_id:
+        return None
+    namespace = npc_id.split(":", 1)[0]
+    binding = content_root.parent / "event-bindings" / namespace / relative
+    if not binding.is_file():
+        return None
+    value = json.loads(binding.read_text(encoding="utf-8"))
+    if value.get("schema_version") != 1 or not isinstance(value.get("script_id"), str):
+        raise ValueError(f"올바르지 않은 CVES NPC 바인딩입니다: {binding}")
+    return f"cves_binding/{namespace}/{relative.with_suffix('').as_posix()}"
+
+
 def resource_path(resource_id: str) -> Path:
     namespace, path = resource_id.split(":", 1)
     return RESOURCE_ROOT / "data" / "easy_npc" / "preset" / namespace / f"{path}.npc.snbt"
@@ -1206,6 +1276,9 @@ def paired_encounter_documents(documents: list[dict], battle_presets: dict[str, 
         partner["name"] = copy.deepcopy(partner_source.get("name", owner.get("name")))
         partner["tags"] = copy.deepcopy(partner_source.get("tags", owner.get("tags", [])))
         partner["npc"] = copy.deepcopy(partner_source["npc"])
+        partner.pop("_cves_binding_tag", None)
+        if isinstance(partner_source.get("_cves_binding_tag"), str):
+            partner["_cves_binding_tag"] = partner_source["_cves_binding_tag"]
         partner["_battle_presets"] = battle_presets
         expanded.append(partner)
     return expanded
@@ -1262,10 +1335,13 @@ def generate(
         target_skin.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_skin, target_skin)
         written.append(target_skin)
-    source_documents = [
-        materialize_event_document(json.loads(source.read_text(encoding="utf-8")))
-        for source in sorted(content_root.rglob("*.json"))
-    ]
+    source_documents = []
+    for source in sorted(content_root.rglob("*.json")):
+        document = materialize_event_document(json.loads(source.read_text(encoding="utf-8")))
+        binding_tag = cves_binding_tag(content_root, source, document)
+        if binding_tag is not None:
+            document["_cves_binding_tag"] = binding_tag
+        source_documents.append(document)
     league_catalog_path = content_root.parent / "catalogs" / "league-progression.json"
     if league_catalog_path.is_file():
         league_entries = json.loads(league_catalog_path.read_text(encoding="utf-8")).get("entries", [])
@@ -1276,6 +1352,13 @@ def generate(
             if isinstance(entry, dict) and entry.get("role") == "gym_leader"
             and isinstance(entry.get("encounter"), dict)
         ]
+        for document in generated_leaders:
+            slug = document["id"].rsplit("/", 1)[-1]
+            binding_tag = cves_binding_tag_for_relative(
+                content_root, Path("gym_leaders") / f"{slug}.json", document
+            )
+            if binding_tag is not None:
+                document["_cves_binding_tag"] = binding_tag
         generated_ids = {document["id"] for document in generated_leaders}
         source_documents = [
             document for document in source_documents if document.get("id") not in generated_ids
@@ -1319,6 +1402,14 @@ def generate(
             encoding="utf-8", newline="\n",
         )
         written.append(preset)
+        binding_tag = document.get("_cves_binding_tag")
+        if isinstance(binding_tag, str):
+            v5_preset = preset.with_name(f"{slug}__v5.npc.snbt")
+            v5_preset.write_text(
+                v5_encounter_preset_snbt(document, outfit, binding_tag),
+                encoding="utf-8", newline="\n",
+            )
+            written.append(v5_preset)
         for trigger_override in ("interact", "proximity"):
             override_preset = preset.with_name(
                 f"{slug}__{trigger_override}.npc.snbt"

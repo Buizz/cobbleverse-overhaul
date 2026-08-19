@@ -13,7 +13,7 @@ private const val MINIMUM_GAIN = 0.02
 private const val SECOND_TURN_DISCOUNT = 0.72
 private const val CONTINUATION_BEAM_GAP = 0.04
 private const val TRANSITION_CACHE_LIMIT = 512
-private val codec = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
+internal val codec = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
 private val transitionCache = linkedMapOf<String, String>()
 
 @Serializable
@@ -224,16 +224,18 @@ object SharedAiCore {
         maxNodes: Int,
         runtime: SearchRuntime,
         exactOpponentAction: SearchAction? = null,
+        exactOwnAction: SearchAction? = null,
+        transitionCacheNamespace: String? = null,
     ): SearchDecision {
-        val ownRanked = ranked(runtime.candidates(state, sideIndex))
+        val ownRanked = exactOwnAction?.let(::listOf) ?: ranked(runtime.candidates(state, sideIndex))
         if (ownRanked.isEmpty()) return SearchDecision()
         val heuristic = heuristic(ownRanked)!!
-        val own = bounded(ownRanked, heuristic, 3)
+        val own = if (exactOwnAction != null) ownRanked else bounded(ownRanked, heuristic, 3)
         val opponentDistribution = exactOpponentAction?.let { listOf(WeightedAction(it, 1.0)) }
             ?: ranked(runtime.candidates(state, other(sideIndex))).let {
                 distribution(bounded(it, heuristic(it), 2))
             }
-        val context = SearchContext(maxNodes.coerceAtLeast(0))
+        val context = SearchContext(maxNodes.coerceAtLeast(0), transitionCacheNamespace?.takeIf { it.isNotBlank() })
         val evaluations = own.mapNotNull { action ->
             val outcomes = opponentDistribution.mapNotNull { opponent ->
                 val next = transition(context, runtime, state, sideIndex, action, opponent.action) ?: return@mapNotNull null
@@ -245,7 +247,9 @@ object SharedAiCore {
         evaluations.sortWith { left, right -> evaluationOrder.compare(left.value, right.value) }
         val gap = if (evaluations.size > 1) evaluations[0].value.searchValue - evaluations[1].value.searchValue
             else Double.POSITIVE_INFINITY
-        val beam = if (gap <= CONTINUATION_BEAM_GAP) evaluations.take(2) else emptyList()
+        val beam = if (exactOwnAction != null) evaluations.take(1)
+            else if (gap <= CONTINUATION_BEAM_GAP) evaluations.take(2)
+            else emptyList()
         beam.forEach { candidate ->
             val outcome = candidate.outcomes.sortedWith(
                 compareByDescending<MutableOutcome> { it.probability }.thenBy { it.winProbability },
@@ -316,12 +320,16 @@ fun decideTwoTurnJson(
     winProbability: (String, Int) -> Double,
     terminal: (String) -> Boolean,
     exactOpponentActionJson: String? = null,
+    exactOwnActionJson: String? = null,
+    transitionCacheNamespace: String? = null,
 ): String = codec.encodeToString(SharedAiCore.decideTwoTurn(
     state,
     sideIndex,
     maxNodes,
     callbackRuntime(candidates, transition, winProbability, terminal),
     exactOpponentActionJson?.let { codec.decodeFromString<SearchAction>(it) },
+    exactOwnActionJson?.let { codec.decodeFromString<SearchAction>(it) },
+    transitionCacheNamespace,
 ))
 
 private fun callbackRuntime(
@@ -341,6 +349,7 @@ private fun callbackRuntime(
 private data class WeightedAction(val action: SearchAction, val probability: Double)
 private data class SearchContext(
     val maxNodes: Int,
+    val transitionCacheNamespace: String? = null,
     val cache: MutableMap<String, String> = mutableMapOf(),
     var nodes: Int = 0,
     var cacheHits: Int = 0,
@@ -396,19 +405,24 @@ private fun transition(
     val one = if (sideIndex == 0) opponent.id else own.id
     val key = "$state|$zero|$one"
     context.cache[key]?.let { context.cacheHits += 1; return it }
-    transitionCache[key]?.let {
-        context.cacheHits += 1
-        context.cache[key] = it
-        return it
+    val sharedKey = context.transitionCacheNamespace?.let { "$it|$key" }
+    sharedKey?.let { cacheKey ->
+        transitionCache[cacheKey]?.let {
+            context.cacheHits += 1
+            context.cache[key] = it
+            return it
+        }
     }
     if (context.nodes >= context.maxNodes) { context.budgetExhausted = true; return null }
     val next = runtime.transition(state, zero, one) ?: return null
     context.nodes += 1
     context.cache[key] = next
-    transitionCache.remove(key)
-    transitionCache[key] = next
-    if (transitionCache.size > TRANSITION_CACHE_LIMIT) {
-        transitionCache.remove(transitionCache.keys.first())
+    sharedKey?.let { cacheKey ->
+        transitionCache.remove(cacheKey)
+        transitionCache[cacheKey] = next
+        if (transitionCache.size > TRANSITION_CACHE_LIMIT) {
+            transitionCache.remove(transitionCache.keys.first())
+        }
     }
     return next
 }

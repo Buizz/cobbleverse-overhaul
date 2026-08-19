@@ -126,6 +126,66 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertIn(followup_action, dialogues)
         self.assertLess(dialogues.index(reward_action), dialogues.index(followup_action))
 
+    def test_v5_item_giver_preset_is_an_inert_representation_adapter(self) -> None:
+        source = PROJECT_ROOT / "content/source/samples/sample_potion_giver.json"
+        document = generator.materialize_event_document(json.loads(source.read_text(encoding="utf-8")))
+        binding_tag = generator.cves_binding_tag(
+            PROJECT_ROOT / "content/source", source, document
+        )
+        catalog = json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
+        )
+        outfits = generator.encounter_outfits_by_class(
+            catalog, PROJECT_ROOT / "content/catalogs/trainer-classes.json"
+        )
+
+        preset = generator.v5_encounter_preset_snbt(
+            document, outfits[document["npc"]["trainer_class"]], binding_tag
+        )
+
+        self.assertEqual(
+            "cves_binding/cobbleventure/samples/sample_potion_giver", binding_tag
+        )
+        self.assertIn(binding_tag, preset)
+        self.assertIn("ActionEventSet:{}", preset)
+        self.assertIn("DialogDataSet:[]", preset)
+        self.assertNotIn("cobbleventure_npc_preset_v4", preset)
+        self.assertNotIn("OPEN_DEFAULT_DIALOG", preset)
+        self.assertNotIn("cobbleventurebag acquire", preset)
+        checked_in = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+            "preset/encounter/sample_potion_giver__v5.npc.snbt"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(preset, checked_in)
+
+    def test_v5_battle_npc_preset_does_not_duplicate_battle_or_rewards(self) -> None:
+        source = PROJECT_ROOT / "content/source/examples/ai_test.json"
+        document = generator.materialize_event_document(json.loads(source.read_text(encoding="utf-8")))
+        binding_tag = generator.cves_binding_tag(
+            PROJECT_ROOT / "content/source", source, document
+        )
+        catalog = json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
+        )
+        outfits = generator.encounter_outfits_by_class(
+            catalog, PROJECT_ROOT / "content/catalogs/trainer-classes.json"
+        )
+
+        preset = generator.v5_encounter_preset_snbt(
+            document, outfits[document["npc"]["trainer_class"]], binding_tag
+        )
+
+        self.assertIn("ActionEventSet:{}", preset)
+        self.assertIn("DialogDataSet:[]", preset)
+        self.assertNotIn("tbcs battle", preset)
+        self.assertNotIn("cobbleventure_reward", preset)
+        self.assertNotIn("cobbleventurebag loot", preset)
+        checked_in = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+            "preset/encounter/ai_test__v5.npc.snbt"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(preset, checked_in)
+
     def test_shared_player_conditions_are_mirrored_for_easy_npc(self) -> None:
         condition = {"type": "party_count", "operator": ">=", "value": 1}
         objective = generator.player_condition_objective(condition)
@@ -292,6 +352,40 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             preset,
         )
 
+    def test_brock_v5_preset_uses_virtual_league_binding_without_v4_actions(self) -> None:
+        league = json.loads(
+            (PROJECT_ROOT / "content/catalogs/league-progression.json").read_text(encoding="utf-8")
+        )
+        entry = next(
+            value for value in league["entries"]
+            if value.get("encounter", {}).get("battle_id")
+                == "cobbleventure:battle/gym_leader/brock"
+        )
+        cap = generator.league_post_victory_level_caps(league["entries"])[entry["id"]]
+        document = generator.league_encounter_document(entry, cap)
+        binding = generator.cves_binding_tag_for_relative(
+            PROJECT_ROOT / "content/source", Path("gym_leaders/brock.json"), document
+        )
+        catalog = json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
+        )
+        outfits = generator.encounter_outfits_by_class(
+            catalog, PROJECT_ROOT / "content/catalogs/trainer-classes.json"
+        )
+        preset = generator.v5_encounter_preset_snbt(
+            document, outfits[document["npc"]["trainer_class"]], binding
+        )
+
+        self.assertEqual("cves_binding/cobbleventure/gym_leaders/brock", binding)
+        self.assertIn("ActionEventSet:{}", preset)
+        self.assertIn("DialogDataSet:[]", preset)
+        self.assertNotIn("cobbleventure_battle_intro", preset)
+        checked_in = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+            "preset/encounter/brock__v5.npc.snbt"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(preset, checked_in)
+
     def test_gym_caps_advance_to_next_challenge_and_end_unrestricted(self) -> None:
         entries = [
             {
@@ -378,6 +472,69 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         )
         self.assertIn('Label:"pokedex_explanation"', preset)
         self.assertNotIn('ExecAsUser:1b', preset)
+
+    def test_professor_oak_v5_preset_is_also_an_inert_representation(self) -> None:
+        source = PROJECT_ROOT / "content/source/story/professor_oak.json"
+        document = generator.materialize_event_document(
+            json.loads(source.read_text(encoding="utf-8"))
+        )
+        binding_tag = generator.cves_binding_tag(
+            PROJECT_ROOT / "content/source", source, document
+        )
+        catalog = json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
+        )
+        outfits = generator.encounter_outfits_by_class(
+            catalog, PROJECT_ROOT / "content/catalogs/trainer-classes.json"
+        )
+
+        preset = generator.v5_encounter_preset_snbt(
+            document, outfits[document["npc"]["trainer_class"]], binding_tag
+        )
+
+        self.assertEqual("cves_binding/cobbleventure/story/professor_oak", binding_tag)
+        self.assertIn("ActionEventSet:{}", preset)
+        self.assertIn("DialogDataSet:[]", preset)
+        self.assertNotIn("cobbleventure_starter_roulette", preset)
+        self.assertNotIn("cobbleventurebag acquire", preset)
+        checked_in = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+            "preset/encounter/professor_oak__v5.npc.snbt"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(preset, checked_in)
+
+    def test_gatekeeper_v5_preset_is_an_inert_representation(self) -> None:
+        source = PROJECT_ROOT / "content/source/story/starter_town_gatekeeper_minho.json"
+        document = generator.materialize_event_document(
+            json.loads(source.read_text(encoding="utf-8"))
+        )
+        binding_tag = generator.cves_binding_tag(
+            PROJECT_ROOT / "content/source", source, document
+        )
+        catalog = json.loads(
+            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
+        )
+        outfits = generator.encounter_outfits_by_class(
+            catalog, PROJECT_ROOT / "content/catalogs/trainer-classes.json"
+        )
+
+        preset = generator.v5_encounter_preset_snbt(
+            document, outfits[document["npc"]["trainer_class"]], binding_tag
+        )
+
+        self.assertEqual(
+            "cves_binding/cobbleventure/story/starter_town_gatekeeper_minho",
+            binding_tag,
+        )
+        self.assertIn("ActionEventSet:{}", preset)
+        self.assertIn("DialogDataSet:[]", preset)
+        self.assertNotIn("OPEN_DEFAULT_DIALOG", preset)
+        self.assertNotIn("오박사님께 먼저", preset)
+        checked_in = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+            "preset/encounter/starter_town_gatekeeper_minho__v5.npc.snbt"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(preset, checked_in)
 
     def test_npc_money_setting_overrides_legacy_event_money(self) -> None:
         commands = self.document["events"][0]["commands"]
@@ -511,11 +668,13 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             "group_id": "cobbleventure:double_battle/ai_test",
             "shared_clear_key": "cobbleventure:clear/double_battle/ai_test",
         }
+        owner["_cves_binding_tag"] = "cves_binding/cobbleventure/owner"
         partner = json.loads(json.dumps(self.document))
         partner["id"] = "cobbleventure:npc/ai_test_partner"
         partner["name"]["ko_kr"] = "AI 파트너"
         partner["npc"]["display_name"]["ko_kr"] = "AI 파트너"
         partner["npc"]["appearance"]["resource"] = "cobbleventure:trainer/youngster"
+        partner["_cves_binding_tag"] = "cves_binding/cobbleventure/partner"
         battle = next(iter(self.document["_battle_presets"].values()))
         battle = json.loads(json.dumps(battle))
         battle["battle"]["format"] = "GEN_9_DOUBLES"
@@ -528,6 +687,8 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertEqual(2, len(expanded))
         self.assertEqual("cobbleventure:npc/ai_test", expanded[0]["id"])
         self.assertEqual("cobbleventure:npc/ai_test_partner", expanded[1]["id"])
+        self.assertEqual("cves_binding/cobbleventure/owner", expanded[0]["_cves_binding_tag"])
+        self.assertEqual("cves_binding/cobbleventure/partner", expanded[1]["_cves_binding_tag"])
         self.assertEqual(expanded[0]["events"], expanded[1]["events"])
         self.assertEqual(
             "cobbleventure:trainer/youngster",

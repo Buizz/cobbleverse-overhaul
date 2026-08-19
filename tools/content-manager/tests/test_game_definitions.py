@@ -60,6 +60,23 @@ class GameDefinitionTests(unittest.TestCase):
         self.assertIn('list="declared-item-ids"', script)
         self.assertIn('list="declared-variable-ids"', script)
 
+    def test_story_npc_flags_are_registered_in_project_catalog(self):
+        path = (
+            ROOT / "content-projects" / "cobbleventure-main" / "content"
+            / "catalogs" / "game-definitions.json"
+        )
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        variables = {value["id"]: value for value in payload["variables"]}
+
+        self.assertEqual([], content_manager.validate_game_definitions_file(path))
+        for flag in (
+            "cobbleventure:flag/story/starter_received",
+            "cobbleventure:flag/story/pokedex_received",
+        ):
+            self.assertEqual("player", variables[flag]["scope"])
+            self.assertEqual("boolean", variables[flag]["type"])
+            self.assertFalse(variables[flag]["default"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -31,6 +31,15 @@ dependencies {
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
+
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
 }
 
 sourceSets.main.resources.srcDir 'src/generated/resources'
@@ -98,6 +107,7 @@ neoForge {
     mods {
         "${mod_id}" { sourceSet(sourceSets.main) }
     }
+    addModdingDependenciesTo sourceSets.test
 }
 
 tasks.named('runWorldPerformanceServer') {

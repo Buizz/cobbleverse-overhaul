@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/dimension-anchors.schema.json",
+  "title": "CVES dimension arrival anchors",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dimensions"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "anchors"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resource_id" },
+          "anchors": {
+            "type": "object",
+            "propertyNames": { "pattern": "^[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*$" },
+            "additionalProperties": { "$ref": "#/$defs/arrival" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "arrival": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "z": { "type": "integer" },
+        "yaw": { "type": "number", "minimum": -180, "maximum": 180 },
+        "pitch": { "type": "number", "minimum": -90, "maximum": 90 }
+      }
+    }
+  }
+}

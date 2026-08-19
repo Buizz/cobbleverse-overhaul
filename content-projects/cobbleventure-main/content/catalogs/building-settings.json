@@ -500,6 +500,15 @@
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
+    },
+    "cobbleventure:facilities/department_store": {
+      "placement_y_offset": 0,
+      "structure_category": "placeholder",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
     }
   }
 }

@@ -21,6 +21,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Common feedback for items awarded by NPCs and scripted events. */
 public final class ItemAcquisition {
+    public static final int NOTICE_DURATION_TICKS = 70;
     private static final String NETWORK_VERSION = "1";
     private static final TagKey<Item> KEY_ITEMS = itemTag("key_items");
     private static final TagKey<Item> MACHINES = itemTag("machines");
@@ -41,6 +42,16 @@ public final class ItemAcquisition {
         );
         PacketDistributor.sendToPlayer(
             player, new AcquiredPayload(message, sound(player, item))
+        );
+    }
+
+    public static void showLoot(ServerPlayer player, int count) {
+        Component message = Component.translatable(
+            "message.cobbleventure_player_menu.loot_acquired",
+            player.getDisplayName(), count
+        );
+        PacketDistributor.sendToPlayer(
+            player, new AcquiredPayload(message, sound(player, "item_acquired"))
         );
     }
 

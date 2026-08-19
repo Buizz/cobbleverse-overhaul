@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/interiors/department_store.nbt",
+  "interior": {
+    "id": "department_store",
+    "width": 64,
+    "depth": 64,
+    "floor_height": 80,
+    "floors": 1
+  },
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        31,
+        1,
+        2
+      ],
+      "safe_spawn": [
+        31,
+        1,
+        3
+      ],
+      "door_facing": "north",
+      "safe_side": "south"
+    }
+  ]
+}

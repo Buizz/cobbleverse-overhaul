@@ -29,12 +29,12 @@
       "trainerIds": ["sv9-speed-offense", "champions-mega-raichu-x-rain"],
       "focus": ["weather", "switch", "speed-control"],
       "previousBaseline": {
-        "winnerTrainerId": null,
-        "turns": 29
+        "winnerTrainerId": "sv9-speed-offense",
+        "turns": 26
       },
       "baseline": {
         "winnerTrainerId": "sv9-speed-offense",
-        "turns": 26
+        "turns": 22
       }
     },
     {
@@ -72,11 +72,11 @@
       "focus": ["setup", "screens", "survival"],
       "previousBaseline": {
         "winnerTrainerId": "sv9-screens-offense",
-        "turns": 20
+        "turns": 24
       },
       "baseline": {
         "winnerTrainerId": "sv9-screens-offense",
-        "turns": 24
+        "turns": 21
       }
     },
     {

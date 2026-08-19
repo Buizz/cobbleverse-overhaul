@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.playermenu;
 
 import com.cobblemon.mod.common.battles.BattleRegistry;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -28,6 +31,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -35,23 +39,32 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative map discovery and teleport networking. */
 public final class MapNetwork {
-    private static final String VERSION = "3";
+    private static final String VERSION = "4";
     private static final String VISITED_PREFIX = "cobbleventure_player_menu.visited.";
     private static final int FADE_OUT_TICKS = 25;
     private static final int FADE_IN_DELAY_TICKS = 20;
     private static final int TRANSITION_EFFECT_TICKS = FADE_OUT_TICKS + FADE_IN_DELAY_TICKS + 20;
+    private static final long SELECTION_LIFETIME_MILLIS = 5L * 60L * 1000L;
     private static final Map<UUID, PendingTeleport> PENDING_TELEPORTS = new HashMap<>();
+    private static final Map<UUID, PendingSelection> PENDING_SELECTIONS = new HashMap<>();
     private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(false, false, Set.of(), "", false, 0L);
+    private static volatile SelectionSnapshot selectionSnapshot =
+        new SelectionSnapshot("", false, "", 0L);
 
     private MapNetwork() {}
 
     public static void register(IEventBus modBus) {
         modBus.addListener(MapNetwork::registerPayloads);
+        NeoForge.EVENT_BUS.addListener(MapNetwork::registerCommands);
         NeoForge.EVENT_BUS.addListener(MapNetwork::onServerTick);
     }
 
     public static ClientSnapshot clientSnapshot() {
         return clientSnapshot;
+    }
+
+    public static SelectionSnapshot selectionSnapshot() {
+        return selectionSnapshot;
     }
 
     public static void requestSnapshot() {
@@ -66,12 +79,151 @@ public final class MapNetwork {
         PacketDistributor.sendToServer(new MapTeleportPayload(generation, q, r));
     }
 
+    public static void requestSelection(String token, int generation, int q, int r) {
+        PacketDistributor.sendToServer(new MapSelectionSubmitPayload(token, generation, q, r));
+    }
+
+    public static void cancelSelection(String token) {
+        PacketDistributor.sendToServer(new MapSelectionCancelPayload(token));
+    }
+
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(VERSION);
         registrar.playToServer(MapStateRequestPayload.TYPE, MapStateRequestPayload.STREAM_CODEC, MapNetwork::handleStateRequest);
         registrar.playToClient(MapStatePayload.TYPE, MapStatePayload.STREAM_CODEC, MapNetwork::handleState);
         registrar.playToServer(MapTeleportPayload.TYPE, MapTeleportPayload.STREAM_CODEC, MapNetwork::handleTeleport);
         registrar.playToClient(MapTeleportResultPayload.TYPE, MapTeleportResultPayload.STREAM_CODEC, MapNetwork::handleTeleportResult);
+        registrar.playToClient(MapSelectionOpenPayload.TYPE, MapSelectionOpenPayload.STREAM_CODEC, MapNetwork::handleSelectionOpen);
+        registrar.playToServer(MapSelectionSubmitPayload.TYPE, MapSelectionSubmitPayload.STREAM_CODEC, MapNetwork::handleSelectionSubmit);
+        registrar.playToServer(MapSelectionCancelPayload.TYPE, MapSelectionCancelPayload.STREAM_CODEC, MapNetwork::handleSelectionCancel);
+        registrar.playToClient(MapSelectionResultPayload.TYPE, MapSelectionResultPayload.STREAM_CODEC, MapNetwork::handleSelectionResult);
+    }
+
+    private static void registerCommands(RegisterCommandsEvent event) {
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_map_select_session")
+                .requires(source -> source.hasPermission(4))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .then(Commands.argument("token", StringArgumentType.word())
+                        .executes(context -> openSelection(
+                            EntityArgument.getPlayer(context, "player"),
+                            StringArgumentType.getString(context, "token")
+                        ))))
+        );
+    }
+
+    private static int openSelection(ServerPlayer player, String token) {
+        if (token == null || token.isBlank() || PENDING_SELECTIONS.containsKey(player.getUUID())) {
+            return 0;
+        }
+        PENDING_SELECTIONS.put(player.getUUID(), new PendingSelection(
+            token, System.currentTimeMillis() + SELECTION_LIFETIME_MILLIS
+        ));
+        PacketDistributor.sendToPlayer(player, new MapSelectionOpenPayload(token));
+        return 1;
+    }
+
+    private static void handleSelectionOpen(
+        MapSelectionOpenPayload payload, IPayloadContext context
+    ) {
+        selectionSnapshot = new SelectionSnapshot(
+            payload.token(), false, "", selectionSnapshot.revision() + 1L
+        );
+        dev.buizz.cobbleventure.playermenu.client.PlayerMenuClient
+            .openWorldMapSelection(payload.token());
+    }
+
+    private static void handleSelectionSubmit(
+        MapSelectionSubmitPayload payload, IPayloadContext context
+    ) {
+        ServerPlayer player = (ServerPlayer) context.player();
+        PendingSelection pending = PENDING_SELECTIONS.get(player.getUUID());
+        if (pending == null || !pending.token().equals(payload.token())) {
+            context.reply(new MapSelectionResultPayload(
+                payload.token(), false, "유효하지 않거나 만료된 지도 선택입니다."
+            ));
+            return;
+        }
+        if (System.currentTimeMillis() >= pending.expiresAtEpochMilli()) {
+            PENDING_SELECTIONS.remove(player.getUUID(), pending);
+            context.reply(new MapSelectionResultPayload(
+                payload.token(), false, "지도 선택 시간이 만료되었습니다."
+            ));
+            notifySelectionCancelled(player, pending.token(), "timeout");
+            return;
+        }
+        MapContent content = MapContent.forGeneration(payload.generation());
+        MapContent.Town town = content == null ? null : content.townAt(payload.q(), payload.r());
+        MapSelectionPolicy.Decision decision = MapSelectionPolicy.select(
+            town == null ? null : town.id(),
+            Set.copyOf(visitedSettlements(player)),
+            isAdministrator(player) || player.isCreative()
+        );
+        if (!decision.accepted()) {
+            context.reply(new MapSelectionResultPayload(
+                payload.token(), false, decision.message()
+            ));
+            return;
+        }
+        String command = "cobbleventure_event map_result " + player.getUUID() + " "
+            + pending.token() + " "
+            + StringArgumentType.escapeIfRequired(decision.settlementId());
+        int completed;
+        try {
+            completed = player.getServer().getCommands().getDispatcher().execute(
+                command,
+                player.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+            );
+        } catch (CommandSyntaxException error) {
+            completed = 0;
+        }
+        if (completed <= 0) {
+            context.reply(new MapSelectionResultPayload(
+                payload.token(), false, "이벤트에 지도 선택 결과를 전달하지 못했습니다."
+            ));
+            return;
+        }
+        PENDING_SELECTIONS.remove(player.getUUID(), pending);
+        context.reply(new MapSelectionResultPayload(
+            payload.token(), true, decision.message()
+        ));
+    }
+
+    private static void handleSelectionCancel(
+        MapSelectionCancelPayload payload, IPayloadContext context
+    ) {
+        ServerPlayer player = (ServerPlayer) context.player();
+        PendingSelection pending = PENDING_SELECTIONS.get(player.getUUID());
+        if (pending == null || !pending.token().equals(payload.token())
+            || !PENDING_SELECTIONS.remove(player.getUUID(), pending)) {
+            return;
+        }
+        notifySelectionCancelled(player, pending.token(), "client_cancelled");
+    }
+
+    private static void handleSelectionResult(
+        MapSelectionResultPayload payload, IPayloadContext context
+    ) {
+        selectionSnapshot = new SelectionSnapshot(
+            payload.token(), payload.accepted(), payload.message(),
+            selectionSnapshot.revision() + 1L
+        );
+        ClientSnapshot previous = clientSnapshot;
+        clientSnapshot = new ClientSnapshot(
+            previous.administrator(), previous.creative(), previous.visited(),
+            payload.message(), false, previous.revision() + 1L
+        );
+    }
+
+    private static void notifySelectionCancelled(
+        ServerPlayer player, String token, String reason
+    ) {
+        String command = "cobbleventure_event map_cancel " + player.getUUID() + " "
+            + token + " " + reason;
+        player.getServer().getCommands().performPrefixedCommand(
+            player.createCommandSourceStack().withPermission(4).withSuppressedOutput(),
+            command
+        );
     }
 
     private static void handleStateRequest(MapStateRequestPayload payload, IPayloadContext context) {
@@ -160,10 +312,25 @@ public final class MapNetwork {
     private static void onServerTick(ServerTickEvent.Post event) {
         int currentTick = event.getServer().getTickCount();
         updatePendingTeleports(event, currentTick);
+        updatePendingSelections(event);
         if (currentTick % 20 == 0) {
             for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
                 updateVisit(player);
             }
+        }
+    }
+
+    private static void updatePendingSelections(ServerTickEvent.Post event) {
+        long now = System.currentTimeMillis();
+        Iterator<Map.Entry<UUID, PendingSelection>> iterator =
+            PENDING_SELECTIONS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, PendingSelection> entry = iterator.next();
+            PendingSelection pending = entry.getValue();
+            if (now < pending.expiresAtEpochMilli()) continue;
+            iterator.remove();
+            ServerPlayer player = event.getServer().getPlayerList().getPlayer(entry.getKey());
+            if (player != null) notifySelectionCancelled(player, pending.token(), "timeout");
         }
     }
 
@@ -333,6 +500,13 @@ public final class MapNetwork {
         long revision
     ) {}
 
+    public record SelectionSnapshot(
+        String token,
+        boolean accepted,
+        String message,
+        long revision
+    ) {}
+
     public record MapStateRequestPayload() implements CustomPacketPayload {
         public static final Type<MapStateRequestPayload> TYPE = new Type<>(id("map_state_request"));
         public static final StreamCodec<RegistryFriendlyByteBuf, MapStateRequestPayload> STREAM_CODEC =
@@ -386,6 +560,69 @@ public final class MapNetwork {
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
+
+    public record MapSelectionOpenPayload(String token) implements CustomPacketPayload {
+        public static final Type<MapSelectionOpenPayload> TYPE = new Type<>(id("map_selection_open"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, MapSelectionOpenPayload> STREAM_CODEC =
+            StreamCodec.ofMember(MapSelectionOpenPayload::write, MapSelectionOpenPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) { buffer.writeUtf(token); }
+        private static MapSelectionOpenPayload read(RegistryFriendlyByteBuf buffer) {
+            return new MapSelectionOpenPayload(buffer.readUtf());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record MapSelectionSubmitPayload(
+        String token, int generation, int q, int r
+    ) implements CustomPacketPayload {
+        public static final Type<MapSelectionSubmitPayload> TYPE = new Type<>(id("map_selection_submit"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, MapSelectionSubmitPayload> STREAM_CODEC =
+            StreamCodec.ofMember(MapSelectionSubmitPayload::write, MapSelectionSubmitPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(token);
+            buffer.writeVarInt(generation);
+            buffer.writeVarInt(q);
+            buffer.writeVarInt(r);
+        }
+        private static MapSelectionSubmitPayload read(RegistryFriendlyByteBuf buffer) {
+            return new MapSelectionSubmitPayload(
+                buffer.readUtf(), buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()
+            );
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record MapSelectionCancelPayload(String token) implements CustomPacketPayload {
+        public static final Type<MapSelectionCancelPayload> TYPE = new Type<>(id("map_selection_cancel"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, MapSelectionCancelPayload> STREAM_CODEC =
+            StreamCodec.ofMember(MapSelectionCancelPayload::write, MapSelectionCancelPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) { buffer.writeUtf(token); }
+        private static MapSelectionCancelPayload read(RegistryFriendlyByteBuf buffer) {
+            return new MapSelectionCancelPayload(buffer.readUtf());
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record MapSelectionResultPayload(
+        String token, boolean accepted, String message
+    ) implements CustomPacketPayload {
+        public static final Type<MapSelectionResultPayload> TYPE = new Type<>(id("map_selection_result"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, MapSelectionResultPayload> STREAM_CODEC =
+            StreamCodec.ofMember(MapSelectionResultPayload::write, MapSelectionResultPayload::read);
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(token);
+            buffer.writeBoolean(accepted);
+            buffer.writeUtf(message);
+        }
+        private static MapSelectionResultPayload read(RegistryFriendlyByteBuf buffer) {
+            return new MapSelectionResultPayload(
+                buffer.readUtf(), buffer.readBoolean(), buffer.readUtf()
+            );
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    private record PendingSelection(String token, long expiresAtEpochMilli) {}
 
     private static final class PendingTeleport {
         private final MapContent content;

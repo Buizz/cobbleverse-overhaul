@@ -1,0 +1,17 @@
+event flag_changed(target: "cobbleventure:flag/story/starter_received", once: true) {
+  page default {
+    say npc "스타터 선택 상태가 변경되었구나."
+  }
+}
+
+event item_used(target: "cobblemon:pokedex_red", cooldown: 2) {
+  page default {
+    say npc "도감을 확인했구나."
+  }
+}
+
+event battle_finished(target: "cobbleventure:battle/ai_test") {
+  page default {
+    say npc "방금 승부를 잘 보았다."
+  }
+}

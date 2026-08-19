@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"AI 맨 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"AI 맨 [V5]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{Count:1b,id:"cobbleventure_bootstrap:youngster_cap"}],
+    CustomName:"{\"text\":\"AI 맨\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.780f,0.780f,0.780f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-2133448170,155276610,-1542000751,-1821057363],
+    SkinData:{Type:"CUSTOM",UUID:[I;2112985218,1886540881,-2036828375,645114090] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/examples/ai_test"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

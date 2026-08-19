@@ -73,8 +73,8 @@ def create_module(
         raise ValueError("모듈 ID는 영문 소문자, 숫자와 밑줄만 사용할 수 있습니다.")
     if not 5 <= width <= 80 or not 5 <= depth <= 80:
         raise ValueError("내부 너비와 깊이는 5~80이어야 합니다.")
-    if not 3 <= floor_height <= 12 or not 1 <= floors <= 8 or floor_height * floors > 80:
-        raise ValueError("층 높이는 3~12, 층수는 1~8, 전체 높이는 80 이하여야 합니다.")
+    if not 3 <= floor_height <= 80 or not 1 <= floors <= 8 or floor_height * floors > 80:
+        raise ValueError("층 높이는 3~80, 층수는 1~8, 전체 높이는 80 이하여야 합니다.")
     target_root = root / "content" / "structures" / "interiors"
     target_root.mkdir(parents=True, exist_ok=True)
     nbt_path = target_root / f"{module_id}.nbt"

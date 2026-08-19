@@ -1,3 +1,6 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
 plugins {
     id 'java-library'
     id 'net.neoforged.moddev' version '2.0.143'
@@ -11,6 +14,54 @@ base {
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+def eventResourceNamesFile = layout.buildDirectory.file(
+    'generated/event-resource-names/event-resource-names.json'
+)
+def contentProjectDir = file(
+    System.getenv('COBBLEVENTURE_PROJECT_PATH')
+        ?: rootProject.file('../../content-projects/cobbleventure-main')
+)
+def settlementSources = fileTree(new File(contentProjectDir, 'content/settlements')) {
+    include 'generation_*/*.json'
+}
+
+tasks.register('generateEventResourceNames') {
+    inputs.files(settlementSources)
+    outputs.file(eventResourceNamesFile)
+    doLast {
+        def parser = new JsonSlurper()
+        def resources = new TreeMap<String, Map<String, String>>()
+        settlementSources.files.sort { left, right -> left.path <=> right.path }.each { source ->
+            def settlement = parser.parse(source)
+            if (!(settlement.id instanceof String)
+                || !(settlement.display_name instanceof Map)) {
+                throw new GradleException(
+                    "settlement 이름 계약이 올바르지 않습니다: ${source}"
+                )
+            }
+            def names = new TreeMap<String, String>()
+            settlement.display_name.each { language, value ->
+                if (language instanceof String && value instanceof String && !value.isBlank()) {
+                    names[language.toLowerCase(Locale.ROOT).replace('-', '_')] = value
+                }
+            }
+            if (names.isEmpty()) {
+                throw new GradleException("settlement 표시명이 비어 있습니다: ${source}")
+            }
+            if (resources.put(settlement.id, names) != null) {
+                throw new GradleException("중복 settlement 리소스 ID입니다: ${settlement.id}")
+            }
+        }
+        def output = eventResourceNamesFile.get().asFile
+        output.parentFile.mkdirs()
+        output.setText(
+            JsonOutput.prettyPrint(JsonOutput.toJson([resources: resources]))
+                + System.lineSeparator(),
+            'UTF-8'
+        )
+    }
+}
 
 repositories {
     mavenCentral()
@@ -36,6 +87,14 @@ dependencies {
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
+
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
 }
 
 configurations {
@@ -64,9 +123,11 @@ neoForge {
     mods {
         "${mod_id}" { sourceSet(sourceSets.main) }
     }
+    addModdingDependenciesTo sourceSets.test
 }
 
 processResources {
+    dependsOn tasks.named('generateEventResourceNames')
     def properties = [
         minecraft_version_range: minecraft_version_range,
         neo_version: neo_version,
@@ -76,10 +137,19 @@ processResources {
         mod_license: mod_license,
         mod_version: mod_version,
         cobblemon_version: cobblemon_version,
+        player_menu_version_range: player_menu_version_range,
     ]
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
+    }
+    from('../cobbleventure-battle-ai/data/ai') {
+        include 'ai-move-role-classification.json'
+        include 'ai-pokemon-role-overrides.json'
+        into 'battle-ai'
+    }
+    from(eventResourceNamesFile) {
+        into 'assets/cobbleventure_adventure'
     }
 }
 

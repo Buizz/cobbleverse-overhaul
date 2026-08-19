@@ -46,6 +46,21 @@ class InteriorSpaceTests(unittest.TestCase):
             self.assertEqual((24, 12, 28), content_manager.read_minecraft_structure_size(nbt.read_bytes()))
             self.assertEqual([], metadata["anchors"])
 
+    def test_single_interior_can_use_full_height_for_handmade_floors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            created = content_manager.create_interior_space(root, {
+                "id": "handmade_tower", "width": 16, "depth": 16,
+                "floor_height": 48, "floors": 1,
+            })
+
+            nbt = root / "content/structures/interiors/handmade_tower.nbt"
+            metadata = json.loads(nbt.with_suffix(".structure.json").read_text(encoding="utf-8"))
+            self.assertEqual([16, 48, 16], created["size"])
+            self.assertEqual((16, 48, 16), content_manager.read_minecraft_structure_size(nbt.read_bytes()))
+            self.assertEqual(48, metadata["interior"]["floor_height"])
+            self.assertEqual(1, metadata["interior"]["floors"])
+
     def test_building_connects_named_door_to_generic_interior_arrival(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

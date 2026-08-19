@@ -1,6 +1,18 @@
 import MOVE_ROLE_CATALOG from "../../data/ai/ai-move-role-classification.json" with { type: "json" };
 import POKEMON_ROLE_OVERRIDES from "../../data/ai/ai-pokemon-role-overrides.json" with { type: "json" };
-import { estimateWinProbabilityJson } from "./shared-ai-core.mjs";
+import {
+  analyzeSharedTeamProfileJson,
+  evaluateActionReachabilityJson,
+  estimateWinProbabilityJson,
+  evaluateMoveRuleFactsJson,
+  evaluateRoleProgressJson,
+  evaluateSetupLikelihoodJson,
+  evaluateSetupThreatJson,
+  evaluateSwitchRuleFactsJson,
+  evaluateThreatCountersJson,
+  scoreObservedActionCandidateJson,
+  scoreProjectedGimmickJson,
+} from "./shared-ai-core.mjs";
 const DIFFICULTY_LABELS = {
   novice: "초급",
   standard: "보통",
@@ -202,10 +214,45 @@ const ACE_SETUP_ABILITY_IDS = new Set([
   "speedboost",
 ]);
 const DYNAMAX_SCORE_THRESHOLD = 18;
-const PROJECTED_GIMMICK_THRESHOLDS = {
-  mega: 0,
-  terastallize: 5,
-};
+function toRuleFactBag(kind, candidate, extras = {}, tags = []) {
+  const numbers = {};
+  const flags = {};
+  const strings = {};
+  const stringLists = {};
+  const visit = (value, key, depth = 0) => {
+    if (!key || value === undefined || value === null || depth > 4) return;
+    if (typeof value === "number" && Number.isFinite(value)) {
+      numbers[key] = value;
+    } else if (typeof value === "boolean") {
+      flags[key] = value;
+    } else if (typeof value === "string") {
+      strings[key] = value;
+    } else if (Array.isArray(value)) {
+      if (value.every((entry) => typeof entry === "string")) {
+        stringLists[key] = value;
+      } else {
+        value.forEach((entry, index) =>
+          visit(entry, `${key}.${index}`, depth + 1),
+        );
+        numbers[`${key}.length`] = value.length;
+      }
+    } else if (typeof value === "object") {
+      Object.entries(value).forEach(([childKey, childValue]) =>
+        visit(childValue, `${key}.${childKey}`, depth + 1),
+      );
+    }
+  };
+  Object.entries(candidate ?? {}).forEach(([key, value]) => visit(value, key));
+  Object.entries(extras).forEach(([key, value]) => visit(value, key));
+  return {
+    kind,
+    numbers,
+    flags,
+    strings,
+    tags: [...new Set(tags)],
+    stringLists,
+  };
+}
 
 const AI_SCORING_RULES = [
   {
@@ -1100,83 +1147,57 @@ function finalizeTeamAceRoles(roleEntries, teamContext) {
 }
 
 export function analyzeTeamProfile(team = []) {
-  const sortedLevels = team
-    .map((member) => pokemonLevel(member))
-    .filter((level) => level > 0)
-    .sort((left, right) => right - left);
-  const teamContext = {
-    maxLevel: sortedLevels[0] ?? 0,
-    secondMaxLevel:
-      sortedLevels.find((level) => level < (sortedLevels[0] ?? 0)) ?? sortedLevels[0] ?? 0,
-    hasBatonPassSupport: team.some((member) =>
-      pokemonMoveIds(member).includes("batonpass"),
-    ),
-    hasTeamSetupRoute: team.some((member) => {
-      const moveIds = pokemonMoveIds(member);
-      return (
-        moveIds.some((moveId) =>
-          (moveRoleEntry(moveId)?.tags ?? []).some(
-            (tag) => cleanId(tag) === "setupboost",
-          ),
-        ) ||
-        ACE_SETUP_ABILITY_IDS.has(pokemonAbilityId(member))
-      );
-    }),
-  };
-  if (teamContext.hasBatonPassSupport) {
-    teamContext.hasTeamSetupRoute = true;
-  }
-  const roles = team.map((member, index) =>
-    analyzeTeamMemberRole(member, index, teamContext),
-  );
-  const aceSelection = finalizeTeamAceRoles(roles, teamContext);
-  const byRole = (role) =>
-    roles
-      .filter((entry) => entry.roles.some((candidate) => candidate.role === role))
-      .sort(
-        (left, right) =>
-          Number(right.roleScores[role] ?? 0) - Number(left.roleScores[role] ?? 0),
-      );
-  const aceCandidates = aceSelection.ace ? [aceSelection.ace] : [];
-  const subAceCandidates = aceSelection.subAces;
-  const defensiveCore = byRole("wall").slice(0, 3);
-  const speedControl = [
-    ...new Map(
-      [...byRole("revengeKiller"), ...byRole("pivot")].map((entry) => [
-        entry.slot,
-        entry,
-      ]),
-    ).values(),
-  ].slice(0, 4);
-  const hazardSetters = byRole("hazardControl").filter((entry) =>
-    entry.moveIds.some((moveId) =>
-      (moveRoleEntry(moveId)?.tags ?? []).some((tag) => cleanId(tag) === "hazardset"),
-    ),
-  );
-  const hazardRemovers = byRole("hazardControl").filter((entry) =>
-    entry.moveIds.some((moveId) =>
-      (moveRoleEntry(moveId)?.tags ?? []).some((tag) => cleanId(tag) === "hazardremove"),
-    ),
-  );
-  const setupThreats = byRole("setupSweeper").slice(0, 3);
-  const vulnerabilities = [];
-  if (aceCandidates.length === 0) vulnerabilities.push("명확한 에이스 후보가 약합니다.");
-  if (defensiveCore.length === 0) vulnerabilities.push("안정적인 막이 후보가 부족합니다.");
-  if (hazardRemovers.length === 0) vulnerabilities.push("설치물 제거 수단이 확인되지 않았습니다.");
-
-  return {
-    roles,
-    aceCandidates,
-    subAceCandidates,
-    defensiveCore,
-    speedControl,
-    hazardPlan: {
-      setters: hazardSetters.slice(0, 3),
-      removers: hazardRemovers.slice(0, 3),
-    },
-    setupThreats,
-    vulnerabilities,
-  };
+  const members = team.map((member, index) => {
+    const moveIds = pokemonMoveIds(member);
+    const catalogRoleScores = {};
+    const catalogTags = new Set();
+    for (const moveId of moveIds) {
+      const entry = moveRoleEntry(moveId);
+      for (const [role, score] of Object.entries(entry?.roleScores ?? {})) {
+        catalogRoleScores[role] = Number(catalogRoleScores[role] ?? 0) + Number(score ?? 0);
+      }
+      for (const tag of entry?.tags ?? []) catalogTags.add(cleanId(tag));
+    }
+    const speciesOverride = pokemonRoleOverride(member);
+    for (const [role, score] of Object.entries(speciesOverride?.roleScores ?? {})) {
+      catalogRoleScores[role] = Number(catalogRoleScores[role] ?? 0) + Number(score ?? 0);
+    }
+    const hasBatonPassSetupMove = (member.moves ?? member.moveset ?? []).some((move) => {
+      const moveId = cleanId(typeof move === "string" ? move : move?.id ?? move?.moveId ?? move?.name ?? move?.move);
+      if (!moveId || moveId === "batonpass") return false;
+      const boosts = typeof move === "string" ? {} : move?.selfBoosts ?? move?.boosts ?? {};
+      const entry = moveRoleEntry(moveId);
+      return Object.values(boosts).some((amount) => Number(amount ?? 0) > 0) ||
+        (entry?.tags ?? []).some((tag) => cleanId(tag) === "setupboost") ||
+        Number(entry?.roleScores?.setupSweeper ?? 0) >= 2.5;
+    });
+    const gimmick = gimmickAceProfile(member);
+    return {
+      slot: Number(member.slot ?? index + 1),
+      pokemonId: cleanId(member.id ?? member.species ?? member.name),
+      species: pokemonDisplayName(member),
+      level: pokemonLevel(member),
+      ability: pokemonAbilityId(member),
+      stats: {
+        hp: pokemonStat(member, ["hp"]),
+        attack: pokemonStat(member, ["attack", "atk"]),
+        defense: pokemonStat(member, ["defence", "defense", "def"]),
+        specialAttack: pokemonStat(member, ["specialAttack", "specialAtk", "spa"]),
+        specialDefense: pokemonStat(member, ["specialDefence", "specialDefense", "specialDef", "spd"]),
+        speed: pokemonStat(member, ["speed", "spe"]),
+      },
+      moveIds,
+      catalogRoleScores,
+      catalogTags: [...catalogTags],
+      catalogReasons: speciesOverride?.reasons ?? [],
+      hasBatonPassSetupMove,
+      manualAce: manualAcePreference(member),
+      gimmickAceValue: gimmick.value,
+      gimmickReasons: gimmick.reasons,
+      speciesAceScore: Number(speciesOverride?.roleScores?.ace ?? 0),
+    };
+  });
+  return JSON.parse(analyzeSharedTeamProfileJson(JSON.stringify({ members })));
 }
 
 function battleMemberId(member = {}, fallback = "") {
@@ -1206,347 +1227,70 @@ export function buildThreatCounterMap({
   enemyAnalysis = analyzeTeamProfile(enemies),
   evaluateMatchup = () => ({}),
 } = {}) {
-  const threats = enemies
-    .map((enemy, enemyIndex) => {
-      if (!livingBattleMember(enemy)) return null;
-      const enemyRole = enemyAnalysis.roles?.[enemyIndex] ?? {};
-      const aceScore = Math.max(0, Math.min(20, finiteNumber(enemyRole.aceScore, 0)));
-      const setupScore = Math.max(
-        0,
-        finiteNumber(enemyRole.roleScores?.setupSweeper, 0),
-      );
-      const offense = Math.max(
+  const threats = enemies.map((enemy, enemyIndex) => {
+    const enemyRole = enemyAnalysis.roles?.[enemyIndex] ?? {};
+    return {
+      enemySlot: Number(enemy.slot ?? enemyIndex + 1),
+      enemyPokemonId: battleMemberId(enemy, enemyIndex + 1),
+      species: pokemonDisplayName(enemy),
+      living: livingBattleMember(enemy),
+      aceScore: finiteNumber(enemyRole.aceScore, 0),
+      setupScore: finiteNumber(enemyRole.roleScores?.setupSweeper, 0),
+      offense: Math.max(
         pokemonStat(enemy, ["attack", "atk"]),
         pokemonStat(enemy, ["specialAttack", "specialAtk", "spa"]),
-      );
-      const hpPercent = battleMemberHpPercent(enemy);
-      const threatScore =
-        Math.min(12, aceScore) +
-        Math.min(6, setupScore) +
-        Math.max(0, offense - 100) / 15 +
-        hpPercent * 2;
-      const threatLevel =
-        threatScore >= 14
-          ? "critical"
-          : threatScore >= 9
-            ? "high"
-            : threatScore >= 5
-              ? "medium"
-              : "low";
-      if (!["critical", "high"].includes(threatLevel)) {
-        return {
-          enemySlot: Number(enemy.slot ?? enemyIndex + 1),
-          enemyPokemonId: battleMemberId(enemy, enemyIndex + 1),
-          species: pokemonDisplayName(enemy),
-          threatLevel,
-          threatScore: Math.round(threatScore * 100) / 100,
-          counters: [],
-          softChecks: [],
-          revengeKillers: [],
-          mustPreserveResources: [],
-        };
-      }
-      const resources = allies
-        .map((ally, allyIndex) => {
-          if (!livingBattleMember(ally)) return null;
-          const matchup =
-            evaluateMatchup({
-              ally,
-              enemy,
-              allyIndex,
-              enemyIndex,
-            }) ?? {};
-          const allyHpPercent = ratioValue(
-            matchup.allyHpPercent,
-            battleMemberHpPercent(ally),
-          );
-          const incomingDamageRatio = Math.max(
-            0,
-            finiteNumber(matchup.incomingDamageRatio, 1),
-          );
-          const outgoingDamageRatio = Math.max(
-            0,
-            finiteNumber(matchup.outgoingDamageRatio, 0),
-          );
-          const survivesHit =
-            matchup.survivesHit === true ||
-            incomingDamageRatio < allyHpPercent;
-          const revengeKill =
-            matchup.priorityKo === true ||
-            (outgoingDamageRatio >= 1 && matchup.actsBefore === true);
-          const hardCounter =
-            survivesHit &&
-            (outgoingDamageRatio >= 0.65 ||
-              (incomingDamageRatio <= 0.35 && outgoingDamageRatio >= 0.35));
-          const softCheck =
-            hardCounter ||
-            (survivesHit &&
-              (outgoingDamageRatio >= 0.35 || incomingDamageRatio <= 0.6));
-          if (!softCheck && !revengeKill) return null;
-          const allyRole = allyAnalysis.roles?.[allyIndex] ?? {};
-          return {
-            slot: Number(ally.slot ?? allyIndex + 1),
-            pokemonId: battleMemberId(ally, allyIndex + 1),
-            species: pokemonDisplayName(ally),
-            classification: hardCounter
-              ? "counter"
-              : revengeKill
-                ? "revenge_killer"
-                : "soft_check",
-            incomingDamageRatio,
-            outgoingDamageRatio,
-            survivesHit,
-            actsBefore: matchup.actsBefore === true,
-            priorityKo: matchup.priorityKo === true,
-            aceQualified: allyRole.aceProfile?.qualifies === true,
-          };
-        })
-        .filter(Boolean)
-        .sort(
-          (left, right) =>
-            Number(right.classification === "counter") -
-              Number(left.classification === "counter") ||
-            Number(right.priorityKo) - Number(left.priorityKo) ||
-            right.outgoingDamageRatio - left.outgoingDamageRatio ||
-            left.incomingDamageRatio - right.incomingDamageRatio,
-        );
-      const counters = resources.filter(
-        (resource) => resource.classification === "counter",
-      );
-      const revengeKillers = resources.filter(
-        (resource) => resource.classification === "revenge_killer",
-      );
-      const softChecks = resources.filter(
-        (resource) => resource.classification === "soft_check",
-      );
-      const mustPreserveResources =
-        ["critical", "high"].includes(threatLevel) && counters.length <= 1
-          ? counters.length === 1
-            ? counters
-            : softChecks.length === 1
-              ? softChecks
-              : revengeKillers.length === 1
-                ? revengeKillers
-                : []
-          : [];
-      return {
-        enemySlot: Number(enemy.slot ?? enemyIndex + 1),
-        enemyPokemonId: battleMemberId(enemy, enemyIndex + 1),
-        species: pokemonDisplayName(enemy),
-        threatLevel,
-        threatScore: Math.round(threatScore * 100) / 100,
-        counters,
-        softChecks,
-        revengeKillers,
-        mustPreserveResources,
-      };
-    })
-    .filter(Boolean)
-    .sort(
-      (left, right) =>
-        right.threatScore - left.threatScore || left.enemySlot - right.enemySlot,
-    );
-
-  const mustPreserveResources = [
-    ...new Map(
-      threats.flatMap((threat) =>
-        threat.mustPreserveResources.map((resource) => [
-          resource.slot,
-          {
-            ...resource,
-            threats: [],
-          },
-        ]),
       ),
-    ).values(),
-  ];
-  for (const resource of mustPreserveResources) {
-    resource.threats = threats
-      .filter((threat) =>
-        threat.mustPreserveResources.some(
-          (candidate) => candidate.slot === resource.slot,
-        ),
-      )
-      .map((threat) => ({
-        enemySlot: threat.enemySlot,
-        enemyPokemonId: threat.enemyPokemonId,
-        species: threat.species,
-        threatLevel: threat.threatLevel,
-      }));
-  }
-
-  return {
-    threats,
-    mustPreserveResources,
-  };
-}
-
-function setupAnswerCount(value) {
-  if (Array.isArray(value)) return value.length;
-  return Math.max(0, finiteNumber(value, 0));
-}
-
-export function evaluateSetupThreat({
-  setupMoves = [],
-  setupMoveIds = [],
-  setupLikelihood = 0,
-  opponentCurrentBoosts = 0,
-  opponentRoleScore = 0,
-  opponentAce = false,
-  opponentHpPercent = 1,
-  immediateDamageRatio = 0,
-  counters = [],
-  softChecks = [],
-  revengeKillers = [],
-  punishOptions = [],
-} = {}) {
-  const normalizedMoves =
-    setupMoves.length > 0
-      ? setupMoves.map((move) => ({
-          id: cleanId(move?.id ?? move?.name ?? move),
-          boosts: { ...(move?.selfBoosts ?? move?.boosts ?? {}) },
-        }))
-      : setupMoveIds.map((id) => ({ id: cleanId(id), boosts: {} }));
-  const opponentCanSetup = normalizedMoves.length > 0;
-  if (!opponentCanSetup) {
-    return {
-      opponentCanSetup: false,
-      setupMoveCandidates: [],
-      setupLikelihood: 0,
-      sweepRiskAfterSetup: 0,
-      riskTier: 0,
-      availableAnswersAfterSetup: {
-        counters: 0,
-        softChecks: 0,
-        revengeKillers: 0,
-        estimatedTotal: 0,
-      },
-      punishOptions: [],
-      oneMoreTurnUnmanageable: false,
-      freeTurnPenalty: 0,
-      reasons: [],
+      hpPercent: battleMemberHpPercent(enemy),
+      resources: allies.map((ally, allyIndex) => {
+        const matchup = evaluateMatchup({ ally, enemy, allyIndex, enemyIndex }) ?? {};
+        const allyRole = allyAnalysis.roles?.[allyIndex] ?? {};
+        return {
+          slot: Number(ally.slot ?? allyIndex + 1),
+          pokemonId: battleMemberId(ally, allyIndex + 1),
+          species: pokemonDisplayName(ally),
+          living: livingBattleMember(ally),
+          hpPercent: ratioValue(matchup.allyHpPercent, battleMemberHpPercent(ally)),
+          incomingDamageRatio: Math.max(0, finiteNumber(matchup.incomingDamageRatio, 1)),
+          outgoingDamageRatio: Math.max(0, finiteNumber(matchup.outgoingDamageRatio, 0)),
+          survivesHit: matchup.survivesHit === true,
+          actsBefore: matchup.actsBefore === true,
+          priorityKo: matchup.priorityKo === true,
+          aceQualified: allyRole.aceProfile?.qualifies === true,
+        };
+      }),
     };
-  }
+  });
+  return JSON.parse(evaluateThreatCountersJson(JSON.stringify({ threats })));
+}
 
-  const strongestBoost = normalizedMoves.reduce(
-    (best, move) => {
-      const attack = Math.max(
-        0,
-        finiteNumber(move.boosts.attack, 0),
-        finiteNumber(
-          move.boosts.specialAttack,
-          finiteNumber(move.boosts.specialattack, 0),
+export function evaluateSetupThreat(input = {}) {
+  const answerCount = (value) =>
+    Array.isArray(value) ? value.length : Math.max(0, finiteNumber(value, 0));
+  return JSON.parse(
+    evaluateSetupThreatJson(
+      JSON.stringify({
+        ...input,
+        setupMoves: (input.setupMoves ?? []).map((move) => ({
+          id: cleanId(move?.id ?? move?.name ?? move),
+          selfBoosts: { ...(move?.selfBoosts ?? move?.boosts ?? {}) },
+        })),
+        setupMoveIds: (input.setupMoveIds ?? []).map(cleanId),
+        counterCount: answerCount(input.counters),
+        softCheckCount: answerCount(input.softChecks),
+        revengeKillerCount: answerCount(input.revengeKillers),
+        counters: [],
+        softChecks: [],
+        revengeKillers: [],
+        punishOptions: (input.punishOptions ?? []).map((option) =>
+          cleanId(option?.id ?? option?.moveId ?? option),
         ),
-      );
-      const speed = Math.max(0, finiteNumber(move.boosts.speed, 0));
-      const pressure = attack + speed * 0.8;
-      return pressure > best.pressure
-        ? { moveId: move.id, attack, speed, pressure }
-        : best;
-    },
-    { moveId: normalizedMoves[0]?.id ?? "", attack: 0, speed: 0, pressure: 0 },
-  );
-  const counterCount = setupAnswerCount(counters);
-  const softCheckCount = setupAnswerCount(softChecks);
-  const revengeKillerCount = setupAnswerCount(revengeKillers);
-  const effectiveSoftChecks =
-    strongestBoost.attack >= 2 ? Math.min(0.5, softCheckCount * 0.25) : softCheckCount * 0.65;
-  const effectiveRevengeKillers =
-    strongestBoost.speed > 0 ? revengeKillerCount * 0.25 : revengeKillerCount * 0.75;
-  const estimatedAnswerCount =
-    counterCount + effectiveSoftChecks + effectiveRevengeKillers;
-  const answerScarcity =
-    estimatedAnswerCount <= 0
-      ? 1
-      : estimatedAnswerCount < 1
-        ? 0.82
-        : estimatedAnswerCount < 2
-          ? 0.48
-          : 0.12;
-  const likelihood = Math.max(0, Math.min(1, finiteNumber(setupLikelihood, 0)));
-  const currentBoostPressure = Math.min(
-    1,
-    Math.max(0, finiteNumber(opponentCurrentBoosts, 0)) / 4,
-  );
-  const nextBoostPressure = Math.min(1, strongestBoost.pressure / 3);
-  const rolePressure = Math.min(
-    1,
-    Math.max(0, finiteNumber(opponentRoleScore, 0)) / 10,
-  );
-  const hpPressure = Math.max(
-    0,
-    Math.min(1, finiteNumber(opponentHpPercent, 1)),
-  );
-  const immediatePunish = Math.max(
-    0,
-    Math.min(1, finiteNumber(immediateDamageRatio, 0)),
-  );
-  const rawSweepRisk =
-    likelihood *
-    (0.18 +
-      nextBoostPressure * 0.3 +
-      currentBoostPressure * 0.18 +
-      answerScarcity * 0.24 +
-      rolePressure * 0.08 +
-      (opponentAce ? 0.08 : 0) +
-      hpPressure * 0.05) *
-    (1 - Math.min(0.55, immediatePunish * 0.45));
-  const sweepRiskAfterSetup =
-    Math.round(Math.max(0, Math.min(1, rawSweepRisk)) * 100) / 100;
-  const riskTier =
-    sweepRiskAfterSetup >= 0.65
-      ? 3
-      : sweepRiskAfterSetup >= 0.42
-        ? 2
-        : sweepRiskAfterSetup >= 0.22
-          ? 1
-          : 0;
-  const normalizedPunishOptions = [
-    ...new Set(
-      punishOptions
-        .map((option) => cleanId(option?.id ?? option?.moveId ?? option))
-        .filter(Boolean),
+      }),
     ),
-  ];
-  const oneMoreTurnUnmanageable =
-    riskTier >= 3 && estimatedAnswerCount < 1 && immediatePunish < 1;
-  const freeTurnPenalty =
-    Math.round(
-      sweepRiskAfterSetup *
-        (riskTier >= 3 ? 180 : riskTier === 2 ? 125 : riskTier === 1 ? 70 : 0) *
-        100,
-    ) / 100;
-  const reasons = [
-    `랭크업 가능성 ${Math.round(likelihood * 100)}%, 사용 후 스윕 위험 ${Math.round(sweepRiskAfterSetup * 100)}%`,
-    `랭크업 후 유효 대응 자원 약 ${Math.round(estimatedAnswerCount * 10) / 10}마리`,
-  ];
-  if (strongestBoost.moveId) {
-    reasons.push(
-      `${strongestBoost.moveId}: 공격 ${strongestBoost.attack}, 스피드 ${strongestBoost.speed} 상승`,
-    );
-  }
-  if (normalizedPunishOptions.length > 0) {
-    reasons.push(`즉시 응징 수단: ${normalizedPunishOptions.join(", ")}`);
-  }
+  );
+}
 
-  return {
-    opponentCanSetup,
-    setupMoveCandidates: normalizedMoves,
-    setupLikelihood: likelihood,
-    sweepRiskAfterSetup,
-    riskTier,
-    strongestBoost,
-    availableAnswersAfterSetup: {
-      counters: counterCount,
-      softChecks: softCheckCount,
-      revengeKillers: revengeKillerCount,
-      estimatedTotal: Math.round(estimatedAnswerCount * 100) / 100,
-    },
-    punishOptions: normalizedPunishOptions,
-    oneMoreTurnUnmanageable,
-    freeTurnPenalty,
-    reasons,
-  };
+export function evaluateSetupLikelihood(input = {}) {
+  return JSON.parse(evaluateSetupLikelihoodJson(JSON.stringify(input)));
 }
 
 function normalizedBattleValueSide(side = {}) {
@@ -2011,1985 +1755,179 @@ export function evaluatePokemonRoleProgress({
   mustPreserveResource = false,
   activeTurns = 0,
 } = {}) {
-  const resolvedRole =
-    roleProfile ?? analyzeTeamProfile([member]).roles[0] ?? {};
-  const roleNames = (resolvedRole.roles ?? [])
-    .filter((entry) => Number(entry.score ?? 0) > 0)
-    .map((entry) => entry.role);
-  const roleScoreByName = new Map(
-    (resolvedRole.roles ?? []).map((entry) => [
-      entry.role,
-      Number(entry.score ?? 0),
-    ]),
-  );
-  const primaryRoleScore = Number(
-    roleScoreByName.get(resolvedRole.primaryRole) ?? 0,
-  );
-  const meaningfulRoleThreshold = Math.max(2.5, primaryRoleScore * 0.4);
-  const trackedRoleNames = roleNames.filter((role) => {
-    if (
-      role !== resolvedRole.primaryRole &&
-      Number(roleScoreByName.get(role) ?? 0) < meaningfulRoleThreshold
-    ) {
-      return false;
-    }
-    if (role === "ace") return resolvedRole.aceProfile?.qualifies === true;
-    if (role === "support" || role === "pivot") {
-      return resolvedRole.primaryRole === role;
-    }
-    return true;
-  });
-  const auxiliaryRoles = roleNames.filter(
-    (role) => !trackedRoleNames.includes(role),
-  );
-  const moveIds = resolvedRole.moveIds?.length
-    ? resolvedRole.moveIds
-    : pokemonMoveIds(member);
-  const hazardSetConditions = [
-    ...new Set(
-      moveIds
-        .filter((moveId) =>
-          (moveRoleEntry(moveId)?.tags ?? []).some(
-            (tag) => cleanId(tag) === "hazardset",
-          ),
-        )
-        .map((moveId) => HAZARD_MOVE_CONDITIONS[cleanId(moveId)])
-        .filter(Boolean),
-    ),
-  ];
+  const resolvedRole = roleProfile ?? analyzeTeamProfile([member]).roles[0] ?? {};
+  const moveIds = resolvedRole.moveIds?.length ? resolvedRole.moveIds : pokemonMoveIds(member);
+  const hazardSetConditions = [...new Set(
+    moveIds
+      .filter((moveId) => (moveRoleEntry(moveId)?.tags ?? []).some((tag) => cleanId(tag) === "hazardset"))
+      .map((moveId) => HAZARD_MOVE_CONDITIONS[cleanId(moveId)])
+      .filter(Boolean),
+  )];
   const hasHazardRemoval = moveIds.some((moveId) =>
-    (moveRoleEntry(moveId)?.tags ?? []).some(
-      (tag) => cleanId(tag) === "hazardremove",
-    ),
+    (moveRoleEntry(moveId)?.tags ?? []).some((tag) => cleanId(tag) === "hazardremove"),
   );
   const ownHazardLayers = Object.keys(HAZARD_MAX_LAYERS).reduce(
-    (total, conditionId) =>
-      total + sideConditionLayers(ownSideConditions, conditionId),
+    (total, conditionId) => total + sideConditionLayers(ownSideConditions, conditionId),
     0,
   );
-  const hazardSetComplete =
-    hazardSetConditions.length > 0 &&
-    hazardSetConditions.every(
-      (conditionId) =>
-        sideConditionLayers(opponentSideConditions, conditionId) >=
-        HAZARD_MAX_LAYERS[conditionId],
-    );
-  const hazardRemovalComplete =
-    hasHazardRemoval &&
-    ownHazardLayers === 0 &&
-    opponentHazardSetterAlive !== true;
-  const completedRoles = [];
-  const remainingRoles = [];
-  const reasons = [];
-
-  for (const role of trackedRoleNames) {
-    let complete = false;
-    if (role === "lead") {
-      complete = activeTurns > 0 || hazardSetComplete;
-    } else if (role === "hazardControl") {
-      const setTaskComplete =
-        hazardSetConditions.length === 0 || hazardSetComplete;
-      const removeTaskComplete =
-        !hasHazardRemoval || hazardRemovalComplete;
-      complete = setTaskComplete && removeTaskComplete;
-    } else if (role === "revengeKiller") {
-      complete = highThreatCount <= 0;
-    } else if (role === "disruptor") {
-      complete = setupThreatCount <= 0;
-    } else if (role === "wall") {
-      complete =
-        assignedThreats.length === 0 &&
-        highThreatCount <= 0 &&
-        opponentLivingCount > 0;
-    } else {
-      complete = opponentLivingCount <= 0;
-    }
-    if (complete) completedRoles.push(role);
-    else remainingRoles.push(role);
-  }
-
-  if (hazardSetConditions.length > 0) {
-    reasons.push(
-      hazardSetComplete
-        ? `설치 임무 완료: ${hazardSetConditions.join(", ")} 최대 층수`
-        : `설치 임무 남음: ${hazardSetConditions
-            .filter(
-              (conditionId) =>
-                sideConditionLayers(opponentSideConditions, conditionId) <
-                HAZARD_MAX_LAYERS[conditionId],
-            )
-            .join(", ")}`,
-    );
-  }
-  if (hasHazardRemoval) {
-    reasons.push(
-      hazardRemovalComplete
-        ? "제거 임무 완료: 아군 설치물 없음, 상대 설치 요원 없음"
-        : ownHazardLayers > 0
-          ? `제거 임무 남음: 아군 쪽 설치물 ${ownHazardLayers}층`
-          : "제거 임무 남음: 상대 설치 요원 생존",
-    );
-  }
-  if (assignedThreats.length > 0) {
-    reasons.push(`담당 위협 생존: ${assignedThreats.join(", ")}`);
-  }
-
-  const roleComplete =
-    trackedRoleNames.length > 0 &&
-    remainingRoles.length === 0 &&
-    opponentLivingCount > 0;
-  const expendableResource =
-    roleComplete &&
-    mustPreserveResource !== true &&
-    resolvedRole.aceProfile?.qualifies !== true;
-  return {
-    roleComplete,
-    expendableResource,
-    completedRoles,
-    remainingRoles,
-    auxiliaryRoles,
-    hazardSetComplete,
-    hazardRemovalComplete,
-    assignedThreats: [...assignedThreats],
-    reasons,
-  };
+  return JSON.parse(
+    evaluateRoleProgressJson(
+      JSON.stringify({
+        roleScores: Object.fromEntries(
+          (resolvedRole.roles ?? []).map((entry) => [entry.role, Number(entry.score ?? 0)]),
+        ),
+        primaryRole: resolvedRole.primaryRole ?? "",
+        aceQualified: resolvedRole.aceProfile?.qualifies === true,
+        hazardSetConditions,
+        hazardMaxLayers: Object.fromEntries(
+          hazardSetConditions.map((id) => [id, HAZARD_MAX_LAYERS[id] ?? 1]),
+        ),
+        opponentHazardLayers: Object.fromEntries(
+          hazardSetConditions.map((id) => [id, sideConditionLayers(opponentSideConditions, id)]),
+        ),
+        hasHazardRemoval,
+        ownHazardLayers,
+        opponentHazardSetterAlive,
+        opponentLivingCount,
+        highThreatCount,
+        setupThreatCount,
+        assignedThreats,
+        mustPreserveResource,
+        activeTurns,
+      }),
+    ),
+  );
 }
 
 export function aiScoringRuleCatalog() {
   return AI_SCORING_RULES.map((rule) => ({ ...rule }));
 }
 
-export function moveRuleAdjustments(candidate, strategy = "balanced") {
+function renderSharedRuleAdjustment(adjustment, candidate, kind) {
+  const code = String(adjustment.code ?? "shared.rule");
+  const ruleName = code.split(".").at(-1)?.replaceAll("_", " ") ?? code;
+  let message = `${kind === "move" ? "기술" : "교체"} 후보의 공통 AI 규칙(${ruleName})을 적용했습니다.`;
+  if (code === "rule.self_sacrifice.resource_cost" && candidate.mustPreserveResource === true) {
+    message = `현재 포켓몬은 ${arrayValues(candidate.mustPreserveFor).join(", ") || "상대 핵심 포켓몬"}의 유일한 대응 자원이라 자폭으로 소모하지 않도록 크게 낮췄습니다.`;
+  } else if (code.startsWith("rule.status_disruption.")) {
+    const ratio = Math.round(
+      Math.max(0, finiteNumber(candidate.disruptionThreeTurnDamageRatio, 0)) * 100,
+    );
+    message = candidate.disruptionBenchSwitchThreat === true
+      ? `벤치 위협으로 교체하는 경로까지 포함한 3턴 예상 피해가 현재 체력의 ${ratio}%라 방해 기술 위험을 반영했습니다.`
+      : candidate.disruptionDefensiveSetup === true
+        ? `방어형 랭크업 후 3턴 예상 피해가 현재 체력의 ${ratio}%라 생존 가능성을 함께 반영했습니다.`
+        : `3턴 예상 피해가 현재 체력의 ${ratio}%라 상대 방해 기술 위험을 반영했습니다.`;
+  }
+  return scoreAdjustment(
+    code,
+    kind === "move" ? "공통 기술 규칙" : "공통 교체 규칙",
+    true,
+    Number(adjustment.weight ?? 0),
+    message,
+  );
+}
+
+function sharedMoveRuleAdjustments(candidate, strategy = "balanced") {
   const enriched = enrichMoveCandidateWithRole(candidate, strategy);
   const moveId = cleanId(enriched.id ?? enriched.moveId ?? enriched.name);
   const tags = candidateTagSet(enriched);
-  const adjustments = [];
-  if (enriched.category === "Status") {
-    const disruptionThreeTurnDamageRatio = Math.max(
-      0,
-      finiteNumber(enriched.disruptionThreeTurnDamageRatio, 3),
-    );
-    const survivesDisruptionWindow =
-      enriched.disruptionCanSurviveThreeTurns === true ||
-      disruptionThreeTurnDamageRatio < 1;
-    const defensiveSetup = enriched.disruptionDefensiveSetup === true;
-    const switchEscapeAvailable =
-      enriched.disruptionSwitchEscapeAvailable === true;
-    const benchSwitchThreat =
-      enriched.disruptionBenchSwitchThreat === true;
-    const defensiveDamageReduction = Math.max(
-      0,
-      finiteNumber(enriched.disruptionDefensiveDamageReduction, 0),
-    );
-    const disruptionWindowDescription = benchSwitchThreat
-      ? `상대의 벤치 교체 경로까지 포함한 3턴 예상 피해가 현재 체력의 ${Math.round(disruptionThreeTurnDamageRatio * 100)}%`
-      : `3턴 예상 피해가 현재 체력의 ${Math.round(disruptionThreeTurnDamageRatio * 100)}%`;
-    const survivalDiscount = Math.min(
-      0.78,
-      (survivesDisruptionWindow ? 0.45 : 0) +
-        (defensiveSetup && defensiveDamageReduction > 0 ? 0.18 : 0) +
-        (switchEscapeAvailable ? 0.1 : 0),
-    );
-    const exactTauntRisk = Math.max(
-      0,
-      Math.min(1, finiteNumber(enriched.exactTauntRisk, 0)),
-    );
-    const exactEncoreRisk = Math.max(
-      0,
-      Math.min(1, finiteNumber(enriched.exactEncoreRisk, 0)),
-    );
-    const exactDisruptionRisk = Math.max(exactTauntRisk, exactEncoreRisk);
-    if (exactDisruptionRisk > 0) {
-      const exactMove = exactTauntRisk >= exactEncoreRisk ? "도발" : "앙코르";
-      const exactTauntActsFirst =
-        exactMove === "도발" &&
-        finiteNumber(
-          enriched.opponentDisruptionActsBeforeProbability,
-          0,
-        ) >= 1;
-      const adjustedExactRisk =
-        exactDisruptionRisk *
-        (exactTauntActsFirst ? 1 : 1 - survivalDiscount);
-      adjustments.push(
-        scoreAdjustment(
-          `rule.status_disruption.exact_${exactMove === "도발" ? "taunt" : "encore"}`,
-          `확정된 ${exactMove} 경계`,
-          adjustedExactRisk,
-          -Math.round(adjustedExactRisk * 700),
-          exactTauntActsFirst
-            ? "치터 판단으로 상대의 선공 도발을 확인해 이번 변화기가 실패하는 위험을 크게 반영했습니다."
-            : survivesDisruptionWindow
-              ? `상대의 ${exactMove}을 확인했지만 ${disruptionWindowDescription}라 생존 및 교체 여지를 함께 반영했습니다.`
-              : `치터 판단으로 상대가 이번 턴 ${exactMove}을 사용하는 것을 확인해 변화기가 봉쇄되거나 반복 사용에 묶일 위험을 크게 반영했습니다.`,
-        ),
-      );
-    } else {
-      const tauntRisk = Math.max(
-        0,
-        Math.min(1, finiteNumber(enriched.opponentTauntRisk, 0)),
-      );
-      const encoreRisk = Math.max(
-        0,
-        Math.min(1, finiteNumber(enriched.opponentEncoreRisk, 0)),
-      );
-      if (tauntRisk > 0) {
-        const adjustedTauntRisk = tauntRisk * (1 - survivalDiscount);
-        adjustments.push(
-          scoreAdjustment(
-            "rule.status_disruption.taunt_risk",
-            "상대 도발 경계",
-            adjustedTauntRisk,
-            -Math.round(adjustedTauntRisk * 90),
-            survivesDisruptionWindow
-              ? `상대가 도발을 보유했지만 ${disruptionWindowDescription}라 위험 감점을 완화했습니다.`
-              : `상대가 도발을 보유하고 있어 이번 변화기가 봉쇄될 위험을 ${Math.round(tauntRisk * 100)}%로 평가했습니다.`,
-          ),
-        );
-      }
-      if (encoreRisk > 0) {
-        const adjustedEncoreRisk = encoreRisk * (1 - survivalDiscount);
-        adjustments.push(
-          scoreAdjustment(
-            "rule.status_disruption.encore_risk",
-            "상대 앙코르 경계",
-            adjustedEncoreRisk,
-            -Math.round(adjustedEncoreRisk * 75),
-            survivesDisruptionWindow
-              ? defensiveSetup && defensiveDamageReduction > 0
-                ? `상대가 앙코르를 보유했지만 방어형 랭크업 후 ${disruptionWindowDescription}로 줄어 위험 감점을 크게 완화했습니다.`
-                : `상대가 앙코르를 보유했지만 ${disruptionWindowDescription}라 생존 및 교체 여지를 반영했습니다.`
-              : benchSwitchThreat
-                ? `상대가 앙코르를 보유했고 벤치 위협으로 교체하면 3턴 안에 쓰러질 수 있어 반복 사용에 묶이는 위험을 유지했습니다.`
-                : `상대가 앙코르를 보유하고 있어 변화기 반복에 묶일 위험을 ${Math.round(encoreRisk * 100)}%로 평가했습니다.`,
-          ),
-        );
-      }
-    }
-  }
-  const hasStatusControlObservation =
-    enriched.statusControlTargetStatusMoveCount !== undefined ||
-    enriched.encoreTargetValid !== undefined;
-  if (
-    hasStatusControlObservation &&
-    (moveId === "taunt" || moveId === "encore")
-  ) {
-    const targetAlreadyAffected =
-      enriched.statusControlTargetAlreadyAffected === true;
-    const canSurviveControlWindow =
-      enriched.statusControlCanSurviveThreeTurns === true;
-    const controlWindowDamageRatio = Math.max(
-      0,
-      finiteNumber(enriched.statusControlThreeTurnDamageRatio, 3),
-    );
-    const opponentCanSwitch =
-      enriched.statusControlOpponentCanSwitch === true;
-    const switchHazardLayers = Math.max(
-      0,
-      finiteNumber(enriched.statusControlSwitchHazardLayers, 0),
-    );
-    if (targetAlreadyAffected) {
-      adjustments.push(
-        scoreAdjustment(
-          `rule.status_control.${moveId}_already_active`,
-          "이미 적용된 방해 효과",
-          moveId,
-          -1000,
-          `상대에게 ${moveId === "taunt" ? "도발" : "앙코르"}가 이미 적용되어 있어 다시 사용할 이유가 없습니다.`,
-        ),
-      );
-    } else if (moveId === "taunt") {
-      const statusMoveCount = Math.max(
-        0,
-        finiteNumber(enriched.statusControlTargetStatusMoveCount, 0),
-      );
-      const statusMoveRatio = Math.max(
-        0,
-        Math.min(
-          1,
-          finiteNumber(enriched.statusControlTargetStatusMoveRatio, 0),
-        ),
-      );
-      const targetValue = Math.max(
-        0,
-        Math.min(1, finiteNumber(enriched.statusControlTargetValue, 0)),
-      );
-      if (statusMoveCount <= 0) {
-        adjustments.push(
-          scoreAdjustment(
-            "rule.status_control.taunt_no_target",
-            "차단할 변화기 없음",
-            0,
-            -1000,
-            "상대가 사용할 수 있는 변화기가 없어 도발은 아무 효과가 없습니다.",
-          ),
-        );
-      } else {
-        const preventionConfidence = Math.max(
-          0,
-          Math.min(
-            1,
-            finiteNumber(enriched.tauntPreventionConfidence, 0),
-          ),
-        );
-        const controlBonus = Math.round(
-          12 +
-            statusMoveRatio * 30 +
-            targetValue * 34 +
-            preventionConfidence * 75,
-        );
-        adjustments.push(
-          scoreAdjustment(
-            "rule.status_control.taunt_lock",
-            "핵심 변화기 차단",
-            `${statusMoveCount} / ${Math.round(statusMoveRatio * 100)}%`,
-            controlBonus,
-            preventionConfidence > 0
-              ? `상대가 이번 턴 사용할 변화기를 최대 ${Math.round(preventionConfidence * 100)}% 확률로 먼저 차단하며, 기술 ${statusMoveCount}개를 봉쇄할 수 있습니다.`
-              : `상대 기술 중 변화기 ${statusMoveCount}개의 회복·랭크업·설치 가치를 차단할 수 있어 점수를 높였습니다.`,
-          ),
-        );
-        if (!canSurviveControlWindow && preventionConfidence < 1) {
-          const penalty = -Math.min(
-            120,
-            Math.round(45 + Math.max(0, controlWindowDamageRatio - 1) * 65),
-          );
-          adjustments.push(
-            scoreAdjustment(
-              "rule.status_control.taunt_short_life",
-              "도발 유지 전 생존 위험",
-              controlWindowDamageRatio,
-              penalty,
-              `도발을 걸어도 공격 기술이나 교체 대응으로 3턴 동안 현재 체력의 약 ${Math.round(controlWindowDamageRatio * 100)}% 피해를 받을 수 있어 가치를 낮췄습니다.`,
-            ),
-          );
-        }
-      }
-    } else if (enriched.encoreTargetValid !== true) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.status_control.encore_no_target",
-          "고정할 직전 기술 없음",
-          enriched.encoreTargetMoveId ?? "",
-          -1000,
-          "앙코르로 고정할 수 있는 상대의 직전 기술이 없어 사용할 수 없습니다.",
-        ),
-      );
-    } else {
-      const targetMoveId = enriched.encoreTargetMoveId ?? "";
-      const exactConfidence = Math.max(
-        0,
-        Math.min(
-          1,
-          finiteNumber(enriched.encoreExactTargetConfidence, 0),
-        ),
-      );
-      if (enriched.encoreTargetIsStatus === true) {
-        const targetValue = Math.max(
-          0,
-          Math.min(
-            1,
-            finiteNumber(enriched.encoreTargetStatusValue, 0),
-          ),
-        );
-        const bonus = Math.round(
-          38 +
-            targetValue * 72 +
-            exactConfidence * 70 +
-            Math.min(18, switchHazardLayers * 6),
-        );
-        adjustments.push(
-          scoreAdjustment(
-            "rule.status_control.encore_status_lock",
-            "변화기 반복 고정",
-            targetMoveId,
-            bonus,
-            opponentCanSwitch
-              ? `상대를 ${targetMoveId}에 묶어 교체를 강요하고 한 턴의 주도권${switchHazardLayers > 0 ? "과 설치물 피해" : ""}을 얻을 수 있습니다.`
-              : `상대를 ${targetMoveId}에 3턴 동안 묶어 안전한 공격이나 전개 기회를 확보할 수 있습니다.`,
-          ),
-        );
-      } else {
-        const targetDamageRatio = Math.max(
-          0,
-          finiteNumber(enriched.encoreTargetDamageRatio, 1),
-        );
-        const weight =
-          targetDamageRatio <= 0.2
-            ? 52
-            : targetDamageRatio <= 0.35
-              ? 24
-              : targetDamageRatio >= 0.65
-                ? -130
-                : targetDamageRatio >= 0.5
-                  ? -75
-                  : -18;
-        adjustments.push(
-          scoreAdjustment(
-            "rule.status_control.encore_attack_lock",
-            targetDamageRatio <= 0.35
-              ? "약한 공격에 고정"
-              : "위험한 공격에 고정",
-            `${targetMoveId} / ${Math.round(targetDamageRatio * 100)}%`,
-            weight,
-            targetDamageRatio <= 0.35
-              ? `상대를 현재 체력의 약 ${Math.round(targetDamageRatio * 100)}%만 깎는 ${targetMoveId}에 묶어 전개 기회를 만들 수 있습니다.`
-              : `${targetMoveId}에 묶어도 한 번에 현재 체력의 약 ${Math.round(targetDamageRatio * 100)}% 피해를 받아 앙코르의 가치를 낮췄습니다.`,
-          ),
-        );
-      }
-      if (!canSurviveControlWindow) {
-        const penalty = -Math.min(
-          110,
-          Math.round(35 + Math.max(0, controlWindowDamageRatio - 1) * 55),
-        );
-        adjustments.push(
-          scoreAdjustment(
-            "rule.status_control.encore_short_life",
-            "앙코르 이후 생존 위험",
-            controlWindowDamageRatio,
-            penalty,
-            `상대의 교체 대응까지 고려하면 3턴 동안 현재 체력의 약 ${Math.round(controlWindowDamageRatio * 100)}% 피해를 받을 수 있어 후속 이득을 제한했습니다.`,
-          ),
-        );
-      }
-    }
-  }
   const tier = setupThreatTier(enriched);
-  const setupEvaluation =
-    enriched.setupThreatEvaluation ??
-    enriched.opponentSetupThreatEvaluation ??
-    {};
-  const sweepRiskAfterSetup = Math.max(
-    0,
-    Math.min(
-      1,
-      finiteNumber(
-        setupEvaluation.sweepRiskAfterSetup,
-        enriched.opponentSetupSweepRisk,
-      ) ?? 0,
-    ),
-  );
-  const actsBefore =
-    enriched.actsBeforeOpponent === true ||
-    Number(enriched.priority ?? 0) > 0 ||
-    enriched.speedAdvantage === true;
-  const hasSafeImmediateKo = enriched.safeImmediateKoAvailable === true;
   const isDamage = isDamagingCandidate(enriched);
-  const knockoutBeforeActionProbability = Math.max(
-    0,
-    Math.min(
-      1,
-      finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0),
-    ),
+  const hasSafeImmediateKo = enriched.safeImmediateKoAvailable === true;
+  const hpRatio = ratioValue(
+    enriched.hpPercent,
+    enriched.healthRatio,
+    enriched.currentHpRatio,
+    1,
   );
-  const oneTurnEvaluation =
-    enriched.oneTurnEvaluation ??
-    enriched.battleStateEvaluation ??
-    null;
-  if (oneTurnEvaluation) {
-    const delta = finiteNumber(
-      oneTurnEvaluation.delta,
-      enriched.battleStateValueDelta,
-    );
-    const weightMultiplier = Math.max(
-      0,
-      finiteNumber(enriched.oneTurnSearchWeight, 0.35),
-    );
-    if (delta !== undefined && weightMultiplier > 0) {
-      const weight =
-        Math.round(delta * weightMultiplier * 100) / 100;
-      adjustments.push(
-        scoreAdjustment(
-          "simulation.one_turn_state_value",
-          "1턴 후 전투 상태",
-          oneTurnEvaluation.winProbabilityAfter ??
-            oneTurnEvaluation.qValue,
-          weight,
-          oneTurnEvaluation.winProbabilityAfter !== undefined
-            ? `현재 승률 ${Math.round(oneTurnEvaluation.winProbabilityBefore * 1_000) / 10}%에서 행동 후 ${Math.round(oneTurnEvaluation.winProbabilityAfter * 1_000) / 10}%로 ${oneTurnEvaluation.winProbabilityDelta >= 0 ? "+" : ""}${Math.round(oneTurnEvaluation.winProbabilityDelta * 1_000) / 10}%p 변할 것으로 추정했습니다.`
-            : `이 행동을 적용한 다음 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
-        ),
-      );
-    }
-  }
-
-  const stayPressurePenalty = Math.max(
-    0,
-    finiteNumber(enriched.stayPressurePenalty, 0),
+  const incomingDamageRatio = ratioValue(
+    enriched.currentIncomingDamageRatio,
+    enriched.opponentMaxDamageToCurrentHealthRatio,
+    enriched.incomingDamageRatio,
   );
-  if (stayPressurePenalty > 0) {
-    const pressureSources = [];
-    if (finiteNumber(enriched.yawnSwitchPressure, 0) > 0) {
-      pressureSources.push(
-        Number(enriched.yawnTurns ?? 0) <= 1
-          ? "이번 턴 뒤 발동하는 하품"
-          : "하품",
-      );
-    }
-    if (finiteNumber(enriched.saltCureSwitchPressure, 0) > 0) {
-      pressureSources.push(
-        `소금절이 ${finiteNumber(enriched.saltCureResidualDamage, 0)} 피해`,
-      );
-    }
-    if (finiteNumber(enriched.toxicSwitchPressure, 0) > 0) {
-      pressureSources.push(
-        `맹독 ${Math.max(1, finiteNumber(enriched.toxicCounter, 1))}단계`,
-      );
-    }
-    adjustments.push(
-      scoreAdjustment(
-        "rule.action.switch_cleared_pressure",
-        "교체로 해제 가능한 누적 위험",
-        pressureSources,
-        -stayPressurePenalty,
-        `${pressureSources.join(", ")} 때문에 현재 포켓몬을 계속 두는 행동의 점수를 ${stayPressurePenalty} 낮췄습니다.`,
-      ),
-    );
-  }
-
-  if (isDamage && knockoutBeforeActionProbability >= 0.25) {
-    const weight =
-      knockoutBeforeActionProbability >= 0.75
-        ? -520
-        : knockoutBeforeActionProbability >= 0.5
-          ? -280
-          : -120;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.action.ko_before_acting",
-        "행동 전 기절 위험",
-        knockoutBeforeActionProbability,
-        weight,
-        `상대의 ${enriched.opponentThreateningMoveId || "공격"}에 먼저 쓰러져 이 행동을 실행하지 못할 확률이 ${Math.round(knockoutBeforeActionProbability * 100)}%라 점수를 크게 낮췄습니다.`,
-      ),
-    );
-  }
-
-  if (moveId === "upperhand") {
-    const exactOutcome = String(enriched.upperHandExactOutcome ?? "");
-    const successProbability = Math.max(
-      0,
-      Math.min(
-        1,
-        finiteNumber(enriched.upperHandSuccessProbability, 0),
-      ),
-    );
-    const eligibleMoves = Array.isArray(enriched.upperHandEligiblePriorityMoves)
-      ? enriched.upperHandEligiblePriorityMoves.filter(Boolean)
-      : [];
-    if (exactOutcome === "failure") {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.upper_hand.exact_failure",
-          "기선제압 실패 확정",
-          enriched.exactOpponentMoveId || "non-priority-action",
-          -2000,
-          "확인한 상대 행동이 공격 선공기가 아니거나 기선제압보다 먼저 행동하므로 이 기술은 실패합니다.",
-        ),
-      );
-    } else if (exactOutcome === "success") {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.upper_hand.exact_success",
-          "기선제압 성공 확정",
-          enriched.exactOpponentMoveId || eligibleMoves[0] || "priority-move",
-          90,
-          "상대가 공격 선공기를 확정했고 기선제압이 먼저 발동하므로 피해와 풀죽음 가치를 높게 반영했습니다.",
-        ),
-      );
-    } else if (successProbability <= 0) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.upper_hand.no_valid_target",
-          "기선제압 대상 없음",
-          false,
-          -1200,
-          "현재 확인된 상대 기술 중 기선제압보다 늦게 발동하는 공격 선공기가 없어 실패 가능성이 확정적입니다.",
-        ),
-      );
-    } else {
-      const probabilityPercent = Math.round(successProbability * 100);
-      const weight =
-        Math.round(
-          (-140 * (1 - successProbability) + 70 * successProbability) * 100,
-        ) / 100;
-      adjustments.push(
-        scoreAdjustment(
-          "rule.upper_hand.predicted_priority",
-          "기선제압 선공기 예측",
-          `${probabilityPercent}%`,
-          weight,
-          `상대의 공격 선공기 후보 ${eligibleMoves.join(", ")}와 피해 압박을 기준으로 성공 확률을 ${probabilityPercent}%로 추정했습니다.`,
-        ),
-      );
-    }
-  }
-
-  if (
-    ["suckerpunch", "thunderclap"].includes(moveId) &&
-    enriched.conditionalPriorityRepeatFailure === true
-  ) {
-    const repeatedStatusMove =
-      enriched.conditionalPriorityRepeatCause === "status_move";
-    const failureStreak = Math.max(
-      1,
-      finiteNumber(enriched.conditionalPriorityFailureStreak, 1),
-    );
-    const adaptChance = Math.round(
-      Math.max(
-        0,
-        Math.min(
-          1,
-          finiteNumber(enriched.conditionalPriorityAdaptChance, 1),
-        ),
-      ) * 100,
-    );
-    adjustments.push(
-      scoreAdjustment(
-        "rule.conditional_priority.repeat_failure",
-        enriched.conditionalPriorityAdapted === true
-          ? "조건부 선공기 패턴 경계"
-          : "조건부 선공기 재시도",
-        `${failureStreak}회 / ${adaptChance}%`,
-        finiteNumber(enriched.conditionalPriorityAdaptPenalty, -2000),
-        repeatedStatusMove
-          ? `변화기 ${enriched.opponentLastMoveId || ""} 때문에 ${failureStreak}회 연속 실패한 패턴을 ${adaptChance}% 확률로 경계합니다.`
-          : `${enriched.opponentLastMoveId || "상대 선공기"} 때문에 ${failureStreak}회 연속 실패한 패턴을 ${adaptChance}% 확률로 경계합니다.`,
-      ),
-    );
-  }
-
-  if (enriched.selfBoostAlreadyMaxed === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.setup.all_boosts_maxed",
-        "상승 랭크 최대",
-        enriched.effectiveSelfBoostTotal ?? 0,
-        -1000,
-        "이 기술로 올릴 수 있는 능력치가 모두 최대 랭크라 반복 사용 가치를 제거했습니다.",
-      ),
-    );
-  }
-
-  if (hasSafeImmediateKo && !isSafeFinisher(enriched)) {
-    const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
-    const highValueHazard =
-      tags.has("hazardset") &&
-      moveId === "stealthrock" &&
-      livingOpponents >= 3 &&
-      Number(enriched.opponentHazards?.stealthrock ?? 0) <= 0;
-    const weight = highValueHazard ? -12 : isDamage ? -10 : -80;
-    adjustments.push(
-      scoreAdjustment(
-        isDamage
-          ? "rule.immediate_ko_attack_preference"
-          : "rule.immediate_ko_dominance",
-        isDamage ? "비마무리 공격 억제" : "즉시 KO 우선",
-        true,
-        weight,
-        isDamage
-          ? "위험이 통제된 확정 KO 공격기가 있어 상대를 못 쓰러뜨리는 공격을 낮게 봤습니다."
-          : "안전한 즉시 KO가 있어 교체/회복/변화기보다 마무리를 우선합니다.",
-      ),
-    );
-  }
-
-  if (enriched.koChance === "guaranteed" && actsBefore && tier >= 2) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.immediate_ko_response",
-        "전개 위협 즉시 KO",
-        tier,
-        4,
-        Number(enriched.priority ?? 0) > 0
-          ? "우선도기로 상대 랭크업 위협을 확정 KO할 수 있어 보너스를 반영했습니다."
-          : "선공 확정 KO로 상대 랭크업 위협을 끊을 수 있어 보너스를 반영했습니다.",
-      ),
-    );
-  }
-
-  const selfDropTotal = finiteNumber(
-    enriched.selfDropTotal,
-    negativeBoostTotal(enriched.selfBoosts ?? enriched.selfBoostStages),
-  );
-  if (selfDropTotal > 0) {
-    const safeNoDropKoAvailable =
-      enriched.safeNoDropKoAvailable === true ||
-      enriched.safeNoDropFinisherAvailable === true;
-    const guaranteedKo = enriched.koChance === "guaranteed";
-    const weight =
-      guaranteedKo && safeNoDropKoAvailable
-        ? -95 - selfDropTotal * 8
-        : -Math.min(30, selfDropTotal * 6);
-    adjustments.push(
-      scoreAdjustment(
-        guaranteedKo && safeNoDropKoAvailable
-          ? "rule.self_drop.safe_ko_alternative"
-          : "rule.self_drop.stat_cost",
-        "자기 능력 하락",
-        selfDropTotal,
-        weight,
-        guaranteedKo && safeNoDropKoAvailable
-          ? "같은 확정 KO를 낼 수 있는 무하락 공격기가 있어, 방어 자원을 깎는 마무리 선택을 크게 낮췄습니다."
-          : "공격 후 자신의 능력치가 떨어지는 비용을 반영했습니다.",
-      ),
-    );
-  }
-
-  const expectedRecoilDamage = finiteNumber(enriched.expectedRecoilDamage, 0);
-  if (expectedRecoilDamage > 0) {
-    const recoilWouldFaint = enriched.recoilWouldFaint === true;
-    const safeAlternative = enriched.safeNoRecoilKoAvailable === true;
-    const weight =
-      recoilWouldFaint && safeAlternative
-        ? -140
-        : recoilWouldFaint
-          ? -12
-          : -Math.min(36, Math.max(4, expectedRecoilDamage * 0.35));
-    adjustments.push(
-      scoreAdjustment(
-        recoilWouldFaint && safeAlternative
-          ? "rule.recoil.safe_ko_alternative"
-          : recoilWouldFaint
-            ? "rule.recoil.necessary_trade"
-            : "rule.recoil.hp_cost",
-        recoilWouldFaint ? "반동 기절 위험" : "반동 피해",
-        expectedRecoilDamage,
-        weight,
-        recoilWouldFaint && safeAlternative
-          ? "명중률이 충분한 무반동 마무리기가 있어, 자신까지 쓰러지는 공격의 점수를 크게 낮췄습니다."
-          : recoilWouldFaint
-            ? "반동으로 쓰러지지만 신뢰할 만한 무반동 마무리기가 없어 필요한 교환으로 평가했습니다."
-            : "공격 후 받는 예상 반동 피해를 생존 비용으로 반영했습니다.",
-      ),
-    );
-  }
-
-  const hazardMaximumLayers = HAZARD_MAX_LAYERS[moveId];
-  if (hazardMaximumLayers !== undefined && tags.has("hazardset")) {
-    const currentLayers = Math.max(
-      0,
-      Number(
-        enriched.existingHazardLayers ??
-          enriched.opponentHazards?.[moveId] ??
-          enriched.field?.opponentHazards?.[moveId] ??
-          0,
-      ),
-    );
-    if (cleanId(enriched.opponentAbility) === "magicbounce") {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.entry_hazard.magic_bounce",
-          "설치기 반사 위험",
-          "magicbounce",
-          -30,
-          "상대 매직미러에 설치기가 반사될 수 있어 큰 페널티를 반영했습니다.",
-        ),
-      );
-    } else if (currentLayers >= hazardMaximumLayers) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.entry_hazard.already_maxed",
-          "이미 설치됨",
-          currentLayers,
-          -180,
-          "이미 최대 층수까지 설치되어 다시 사용해도 실패하므로 점수를 크게 낮췄습니다.",
-        ),
-      );
-    } else {
-      const incomingRatio = ratioValue(
-        enriched.opponentMaxDamageToCurrentHealthRatio,
-        enriched.incomingDamageRatio,
-      );
-      const hpPercent = ratioValue(enriched.hpPercent, 1);
-      const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
-      const highValueHazardDespiteKo =
-        enriched.immediateKoAvailable === true &&
-        moveId === "stealthrock" &&
-        livingOpponents >= 3;
-      if (
-        (!enriched.immediateKoAvailable || highValueHazardDespiteKo) &&
-        (actsBefore || incomingRatio === undefined || incomingRatio < hpPercent)
-      ) {
-        if (livingOpponents > 1) {
-          const bonus = 12 + 2 * Math.min(6, livingOpponents);
-          adjustments.push(
-            scoreAdjustment(
-              "rule.entry_hazard.team_value",
-              "판 설치 지속 가치",
-              livingOpponents,
-              bonus,
-              `남은 상대 ${livingOpponents}마리에 진입 압박을 줄 수 있어 설치기 가치를 반영했습니다.`,
-            ),
-          );
-        }
-        if (moveId === "stealthrock" && livingOpponents >= 3) {
-          const turn = Math.max(1, Number(enriched.turn ?? 1));
-          const remainingValue = Math.min(6, livingOpponents) * 8;
-          const earlyTempoValue = turn <= 2 && livingOpponents >= 4 ? 10 : 0;
-          const stealthRockBonus = 18 + remainingValue + earlyTempoValue;
-          adjustments.push(
-            scoreAdjustment(
-              "rule.entry_hazard.stealth_rock_pressure",
-              "스텔스록 지속 압박",
-              livingOpponents,
-              stealthRockBonus,
-              turn <= 2
-                ? "초반 스텔스록은 상대 파티 전체의 교체와 기띠/멀티스케일 자원을 계속 압박합니다."
-                : "아직 스텔스록이 없어 남은 상대 포켓몬들의 진입 피해 기대값을 계속 높게 봤습니다.",
-            ),
-          );
-        }
-        if (
-          moveId === "stealthrock" &&
-          Number(enriched.turn ?? 1) <= 2 &&
-          livingOpponents >= 4
-        ) {
-          adjustments.push(
-            scoreAdjustment(
-              "rule.entry_hazard.early_stealth_rock",
-              "초반 스텔스록",
-              livingOpponents,
-              42,
-              "초반 스텔스록은 남은 파티 전체의 교체와 기띠/멀티스케일 자원을 압박하므로 크게 높게 봤습니다.",
-            ),
-          );
-        }
-      } else {
-        adjustments.push(
-          scoreAdjustment(
-            "rule.entry_hazard.cannot_set",
-            "설치 전 KO 위험",
-            incomingRatio,
-            -30,
-            "후공이며 상대 공격을 버티지 못할 위험이 있어 설치기 가치를 낮췄습니다.",
-          ),
-        );
-      }
-    }
-  }
-
-  if (moveId === "saltcure") {
-    const opponentVolatiles = new Set(
-      Object.keys(enriched.opponentVolatiles ?? {}).map(cleanId),
-    );
-    if (opponentVolatiles.has("saltcure")) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.salt_cure.already_active",
-          "소금절이 중복",
-          true,
-          -45,
-          "상대가 이미 소금절이 상태라 재사용 가치를 낮췄습니다.",
-        ),
-      );
-    } else if (!enriched.immediateKoAvailable) {
-      const residualDamage = finiteNumber(
-        enriched.saltCureResidualDamage,
-        ratioValue(enriched.opponentMaxHp, enriched.opponentHp, 0) / 8,
-      );
-      const survivalTurns = Math.max(
-        1,
-        Math.min(
-          6,
-          ratioValue(
-            enriched.expectedSurvivalTurns,
-            enriched.survivalTurns,
-            enriched.turnsCanSurvive,
-            1,
-          ),
-        ),
-      );
-      const opponentHp = finiteNumber(enriched.opponentHp, enriched.opponentMaxHp);
-      const opponentPressureTurns =
-        residualDamage > 0 && opponentHp > 0
-          ? Math.max(1, Math.min(6, Math.ceil(opponentHp / residualDamage)))
-          : survivalTurns;
-      const pressureTurns = Math.max(survivalTurns, opponentPressureTurns);
-      const stealthRockLayers = Number(enriched.opponentHazards?.stealthrock ?? 0);
-      const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
-      const earlyRockStillPreferred =
-        stealthRockLayers <= 0 &&
-        Number(enriched.turn ?? 1) <= 2 &&
-        livingOpponents >= 4;
-      const opponentIsAce =
-        enriched.opponentAceQualified === true ||
-        Number(enriched.opponentAceScore ?? 0) >= 5.8 ||
-        enriched.opponentIsAce === true;
-      const opponentPositiveBoosts = Math.max(
-        0,
-        Number(enriched.opponentPositiveBoosts ?? 0),
-        positiveBoostTotal(enriched.opponentBoosts),
-        positiveBoostTotal(enriched.targetBoosts),
-      );
-      const opponentSetupThreat = setupThreatTier(enriched);
-      const setupLikelihood = Math.max(
-        0,
-        Math.min(
-          1,
-          ratioValue(
-            enriched.opponentSetupFirstTurnLikelihood,
-            enriched.opponentSetupLikelihood,
-            0,
-          ),
-        ),
-      );
-      const likelyFirstTurnSetup =
-        enriched.opponentLikelyFirstTurnSetup === true ||
-        (Number(enriched.turn ?? 1) <= 2 &&
-          Number(enriched.opponentSetupMoveCount ?? 0) > 0 &&
-          setupLikelihood >= 0.65);
-      const currentIncoming = ratioValue(
-        enriched.currentIncomingDamageRatio,
-        enriched.opponentMaxDamageToCurrentHealthRatio,
-        enriched.incomingDamageRatio,
-      );
-      const urgentPersistentPressure =
-        opponentIsAce ||
-        likelyFirstTurnSetup ||
-        opponentSetupThreat >= 3 ||
-        opponentPositiveBoosts >= 2 ||
-        enriched.opponentCanSweep === true ||
-        enriched.oneMoreTurnUnmanageable === true;
-      const dotValue = Math.min(
-        urgentPersistentPressure ? 185 : 135,
-        Math.round(Math.max(0, residualDamage) * pressureTurns * 0.68 * 100) / 100,
-      );
-      const pressureBonus =
-        (opponentIsAce ? 24 : 0) +
-        (likelyFirstTurnSetup
-          ? 58
-          : opponentSetupThreat >= 3
-            ? 36
-            : opponentSetupThreat >= 2
-              ? 18
-              : 0) +
-        Math.min(36, opponentPositiveBoosts * 12) +
-        (currentIncoming !== undefined && currentIncoming >= 0.5 ? 20 : 0);
-      const weight = earlyRockStillPreferred && !urgentPersistentPressure
-        ? Math.min(34, 22 + dotValue)
-        : 22 + dotValue + pressureBonus;
-      adjustments.push(
-        scoreAdjustment(
-          "rule.salt_cure.persistent_pressure",
-          "소금절이 지속 압박",
-          `${Math.round(residualDamage)} x ${pressureTurns}`,
-          Math.round(weight * 100) / 100,
-          earlyRockStillPreferred
-            ? "소금절이는 지속 피해 가치가 크지만 초반 스텔스록이 아직 없어 보너스를 보수적으로 제한했습니다."
-            : `소금절이는 예상 생존 ${survivalTurns}턴 동안 누적 피해를 만들 수 있어 도트 기대값을 반영했습니다.`,
-        ),
-      );
-    }
-  }
-
-  const opponentStatus = cleanId(enriched.opponentStatus ?? enriched.targetStatus);
-  const residualStatuses = [];
-  const pushResidualStatus = (status, chance = 100) => {
-    const id = cleanId(status);
-    if (!["tox", "toxic", "badlypoisoned", "psn", "poison", "brn", "burn"].includes(id)) return;
-    residualStatuses.push({
-      status: id,
-      chance: Math.max(0, Math.min(100, Number(chance ?? 100))),
-    });
-  };
-  if (Array.isArray(enriched.statusResidualCandidates)) {
-    for (const entry of enriched.statusResidualCandidates) {
-      pushResidualStatus(entry.status, entry.chance ?? 100);
-    }
-  } else {
-    pushResidualStatus(enriched.status, 100);
-    for (const secondary of enriched.secondaries ?? []) {
-      pushResidualStatus(secondary.status, secondary.chance ?? 100);
-    }
-  }
-  if (
-    residualStatuses.length > 0 &&
-    !opponentStatus &&
-    enriched.statusBlocked !== true
-  ) {
-    const opponentMaxHp = ratioValue(enriched.opponentMaxHp, enriched.opponentHp, 0);
-    const survivalTurns = Math.max(
-      1,
-      Math.min(
-        6,
-        ratioValue(
-          enriched.expectedSurvivalTurns,
-          enriched.survivalTurns,
-          enriched.turnsCanSurvive,
-          1,
-        ),
-      ),
-    );
-    const best = residualStatuses.reduce(
-      (bestEntry, entry) => {
-        const statusId = cleanId(entry.status);
-        const chance = entry.chance / 100;
-        const toxic =
-          statusId === "tox" ||
-          statusId === "toxic" ||
-          statusId === "badlypoisoned";
-        const poison = statusId === "psn" || statusId === "poison";
-        const burn = statusId === "brn" || statusId === "burn";
-        const residual =
-          toxic
-            ? (opponentMaxHp / 16) * ((survivalTurns * (survivalTurns + 1)) / 2)
-            : poison
-              ? (opponentMaxHp / 8) * survivalTurns
-              : burn
-                ? (opponentMaxHp / 16) * survivalTurns
-                : 0;
-        const utility = burn ? 10 * survivalTurns : toxic ? 4 * survivalTurns : 0;
-        const value = Math.min(95, (residual * 0.5 + utility) * chance);
-        return value > bestEntry.value
-          ? { status: statusId, chance: entry.chance, value }
-          : bestEntry;
-      },
-      { status: "", chance: 0, value: 0 },
-    );
-    if (best.value > 0) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.status_residual.expected_value",
-          "상태이상 지속 기대값",
-          `${best.status} ${best.chance}% x ${survivalTurns}`,
-          Math.round(best.value * 100) / 100,
-          `독/맹독/화상은 예상 생존 ${survivalTurns}턴 동안 누적 피해를 만들 수 있어 성공 확률을 곱해 반영했습니다.`,
-        ),
-      );
-    }
-  }
-
-  if (moveId === "trickroom") {
-    const activeRoom =
-      enriched.trickRoomActive === true ||
-      Boolean(enriched.field?.pseudoWeather?.trickroom);
-    const canSurviveToSetRoom =
-      enriched.canSurviveToSetRoom ??
-      ratioValue(enriched.incomingDamageRatio, 0) < 1;
-    const slowAceCount = Math.max(0, Number(enriched.slowAceCount ?? 0));
-    const advantage = Number(enriched.trickRoomAdvantage ?? 0);
-    const hpPercent = ratioValue(enriched.hpPercent, enriched.healthRatio, 1);
-    if (activeRoom && !enriched.shouldReverseTrickRoom) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.trick_room.already_active",
-          "트릭룸 유지",
-          true,
-          -160,
-          "트릭룸이 이미 켜져 있어 다시 사용하면 이득을 잃을 수 있으므로 크게 낮췄습니다.",
-        ),
-      );
-    } else if (!canSurviveToSetRoom) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.trick_room.cannot_survive",
-          "설치 전 KO 위험",
-          false,
-          -90,
-          "트릭룸은 우선도가 낮아 이번 턴 공격을 버티지 못하면 설치할 수 없어 점수를 낮췄습니다.",
-        ),
-      );
-    } else if (advantage > 0 || slowAceCount > 0) {
-      const speedAdvantageBonus = Math.max(0, Math.min(60, advantage * 22));
-      const bonus =
-        55 +
-        speedAdvantageBonus +
-        Math.min(48, slowAceCount * 18) +
-        (enriched.activeIsSlower === true ? 18 : 0) +
-        (hpPercent <= 0.45 ? 18 : 0);
-      adjustments.push(
-        scoreAdjustment(
-          "rule.trick_room.slow_ace_plan",
-          "느린 에이스 전개",
-          slowAceCount,
-          bonus,
-          `남은 느린 에이스 ${slowAceCount}마리가 트릭룸에서 선공권을 얻을 수 있어 전개 가치를 반영했습니다.`,
-        ),
-      );
-    } else if (enriched.activeIsFaster === true || advantage < 0) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.trick_room.bad_speed_context",
-          "속도 역전 손해",
-          advantage,
-          -70,
-          "현재 속도 구조에서는 트릭룸이 상대에게 더 유리할 수 있어 점수를 낮췄습니다.",
-        ),
-      );
-    }
-  }
-
-  const batonSetupGain = Math.max(
-    0,
-    finiteNumber(enriched.batonPassAdditionalBoostTotal, 0),
-  );
-  const batonSetupSurvivalProbability = Math.max(
-    0,
-    Math.min(
-      1,
-      finiteNumber(enriched.setupFollowupSurvivalProbability, 0),
-    ),
-  );
-  if (
-    moveId !== "batonpass" &&
-    enriched.batonPassTargetAvailable === true &&
-    batonSetupGain > 0 &&
-    batonSetupSurvivalProbability >= 0.65
-  ) {
-    const batonSetupWeight = Math.min(
-      180,
-      70 +
-        batonSetupGain * 24 +
-        Math.max(0, finiteNumber(enriched.batonPassNewKoTargets, 0)) * 42 +
-        Math.max(0, finiteNumber(enriched.batonPassPressureGain, 0)) * 28,
-    );
-    adjustments.push(
-      scoreAdjustment(
-        "rule.baton_pass.setup_for_ace",
-        "에이스 전달용 랭크업",
-        enriched.batonPassTargetName,
-        Math.round(batonSetupWeight * 100) / 100,
-        `${enriched.batonPassTargetName}에게 배턴터치할 수 있고 다음 행동까지 생존할 확률이 ${Math.round(batonSetupSurvivalProbability * 100)}%라, 안전한 범위에서 랭크를 더 쌓는 가치를 반영했습니다.`,
-      ),
-    );
-  }
-
-  const batonPassCurrentSweepBoostTotal = finiteNumber(
-    enriched.batonPassCurrentSweepBoostTotal,
-    finiteNumber(enriched.batonPassCurrentBoostTotal, 0),
-  );
-  const batonPassCurrentDefensiveBoostTotal = finiteNumber(
-    enriched.batonPassCurrentDefensiveBoostTotal,
-    0,
-  );
-  const safeForAnotherBatonSetup =
-    batonSetupSurvivalProbability >= 0.85 &&
-    finiteNumber(enriched.incomingDamageRatio, 1) <= 0.35 &&
-    finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0) < 0.2;
-  const batonPassDevelopmentRemaining =
-    (batonPassCurrentSweepBoostTotal < 6 &&
-      enriched.batonPassCanRaiseSweepFurther === true) ||
-    (batonPassCurrentDefensiveBoostTotal < 2 &&
-      enriched.batonPassCanRaiseDefenseFurther === true);
-  const batonPassReady =
-    enriched.batonPassTargetAvailable === true &&
-    enriched.batonPassTargetAce === true &&
-    batonPassCurrentSweepBoostTotal >= 3 &&
-    finiteNumber(enriched.batonPassNewKoTargets, 0) >= 2 &&
-    (!safeForAnotherBatonSetup ||
-      (batonPassCurrentSweepBoostTotal >= 6 &&
-        batonPassCurrentDefensiveBoostTotal >= 2));
-  if (
-    moveId !== "batonpass" &&
-    batonPassReady &&
-    (batonSetupGain > 0 ||
-      tags.has("setupboost") ||
-      finiteNumber(enriched.effectiveSelfBoostTotal, 0) > 0)
-  ) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.baton_pass.ready_to_transfer",
-        "에이스 전달 준비 완료",
-        enriched.batonPassTargetName,
-        -220,
-        safeForAnotherBatonSetup
-          ? `핵심 공격 랭크 ${batonPassCurrentSweepBoostTotal}와 방어 랭크 ${batonPassCurrentDefensiveBoostTotal}를 확보해, 안전한 추가 전개보다 ${enriched.batonPassTargetName}에게 전달할 가치가 높습니다.`
-          : `이미 쌓은 랭크로 ${enriched.batonPassTargetName}이 상대 ${Math.max(2, finiteNumber(enriched.batonPassNewKoTargets, 0))}마리 이상을 압박하며 추가 전개가 안전하지 않아 즉시 전달을 우선합니다.`,
-      ),
-    );
-  }
-  if (
-    moveId === "batonpass" &&
-    safeForAnotherBatonSetup &&
-    batonPassDevelopmentRemaining
-  ) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.baton_pass.safe_development_remaining",
-        "안전한 추가 전개 가능",
-        enriched.batonPassTargetName,
-        -90,
-        `상대의 예상 최대 피해가 현재 체력의 ${Math.round(finiteNumber(enriched.incomingDamageRatio, 0) * 100)}%에 불과해, ${enriched.batonPassTargetName}에게 넘기기 전에 의미 있는 랭크를 한 번 더 확보할 수 있습니다.`,
-      ),
-    );
-  }
-
-  const protectSuccessProbability = Math.max(
-    0,
-    Math.min(1, finiteNumber(enriched.protectSuccessProbability, 1)),
-  );
-  if (
-    protectSuccessProbability < 1 &&
-    ["protect", "detect", "kingsshield", "spikyshield", "banefulbunker", "burningbulwark", "obstruct", "silktrap", "endure", "maxguard"].includes(moveId)
-  ) {
-    const penalty = Math.round((1 - protectSuccessProbability) * -21000) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.protect.consecutive_failure_risk",
-        "연속 방어 실패 위험",
-        protectSuccessProbability,
-        penalty,
-        `연속 사용 성공률이 ${Math.round(protectSuccessProbability * 100)}%로 낮아져 실패 위험을 반영했습니다.`,
-      ),
-    );
-  }
-
-  if (tags.has("setupboost")) {
-    const incomingRatio = ratioValue(
-      enriched.opponentMaxDamageToCurrentHealthRatio,
-      enriched.incomingDamageRatio,
-    );
-    const setupIncomingRatio = ratioValue(
-      enriched.setupIncomingDamageRatioAfterBoost,
-      incomingRatio,
-    );
-    const setupFollowupSurvivalProbability = ratioValue(
-      enriched.setupFollowupSurvivalProbability,
-      enriched.setupCanSurviveIncoming === false ? 0 : undefined,
-      1,
-    );
-    const canSurviveSetupTurn =
-      enriched.setupCanSurviveIncoming !== false &&
-      setupFollowupSurvivalProbability >= 0.5;
-    const setupSafetyAssured =
-      canSurviveSetupTurn &&
-      finiteNumber(enriched.setupGuardConsumptionProbability, 0) < 0.25 &&
-      (setupIncomingRatio === undefined || setupIncomingRatio < 0.5);
-    const conditionalPriorityLikelihood = Math.max(
-      0,
-      Math.min(
-        0.85,
-        finiteNumber(enriched.opponentConditionalPriorityLikelihood, 0),
-      ),
-    );
-    const conditionalPriorityKnockoutProbability = Math.max(
-      0,
-      Math.min(
-        1,
-        finiteNumber(
-          enriched.opponentConditionalPriorityKnockoutProbability,
-          0,
-        ),
-      ),
-    );
-    const effectiveBoostAvailable =
-      finiteNumber(
-        enriched.effectiveSelfBoostTotal,
-        enriched.setupEffectiveBoostTotal,
-        1,
-      ) > 0;
-    const revealedSetupResetMoveIds = arrayValues(
-      enriched.opponentRevealedSetupResetMoveIds,
-    ).map(cleanId).filter(Boolean);
-    const activeRevealedSetupResetMoveIds = arrayValues(
-      enriched.opponentActiveRevealedSetupResetMoveIds,
-    ).map(cleanId).filter(Boolean);
-    if (effectiveBoostAvailable && revealedSetupResetMoveIds.length > 0) {
-      const activeResetAvailable = activeRevealedSetupResetMoveIds.length > 0;
-      const penalty = activeResetAvailable ? -240 : -100;
-      const resetMoves = activeResetAvailable
-        ? activeRevealedSetupResetMoveIds
-        : revealedSetupResetMoveIds;
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.revealed_boost_reset",
-          "공개된 랭크 초기화 대응",
-          resetMoves,
-          penalty,
-          `상대가 이미 ${resetMoves.join(", ")} 사용을 공개했고${activeResetAvailable ? " 현재 포켓몬이 다시 사용할 수 있어" : " 교체로 다시 대응할 수 있어"} 랭크업 투자 가치가 낮습니다.`,
-        ),
-      );
-    }
-    if (
-      conditionalPriorityLikelihood >= 0.25 &&
-      effectiveBoostAvailable &&
-      canSurviveSetupTurn
-    ) {
-      const baitValue =
-        conditionalPriorityLikelihood *
-        (42 + conditionalPriorityKnockoutProbability * 38);
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.conditional_priority_bait",
-          "조건부 선공기 낭비 유도",
-          `${enriched.opponentConditionalPriorityMoveId || "Sucker Punch"} ${Math.round(conditionalPriorityLikelihood * 100)}%`,
-          Math.round(baitValue * 100) / 100,
-          `상대가 ${enriched.opponentConditionalPriorityMoveId || "조건부 선공기"}를 선택할 가능성을 ${Math.round(conditionalPriorityLikelihood * 100)}%로 추정했습니다. 변화기를 쓰면 그 공격은 실패하지만 다른 공격 가능성도 남겨 둔 기대값만 반영했습니다.`,
-        ),
-      );
-    }
-    if (enriched.reliableKoAlternative === true && !setupSafetyAssured) {
-      const knockoutBoostAlternative =
-        enriched.knockoutBoostAlternative &&
-        typeof enriched.knockoutBoostAlternative === "object";
-      adjustments.push(
-        scoreAdjustment(
-          knockoutBoostAlternative
-            ? "rule.setup.foregoes_ko_boost"
-            : "rule.setup.foregoes_safe_ko",
-          knockoutBoostAlternative
-            ? "확정 KO와 특성 랭크업 포기"
-            : "안전한 확정 KO 포기",
-          setupIncomingRatio,
-          knockoutBoostAlternative ? -260 : -180,
-          knockoutBoostAlternative
-            ? "현재 상대를 확정 KO하면 위협을 제거하면서 특성으로 랭크도 오르므로, 생존 자원을 소모하는 랭크업보다 우선합니다."
-            : "현재 상대를 확정 KO할 수 있지만 랭크업 중 큰 피해를 받을 수 있어 안전한 마무리를 우선합니다.",
-        ),
-      );
-    }
-    if (Number(enriched.turn ?? 2) === 1 && !enriched.opponentActionKnown) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.first_turn_unknown",
-          "첫 턴 정보 부족",
-          true,
-          -2,
-          "첫 턴에는 상대 행동을 확인하기 전이라 랭크업 가치를 조금 낮췄습니다.",
-        ),
-      );
-    }
-    if (!canSurviveSetupTurn) {
-      const survivalPenalty =
-        setupFollowupSurvivalProbability <= 0.05
-          ? -360
-          : setupFollowupSurvivalProbability < 0.25
-            ? -280
-            : -210;
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.cannot_reach_followup",
-          "랭크업 후속 행동 불가",
-          setupFollowupSurvivalProbability,
-          survivalPenalty,
-          finiteNumber(enriched.setupGuardConsumptionProbability, 0) > 0 &&
-            enriched.setupFollowupActsBeforeThreat === false
-            ? `기합의띠나 옹골참으로 이번 턴을 버텨도 다음 턴 상대보다 늦게 행동하므로 강화 공격을 사용하기 전에 쓰러집니다.`
-            : `랭크업 후 다음 행동까지 생존할 확률이 ${Math.round(setupFollowupSurvivalProbability * 100)}%라 전개 투자를 회수하기 어렵습니다.`,
-        ),
-      );
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.cannot_survive_turn",
-          "랭크업 후 기절 위험",
-          setupIncomingRatio,
-          -220,
-          `랭크업을 적용해도 상대 최대 피해가 현재 체력의 ${Math.round((setupIncomingRatio ?? 1) * 100)}%라 다음 공격 기회를 얻을 수 없습니다.`,
-        ),
-      );
-    } else if (incomingRatio !== undefined) {
-      const bonus =
-        incomingRatio <= 0.1
-          ? 18
-          : incomingRatio <= 0.2
-            ? 16
-            : incomingRatio <= 1 / 3
-              ? 10
-              : incomingRatio >= 1
-                ? -20
-                : incomingRatio >= 0.5
-                  ? -10
-                  : 0;
-      if (bonus !== 0) {
-        adjustments.push(
-          scoreAdjustment(
-            bonus > 0 ? "rule.setup.safe_turn" : "rule.setup.damage_risk",
-            bonus > 0 ? "랭크업 기점" : "랭크업 피해 위험",
-            incomingRatio,
-            bonus,
-            bonus > 0
-              ? `상대 최대 피해가 현재 체력의 ${Math.round(incomingRatio * 100)}%라 랭크업 기점으로 평가했습니다.`
-              : `상대 최대 피해가 현재 체력의 ${Math.round(incomingRatio * 100)}%라 랭크업 위험을 반영했습니다.`,
-          ),
-        );
-      }
-    }
-    const currentBestDamage = finiteNumber(enriched.setupCurrentBestDamage, 0);
-    const boostedBestDamage = finiteNumber(enriched.setupBoostedBestDamage, 0);
-    const damageImprovement = finiteNumber(
-      enriched.setupDamageImprovement,
-      Math.max(0, boostedBestDamage - currentBestDamage),
-    );
-    const effectiveBoostTotal = Math.max(
-      0,
-      finiteNumber(enriched.setupEffectiveBoostTotal, 1),
-    );
-    const newKoTargets = Math.max(0, finiteNumber(enriched.setupNewKoTargets, 0));
-    const futureNewKoTargets = Math.max(
-      0,
-      finiteNumber(enriched.setupFutureNewKoTargets, 0),
-    );
-    const newSpeedAdvantages = Math.max(
-      0,
-      finiteNumber(enriched.setupNewSpeedAdvantages, 0),
-    );
-    const futurePressureGain = Math.max(
-      0,
-      finiteNumber(enriched.setupFuturePressureGain, 0),
-    );
-    const currentPressureGain = Math.max(
-      0,
-      finiteNumber(enriched.setupCurrentPressureGain, 0),
-    );
-    const hasTeamSetupProfile =
-      enriched.setupLivingTargetCount !== undefined ||
-      enriched.setupEffectiveBoostTotal !== undefined;
-    const strategicGain =
-      newKoTargets +
-      newSpeedAdvantages * 0.65 +
-      futurePressureGain +
-      currentPressureGain * 0.6;
-    const opponentHp = finiteNumber(enriched.opponentHp);
-    if (
-      hasTeamSetupProfile &&
-      (enriched.setupBoostAlreadyMaxed === true || effectiveBoostTotal <= 0)
-    ) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.boost_already_maxed",
-          "랭크 상승 한계",
-          effectiveBoostTotal,
-          -260,
-          "현재 랭크에서는 이 기술로 더 오르는 공격·특수공격·스피드가 없어 재사용 가치를 제거했습니다.",
-        ),
-      );
-    } else if (hasTeamSetupProfile && strategicGain <= 0.01) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.no_matchup_gain",
-          "추가 전개 실익 없음",
-          strategicGain,
-          -190,
-          "이번 랭크업으로 현재 상대나 남은 엔트리에서 새 KO권, 피해 압박, 속도 우위를 만들지 못합니다.",
-        ),
-      );
-    } else if (
-      canSurviveSetupTurn &&
-      (hasTeamSetupProfile ? strategicGain > 0.01 : damageImprovement > 0)
-    ) {
-      const safeEnough = incomingRatio === undefined || incomingRatio < 0.5;
-      const turnsKoImproved =
-        enriched.setupKoAfterBoost === true &&
-        enriched.setupKoBeforeBoost !== true;
-      const weight = hasTeamSetupProfile
-        ? Math.min(120, damageImprovement * 0.55) +
-          Math.min(150, newKoTargets * 55 + futureNewKoTargets * 20) +
-          Math.min(70, futurePressureGain * 45) +
-          Math.min(50, newSpeedAdvantages * 25) +
-          (turnsKoImproved ? (safeEnough ? 55 : 25) : 0) +
-          (opponentHp && boostedBestDamage >= opponentHp * 0.75 ? 30 : 0)
-        : Math.min(120, damageImprovement * 0.55) +
-          (turnsKoImproved ? (safeEnough ? 245 : 105) : 0) +
-          (opponentHp && boostedBestDamage >= opponentHp * 0.75 ? 30 : 0);
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup.team_sweep_plan",
-          "팀 단위 전개 가치",
-          Math.round(strategicGain * 100) / 100,
-          Math.round(weight * 100) / 100,
-          `랭크업 후 새 KO권 ${newKoTargets}마리, 뒤쪽 엔트리 압박 증가 ${Math.round(futurePressureGain * 100)}%, 새 속도 우위 ${newSpeedAdvantages}개를 만들 수 있습니다.`,
-        ),
-      );
-    }
-  }
-
-  if (moveId === "batonpass") {
-    const currentBoostTotal = Math.max(
-      0,
-      finiteNumber(
-        enriched.batonPassCurrentBoostTotal,
-        finiteNumber(enriched.batonPassBoostTotal, 0),
-      ),
-    );
-    const canReachPass =
-      finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0) < 0.75;
-    if (
-      enriched.batonPassTargetAvailable !== true ||
-      enriched.batonPassTargetAce !== true
-    ) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.baton_pass.no_ace_target",
-          "전달 대상 없음",
-          false,
-          -180,
-          "살아 있는 에이스 전달 대상이 없어 배턴터치 가치를 크게 낮췄습니다.",
-        ),
-      );
-    } else if (currentBoostTotal <= 0) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.baton_pass.no_boosts",
-          "전달할 랭크 없음",
-          0,
-          -150,
-          "현재 전달할 유효한 공격·특수공격·스피드 랭크가 없어 배턴터치를 보류합니다.",
-        ),
-      );
-    } else if (!canReachPass) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.baton_pass.ko_before_pass",
-          "전달 전 기절 위험",
+  const reachability = JSON.parse(
+    evaluateActionReachabilityJson(
+      JSON.stringify({
+        ownPriority: Number(enriched.priority ?? 0),
+        opponentPriority: Number(enriched.opponentPriority ?? 0),
+        speedAdvantage: enriched.speedAdvantage === true,
+        actsBeforeOpponent: enriched.actsBeforeOpponent,
+        currentHp: hpRatio,
+        incomingDamage: incomingDamageRatio,
+        survivalProbability: finiteNumber(enriched.survivalProbability),
+        knockoutBeforeActionProbability: finiteNumber(
           enriched.opponentKnockoutBeforeActionProbability,
-          -420,
-          "배턴터치를 사용하기 전에 쓰러질 가능성이 높아 전개를 성공시킬 수 없습니다.",
         ),
-      );
-    } else {
-      const followupSurvival = Math.max(
-        0,
-        Math.min(
-          1,
-          finiteNumber(enriched.setupFollowupSurvivalProbability, 1),
-        ),
-      );
-      const urgentPass =
-        followupSurvival < 0.55 ||
-        finiteNumber(enriched.incomingDamageRatio, 0) >=
-          finiteNumber(enriched.hpPercent, 1);
-      const transferWeight = Math.min(
-        260,
-        55 +
-          Math.max(0, finiteNumber(enriched.batonPassTransferValue, 0)) *
-            0.75 +
-          (urgentPass ? 70 : 0),
-      );
-      adjustments.push(
-        scoreAdjustment(
-          urgentPass
-            ? "rule.baton_pass.pass_before_faint"
-            : "rule.baton_pass.transfer_to_ace",
-          urgentPass ? "기절 전 에이스 전달" : "에이스에게 랭크 전달",
-          {
-            target: enriched.batonPassTargetName,
-            boosts: currentBoostTotal,
-            newKoTargets: enriched.batonPassNewKoTargets,
-          },
-          Math.round(transferWeight * 100) / 100,
-          urgentPass
-            ? `다음 턴까지 전개 포켓몬이 버티기 어려워, 쌓은 ${currentBoostTotal}랭크를 잃기 전에 ${enriched.batonPassTargetName}에게 넘기는 가치를 높였습니다.`
-            : `쌓은 ${currentBoostTotal}랭크를 에이스 ${enriched.batonPassTargetName}에게 넘기면 새 KO권 ${Math.max(0, finiteNumber(enriched.batonPassNewKoTargets, 0))}개를 만들 수 있어 전개 가치를 반영했습니다.`,
-        ),
-      );
-    }
-  }
-
-  if (RECOVERY_MOVE_IDS.has(moveId) || tags.has("recovery")) {
-    const hpPercent = ratioValue(enriched.hpPercent, enriched.healthRatio, enriched.currentHpRatio, 1);
-    const incomingRatio = ratioValue(
-      enriched.currentIncomingDamageRatio,
-      enriched.opponentMaxDamageToCurrentHealthRatio,
-      enriched.incomingDamageRatio,
-    );
-    const projectedHp =
-      incomingRatio === undefined || actsBefore ? hpPercent : hpPercent - incomingRatio;
-    const setupRiskRecoveryEmergency =
-      hpPercent <= 0.45 ||
-      (projectedHp > 0 && projectedHp <= 0.25) ||
-      (incomingRatio !== undefined && incomingRatio >= hpPercent);
-    let weight = 0;
-    let message = "";
-    if (hpPercent <= 0.35) {
-      weight = 24;
-      message = `체력 ${Math.round(hpPercent * 100)}%로 즉시 회복 필요성이 큽니다.`;
-    } else if (hpPercent <= 0.5) {
-      weight = 12;
-      message = `체력 ${Math.round(hpPercent * 100)}%라 회복 가치를 반영했습니다.`;
-    } else if (projectedHp > 0 && projectedHp <= 0.6) {
-      weight = 30;
-      message = `예상 피격 후 체력 ${Math.round(projectedHp * 100)}%라 회복 가치를 높였습니다.`;
-    } else if (!enriched.currentStatus && !enriched.status) {
-      weight = -10;
-      message = "체력이 충분해 회복 낭비 가능성을 반영했습니다.";
-    }
-    if (weight !== 0) {
-      adjustments.push(
-        scoreAdjustment(
-          weight > 0 ? "rule.recovery.survival_value" : "rule.recovery.healthy_penalty",
-          weight > 0 ? "회복 생존 가치" : "회복 낭비 억제",
-          hpPercent,
-          weight,
-          message,
-        ),
-      );
-    }
-    const recoveryAmount = finiteNumber(enriched.recoveryAmount);
-    const recoveryExposureTurns = Math.max(
-      1,
-      finiteNumber(enriched.recoveryExposureTurns, moveId === "rest" ? 3 : 1),
-    );
-    const expectedIncomingDamage = finiteNumber(
-      enriched.recoveryExpectedIncomingDamage,
-    );
-    const recoveryNetHpChange = finiteNumber(enriched.recoveryNetHpChange);
-    const beforeActionKoRisk = Math.max(
-      0,
-      Math.min(
-        1,
-        finiteNumber(
-          enriched.recoveryBeforeActionKoRisk,
-          finiteNumber(enriched.opponentKnockoutBeforeActionProbability, 0),
-        ),
-      ),
-    );
-    if (beforeActionKoRisk >= 0.75) {
-      const penalty =
-        beforeActionKoRisk >= 0.85
-          ? -520
-          : -260;
-      adjustments.push(
-        scoreAdjustment(
-          "rule.recovery.ko_before_heal",
-          "회복 전 기절 위험",
-          beforeActionKoRisk,
-          penalty,
-          `상대가 먼저 공격해 회복기를 쓰기 전에 쓰러질 확률이 ${Math.round(beforeActionKoRisk * 100)}%라 회복 선택을 크게 낮췄습니다.`,
-        ),
-      );
-    }
-    if (
-      recoveryAmount !== undefined &&
-      expectedIncomingDamage !== undefined &&
-      recoveryNetHpChange !== undefined &&
-      recoveryNetHpChange < 0
-    ) {
-      const deficit = Math.abs(recoveryNetHpChange);
-      const basePenalty = recoveryExposureTurns >= 3 ? 120 : 80;
-      const penalty = -Math.min(
-        520,
-        basePenalty + deficit * (recoveryExposureTurns >= 3 ? 0.35 : 0.5),
-      );
-      adjustments.push(
-        scoreAdjustment(
-          recoveryExposureTurns >= 3
-            ? "rule.recovery.sleep_turn_damage"
-            : "rule.recovery.negative_exchange",
-          recoveryExposureTurns >= 3
-            ? "수면 중 누적 피해"
-            : "회복보다 큰 피격",
-          `${Math.round(recoveryAmount)} / ${Math.round(expectedIncomingDamage)}`,
-          Math.round(penalty * 100) / 100,
-          recoveryExposureTurns >= 3
-            ? `잠자기로 약 ${Math.round(recoveryAmount)} HP를 회복하지만 사용 턴과 수면 2턴 동안 약 ${Math.round(expectedIncomingDamage)} 피해를 받을 수 있어 점수를 크게 낮췄습니다.`
-            : `약 ${Math.round(recoveryAmount)} HP를 회복해도 같은 턴에 약 ${Math.round(expectedIncomingDamage)} 피해를 받아 순체력이 감소하므로 점수를 낮췄습니다.`,
-        ),
-      );
-    }
-    if (!setupRiskRecoveryEmergency && opponentLikelyToSetup(enriched)) {
-      const likelihood = opponentSetupLikelihood(enriched);
-      const legacyPenalty =
-        hpPercent >= 0.8
-          ? 95
-          : hpPercent >= 0.65
-            ? 75
-            : 45;
-      const penalty = -Math.max(
-        legacyPenalty,
-        finiteNumber(setupEvaluation.freeTurnPenalty, 0),
-      );
-      adjustments.push(
-        scoreAdjustment(
-          "rule.recovery.free_setup_risk",
-          "무료 랭크업 위험",
-          `${Math.round(hpPercent * 100)}% / ${Math.round(likelihood * 100)}%`,
-          penalty,
-          "회복이 급하지 않은 상황에서 회복기를 쓰면 상대 랭크업 기술에 무료 턴을 줄 위험이 커서 크게 감점했습니다.",
-        ),
-      );
-    }
-  }
-
-  const setupPunishMove =
-    BOOST_RESET_MOVE_IDS.has(moveId) ||
-    PHAZE_MOVE_IDS.has(moveId) ||
-    TAUNT_MOVE_IDS.has(moveId) ||
-    moveId === "encore" ||
-    enriched.koChance === "guaranteed" ||
-    enriched.immediateKoBeforeOpponent === true ||
-    ["brn", "par", "slp"].includes(cleanId(enriched.status)) ||
-    (enriched.secondaries ?? []).some(
-      (secondary) =>
-        ["brn", "par", "slp"].includes(cleanId(secondary.status)) &&
-        Number(secondary.chance ?? 100) >= 60,
-    );
-
-  const opponentPositiveBoosts = Math.max(
-    0,
-    finiteNumber(enriched.opponentPositiveBoosts, 0),
-    positiveBoostTotal(enriched.opponentBoosts),
-    positiveBoostTotal(enriched.targetBoosts),
+        canReachNextAction: enriched.canReachNextAction,
+        guaranteedSurvival:
+          enriched.focusSashSurvival === true || enriched.sturdySurvival === true,
+      }),
+    ),
   );
-  if (moveId === "haze" && opponentPositiveBoosts <= 0) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.haze.no_opponent_boosts",
-        "초기화할 상대 랭크 없음",
-        0,
-        -1000,
-        "상대에게 올라간 랭크가 없어 흑안개를 사용할 이유가 없습니다.",
-      ),
-    );
-  } else if (moveId === "haze") {
-    const immediateResetBonus = 240 + Math.min(6, opponentPositiveBoosts) * 40;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.haze.immediate_boost_reset",
-        "상대 랭크 즉시 초기화",
-        opponentPositiveBoosts,
-        immediateResetBonus,
-        `상대에게 양의 랭크가 ${opponentPositiveBoosts}단계 있으므로 위협도 예측과 무관하게 흑안개를 즉시 우선합니다.`,
-      ),
-    );
-  }
-  const recoveryMove = RECOVERY_MOVE_IDS.has(moveId) || tags.has("recovery");
-  if (
-    setupPunishMove &&
-    setupEvaluation.opponentCanSetup === true &&
-    sweepRiskAfterSetup >= 0.22 &&
-    enriched.koChance !== "guaranteed" &&
-    enriched.immediateKoBeforeOpponent !== true
-  ) {
-    const bonus =
-      Math.round(
-        Math.max(
-          12,
-          finiteNumber(setupEvaluation.freeTurnPenalty, 0) * 0.85,
-        ) * 100,
-      ) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.setup_threat.punish_option",
-        "랭크업 즉시 응징",
-        moveId,
-        bonus,
-        `상대가 랭크업하면 스윕 위험이 ${Math.round(sweepRiskAfterSetup * 100)}%까지 오르므로, ${moveId}로 전개를 즉시 끊는 가치를 높였습니다.`,
-      ),
-    );
-  }
-  if (
-    !recoveryMove &&
-    setupEvaluation.opponentCanSetup === true &&
-    sweepRiskAfterSetup >= 0.22 &&
-    !setupPunishMove
-  ) {
-    let exposureMultiplier = 0;
-    if (enriched.category === "Status") {
-      exposureMultiplier = tags.has("setupboost")
-        ? 0.45
-        : tags.has("hazardset")
-          ? 1
-          : 0.8;
-    } else {
-      const opponentHp = Math.max(1, finiteNumber(enriched.opponentHp, 1));
-      const damageRatio = finiteNumber(enriched.expectedDamage, 0) / opponentHp;
-      if (damageRatio < 0.2) exposureMultiplier = 0.45;
-    }
-    if (exposureMultiplier > 0) {
-      const penalty =
-        -Math.round(
-          finiteNumber(setupEvaluation.freeTurnPenalty, 0) *
-            exposureMultiplier *
-            100,
-        ) / 100;
-      if (penalty < 0) {
-        adjustments.push(
-          scoreAdjustment(
-            tags.has("hazardset")
-              ? "rule.setup_threat.free_hazard_turn"
-              : tags.has("setupboost")
-                ? "rule.setup_threat.setup_race"
-                : "rule.setup_threat.free_turn",
-            tags.has("hazardset")
-              ? "설치 중 상대 랭크업 위험"
-              : tags.has("setupboost")
-                ? "랭크업 맞대응 위험"
-                : "상대 무료 랭크업 위험",
-            Math.round(sweepRiskAfterSetup * 100),
-            penalty,
-            `이 행동으로 상대에게 랭크업 기회를 주면 스윕 위험이 ${Math.round(sweepRiskAfterSetup * 100)}%까지 오르고, 랭크업 후 유효 대응 자원은 약 ${finiteNumber(setupEvaluation.availableAnswersAfterSetup?.estimatedTotal, 0)}마리로 평가됩니다.`,
-          ),
-        );
-      }
-    }
-  }
-
-  if (PIVOT_MOVE_IDS.has(moveId)) {
-    const hasLivingBench = enriched.hasLivingBench ?? enriched.livingBenchCount > 0;
-    if (hasLivingBench === false) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.pivot.no_bench",
-          "피벗 불가",
-          false,
-          -60,
-          "교체할 아군이 없어 피벗 기술 가치를 크게 낮췄습니다.",
+  const livingBench =
+    enriched.hasLivingBench !== undefined
+      ? enriched.hasLivingBench === true
+      : enriched.livingBenchCount !== undefined
+        ? Number(enriched.livingBenchCount) > 0
+        : false;
+  const livingOpponents = Math.max(0, Number(enriched.livingOpponents ?? 2));
+  return JSON.parse(
+    evaluateMoveRuleFactsJson(
+      JSON.stringify(
+        toRuleFactBag(
+          "move",
+          enriched,
+          {
+            strategy,
+            "computed.isDamage": isDamage,
+            "computed.actsBefore": reachability.actsBefore,
+            survivalProbability: reachability.survivalProbability,
+            opponentKnockoutBeforeActionProbability:
+              reachability.knockoutBeforeActionProbability,
+            canReachNextAction: reachability.canReachNextAction,
+            safePivot: reachability.safePivot,
+            "computed.hasSafeImmediateKo": hasSafeImmediateKo,
+            "computed.safeFinisher": isSafeFinisher(enriched),
+            "computed.highValueHazard":
+              tags.has("hazardset") &&
+              moveId === "stealthrock" &&
+              livingOpponents >= 3 &&
+              Number(enriched.opponentHazards?.stealthrock ?? 0) <= 0,
+            "computed.setupThreatTier": tier,
+            "computed.recoveryMove":
+              RECOVERY_MOVE_IDS.has(moveId) || tags.has("recovery"),
+            "computed.opponentLikelyToSetup": opponentLikelyToSetup(enriched),
+            "computed.opponentSetupLikelihood": opponentSetupLikelihood(enriched),
+            "computed.pivotMove": PIVOT_MOVE_IDS.has(moveId),
+            "computed.hasLivingBench": livingBench,
+            "computed.selfSacrifice": isSelfSacrificeCandidate(enriched),
+            "computed.knockoutBoostAlternative": Boolean(
+              enriched.knockoutBoostAlternative &&
+                typeof enriched.knockoutBoostAlternative === "object",
+            ),
+            "computed.opponentPositiveBoosts": Math.max(
+              0,
+              finiteNumber(enriched.opponentPositiveBoosts, 0),
+              positiveBoostTotal(enriched.opponentBoosts),
+              positiveBoostTotal(enriched.targetBoosts),
+            ),
+            "computed.saltCureActive": Object.keys(
+              enriched.opponentVolatiles ?? {},
+            ).map(cleanId).includes("saltcure"),
+            hpRatio,
+            incomingDamageRatio,
+          },
+          [...tags],
         ),
-      );
-    } else if (hasLivingBench !== false && !enriched.forceSwitch) {
-      const survivalProbability = ratioValue(enriched.survivalProbability, actsBefore ? 1 : undefined);
-      if (actsBefore || survivalProbability >= 1 || enriched.safePivot === true) {
-        const weight = moveId === "partingshot" ? 12 : 8;
-        adjustments.push(
-          scoreAdjustment(
-            "rule.pivot.safe_pivot",
-            "안전 피벗",
-            moveId,
-            weight,
-            moveId === "partingshot"
-              ? "상대를 약화시키며 안전하게 교체할 수 있어 피벗 가치를 반영했습니다."
-              : "공격 후 안전하게 교체 흐름을 만들 수 있어 피벗 가치를 반영했습니다.",
-          ),
-        );
-      }
-    }
-  }
-
-  if (isSelfSacrificeCandidate(enriched)) {
-    const opponentHp = finiteNumber(enriched.opponentHp);
-    const expectedDamage = finiteNumber(enriched.expectedDamage, 0);
-    const damageRatio =
-      opponentHp && opponentHp > 0 ? expectedDamage / opponentHp : undefined;
-    const meaningfulDamage =
-      enriched.koChance === "guaranteed" ||
-      damageRatio >= 0.6 ||
-      enriched.meaningfulSacrificeDamage === true;
-    const activeRoleScore = finiteNumber(enriched.activeRoleScore, enriched.userRoleScore);
-    const hpPercent = ratioValue(enriched.hpPercent, enriched.healthRatio, 1);
-    const incomingRatio = ratioValue(
-      enriched.currentIncomingDamageRatio,
-      enriched.opponentMaxDamageToCurrentHealthRatio,
-      enriched.incomingDamageRatio,
-    );
-    const expendable =
-      enriched.expendableResource === true ||
-      enriched.roleComplete === true ||
-      (activeRoleScore !== undefined && activeRoleScore <= 4) ||
-      (hpPercent <= 0.25 && incomingRatio >= 0.6);
-    let weight = -220;
-    if (meaningfulDamage) weight += 35;
-    if (enriched.koChance === "guaranteed") weight += 45;
-    if (expendable) weight += 70;
-    if (activeRoleScore >= 10) weight -= 70;
-    else if (activeRoleScore >= 6) weight -= 35;
-    if (enriched.mustPreserveResource === true) weight -= 180;
-    if (!meaningfulDamage) weight -= 60;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.self_sacrifice.resource_cost",
-        "자폭 리스크",
-        damageRatio === undefined ? enriched.koChance ?? false : Math.round(damageRatio * 100),
-        weight,
-        enriched.mustPreserveResource === true
-          ? `현재 포켓몬은 ${arrayValues(enriched.mustPreserveFor).join(", ") || "상대 핵심 포켓몬"}의 유일한 대응 자원이라 자폭으로 소모하지 않도록 크게 낮췄습니다.`
-          : enriched.roleComplete === true
-            ? `현재 포켓몬은 ${arrayValues(enriched.completedRoles).map((role) => ROLE_LABELS[role] ?? role).join(", ") || "주요"} 역할을 마쳐, 유의미한 피해를 남기는 자폭의 소모 비용을 완화했습니다.`
-          : meaningfulDamage && expendable
-          ? "상대에게 유의미한 피해를 주고 현재 포켓몬의 남은 역할 가치가 낮아 자폭 리스크를 제한적으로 허용했습니다."
-          : meaningfulDamage
-            ? "상대에게 피해 가치는 있지만 사용자가 쓰러지는 소모 비용을 크게 반영했습니다."
-            : "사용자가 쓰러지는 기술인데 피해/마무리 가치가 충분하지 않아 크게 낮게 봤습니다.",
       ),
-    );
-  }
-
-  if (enriched.focusSashBlocked === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.focus_sash.single_hit_blocked",
-        "기합의띠 방지",
-        true,
-        -90,
-        "상대 기합의띠가 발동하면 단타 공격은 HP 1에서 멈추므로 확정 마무리 가치를 크게 낮췄습니다.",
-      ),
-    );
-  } else if (enriched.sturdyBlocked === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.sturdy.single_hit_blocked",
-        "옹골참 단타 저지",
-        cleanId(enriched.opponentAbility ?? "sturdy") || true,
-        -90,
-        "상대 옹골참이 발동하면 단타 공격은 HP 1에서 멈추므로 확정 마무리 가치가 크게 낮아집니다.",
-      ),
-    );
-  } else if (enriched.breaksFocusSash === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.focus_sash.multi_hit_breaker",
-        "기합의띠 관통",
-        Number(enriched.hitCount ?? enriched.hits ?? 2),
-        55,
-        "연속타가 기합의띠로 HP 1에 남은 상대를 이어서 처리할 수 있어 마무리 가치를 높였습니다.",
-      ),
-    );
-  } else if (enriched.breaksSturdy === true || enriched.sturdyBreaker === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.sturdy.multi_hit_breaker",
-        "옹골참 관통",
-        Number(enriched.hitCount ?? enriched.hits ?? 2),
-        55,
-        "연속타가 옹골참으로 남은 HP 1을 이어서 처리할 수 있어 마무리 가치를 높였습니다.",
-      ),
-    );
-  }
-
-  if (tier >= 2) {
-    if (BOOST_RESET_MOVE_IDS.has(moveId)) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup_disruption.boost_reset",
-          "랭크 초기화",
-          tier,
-          tier >= 3 ? 17 : 13,
-          "상대 랭크업 위협을 초기화할 수 있어 방해 가치를 반영했습니다.",
-        ),
-      );
-    } else if (PHAZE_MOVE_IDS.has(moveId)) {
-      const hazardLayers = Math.min(3, Math.max(0, Number(enriched.opponentHazardLayers ?? 0)));
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup_disruption.phaze",
-          "강제 교체",
-          tier,
-          (tier >= 3 ? 16 : 12) + hazardLayers,
-          hazardLayers > 0
-            ? "랭크업 위협을 강제 교체시키고 설치물 피해까지 활용할 수 있습니다."
-            : "랭크업 위협을 강제 교체로 끊을 수 있습니다.",
-        ),
-      );
-    } else if (TAUNT_MOVE_IDS.has(moveId) && !enriched.opponentAlreadyBoosted) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup_disruption.taunt",
-          "전개 차단",
-          tier,
-          tier >= 3 ? 12 : 8,
-          "상대의 추가 랭크업이나 보조기를 도발로 막을 수 있어 가치를 반영했습니다.",
-        ),
-      );
-    } else if (TAUNT_MOVE_IDS.has(moveId) && enriched.opponentAlreadyBoosted) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.setup_disruption.late_taunt",
-          "늦은 도발",
-          tier,
-          tier >= 3 ? -16 : -12,
-          "이미 오른 랭크는 도발로 제거할 수 없어 가치를 낮췄습니다.",
-        ),
-      );
-    }
-  }
-
-  return adjustments;
+    ),
+  );
 }
 
-function moveRuleAdjustmentScore(candidate, strategy = "balanced") {
-  return moveRuleAdjustments(candidate, strategy).reduce(
-    (sum, adjustment) => sum + Number(adjustment.weight ?? 0),
-    0,
+export function moveRuleAdjustments(candidate, strategy = "balanced") {
+  return sharedMoveRuleAdjustments(candidate, strategy).map((adjustment) =>
+    renderSharedRuleAdjustment(adjustment, candidate, "move"),
   );
 }
 
@@ -4004,46 +1942,31 @@ export function scoreAiMoveCandidate(
       : Number.isFinite(Number(candidate.accuracy))
         ? Number(candidate.accuracy) / 100
         : 1;
-  const priorityWeight =
-    difficulty === "expert" ||
-    difficulty === "expert_winrate" ||
-    difficulty === "expert_search" ||
-    difficulty === "cheater"
-      ? 12
-      : 5;
-  const statusValue =
-    candidate.category === "Status"
-      ? strategy === "defensive"
-        ? 38
-        : strategy === "balanced"
-          ? 12
-          : 4
-      : 0;
-  const powerWeight =
-    strategy === "aggressive" ? 1.2 : strategy === "defensive" ? 0.82 : 1;
-  const accuracyWeight = strategy === "defensive" ? accuracy * accuracy : accuracy;
-  const directValue = Number.isFinite(Number(candidate.expectedDamage))
-    ? Number(candidate.expectedDamage)
-    : Number(candidate.power ?? 0);
-  const tacticalValue = Number(candidate.tacticalValue ?? 0);
-  const roleValue = Number(candidate.roleValue ?? moveRoleValue(candidate, strategy));
-  const ruleValue = moveRuleAdjustmentScore(candidate, strategy);
-  const koBonus =
-    candidate.koChance === "guaranteed"
-      ? 55 * accuracy
-      : candidate.koChance === "possible"
-        ? 25 * accuracy
-        : 0;
-
-  return (
-    directValue * powerWeight * accuracyWeight +
-    Number(candidate.priority ?? 0) * priorityWeight +
-    statusValue +
-    tacticalValue +
-    roleValue +
-    ruleValue +
-    koBonus
-  );
+  return JSON.parse(
+    scoreObservedActionCandidateJson(
+      JSON.stringify({
+        kind: "move",
+        difficulty,
+        strategy,
+        expectedDamage: Number.isFinite(Number(candidate.expectedDamage))
+          ? Number(candidate.expectedDamage)
+          : null,
+        power: finiteNumber(candidate.power, 0),
+        accuracyPercent: accuracy * 100,
+        priority: finiteNumber(candidate.priority, 0),
+        statusMove: candidate.category === "Status",
+        tacticalValue: finiteNumber(candidate.tacticalValue, 0),
+        roleValue: finiteNumber(
+          candidate.roleValue,
+          finiteNumber(moveRoleValue(candidate, strategy), 0),
+        ),
+        koChance: candidate.koChance ?? "none",
+        adjustments: moveRuleAdjustments(candidate, strategy).map(
+          ({ code, weight }) => ({ code, weight: finiteNumber(weight, 0) }),
+        ),
+      }),
+    ),
+  ).score;
 }
 
 export function rankAiMoveCandidates(
@@ -4190,721 +2113,28 @@ function moveDecisionReasons(candidate, difficulty, strategy) {
   return reasons;
 }
 
-export function switchRuleAdjustments(candidate, strategy = "balanced") {
-  const adjustments = [];
-  const hpPercent = ratioValue(candidate.hpPercent, 0);
-  const currentIncoming = ratioValue(
-    candidate.currentIncomingDamageRatio,
-    candidate.currentIncomingRatio,
-  );
-  const targetIncoming = ratioValue(
-    candidate.targetIncomingDamageRatio,
-    candidate.incomingDamageRatio,
-  );
-  const currentOutgoing = ratioValue(
-    candidate.currentOutgoingDamageRatio,
-    candidate.currentDamageRatio,
-  );
-  const targetOutgoing = ratioValue(
-    candidate.targetOutgoingDamageRatio,
-    candidate.outgoingDamageRatio,
-  );
-  const switchInDamageRatio = Math.max(
-    0,
-    finiteNumber(candidate.switchInDamageRatio, 0),
-  );
-  const forceSwitch = candidate.forceSwitch === true;
-  const fieldSynergyValue = finiteNumber(
-    candidate.fieldSynergyValue,
-    candidate.fieldValue,
-  );
-  const setupEvaluation =
-    candidate.setupThreatEvaluation ??
-    candidate.opponentSetupThreatEvaluation ??
-    {};
-  const setupSweepRisk = Math.max(
-    0,
-    Math.min(
-      1,
-      finiteNumber(
-        setupEvaluation.sweepRiskAfterSetup,
-        candidate.opponentSetupSweepRisk,
-      ) ?? 0,
-    ),
-  );
-  const oneTurnEvaluation =
-    candidate.oneTurnEvaluation ??
-    candidate.battleStateEvaluation ??
-    null;
-  const stayPressurePenalty = Math.max(
-    0,
-    finiteNumber(candidate.stayPressurePenalty, 0),
-  );
-  const currentHpPercent = Math.max(
-    0,
-    Math.min(
-      1,
-      finiteNumber(candidate.currentHpPercent, 1),
-    ),
-  );
-  const regeneratorRecoveryRatio = Math.max(
-    0,
-    finiteNumber(candidate.regeneratorRecoveryRatio, 0),
-  );
-  if (
-    cleanId(candidate.currentAbility) === "regenerator" &&
-    !forceSwitch &&
-    currentHpPercent < 0.6 &&
-    regeneratorRecoveryRatio > 0
-  ) {
-    const urgency = Math.max(
-      0,
-      Math.min(1, (0.6 - currentHpPercent) / 0.6),
-    );
-    const strategyMultiplier =
-      strategy === "tempo"
-        ? 1.25
-        : strategy === "defensive"
-          ? 1.2
-          : strategy === "aggressive"
-            ? 0.8
-            : strategy === "reckless_ace"
-              ? 0.75
-              : 1;
-    const bonus =
-      Math.round(
-        (12 + regeneratorRecoveryRatio * 70 + urgency * 28) *
-          strategyMultiplier *
-          100,
-      ) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.regenerator_recovery",
-        "재생력 회복",
-        {
-          hpPercent: Math.round(currentHpPercent * 100),
-          recovery: candidate.regeneratorRecoveryHp,
-        },
-        bonus,
-        `현재 체력이 ${Math.round(currentHpPercent * 100)}%라 교체하면 재생력으로 ${Math.round(regeneratorRecoveryRatio * 100)}%만큼 회복할 수 있어 교체 가치를 높였습니다.`,
-      ),
-    );
-  }
-  if (stayPressurePenalty > 0) {
-    const relieved = [];
-    if (finiteNumber(candidate.yawnSwitchPressure, 0) > 0) {
-      relieved.push("하품");
-    }
-    if (finiteNumber(candidate.saltCureSwitchPressure, 0) > 0) {
-      relieved.push("소금절이");
-    }
-    if (finiteNumber(candidate.toxicSwitchPressure, 0) > 0) {
-      relieved.push("맹독 누적");
-    }
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.clears_residual_pressure",
-        "교체 시 누적 위험 해제",
-        relieved,
-        0,
-        `교체하면 ${relieved.join(", ")} 압박을 제거하거나 초기화할 수 있어 잔류 행동과 비교할 때 유리합니다.`,
-      ),
-    );
-  }
-  if (oneTurnEvaluation) {
-    const delta = finiteNumber(
-      oneTurnEvaluation.delta,
-      candidate.battleStateValueDelta,
-    );
-    const weightMultiplier = Math.max(
-      0,
-      finiteNumber(candidate.oneTurnSearchWeight, 0.35),
-    );
-    if (delta !== undefined && weightMultiplier > 0) {
-      const weight =
-        Math.round(delta * weightMultiplier * 100) / 100;
-      adjustments.push(
-        scoreAdjustment(
-          "simulation.one_turn_state_value",
-          "1턴 후 전투 상태",
-          oneTurnEvaluation.winProbabilityAfter ??
-            oneTurnEvaluation.qValue,
-          weight,
-          oneTurnEvaluation.winProbabilityAfter !== undefined
-            ? `현재 승률 ${Math.round(oneTurnEvaluation.winProbabilityBefore * 1_000) / 10}%에서 교체 후 ${Math.round(oneTurnEvaluation.winProbabilityAfter * 1_000) / 10}%로 ${oneTurnEvaluation.winProbabilityDelta >= 0 ? "+" : ""}${Math.round(oneTurnEvaluation.winProbabilityDelta * 1_000) / 10}%p 변할 것으로 추정했습니다.`
-            : `교체 직후 상태의 가치는 ${oneTurnEvaluation.qValue}, 현재 상태 대비 변화는 ${delta >= 0 ? "+" : ""}${delta}로 평가했습니다.`,
-        ),
-      );
-    }
-  }
-  if (candidate.aceRecoveryPlanEligible === true) {
-    const plan = candidate.aceRecoveryPlan ?? {};
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.ace_recovery_sacrifice_plan",
-        "에이스 회복용 희생 교체",
-        {
-          sacrifice: plan.sacrificeName,
-          ace: plan.aceName,
-          winProbabilityDelta: plan.winProbabilityDelta,
-        },
-        0,
-        `${plan.sacrificeName ?? candidate.name}을 잔존 가치가 가장 낮은 자원으로 투입한 뒤 ${plan.aceName ?? "에이스"}을 회복하면 예측 승률이 ${Math.round(Number(plan.winProbabilityDelta ?? 0) * 1_000) / 10}%p 상승하므로 연속 계획을 시작합니다.`,
-      ),
-    );
-  }
-  if (candidate.batonPassSetupOpportunity === true) {
-    const strategyMultiplier =
-      strategy === "reckless_ace"
-        ? 3.1
-        : strategy === "setup"
-          ? 1.6
-          : strategy === "aggressive"
-            ? 1.15
-            : strategy === "defensive" || strategy === "hazard"
-              ? 0.75
-              : 1;
-    const transferValue = Math.max(
-      0,
-      finiteNumber(candidate.batonPassTransferValue, 0),
-    );
-    const newKoTargets = Math.max(
-      0,
-      finiteNumber(candidate.batonPassNewKoTargets, 0),
-    );
-    const setupTurns = Math.max(
-      1,
-      finiteNumber(candidate.batonPassSafeSetupTurns, 1),
-    );
-    const bonus =
-      Math.round(
-        Math.min(
-          125,
-          38 +
-            setupTurns * 10 +
-            transferValue * 0.16 +
-            newKoTargets * 24,
-        ) *
-          strategyMultiplier *
-          100,
-      ) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.baton_pass_setup_opportunity",
-        "배턴터치 전개 기회",
-        {
-          ace: candidate.batonPassTargetName,
-          setupTurns,
-          incomingDamageRatio: candidate.batonPassIncomingDamageRatio,
-        },
-        bonus,
-        `${candidate.name}이(가) 약한 상대를 상대로 약 ${setupTurns}회 안전하게 랭크업한 뒤 에이스 ${candidate.batonPassTargetName}에게 배턴터치할 수 있어 투입 가치를 높였습니다.${
-          strategy === "reckless_ace"
-            ? " 저돌적 에이스 전략이라 에이스 전개 보너스를 더 강하게 적용했습니다."
-            : ""
-        }`,
-      ),
-    );
-  }
-
-  if (candidate.mustPreserveResource === true) {
-    const preservationTargets = arrayValues(candidate.mustPreserveFor);
-    const currentThreat = candidate.preservationTargetIsCurrent === true;
-    if (currentThreat && candidate.currentThreatClassification === "counter") {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.switch.unique_counter_deployment",
-          "유일 카운터 투입",
-          preservationTargets,
-          18,
-          `현재 상대는 ${preservationTargets.join(", ") || "핵심 위협"}이며, 이 교체 후보가 유일한 안정 대응 자원이라 투입 가치를 높였습니다.`,
-        ),
-      );
-    } else if (!currentThreat) {
-      const exposureRisk = Math.max(
-        switchInDamageRatio,
-        candidate.canReachNextAction === false ? 1 : 0,
-      );
-      if (exposureRisk >= 0.2) {
-        const strategyMultiplier =
-          strategy === "ace_check"
-            ? 1.3
-            : strategy === "defensive"
-              ? 1.15
-              : strategy === "reckless_ace"
-                ? 0.75
-                : 1;
-        const weight =
-          -Math.round(
-            Math.min(180, 28 + exposureRisk * 95) *
-              strategyMultiplier *
-              100,
-          ) / 100;
-        adjustments.push(
-          scoreAdjustment(
-            "rule.switch.unique_counter_preservation",
-            "유일 카운터 보존",
-            preservationTargets,
-            weight,
-            `${preservationTargets.join(", ") || "남은 상대 핵심 포켓몬"}을 막을 유일한 대응 자원이라, 현재 대면에서 체력을 소모하는 교체를 낮게 평가했습니다.`,
-          ),
-        );
-      }
-    }
-  }
-
-  if (candidate.targetRoleComplete === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.role_complete",
-        "역할 완료 자원",
-        candidate.targetCompletedRoles ?? true,
-        0,
-        `${arrayValues(candidate.targetCompletedRoles).map((role) => ROLE_LABELS[role] ?? role).join(", ") || "주요"} 역할을 마친 자원으로 평가했습니다.`,
-      ),
-    );
-  }
-
-  if (
-    !forceSwitch &&
-    setupEvaluation.opponentCanSetup === true &&
-    setupSweepRisk >= 0.22
-  ) {
-    const classification = cleanId(candidate.currentThreatClassification);
-    const entersAsAnswer = [
-      "counter",
-      "softcheck",
-      "revengekiller",
-    ].includes(classification);
-    const canPunishAfterSwitch =
-      candidate.canKoOnNextAction === true ||
-      candidate.priorityKo === true ||
-      candidate.setupPunishAfterSwitch === true;
-    if (entersAsAnswer || canPunishAfterSwitch) {
-      const weight = Math.round((10 + setupSweepRisk * 20) * 100) / 100;
-      adjustments.push(
-        scoreAdjustment(
-          "rule.switch.setup_answer",
-          "랭크업 대응 투입",
-          candidate.currentThreatClassification ?? candidate.projectedBestMoveId,
-          weight,
-          "상대의 랭크업 가능성을 허용하더라도 교체 후보가 카운터 또는 즉시 응징 자원으로 기능할 수 있습니다.",
-        ),
-      );
-    } else {
-      const targetPressure = Math.max(
-        0,
-        finiteNumber(candidate.targetOutgoingDamageRatio, 0),
-      );
-      const lowPressureMultiplier =
-        targetPressure < 0.35 ? 0.8 : targetPressure < 0.6 ? 0.55 : 0.3;
-      const penalty =
-        -Math.round(
-          finiteNumber(setupEvaluation.freeTurnPenalty, 0) *
-            lowPressureMultiplier *
-            100,
-        ) / 100;
-      if (penalty < 0) {
-        adjustments.push(
-          scoreAdjustment(
-            "rule.switch.free_setup_turn",
-            "의미 없는 교체의 랭크업 위험",
-            Math.round(setupSweepRisk * 100),
-            penalty,
-            `교체 후보가 상대 랭크업 포켓몬의 카운터가 아니고 즉시 KO도 만들지 못해, 교체 중 스윕 위험 ${Math.round(setupSweepRisk * 100)}%를 허용하는 비용을 반영했습니다.`,
-          ),
-        );
-      }
-    }
-  }
-
-  if (currentIncoming !== undefined && targetIncoming !== undefined) {
-    const weight = Math.round((currentIncoming - targetIncoming) * 12 * 100) / 100;
-    if (weight !== 0) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.switch.defensive_improvement",
-          "피격 감소",
-          `${Math.round(currentIncoming * 100)}%→${Math.round(targetIncoming * 100)}%`,
-          weight,
-          `예상 피격량이 ${Math.round(currentIncoming * 100)}%에서 ${Math.round(targetIncoming * 100)}%로 바뀌는 점을 반영했습니다.`,
-        ),
-      );
-    }
-  }
-
-  const safeTwoHitHold =
-    currentOutgoing !== undefined &&
-    currentIncoming !== undefined &&
-    currentOutgoing >= 0.5 &&
-    currentIncoming < hpPercent &&
-    !forceSwitch;
-  if (currentOutgoing !== undefined && targetOutgoing !== undefined && !safeTwoHitHold) {
-    const weight = Math.round((targetOutgoing - currentOutgoing) * 6 * 100) / 100;
-    if (weight !== 0) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.switch.offensive_improvement",
-          "공격 개선",
-          `${Math.round(currentOutgoing * 100)}%→${Math.round(targetOutgoing * 100)}%`,
-          weight,
-          `교체 전후 최대 공격 기대값 변화를 ${Math.round(currentOutgoing * 100)}%에서 ${Math.round(targetOutgoing * 100)}%로 평가했습니다.`,
-        ),
-      );
-    }
-  }
-
-  if (safeTwoHitHold) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.hold_safe_two_hit",
-        "유리 대면 유지",
-        true,
-        -4,
-        "현재 포켓몬이 안전하게 2타 KO 압박을 유지할 수 있어 무리한 교체를 낮게 봤습니다.",
-      ),
-    );
-  }
-
-  if (candidate.speedAdvantage === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.speed_advantage",
-        "교체 후 선공",
-        true,
-        2,
-        "교체 후보가 상대보다 먼저 움직일 수 있어 속도 가치를 반영했습니다.",
-      ),
-    );
-  }
-
-  if (!forceSwitch && candidate.survivesSwitchIn === false) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.faints_on_entry_turn",
-        "교체 턴 기절",
-        candidate.switchInExpectedDamage,
-        -240,
-        "교체 직후 상대 공격을 받아 행동 기회 없이 쓰러질 것으로 예상해 크게 낮췄습니다.",
-      ),
-    );
-  } else if (!forceSwitch && candidate.canReachNextAction === false) {
-    const aceScore = Math.max(0, finiteNumber(candidate.targetAceScore, 0));
-    const roleScore = Math.max(0, finiteNumber(candidate.targetRoleScore, 0));
-    const preservationMultiplier =
-      strategy === "ace_check"
-        ? 1.3
-        : strategy === "defensive"
-          ? 1.15
-          : strategy === "reckless_ace"
-            ? 0.8
-            : 1;
-    const preservationCost =
-      (candidate.targetAceQualified === true
-        ? 650 + Math.min(180, aceScore * 10)
-        : candidate.targetRoleComplete === true
-          ? 10
-          : 35 + Math.min(60, roleScore * 5)) * preservationMultiplier;
-    const weight = -Math.round((150 + preservationCost) * 100) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.no_action_opportunity",
-        "반격 불가능한 교체",
-        candidate.hpAfterSwitchIn,
-        weight,
-        candidate.targetAceQualified === true
-          ? "교체 턴에 피해를 받은 뒤 다음 행동 전에 다시 쓰러질 전망이라, 에이스를 아무 행동 없이 소모하는 선택을 크게 낮췄습니다."
-          : "교체 턴에 피해를 받은 뒤 다음 행동 전에 다시 쓰러질 전망이라 희생 교체 비용을 반영했습니다.",
-      ),
-    );
-  } else if (!forceSwitch && candidate.canKoOnNextAction === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.next_action_counter_ko",
-        "교체 후 반격 KO",
-        true,
-        24,
-        "교체 턴의 공격을 버틴 뒤 다음 행동권에서 상대를 쓰러뜨릴 수 있어 카운터 투입 가치를 반영했습니다.",
-      ),
-    );
-  }
-  if (
-    forceSwitch &&
-    candidate.canReachNextAction === false &&
-    candidate.immediateKoBeforeOpponent !== true &&
-    candidate.priorityKo !== true
-  ) {
-    const aceScore = Math.max(0, finiteNumber(candidate.targetAceScore, 0));
-    const preservationCost =
-      candidate.targetAceQualified === true
-        ? 220 + Math.min(120, aceScore * 8)
-        : 140;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.forced_no_action",
-        "행동 불가능한 강제 출전",
-        candidate.projectedKnockoutBeforeActionProbability,
-        -Math.round(preservationCost * 100) / 100,
-        candidate.targetAceQualified === true
-          ? "강제 출전 직후 상대의 선공 공격에 쓰러져 아무 행동도 못 할 에이스라 다른 생존 후보보다 크게 낮췄습니다."
-          : "강제 출전 직후 상대의 선공 공격에 쓰러져 아무 행동도 못 할 전망이라 다른 생존 후보보다 낮췄습니다.",
-      ),
-    );
-  }
-
-  if (fieldSynergyValue !== undefined && fieldSynergyValue !== 0) {
-    adjustments.push(
-      scoreAdjustment(
-        fieldSynergyValue > 0
-          ? "rule.switch.field_synergy"
-          : "rule.switch.field_mismatch",
-        fieldSynergyValue > 0 ? "필드 활용" : "필드 불리",
-        candidate.fieldSynergyLabel ?? candidate.fieldEffect ?? true,
-        fieldSynergyValue,
-        candidate.fieldSynergyReason ??
-          (fieldSynergyValue > 0
-            ? "현재 필드/날씨/룸 효과를 활용할 수 있어 교체 가치를 높였습니다."
-            : "현재 필드/날씨/룸 효과와 맞지 않아 교체 가치를 낮췄습니다."),
-      ),
-    );
-  }
-
-  if (candidate.currentStatus && !["tox", "toxic", "badlypoisoned"].includes(cleanId(candidate.currentStatus))) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.status_relief",
-        "상태 이상 회피",
-        candidate.currentStatus,
-        4,
-        "현재 포켓몬의 상태 이상 부담을 덜 수 있어 교체 가치를 반영했습니다.",
-      ),
-    );
-  }
-  if (candidate.targetStatus) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.target_status",
-        "교체 후보 상태 이상",
-        candidate.targetStatus,
-        -4,
-        "교체 후보가 이미 상태 이상이라 안정성을 낮게 봤습니다.",
-      ),
-    );
-  }
-
-  const positiveBoosts = Math.max(0, Number(candidate.currentPositiveBoosts ?? 0));
-  if (positiveBoosts > 0 && !forceSwitch) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.boost_loss",
-        "랭크 손실",
-        positiveBoosts,
-        -positiveBoosts * 2,
-        `교체하면 현재 쌓은 유리한 랭크 ${positiveBoosts}단계를 잃습니다.`,
-      ),
-    );
-  }
-
-  const opponentOffensiveBoosts = Math.max(
-    0,
-    Number(candidate.opponentOffensiveBoosts ?? 0),
-  );
-  const boostedAceExposure =
-    !forceSwitch &&
-    candidate.targetAceQualified === true &&
-    opponentOffensiveBoosts > 0 &&
-    candidate.canKoOnNextAction !== true &&
-    switchInDamageRatio >= 0.2;
-  if (boostedAceExposure) {
-    const preservationMultiplier =
-      strategy === "ace_check"
-        ? 1.25
-        : strategy === "defensive"
-          ? 1.15
-          : strategy === "reckless_ace"
-            ? 0.75
-            : 1;
-    const weight =
-      -Math.round(
-        Math.min(
-          240,
-          (50 + opponentOffensiveBoosts * 35 + switchInDamageRatio * 100) *
-            preservationMultiplier,
-        ) * 100,
-      ) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.boosted_attacker_ace_exposure",
-        "랭크업 상대 앞 에이스 노출",
-        `${opponentOffensiveBoosts}랭크 / 피해 ${Math.round(switchInDamageRatio * 100)}%`,
-        weight,
-        `상대가 공격 계열 랭크를 ${opponentOffensiveBoosts}단계 쌓았고 교체 후보가 ${candidate.switchInThreatMoveId || "예상 공격"}에 큰 피해를 받지만 다음 행동에서 KO를 보장하지 못해, 에이스 소모 위험을 크게 반영했습니다.`,
-      ),
-    );
-  }
-
-  if (
-    targetIncoming !== undefined &&
-    targetOutgoing !== undefined &&
-    targetOutgoing >= 0.9 &&
-    targetIncoming < 1 &&
-    !safeTwoHitHold
-  ) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.safe_counter_ko",
-        "생존 카운터 KO",
-        true,
-        10,
-        "교체 후보가 상대 공격을 버티고 높은 확률로 반격 KO를 노릴 수 있습니다.",
-      ),
-    );
-  }
-
-  if (targetIncoming !== undefined && targetIncoming >= hpPercent) {
-    const actsBeforeAfterSwitch = candidate.speedAdvantage === true || candidate.priorityKo === true;
-    const canKoBeforeFaint =
-      forceSwitch &&
-      (candidate.immediateKoBeforeOpponent === true ||
-        candidate.priorityKo === true ||
-        (actsBeforeAfterSwitch && targetOutgoing !== undefined && targetOutgoing >= 1));
-    if (!canKoBeforeFaint) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.switch.lethal_switch_in",
-          "교체 즉시 KO 위험",
-          `${Math.round(targetIncoming * 100)}% / HP ${Math.round(hpPercent * 100)}%`,
-          forceSwitch && actsBeforeAfterSwitch ? -40 : -80,
-          forceSwitch && actsBeforeAfterSwitch
-            ? "강제 교체 후보가 다음 행동 후 쓰러질 위험이 있어 크게 낮게 봤습니다."
-            : "교체 후보가 예상 공격에 즉시 쓰러질 위험이 있어 크게 낮게 봤습니다.",
-        ),
-      );
-    }
-  }
-
-  if (!forceSwitch && candidate.safeImmediateKoAvailable === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.guaranteed_ko_penalty",
-        "확정 KO 포기",
-        true,
-        -30,
-        "현재 포켓몬이 안전한 확정 KO를 낼 수 있어 자발 교체를 낮게 봤습니다.",
-      ),
-    );
-  }
-
-  if (!forceSwitch && candidate.safePivotAvailable === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.pivot_available",
-        "피벗 우선",
-        true,
-        -12,
-        "안전한 피벗 기술로 상대를 압박하며 교체할 수 있어 즉시 교체를 낮게 봤습니다.",
-      ),
-    );
-  }
-
-  if (!forceSwitch && switchInDamageRatio > 0) {
-    const weight =
-      -Math.round(Math.min(70, switchInDamageRatio * 55) * 100) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.incoming_hit_cost",
-        "교체 턴 체력 손실",
-        Math.round(switchInDamageRatio * 100),
-        weight,
-        `교체와 동시에 최대 체력의 약 ${Math.round(switchInDamageRatio * 100)}%를 잃을 것으로 예상해 비용을 반영했습니다.`,
-      ),
-    );
-  }
-
-  if (
-    !forceSwitch &&
-    candidate.currentCanReachAction === true &&
-    candidate.emergencyEscape !== true
-  ) {
-    const currentBestMoveScore = Math.max(
-      0,
-      finiteNumber(candidate.currentBestMoveScore, 0),
-    );
-    const weight =
-      -Math.round(Math.min(24, currentBestMoveScore * 0.06) * 100) / 100;
-    if (weight < 0) {
-      adjustments.push(
-        scoreAdjustment(
-          "rule.switch.action_opportunity_cost",
-          "현재 행동권 포기",
-          currentBestMoveScore,
-          weight,
-          "현재 포켓몬이 쓰러지기 전에 행동할 수 있어, 그 행동권을 버리는 교체 비용을 반영했습니다.",
-        ),
-      );
-    }
-  }
-
-  if (!forceSwitch && candidate.safeActionDenialAvailable === true) {
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.safe_disruption_available",
-        "확정 행동 저지 포기",
-        true,
-        -80,
-        "속이기처럼 상대 행동을 확실히 막는 기술을 사용할 수 있어, 이를 버리고 피해를 받는 교체를 크게 낮췄습니다.",
-      ),
-    );
-  }
-
-  if (!forceSwitch && candidate.switchedLastTurn === true) {
-    const immediateReturn = candidate.immediateReturn === true;
-    const forcedReplacement = candidate.forcedReplacement === true;
-    const setupEmergency = setupThreatTier(candidate) >= 3 || candidate.oneMoreTurnUnmanageable === true;
-    if (!setupEmergency) {
-      const penalty =
-        2 + (immediateReturn ? 4 : 0) + (forcedReplacement ? 36 : 0);
-      adjustments.push(
-        scoreAdjustment(
-          "rule.switch.repeated_switch",
-          forcedReplacement
-            ? "강제 출전 직후 재교체"
-            : immediateReturn
-              ? "교체 왕복 억제"
-              : "연속 교체 억제",
-          true,
-          -penalty,
-          forcedReplacement
-            ? "기절 후 강제 출전 직후 다시 교체하는 행동을 낮게 봤습니다."
-            : immediateReturn
-              ? "직전 교체 후 같은 두 포켓몬을 왕복하는 행동을 낮게 봤습니다."
-              : "직전 턴에 이어 연속 교체하는 행동을 낮게 봤습니다.",
-        ),
-      );
-    }
-  }
-
+function sharedSwitchRuleAdjustments(candidate, strategy = "balanced") {
   const dynamaxRemainingTurns = Math.max(
     0,
     Number(candidate.dynamaxRemainingTurns ?? candidate.remainingDynamaxTurns ?? 0),
   );
-  if (!forceSwitch && candidate.dynamaxActive === true && dynamaxRemainingTurns > 0) {
-    const multiplier = candidate.dynamaxEscapeJustified === true ? 0.5 : 1;
-    const weight = -Math.round(dynamaxRemainingTurns * 9 * multiplier * 100) / 100;
-    adjustments.push(
-      scoreAdjustment(
-        "rule.switch.dynamax_turn_cost",
-        "다이맥스 턴 포기",
-        dynamaxRemainingTurns,
-        weight,
-        candidate.dynamaxEscapeJustified === true
-          ? `다이맥스 ${dynamaxRemainingTurns}턴을 포기하지만 즉사/봉쇄 위험으로 페널티를 완화했습니다.`
-          : `교체하면 남은 다이맥스 ${dynamaxRemainingTurns}턴을 잃어 기회비용을 반영했습니다.`,
+  return JSON.parse(
+    evaluateSwitchRuleFactsJson(
+      JSON.stringify(
+        toRuleFactBag("switch", candidate, {
+          strategy,
+          setupThreatTier: setupThreatTier(candidate),
+          dynamaxRemainingTurns,
+        }),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  return adjustments;
+export function switchRuleAdjustments(candidate, strategy = "balanced") {
+  return sharedSwitchRuleAdjustments(candidate, strategy).map((adjustment) =>
+    renderSharedRuleAdjustment(adjustment, candidate, "switch"),
+  );
 }
 
 function switchDecisionReasons(candidate, strategy = "balanced") {
@@ -5312,11 +2542,20 @@ export function scoreAiSwitchCandidate(candidate, strategy = "balanced") {
   const matchupValue = Number.isFinite(Number(candidate.matchupValue))
     ? Number(candidate.matchupValue)
     : 0;
-  const ruleValue = switchRuleAdjustments(candidate, strategy).reduce(
-    (sum, adjustment) => sum + Number(adjustment.weight ?? 0),
-    0,
-  );
-  return expectedDamage + matchupValue + hpPercent * 10 + ruleValue;
+  return JSON.parse(
+    scoreObservedActionCandidateJson(
+      JSON.stringify({
+        kind: "switch",
+        strategy,
+        expectedDamage,
+        matchupValue,
+        hpRatio: hpPercent,
+        adjustments: switchRuleAdjustments(candidate, strategy).map(
+          ({ code, weight }) => ({ code, weight: Number(weight ?? 0) }),
+        ),
+      }),
+    ),
+  ).score;
 }
 
 export function rankAiSwitchCandidates(candidates, strategy = "balanced") {
@@ -5740,20 +2979,9 @@ export function scoreAiProjectedGimmickCandidate({
   configured = false,
   activationThreshold,
 } = {}) {
-  const normalizedId = cleanId(id);
   const reasons = [];
   const selectedScore = finiteNumber(selectedMove.score, 0);
   const baseScore = finiteNumber(baseMove.score, 0);
-  const scoreDifference = Math.round((selectedScore - baseScore) * 100) / 100;
-  const configuredBonus =
-    configured === true
-      ? normalizedId === "mega"
-        ? 8
-        : normalizedId === "terastallize"
-          ? 3
-          : 0
-      : 0;
-  const score = Math.round((scoreDifference + configuredBonus) * 100) / 100;
   const selectedDelta = finiteNumber(
     selectedMove.oneTurnEvaluation?.delta,
     selectedMove.battleStateValueDelta,
@@ -5762,10 +2990,26 @@ export function scoreAiProjectedGimmickCandidate({
     baseMove.oneTurnEvaluation?.delta,
     baseMove.battleStateValueDelta,
   );
-  const stateDeltaDifference =
-    selectedDelta !== undefined && baseDelta !== undefined
-      ? Math.round((selectedDelta - baseDelta) * 100) / 100
-      : null;
+  const evaluation = JSON.parse(
+    scoreProjectedGimmickJson(
+      JSON.stringify({
+        id,
+        selectedScore,
+        baseScore,
+        selectedStateDelta: selectedDelta,
+        baseStateDelta: baseDelta,
+        configured: configured === true,
+        activationThreshold,
+      }),
+    ),
+  );
+  const {
+    id: normalizedId,
+    score,
+    scoreDifference,
+    configuredBonus,
+    stateDeltaDifference,
+  } = evaluation;
 
   reasons.push(
     scoreAdjustment(
@@ -5812,10 +3056,7 @@ export function scoreAiProjectedGimmickCandidate({
     type: "gimmick",
     legal: true,
     score,
-    activationThreshold:
-      activationThreshold ??
-      PROJECTED_GIMMICK_THRESHOLDS[normalizedId] ??
-      0,
+    activationThreshold: evaluation.activationThreshold,
     selectedMove,
     oneTurnEvaluation: selectedMove.oneTurnEvaluation ?? null,
     battleStateValueDelta:

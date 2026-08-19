@@ -1,0 +1,73 @@
+event interact(range: 4) {
+  page default {
+    id "movement/npc_relative" await move npc relative(x: 2, y: 0, z: -1) {
+      mode: walk
+      speed: 1.25
+      lock_input: true
+      collision: stop
+    } -> npc_movement
+    if !npc_movement.arrived {
+      narrate "NPC가 목적지까지 이동하지 못했습니다: ${npc_movement.failure_reason}"
+      stop
+    }
+    id "movement/player_absolute" await teleport player position(dimension: "cobbleventure:generation_1", x: 600, y: 69, z: -390, yaw: 0, pitch: 0) {
+      safe_landing: preferred
+      preload_chunks: true
+      fade: black
+    } -> absolute_movement
+    if !absolute_movement.arrived {
+      narrate "절대 좌표로 이동하지 못했습니다: ${absolute_movement.failure_reason}"
+      stop
+    }
+    id "movement/starter_town" await teleport player settlement("cobbleventure:settlement/starter_town") {
+      anchor: "town_square"
+      safe_landing: required
+      preload_chunks: true
+      fade: white
+    } -> anchor_movement
+    if !anchor_movement.arrived {
+      narrate "태초마을 광장으로 이동하지 못했습니다: ${anchor_movement.failure_reason}"
+      stop
+    }
+    id "movement/route_middle" await teleport player route("cobbleventure:route/route_custom_01") {
+      anchor: "middle"
+      safe_landing: required
+      preload_chunks: true
+      fade: none
+    } -> route_movement
+    if !route_movement.arrived {
+      narrate "도로 중앙으로 이동하지 못했습니다: ${route_movement.failure_reason}"
+      stop
+    }
+    id "movement/world_spawn" await teleport player dimension("cobbleventure:generation_1") {
+      anchor: "world/spawn"
+      safe_landing: required
+      preload_chunks: true
+      fade: none
+    } -> dimension_movement
+    if !dimension_movement.arrived {
+      narrate "세대 차원 시작점으로 이동하지 못했습니다: ${dimension_movement.failure_reason}"
+      stop
+    }
+    id "movement/mt_moon" await enter_space player space("cobbleventure:cave/mt_moon") {
+      anchor: "west_gallery"
+      safe_landing: required
+      preload_chunks: true
+      fade: none
+    } -> space_movement
+    if !space_movement.arrived {
+      narrate "달맞이산 내부로 이동하지 못했습니다: ${space_movement.failure_reason}"
+      stop
+    }
+    id "movement/global_anchor" await teleport player anchor("cobbleventure:event_anchor/world_spawn") {
+      safe_landing: required
+      preload_chunks: true
+      fade: none
+    } -> global_anchor_movement
+    if !global_anchor_movement.arrived {
+      narrate "전역 위치 앵커로 이동하지 못했습니다: ${global_anchor_movement.failure_reason}"
+      stop
+    }
+    say npc "모든 이동 테스트가 끝났어."
+  }
+}

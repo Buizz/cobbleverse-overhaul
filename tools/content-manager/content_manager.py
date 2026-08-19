@@ -31,8 +31,30 @@ from urllib.parse import parse_qs, urlparse
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
+CONTENT_MANAGER_ROOT = Path(__file__).resolve().parent
+if str(CONTENT_MANAGER_ROOT) not in sys.path:
+    sys.path.insert(0, str(CONTENT_MANAGER_ROOT))
 
 from tools.npc_event_presets import BATTLE_PRESETS, materialize_event_document
+from cves import (
+    AstCodecError,
+    CvesCompilationError,
+    CvesEditorConflict,
+    CvesProjectError,
+    CvesSyntaxError,
+    compile_project,
+    diagnostic_document as cves_diagnostic_document,
+    editor_contract as cves_editor_contract,
+    list_scripts as list_cves_scripts,
+    load_project_catalog as load_cves_project_catalog,
+    load_script as load_cves_script,
+    parse_editor_expression as parse_cves_editor_expression,
+    save_script as save_cves_script,
+    validate_ast as validate_cves_ast,
+    validate_source as validate_cves_source,
+    write_project,
+)
+from loot_table_validation import validate_loot_table_document
 
 
 RESOURCE_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9_./-]+$")
@@ -4440,6 +4462,119 @@ def validate_music_catalog_file(path: Path) -> list[Issue]:
     return issues
 
 
+DIMENSION_ANCHOR_ID = re.compile(r"^[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*$")
+
+
+def validate_dimension_anchor_catalog_file(path: Path) -> list[Issue]:
+    """Validate the authoritative, dimension-global CVES arrival registry."""
+    issues: list[Issue] = []
+    if not path.is_file():
+        return issues
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"차원 앵커 카탈로그를 읽을 수 없습니다: {error}")
+        return issues
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "차원 앵커 카탈로그 스키마 버전은 1입니다.")
+        return issues
+    dimensions = _require_list(data.get("dimensions"), issues, path, "$.dimensions") or []
+    seen_dimensions: set[str] = set()
+    for index, value in enumerate(dimensions):
+        base = f"$.dimensions[{index}]"
+        entry = _require_object(value, issues, path, base)
+        if entry is None:
+            continue
+        dimension_id = entry.get("id")
+        if not isinstance(dimension_id, str) or not RESOURCE_ID.fullmatch(dimension_id):
+            _issue(issues, "error", path, f"{base}.id", "올바른 차원 리소스 ID가 아닙니다.")
+        elif dimension_id in seen_dimensions:
+            _issue(issues, "error", path, f"{base}.id", f"중복 차원 ID: {dimension_id}")
+        else:
+            seen_dimensions.add(dimension_id)
+        anchors = _require_object(entry.get("anchors"), issues, path, f"{base}.anchors")
+        if anchors is None:
+            continue
+        for anchor_id, anchor_value in anchors.items():
+            anchor_path = f"{base}.anchors.{anchor_id}"
+            if not DIMENSION_ANCHOR_ID.fullmatch(anchor_id):
+                _issue(issues, "error", path, anchor_path, "올바른 차원 앵커 ID가 아닙니다.")
+            anchor = _require_object(anchor_value, issues, path, anchor_path)
+            if anchor is None:
+                continue
+            for coordinate in ("x", "y", "z"):
+                coordinate_value = anchor.get(coordinate)
+                if isinstance(coordinate_value, bool) or not isinstance(coordinate_value, int):
+                    _issue(issues, "error", path, f"{anchor_path}.{coordinate}", "정수 좌표가 필요합니다.")
+            for angle, minimum, maximum in (("yaw", -180, 180), ("pitch", -90, 90)):
+                if angle not in anchor:
+                    continue
+                angle_value = anchor[angle]
+                if (
+                    isinstance(angle_value, bool)
+                    or not isinstance(angle_value, (int, float))
+                    or not math.isfinite(angle_value)
+                    or not minimum <= angle_value <= maximum
+                ):
+                    _issue(
+                        issues, "error", path, f"{anchor_path}.{angle}",
+                        f"{minimum}..{maximum} 범위의 각도가 필요합니다."
+                    )
+    return issues
+
+
+def validate_event_boundary_catalog_file(path: Path) -> list[Issue]:
+    """Validate explicit indexed boxes used by region and anchor CVES triggers."""
+    issues: list[Issue] = []
+    if not path.is_file():
+        return issues
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        _issue(issues, "error", path, "$", f"이벤트 경계 카탈로그를 읽을 수 없습니다: {error}")
+        return issues
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "이벤트 경계 카탈로그 스키마 버전은 1입니다.")
+        return issues
+    for collection in ("regions", "anchors"):
+        values = _require_list(data.get(collection), issues, path, f"$.{collection}") or []
+        seen: set[str] = set()
+        for index, value in enumerate(values):
+            base = f"$.{collection}[{index}]"
+            entry = _require_object(value, issues, path, base)
+            if entry is None:
+                continue
+            boundary_id = entry.get("id")
+            if not isinstance(boundary_id, str) or not RESOURCE_ID.fullmatch(boundary_id):
+                _issue(issues, "error", path, f"{base}.id", "올바른 이벤트 경계 리소스 ID가 아닙니다.")
+            elif boundary_id in seen:
+                _issue(issues, "error", path, f"{base}.id", f"중복 이벤트 경계 ID: {boundary_id}")
+            else:
+                seen.add(boundary_id)
+            dimension = entry.get("dimension")
+            if not isinstance(dimension, str) or not RESOURCE_ID.fullmatch(dimension):
+                _issue(issues, "error", path, f"{base}.dimension", "올바른 차원 리소스 ID가 아닙니다.")
+            box = _require_object(entry.get("box"), issues, path, f"{base}.box")
+            if box is None:
+                continue
+            coordinates: dict[str, int] = {}
+            for coordinate in ("min_x", "min_y", "min_z", "max_x", "max_y", "max_z"):
+                coordinate_value = box.get(coordinate)
+                if isinstance(coordinate_value, bool) or not isinstance(coordinate_value, int):
+                    _issue(issues, "error", path, f"{base}.box.{coordinate}", "정수 좌표가 필요합니다.")
+                else:
+                    coordinates[coordinate] = coordinate_value
+            for axis in ("x", "y", "z"):
+                minimum = coordinates.get(f"min_{axis}")
+                maximum = coordinates.get(f"max_{axis}")
+                if minimum is not None and maximum is not None and minimum > maximum:
+                    _issue(
+                        issues, "error", path, f"{base}.box",
+                        f"min_{axis}는 max_{axis} 이하여야 합니다."
+                    )
+    return issues
+
+
 def save_music_catalog(root: Path, data: Any) -> list[Issue]:
     data = copy.deepcopy(data)
     if isinstance(data, dict):
@@ -5867,6 +6002,8 @@ def validate_repository(
     issues = validate_dependency_lock(
         dependency_root / "pack" / "dependencies.lock.json", strict_pack
     )
+    issues.extend(_validate_cves_project(root, dependency_root))
+    issues.extend(validate_loot_tables(root, _cves_item_catalog(dependency_root)))
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
     starter_path = root / "content" / "catalogs" / "starter-settings.json"
     if starter_path.is_file():
@@ -5875,6 +6012,12 @@ def validate_repository(
         except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
             _issue(issues, "error", starter_path, "$", f"스타팅 설정을 읽을 수 없습니다: {error}")
     issues.extend(validate_music_catalog_file(root / "content" / "catalogs" / "music-tracks.json"))
+    issues.extend(validate_dimension_anchor_catalog_file(
+        root / "content" / "catalogs" / "dimension-anchors.json"
+    ))
+    issues.extend(validate_event_boundary_catalog_file(
+        root / "content" / "catalogs" / "event-boundaries.json"
+    ))
     issues.extend(validate_music_references(root))
     issues.extend(validate_gym_catalog_file(root / "content" / "catalogs" / "gyms.json", root / "content" / "structures"))
     economy_source_items = {
@@ -8503,6 +8646,66 @@ def _write_generated_trainer(
         )
 
 
+def _cves_item_catalog(dependency_root: Path) -> Path | None:
+    candidate = dependency_root / "trainer-data" / "catalogs" / "cobblemon-items.json"
+    return candidate if candidate.is_file() else None
+
+
+def _validate_cves_project(root: Path, dependency_root: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    try:
+        compile_project(root, item_catalog=_cves_item_catalog(dependency_root))
+    except CvesSyntaxError as error:
+        diagnostic = error.diagnostic
+        _issue(
+            issues,
+            "error",
+            Path(diagnostic.span.source),
+            f"{diagnostic.span.start.line}:{diagnostic.span.start.column}",
+            diagnostic.message,
+        )
+    except CvesCompilationError as error:
+        for diagnostic in error.diagnostics:
+            _issue(
+                issues,
+                "error",
+                Path(diagnostic.span.source),
+                f"{diagnostic.span.start.line}:{diagnostic.span.start.column}",
+                diagnostic.message,
+            )
+    except (CvesProjectError, ValueError) as error:
+        _issue(issues, "error", root / "content" / "events", "$", str(error))
+    return issues
+
+
+def validate_loot_tables(
+    root: Path, item_catalog: Path | None = None,
+) -> list[Issue]:
+    issues: list[Issue] = []
+    known_items: set[str] | None = None
+    if item_catalog is not None:
+        try:
+            catalog = load_json(item_catalog)
+        except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+            _issue(issues, "error", item_catalog, "$", f"아이템 카탈로그를 읽을 수 없습니다: {error}")
+            return issues
+        known_items = {
+            entry["id"] for entry in catalog.get("items", [])
+            if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+        }
+
+    source_root = root / "content" / "loot_tables"
+    for path in sorted(source_root.rglob("*.json")) if source_root.is_dir() else []:
+        try:
+            document = load_json(path)
+        except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+            _issue(issues, "error", path, "$", f"loot table JSON을 읽을 수 없습니다: {error}")
+            continue
+        for problem in validate_loot_table_document(document, known_items):
+            _issue(issues, "error", path, problem.path, problem.message)
+    return issues
+
+
 def generate_content(
     root: Path, output: Path | None = None, dependency_root: Path | None = None
 ) -> dict[str, Any]:
@@ -8549,7 +8752,18 @@ def generate_content(
         }
         _write_generated_trainer(rct_root, runtime_root, document)
         trainers.append(trainer_id)
-    return {"output": output.as_posix(), "trainers": trainers, "count": len(trainers), "synchronized_spatial_bounds": synchronized_spatial_bounds}
+    cves_build = compile_project(
+        root, item_catalog=_cves_item_catalog((dependency_root or root).resolve())
+    )
+    write_project(cves_build, output / "cves" / "data")
+    return {
+        "output": output.as_posix(),
+        "trainers": trainers,
+        "count": len(trainers),
+        "cves_scripts": len(cves_build.scripts),
+        "cves_bindings": len(cves_build.bindings),
+        "synchronized_spatial_bounds": synchronized_spatial_bounds,
+    }
 
 
 def _read_nbt_string(stream: io.BytesIO) -> str:
@@ -9589,8 +9803,8 @@ def resize_managed_structure(
             if not isinstance(floors, int) or floors < 1 or height % floors != 0:
                 raise ValueError("내부공간 높이는 현재 층수로 정확히 나누어져야 합니다.")
             floor_height = height // floors
-            if not 3 <= floor_height <= 12:
-                raise ValueError("층당 높이는 3~12 블록이어야 합니다. 층수 설정을 먼저 확인하세요.")
+            if not 3 <= floor_height <= 80:
+                raise ValueError("층당 높이는 3~80 블록이어야 합니다. 전체 높이는 80블록을 넘을 수 없습니다.")
             interior.update({
                 "width": width, "depth": depth,
                 "floor_height": floor_height, "floors": floors,
@@ -10358,6 +10572,13 @@ def create_handler(
     remote_image_cache: dict[str, bytes] = {}
     remote_image_cache_lock = threading.Lock()
     project_lock = threading.Lock()
+    cves_save_lock = threading.Lock()
+
+    def cves_catalog() -> Any:
+        item_catalog = core_root / "trainer-data" / "catalogs" / "cobblemon-items.json"
+        return load_cves_project_catalog(
+            root, item_catalog=item_catalog if item_catalog.is_file() else None
+        )
 
     def activate_project(project_path: Path) -> ContentProject:
         nonlocal root, active_project, editor_catalog
@@ -10529,6 +10750,9 @@ def create_handler(
                 "/": web_root / "index.html",
                 "/index.html": web_root / "index.html",
                 "/app.js": web_root / "app.js",
+                "/cves.html": web_root / "cves.html",
+                "/cves-editor.js": web_root / "cves-editor.js",
+                "/cves-editor.css": web_root / "cves-editor.css",
                 "/space-connections.js": web_root / "space-connections.js",
                 "/styles.css": web_root / "styles.css",
                 "/economy.css": web_root / "economy.css",
@@ -10595,6 +10819,32 @@ def create_handler(
                         "core_path": str(core_root),
                     },
                 )
+                return
+            if request.path == "/api/cves/scripts":
+                try:
+                    self._json(200, {"items": list_cves_scripts(root)})
+                except (OSError, ValueError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/cves/editor-contract":
+                try:
+                    self._json(200, cves_editor_contract(cves_catalog()))
+                except (OSError, ValueError, json.JSONDecodeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/cves/script":
+                relative_path = parse_qs(request.query).get("path", [""])[0]
+                try:
+                    self._json(200, load_cves_script(root, relative_path, cves_catalog()))
+                except CvesSyntaxError as error:
+                    self._json(422, {
+                        "error": "CVES 문법 오류가 있습니다.",
+                        "diagnostics": [cves_diagnostic_document(error.diagnostic)],
+                    })
+                except FileNotFoundError:
+                    self._json(404, {"error": "CVES 원본을 찾을 수 없습니다."})
+                except (OSError, ValueError, json.JSONDecodeError) as error:
+                    self._json(400, {"error": str(error)})
                 return
             if request.path in {"/dependencies", "/api/dependencies"}:
                 try:
@@ -11005,6 +11255,54 @@ def create_handler(
             except ValueError as error:
                 self._json(400, {"error": str(error)})
                 return
+            if request.path == "/api/cves/validate":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "CVES 검증 요청은 객체여야 합니다."})
+                    return
+                relative_path = payload.get("path", "<editor>")
+                if not isinstance(relative_path, str):
+                    self._json(400, {"error": "CVES path는 문자열이어야 합니다."})
+                    return
+                try:
+                    if "source" in payload:
+                        document = validate_cves_source(
+                            payload["source"], relative_path, cves_catalog()
+                        )
+                    elif "ast" in payload:
+                        document = validate_cves_ast(
+                            payload["ast"], relative_path, cves_catalog()
+                        )
+                    else:
+                        raise ValueError("검증할 source 또는 ast가 필요합니다.")
+                    self._json(200 if document["valid"] else 422, document)
+                except CvesSyntaxError as error:
+                    self._json(422, {
+                        "valid": False,
+                        "diagnostics": [cves_diagnostic_document(error.diagnostic)],
+                    })
+                except (AstCodecError, ValueError, OSError, json.JSONDecodeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/cves/expression":
+                if not isinstance(payload, dict):
+                    self._json(400, {"error": "CVES 식 요청은 객체여야 합니다."})
+                    return
+                relative_path = payload.get("path", "<expression>")
+                if not isinstance(relative_path, str):
+                    self._json(400, {"error": "CVES path는 문자열이어야 합니다."})
+                    return
+                try:
+                    self._json(200, parse_cves_editor_expression(
+                        payload.get("source"), relative_path
+                    ))
+                except CvesSyntaxError as error:
+                    self._json(422, {
+                        "valid": False,
+                        "diagnostics": [cves_diagnostic_document(error.diagnostic)],
+                    })
+                except ValueError as error:
+                    self._json(400, {"error": str(error)})
+                return
             if request.path == "/api/project/pick":
                 if os.name != "nt":
                     self._json(501, {"error": "폴더 선택창은 현재 Windows에서만 지원합니다."})
@@ -11278,6 +11576,36 @@ def create_handler(
 
         def do_PUT(self) -> None:
             request = urlparse(self.path)
+            if request.path == "/api/cves/script":
+                try:
+                    payload = self._read_json()
+                    if not isinstance(payload, dict):
+                        raise ValueError("CVES 저장 요청은 객체여야 합니다.")
+                    relative_path = payload.get("path")
+                    if not isinstance(relative_path, str):
+                        raise ValueError("저장할 CVES path가 필요합니다.")
+                    expected_digest = payload.get("expected_digest")
+                    if expected_digest is not None and not isinstance(expected_digest, str):
+                        raise ValueError("expected_digest는 문자열 또는 null이어야 합니다.")
+                    with cves_save_lock:
+                        document = save_cves_script(
+                            root,
+                            relative_path,
+                            payload.get("ast"),
+                            expected_digest,
+                            cves_catalog(),
+                        )
+                    self._json(200 if document["saved"] else 422, document)
+                except CvesEditorConflict as error:
+                    self._json(409, {"error": str(error), "code": "cves_source_conflict"})
+                except CvesSyntaxError as error:
+                    self._json(422, {
+                        "saved": False,
+                        "diagnostics": [cves_diagnostic_document(error.diagnostic)],
+                    })
+                except (AstCodecError, OSError, ValueError, json.JSONDecodeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
             if request.path == "/api/project":
                 try:
                     payload = self._read_json()

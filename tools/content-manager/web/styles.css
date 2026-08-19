@@ -196,6 +196,9 @@ nav { display: grid; gap: 7px; }
 .nav-item span { color: #657169; font: 700 10px Consolas, monospace; }
 .nav-item:hover { background: #1d251f; color: var(--text); }
 .nav-item.is-active { background: #262e27; color: var(--text); box-shadow: inset 3px 0 var(--accent); }
+.nav-link { display: flex; gap: 13px; align-items: center; padding: 13px 14px; border-radius: 8px; color: var(--muted); text-decoration: none; transition: .18s ease; }
+.nav-link span { color: #657169; font: 700 10px Consolas, monospace; }
+.nav-link:hover { background: #1d251f; color: var(--text); }
 .server-state { display: flex; align-items: center; gap: 10px; margin-top: auto; padding: 14px 10px 0; border-top: 1px solid var(--line); }
 .server-state i { width: 8px; height: 8px; border-radius: 50%; background: #777; box-shadow: 0 0 0 4px rgba(255,255,255,.04); }
 .server-state i.online { background: var(--green); box-shadow: 0 0 0 4px rgba(112,197,138,.11); }

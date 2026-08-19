@@ -28,6 +28,96 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_event_boundary_catalog_validates_ids_integer_boxes_and_order(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "event-boundaries.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "regions": [
+                    {
+                        "id": "test:same", "dimension": "test:world",
+                        "box": {"min_x": 2, "min_y": 0, "min_z": 0, "max_x": 1, "max_y": 1, "max_z": 1},
+                    },
+                    {
+                        "id": "test:same", "dimension": "bad id",
+                        "box": {"min_x": 0.5, "min_y": 0, "min_z": 0, "max_x": 1, "max_y": 1, "max_z": 1},
+                    },
+                ],
+                "anchors": [],
+            }), encoding="utf-8")
+
+            issues = content_manager.validate_event_boundary_catalog_file(path)
+
+        rendered = "\n".join(issue.message for issue in issues)
+        self.assertIn("중복 이벤트 경계 ID", rendered)
+        self.assertIn("올바른 차원 리소스 ID", rendered)
+        self.assertIn("정수 좌표", rendered)
+        self.assertIn("min_x는 max_x 이하", rendered)
+
+    def test_dimension_anchor_catalog_validates_duplicates_coordinates_and_angles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dimension-anchors.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "dimensions": [
+                    {
+                        "id": "cobbleventure:test",
+                        "anchors": {"spawn": {"x": 0, "y": 64, "z": 0}},
+                    },
+                    {
+                        "id": "cobbleventure:test",
+                        "anchors": {
+                            "bad anchor": {"x": True, "y": 64.5, "z": 0, "pitch": 91}
+                        },
+                    },
+                ],
+            }), encoding="utf-8")
+
+            issues = content_manager.validate_dimension_anchor_catalog_file(path)
+
+        rendered = "\n".join(issue.message for issue in issues)
+        self.assertIn("중복 차원 ID", rendered)
+        self.assertIn("올바른 차원 앵커 ID", rendered)
+        self.assertIn("정수 좌표", rendered)
+        self.assertIn("-90..90", rendered)
+    def test_trainer_money_reward_binds_to_rct_battle_without_pvn_classification(self) -> None:
+        rewards = (
+            CORE_ROOT
+            / "projects/cobbleventure-adventure/src/main/java/dev/buizz/cobbleventure/adventure/TrainerMoneyRewards.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("if (!event.getBattle().isPvN()) return;", rewards)
+        self.assertIn("reward.battleId = event.getBattle().getBattleId();", rewards)
+        self.assertIn("for (BattleActor actor : event.getWinners())", rewards)
+
+    def test_battle_boundary_and_trainer_warning_reset_after_battle(self) -> None:
+        boundary = (
+            CORE_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/BattleMovementBoundary.java"
+        ).read_text(encoding="utf-8")
+        battle_intro = (
+            CORE_ROOT
+            / "projects/cobbleventure-player-menu/src/main/java/dev/buizz/cobbleventure/playermenu/BattleIntro.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("boundary.previousPosition = player.position();", boundary)
+        self.assertIn("PROXIMITY_EXIT_BLOCKED", battle_intro)
+        self.assertIn("POST_BATTLE_PROXIMITY_GRACE_TICKS = 100L", battle_intro)
+        self.assertIn("ACTIVE_BATTLE_PLAYERS.remove(playerId)", battle_intro)
+        self.assertIn(
+            "(pending.lockedPosition.x + pending.opponent.getX()) * 0.5D",
+            battle_intro,
+        )
+        self.assertIn("BATTLE_CENTER_FOCUS_HEIGHT", battle_intro)
+        self.assertIn(
+            "PROXIMITY_EXIT_BLOCKED.put(entry.getKey(), opponent);",
+            battle_intro,
+        )
+        self.assertIn(
+            "> PROXIMITY_WARNING_RANGE * PROXIMITY_WARNING_RANGE",
+            battle_intro,
+        )
+
     def test_direct_pokemon_additions_can_force_evolved_spawns(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         schemas = [
@@ -549,6 +639,31 @@ class ContentManagerTests(unittest.TestCase):
             saved = json.loads(sidecar.read_text(encoding="utf-8"))
             self.assertEqual(5, saved["interior"]["floor_height"])
             self.assertEqual(2, saved["interior"]["floors"])
+
+    def test_resize_managed_single_interior_allows_handmade_floor_height(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/interiors/handmade_tower.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 12, 16)))
+            sidecar = structure.with_suffix(".structure.json")
+            sidecar.write_text(json.dumps({
+                "schema_version": 1,
+                "interior": {
+                    "id": "handmade_tower", "width": 16, "depth": 16,
+                    "floor_height": 12, "floors": 1,
+                },
+                "anchors": [],
+            }), encoding="utf-8")
+
+            result = content_manager.resize_managed_structure(
+                root, "cobbleventure:interiors/handmade_tower", 16, 48, 16
+            )
+
+            self.assertEqual(48, result["height"])
+            saved = json.loads(sidecar.read_text(encoding="utf-8"))
+            self.assertEqual(48, saved["interior"]["floor_height"])
+            self.assertEqual(1, saved["interior"]["floors"])
 
     def test_resize_managed_structure_previews_and_removes_out_of_bounds_anchors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -2217,9 +2332,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('String command = "easy_npc dialog open "', runtime)
         self.assertIn("gate.denyDialog()", runtime)
         self.assertIn("if (gate.npc() == null || !openGateNpcDialog", runtime)
-        self.assertIn("if (band <= 2)", runtime)
         self.assertIn("placeNaturalBarrierColumn", runtime)
-        self.assertIn("placeNaturalTree", runtime)
+        self.assertIn("placeNaturalGateWedges", runtime)
+        self.assertIn("clearLegacyNaturalBarrierLine", runtime)
+        self.assertIn("halfLength * 0.52D", runtime)
+        self.assertIn("placeNaturalGateTree", runtime)
         self.assertIn("alignedGateCenter", runtime)
         self.assertIn("handlePendingDenial", runtime)
         self.assertIn("pending.finished = true", runtime)
@@ -3547,6 +3664,11 @@ class ContentManagerTests(unittest.TestCase):
 
     def test_generate_exports_same_ai_profile_to_rct_and_runtime(self) -> None:
         root = PROJECT_ROOT
+        legacy_oak = (
+            CORE_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/preset/encounter/professor_oak.npc.snbt"
+        )
+        legacy_before = legacy_oak.read_bytes()
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "generated"
             result = content_manager.generate_content(root, output, CORE_ROOT)
@@ -3562,6 +3684,42 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("balanced", rct["ai"]["data"]["strategy"])
             self.assertEqual("standard", runtime["difficulty"])
             self.assertEqual("balanced", runtime["strategy"])
+            event_script = content_manager.load_json(
+                output / "cves/data/cobbleventure/event_script/story/professor_oak.json"
+            )
+            binding = content_manager.load_json(
+                output / "cves/data/cobbleventure/npc_event_binding/story/professor_oak.json"
+            )
+            self.assertEqual(
+                "cobbleventure:event_script/story/professor_oak",
+                event_script["script_id"],
+            )
+            self.assertEqual(event_script["script_id"], binding["script_id"])
+            item_script = content_manager.load_json(
+                output / "cves/data/cobbleventure/event_script/samples/sample_potion_giver.json"
+            )
+            item_binding = content_manager.load_json(
+                output / "cves/data/cobbleventure/npc_event_binding/samples/sample_potion_giver.json"
+            )
+            self.assertEqual(
+                "cobbleventure:event_script/samples/sample_potion_giver",
+                item_script["script_id"],
+            )
+            self.assertEqual(item_script["script_id"], item_binding["script_id"])
+            battle_script = content_manager.load_json(
+                output / "cves/data/cobbleventure/event_script/examples/ai_test.json"
+            )
+            battle_binding = content_manager.load_json(
+                output / "cves/data/cobbleventure/npc_event_binding/examples/ai_test.json"
+            )
+            self.assertEqual(
+                "cobbleventure:event_script/examples/ai_test",
+                battle_script["script_id"],
+            )
+            self.assertEqual(battle_script["script_id"], battle_binding["script_id"])
+            self.assertEqual(3, result["cves_scripts"])
+            self.assertEqual(3, result["cves_bindings"])
+        self.assertEqual(legacy_before, legacy_oak.read_bytes())
 
     def test_cheater_probability_is_exported_for_runtime_use(self) -> None:
         root = PROJECT_ROOT

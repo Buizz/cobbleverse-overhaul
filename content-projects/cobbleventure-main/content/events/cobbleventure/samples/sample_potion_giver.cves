@@ -1,0 +1,19 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/sample/sample_potion_giver/claimed") {
+    say npc {
+      ko_kr: "상처약은 잘 챙겨 두었지? 다치면 바로 사용해."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "여행 준비 중이구나! 상처약을 조금 나눠 줄게."
+    }
+    id "first/give_potion" give_item "cobblemon:potion" count 3 notify -> reward
+    if reward.remaining_count > 0 {
+      narrate "가방에 빈 공간이 없어 상처약을 모두 받을 수 없습니다."
+      stop
+    }
+    id "first/set_claimed" set_flag "cobbleventure:flag/sample/sample_potion_giver/claimed" true
+  }
+}

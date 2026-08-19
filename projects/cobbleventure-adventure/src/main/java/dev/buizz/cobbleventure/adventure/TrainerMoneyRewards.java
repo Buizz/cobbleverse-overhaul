@@ -83,7 +83,10 @@ final class TrainerMoneyRewards {
     }
 
     private static void onBattleStarted(BattleStartedEvent.Post event) {
-        if (!event.getBattle().isPvN()) return;
+        // RCT/TBCS trainer actors are not consistently classified by Cobblemon's
+        // isPvN() helper. A reward is prepared immediately before launching the
+        // authored trainer command, so bind it to the next battle containing
+        // that exact player instead of depending on the actor classification.
         for (BattleActor actor : event.getBattle().getActors()) {
             if (!(actor instanceof PlayerBattleActor playerActor)) continue;
             PreparedReward reward = PREPARED_REWARDS.get(playerActor.getUuid());

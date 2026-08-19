@@ -36,6 +36,7 @@ public final class StarterRouletteScreen extends Screen {
     private boolean stopped;
     private boolean waiting;
     private boolean received;
+    private boolean cancelSent;
     private int modelSize;
     private int slotSpacing;
     private int frameY;
@@ -153,6 +154,15 @@ public final class StarterRouletteScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    @Override
+    public void onClose() {
+        if (!received && !cancelSent) {
+            cancelSent = true;
+            StarterRouletteNetwork.cancel(token);
+        }
+        super.onClose();
     }
 
     void handleResult(boolean success, String translationKey, String speciesId) {

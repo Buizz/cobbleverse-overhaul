@@ -135,6 +135,8 @@
   "screen.cobbleventure_player_menu.world_map.teleport": "Travel to this town",
   "screen.cobbleventure_player_menu.world_map.debug_teleport": "Admin debug teleport",
   "screen.cobbleventure_player_menu.world_map.teleporting": "Teleporting…",
+  "screen.cobbleventure_player_menu.world_map.select": "Select this town",
+  "screen.cobbleventure_player_menu.world_map.selecting": "Selecting…",
   "key.categories.cobbleventure_player_menu": "Cobbleventure Player Menu",
   "key.cobbleventure_player_menu.unbound": "Unbound",
   "key.cobbleventure_player_menu.pokemon": "Open Pokémon",
@@ -178,5 +180,6 @@
   "message.cobbleventure_player_menu.location_title.mt_moon_east": "Mt. Moon East Path",
   "message.cobbleventure_player_menu.item_acquired": "%1$s obtained %2$s.",
   "message.cobbleventure_player_menu.items_acquired": "%1$s obtained %2$s ×%3$s.",
+  "message.cobbleventure_player_menu.loot_acquired": "%1$s obtained %2$s reward items.",
   "screen.cobbleventure_player_menu.status.locked": "%s is still locked."
 }
