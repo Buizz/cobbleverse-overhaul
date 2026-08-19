@@ -22,6 +22,8 @@ public final class StarterRouletteScreen extends Screen {
     private static final int CENTER_WIDGET = VISIBLE_WIDGET_COUNT / 2;
     private static final int MIN_MODEL_SIZE = 32;
     private static final int MAX_MODEL_SIZE = 96;
+    private static final int MODEL_TOP_INSET = 4;
+    private static final int NAME_TOP_INSET = 22;
     private static final long STEP_MILLIS = 135L;
     private static final long STOP_DURATION_MILLIS = 1_200L;
 
@@ -75,8 +77,8 @@ public final class StarterRouletteScreen extends Screen {
         int contentTop = Math.max(8, (height - contentHeight) / 2);
         int titleY = contentTop;
         frameY = titleY + 18;
-        int modelY = frameY + 8;
-        nameY = frameY + modelSize + 18;
+        int modelY = frameY + MODEL_TOP_INSET;
+        nameY = frameY + modelSize + NAME_TOP_INSET;
         statusY = nameY + 16;
         int buttonY = statusY + 16;
         float modelScale = Math.max(2.0F, 2.6F * modelSize / (float) MAX_MODEL_SIZE);

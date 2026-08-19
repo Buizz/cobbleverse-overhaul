@@ -32,7 +32,7 @@ public final class EventItemGrantBridge {
             }
             String token = UUID.randomUUID().toString();
             String command = "cobbleventure_item_grant_session "
-                + player.getUUID() + " " + token + " "
+                + token + " "
                 + StringArgumentType.escapeIfRequired(request.operationId()) + " "
                 + StringArgumentType.escapeIfRequired(request.itemId()) + " "
                 + request.count() + " " + request.showNotification();
@@ -40,6 +40,7 @@ public final class EventItemGrantBridge {
                 player.createCommandSourceStack().withPermission(4).withSuppressedOutput(),
                 command
             );
+            EventAwaitCallbackRegistry.register(token, request.sessionKey());
             return new EventGiveItemGateway.OpenResult(
                 token, System.currentTimeMillis() + TIMEOUT_MILLIS
             );
@@ -51,29 +52,28 @@ public final class EventItemGrantBridge {
             Commands.literal("cobbleventure_event")
                 .requires(source -> source.hasPermission(4))
                 .then(Commands.literal("item_result")
-                    .then(Commands.argument("player", EntityArgument.player())
-                        .then(Commands.argument("token", StringArgumentType.word())
-                            .then(Commands.argument("requested", IntegerArgumentType.integer(0))
-                                .then(Commands.argument("granted", IntegerArgumentType.integer(0))
-                                    .then(Commands.argument("remaining", IntegerArgumentType.integer(0))
-                                        .executes(context -> complete(
-                                            EntityArgument.getPlayer(context, "player"),
-                                            StringArgumentType.getString(context, "token"),
-                                            IntegerArgumentType.getInteger(context, "requested"),
-                                            IntegerArgumentType.getInteger(context, "granted"),
-                                            IntegerArgumentType.getInteger(context, "remaining"),
-                                            null
-                                        ))
-                                        .then(Commands.argument(
-                                            "failure_reason", StringArgumentType.word()
-                                        ).executes(context -> complete(
-                                            EntityArgument.getPlayer(context, "player"),
-                                            StringArgumentType.getString(context, "token"),
-                                            IntegerArgumentType.getInteger(context, "requested"),
-                                            IntegerArgumentType.getInteger(context, "granted"),
-                                            IntegerArgumentType.getInteger(context, "remaining"),
-                                            StringArgumentType.getString(context, "failure_reason")
-                                        )))))))))
+                    .then(Commands.argument("token", StringArgumentType.word())
+                        .then(Commands.argument("requested", IntegerArgumentType.integer(0))
+                            .then(Commands.argument("granted", IntegerArgumentType.integer(0))
+                                .then(Commands.argument("remaining", IntegerArgumentType.integer(0))
+                                    .executes(context -> complete(
+                                        context.getSource().getPlayerOrException(),
+                                        StringArgumentType.getString(context, "token"),
+                                        IntegerArgumentType.getInteger(context, "requested"),
+                                        IntegerArgumentType.getInteger(context, "granted"),
+                                        IntegerArgumentType.getInteger(context, "remaining"),
+                                        null
+                                    ))
+                                    .then(Commands.argument(
+                                        "failure_reason", StringArgumentType.word()
+                                    ).executes(context -> complete(
+                                        context.getSource().getPlayerOrException(),
+                                        StringArgumentType.getString(context, "token"),
+                                        IntegerArgumentType.getInteger(context, "requested"),
+                                        IntegerArgumentType.getInteger(context, "granted"),
+                                        IntegerArgumentType.getInteger(context, "remaining"),
+                                        StringArgumentType.getString(context, "failure_reason")
+                                    ))))))))
         );
     }
 
@@ -93,7 +93,7 @@ public final class EventItemGrantBridge {
             return 0;
         }
         SavedEventSessionStore store = SavedEventSessionStore.get(player.getServer());
-        Optional<EventSessionKey> key = EventAwaitSessionLocator.find(
+        Optional<EventSessionKey> key = EventAwaitCallbackRegistry.find(
             store, player.getUUID(), token
         );
         if (key.isEmpty()) return 0;
@@ -123,6 +123,9 @@ public final class EventItemGrantBridge {
                 store,
                 MAX_RESUME_STEPS
             );
+        if (outcome.status() != EventAwaitCompletionService.Status.STALE) {
+            EventAwaitCallbackRegistry.forget(token);
+        }
         return outcome.status() == EventAwaitCompletionService.Status.RESUMED
             || outcome.status() == EventAwaitCompletionService.Status.DUPLICATE ? 1 : 0;
     }

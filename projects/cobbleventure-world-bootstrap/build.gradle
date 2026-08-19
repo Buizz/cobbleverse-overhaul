@@ -58,8 +58,10 @@ dependencies {
 }
 
 def integrationBcaJar = null
+def integrationInstanceDirectory = null
 if (project.hasProperty('integration_mods_dir')) {
     def integrationModsDirectory = file(project.property('integration_mods_dir'))
+    integrationInstanceDirectory = integrationModsDirectory.parentFile
     integrationBcaJar = fileTree(integrationModsDirectory) {
         include 'cobblemon-additions-*.jar'
     }.files.find()
@@ -108,6 +110,53 @@ neoForge {
         "${mod_id}" { sourceSet(sourceSets.main) }
     }
     addModdingDependenciesTo sourceSets.test
+}
+
+tasks.register('syncDevelopmentEasyNpcSkins', Copy) {
+    group = 'cobbleventure development'
+    description = 'Copies generated EasyNPC skins into the local Minecraft run directory.'
+    from(rootProject.file('../../pack/overrides/development-placeholder/config/easy_npc/skin')) {
+        include '**/*.png'
+    }
+    into(file('run/config/easy_npc/skin'))
+}
+
+tasks.register('syncDevelopmentClientConfig', Copy) {
+    group = 'cobbleventure development'
+    description = 'Copies tracked client configuration into the local Minecraft run directory.'
+    from(rootProject.file('../../pack/overrides/development-placeholder/config')) {
+        include 'iris.properties'
+        include 'neoforge-client.toml'
+    }
+    into(file('run/config'))
+}
+
+tasks.register('syncDevelopmentResourcePacks', Copy) {
+    group = 'cobbleventure development'
+    description = 'Copies the Minecraft-scaled Pokemon BW bitmap font into the run directory.'
+    from(rootProject.file('../../local-assets/PokemonBW-Minecraft.zip'))
+    into(file('run/resourcepacks'))
+}
+
+def runClientPreparationTasks = [
+    'syncDevelopmentEasyNpcSkins',
+    'syncDevelopmentClientConfig',
+    'syncDevelopmentResourcePacks',
+]
+if (integrationInstanceDirectory != null) {
+    tasks.register('syncIntegrationShaderPacks', Copy) {
+        group = 'cobbleventure development'
+        description = 'Copies integration-instance shader packs into the local Minecraft run directory.'
+        from(new File(integrationInstanceDirectory, 'shaderpacks')) {
+            include 'ComplementaryReimagined_r5.3.zip'
+        }
+        into(file('run/shaderpacks'))
+    }
+    runClientPreparationTasks.add('syncIntegrationShaderPacks')
+}
+
+tasks.named('runClient') {
+    dependsOn runClientPreparationTasks
 }
 
 tasks.named('runWorldPerformanceServer') {

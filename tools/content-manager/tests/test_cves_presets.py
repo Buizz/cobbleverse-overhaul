@@ -50,7 +50,7 @@ class CvesBehaviorPresetTests(unittest.TestCase):
             "cobbleventure/bootstrap/GymInteriorSystem.java"
         ).read_text(encoding="utf-8")
         world = json.loads((PROJECT_ROOT / "content/worlds/generation_1.json").read_text(encoding="utf-8"))
-        self.assertIn('String suffix = cvesV5 ? "__v5"', bootstrap)
+        self.assertIn("RegionalNpcPresetSelection.suffix(cvesV5, triggerOverride)", bootstrap)
         self.assertIn("CobbleventureBootstrap.npcPresetSuffix(level, npcId)", buildings)
         self.assertIn('role.equals("leader") ? "__v5"', gyms)
         gate_presets = [
@@ -135,6 +135,19 @@ class CvesBehaviorPresetTests(unittest.TestCase):
         ).read_text(encoding="utf-8"))
         source = format_program(preset_program(document))
         self.assertIn('choice { ko_kr: "도전하시겠습니까?" } {', source)
+        self.assertIn(
+            'event proximity_enter(range: 9, group: "trainer_battle", stage: "warning")',
+            source,
+        )
+        self.assertIn(
+            'event proximity_enter(range: 6, group: "trainer_battle", after: "warning")',
+            source,
+        )
+        self.assertIn('encounter_warning "encounter.trainer_boy"', source)
+        proximity_challenge = source.split(
+            'event proximity_enter(range: 6, group: "trainer_battle", after: "warning")', 1
+        )[1].split("event interact", 1)[0]
+        self.assertNotIn("choice", proximity_challenge)
         self.assertIn('await battle "cobbleventure:battle/sample_youngster_minjun" -> battle_result', source)
         self.assertIn('if battle_result.outcome == "win" {', source)
         self.assertNotIn("\n    label ", source)
@@ -166,6 +179,13 @@ class CvesBehaviorPresetTests(unittest.TestCase):
             event.write_text(format_program(preset_program(document)) + "# manual\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "직접 수정"):
                 content_manager._prepare_v5_preset_sync(root, target, document)
+
+            managed_upgrade = content_manager._prepare_v5_preset_sync(
+                root, target, document, allow_managed_upgrade=True
+            )
+            self.assertEqual(
+                format_program(preset_program(document)), managed_upgrade["event_source"]
+            )
 
             document["event_runtime"]["authoring"] = "custom"
             plan = content_manager._prepare_v5_preset_sync(root, target, document)

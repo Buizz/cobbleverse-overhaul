@@ -54,6 +54,7 @@ class CommandKind(str, Enum):
     WAIT = "wait"
     SOUND = "sound"
     EFFECT = "effect"
+    ENCOUNTER_WARNING = "encounter_warning"
     LABEL = "label"
     JUMP = "jump"
     CALL = "call"

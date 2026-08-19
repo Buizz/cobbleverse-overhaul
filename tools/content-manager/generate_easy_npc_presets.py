@@ -1125,12 +1125,16 @@ def encounter_preset_snbt(
 '''
 
 
-def v5_encounter_preset_snbt(document: dict, outfit: dict, binding_tag: str) -> str:
+def v5_encounter_preset_snbt(
+    document: dict, outfit: dict, binding_tag: str, *, proximity: bool = False
+) -> str:
     """Render an inert EasyNPC representation whose interaction is owned by CVES."""
     adapter = outfit["adapters"]["easy_npc"]
     display = localized(document.get("npc", {}).get("display_name")) or localized(document.get("name"))
     preset_uuid = str(uuid.uuid5(
-        uuid.NAMESPACE_URL, document["id"] + "/easy_npc_encounter/v5/" + binding_tag
+        uuid.NAMESPACE_URL,
+        document["id"] + "/easy_npc_encounter/v5/" + binding_tag
+        + ("/proximity" if proximity else ""),
     ))
     arm_model = document.get("_easy_npc_arm_model") or document.get("npc", {}).get(
         "appearance", {}
@@ -1138,6 +1142,8 @@ def v5_encounter_preset_snbt(document: dict, outfit: dict, binding_tag: str) -> 
     variant = "ALEX" if arm_model == "slim" else "STEVE"
     scale = float(adapter["root_scale"])
     custom_name = json.dumps({"text": display}, ensure_ascii=False, separators=(",", ":"))
+    trigger_tag = ',"cves_trigger/proximity"' if proximity else ""
+    variant_label = " [V5 근접전투]" if proximity else " [V5]"
     return f'''{{
   PresetMetadata:{{
     author:"Cobbleventure",
@@ -1146,7 +1152,7 @@ def v5_encounter_preset_snbt(document: dict, outfit: dict, binding_tag: str) -> 
     description:{quote(display + " CVES V5 NPC 표현 프리셋")},
     entityTypeId:{quote(adapter["entity_type"])},
     modified:0L,
-    name:{quote(display + " [V5]")},
+    name:{quote(display + variant_label)},
     variantType:"{variant}",
     version:"1.0.0"
   }},
@@ -1163,7 +1169,7 @@ def v5_encounter_preset_snbt(document: dict, outfit: dict, binding_tag: str) -> 
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
     SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
-    Tags:["cobbleventure_regional_npc",{quote(binding_tag)}],
+    Tags:["cobbleventure_regional_npc",{quote(binding_tag)}{trigger_tag}],
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}
@@ -1193,6 +1199,14 @@ def cves_binding_tag_for_relative(
     if value.get("schema_version") != 1 or not isinstance(value.get("script_id"), str):
         raise ValueError(f"올바르지 않은 CVES NPC 바인딩입니다: {binding}")
     return f"cves_binding/{namespace}/{relative.with_suffix('').as_posix()}"
+
+
+def has_cves_proximity_events(binding_tag: str) -> bool:
+    prefix, namespace, relative = binding_tag.split("/", 2)
+    if prefix != "cves_binding":
+        return False
+    script = CONTENT_ROOT.parent / "events" / namespace / f"{relative}.cves"
+    return script.is_file() and "event proximity_enter(" in script.read_text(encoding="utf-8")
 
 
 def resource_path(resource_id: str) -> Path:
@@ -1410,6 +1424,20 @@ def generate(
                 encoding="utf-8", newline="\n",
             )
             written.append(v5_preset)
+            preset_type = document.get("event_design", {}).get("preset", {}).get("type")
+            has_proximity = (
+                preset_type in {"battle", "gym", "elite", "champion"}
+                or has_cves_proximity_events(binding_tag)
+            )
+            if has_proximity:
+                proximity_preset = preset.with_name(f"{slug}__v5_proximity.npc.snbt")
+                proximity_preset.write_text(
+                    v5_encounter_preset_snbt(
+                        document, outfit, binding_tag, proximity=True
+                    ),
+                    encoding="utf-8", newline="\n",
+                )
+                written.append(proximity_preset)
         for trigger_override in ("interact", "proximity"):
             override_preset = preset.with_name(
                 f"{slug}__{trigger_override}.npc.snbt"

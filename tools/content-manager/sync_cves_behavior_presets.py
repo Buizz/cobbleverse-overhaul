@@ -12,7 +12,12 @@ import content_manager
 
 
 def synchronize(
-    project_root: Path, source_directory: Path, *, enable: bool, dry_run: bool = False
+    project_root: Path,
+    source_directory: Path,
+    *,
+    enable: bool,
+    dry_run: bool = False,
+    upgrade_managed: bool = False,
 ) -> list[dict]:
     root = project_root.resolve()
     directory = source_directory.resolve()
@@ -36,7 +41,10 @@ def synchronize(
             }
         if document.get("event_runtime", {}).get("engine") != "cves_v5":
             continue
-        plan = content_manager._prepare_v5_preset_sync(root, source, document)
+        plan = content_manager._prepare_v5_preset_sync(
+            root, source, document,
+            allow_managed_upgrade=upgrade_managed,
+        )
         if plan is None:
             continue
         generated_source = _json_source(document)
@@ -96,6 +104,10 @@ def main() -> int:
         help="파일을 쓰지 않고 생성·변경·동일 산출물 목록만 출력합니다.",
     )
     parser.add_argument(
+        "--upgrade-managed", action="store_true",
+        help="preset 작성으로 표시된 관리 대상 CVES를 최신 생성기 계약으로 갱신합니다.",
+    )
+    parser.add_argument(
         "--json", action="store_true",
         help="검토하거나 자동화하기 쉬운 JSON 보고서를 출력합니다.",
     )
@@ -103,6 +115,7 @@ def main() -> int:
     results = synchronize(
         arguments.project_root, arguments.source_directory,
         enable=arguments.enable, dry_run=arguments.dry_run,
+        upgrade_managed=arguments.upgrade_managed,
     )
     report = {
         "dry_run": arguments.dry_run,

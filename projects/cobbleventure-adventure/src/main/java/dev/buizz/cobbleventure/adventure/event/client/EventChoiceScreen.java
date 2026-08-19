@@ -67,8 +67,7 @@ public final class EventChoiceScreen extends Screen {
             EventDialoguePortrait.render(
                 graphics, npc,
                 layout.left() + 8, layout.top() + 8,
-                layout.contentLeft() - 8, layout.bottom() - 8,
-                mouseX, mouseY
+                layout.contentLeft() - 8, layout.bottom() - 8
             );
         }
 
@@ -203,6 +202,7 @@ public final class EventChoiceScreen extends Screen {
     }
 
     @Override public void onClose() { complete(true); }
+    @Override public boolean shouldCloseOnEsc() { return false; }
     @Override public boolean isPauseScreen() { return false; }
 
     private void advancePrompt() {

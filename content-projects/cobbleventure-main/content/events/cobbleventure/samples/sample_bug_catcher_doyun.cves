@@ -1,3 +1,28 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/sample_bug_catcher_doyun/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/sample_bug_catcher_doyun/defeated") {
+    say npc {
+      ko_kr: "숲에서 키운 내 포켓몬을 보여 줄게!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/sample_bug_catcher_doyun" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/sample_bug_catcher_doyun/defeated" true
+      say npc {
+        ko_kr: "좋은 승부였어! 다음에 다시 겨뤄 보자."
+      }
+    } else {
+      say npc {
+        ko_kr: "멋진 승부였어. 준비가 되면 언제든 다시 도전해!"
+      }
+    }
+  }
+}
+
 event interact(range: 4) {
   page when flag("cobbleventure:flag/trainer/sample_bug_catcher_doyun/defeated") {
     say npc {

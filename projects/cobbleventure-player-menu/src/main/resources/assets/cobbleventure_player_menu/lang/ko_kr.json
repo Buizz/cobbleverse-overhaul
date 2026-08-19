@@ -106,7 +106,7 @@
   "screen.cobbleventure_player_menu.trainer_card.id": "ID No.",
   "screen.cobbleventure_player_menu.trainer_card.play_time": "플레이 시간",
   "screen.cobbleventure_player_menu.trainer_card.money": "소지금",
-  "screen.cobbleventure_player_menu.trainer_card.level_cap": "현재 레벨캡  Lv.%s",
+  "screen.cobbleventure_player_menu.trainer_card.level_cap": "레벨캡  Lv.%s",
   "screen.cobbleventure_player_menu.trainer_card.score": "스코어",
   "screen.cobbleventure_player_menu.trainer_card.region.undecided": "리그 구성 미정",
   "screen.cobbleventure_player_menu.trainer_card.league.cleared": "리그 제패",

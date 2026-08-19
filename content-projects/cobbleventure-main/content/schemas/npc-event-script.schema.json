@@ -148,6 +148,17 @@
       "properties": {
         "type": { "enum": ["simple", "repeat", "item", "battle", "gym", "elite", "champion"] },
         "initial_trigger": { "$ref": "#/$defs/eventTrigger" },
+        "proximity_trigger": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "battle_range": { "type": "number", "exclusiveMinimum": 0, "default": 6 },
+            "warning_range": { "type": "number", "exclusiveMinimum": 0, "default": 9 },
+            "warning_track": { "type": "string", "minLength": 1, "default": "encounter.trainer_boy" },
+            "group": { "type": "string", "pattern": "^[a-z0-9_.-]+$", "default": "trainer_battle" },
+            "warning_stage": { "type": "string", "pattern": "^[a-z0-9_.-]+$", "default": "warning" }
+          }
+        },
         "after_victory_trigger": {
           "type": "object",
           "additionalProperties": false,

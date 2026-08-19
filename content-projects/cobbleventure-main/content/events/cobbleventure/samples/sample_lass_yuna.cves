@@ -1,3 +1,28 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/sample_lass_yuna/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/sample_lass_yuna/defeated") {
+    say npc {
+      ko_kr: "포켓몬과 함께 걷는 건 정말 즐거워! 승부도 해 볼래?"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/sample_lass_yuna" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/sample_lass_yuna/defeated" true
+      say npc {
+        ko_kr: "좋은 승부였어! 다음에 다시 겨뤄 보자."
+      }
+    } else {
+      say npc {
+        ko_kr: "멋진 승부였어. 준비가 되면 언제든 다시 도전해!"
+      }
+    }
+  }
+}
+
 event interact(range: 4) {
   page when flag("cobbleventure:flag/trainer/sample_lass_yuna/defeated") {
     say npc {

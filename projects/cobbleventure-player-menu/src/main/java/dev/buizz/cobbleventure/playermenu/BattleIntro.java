@@ -113,7 +113,21 @@ public final class BattleIntro {
                         .executes(context -> warn(
                             EntityArgument.getPlayer(context, "player"),
                             EntityArgument.getEntity(context, "opponent")
-                        ))))
+                        ))
+                        .then(Commands.argument("encounter_track", StringArgumentType.word())
+                            .executes(context -> warn(
+                                EntityArgument.getPlayer(context, "player"),
+                                EntityArgument.getEntity(context, "opponent"),
+                                StringArgumentType.getString(context, "encounter_track")
+                            )))))
+        );
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_battle_warning_clear")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .executes(context -> clearWarning(
+                        EntityArgument.getPlayer(context, "player")
+                    )))
         );
         event.getDispatcher().register(
             Commands.literal("cobbleventure_proximity_battle")
@@ -134,9 +148,24 @@ public final class BattleIntro {
     }
 
     private static int warn(ServerPlayer player, Entity opponent) {
+        return warn(player, opponent, null);
+    }
+
+    private static int warn(
+        ServerPlayer player, Entity opponent, String encounterTrack
+    ) {
+        if (encounterTrack != null) {
+            MusicPlayback.prepareEncounter(player, encounterTrack);
+        }
         PacketDistributor.sendToPlayer(player, new WarningPayload(
             opponent.getDisplayName().getString(), true
         ));
+        return 1;
+    }
+
+    private static int clearWarning(ServerPlayer player) {
+        dismissWarning(player);
+        MusicPlayback.cancelEncounter(player);
         return 1;
     }
 

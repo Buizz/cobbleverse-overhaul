@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 from . import ast
@@ -37,6 +38,10 @@ def preset_program(document: Mapping[str, Any]) -> ast.Program:
         pages = _repeat_pages(document, preset, item=preset_type == "item")
     else:
         pages = _battle_pages(document, preset)
+        manual = ast.Event(ast.Trigger("interact", (
+            _named("range", _number(trigger.get("range", 4) if trigger_name == "interact" else 4)),
+        )), pages)
+        return ast.Program((*_battle_proximity_events(document, preset, trigger), manual))
     return ast.Program((ast.Event(ast.Trigger(trigger_name, trigger_arguments), pages),))
 
 
@@ -145,6 +150,87 @@ def _battle_pages(
         _page(_call("flag", _string(state_key)), *_says(preset.get("win_text"), "좋은 승부였어!")),
         _page(None, *_says(preset.get("first_text"), "안녕하세요!"), choice),
     )
+
+
+def _battle_proximity_events(
+    document: Mapping[str, Any], preset: Mapping[str, Any], initial: Mapping[str, Any]
+) -> tuple[ast.Event, ast.Event]:
+    """Build the warning and forced challenge stages used by route placements."""
+    configured = preset.get("proximity_trigger")
+    proximity = configured if isinstance(configured, Mapping) else {}
+    if initial.get("type") == "proximity":
+        battle_range = float(initial.get("range", 6))
+        warning_range = battle_range + float(initial.get("warning_offset", 3))
+    else:
+        battle_range = float(proximity.get("battle_range", 6))
+        warning_range = float(proximity.get("warning_range", 9))
+    if battle_range <= 0 or warning_range <= battle_range:
+        raise ValueError("근접 강제전투는 0보다 큰 battle_range와 그보다 큰 warning_range가 필요합니다.")
+
+    group = str(proximity.get("group", "trainer_battle"))
+    warning_stage = str(proximity.get("warning_stage", "warning"))
+    track = str(proximity.get("warning_track", "encounter.trainer_boy"))
+    state_key = str(
+        preset.get("victory_state_key")
+        or preset.get("clear_key")
+        or automatic_state_key(document.get("id"), "defeated")
+    )
+    undefeated = ast.UnaryExpression("!", _call("flag", _string(state_key)))
+
+    pages = _battle_pages(document, preset)
+    challenge = pages[1].block.statements[-1]
+    if not isinstance(challenge, ast.ChoiceStatement):
+        raise ValueError("배틀 프리셋의 도전 선택지 트리를 만들 수 없습니다.")
+    forced = (
+        *pages[1].block.statements[:-1],
+        *challenge.options[0].block.statements,
+    )
+    forced = tuple(_prefix_stable_ids(statement, "proximity/") for statement in forced)
+    warning = ast.Event(
+        ast.Trigger("proximity_enter", (
+            _named("range", _number(warning_range)),
+            _named("group", _string(group)),
+            _named("stage", _string(warning_stage)),
+        )),
+        (_page(undefeated, _command(ast.CommandKind.ENCOUNTER_WARNING, _string(track))),),
+    )
+    battle = ast.Event(
+        ast.Trigger("proximity_enter", (
+            _named("range", _number(battle_range)),
+            _named("group", _string(group)),
+            _named("after", _string(warning_stage)),
+        )),
+        (_page(undefeated, *forced),),
+    )
+    return warning, battle
+
+
+def _prefix_stable_ids(statement: ast.Statement, prefix: str) -> ast.Statement:
+    """Clone a reused subtree while keeping operation IDs unique in the program."""
+    stable_id = getattr(statement, "stable_id", None)
+    changes: dict[str, object] = {}
+    if stable_id is not None:
+        changes["stable_id"] = prefix + stable_id
+    if isinstance(statement, ast.IfStatement):
+        changes["then_block"] = ast.Block(tuple(
+            _prefix_stable_ids(child, prefix) for child in statement.then_block.statements
+        ))
+        if statement.else_block is not None:
+            changes["else_block"] = ast.Block(tuple(
+                _prefix_stable_ids(child, prefix) for child in statement.else_block.statements
+            ))
+    elif isinstance(statement, ast.ChoiceStatement):
+        changes["options"] = tuple(
+            replace(option, block=ast.Block(tuple(
+                _prefix_stable_ids(child, prefix) for child in option.block.statements
+            )))
+            for option in statement.options
+        )
+    elif isinstance(statement, ast.RepeatStatement):
+        changes["block"] = ast.Block(tuple(
+            _prefix_stable_ids(child, prefix) for child in statement.block.statements
+        ))
+    return replace(statement, **changes)
 
 
 def _remaining_guard(result: str) -> ast.IfStatement:

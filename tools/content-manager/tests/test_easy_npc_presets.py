@@ -141,7 +141,6 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         preset = generator.v5_encounter_preset_snbt(
             document, outfits[document["npc"]["trainer_class"]], binding_tag
         )
-
         self.assertEqual(
             "cves_binding/cobbleventure/samples/sample_potion_giver", binding_tag
         )
@@ -173,17 +172,29 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         preset = generator.v5_encounter_preset_snbt(
             document, outfits[document["npc"]["trainer_class"]], binding_tag
         )
+        proximity = generator.v5_encounter_preset_snbt(
+            document, outfits[document["npc"]["trainer_class"]], binding_tag,
+            proximity=True,
+        )
 
         self.assertIn("ActionEventSet:{}", preset)
         self.assertIn("DialogDataSet:[]", preset)
         self.assertNotIn("tbcs battle", preset)
         self.assertNotIn("cobbleventure_reward", preset)
         self.assertNotIn("cobbleventurebag loot", preset)
+        self.assertIn('"cves_trigger/proximity"', proximity)
+        self.assertIn("ActionEventSet:{}", proximity)
+        self.assertIn("DialogDataSet:[]", proximity)
         checked_in = (
             ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
             "preset/encounter/ai_test__v5.npc.snbt"
         ).read_text(encoding="utf-8")
         self.assertEqual(preset, checked_in)
+        checked_in_proximity = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+            "preset/encounter/ai_test__v5_proximity.npc.snbt"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(proximity, checked_in_proximity)
 
     def test_shared_player_conditions_are_mirrored_for_easy_npc(self) -> None:
         condition = {"type": "party_count", "operator": ">=", "value": 1}

@@ -504,6 +504,39 @@ class CvesSemanticTests(unittest.TestCase):
         self.assertIn("once는 bool", rendered)
         self.assertIn("scope은", rendered)
 
+    def test_proximity_stage_relationships_are_validated(self) -> None:
+        source = '''event proximity_enter(range: 6, group: "battle", stage: "warning") {
+  page default {}
+}
+event proximity_enter(range: 9, group: "battle", after: "warning") {
+  page default {}
+}
+event proximity_enter(range: 4, group: "battle", after: "missing") {
+  page default {}
+}
+event proximity_enter(range: 12, group: "battle", stage: "warning") {
+  page default {}
+}
+'''
+        diagnostics = validate(parse(source, "proximity-stage.cves"))
+        rendered = "\n".join(value.message for value in diagnostics)
+
+        self.assertEqual(3, len(diagnostics))
+        self.assertIn("중복 단계", rendered)
+        self.assertIn("after 대상 단계", rendered)
+        self.assertIn("선행 proximity 단계의 range", rendered)
+
+    def test_proximity_outer_stage_can_lead_to_smaller_inner_stage(self) -> None:
+        source = '''event proximity_enter(range: 9, group: "battle", stage: "warning") {
+  page default {}
+}
+event proximity_enter(range: 6, group: "battle", after: "warning") {
+  page default {}
+}
+'''
+
+        self.assertEqual((), validate(parse(source, "proximity-stage-valid.cves")))
+
     def test_indexed_boundary_triggers_require_target_and_reject_range(self) -> None:
         source = '''event region_enter(range: 3) {
   page default {}

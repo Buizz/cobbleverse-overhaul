@@ -35,6 +35,8 @@ final class EventTriggerGateTest {
     }
 
     private static EventTriggerContract.Options options(boolean once, double cooldown) {
-        return new EventTriggerContract.Options(4.0D, once, cooldown, "player");
+        return new EventTriggerContract.Options(
+            4.0D, once, cooldown, "player", null, null, null
+        );
     }
 }

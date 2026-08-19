@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -79,6 +80,10 @@ public final class StarterRouletteNetwork {
         PENDING_OPENS.put(player.getUUID(), new PendingOpen(
             openAt, new EventContinuation(callbackToken)
         ));
+        LOGGER.info(
+            "CVES starter roulette queued: player={}, openAtTick={}, callbackToken={}",
+            player.getGameProfile().getName(), openAt, callbackToken
+        );
         return 1;
     }
 
@@ -179,18 +184,32 @@ public final class StarterRouletteNetwork {
             PendingEventCallback pending = PENDING_EVENT_CALLBACKS.remove(playerId);
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(playerId);
             if (player == null) continue;
-            String command = pending.species() == null
-                ? "cobbleventure_event starter_cancel " + player.getUUID() + " "
-                    + pending.token() + " " + pending.reason()
-                : "cobbleventure_event starter_result " + player.getUUID() + " "
-                    + pending.token() + " "
-                    + StringArgumentType.escapeIfRequired(pending.species());
+            String command = StarterRouletteEventCallback.command(
+                pending.token(), pending.species(), pending.reason()
+            );
+            AtomicInteger completed = new AtomicInteger();
             event.getServer().getCommands().performPrefixedCommand(
-                event.getServer().createCommandSourceStack()
+                player.createCommandSourceStack()
                     .withPermission(4)
-                    .withSuppressedOutput(),
+                    .withSuppressedOutput()
+                    .withCallback((success, result) -> completed.set(
+                        success ? result : 0
+                    )),
                 command
             );
+            if (completed.get() <= 0) {
+                LOGGER.error(
+                    "CVES starter roulette callback was rejected: player={}, token={}, kind={}",
+                    player.getGameProfile().getName(), pending.token(),
+                    pending.species() == null ? "cancel" : "result"
+                );
+            } else {
+                LOGGER.info(
+                    "CVES starter roulette callback completed: player={}, token={}, kind={}",
+                    player.getGameProfile().getName(), pending.token(),
+                    pending.species() == null ? "cancel" : "result"
+                );
+            }
         }
     }
 

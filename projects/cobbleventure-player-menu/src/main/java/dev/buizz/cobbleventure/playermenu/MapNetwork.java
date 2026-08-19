@@ -103,12 +103,11 @@ public final class MapNetwork {
         event.getDispatcher().register(
             Commands.literal("cobbleventure_map_select_session")
                 .requires(source -> source.hasPermission(4))
-                .then(Commands.argument("player", EntityArgument.player())
-                    .then(Commands.argument("token", StringArgumentType.word())
-                        .executes(context -> openSelection(
-                            EntityArgument.getPlayer(context, "player"),
-                            StringArgumentType.getString(context, "token")
-                        ))))
+                .then(Commands.argument("token", StringArgumentType.word())
+                    .executes(context -> openSelection(
+                        context.getSource().getPlayerOrException(),
+                        StringArgumentType.getString(context, "token")
+                    )))
         );
     }
 
@@ -165,7 +164,7 @@ public final class MapNetwork {
             ));
             return;
         }
-        String command = "cobbleventure_event map_result " + player.getUUID() + " "
+        String command = "cobbleventure_event map_result "
             + pending.token() + " "
             + StringArgumentType.escapeIfRequired(decision.settlementId());
         int completed;
@@ -218,7 +217,7 @@ public final class MapNetwork {
     private static void notifySelectionCancelled(
         ServerPlayer player, String token, String reason
     ) {
-        String command = "cobbleventure_event map_cancel " + player.getUUID() + " "
+        String command = "cobbleventure_event map_cancel "
             + token + " " + reason;
         player.getServer().getCommands().performPrefixedCommand(
             player.createCommandSourceStack().withPermission(4).withSuppressedOutput(),

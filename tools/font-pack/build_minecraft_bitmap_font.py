@@ -18,6 +18,8 @@ from PIL import Image, ImageDraw, ImageFont
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 DEFAULT_FONT_SIZE = 16
 DEFAULT_COLUMNS = 80
+DEFAULT_DISPLAY_HEIGHT = 9
+DEFAULT_DISPLAY_ASCENT = 8
 PACK_FORMAT = 34
 
 
@@ -126,8 +128,8 @@ def _render_atlas(
 def _font_definition(
     char_rows: list[str],
     spaces: dict[int, float],
-    cell_height: int,
-    ascent: int,
+    display_height: int,
+    display_ascent: int,
 ) -> bytes:
     advances = {
         chr(codepoint): round(advance, 3)
@@ -141,8 +143,8 @@ def _font_definition(
         {
             "type": "bitmap",
             "file": "minecraft:font/pokemon_bw.png",
-            "height": cell_height,
-            "ascent": ascent,
+            "height": display_height,
+            "ascent": display_ascent,
             "chars": char_rows,
         }
     )
@@ -180,11 +182,17 @@ def build_pack(
     output: Path,
     font_size: int = DEFAULT_FONT_SIZE,
     columns: int = DEFAULT_COLUMNS,
+    display_height: int = DEFAULT_DISPLAY_HEIGHT,
+    display_ascent: int = DEFAULT_DISPLAY_ASCENT,
 ) -> dict[str, int]:
     if font_size <= 0:
         raise ValueError("font size must be positive")
     if columns <= 0:
         raise ValueError("columns must be positive")
+    if display_height <= 0:
+        raise ValueError("display height must be positive")
+    if not 0 < display_ascent <= display_height:
+        raise ValueError("display ascent must be between 1 and display height")
     font_bytes, license_text, readme = _load_source(source)
     font = ImageFont.truetype(io.BytesIO(font_bytes), font_size)
     codepoints = _font_codepoints(font_bytes)
@@ -194,14 +202,14 @@ def build_pack(
     pack_meta = {
         "pack": {
             "pack_format": PACK_FORMAT,
-            "description": "Native 16px Pokemon BW default font for Cobbleventure",
+            "description": "Pokemon BW default font for Cobbleventure",
         }
     }
     files = {
         "LICENSES/Pokemon-BW-license.txt": license_text,
         "LICENSES/Pokemon-BW-readme.txt": readme,
         "assets/minecraft/font/default.json": _font_definition(
-            char_rows, spaces, cell_height, ascent
+            char_rows, spaces, display_height, display_ascent
         ),
         "assets/minecraft/textures/font/pokemon_bw.png": _png_bytes(atlas),
         "pack.mcmeta": (json.dumps(pack_meta, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
@@ -214,6 +222,8 @@ def build_pack(
         "atlas_height": atlas.height,
         "cell_height": cell_height,
         "ascent": ascent,
+        "display_height": display_height,
+        "display_ascent": display_ascent,
     }
 
 
@@ -223,9 +233,18 @@ def main() -> int:
     parser.add_argument("output", type=Path, help="Minecraft resource-pack ZIP")
     parser.add_argument("--font-size", type=int, default=DEFAULT_FONT_SIZE)
     parser.add_argument("--columns", type=int, default=DEFAULT_COLUMNS)
+    parser.add_argument("--display-height", type=int, default=DEFAULT_DISPLAY_HEIGHT)
+    parser.add_argument("--display-ascent", type=int, default=DEFAULT_DISPLAY_ASCENT)
     args = parser.parse_args()
 
-    result = build_pack(args.source, args.output, args.font_size, args.columns)
+    result = build_pack(
+        args.source,
+        args.output,
+        args.font_size,
+        args.columns,
+        args.display_height,
+        args.display_ascent,
+    )
     print(
         "Built bitmap font pack: "
         f"{result['glyphs']} glyphs, {result['spaces']} spaces, "

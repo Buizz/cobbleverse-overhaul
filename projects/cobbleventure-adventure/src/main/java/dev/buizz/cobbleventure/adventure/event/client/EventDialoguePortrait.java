@@ -24,8 +24,7 @@ final class EventDialoguePortrait {
 
     static void render(
         GuiGraphics graphics, LivingEntity entity,
-        int left, int top, int right, int bottom,
-        int mouseX, int mouseY
+        int left, int top, int right, int bottom
     ) {
         if (entity == null || right <= left || bottom <= top) return;
         graphics.fill(left, top, right, bottom, 0xB80A1017);
@@ -35,9 +34,9 @@ final class EventDialoguePortrait {
             Math.max(0, left), Math.max(0, top),
             Math.min(graphics.guiWidth(), right), Math.min(graphics.guiHeight(), bottom)
         );
-        InventoryScreen.renderEntityInInventoryFollowsMouse(
+        InventoryScreen.renderEntityInInventoryFollowsAngle(
             graphics, left, top, right, bottom, scale, 0.0625F,
-            mouseX, mouseY, entity
+            0.0F, 0.0F, entity
         );
         graphics.disableScissor();
     }

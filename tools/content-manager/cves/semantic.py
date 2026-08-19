@@ -127,6 +127,7 @@ COMMANDS: dict[ast.CommandKind, CommandContract] = {
     ast.CommandKind.WAIT: CommandContract((_p("duration", NUMBER),), result=ast.ValueType.BOOL),
     ast.CommandKind.SOUND: CommandContract((_p("sound", RESOURCE, resource=ResourceKind.SOUND),), result=ast.ValueType.BOOL),
     ast.CommandKind.EFFECT: CommandContract((_p("effect", RESOURCE, resource=ResourceKind.EFFECT),), result=ast.ValueType.BOOL),
+    ast.CommandKind.ENCOUNTER_WARNING: CommandContract((_p("track", STRING),)),
     ast.CommandKind.LABEL: CommandContract((_p("label"),)),
     ast.CommandKind.JUMP: CommandContract((_p("label"),)),
     ast.CommandKind.CALL: CommandContract((_p("routine"),)),
@@ -207,6 +208,7 @@ class SemanticValidator:
                 if page.condition is not None:
                     self._require_type(page.condition, scope, BOOL, "page 조건은 bool이어야 합니다.")
                 self._block(page.block, scope)
+        self._proximity_stages(program.events)
         return tuple(self.diagnostics)
 
     def _trigger(self, trigger: ast.Trigger) -> None:
@@ -271,10 +273,98 @@ class SemanticValidator:
                         self._catalog_resource(argument.value, ResourceKind.ITEM)
                     elif trigger.name == "battle_finished":
                         self._catalog_resource(argument.value, ResourceKind.BATTLE)
-            elif argument.name not in {"range", "once", "cooldown", "scope", "target"}:
+            elif argument.name in {"group", "stage", "after"} and argument.value is not None:
+                if trigger.name not in {"proximity_enter", "proximity_exit"}:
+                    self._issue(
+                        argument.span,
+                        f"{trigger.name} 트리거는 {argument.name} 인수를 지원하지 않습니다.",
+                        argument.name,
+                    )
+                else:
+                    self._require_type(
+                        argument.value, scope, STRING,
+                        f"{argument.name}은 문자열이어야 합니다.",
+                    )
+            elif argument.name not in {
+                "range", "once", "cooldown", "scope", "target",
+                "group", "stage", "after",
+            }:
                 self._issue(argument.span, f"지원하지 않는 트리거 인자 {argument.name!r}입니다.", argument.name)
         if trigger.name in required_targets and "target" not in seen:
             self._issue(trigger.span, f"{trigger.name} 트리거에는 target 인수가 필요합니다.", trigger.name)
+        if "after" in seen and "group" not in seen:
+            self._issue(trigger.span, "after를 사용하는 proximity 트리거에는 group이 필요합니다.", "after")
+        if "stage" in seen and "group" not in seen:
+            self._issue(trigger.span, "stage를 사용하는 proximity 트리거에는 group이 필요합니다.", "stage")
+
+    def _proximity_stages(self, events: tuple[ast.Event, ...]) -> None:
+        stages: dict[tuple[str, str, str], tuple[ast.Event, float | None]] = {}
+        followers: list[tuple[ast.Event, str, str, float | None]] = []
+        for event in events:
+            trigger = event.trigger
+            if trigger.name not in {"proximity_enter", "proximity_exit"}:
+                continue
+            group = self._trigger_string(trigger, "group")
+            if group is None:
+                continue
+            trigger_range = self._trigger_number(trigger, "range")
+            stage = self._trigger_string(trigger, "stage")
+            if stage is not None:
+                key = (trigger.name, group, stage)
+                if key in stages:
+                    self._issue(
+                        trigger.span,
+                        f"proximity 그룹 {group!r}에 중복 단계 {stage!r}가 있습니다.",
+                        stage,
+                    )
+                else:
+                    stages[key] = (event, trigger_range)
+            after = self._trigger_string(trigger, "after")
+            if after is not None:
+                followers.append((event, group, after, trigger_range))
+
+        for event, group, after, follower_range in followers:
+            predecessor = stages.get((event.trigger.name, group, after))
+            if predecessor is None:
+                self._issue(
+                    event.trigger.span,
+                    f"proximity 그룹 {group!r}에 after 대상 단계 {after!r}가 없습니다.",
+                    after,
+                )
+                continue
+            _, predecessor_range = predecessor
+            if (
+                predecessor_range is not None
+                and follower_range is not None
+                and predecessor_range <= follower_range
+            ):
+                self._issue(
+                    event.trigger.span,
+                    "선행 proximity 단계의 range는 후속 단계보다 커야 합니다.",
+                    "range",
+                )
+
+    @staticmethod
+    def _trigger_argument(trigger: ast.Trigger, name: str) -> ast.Expression | None:
+        for argument in trigger.arguments:
+            if argument.name == name:
+                return argument.value
+        return None
+
+    @classmethod
+    def _trigger_string(cls, trigger: ast.Trigger, name: str) -> str | None:
+        expression = cls._trigger_argument(trigger, name)
+        if (
+            isinstance(expression, ast.LiteralExpression)
+            and expression.value_type == ast.ValueType.STRING
+        ):
+            return str(expression.value)
+        return None
+
+    @classmethod
+    def _trigger_number(cls, trigger: ast.Trigger, name: str) -> float | None:
+        expression = cls._trigger_argument(trigger, name)
+        return cls._numeric_literal(expression) if expression is not None else None
 
     def _block(self, block: ast.Block, scope: Scope) -> None:
         for statement in block.statements:

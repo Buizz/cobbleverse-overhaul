@@ -3173,7 +3173,7 @@ public final class CobbleventureBootstrap {
                     entity.discard();
                 }
                 for (FacilityWorkerPlacement worker : facilityWorkers(
-                    facility.id(), settlement.vendorAssignments(), settlement.vendorUnits()
+                    level, facility, settlement.vendorAssignments(), settlement.vendorUnits()
                 )) {
                     if (!hasConfiguredVendor(level, worker.vendorUnitId())) {
                         continue;
@@ -3362,7 +3362,9 @@ public final class CobbleventureBootstrap {
             .orElse(facility.footprintWidth());
         int depth = template.map(value -> value.getSize().getZ())
             .orElse(facility.footprintDepth());
-        for (FacilityWorkerPlacement worker : facilityWorkers(facility.id(), assignments, configuredVendors)) {
+        for (FacilityWorkerPlacement worker : facilityWorkers(
+            level, facility, assignments, configuredVendors
+        )) {
             BlockPoint position = origin.plus(rotatedTemplateOffset(
                 worker.offset(), width, depth, rotation
             ));
@@ -3380,6 +3382,96 @@ public final class CobbleventureBootstrap {
     }
 
     private static List<FacilityWorkerPlacement> facilityWorkers(
+        ServerLevel level, FacilityPlacement facility,
+        List<ShopVendorAssignment> assignments, List<String> configuredVendors
+    ) {
+        if (facility.id().equals("facility_department_store")
+            && !facility.structure().equals("bca:default/centers/center_department_store")) {
+            Map<String, BlockPoint> authoredSlots = facilityWorkerSlots(
+                level, facility.structure()
+            );
+            List<ShopVendorAssignment> resolvedAssignments = assignments != null
+                ? assignments
+                : configuredVendors == null ? List.of()
+                    : IntStream.range(0, configuredVendors.size())
+                        .mapToObj(index -> new ShopVendorAssignment(
+                            facilitySlotId(facility.id(), index), configuredVendors.get(index)
+                        )).toList();
+            List<FacilityWorkerPlacement> selected = new ArrayList<>();
+            for (ShopVendorAssignment assignment : resolvedAssignments) {
+                BlockPoint slot = authoredSlots.get(assignment.slotId());
+                if (slot == null) {
+                    LOGGER.info(
+                        "Department store vendor awaits an authored NPC anchor: structure={}, slot={}, vendor={}",
+                        facility.structure(), assignment.slotId(), assignment.vendorUnit()
+                    );
+                    continue;
+                }
+                selected.add(new FacilityWorkerPlacement(
+                    assignment.vendorUnit(), vendorStructure(assignment.vendorUnit()), slot
+                ));
+            }
+            return List.copyOf(selected);
+        }
+        return legacyFacilityWorkers(
+            facility.id(), assignments, configuredVendors
+        );
+    }
+
+    private static Map<String, BlockPoint> facilityWorkerSlots(
+        ServerLevel level, String structure
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
+        if (structureId == null) {
+            return Map.of();
+        }
+        ResourceLocation metadataId = ResourceLocation.fromNamespaceAndPath(
+            structureId.getNamespace(),
+            "structure_metadata/" + structureId.getPath() + ".structure.json"
+        );
+        Resource resource = level.getServer().getResourceManager()
+            .getResource(metadataId).orElse(null);
+        if (resource == null) {
+            return Map.of();
+        }
+        Map<String, BlockPoint> slots = new LinkedHashMap<>();
+        try (Reader reader = resource.openAsReader()) {
+            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            if (!root.has("anchors")) {
+                return Map.of();
+            }
+            for (JsonElement element : root.getAsJsonArray("anchors")) {
+                JsonObject anchor = element.getAsJsonObject();
+                if (!anchor.has("type")
+                    || !anchor.get("type").getAsString().equals("npc_position")) {
+                    continue;
+                }
+                String label = anchor.has("label")
+                    ? anchor.get("label").getAsString()
+                    : anchor.has("id") ? anchor.get("id").getAsString() : "";
+                if (label.isBlank() || !anchor.has("position")) {
+                    continue;
+                }
+                JsonArray position = anchor.getAsJsonArray("position");
+                BlockPoint previous = slots.putIfAbsent(label, new BlockPoint(
+                    position.get(0).getAsInt(), position.get(1).getAsInt(),
+                    position.get(2).getAsInt()
+                ));
+                if (previous != null) {
+                    throw new IllegalStateException(
+                        "Duplicate department store NPC anchor: " + label
+                    );
+                }
+            }
+            return Map.copyOf(slots);
+        } catch (IOException | RuntimeException error) {
+            throw new IllegalStateException(
+                "Invalid department store metadata: " + metadataId, error
+            );
+        }
+    }
+
+    private static List<FacilityWorkerPlacement> legacyFacilityWorkers(
         String facilityId, List<ShopVendorAssignment> assignments,
         List<String> configuredVendors
     ) {
@@ -6909,9 +7001,9 @@ public final class CobbleventureBootstrap {
         } else if (commercialCenter.equals("department_store")) {
             facilities.add(new FacilityPlacement(
                 "facility_department_store", "direct_template",
-                "bca:default/centers/center_department_store",
+                "cobbleventure:facilities/department_store",
                 "department_store", "백화점", null, null, null,
-                null, null, null, 1.5D, 40, 72, 41, 8
+                null, null, null, 1.5D, 42, 32, 44, 8
             ));
         }
         if (structureProfile.has("facility_placements")) {
@@ -11642,7 +11734,8 @@ public final class CobbleventureBootstrap {
     ) {
         List<String> featureIds;
         if (tree.log().contains("dark_oak")) {
-            featureIds = List.of("dark_oak_checked", "fancy_oak_checked", "oak_checked");
+            // Falling back to oak would brighten an authored dark-forest edge.
+            featureIds = List.of("dark_oak_checked");
         } else if (tree.log().contains("spruce")) {
             featureIds = List.of("spruce_checked", "pine_checked");
         } else if (tree.log().contains("birch")) {
@@ -12323,10 +12416,12 @@ public final class CobbleventureBootstrap {
             .getNamespace().equals("easy_npc"))
             .toList();
         boolean cvesV5 = npcPresetSuffix(level, npcId).equals("__v5");
+        String suffix = RegionalNpcPresetSelection.suffix(cvesV5, triggerOverride);
+        boolean useCvesV5 = suffix.startsWith("__v5");
         Entity currentNpc = existingNpcs.stream()
-            .filter(entity -> cvesV5
-                ? entity.getTags().stream().anyMatch(tag -> tag.startsWith("cves_binding/"))
-                : entity.getTags().contains("cobbleventure_npc_preset_v4"))
+            .filter(entity -> RegionalNpcPresetSelection.matches(
+                useCvesV5, triggerOverride, entity.getTags()
+            ))
             .findFirst()
             .orElse(null);
         if (currentNpc != null) {
@@ -12353,11 +12448,6 @@ public final class CobbleventureBootstrap {
             );
         }
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
-        String suffix = cvesV5 ? "__v5" : switch (triggerOverride) {
-            case "interact" -> "__interact";
-            case "proximity" -> "__proximity";
-            default -> "";
-        };
         String command = "easy_npc preset import_new data easy_npc:preset/encounter/"
             + slug + suffix + ".npc.snbt " + safePosition.getX() + " "
             + safePosition.getY() + " " + safePosition.getZ();

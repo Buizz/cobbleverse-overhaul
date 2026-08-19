@@ -488,6 +488,17 @@ V5 바인딩 태그를 가진 로드된 NPC에 대해 `proximity_enter`와 `prox
 - 현재 서버 실행 범위는 `scope: player`다. `world`, `party`, `instance` scope는 해당
   소유권 저장소가 추가될 때까지 명시적 실행 오류로 거부한다.
 
+`group`, `stage`, `after`를 사용하지 않는 일반 proximity 이벤트에는 위 규칙이 그대로
+적용된다. 강제 트레이너 조우처럼 단계화된 그룹은 다음 규칙을 추가로 적용한다.
+
+- `stage` 이벤트는 플레이어가 먼저 바깥에서 관측된 뒤 범위에 들어와야 발동한다.
+  월드 로드나 순간이동으로 이미 안쪽에 나타난 플레이어에게 즉시 전투를 걸지 않는다.
+- `after` 이벤트는 같은 NPC·script·group의 선행 단계가 성공한 다음 스캔부터 발동한다.
+- 후속 이벤트가 실행되면 해당 그룹을 소비하고 경고 오버레이와 조우 음악을 닫는다.
+- 바깥 범위를 벗어나면 단계와 소비 상태를 초기화하므로 다음 정상 재진입이 가능하다.
+- 이 동작은 `cves_trigger/proximity` 표현 태그가 있는 V5 NPC에만 적용한다. V4의 기존
+  EasyNPC proximity 액션은 전환 기간 동안 그대로 보존한다.
+
 상호작용과 proximity는 같은 `EventTriggerExecutor`를 사용하므로 page 선택, 영구 세션,
 await 복구, operation journal과 명령 어댑터 동작이 동일하다. trigger instance는
 `proximity_enter:<event-index>` 형식으로 분리되어 서로 다른 proximity event가 같은

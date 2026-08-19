@@ -169,6 +169,12 @@ def editor_contract(catalog: ResourceCatalog) -> dict[str, Any]:
             parameters.append(_parameter_document(Parameter(
                 "range", frozenset({ast.ValueType.INT, ast.ValueType.DECIMAL}), optional=True
             )))
+        if trigger_id in {"proximity_enter", "proximity_exit"}:
+            parameters.extend([
+                _parameter_document(Parameter("group", frozenset({ast.ValueType.STRING}), optional=True)),
+                _parameter_document(Parameter("stage", frozenset({ast.ValueType.STRING}), optional=True)),
+                _parameter_document(Parameter("after", frozenset({ast.ValueType.STRING}), optional=True)),
+            ])
         if trigger_id in target_kinds:
             parameters.append(_parameter_document(Parameter(
                 "target",

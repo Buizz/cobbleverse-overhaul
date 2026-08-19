@@ -321,6 +321,31 @@ if !travel.arrived {
 통제한다. 트리거에는 `once`, 재발동 대기 시간, 플레이어별/월드별 실행 범위를
 지정할 수 있다.
 
+강제 트레이너 조우는 거리 수치를 런타임에 하드코딩하지 않고 같은 `group`에 속한
+두 `proximity_enter` 이벤트로 작성한다. 바깥 이벤트는 이름 있는 `stage`를 활성화하고,
+안쪽 이벤트는 `after`로 그 단계 이후에만 실행된다.
+
+```cves
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/minho/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/minho/defeated") {
+    say npc "승부다!"
+    await battle "cobbleventure:battle/minho" -> result
+  }
+}
+```
+
+NPC 행동 프리셋에서는 경고 범위, 전투 범위와 경고 음악을 설정하며 위 AST를 생성한다.
+직접 작성한 CVES도 같은 계약을 사용한다. 컴파일러는 존재하지 않는 `after` 단계,
+중복 `stage`, 바깥 범위가 안쪽 범위보다 크지 않은 구성을 오류로 거부한다. 이 단계형
+조우는 EasyNPC 액션이 아니라 `cves_trigger/proximity` 표현 태그를 가진 V5 NPC에서만
+자동 실행된다. EasyNPC는 외형과 바인딩 표현만 담당한다.
+
 ## 5. 실행 모델
 
 ### 5.1 세션 키

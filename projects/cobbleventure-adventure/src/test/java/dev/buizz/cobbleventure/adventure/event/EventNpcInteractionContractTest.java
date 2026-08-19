@@ -60,6 +60,25 @@ final class EventNpcInteractionContractTest {
         );
     }
 
+    @Test
+    void decodesStagedProximityArguments() {
+        EventScript.Event event = event(0, "proximity_enter", """
+            {"arguments":[
+              {"name":"range","value":{"kind":"literal","type":"int","value":6}},
+              {"name":"group","value":{"kind":"literal","type":"string","value":"trainer_battle"}},
+              {"name":"after","value":{"kind":"literal","type":"string","value":"warning"}}
+            ]}
+            """);
+
+        EventTriggerContract.Options options = EventTriggerContract.proximity(
+            event, environment()
+        );
+
+        assertEquals(6.0D, options.range());
+        assertEquals("trainer_battle", options.group());
+        assertEquals("warning", options.after());
+    }
+
     private static EventScript script(List<EventScript.Event> events) {
         return new EventScript(
             1, "test:event_script/npc", "a".repeat(64), events

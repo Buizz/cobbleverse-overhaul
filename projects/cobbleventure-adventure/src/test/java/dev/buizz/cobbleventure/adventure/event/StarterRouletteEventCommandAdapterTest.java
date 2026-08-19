@@ -23,6 +23,18 @@ final class StarterRouletteEventCommandAdapterTest {
     private static final String DIGEST = "d".repeat(64);
 
     @Test
+    void rouletteSessionCommandTargetsTheGatewayPlayer() {
+        assertEquals(
+            "cobbleventure_starter_roulette_session roulette-token",
+            EventStarterRouletteBridge.starterRouletteSessionCommand("roulette-token")
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EventStarterRouletteBridge.starterRouletteSessionCommand(" ")
+        );
+    }
+
+    @Test
     void rouletteWaitsAndStoresTypedPokemonSelectionOnCallback() {
         EventScript script = script();
         EventSessionKey key = key(1);

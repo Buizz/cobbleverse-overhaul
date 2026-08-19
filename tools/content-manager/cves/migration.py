@@ -417,9 +417,12 @@ def battle_event_contract_from_v4(document: dict[str, Any]) -> BattleEventMigrat
 def battle_event_contract_from_cves(
     program: ast.Program, battle_document: dict[str, Any]
 ) -> BattleEventMigrationContract:
-    if len(program.events) != 1 or len(program.events[0].pages) != 2:
+    interact_events = [
+        event for event in program.events if event.trigger.name == "interact"
+    ]
+    if len(interact_events) != 1 or len(interact_events[0].pages) != 2:
         raise ValueError("V5 battle event는 interact 조건 페이지와 default 페이지가 필요합니다.")
-    event = program.events[0]
+    event = interact_events[0]
     repeat_page, default_page = event.pages
     repeat_state = _flag_condition(repeat_page.condition)
     if default_page.condition is not None or len(default_page.block.statements) != 1:

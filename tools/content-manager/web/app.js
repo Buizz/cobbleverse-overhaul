@@ -5627,6 +5627,7 @@ function renderEventDesignMode() {
   $("#event-warning-offset-field").hidden = trigger.type !== "proximity";
   const battlePreset = presetMode && eventPresetIsBattle(design.preset?.type);
   $("#event-after-victory-field").hidden = !battlePreset;
+  $("#event-proximity-battle-settings").hidden = !battlePreset;
   $("#event-after-victory-trigger").disabled = !battlePreset;
   if (battlePreset) $("#event-after-victory-trigger").value = design.preset?.after_victory_trigger?.type || "interact";
   if (presetMode) renderNormalizedEventPreset();
@@ -5793,6 +5794,7 @@ function renderEventPresetFields() {
   customClearKey.value = clearKey.value === "__custom__" ? selectedClearKey : "";
   updatePresetClearKeyMode();
   $("#event-after-victory-field").hidden = state.trainer?.event_design?.mode !== "preset" || !battleTypes.includes(type);
+  $("#event-proximity-battle-settings").hidden = state.trainer?.event_design?.mode !== "preset" || !battleTypes.includes(type);
   updateEventPresetFlagMode();
 }
 
@@ -5840,6 +5842,10 @@ function renderNormalizedEventPreset() {
   $("#event-preset-win-item-count").value = preset.win_item_count ?? 1;
   $("#event-preset-win-text").value = localizedPresetText(preset.win_text, "좋은 승부였어!");
   $("#event-preset-loss-text").value = localizedPresetText(preset.loss_text, "다시 도전해 줘.");
+  const proximity = preset.proximity_trigger || {};
+  $("#event-proximity-warning-range").value = proximity.warning_range ?? 9;
+  $("#event-proximity-battle-range").value = proximity.battle_range ?? 6;
+  $("#event-proximity-warning-track").value = proximity.warning_track || "encounter.trainer_boy";
   if (preset.badge && [...$("#event-preset-badge").options].some((option) => option.value === preset.badge)) $("#event-preset-badge").value = preset.badge;
   const clearKey = preset.clear_key || defaultProgressionClearKey(preset.type || "battle");
   $("#event-preset-clear-key").innerHTML = clearKeyOptions(clearKey);
@@ -5874,6 +5880,12 @@ function applyNormalizedEventPreset() {
     preset.after_item_text = { ko_kr: $("#event-preset-after-item-text").value.trim() || "방금 준 아이템을 잘 활용해 보세요." };
   }
   if (eventPresetIsBattle(type)) {
+    const proximityBattleRange = Math.max(.5, Number($("#event-proximity-battle-range").value) || 6);
+    const proximityWarningRange = Math.max(1, Number($("#event-proximity-warning-range").value) || 9);
+    if (proximityWarningRange <= proximityBattleRange) {
+      toast("경고 오버레이 거리는 강제전투 거리보다 커야 합니다.");
+      return;
+    }
     Object.assign(preset, {
       battle: $("#event-preset-battle").value,
       after_victory_trigger: { type: "interact", range: 4 },
@@ -5881,6 +5893,13 @@ function applyNormalizedEventPreset() {
       loss_text: { ko_kr: $("#event-preset-loss-text").value.trim() || "다시 도전해 줘." },
       loss_money: Math.max(0, Number($("#event-preset-loss-money").value) || 0),
       currency_objective: $("#event-preset-currency").value.trim() || "cobbleventure_money",
+      proximity_trigger: {
+        warning_range: proximityWarningRange,
+        battle_range: proximityBattleRange,
+        warning_track: $("#event-proximity-warning-track").value || "encounter.trainer_boy",
+        group: "trainer_battle",
+        warning_stage: "warning",
+      },
     });
     if (previous.victory_state_key) preset.victory_state_key = previous.victory_state_key;
     if (["gym", "elite", "champion"].includes(type)) preset.clear_key = presetClearKeyValue();
@@ -6113,7 +6132,7 @@ function renderEventScript() {
   renderEventDesignMode();
   if (state.trainer?.event_design?.mode === "preset") {
     $("#event-command-list").innerHTML = '<div class="issues empty">행동 프리셋이 빌드 시 EasyNPC 이벤트로 자동 변환됩니다.</div>';
-    ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-after-item-text", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+    ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-after-item-text", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#event-proximity-warning-range", "#event-proximity-battle-range", "#event-proximity-warning-track", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
     $$('[data-item-picker]').forEach((button) => { button.disabled = false; });
     updateEventPresetFlagMode(false);
     updatePresetClearKeyMode();
@@ -6138,7 +6157,7 @@ function renderEventScript() {
   $("#event-warning-offset").value = trigger.warning_offset ?? 2;
   $("#event-range-label").textContent = trigger.type === "proximity" ? "자동 발동 거리" : "대화 가능 거리";
   $("#event-warning-offset-field").hidden = trigger.type !== "proximity";
-  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-after-item-text", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
+  ["#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#event-command-type", "#add-event-command", "#event-preset-type", "#event-preset-first-text", "#event-preset-repeat-text", "#event-preset-item", "#event-preset-item-count", "#event-preset-after-item-text", "#event-preset-flag-auto", "#event-preset-flag", "#event-preset-battle", "#event-preset-win-money", "#event-preset-loss-money", "#event-preset-currency", "#event-preset-badge", "#event-preset-win-item", "#event-preset-win-item-count", "#event-preset-win-text", "#event-preset-loss-text", "#event-preset-clear-key", "#event-proximity-warning-range", "#event-proximity-battle-range", "#event-proximity-warning-track", "#apply-event-preset"].forEach((selector) => { $(selector).disabled = false; });
   $$('[data-item-picker]').forEach((button) => { button.disabled = false; });
   const presetFlag = $("#event-preset-flag");
   if (presetFlag.dataset.npcId !== state.trainer.id) {
@@ -9253,6 +9272,7 @@ async function saveBuildingSettings() {
   if (!result.ok) return toast(result.data.error || "건물 설정을 저장하지 못했습니다.");
   state.buildingSettings.dirty = false;
   renderBuildingEditor();
+  window.dispatchEvent(new CustomEvent("building-settings-saved"));
   toast("건물 설정을 저장했습니다.");
 }
 

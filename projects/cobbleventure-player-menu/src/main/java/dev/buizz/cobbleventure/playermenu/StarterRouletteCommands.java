@@ -43,12 +43,11 @@ final class StarterRouletteCommands {
         event.getDispatcher().register(
             Commands.literal("cobbleventure_starter_roulette_session")
                 .requires(source -> source.hasPermission(4))
-                .then(Commands.argument("player", EntityArgument.player())
-                    .then(Commands.argument("callback_token", StringArgumentType.word())
-                        .executes(context -> StarterRouletteNetwork.queueEventOpen(
-                            EntityArgument.getPlayer(context, "player"),
-                            StringArgumentType.getString(context, "callback_token")
-                        ))))
+                .then(Commands.argument("callback_token", StringArgumentType.word())
+                    .executes(context -> StarterRouletteNetwork.queueEventOpen(
+                        context.getSource().getPlayerOrException(),
+                        StringArgumentType.getString(context, "callback_token")
+                    )))
         );
     }
 }

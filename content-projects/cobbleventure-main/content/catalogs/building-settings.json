@@ -46,6 +46,29 @@
       "interiors": [],
       "door_routes": {}
     },
+    "cobbleventure:facilities/department_store": {
+      "placement_y_offset": 0,
+      "structure_category": "building",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/department_store"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
+    },
     "cobbleventure:forest_gate/forest_gate": {
       "placement_y_offset": 0,
       "structure_category": "natural_feature",
@@ -237,9 +260,45 @@
       "interiors": [],
       "door_routes": {}
     },
+    "cobbleventure:interiors/casino": {
+      "placement_y_offset": 0,
+      "structure_category": "interior",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:interiors/department_store": {
+      "placement_y_offset": 0,
+      "structure_category": "interior",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
     "cobbleventure:interiors/gyms/base_gym_interior": {
       "placement_y_offset": 0,
       "structure_category": "gym_interior",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:interiors/laboratory": {
+      "placement_y_offset": 0,
+      "structure_category": "interior",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:interiors/npc_house1": {
+      "placement_y_offset": 0,
+      "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
@@ -496,15 +555,6 @@
       "placement_y_offset": 0,
       "structure_category": "decoration",
       "no_interior_space": true,
-      "fixed_npcs": {},
-      "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
-    },
-    "cobbleventure:facilities/department_store": {
-      "placement_y_offset": 0,
-      "structure_category": "placeholder",
-      "no_interior_space": false,
       "fixed_npcs": {},
       "citizen_placement_allowed": false,
       "interiors": [],

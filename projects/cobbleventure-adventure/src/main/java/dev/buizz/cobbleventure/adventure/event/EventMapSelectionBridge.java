@@ -34,7 +34,7 @@ public final class EventMapSelectionBridge {
             }
             String token = UUID.randomUUID().toString();
             String command = "cobbleventure_map_select_session "
-                + player.getUUID() + " " + token;
+                + token;
             int opened;
             try {
                 opened = player.getServer().getCommands().getDispatcher().execute(
@@ -49,6 +49,7 @@ public final class EventMapSelectionBridge {
             if (opened <= 0) {
                 throw new EventRuntimeException("Player Menu map selection을 열지 못했습니다.");
             }
+            EventAwaitCallbackRegistry.register(token, request.sessionKey());
             return new EventMapSelectionGateway.OpenResult(
                 token, System.currentTimeMillis() + TIMEOUT_MILLIS
             );
@@ -60,23 +61,21 @@ public final class EventMapSelectionBridge {
             Commands.literal("cobbleventure_event")
                 .requires(source -> source.hasPermission(4))
                 .then(Commands.literal("map_result")
-                    .then(Commands.argument("player", EntityArgument.player())
-                        .then(Commands.argument("token", StringArgumentType.word())
-                            .then(Commands.argument("settlement", StringArgumentType.string())
-                                .executes(context -> complete(
-                                    EntityArgument.getPlayer(context, "player"),
-                                    StringArgumentType.getString(context, "token"),
-                                    StringArgumentType.getString(context, "settlement")
-                                ))))))
+                    .then(Commands.argument("token", StringArgumentType.word())
+                        .then(Commands.argument("settlement", StringArgumentType.string())
+                            .executes(context -> complete(
+                                context.getSource().getPlayerOrException(),
+                                StringArgumentType.getString(context, "token"),
+                                StringArgumentType.getString(context, "settlement")
+                            )))))
                 .then(Commands.literal("map_cancel")
-                    .then(Commands.argument("player", EntityArgument.player())
-                        .then(Commands.argument("token", StringArgumentType.word())
-                            .then(Commands.argument("reason", StringArgumentType.word())
-                                .executes(context -> cancel(
-                                    EntityArgument.getPlayer(context, "player"),
-                                    StringArgumentType.getString(context, "token"),
-                                    StringArgumentType.getString(context, "reason")
-                                ))))))
+                    .then(Commands.argument("token", StringArgumentType.word())
+                        .then(Commands.argument("reason", StringArgumentType.word())
+                            .executes(context -> cancel(
+                                context.getSource().getPlayerOrException(),
+                                StringArgumentType.getString(context, "token"),
+                                StringArgumentType.getString(context, "reason")
+                            )))))
         );
     }
 
@@ -104,6 +103,9 @@ public final class EventMapSelectionBridge {
                 EventDialogueNetwork.serverAdapter(player),
                 callback.store(), MAX_RESUME_STEPS
             );
+        if (outcome.status() != EventAwaitCompletionService.Status.STALE) {
+            EventAwaitCallbackRegistry.forget(token);
+        }
         return accepted(outcome.status()) ? 1 : 0;
     }
 
@@ -118,6 +120,9 @@ public final class EventMapSelectionBridge {
                 player.getUUID(), callback.key(), token, kind,
                 callback.script(), callback.store()
             );
+        if (status != EventAwaitCompletionService.Status.STALE) {
+            EventAwaitCallbackRegistry.forget(token);
+        }
         if (!accepted(status)) {
             LOGGER.warn(
                 "Map selection cancellation was not applied: player={}, reason={}, status={}",
@@ -129,7 +134,7 @@ public final class EventMapSelectionBridge {
 
     private static CallbackContext callback(ServerPlayer player, String token) {
         SavedEventSessionStore store = SavedEventSessionStore.get(player.getServer());
-        Optional<EventSessionKey> key = EventAwaitSessionLocator.find(
+        Optional<EventSessionKey> key = EventAwaitCallbackRegistry.find(
             store, player.getUUID(), token
         );
         if (key.isEmpty()) return null;

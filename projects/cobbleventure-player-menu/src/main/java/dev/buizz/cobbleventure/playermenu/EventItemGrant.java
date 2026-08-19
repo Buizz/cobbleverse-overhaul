@@ -36,20 +36,19 @@ public final class EventItemGrant {
         event.getDispatcher().register(
             Commands.literal("cobbleventure_item_grant_session")
                 .requires(source -> source.hasPermission(4))
-                .then(Commands.argument("player", EntityArgument.player())
-                    .then(Commands.argument("token", StringArgumentType.word())
-                        .then(Commands.argument("operation", StringArgumentType.string())
-                            .then(Commands.argument("item", StringArgumentType.string())
-                                .then(Commands.argument("count", IntegerArgumentType.integer(1, 262_144))
-                                    .then(Commands.argument("notify", BoolArgumentType.bool())
-                                        .executes(context -> grant(
-                                            EntityArgument.getPlayer(context, "player"),
-                                            StringArgumentType.getString(context, "token"),
-                                            StringArgumentType.getString(context, "operation"),
-                                            StringArgumentType.getString(context, "item"),
-                                            IntegerArgumentType.getInteger(context, "count"),
-                                            BoolArgumentType.getBool(context, "notify")
-                                        ))))))))
+                .then(Commands.argument("token", StringArgumentType.word())
+                    .then(Commands.argument("operation", StringArgumentType.string())
+                        .then(Commands.argument("item", StringArgumentType.string())
+                            .then(Commands.argument("count", IntegerArgumentType.integer(1, 262_144))
+                                .then(Commands.argument("notify", BoolArgumentType.bool())
+                                    .executes(context -> grant(
+                                        context.getSource().getPlayerOrException(),
+                                        StringArgumentType.getString(context, "token"),
+                                        StringArgumentType.getString(context, "operation"),
+                                        StringArgumentType.getString(context, "item"),
+                                        IntegerArgumentType.getInteger(context, "count"),
+                                        BoolArgumentType.getBool(context, "notify")
+                                    )))))))
         );
     }
 
@@ -121,11 +120,11 @@ public final class EventItemGrant {
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(key.playerId());
             if (player == null) continue;
             PendingCallback pending = PENDING.remove(key);
-            String command = "cobbleventure_event item_result " + player.getUUID() + " "
+            String command = "cobbleventure_event item_result "
                 + key.token() + " " + pending.requested() + " " + pending.granted()
                 + " " + pending.remaining();
             event.getServer().getCommands().performPrefixedCommand(
-                event.getServer().createCommandSourceStack()
+                player.createCommandSourceStack()
                     .withPermission(4)
                     .withSuppressedOutput(),
                 command

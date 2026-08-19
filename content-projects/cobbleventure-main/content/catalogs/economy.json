@@ -3,7 +3,86 @@
   "schema_version": 2,
   "vanilla_crafting_disabled": true,
   "standard_prices": [],
-  "shop_catalogs": [],
+  "shop_catalogs": [
+    {
+      "id": "cobbleventure:shop_catalog/lilycove_department_store",
+      "display_name": {
+        "ko_kr": "해안 백화점",
+        "en_us": "Lilycove Department Store"
+      },
+      "facility_scope": "department_store",
+      "vendor_units": [
+        "cobbleventure:vendor/lilycove_supplies_doyun",
+        "cobbleventure:vendor/lilycove_medicine_sua",
+        "cobbleventure:vendor/lilycove_vitamins_jiho",
+        "cobbleventure:vendor/lilycove_battle_items_narae",
+        "cobbleventure:vendor/lilycove_attack_tms_taeo",
+        "cobbleventure:vendor/lilycove_support_tms_serin",
+        "cobbleventure:vendor/lilycove_dolls_yuri",
+        "cobbleventure:vendor/lilycove_cushions_bomi",
+        "cobbleventure:vendor/lilycove_furniture_geonu",
+        "cobbleventure:vendor/lilycove_decor_chorong",
+        "cobbleventure:vendor/lilycove_rooftop_manbok"
+      ],
+      "assignments": [
+        {
+          "slot_id": "2f_left",
+          "display_name": { "ko_kr": "2층 왼쪽 계산대", "en_us": "2F Left Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_supplies_doyun"
+        },
+        {
+          "slot_id": "2f_right",
+          "display_name": { "ko_kr": "2층 오른쪽 계산대", "en_us": "2F Right Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_medicine_sua"
+        },
+        {
+          "slot_id": "3f_left",
+          "display_name": { "ko_kr": "3층 왼쪽 계산대", "en_us": "3F Left Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_vitamins_jiho"
+        },
+        {
+          "slot_id": "3f_right",
+          "display_name": { "ko_kr": "3층 오른쪽 계산대", "en_us": "3F Right Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_battle_items_narae"
+        },
+        {
+          "slot_id": "4f_left",
+          "display_name": { "ko_kr": "4층 왼쪽 계산대", "en_us": "4F Left Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_attack_tms_taeo"
+        },
+        {
+          "slot_id": "4f_right",
+          "display_name": { "ko_kr": "4층 오른쪽 계산대", "en_us": "4F Right Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_support_tms_serin"
+        },
+        {
+          "slot_id": "5f_left_a",
+          "display_name": { "ko_kr": "5층 맨 왼쪽 계산대", "en_us": "5F Far Left Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_dolls_yuri"
+        },
+        {
+          "slot_id": "5f_left_b",
+          "display_name": { "ko_kr": "5층 왼쪽 두 번째 계산대", "en_us": "5F Inner Left Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_cushions_bomi"
+        },
+        {
+          "slot_id": "5f_right_a",
+          "display_name": { "ko_kr": "5층 오른쪽 두 번째 계산대", "en_us": "5F Inner Right Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_furniture_geonu"
+        },
+        {
+          "slot_id": "5f_right_b",
+          "display_name": { "ko_kr": "5층 맨 오른쪽 계산대", "en_us": "5F Far Right Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_decor_chorong"
+        },
+        {
+          "slot_id": "rooftop_sale",
+          "display_name": { "ko_kr": "옥상 특가 판매대", "en_us": "Rooftop Clearance Counter" },
+          "vendor_unit": "cobbleventure:vendor/lilycove_rooftop_manbok"
+        }
+      ]
+    }
+  ],
   "vendor_units": [
     {
       "id": "bca:pokemart_shopkeeper",
@@ -147,6 +226,226 @@
         }
       ],
       "source": "data/bca/structure/stores/store_workers/pokemart_shopkeeper.nbt"
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_supplies_doyun",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "트레이너 용품 담당", "en_us": "Trainer Supplies Clerk" },
+      "display_name": { "ko_kr": "용품 담당 도윤", "en_us": "Doyun, Supplies Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_supplies_doyun",
+      "categories": [
+        {
+          "name": { "ko_kr": "몬스터볼", "en_us": "Poké Balls" },
+          "offers": [
+            { "item": "cobblemon:poke_ball", "count": 1, "price": "200" },
+            { "item": "cobblemon:great_ball", "count": 1, "price": "600" },
+            { "item": "cobblemon:ultra_ball", "count": 1, "price": "1200" }
+          ]
+        },
+        {
+          "name": { "ko_kr": "상태 회복", "en_us": "Status Remedies" },
+          "offers": [
+            { "item": "cobblemon:antidote", "count": 1, "price": "100" },
+            { "item": "cobblemon:paralyze_heal", "count": 1, "price": "200" },
+            { "item": "cobblemon:awakening", "count": 1, "price": "250" },
+            { "item": "cobblemon:burn_heal", "count": 1, "price": "250" },
+            { "item": "cobblemon:ice_heal", "count": 1, "price": "250" },
+            { "item": "cobblemon:full_heal", "count": 1, "price": "600" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_medicine_sua",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "회복 도구 담당", "en_us": "Medicine Clerk" },
+      "display_name": { "ko_kr": "회복 담당 수아", "en_us": "Sua, Medicine Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_medicine_sua",
+      "categories": [
+        {
+          "name": { "ko_kr": "회복 도구", "en_us": "Medicine" },
+          "offers": [
+            { "item": "cobblemon:potion", "count": 1, "price": "300" },
+            { "item": "cobblemon:super_potion", "count": 1, "price": "700" },
+            { "item": "cobblemon:hyper_potion", "count": 1, "price": "1200" },
+            { "item": "cobblemon:max_potion", "count": 1, "price": "2500" },
+            { "item": "cobblemon:full_restore", "count": 1, "price": "3000" },
+            { "item": "cobblemon:revive", "count": 1, "price": "1500" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_vitamins_jiho",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "영양제 담당", "en_us": "Vitamin Clerk" },
+      "display_name": { "ko_kr": "영양제 담당 지호", "en_us": "Jiho, Vitamin Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_vitamins_jiho",
+      "categories": [
+        {
+          "name": { "ko_kr": "영양제", "en_us": "Vitamins" },
+          "offers": [
+            { "item": "cobblemon:hp_up", "count": 1, "price": "9800" },
+            { "item": "cobblemon:protein", "count": 1, "price": "9800" },
+            { "item": "cobblemon:iron", "count": 1, "price": "9800" },
+            { "item": "cobblemon:calcium", "count": 1, "price": "9800" },
+            { "item": "cobblemon:zinc", "count": 1, "price": "9800" },
+            { "item": "cobblemon:carbos", "count": 1, "price": "9800" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_battle_items_narae",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "배틀 도구 담당", "en_us": "Battle Item Clerk" },
+      "display_name": { "ko_kr": "배틀도구 담당 나래", "en_us": "Narae, Battle Item Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_battle_items_narae",
+      "categories": [
+        {
+          "name": { "ko_kr": "능력 강화 도구", "en_us": "Battle Items" },
+          "offers": [
+            { "item": "cobblemon:x_speed", "count": 1, "price": "350" },
+            { "item": "cobblemon:x_special_attack", "count": 1, "price": "350" },
+            { "item": "cobblemon:x_special_defence", "count": 1, "price": "350" },
+            { "item": "cobblemon:x_attack", "count": 1, "price": "500" },
+            { "item": "cobblemon:x_defence", "count": 1, "price": "550" },
+            { "item": "cobblemon:dire_hit", "count": 1, "price": "650" },
+            { "item": "cobblemon:guard_spec", "count": 1, "price": "700" },
+            { "item": "cobblemon:x_accuracy", "count": 1, "price": "950" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_attack_tms_taeo",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "공격 기술머신 담당", "en_us": "Offensive TM Clerk" },
+      "display_name": { "ko_kr": "공격기술 담당 태오", "en_us": "Taeo, Offensive TM Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_attack_tms_taeo",
+      "categories": [
+        {
+          "name": { "ko_kr": "공격 기술머신", "en_us": "Offensive TMs" },
+          "offers": [
+            { "item": "tmcraft:tm_fireblast", "count": 1, "price": "5500" },
+            { "item": "tmcraft:tm_thunder", "count": 1, "price": "5500" },
+            { "item": "tmcraft:tm_blizzard", "count": 1, "price": "5500" },
+            { "item": "tmcraft:tm_hyperbeam", "count": 1, "price": "7500" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_support_tms_serin",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "보조 기술머신 담당", "en_us": "Support TM Clerk" },
+      "display_name": { "ko_kr": "보조기술 담당 세린", "en_us": "Serin, Support TM Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_support_tms_serin",
+      "categories": [
+        {
+          "name": { "ko_kr": "보조 기술머신", "en_us": "Support TMs" },
+          "offers": [
+            { "item": "tmcraft:tm_protect", "count": 1, "price": "3000" },
+            { "item": "tmcraft:tm_safeguard", "count": 1, "price": "3000" },
+            { "item": "tmcraft:tm_reflect", "count": 1, "price": "3000" },
+            { "item": "tmcraft:tm_lightscreen", "count": 1, "price": "3000" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_dolls_yuri",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "포켓몬 인형 담당", "en_us": "Pokémon Doll Clerk" },
+      "display_name": { "ko_kr": "인형 담당 유리", "en_us": "Yuri, Doll Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_dolls_yuri",
+      "categories": [
+        {
+          "name": { "ko_kr": "포켓몬 인형", "en_us": "Pokémon Dolls" },
+          "offers": [
+            { "item": "pokeblocks:pokedoll_treecko", "count": 1, "price": "3000" },
+            { "item": "pokeblocks:pokedoll_sableye", "count": 1, "price": "3000" },
+            { "item": "pokeblocks:pokedoll_absol", "count": 1, "price": "3000" },
+            { "item": "pokeblocks:pokedoll_tropius", "count": 1, "price": "3000" },
+            { "item": "pokeblocks:pokedoll_wailmer", "count": 1, "price": "3000" },
+            { "item": "pokeblocks:pokedoll_kyogre", "count": 1, "price": "6000" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_cushions_bomi",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "쿠션 담당", "en_us": "Cushion Clerk" },
+      "display_name": { "ko_kr": "쿠션 담당 보미", "en_us": "Bomi, Cushion Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_cushions_bomi",
+      "categories": [
+        {
+          "name": { "ko_kr": "쿠션", "en_us": "Cushions" },
+          "offers": [
+            { "item": "pokeblocks:luvdisc_cushion", "count": 1, "price": "2000" },
+            { "item": "handcrafted:red_cushion", "count": 1, "price": "2000" },
+            { "item": "handcrafted:blue_cushion", "count": 1, "price": "2000" },
+            { "item": "handcrafted:green_cushion", "count": 1, "price": "2000" },
+            { "item": "handcrafted:yellow_cushion", "count": 1, "price": "2000" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_furniture_geonu",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "가구 담당", "en_us": "Furniture Clerk" },
+      "display_name": { "ko_kr": "가구 담당 건우", "en_us": "Geonu, Furniture Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_furniture_geonu",
+      "categories": [
+        {
+          "name": { "ko_kr": "가구", "en_us": "Furniture" },
+          "offers": [
+            { "item": "handcrafted:oak_chair", "count": 1, "price": "2500" },
+            { "item": "handcrafted:oak_side_table", "count": 1, "price": "3000" },
+            { "item": "handcrafted:oak_table", "count": 1, "price": "4000" },
+            { "item": "handcrafted:oak_desk", "count": 1, "price": "5000" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_decor_chorong",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "실내 장식 담당", "en_us": "Decoration Clerk" },
+      "display_name": { "ko_kr": "장식 담당 초롱", "en_us": "Chorong, Decoration Clerk" },
+      "npc_template": "cobbleventure:merchant/lilycove_decor_chorong",
+      "categories": [
+        {
+          "name": { "ko_kr": "실내 장식", "en_us": "Decorations" },
+          "offers": [
+            { "item": "handcrafted:fancy_painting", "count": 1, "price": "3000" },
+            { "item": "minecraft:painting", "count": 1, "price": "1500" },
+            { "item": "minecraft:flower_pot", "count": 1, "price": "1000" },
+            { "item": "minecraft:lantern", "count": 1, "price": "1800" },
+            { "item": "minecraft:bookshelf", "count": 1, "price": "2500" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobbleventure:vendor/lilycove_rooftop_manbok",
+      "facility_scope": "department_store",
+      "role": { "ko_kr": "옥상 특가 판매 담당", "en_us": "Rooftop Sale Clerk" },
+      "display_name": { "ko_kr": "특가상인 만복", "en_us": "Manbok, Clearance Merchant" },
+      "npc_template": "cobbleventure:merchant/lilycove_rooftop_manbok",
+      "categories": [
+        {
+          "name": { "ko_kr": "대형 포켓몬 인형", "en_us": "Giant Pokémon Dolls" },
+          "offers": [
+            { "item": "pokeblocks:gigantic_pokedoll_wailmer", "count": 1, "price": "10000" },
+            { "item": "pokeblocks:gigantic_pokedoll_kyogre", "count": 1, "price": "12000" },
+            { "item": "pokeblocks:gigantic_pokedoll_snorlax", "count": 1, "price": "12000" },
+            { "item": "pokeblocks:gigantic_pokedoll_tropius", "count": 1, "price": "12000" }
+          ]
+        }
+      ]
     }
   ],
   "pokemon_drop_rules": [],

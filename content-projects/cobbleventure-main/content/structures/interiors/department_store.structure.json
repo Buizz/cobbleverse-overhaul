@@ -25,6 +25,96 @@
       ],
       "door_facing": "north",
       "safe_side": "south"
+    },
+    {
+      "label": "1f_left",
+      "type": "npc_position",
+      "position": [
+        32,
+        1,
+        12
+      ]
+    },
+    {
+      "label": "1f_right",
+      "type": "npc_position",
+      "position": [
+        22,
+        1,
+        4
+      ]
+    },
+    {
+      "label": "2f_left",
+      "type": "npc_position",
+      "position": [
+        22,
+        8,
+        9
+      ]
+    },
+    {
+      "label": "2f_right",
+      "type": "npc_position",
+      "position": [
+        22,
+        8,
+        8
+      ]
+    },
+    {
+      "label": "3f_left",
+      "type": "npc_position",
+      "position": [
+        32,
+        15,
+        13
+      ]
+    },
+    {
+      "label": "3f_right",
+      "type": "npc_position",
+      "position": [
+        31,
+        15,
+        13
+      ]
+    },
+    {
+      "label": "4f_left",
+      "type": "npc_position",
+      "position": [
+        22,
+        22,
+        12
+      ]
+    },
+    {
+      "label": "4f_right",
+      "type": "npc_position",
+      "position": [
+        22,
+        22,
+        11
+      ]
+    },
+    {
+      "label": "5f_left",
+      "type": "npc_position",
+      "position": [
+        32,
+        29,
+        13
+      ]
+    },
+    {
+      "label": "5f_right",
+      "type": "npc_position",
+      "position": [
+        31,
+        29,
+        13
+      ]
     }
   ]
 }

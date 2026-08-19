@@ -12,7 +12,10 @@ import net.minecraft.resources.ResourceLocation;
 final class EventTriggerContract {
     static final double DEFAULT_PROXIMITY_RANGE = 4.0D;
 
-    record Options(double range, boolean once, double cooldownSeconds, String scope) {}
+    record Options(
+        double range, boolean once, double cooldownSeconds, String scope,
+        String group, String stage, String after
+    ) {}
     record TargetOptions(String target, boolean once, double cooldownSeconds, String scope) {}
 
     private EventTriggerContract() {}
@@ -27,7 +30,9 @@ final class EventTriggerContract {
         JsonObject trigger = event.trigger().payload();
         JsonElement argumentsValue = trigger.get("arguments");
         if (argumentsValue == null) {
-            return new Options(DEFAULT_PROXIMITY_RANGE, false, 0.0D, "player");
+            return new Options(
+                DEFAULT_PROXIMITY_RANGE, false, 0.0D, "player", null, null, null
+            );
         }
         if (!argumentsValue.isJsonArray()) {
             throw new EventRuntimeException(name + " trigger arguments가 배열이 아닙니다.");
@@ -36,6 +41,9 @@ final class EventTriggerContract {
         boolean once = false;
         double cooldown = 0.0D;
         String scope = "player";
+        String group = null;
+        String stage = null;
+        String after = null;
         Set<String> seen = new HashSet<>();
         JsonArray arguments = argumentsValue.getAsJsonArray();
         for (JsonElement value : arguments) {
@@ -55,6 +63,9 @@ final class EventTriggerContract {
                     expression, environment, "cooldown"
                 );
                 case "scope" -> scope = scope(expression);
+                case "group" -> group = string(expression, environment, "group");
+                case "stage" -> stage = string(expression, environment, "stage");
+                case "after" -> after = string(expression, environment, "after");
                 default -> throw new EventRuntimeException(
                     name + " trigger에서 지원하지 않는 인수입니다: " + argumentName
                 );
@@ -65,7 +76,13 @@ final class EventTriggerContract {
                 "현재 proximity trigger scope는 player만 지원합니다: " + scope
             );
         }
-        return new Options(range, once, cooldown, scope);
+        if (after != null && group == null) {
+            throw new EventRuntimeException("after를 사용하는 proximity trigger에는 group이 필요합니다.");
+        }
+        if (stage != null && group == null) {
+            throw new EventRuntimeException("stage를 사용하는 proximity trigger에는 group이 필요합니다.");
+        }
+        return new Options(range, once, cooldown, scope, group, stage, after);
     }
 
     static TargetOptions targeted(
@@ -187,6 +204,18 @@ final class EventTriggerContract {
         if (!evaluated.isJsonPrimitive() || !evaluated.getAsJsonPrimitive().isString()
             || ResourceLocation.tryParse(evaluated.getAsString()) == null) {
             throw new EventRuntimeException(label + "은 리소스 ID여야 합니다.");
+        }
+        return evaluated.getAsString();
+    }
+
+    private static String string(
+        JsonElement expression, EventExpressionEnvironment environment, String label
+    ) {
+        JsonElement evaluated = new EventExpressionEvaluator(environment)
+            .evaluate(expression, Map.of());
+        if (!evaluated.isJsonPrimitive() || !evaluated.getAsJsonPrimitive().isString()
+            || evaluated.getAsString().isBlank()) {
+            throw new EventRuntimeException(label + "은 비어 있지 않은 문자열이어야 합니다.");
         }
         return evaluated.getAsString();
     }

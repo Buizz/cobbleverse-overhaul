@@ -249,6 +249,24 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("natural_feature", metadata["category"])
             self.assertTrue(metadata["settings"]["no_interior_space"])
 
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:cave_entrance/stone": {
+                        "no_interior_space": False,
+                        "fixed_npcs": {},
+                        "citizen_placement_allowed": False,
+                        "interiors": [],
+                        "door_routes": {},
+                    },
+                },
+            })
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            metadata = content_manager.building_settings_payload(root)["structures"][
+                "cobbleventure:cave_entrance/stone"
+            ]
+            self.assertFalse(metadata["settings"]["no_interior_space"])
+
     def test_natural_feature_category_is_available_in_nbt_editor(self) -> None:
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(
             encoding="utf-8"
@@ -2354,6 +2372,10 @@ class ContentManagerTests(unittest.TestCase):
             CORE_ROOT
             / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/GateDialogueNetwork.java"
         ).read_text(encoding="utf-8")
+        bootstrap = (
+            CORE_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java"
+        ).read_text(encoding="utf-8")
         self.assertIn('String command = "easy_npc dialog open "', runtime)
         self.assertIn("gate.denyDialog()", runtime)
         self.assertIn("if (gate.npc() == null || !openGateNpcDialog", runtime)
@@ -2365,6 +2387,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("Pass 1: place complete natural features", runtime)
         self.assertIn("Pass 2: fill every remaining replaceable space", runtime)
         self.assertNotIn("clearNaturalFeaturePocket", runtime)
+        self.assertIn('"minecraft:dark_oak_log"', runtime)
+        self.assertIn('"minecraft:spruce_log"', runtime)
+        self.assertIn("Math.floorMod(distance + Math.abs(offset) * 3, 6)", runtime)
+        self.assertIn("clearNaturalWedgeColumn", runtime)
+        self.assertIn('featureIds = List.of("dark_oak_checked")', bootstrap)
         self.assertIn("alignedGateCenter", runtime)
         self.assertIn("handlePendingDenial", runtime)
         self.assertIn("pending.finished = true", runtime)
@@ -4128,20 +4155,14 @@ class ContentManagerTests(unittest.TestCase):
             "shaderPack=ComplementaryReimagined_r5.3 + EuphoriaPatches_1.4.3",
             iris_config,
         )
-        options = (
-            root
-            / "pack"
-            / "overrides"
-            / "development-placeholder"
-            / "options.txt"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            "key_iris.keybind.reload:key.keyboard.unknown",
-            options,
-        )
-        self.assertNotIn(
-            "key_iris.keybind.reload:key.keyboard.r",
-            options,
+        self.assertFalse(
+            (
+                root
+                / "pack"
+                / "overrides"
+                / "development-placeholder"
+                / "options.txt"
+            ).exists()
         )
 
     def test_create_and_copycats_are_pinned_in_authoring_packs(self) -> None:
@@ -5203,6 +5224,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('button.textContent = "NBT 목록 갱신 중…"', script)
         self.assertIn('setStatus("complete", "내부 NBT 생성 완료"', script)
         self.assertIn("await lazyDataPromises.buildingSettings;\n    if (!force) return;", script)
+        self.assertIn('window.dispatchEvent(new CustomEvent("building-settings-saved"))', script)
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
         self.assertIn(".building-door-route", styles)
         self.assertIn(".interior-creation-status", styles)
@@ -5245,6 +5267,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('flow.paletteTab = "interior"', script)
         self.assertIn('function supportsInteriorConnections', script)
         self.assertIn('!metadata.no_interior_space', script)
+        self.assertIn('window.addEventListener("building-settings-saved"', script)
         self.assertIn('"natural_feature"', script)
         self.assertIn('.space-flow-edge', styles)
         self.assertIn('.space-library-filters', styles)
@@ -5309,6 +5332,13 @@ class ContentManagerTests(unittest.TestCase):
                     },
                 },
             }), encoding="utf-8")
+            signature_with_settings = content_manager.structure_catalog_signature(root)
+            settings_document = json.loads((catalogs / "building-settings.json").read_text(encoding="utf-8"))
+            settings_document["buildings"]["cobbleventure:monuments/test_statue"]["no_interior_space"] = False
+            (catalogs / "building-settings.json").write_text(json.dumps(settings_document), encoding="utf-8")
+            self.assertNotEqual(signature_with_settings, content_manager.structure_catalog_signature(root))
+            settings_document["buildings"]["cobbleventure:monuments/test_statue"]["no_interior_space"] = True
+            (catalogs / "building-settings.json").write_text(json.dumps(settings_document), encoding="utf-8")
             (catalogs / "gyms.json").write_text(json.dumps({
                 "schema_version": 1, "gyms": [], "leagues": [],
             }), encoding="utf-8")

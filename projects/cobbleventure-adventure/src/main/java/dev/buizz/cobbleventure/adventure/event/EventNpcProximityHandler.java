@@ -22,6 +22,8 @@ public final class EventNpcProximityHandler {
     private static final int SCAN_INTERVAL_TICKS = 5;
     private static final EventProximityTracker<BoundaryKey> TRACKER =
         new EventProximityTracker<>();
+    private static final EventProximityEncounterTracker<EncounterGroupKey> ENCOUNTERS =
+        new EventProximityEncounterTracker<>();
 
     private EventNpcProximityHandler() {}
 
@@ -33,6 +35,7 @@ public final class EventNpcProximityHandler {
         long gameTime = tick.getServer().overworld().getGameTime();
         if (Math.floorMod(gameTime, SCAN_INTERVAL_TICKS) != 0) return;
         Set<BoundaryKey> observed = new HashSet<>();
+        Set<EncounterGroupKey> observedGroups = new HashSet<>();
         Map<ServerLevel, List<BoundNpc>> boundNpcs = loadedBoundNpcs(tick);
         List<BoundNpc> allBoundNpcs = boundNpcs.values().stream()
             .flatMap(List::stream).toList();
@@ -43,7 +46,7 @@ public final class EventNpcProximityHandler {
             for (BoundNpc bound : boundNpcs.getOrDefault(player.serverLevel(), List.of())) {
                 observe(
                     player, bound.entity(), bound.binding(), bound.script(),
-                    environment, gameTime, observed
+                    environment, gameTime, observed, observedGroups
                 );
             }
             try {
@@ -62,6 +65,7 @@ public final class EventNpcProximityHandler {
             }
         }
         TRACKER.retainAll(observed);
+        ENCOUNTERS.retainAll(observedGroups);
     }
 
     private static Map<ServerLevel, List<BoundNpc>> loadedBoundNpcs(
@@ -99,7 +103,8 @@ public final class EventNpcProximityHandler {
         EventScript script,
         EventStateExpressionEnvironment environment,
         long gameTime,
-        Set<BoundaryKey> observed
+        Set<BoundaryKey> observed,
+        Set<EncounterGroupKey> observedGroups
     ) {
         for (EventScript.Event event : script.events()) {
             String trigger = event.trigger().name();
@@ -114,11 +119,35 @@ public final class EventNpcProximityHandler {
                 EventTriggerContract.Options options = EventTriggerContract.proximity(
                     event, environment
                 );
+                if (options.group() != null
+                    && !npc.getTags().contains("cves_trigger/proximity")) {
+                    continue;
+                }
                 boolean inside = player.distanceToSqr(npc) <= options.range() * options.range();
                 EventProximityTracker.Transition transition = TRACKER.observe(key, inside);
-                boolean matches = trigger.equals("proximity_enter")
-                    ? transition == EventProximityTracker.Transition.ENTER
-                    : transition == EventProximityTracker.Transition.EXIT;
+                EventProximityEncounterTracker.Decision encounterDecision =
+                    EventProximityEncounterTracker.Decision.FIRE;
+                EncounterGroupKey encounterKey = null;
+                if (options.group() != null) {
+                    encounterKey = new EncounterGroupKey(
+                        player.getUUID(), npc.getUUID(), script.scriptId(), options.group()
+                    );
+                    observedGroups.add(encounterKey);
+                    encounterDecision = ENCOUNTERS.observe(
+                        encounterKey, options, inside, transition, gameTime
+                    );
+                    if (encounterDecision == EventProximityEncounterTracker.Decision.CLEAR) {
+                        clearEncounterWarning(player);
+                        continue;
+                    }
+                    if (encounterDecision == EventProximityEncounterTracker.Decision.SKIP) {
+                        continue;
+                    }
+                }
+                boolean matches = options.group() != null
+                    || (trigger.equals("proximity_enter")
+                        ? transition == EventProximityTracker.Transition.ENTER
+                        : transition == EventProximityTracker.Transition.EXIT);
                 EventTriggerLedger.Key ledgerKey = ledgerKey(key);
                 if (!matches || !EventTriggerLedger.canFire(
                     player, ledgerKey, options, gameTime
@@ -127,6 +156,13 @@ public final class EventNpcProximityHandler {
                 if (EventTriggerExecutor.execute(
                     player, npc, binding, script, event, triggerInstance
                 )) {
+                    if (encounterKey != null) {
+                        ENCOUNTERS.markFired(encounterKey, options, gameTime);
+                        if (encounterDecision
+                            == EventProximityEncounterTracker.Decision.FIRE_AND_CLEAR) {
+                            clearEncounterWarning(player);
+                        }
+                    }
                     EventTriggerLedger.markFired(
                         player, ledgerKey, options.once(), gameTime
                     );
@@ -194,6 +230,13 @@ public final class EventNpcProximityHandler {
         );
     }
 
+    private static void clearEncounterWarning(ServerPlayer player) {
+        player.getServer().getCommands().performPrefixedCommand(
+            player.createCommandSourceStack().withPermission(4).withSuppressedOutput(),
+            "cobbleventure_battle_warning_clear @s"
+        );
+    }
+
     private static void reportFailure(
         ServerPlayer player, Entity npc, String message, RuntimeException error
     ) {
@@ -205,6 +248,10 @@ public final class EventNpcProximityHandler {
 
     private record BoundaryKey(
         UUID playerId, UUID npcId, String scriptId, int eventIndex
+    ) {}
+
+    private record EncounterGroupKey(
+        UUID playerId, UUID npcId, String scriptId, String group
     ) {}
 
     private record BoundNpc(

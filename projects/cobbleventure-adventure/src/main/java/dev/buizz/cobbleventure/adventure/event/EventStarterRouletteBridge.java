@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.logging.LogUtils;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.resources.ResourceLocation;
@@ -34,11 +35,28 @@ public final class EventStarterRouletteBridge {
                 );
             }
             String token = UUID.randomUUID().toString();
-            String command = "cobbleventure_starter_roulette_session "
-                + player.getUUID() + " " + token;
+            String command = starterRouletteSessionCommand(token);
+            AtomicBoolean completed = new AtomicBoolean();
+            AtomicBoolean accepted = new AtomicBoolean();
             player.getServer().getCommands().performPrefixedCommand(
-                player.createCommandSourceStack().withPermission(4).withSuppressedOutput(),
+                player.createCommandSourceStack()
+                    .withPermission(4)
+                    .withSuppressedOutput()
+                    .withCallback((success, result) -> {
+                        completed.set(true);
+                        accepted.set(success && result > 0);
+                    }),
                 command
+            );
+            if (completed.get() && !accepted.get()) {
+                throw new EventRuntimeException(
+                    "Player Menu가 starter roulette 요청을 거부했습니다."
+                );
+            }
+            EventAwaitCallbackRegistry.register(token, request.sessionKey());
+            LOGGER.info(
+                "CVES starter roulette queued: player={}, token={}",
+                player.getGameProfile().getName(), token
             );
             return new EventStarterRouletteGateway.OpenResult(
                 token, System.currentTimeMillis() + TIMEOUT_MILLIS
@@ -46,28 +64,34 @@ public final class EventStarterRouletteBridge {
         };
     }
 
+    static String starterRouletteSessionCommand(String token) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalArgumentException("starter roulette token이 필요합니다.");
+        }
+        return "cobbleventure_starter_roulette_session "
+            + StringArgumentType.escapeIfRequired(token);
+    }
+
     private static void registerCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
             Commands.literal("cobbleventure_event")
                 .requires(source -> source.hasPermission(4))
                 .then(Commands.literal("starter_result")
-                    .then(Commands.argument("player", EntityArgument.player())
-                        .then(Commands.argument("token", StringArgumentType.word())
-                            .then(Commands.argument("species", StringArgumentType.string())
-                                .executes(context -> complete(
-                                    EntityArgument.getPlayer(context, "player"),
-                                    StringArgumentType.getString(context, "token"),
-                                    StringArgumentType.getString(context, "species")
-                                ))))))
+                    .then(Commands.argument("token", StringArgumentType.word())
+                        .then(Commands.argument("species", StringArgumentType.string())
+                            .executes(context -> complete(
+                                context.getSource().getPlayerOrException(),
+                                StringArgumentType.getString(context, "token"),
+                                StringArgumentType.getString(context, "species")
+                            )))))
                 .then(Commands.literal("starter_cancel")
-                    .then(Commands.argument("player", EntityArgument.player())
-                        .then(Commands.argument("token", StringArgumentType.word())
-                            .then(Commands.argument("reason", StringArgumentType.word())
-                                .executes(context -> cancel(
-                                    EntityArgument.getPlayer(context, "player"),
-                                    StringArgumentType.getString(context, "token"),
-                                    StringArgumentType.getString(context, "reason")
-                                ))))))
+                    .then(Commands.argument("token", StringArgumentType.word())
+                        .then(Commands.argument("reason", StringArgumentType.word())
+                            .executes(context -> cancel(
+                                context.getSource().getPlayerOrException(),
+                                StringArgumentType.getString(context, "token"),
+                                StringArgumentType.getString(context, "reason")
+                            )))))
         );
     }
 
@@ -78,10 +102,16 @@ public final class EventStarterRouletteBridge {
             return 0;
         }
         SavedEventSessionStore store = SavedEventSessionStore.get(player.getServer());
-        Optional<EventSessionKey> key = EventAwaitSessionLocator.find(
+        Optional<EventSessionKey> key = EventAwaitCallbackRegistry.find(
             store, player.getUUID(), token
         );
-        if (key.isEmpty()) return 0;
+        if (key.isEmpty()) {
+            LOGGER.error(
+                "Starter roulette callback session was not found: player={}, token={}",
+                player.getGameProfile().getName(), token
+            );
+            return 0;
+        }
         EventScript script = EventScriptRepository.instance()
             .find(key.orElseThrow().scriptId()).orElse(null);
         if (script == null) return 0;
@@ -104,13 +134,20 @@ public final class EventStarterRouletteBridge {
                 store,
                 MAX_RESUME_STEPS
             );
+        LOGGER.info(
+            "Starter roulette await completion: player={}, token={}, status={}, runResult={}",
+            player.getGameProfile().getName(), token, outcome.status(), outcome.runResult()
+        );
+        if (outcome.status() != EventAwaitCompletionService.Status.STALE) {
+            EventAwaitCallbackRegistry.forget(token);
+        }
         return outcome.status() == EventAwaitCompletionService.Status.RESUMED
             || outcome.status() == EventAwaitCompletionService.Status.DUPLICATE ? 1 : 0;
     }
 
     private static int cancel(ServerPlayer player, String token, String reason) {
         SavedEventSessionStore store = SavedEventSessionStore.get(player.getServer());
-        Optional<EventSessionKey> key = EventAwaitSessionLocator.find(
+        Optional<EventSessionKey> key = EventAwaitCallbackRegistry.find(
             store, player.getUUID(), token
         );
         if (key.isEmpty()) return 0;
@@ -124,6 +161,9 @@ public final class EventStarterRouletteBridge {
             EventAwaitCompletionService.terminateWithoutResume(
                 player.getUUID(), key.orElseThrow(), token, kind, script, store
             );
+        if (status != EventAwaitCompletionService.Status.STALE) {
+            EventAwaitCallbackRegistry.forget(token);
+        }
         if (status != EventAwaitCompletionService.Status.RESUMED
             && status != EventAwaitCompletionService.Status.DUPLICATE) {
             LOGGER.warn(

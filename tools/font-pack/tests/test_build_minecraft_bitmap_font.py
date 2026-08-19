@@ -52,7 +52,8 @@ class MinecraftBitmapFontTest(unittest.TestCase):
                 )
                 fallback = definition["providers"][-1]
                 self.assertEqual("minecraft:font/pokemon_bw.png", bitmap["file"])
-                self.assertEqual(15, bitmap["height"])
+                self.assertEqual(9, bitmap["height"])
+                self.assertEqual(8, bitmap["ascent"])
                 self.assertEqual("minecraft:uniform", fallback["id"])
                 atlas = Image.open(io.BytesIO(archive.read(
                     "assets/minecraft/textures/font/pokemon_bw.png"

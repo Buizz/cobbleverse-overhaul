@@ -43,30 +43,56 @@ public final class EventNpcInteractionHandler {
         // representation adapter cannot also open its own dialogue.
         cancel(event, InteractionResult.SUCCESS);
         try {
-            EventScript script = EventScriptRepository.instance().find(binding.scriptId())
-                .orElseThrow(() -> new EventRuntimeException(
-                    "바인딩된 CVES 스크립트를 찾을 수 없습니다: " + binding.scriptId()
-                ));
-            EventScript.Event interact = EventNpcInteractionContract
-                .uniqueInteractEvent(script)
-                .orElseThrow(() -> new EventRuntimeException(
-                    "바인딩된 스크립트에 interact 이벤트가 없습니다: " + script.scriptId()
-                ));
+            executeInteract(player, target, binding, true);
+        } catch (RuntimeException error) {
+            reportFailure(player, target, "NPC 이벤트를 시작하지 못했습니다.", error);
+        }
+    }
+
+    /**
+     * Starts the V5 interaction bound to an NPC from another server-side system.
+     * Programmatic triggers intentionally skip the player's click-range check.
+     */
+    public static boolean startBoundInteraction(ServerPlayer player, Entity target) {
+        try {
+            Optional<EventNpcBinding> match = EventNpcBindingRepository.instance()
+                .findByEntityTags(target.getTags());
+            if (match.isEmpty()) return false;
+            return executeInteract(player, target, match.orElseThrow(), false);
+        } catch (RuntimeException error) {
+            reportFailure(player, target, "NPC 이벤트를 시작하지 못했습니다.", error);
+            return false;
+        }
+    }
+
+    private static boolean executeInteract(
+        ServerPlayer player, Entity target, EventNpcBinding binding, boolean enforceRange
+    ) {
+        EventScript script = EventScriptRepository.instance().find(binding.scriptId())
+            .orElseThrow(() -> new EventRuntimeException(
+                "바인딩된 CVES 스크립트를 찾을 수 없습니다: " + binding.scriptId()
+            ));
+        EventScript.Event interact = EventNpcInteractionContract
+            .uniqueInteractEvent(script)
+            .orElseThrow(() -> new EventRuntimeException(
+                "바인딩된 스크립트에 interact 이벤트가 없습니다: " + script.scriptId()
+            ));
+        if (enforceRange) {
             EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
                 new ServerPlayerEventState(player)
             );
             double range = EventNpcInteractionContract.interactionRange(interact, environment);
-            if (player.distanceToSqr(target) > range * range) {
+            if (!EventNpcInteractionRange.contains(
+                player.position(), target.getBoundingBox(), range
+            )) {
                 throw new EventRuntimeException(
                     "NPC 상호작용 거리가 범위를 벗어났습니다: " + range
                 );
             }
-            EventTriggerExecutor.execute(
-                player, target, binding, script, interact, "interact"
-            );
-        } catch (RuntimeException error) {
-            reportFailure(player, target, "NPC 이벤트를 시작하지 못했습니다.", error);
         }
+        return EventTriggerExecutor.execute(
+            player, target, binding, script, interact, "interact"
+        );
     }
 
     private static void cancel(

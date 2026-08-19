@@ -698,5 +698,9 @@ $("#space-flow-inspector").addEventListener("click", (event) => {
 document.addEventListener("click", (event) => {
   if (event.target.closest?.('[data-section="space-connections"]')) loadFlow();
 }, true);
+window.addEventListener("building-settings-saved", () => {
+  flow.loaded = false;
+  if (document.querySelector('[data-section="space-connections"]')?.classList.contains("is-active")) loadFlow(true);
+});
 if (document.querySelector('[data-section="space-connections"]')?.classList.contains("is-active")) loadFlow();
 window.addEventListener("resize", () => { if (selectedGraph()) renderEdges(); });

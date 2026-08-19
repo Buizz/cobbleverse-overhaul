@@ -17,7 +17,7 @@ public final class EventLootGrantBridge {
             }
             String token = UUID.randomUUID().toString();
             String command = "cobbleventure_loot_grant_session "
-                + player.getUUID() + " " + token + " "
+                + token + " "
                 + StringArgumentType.escapeIfRequired(request.operationId()) + " "
                 + StringArgumentType.escapeIfRequired(request.lootTableId()) + " "
                 + request.rollCount() + " " + request.showNotification();
@@ -25,6 +25,7 @@ public final class EventLootGrantBridge {
                 player.createCommandSourceStack().withPermission(4).withSuppressedOutput(),
                 command
             );
+            EventAwaitCallbackRegistry.register(token, request.sessionKey());
             return new EventGiveLootGateway.OpenResult(
                 token, System.currentTimeMillis() + TIMEOUT_MILLIS
             );

@@ -79,9 +79,9 @@ Entity Culling은 가려진 개체 렌더링을 각각 담당한다. Lithium과 
 `ComplementaryReimagined_r5.3 + EuphoriaPatches_1.4.3`을 Iris 기본 셰이더로
 선택하고 셰이더 렌더링도 활성화한다. 실제 릴리스 빌드에서는 성능 등급별 기본값을
 정한 뒤 이 개발용 강제 활성화 설정을 제거하거나 별도 프로필로 분리한다.
-Iris의 기본 `R` 셰이더 새로고침 단축키는 개발팩 `options.txt`에서
-`key.keyboard.unknown`으로 해제한다. 따라서 R키는 다른 게임 기능에서 자유롭게
-사용할 수 있으며, 필요한 사용자는 Minecraft 키 설정에서 새 키를 직접 지정한다.
+Iris의 기본 `R` 셰이더 새로고침 단축키는 플레이어 메뉴 클라이언트 초기화 시
+`key.keyboard.unknown`으로 마이그레이션한다. 모드팩은 전역 `options.txt`를
+덮어쓰지 않으므로 언어와 사용자의 다른 키 설정을 보존한다.
 
 `Cobblemon Casino` 2.0.0을 카지노 기본 시설의 정식 의존성으로 사용한다. Minecraft
 1.21.1·NeoForge용 파일과 필수 Cloth Config API 15.0.140을 Lock과 개발팩에 함께

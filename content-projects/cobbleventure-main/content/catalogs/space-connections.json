@@ -2,6 +2,18 @@
   "$schema": "../schemas/space-connections.schema.json",
   "schema_version": 1,
   "layouts": {
+    "building:cobbleventure:facilities/department_store": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "room_1": [
+          461,
+          174
+        ]
+      }
+    },
     "building:cobbleventure:houses/five_story_flat": {
       "nodes": {
         "exterior": [
@@ -356,6 +368,14 @@
     }
   },
   "annotations": {
+    "building:cobbleventure:facilities/department_store": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:houses/five_story_flat": {},
     "building:cobbleventure:houses/five_story_gable": {},
     "building:cobbleventure:houses/five_story_gambrel": {},

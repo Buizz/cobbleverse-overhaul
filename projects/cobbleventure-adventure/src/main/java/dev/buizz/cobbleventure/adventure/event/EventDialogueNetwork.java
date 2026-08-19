@@ -112,25 +112,29 @@ public final class EventDialogueNetwork {
                 new TeleportEventCommandAdapter(
                     EventMovementBridge.gateway(player),
                     environment,
-                    new FaceEventCommandAdapter(
-                        EventFacingBridge.gateway(player),
-                        new PresentationEventCommandAdapter(
-                            EventPresentationBridge.gateway(player),
-                            environment,
-                            new BattleEventCommandAdapter(
-                                EventBattleBridge.gateway(player),
+                    new EncounterWarningEventCommandAdapter(
+                        player,
+                        environment,
+                        new FaceEventCommandAdapter(
+                            EventFacingBridge.gateway(player),
+                            new PresentationEventCommandAdapter(
+                                EventPresentationBridge.gateway(player),
                                 environment,
-                                new StarterRouletteEventCommandAdapter(
-                                    EventStarterRouletteBridge.gateway(player),
-                                    new MapSelectionEventCommandAdapter(
-                                        EventMapSelectionBridge.gateway(player),
-                                        new GiveItemEventCommandAdapter(
-                                            EventItemGrantBridge.gateway(player),
-                                            environment,
-                                            new GiveLootEventCommandAdapter(
-                                                EventLootGrantBridge.gateway(player),
+                                new BattleEventCommandAdapter(
+                                    EventBattleBridge.gateway(player),
+                                    environment,
+                                    new StarterRouletteEventCommandAdapter(
+                                        EventStarterRouletteBridge.gateway(player),
+                                        new MapSelectionEventCommandAdapter(
+                                            EventMapSelectionBridge.gateway(player),
+                                            new GiveItemEventCommandAdapter(
+                                                EventItemGrantBridge.gateway(player),
                                                 environment,
-                                                new StateEventCommandAdapter(environment, unsupported)
+                                                new GiveLootEventCommandAdapter(
+                                                    EventLootGrantBridge.gateway(player),
+                                                    environment,
+                                                    new StateEventCommandAdapter(environment, unsupported)
+                                                )
                                             )
                                         )
                                     )

@@ -3729,6 +3729,37 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _localized_text(preset.get("after_item_text"), issues, path, "$.event_design.preset.after_item_text")
                 if preset_type in BATTLE_PRESETS:
                     _resource_id(preset.get("battle"), issues, path, "$.event_design.preset.battle")
+                    proximity = preset.get("proximity_trigger")
+                    if proximity is not None:
+                        proximity = _require_object(
+                            proximity, issues, path,
+                            "$.event_design.preset.proximity_trigger",
+                        )
+                        if proximity is not None:
+                            battle_range = proximity.get("battle_range", 6)
+                            warning_range = proximity.get("warning_range", 9)
+                            if (
+                                not isinstance(battle_range, (int, float))
+                                or isinstance(battle_range, bool)
+                                or battle_range <= 0
+                            ):
+                                _issue(
+                                    issues, "error", path,
+                                    "$.event_design.preset.proximity_trigger.battle_range",
+                                    "0보다 큰 강제전투 범위가 필요합니다.",
+                                )
+                            if (
+                                not isinstance(warning_range, (int, float))
+                                or isinstance(warning_range, bool)
+                                or not isinstance(battle_range, (int, float))
+                                or isinstance(battle_range, bool)
+                                or warning_range <= battle_range
+                            ):
+                                _issue(
+                                    issues, "error", path,
+                                    "$.event_design.preset.proximity_trigger.warning_range",
+                                    "경고 범위는 강제전투 범위보다 커야 합니다.",
+                                )
                     after_victory = _require_object(preset.get("after_victory_trigger"), issues, path, "$.event_design.preset.after_victory_trigger")
                     if after_victory is not None and after_victory.get("type") != "interact":
                         _issue(issues, "error", path, "$.event_design.preset.after_victory_trigger.type", "승리 후에는 플레이어가 말을 걸 때만 시작할 수 있습니다.")
@@ -7373,7 +7404,13 @@ def _save_document(
     return target, issues
 
 
-def _prepare_v5_preset_sync(root: Path, target: Path, data: Any) -> dict[str, Any] | None:
+def _prepare_v5_preset_sync(
+    root: Path,
+    target: Path,
+    data: Any,
+    *,
+    allow_managed_upgrade: bool = False,
+) -> dict[str, Any] | None:
     """Validate and stage a preset-authored CVES source without touching user files."""
     if not isinstance(data, dict):
         return None
@@ -7438,7 +7475,7 @@ def _prepare_v5_preset_sync(root: Path, target: Path, data: Any) -> dict[str, An
         if isinstance(previous_runtime, dict) and previous_runtime.get("engine") == "cves_v5" \
                 and previous_runtime.get("authoring") == "preset":
             expected_previous = format_cves_program(cves_preset_program(previous))
-            if existing != expected_previous:
+            if existing != expected_previous and not allow_managed_upgrade:
                 raise ValueError(
                     "연결된 CVES가 행동 프리셋 생성 후 직접 수정되었습니다. "
                     "자동 덮어쓰기를 중단했습니다. 사용자 정의 이벤트로 전환해 주세요."
@@ -10608,6 +10645,9 @@ def structure_catalog_signature(
     candidates: list[Path] = []
     managed_files = list(managed_structure_files(root).values())
     candidates.extend(managed_files)
+    building_settings_path = root / BUILDING_SETTINGS_PATH
+    if building_settings_path.is_file():
+        candidates.append(building_settings_path)
     candidates.extend(
         path.with_suffix(".structure.json")
         for path in managed_files
@@ -11331,7 +11371,7 @@ def create_handler(
                 try:
                     if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
                         refresh_structure_cache()
-                    ensure_structure_cache()
+                    ensure_structure_cache(validate_signature=True)
                     payload = copy.deepcopy(building_settings_catalog or {})
                     payload["cache"] = {
                         "generated_at": structure_cache_generated_at,

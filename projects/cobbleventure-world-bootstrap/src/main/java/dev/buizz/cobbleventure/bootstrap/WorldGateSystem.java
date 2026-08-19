@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.bootstrap;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexGrid;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
+import dev.buizz.cobbleventure.adventure.event.EventNpcInteractionHandler;
 import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 
 import com.cobblemon.mod.common.Cobblemon;
@@ -173,11 +174,11 @@ final class WorldGateSystem {
                 cacheForestEntryMarker(level, world, gate);
             } else if (gate.surroundingType().equals("natural")
                 && !gate.buildingEnabled()
-                && markerState.getValue(RespawnAnchorBlock.CHARGE) < 2) {
+                && markerState.getValue(RespawnAnchorBlock.CHARGE) < 3) {
                 refreshNpcNaturalGate(level, world, gate, center);
                 level.setBlock(
                     marker,
-                    markerState.setValue(RespawnAnchorBlock.CHARGE, 2), 2
+                    markerState.setValue(RespawnAnchorBlock.CHARGE, 3), 2
                 );
             }
             return;
@@ -240,7 +241,7 @@ final class WorldGateSystem {
         BlockState completedMarker = Blocks.RESPAWN_ANCHOR.defaultBlockState();
         if (!forestGate && gate.surroundingType().equals("natural")
             && !gate.buildingEnabled()) {
-            completedMarker = completedMarker.setValue(RespawnAnchorBlock.CHARGE, 2);
+            completedMarker = completedMarker.setValue(RespawnAnchorBlock.CHARGE, 3);
         }
         level.setBlock(marker, completedMarker, 2);
         LOGGER.info(
@@ -392,14 +393,18 @@ final class WorldGateSystem {
             || terrainType.equals("dense_forest")) {
             BlockPos ground = new BlockPos(x, groundY, z);
             // Use the same vanilla placed-feature path as the rest of the world.
-            // Candidate spacing keeps full crowns apart instead of drawing a
-            // handmade leaf wall whose trees are visibly clipped.
-            if (Math.abs(offset) >= 3
-                && Math.floorMod(distance + Math.abs(offset) * 3, 8) == 0
-                && Math.floorMod((int) hash, 3) == 0
+            // Forest wedges deliberately use a denser candidate grid than the
+            // surrounding terrain. Vanilla placement still rejects crowns that
+            // would overlap too tightly, avoiding a handmade leaf wall.
+            if (Math.abs(offset) >= 2
+                && Math.floorMod(distance + Math.abs(offset) * 3, 6) == 0
+                && Math.floorMod((int) hash, 2) == 0
             ) {
                 if (CobbleventureBootstrap.placeNaturalGateTree(
-                    level, gate.treeLog(), gate.treeLeaves(), ground, hash
+                    level,
+                    naturalGateTreeLog(terrainType),
+                    naturalGateTreeLeaves(terrainType),
+                    ground, hash
                 )) {
                     return;
                 }
@@ -436,6 +441,16 @@ final class WorldGateSystem {
             };
             level.setBlock(position, state, 2);
         }
+    }
+
+    private static String naturalGateTreeLog(String terrainType) {
+        return terrainType.equals("dense_forest")
+            ? "minecraft:spruce_log" : "minecraft:dark_oak_log";
+    }
+
+    private static String naturalGateTreeLeaves(String terrainType) {
+        return terrainType.equals("dense_forest")
+            ? "minecraft:spruce_leaves" : "minecraft:dark_oak_leaves";
     }
 
     private static long mixGateSeed(long seed, int x, int z, int depth, int band) {
@@ -519,6 +534,13 @@ final class WorldGateSystem {
                 }
             }
         }
+        // A previous gate revision may already occupy this footprint. Remove
+        // its barriers and obsolete configured tree palette before rebuilding.
+        for (NaturalGateColumn column : columns) {
+            clearNaturalWedgeColumn(
+                level, gate, column.terrainType(), column.x(), column.z()
+            );
+        }
         // Pass 1: place complete natural features while their growth volume is
         // still open. Crowns and boulders may protrude beyond the wedge.
         for (NaturalGateColumn column : columns) {
@@ -538,6 +560,28 @@ final class WorldGateSystem {
             "Natural gate wedges placed: gate={}, halfLength={}, maxDepth={}, opening={}",
             gate.id(), halfLength, maximumDepth, halfOpening * 2 + 1
         );
+    }
+
+    private static void clearNaturalWedgeColumn(
+        ServerLevel level, Gate gate, String terrainType, int x, int z
+    ) {
+        int groundY = naturalBarrierGroundY(level, x, z);
+        BlockState configuredLog = blockState(gate.treeLog());
+        BlockState configuredLeaves = blockState(gate.treeLeaves());
+        boolean forestTerrain = terrainType.equals("high_forest")
+            || terrainType.equals("dense_forest");
+        boolean obsoletePalette = forestTerrain
+            && (!gate.treeLog().equals(naturalGateTreeLog(terrainType))
+                || !gate.treeLeaves().equals(naturalGateTreeLeaves(terrainType)));
+        for (int height = 1; height <= gate.barrierHeight(); height++) {
+            BlockPos position = new BlockPos(x, groundY + height, z);
+            BlockState state = level.getBlockState(position);
+            if (state.is(Blocks.BARRIER)
+                || (obsoletePalette && (state.is(configuredLog.getBlock())
+                    || state.is(configuredLeaves.getBlock())))) {
+                level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+            }
+        }
     }
 
     /** Removes the obsolete center-to-edge collision line before wedge refresh. */
@@ -1421,14 +1465,26 @@ final class WorldGateSystem {
             center.x() - 8.0D, centerY - 4.0D, center.z() - 8.0D,
             center.x() + 8.0D, centerY + 5.0D, center.z() + 8.0D
         );
-        Entity npc = player.serverLevel().getEntitiesOfClass(
+        List<Entity> nearbyNpcs = player.serverLevel().getEntitiesOfClass(
             Entity.class, search,
             entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
                 .getNamespace().equals("easy_npc")
-                && entity.getTags().contains("cobbleventure_npc_preset_v4")
-        ).stream().min(java.util.Comparator.comparingDouble(
+        );
+        java.util.Comparator<Entity> nearestToGate = java.util.Comparator.comparingDouble(
             entity -> entity.distanceToSqr(center.x() + 0.5D, centerY, center.z() + 0.5D)
-        )).orElse(null);
+        );
+        Entity v5Npc = nearbyNpcs.stream()
+            .filter(entity -> entity.getTags().stream()
+                .anyMatch(tag -> tag.startsWith("cves_binding/")))
+            .min(nearestToGate)
+            .orElse(null);
+        if (v5Npc != null) {
+            return EventNpcInteractionHandler.startBoundInteraction(player, v5Npc);
+        }
+        Entity npc = nearbyNpcs.stream()
+            .filter(entity -> entity.getTags().contains("cobbleventure_npc_preset_v4"))
+            .min(nearestToGate)
+            .orElse(null);
         if (npc == null) {
             LOGGER.warn("Gate denial dialog NPC was not found: gate={}, npc={}", gate.id(), gate.npc());
             return false;
