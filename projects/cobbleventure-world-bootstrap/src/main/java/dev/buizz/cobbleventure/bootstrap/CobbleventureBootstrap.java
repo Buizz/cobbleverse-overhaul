@@ -6038,7 +6038,8 @@ public final class CobbleventureBootstrap {
     ) {
         UUID playerId = player.getUUID();
         if (player.isCreative() || player.isSpectator()
-            || FieldMoveRidingAccess.isValidSurfRide(player)) {
+            || FieldMoveRidingAccess.isValidSurfRide(player)
+            || FieldMoveRidingAccess.isProtectedOceanBattle(player)) {
             deepWaterTicks.remove(playerId);
             return true;
         }

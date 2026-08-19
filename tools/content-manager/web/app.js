@@ -2356,15 +2356,15 @@ function encounterBasePokemonIds(settings) {
   return worldPokemonCatalog().filter((entry) => habitats.has(entry.habitats?.primary) || (profiles.some((profile) => profile.settings?.include_secondary !== false) && habitats.has(entry.habitats?.secondary))).map((entry) => entry.id);
 }
 function encounterEffectivePokemonIds(settings) {
-  if (!settings?.enabled) return [];
+  if (!settings) return [];
   const excluded = new Set(settings.excluded_species || []);
   const ids = settings.inherit_biome ? encounterBasePokemonIds(settings).filter((id) => !excluded.has(id)) : [];
   for (const addition of settings.additions || []) if (addition?.species && !ids.includes(addition.species)) ids.push(addition.species);
   return ids;
 }
-function encounterPokemonIconMarkup(settings, species, byId) {
+function encounterPokemonIconMarkup(settings, species, byId, defaultRange = null) {
   const entry = byId.get(species); const override = pokemonLevelOverride(settings, species);
-  const minimum = override?.min_level ?? settings.minimum_level; const maximum = override?.max_level ?? settings.maximum_level;
+  const minimum = override?.min_level ?? defaultRange?.min ?? settings.minimum_level; const maximum = override?.max_level ?? defaultRange?.max ?? settings.maximum_level;
   const levelLabel = minimum === maximum ? `Lv.${minimum}` : `Lv.${minimum}–${maximum}`;
   const name = entry ? pokemonMapEntryName(entry) : species; const dex = Number(entry?.dex_number);
   return `<span class="encounter-pokemon-icon" title="${escapeHtml(`${name} · ${levelLabel}`)}" aria-label="${escapeHtml(`${name}, ${levelLabel}`)}">${Number.isFinite(dex) ? `<img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png" alt="">` : `<i>?</i>`}<small>${escapeHtml(levelLabel.replace("Lv.", ""))}</small></span>`;
@@ -2372,13 +2372,14 @@ function encounterPokemonIconMarkup(settings, species, byId) {
 function renderEncounterSummary(target) {
   const settings = encounterSettings(target); if (!settings) return;
   const species = encounterEffectivePokemonIds(settings); const byId = worldPokemonById(); const iconList = $(`[data-encounter-pokemon-icons="${target}"]`);
-  $(`[data-encounter-pokemon-count="${target}"]`).textContent = `${species.length}종`;
+  $(`[data-encounter-pokemon-count="${target}"]`).textContent = settings.enabled ? `${species.length}종` : `비활성 · ${species.length}종 후보`;
   $(`[data-encounter-pokemon-description="${target}"]`).textContent = settings.enabled
     ? `${settings.pokemon_biome} 기본 ${settings.inherit_biome ? "사용" : "미사용"} · 직접 추가 ${settings.additions.length}종 · 제외 ${settings.excluded_species.length}종`
-    : "주변 인카운터를 사용하지 않아 실제 출현 포켓몬이 없습니다.";
+    : `주변 인카운터 사용 안 함 · 활성화하면 ${species.length}종이 출현 후보가 됩니다.`;
+  iconList.classList.toggle("is-disabled", !settings.enabled);
   iconList.innerHTML = species.length
     ? species.map((id) => encounterPokemonIconMarkup(settings, id, byId)).join("")
-    : `<span class="encounter-pokemon-icon-empty">${settings.enabled ? "현재 조건에서 출현하는 포켓몬이 없습니다." : "인카운터 사용 안 함"}</span>`;
+    : `<span class="encounter-pokemon-icon-empty">현재 설정에 해당하는 서식 포켓몬이 없습니다.</span>`;
 }
 function renderEncounterPokemonPicker() {
   const catalog = worldPokemonCatalog(), picker = state.encounterPokemonPicker;
@@ -2425,8 +2426,9 @@ function pokemonCardEditButton(target, kind, species, editing) {
 function handlePokemonCardEditAction(event, target, render) {
   const edit = event.target.closest(`[data-${target}-pokemon-card-edit]`);
   const done = event.target.closest(`[data-${target}-pokemon-card-done]`);
-  if (!edit && !done) return false;
-  state[`${target}PokemonEditingCard`] = edit ? edit.dataset[`${target}PokemonCardEdit`] : null;
+  const open = event.target.closest(`[data-${target}-pokemon-card-open]`);
+  if (!edit && !done && !open) return false;
+  state[`${target}PokemonEditingCard`] = done ? null : (edit?.dataset[`${target}PokemonCardEdit`] || open?.dataset[`${target}PokemonCardOpen`]);
   if (done) state[`${target}PokemonLevelSpecies`] = null;
   render();
   return true;
@@ -2435,7 +2437,7 @@ function pokemonCardLevelFields(settings, species, target, defaultRange) {
   const override = pokemonLevelOverride(settings, species);
   const minimum = override?.min_level ?? defaultRange.min;
   const maximum = override?.max_level ?? defaultRange.max;
-  return `<div class="pokemon-card-level-fields"><label><span>최소 Lv.</span><input type="number" min="1" max="100" value="${minimum}" data-${target}-card-level-min="${escapeHtml(species)}"></label><label><span>최대 Lv.</span><input type="number" min="1" max="100" value="${maximum}" data-${target}-card-level-max="${escapeHtml(species)}"></label><button type="button" data-${target}-card-level-reset="${escapeHtml(species)}" ${override ? "" : "disabled"}>기본 레벨</button></div>`;
+  return `<div class="pokemon-card-level-fields"><span>레벨</span><input type="number" min="1" max="100" value="${minimum}" title="최소 레벨" aria-label="최소 레벨" data-${target}-card-level-min="${escapeHtml(species)}"><i aria-hidden="true">–</i><input type="number" min="1" max="100" value="${maximum}" title="최대 레벨" aria-label="최대 레벨" data-${target}-card-level-max="${escapeHtml(species)}"><button type="button" class="pokemon-card-icon-action" data-${target}-card-level-reset="${escapeHtml(species)}" title="기본 레벨로 되돌리기" aria-label="기본 레벨로 되돌리기" ${override ? "" : "disabled"}>↺</button></div>`;
 }
 function handlePokemonCardLevelAction(event, target, render) {
   const settings = target === "route" ? routePokemonSettings() : encounterSettings();
@@ -2449,6 +2451,7 @@ function handlePokemonCardLevelAction(event, target, render) {
   }
   const input = event.target.closest(`[data-${target}-card-level-min],[data-${target}-card-level-max]`);
   if (!input) return false;
+  if (event.type !== "change") return false;
   const fields = input.closest(".pokemon-card-level-fields");
   const minimumInput = fields.querySelector(`[data-${target}-card-level-min]`);
   const maximumInput = fields.querySelector(`[data-${target}-card-level-max]`);
@@ -2465,23 +2468,29 @@ function handlePokemonCardLevelAction(event, target, render) {
   render();
   return true;
 }
-function pokemonCardEditHeading(name, number, target, kind, species) {
-  return `<header class="pokemon-card-edit-heading"><div><strong>${escapeHtml(name)}</strong>${number ? `<small>No.${String(number).padStart(4, "0")}</small>` : ""}</div>${pokemonCardEditButton(target, kind, species, true)}</header>`;
+function pokemonCardEditHeading(name, number, target, kind, species, extraAction = "") {
+  return `<header class="pokemon-card-edit-heading"><div><strong>${escapeHtml(name)}</strong>${number ? `<small>No.${String(number).padStart(4, "0")}</small>` : ""}</div><span class="pokemon-card-heading-actions">${extraAction}${pokemonCardEditButton(target, kind, species, true)}</span></header>`;
+}
+function pokemonCardIdentityMarkup(name, dex) {
+  return `<div class="pokemon-card-identity">${dex ? `<img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png" alt="">` : "<span></span>"}<b class="route-pokemon-name">${escapeHtml(name)}</b></div>`;
 }
 function basePokemonCardMarkup(entry, enabled, settings, target, defaultRange) {
   const editing = pokemonCardIsEditing(target, "base", entry.id);
   const status = enabled ? "포함" : "제외";
-  if (editing) return `<article class="route-biome-pokemon-card is-editing${enabled ? " is-enabled" : ""}">${pokemonCardEditHeading(pokemonMapEntryName(entry), entry.dex_number, target, "base", entry.id)}<div class="pokemon-card-edit-controls"><button type="button" class="pokemon-card-state-control" data-${target}-biome-species="${escapeHtml(entry.id)}" aria-pressed="${enabled}" ${settings.inherit_biome ? "" : "disabled"}>${enabled ? "출현에서 제외" : "출현에 포함"}</button>${pokemonCardLevelFields(settings, entry.id, target, defaultRange)}</div></article>`;
-  return `<article class="route-biome-pokemon-card${enabled ? " is-enabled" : ""}"><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt="">${routePokemonCardCopy(entry)}${pokemonCardEditButton(target, "base", entry.id, false)}<div class="pokemon-card-meta"><span>${status}</span><span>${pokemonCardLevelLabel(settings, entry.id, defaultRange)}</span></div></article>`;
+  if (editing) return `<article class="route-biome-pokemon-card is-editing ${enabled ? "is-enabled" : "is-excluded"}">${pokemonCardEditHeading(pokemonMapEntryName(entry), entry.dex_number, target, "base", entry.id)}<div class="pokemon-card-edit-controls"><button type="button" class="pokemon-card-state-control" data-${target}-biome-species="${escapeHtml(entry.id)}" aria-pressed="${enabled}" ${settings.inherit_biome ? "" : "disabled"}>${enabled ? "출현에서 제외" : "출현에 포함"}</button>${pokemonCardLevelFields(settings, entry.id, target, defaultRange)}</div></article>`;
+  return `<article class="route-biome-pokemon-card ${enabled ? "is-enabled" : "is-excluded"}" data-${target}-pokemon-card-open="${escapeHtml(pokemonCardEditKey("base", entry.id))}" title="클릭하여 수정">${pokemonCardIdentityMarkup(pokemonMapEntryName(entry), entry.dex_number)}${routePokemonCardCopy(entry, false)}<div class="pokemon-card-meta"><span>${status}</span><span>${pokemonCardLevelLabel(settings, entry.id, defaultRange)}</span></div></article>`;
 }
 function directPokemonCardMarkup(addition, index, attribute, settings, target, defaultRange) {
   const entry = worldPokemonById().get(addition.species), dex = entry?.dex_number;
-  const copy = entry ? routePokemonCardCopy(entry) : `<div class="route-pokemon-card-copy"><b class="route-pokemon-name">${escapeHtml(addition.species)}</b></div>`;
+  const copy = entry ? routePokemonCardCopy(entry, false) : `<div class="route-pokemon-card-copy"><small>${escapeHtml(addition.species)}</small></div>`;
   const editing = pokemonCardIsEditing(target, "direct", addition.species);
   const evolvedLabel = addition.spawn_as_evolved ? " · 진화형 유지" : "";
   const name = entry ? pokemonMapEntryName(entry) : addition.species;
-  if (editing) return `<article class="route-biome-pokemon-card is-direct-added is-editing">${pokemonCardEditHeading(name, dex, target, "direct", addition.species)}<div class="pokemon-card-edit-controls"><label class="pokemon-evolved-spawn-toggle" title="레벨이 낮아도 지정한 진화형 그대로 출현"><input type="checkbox" data-${target}-spawn-as-evolved="${index}" ${addition.spawn_as_evolved ? "checked" : ""}><span>진화형 유지</span></label><label class="pokemon-spawn-weight" title="같은 조우 풀 안에서의 상대 출현 가중치"><span>가중치</span><input type="number" min="1" max="10000" value="${Math.max(1, Number(addition.weight || 1))}" data-${target}-spawn-weight="${index}"></label>${pokemonCardLevelFields(settings, addition.species, target, defaultRange)}<button type="button" class="pokemon-card-remove-action" ${attribute}="${index}" aria-label="${escapeHtml(name)} 직접 추가에서 제거">목록에서 제거</button></div></article>`;
-  return `<article class="route-biome-pokemon-card is-direct-added">${dex ? `<img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${dex}.png" alt="">` : "<span></span>"}${copy}${pokemonCardEditButton(target, "direct", addition.species, false)}<div class="pokemon-card-meta"><span>가중치 ${Math.max(1, Number(addition.weight || 1))}${evolvedLabel}</span><span>${pokemonCardLevelLabel(settings, addition.species, defaultRange)}</span></div></article>`;
+  if (editing) {
+    const removeAction = `<button type="button" class="pokemon-card-remove-action" ${attribute}="${index}" title="목록에서 제거" aria-label="${escapeHtml(name)} 직접 추가에서 제거">×</button>`;
+    return `<article class="route-biome-pokemon-card is-direct-added is-editing">${pokemonCardEditHeading(name, dex, target, "direct", addition.species, removeAction)}<div class="pokemon-card-edit-controls"><label class="pokemon-evolved-spawn-toggle" title="레벨이 낮아도 지정한 진화형 그대로 출현"><input type="checkbox" data-${target}-spawn-as-evolved="${index}" ${addition.spawn_as_evolved ? "checked" : ""}><span>진화형 유지</span></label><label class="pokemon-spawn-weight" title="같은 조우 풀 안에서의 상대 출현 가중치"><span aria-hidden="true">⚖</span><input type="number" min="1" max="10000" value="${Math.max(1, Number(addition.weight || 1))}" aria-label="출현 가중치" data-${target}-spawn-weight="${index}"></label>${pokemonCardLevelFields(settings, addition.species, target, defaultRange)}</div></article>`;
+  }
+  return `<article class="route-biome-pokemon-card is-direct-added" data-${target}-pokemon-card-open="${escapeHtml(pokemonCardEditKey("direct", addition.species))}" title="클릭하여 수정">${pokemonCardIdentityMarkup(name, dex)}${copy}<div class="pokemon-card-meta"><span>가중치 ${Math.max(1, Number(addition.weight || 1))}${evolvedLabel}</span><span>${pokemonCardLevelLabel(settings, addition.species, defaultRange)}</span></div></article>`;
 }
 function renderPokemonLevelEditor(target, settings, defaultRange) {
   const species = state[`${target}PokemonLevelSpecies`], editor = $(`#${target}-pokemon-level-editor`);
@@ -2497,6 +2506,14 @@ function routeDefaultPokemonLevelRange(route) {
   const levels = connectionPath(route).map((cell) => levelOverrideAt(cell.q, cell.r)?.average_level).filter(Number.isFinite);
   const average = levels.length ? Math.round(levels.reduce((sum, level) => sum + level, 0) / levels.length) : 5;
   return { min: Math.max(1, average - 2), max: Math.min(100, average + 2) };
+}
+function routePresetPokemonLevelRange(preset, route) {
+  const scaling = preset?.level_scaling || {};
+  if (scaling.mode === "fixed") return { min: Number(scaling.minimum_level || 1), max: Number(scaling.maximum_level || 100) };
+  const range = route ? routeDefaultPokemonLevelRange(route) : { min: 1, max: 100 };
+  if (scaling.mode !== "offset") return range;
+  const offset = Number(scaling.offset || 0);
+  return { min: Math.max(1, Math.min(100, range.min + offset)), max: Math.max(1, Math.min(100, range.max + offset)) };
 }
 function renderEncounterPokemonDialog() {
   const target = state.encounterPokemonTarget, document = encounterDocument(target), settings = encounterSettings(target); if (!document || !settings) return;
@@ -2725,12 +2742,12 @@ function routePokemonCardFacts(entry) {
   return { types, habitat, rarity };
 }
 
-function routePokemonCardCopy(entry) {
+function routePokemonCardCopy(entry, includeName = true) {
   const facts = routePokemonCardFacts(entry);
   const typeBadges = facts.types.length
     ? facts.types.map((type) => `<b class="move-type-badge type-${escapeHtml(toId(type))}">${escapeHtml(pokemonTypeLabels[type] || pokemonTypeNames[type] || type)}</b>`).join("")
     : '<b class="move-type-badge type-unknown">미분류</b>';
-  return `<div class="route-pokemon-card-copy"><b class="route-pokemon-name">${escapeHtml(pokemonMapEntryName(entry))}</b><small>No.${String(entry.dex_number).padStart(4, "0")}</small><span class="route-pokemon-type-badges">${typeBadges}</span></div>`;
+  return `<div class="route-pokemon-card-copy">${includeName ? `<b class="route-pokemon-name">${escapeHtml(pokemonMapEntryName(entry))}</b>` : ""}<small>No.${String(entry.dex_number).padStart(4, "0")}</small><span class="route-pokemon-type-badges">${typeBadges}</span></div>`;
 }
 
 function renderRoutePokemonPicker() {
@@ -3676,7 +3693,7 @@ function renderSharedTrainerPopulation(scope) {
   }
   const trainerRows = state.trainers.filter((entry) => (entry.classification || (entry.battle_type ? "trainer" : "ambient")) === "trainer");
   const triggerControl = scope === "settlement" ? "" : `<label><span>지역 기본 조우 정책</span><select data-trainer-population-field="trigger_override"><option value="proximity">승리 전 자동 도전 → 승리 후 말 걸기 (기본)</option><option value="interact">항상 플레이어가 말 걸기</option><option value="preset">NPC 행동 프리셋 사용</option></select></label>`;
-  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="${scope === "route" ? 32 : 128}" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label>${triggerControl}</div><div class="shared-trainer-direct"><strong>직접 지정</strong><small>체크한 트레이너는 바이옴 기본 후보와 함께 항상 포함됩니다. 필요하면 NPC별로 지역 정책의 예외를 지정할 수 있습니다.</small><div>${trainerRows.length ? trainerRows.map((trainer) => { const levelLabel = trainer.level_mode === "map_scaling" ? `맵 ${Number(trainer.level_offset || 0) >= 0 ? "+" : ""}${Number(trainer.level_offset || 0)}` : trainer.expected_level ? `고정 Lv.${trainer.expected_level}` : "고정"; const policy = scope === "settlement" ? "" : `<select data-direct-trainer-policy="${escapeHtml(trainer.id)}" aria-label="${escapeHtml(trainer.name || trainer.id)} 조우 정책"><option value="inherit">지역 기본값</option><option value="preset">NPC 행동 프리셋</option><option value="interact">항상 말 걸기</option><option value="proximity">승리 전 자동 도전</option></select>`; return `<label class="trainer-pool-choice"><input type="checkbox" data-direct-trainer="${escapeHtml(trainer.id)}" ${value.direct_trainers.includes(trainer.id) ? "checked" : ""}><span><b>${escapeHtml(trainer.name || trainer.id)}</b><small>${levelLabel}</small>${trainerPartyStrip(trainer)}</span>${policy}</label>`; }).join("") : '<span class="trainer-pool-empty">등록된 트레이너가 없습니다.</span>'}</div></div>`;
+  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="${scope === "route" ? 32 : 128}" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label>${triggerControl}</div><div class="shared-trainer-direct"><strong>직접 지정</strong><small>체크한 트레이너는 바이옴 기본 후보와 함께 항상 포함됩니다. 필요하면 NPC별로 지역 정책의 예외를 지정할 수 있습니다.</small><div>${trainerRows.length ? trainerRows.map((trainer) => { const levelLabel = trainer.level_mode === "map_scaling" ? `맵 ${Number(trainer.level_offset || 0) >= 0 ? "+" : ""}${Number(trainer.level_offset || 0)}` : trainer.expected_level ? `고정 Lv.${trainer.expected_level}` : "고정"; const policy = scope === "settlement" ? "" : `<select data-direct-trainer-policy="${escapeHtml(trainer.id)}" aria-label="${escapeHtml(trainer.name || trainer.id)} 조우 정책"><option value="inherit">지역 기본값</option><option value="preset">NPC 행동 프리셋</option><option value="interact">항상 말 걸기</option><option value="proximity">승리 전 자동 도전</option></select>`; return `<label class="trainer-pool-choice"><input type="checkbox" data-direct-trainer="${escapeHtml(trainer.id)}" ${value.direct_trainers.includes(trainer.id) ? "checked" : ""}><span class="trainer-pool-heading"><b>${escapeHtml(trainer.name || trainer.id)}</b><small>${levelLabel}</small></span>${policy}${trainerPartyStrip(trainer)}</label>`; }).join("") : '<span class="trainer-pool-empty">등록된 트레이너가 없습니다.</span>'}</div></div>`;
   const triggerSelect = container.querySelector('[data-trainer-population-field="trigger_override"]');
   if (triggerSelect) triggerSelect.value = value.trigger_override;
   container.querySelectorAll("[data-direct-trainer-policy]").forEach((select) => {
@@ -3838,9 +3855,13 @@ function renderRoutePreset() {
   $('[data-log-bridge-layout]').hidden = preset.route_type !== "log_bridge";
   const settings = ensureRoutePokemonSettings(preset);
   const baseCount = settings.inherit_biome && route ? routeBasePokemonIds(route).filter((id) => !settings.excluded_species.includes(id)).length : 0;
-  const count = new Set([...(settings.inherit_biome && route ? routeBasePokemonIds(route).filter((id) => !settings.excluded_species.includes(id)) : []), ...settings.additions.map((entry) => entry.species)]).size;
-  $("#route-preset-pokemon-count").textContent = `${count}종`;
+  const species = [...new Set([...(settings.inherit_biome && route ? routeBasePokemonIds(route).filter((id) => !settings.excluded_species.includes(id)) : []), ...settings.additions.map((entry) => entry.species)])];
+  $("#route-preset-pokemon-count").textContent = `${species.length}종`;
   $("#route-preset-pokemon-description").textContent = `${settings.inherit_biome ? `통과 바이옴 ${baseCount}종 사용` : "통과 바이옴 미사용"} · 직접 추가 ${settings.additions.length}종 · 제외 ${settings.excluded_species.length}종`;
+  const iconList = $("#route-preset-pokemon-icons"), byId = worldPokemonById(), levelRange = routePresetPokemonLevelRange(preset, route);
+  iconList.innerHTML = species.length
+    ? species.map((id) => encounterPokemonIconMarkup(settings, id, byId, levelRange)).join("")
+    : '<span class="encounter-pokemon-icon-empty">현재 설정에 해당하는 서식 포켓몬이 없습니다.</span>';
   renderRouteNpcList();
   renderTrainerPopulationPreview("route");
 }
@@ -12905,7 +12926,8 @@ $("#forest-form").addEventListener("change", (event) => { if (handleForestStairS
 $$("[data-edit-encounter-pokemon]").forEach((button) => button.addEventListener("click", () => openEncounterPokemonDialog(button.dataset.editEncounterPokemon)));
 $("#encounter-inherit-biome").addEventListener("change", (event) => { const settings = encounterSettings(); if (!settings) return; settings.inherit_biome = event.target.checked; renderEncounterPokemonDialog(); });
 $("#encounter-biome-pokemon-search").addEventListener("input", (event) => { state.encounterPokemonQuery = event.target.value; renderEncounterPokemonDialog(); });
-$("#encounter-biome-pokemon-list").addEventListener("click", (event) => { if (handlePokemonCardEditAction(event, "encounter", renderEncounterPokemonDialog)) return; const levelButton = event.target.closest("[data-encounter-pokemon-level]"); if (levelButton) { state.encounterPokemonLevelSpecies = levelButton.dataset.encounterPokemonLevel; renderEncounterPokemonDialog(); return; } const button = event.target.closest("[data-encounter-biome-species]"); const settings = encounterSettings(); if (!button || !settings) return; const excluded = new Set(settings.excluded_species); if (excluded.has(button.dataset.encounterBiomeSpecies)) excluded.delete(button.dataset.encounterBiomeSpecies); else excluded.add(button.dataset.encounterBiomeSpecies); settings.excluded_species = [...excluded].sort(); renderEncounterPokemonDialog(); });
+$("#encounter-biome-pokemon-list").addEventListener("click", (event) => { if (handlePokemonCardEditAction(event, "encounter", renderEncounterPokemonDialog) || handlePokemonCardLevelAction(event, "encounter", renderEncounterPokemonDialog)) return; const levelButton = event.target.closest("[data-encounter-pokemon-level]"); if (levelButton) { state.encounterPokemonLevelSpecies = levelButton.dataset.encounterPokemonLevel; renderEncounterPokemonDialog(); return; } const button = event.target.closest("[data-encounter-biome-species]"); const settings = encounterSettings(); if (!button || !settings) return; const excluded = new Set(settings.excluded_species); if (excluded.has(button.dataset.encounterBiomeSpecies)) excluded.delete(button.dataset.encounterBiomeSpecies); else excluded.add(button.dataset.encounterBiomeSpecies); settings.excluded_species = [...excluded].sort(); renderEncounterPokemonDialog(); });
+$("#encounter-biome-pokemon-list").addEventListener("change", (event) => handlePokemonCardLevelAction(event, "encounter", renderEncounterPokemonDialog));
 $("#encounter-pokemon-picker-search").addEventListener("input", (event) => { state.encounterPokemonPicker.query = event.target.value.trim(); renderEncounterPokemonPicker(); });
 for (const [selector, field] of [
   ["#encounter-pokemon-picker-generation", "generation"], ["#encounter-pokemon-picker-type", "type"],
@@ -12930,8 +12952,9 @@ $("#encounter-pokemon-picker-reset").addEventListener("click", () => {
   renderEncounterPokemonPicker();
 });
 $("#encounter-pokemon-picker-add").addEventListener("click", addSelectedEncounterPokemon);
-$("#encounter-direct-pokemon-list").addEventListener("click", (event) => { if (handlePokemonCardEditAction(event, "encounter", renderEncounterPokemonDialog)) return; const levelButton = event.target.closest("[data-encounter-pokemon-level]"); if (levelButton) { state.encounterPokemonLevelSpecies = levelButton.dataset.encounterPokemonLevel; renderEncounterPokemonDialog(); return; } const button = event.target.closest("[data-remove-encounter-pokemon]"), settings = encounterSettings(); if (!button || !settings) return; const [removed] = settings.additions.splice(Number(button.dataset.removeEncounterPokemon), 1); if (removed) settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== removed.species); state.encounterPokemonEditingCard = null; renderEncounterPokemonDialog(); });
+$("#encounter-direct-pokemon-list").addEventListener("click", (event) => { if (handlePokemonCardEditAction(event, "encounter", renderEncounterPokemonDialog) || handlePokemonCardLevelAction(event, "encounter", renderEncounterPokemonDialog)) return; const levelButton = event.target.closest("[data-encounter-pokemon-level]"); if (levelButton) { state.encounterPokemonLevelSpecies = levelButton.dataset.encounterPokemonLevel; renderEncounterPokemonDialog(); return; } const button = event.target.closest("[data-remove-encounter-pokemon]"), settings = encounterSettings(); if (!button || !settings) return; const [removed] = settings.additions.splice(Number(button.dataset.removeEncounterPokemon), 1); if (removed) settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== removed.species); state.encounterPokemonEditingCard = null; renderEncounterPokemonDialog(); });
 $("#encounter-direct-pokemon-list").addEventListener("change", (event) => {
+  if (handlePokemonCardLevelAction(event, "encounter", renderEncounterPokemonDialog)) return;
   const settings = encounterSettings(); if (!settings) return;
   const evolved = event.target.closest("[data-encounter-spawn-as-evolved]");
   if (evolved) {
@@ -13027,12 +13050,13 @@ $("#route-biome-pokemon-search").addEventListener("input", (event) => {
   state.routePokemonQuery = event.target.value.trim(); renderRoutePokemonDialog();
 });
 $("#route-biome-pokemon-list").addEventListener("click", (event) => {
-  if (handlePokemonCardEditAction(event, "route", renderRoutePokemonDialog)) return;
+  if (handlePokemonCardEditAction(event, "route", renderRoutePokemonDialog) || handlePokemonCardLevelAction(event, "route", renderRoutePokemonDialog)) return;
   const levelButton = event.target.closest("[data-route-pokemon-level]");
   if (levelButton) { state.routePokemonLevelSpecies = levelButton.dataset.routePokemonLevel; renderRoutePokemonDialog(); return; }
   const button = event.target.closest("[data-route-biome-species]");
   if (button) toggleRouteBiomePokemon(button.dataset.routeBiomeSpecies);
 });
+$("#route-biome-pokemon-list").addEventListener("change", (event) => handlePokemonCardLevelAction(event, "route", renderRoutePokemonDialog));
 $("#route-pokemon-picker-search").addEventListener("input", (event) => { state.routePokemonPicker.query = event.target.value.trim(); renderRoutePokemonPicker(); });
 for (const [selector, field] of [
   ["#route-pokemon-picker-generation", "generation"], ["#route-pokemon-picker-type", "type"],
@@ -13058,13 +13082,14 @@ $("#route-pokemon-picker-reset").addEventListener("click", () => {
 });
 $("#route-pokemon-picker-add").addEventListener("click", addSelectedRoutePokemon);
 $("#route-direct-pokemon-list").addEventListener("click", (event) => {
-  if (handlePokemonCardEditAction(event, "route", renderRoutePokemonDialog)) return;
+  if (handlePokemonCardEditAction(event, "route", renderRoutePokemonDialog) || handlePokemonCardLevelAction(event, "route", renderRoutePokemonDialog)) return;
   const levelButton = event.target.closest("[data-route-pokemon-level]");
   if (levelButton) { state.routePokemonLevelSpecies = levelButton.dataset.routePokemonLevel; renderRoutePokemonDialog(); return; }
   const button = event.target.closest("[data-remove-route-pokemon]");
   if (button) removeRoutePokemon(Number(button.dataset.removeRoutePokemon));
 });
 $("#route-direct-pokemon-list").addEventListener("change", (event) => {
+  if (handlePokemonCardLevelAction(event, "route", renderRoutePokemonDialog)) return;
   const settings = routePokemonSettings(); if (!settings) return;
   const evolved = event.target.closest("[data-route-spawn-as-evolved]");
   if (evolved) {

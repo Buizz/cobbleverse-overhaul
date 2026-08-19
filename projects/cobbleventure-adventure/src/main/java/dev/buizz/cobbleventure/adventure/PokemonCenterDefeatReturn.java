@@ -102,6 +102,20 @@ public final class PokemonCenterDefeatReturn {
         ));
     }
 
+    static BlockPos sameDimensionCheckpointExit(ServerPlayer player, ServerLevel level) {
+        CompoundTag data = player.getPersistentData();
+        if (!data.contains(CHECKPOINT_DIMENSION)
+            || !data.getString(CHECKPOINT_DIMENSION)
+                .equals(level.dimension().location().toString())) {
+            return null;
+        }
+        return new BlockPos(
+            data.getInt(CHECKPOINT_EXIT_X),
+            data.getInt(CHECKPOINT_EXIT_Y),
+            data.getInt(CHECKPOINT_EXIT_Z)
+        );
+    }
+
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         long gameTime = server.overworld().getGameTime();

@@ -363,10 +363,7 @@ final class WorldGateSystem {
     private static void placeNaturalBarrierColumn(
         ServerLevel level, Gate gate, String terrainType, int x, int z
     ) {
-        int groundY = terrainType.equals("high_forest")
-            || terrainType.equals("dense_forest")
-            ? forestFunnelGroundY(level, x, z)
-            : groundY(level, x, z);
+        int groundY = naturalBarrierGroundY(level, x, z);
         for (int height = 1; height <= gate.barrierHeight(); height++) {
             BlockPos position = new BlockPos(x, groundY + height, z);
             BlockState existing = level.getBlockState(position);
@@ -389,7 +386,7 @@ final class WorldGateSystem {
         ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
         int x, int z, int distance, int offset
     ) {
-        int groundY = groundY(level, x, z);
+        int groundY = naturalBarrierGroundY(level, x, z);
         long hash = mixGateSeed(world.seed(), x, z, distance, offset);
         if (terrainType.equals("high_forest")
             || terrainType.equals("dense_forest")) {
@@ -400,10 +397,12 @@ final class WorldGateSystem {
             if (Math.abs(offset) >= 3
                 && Math.floorMod(distance + Math.abs(offset) * 3, 8) == 0
                 && Math.floorMod((int) hash, 3) == 0
-                && CobbleventureBootstrap.placeNaturalGateTree(
+            ) {
+                if (CobbleventureBootstrap.placeNaturalGateTree(
                     level, gate.treeLog(), gate.treeLeaves(), ground, hash
                 )) {
-                return;
+                    return;
+                }
             }
             if (Math.floorMod((int) (hash >>> 24), 4) != 0) {
                 BlockPos position = ground.above();
@@ -483,6 +482,7 @@ final class WorldGateSystem {
             halfThickness + 4,
             (int) Math.round(halfLength * 0.52D)
         );
+        List<NaturalGateColumn> columns = new ArrayList<>();
         for (int shoulderSign : new int[] {-1, 1}) {
             Direction sampleDirection = shoulderSign < 0
                 ? sideways.getOpposite() : sideways;
@@ -513,15 +513,26 @@ final class WorldGateSystem {
                         + normal.getStepX() * offset;
                     int z = center.z() + sideways.getStepZ() * lateral
                         + normal.getStepZ() * offset;
-                    decorateNaturalShoulderColumn(
-                        level, world, gate, terrainType,
-                        x, z, distance, offset
-                    );
-                    placeNaturalBarrierColumn(
-                        level, gate, terrainType, x, z
-                    );
+                    columns.add(new NaturalGateColumn(
+                        x, z, terrainType, distance, offset
+                    ));
                 }
             }
+        }
+        // Pass 1: place complete natural features while their growth volume is
+        // still open. Crowns and boulders may protrude beyond the wedge.
+        for (NaturalGateColumn column : columns) {
+            decorateNaturalShoulderColumn(
+                level, world, gate, column.terrainType(),
+                column.x(), column.z(), column.distance(), column.offset()
+            );
+        }
+        // Pass 2: fill every remaining replaceable space in the wedge with an
+        // invisible barrier. Natural blocks stay visible and no gap remains.
+        for (NaturalGateColumn column : columns) {
+            placeNaturalBarrierColumn(
+                level, gate, column.terrainType(), column.x(), column.z()
+            );
         }
         LOGGER.info(
             "Natural gate wedges placed: gate={}, halfLength={}, maxDepth={}, opening={}",
@@ -552,7 +563,9 @@ final class WorldGateSystem {
 
     private static int naturalBarrierGroundY(ServerLevel level, int x, int z) {
         int top = groundY(level, x, z);
-        if (!level.getBlockState(new BlockPos(x, top, z)).is(Blocks.BARRIER)) {
+        BlockState topState = level.getBlockState(new BlockPos(x, top, z));
+        if (!topState.is(Blocks.BARRIER) && !topState.is(BlockTags.LOGS)
+            && !(topState.getBlock() instanceof LeavesBlock)) {
             return top;
         }
         for (int y = top; y > level.getMinBuildHeight(); y--) {
@@ -1595,6 +1608,10 @@ final class WorldGateSystem {
     }
 
     private record GateStructurePlacement(StructureFootprint footprint) {}
+
+    private record NaturalGateColumn(
+        int x, int z, String terrainType, int distance, int offset
+    ) {}
 
     private static final class PendingGateDenial {
         private final Vec3 lockedPosition;
