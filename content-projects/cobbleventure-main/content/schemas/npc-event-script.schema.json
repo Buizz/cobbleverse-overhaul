@@ -15,6 +15,25 @@
     "placement_profile": { "$ref": "content-bundle.schema.json#/$defs/placement_profile" },
     "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
     "npc": { "$ref": "content-bundle.schema.json#/$defs/npc" },
+    "event_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine"],
+      "properties": {
+        "engine": { "enum": ["easy_npc_v4", "cves_v5"] },
+        "authoring": { "enum": ["preset", "custom"] },
+        "script_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+:event_script/[a-z0-9_./-]+$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "engine": { "const": "cves_v5" } } },
+          "then": { "required": ["authoring", "script_id"] }
+        }
+      ]
+    },
     "event_design": {
       "oneOf": [
         {

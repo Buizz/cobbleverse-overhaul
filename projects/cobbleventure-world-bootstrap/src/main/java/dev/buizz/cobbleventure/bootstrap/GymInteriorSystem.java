@@ -468,7 +468,10 @@ final class GymInteriorSystem {
             throw new IllegalStateException("Gym staff anchor does not exist: " + anchor);
         }
         String slug = trainerId.substring(Math.max(trainerId.lastIndexOf('/'), trainerId.lastIndexOf(':')) + 1);
-        members.add(new GymStaffMember(role, "easy_npc:preset/encounter/" + slug + ".npc.snbt", offset));
+        String suffix = role.equals("leader") ? "__v5" : "";
+        members.add(new GymStaffMember(
+            role, "easy_npc:preset/encounter/" + slug + suffix + ".npc.snbt", offset
+        ));
     }
 
     private static ModuleMetadata readModuleMetadata(MinecraftServer server, String structure) {

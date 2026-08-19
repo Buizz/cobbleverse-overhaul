@@ -65,5 +65,10 @@
       },
       "victory_state_key": "cobbleventure:flag/trainer/sample_youngster_minjun/defeated"
     }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/samples/sample_youngster_minjun"
   }
 }

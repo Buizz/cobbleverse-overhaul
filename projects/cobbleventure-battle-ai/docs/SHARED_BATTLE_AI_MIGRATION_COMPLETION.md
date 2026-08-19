@@ -3,6 +3,7 @@
 - 완료 기준일: 2026-08-19
 - 대상: 웹 실험실의 승률 기반 선택 및 제한 빔 2턴 expectimax
 - 결과: `shared-ai-core`의 Kotlin Multiplatform 단일 구현을 웹과 Minecraft가 함께 사용
+- 배포: 독립 `cobbleventure-battle-ai-0.1.0.jar`가 Minecraft 어댑터와 JVM 코어를 함께 제공
 
 ## 완료 요약
 
@@ -23,6 +24,7 @@ JVM 산출물을 사용한다. 플랫폼 코드는 전투 객체를 공통 계�
 | 탐색용 상태 전이 | `shared-ai-core/commonMain` | 웹 상태 어댑터 | Cobblemon 상태 어댑터 |
 | 후보 정규화·교체 상성·팀 역할 | `shared-ai-core/commonMain` | 원시 사실 제공 | 원시 사실 제공 |
 | 필드·상태·랭크·기믹 투영 | `shared-ai-core/commonMain` | 결과 복원 | 결과 복원 |
+| Minecraft 연결·배포 | `cobbleventure_battle_ai` 모드 | 해당 없음 | RCT 등록·Cobblemon 어댑터 |
 | 실제 전투 실행 | 플랫폼 전투 엔진 | 웹/Showdown 실행기 | Cobblemon 서버 |
 
 실제 기술 효과를 처리하는 전투 실행기까지 하나로 교체한 것은 아니다. AI가 선택을 위해 사용하는
@@ -51,12 +53,10 @@ JVM 산출물을 사용한다. 플랫폼 코드는 전투 객체를 공통 계�
 - 웹 실험실 전체 회귀: 530개 중 530개 통과
 - JVM 장기 투영 로그 코퍼스: 3개 시나리오, 16개 체크포인트 통과
 - JVM 운영 로그 캡처의 비활성 기본값·필터·누적 교체·임시 파일 정리 테스트 통과
+- 독립 Battle AI 모드 전체 Gradle 빌드와 JVM·Kotlin/JS 공통 테스트 통과
+- AI 코드를 제거한 Adventure 전체 Gradle 빌드와 테스트 통과
+- 산출물 검사에서 Adventure의 AI 항목 0개, Battle AI의 등록 진입점과 내장 코어 각 1개 확인
 - 이번 변경 범위의 `git diff --check` 통과
-
-Adventure 전체 테스트 재실행은 전투 AI와 무관한 이벤트 UI 작업의 컴파일 오류 때문에 완료 시점에
-중단됐다. 당시 오류는 `EventDialogueScreen` 누락과 엔티티 조회 인자의 `UUID`/`int` 불일치다.
-전투 AI 대상 JVM 테스트와 해당 프로덕션·테스트 소스 컴파일은 별도로 통과했다. 이벤트 UI가 정리된
-뒤 Adventure 전체 테스트를 다시 실행하는 것은 저장소 통합 확인이며, 공유 AI 이관의 미완료 항목은 아니다.
 
 ## 운영 로그와 기믹 확인
 
@@ -70,7 +70,7 @@ Showdown 프로토콜 형식의 장기 코퍼스를 추가했고, 개발 서버�
 
 이 옵션은 기본적으로 비활성이다. 활성화하면 전투 UUID별 최신 누적 로그를 원자적으로 저장한다.
 플레이어 이름 등 운영 정보가 포함될 수 있으므로 실서버 로그는 익명화한 뒤
-`cobbleventure-adventure/src/test/resources/battle-ai/projection-log-corpus`에 체크포인트와 함께 추가한다.
+`cobbleventure-battle-ai/src/test/resources/battle-ai/projection-log-corpus`에 체크포인트와 함께 추가한다.
 
 첫 실제 개발 서버 로그를 코퍼스에 추가하는 일은 운영 검증 자료의 확장이며 코드 이관의 전제 조건은
 아니다. 이후 발견되는 기믹 차이는 플랫폼 어댑터의 보정 규칙으로 숨기지 않고 공통 차등 평가기의 실패
@@ -83,6 +83,7 @@ Showdown 프로토콜 형식의 장기 코퍼스를 추가했고, 개발 서버�
 - [x] 플랫폼별 탐색 상태 변경 코드는 공통 코어 호출로 대체됐다.
 - [x] 기믹과 장기 상태 변화는 공통 투영 및 로그 차등 테스트로 검증된다.
 - [x] 새 운영 로그를 회귀 코퍼스로 편입하는 절차가 마련됐다.
+- [x] Minecraft 어댑터는 Adventure와 분리된 독립 NeoForge 모드 JAR로 배포된다.
 
 ## 유지보수 규칙
 

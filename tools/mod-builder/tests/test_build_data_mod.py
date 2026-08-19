@@ -158,6 +158,18 @@ class DataModBuilderTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         build_data_mod.build(REPOSITORY_ROOT)
 
+    def test_npc_placement_profiles_expose_v5_runtime_selection(self) -> None:
+        profiles = {
+            profile["npc"]: profile
+            for profile in build_data_mod._npc_placement_profiles(REPOSITORY_ROOT)
+        }
+        self.assertEqual(
+            "cves_v5", profiles["cobbleventure:npc/sample_youngster_minjun"]["event_engine"]
+        )
+        self.assertEqual(
+            "cves_v5", profiles["cobbleventure:npc/professor_oak"]["event_engine"]
+        )
+
     def test_compiled_gym_access_resolves_previous_badge_from_league_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

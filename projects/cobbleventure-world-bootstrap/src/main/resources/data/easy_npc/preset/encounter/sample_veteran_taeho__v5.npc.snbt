@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"베테랑 트레이너 태호 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"베테랑 트레이너 태호 [V5]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"베테랑 트레이너 태호\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.020f,1.020f,1.020f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-1694286915,1253856734,-1559253357,-1228978271],
+    SkinData:{Type:"CUSTOM",UUID:[I;-2043599629,139088278,-1441442447,-173202830] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/samples/sample_veteran_taeho"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.adventure.battleai;
+package dev.buizz.cobbleventure.battleai;
 
 import com.cobblemon.mod.common.battles.pokemon.BattlePokemon;
 import com.google.gson.JsonElement;

@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.adventure.battleai;
+package dev.buizz.cobbleventure.battleai;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

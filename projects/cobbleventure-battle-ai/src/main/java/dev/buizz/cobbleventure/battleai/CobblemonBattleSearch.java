@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.adventure.battleai;
+package dev.buizz.cobbleventure.battleai;
 
 import com.cobblemon.mod.common.api.battles.model.actor.BattleActor;
 import com.cobblemon.mod.common.api.moves.Move;

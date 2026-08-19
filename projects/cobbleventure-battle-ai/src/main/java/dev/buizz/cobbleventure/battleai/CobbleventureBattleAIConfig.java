@@ -1,4 +1,4 @@
-package dev.buizz.cobbleventure.adventure.battleai;
+package dev.buizz.cobbleventure.battleai;
 
 import com.gitlab.srcmc.rctapi.api.ai.config.RCTBattleAIConfig;
 import java.util.Locale;

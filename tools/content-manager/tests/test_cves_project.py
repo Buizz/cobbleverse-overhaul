@@ -21,6 +21,13 @@ class CvesProjectBuildTests(unittest.TestCase):
             item_catalog=ROOT / "trainer-data/catalogs/cobblemon-items.json",
         )
 
+        sample_slugs = [
+            "sample_ace_jiwon", "sample_antidote_giver", "sample_bird_keeper_ara",
+            "sample_bug_catcher_doyun", "sample_camper_jun", "sample_fisherman_minsu",
+            "sample_hiker_seok", "sample_lass_yuna", "sample_oran_berry_giver",
+            "sample_picnicker_hana", "sample_pokeball_giver", "sample_potion_giver",
+            "sample_veteran_taeho", "sample_youngster_minjun",
+        ]
         self.assertEqual(
             [
                 Path("cobbleventure/event_script/examples/ai_test.json"),
@@ -32,7 +39,7 @@ class CvesProjectBuildTests(unittest.TestCase):
                 Path("cobbleventure/event_script/gym_leaders/lt_surge.json"),
                 Path("cobbleventure/event_script/gym_leaders/misty.json"),
                 Path("cobbleventure/event_script/gym_leaders/sabrina.json"),
-                Path("cobbleventure/event_script/samples/sample_potion_giver.json"),
+                *[Path(f"cobbleventure/event_script/samples/{slug}.json") for slug in sample_slugs],
                 Path("cobbleventure/event_script/story/professor_oak.json"),
                 Path("cobbleventure/event_script/story/starter_town_gatekeeper_minho.json"),
             ],
@@ -49,15 +56,21 @@ class CvesProjectBuildTests(unittest.TestCase):
                 Path("cobbleventure/npc_event_binding/gym_leaders/lt_surge.json"),
                 Path("cobbleventure/npc_event_binding/gym_leaders/misty.json"),
                 Path("cobbleventure/npc_event_binding/gym_leaders/sabrina.json"),
-                Path("cobbleventure/npc_event_binding/samples/sample_potion_giver.json"),
+                *[Path(f"cobbleventure/npc_event_binding/samples/{slug}.json") for slug in sample_slugs],
                 Path("cobbleventure/npc_event_binding/story/professor_oak.json"),
                 Path("cobbleventure/npc_event_binding/story/starter_town_gatekeeper_minho.json"),
             ],
             [artifact.relative_path for artifact in build.bindings],
         )
+        potion_binding = next(
+            artifact for artifact in build.bindings
+            if artifact.relative_path == Path(
+                "cobbleventure/npc_event_binding/samples/sample_potion_giver.json"
+            )
+        )
         self.assertEqual(
             "cobbleventure:event_script/samples/sample_potion_giver",
-            build.bindings[9].document["script_id"],
+            potion_binding.document["script_id"],
         )
         sources = {
             entry["span"]["source"]

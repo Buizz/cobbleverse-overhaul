@@ -1,5 +1,6 @@
 plugins {
-    id 'base'
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.143'
     id 'org.jetbrains.kotlin.multiplatform' version '2.2.20' apply false
     id 'org.jetbrains.kotlin.plugin.serialization' version '2.2.20' apply false
 }
@@ -41,4 +42,143 @@ subprojects {
             useJUnitPlatform()
         }
     }
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = 'cobbleventure-battle-ai'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+    }
+    maven {
+        name = 'CurseMaven'
+        url = 'https://cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
+}
+
+dependencies {
+    jarJar(implementation(project(':shared-ai-core')))
+    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
+
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+if (project.hasProperty('integration_mods_dir')) {
+    def integrationModsDirectory = file(project.property('integration_mods_dir'))
+    dependencies {
+        localRuntime fileTree(integrationModsDirectory) {
+            include '*.jar'
+            exclude 'cobbleventure-battle-ai-*.jar'
+            exclude 'cobbleventure-adventure-*.jar'
+            exclude 'cobbleventure-world-bootstrap-*.jar'
+        }
+    }
+}
+
+neoForge {
+    version = project.neo_version
+    runs {
+        client { client() }
+        server { server() }
+        gameTestServer { type = 'gameTestServer' }
+    }
+    mods {
+        "${mod_id}" { sourceSet(sourceSets.main) }
+    }
+    addModdingDependenciesTo sourceSets.test
+}
+
+processResources {
+    def properties = [
+        minecraft_version_range: minecraft_version_range,
+        neo_version: neo_version,
+        loader_version_range: loader_version_range,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version,
+        cobblemon_version: cobblemon_version,
+    ]
+    inputs.properties properties
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand properties
+    }
+    from('data/ai') {
+        include 'ai-move-role-classification.json'
+        include 'ai-pokemon-role-overrides.json'
+        into 'battle-ai'
+    }
+}
+
+tasks.register('cleanInstalledDevelopmentJars', Delete) {
+    delete fileTree(rootProject.file('../../pack/overrides/development-placeholder/mods')) {
+        include 'cobbleventure-battle-ai-*.jar'
+    }
+}
+
+tasks.register('installDevelopmentJar') {
+    dependsOn jar
+    def destinationDirectoryPath = rootProject.file(
+        '../../pack/overrides/development-placeholder/mods'
+    ).absolutePath
+    inputs.file(tasks.named('jar').flatMap { it.archiveFile })
+    doLast {
+        def destinationDirectory = new File(destinationDirectoryPath)
+        def source = inputs.files.singleFile.toPath()
+        def destination = destinationDirectory.toPath().resolve(source.fileName)
+        def temporary = destinationDirectory.toPath().resolve(
+            ".${source.fileName}.tmp-${ProcessHandle.current().pid()}"
+        )
+        java.nio.file.Files.createDirectories(destinationDirectory.toPath())
+        try {
+            java.nio.file.Files.copy(
+                source, temporary, java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+            java.nio.file.Files.move(
+                temporary,
+                destination,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (java.nio.file.AccessDeniedException error) {
+            throw new GradleException(
+                '개발 모드 JAR가 사용 중입니다. Minecraft를 완전히 종료한 뒤 다시 빌드하세요.',
+                error
+            )
+        } finally {
+            java.nio.file.Files.deleteIfExists(temporary)
+        }
+        destinationDirectory.listFiles(
+            { file -> file.name.startsWith('cobbleventure-battle-ai-')
+                && file.name.endsWith('.jar')
+                && file.toPath() != destination } as FileFilter
+        )?.each { java.nio.file.Files.deleteIfExists(it.toPath()) }
+    }
+}
+
+tasks.named('build') {
+    finalizedBy 'installDevelopmentJar'
 }

@@ -70,7 +70,7 @@ class CvesItemRewardMigrationTests(unittest.TestCase):
     def test_claim_flag_requires_a_guarded_complete_item_grant(self) -> None:
         unsafe = V5_SOURCE.read_text(encoding="utf-8").replace(
             '    if reward.remaining_count > 0 {\n'
-            '      narrate "가방에 빈 공간이 없어 상처약을 모두 받을 수 없습니다."\n'
+            '      narrate "가방에 빈 공간이 없어 보상을 모두 받을 수 없습니다."\n'
             '      stop\n'
             '    }\n',
             "",

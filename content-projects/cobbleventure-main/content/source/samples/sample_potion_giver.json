@@ -40,6 +40,11 @@
       "collision": true
     }
   },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/samples/sample_potion_giver"
+  },
   "event_design": {
     "mode": "preset",
     "preset": {

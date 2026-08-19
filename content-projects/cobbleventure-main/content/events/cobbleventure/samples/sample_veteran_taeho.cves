@@ -1,0 +1,31 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/sample_veteran_taeho/defeated") {
+    say npc {
+      ko_kr: "좋은 승부였어! 다음에 다시 겨뤄 보자."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "경험은 좋은 스승이지. 네 실력을 직접 확인해 보겠다."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/sample_veteran_taeho" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/sample_veteran_taeho/defeated" true
+          say npc {
+            ko_kr: "좋은 승부였어! 다음에 다시 겨뤄 보자."
+          }
+        } else {
+          say npc {
+            ko_kr: "멋진 승부였어. 준비가 되면 언제든 다시 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

@@ -135,7 +135,7 @@ owo-lib를 함께 포함한다. NeoForge에서는 기존 Forgified Fabric API를
 | Cobbleventure Player Menu | 공통 메뉴·가방·지도·도감과 음악·전투 인트로·지역 안내 | 플레이어에게 보이는 화면·소리·전환 연출을 소유 |
 | Cobbleventure NPC | NPC, 대화창, 조건과 행동 | NeoForge 어댑터에서만 게임 API 사용 |
 | Cobbleventure RCT Bridge | 대화 행동을 RCT 전투 시작으로 변환 | RCT 관련 코드를 별도 모듈로 격리 |
-| Cobbleventure Battle AI | RCT JSON의 `ai` 선택값으로 실행되는 AI | RCT 기본 AI를 대체하지 않음 |
+| Cobbleventure Battle AI | RCT JSON의 `ai` 선택값으로 실행되는 독립 NeoForge 모드 | Adventure와 분리 배포하고 공통 KMP 코어를 JAR 내부에 포함하며 RCT 기본 AI를 대체하지 않음 |
 | Content Manager | Excel/JSON 변환, 검증과 출력 | Python 도구, 게임 런타임 비의존 |
 
 ## 마을과 상업 시설 구조물 조사

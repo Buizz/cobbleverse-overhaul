@@ -90,6 +90,7 @@ def load_project_catalog(project_root: Path, *, item_catalog: Path | None = None
             if isinstance(value, dict) and isinstance(value.get("id"), str):
                 catalog.add(ResourceKind.ITEM, value["id"])
         catalog.complete_kinds.update({ResourceKind.FLAG, ResourceKind.VARIABLE})
+    _load_npc_preset_flags(content / "source", catalog)
 
     settlement_directory = content / "settlements"
     _load_location_documents(settlement_directory, ResourceKind.SETTLEMENT, catalog, _object_anchor_ids)
@@ -214,6 +215,32 @@ def _load_array_catalog(path: Path, key: str, kind: ResourceKind, catalog: Resou
 def _object_anchor_ids(data: dict[str, Any]) -> set[str]:
     anchors = data.get("anchors")
     return set(anchors) if isinstance(anchors, dict) else set()
+
+
+def _load_npc_preset_flags(directory: Path, catalog: ResourceCatalog) -> None:
+    """Treat normalized preset state keys as declarations for their generated CVES."""
+    for path in sorted(directory.rglob("*.json")) if directory.is_dir() else []:
+        data = _load_json(path)
+        preset = data.get("event_design", {}).get("preset")
+        if not isinstance(preset, dict):
+            continue
+        preset_type = preset.get("type")
+        keys = [preset.get("state_key"), preset.get("victory_state_key"), preset.get("clear_key")]
+        if preset_type in {"repeat", "item"} and not preset.get("state_key"):
+            document_id = data.get("id")
+            if isinstance(document_id, str) and ":" in document_id:
+                namespace, resource_path = document_id.split(":", 1)
+                suffix = "claimed" if preset_type == "item" else "talked"
+                keys.append(f"{namespace}:flag/npc/{resource_path.removeprefix('npc/')}/{suffix}")
+        if preset_type in {"battle", "gym", "elite", "champion"} \
+                and not preset.get("victory_state_key") and not preset.get("clear_key"):
+            document_id = data.get("id")
+            if isinstance(document_id, str) and ":" in document_id:
+                namespace, resource_path = document_id.split(":", 1)
+                keys.append(f"{namespace}:flag/npc/{resource_path.removeprefix('npc/')}/defeated")
+        for key in keys:
+            if isinstance(key, str):
+                catalog.add(ResourceKind.FLAG, key)
 
 
 def _route_anchor_ids(data: dict[str, Any]) -> set[str]:

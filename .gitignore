@@ -31,6 +31,7 @@ backups/
 mods/*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-world-bootstrap-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-adventure-*.jar
+pack/overrides/development-placeholder/mods/cobbleventure-battle-ai-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-player-menu-*.jar
 pack/overrides/structure-builder/mods/cobbleventure-structure-builder-*.jar
 *.mrpack

@@ -6,13 +6,15 @@ Cobbleventure의 웹 실험실과 Minecraft가 함께 사용하는 전투 AI 프
 
 [Cobblemon-RunAndBunAI](https://github.com/Buizz/Cobblemon-RunAndBunAI)는 빌드 구성, 플랫폼 독립 코어, 행동 점수와 회귀 테스트 방식을 조사하는 참고 자료로만 사용한다. 이 프로젝트는 해당 AI의 소스 호환 포크가 아니며 런앤번 규칙을 그대로 재현하지 않는다.
 
-현재 서버 대상 Cobblemon/RCT 버전은 `cobbleventure-adventure`가 고정한다. 플랫폼별
-코드는 전투 상태와 합법 행동을 공통 코어 계약으로 변환하는 어댑터만 담당한다.
+루트 Gradle 프로젝트는 독립 NeoForge 모드 `cobbleventure_battle_ai`를 빌드한다. 이 모드가
+서버 대상 Cobblemon/RCT 버전과 Minecraft 어댑터를 소유하고, 플랫폼별 코드는 전투 상태와
+합법 행동을 공통 코어 계약으로 변환하는 역할만 담당한다.
 
 ## 현재 모듈
 
 | 모듈 | 역할 |
 |------|------|
+| 루트 NeoForge 모드 | RCT `cobbleventure` AI 타입 등록, Cobblemon 관측·명령 어댑터, 운영 로그 캡처와 `shared-ai-core` jar-in-jar 배포 |
 | `shared-ai-core` | `commonMain` 단일 소스로 빌드되는 후보 사실·점수·정규화·교체 상성·퇴장/설치물/등장/강제교체·전장 지속 상태, 승률 모델·1턴 승률 정책·2턴 expectimax·탐색 상태 전이 (`jvm`/`js`) |
 | `ai-api` | 플랫폼 독립 행동·관측·승률·전략 평가와 선택 계약 |
 | `ai-engine` | 공통 탐색 외의 기존 Java 전략 카탈로그와 가중 선택 |
@@ -20,7 +22,7 @@ Cobbleventure의 웹 실험실과 Minecraft가 함께 사용하는 전투 AI 프
 | `tools` | 전역 `data`를 생성·갱신하는 개발 도구 |
 | `web-lab` | 트레이너 JSON 정규화, PvE·EvE UI, Showdown 호환 실행기와 최소 자체 전투 엔진을 확인하는 테스트 화면 |
 
-Cobblemon/RCT 의존성은 `cobbleventure-adventure`에만 둔다. 이 어댑터가 양 팀의 공개
+Cobblemon/RCT 의존성은 루트 NeoForge 모드에만 둔다. 이 어댑터가 양 팀의 공개
 HP·교체 후보·기술 피해·가방 수량·남은 기믹을 `shared-ai-core` 입력으로 바꾸며, 후보의
 정규화·필터·중복 제거·정렬, 교체 상성, 날씨·지형·룸·스크린 상태와 탐색 전이는 공통 코어가 수행하고,
 기술 역할 카탈로그 관측을 바탕으로 한 팀 역할·에이스·위협 카운터·보존 판정도 공통 코어가 수행하며,
@@ -34,8 +36,8 @@ Cobblemon/Showdown 로그의 관측 상태와 공통 투영 차이도 공통 평
 
 `ai-api`의 `AiRuntimeProfile`은 생성된 게임 프로필의 난이도·전략·치터 확률을
 검증하고, `ai-engine`의 `ConfiguredDecisionEngine`은 휴리스틱·승률·2턴 탐색·
-확정 행동 대응 엔진 중 실제 사용할 정책을 선택한다. 실제 게임에서는
-`cobbleventure-adventure`가 RCT의 `cobbleventure` AI 타입을 등록한다. 생성된 난이도와
+확정 행동 대응 엔진 중 실제 사용할 정책을 선택한다. 실제 게임에서는 독립
+`cobbleventure_battle_ai` 모드가 RCT의 `cobbleventure` AI 타입을 등록한다. 생성된 난이도와
 전략은 일반 난이도의 RCT 행동 평가 편향과 선택 오차에 반영된다. `expert_winrate`는
 아군 상위 4개×상대 상위 2개를 평가하고 휴리스틱보다 승률이 2% 이상 좋아질 때만
 행동을 바꾼다. `expert_search`와 `cheater`는 3×2 첫 턴 빔, 기대값 80%와 최악값
@@ -76,6 +78,16 @@ cd web-lab
 npm ci
 npm test
 ```
+
+## 모드 JAR 빌드
+
+```text
+gradlew.bat build
+```
+
+산출물은 `build/libs/cobbleventure-battle-ai-0.1.0.jar`이다. `shared-ai-core` JVM 산출물은
+이 JAR의 `META-INF/jarjar`에 포함되므로 Minecraft에는 별도 코어 JAR를 설치하지 않는다.
+빌드가 성공하면 개발 모드팩의 `mods` 디렉터리에도 같은 파일을 원자적으로 갱신한다.
 
 ## 이관 상태와 관련 문서
 

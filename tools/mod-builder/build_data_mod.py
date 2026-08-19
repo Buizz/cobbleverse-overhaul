@@ -321,7 +321,13 @@ def _npc_placement_profiles(root: Path) -> list[dict[str, object]]:
         npc_id = document.get("id") if isinstance(document, dict) else None
         if not isinstance(profile, dict) or not isinstance(npc_id, str):
             continue
-        profiles.append({"npc": npc_id, **copy.deepcopy(profile)})
+        event_runtime = document.get("event_runtime")
+        event_engine = event_runtime.get("engine") if isinstance(event_runtime, dict) else "easy_npc_v4"
+        profiles.append({
+            "npc": npc_id,
+            "event_engine": event_engine if event_engine in {"easy_npc_v4", "cves_v5"} else "easy_npc_v4",
+            **copy.deepcopy(profile),
+        })
     return profiles
 
 

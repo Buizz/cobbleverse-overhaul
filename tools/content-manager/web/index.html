@@ -103,8 +103,11 @@
             </form>
             <div class="subsection-heading"><div><p class="eyebrow">NPC BEHAVIOR</p><h3>행동 프리셋</h3><small>일반적인 NPC는 프리셋만 저장하며 EasyNPC 이벤트는 빌드할 때 자동 생성합니다.</small></div></div>
             <div class="event-design-mode event-trigger-editor">
-              <label class="wide"><span>설계 방식</span><select id="event-design-mode" disabled><option value="preset">행동 프리셋 사용</option><option value="easy_npc_events">직접 이벤트 설계 — 고급</option></select><small>직접 설계는 프리셋으로 표현할 수 없는 특수 NPC에만 사용합니다.</small></label>
+              <label class="wide"><span>이벤트 실행 방식</span><select id="event-runtime-engine" disabled><option value="easy_npc_v4">EasyNPC V4 — 레거시</option><option value="cves_v5">CVES V5 — 행동 프리셋 자동 생성</option></select><small id="event-runtime-help">V4 원본과 프리셋은 전환 기간 동안 그대로 보존합니다.</small></label>
+              <label class="wide"><span>설계 방식</span><select id="event-design-mode" disabled><option value="preset">행동 프리셋 사용</option><option value="easy_npc_events">EasyNPC 직접 이벤트 — V4 고급</option><option value="cves_custom" disabled>CVES 사용자 정의 트리 — V5 고급</option></select><small>표준 NPC는 행동 프리셋을 사용하고, 특수 NPC만 사용자 정의 CVES로 전환합니다.</small></label>
+              <label class="wide" id="event-script-link" hidden><span>연결된 V5 이벤트</span><div class="inline-field"><input id="event-script-id" readonly disabled><button class="button secondary" id="preview-cves-event" type="button" disabled>저장 결과 미리보기</button><button class="button secondary" id="customize-cves-event" type="button" disabled>사용자 정의로 전환</button><button class="button secondary" id="open-cves-event" type="button" disabled>트리 열기</button></div><small id="event-script-help">행동 프리셋을 저장하면 이 CVES와 바인딩이 자동으로 갱신됩니다.</small></label>
             </div>
+            <section class="event-cves-preview" id="event-cves-preview" hidden><header><div><strong>V5 저장 결과 미리보기</strong><small id="event-cves-preview-summary">파일은 아직 변경되지 않았습니다.</small></div><button class="button secondary" id="close-cves-preview" type="button">닫기</button></header><div id="event-cves-preview-artifacts"></div><pre id="event-cves-preview-diff"></pre></section>
             <div class="event-trigger-editor" id="event-trigger-editor">
               <label><span>최초 시작 트리거</span><select id="event-trigger-type" disabled><option value="interact">플레이어가 말 걸기</option><option value="proximity">범위 안으로 진입</option></select></label>
               <label><span id="event-range-label">대화 가능 거리</span><input id="event-trigger-range" type="number" min="0.5" step="0.5" value="4" disabled></label>

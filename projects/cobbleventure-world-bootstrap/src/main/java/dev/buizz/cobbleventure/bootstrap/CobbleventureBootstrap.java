@@ -12321,8 +12321,11 @@ public final class CobbleventureBootstrap {
             .filter(entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
             .getNamespace().equals("easy_npc"))
             .toList();
+        boolean cvesV5 = npcPresetSuffix(level, npcId).equals("__v5");
         Entity currentNpc = existingNpcs.stream()
-            .filter(entity -> entity.getTags().contains("cobbleventure_npc_preset_v4"))
+            .filter(entity -> cvesV5
+                ? entity.getTags().stream().anyMatch(tag -> tag.startsWith("cves_binding/"))
+                : entity.getTags().contains("cobbleventure_npc_preset_v4"))
             .findFirst()
             .orElse(null);
         if (currentNpc != null) {
@@ -12349,7 +12352,7 @@ public final class CobbleventureBootstrap {
             );
         }
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
-        String suffix = switch (triggerOverride) {
+        String suffix = cvesV5 ? "__v5" : switch (triggerOverride) {
             case "interact" -> "__interact";
             case "proximity" -> "__proximity";
             default -> "";
@@ -12373,6 +12376,19 @@ public final class CobbleventureBootstrap {
             LOGGER.error("Regional NPC placement failed: npc={}, position={}", npcId, safePosition, error);
             return false;
         }
+    }
+
+    static String npcPresetSuffix(ServerLevel level, String npcId) {
+        JsonObject catalog = readJsonResource(level, "catalogs/npc-placement-profiles.json");
+        for (JsonElement element : catalog.getAsJsonArray("profiles")) {
+            JsonObject profile = element.getAsJsonObject();
+            if (npcId.equals(requiredString(profile, "npc"))
+                && profile.has("event_engine")
+                && "cves_v5".equals(profile.get("event_engine").getAsString())) {
+                return "__v5";
+            }
+        }
+        return "";
     }
 
     private static BlockPos findRegionalNpcPosition(ServerLevel level, BlockPos requested) {

@@ -25,7 +25,7 @@
 - [도시 포맷과 세대별 특수 시설](docs/implementation/CITY_FACILITIES.md)
 - [플레이어 원형 메뉴 설계](docs/implementation/PLAYER_MENU.md)
 - [Cobbleventure Core](projects/cobbleventure-core/README.md)
-- [Cobbleventure Battle AI 프로젝트](projects/cobbleventure-battle-ai/README.md)
+- [Cobbleventure Battle AI 독립 모드·웹 실험실](projects/cobbleventure-battle-ai/README.md)
 - [Cobbleventure Adventure](projects/cobbleventure-adventure/README.md)
 - [Cobbleventure Player Menu](projects/cobbleventure-player-menu/README.md)
 - [트레이너 JSON 예제 데이터](trainer-data/README.md)

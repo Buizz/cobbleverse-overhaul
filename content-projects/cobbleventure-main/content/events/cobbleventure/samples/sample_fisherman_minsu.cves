@@ -1,0 +1,31 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/sample_fisherman_minsu/defeated") {
+    say npc {
+      ko_kr: "좋은 승부였어! 다음에 다시 겨뤄 보자."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "기다림도 실력이지. 낚시로 단련한 집중력을 보여 주마!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/sample_fisherman_minsu" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/sample_fisherman_minsu/defeated" true
+          say npc {
+            ko_kr: "좋은 승부였어! 다음에 다시 겨뤄 보자."
+          }
+        } else {
+          say npc {
+            ko_kr: "멋진 승부였어. 준비가 되면 언제든 다시 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

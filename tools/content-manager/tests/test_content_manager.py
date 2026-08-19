@@ -120,13 +120,20 @@ class ContentManagerTests(unittest.TestCase):
 
     def test_direct_pokemon_additions_can_force_evolved_spawns(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
         schemas = [
             json.loads((PROJECT_ROOT / f"content/schemas/{name}.schema.json").read_text(encoding="utf-8"))
             for name in ("cave", "forest", "route", "hex-world")
         ]
 
-        self.assertIn("진화본으로 출현", script)
+        self.assertIn("진화형 유지", script)
         self.assertIn("data-${target}-spawn-as-evolved", script)
+        self.assertIn("function pokemonCardEditButton", script)
+        self.assertIn('editing ? "완료" : "수정"', script)
+        self.assertIn("function pokemonCardLevelLabel", script)
+        self.assertIn("pokemon-card-meta", script)
+        self.assertIn(".route-biome-pokemon-card.is-editing", styles)
+        self.assertIn(".pokemon-card-edit-controls", styles)
         self.assertEqual(False, schemas[0]["$defs"]["pokemon_addition"]["properties"]["spawn_as_evolved"]["default"])
         self.assertEqual(False, schemas[1]["$defs"]["pokemon_addition"]["properties"]["spawn_as_evolved"]["default"])
         self.assertEqual(False, schemas[2]["$defs"]["pokemon_addition"]["properties"]["spawn_as_evolved"]["default"])

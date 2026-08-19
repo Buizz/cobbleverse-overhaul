@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import difflib
 import functools
 import gzip
 import hashlib
@@ -43,12 +44,15 @@ from cves import (
     CvesProjectError,
     CvesSyntaxError,
     compile_project,
+    encode_program as encode_cves_program,
+    format_program as format_cves_program,
     diagnostic_document as cves_diagnostic_document,
     editor_contract as cves_editor_contract,
     list_scripts as list_cves_scripts,
     load_project_catalog as load_cves_project_catalog,
     load_script as load_cves_script,
     parse_editor_expression as parse_cves_editor_expression,
+    preset_program as cves_preset_program,
     save_script as save_cves_script,
     validate_ast as validate_cves_ast,
     validate_source as validate_cves_source,
@@ -3688,6 +3692,21 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     npc_id = _resource_id(root.get("id"), issues, path, "$.id")
     if root.get("schema_version") != 4:
         _issue(issues, "error", path, "$.schema_version", "NPC 이벤트 스크립트 버전은 4입니다.")
+    event_runtime = root.get("event_runtime")
+    if event_runtime is not None:
+        event_runtime = _require_object(event_runtime, issues, path, "$.event_runtime")
+        if event_runtime is not None:
+            engine = event_runtime.get("engine")
+            if engine not in {"easy_npc_v4", "cves_v5"}:
+                _issue(issues, "error", path, "$.event_runtime.engine", "easy_npc_v4 또는 cves_v5가 필요합니다.")
+            if engine == "cves_v5":
+                script_id = event_runtime.get("script_id")
+                if not isinstance(script_id, str) or not re.fullmatch(
+                    r"[a-z0-9_.-]+:event_script/[a-z0-9_./-]+", script_id
+                ):
+                    _issue(issues, "error", path, "$.event_runtime.script_id", "namespace:event_script/path 형식이 필요합니다.")
+                if event_runtime.get("authoring") not in {"preset", "custom"}:
+                    _issue(issues, "error", path, "$.event_runtime.authoring", "preset 또는 custom이 필요합니다.")
     event_design = _require_object(root.get("event_design"), issues, path, "$.event_design")
     if event_design is not None:
         design_mode = event_design.get("mode")
@@ -7161,6 +7180,7 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["preferred_biomes"] = profile.get("preferred_biomes", [])
                 summary["automatic_town_placement"] = profile.get("automatic_town_placement", False)
                 summary["automatic_route_placement"] = profile.get("automatic_route_placement", False)
+                summary["event_engine"] = data.get("event_runtime", {}).get("engine", "easy_npc_v4")
             elif category == "battles":
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
             elif category == "routes":
@@ -7327,6 +7347,14 @@ def _save_document(
     if any(issue.level == "error" for issue in issues):
         return target, issues
 
+    v5_sync = None
+    if category == "trainers":
+        try:
+            v5_sync = _prepare_v5_preset_sync(root, target, data)
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+            issues.append(Issue("error", target.as_posix(), "$.event_runtime", str(error)))
+            return target, issues
+
     target.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary_name = tempfile.mkstemp(
         prefix=f".{target.stem}-", suffix=".json.tmp", dir=target.parent
@@ -7340,7 +7368,148 @@ def _save_document(
         temporary = Path(temporary_name)
         if temporary.exists():
             temporary.unlink()
+    if v5_sync is not None:
+        _write_v5_preset_sync(v5_sync)
     return target, issues
+
+
+def _prepare_v5_preset_sync(root: Path, target: Path, data: Any) -> dict[str, Any] | None:
+    """Validate and stage a preset-authored CVES source without touching user files."""
+    if not isinstance(data, dict):
+        return None
+    runtime = data.get("event_runtime")
+    if not isinstance(runtime, dict) or runtime.get("engine") != "cves_v5":
+        return None
+    authoring = runtime.get("authoring")
+    if authoring == "preset" and data.get("event_design", {}).get("mode") != "preset":
+        raise ValueError("V5 행동 프리셋 자동 작성에는 event_design.mode=preset이 필요합니다.")
+
+    source_root = (root / "content" / "source").resolve()
+    relative = target.resolve().relative_to(source_root).with_suffix("")
+    npc_id = data.get("id")
+    if not isinstance(npc_id, str) or ":npc/" not in npc_id:
+        raise ValueError("V5 이벤트 경로를 만들 수 있는 NPC ID가 필요합니다.")
+    namespace = npc_id.split(":", 1)[0]
+    script_id = f"{namespace}:event_script/{relative.as_posix()}"
+    if authoring == "preset" and runtime.get("script_id") != script_id:
+        raise ValueError(f"이 NPC의 자동 생성 V5 script_id는 {script_id}여야 합니다.")
+
+    if authoring == "custom":
+        custom_script_id = runtime.get("script_id")
+        namespace_path = str(custom_script_id).partition(":event_script/")
+        if not namespace_path[1]:
+            raise ValueError("사용자 정의 V5 script_id 형식이 올바르지 않습니다.")
+        event_root = (root / "content" / "events").resolve()
+        event_path = (event_root / namespace_path[0] / f"{namespace_path[2]}.cves").resolve()
+        try:
+            event_path.relative_to(event_root)
+        except ValueError as error:
+            raise ValueError("사용자 정의 V5 script_id는 이벤트 디렉터리를 벗어날 수 없습니다.") from error
+        if not event_path.is_file():
+            raise ValueError(f"연결할 사용자 정의 CVES를 찾을 수 없습니다: {event_path.relative_to(root)}")
+        binding_path = root / "content" / "event-bindings" / namespace / relative.with_suffix(".json")
+        return {
+            "binding_path": binding_path,
+            "binding_source": json.dumps(
+                {"schema_version": 1, "script_id": custom_script_id}, ensure_ascii=False, indent=2
+            ) + "\n",
+        }
+    if authoring != "preset":
+        raise ValueError("V5 작성 방식은 preset 또는 custom이어야 합니다.")
+
+    relative_script = f"{namespace}/{relative.as_posix()}.cves"
+    program = cves_preset_program(data)
+    checked = validate_cves_ast(
+        encode_cves_program(program, include_spans=False),
+        relative_script,
+        load_cves_project_catalog(root, item_catalog=_cves_item_catalog(root)),
+    )
+    if not checked["valid"]:
+        first = checked["diagnostics"][0]
+        raise ValueError(f"V5 행동 프리셋을 컴파일할 수 없습니다: {first['rendered']}")
+    canonical = checked["canonical"]
+    event_path = root / "content" / "events" / Path(relative_script)
+    binding_path = root / "content" / "event-bindings" / namespace / relative.with_suffix(".json")
+
+    if event_path.is_file():
+        existing = event_path.read_text(encoding="utf-8")
+        previous = load_json(target) if target.is_file() else None
+        previous_runtime = previous.get("event_runtime") if isinstance(previous, dict) else None
+        if isinstance(previous_runtime, dict) and previous_runtime.get("engine") == "cves_v5" \
+                and previous_runtime.get("authoring") == "preset":
+            expected_previous = format_cves_program(cves_preset_program(previous))
+            if existing != expected_previous:
+                raise ValueError(
+                    "연결된 CVES가 행동 프리셋 생성 후 직접 수정되었습니다. "
+                    "자동 덮어쓰기를 중단했습니다. 사용자 정의 이벤트로 전환해 주세요."
+                )
+        elif existing != canonical:
+            raise ValueError(
+                "같은 경로에 기존 CVES가 있습니다. 기존 이벤트를 보존하기 위해 V5 전환을 중단했습니다."
+            )
+
+    return {
+        "event_path": event_path,
+        "event_source": canonical,
+        "binding_path": binding_path,
+        "binding_source": json.dumps(
+            {"schema_version": 1, "script_id": script_id}, ensure_ascii=False, indent=2
+        ) + "\n",
+    }
+
+
+def _write_v5_preset_sync(plan: dict[str, Any]) -> None:
+    for path_key, source_key, suffix in (
+        ("event_path", "event_source", ".cves.tmp"),
+        ("binding_path", "binding_source", ".json.tmp"),
+    ):
+        if path_key not in plan:
+            continue
+        target = plan[path_key]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        handle, temporary_name = tempfile.mkstemp(prefix=f".{target.stem}-", suffix=suffix, dir=target.parent)
+        try:
+            with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as output:
+                output.write(plan[source_key])
+            os.replace(temporary_name, target)
+        finally:
+            Path(temporary_name).unlink(missing_ok=True)
+
+
+def _preview_v5_preset_sync(root: Path, plan: dict[str, Any] | None) -> dict[str, Any]:
+    """Describe a staged V5 synchronization without writing any files."""
+    if plan is None:
+        return {"enabled": False, "changed": False, "artifacts": []}
+    artifacts: list[dict[str, Any]] = []
+    for path_key, source_key, kind in (
+        ("event_path", "event_source", "cves"),
+        ("binding_path", "binding_source", "binding"),
+    ):
+        target = plan.get(path_key)
+        source = plan.get(source_key)
+        if not isinstance(target, Path) or not isinstance(source, str):
+            continue
+        previous = target.read_text(encoding="utf-8") if target.is_file() else ""
+        action = "create" if not target.is_file() else "unchanged" if previous == source else "update"
+        relative = target.relative_to(root).as_posix()
+        diff = "" if action == "unchanged" else "".join(difflib.unified_diff(
+            previous.splitlines(keepends=True),
+            source.splitlines(keepends=True),
+            fromfile=f"a/{relative}",
+            tofile=f"b/{relative}",
+        ))
+        artifacts.append({
+            "kind": kind,
+            "path": relative,
+            "action": action,
+            "source": source,
+            "diff": diff,
+        })
+    return {
+        "enabled": True,
+        "changed": any(artifact["action"] != "unchanged" for artifact in artifacts),
+        "artifacts": artifacts,
+    }
 
 
 def _delete_settlement_document(
@@ -11254,6 +11423,38 @@ def create_handler(
                 payload = self._read_json()
             except ValueError as error:
                 self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/cves/preset-preview":
+                if not isinstance(payload, dict) or not isinstance(payload.get("document"), dict):
+                    self._json(400, {"error": "NPC 문서와 경로가 필요합니다."})
+                    return
+                relative_path = payload.get("path")
+                if not isinstance(relative_path, str) or not relative_path:
+                    self._json(400, {"error": "NPC 문서 경로가 필요합니다."})
+                    return
+                document = payload["document"]
+                try:
+                    target = _managed_path(root, "trainers", relative_path)
+                    _, candidate_issues = _validate_payload(document, validate_content_file)
+                    issues = [
+                        Issue(issue.level, target.as_posix(), issue.path, issue.message)
+                        for issue in candidate_issues
+                    ]
+                    if any(issue.level == "error" for issue in issues):
+                        self._json(422, {
+                            "valid": False,
+                            "issues": [asdict(issue) for issue in issues],
+                        })
+                        return
+                    plan = _prepare_v5_preset_sync(root, target, document)
+                    self._json(200, {
+                        "valid": True,
+                        "issues": [asdict(issue) for issue in issues],
+                        "preview": _preview_v5_preset_sync(root, plan),
+                    })
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    issue = Issue("error", relative_path, "$.event_runtime", str(error))
+                    self._json(422, {"valid": False, "issues": [asdict(issue)]})
                 return
             if request.path == "/api/cves/validate":
                 if not isinstance(payload, dict):

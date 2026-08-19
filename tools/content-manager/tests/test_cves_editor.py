@@ -124,6 +124,14 @@ class CvesEditorApiTests(unittest.TestCase):
         source_path = self.root / "content/events/test/story/welcome.cves"
         source_path.parent.mkdir(parents=True)
         source_path.write_text(SOURCE, encoding="utf-8", newline="\n")
+        definitions_path = self.root / "content/catalogs/game-definitions.json"
+        definitions_path.parent.mkdir(parents=True)
+        definitions_path.write_text(json.dumps({
+            "$schema": "../schemas/game-definitions.schema.json",
+            "schema_version": 1,
+            "items": [],
+            "variables": [],
+        }), encoding="utf-8")
         self.server = content_manager.ThreadingHTTPServer(
             ("127.0.0.1", 0), content_manager.create_handler(self.root)
         )
@@ -274,6 +282,39 @@ class CvesEditorApiTests(unittest.TestCase):
             'callName(value) === "anchor"',
             source,
         )
+
+    def test_new_game_variable_is_available_in_the_editor_contract(self) -> None:
+        status, definitions = self.call("/api/game-definitions")
+        self.assertEqual(200, status)
+        definitions["variables"].append({
+            "id": "test:flag/story/met_guide",
+            "scope": "player",
+            "type": "boolean",
+            "default": False,
+            "display_name": {"ko_kr": "안내인과 대화함"},
+            "description": {"ko_kr": ""},
+        })
+        status, saved = self.call("/api/game-definitions", "PUT", definitions)
+        self.assertEqual(200, status)
+        self.assertTrue(saved["saved"])
+
+        status, contract = self.call("/api/cves/editor-contract")
+        self.assertEqual(200, status)
+        self.assertIn("test:flag/story/met_guide", contract["resources"]["flag"])
+
+    def test_editor_reuses_game_variables_and_can_create_them_in_place(self) -> None:
+        markup = (CONTENT_MANAGER_ROOT / "web" / "cves.html").read_text(encoding="utf-8")
+        source = (CONTENT_MANAGER_ROOT / "web" / "cves-editor.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="new-variable-dialog"', markup)
+        self.assertIn("전체 변수 관리", markup)
+        self.assertIn('data-add="let" type="button" disabled>임시 변수', markup)
+        self.assertIn('request("/api/game-definitions")', source)
+        self.assertIn("variableResourceField", source)
+        self.assertIn("declaredVariableEntries", source)
+        self.assertIn("createGameVariable", source)
+        self.assertIn("결과 임시 변수", source)
+        self.assertIn("저장되는 진행 변수와는 별개", source)
 
 
 if __name__ == "__main__":

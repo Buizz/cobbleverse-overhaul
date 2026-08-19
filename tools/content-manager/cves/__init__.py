@@ -48,6 +48,7 @@ from .migration import (
     starter_event_contract_from_v4,
 )
 from .parser import Parser, parse, parse_expression
+from .presets import BATTLE_PRESETS, automatic_state_key, preset_program
 from .project import CvesProjectError, ProjectArtifact, ProjectBuild, compile_project, write_project
 from .semantic import SemanticValidator, validate
 
@@ -113,4 +114,7 @@ __all__ = [
     "validate_ast",
     "validate_source",
     "write_project",
+    "BATTLE_PRESETS",
+    "automatic_state_key",
+    "preset_program",
 ]

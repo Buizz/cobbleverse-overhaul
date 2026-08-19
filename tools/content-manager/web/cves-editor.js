@@ -10,6 +10,7 @@ const state = {
   items: [], path: null, scriptId: null, digest: null, ast: null, source: "",
   selected: null, dirty: false, diagnostics: [], contract: null,
   collapsed: new WeakSet(), dragged: null, showAdvancedCommands: false,
+  gameDefinitions: { items: [], variables: [] }, variableTarget: null,
 };
 
 function element(tag, className, text) {
@@ -80,6 +81,14 @@ async function loadContract() {
   const triggerSelect = $("#new-script-form select[name=trigger]");
   triggerSelect.replaceChildren();
   state.contract.triggers.forEach((trigger) => { const option = element("option", "", trigger.id); option.value = trigger.id; option.selected = trigger.id === "interact"; triggerSelect.append(option); });
+}
+
+async function loadGameDefinitions() {
+  const result = await request("/api/game-definitions");
+  if (!result.ok) throw new Error(result.data.error || "게임 데이터 변수를 불러오지 못했습니다.");
+  state.gameDefinitions = result.data;
+  state.gameDefinitions.items ||= [];
+  state.gameDefinitions.variables ||= [];
 }
 
 function commandContract(kind) {
@@ -316,6 +325,16 @@ function field(form, label, value, onInput, options = {}) {
   wrapper.append(input); form.append(wrapper); return input;
 }
 
+function localVariableField(form, label, value, onInput) {
+  const input = field(form, label, value, onInput, { placeholder: "예: battle_result" });
+  input.pattern = "[A-Za-z_][A-Za-z0-9_]*";
+  input.parentElement.append(element(
+    "small", "resource-hint",
+    "현재 이벤트 실행 중에만 존재하는 임시 변수입니다. 저장되는 진행 변수와는 별개입니다.",
+  ));
+  return input;
+}
+
 function readonlyField(form, label, value) {
   const wrapper = element("div", "field");
   wrapper.append(element("label", "", label), element("div", "readonly-value", value));
@@ -347,11 +366,130 @@ function resourceDatalist(kind) {
 }
 
 function resourceField(form, label, value, kind, onInput) {
+  if (["flag", "variable"].includes(kind)) {
+    return variableResourceField(form, label, value, kind, onInput);
+  }
   const input = field(form, label, value, onInput, { placeholder: "namespace:path" });
   input.setAttribute("list", resourceDatalist(kind));
   const hint = element("small", "resource-hint", `${kind || "resource"} 카탈로그 · ${(state.contract?.resources?.[kind] || []).length}개`);
   input.parentElement.append(hint);
   return input;
+}
+
+function declaredVariableEntries(kind) {
+  const definitions = (state.gameDefinitions.variables || []).filter((entry) => (
+    kind === "flag" ? entry.type === "boolean" : entry.type !== "boolean"
+  ));
+  const byId = new Map(definitions.map((entry) => [entry.id, entry]));
+  for (const id of state.contract?.resources?.[kind] || []) {
+    if (!byId.has(id)) byId.set(id, { id, scope: "generated", type: kind === "flag" ? "boolean" : "unknown" });
+  }
+  return [...byId.values()].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function variableResourceField(form, label, value, kind, onInput) {
+  const wrapper = element("div", "field variable-resource-field");
+  wrapper.append(element("label", "", label));
+  const row = element("div", "inline-fields");
+  const select = element("select");
+  const prompt = element("option", "", "진행 변수를 선택하세요"); prompt.value = ""; select.append(prompt);
+  for (const entry of declaredVariableEntries(kind)) {
+    const displayName = entry.display_name?.ko_kr;
+    const meta = entry.scope === "generated" ? "자동 선언" : `${entry.scope === "player" ? "플레이어" : "월드"} · ${entry.type}`;
+    const option = element("option", "", `${displayName ? `${displayName} · ` : ""}${entry.id} (${meta})`);
+    option.value = entry.id; option.selected = entry.id === value; select.append(option);
+  }
+  if (value && ![...select.options].some((option) => option.value === value)) {
+    const unknown = element("option", "", `${value} (미등록)`); unknown.value = value; unknown.selected = true; select.append(unknown);
+  }
+  select.addEventListener("change", () => onInput(select.value));
+  const add = element("button", "mini-button", "+ 새 변수"); add.type = "button";
+  add.addEventListener("click", () => openVariableDialog(kind, onInput));
+  row.append(select, add); wrapper.append(row);
+  wrapper.append(element(
+    "small", "resource-hint",
+    kind === "flag" ? "게임 데이터에 선언된 boolean 진행 변수" : "게임 데이터에 선언된 integer/string 진행 변수",
+  ));
+  form.append(wrapper); return select;
+}
+
+function nextVariableId(kind) {
+  const prefix = kind === "flag" ? "cobbleventure:flag/new_variable" : "cobbleventure:variable/new_variable";
+  const ids = new Set((state.gameDefinitions.variables || []).map((entry) => entry.id));
+  let id = prefix; let suffix = 2;
+  while (ids.has(id)) id = `${prefix}_${suffix++}`;
+  return id;
+}
+
+function updateVariableDefaultInput() {
+  const form = $("#new-variable-form");
+  const type = form.elements.type.value;
+  const input = form.elements.default;
+  if (type === "boolean") { input.type = "text"; input.removeAttribute("step"); input.value = "false"; input.placeholder = "true 또는 false"; }
+  else if (type === "integer") { input.type = "number"; input.step = "1"; input.value = "0"; input.placeholder = "0"; }
+  else { input.type = "text"; input.removeAttribute("step"); input.value = ""; input.placeholder = "기본 문자열"; }
+}
+
+function openVariableDialog(kind, onCreated) {
+  const form = $("#new-variable-form"); form.reset();
+  state.variableTarget = { kind, onCreated };
+  form.elements.id.value = nextVariableId(kind);
+  form.elements.type.value = kind === "flag" ? "boolean" : "integer";
+  form.elements.type.disabled = kind === "flag";
+  [...form.elements.type.options].forEach((option) => { option.disabled = kind === "variable" && option.value === "boolean"; });
+  $("#new-variable-kind-help").textContent = kind === "flag"
+    ? "이 위치는 참/거짓 진행 플래그를 사용하므로 boolean 변수로 추가합니다."
+    : "이 위치는 값 저장 변수를 사용하므로 integer 또는 string 변수로 추가합니다.";
+  updateVariableDefaultInput();
+  $("#new-variable-dialog").showModal();
+  form.elements.nameKo.focus();
+}
+
+function variableDefaultValue(type, raw) {
+  if (type === "boolean") {
+    if (!['true', 'false'].includes(String(raw).toLowerCase())) throw new Error("boolean 기본값은 true 또는 false여야 합니다.");
+    return String(raw).toLowerCase() === "true";
+  }
+  if (type === "integer") {
+    const value = Number(raw); if (!Number.isInteger(value)) throw new Error("integer 기본값은 정수여야 합니다."); return value;
+  }
+  return String(raw);
+}
+
+async function createGameVariable(form) {
+  const target = state.variableTarget;
+  if (!target) return;
+  const data = new FormData(form);
+  const id = String(data.get("id") || "").trim();
+  const nameKo = String(data.get("nameKo") || "").trim();
+  const scope = String(data.get("scope") || "player");
+  const type = target.kind === "flag" ? "boolean" : String(form.elements.type.value);
+  if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(id) || id.split("/").includes("..")) {
+    throw new Error("변수 ID는 namespace:path 형식이어야 합니다.");
+  }
+  if (!nameKo) throw new Error("변수의 한국어 이름이 필요합니다.");
+  if (target.kind === "variable" && !["integer", "string"].includes(type)) throw new Error("값 변수는 integer 또는 string이어야 합니다.");
+  const latest = await request("/api/game-definitions");
+  if (!latest.ok) throw new Error(latest.data.error || "최신 게임 데이터 변수를 불러오지 못했습니다.");
+  const definitions = latest.data; definitions.items ||= []; definitions.variables ||= [];
+  if (definitions.variables.some((entry) => entry.id === id)) throw new Error("이미 선언된 변수 ID입니다.");
+  definitions.variables.push({
+    id, scope, type, default: variableDefaultValue(type, form.elements.default.value),
+    display_name: { ko_kr: nameKo },
+    description: { ko_kr: String(data.get("description") || "").trim() },
+  });
+  const saved = await request("/api/game-definitions", { method: "PUT", body: JSON.stringify(definitions) });
+  if (!saved.ok) {
+    const message = saved.data.issues?.map((issue) => `${issue.path}: ${issue.message}`).join("\n");
+    throw new Error(message || saved.data.error || "진행 변수를 저장하지 못했습니다.");
+  }
+  state.gameDefinitions = definitions;
+  await loadContract();
+  target.onCreated(id);
+  state.variableTarget = null;
+  $("#new-variable-dialog").close();
+  renderInspector();
+  toast(`진행 변수 ${id}를 추가하고 현재 필드에 선택했습니다.`);
 }
 
 function callName(expression) {
@@ -553,7 +691,7 @@ function renderCommandFields(form, node) {
     if (current && parameter.name === "anchor") editAnchorProperty(form, node, current);
     else if (current) editParameter(form, parameter, current.value, (value) => { current.value = value; });
   });
-  if (contract.result_type) field(form, `결과 변수 · ${contract.result_type}`, node.result || "", (value) => { node.result = value || null; markDirty(); renderTree(); });
+  if (contract.result_type) localVariableField(form, `결과 임시 변수 · ${contract.result_type}`, node.result || "", (value) => { node.result = value || null; markDirty(); renderTree(); });
 }
 
 function renderTriggerFields(form, trigger) {
@@ -818,7 +956,7 @@ function renderInspector() {
   else if (node.node === "say") { selectField(form, "화자", node.speaker, state.contract?.speakers || ["npc", "player", "system"], (value) => { node.speaker = value; markDirty(); renderTree(); }); editText(form, node, "text", "대사"); editStableId(form, node); }
   else if (node.node === "narrate") { editText(form, node, "text", "설명"); editStableId(form, node); }
   else if (node.node === "if") { editCondition(form, node, "condition", "조건식"); editStableId(form, node); }
-  else if (node.node === "choice") { editText(form, node, "prompt", "질문"); field(form, "결과 변수", node.result || "", (value) => { node.result = value || null; markDirty(); }); editStableId(form, node); const addOption = element("button", "button secondary", "선택 항목 추가"); addOption.type = "button"; addOption.addEventListener("click", () => { const option = { node: "choice_option", text: text("새 선택"), block: block() }; node.options.push(option); state.selected = option; markDirty(); renderTree(); renderInspector(); }); form.append(addOption); }
+  else if (node.node === "choice") { editText(form, node, "prompt", "질문"); localVariableField(form, "선택 결과 임시 변수", node.result || "", (value) => { node.result = value || null; markDirty(); }); editStableId(form, node); const addOption = element("button", "button secondary", "선택 항목 추가"); addOption.type = "button"; addOption.addEventListener("click", () => { const option = { node: "choice_option", text: text("새 선택"), block: block() }; node.options.push(option); state.selected = option; markDirty(); renderTree(); renderInspector(); }); form.append(addOption); }
   else if (node.node === "choice_option") editText(form, node, "text", "선택 문구");
   else if (node.node === "command") {
     checkboxField(form, "고급 흐름 명령 표시", state.showAdvancedCommands, (checked) => { state.showAdvancedCommands = checked; renderInspector(); });
@@ -830,7 +968,7 @@ function renderInspector() {
     readonlyField(form, "실행 경계", boundary);
     renderCommandFields(form, node); editStableId(form, node);
   }
-  else if (node.node === "let") { field(form, "변수명", node.name, (value) => { node.name = value; markDirty(); renderTree(); }); editExpression(form, node, "value", "값"); editStableId(form, node); }
+  else if (node.node === "let") { localVariableField(form, "임시 변수명", node.name, (value) => { node.name = value; markDirty(); renderTree(); }); editExpression(form, node, "value", "값"); editStableId(form, node); }
   else if (node.node === "repeat") { editExpression(form, node, "count", "반복 횟수"); editStableId(form, node); }
 }
 
@@ -969,6 +1107,15 @@ $("#new-script").addEventListener("click", () => $("#new-script-dialog").showMod
 $("#close-new-script").addEventListener("click", () => $("#new-script-dialog").close());
 $("#cancel-new-script").addEventListener("click", () => $("#new-script-dialog").close());
 $("#new-script-form").addEventListener("submit", (event) => { event.preventDefault(); createNewScript(event.currentTarget).catch((error) => toast(error.message)); });
+$("#close-new-variable").addEventListener("click", () => { state.variableTarget = null; $("#new-variable-dialog").close(); });
+$("#cancel-new-variable").addEventListener("click", () => { state.variableTarget = null; $("#new-variable-dialog").close(); });
+$("#new-variable-dialog").addEventListener("close", () => { state.variableTarget = null; });
+$("#new-variable-form select[name=type]").addEventListener("change", updateVariableDefaultInput);
+$("#new-variable-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const submit = event.currentTarget.querySelector('button[type="submit"]'); submit.disabled = true;
+  createGameVariable(event.currentTarget).catch((error) => toast(error.message)).finally(() => { submit.disabled = false; });
+});
 $("#validate-ast").addEventListener("click", () => validateTree().catch((error) => toast(error.message)));
 $("#apply-source").addEventListener("click", () => applySource().catch((error) => toast(error.message)));
 $("#save-script").addEventListener("click", () => saveScript().catch((error) => toast(error.message)));
@@ -979,8 +1126,9 @@ $("#delete-node").addEventListener("click", deleteSelected);
 window.addEventListener("beforeunload", (event) => { if (state.dirty) { event.preventDefault(); event.returnValue = ""; } });
 
 async function initialize() {
-  await loadContract();
-  await loadScripts();
+  await Promise.all([loadContract(), loadGameDefinitions()]);
+  const preferredPath = new URLSearchParams(window.location.search).get("path") || state.path;
+  await loadScripts(preferredPath);
 }
 
 initialize().catch((error) => { updateState("연결 실패", "invalid"); toast(error.message); });

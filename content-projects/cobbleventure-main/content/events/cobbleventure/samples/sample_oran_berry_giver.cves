@@ -1,0 +1,19 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/sample/sample_oran_berry_giver/claimed") {
+    say npc {
+      ko_kr: "열매는 이미 나눠 줬어. 다음 수확 때 다시 보자!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "오늘 수확한 오랭열매야. 모험에 보탬이 될 거야."
+    }
+    id "first/give_item" give_item "cobblemon:oran_berry" count 4 notify -> reward
+    if reward.remaining_count > 0 {
+      narrate "가방에 빈 공간이 없어 보상을 모두 받을 수 없습니다."
+      stop
+    }
+    id "first/set_claimed" set_flag "cobbleventure:flag/sample/sample_oran_berry_giver/claimed" true
+  }
+}

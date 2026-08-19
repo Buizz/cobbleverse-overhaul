@@ -831,7 +831,8 @@ final class BuildingRuntimeSystem {
         }
         UUID spawnedNpcId = UUID.randomUUID();
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
-        String preset = "easy_npc:preset/encounter/" + slug + ".npc.snbt";
+        String preset = "easy_npc:preset/encounter/" + slug
+            + CobbleventureBootstrap.npcPresetSuffix(level, npcId) + ".npc.snbt";
         String command = "easy_npc preset import data " + preset + " "
             + position.getX() + " " + position.getY() + " " + position.getZ()
             + " " + spawnedNpcId;

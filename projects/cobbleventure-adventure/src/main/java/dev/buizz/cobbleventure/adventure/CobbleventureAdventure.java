@@ -1,6 +1,5 @@
 package dev.buizz.cobbleventure.adventure;
 
-import dev.buizz.cobbleventure.adventure.battleai.CobbleventureBattleAIRegistration;
 import dev.buizz.cobbleventure.adventure.event.EventScriptRepository;
 import dev.buizz.cobbleventure.adventure.event.EventDialogueNetwork;
 import dev.buizz.cobbleventure.adventure.event.EventNpcBindingRepository;
@@ -66,7 +65,6 @@ public final class CobbleventureAdventure {
         EventSessionAdminCommands.register();
         EventPresentationBridge.register();
         EventDialogueNetwork.register(modBus);
-        CobbleventureBattleAIRegistration.register();
         FieldMoveRidingAccess.register();
         WildSpawnLeveling.register();
         AuthoredFishingEncounters.register();

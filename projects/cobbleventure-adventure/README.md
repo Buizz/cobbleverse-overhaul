@@ -26,15 +26,8 @@
 - CVES `face`와 공통 fade·wait·sound·particle presentation await
 - World Bootstrap의 변환 완료 settlement와 명시적 event anchor를 사용하는 CVES 위치 provider 경계
 - Cave·Forest 입구와 수동 공간 앵커를 사용하는 CVES `enter_space` await
-- KMP 공통 2턴 투영과 Cobblemon/Showdown 로그의 HP·랭크·상태·필드·기믹 차등 검증 어댑터
-- 누적 전투 로그 코퍼스 회귀 러너와 opt-in 운영 로그 캡처
-
-공유 전투 AI 이관의 최종 책임 경계와 검증 결과는
-[공유 전투 AI 이관 완료 보고서](../cobbleventure-battle-ai/docs/SHARED_BATTLE_AI_MIGRATION_COMPLETION.md)를 기준으로 한다.
-
 월드 모드는 `AdventureWorldContext`를 등록해 지역별 권장 레벨과 날씨를 제공한다.
 
-전투 투영 운영 검증 로그는 JVM 인수
-`-Dcobbleventure.ai.projectionLogCaptureDir=<전용 디렉터리 절대 경로>`를 지정한 개발 서버에서만
-저장된다. 기본값은 비활성이며 캡처 파일은 플레이어 이름을 포함할 수 있으므로 익명화 후
-`src/test/resources/battle-ai/projection-log-corpus`에 체크포인트와 함께 추가한다.
+강화 전투 AI는 Adventure에 포함되지 않으며 독립
+[`cobbleventure_battle_ai`](../cobbleventure-battle-ai/README.md) 모드가 제공한다. Adventure의
+개발 런타임에는 복합 Gradle 빌드를 통해 해당 모드가 연결되지만, 양쪽 JAR는 독립적으로 배포된다.

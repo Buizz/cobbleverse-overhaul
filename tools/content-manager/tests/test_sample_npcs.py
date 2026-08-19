@@ -74,6 +74,8 @@ class SampleNpcTests(unittest.TestCase):
     def test_standard_samples_store_presets_instead_of_easy_npc_event_commands(self) -> None:
         for document in self.raw_sources:
             self.assertEqual("preset", document["event_design"]["mode"])
+            self.assertEqual("cves_v5", document["event_runtime"]["engine"])
+            self.assertEqual("preset", document["event_runtime"]["authoring"])
             self.assertNotIn("events", document)
             preset = document["event_design"]["preset"]
             if preset["type"] == "battle":
@@ -81,6 +83,26 @@ class SampleNpcTests(unittest.TestCase):
                     {"type": "interact", "range": 4},
                     preset["after_victory_trigger"],
                 )
+
+    def test_every_sample_has_generated_cves_binding_and_inert_v5_preset(self) -> None:
+        preset_root = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/easy_npc/"
+            "preset/encounter"
+        )
+        for document in self.raw_sources:
+            slug = document["id"].rsplit("/", 1)[-1]
+            script_id = f"cobbleventure:event_script/samples/{slug}"
+            event = PROJECT_ROOT / f"content/events/cobbleventure/samples/{slug}.cves"
+            binding = PROJECT_ROOT / f"content/event-bindings/cobbleventure/samples/{slug}.json"
+            representation = preset_root / f"{slug}__v5.npc.snbt"
+            with self.subTest(slug=slug):
+                self.assertEqual(script_id, document["event_runtime"]["script_id"])
+                self.assertTrue(event.is_file())
+                self.assertEqual(script_id, json.loads(binding.read_text(encoding="utf-8"))["script_id"])
+                checked_in = representation.read_text(encoding="utf-8")
+                self.assertIn("ActionEventSet:{}", checked_in)
+                self.assertIn("DialogDataSet:[]", checked_in)
+                self.assertIn(f"cves_binding/cobbleventure/samples/{slug}", checked_in)
 
     def test_has_four_one_time_item_givers(self) -> None:
         item_givers = [document for document in self.sources if "item_giver" in document["tags"]]

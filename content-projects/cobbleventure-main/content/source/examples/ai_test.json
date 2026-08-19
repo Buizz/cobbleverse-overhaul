@@ -212,6 +212,11 @@
       ]
     }
   ],
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "custom",
+    "script_id": "cobbleventure:event_script/examples/ai_test"
+  },
   "event_design": {
     "mode": "easy_npc_events"
   }

@@ -77,12 +77,6 @@ repositories {
 }
 
 dependencies {
-    jarJar(implementation("dev.buizz.cobbleventure:shared-ai-core:0.1.0-SNAPSHOT")) {
-        version {
-            strictly '[0.1,0.2)'
-            prefer '0.1.0-SNAPSHOT'
-        }
-    }
     compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"
@@ -100,6 +94,10 @@ test {
 configurations {
     localRuntime
     runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    localRuntime "dev.buizz.cobbleventure:cobbleventure-battle-ai:0.1.0"
 }
 
 if (project.hasProperty('integration_mods_dir')) {
@@ -142,11 +140,6 @@ processResources {
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
-    }
-    from('../cobbleventure-battle-ai/data/ai') {
-        include 'ai-move-role-classification.json'
-        include 'ai-pokemon-role-overrides.json'
-        into 'battle-ai'
     }
     from(eventResourceNamesFile) {
         into 'assets/cobbleventure_adventure'

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .catalog import load_project_catalog
 from .compiler import compile_program
+from .formatter import format_program
 from .migration import (
     compare_battle_event_migration,
     compare_gym_leader_migration,
@@ -17,6 +18,7 @@ from .migration import (
     compare_starter_event_migration,
 )
 from .parser import parse
+from .presets import preset_program
 
 
 NAMESPACE = re.compile(r"^[a-z0-9_.-]+$")
@@ -102,6 +104,15 @@ def compile_project(
                     f"{legacy_source}: V4 비교 원본을 읽을 수 없습니다: {error}"
                 ) from error
             preset = legacy_document.get("event_design", {}).get("preset", {})
+            runtime = legacy_document.get("event_runtime", {})
+            if runtime.get("engine") == "cves_v5" and runtime.get("authoring") == "preset":
+                generated = format_program(preset_program(legacy_document))
+                current = format_program(programs_by_id[document["script_id"]])
+                if generated != current:
+                    raise CvesProjectError(
+                        f"{source}: 행동 프리셋에서 생성한 CVES와 저장된 이벤트가 다릅니다. "
+                        "NPC 설정에서 다시 저장하거나 사용자 정의 이벤트로 전환해 주세요."
+                    )
             if legacy_document.get("schema_version") == 4 and preset.get("type") == "item":
                 try:
                     differences = compare_item_reward_migration(

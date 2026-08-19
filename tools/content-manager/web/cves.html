@@ -34,7 +34,7 @@
           <div class="tree-actions">
             <button data-add="say" type="button" disabled>대사</button>
             <button data-add="narrate" type="button" disabled>설명</button>
-            <button data-add="let" type="button" disabled>변수</button>
+            <button data-add="let" type="button" disabled>임시 변수</button>
             <button data-add="if" type="button" disabled>조건</button>
             <button data-add="choice" type="button" disabled>선택지</button>
             <button data-add="repeat" type="button" disabled>반복</button>
@@ -78,6 +78,22 @@
           <p>빈 기본 페이지가 있는 공통 AST를 만들며, 첫 저장 전까지 파일은 생성되지 않습니다.</p>
         </div>
         <div class="dialog-actions"><button id="cancel-new-script" class="button secondary" type="button">취소</button><button class="button primary" type="submit">트리 만들기</button></div>
+      </form>
+    </dialog>
+    <dialog id="new-variable-dialog" class="editor-dialog">
+      <form id="new-variable-form" method="dialog">
+        <div class="panel-heading"><div><small>GAME DATA REGISTRY</small><h2>새 진행 변수</h2></div><button id="close-new-variable" class="icon-button" type="button">×</button></div>
+        <div class="dialog-body variable-dialog-body">
+          <p>게임 데이터의 진행 변수에 즉시 추가하고 저장합니다. 이후 다른 NPC 이벤트와 조건에서도 같은 변수를 선택할 수 있습니다.</p>
+          <label class="field"><span>변수 ID</span><input name="id" placeholder="cobbleventure:flag/story/example" required></label>
+          <label class="field"><span>한국어 이름</span><input name="nameKo" placeholder="예: 오박사와 대화함" required></label>
+          <label class="field"><span>저장 범위</span><select name="scope"><option value="player">플레이어별</option><option value="global">월드 전체</option></select></label>
+          <label class="field"><span>자료형</span><select name="type"><option value="boolean">boolean</option><option value="integer">integer</option><option value="string">string</option></select></label>
+          <label class="field"><span>기본값</span><input name="default" value="false" required></label>
+          <label class="field"><span>용도와 설명</span><textarea name="description" rows="2" placeholder="어디에서 변경하고 사용하는지 적어 주세요."></textarea></label>
+          <p id="new-variable-kind-help"></p>
+        </div>
+        <div class="dialog-actions"><a class="button registry-link" href="/?section=definitions" target="_blank">전체 변수 관리</a><button id="cancel-new-variable" class="button secondary" type="button">취소</button><button class="button primary" type="submit">추가하고 저장</button></div>
       </form>
     </dialog>
     <script type="module" src="/cves-editor.js"></script>
