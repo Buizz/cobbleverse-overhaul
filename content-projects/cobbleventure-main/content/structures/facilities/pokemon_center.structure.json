@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/facilities/pokemon_center.nbt",
+  "display_name": {
+    "ko_kr": "포켓몬센터",
+    "en_us": "Pokemon Center"
+  },
+  "provenance": {
+    "project": "Cobblemon Additions",
+    "version": "4.2.1",
+    "authors": [
+      "Strikebyte",
+      "IronboundJam03",
+      "PeculiarSana",
+      "Nezmir"
+    ],
+    "source_resource": "bca:default/one_off/pokecenter",
+    "source_jar_sha1": "8aff3ce2f13787b310af5293022c413daccdee4b",
+    "source_nbt_sha256": "fccfa64382d23a1945983c90b6d2279fefd901750d99a15e89b3d725bbfe00f5",
+    "license": "CC0-1.0",
+    "modified_copy": true
+  },
+  "anchors": [
+    {
+      "label": "nurse",
+      "type": "npc_position",
+      "position": [16, 5, 10]
+    },
+    {
+      "label": "chansey",
+      "type": "npc_position",
+      "position": [17, 5, 11]
+    }
+  ]
+}

@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.adventure;
 
 import dev.buizz.cobbleventure.adventure.event.EventScriptRepository;
 import dev.buizz.cobbleventure.adventure.event.EventDialogueNetwork;
+import dev.buizz.cobbleventure.adventure.event.EventDialogueThemeRepository;
 import dev.buizz.cobbleventure.adventure.event.EventNpcBindingRepository;
 import dev.buizz.cobbleventure.adventure.event.EventNpcInteractionHandler;
 import dev.buizz.cobbleventure.adventure.event.EventNpcProximityHandler;
@@ -14,6 +15,8 @@ import dev.buizz.cobbleventure.adventure.event.EventMovementBridge;
 import dev.buizz.cobbleventure.adventure.event.EventSessionAdminCommands;
 import dev.buizz.cobbleventure.adventure.event.EventPresentationBridge;
 import dev.buizz.cobbleventure.adventure.event.EventServerSignalBridge;
+import dev.buizz.cobbleventure.adventure.event.EventAwaitInputLockService;
+import dev.buizz.cobbleventure.adventure.event.EventHealingBridge;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
@@ -52,6 +55,7 @@ public final class CobbleventureAdventure {
 
     public CobbleventureAdventure(IEventBus modBus) {
         EventScriptRepository.register();
+        EventDialogueThemeRepository.register();
         EventNpcBindingRepository.register();
         EventBattlePresetRepository.register();
         EventNpcInteractionHandler.register();
@@ -64,6 +68,8 @@ public final class CobbleventureAdventure {
         EventMovementBridge.register();
         EventSessionAdminCommands.register();
         EventPresentationBridge.register();
+        EventHealingBridge.register();
+        EventAwaitInputLockService.register();
         EventDialogueNetwork.register(modBus);
         FieldMoveRidingAccess.register();
         WildSpawnLeveling.register();

@@ -165,6 +165,25 @@ public final class EventRecoverableAwait {
         return true;
     }
 
+    public static boolean resetHealing(EventSessionStore store, EventSessionKey key) {
+        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(key, "key");
+        EventSession session = store.find(key).orElse(null);
+        if (session == null
+            || session.status() != EventSession.Status.WAITING
+            || session.awaiting() == null
+            || !session.awaiting().kind().equals("heal_party")) {
+            return false;
+        }
+        EventHealingBridge.cancel(key);
+        EventSession.CallbackResult result = session.terminateAwait(
+            session.awaiting().token(), EventSession.CompletionKind.CANCELLED
+        );
+        if (result != EventSession.CallbackResult.RESUMED) return false;
+        store.save(session);
+        return true;
+    }
+
     private static boolean resetMovementKind(
         EventSessionStore store, EventSessionKey key, String kind
     ) {

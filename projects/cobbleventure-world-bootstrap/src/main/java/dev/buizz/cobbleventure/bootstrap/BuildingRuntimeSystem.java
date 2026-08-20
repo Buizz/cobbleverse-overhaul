@@ -1,13 +1,16 @@
 package dev.buizz.cobbleventure.bootstrap;
 
-import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.block.entity.DisplayCaseBlockEntity;
+import com.cobblemon.mod.common.block.entity.HealingMachineBlockEntity;
+import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.PokemonCenterHealingService;
 import dev.buizz.cobbleventure.adventure.event.EventLocationRef;
 import dev.buizz.cobbleventure.adventure.event.EventMovementFailureReason;
 import dev.buizz.cobbleventure.adventure.event.EventLocationResolverRegistry;
@@ -48,6 +51,7 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
@@ -61,6 +65,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.scores.Objective;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
@@ -85,12 +90,14 @@ final class BuildingRuntimeSystem {
     private static final Map<DoorKey, DoorTarget> DOORS = new HashMap<>();
     private static final Map<String, EventSpaceInstance> EVENT_SPACES = new LinkedHashMap<>();
     private static final Map<UUID, PendingNpcSeat> PENDING_NPC_SEATS = new LinkedHashMap<>();
-
     private BuildingRuntimeSystem() {
     }
 
     static void register() {
         NeoForge.EVENT_BUS.addListener(BuildingRuntimeSystem::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(
+            EventPriority.HIGHEST, BuildingRuntimeSystem::onEntityInteract
+        );
         NeoForge.EVENT_BUS.addListener(BuildingRuntimeSystem::onServerTick);
     }
 
@@ -133,6 +140,10 @@ final class BuildingRuntimeSystem {
         applyFixedNpcs(
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedNpcs, "exterior"
+        );
+        applyFixedPokemon(
+            level, metadata, origin.toBlockPos(), rotation, instanceKey,
+            settings == null ? Map.of() : settings.fixedPokemon, "exterior"
         );
         if (settings != null && settings.noInteriorSpace) {
             return;
@@ -453,6 +464,13 @@ final class BuildingRuntimeSystem {
                         fixed.put(npc.getKey(), npc.getValue().getAsString());
                     }
                 }
+                Map<String, String> fixedPokemon = new LinkedHashMap<>();
+                if (value.has("fixed_pokemon")) {
+                    for (Map.Entry<String, JsonElement> pokemon
+                        : value.getAsJsonObject("fixed_pokemon").entrySet()) {
+                        fixedPokemon.put(pokemon.getKey(), pokemon.getValue().getAsString());
+                    }
+                }
                 List<InteriorSetting> interiors = new ArrayList<>();
                 if (value.has("interiors")) {
                     for (JsonElement interiorElement : value.getAsJsonArray("interiors")) {
@@ -492,6 +510,7 @@ final class BuildingRuntimeSystem {
                     value.has("no_interior_space")
                         && value.get("no_interior_space").getAsBoolean(),
                     Map.copyOf(fixed),
+                    Map.copyOf(fixedPokemon),
                     value.has("citizen_placement_allowed")
                         ? value.get("citizen_placement_allowed").getAsBoolean()
                         : value.has("random_citizen_eligible")
@@ -539,6 +558,30 @@ final class BuildingRuntimeSystem {
         return StructureTemplate.transform(
             approach, Mirror.NONE, rotation(rotationName), BlockPos.ZERO
         );
+    }
+
+    static BlockPos exteriorRoadAnchorOffset(
+        ServerLevel level, String structure, String rotationName
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
+        if (structureId == null) return null;
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return null;
+        StructurePlaceSettings settings = new StructurePlaceSettings()
+            .setRotation(rotation(rotationName));
+        List<StructureTemplate.StructureBlockInfo> anchors = template.orElseThrow()
+            .filterBlocks(BlockPos.ZERO, settings, Blocks.JIGSAW).stream()
+            .filter(marker -> marker.nbt() != null
+                && "cobbleventure:road_anchor".equals(marker.nbt().getString("name")))
+            .toList();
+        if (anchors.size() > 1) {
+            LOGGER.error(
+                "Building template has multiple road anchors: structure={}, count={}",
+                structure, anchors.size()
+            );
+            return null;
+        }
+        return anchors.isEmpty() ? null : anchors.getFirst().pos();
     }
 
     static String musicTrack(String structure) {
@@ -671,6 +714,87 @@ final class BuildingRuntimeSystem {
                 data.markSpawned(spawnKey);
             }
         }
+    }
+
+    private static void applyFixedPokemon(
+        ServerLevel level, StructureMetadata metadata,
+        BlockPos origin, Rotation rotation, String instanceKey,
+        Map<String, String> fixedPokemon, String spaceKey
+    ) {
+        if (fixedPokemon.isEmpty()) return;
+        RuntimeData runtime = data(level.getServer());
+        for (Anchor anchor : metadata.anchors) {
+            if (!anchor.type.equals("npc_position")) continue;
+            String scoped = spaceKey + ":" + anchor.id;
+            String properties = fixedPokemon.get(scoped);
+            if (properties == null && spaceKey.equals("exterior")) {
+                properties = fixedPokemon.get(anchor.id);
+            }
+            String spawnKey = instanceKey + "|pokemon|" + scoped;
+            if (properties == null || runtime.hasSpawned(spawnKey)) continue;
+            BlockPos position = transform(origin, anchor.position, rotation);
+            if (spawnFixedPokemon(level, properties, position)) {
+                runtime.markSpawned(spawnKey);
+            }
+        }
+    }
+
+    private static boolean spawnFixedPokemon(
+        ServerLevel level, String properties, BlockPos position
+    ) {
+        if (!canNpcStandAt(level, position)) {
+            LOGGER.warn(
+                "Building Pokemon spawn position is obstructed: pokemon={}, position={}",
+                properties, position
+            );
+            return false;
+        }
+        try {
+            PokemonEntity entity = PokemonProperties.Companion
+                .parse(properties + " uncatchable").createEntity(level);
+            entity.moveTo(
+                position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D,
+                0.0F, 0.0F
+            );
+            entity.setPersistenceRequired();
+            entity.setCountsTowardsSpawnCap(false);
+            entity.getPokemon().setTradeable(false);
+            entity.addTag("cobbleventure_building_pokemon");
+            return level.addFreshEntity(entity);
+        } catch (RuntimeException error) {
+            LOGGER.error(
+                "Building Pokemon placement failed: pokemon={}, position={}",
+                properties, position, error
+            );
+            return false;
+        }
+    }
+
+    private static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+            || event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND
+            || !NurseNpcRouting.usesLegacyFallback(event.getTarget().getTags())) {
+            return;
+        }
+        // Existing worlds may still contain the old V4 representation. Keep its
+        // verified service behavior while V5-bound nurses are owned by CVES.
+        PokemonCenterHealingService.StartResult healing =
+            PokemonCenterHealingService.start(
+                player, event.getTarget().blockPosition(), 8
+            );
+        switch (healing.status()) {
+            case HEALING_MACHINE_NOT_FOUND -> player.sendSystemMessage(Component.translatable(
+                "message.cobbleventure_bootstrap.pokemon_center_no_healer"
+            ));
+            case HEALING_UNAVAILABLE -> player.sendSystemMessage(Component.translatable(
+                "message.cobbleventure_bootstrap.pokemon_center_healer_unavailable"
+            ));
+            case STARTED -> player.sendSystemMessage(Component.translatable(
+                "message.cobbleventure_bootstrap.pokemon_center_nurse_greeting"
+            ));
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
     }
 
     private static void prepareConfiguredInteriors(
@@ -1042,6 +1166,21 @@ final class BuildingRuntimeSystem {
     }
 
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getLevel().getBlockEntity(event.getPos()) instanceof HealingMachineBlockEntity) {
+            // Pokemon Center healing is a nurse service. Consume the block interaction
+            // on both logical sides so Cobblemon cannot start its normal direct-use
+            // flow or briefly show a client-side activation before the server rejects it.
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            if (!event.getLevel().isClientSide()
+                && event.getHand() == net.minecraft.world.InteractionHand.MAIN_HAND
+                && event.getEntity() instanceof ServerPlayer player) {
+                player.sendSystemMessage(Component.translatable(
+                    "message.cobbleventure_bootstrap.pokemon_center_nurse_required"
+                ));
+            }
+            return;
+        }
         if (event.getLevel().getBlockEntity(event.getPos()) instanceof DisplayCaseBlockEntity displayCase
             && !displayCase.getStack().isEmpty()) {
             // A filled display case is part of the authored scenery. Cobblemon swaps or
@@ -1299,7 +1438,8 @@ final class BuildingRuntimeSystem {
 
     private record BuildingSettings(
         int placementYOffset, boolean noInteriorSpace,
-        Map<String, String> fixedNpcs, boolean citizenPlacementAllowed,
+        Map<String, String> fixedNpcs, Map<String, String> fixedPokemon,
+        boolean citizenPlacementAllowed,
         List<InteriorSetting> interiors, Map<String, RouteTarget> routes,
         String musicTrack
     ) {

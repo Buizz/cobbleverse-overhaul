@@ -12,7 +12,6 @@ const flow = {
   drag: null,
   pan: null,
   queries: { building: "", interior: "" },
-  paletteTab: "building",
   filters: { kind: "all", route: "all" },
   dirty: false,
 };
@@ -109,27 +108,6 @@ function renderLibrary() {
   $("#space-interior-cards").innerHTML = interiors.length ? interiors.map(([id, metadata]) =>
     `<button class="space-library-card interior" type="button" draggable="${graph ? "true" : "false"}" data-interior-structure="${escapeHtml(id)}"${graph ? "" : " disabled"}><i>＋</i><span><strong>${escapeHtml(id.split("/").pop())}</strong><small>${escapeHtml(metadata.category_label || id)} · ${metadata.width || "?"}×${metadata.depth || "?"}</small></span><b>${graph ? "끌기" : "대기"}</b></button>`
   ).join("") : '<div class="issues empty">사용 가능한 내부 공간이 없습니다.</div>';
-  renderLibraryTab();
-}
-
-function renderLibraryTab() {
-  document.querySelectorAll("[data-space-library-tab]").forEach((button) => {
-    const active = button.dataset.spaceLibraryTab === flow.paletteTab;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
-  document.querySelectorAll("[data-space-library-pane]").forEach((pane) => {
-    const active = pane.dataset.spaceLibraryPane === flow.paletteTab;
-    pane.classList.toggle("is-active", active);
-    pane.hidden = !active;
-  });
-}
-
-function selectLibraryTab(tab) {
-  if (!["building", "interior"].includes(tab)) return;
-  flow.paletteTab = tab;
-  renderLibraryTab();
-  requestAnimationFrame(() => $(tab === "building" ? "#space-building-search" : "#space-interior-search")?.focus());
 }
 
 function nodeAnchorEntries(node) {
@@ -297,7 +275,7 @@ function renderInspector() {
       </div><button class="button danger space-delete" id="delete-space-edge" type="button">연결선 삭제</button>`;
   } else {
     inspector.innerHTML = graph
-      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>왼쪽 내부 공간 카드를 캔버스로 끌어 놓으세요.</p><p>외부의 <b>문 핀</b>을 내부의 <b>문 핀</b>까지 끌면 하나의 양방향 출입구가 됩니다.</p><p>핀은 NBT 안에 실제 문 블록으로 저장된 위치만 표시합니다.</p><p>연결선을 누르면 외부에서 입장할 때의 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
+      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>아래 내부 공간 리소스를 캔버스로 끌어 놓으세요.</p><p>외부의 <b>문 핀</b>을 내부의 <b>문 핀</b>까지 끌면 하나의 양방향 출입구가 됩니다.</p><p>핀은 NBT 안에 실제 문 블록으로 저장된 위치만 표시합니다.</p><p>연결선을 누르면 외부에서 입장할 때의 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
       : '<div class="issues empty">왼쪽에서 오버월드 건물을 선택하세요.</div>';
   }
 }
@@ -366,7 +344,6 @@ function selectBuilding(owner, kind) {
   flow.selectedEdgeId = "";
   flow.connectionDraft = null;
   if (created) flow.dirty = true;
-  flow.paletteTab = "interior";
   renderAll();
   requestAnimationFrame(fitGraph);
 }
@@ -470,7 +447,6 @@ $("#fit-space-flow").addEventListener("click", fitGraph);
 $("#auto-layout-space-flow").addEventListener("click", autoLayout);
 $("#space-building-search").addEventListener("input", (event) => { flow.queries.building = event.target.value; renderLibrary(); });
 $("#space-interior-search").addEventListener("input", (event) => { flow.queries.interior = event.target.value; renderLibrary(); });
-document.querySelectorAll("[data-space-library-tab]").forEach((button) => button.addEventListener("click", () => selectLibraryTab(button.dataset.spaceLibraryTab)));
 $("#space-library-kind-filter").addEventListener("change", (event) => { flow.filters.kind = event.target.value; renderLibrary(); });
 $("#space-library-route-filter").addEventListener("change", (event) => { flow.filters.route = event.target.value; renderLibrary(); });
 $("#reset-space-library-filters").addEventListener("click", () => {

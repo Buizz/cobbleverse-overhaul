@@ -55,6 +55,7 @@ dependencies {
     localRuntime "maven.modrinth:cobblemon:${cobblemon_maven_version}"
     localRuntime "curse.maven:cobbledollars-859232:8484919"
     localRuntime "curse.maven:kotlin-for-forge-351264:8335665"
+    localRuntime "maven.modrinth:caxton:0.6.4+1.21.1-NEOFORGE"
 }
 
 def integrationBcaJar = null
@@ -131,11 +132,19 @@ tasks.register('syncDevelopmentClientConfig', Copy) {
     into(file('run/config'))
 }
 
-tasks.register('syncDevelopmentResourcePacks', Copy) {
+tasks.register('cleanDevelopmentFontResourcePacks', Delete) {
     group = 'cobbleventure development'
-    description = 'Copies the Minecraft-scaled Pokemon BW bitmap font into the run directory.'
-    from(rootProject.file('../../local-assets/PokemonBW-Minecraft.zip'))
-    into(file('run/resourcepacks'))
+    description = 'Removes obsolete Pokemon BW font experiments from the Paxi directory.'
+    delete layout.projectDirectory.file('run/config/paxi/resourcepacks/PokemonBW.zip')
+    delete layout.projectDirectory.file('run/config/paxi/resourcepacks/PokemonBW-Minecraft.zip')
+}
+
+tasks.register('syncDevelopmentResourcePacks', Copy) {
+    dependsOn 'cleanDevelopmentFontResourcePacks'
+    group = 'cobbleventure development'
+    description = 'Copies the Caxton Pokemon BW MSDF font into the run directory.'
+    from(rootProject.file('../../local-assets/PokemonBW-Caxton.zip'))
+    into(file('run/config/paxi/resourcepacks'))
 }
 
 def runClientPreparationTasks = [

@@ -76,6 +76,7 @@ public final class EventAwaitCompletionService {
             return new Outcome(Status.STALE, null);
         }
         store.save(session);
+        EventAwaitInputLockService.prepareResume(authenticatedPlayerId, token);
         EventInterpreter.RunResult runResult = EventInterpreter.run(
             script, session, environment, adapter, store, maxSteps
         );

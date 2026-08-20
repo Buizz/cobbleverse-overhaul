@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "cobbleventure_player_menu:item/stale_rice_cake"
+  }
+}

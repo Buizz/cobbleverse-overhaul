@@ -7,7 +7,6 @@ import com.mojang.logging.LogUtils;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -49,10 +48,9 @@ public final class EventItemGrantBridge {
 
     private static void registerCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
-            Commands.literal("cobbleventure_event")
+            Commands.literal("cobbleventure_event_item_result")
                 .requires(source -> source.hasPermission(4))
-                .then(Commands.literal("item_result")
-                    .then(Commands.argument("token", StringArgumentType.word())
+                .then(Commands.argument("token", StringArgumentType.word())
                         .then(Commands.argument("requested", IntegerArgumentType.integer(0))
                             .then(Commands.argument("granted", IntegerArgumentType.integer(0))
                                 .then(Commands.argument("remaining", IntegerArgumentType.integer(0))
@@ -73,7 +71,7 @@ public final class EventItemGrantBridge {
                                         IntegerArgumentType.getInteger(context, "granted"),
                                         IntegerArgumentType.getInteger(context, "remaining"),
                                         StringArgumentType.getString(context, "failure_reason")
-                                    ))))))))
+                                    )))))))
         );
     }
 

@@ -122,6 +122,7 @@ Program
 | `battle_result` | outcome(`win/loss/cancelled`), opponent trainer `resource_id` |
 | `item_result` | requested_count, granted_count, remaining_count, 선택적 failure_reason |
 | `movement_result` | arrived, failure_reason, destination |
+| `healing_result` | healed, failure_reason |
 
 지역 변수 범위는 이벤트 실행 세션이다. `let`과 명령의 `->`가 지역 변수를 만들며,
 영구 값은 `set_flag` 또는 `set_player_variable`만 변경한다. 지역 변수의 재선언,
@@ -157,6 +158,7 @@ Minecraft 선택자와 명령 실행을 허용하지 않는다. 언어별 텍스
 | `battle` | battle `resource_id` | `battle_result` | 필수 |
 | `starter_roulette` | 선택 정책 | `pokemon_selection` | 필수 |
 | `map_selection` | 지도/목적지 정책 | `location_ref` | 필수 |
+| `heal_party` | NPC 근처 포켓몬센터 치료기 | `healing_result` | 필수 |
 | `move`, `teleport`, `enter_space` | 대상 + `location_ref` + 속성 | `movement_result` | 필수 |
 | `give_item` | item `resource_id`, `count`, `notify` | `item_result` | 암시적 대기 가능 |
 | `give_loot` | loot `resource_id`, 추첨 횟수 `count`(1..1024), `notify` | `item_result` | 암시적 대기 가능 |
@@ -170,7 +172,7 @@ Minecraft 선택자와 명령 실행을 허용하지 않는다. 언어별 텍스
 | 상태·돈·배지·기능·방향 명령 | 명령별 값 | 필요 시 `bool` | 표기 없음 |
 | `label`, `jump`, `call`, `return` | 식별자 | 없음 | 표기 없음, 고급 기능 |
 
-명시적 비동기 여섯 명령은 `await`가 없으면 문법 오류다. 콜백은 후속 라벨이 아니라
+명시적 비동기 명령은 `await`가 없으면 문법 오류다. 콜백은 후속 라벨이 아니라
 세션 토큰과 타입 결과만 반환한다. `give_item`처럼 획득 연출을 기다릴 수 있는 명령은
 실행 IR lowering이 암시적 대기 경계를 삽입하므로 CVES에서 `await`를 붙이지 않는다.
 `give_loot`의 `count`는 생성될 아이템 수가 아니라 loot table 추첨 횟수다. 반환되는
@@ -215,7 +217,7 @@ settlement이며, 알 수 없는 ID는 원본 리소스 ID로 결정적으로 �
 stop, show_choices,
 set_flag, set_variable, set_player_variable, unlock_feature, set_level_cap,
 give_item, give_loot, give_money, take_money, grant_badge, grant_field_move,
-battle, starter_roulette, map_selection,
+battle, starter_roulette, map_selection, heal_party,
 move, teleport, enter_space, face,
 fade, wait, sound, effect,
 label, jump, call, return
@@ -244,6 +246,12 @@ label, jump, call, return
 `settlement(id)`에서 이동 명령의 `anchor` 속성을 생략하면 `player_spawn`을 사용한다.
 지정한 settlement anchor와 기본 도착점은 authored 절대 좌표가 아니라 현재 월드
 플랜이 확정한 runtime 좌표로 해석한다.
+`heal_party`는 대화 중인 NPC 주변 8블록의 가장 가까운 포켓몬 치료기를 작동시키고
+기계 연출이 끝날 때까지 공통 await 입력 잠금을 유지한다. 결과의 `healed`는 실제 치료
+완료 여부이며 `failure_reason`은 성공 시 빈 문자열, 실패 시
+`healing_machine_not_found`, `healing_unavailable`, `healing_interrupted`,
+`healing_timeout` 중 하나다. 포켓몬센터는 반복 이용 서비스이므로 안정 ID는 세션 복구
+anchor로 사용하지만 완료 작업 저널에는 기록하지 않아 다음 방문에도 다시 실행한다.
 `enter_space`의 destination은 반드시 `space(id)`여야 한다. `space(id)`는
 cave·forest처럼 자체 공간 ID를 가진 대상이며 이동 명령의 `anchor`
 속성이 필수다. Cave entrance와 manual layout anchor, forest entrance ID가 권위 있는

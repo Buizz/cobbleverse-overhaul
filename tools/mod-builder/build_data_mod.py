@@ -3,11 +3,13 @@ from __future__ import annotations
 import argparse
 import copy
 import gzip
+import io
 import json
 import math
 import os
 import re
 import shutil
+import struct
 from pathlib import Path
 
 from starter_gym import (
@@ -57,6 +59,9 @@ DIMENSION_ANCHOR_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/dimension-anchors.jso
 DIMENSION_ANCHOR_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/dimension-anchors.json")
 EVENT_BOUNDARY_CATALOG_SOURCE = CONTENT_ROOT / "catalogs/event-boundaries.json"
 EVENT_BOUNDARY_CATALOG_ENTRY = Path("data/cobbleventure/catalogs/event-boundaries.json")
+DIALOGUE_THEME_SOURCE = CONTENT_ROOT / "catalogs/dialogue-theme.json"
+DIALOGUE_THEME_ENTRY = Path("data/cobbleventure/dialogue_theme/global.json")
+DIALOGUE_THEME_ASSET_ENTRY = Path("assets/cobbleventure/dialogue_theme/global.json")
 BATTLE_PRESET_SOURCE_DIR = CONTENT_ROOT / "battles"
 LOOT_TABLE_SOURCE_DIR = CONTENT_ROOT / "loot_tables"
 NPC_SOURCE_DIR = CONTENT_ROOT / "source"
@@ -152,6 +157,21 @@ def _package_event_boundary_catalog(root: Path, output: Path) -> None:
     )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(source.read_bytes())
+
+
+def _package_dialogue_theme(root: Path, output: Path) -> None:
+    """Package the authored global dialogue presentation contract unchanged."""
+    source = _inside(root, root / DIALOGUE_THEME_SOURCE, "대화 테마")
+    if not source.is_file():
+        return
+    target = _inside(root, output / DIALOGUE_THEME_ENTRY, "생성 대화 테마")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(source.read_bytes())
+    asset_target = _inside(
+        root, output / DIALOGUE_THEME_ASSET_ENTRY, "생성 클라이언트 대화·메뉴 테마"
+    )
+    asset_target.parent.mkdir(parents=True, exist_ok=True)
+    asset_target.write_bytes(source.read_bytes())
 
 
 def _package_loot_tables(root: Path, output: Path) -> None:
@@ -508,8 +528,10 @@ def _town_indoor_npc_capacity(
         if isinstance(facility, dict) and isinstance(facility.get("id"), str)
     } if isinstance(data.get("structure_profile"), dict) else {}
     facilities = compiled_layout.get("facilities", {})
-    for facility_id in facilities if isinstance(facilities, dict) else []:
+    for facility_id, facility_plot in facilities.items() if isinstance(facilities, dict) else []:
         structure_id = facility_structures.get(str(facility_id))
+        if structure_id is None and isinstance(facility_plot, dict):
+            structure_id = facility_plot.get("structure")
         setting = buildings.get(structure_id)
         if not isinstance(structure_id, str) or not isinstance(setting, dict):
             continue
@@ -863,25 +885,123 @@ def _plot_intersects_road(
     return _plots_intersect(plot, road_rect, margin)
 
 
-def _compiled_facility_specs(data: dict[str, object]) -> list[tuple[str, int, int]]:
+DEFAULT_FACILITY_STRUCTURES = {
+    "pokemon_center": "bca:default/one_off/pokecenter",
+    "pokemart": "bca:default/one_off/structure_pokemart",
+    "department_store": "cobbleventure:facilities/department_store",
+}
+
+
+def _facility_structure(
+    data: dict[str, object], facility_type: str, root: Path | None = None,
+) -> str:
+    profile = data.get("structure_profile")
+    if isinstance(profile, dict):
+        overrides = profile.get("facility_structures")
+        if isinstance(overrides, dict) and isinstance(overrides.get(facility_type), str):
+            return str(overrides[facility_type])
+    if root is not None:
+        settings_path = root / BUILDING_SETTINGS_SOURCE
+        if settings_path.is_file():
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            defaults = settings.get("facility_defaults")
+            if isinstance(defaults, dict) and isinstance(defaults.get(facility_type), str):
+                return str(defaults[facility_type])
+    return DEFAULT_FACILITY_STRUCTURES[facility_type]
+
+
+def _managed_structure_size(root: Path | None, structure: str) -> tuple[int, int] | None:
+    if root is None or not structure.startswith("cobbleventure:"):
+        return None
+    relative = structure.split(":", 1)[1]
+    path = root / CONTENT_ROOT / "structures" / f"{relative}.nbt"
+    if not path.is_file():
+        return None
+    raw = path.read_bytes()
+    if raw.startswith(b"\x1f\x8b"):
+        raw = gzip.decompress(raw)
+    stream = io.BytesIO(raw)
+
+    def read_string() -> str:
+        length_data = stream.read(2)
+        if len(length_data) != 2:
+            raise ModBuildError(f"NBT 문자열이 손상되었습니다: {structure}")
+        length = struct.unpack(">H", length_data)[0]
+        return stream.read(length).decode("utf-8")
+
+    def skip_payload(tag_type: int) -> None:
+        fixed = {1: 1, 2: 2, 3: 4, 4: 8, 5: 4, 6: 8}
+        if tag_type in fixed:
+            stream.seek(fixed[tag_type], io.SEEK_CUR)
+        elif tag_type == 7:
+            stream.seek(struct.unpack(">i", stream.read(4))[0], io.SEEK_CUR)
+        elif tag_type == 8:
+            read_string()
+        elif tag_type == 9:
+            child_type = stream.read(1)[0]
+            for _ in range(struct.unpack(">i", stream.read(4))[0]):
+                skip_payload(child_type)
+        elif tag_type == 10:
+            while True:
+                child_type = stream.read(1)[0]
+                if child_type == 0:
+                    break
+                read_string()
+                skip_payload(child_type)
+        elif tag_type in {11, 12}:
+            length = struct.unpack(">i", stream.read(4))[0]
+            stream.seek(length * (4 if tag_type == 11 else 8), io.SEEK_CUR)
+        else:
+            raise ModBuildError(f"지원하지 않는 NBT 태그입니다: {tag_type}")
+
+    if stream.read(1) != b"\x0a":
+        raise ModBuildError(f"NBT 루트가 Compound가 아닙니다: {structure}")
+    read_string()
+    while True:
+        tag_data = stream.read(1)
+        if not tag_data:
+            raise ModBuildError(f"NBT size 태그를 찾을 수 없습니다: {structure}")
+        tag_type = tag_data[0]
+        if tag_type == 0:
+            raise ModBuildError(f"NBT size 태그를 찾을 수 없습니다: {structure}")
+        name = read_string()
+        if name == "size" and tag_type == 9:
+            element_type = stream.read(1)
+            length = struct.unpack(">i", stream.read(4))[0]
+            if element_type != b"\x03" or length != 3:
+                raise ModBuildError(f"NBT size 태그가 올바르지 않습니다: {structure}")
+            width, _height, depth = struct.unpack(">iii", stream.read(12))
+            return width, depth
+        skip_payload(tag_type)
+
+
+def _compiled_facility_specs(
+    data: dict[str, object], root: Path | None = None,
+) -> list[tuple[str, int, int, str]]:
     profile = data.get("structure_profile")
     if not isinstance(profile, dict):
         return []
     starter = str(data.get("id", "")).endswith("/starter_town") \
         or profile.get("village_preset") == AUTHORED_STARTER_PRESET
-    specs: list[tuple[str, int, int]] = []
+    specs: list[tuple[str, int, int, str]] = []
     if bool(profile.get("pokemon_center_enabled", not starter)):
-        specs.append(("facility_pokemon_center", 22, 23))
+        structure = _facility_structure(data, "pokemon_center", root)
+        width, depth = _managed_structure_size(root, structure) or (22, 23)
+        specs.append(("facility_pokemon_center", width, depth, structure))
     commercial = str(profile.get("commercial_center", "none" if starter else "pokemart"))
     if commercial == "preset":
         commercial = "pokemart"
     if commercial == "pokemart":
-        specs.append(("facility_pokemart", 23, 22))
+        structure = _facility_structure(data, "pokemart", root)
+        width, depth = _managed_structure_size(root, structure) or (23, 22)
+        specs.append(("facility_pokemart", width, depth, structure))
     elif commercial == "department_store":
-        specs.append(("facility_department_store", 40, 72))
+        structure = _facility_structure(data, "department_store", root)
+        width, depth = _managed_structure_size(root, structure) or (42, 32)
+        specs.append(("facility_department_store", width, depth, structure))
     gym = profile.get("gym")
     if isinstance(gym, dict) and gym.get("enabled") is True:
-        specs.append(("gym_building", 25, 26))
+        specs.append(("gym_building", 25, 26, str(gym.get("structure", ""))))
     for facility in profile.get("facility_placements", []):
         if not isinstance(facility, dict):
             continue
@@ -905,7 +1025,7 @@ def _compiled_facility_specs(data: dict[str, object]) -> list[tuple[str, int, in
         footprint = facility.get("footprint")
         width = int(footprint.get("width", 16)) if isinstance(footprint, dict) else 16
         depth = int(footprint.get("depth", 16)) if isinstance(footprint, dict) else 16
-        specs.append((facility_id, width, depth))
+        specs.append((facility_id, width, depth, str(facility.get("structure", ""))))
     return specs
 
 
@@ -966,9 +1086,48 @@ def _house_door_approach(
     )
 
 
+def _structure_door_approach(
+    plot: dict[str, object], root: Path | None = None,
+) -> tuple[int, int] | None:
+    if str(plot.get("id", "")) not in {
+        "facility_pokemon_center", "facility_pokemart", "facility_department_store",
+    }:
+        return None
+    structure = plot.get("structure")
+    if root is None or not isinstance(structure, str) or not structure.startswith("cobbleventure:"):
+        return None
+    relative = structure.split(":", 1)[1]
+    metadata_path = root / CONTENT_ROOT / "structures" / f"{relative}.structure.json"
+    if not metadata_path.is_file():
+        return None
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
+    door = next((
+        anchor for anchor in anchors or []
+        if isinstance(anchor, dict) and anchor.get("type") == "door"
+    ), None)
+    if not isinstance(door, dict):
+        return None
+    configured = door.get("safe_spawn", door.get("position"))
+    if not isinstance(configured, list) or len(configured) != 3:
+        return None
+    local_x, local_z = _rotated_structure_point(
+        int(configured[0]), int(configured[2]),
+        int(plot["width"]), int(plot["depth"]),
+        str(plot.get("rotation", "none")),
+    )
+    return (
+        math.floor(float(plot["x"]) + 0.5) + local_x,
+        math.floor(float(plot["z"]) + 0.5) + local_z,
+    )
+
+
 def _plot_entrance(
     plot: dict[str, object], root: Path | None = None
 ) -> tuple[int, int]:
+    structure_approach = _structure_door_approach(plot, root)
+    if structure_approach is not None:
+        return structure_approach
     if str(plot["id"]).startswith("house_"):
         door_approach = _house_door_approach(plot, root)
         if door_approach is not None:
@@ -1424,7 +1583,8 @@ def _compile_town_layout_attempt(
         return None
 
     def place_grid_plot(
-        identifier: str, width: int, plot_depth: int, entrance_facing: str
+        identifier: str, width: int, plot_depth: int, entrance_facing: str,
+        structure: str = "",
     ) -> dict[str, object] | None:
         """도로 슬롯이 부족할 때 타일 합집합 내부의 가장 가까운 부지를 찾는다."""
         centers = [
@@ -1484,6 +1644,7 @@ def _compile_town_layout_attempt(
             "id": identifier, "x": x, "z": z,
             "width": width, "depth": plot_depth,
             "entrance_facing": entrance_facing, "rotation": "none",
+            "structure": structure,
         }
         entrance_x, entrance_z = _plot_entrance(candidate, root)
         road_candidates: list[tuple[float, int, int]] = []
@@ -1550,18 +1711,21 @@ def _compile_town_layout_attempt(
 
     facilities: dict[str, dict[str, object]] = {}
     facility_specs = sorted(
-        _compiled_facility_specs(data), key=lambda spec: spec[1] * spec[2], reverse=True
+        _compiled_facility_specs(data, root), key=lambda spec: spec[1] * spec[2], reverse=True
     )
-    for identifier, width, plot_depth in facility_specs:
+    for identifier, width, plot_depth, structure in facility_specs:
         entrance_facing = _facility_entrance_facing(identifier)
         plot = place_plot(
             identifier, width, plot_depth, len(slots) * 4,
             fixed_entrance_facing=entrance_facing,
         )
         if plot is None:
-            plot = place_grid_plot(identifier, width, plot_depth, entrance_facing)
+            plot = place_grid_plot(
+                identifier, width, plot_depth, entrance_facing, structure
+            )
         if plot is None:
             raise TownFacilityPlacementError(data.get("id"), identifier)
+        plot["structure"] = structure
         facilities[identifier] = plot
     houses: list[dict[str, object]] = []
     base_house_target = min(36, max(12, 6 + depth * 5)) if cell_count == 19 else min(18, max(4, 3 + depth * 3))
@@ -2424,6 +2588,7 @@ def build(root: Path) -> Path:
     _package_generated_cves_content(root, output)
     _package_dimension_anchor_catalog(root, output)
     _package_event_boundary_catalog(root, output)
+    _package_dialogue_theme(root, output)
     _package_loot_tables(root, output)
     _package_building_runtime_data(root, output)
     if first_generated is None:

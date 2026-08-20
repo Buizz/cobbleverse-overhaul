@@ -349,9 +349,7 @@ public final class EventMovementBridge {
         @Override
         public void setInputLocked(boolean locked) {
             entity.setDeltaMovement(Vec3.ZERO);
-            if (entity instanceof ServerPlayer player) {
-                EventDialogueNetwork.setMovementInputLocked(player, locked);
-            }
+            // The common await lock adapter owns client input for the full event chain.
         }
     }
 }

@@ -30,6 +30,7 @@ final class EventTriggerExecutor {
         EventSessionKey key = new EventSessionKey(
             player.getUUID(), npc.getUUID(), script.scriptId(), triggerInstance
         );
+        if (EventAwaitInputLockService.isLocked(player.getUUID())) return false;
         resetRecoverableAwait(store, key);
         Optional<EventSession> session = EventInterpreter.startSession(
             script, event.index(), key, environment, store
@@ -55,5 +56,6 @@ final class EventTriggerExecutor {
         EventRecoverableAwait.resetBattle(store, key);
         EventRecoverableAwait.resetMovement(store, key);
         EventRecoverableAwait.resetPresentation(store, key);
+        EventRecoverableAwait.resetHealing(store, key);
     }
 }

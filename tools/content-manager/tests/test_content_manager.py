@@ -28,6 +28,28 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_dialogue_theme_contract_and_global_resource_editor(self) -> None:
+        theme = copy.deepcopy(content_manager.DIALOGUE_THEME_DEFAULTS)
+        self.assertEqual([], content_manager.validate_dialogue_theme(PROJECT_ROOT, theme))
+
+        theme["portrait"]["yaw_degrees"] = 50
+        theme["font"]["resource"] = "invalid font"
+        theme["panel"]["corner_radius"] = 99
+        rendered = "\n".join(
+            issue.message for issue in content_manager.validate_dialogue_theme(PROJECT_ROOT, theme)
+        )
+        self.assertIn("-35 이상 35 이하", rendered)
+        self.assertIn("폰트 리소스 ID", rendered)
+        self.assertIn("0 이상 32 이하", rendered)
+
+        html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        self.assertIn('data-section="global-resources"', html)
+        self.assertIn('id="dialogue-theme-form"', html)
+        self.assertIn('name="menu.corner_radius"', html)
+        self.assertIn('class="dialogue-preview-options"', html)
+        self.assertIn('/api/dialogue-theme', script)
+
     def test_event_boundary_catalog_validates_ids_integer_boxes_and_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "event-boundaries.json"
@@ -99,6 +121,10 @@ class ContentManagerTests(unittest.TestCase):
             CORE_ROOT
             / "projects/cobbleventure-player-menu/src/main/java/dev/buizz/cobbleventure/playermenu/BattleIntro.java"
         ).read_text(encoding="utf-8")
+        battle_overlay = (
+            CORE_ROOT
+            / "projects/cobbleventure-player-menu/src/main/java/dev/buizz/cobbleventure/playermenu/client/BattleIntroOverlay.java"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("boundary.previousPosition = player.position();", boundary)
         self.assertIn("PROXIMITY_EXIT_BLOCKED", battle_intro)
@@ -109,6 +135,9 @@ class ContentManagerTests(unittest.TestCase):
             battle_intro,
         )
         self.assertIn("BATTLE_CENTER_FOCUS_HEIGHT", battle_intro)
+        self.assertIn("PORTRAIT_INWARD_ANGLE = 0.65F", battle_overlay)
+        self.assertIn("renderEntityInInventoryFollowsAngle", battle_overlay)
+        self.assertNotIn("renderEntityInInventoryFollowsMouse", battle_overlay)
         self.assertIn(
             "PROXIMITY_EXIT_BLOCKED.put(entry.getKey(), opponent);",
             battle_intro,
@@ -198,6 +227,94 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(
             "natural_feature",
             payload["structures"]["cobbleventure:gate/default_gate"]["category"],
+        )
+
+    def test_bca_421_pokemon_center_is_a_managed_cc0_facility(self) -> None:
+        path = PROJECT_ROOT / "content/structures/facilities/pokemon_center.nbt"
+        self.assertTrue(path.is_file())
+        root = content_manager._read_minecraft_structure_root(path.read_bytes())
+        size = root["size"]
+        self.assertEqual(3, len(size))
+        self.assertTrue(all(isinstance(value, int) and value > 0 for value in size))
+        self.assertEqual([], root.get("entities", []))
+        structure_metadata = content_manager.read_minecraft_structure_metadata(
+            path.read_bytes()
+        )
+        self.assertEqual([{
+            "position": [0, 3, 10],
+            "facing": "west",
+            "orientation": "west_up",
+            "final_state": "minecraft:stone_bricks",
+        }], structure_metadata["road_anchors"])
+        metadata = json.loads(path.with_suffix(".structure.json").read_text(encoding="utf-8"))
+        self.assertEqual({
+            ("nurse", "npc_position", (16, 5, 10)),
+            ("chansey", "npc_position", (17, 5, 11)),
+        }, {
+            (anchor["label"], anchor["type"], tuple(anchor["position"]))
+            for anchor in metadata["anchors"]
+        })
+        self.assertEqual("CC0-1.0", metadata["provenance"]["license"])
+        self.assertEqual(
+            "fccfa64382d23a1945983c90b6d2279fefd901750d99a15e89b3d725bbfe00f5",
+            metadata["provenance"]["source_nbt_sha256"],
+        )
+        self.assertEqual(
+            "bca:default/one_off/pokecenter",
+            metadata["provenance"]["source_resource"],
+        )
+        settings = content_manager.load_building_settings(PROJECT_ROOT)
+        self.assertEqual(
+            "cobbleventure:facilities/pokemon_center",
+            settings["facility_defaults"]["pokemon_center"],
+        )
+        center = settings["buildings"]["cobbleventure:facilities/pokemon_center"]
+        self.assertEqual(
+            "cobbleventure:npc/pokemon_center_nurse",
+            center["fixed_npcs"]["nurse"],
+        )
+        self.assertEqual("chansey level=30 female", center["fixed_pokemon"]["chansey"])
+
+    def test_bca_421_pokemart_is_a_managed_cc0_facility(self) -> None:
+        path = PROJECT_ROOT / "content/structures/facilities/pokemart.nbt"
+        self.assertTrue(path.is_file())
+        root = content_manager._read_minecraft_structure_root(path.read_bytes())
+        structure_metadata = content_manager.read_minecraft_structure_metadata(path.read_bytes())
+        size = root["size"]
+        self.assertEqual(3, len(size))
+        self.assertTrue(all(isinstance(value, int) and value > 0 for value in size))
+        self.assertEqual([{
+            "position": [22, 0, 15],
+            "facing": "east",
+            "orientation": "east_up",
+            "final_state": "minecraft:stone",
+        }], structure_metadata["road_anchors"])
+        jigsaw_names = {
+            block.get("nbt", {}).get("name")
+            for block in root["blocks"]
+            if root["palette"][block["state"]].get("Name") == "minecraft:jigsaw"
+        }
+        self.assertNotIn("bca:pokemart_shopkeeper_spawner", jigsaw_names)
+        self.assertNotIn("bca:random_shopkeeper_spawner", jigsaw_names)
+        metadata = json.loads(path.with_suffix(".structure.json").read_text(encoding="utf-8"))
+        self.assertEqual([{
+            "label": "counter",
+            "type": "npc_position",
+            "position": [7, 2, 17],
+        }], metadata["anchors"])
+        self.assertEqual("CC0-1.0", metadata["provenance"]["license"])
+        self.assertEqual(
+            "d9e5d7c36aa81226d6e50d4b19b66240804c8467fa512b66a29a85f28bdcbef5",
+            metadata["provenance"]["source_nbt_sha256"],
+        )
+        self.assertEqual(
+            "bca:default/one_off/structure_pokemart",
+            metadata["provenance"]["source_resource"],
+        )
+        settings = content_manager.load_building_settings(PROJECT_ROOT)
+        self.assertEqual(
+            "cobbleventure:facilities/pokemart",
+            settings["facility_defaults"]["pokemart"],
         )
 
     def test_cave_entrance_nbt_variants_use_large_centered_barrier_masks(self) -> None:
@@ -3583,8 +3700,8 @@ class ContentManagerTests(unittest.TestCase):
         root = PROJECT_ROOT
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
-        self.assertIn('data-section="trainers"><span>03</span>NPC', page)
-        self.assertIn('data-section="battles"><span>04</span>배틀 프리셋', page)
+        self.assertIn('data-section="trainers">NPC', page)
+        self.assertIn('data-section="battles">배틀 프리셋', page)
         self.assertIn('id="battle-list"', page)
         self.assertIn('id="battle-form"', page)
         self.assertIn('id="event-command-list"', page)
@@ -3895,8 +4012,8 @@ class ContentManagerTests(unittest.TestCase):
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
         self.assertIn('data-section="routes"', html)
-        self.assertIn('<span>07</span>마을 관리', html)
-        self.assertIn('<span>08</span>길 관리', html)
+        self.assertIn('data-section="settlements">마을 관리', html)
+        self.assertIn('data-section="routes">길 관리', html)
         self.assertNotIn('<span>06</span>마을 프리셋', html)
         self.assertNotIn('<span>07</span>길 프리셋', html)
         self.assertIn('routes: "길 관리"', script)
@@ -3908,6 +4025,27 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="route-copy-source"', html)
         self.assertIn('id="edit-route-preset-pokemon"', html)
         self.assertIn('name="autoName"', html)
+
+    def test_main_navigation_uses_grouped_two_level_tree(self) -> None:
+        web_root = CORE_ROOT / "tools/content-manager/web"
+        html = (web_root / "index.html").read_text(encoding="utf-8")
+        script = (web_root / "app.js").read_text(encoding="utf-8")
+        styles = (web_root / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('class="nav-tree"', html)
+        self.assertEqual(6, html.count('data-nav-group='))
+        self.assertIn('<strong>지형 설정</strong>', html)
+        terrain = html.split('data-nav-group="terrain"', 1)[1].split('</section>', 1)[0]
+        for section in ("worlds", "settlements", "routes", "caves", "forests", "biomes"):
+            self.assertIn(f'data-section="{section}"', terrain)
+        self.assertIn("function openNavigationGroup", script)
+        self.assertIn("function toggleNavigationGroup", script)
+        self.assertNotIn("openNavigationGroup(group, true)", script)
+        self.assertIn('aria-expanded="false"', html)
+        navigation = html.split('<nav class="nav-tree"', 1)[1].split('</nav>', 1)[0]
+        self.assertNotIn("<span>", navigation)
+        self.assertIn(".nav-group-items[hidden]", styles)
+        self.assertIn(".nav-group.is-open", styles)
         self.assertIn('<option value="log_bridge">통나무다리</option>', html)
         self.assertIn('name="bridgePattern"', html)
         self.assertIn('name="bridgeDetourBlocks"', html)
@@ -3933,7 +4071,7 @@ class ContentManagerTests(unittest.TestCase):
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
 
         self.assertIn('data-section="starter-settings"', html)
-        self.assertIn('<span>02</span>스타팅 설정', html)
+        self.assertIn('data-section="starter-settings">스타팅 설정', html)
         self.assertIn('id="starter-default-generation"', html)
         self.assertIn('data-starter-mode="town"', html)
         self.assertIn('data-starter-mode="building"', html)
@@ -3952,6 +4090,67 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertTrue(catalog["generations"][0]["spawn"]["set_respawn"])
         self.assertEqual([], content_manager.validate_starter_settings(PROJECT_ROOT, catalog))
+
+    def test_cobblemon_casino_config_editor_is_exposed_in_web_ui(self) -> None:
+        web_root = CORE_ROOT / "tools/content-manager/web"
+        html = (web_root / "index.html").read_text(encoding="utf-8")
+        script = (web_root / "app.js").read_text(encoding="utf-8")
+        styles = (web_root / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-section="casino-config"', html)
+        self.assertIn('data-section="casino-config">카지노 설정', html)
+        self.assertIn('id="casino-config-file-list"', html)
+        self.assertIn('id="casino-config-form"', html)
+        self.assertIn('id="casino-config-json"', html)
+        self.assertIn('id="apply-casino-config-json"', html)
+        self.assertIn('id="save-casino-config"', html)
+        self.assertIn('"casino-config": "Cobblemon Casino 설정"', script)
+        self.assertIn('request("/api/casino-config"', script)
+        self.assertIn("renderCasinoPools", script)
+        self.assertIn("renderCasinoTrades", script)
+        self.assertIn(".casino-config-workspace", styles)
+        self.assertIn(".casino-product-row", styles)
+
+    def test_casino_config_payload_and_save_use_pack_override_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            core_root = Path(directory)
+            payload = content_manager.casino_config_payload(core_root)
+
+            self.assertEqual("2.0.0", payload["version"])
+            self.assertEqual(11, len(payload["files"]))
+            slot = next(file for file in payload["files"] if file["path"] == "machines/slot_machine.json")
+            self.assertFalse(slot["exists"])
+            self.assertEqual(256, slot["document"]["reels"]["reelSize"])
+
+            item_gacha = next(file for file in payload["files"] if file["path"] == "gachapon/item_gachapon.json")
+            pokemon_gacha = next(file for file in payload["files"] if file["path"] == "gachapon/pokemon_gachapon.json")
+            plushies = next(file for file in payload["files"] if file["path"] == "gachapon/plushies_gachapon.json")
+            prize_dealer = next(file for file in payload["files"] if file["path"] == "npc/prize_dealer.json")
+            dollar_dealer = next(file for file in payload["files"] if file["path"] == "npc/cobbledollars_dealer.json")
+            self.assertGreater(sum(map(len, item_gacha["document"]["pools"].values())), 150)
+            self.assertGreater(sum(map(len, pokemon_gacha["document"]["pools"].values())), 250)
+            self.assertGreater(len(plushies["document"]["plushies"]), 300)
+            self.assertGreater(len(prize_dealer["document"]["trades"]), 10)
+            self.assertEqual(["Pokemon Pins", "Gacha Coins"], [category["name"] for category in dollar_dealer["document"]["categories"]])
+
+            slot["document"]["bet_amounts"] = [25, 100]
+            issues = content_manager.save_casino_config(core_root, slot["path"], slot["document"])
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            target = core_root / "pack/overrides/development-placeholder/config/cobblemoncasino/machines/slot_machine.json"
+            self.assertEqual([25, 100], content_manager.load_json(target)["bet_amounts"])
+
+    def test_casino_config_rejects_unknown_paths_and_invalid_machine_values(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            core_root = Path(directory)
+            unknown = content_manager.validate_casino_config("../../outside.json", {}, core_root)
+            self.assertTrue(any(issue.level == "error" for issue in unknown))
+
+            invalid_slot = content_manager.validate_casino_config(
+                "machines/slot_machine.json",
+                {"bet_amounts": [0], "reels": {"reelSize": 4}},
+                core_root,
+            )
+            self.assertGreaterEqual(sum(issue.level == "error" for issue in invalid_slot), 2)
 
     def test_world_route_clone_copies_full_route_configuration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -4762,6 +4961,25 @@ class ContentManagerTests(unittest.TestCase):
                 saved["buildings"]["cobbleventure:placeholder/shop"]["placement_y_offset"],
             )
 
+    def test_building_settings_save_selectable_facility_nbt_defaults(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            defaults = {
+                "pokemon_center": "cobbleventure:facilities/custom_center",
+                "pokemart": "cobbleventure:facilities/custom_mart",
+                "department_store": "cobbleventure:facilities/department_store",
+            }
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "facility_defaults": defaults,
+                "buildings": {},
+            })
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            self.assertEqual(defaults, content_manager.load_building_settings(root)["facility_defaults"])
+            self.assertEqual(defaults, content_manager.building_settings_payload(root)["facility_defaults"])
+
     def test_citizen_building_without_explicit_interior_uses_basic_capacity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -5220,6 +5438,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('role="status" aria-live="polite"', markup)
         self.assertIn('id="building-interior-assignments"', markup)
         self.assertIn('id="building-door-routes"', markup)
+        self.assertIn('id="default-pokemon-center-structure"', markup)
+        self.assertIn('id="default-pokemart-structure"', markup)
+        self.assertIn('id="default-department-store-structure"', markup)
+        self.assertIn('name="townPokemonCenterStructure"', markup)
+        self.assertIn('name="commercialFacilityStructure"', markup)
+        self.assertIn("facility_defaults", script)
+        self.assertIn("facility_structures", script)
         self.assertIn('button.textContent = "NBT 생성 중…"', script)
         self.assertIn('button.textContent = "NBT 목록 갱신 중…"', script)
         self.assertIn('setStatus("complete", "내부 NBT 생성 완료"', script)
@@ -5245,8 +5470,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="space-interior-cards"', markup)
         self.assertIn('id="space-building-search"', markup)
         self.assertIn('id="space-interior-search"', markup)
-        self.assertIn('data-space-library-tab="building"', markup)
-        self.assertIn('data-space-library-tab="interior"', markup)
+        self.assertNotIn('data-space-library-tab=', markup)
+        self.assertIn('class="space-flow-workspace"', markup)
+        self.assertIn('class="space-asset-browser"', markup)
+        self.assertIn("INTERIOR ASSETS", markup)
+        self.assertIn(".space-flow-workspace", styles)
+        self.assertIn(".space-asset-browser", styles)
+        self.assertIn("grid-auto-flow:column", styles)
         self.assertNotIn('id="space-library-search"', markup)
         self.assertIn('id="space-library-kind-filter"', markup)
         self.assertIn('id="space-library-route-filter"', markup)
@@ -5264,7 +5494,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('flow.filters.route', script)
         self.assertIn('setSaveStatus("saving", "저장 중…")', script)
         self.assertIn('setSaveStatus("success", "저장 완료")', script)
-        self.assertIn('flow.paletteTab = "interior"', script)
+        self.assertNotIn('flow.paletteTab = "interior"', script)
+        self.assertIn("아래 내부 공간 리소스를 캔버스로 끌어 놓으세요.", script)
         self.assertIn('function supportsInteriorConnections', script)
         self.assertIn('!metadata.no_interior_space', script)
         self.assertIn('window.addEventListener("building-settings-saved"', script)

@@ -8,7 +8,7 @@ final class StarterRouletteNetworkTest {
     @Test
     void eventResultTargetsTheAuthenticatedCommandSource() {
         assertEquals(
-            "cobbleventure_event starter_result callback-token cobblemon:pikachu",
+            "cobbleventure_event_starter_result callback-token cobblemon:pikachu",
             StarterRouletteEventCallback.command(
                 "callback-token", "cobblemon:pikachu", ""
             )
@@ -18,7 +18,7 @@ final class StarterRouletteNetworkTest {
     @Test
     void eventCancellationTargetsTheAuthenticatedCommandSource() {
         assertEquals(
-            "cobbleventure_event starter_cancel callback-token client_cancelled",
+            "cobbleventure_event_starter_cancel callback-token client_cancelled",
             StarterRouletteEventCallback.command(
                 "callback-token", null, "client_cancelled"
             )

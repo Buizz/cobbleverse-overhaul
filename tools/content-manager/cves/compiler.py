@@ -19,7 +19,10 @@ SCRIPT_ID = re.compile(r"^[a-z0-9_.-]+:event_script/[a-z0-9_./-]+$")
 UNKNOWN_POSITION = SourcePosition(0, 1, 1)
 UNKNOWN_SPAN = SourceSpan("<ast>", UNKNOWN_POSITION, UNKNOWN_POSITION)
 
-PERSISTENT_COMMANDS = AWAIT_COMMANDS | {
+# Repeatable services still need a stable instruction anchor for await recovery,
+# but must not be added to the cross-invocation idempotency journal.
+REPEATABLE_AWAIT_COMMANDS = {ast.CommandKind.HEAL_PARTY}
+PERSISTENT_COMMANDS = (AWAIT_COMMANDS - REPEATABLE_AWAIT_COMMANDS) | {
     ast.CommandKind.SHOW_CHOICES,
     ast.CommandKind.SET_FLAG,
     ast.CommandKind.SET_VARIABLE,
@@ -37,6 +40,7 @@ PERSISTENT_COMMANDS = AWAIT_COMMANDS | {
     ast.CommandKind.SOUND,
     ast.CommandKind.EFFECT,
 }
+STABLE_COMMANDS = PERSISTENT_COMMANDS | REPEATABLE_AWAIT_COMMANDS
 IMPLICIT_AWAIT_COMMANDS = {
     ast.CommandKind.SHOW_CHOICES,
     ast.CommandKind.GIVE_ITEM,
@@ -69,7 +73,7 @@ def compile_program(
     for statement in _walk_program(program):
         if (
             isinstance(statement, ast.CommandStatement)
-            and statement.kind in PERSISTENT_COMMANDS
+            and statement.kind in STABLE_COMMANDS
             and statement.stable_id is None
         ):
             diagnostics.append(Diagnostic(

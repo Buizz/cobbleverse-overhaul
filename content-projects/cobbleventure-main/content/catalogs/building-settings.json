@@ -1,6 +1,35 @@
 {
   "schema_version": 1,
+  "facility_defaults": {
+    "pokemon_center": "cobbleventure:facilities/pokemon_center",
+    "pokemart": "cobbleventure:facilities/pokemart",
+    "department_store": "cobbleventure:facilities/department_store"
+  },
   "buildings": {
+    "cobbleventure:facilities/pokemon_center": {
+      "placement_y_offset": 0,
+      "structure_category": "building",
+      "no_interior_space": false,
+      "fixed_npcs": {
+        "nurse": "cobbleventure:npc/pokemon_center_nurse"
+      },
+      "fixed_pokemon": {
+        "chansey": "chansey level=30 female"
+      },
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:facilities/pokemart": {
+      "placement_y_offset": 0,
+      "structure_category": "building",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "fixed_pokemon": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
     "cobbleventure:cave_entrance/ocean": {
       "placement_y_offset": -1,
       "structure_category": "natural_feature",

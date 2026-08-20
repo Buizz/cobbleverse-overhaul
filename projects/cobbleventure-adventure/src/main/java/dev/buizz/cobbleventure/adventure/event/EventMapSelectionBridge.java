@@ -6,7 +6,6 @@ import com.mojang.logging.LogUtils;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.common.NeoForge;
@@ -58,24 +57,26 @@ public final class EventMapSelectionBridge {
 
     private static void registerCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
-            Commands.literal("cobbleventure_event")
+            Commands.literal("cobbleventure_event_map_result")
                 .requires(source -> source.hasPermission(4))
-                .then(Commands.literal("map_result")
-                    .then(Commands.argument("token", StringArgumentType.word())
+                .then(Commands.argument("token", StringArgumentType.word())
                         .then(Commands.argument("settlement", StringArgumentType.string())
                             .executes(context -> complete(
                                 context.getSource().getPlayerOrException(),
                                 StringArgumentType.getString(context, "token"),
                                 StringArgumentType.getString(context, "settlement")
-                            )))))
-                .then(Commands.literal("map_cancel")
-                    .then(Commands.argument("token", StringArgumentType.word())
+                            ))))
+        );
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_event_map_cancel")
+                .requires(source -> source.hasPermission(4))
+                .then(Commands.argument("token", StringArgumentType.word())
                         .then(Commands.argument("reason", StringArgumentType.word())
                             .executes(context -> cancel(
                                 context.getSource().getPlayerOrException(),
                                 StringArgumentType.getString(context, "token"),
                                 StringArgumentType.getString(context, "reason")
-                            )))))
+                            ))))
         );
     }
 

@@ -1,4 +1,9 @@
 {
   "replace": false,
-  "values": ["#cobblemon:poke_food", "#c:foods"]
+  "values": [
+    "#cobblemon:poke_food",
+    "#c:foods",
+    "cobbleventure_player_menu:stale_rice_cake",
+    "cobbleventure_player_menu:mystical_candy"
+  ]
 }

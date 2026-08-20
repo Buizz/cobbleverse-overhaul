@@ -31,6 +31,7 @@ class CvesProjectBuildTests(unittest.TestCase):
         self.assertEqual(
             [
                 Path("cobbleventure/event_script/examples/ai_test.json"),
+                Path("cobbleventure/event_script/facilities/pokemon_center_nurse.json"),
                 Path("cobbleventure/event_script/gym_leaders/blaine.json"),
                 Path("cobbleventure/event_script/gym_leaders/brock.json"),
                 Path("cobbleventure/event_script/gym_leaders/erika.json"),
@@ -48,6 +49,7 @@ class CvesProjectBuildTests(unittest.TestCase):
         self.assertEqual(
             [
                 Path("cobbleventure/npc_event_binding/examples/ai_test.json"),
+                Path("cobbleventure/npc_event_binding/facilities/pokemon_center_nurse.json"),
                 Path("cobbleventure/npc_event_binding/gym_leaders/blaine.json"),
                 Path("cobbleventure/npc_event_binding/gym_leaders/brock.json"),
                 Path("cobbleventure/npc_event_binding/gym_leaders/erika.json"),

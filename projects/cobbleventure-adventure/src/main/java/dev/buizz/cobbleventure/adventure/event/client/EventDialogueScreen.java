@@ -15,6 +15,7 @@ public final class EventDialogueScreen extends Screen {
     private static final long INPUT_GUARD_MILLIS = 120L;
     private final EventDialogueNetwork.OpenPayload payload;
     private final String dialogue;
+    private final EventDialogueTheme theme;
     private final long openedAt = System.currentTimeMillis();
     private DialoguePlayback playback;
     private Layout layout;
@@ -24,6 +25,7 @@ public final class EventDialogueScreen extends Screen {
         super(Component.translatable("screen.cobbleventure_adventure.dialogue.title"));
         this.payload = payload;
         this.dialogue = dialogue;
+        this.theme = EventDialogueTheme.parse(payload.themeJson());
     }
 
     @Override
@@ -33,7 +35,7 @@ public final class EventDialogueScreen extends Screen {
         List<String> pages = DialoguePaginator.paginate(
             dialogue,
             layout.maximumLines(),
-            value -> font.split(Component.literal(value), layout.textWidth()).size()
+            value -> font.split(theme.text(value), unscaledWidth(layout.textWidth(), theme.bodyScale)).size()
         );
         playback = new DialoguePlayback(pages);
     }
@@ -47,46 +49,41 @@ public final class EventDialogueScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (layout == null || playback == null) return;
-        graphics.fill(layout.left(), layout.top(), layout.right(), layout.bottom(), 0xE8101720);
-        graphics.fill(layout.left(), layout.top(), layout.right(), layout.top() + 2, 0xFFE8EDF2);
+        EventPanelRenderer.dialogue(
+            graphics, layout.left(), layout.top(), layout.right(), layout.bottom(), theme
+        );
 
         LivingEntity npc = portraitEntity();
         if (layout.portraitWidth() > 0) {
             EventDialoguePortrait.render(
                 graphics, npc,
                 layout.left() + 8, layout.top() + 8,
-                layout.textLeft() - 8, layout.bottom() - 8
+                layout.textLeft() - 8, layout.bottom() - 8, theme
             );
         }
 
         int textY = layout.top() + 13;
         if (!payload.narration() && !payload.speaker().isBlank()) {
-            graphics.drawString(font, payload.speaker(), layout.textLeft(), textY,
-                0xFFFFD166, false);
-            textY += 16;
+            drawScaled(graphics, theme.text(payload.speaker()), layout.textLeft(), textY,
+                theme.speakerColor, theme.speakerScale);
+            textY += Math.max(14, visualLineHeight(theme.speakerScale) + 7);
         }
         List<FormattedCharSequence> lines = font.split(
-            Component.literal(playback.visibleText()), layout.textWidth()
+            theme.text(playback.visibleText()), unscaledWidth(layout.textWidth(), theme.bodyScale)
         );
         for (int index = 0; index < Math.min(lines.size(), layout.maximumLines()); index++) {
-            graphics.drawString(
-                font, lines.get(index), layout.textLeft(),
-                textY + index * font.lineHeight, 0xFFFFFFFF, false
-            );
+            drawScaled(graphics, lines.get(index), layout.textLeft(),
+                textY + index * visualLineHeight(theme.bodyScale), theme.textColor, theme.bodyScale);
         }
 
-        Component hint = Component.translatable(hintKey());
-        graphics.drawString(
-            font, hint,
-            layout.right() - 12 - font.width(hint), layout.bottom() - 17,
-            0xFFAAB7C4, false
-        );
+        Component hint = theme.text(Component.translatable(hintKey()));
+        drawScaled(graphics, hint,
+            layout.right() - 12 - visualWidth(hint, theme.hintScale), layout.bottom() - 17,
+            theme.hintColor, theme.hintScale);
         if (playback.pageCount() > 1) {
-            String page = playback.pageNumber() + "/" + playback.pageCount();
-            graphics.drawString(
-                font, page, layout.textLeft(), layout.bottom() - 17,
-                0xFF78909F, false
-            );
+            Component page = theme.text(playback.pageNumber() + "/" + playback.pageCount());
+            drawScaled(graphics, page, layout.textLeft(), layout.bottom() - 17,
+                theme.pageColor, theme.hintScale);
         }
         super.render(graphics, mouseX, mouseY, partialTick);
     }
@@ -151,15 +148,18 @@ public final class EventDialogueScreen extends Screen {
 
     private Layout calculateLayout() {
         int margin = Math.max(12, width / 18);
-        int boxHeight = Math.min(166, Math.max(112, height / 3));
+        int boxHeight = Math.min(theme.panelMaxHeight,
+            Math.max(theme.panelMinHeight, Math.round(height * theme.panelHeightRatio)));
         int top = height - boxHeight - 14;
         boolean showPortrait = (payload.speakerKind().equals("npc")
             || payload.speakerKind().equals("player")) && width >= 300;
         int portraitWidth = showPortrait ? Math.min(104, boxHeight - 16) : 0;
         int textLeft = margin + 14 + portraitWidth;
         int textWidth = Math.max(70, width - margin - 14 - textLeft);
-        int header = !payload.narration() && !payload.speaker().isBlank() ? 29 : 13;
-        int maximumLines = Math.max(2, (boxHeight - header - 30) / font.lineHeight);
+        int header = !payload.narration() && !payload.speaker().isBlank()
+            ? Math.max(29, visualLineHeight(theme.speakerScale) + 20) : 13;
+        int maximumLines = Math.max(2,
+            (boxHeight - header - 30) / visualLineHeight(theme.bodyScale));
         return new Layout(
             margin, top, width - margin, height - 14,
             portraitWidth, textLeft, textWidth, maximumLines
@@ -183,6 +183,36 @@ public final class EventDialogueScreen extends Screen {
         return payload.speakerKind().equals("npc")
             ? EventDialoguePortrait.find(minecraft, payload.npcId())
             : null;
+    }
+
+    private int visualLineHeight(float scale) {
+        return Math.max(1, Math.round(font.lineHeight * scale));
+    }
+
+    private int unscaledWidth(int visualWidth, float scale) {
+        return Math.max(1, (int)Math.floor(visualWidth / scale));
+    }
+
+    private int visualWidth(Component component, float scale) {
+        return Math.round(font.width(component) * scale);
+    }
+
+    private void drawScaled(
+        GuiGraphics graphics, Component component, int x, int y, int color, float scale
+    ) {
+        graphics.pose().pushPose();
+        graphics.pose().scale(scale, scale, 1);
+        graphics.drawString(font, component, Math.round(x / scale), Math.round(y / scale), color, false);
+        graphics.pose().popPose();
+    }
+
+    private void drawScaled(
+        GuiGraphics graphics, FormattedCharSequence text, int x, int y, int color, float scale
+    ) {
+        graphics.pose().pushPose();
+        graphics.pose().scale(scale, scale, 1);
+        graphics.drawString(font, text, Math.round(x / scale), Math.round(y / scale), color, false);
+        graphics.pose().popPose();
     }
 
     private record Layout(

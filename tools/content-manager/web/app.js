@@ -6,6 +6,15 @@ import {
   writeClipboardText,
 } from "/pokemon-entry-clipboard.mjs";
 
+const dialogueThemeDefaults = {
+  "$schema": "../schemas/dialogue-theme.schema.json", schema_version: 1,
+  font: { resource: "minecraft:default", body_scale: 1, speaker_scale: 1, hint_scale: .85 },
+  panel: { background: "#f8fbff", background_opacity: .98, border: "#72a8d4", inner_border: "#d9f4ff", border_width: 3, inner_border_width: 2, corner_radius: 18, shadow: "#24445f", shadow_opacity: .45, shadow_offset: 3, speaker_color: "#c52b2b", text_color: "#27323d", hint_color: "#57758e", page_color: "#72a8d4", height_ratio: .333, min_height: 112, max_height: 166 },
+  choice: { panel_background: "#f8fbff", panel_opacity: .98, panel_border: "#72a8d4", panel_inner_border: "#d9f4ff", corner_radius: 12, panel_width: 190, panel_gap: 8, panel_padding: 10, selected_background: "#d9f4ff", hover_background: "#eaf7ff", background: "#f8fbff", selected_accent: "#4f8fc2", text_color: "#27323d", row_height: 24 },
+  menu: { background: "#f8fbff", background_opacity: .98, border: "#72a8d4", inner_border: "#d9f4ff", corner_radius: 14, row_radius: 7, selected_background: "#d9f4ff", hover_background: "#eaf7ff", text_color: "#27323d", selected_text_color: "#173f5f", accent: "#4f8fc2" },
+  portrait: { yaw_degrees: 18, pitch_degrees: -4, scale: 1, background: "#0a1017", background_opacity: .72, accent: "#5e7789" }
+};
+
 const structureViewPitch = {
   default: -.68,
   minimum: -Math.PI / 2 + .02,
@@ -33,7 +42,7 @@ const state = {
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   villageDecorationEditor: { tool: "select", selected: -1, drag: null, hitTargets: [], preview: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
-  buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
+  buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], facilityDefaults: {}, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null, placement: { anchor: { idPrefix: "anchor", kind: "room", radiusX: 12, radiusZ: 12, height: 12 }, entrance: { idPrefix: "entrance", displayName: "입출구", requiredProgress: "", fallbackX: 4, fallbackY: 1, fallbackZ: 0 }, path: { idPrefix: "connection", kind: "tunnel", width: 5 } } },
   forestPreview: { selectedPath: null, selectedAnchor: null, selectedEntranceIndex: null, seedOffset: 0, tool: "select", zoom: 1, panX: 0, panY: 0, heightBrushRadius: 0, heightBrushTarget: 1, brushHover: null, stairPlacement: { kind: "stairs", direction: "auto", block: "minecraft:oak_stairs" }, drag: null, hitTargets: [] },
   customTownTool: "cell",
@@ -45,6 +54,8 @@ const state = {
   economy: { schema_version: 2, vanilla_crafting_disabled: true, standard_prices: [], shop_catalogs: [], vendor_units: [], pokemon_drop_rules: [], pokemon_drop_overrides: [], npc_recipes: [], resolved_shop_catalogs: [], resolved_vendor_units: [], resolved_standard_prices: [], resolved_pokemon_drops: [], editor_catalog: { items: [], species: [], filters: {} } },
   economyView: { catalogSearch: "", vendorSearch: "", selectedVendorId: "", selectedCatalogId: "", vendorProductGroup: "balls", vendorProductSearch: "", pokemonSearch: "", pokemonType: "", pokemonGeneration: "", pokemonLimit: 50 },
   structureBuilder: null,
+  dialogueTheme: null,
+  casinoConfig: { loaded: false, root: "", files: [], selectedPath: "", poolByPath: {}, query: "" },
   starterSettings: { initialized: false, loaded: false, selectedGeneration: 1, defaultGeneration: 1, configs: [], settlementDocuments: new Map(), requestId: 0 }
 };
 const lazyDataLoaded = { trainers: false, biomes: false, structures: false, buildingSettings: false, definitions: false, economy: false };
@@ -122,6 +133,11 @@ const civicFacilityCatalog = {
   pokemon_center: { id: "pokemon_center", label: "포켓몬센터", width: 32, depth: 32, height: 16, color: "#e63946", structure: "bca:default/one_off/pokecenter" },
   pokemart: { id: "pokemart", label: "포켓몬상점", width: 32, depth: 16, height: 12, color: "#3a86ff", structure: "bca:default/one_off/structure_pokemart" },
   department_store: { id: "department_store", label: "백화점", width: 48, depth: 48, height: 24, color: "#ff006e", structure: "bca:default/centers/center_department_store" }
+};
+const fallbackFacilityStructures = {
+  pokemon_center: "bca:default/one_off/pokecenter",
+  pokemart: "bca:default/one_off/structure_pokemart",
+  department_store: "cobbleventure:facilities/department_store"
 };
 const natureDefinitions = [
   ["hardy", "노력", null, null], ["lonely", "외로움", "attack", "defense"],
@@ -859,12 +875,35 @@ function deleteStarterGeneration() {
 function switchPage(section) {
   const navigationSection = ["gyms", "trainer-card"].includes(section) ? "league" : section;
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === navigationSection));
+  const activeNavigationItem = $(`.nav-item[data-section="${navigationSection}"]`);
+  if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "Cobblemon Casino 설정", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
   loadSectionData(section).catch((error) => toast(error.message));
+}
+
+function openNavigationGroup(group) {
+  if (!group) return;
+  group.classList.add("is-open");
+  group.querySelector(".nav-group-toggle")?.setAttribute("aria-expanded", "true");
+  const items = group.querySelector(".nav-group-items");
+  if (items) items.hidden = false;
+}
+
+function toggleNavigationGroup(group) {
+  if (!group) return;
+  const shouldOpen = !group.classList.contains("is-open");
+  if (shouldOpen) {
+    openNavigationGroup(group);
+    return;
+  }
+  group.classList.remove("is-open");
+  group.querySelector(".nav-group-toggle")?.setAttribute("aria-expanded", "false");
+  const items = group.querySelector(".nav-group-items");
+  if (items) items.hidden = true;
 }
 
 async function loadDashboard() {
@@ -1106,12 +1145,17 @@ async function loadBuildingSettingsData(force = false) {
     if (!result.ok) throw new Error(result.data.error || "건물 설정을 불러오지 못했습니다.");
     state.buildingSettings.structures = result.data.structures || {};
     state.buildingSettings.npcs = result.data.npcs || [];
+    state.buildingSettings.facilityDefaults = {
+      ...fallbackFacilityStructures,
+      ...(result.data.facility_defaults || {})
+    };
     state.buildingSettings.dirty = false;
     const generatedAt = Number(result.data.cache?.generated_at || 0);
     const cacheLabel = generatedAt
       ? ` · 목록 ${new Date(generatedAt * 1000).toLocaleTimeString()}` : "";
     $("#building-settings-path").textContent = `${result.data.path || "content/catalogs/building-settings.json"}${cacheLabel}`;
     lazyDataLoaded.buildingSettings = true;
+    renderFacilityStructureControls();
     renderBuildingList();
     const entries = buildingEntries();
     if (!state.buildingSettings.selected && entries.length) await loadBuildingModel(entries[0][0]);
@@ -1123,6 +1167,374 @@ async function loadBuildingSettingsData(force = false) {
     $("#building-list").innerHTML = `<div class="issues">${escapeHtml(error.message)}</div>`;
     throw error;
   } finally { lazyDataPromises.buildingSettings = null; }
+}
+
+function cloneDialogueTheme(value = dialogueThemeDefaults) {
+  const merge = (base, override) => {
+    if (!base || typeof base !== "object" || Array.isArray(base)) return override ?? base;
+    const result = {};
+    for (const [key, entry] of Object.entries(base)) result[key] = merge(entry, override?.[key]);
+    for (const [key, entry] of Object.entries(override || {})) if (!(key in result)) result[key] = entry;
+    return result;
+  };
+  return JSON.parse(JSON.stringify(merge(dialogueThemeDefaults, value)));
+}
+
+function dialogueThemeValue(path) {
+  return path.split(".").reduce((value, key) => value?.[key], state.dialogueTheme);
+}
+
+function setDialogueThemeValue(path, value) {
+  const keys = path.split(".");
+  let target = state.dialogueTheme;
+  for (const key of keys.slice(0, -1)) target = target[key] ||= {};
+  target[keys.at(-1)] = value;
+}
+
+function renderDialogueTheme() {
+  const form = $("#dialogue-theme-form");
+  if (!form || !state.dialogueTheme) return;
+  for (const input of form.elements) {
+    if (!input.name) continue;
+    const value = dialogueThemeValue(input.name);
+    if (value !== undefined) input.value = String(value);
+  }
+  $$('[data-theme-output]').forEach((output) => {
+    const value = dialogueThemeValue(output.dataset.themeOutput);
+    output.value = Number.isInteger(value) ? value : Number(value).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  });
+  const theme = state.dialogueTheme;
+  const panel = $(".dialogue-preview-panel");
+  const card = $(".dialogue-preview-card");
+  panel.style.setProperty("--dialogue-bg", theme.panel.background);
+  panel.style.setProperty("--dialogue-opacity", theme.panel.background_opacity);
+  panel.style.setProperty("--dialogue-border", theme.panel.border);
+  panel.style.setProperty("--dialogue-inner-border", theme.panel.inner_border);
+  panel.style.setProperty("--dialogue-border-width", `${theme.panel.border_width}px`);
+  panel.style.setProperty("--dialogue-inner-border-width", `${theme.panel.inner_border_width}px`);
+  panel.style.setProperty("--dialogue-radius", `${theme.panel.corner_radius}px`);
+  panel.style.setProperty("--dialogue-shadow", theme.panel.shadow);
+  panel.style.setProperty("--dialogue-shadow-opacity", theme.panel.shadow_opacity);
+  panel.style.setProperty("--dialogue-shadow-offset", `${theme.panel.shadow_offset}px`);
+  panel.style.setProperty("--dialogue-speaker", theme.panel.speaker_color);
+  panel.style.setProperty("--dialogue-text", theme.panel.text_color);
+  panel.style.setProperty("--dialogue-hint", theme.panel.hint_color);
+  panel.style.setProperty("--portrait-bg", theme.portrait.background);
+  panel.style.setProperty("--portrait-opacity", theme.portrait.background_opacity);
+  panel.style.setProperty("--portrait-accent", theme.portrait.accent);
+  panel.style.setProperty("--portrait-yaw", `${theme.portrait.yaw_degrees}deg`);
+  panel.style.setProperty("--portrait-pitch", `${theme.portrait.pitch_degrees}deg`);
+  panel.style.setProperty("--portrait-scale", theme.portrait.scale);
+  panel.style.setProperty("--body-scale", theme.font.body_scale);
+  panel.style.setProperty("--speaker-scale", theme.font.speaker_scale);
+  panel.style.setProperty("--hint-scale", theme.font.hint_scale);
+  panel.style.setProperty("--choice-bg", theme.choice.background);
+  panel.style.setProperty("--choice-selected", theme.choice.selected_background);
+  panel.style.setProperty("--choice-accent", theme.choice.selected_accent);
+  panel.style.setProperty("--choice-text", theme.choice.text_color);
+  const previewFont = theme.font.resource === "cobbleventure:battle"
+    ? '"Cobbleventure Pokemon BW", monospace'
+    : theme.font.resource === "minecraft:uniform" ? '"Courier New", monospace' : "monospace";
+  panel.style.fontFamily = previewFont;
+  card.style.fontFamily = previewFont;
+  card.style.setProperty("--dialogue-border-width", `${theme.panel.border_width}px`);
+  card.style.setProperty("--dialogue-inner-border-width", `${theme.panel.inner_border_width}px`);
+  card.style.setProperty("--choice-row-height", `${theme.choice.row_height}px`);
+  card.style.setProperty("--choice-panel-bg", theme.choice.panel_background);
+  card.style.setProperty("--choice-panel-opacity", theme.choice.panel_opacity);
+  card.style.setProperty("--choice-panel-border", theme.choice.panel_border);
+  card.style.setProperty("--choice-panel-inner-border", theme.choice.panel_inner_border);
+  card.style.setProperty("--choice-panel-radius", `${theme.choice.corner_radius}px`);
+  card.style.setProperty("--choice-panel-width", `${theme.choice.panel_width}px`);
+  card.style.setProperty("--choice-panel-gap", `${theme.choice.panel_gap}px`);
+  card.style.setProperty("--choice-panel-padding", `${theme.choice.panel_padding}px`);
+  card.style.setProperty("--menu-bg", theme.menu.background);
+  card.style.setProperty("--menu-opacity", theme.menu.background_opacity);
+  card.style.setProperty("--menu-border", theme.menu.border);
+  card.style.setProperty("--menu-inner-border", theme.menu.inner_border);
+  card.style.setProperty("--menu-radius", `${theme.menu.corner_radius}px`);
+  card.style.setProperty("--menu-row-radius", `${theme.menu.row_radius}px`);
+  card.style.setProperty("--menu-selected", theme.menu.selected_background);
+  card.style.setProperty("--menu-hover", theme.menu.hover_background);
+  card.style.setProperty("--menu-text", theme.menu.text_color);
+  card.style.setProperty("--menu-selected-text", theme.menu.selected_text_color);
+  card.style.setProperty("--menu-accent", theme.menu.accent);
+}
+
+async function loadDialogueTheme(force = false) {
+  if (state.dialogueTheme && !force) { renderDialogueTheme(); return; }
+  const result = await request("/api/dialogue-theme");
+  if (!result.ok) throw new Error(result.data.error || "대화 테마를 불러오지 못했습니다.");
+  state.dialogueTheme = cloneDialogueTheme(result.data);
+  renderDialogueTheme();
+}
+
+async function saveDialogueTheme() {
+  const result = await request("/api/dialogue-theme", {
+    method: "PUT", body: JSON.stringify(state.dialogueTheme)
+  });
+  showIssues("#dialogue-theme-issues", result.data);
+  toast(result.ok ? "전역 대화 테마를 저장했습니다." : "대화 테마 값을 확인해 주세요.");
+}
+
+function selectedCasinoConfigFile() {
+  return state.casinoConfig.files.find((file) => file.path === state.casinoConfig.selectedPath) || null;
+}
+
+function casinoConfigText(file) {
+  return file?.draft ?? JSON.stringify(file?.document || {}, null, 2);
+}
+
+const casinoFieldLabels = {
+  money_chip_values: "칩 가치", enableMachinesCrafting: "게임기 제작 허용", enableGachaCurrencyCrafting: "가챠 화폐 제작 허용",
+  makeMachinesUnbreakable: "게임기 파괴 방지", enableChipTableCasinoVillagerConversion: "주민을 칩 교환상으로 변환",
+  debug: "디버그 로그", bet_amounts: "베팅 금액", bet_multipliers: "게임 모드별 배수", reels: "슬롯 릴",
+  reelSize: "릴 크기", counts: "심볼 수", fillSymbol: "남는 칸 심볼", enable_currency_to_chips: "화폐 → 칩",
+  enable_chips_to_relic_coins: "칩 → 유물 주화", enable_chips_to_cobbledollars: "칩 → CobbleDollars",
+  enable_cobbledollars_to_chips: "CobbleDollars → 칩", rarity_base_weights: "기본 희귀도 가중치",
+  coin_multipliers: "주화별 희귀도 배수", pity: "천장", enable: "사용", pityUpdateMessages: "천장 진행 메시지",
+  usesToMax: "최대 천장까지 사용 횟수", maxLegendaryChance: "최대 전설 확률", premier_bonus: "프리미어 보너스",
+  coinsToBonus: "보너스까지 주화 수"
+};
+const casinoRarityLabels = { common: "일반", uncommon: "고급", rare: "희귀", ultrarare: "초희귀", legendary: "전설", bonus: "보너스", event: "이벤트" };
+
+function casinoLabel(key) {
+  return casinoFieldLabels[key] || casinoRarityLabels[key] || key.replaceAll("_", " ");
+}
+
+function casinoPath(path) { return path.map((part) => String(part)).join("/"); }
+function casinoAt(document, path) { return path.reduce((value, key) => value?.[key], document); }
+function setCasinoAt(document, path, value) {
+  const parent = path.slice(0, -1).reduce((current, key) => current[key], document);
+  parent[path.at(-1)] = value;
+}
+
+function markCasinoConfigDirty(file) {
+  file.dirty = true;
+  file.draft = null;
+  file.parseError = "";
+  $("#casino-config-json").value = JSON.stringify(file.document, null, 2);
+  $("#casino-config-status").textContent = "저장되지 않은 변경";
+  $("#casino-config-issues").className = "issues empty";
+  $("#casino-config-issues").textContent = "변경 내용을 저장하지 않았습니다.";
+}
+
+function renderCasinoScalarFields(value, path = []) {
+  if (Array.isArray(value)) {
+    return `<label class="casino-wide"><span>${escapeHtml(casinoLabel(path.at(-1)))}</span><input data-casino-number-list="${escapeHtml(casinoPath(path))}" value="${escapeHtml(value.join(", "))}"><small>쉼표로 구분해 입력하세요.</small></label>`;
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value).map(([key, child]) => {
+      const childPath = [...path, key];
+      if (child && typeof child === "object" && !Array.isArray(child)) {
+        return `<fieldset class="casino-field-group"><legend>${escapeHtml(casinoLabel(key))}</legend><div class="casino-field-grid">${renderCasinoScalarFields(child, childPath)}</div></fieldset>`;
+      }
+      if (Array.isArray(child)) return renderCasinoScalarFields(child, childPath);
+      const field = typeof child === "boolean"
+        ? `<label class="casino-toggle"><input type="checkbox" data-casino-value="${escapeHtml(casinoPath(childPath))}" ${child ? "checked" : ""}><span>${escapeHtml(casinoLabel(key))}</span></label>`
+        : `<label><span>${escapeHtml(casinoLabel(key))}</span><input ${typeof child === "number" ? 'type="number" step="any"' : ""} data-casino-value="${escapeHtml(casinoPath(childPath))}" value="${escapeHtml(child)}"></label>`;
+      return field;
+    }).join("");
+  }
+  return "";
+}
+
+function casinoProductToolbar(count, noun) {
+  return `<div class="casino-product-toolbar"><label><span>목록 검색</span><input type="search" data-casino-search placeholder="ID로 검색"></label><span class="count-pill">${count}${noun}</span></div>`;
+}
+
+function renderCasinoPools(file, pokemon = false) {
+  const pools = file.document.pools ||= {};
+  const names = Object.keys(pools);
+  const selected = names.includes(state.casinoConfig.poolByPath[file.path]) ? state.casinoConfig.poolByPath[file.path] : names[0];
+  state.casinoConfig.poolByPath[file.path] = selected;
+  const entries = pools[selected] || [];
+  const tabs = names.map((name) => `<button type="button" class="casino-pool-tab${name === selected ? " is-active" : ""}" data-casino-pool="${escapeHtml(name)}">${escapeHtml(casinoLabel(name))}<small>${pools[name].length}</small></button>`).join("");
+  const headers = pokemon ? "<span>포켓몬 ID</span><span>레벨</span><span>IV</span><span>이로치</span><span>가중치</span><span></span>" : "<span>아이템 ID</span><span>수량</span><span>가중치</span><span></span>";
+  const rows = entries.map((entry, index) => {
+    const base = ["pools", selected, index];
+    const fields = pokemon
+      ? `<input data-casino-value="${casinoPath([...base, "pokemonId"])}" value="${escapeHtml(entry.pokemonId)}"><input type="number" min="1" max="100" data-casino-value="${casinoPath([...base, "level"])}" value="${entry.level}"><input type="number" min="0" max="31" data-casino-value="${casinoPath([...base, "ivs"])}" value="${entry.ivs}"><select data-casino-value="${casinoPath([...base, "shiny"])}"><option value="default">기본</option><option value="boosted">확률 증가</option><option value="yes">확정</option></select><input type="number" min="1" data-casino-value="${casinoPath([...base, "weight"])}" value="${entry.weight}">`
+      : `<input data-casino-value="${casinoPath([...base, "itemId"])}" value="${escapeHtml(entry.itemId)}"><input type="number" min="1" data-casino-value="${casinoPath([...base, "count"])}" value="${entry.count}"><input type="number" min="1" data-casino-value="${casinoPath([...base, "weight"])}" value="${entry.weight}">`;
+    return `<div class="casino-product-row ${pokemon ? "is-pokemon" : "is-item"}" data-casino-search-row="${escapeHtml(pokemon ? entry.pokemonId : entry.itemId)}">${fields}<button type="button" class="casino-row-remove" data-casino-delete="pools/${escapeHtml(selected)}" data-index="${index}" aria-label="삭제">×</button></div>`;
+  }).join("");
+  return `<div class="casino-pool-tabs">${tabs}</div>${casinoProductToolbar(entries.length, "개")}<div class="casino-product-table"><div class="casino-product-head ${pokemon ? "is-pokemon" : "is-item"}">${headers}</div>${rows || '<div class="issues empty">이 풀에 등록된 보상이 없습니다.</div>'}</div><button type="button" class="button secondary" data-casino-add="${pokemon ? "pokemon" : "item"}">＋ ${pokemon ? "포켓몬" : "아이템"} 추가</button>`;
+}
+
+function renderCasinoPlushies(file) {
+  const entries = file.document.plushies ||= [];
+  const rows = entries.map((entry, index) => `<div class="casino-product-row is-plush" data-casino-search-row="${escapeHtml(entry.itemId)}"><input data-casino-value="plushies/${index}/itemId" value="${escapeHtml(entry.itemId)}"><input type="number" min="1" data-casino-value="plushies/${index}/weight" value="${entry.weight}"><button type="button" class="casino-row-remove" data-casino-delete="plushies" data-index="${index}" aria-label="삭제">×</button></div>`).join("");
+  return `${casinoProductToolbar(entries.length, "종")}<div class="casino-product-table"><div class="casino-product-head is-plush"><span>인형 아이템 ID</span><span>가중치</span><span></span></div>${rows}</div><button type="button" class="button secondary" data-casino-add="plush">＋ 인형 추가</button>`;
+}
+
+function renderCasinoTrades(file) {
+  const trades = file.document.trades ||= [];
+  const rows = trades.map((trade, index) => `<div class="casino-product-row is-trade" data-casino-search-row="${escapeHtml(`${trade.buy_item} ${trade.sell_item}`)}"><input data-casino-value="trades/${index}/buy_item" value="${escapeHtml(trade.buy_item)}"><input type="number" min="1" data-casino-value="trades/${index}/buy_count" value="${trade.buy_count}"><span class="casino-trade-arrow">→</span><input data-casino-value="trades/${index}/sell_item" value="${escapeHtml(trade.sell_item)}"><input type="number" min="1" data-casino-value="trades/${index}/sell_count" value="${trade.sell_count}"><button type="button" class="casino-row-remove" data-casino-delete="trades" data-index="${index}" aria-label="삭제">×</button></div>`).join("");
+  return `${casinoProductToolbar(trades.length, "건")}<div class="casino-product-table"><div class="casino-product-head is-trade"><span>지불 아이템</span><span>수량</span><span></span><span>받는 아이템</span><span>수량</span><span></span></div>${rows}</div><button type="button" class="button secondary" data-casino-add="trade">＋ 거래 추가</button>`;
+}
+
+function renderCasinoDealer(file) {
+  const categories = file.document.categories ||= [];
+  return `<div class="casino-category-list">${categories.map((category, categoryIndex) => `<section class="casino-category"><header><input class="casino-category-name" data-casino-value="categories/${categoryIndex}/name" value="${escapeHtml(category.name)}"><span class="count-pill">${category.offers.length}개</span><button type="button" class="casino-row-remove" data-casino-delete="categories" data-index="${categoryIndex}">카테고리 삭제</button></header><div class="casino-product-table"><div class="casino-product-head is-offer"><span>상품 아이템</span><span>판매가</span><span>매입가 (-1: 매입 안 함)</span><span></span></div>${category.offers.map((offer, offerIndex) => `<div class="casino-product-row is-offer"><input data-casino-value="categories/${categoryIndex}/offers/${offerIndex}/item" value="${escapeHtml(offer.item)}"><input type="number" min="0" data-casino-value="categories/${categoryIndex}/offers/${offerIndex}/price" value="${offer.price}"><input type="number" min="-1" data-casino-value="categories/${categoryIndex}/offers/${offerIndex}/buyback_price" value="${offer.buyback_price}"><button type="button" class="casino-row-remove" data-casino-delete="categories/${categoryIndex}/offers" data-index="${offerIndex}">×</button></div>`).join("")}</div><button type="button" class="button secondary" data-casino-add="offer" data-category-index="${categoryIndex}">＋ 상품 추가</button></section>`).join("")}</div><button type="button" class="button secondary" data-casino-add="category">＋ 카테고리 추가</button>`;
+}
+
+function casinoFormHtml(file) {
+  if (!file) return '<div class="issues empty">설정 파일을 선택하세요.</div>';
+  if (file.path === "gachapon/item_gachapon.json") return renderCasinoPools(file, false);
+  if (file.path === "gachapon/pokemon_gachapon.json") return renderCasinoPools(file, true);
+  if (file.path === "gachapon/plushies_gachapon.json") return renderCasinoPlushies(file);
+  if (["npc/exchanger.json", "npc/prize_dealer.json"].includes(file.path)) return renderCasinoTrades(file);
+  if (file.path === "npc/cobbledollars_dealer.json") return renderCasinoDealer(file);
+  return `<div class="casino-field-grid casino-settings-grid">${renderCasinoScalarFields(file.document)}</div>`;
+}
+
+function renderCasinoConfig() {
+  const workspace = state.casinoConfig;
+  const selected = selectedCasinoConfigFile();
+  $("#casino-config-count").textContent = String(workspace.files.length);
+  $("#casino-config-file-list").innerHTML = workspace.files.map((file) => `
+    <button type="button" class="casino-config-file${file.path === workspace.selectedPath ? " is-active" : ""}" data-casino-config-path="${escapeHtml(file.path)}">
+      <strong>${escapeHtml(file.label)}</strong><i class="${file.exists ? "is-saved" : ""}" title="${file.exists ? "배포팩에 저장됨" : "모드 기본값 사용"}"></i><code>${escapeHtml(file.path)}</code>
+    </button>`).join("");
+  const editor = $("#casino-config-json");
+  editor.disabled = !selected;
+  editor.classList.toggle("is-invalid", Boolean(selected?.parseError));
+  editor.value = selected ? casinoConfigText(selected) : "";
+  $("#casino-config-form").innerHTML = casinoFormHtml(selected);
+  $("#casino-config-form").querySelectorAll("select[data-casino-value]").forEach((select) => {
+    select.value = casinoAt(selected.document, select.dataset.casinoValue.split("/"));
+  });
+  $("#casino-config-title").textContent = selected?.label || "파일을 선택하세요";
+  $("#casino-config-description").textContent = selected?.description || "";
+  $("#casino-config-status").textContent = !selected ? "—" : selected.dirty ? "저장되지 않은 변경" : selected.exists ? "배포팩에 저장됨" : "모드 기본값";
+  $("#casino-config-path").textContent = selected ? `${workspace.root}/${selected.path}` : workspace.root || "—";
+  $("#save-casino-config").disabled = !selected;
+  $("#reset-casino-config").disabled = !selected;
+  if (selected?.parseError) {
+    $("#casino-config-issues").className = "issues";
+    $("#casino-config-issues").textContent = selected.parseError;
+  } else if (selected) {
+    $("#casino-config-issues").className = "issues empty";
+    $("#casino-config-issues").textContent = selected.dirty ? "변경 내용을 저장하지 않았습니다." : selected.exists ? "저장된 설정을 불러왔습니다." : "아직 파일이 없습니다. 저장하기 전에는 모드가 자체 기본값을 생성합니다.";
+  }
+}
+
+async function loadCasinoConfig(force = false) {
+  if (state.casinoConfig.loaded && !force) { renderCasinoConfig(); return; }
+  const result = await request("/api/casino-config");
+  if (!result.ok) throw new Error(result.data.error || "카지노 설정을 불러오지 못했습니다.");
+  state.casinoConfig.root = result.data.config_root || "";
+  state.casinoConfig.files = (result.data.files || []).map((file) => ({ ...file, dirty: false, draft: null, parseError: "" }));
+  state.casinoConfig.selectedPath = state.casinoConfig.files.some((file) => file.path === state.casinoConfig.selectedPath)
+    ? state.casinoConfig.selectedPath : state.casinoConfig.files[0]?.path || "";
+  state.casinoConfig.loaded = true;
+  renderCasinoConfig();
+}
+
+function applyCasinoConfigJson() {
+  const file = selectedCasinoConfigFile();
+  if (!file) return;
+  file.draft = $("#casino-config-json").value;
+  file.dirty = true;
+  try {
+    file.document = JSON.parse(file.draft);
+    file.parseError = "";
+  } catch (error) {
+    file.parseError = `JSON 문법 오류: ${error.message}`;
+  }
+  if (file.parseError) {
+    $("#casino-config-json").classList.add("is-invalid");
+    $("#casino-config-issues").className = "issues";
+    $("#casino-config-issues").textContent = file.parseError;
+    return;
+  }
+  file.draft = null;
+  markCasinoConfigDirty(file);
+  renderCasinoConfig();
+  toast("JSON 변경을 시각 편집기에 반영했습니다.");
+}
+
+async function saveCasinoConfig() {
+  const file = selectedCasinoConfigFile();
+  if (!file) return;
+  let document;
+  try { document = JSON.parse(casinoConfigText(file)); }
+  catch (error) { file.parseError = `JSON 문법 오류: ${error.message}`; renderCasinoConfig(); return; }
+  const result = await request("/api/casino-config", {
+    method: "PUT", body: JSON.stringify({ path: file.path, document })
+  });
+  showIssues("#casino-config-issues", result.data);
+  if (!result.ok) { toast(result.data.error || "카지노 설정 값을 확인해 주세요."); return; }
+  file.document = document;
+  file.draft = null;
+  file.parseError = "";
+  file.dirty = false;
+  file.exists = true;
+  renderCasinoConfig();
+  toast(`${file.label} 설정을 배포팩에 저장했습니다.`);
+}
+
+function resetCasinoConfig() {
+  const file = selectedCasinoConfigFile();
+  if (!file) return;
+  file.document = structuredClone(file.default || {});
+  file.draft = JSON.stringify(file.document, null, 2);
+  file.parseError = "";
+  file.dirty = true;
+  renderCasinoConfig();
+  toast("모드 2.0.0의 전체 기본 상품과 설정을 복원했습니다. 저장해야 배포팩에 반영됩니다.");
+}
+
+function updateCasinoConfigForm(event) {
+  const file = selectedCasinoConfigFile();
+  if (!file) return;
+  const input = event.target;
+  if (input.dataset.casinoSearch !== undefined) {
+    const query = input.value.trim().toLowerCase();
+    $("#casino-config-form").querySelectorAll("[data-casino-search-row]").forEach((row) => {
+      row.hidden = !row.dataset.casinoSearchRow.toLowerCase().includes(query);
+    });
+    return;
+  }
+  if (input.dataset.casinoNumberList !== undefined) {
+    const values = input.value.split(",").map((value) => Number(value.trim())).filter((value) => Number.isFinite(value));
+    setCasinoAt(file.document, input.dataset.casinoNumberList.split("/"), values);
+    markCasinoConfigDirty(file);
+    return;
+  }
+  if (input.dataset.casinoValue === undefined) return;
+  const value = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
+  setCasinoAt(file.document, input.dataset.casinoValue.split("/"), value);
+  markCasinoConfigDirty(file);
+}
+
+function changeCasinoConfigRows(event) {
+  const file = selectedCasinoConfigFile();
+  if (!file) return;
+  const pool = event.target.closest("[data-casino-pool]");
+  if (pool) {
+    state.casinoConfig.poolByPath[file.path] = pool.dataset.casinoPool;
+    renderCasinoConfig();
+    return;
+  }
+  const remove = event.target.closest("[data-casino-delete]");
+  if (remove) {
+    casinoAt(file.document, remove.dataset.casinoDelete.split("/")).splice(Number(remove.dataset.index), 1);
+    markCasinoConfigDirty(file);
+    renderCasinoConfig();
+    return;
+  }
+  const add = event.target.closest("[data-casino-add]");
+  if (!add) return;
+  const selectedPool = state.casinoConfig.poolByPath[file.path];
+  if (add.dataset.casinoAdd === "item") file.document.pools[selectedPool].push({ itemId: "minecraft:diamond", weight: 1, count: 1 });
+  if (add.dataset.casinoAdd === "pokemon") file.document.pools[selectedPool].push({ pokemonId: "pikachu", level: 10, ivs: 15, shiny: "default", weight: 1 });
+  if (add.dataset.casinoAdd === "plush") file.document.plushies.push({ itemId: "pokeblocks:pokedoll_pikachu", weight: 1 });
+  if (add.dataset.casinoAdd === "trade") file.document.trades.push({ buy_item: "minecraft:diamond", buy_count: 1, sell_item: "cobblemoncasino:copper_coin", sell_count: 1 });
+  if (add.dataset.casinoAdd === "category") file.document.categories.push({ name: "새 카테고리", offers: [] });
+  if (add.dataset.casinoAdd === "offer") file.document.categories[Number(add.dataset.categoryIndex)].offers.push({ item: "cobblemoncasino:copper_coin", price: 100, buyback_price: -1 });
+  markCasinoConfigDirty(file);
+  renderCasinoConfig();
 }
 
 function loadSectionData(section, force = false) {
@@ -1141,6 +1553,8 @@ function loadSectionData(section, force = false) {
   if (section === "starter-settings") return Promise.all([loadBuildingSettingsData(force), loadStarterSettingsData(force)]).then(renderStarterSettings);
   if (section === "definitions") return loadGameDefinitions(force);
   if (section === "economy") return loadEconomy(force);
+  if (section === "global-resources") return loadDialogueTheme(force);
+  if (section === "casino-config") return loadCasinoConfig(force);
   if (section === "builds") return loadStructureBuilder();
   return Promise.resolve();
 }
@@ -8401,6 +8815,8 @@ function selectedFacilityRequirements() {
 function structureFootprint(structure, fallback = {}) {
   const nbt = structure ? state.structureSizes[structure] : null;
   const door = Array.isArray(nbt?.door_anchors) ? nbt.door_anchors[0] : null;
+  const roadAnchor = Array.isArray(nbt?.road_anchors) && nbt.road_anchors.length === 1
+    ? nbt.road_anchors[0] : null;
   return {
     width: Number(nbt?.width || fallback.width || fallback.footprint?.width || 16),
     depth: Number(nbt?.depth || fallback.depth || fallback.footprint?.depth || 16),
@@ -8408,6 +8824,7 @@ function structureFootprint(structure, fallback = {}) {
     occupied: nbt?.occupied || null,
     topView: nbt?.top_view || null,
     doorApproach: door?.safe_spawn || door?.position || null,
+    roadAnchor,
     nbtResolved: Boolean(nbt),
     source: nbt?.source || ""
   };
@@ -9262,15 +9679,23 @@ async function saveBuildingSettings() {
       no_interior_space: Boolean(metadata.settings?.no_interior_space),
       fixed_npcs: metadata.settings?.citizen_placement_allowed
         ? {} : { ...(metadata.settings?.fixed_npcs || {}) },
+      fixed_pokemon: { ...(metadata.settings?.fixed_pokemon || {}) },
       citizen_placement_allowed: !metadata.settings?.no_interior_space && Boolean(metadata.settings?.citizen_placement_allowed),
       interiors: metadata.settings?.no_interior_space ? [] : (metadata.settings?.interiors || []).map((entry) => ({ key: entry.key, structure: entry.structure })),
       door_routes: metadata.settings?.no_interior_space ? {} : { ...(metadata.settings?.door_routes || {}) }
     };
   }
-  const result = await request("/api/building-settings", { method: "PUT", body: JSON.stringify({ schema_version: 1, buildings }) });
+  const facilityDefaults = {
+    pokemon_center: $("#default-pokemon-center-structure").value.trim(),
+    pokemart: $("#default-pokemart-structure").value.trim(),
+    department_store: $("#default-department-store-structure").value.trim()
+  };
+  const result = await request("/api/building-settings", { method: "PUT", body: JSON.stringify({ schema_version: 1, facility_defaults: facilityDefaults, buildings }) });
   showIssues("#building-settings-issues", result.data);
   if (!result.ok) return toast(result.data.error || "건물 설정을 저장하지 못했습니다.");
   state.buildingSettings.dirty = false;
+  state.buildingSettings.facilityDefaults = facilityDefaults;
+  renderFacilityStructureControls();
   renderBuildingEditor();
   window.dispatchEvent(new CustomEvent("building-settings-saved"));
   toast("건물 설정을 저장했습니다.");
@@ -9516,14 +9941,66 @@ function keepHousePaletteGroupSelected(event) {
 function selectedCivicFacilities() {
   const form = $("#settlement-form");
   const selected = [];
-  if (form.elements.pokemonCenterEnabled.checked) selected.push(civicFacilityCatalog.pokemon_center);
+  if (form.elements.pokemonCenterEnabled.checked) selected.push({
+    ...civicFacilityCatalog.pokemon_center,
+    structure: resolvedFacilityStructure("pokemon_center")
+  });
   const commercial = civicFacilityCatalog[form.elements.commercialFacility.value];
-  if (commercial) selected.push(commercial);
+  if (commercial) selected.push({
+    ...commercial,
+    structure: resolvedFacilityStructure(commercial.id)
+  });
   return selected.map((facility) => ({
     id: facility.id, label: facility.label, count: 1, required: true,
     structure: facility.structure, color: facility.color,
     footprint: structureFootprint(facility.structure, facility)
   }));
+}
+
+function resolvedFacilityStructure(type, document = state.settlement) {
+  const override = document?.structure_profile?.facility_structures?.[type];
+  return override || state.buildingSettings.facilityDefaults?.[type]
+    || fallbackFacilityStructures[type] || "";
+}
+
+function facilityStructureOptionIds() {
+  const managed = Object.entries(state.buildingSettings.structures || {})
+    .filter(([, metadata]) => !["interior", "gym_interior", "decoration", "natural_feature"].includes(metadata.category))
+    .map(([id]) => id);
+  return [...new Set([
+    ...Object.values(fallbackFacilityStructures),
+    ...Object.values(state.buildingSettings.facilityDefaults || {}),
+    ...managed
+  ].filter(Boolean))].sort();
+}
+
+function renderFacilityStructureControls() {
+  const datalist = $("#facility-nbt-options");
+  if (datalist) datalist.innerHTML = facilityStructureOptionIds()
+    .map((id) => `<option value="${escapeHtml(id)}"></option>`).join("");
+  const defaults = { ...fallbackFacilityStructures, ...(state.buildingSettings.facilityDefaults || {}) };
+  const fields = {
+    pokemon_center: "#default-pokemon-center-structure",
+    pokemart: "#default-pokemart-structure",
+    department_store: "#default-department-store-structure"
+  };
+  for (const [type, selector] of Object.entries(fields)) {
+    const input = $(selector);
+    if (input) input.value = defaults[type] || "";
+  }
+  if (state.settlement) {
+    const profile = state.settlement.structure_profile || {};
+    const form = $("#settlement-form");
+    if (form?.elements.townPokemonCenterStructure) {
+      form.elements.townPokemonCenterStructure.value = profile.facility_structures?.pokemon_center || "";
+      const commercial = form.elements.commercialFacility.value;
+      form.elements.commercialFacilityStructure.value = profile.facility_structures?.[commercial] || "";
+      $("#pokemon-center-structure-default").textContent = `전역: ${defaults.pokemon_center || "미지정"}`;
+      $("#commercial-structure-default").textContent = commercial === "none"
+        ? "상업 시설을 먼저 선택하세요."
+        : `전역: ${defaults[commercial] || "미지정"}`;
+    }
+  }
 }
 
 function selectedGymFacility() {
@@ -10037,7 +10514,9 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       const alongX = road.x1 + (road.x2 - road.x1) * slot.ratio;
       const alongZ = road.z1 + (road.z2 - road.z1) * slot.ratio;
       const roadFacing = horizontal ? (slot.side < 0 ? "south" : "north") : (slot.side < 0 ? "east" : "west");
-      const fixedFacilityFacing = kind === "facility" ? facilityCanonicalEntranceFacing(definition.id) : null;
+      const fixedFacilityFacing = kind === "facility"
+        ? definition.footprint?.roadAnchor?.facing || facilityCanonicalEntranceFacing(definition.id)
+        : null;
       if (fixedFacilityFacing && roadFacing !== fixedFacilityFacing) continue;
       const occupiedCenterX = (Number(occupied.min_x) + Number(occupied.max_x) + 1) / 2;
       const occupiedCenterZ = (Number(occupied.min_z) + Number(occupied.max_z) + 1) / 2;
@@ -10077,6 +10556,11 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
           plot.entrance = {
             x: plot.x + rotatedDoor.x,
             z: plot.z + rotatedDoor.z
+          };
+        } else if (kind === "facility" && Array.isArray(definition.footprint?.roadAnchor?.position)) {
+          plot.entrance = {
+            x: plot.x + Number(definition.footprint.roadAnchor.position[0]),
+            z: plot.z + Number(definition.footprint.roadAnchor.position[2])
           };
         } else {
           plot.entrance = facilityEntrancePoint(definition.id, plot.occupied, facing);
@@ -10175,8 +10659,14 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       nbtSource: definition.footprint?.source || "",
       occupied: occupiedPlot
     };
-    const facing = facilityCanonicalEntranceFacing(definition.id);
-    const entrance = facilityEntrancePoint(definition.id, occupiedPlot, facing);
+    const facing = definition.footprint?.roadAnchor?.facing
+      || facilityCanonicalEntranceFacing(definition.id);
+    const entrance = Array.isArray(definition.footprint?.roadAnchor?.position)
+      ? {
+          x: plot.x + Number(definition.footprint.roadAnchor.position[0]),
+          z: plot.z + Number(definition.footprint.roadAnchor.position[2])
+        }
+      : facilityEntrancePoint(definition.id, occupiedPlot, facing);
     const roadPoints = roads.flatMap((road) => {
       const x = Math.min(Math.max(entrance.x, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
       const z = Math.min(Math.max(entrance.z, Math.min(road.z1, road.z2)), Math.max(road.z1, road.z2));
@@ -10780,6 +11270,8 @@ function updateFacilityFormState(preferredFootprintShape = null) {
   }
   form.elements.pokemonCenterEnabled.disabled = starterLayout;
   form.elements.commercialFacility.disabled = starterLayout;
+  form.elements.townPokemonCenterStructure.disabled = starterLayout || !form.elements.pokemonCenterEnabled.checked;
+  form.elements.commercialFacilityStructure.disabled = starterLayout || form.elements.commercialFacility.value === "none";
   const buildingEnabled = form.elements.specialBuildingEnabled.checked;
   const manualPlacement = form.elements.specialDistrictPlacementMode.value === "manual";
   for (const field of form.querySelectorAll('[data-special-manual]')) field.hidden = !manualPlacement;
@@ -10850,6 +11342,12 @@ function renderSettlement() {
   setFormValue(form, "pokemonCenterEnabled", document.structure_profile?.pokemon_center_enabled ?? !starterPreset);
   const savedCommercial = document.structure_profile?.commercial_center || (starterPreset ? "none" : "pokemart");
   setFormValue(form, "commercialFacility", savedCommercial === "preset" ? "pokemart" : savedCommercial);
+  setFormValue(form, "townPokemonCenterStructure", document.structure_profile?.facility_structures?.pokemon_center || "");
+  setFormValue(
+    form, "commercialFacilityStructure",
+    document.structure_profile?.facility_structures?.[savedCommercial === "preset" ? "pokemart" : savedCommercial] || ""
+  );
+  renderFacilityStructureControls();
   renderFacilityOptions();
   renderSettlementVendorUnits();
   const specialDistrict = document.structure_profile?.special_district || {};
@@ -11063,6 +11561,22 @@ function updateSettlementFromForm() {
     ? false : form.elements.pokemonCenterEnabled.checked;
   state.settlement.structure_profile.commercial_center = starterPreset
     ? "none" : form.elements.commercialFacility.value;
+  const facilityStructures = { ...(state.settlement.structure_profile.facility_structures || {}) };
+  const centerStructure = form.elements.townPokemonCenterStructure.value.trim();
+  if (centerStructure) facilityStructures.pokemon_center = centerStructure;
+  else delete facilityStructures.pokemon_center;
+  const commercialType = state.settlement.structure_profile.commercial_center;
+  const commercialStructure = form.elements.commercialFacilityStructure.value.trim();
+  for (const type of ["pokemart", "department_store"]) {
+    if (type !== commercialType) delete facilityStructures[type];
+  }
+  if (commercialType !== "none" && commercialStructure) {
+    facilityStructures[commercialType] = commercialStructure;
+  } else if (commercialType !== "none") {
+    delete facilityStructures[commercialType];
+  }
+  if (Object.keys(facilityStructures).length) state.settlement.structure_profile.facility_structures = facilityStructures;
+  else delete state.settlement.structure_profile.facility_structures;
   const selectedShopCatalog = starterPreset ? null : selectedSettlementShopCatalog();
   state.settlement.structure_profile.shop_configuration = {
     catalog_id: selectedShopCatalog?.id || "cobbleventure:shop_catalog/none",
@@ -11589,6 +12103,9 @@ const ECONOMY_PRODUCT_GROUPS = [
   { id: "berries", ko: "나무열매", en: "Berries" },
   { id: "food", ko: "식품·음료", en: "Food & Drinks" },
   { id: "materials", ko: "재료·규토리", en: "Materials" },
+  { id: "currency", ko: "화폐·교환품", en: "Currency & Exchange" },
+  { id: "technology", ko: "기기·중요품", en: "Technology & Key Items" },
+  { id: "decor", ko: "장식·가구", en: "Decor & Furniture" },
   { id: "other", ko: "기타", en: "Other" },
 ];
 
@@ -12406,7 +12923,40 @@ $("#save-starter-settings").addEventListener("click", async () => {
   if (result.ok) state.starterSettings.loaded = true;
 });
 
+$("#dialogue-theme-form").addEventListener("input", (event) => {
+  const input = event.target;
+  if (!input.name || !state.dialogueTheme) return;
+  setDialogueThemeValue(input.name, input.type === "range" ? Number(input.value) : input.value);
+  renderDialogueTheme();
+});
+$("#save-dialogue-theme").addEventListener("click", saveDialogueTheme);
+$("#reset-dialogue-theme").addEventListener("click", () => {
+  state.dialogueTheme = cloneDialogueTheme();
+  renderDialogueTheme();
+  toast("기본값을 미리보기에 적용했습니다. 저장하면 원본에 반영됩니다.");
+});
+$$('[data-theme-preview]').forEach((button) => button.addEventListener("click", () => {
+  const mode = button.dataset.themePreview;
+  $$('[data-theme-preview]').forEach((entry) => entry.classList.toggle("is-active", entry === button));
+  $(".dialogue-preview-card").classList.toggle("preview-choice", mode === "choice");
+  $(".dialogue-preview-card").classList.toggle("preview-menu", mode === "menu");
+}));
+
+$("#casino-config-file-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-casino-config-path]");
+  if (!button) return;
+  state.casinoConfig.selectedPath = button.dataset.casinoConfigPath;
+  renderCasinoConfig();
+});
+$("#casino-config-form").addEventListener("input", updateCasinoConfigForm);
+$("#casino-config-form").addEventListener("change", updateCasinoConfigForm);
+$("#casino-config-form").addEventListener("click", changeCasinoConfigRows);
+$("#apply-casino-config-json").addEventListener("click", applyCasinoConfigJson);
+$("#save-casino-config").addEventListener("click", saveCasinoConfig);
+$("#reset-casino-config").addEventListener("click", resetCasinoConfig);
+
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
+$$(".nav-group-toggle").forEach((button) => button.addEventListener("click", () => toggleNavigationGroup(button.closest(".nav-group"))));
 $("#gym-list").addEventListener("click", (event) => { const button = event.target.closest("[data-gym-id]"); if (button) { state.selectedGymId = button.dataset.gymId; state.gymLayout.selected = null; renderGymEditor(); } });
 $("#gym-form").addEventListener("input", updateGymFromForm);
 $("#gym-staff-editor").addEventListener("input", (event) => {
@@ -12595,6 +13145,13 @@ $("#building-music-track").addEventListener("change", (event) => {
   else delete metadata.settings.music_track;
   markBuildingSettingsDirty();
 });
+for (const selector of [
+  "#default-pokemon-center-structure",
+  "#default-pokemart-structure",
+  "#default-department-store-structure"
+]) {
+  $(selector).addEventListener("change", markBuildingSettingsDirty);
+}
 $("#save-building-settings").addEventListener("click", saveBuildingSettings);
 $("#copy-exterior-nbt").addEventListener("click", openExteriorStructureCopyDialog);
 $("#copy-exterior-structure-form").addEventListener("submit", copyExteriorStructure);
@@ -13279,7 +13836,13 @@ $("#economy-dialog").addEventListener("click", handleEconomyDialogClick);
 $("#economy-dialog").addEventListener("change", handleEconomyDialogChange);
 $("#economy-dialog-close").addEventListener("click", () => $("#economy-dialog").close());
 $("#economy-dialog-cancel").addEventListener("click", () => $("#economy-dialog").close());
-$("#settlement-form").elements.commercialFacility.addEventListener("change", renderSettlementVendorUnits);
+$("#settlement-form").elements.commercialFacility.addEventListener("change", (event) => {
+  const type = event.target.value;
+  $("#settlement-form").elements.commercialFacilityStructure.value =
+    state.settlement?.structure_profile?.facility_structures?.[type] || "";
+  renderFacilityStructureControls();
+  renderSettlementVendorUnits();
+});
 $("#economy-catalog-search").addEventListener("input", (event) => updateEconomyView("catalogSearch", event.target.value));
 $("#economy-vendor-search").addEventListener("input", (event) => updateEconomyView("vendorSearch", event.target.value));
 $("#economy-pokemon-search").addEventListener("input", (event) => updateEconomyView("pokemonSearch", event.target.value));
@@ -13288,9 +13851,12 @@ $("#economy-pokemon-generation").addEventListener("change", (event) => updateEco
 $("#economy-pokemon-limit").addEventListener("change", (event) => updateEconomyView("pokemonLimit", Number(event.target.value)));
 
 loadActiveProject().then(async () => {
-  await refreshAll();
   const requestedSection = new URLSearchParams(window.location.search).get("section");
-  if (requestedSection && $$(".nav-item").some((button) => button.dataset.section === requestedSection)) switchPage(requestedSection);
+  if (requestedSection && $$(".nav-item").some((button) => button.dataset.section === requestedSection)) {
+    switchPage(requestedSection);
+    if (["global-resources", "casino-config", "builds"].includes(requestedSection)) hideProjectLoading();
+  }
+  await refreshAll();
 }).catch((error) => {
   hideProjectLoading();
   $("#server-dot").classList.remove("online");

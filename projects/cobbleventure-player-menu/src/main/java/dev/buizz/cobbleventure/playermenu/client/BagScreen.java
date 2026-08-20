@@ -841,7 +841,7 @@ public final class BagScreen extends Screen {
             String path = itemId.getPath();
             return switch (this) {
                 case RECOVERY -> stack.has(DataComponents.FOOD)
-                    || containsAny(path, "potion", "heal", "revive", "ether", "elixir", "berry", "candy");
+                    || containsAny(path, "potion", "heal", "revive", "ether", "elixir", "berry", "candy", "rice_cake");
                 case BALLS -> namespace.equals("cobblemon") && (path.endsWith("_ball") || path.contains("poke_ball"));
                 case BATTLE -> stack.isDamageableItem()
                     || containsAny(path, "sword", "bow", "shield", "vest", "band", "specs", "scarf", "gem");

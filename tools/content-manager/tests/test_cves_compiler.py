@@ -12,6 +12,9 @@ FIXTURE = Path(__file__).parent / "fixtures" / "professor_oak.cves"
 SIGNAL_FIXTURE = Path(__file__).parent / "fixtures" / "server_signals.cves"
 MOVEMENT_FIXTURE = Path(__file__).parent / "fixtures" / "movement_showcase.cves"
 MAP_SELECTION_FIXTURE = Path(__file__).parent / "fixtures" / "map_selection.cves"
+HEALING_EVENT = (
+    PROJECT_ROOT / "content/events/cobbleventure/facilities/pokemon_center_nurse.cves"
+)
 sys.path.insert(0, str(CONTENT_MANAGER))
 
 from cves import (  # noqa: E402
@@ -51,6 +54,26 @@ class CvesCompilerTests(unittest.TestCase):
         )
         self.assertEqual(list(range(len(instructions))), [value["address"] for value in instructions])
         self.assertEqual([0, 2, 12], [value["entry"] for value in first["events"][0]["pages"]])
+
+    def test_healing_is_typed_await_without_cross_visit_idempotency(self) -> None:
+        program = parse(
+            HEALING_EVENT.read_text(encoding="utf-8"), str(HEALING_EVENT)
+        )
+        ir = compile_program(
+            program,
+            "cobbleventure:event_script/facilities/pokemon_center_nurse",
+            self.catalog,
+        )
+        healing = next(
+            value for value in ir["events"][0]["instructions"]
+            if value.get("command") == "heal_party"
+        )
+
+        self.assertTrue(healing["await"])
+        self.assertTrue(healing["await_explicit"])
+        self.assertEqual("healing", healing["result"])
+        self.assertEqual(healing["next"], healing["resume"])
+        self.assertNotIn("operation_id", healing)
 
     def test_server_signal_fixture_preserves_typed_trigger_targets(self) -> None:
         program = parse(

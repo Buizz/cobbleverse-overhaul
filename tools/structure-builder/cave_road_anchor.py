@@ -59,13 +59,16 @@ def _jigsaw_palette_entry(orientation: str) -> bytes:
     )
 
 
-def _road_anchor_block(state: int, position: tuple[int, int, int]) -> bytes:
+def _road_anchor_block(
+    state: int, position: tuple[int, int, int],
+    final_state: str = "minecraft:air",
+) -> bytes:
     x, y, z = position
     block_entity = (
         _string_tag("name", ANCHOR_NAME)
         + _string_tag("target", "minecraft:empty")
         + _string_tag("pool", "minecraft:empty")
-        + _string_tag("final_state", "minecraft:air")
+        + _string_tag("final_state", final_state)
         + _string_tag("joint", "rollable")
         + _int_tag("selection_priority", 0)
         + _int_tag("placement_priority", 0)
@@ -99,6 +102,7 @@ def add_road_anchor(
     path: Path,
     position: tuple[int, int, int] | None = None,
     orientation: str = "north_up",
+    final_state: str = "minecraft:air",
 ) -> bool:
     source = path.read_bytes()
     compressed = source.startswith(b"\x1f\x8b")
@@ -151,7 +155,7 @@ def add_road_anchor(
             existing_anchor = True
         if block_position != position:
             kept_blocks.append(encoded)
-    marker = _road_anchor_block(jigsaw_state, position)
+    marker = _road_anchor_block(jigsaw_state, position, final_state)
     kept_blocks.append(marker)
 
     new_palette = bytes([10]) + struct.pack(">i", len(palette_encoded)) + b"".join(
@@ -191,6 +195,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="동굴 입구 NBT에 도로 직소 앵커를 추가합니다.")
     parser.add_argument("paths", nargs="*", type=Path)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--position", nargs=3, type=int, metavar=("X", "Y", "Z"))
+    parser.add_argument(
+        "--orientation", default="north_up",
+        choices=("north_up", "east_up", "south_up", "west_up"),
+    )
+    parser.add_argument("--final-state", default="minecraft:air")
     args = parser.parse_args()
     paths = args.paths or sorted(DEFAULT_CAVE_ROOT.glob("*.nbt"))
     failed = False
@@ -203,7 +213,12 @@ def main() -> None:
             print(f"{'OK' if valid else 'ERROR'} {path}: {anchors}")
             failed |= not valid
             continue
-        added = add_road_anchor(path)
+        added = add_road_anchor(
+            path,
+            tuple(args.position) if args.position is not None else None,
+            args.orientation,
+            args.final_state,
+        )
         print(f"{'추가' if added else '갱신'} {path}: {road_anchors(path)}")
     if failed:
         raise SystemExit(1)

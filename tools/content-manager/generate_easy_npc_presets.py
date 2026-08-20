@@ -51,6 +51,14 @@ def encounter_skin_uuid(document: dict, outfit: dict) -> str:
     return outfit["adapters"]["easy_npc"]["custom_skin_uuid"]
 
 
+def npc_identity_tag_fragment(document: dict) -> str:
+    """Opt-in stable identity used by building-specific interaction bridges."""
+    if "building_runtime" not in document.get("tags", []):
+        return ""
+    identity = "cobbleventure_npc/" + document["id"].replace(":", "/")
+    return "," + quote(identity)
+
+
 def encounter_outfits_by_class(catalog: dict, class_catalog_path: Path) -> dict[str, dict]:
     """Combine authored equipment outfits with class-derived EasyNPC body settings."""
     outfits = {outfit["trainer_class"]: outfit for outfit in catalog["outfits"]}
@@ -1117,7 +1125,7 @@ def encounter_preset_snbt(
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
     SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"{npc_identity_tag_fragment(document)}],
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}
@@ -1169,7 +1177,7 @@ def v5_encounter_preset_snbt(
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
     SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
-    Tags:["cobbleventure_regional_npc",{quote(binding_tag)}{trigger_tag}],
+    Tags:["cobbleventure_regional_npc",{quote(binding_tag)}{npc_identity_tag_fragment(document)}{trigger_tag}],
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}

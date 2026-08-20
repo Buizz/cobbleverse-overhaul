@@ -1,0 +1,77 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/pokemon_center_nurse",
+  "enabled": true,
+  "name": {
+    "ko_kr": "간호순",
+    "en_us": "Pokemon Center Nurse"
+  },
+  "description": {
+    "ko_kr": "포켓몬센터의 치료기를 사용해 플레이어의 포켓몬을 치료합니다.",
+    "en_us": "Uses the Pokemon Center healing machine to heal the player's party."
+  },
+  "tags": [
+    "service",
+    "healer",
+    "pokemon_center",
+    "building_runtime"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "간호순",
+      "en_us": "Nurse Joy"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/nurse",
+    "appearance": {
+      "source": "custom",
+      "type": "skin",
+      "resource": "cobbleventure:trainer_skin/nurse_joy",
+      "arm_model": "slim"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "custom",
+    "script_id": "cobbleventure:event_script/facilities/pokemon_center_nurse"
+  },
+  "event_design": {
+    "mode": "easy_npc_events"
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "dialogue",
+          "id": "fallback",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "포켓몬을 치료해 드릴게요.",
+            "en_us": "Let me heal your Pokemon."
+          }
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

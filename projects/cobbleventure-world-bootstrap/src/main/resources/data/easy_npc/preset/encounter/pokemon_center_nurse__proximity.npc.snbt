@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"간호순 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"간호순",
+    variantType:"ALEX",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"간호순\"}",
+    DialogData:{DialogDataSet:[{Label:"fallback",Name:"포켓몬을 치료해 드릴게요.",Texts:[{Text:"포켓몬을 치료해 드릴게요."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-66932017,-1802545287,-1495872621,-547805863],
+    SkinData:{Type:"CUSTOM",UUID:[I;-938769060,-1823973468,-1578679797,1722797058] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4","cobbleventure_npc/cobbleventure/npc/pokemon_center_nurse"],
+    VariantType:"ALEX",
+    id:"easy_npc:humanoid"
+  }
+}

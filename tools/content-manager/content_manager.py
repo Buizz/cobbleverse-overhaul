@@ -287,6 +287,7 @@ STATIC_CONTENT_TYPES = {
     ".mjs": "text/javascript; charset=utf-8",
     ".png": "image/png",
     ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
 }
 HABITAT_IDS = {"plains", "forest", "arid", "mountain", "cave", "wetland", "freshwater", "ocean", "snow", "volcanic", "urban", "special"}
 RARITY_IDS = {"common", "medium", "uncommon", "rare", "legendary"}
@@ -4475,6 +4476,360 @@ def save_starter_settings(root: Path, data: Any) -> list[Issue]:
     return issues
 
 
+DIALOGUE_THEME_DEFAULTS: dict[str, Any] = {
+    "$schema": "../schemas/dialogue-theme.schema.json",
+    "schema_version": 1,
+    "font": {"resource": "minecraft:default", "body_scale": 1.0, "speaker_scale": 1.0, "hint_scale": 0.85},
+    "panel": {"background": "#f8fbff", "background_opacity": 0.98, "border": "#72a8d4", "inner_border": "#d9f4ff", "border_width": 3, "inner_border_width": 2, "corner_radius": 18, "shadow": "#24445f", "shadow_opacity": 0.45, "shadow_offset": 3, "speaker_color": "#c52b2b", "text_color": "#27323d", "hint_color": "#57758e", "page_color": "#72a8d4", "height_ratio": 0.333, "min_height": 112, "max_height": 166},
+    "choice": {"panel_background": "#f8fbff", "panel_opacity": 0.98, "panel_border": "#72a8d4", "panel_inner_border": "#d9f4ff", "corner_radius": 12, "panel_width": 190, "panel_gap": 8, "panel_padding": 10, "selected_background": "#d9f4ff", "hover_background": "#eaf7ff", "background": "#f8fbff", "selected_accent": "#4f8fc2", "text_color": "#27323d", "row_height": 24},
+    "menu": {"background": "#f8fbff", "background_opacity": 0.98, "border": "#72a8d4", "inner_border": "#d9f4ff", "corner_radius": 14, "row_radius": 7, "selected_background": "#d9f4ff", "hover_background": "#eaf7ff", "text_color": "#27323d", "selected_text_color": "#173f5f", "accent": "#4f8fc2"},
+    "portrait": {"yaw_degrees": 18.0, "pitch_degrees": -4.0, "scale": 1.0, "background": "#0a1017", "background_opacity": 0.72, "accent": "#5e7789"},
+}
+
+
+CASINO_CONFIG_RELATIVE_ROOT = Path(
+    "pack/overrides/development-placeholder/config/cobblemoncasino"
+)
+CASINO_CONFIG_FILES: dict[str, dict[str, Any]] = {
+    "general_config.json": {
+        "label": "일반 · 칩 가치",
+        "description": "칩별 금액과 제작·파괴·주민 변환 규칙을 설정합니다.",
+        "default": {
+            "money_chip_values": {
+                "red_chip": 1, "blue_chip": 5, "yellow_chip": 10,
+                "purple_chip": 50, "copper_chip": 100, "iron_chip": 500,
+                "emerald_chip": 1000, "gold_chip": 5000,
+                "diamond_chip": 10000, "netherite_chip": 50000,
+                "black_chip": 100000, "white_chip": 500000,
+                "rainbow_chip": 1000000,
+            },
+            "enableMachinesCrafting": True,
+            "enableGachaCurrencyCrafting": True,
+            "makeMachinesUnbreakable": False,
+            "enableChipTableCasinoVillagerConversion": True,
+        },
+    },
+    "machines/slot_machine.json": {
+        "label": "슬롯머신",
+        "description": "베팅 금액, 라인 배수와 세 릴의 심볼 분포를 설정합니다.",
+        "default": {
+            "debug": False,
+            "bet_amounts": [1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000],
+            "bet_multipliers": {"mode1": 1, "mode2": 3, "mode3": 5},
+            "reels": {
+                "reelSize": 256,
+                **{
+                    f"reel{index}": {
+                        "counts": {"SEVEN": 6, "ROCKET": 12, "MEW": 18, "PIKACHU": 24, "CHARMANDER": 38, "SQUIRTLE": 44, "BULBASAUR": 50, "CHERRY": 64},
+                        "fillSymbol": "HAUNTER",
+                    }
+                    for index in range(1, 4)
+                },
+            },
+        },
+    },
+    "machines/blackjack_table.json": {
+        "label": "블랙잭",
+        "description": "블랙잭 테이블에서 선택할 수 있는 베팅 금액을 설정합니다.",
+        "default": {"bet_amounts": [1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000]},
+    },
+    "machines/chip_table.json": {
+        "label": "칩 교환대",
+        "description": "화폐 교환 방향과 유물 주화 묶음별 가치를 설정합니다.",
+        "default": {
+            "enable_currency_to_chips": True,
+            "enable_chips_to_relic_coins": True,
+            "enable_chips_to_cobbledollars": True,
+            "enable_cobbledollars_to_chips": True,
+            "relic_coin_value": 10,
+            "handful_of_relic_coins_value": 40,
+            "relic_coin_pouch_value": 90,
+            "relic_coin_sack_value": 810,
+            "stack_of_relic_coins_value": 160,
+        },
+    },
+    "machines/gacha_machines.json": {
+        "label": "가챠 확률",
+        "description": "희귀도 가중치, 주화별 배수, 천장과 프리미어 보너스를 설정합니다.",
+        "default": {
+            "rarity_base_weights": {"common": 60, "uncommon": 25, "rare": 10, "ultrarare": 4, "legendary": 1},
+            "coin_multipliers": {
+                "copper": {"common": 1.0, "uncommon": 1.0, "rare": 1.0, "ultrarare": 1.0, "legendary": 0.1},
+                "iron": {"common": 0.85, "uncommon": 1.1, "rare": 1.4, "ultrarare": 1.6, "legendary": 0.5},
+                "gold": {"common": 0.55, "uncommon": 1.2, "rare": 2.1, "ultrarare": 2.5, "legendary": 0.95},
+                "diamond": {"common": 0.32, "uncommon": 1.1, "rare": 3.0, "ultrarare": 3.2, "legendary": 2.3},
+            },
+            "pity": {
+                "enable": True, "pityUpdateMessages": True,
+                "iron": {"usesToMax": 0, "maxLegendaryChance": 0.0},
+                "gold": {"usesToMax": 80, "maxLegendaryChance": 0.25},
+                "diamond": {"usesToMax": 25, "maxLegendaryChance": 0.25},
+            },
+            "premier_bonus": {"enable": True, "coinsToBonus": 10},
+        },
+    },
+    "gachapon/item_gachapon.json": {
+        "label": "아이템 가챠 보상",
+        "description": "희귀도 풀별 아이템, 수량과 당첨 가중치를 편집합니다.",
+        "default": {"pools": {}},
+    },
+    "gachapon/pokemon_gachapon.json": {
+        "label": "포켓몬 가챠 보상",
+        "description": "희귀도 풀별 포켓몬, 레벨, IV, 이로치 규칙과 당첨 가중치를 편집합니다.",
+        "default": {"pools": {}},
+    },
+    "gachapon/plushies_gachapon.json": {
+        "label": "인형 가챠 보상",
+        "description": "Pokeblocks 인형 itemId와 weight 목록을 설정합니다.",
+        "default": {"plushies": []},
+    },
+    "npc/exchanger.json": {
+        "label": "환전상 거래",
+        "description": "buy_item·buy_count를 sell_item·sell_count로 교환하는 거래를 설정합니다.",
+        "default": {"trades": []},
+    },
+    "npc/prize_dealer.json": {
+        "label": "경품상 거래",
+        "description": "카지노 화폐로 구매할 경품 거래를 설정합니다.",
+        "default": {"trades": []},
+    },
+    "npc/cobbledollars_dealer.json": {
+        "label": "CobbleDollars 상점",
+        "description": "카테고리별 item, price, buyback_price 상품을 설정합니다.",
+        "default": {"categories": []},
+    },
+}
+
+CASINO_PRODUCT_DEFAULTS_PATH = Path(__file__).with_name("casino_config_defaults.json")
+with CASINO_PRODUCT_DEFAULTS_PATH.open(encoding="utf-8") as casino_defaults_file:
+    for casino_path, casino_default in json.load(casino_defaults_file).items():
+        CASINO_CONFIG_FILES[casino_path]["default"] = casino_default
+
+
+def casino_config_root(core_root: Path) -> Path:
+    return core_root / CASINO_CONFIG_RELATIVE_ROOT
+
+
+def casino_config_payload(core_root: Path) -> dict[str, Any]:
+    config_root = casino_config_root(core_root)
+    files = []
+    for relative_path, metadata in CASINO_CONFIG_FILES.items():
+        target = config_root / Path(relative_path)
+        exists = target.is_file()
+        files.append({
+            "path": relative_path,
+            "label": metadata["label"],
+            "description": metadata["description"],
+            "exists": exists,
+            "document": load_json(target) if exists else copy.deepcopy(metadata["default"]),
+            "default": copy.deepcopy(metadata["default"]),
+        })
+    return {
+        "mod": "Cobblemon Casino",
+        "version": "2.0.0",
+        "config_root": CASINO_CONFIG_RELATIVE_ROOT.as_posix(),
+        "files": files,
+    }
+
+
+def validate_casino_config(relative_path: str, data: Any, core_root: Path) -> list[Issue]:
+    metadata = CASINO_CONFIG_FILES.get(relative_path)
+    path = casino_config_root(core_root) / Path(relative_path)
+    issues: list[Issue] = []
+    if metadata is None:
+        _issue(issues, "error", path, "$", "지원하는 Cobblemon Casino 설정 파일이 아닙니다.")
+        return issues
+    document = _require_object(data, issues, path, "$")
+    if document is None:
+        return issues
+
+    def positive_number_list(key: str) -> None:
+        values = document.get(key)
+        if not isinstance(values, list) or not values:
+            _issue(issues, "error", path, f"$.{key}", "하나 이상의 양수 금액이 필요합니다.")
+            return
+        for index, value in enumerate(values):
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+                _issue(issues, "error", path, f"$.{key}[{index}]", "0보다 큰 숫자여야 합니다.")
+
+    if relative_path in {"machines/slot_machine.json", "machines/blackjack_table.json"}:
+        positive_number_list("bet_amounts")
+    if relative_path == "machines/slot_machine.json":
+        reels = document.get("reels")
+        if not isinstance(reels, dict) or not isinstance(reels.get("reelSize"), int) or not 16 <= reels["reelSize"] <= 4096:
+            _issue(issues, "error", path, "$.reels.reelSize", "릴 크기는 16부터 4096까지의 정수여야 합니다.")
+    if relative_path == "machines/gacha_machines.json":
+        weights = document.get("rarity_base_weights")
+        if not isinstance(weights, dict) or not any(isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0 for value in weights.values()):
+            _issue(issues, "error", path, "$.rarity_base_weights", "희귀도 가중치 중 하나 이상은 0보다 커야 합니다.")
+    if relative_path.startswith("gachapon/"):
+        collection_key = "plushies" if relative_path.endswith("plushies_gachapon.json") else "pools"
+        expected = list if collection_key == "plushies" else dict
+        if not isinstance(document.get(collection_key), expected):
+            _issue(issues, "error", path, f"$.{collection_key}", "보상 목록의 JSON 구조가 올바르지 않습니다.")
+        elif collection_key == "plushies":
+            for index, entry in enumerate(document[collection_key]):
+                if not isinstance(entry, dict) or not isinstance(entry.get("itemId"), str) or RESOURCE_ID.fullmatch(entry["itemId"]) is None:
+                    _issue(issues, "error", path, f"$.plushies[{index}].itemId", "올바른 아이템 리소스 ID여야 합니다.")
+                if not isinstance(entry, dict) or not isinstance(entry.get("weight"), int) or isinstance(entry.get("weight"), bool) or entry["weight"] <= 0:
+                    _issue(issues, "error", path, f"$.plushies[{index}].weight", "가중치는 0보다 큰 정수여야 합니다.")
+        else:
+            pokemon_pool = relative_path.endswith("pokemon_gachapon.json")
+            for rarity, entries in document[collection_key].items():
+                entry_path = f"$.pools.{rarity}"
+                if not isinstance(rarity, str) or not rarity or not isinstance(entries, list):
+                    _issue(issues, "error", path, entry_path, "희귀도 풀은 이름과 보상 배열이 필요합니다.")
+                    continue
+                for index, entry in enumerate(entries):
+                    item_path = f"{entry_path}[{index}]"
+                    if not isinstance(entry, dict):
+                        _issue(issues, "error", path, item_path, "보상은 객체여야 합니다.")
+                        continue
+                    id_key = "pokemonId" if pokemon_pool else "itemId"
+                    identifier = entry.get(id_key)
+                    if not isinstance(identifier, str) or not identifier or (not pokemon_pool and RESOURCE_ID.fullmatch(identifier) is None):
+                        _issue(issues, "error", path, f"{item_path}.{id_key}", "올바른 보상 ID가 필요합니다.")
+                    for number_key in (("level", "ivs", "weight") if pokemon_pool else ("count", "weight")):
+                        value = entry.get(number_key)
+                        minimum, maximum = ((1, 100) if number_key == "level" else (0, 31) if number_key == "ivs" else (1, None))
+                        if not isinstance(value, int) or isinstance(value, bool) or value < minimum or (maximum is not None and value > maximum):
+                            _issue(issues, "error", path, f"{item_path}.{number_key}", f"{minimum} 이상의 정수여야 합니다." if maximum is None else f"{minimum}부터 {maximum}까지의 정수여야 합니다.")
+                    if pokemon_pool and entry.get("shiny") not in {"default", "boosted", "yes"}:
+                        _issue(issues, "error", path, f"{item_path}.shiny", "이로치 규칙은 default, boosted 또는 yes여야 합니다.")
+    if relative_path.startswith("npc/"):
+        collection_key = "categories" if relative_path.endswith("cobbledollars_dealer.json") else "trades"
+        if not isinstance(document.get(collection_key), list):
+            _issue(issues, "error", path, f"$.{collection_key}", "거래 목록은 배열이어야 합니다.")
+        elif collection_key == "trades":
+            for index, trade in enumerate(document[collection_key]):
+                if not isinstance(trade, dict):
+                    _issue(issues, "error", path, f"$.trades[{index}]", "거래는 객체여야 합니다.")
+                    continue
+                for item_key in ("buy_item", "sell_item"):
+                    if not isinstance(trade.get(item_key), str) or RESOURCE_ID.fullmatch(trade[item_key]) is None:
+                        _issue(issues, "error", path, f"$.trades[{index}].{item_key}", "올바른 아이템 리소스 ID여야 합니다.")
+                for count_key in ("buy_count", "sell_count"):
+                    if not isinstance(trade.get(count_key), int) or isinstance(trade[count_key], bool) or trade[count_key] <= 0:
+                        _issue(issues, "error", path, f"$.trades[{index}].{count_key}", "수량은 0보다 큰 정수여야 합니다.")
+        else:
+            for category_index, category in enumerate(document[collection_key]):
+                category_path = f"$.categories[{category_index}]"
+                if not isinstance(category, dict) or not isinstance(category.get("name"), str) or not category["name"].strip() or not isinstance(category.get("offers"), list):
+                    _issue(issues, "error", path, category_path, "카테고리 이름과 상품 배열이 필요합니다.")
+                    continue
+                for offer_index, offer in enumerate(category["offers"]):
+                    offer_path = f"{category_path}.offers[{offer_index}]"
+                    if not isinstance(offer, dict) or not isinstance(offer.get("item"), str) or RESOURCE_ID.fullmatch(offer["item"]) is None:
+                        _issue(issues, "error", path, f"{offer_path}.item", "올바른 아이템 리소스 ID여야 합니다.")
+                    for price_key in ("price", "buyback_price"):
+                        if not isinstance(offer, dict) or not isinstance(offer.get(price_key), int) or isinstance(offer.get(price_key), bool) or offer[price_key] < (-1 if price_key == "buyback_price" else 0):
+                            _issue(issues, "error", path, f"{offer_path}.{price_key}", "가격은 0 이상의 정수여야 합니다." if price_key == "price" else "매입가는 -1 이상의 정수여야 합니다.")
+    return issues
+
+
+def save_casino_config(core_root: Path, relative_path: str, data: Any) -> list[Issue]:
+    issues = validate_casino_config(relative_path, data, core_root)
+    if any(issue.level == "error" for issue in issues):
+        return issues
+    target = casino_config_root(core_root) / Path(relative_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(target)
+    return issues
+
+
+def validate_dialogue_theme(root: Path, data: Any) -> list[Issue]:
+    path = root / "content" / "catalogs" / "dialogue-theme.json"
+    issues: list[Issue] = []
+    document = _require_object(data, issues, path, "$")
+    if document is None:
+        return issues
+    if document.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "대화 테마 버전은 1이어야 합니다.")
+
+    def section(name: str) -> dict[str, Any] | None:
+        return _require_object(document.get(name), issues, path, f"$.{name}")
+
+    def number(obj: dict[str, Any], section_name: str, key: str, minimum: float, maximum: float) -> None:
+        value = obj.get(key)
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not minimum <= value <= maximum:
+            _issue(issues, "error", path, f"$.{section_name}.{key}", f"{minimum:g} 이상 {maximum:g} 이하의 숫자여야 합니다.")
+
+    def color(obj: dict[str, Any], section_name: str, key: str) -> None:
+        value = obj.get(key)
+        if not isinstance(value, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", value) is None:
+            _issue(issues, "error", path, f"$.{section_name}.{key}", "#RRGGBB 색상이어야 합니다.")
+
+    font = section("font")
+    if font is not None:
+        if not isinstance(font.get("resource"), str) or RESOURCE_ID.fullmatch(font["resource"]) is None:
+            _issue(issues, "error", path, "$.font.resource", "올바른 Minecraft 폰트 리소스 ID여야 합니다.")
+        for key in ("body_scale", "speaker_scale", "hint_scale"):
+            number(font, "font", key, 0.5, 2.0)
+    panel = section("panel")
+    if panel is not None:
+        for key in ("background", "border", "inner_border", "shadow", "speaker_color", "text_color", "hint_color", "page_color"):
+            color(panel, "panel", key)
+        number(panel, "panel", "background_opacity", 0, 1)
+        number(panel, "panel", "border_width", 1, 8)
+        number(panel, "panel", "inner_border_width", 0, 8)
+        number(panel, "panel", "corner_radius", 0, 32)
+        number(panel, "panel", "shadow_opacity", 0, 1)
+        number(panel, "panel", "shadow_offset", 0, 12)
+        number(panel, "panel", "height_ratio", 0.2, 0.7)
+        number(panel, "panel", "min_height", 80, 300)
+        number(panel, "panel", "max_height", 100, 400)
+        if isinstance(panel.get("min_height"), (int, float)) and isinstance(panel.get("max_height"), (int, float)) and panel["min_height"] > panel["max_height"]:
+            _issue(issues, "error", path, "$.panel.max_height", "최대 높이는 최소 높이보다 작을 수 없습니다.")
+    choice = section("choice")
+    if choice is not None:
+        for key in ("panel_background", "panel_border", "panel_inner_border", "selected_background", "hover_background", "background", "selected_accent", "text_color"):
+            color(choice, "choice", key)
+        number(choice, "choice", "panel_opacity", 0, 1)
+        number(choice, "choice", "corner_radius", 0, 28)
+        number(choice, "choice", "panel_width", 100, 360)
+        number(choice, "choice", "panel_gap", 0, 32)
+        number(choice, "choice", "panel_padding", 4, 24)
+        number(choice, "choice", "row_height", 18, 48)
+    menu = section("menu")
+    if menu is not None:
+        for key in ("background", "border", "inner_border", "selected_background", "hover_background", "text_color", "selected_text_color", "accent"):
+            color(menu, "menu", key)
+        number(menu, "menu", "background_opacity", 0, 1)
+        number(menu, "menu", "corner_radius", 0, 32)
+        number(menu, "menu", "row_radius", 0, 20)
+    portrait = section("portrait")
+    if portrait is not None:
+        for key in ("background", "accent"):
+            color(portrait, "portrait", key)
+        number(portrait, "portrait", "background_opacity", 0, 1)
+        number(portrait, "portrait", "yaw_degrees", -35, 35)
+        number(portrait, "portrait", "pitch_degrees", -20, 20)
+        number(portrait, "portrait", "scale", 0.6, 1.5)
+    return issues
+
+
+def validate_dialogue_theme_file(path: Path) -> list[Issue]:
+    try:
+        data = load_json(path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+        issues: list[Issue] = []
+        _issue(issues, "error", path, "$", f"대화 테마를 읽을 수 없습니다: {error}")
+        return issues
+    return validate_dialogue_theme(path.parent.parent.parent, data)
+
+
+def save_dialogue_theme(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "dialogue-theme.json"
+    issues = validate_dialogue_theme(root, data)
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(target)
+    return issues
+
+
 MUSIC_CONTEXTS = (
     "tile", "road", "settlement", "cave", "forest", "building", "pokemon_center", "pokemart",
     "trainer_encounter_boy", "trainer_encounter_girl", "trainer_encounter_bad_guys",
@@ -4940,6 +5295,7 @@ def _economy_localizations(root: Path) -> tuple[dict[str, str], dict[str, str]]:
     en: dict[str, str] = {}
     language_paths = [
         root / ".tmp" / "cobblemon-1.7.3-source" / "common" / "src" / "main" / "resources" / "assets" / "cobblemon" / "lang",
+        root / "projects" / "cobbleventure-player-menu" / "src" / "main" / "resources" / "assets" / "cobbleventure_player_menu" / "lang",
     ]
     for directory in language_paths:
         for locale, target in (("ko_kr", ko), ("en_us", en)):
@@ -4993,6 +5349,55 @@ def _economy_localizations(root: Path) -> tuple[dict[str, str], dict[str, str]]:
         except (OSError, zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError):
             continue
     return ko, en
+
+
+def _economy_fallback_product_group(item_id: str, tags: set[str] | list[str] | None = None) -> str:
+    namespace, _, path = item_id.partition(":")
+    tags = set(tags or ())
+    path_words = set(path.replace("/", "_").split("_"))
+    if namespace in {"handcrafted", "pokeblocks"} or any(token in path for token in (
+        "pokedoll", "cushion", "chair", "table", "desk", "painting", "flower_pot", "lantern", "bookshelf",
+    )):
+        return "decor"
+    if namespace == "cobblenav" or any(token in path for token in (
+        "pokedex", "pokenav", "pokefinder", "fishingnav",
+    )):
+        return "technology"
+    if namespace == "tmcraft" or path.startswith(("tm_", "tr_")) or any("technical_machine" in tag or "tm_moves" in tag for tag in tags):
+        return "machines"
+    if path.startswith("relic_coin") or item_id == "minecraft:emerald":
+        return "currency"
+    if path.endswith("_ball") or "poke_ball" in path:
+        return "balls"
+    if path_words.intersection({"potion", "heal", "revive", "ether", "elixir", "remedy"}) or path == "ominous_bottle":
+        return "medicine"
+    if path_words.intersection({"candy", "mochi", "mint", "feather"}):
+        return "medicine"
+    if path.startswith("x_") or path in {"dire_hit", "guard_spec"}:
+        return "battle"
+    if path.endswith("_berry"):
+        return "berries"
+    food_paths = {
+        "apple", "baked_potato", "beef", "beetroot", "beetroot_soup", "bread", "carrot",
+        "chicken", "chorus_fruit", "cod", "cooked_beef", "cooked_chicken", "cooked_cod",
+        "cooked_mutton", "cooked_porkchop", "cooked_rabbit", "cooked_salmon", "cookie",
+        "dried_kelp", "egg", "golden_apple", "golden_carrot", "honey_bottle", "melon_slice",
+        "milk_bucket", "mushroom_stew", "mutton", "poisonous_potato", "porkchop", "potato",
+        "pufferfish", "pumpkin_pie", "rabbit", "rabbit_stew", "salmon", "spider_eye",
+        "suspicious_stew", "sweet_berries", "tropical_fish",
+    }
+    if path in food_paths or path_words.intersection({"juice", "milk", "stew", "tea", "dip", "puff"}):
+        return "food"
+    material_items = {
+        "minecraft:blaze_powder", "minecraft:fermented_spider_eye", "minecraft:magma_cream",
+        "minecraft:phantom_membrane", "minecraft:ghast_tear", "minecraft:nether_wart",
+    }
+    if item_id in material_items or path_words.intersection({
+        "apricorn", "tumblestone", "fossil", "mulch", "seed", "sprout", "ore", "ingot",
+        "nugget", "dust", "shard", "plank", "log", "dye",
+    }):
+        return "materials"
+    return "other"
 
 
 def _economy_editor_catalog(root: Path, species: list[dict[str, Any]]) -> dict[str, Any]:
@@ -5070,10 +5475,10 @@ def _economy_editor_catalog(root: Path, species: list[dict[str, Any]]) -> dict[s
         "gems": "cobbleventure:shop/type_gems",
         "machines": "cobbleventure:shop/technical_machines",
         "balls": "cobbleventure:shop/balls",
-        "medicine": "cobbleventure:shop/medicine",
         "battle": "cobbleventure:shop/battle_items",
         "evolution": "cobbleventure:shop/evolution_items",
         "held": "cobbleventure:shop/held_items",
+        "medicine": "cobbleventure:shop/medicine",
         "berries": "cobbleventure:shop/berries",
         "food": "cobbleventure:shop/food",
         "materials": "cobbleventure:shop/materials",
@@ -5083,6 +5488,7 @@ def _economy_editor_catalog(root: Path, species: list[dict[str, Any]]) -> dict[s
     resource_roots = [
         root / ".tmp" / "cobblemon-1.7.3-source" / "common" / "src" / "main" / "resources" / "assets",
         root / ".tmp" / "cobblemon-1.7.3-full" / "cobblemon-1.7.3" / "common" / "src" / "main" / "resources" / "assets",
+        root / "projects" / "cobbleventure-player-menu" / "src" / "main" / "resources" / "assets",
     ]
     for assets in resource_roots:
         if not assets.is_dir():
@@ -5109,6 +5515,8 @@ def _economy_editor_catalog(root: Path, species: list[dict[str, Any]]) -> dict[s
             continue
         tags = item_tags.get(item_id, set())
         product_group = next((group for group, tag_id in shop_group_tags.items() if item_id in resolve_tag(tag_id)), "other")
+        if product_group == "other":
+            product_group = _economy_fallback_product_group(item_id, tags)
         items[item_id] = {
             "id": item_id,
             "ko_kr": ko.get(key, en.get(key, item_id)),
@@ -5181,7 +5589,25 @@ def load_economy_workspace(
         if isinstance(shop_catalog, dict) and isinstance(shop_catalog.get("id"), str):
             catalog_by_id[shop_catalog["id"]] = {**copy.deepcopy(shop_catalog), "origin": "custom"}
     base_drops = _economy_pokemon_drops_from_cobblemon(root)
-    editor_catalog = _economy_editor_catalog(root, base_drops)
+    editor_catalog = _economy_editor_catalog(core_root or root, base_drops)
+    editor_items_by_id = {entry["id"]: entry for entry in editor_catalog["items"]}
+    for vendor in vendor_by_id.values():
+        for category in vendor.get("categories", []):
+            for offer in category.get("offers", []):
+                item_id = offer.get("item")
+                if not isinstance(item_id, str) or item_id in editor_items_by_id:
+                    continue
+                fallback_name = item_id.partition(":")[2].replace("_", " ").replace("/", " ").title()
+                editor_items_by_id[item_id] = {
+                    "id": item_id,
+                    "ko_kr": fallback_name,
+                    "en_us": fallback_name,
+                    "product_group": _economy_fallback_product_group(item_id),
+                    "tags": [],
+                }
+    editor_catalog["items"] = sorted(
+        editor_items_by_id.values(), key=lambda entry: (entry["ko_kr"], entry["id"])
+    )
     base_drops = editor_catalog["species"]
     drop_by_species = {entry["species"]: entry for entry in base_drops}
     for rule in sorted(
@@ -6055,6 +6481,9 @@ def validate_repository(
     issues.extend(_validate_cves_project(root, dependency_root))
     issues.extend(validate_loot_tables(root, _cves_item_catalog(dependency_root)))
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
+    dialogue_theme_path = root / "content" / "catalogs" / "dialogue-theme.json"
+    if dialogue_theme_path.is_file():
+        issues.extend(validate_dialogue_theme_file(dialogue_theme_path))
     starter_path = root / "content" / "catalogs" / "starter-settings.json"
     if starter_path.is_file():
         try:
@@ -9185,6 +9614,36 @@ def _minecraft_structure_parts(
 def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
     """Read template size, building bounds, and its visible top-down blocks."""
     size, palette_names, blocks = _minecraft_structure_parts(data)
+    root = _read_minecraft_structure_root(data)
+    palette = root.get("palette", [])
+    road_anchors: list[dict[str, Any]] = []
+    for block in root.get("blocks", []):
+        if not isinstance(block, dict) or not isinstance(block.get("state"), int):
+            continue
+        state_index = block["state"]
+        if not 0 <= state_index < len(palette) or not isinstance(palette[state_index], dict):
+            continue
+        block_nbt = block.get("nbt", {})
+        if (
+            palette[state_index].get("Name") != "minecraft:jigsaw"
+            or not isinstance(block_nbt, dict)
+            or block_nbt.get("name") != "cobbleventure:road_anchor"
+        ):
+            continue
+        orientation = palette[state_index].get("Properties", {}).get("orientation", "")
+        facing = orientation.split("_", 1)[0]
+        position = block.get("pos")
+        if (
+            facing in {"north", "east", "south", "west"}
+            and isinstance(position, list) and len(position) == 3
+            and all(isinstance(value, int) for value in position)
+        ):
+            road_anchors.append({
+                "position": position,
+                "facing": facing,
+                "orientation": orientation,
+                "final_state": block_nbt.get("final_state", "minecraft:air"),
+            })
     ignored_blocks = {
         "minecraft:air", "minecraft:cave_air", "minecraft:void_air",
         "minecraft:structure_void", "minecraft:jigsaw",
@@ -9267,6 +9726,7 @@ def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
     ]
     return {
         "width": size[0], "height": size[1], "depth": size[2],
+        "road_anchors": road_anchors,
         "occupied": {
             "min_x": min_x, "min_z": min_z, "max_x": max_x, "max_z": max_z,
             "width": max_x - min_x + 1, "depth": max_z - min_z + 1,
@@ -9459,7 +9919,15 @@ def _structure_named_anchors(path: Path, anchor_types: set[str]) -> list[dict[st
 
 
 def _default_building_settings() -> dict[str, Any]:
-    return {"schema_version": 1, "buildings": {}}
+    return {
+        "schema_version": 1,
+        "facility_defaults": {
+            "pokemon_center": "bca:default/one_off/pokecenter",
+            "pokemart": "bca:default/one_off/structure_pokemart",
+            "department_store": "cobbleventure:facilities/department_store",
+        },
+        "buildings": {},
+    }
 
 
 def load_building_settings(root: Path) -> dict[str, Any]:
@@ -9470,7 +9938,14 @@ def load_building_settings(root: Path) -> dict[str, Any]:
     buildings = document.get("buildings", {})
     if not isinstance(buildings, dict):
         raise ValueError("건물 설정 buildings는 객체여야 합니다.")
-    return {"schema_version": 1, "buildings": buildings}
+    defaults = document.get("facility_defaults", {})
+    if not isinstance(defaults, dict):
+        raise ValueError("건물 설정 facility_defaults는 객체여야 합니다.")
+    return {
+        "schema_version": 1,
+        "facility_defaults": defaults,
+        "buildings": buildings,
+    }
 
 
 def _space_graph_position(
@@ -9750,6 +10225,7 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
             building_settings[owner] = {
                 "structure_category": structure_categories.get(owner, "building"),
                 "fixed_npcs": current.get("fixed_npcs", {}) if isinstance(current, dict) else {},
+                "fixed_pokemon": current.get("fixed_pokemon", {}) if isinstance(current, dict) else {},
                 "citizen_placement_allowed": bool(current.get("citizen_placement_allowed", False)) if isinstance(current, dict) else False,
                 "interiors": [{"key": node["id"], "structure": node.get("structure", "")} for node in interiors],
                 "door_routes": {
@@ -9841,6 +10317,8 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
                 "no_interior_space": bool(entry.get("no_interior_space", False)),
                 "fixed_npcs": entry.get("fixed_npcs", {})
                 if isinstance(entry.get("fixed_npcs", {}), dict) else {},
+                "fixed_pokemon": entry.get("fixed_pokemon", {})
+                if isinstance(entry.get("fixed_pokemon", {}), dict) else {},
                 "citizen_placement_allowed": bool(entry.get(
                     "citizen_placement_allowed",
                     entry.get("random_citizen_eligible", residential),
@@ -9853,6 +10331,7 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
         }
     return {
         "schema_version": 1,
+        "facility_defaults": settings["facility_defaults"],
         "structures": structures,
         "npcs": _list_documents(root, "trainers"),
         "path": BUILDING_SETTINGS_PATH.as_posix(),
@@ -10274,6 +10753,19 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
     buildings = data.get("buildings")
     if not isinstance(buildings, dict):
         return [Issue("error", path.as_posix(), "$.buildings", "건물 설정 객체가 필요합니다.")]
+    existing_defaults = load_building_settings(root).get("facility_defaults", {})
+    defaults = data.get("facility_defaults", existing_defaults)
+    if not isinstance(defaults, dict):
+        return [Issue("error", path.as_posix(), "$.facility_defaults", "시설 기본 NBT 설정 객체가 필요합니다.")]
+    allowed_facilities = {"pokemon_center", "pokemart", "department_store"}
+    normalized_defaults: dict[str, str] = {}
+    for facility, structure_id in sorted(defaults.items()):
+        if facility not in allowed_facilities:
+            _issue(issues, "error", path, f"$.facility_defaults.{facility}", "지원하지 않는 시설 종류입니다.")
+        elif not isinstance(structure_id, str) or not RESOURCE_ID.fullmatch(structure_id):
+            _issue(issues, "error", path, f"$.facility_defaults.{facility}", "NBT 리소스 ID 형식이 올바르지 않습니다.")
+        else:
+            normalized_defaults[facility] = structure_id
     structure_files = managed_structure_files(root)
     npc_ids = {item.get("id") for item in _list_documents(root, "trainers") if item.get("id")}
     music_catalog_path = root / "content" / "catalogs" / "music-tracks.json"
@@ -10398,6 +10890,23 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 _issue(issues, "error", path, f"{entry_path}.fixed_npcs.{label}", "존재하는 NPC 콘텐츠를 선택해야 합니다.")
             else:
                 normalized_fixed[label] = npc_id
+        fixed_pokemon = settings.get("fixed_pokemon", {})
+        if not isinstance(fixed_pokemon, dict):
+            _issue(issues, "error", path, f"{entry_path}.fixed_pokemon", "고정 포켓몬 배정은 객체여야 합니다.")
+            continue
+        pokemon_labels = {
+            item["label"] for item in _structure_named_anchors(
+                structure, {"npc_position"}
+            )
+        }
+        normalized_fixed_pokemon: dict[str, str] = {}
+        for label, properties in sorted(fixed_pokemon.items()):
+            if label not in pokemon_labels:
+                _issue(issues, "error", path, f"{entry_path}.fixed_pokemon.{label}", "NBT에 없는 포켓몬 라벨입니다.")
+            elif not isinstance(properties, str) or not properties.strip():
+                _issue(issues, "error", path, f"{entry_path}.fixed_pokemon.{label}", "Cobblemon 포켓몬 속성 문자열이 필요합니다.")
+            else:
+                normalized_fixed_pokemon[label] = properties.strip()
         citizen_placement_allowed = bool(settings.get(
             "citizen_placement_allowed",
             settings.get("random_citizen_eligible", residential),
@@ -10437,6 +10946,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             **({"music_track": music_track} if music_track else {}),
             "no_interior_space": no_interior_space,
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
+            "fixed_pokemon": normalized_fixed_pokemon,
             "citizen_placement_allowed": citizen_placement_allowed,
             "interiors": [] if no_interior_space else normalized_interiors,
             "door_routes": {} if no_interior_space else normalized_routes,
@@ -10444,7 +10954,11 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
     issues.extend(validate_building_npc_positions(root, normalized))
     if any(issue.level == "error" for issue in issues):
         return issues
-    document = {"schema_version": 1, "buildings": normalized}
+    document = {
+        "schema_version": 1,
+        "facility_defaults": normalized_defaults,
+        "buildings": normalized,
+    }
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary_name = tempfile.mkstemp(
         prefix=f".{path.stem}-", suffix=".json.tmp", dir=path.parent
@@ -10969,6 +11483,16 @@ def create_handler(
                 "/fonts/PretendardVariable.woff2": web_root
                 / "fonts"
                 / "PretendardVariable.woff2",
+                "/fonts/pokemon_bw.ttf": core_root
+                / "projects"
+                / "cobbleventure-world-bootstrap"
+                / "src"
+                / "main"
+                / "resources"
+                / "assets"
+                / "cobbleventure"
+                / "font"
+                / "pokemon_bw.ttf",
                 "/pokemon-entry-clipboard.mjs": core_root
                 / "projects"
                 / "cobbleventure-battle-ai"
@@ -11028,6 +11552,19 @@ def create_handler(
                         "core_path": str(core_root),
                     },
                 )
+                return
+            if request.path == "/api/dialogue-theme":
+                try:
+                    path = root / "content" / "catalogs" / "dialogue-theme.json"
+                    self._json(200, load_json(path) if path.is_file() else DIALOGUE_THEME_DEFAULTS)
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/casino-config":
+                try:
+                    self._json(200, casino_config_payload(core_root))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/cves/scripts":
                 try:
@@ -11880,6 +12417,28 @@ def create_handler(
                 try:
                     payload = self._read_json()
                     issues = save_game_definitions(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/dialogue-theme":
+                try:
+                    payload = self._read_json()
+                    issues = save_dialogue_theme(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/casino-config":
+                try:
+                    payload = self._read_json()
+                    if not isinstance(payload, dict) or not isinstance(payload.get("path"), str):
+                        raise ValueError("저장할 카지노 설정 경로와 JSON 문서가 필요합니다.")
+                    issues = save_casino_config(core_root, payload["path"], payload.get("document"))
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})
                     return

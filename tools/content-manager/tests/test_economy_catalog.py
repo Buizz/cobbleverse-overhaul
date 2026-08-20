@@ -113,6 +113,45 @@ class EconomyCatalogTests(unittest.TestCase):
         self.assertIn("bca:pokemart_shopkeeper", by_id)
         self.assertEqual("custom", by_id["bca:pokemart_shopkeeper"]["origin"])
 
+    def test_project_workspace_can_search_unsold_player_menu_items(self):
+        project_root = ROOT / "content-projects" / "cobbleventure-main"
+        workspace = content_manager.load_economy_workspace(project_root, ROOT)
+        items = {entry["id"]: entry for entry in workspace["editor_catalog"]["items"]}
+
+        self.assertEqual("상한떡", items["cobbleventure_player_menu:stale_rice_cake"]["ko_kr"])
+        self.assertEqual("신묘한 사탕", items["cobbleventure_player_menu:mystical_candy"]["ko_kr"])
+        self.assertEqual("food", items["cobbleventure_player_menu:stale_rice_cake"]["product_group"])
+        self.assertEqual("food", items["cobbleventure_player_menu:mystical_candy"]["product_group"])
+        self.assertNotIn(
+            "cobbleventure_player_menu:stale_rice_cake",
+            {entry["item"] for entry in workspace["resolved_standard_prices"]},
+        )
+        self.assertNotIn(
+            "cobbleventure_player_menu:mystical_candy",
+            {entry["item"] for entry in workspace["resolved_standard_prices"]},
+        )
+
+    def test_shop_products_use_semantic_groups_and_include_external_offers(self):
+        project_root = ROOT / "content-projects" / "cobbleventure-main"
+        workspace = content_manager.load_economy_workspace(project_root, ROOT)
+        items = {entry["id"]: entry for entry in workspace["editor_catalog"]["items"]}
+
+        expected_groups = {
+            "cobblemon:rare_candy": "medicine",
+            "cobblemon:white_herb": "held",
+            "cobblemon:black_apricorn_seed": "materials",
+            "cobblemon:growth_mulch": "materials",
+            "minecraft:apple": "food",
+            "minecraft:emerald": "currency",
+            "tmcraft:tm_fireblast": "machines",
+            "handcrafted:oak_chair": "decor",
+            "pokeblocks:pokedoll_treecko": "decor",
+            "cobblenav:pokenav_item_red": "technology",
+        }
+        for item_id, expected_group in expected_groups.items():
+            self.assertIn(item_id, items)
+            self.assertEqual(expected_group, items[item_id]["product_group"])
+
     def test_type_rule_matches_many_species_without_individual_editing(self):
         rule = {"match": {"types": ["electric"], "generations": [1]}}
         pikachu = {"species": "cobblemon:pikachu", "types": ["electric"], "generation": 1}

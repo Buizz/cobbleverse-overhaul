@@ -165,7 +165,7 @@ public final class EventLootGrant {
             ServerPlayer player = event.getServer().getPlayerList().getPlayer(key.playerId());
             if (player == null) continue;
             PendingCallback pending = PENDING.remove(key);
-            String command = "cobbleventure_event item_result "
+            String command = "cobbleventure_event_item_result "
                 + key.token() + " " + pending.requested() + " " + pending.granted()
                 + " " + pending.remaining();
             if (pending.failureReason() != null) {

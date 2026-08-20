@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/dialogue-theme.schema.json",
+  "title": "Cobbleventure dialogue theme",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "font", "panel", "choice", "menu", "portrait"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "font": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resource", "body_scale", "speaker_scale", "hint_scale"],
+      "properties": {
+        "resource": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+        "body_scale": { "type": "number", "minimum": 0.5, "maximum": 2.0 },
+        "speaker_scale": { "type": "number", "minimum": 0.5, "maximum": 2.0 },
+        "hint_scale": { "type": "number", "minimum": 0.5, "maximum": 2.0 }
+      }
+    },
+    "panel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["background", "background_opacity", "border", "inner_border", "border_width", "inner_border_width", "corner_radius", "shadow", "shadow_opacity", "shadow_offset", "speaker_color", "text_color", "hint_color", "page_color", "height_ratio", "min_height", "max_height"],
+      "properties": {
+        "background": { "$ref": "#/$defs/color" }, "background_opacity": { "$ref": "#/$defs/opacity" },
+        "border": { "$ref": "#/$defs/color" }, "inner_border": { "$ref": "#/$defs/color" },
+        "border_width": { "type": "integer", "minimum": 1, "maximum": 8 },
+        "inner_border_width": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "corner_radius": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "shadow": { "$ref": "#/$defs/color" }, "shadow_opacity": { "$ref": "#/$defs/opacity" },
+        "shadow_offset": { "type": "integer", "minimum": 0, "maximum": 12 },
+        "speaker_color": { "$ref": "#/$defs/color" },
+        "text_color": { "$ref": "#/$defs/color" }, "hint_color": { "$ref": "#/$defs/color" },
+        "page_color": { "$ref": "#/$defs/color" },
+        "height_ratio": { "type": "number", "minimum": 0.2, "maximum": 0.7 },
+        "min_height": { "type": "integer", "minimum": 80, "maximum": 300 },
+        "max_height": { "type": "integer", "minimum": 100, "maximum": 400 }
+      }
+    },
+    "choice": {
+      "type": "object", "additionalProperties": false,
+      "required": ["panel_background", "panel_opacity", "panel_border", "panel_inner_border", "corner_radius", "panel_width", "panel_gap", "panel_padding", "selected_background", "hover_background", "background", "selected_accent", "text_color", "row_height"],
+      "properties": {
+        "panel_background": { "$ref": "#/$defs/color" }, "panel_opacity": { "$ref": "#/$defs/opacity" },
+        "panel_border": { "$ref": "#/$defs/color" }, "panel_inner_border": { "$ref": "#/$defs/color" },
+        "corner_radius": { "type": "integer", "minimum": 0, "maximum": 28 },
+        "panel_width": { "type": "integer", "minimum": 100, "maximum": 360 },
+        "panel_gap": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "panel_padding": { "type": "integer", "minimum": 4, "maximum": 24 },
+        "selected_background": { "$ref": "#/$defs/color" }, "hover_background": { "$ref": "#/$defs/color" },
+        "background": { "$ref": "#/$defs/color" }, "selected_accent": { "$ref": "#/$defs/color" },
+        "text_color": { "$ref": "#/$defs/color" }, "row_height": { "type": "integer", "minimum": 18, "maximum": 48 }
+      }
+    },
+    "menu": {
+      "type": "object", "additionalProperties": false,
+      "required": ["background", "background_opacity", "border", "inner_border", "corner_radius", "row_radius", "selected_background", "hover_background", "text_color", "selected_text_color", "accent"],
+      "properties": {
+        "background": { "$ref": "#/$defs/color" }, "background_opacity": { "$ref": "#/$defs/opacity" },
+        "border": { "$ref": "#/$defs/color" }, "inner_border": { "$ref": "#/$defs/color" },
+        "corner_radius": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "row_radius": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "selected_background": { "$ref": "#/$defs/color" }, "hover_background": { "$ref": "#/$defs/color" },
+        "text_color": { "$ref": "#/$defs/color" }, "selected_text_color": { "$ref": "#/$defs/color" },
+        "accent": { "$ref": "#/$defs/color" }
+      }
+    },
+    "portrait": {
+      "type": "object", "additionalProperties": false,
+      "required": ["yaw_degrees", "pitch_degrees", "scale", "background", "background_opacity", "accent"],
+      "properties": {
+        "yaw_degrees": { "type": "number", "minimum": -35, "maximum": 35 },
+        "pitch_degrees": { "type": "number", "minimum": -20, "maximum": 20 },
+        "scale": { "type": "number", "minimum": 0.6, "maximum": 1.5 },
+        "background": { "$ref": "#/$defs/color" }, "background_opacity": { "$ref": "#/$defs/opacity" },
+        "accent": { "$ref": "#/$defs/color" }
+      }
+    }
+  },
+  "$defs": {
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

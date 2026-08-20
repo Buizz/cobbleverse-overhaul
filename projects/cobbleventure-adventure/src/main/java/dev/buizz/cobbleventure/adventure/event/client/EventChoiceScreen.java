@@ -12,11 +12,11 @@ import org.lwjgl.glfw.GLFW;
 
 /** Typed prompt followed by keyboard and mouse operated structured choices. */
 public final class EventChoiceScreen extends Screen {
-    private static final int ROW_HEIGHT = 24;
     private static final long INPUT_GUARD_MILLIS = 120L;
     private final EventDialogueNetwork.ChoiceOpenPayload payload;
     private final String prompt;
     private final List<String> options;
+    private final EventDialogueTheme theme;
     private final long openedAt = System.currentTimeMillis();
     private DialoguePlayback promptPlayback;
     private Layout layout;
@@ -34,6 +34,7 @@ public final class EventChoiceScreen extends Screen {
         this.payload = payload;
         this.prompt = prompt;
         this.options = List.copyOf(options);
+        this.theme = EventDialogueTheme.parse(payload.themeJson());
         if (this.options.isEmpty()) throw new IllegalArgumentException("선택지가 필요합니다.");
     }
 
@@ -44,7 +45,7 @@ public final class EventChoiceScreen extends Screen {
         promptPlayback = new DialoguePlayback(DialoguePaginator.paginate(
             prompt,
             layout.promptLines(),
-            value -> font.split(Component.literal(value), layout.contentWidth()).size()
+            value -> font.split(theme.text(value), unscaledWidth(layout.contentWidth())).size()
         ));
     }
 
@@ -59,45 +60,46 @@ public final class EventChoiceScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (layout == null || promptPlayback == null) return;
-        graphics.fill(layout.left(), layout.top(), layout.right(), layout.bottom(), 0xE8101720);
-        graphics.fill(layout.left(), layout.top(), layout.right(), layout.top() + 2, 0xFFE8EDF2);
+        EventPanelRenderer.dialogue(
+            graphics, layout.left(), layout.top(), layout.right(), layout.bottom(), theme
+        );
 
         LivingEntity npc = EventDialoguePortrait.find(minecraft, payload.npcId());
         if (layout.portraitWidth() > 0) {
             EventDialoguePortrait.render(
                 graphics, npc,
                 layout.left() + 8, layout.top() + 8,
-                layout.contentLeft() - 8, layout.bottom() - 8
+                layout.contentLeft() - 8, layout.bottom() - 8, theme
             );
         }
 
         List<FormattedCharSequence> promptLines = font.split(
-            Component.literal(promptPlayback.visibleText()), layout.contentWidth()
+            theme.text(promptPlayback.visibleText()), unscaledWidth(layout.contentWidth())
         );
         for (int index = 0; index < Math.min(promptLines.size(), layout.promptLines()); index++) {
-            graphics.drawString(
-                font, promptLines.get(index), layout.contentLeft(),
-                layout.top() + 13 + index * font.lineHeight,
-                0xFFFFFFFF, false
-            );
+            drawScaled(graphics, promptLines.get(index), layout.contentLeft(),
+                layout.top() + 13 + index * visualLineHeight(), theme.textColor);
         }
 
-        if (promptReady) renderOptions(graphics, mouseX, mouseY);
-        Component controls = Component.translatable(
+        if (promptReady) {
+            EventPanelRenderer.choice(
+                graphics, layout.choiceLeft(), layout.choiceTop(),
+                layout.choiceRight(), layout.choiceBottom(), theme
+            );
+            renderOptions(graphics, mouseX, mouseY);
+        }
+        Component controls = theme.text(Component.translatable(
             promptReady
                 ? "screen.cobbleventure_adventure.choice.controls"
                 : "screen.cobbleventure_adventure.choice.reveal"
-        );
-        graphics.drawString(
-            font, controls, layout.contentLeft(), layout.bottom() - 16,
-            0xFFAAB7C4, false
-        );
+        ));
+        drawScaled(graphics, controls, layout.contentLeft(), layout.bottom() - 16,
+            theme.hintColor, theme.hintScale);
         if (promptPlayback.pageCount() > 1 && !promptReady) {
-            String page = promptPlayback.pageNumber() + "/" + promptPlayback.pageCount();
-            graphics.drawString(
-                font, page, layout.right() - 12 - font.width(page), layout.bottom() - 16,
-                0xFF78909F, false
-            );
+            Component page = theme.text(promptPlayback.pageNumber() + "/" + promptPlayback.pageCount());
+            drawScaled(graphics, page,
+                layout.right() - 12 - Math.round(font.width(page) * theme.hintScale),
+                layout.bottom() - 16, theme.pageColor, theme.hintScale);
         }
         super.render(graphics, mouseX, mouseY, partialTick);
     }
@@ -108,30 +110,29 @@ public final class EventChoiceScreen extends Screen {
         for (int row = 0; row < visible; row++) {
             int optionIndex = firstVisible + row;
             if (optionIndex >= options.size()) break;
-            int y = layout.listTop() + row * ROW_HEIGHT;
+            int y = layout.listTop() + row * theme.choiceRowHeight;
             boolean active = optionIndex == selected;
-            boolean hovered = mouseX >= layout.contentLeft() && mouseX < layout.right() - 12
-                && mouseY >= y && mouseY < y + ROW_HEIGHT - 3;
-            int background = active ? 0xFF335C81 : hovered ? 0xCC263747 : 0xAA1A2733;
-            graphics.fill(
-                layout.contentLeft(), y, layout.right() - 12,
-                y + ROW_HEIGHT - 3, background
+            boolean hovered = mouseX >= layout.optionLeft() && mouseX < layout.optionRight()
+                && mouseY >= y && mouseY < y + theme.choiceRowHeight - 3;
+            int background = active ? theme.choiceSelectedBackground
+                : hovered ? theme.choiceHoverBackground : theme.choiceBackground;
+            EventPanelRenderer.roundedFill(
+                graphics, layout.optionLeft(), y, layout.optionRight(),
+                y + theme.choiceRowHeight - 3, theme.menuRowRadius, background
             );
             if (active) {
-                graphics.fill(
-                    layout.contentLeft(), y, layout.contentLeft() + 3,
-                    y + ROW_HEIGHT - 3, 0xFFFFD166
+                EventPanelRenderer.roundedFill(
+                    graphics, layout.optionLeft() + 3, y + 3, layout.optionLeft() + 6,
+                    y + theme.choiceRowHeight - 6, 1, theme.choiceSelectedAccent
                 );
             }
             String prefix = active ? "▶ " : "  ";
             String label = font.plainSubstrByWidth(
-                prefix + options.get(optionIndex), layout.contentWidth() - 18
+                prefix + options.get(optionIndex), unscaledWidth(layout.optionWidth() - 14)
             );
-            graphics.drawString(
-                font, Component.literal(label), layout.contentLeft() + 8,
-                y + (ROW_HEIGHT - 3 - font.lineHeight) / 2,
-                active ? 0xFFFFFFFF : 0xFFD7E0E8, false
-            );
+            drawScaled(graphics, theme.text(label), layout.optionLeft() + 8,
+                y + (theme.choiceRowHeight - 3 - visualLineHeight()) / 2,
+                active ? theme.textColor : theme.choiceTextColor);
         }
     }
 
@@ -149,9 +150,9 @@ public final class EventChoiceScreen extends Screen {
             advancePrompt();
             return true;
         }
-        if (mouseX < layout.contentLeft() || mouseX >= layout.right() - 12
+        if (mouseX < layout.optionLeft() || mouseX >= layout.optionRight()
             || mouseY < layout.listTop()) return true;
-        int row = (int)(mouseY - layout.listTop()) / ROW_HEIGHT;
+        int row = (int)(mouseY - layout.listTop()) / theme.choiceRowHeight;
         int optionIndex = firstVisible + row;
         if (row >= 0 && row < visibleRows() && optionIndex < options.size()) {
             selected = optionIndex;
@@ -213,7 +214,7 @@ public final class EventChoiceScreen extends Screen {
     private int visibleRows() {
         return Math.max(
             1,
-            Math.min(options.size(), (layout.bottom() - layout.listTop() - 24) / ROW_HEIGHT)
+            layout.visibleRows()
         );
     }
 
@@ -232,16 +233,35 @@ public final class EventChoiceScreen extends Screen {
 
     private Layout calculateLayout() {
         int margin = Math.max(12, width / 18);
-        int boxHeight = Math.min(224, Math.max(156, height / 2));
+        int boxHeight = Math.min(theme.panelMaxHeight,
+            Math.max(theme.panelMinHeight, Math.round(height * theme.panelHeightRatio)));
         int top = Math.max(12, height - boxHeight - 14);
-        int portraitWidth = width >= 320 ? Math.min(104, boxHeight - 16) : 0;
+        int portraitWidth = width >= 320 ? Math.min(104, boxHeight - 20) : 0;
         int contentLeft = margin + 14 + portraitWidth;
         int contentWidth = Math.max(90, width - margin - 14 - contentLeft);
-        int promptLines = Math.max(2, Math.min(4, (boxHeight - 92) / font.lineHeight));
-        int listTop = top + 17 + promptLines * font.lineHeight;
+        int promptLines = Math.max(2, (boxHeight - 48) / visualLineHeight());
+        int choiceRight = width - margin;
+        int choiceWidth = Math.min(theme.choicePanelWidth, Math.max(110, width / 2));
+        int choiceBottom = Math.max(36, top - theme.choicePanelGap);
+        int maximumChoiceHeight = Math.max(
+            theme.choiceRowHeight + theme.choicePanelPadding * 2,
+            choiceBottom - 10
+        );
+        int visibleRows = Math.max(1, Math.min(
+            options.size(),
+            (maximumChoiceHeight - theme.choicePanelPadding * 2) / theme.choiceRowHeight
+        ));
+        int choiceHeight = visibleRows * theme.choiceRowHeight + theme.choicePanelPadding * 2;
+        int choiceTop = Math.max(8, choiceBottom - choiceHeight);
+        int choiceLeft = choiceRight - choiceWidth;
+        int optionLeft = choiceLeft + theme.choicePanelPadding;
+        int optionRight = choiceRight - theme.choicePanelPadding;
+        int listTop = choiceTop + theme.choicePanelPadding;
         return new Layout(
             margin, top, width - margin, height - 14,
-            portraitWidth, contentLeft, contentWidth, promptLines, listTop
+            portraitWidth, contentLeft, contentWidth, promptLines,
+            choiceLeft, choiceTop, choiceRight, choiceBottom,
+            optionLeft, optionRight, listTop, visibleRows
         );
     }
 
@@ -255,9 +275,46 @@ public final class EventChoiceScreen extends Screen {
         if (minecraft != null) minecraft.setScreen(null);
     }
 
+    private int visualLineHeight() {
+        return Math.max(1, Math.round(font.lineHeight * theme.bodyScale));
+    }
+
+    private int unscaledWidth(int visualWidth) {
+        return Math.max(1, (int)Math.floor(visualWidth / theme.bodyScale));
+    }
+
+    private void drawScaled(
+        GuiGraphics graphics, Component component, int x, int y, int color, float scale
+    ) {
+        graphics.pose().pushPose();
+        graphics.pose().scale(scale, scale, 1);
+        graphics.drawString(font, component, Math.round(x / scale), Math.round(y / scale), color, false);
+        graphics.pose().popPose();
+    }
+
+    private void drawScaled(
+        GuiGraphics graphics, Component component, int x, int y, int color
+    ) {
+        drawScaled(graphics, component, x, y, color, theme.bodyScale);
+    }
+
+    private void drawScaled(
+        GuiGraphics graphics, FormattedCharSequence text, int x, int y, int color
+    ) {
+        float scale = theme.bodyScale;
+        graphics.pose().pushPose();
+        graphics.pose().scale(scale, scale, 1);
+        graphics.drawString(font, text, Math.round(x / scale), Math.round(y / scale), color, false);
+        graphics.pose().popPose();
+    }
+
     private record Layout(
         int left, int top, int right, int bottom,
         int portraitWidth, int contentLeft, int contentWidth,
-        int promptLines, int listTop
-    ) {}
+        int promptLines,
+        int choiceLeft, int choiceTop, int choiceRight, int choiceBottom,
+        int optionLeft, int optionRight, int listTop, int visibleRows
+    ) {
+        int optionWidth() { return optionRight - optionLeft; }
+    }
 }

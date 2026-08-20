@@ -1,4 +1,21 @@
-# Minecraft 비트맵 폰트 생성기
+# Minecraft 폰트 팩 생성기
+
+## Caxton MSDF 팩
+
+기본 개발팩은 Caxton을 사용해 Pokemon BW 원본 TTF를 MSDF로 렌더링한다.
+고정 크기 PNG로 미리 축소하지 않으므로 Minecraft GUI 배율에 맞춰 선명하게
+표시된다. Caxton이 로드되지 못한 경우에는 `minecraft:uniform`으로 대체된다.
+
+```powershell
+python tools/font-pack/build_caxton_font_pack.py `
+  local-assets/PokemonBW.zip `
+  local-assets/PokemonBW-Caxton.zip
+```
+
+Caxton의 MSDF 월드 글자는 Iris 셰이더와 호환되지 않을 수 있으므로 표지판,
+NPC 이름표 등 월드 공간 글자는 실제 클라이언트에서 별도로 확인해야 한다.
+
+## 비트맵 fallback 생성기
 
 FontStruct에서 받은 원본 ZIP의 TTF 글리프를 원본 16×16 그리드 그대로 고정 픽셀
 PNG 아틀라스로 변환하고, Minecraft 1.21.1용 `bitmap` font provider가 포함된

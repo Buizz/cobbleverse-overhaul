@@ -27,6 +27,7 @@ class ValueType(str, Enum):
     BATTLE_RESULT = "battle_result"
     ITEM_RESULT = "item_result"
     MOVEMENT_RESULT = "movement_result"
+    HEALING_RESULT = "healing_result"
 
 
 class CommandKind(str, Enum):
@@ -46,6 +47,7 @@ class CommandKind(str, Enum):
     BATTLE = "battle"
     STARTER_ROULETTE = "starter_roulette"
     MAP_SELECTION = "map_selection"
+    HEAL_PARTY = "heal_party"
     MOVE = "move"
     TELEPORT = "teleport"
     ENTER_SPACE = "enter_space"

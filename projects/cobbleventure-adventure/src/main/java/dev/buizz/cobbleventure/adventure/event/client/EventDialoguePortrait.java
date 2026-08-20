@@ -24,20 +24,25 @@ final class EventDialoguePortrait {
 
     static void render(
         GuiGraphics graphics, LivingEntity entity,
-        int left, int top, int right, int bottom
+        int left, int top, int right, int bottom, EventDialogueTheme theme
     ) {
         if (entity == null || right <= left || bottom <= top) return;
-        graphics.fill(left, top, right, bottom, 0xB80A1017);
-        graphics.fill(left, top, right, top + 2, 0xFF5E7789);
-        int scale = Math.max(30, Math.min(78, bottom - top - 8));
+        graphics.fill(left, top, right, bottom, theme.portraitBackground);
+        graphics.fill(left, top, right, top + 2, theme.portraitAccent);
+        int scale = Math.round(Math.max(30, Math.min(78, bottom - top - 8)) * theme.portraitScale);
         graphics.enableScissor(
             Math.max(0, left), Math.max(0, top),
             Math.min(graphics.guiWidth(), right), Math.min(graphics.guiHeight(), bottom)
         );
         InventoryScreen.renderEntityInInventoryFollowsAngle(
             graphics, left, top, right, bottom, scale, 0.0625F,
-            0.0F, 0.0F, entity
+            angleInput(theme.portraitYaw, 40.0F),
+            angleInput(-theme.portraitPitch, 20.0F), entity
         );
         graphics.disableScissor();
+    }
+
+    private static float angleInput(float degrees, float rotationMultiplier) {
+        return 40.0F * (float)Math.tan(Math.toRadians(degrees / rotationMultiplier));
     }
 }

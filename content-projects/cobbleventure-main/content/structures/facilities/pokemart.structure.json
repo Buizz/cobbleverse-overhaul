@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/facilities/pokemart.nbt",
+  "display_name": {
+    "ko_kr": "포켓몬상점",
+    "en_us": "Pokemart"
+  },
+  "provenance": {
+    "project": "Cobblemon Additions",
+    "version": "4.2.1",
+    "authors": [
+      "Strikebyte",
+      "IronboundJam03",
+      "PeculiarSana",
+      "Nezmir"
+    ],
+    "source_resource": "bca:default/one_off/structure_pokemart",
+    "source_jar_sha1": "8aff3ce2f13787b310af5293022c413daccdee4b",
+    "source_nbt_sha256": "d9e5d7c36aa81226d6e50d4b19b66240804c8467fa512b66a29a85f28bdcbef5",
+    "license": "CC0-1.0",
+    "modified_copy": true
+  },
+  "anchors": [
+    {
+      "label": "counter",
+      "type": "npc_position",
+      "position": [7, 2, 17]
+    }
+  ]
+}

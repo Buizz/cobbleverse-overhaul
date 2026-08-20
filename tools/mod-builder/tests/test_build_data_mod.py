@@ -49,6 +49,21 @@ class TownNpcCapacityUnitTests(unittest.TestCase):
             target = output / build_data_mod.EVENT_BOUNDARY_CATALOG_ENTRY
             self.assertEqual(source.read_bytes(), target.read_bytes())
 
+    def test_dialogue_theme_is_packaged_for_runtime_reload_listener(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / build_data_mod.DIALOGUE_THEME_SOURCE
+            output = root / "output"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(b'{"schema_version":1,"font":{}}\n')
+
+            build_data_mod._package_dialogue_theme(root, output)
+
+            target = output / build_data_mod.DIALOGUE_THEME_ENTRY
+            self.assertEqual(source.read_bytes(), target.read_bytes())
+            asset_target = output / build_data_mod.DIALOGUE_THEME_ASSET_ENTRY
+            self.assertEqual(source.read_bytes(), asset_target.read_bytes())
+
     def test_exterior_only_houses_do_not_count_as_indoor_npc_capacity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -817,12 +832,38 @@ class DataModBuilderTests(unittest.TestCase):
         profile["commercial_center"] = "department_store"
         profile.setdefault("gym", {})["enabled"] = True
 
-        specs = {identifier: (width, depth) for identifier, width, depth in build_data_mod._compiled_facility_specs(source)}
+        detailed_specs = {
+            identifier: (width, depth, structure)
+            for identifier, width, depth, structure
+            in build_data_mod._compiled_facility_specs(source, REPOSITORY_ROOT)
+        }
+        specs = {
+            identifier: dimensions[:2]
+            for identifier, dimensions in detailed_specs.items()
+        }
 
         self.assertEqual((22, 23), specs["facility_pokemon_center"])
-        self.assertEqual((40, 72), specs["facility_department_store"])
+        self.assertEqual(
+            "cobbleventure:facilities/pokemon_center",
+            detailed_specs["facility_pokemon_center"][2],
+        )
+        self.assertEqual((42, 32), specs["facility_department_store"])
         self.assertEqual((25, 26), specs["gym_building"])
         self.assertNotIn("facility_pokemon_center_1", specs)
+
+        profile["facility_structures"] = {
+            "pokemon_center": "cobbleventure:facilities/department_store",
+        }
+        overridden = {
+            identifier: (width, depth, structure)
+            for identifier, width, depth, structure
+            in build_data_mod._compiled_facility_specs(source, REPOSITORY_ROOT)
+        }
+        self.assertEqual(
+            (42, 32, "cobbleventure:facilities/department_store"),
+            overridden["facility_pokemon_center"],
+        )
+        profile.pop("facility_structures")
 
         layout = build_data_mod._compile_town_layout(source)
         center = layout["facilities"]["facility_pokemon_center"]
@@ -836,6 +877,15 @@ class DataModBuilderTests(unittest.TestCase):
         )
 
         profile["commercial_center"] = "pokemart"
+        mart_specs = {
+            identifier: (width, depth, structure)
+            for identifier, width, depth, structure
+            in build_data_mod._compiled_facility_specs(source, REPOSITORY_ROOT)
+        }
+        self.assertEqual(
+            (23, 22, "cobbleventure:facilities/pokemart"),
+            mart_specs["facility_pokemart"],
+        )
         mart_layout = build_data_mod._compile_town_layout(source)
         mart = mart_layout["facilities"]["facility_pokemart"]
         self.assertEqual("east", mart["entrance_facing"])

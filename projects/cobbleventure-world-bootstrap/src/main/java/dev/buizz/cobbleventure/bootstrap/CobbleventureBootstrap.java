@@ -2064,14 +2064,13 @@ public final class CobbleventureBootstrap {
         Map<String, String> houseStructures = resolveTownHouseStructures(
             settlement, layout.houses()
         );
-        Set<TownRoad> approximateHouseAccessRoads = layout.houses().stream()
-            .flatMap(house -> layout.buildingAccessRoads()
-                .getOrDefault(house.id(), List.of()).stream())
+        Set<TownRoad> approximateBuildingAccessRoads = layout.buildingAccessRoads()
+            .values().stream().flatMap(List::stream)
             .collect(Collectors.toSet());
         List<TownRoad> runtimeAccessRoads = new ArrayList<>();
         Map<TownRoad, Integer> runtimeAccessRoadWidths = new HashMap<>();
         for (TownRoad accessRoad : layout.accessRoads()) {
-            if (approximateHouseAccessRoads.contains(accessRoad)) {
+            if (approximateBuildingAccessRoads.contains(accessRoad)) {
                 continue;
             }
             runtimeAccessRoads.add(accessRoad);
@@ -2080,15 +2079,18 @@ public final class CobbleventureBootstrap {
             );
         }
         for (String facilityId : layout.facilities().keySet()) {
+            TownPlot facility = layout.facilities().get(facilityId);
             int approachWidth = facilityApproachRoadWidth(facilityId, road.width());
-            for (TownRoad accessRoad : layout.buildingAccessRoads()
-                .getOrDefault(facilityId, List.of())) {
+            for (TownRoad accessRoad : townPlotAccessRoads(
+                level, facility, facility.structure()
+            )) {
+                runtimeAccessRoads.add(accessRoad);
                 runtimeAccessRoadWidths.put(accessRoad, approachWidth);
             }
         }
         for (TownPlot house : layout.houses()) {
             for (TownRoad accessRoad : townPlotAccessRoads(
-                house, houseStructures.get(house.id())
+                level, house, houseStructures.get(house.id())
             )) {
                 runtimeAccessRoads.add(accessRoad);
                 runtimeAccessRoadWidths.put(
@@ -2525,11 +2527,17 @@ public final class CobbleventureBootstrap {
     }
 
     private static TownRoad townPlotAccessRoad(TownPlot plot) {
-        return townPlotAccessRoad(plot, plot.structure());
+        return townPlotAccessRoad(null, plot, plot.structure());
     }
 
     private static TownRoad townPlotAccessRoad(
         TownPlot plot, String structure
+    ) {
+        return townPlotAccessRoad(null, plot, structure);
+    }
+
+    private static TownRoad townPlotAccessRoad(
+        ServerLevel level, TownPlot plot, String structure
     ) {
         int x = (int) Math.round(plot.x());
         int z = (int) Math.round(plot.z());
@@ -2541,6 +2549,10 @@ public final class CobbleventureBootstrap {
                 default -> "north";
             }
             : facilityCanonicalEntranceFacing(plot.id());
+        BlockPos roadAnchorOffset = level == null || structure == null ? null
+            : BuildingRuntimeSystem.exteriorRoadAnchorOffset(
+                level, structure, plot.rotation()
+            );
         BlockPos doorOffset = structure == null ? null
             : BuildingRuntimeSystem.exteriorDoorApproachOffset(
                 structure, plot.rotation()
@@ -2548,7 +2560,12 @@ public final class CobbleventureBootstrap {
         BlockPoint templateOrigin = rotatedTemplateOrigin(
             x, 0, z, plot.width(), plot.depth(), plot.rotation()
         );
-        Point entrance = doorOffset != null
+        Point entrance = roadAnchorOffset != null
+            ? new Point(
+                templateOrigin.x() + roadAnchorOffset.getX(),
+                templateOrigin.z() + roadAnchorOffset.getZ()
+            )
+            : doorOffset != null
             ? new Point(
                 templateOrigin.x() + doorOffset.getX(),
                 templateOrigin.z() + doorOffset.getZ()
@@ -2573,7 +2590,13 @@ public final class CobbleventureBootstrap {
     private static List<TownRoad> townPlotAccessRoads(
         TownPlot plot, String structure
     ) {
-        TownRoad direct = townPlotAccessRoad(plot, structure);
+        return townPlotAccessRoads(null, plot, structure);
+    }
+
+    private static List<TownRoad> townPlotAccessRoads(
+        ServerLevel level, TownPlot plot, String structure
+    ) {
+        TownRoad direct = townPlotAccessRoad(level, plot, structure);
         if (direct.x1() == direct.x2() || direct.z1() == direct.z2()) {
             return List.of(direct);
         }
@@ -2803,14 +2826,16 @@ public final class CobbleventureBootstrap {
         Point center = new Point(settlement.center().x(), settlement.center().z());
         TownLayout layout = generateTownLayout(settlement);
         for (String facilityId : layout.facilities().keySet()) {
+            TownPlot facility = layout.facilities().get(facilityId);
             RoadProfile approach = new RoadProfile(
                 facilityApproachRoadWidth(
                     facilityId, settlement.roadProfile().width()
                 ),
                 settlement.roadProfile().material()
             );
-            for (TownRoad road : layout.buildingAccessRoads()
-                .getOrDefault(facilityId, List.of())) {
+            for (TownRoad road : townPlotAccessRoads(
+                level, facility, facility.structure()
+            )) {
                 drawConfiguredRoad(
                     level,
                     center.translate(road.x1(), road.z1()),
@@ -3385,24 +3410,31 @@ public final class CobbleventureBootstrap {
         ServerLevel level, FacilityPlacement facility,
         List<ShopVendorAssignment> assignments, List<String> configuredVendors
     ) {
-        if (facility.id().equals("facility_department_store")
-            && !facility.structure().equals("bca:default/centers/center_department_store")) {
+        boolean usesAuthoredWorkerSlots = facility.id().equals("facility_pokemart")
+            || facility.id().equals("facility_department_store")
+                && !facility.structure().equals("bca:default/centers/center_department_store");
+        if (usesAuthoredWorkerSlots) {
             Map<String, BlockPoint> authoredSlots = facilityWorkerSlots(
                 level, facility.structure()
             );
             List<ShopVendorAssignment> resolvedAssignments = assignments != null
                 ? assignments
-                : configuredVendors == null ? List.of()
-                    : IntStream.range(0, configuredVendors.size())
+                : configuredVendors != null
+                    ? IntStream.range(0, configuredVendors.size())
                         .mapToObj(index -> new ShopVendorAssignment(
                             facilitySlotId(facility.id(), index), configuredVendors.get(index)
-                        )).toList();
+                        )).toList()
+                    : facility.id().equals("facility_pokemart")
+                        ? List.of(new ShopVendorAssignment(
+                            "counter", "bca:pokemart_shopkeeper"
+                        ))
+                        : List.of();
             List<FacilityWorkerPlacement> selected = new ArrayList<>();
             for (ShopVendorAssignment assignment : resolvedAssignments) {
                 BlockPoint slot = authoredSlots.get(assignment.slotId());
                 if (slot == null) {
                     LOGGER.info(
-                        "Department store vendor awaits an authored NPC anchor: structure={}, slot={}, vendor={}",
+                        "Facility vendor awaits an authored NPC anchor: structure={}, slot={}, vendor={}",
                         facility.structure(), assignment.slotId(), assignment.vendorUnit()
                     );
                     continue;
@@ -3476,12 +3508,13 @@ public final class CobbleventureBootstrap {
         List<String> configuredVendors
     ) {
         List<FacilityWorkerPlacement> defaults = switch (facilityId) {
-            case "facility_pokemon_center" -> List.of(
-                facilityWorker("nurse_joy", 16, 5, 10)
-            );
-            case "facility_pokemart" -> List.of(
-                facilityWorker("pokemart_shopkeeper", 7, 2, 17)
-            );
+            // Pokemon Center staff are authored through structure metadata and
+            // BuildingRuntimeSystem fixed-NPC anchors. Do not reintroduce the
+            // legacy BCA nurse template at a hard-coded local coordinate.
+            case "facility_pokemon_center" -> List.of();
+            // Pokemart vendors must use the structure metadata's `counter`
+            // NPC anchor. A template-local coordinate is not a valid fallback.
+            case "facility_pokemart" -> List.of();
             case "facility_department_store" -> List.of(
                 facilityWorker("shopkeeper_ds_vitamins", 8, 1, 41),
                 facilityWorker("shopkeeper_ds_battle_items", 8, 1, 43),
@@ -4357,23 +4390,20 @@ public final class CobbleventureBootstrap {
         if (generated != null) {
             int x = settlement.center().x() + (int) Math.round(generated.x());
             int z = settlement.center().z() + (int) Math.round(generated.z());
-            List<TownRoad> accessRoads = layout.buildingAccessRoads()
-                .getOrDefault(facility.id(), List.of());
-            TownRoad entranceRoad = accessRoads.isEmpty()
-                ? null : accessRoads.getLast();
-            int roadX = settlement.center().x() + (entranceRoad == null
-                ? generated.roadConnectionX() : entranceRoad.x2());
-            int roadZ = settlement.center().z() + (entranceRoad == null
-                ? generated.roadConnectionZ() : entranceRoad.z2());
-            int groundY = facility.id().contains("gym")
-                ? loadedRoadSurfaceY(level, roadX, roadZ)
-                : plannedTerrainGroundY(level, x, z);
+            TownRoad entranceRoad = townPlotAccessRoad(
+                level, generated, facility.structure()
+            );
+            int roadX = settlement.center().x() + entranceRoad.x2();
+            int roadZ = settlement.center().z() + entranceRoad.z2();
+            int groundY = loadedRoadSurfaceY(level, roadX, roadZ);
             LOGGER.info(
                 "Generated town facility lot selected: settlement={}, facility={}, "
                     + "origin=({}, {}, {}), roadConnection=({}, {})",
                 settlement.id(), facility.id(), x, groundY, z, roadX, roadZ
             );
-            return facilityTemplateOrigin(facility, x, groundY, z);
+            return facilityTemplateOrigin(
+                level, facility, x, groundY, z, generated.rotation()
+            );
         }
         if (facility.id().startsWith("facility_")) {
             if (generated == null) {
@@ -4403,10 +4433,35 @@ public final class CobbleventureBootstrap {
         return new BlockPoint(x, groundY - facilityGroundOffset(facility), z);
     }
 
+    private static BlockPoint facilityTemplateOrigin(
+        ServerLevel level, FacilityPlacement facility,
+        int x, int roadY, int z, String rotationName
+    ) {
+        BlockPos roadAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
+            level, facility.structure(), rotationName
+        );
+        int localRoadY = roadAnchor == null
+            ? facilityGroundOffset(facility) : roadAnchor.getY();
+        return new BlockPoint(x, roadY - localRoadY, z);
+    }
+
     private static int facilityGroundLevelY(
         FacilityPlacement facility, BlockPoint origin
     ) {
         return origin.y() + facilityGroundOffset(facility)
+            - BuildingRuntimeSystem.placementYOffset(facility.structure());
+    }
+
+    private static int facilityGroundLevelY(
+        ServerLevel level, FacilityPlacement facility,
+        BlockPoint origin, String rotationName
+    ) {
+        BlockPos roadAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
+            level, facility.structure(), rotationName
+        );
+        int localRoadY = roadAnchor == null
+            ? facilityGroundOffset(facility) : roadAnchor.getY();
+        return origin.y() + localRoadY
             - BuildingRuntimeSystem.placementYOffset(facility.structure());
     }
 
@@ -4921,7 +4976,7 @@ public final class CobbleventureBootstrap {
                 .setRotation(rotation)
                 .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE)
                 .addProcessor(new FacilityTerrainPreservationProcessor(
-                    facilityGroundLevelY(facility, position)
+                    facilityGroundLevelY(level, facility, position, rotationName)
                 ));
             boolean placed = template.get().placeInWorld(
                 level, blockPos, blockPos, settings,
@@ -5519,17 +5574,18 @@ public final class CobbleventureBootstrap {
             }
             int originX = settlement.center().x() + (int) Math.round(center.x());
             int originZ = settlement.center().z() + (int) Math.round(center.z());
-            BlockPoint origin = facilityTemplateOrigin(
-                facility,
-                originX,
-                plannedTerrainGroundY(level, originX, originZ),
-                originZ
+            TownRoad entrance = townPlotAccessRoad(
+                level, center, facility.structure()
             );
-            TownRoad entrance = townPlotAccessRoad(center);
+            int entranceX = settlement.center().x() + entrance.x2();
+            int entranceZ = settlement.center().z() + entrance.z2();
+            BlockPoint origin = facilityTemplateOrigin(
+                level, facility, originX,
+                loadedRoadSurfaceY(level, entranceX, entranceZ),
+                originZ, center.rotation()
+            );
             BlockPos exit = surfacePosition(
-                level,
-                settlement.center().x() + entrance.x2(),
-                settlement.center().z() + entrance.z2()
+                level, entranceX, entranceZ
             );
             PokemonCenterDefeatReturn.recordCenterVisit(
                 player,
@@ -6529,7 +6585,9 @@ public final class CobbleventureBootstrap {
         if (level == null) {
             return 0;
         }
-        TownRoad entrance = townPlotAccessRoad(center);
+        TownRoad entrance = townPlotAccessRoad(
+            level, center, center.structure()
+        );
         BlockPos target = safeTeleportPosition(
             level,
             settlement.center().x() + entrance.x2(),
@@ -6839,6 +6897,7 @@ public final class CobbleventureBootstrap {
     private static Map<String, SettlementPlan> loadSettlementPlans(ServerLevel level) {
         Map<String, SettlementPlan> plans = new LinkedHashMap<>();
         List<SettlementPlan> loadedPlans = new ArrayList<>();
+        Map<String, String> facilityDefaults = loadFacilityStructureDefaults(level);
         Map<ResourceLocation, Resource> resources = level.getServer().getResourceManager().listResources(
             "settlements",
             location -> location.getNamespace().equals("cobbleventure")
@@ -6848,7 +6907,9 @@ public final class CobbleventureBootstrap {
             .sorted(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)))
             .forEach(entry -> {
                 try (Reader reader = entry.getValue().openAsReader()) {
-                    loadedPlans.add(parseSettlement(JsonParser.parseReader(reader).getAsJsonObject()));
+                    loadedPlans.add(parseSettlement(
+                        level, JsonParser.parseReader(reader).getAsJsonObject(), facilityDefaults
+                    ));
                 } catch (IOException | RuntimeException error) {
                     throw new IllegalStateException("Invalid settlement resource: " + entry.getKey(), error);
                 }
@@ -6866,7 +6927,51 @@ public final class CobbleventureBootstrap {
         return plans;
     }
 
-    private static SettlementPlan parseSettlement(JsonObject root) {
+    private static Map<String, String> loadFacilityStructureDefaults(ServerLevel level) {
+        JsonObject root = readJsonResource(level, "building_settings.json");
+        JsonObject defaults = root.has("facility_defaults")
+            ? root.getAsJsonObject("facility_defaults") : new JsonObject();
+        Map<String, String> result = new LinkedHashMap<>();
+        for (String type : List.of("pokemon_center", "pokemart", "department_store")) {
+            if (defaults.has(type)) {
+                result.put(type, defaults.get(type).getAsString());
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    private static String facilityStructure(
+        JsonObject structureProfile, Map<String, String> defaults,
+        String type, String compatibilityFallback
+    ) {
+        if (structureProfile.has("facility_structures")) {
+            JsonObject overrides = structureProfile.getAsJsonObject("facility_structures");
+            if (overrides.has(type)) {
+                return overrides.get(type).getAsString();
+            }
+        }
+        return defaults.getOrDefault(type, compatibilityFallback);
+    }
+
+    private static int[] facilityDimensions(
+        ServerLevel level, String structure, int fallbackWidth,
+        int fallbackDepth, int fallbackHeight
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
+        if (structureId == null) {
+            return new int[] {fallbackWidth, fallbackDepth, fallbackHeight};
+        }
+        return level.getStructureManager().get(structureId)
+            .map(template -> {
+                var size = template.getSize();
+                return new int[] {size.getX(), size.getZ(), size.getY()};
+            })
+            .orElseGet(() -> new int[] {fallbackWidth, fallbackDepth, fallbackHeight});
+    }
+
+    private static SettlementPlan parseSettlement(
+        ServerLevel level, JsonObject root, Map<String, String> facilityDefaults
+    ) {
         String id = requiredString(root, "id");
         boolean enabled = root.has("enabled") && root.get("enabled").getAsBoolean();
         int loadOrder = root.has("load_order") ? root.get("load_order").getAsInt() : Integer.MAX_VALUE;
@@ -6955,11 +7060,18 @@ public final class CobbleventureBootstrap {
             ? structureProfile.get("pokemon_center_enabled").getAsBoolean()
             : !starterSettlement;
         if (pokemonCenterEnabled) {
+            String pokemonCenterStructure = facilityStructure(
+                structureProfile, facilityDefaults, "pokemon_center",
+                "bca:default/one_off/pokecenter"
+            );
+            int[] dimensions = facilityDimensions(
+                level, pokemonCenterStructure, 22, 23, 15
+            );
             facilities.add(new FacilityPlacement(
                 "facility_pokemon_center", "direct_template",
-                "bca:default/one_off/pokecenter", "pokemon_center", "포켓몬센터",
+                pokemonCenterStructure, "pokemon_center", "포켓몬센터",
                 null, null, null, null, null, null, 1.5D,
-                22, 23, 15, 6
+                dimensions[0], dimensions[1], dimensions[2], 6
             ));
         }
         String commercialCenter = structureProfile.has("commercial_center")
@@ -6992,18 +7104,33 @@ public final class CobbleventureBootstrap {
             commercialCenter = "pokemart";
         }
         if (commercialCenter.equals("pokemart")) {
+            String pokemartStructure = facilityStructure(
+                structureProfile, facilityDefaults, "pokemart",
+                "bca:default/one_off/structure_pokemart"
+            );
+            int[] dimensions = facilityDimensions(
+                level, pokemartStructure, 23, 22, 15
+            );
             facilities.add(new FacilityPlacement(
                 "facility_pokemart", "direct_template",
-                "bca:default/one_off/structure_pokemart", "pokemart", "포켓몬상점",
+                pokemartStructure, "pokemart", "포켓몬상점",
                 null, null, null, null, null, null, 1.5D,
-                23, 22, 15, 6
+                dimensions[0], dimensions[1], dimensions[2], 6
             ));
         } else if (commercialCenter.equals("department_store")) {
+            String departmentStoreStructure = facilityStructure(
+                structureProfile, facilityDefaults, "department_store",
+                "cobbleventure:facilities/department_store"
+            );
+            int[] dimensions = facilityDimensions(
+                level, departmentStoreStructure, 42, 32, 44
+            );
             facilities.add(new FacilityPlacement(
                 "facility_department_store", "direct_template",
-                "cobbleventure:facilities/department_store",
+                departmentStoreStructure,
                 "department_store", "백화점", null, null, null,
-                null, null, null, 1.5D, 42, 32, 44, 8
+                null, null, null, 1.5D,
+                dimensions[0], dimensions[1], dimensions[2], 8
             ));
         }
         if (structureProfile.has("facility_placements")) {

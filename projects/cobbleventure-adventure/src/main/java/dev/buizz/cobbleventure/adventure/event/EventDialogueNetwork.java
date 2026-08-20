@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 /** NeoForge transport for CVES dialogue and structured choice screens. */
 public final class EventDialogueNetwork {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final String VERSION = "2";
+    private static final String VERSION = "4";
     private static final int MAX_JSON_LENGTH = 65_535;
     private static final long DIALOGUE_TIMEOUT_MILLIS = 5L * 60L * 1000L;
 
@@ -53,7 +53,8 @@ public final class EventDialogueNetwork {
                     ? "system" : request.speaker(),
                 speakerName(player, request),
                 request.text().toString(),
-                locals.toString()
+                locals.toString(),
+                EventDialogueThemeRepository.snapshot()
             ));
             return new EventDialogueGateway.OpenResult(
                 token, System.currentTimeMillis() + DIALOGUE_TIMEOUT_MILLIS
@@ -77,7 +78,8 @@ public final class EventDialogueNetwork {
                 request.sessionKey().triggerInstance(),
                 request.prompt().toString(),
                 options.toString(),
-                locals(player, request.locals()).toString()
+                locals(player, request.locals()).toString(),
+                EventDialogueThemeRepository.snapshot()
             ));
             return new EventChoiceGateway.OpenResult(
                 token, System.currentTimeMillis() + DIALOGUE_TIMEOUT_MILLIS
@@ -86,7 +88,11 @@ public final class EventDialogueNetwork {
     }
 
     static void setMovementInputLocked(ServerPlayer player, boolean locked) {
-        PacketDistributor.sendToPlayer(player, new MovementLockPayload(locked));
+        setAwaitInputLocked(player, "movement", locked);
+    }
+
+    static void setAwaitInputLocked(ServerPlayer player, String kind, boolean locked) {
+        PacketDistributor.sendToPlayer(player, new MovementLockPayload(kind, locked));
     }
 
     static void setFade(
@@ -105,7 +111,7 @@ public final class EventDialogueNetwork {
                     + (command == null ? context.instruction().operation() : command)
             );
         };
-        return new DialogueEventCommandAdapter(
+        return new EventAwaitInputLockAdapter(player, new DialogueEventCommandAdapter(
             gateway(player),
             new ChoiceEventCommandAdapter(
                 choiceGateway(player),
@@ -130,10 +136,13 @@ public final class EventDialogueNetwork {
                                             new GiveItemEventCommandAdapter(
                                                 EventItemGrantBridge.gateway(player),
                                                 environment,
-                                                new GiveLootEventCommandAdapter(
-                                                    EventLootGrantBridge.gateway(player),
-                                                    environment,
-                                                    new StateEventCommandAdapter(environment, unsupported)
+                                                new HealPartyEventCommandAdapter(
+                                                    EventHealingBridge.gateway(player),
+                                                    new GiveLootEventCommandAdapter(
+                                                        EventLootGrantBridge.gateway(player),
+                                                        environment,
+                                                        new StateEventCommandAdapter(environment, unsupported)
+                                                    )
                                                 )
                                             )
                                         )
@@ -144,7 +153,7 @@ public final class EventDialogueNetwork {
                     )
                 )
             )
-        );
+        ));
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -174,7 +183,7 @@ public final class EventDialogueNetwork {
     private static void handleMovementLock(
         MovementLockPayload payload, IPayloadContext context
     ) {
-        EventDialogueClient.setMovementInputLocked(payload.locked());
+        EventDialogueClient.setAwaitInputLocked(payload.kind(), payload.locked());
     }
 
     private static void handleFade(FadePayload payload, IPayloadContext context) {
@@ -315,7 +324,8 @@ public final class EventDialogueNetwork {
         String speakerKind,
         String speaker,
         String textJson,
-        String localsJson
+        String localsJson,
+        String themeJson
     ) implements CustomPacketPayload {
         public static final Type<OpenPayload> TYPE = new Type<>(id("event_dialogue_open"));
         public static final StreamCodec<RegistryFriendlyByteBuf, OpenPayload> STREAM_CODEC =
@@ -330,6 +340,7 @@ public final class EventDialogueNetwork {
             speaker = speaker == null ? "" : speaker;
             Objects.requireNonNull(textJson, "textJson");
             Objects.requireNonNull(localsJson, "localsJson");
+            Objects.requireNonNull(themeJson, "themeJson");
         }
 
         private void write(RegistryFriendlyByteBuf buffer) {
@@ -342,6 +353,7 @@ public final class EventDialogueNetwork {
             buffer.writeUtf(speaker);
             buffer.writeUtf(textJson, MAX_JSON_LENGTH);
             buffer.writeUtf(localsJson, MAX_JSON_LENGTH);
+            buffer.writeUtf(themeJson, MAX_JSON_LENGTH);
         }
 
         private static OpenPayload read(RegistryFriendlyByteBuf buffer) {
@@ -353,6 +365,7 @@ public final class EventDialogueNetwork {
                 buffer.readBoolean(),
                 buffer.readUtf(),
                 buffer.readUtf(),
+                buffer.readUtf(MAX_JSON_LENGTH),
                 buffer.readUtf(MAX_JSON_LENGTH),
                 buffer.readUtf(MAX_JSON_LENGTH)
             );
@@ -404,7 +417,8 @@ public final class EventDialogueNetwork {
         String triggerInstance,
         String promptJson,
         String optionsJson,
-        String localsJson
+        String localsJson,
+        String themeJson
     ) implements CustomPacketPayload {
         public static final Type<ChoiceOpenPayload> TYPE = new Type<>(id("event_choice_open"));
         public static final StreamCodec<RegistryFriendlyByteBuf, ChoiceOpenPayload> STREAM_CODEC =
@@ -418,6 +432,7 @@ public final class EventDialogueNetwork {
             Objects.requireNonNull(promptJson, "promptJson");
             Objects.requireNonNull(optionsJson, "optionsJson");
             Objects.requireNonNull(localsJson, "localsJson");
+            Objects.requireNonNull(themeJson, "themeJson");
         }
 
         private void write(RegistryFriendlyByteBuf buffer) {
@@ -428,12 +443,14 @@ public final class EventDialogueNetwork {
             buffer.writeUtf(promptJson, MAX_JSON_LENGTH);
             buffer.writeUtf(optionsJson, MAX_JSON_LENGTH);
             buffer.writeUtf(localsJson, MAX_JSON_LENGTH);
+            buffer.writeUtf(themeJson, MAX_JSON_LENGTH);
         }
 
         private static ChoiceOpenPayload read(RegistryFriendlyByteBuf buffer) {
             return new ChoiceOpenPayload(
                 buffer.readUtf(), buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
                 buffer.readUtf(MAX_JSON_LENGTH), buffer.readUtf(MAX_JSON_LENGTH),
+                buffer.readUtf(MAX_JSON_LENGTH),
                 buffer.readUtf(MAX_JSON_LENGTH)
             );
         }
@@ -484,19 +501,26 @@ public final class EventDialogueNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record MovementLockPayload(boolean locked) implements CustomPacketPayload {
+    public record MovementLockPayload(
+        String kind, boolean locked
+    ) implements CustomPacketPayload {
         public static final Type<MovementLockPayload> TYPE = new Type<>(
             id("event_movement_lock")
         );
         public static final StreamCodec<RegistryFriendlyByteBuf, MovementLockPayload> STREAM_CODEC =
             StreamCodec.ofMember(MovementLockPayload::write, MovementLockPayload::read);
 
+        public MovementLockPayload {
+            kind = kind == null ? "" : kind;
+        }
+
         private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(kind);
             buffer.writeBoolean(locked);
         }
 
         private static MovementLockPayload read(RegistryFriendlyByteBuf buffer) {
-            return new MovementLockPayload(buffer.readBoolean());
+            return new MovementLockPayload(buffer.readUtf(), buffer.readBoolean());
         }
 
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }

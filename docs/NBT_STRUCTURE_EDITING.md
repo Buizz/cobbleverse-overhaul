@@ -471,6 +471,16 @@ easy_npc:preset/encounter/<id>.npc.snbt
   디렉터리에 복사하지 않습니다. 참고해 직접 만든 구조물도 원본과 표현이 지나치게 같지
   않도록 설계와 디테일을 독자적으로 구성합니다.
 
+BCA 4.2.1의 `bca:default/one_off/pokecenter`는 배포 JAR 내부의 CC0 1.0 전문과
+`fabric.mod.json` 선언을 확인한 뒤 `facilities/pokemon_center.nbt`로 복사했습니다.
+이 예외의 정확한 원본 해시와 수정본 표기는
+`docs/asset-permissions/BCA_4_2_1_POKEMON_CENTER.md`에서 관리합니다. 이 확인을 다른
+BCA 버전이나 구조물에 자동으로 적용하지 않습니다.
+
+같은 4.2.1 JAR의 `bca:default/one_off/structure_pokemart`도 동일한 확인을 거쳐
+`facilities/pokemart.nbt`로 복사했습니다. 포켓몬상점의 원본 해시와 수정본 표기는
+`docs/asset-permissions/BCA_4_2_1_POKEMART.md`에서 별도로 관리합니다.
+
 ## 월드 배치 높이 조정
 
 웹 `NBT 건물 설정`에서 구조물을 선택하면 `월드 배치 높이`의 `Y 보정값`을 설정할 수
@@ -519,3 +529,33 @@ projects/cobbleventure-world-bootstrap/src/generated/resources/data/cobbleventur
   플레이어 데이터 복구 경고다. 실제 접속을 차단한 원인은 뒤이어 기록된 건축 모드의 배열
   예외다. 이미 유실됐다고 기록된 Cobblemon 파티·도감 데이터가 필요하면 해당 월드의
   별도 백업에서 복원해야 한다.
+# 도로 연결 직소 앵커
+
+건물에서 마을 도로가 닿아야 하는 바닥 칸에는 직소 블록을 하나 배치합니다.
+
+- `name`: `cobbleventure:road_anchor`
+- `orientation`: 직소의 앞면이 건물 바깥쪽 도로를 향하도록 수평 방향 지정
+- `target` / `pool`: `minecraft:empty`
+- `final_state`: 직소가 제거된 뒤 남길 실제 바닥 블록
+
+배치기는 이 직소의 X/Z를 연결도로 끝점으로, Y를 건물과 도로의 높이 기준으로
+사용합니다. 관리 건물 하나에는 도로 앵커를 하나만 두어야 합니다. 앵커가 없는
+기존 NBT만 문 앵커 또는 과거 건물별 추정 위치를 폴백으로 사용합니다.
+
+## 포켓몬상점 판매원 앵커
+
+포켓몬상점 판매원은 NBT 직소로 생성하지 않습니다. 상점의
+`.structure.json`에 다음 `npc_position` 앵커를 둡니다.
+
+```json
+{
+  "label": "counter",
+  "type": "npc_position",
+  "position": [7, 2, 17]
+}
+```
+
+`position`은 현재 기본 상점 NBT의 카운터 위치이며, 상점 NBT를 수정했다면 판매원이
+서야 할 블록 좌표로 함께 수정합니다. 마을의 판매원 설정은 `counter` 라벨을 찾아 우리
+상점 NPC를 배치하므로 `bca:pokemart_shopkeeper_spawner`나 랜덤 판매원 직소를 NBT에
+넣지 않습니다.

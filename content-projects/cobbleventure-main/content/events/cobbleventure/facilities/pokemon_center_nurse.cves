@@ -1,0 +1,27 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "많이 힘드셨군요. 포켓몬들을 치료해 드릴게요."
+      en_us: "You have been through a lot. Let me heal your Pokémon."
+    }
+    id "healing/use_machine" await heal_party -> healing
+    if healing.healed {
+      say npc {
+        ko_kr: "포켓몬들이 모두 건강해졌습니다. 다시 힘내세요!"
+        en_us: "Your Pokémon are fully healed. We hope to see you again!"
+      }
+    } else {
+      if healing.failure_reason == "healing_machine_not_found" {
+        say npc {
+          ko_kr: "근처에서 사용할 수 있는 치료기를 찾을 수 없어요."
+          en_us: "I cannot find an available healing machine nearby."
+        }
+      } else {
+        say npc {
+          ko_kr: "포켓몬들이 이미 건강하거나 치료기가 사용 중이에요."
+          en_us: "Your Pokémon are already healthy, or the healing machine is busy."
+        }
+      }
+    }
+  }
+}

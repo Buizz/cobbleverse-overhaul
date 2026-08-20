@@ -20,6 +20,7 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 @EventBusSubscriber(modid = CobbleventurePlayerMenu.MOD_ID, value = Dist.CLIENT)
 public final class BattleIntroOverlay {
     private static final int PORTRAIT_Y_OFFSET = 21;
+    private static final float PORTRAIT_INWARD_ANGLE = 0.65F;
     private static final ResourceLocation LAYER = ResourceLocation.fromNamespaceAndPath(
         CobbleventurePlayerMenu.MOD_ID, "battle_intro"
     );
@@ -97,8 +98,7 @@ public final class BattleIntroOverlay {
             portraitTop,
             centerX - width / 18 + leftOffset,
             portraitBottom,
-            width,
-            portraitTop + bandHeight / 3
+            -PORTRAIT_INWARD_ANGLE
         );
         renderPortrait(
             graphics,
@@ -107,8 +107,7 @@ public final class BattleIntroOverlay {
             portraitTop,
             width - width / 18 + rightOffset,
             portraitBottom,
-            0,
-            portraitTop + bandHeight / 3
+            PORTRAIT_INWARD_ANGLE
         );
 
         Font font = minecraft.font;
@@ -194,8 +193,7 @@ public final class BattleIntroOverlay {
         int top,
         int right,
         int bottom,
-        int lookX,
-        int lookY
+        float inwardAngle
     ) {
         if (!(entity instanceof LivingEntity living) || right <= left || bottom <= top) return;
         int clipLeft = Math.max(0, left);
@@ -205,8 +203,9 @@ public final class BattleIntroOverlay {
         if (clipRight <= clipLeft || clipBottom <= clipTop) return;
         int scale = Math.max(42, Math.min(96, bottom - top - 8));
         graphics.enableScissor(clipLeft, clipTop, clipRight, clipBottom);
-        InventoryScreen.renderEntityInInventoryFollowsMouse(
-            graphics, left, top, right, bottom, scale, 0.0625F, lookX, lookY, living
+        InventoryScreen.renderEntityInInventoryFollowsAngle(
+            graphics, left, top, right, bottom, scale, 0.0625F,
+            inwardAngle, 0.0F, living
         );
         graphics.disableScissor();
     }

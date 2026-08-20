@@ -164,7 +164,7 @@ public final class MapNetwork {
             ));
             return;
         }
-        String command = "cobbleventure_event map_result "
+        String command = "cobbleventure_event_map_result "
             + pending.token() + " "
             + StringArgumentType.escapeIfRequired(decision.settlementId());
         int completed;
@@ -217,7 +217,7 @@ public final class MapNetwork {
     private static void notifySelectionCancelled(
         ServerPlayer player, String token, String reason
     ) {
-        String command = "cobbleventure_event map_cancel "
+        String command = "cobbleventure_event_map_cancel "
             + token + " " + reason;
         player.getServer().getCommands().performPrefixedCommand(
             player.createCommandSourceStack().withPermission(4).withSuppressedOutput(),

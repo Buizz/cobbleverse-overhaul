@@ -13,11 +13,19 @@ import dev.buizz.cobbleventure.adventure.event.EventTextRenderer;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.common.NeoForge;
 
 /** Client-only text localization and screen entry point. */
 public final class EventDialogueClient {
+    private static boolean inputHooksRegistered;
+    private static boolean awaitInputLocked;
+    private static String awaitKind = "";
+
     private EventDialogueClient() {}
 
     public static void open(EventDialogueNetwork.OpenPayload payload) {
@@ -40,15 +48,71 @@ public final class EventDialogueClient {
         minecraft.setScreen(new EventChoiceScreen(payload, renderedPrompt, renderedOptions));
     }
 
-    public static void setMovementInputLocked(boolean locked) {
+    public static void setAwaitInputLocked(String kind, boolean locked) {
+        ensureInputHooksRegistered();
+        awaitInputLocked = locked;
+        awaitKind = locked && kind != null ? kind : "";
         Minecraft minecraft = Minecraft.getInstance();
         if (locked) {
-            if (!(minecraft.screen instanceof EventMovementLockScreen)) {
+            if (minecraft.screen == null || !isAuthoredScreen(minecraft.screen, awaitKind)) {
                 minecraft.setScreen(new EventMovementLockScreen());
             }
         } else if (minecraft.screen instanceof EventMovementLockScreen) {
             minecraft.setScreen(null);
         }
+    }
+
+    private static void ensureInputHooksRegistered() {
+        if (inputHooksRegistered) return;
+        inputHooksRegistered = true;
+        NeoForge.EVENT_BUS.addListener(EventDialogueClient::onScreenOpening);
+        NeoForge.EVENT_BUS.addListener(EventDialogueClient::onClientTick);
+    }
+
+    private static void onScreenOpening(ScreenEvent.Opening event) {
+        if (Minecraft.getInstance().player == null) {
+            awaitInputLocked = false;
+            awaitKind = "";
+            return;
+        }
+        if (!awaitInputLocked || event.getNewScreen() == null
+            || isAuthoredScreen(event.getNewScreen(), awaitKind)) {
+            return;
+        }
+        event.setCanceled(true);
+    }
+
+    private static void onClientTick(ClientTickEvent.Post event) {
+        if (!awaitInputLocked) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            awaitInputLocked = false;
+            awaitKind = "";
+        } else if (minecraft.screen == null) {
+            minecraft.setScreen(new EventMovementLockScreen());
+        }
+    }
+
+    private static boolean isAuthoredScreen(Screen screen, String kind) {
+        if (screen instanceof EventMovementLockScreen
+            || screen instanceof EventDialogueScreen
+            || screen instanceof EventChoiceScreen
+            || screen instanceof EventFadeScreen) {
+            return true;
+        }
+        String className = screen.getClass().getName();
+        if (className.equals(
+            "dev.buizz.cobbleventure.playermenu.client.StarterRouletteScreen"
+        )) {
+            return kind.equals("starter_roulette") || kind.equals("transition");
+        }
+        if (className.equals(
+            "dev.buizz.cobbleventure.playermenu.client.WorldMapScreen"
+        )) {
+            return kind.equals("map_selection") || kind.equals("transition");
+        }
+        return (kind.equals("battle") || kind.equals("transition"))
+            && className.toLowerCase(java.util.Locale.ROOT).contains("battle");
     }
 
     public static void setFade(

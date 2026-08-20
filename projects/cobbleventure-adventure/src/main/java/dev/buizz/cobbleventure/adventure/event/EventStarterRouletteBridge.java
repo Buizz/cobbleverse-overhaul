@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.common.NeoForge;
@@ -74,28 +73,34 @@ public final class EventStarterRouletteBridge {
 
     private static void registerCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
-            Commands.literal("cobbleventure_event")
+            Commands.literal("cobbleventure_event_starter_result")
                 .requires(source -> source.hasPermission(4))
-                .then(Commands.literal("starter_result")
-                    .then(Commands.argument("token", StringArgumentType.word())
-                        .then(Commands.argument("species", StringArgumentType.string())
-                            .executes(context -> complete(
-                                context.getSource().getPlayerOrException(),
-                                StringArgumentType.getString(context, "token"),
-                                StringArgumentType.getString(context, "species")
-                            )))))
-                .then(Commands.literal("starter_cancel")
-                    .then(Commands.argument("token", StringArgumentType.word())
-                        .then(Commands.argument("reason", StringArgumentType.word())
-                            .executes(context -> cancel(
-                                context.getSource().getPlayerOrException(),
-                                StringArgumentType.getString(context, "token"),
-                                StringArgumentType.getString(context, "reason")
-                            )))))
+                .then(Commands.argument("token", StringArgumentType.word())
+                    .then(Commands.argument("species", StringArgumentType.string())
+                        .executes(context -> complete(
+                            context.getSource().getPlayerOrException(),
+                            StringArgumentType.getString(context, "token"),
+                            StringArgumentType.getString(context, "species")
+                        ))))
+        );
+        event.getDispatcher().register(
+            Commands.literal("cobbleventure_event_starter_cancel")
+                .requires(source -> source.hasPermission(4))
+                .then(Commands.argument("token", StringArgumentType.word())
+                    .then(Commands.argument("reason", StringArgumentType.word())
+                        .executes(context -> cancel(
+                            context.getSource().getPlayerOrException(),
+                            StringArgumentType.getString(context, "token"),
+                            StringArgumentType.getString(context, "reason")
+                        ))))
         );
     }
 
     private static int complete(ServerPlayer player, String token, String speciesId) {
+        LOGGER.info(
+            "Starter roulette callback received: player={}, token={}, species={}",
+            player.getGameProfile().getName(), token, speciesId
+        );
         ResourceLocation species = ResourceLocation.tryParse(speciesId);
         if (species == null) {
             LOGGER.warn("Invalid starter species callback: {}", speciesId);
@@ -114,7 +119,13 @@ public final class EventStarterRouletteBridge {
         }
         EventScript script = EventScriptRepository.instance()
             .find(key.orElseThrow().scriptId()).orElse(null);
-        if (script == null) return 0;
+        if (script == null) {
+            LOGGER.error(
+                "Starter roulette callback script was not found: token={}, script={}",
+                token, key.orElseThrow().scriptId()
+            );
+            return 0;
+        }
 
         JsonObject result = new JsonObject();
         result.addProperty("species_id", species.toString());

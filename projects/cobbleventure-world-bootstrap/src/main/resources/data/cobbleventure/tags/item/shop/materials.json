@@ -7,6 +7,10 @@
     "#cobblemon:tier_2_poke_ball_materials",
     "#cobblemon:tier_3_poke_ball_materials",
     "#cobblemon:tier_4_poke_ball_materials",
+    "#cobblemon:apricorn_sprouts",
+    "#cobblemon:plants",
+    "#cobblemon:seeds",
+    "#cobblemon:fossils",
     "#c:ores",
     { "id": "#c:ingots", "required": false },
     { "id": "#c:dusts", "required": false }

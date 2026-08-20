@@ -11,9 +11,9 @@ final class StarterRouletteEventCallback {
     static String command(String token, String species, String reason) {
         String safeToken = requireSafe(token, "token");
         return species == null
-            ? "cobbleventure_event starter_cancel " + safeToken + " "
+            ? "cobbleventure_event_starter_cancel " + safeToken + " "
                 + requireSafe(reason, "reason")
-            : "cobbleventure_event starter_result " + safeToken + " "
+            : "cobbleventure_event_starter_result " + safeToken + " "
                 + requireSafe(species, "species");
     }
 

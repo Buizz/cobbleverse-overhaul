@@ -169,7 +169,10 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
                 raise StructureBuilderError(
                     f"{field}는 정수 좌표 3개여야 합니다: {path} #{index}"
                 )
-        direction_fields = ("door_facing", "safe_side") if is_door else (() if is_npc else ("facing",))
+        direction_fields = (
+            ("door_facing", "safe_side") if is_door
+            else (() if is_npc else ("facing",))
+        )
         for field in direction_fields:
             if anchor.get(field) not in {"north", "east", "south", "west"}:
                 raise StructureBuilderError(

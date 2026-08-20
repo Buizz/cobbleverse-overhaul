@@ -99,6 +99,16 @@
         },
         "shop_configuration": { "$ref": "#/$defs/shop_configuration" },
         "pokemon_center_enabled": { "type": "boolean" },
+        "facility_structures": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "pokemon_center": { "$ref": "#/$defs/resource_id" },
+            "pokemart": { "$ref": "#/$defs/resource_id" },
+            "department_store": { "$ref": "#/$defs/resource_id" }
+          },
+          "description": "전역 시설 NBT 기본값을 마을 단위로 재정의"
+        },
         "civic_facilities_explicit": { "type": "boolean" },
         "starter_layout": {
           "deprecated": true,

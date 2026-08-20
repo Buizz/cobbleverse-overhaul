@@ -388,6 +388,5 @@ class StructureBuilderTests(unittest.TestCase):
         }, Path("shared_room.structure.json"))
         self.assertEqual("next_room", document["anchors"][0]["label"])
 
-
 if __name__ == "__main__":
     unittest.main()

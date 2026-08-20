@@ -460,6 +460,12 @@
       "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/boss_giovanni_015d", "implementation_status": "ready" }, "tags": ["boss", "organization", "unique", "villain"]
     },
     {
+      "id": "cobbleventure:trainer_class/nurse", "category": "occupation",
+      "display_name": { "ko_kr": "간호순", "en_us": "Pokemon Center Nurse" }, "title_pattern": { "ko_kr": "{name}", "en_us": "{name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "slim" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/nurse_joy", "implementation_status": "ready" }, "tags": ["service", "healer", "female"]
+    },
+    {
       "id": "cobbleventure:trainer_class/custom", "category": "custom",
       "display_name": { "ko_kr": "사용자 정의", "en_us": "Custom" }, "title_pattern": { "ko_kr": "{name}", "en_us": "{name}" },
       "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },

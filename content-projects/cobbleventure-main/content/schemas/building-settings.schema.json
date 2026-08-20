@@ -8,6 +8,15 @@
   "properties": {
     "$schema": { "type": "string" },
     "schema_version": { "const": 1 },
+    "facility_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pokemon_center": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+        "pokemart": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+        "department_store": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+      }
+    },
     "buildings": {
       "type": "object",
       "propertyNames": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
@@ -26,6 +35,12 @@
             "type": "object",
             "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
             "additionalProperties": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+          },
+          "fixed_pokemon": {
+            "type": "object",
+            "description": "npc_position 앵커에 배치할 Cobblemon PokemonProperties 문자열",
+            "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
+            "additionalProperties": { "type": "string", "minLength": 1 }
           },
           "citizen_placement_allowed": { "type": "boolean" },
           "interiors": {
