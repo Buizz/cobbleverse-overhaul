@@ -13,13 +13,20 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -36,6 +43,8 @@ public final class BadgeProgressNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(BadgeProgressNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(BadgeProgressNetwork::registerCommands);
+        NeoForge.EVENT_BUS.addListener(BadgeProgressNetwork::onPlayerClone);
+        NeoForge.EVENT_BUS.addListener(BadgeProgressNetwork::onPlayerLoggedIn);
     }
 
     public static List<String> clientBadges() {
@@ -74,6 +83,7 @@ public final class BadgeProgressNetwork {
                                 Set<String> badges = badges(player);
                                 if (badges.add(badge)) {
                                     write(player, badges);
+                                    showBadgeObtained(player, badge);
                                 }
                                 PacketDistributor.sendToPlayer(player, new BadgeSnapshotPayload(List.copyOf(badges)));
                             }
@@ -106,6 +116,53 @@ public final class BadgeProgressNetwork {
         ListTag list = new ListTag();
         badges.forEach(badge -> list.add(StringTag.valueOf(badge)));
         player.getPersistentData().put(DATA_KEY, list);
+    }
+
+    private static void onPlayerClone(PlayerEvent.Clone event) {
+        if (!(event.getOriginal() instanceof ServerPlayer original)
+            || !(event.getEntity() instanceof ServerPlayer replacement)
+            || !original.getPersistentData().contains(DATA_KEY)) {
+            return;
+        }
+        replacement.getPersistentData().put(
+            DATA_KEY, original.getPersistentData().getList(DATA_KEY, Tag.TAG_STRING).copy()
+        );
+        PacketDistributor.sendToPlayer(
+            replacement, new BadgeSnapshotPayload(List.copyOf(badges(replacement)))
+        );
+    }
+
+    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            PacketDistributor.sendToPlayer(
+                player, new BadgeSnapshotPayload(List.copyOf(badges(player)))
+            );
+        }
+    }
+
+    private static void showBadgeObtained(ServerPlayer player, String badge) {
+        player.connection.send(new ClientboundSetTitlesAnimationPacket(8, 50, 12));
+        player.connection.send(new ClientboundSetTitleTextPacket(
+            Component.literal("체육관 배지를 손에 넣었다!")
+        ));
+        player.connection.send(new ClientboundSetSubtitleTextPacket(
+            Component.literal(badgeDisplayName(badge))
+        ));
+        player.playNotifySound(SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.85F, 1.15F);
+    }
+
+    private static String badgeDisplayName(String badge) {
+        return switch (badge) {
+            case "cobbleventure:badge/kanto/boulder" -> "돌배지";
+            case "cobbleventure:badge/kanto/cascade" -> "블루배지";
+            case "cobbleventure:badge/kanto/thunder" -> "오렌지배지";
+            case "cobbleventure:badge/kanto/rainbow" -> "무지개배지";
+            case "cobbleventure:badge/kanto/soul" -> "핑크배지";
+            case "cobbleventure:badge/kanto/marsh" -> "골드배지";
+            case "cobbleventure:badge/kanto/volcano" -> "진홍색배지";
+            case "cobbleventure:badge/kanto/earth" -> "그린배지";
+            default -> "새로운 배지";
+        };
     }
 
     private static void handleRequest(BadgeRequestPayload payload, IPayloadContext context) {

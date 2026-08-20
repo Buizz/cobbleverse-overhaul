@@ -108,8 +108,10 @@ final class EventSafeTeleport {
                 requested.yaw(), requested.pitch()
             );
         }
-        return options.safeLanding() == EventMovementGateway.SafeLanding.PREFERRED
-            && insideWorld(requested.level(), origin) ? requested : null;
+        // PREFERRED may search nearby cells, but it must never turn an empty or unsupported
+        // destination into a successful teleport. Falling back to the raw coordinate here
+        // previously allowed unresolved town/interior anchors to drop players into the void.
+        return null;
     }
 
     private static List<BlockPos> candidates(BlockPos origin) {

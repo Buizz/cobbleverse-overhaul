@@ -18,6 +18,7 @@ public final class GateDialogueNetwork {
     private GateDialogueNetwork() {}
 
     static void register(IEventBus modBus) {
+        WorldGateSystem.registerEventDialogueLifecycle();
         modBus.addListener(GateDialogueNetwork::registerPayloads);
     }
 

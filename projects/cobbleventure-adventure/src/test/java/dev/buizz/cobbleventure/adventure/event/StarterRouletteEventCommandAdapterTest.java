@@ -4,11 +4,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.mojang.brigadier.StringReader;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
+import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,6 +35,17 @@ final class StarterRouletteEventCommandAdapterTest {
             IllegalArgumentException.class,
             () -> EventStarterRouletteBridge.starterRouletteSessionCommand(" ")
         );
+    }
+
+    @Test
+    void rouletteResultSpeciesArgumentConsumesTheFullNamespacedId() throws Exception {
+        StringReader reader = new StringReader("cobblemon:treecko");
+
+        assertEquals(
+            ResourceLocation.fromNamespaceAndPath("cobblemon", "treecko"),
+            ResourceLocationArgument.id().parse(reader)
+        );
+        assertEquals(false, reader.canRead());
     }
 
     @Test

@@ -27,8 +27,10 @@ final class EventDialoguePortrait {
         int left, int top, int right, int bottom, EventDialogueTheme theme
     ) {
         if (entity == null || right <= left || bottom <= top) return;
-        graphics.fill(left, top, right, bottom, theme.portraitBackground);
-        graphics.fill(left, top, right, top + 2, theme.portraitAccent);
+        if ((theme.portraitBackground >>> 24) != 0) {
+            graphics.fill(left, top, right, bottom, theme.portraitBackground);
+            graphics.fill(left, top, right, top + 2, theme.portraitAccent);
+        }
         int scale = Math.round(Math.max(30, Math.min(78, bottom - top - 8)) * theme.portraitScale);
         graphics.enableScissor(
             Math.max(0, left), Math.max(0, top),

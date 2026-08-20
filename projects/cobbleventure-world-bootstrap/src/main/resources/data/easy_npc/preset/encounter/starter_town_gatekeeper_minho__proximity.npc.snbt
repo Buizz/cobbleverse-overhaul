@@ -14,7 +14,7 @@
     ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"길지기 민호\"}",
+    CustomName:"{\"text\":\"길지기 민호\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[{Label:"greeting",Name:"이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사",Texts:[{Text:"이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사님께 먼저 다녀오렴."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,

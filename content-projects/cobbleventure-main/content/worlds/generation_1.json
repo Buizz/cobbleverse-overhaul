@@ -2,6 +2,10 @@
   "$schema": "../schemas/hex-world.schema.json",
   "schema_version": 2,
   "id": "cobbleventure:world/generation_1",
+  "display_name": {
+    "ko_kr": "관동지방",
+    "en_us": "Kanto Region"
+  },
   "dimension": "cobbleventure:generation_1",
   "pokemon_generations": [
     1

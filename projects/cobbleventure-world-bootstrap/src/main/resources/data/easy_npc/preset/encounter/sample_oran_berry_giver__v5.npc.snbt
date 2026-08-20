@@ -14,7 +14,7 @@
     ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"오랭열매를 나눠주는 농부\"}",
+    CustomName:"{\"text\":\"오랭열매를 나눠주는 농부\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,

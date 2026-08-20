@@ -43,7 +43,11 @@ public final class CobbleventureBattleAI extends RCTBattleAI {
             ShowdownMoveset moveset,
             boolean forceSwitch
     ) {
-        applyMechanicPolicy(active, moveset);
+        // Cobblemon omits the active moveset from forced-switch requests.
+        // Mechanic flags only exist on ordinary move-choice requests.
+        if (moveset != null) {
+            applyMechanicPolicy(active, moveset);
+        }
         UUID battleId = battle.getBattleId();
         BattleProjectionLogCapture.capture(battleId, battle.getBattleLog());
         if (forceSwitch) {
@@ -56,7 +60,7 @@ public final class CobbleventureBattleAI extends RCTBattleAI {
         } else {
             pendingBatonPassTargets.remove(battleId);
         }
-        if (usesJvmSearch()) {
+        if (usesJvmSearch() && moveset != null) {
             try {
                 CobblemonBattleSearch.PlannedResponse planned = CobblemonBattleSearch.plan(
                         active,

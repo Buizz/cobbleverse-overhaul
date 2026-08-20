@@ -4,6 +4,8 @@ import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexGrid;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import dev.buizz.cobbleventure.adventure.event.EventNpcInteractionHandler;
+import dev.buizz.cobbleventure.adventure.event.EventDialogueLifecycle;
+import dev.buizz.cobbleventure.adventure.event.EventSessionKey;
 import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 
 import com.cobblemon.mod.common.Cobblemon;
@@ -54,10 +56,21 @@ final class WorldGateSystem {
     private static final String FOREST_ENTRY_MARKER = "cobbleventure:forest_entry";
     private static final Map<UUID, Vec3> LAST_POSITIONS = new HashMap<>();
     private static final Map<UUID, PendingGateDenial> PENDING_DENIALS = new HashMap<>();
+    private static final Map<UUID, PendingEventDialogue> PENDING_EVENT_DIALOGUES =
+        new HashMap<>();
     private static final Map<String, ForestEntryMarker> FOREST_ENTRY_MARKERS = new HashMap<>();
     private static final Map<String, ForestEntryMarker> FOREST_EXIT_MARKERS = new HashMap<>();
+    private static boolean eventDialogueLifecycleRegistered;
 
     private WorldGateSystem() {
+    }
+
+    static synchronized void registerEventDialogueLifecycle() {
+        if (eventDialogueLifecycleRegistered) {
+            return;
+        }
+        eventDialogueLifecycleRegistered = true;
+        EventDialogueLifecycle.register(WorldGateSystem::updateEventDialogueState);
     }
 
     static List<Gate> parse(JsonArray objects) {
@@ -1197,6 +1210,9 @@ final class WorldGateSystem {
         if (previous == null || player.isSpectator()) {
             return;
         }
+        beginPendingEventDialogueDenial(
+            player, generationLevel, world, gameTime
+        );
         if (handlePendingDenial(player, gameTime)) {
             return;
         }
@@ -1239,6 +1255,26 @@ final class WorldGateSystem {
         CobbleventureBootstrap.Point center, boolean horizontal,
         double side, double threshold, double lateral, long gameTime
     ) {
+        PendingGateDenial pending = createGateDenial(
+            player, gate, center, horizontal, side, threshold, lateral, gameTime
+        );
+        PENDING_DENIALS.put(player.getUUID(), pending);
+        holdPlayer(player, pending.lockedPosition);
+        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+        if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
+            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 20L);
+            if (gate.npc() == null || !openGateNpcDialog(player, world, gate)) {
+                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
+                pending.finished = true;
+            }
+        }
+    }
+
+    private static PendingGateDenial createGateDenial(
+        ServerPlayer player, Gate gate, CobbleventureBootstrap.Point center,
+        boolean horizontal, double side, double threshold, double lateral,
+        long gameTime
+    ) {
         double clampedLateral = Math.max(
             -gate.openingWidth() / 2.0D + 0.4D,
             Math.min(gate.openingWidth() / 2.0D - 0.4D, lateral)
@@ -1255,20 +1291,64 @@ final class WorldGateSystem {
         double retreatY = groundY(
             player.serverLevel(), (int) Math.floor(retreatX), (int) Math.floor(retreatZ)
         ) + 1.0D;
-        PendingGateDenial pending = new PendingGateDenial(
+        return new PendingGateDenial(
             new Vec3(lockedX, lockedY, lockedZ),
             new Vec3(retreatX, retreatY, retreatZ), gameTime
         );
-        PENDING_DENIALS.put(player.getUUID(), pending);
-        holdPlayer(player, pending.lockedPosition);
-        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
-        if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
-            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 20L);
-            if (gate.npc() == null || !openGateNpcDialog(player, world, gate)) {
-                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
-                pending.finished = true;
-            }
+    }
+
+    private static void beginPendingEventDialogueDenial(
+        ServerPlayer player, ServerLevel generationLevel, HexWorldPlan world,
+        long gameTime
+    ) {
+        PendingEventDialogue dialogue = PENDING_EVENT_DIALOGUES.remove(player.getUUID());
+        if (dialogue == null || PENDING_DENIALS.containsKey(player.getUUID())
+            || player.serverLevel() != generationLevel) {
+            return;
         }
+        Entity dialogueNpc = generationLevel.getEntity(dialogue.npcId);
+        if (dialogueNpc == null) return;
+        for (Gate gate : world.gates()) {
+            if (gate.npc() == null || gate.allows(player)) continue;
+            CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
+            if (dialogueNpc.distanceToSqr(center.x() + 0.5D, dialogueNpc.getY(), center.z() + 0.5D)
+                    > 10.0D * 10.0D
+                || player.distanceToSqr(dialogueNpc) > 8.0D * 8.0D) {
+                continue;
+            }
+            boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
+            double normal = horizontal ? player.getZ() - center.z() : player.getX() - center.x();
+            double lateral = horizontal ? player.getX() - center.x() : player.getZ() - center.z();
+            double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
+            double side = normal == 0.0D
+                ? (gate.facing().equals("north") || gate.facing().equals("west") ? 1.0D : -1.0D)
+                : Math.signum(normal);
+            PendingGateDenial pending = createGateDenial(
+                player, gate, center, horizontal, side, threshold, lateral, gameTime
+            );
+            pending.sawDialogue = true;
+            pending.dialogueOpen = dialogue.open;
+            pending.finished = !dialogue.open;
+            PENDING_DENIALS.put(player.getUUID(), pending);
+            holdPlayer(player, pending.lockedPosition);
+            LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+            return;
+        }
+    }
+
+    private static void updateEventDialogueState(
+        ServerPlayer player, EventSessionKey key, boolean open
+    ) {
+        PendingGateDenial denial = PENDING_DENIALS.get(player.getUUID());
+        if (denial != null) {
+            updateGateDialogueState(player, open);
+            return;
+        }
+        PENDING_EVENT_DIALOGUES.compute(player.getUUID(), (ignored, current) ->
+            current == null || open
+                ? new PendingEventDialogue(key.npcId(), open)
+                : new PendingEventDialogue(current.npcId, false)
+        );
     }
 
     private static boolean handlePendingDenial(ServerPlayer player, long gameTime) {
@@ -1313,6 +1393,7 @@ final class WorldGateSystem {
         if (open) {
             pending.sawDialogue = true;
             pending.dialogueOpen = true;
+            pending.finished = false;
         } else if (pending.sawDialogue && pending.dialogueOpen) {
             pending.dialogueOpen = false;
             pending.finished = true;
@@ -1509,6 +1590,7 @@ final class WorldGateSystem {
     static void forget(ServerPlayer player) {
         LAST_POSITIONS.remove(player.getUUID());
         PENDING_DENIALS.remove(player.getUUID());
+        PENDING_EVENT_DIALOGUES.remove(player.getUUID());
     }
 
     static int teleportToGate(
@@ -1685,6 +1767,8 @@ final class WorldGateSystem {
             this.startedAt = startedAt;
         }
     }
+
+    private record PendingEventDialogue(UUID npcId, boolean open) {}
 
     private record ForestTemplatePlacement(
         StructureTemplate template,

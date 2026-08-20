@@ -30,9 +30,12 @@ public final class LocationAnnouncementOverlay {
     public static void show(
         Component title, Component subtitle, Component detail, boolean town
     ) {
-        announcement = new Announcement(title, subtitle, detail, town, System.nanoTime());
-        currentArea = new CurrentArea(title, town);
         Minecraft minecraft = Minecraft.getInstance();
+        MenuTheme theme = MenuTheme.load(minecraft);
+        announcement = new Announcement(
+            title, subtitle, detail, town, theme, System.nanoTime()
+        );
+        currentArea = new CurrentArea(title, town, theme);
         if (minecraft.player != null) {
             minecraft.player.playSound(
                 SoundEvents.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, 0.45F, 1.15F
@@ -86,22 +89,26 @@ public final class LocationAnnouncementOverlay {
         int y = 8;
 
         RenderSystem.enableBlend();
-        drawPlaque(graphics, x, y, plaqueWidth, plaqueHeight, accentColor(current.town()));
+        MenuTheme theme = current.theme();
+        ThemedOverlayPanel.draw(
+            graphics, theme, x, y, plaqueWidth, plaqueHeight, 1.0F,
+            accentColor(theme, current.town())
+        );
         String visibleTitle = font.plainSubstrByWidth(
             current.title().getString(), plaqueWidth - 22
         );
         String visibleSubtitle = font.plainSubstrByWidth(
             current.subtitle().getString(), plaqueWidth - 22
         );
-        graphics.drawString(font, visibleTitle, x + 13, y + 9, 0xFFFFFFFF, true);
-        graphics.drawString(font, visibleSubtitle, x + 13, y + 25, 0xFFB9BDC8, false);
+        graphics.drawString(font, visibleTitle, x + 13, y + 9, theme.textColor, false);
+        graphics.drawString(font, visibleSubtitle, x + 13, y + 25, theme.selectedTextColor, false);
         if (hasDetail) {
             String visibleDetail = font.plainSubstrByWidth(
                 current.detail().getString(), plaqueWidth - 22
             );
             int detailColor = current.detail().getString().endsWith("클리어")
                 && !current.detail().getString().endsWith("미클리어")
-                    ? 0xFF8DE59B : 0xFFD8D0AA;
+                    ? 0xFF277A4B : theme.accent;
             graphics.drawString(font, visibleDetail, x + 13, y + 39, detailColor, false);
         }
         RenderSystem.disableBlend();
@@ -116,26 +123,20 @@ public final class LocationAnnouncementOverlay {
         int y = 8;
 
         RenderSystem.enableBlend();
-        drawPlaque(graphics, x, y, plaqueWidth, plaqueHeight, accentColor(area.town()));
+        MenuTheme theme = area.theme();
+        ThemedOverlayPanel.draw(
+            graphics, theme, x, y, plaqueWidth, plaqueHeight, 1.0F,
+            accentColor(theme, area.town())
+        );
         String visibleTitle = font.plainSubstrByWidth(
             area.title().getString(), plaqueWidth - 22
         );
-        graphics.drawString(font, visibleTitle, x + 13, y + 7, 0xFFFFFFFF, true);
+        graphics.drawString(font, visibleTitle, x + 13, y + 7, theme.textColor, false);
         RenderSystem.disableBlend();
     }
 
-    private static void drawPlaque(
-        GuiGraphics graphics, int x, int y, int width, int height, int accent
-    ) {
-        graphics.fill(x + 4, y + 4, x + width + 4, y + height + 4, 0x50000000);
-        graphics.fill(x, y, x + width, y + height, 0xD91A1D25);
-        graphics.fill(x, y, x + 5, y + height, accent);
-        graphics.fill(x + 5, y, x + width, y + 2, 0xA8FFFFFF);
-        graphics.fill(x + 5, y + height - 2, x + width, y + height, 0x70000000);
-    }
-
-    private static int accentColor(boolean town) {
-        return town ? 0xFFFFC84A : 0xFF77C9FF;
+    private static int accentColor(MenuTheme theme, boolean town) {
+        return town ? theme.accent : theme.border;
     }
 
     private static double clamp(double value) {
@@ -152,8 +153,9 @@ public final class LocationAnnouncementOverlay {
     }
 
     private record Announcement(
-        Component title, Component subtitle, Component detail, boolean town, long startedAt
+        Component title, Component subtitle, Component detail, boolean town,
+        MenuTheme theme, long startedAt
     ) {}
 
-    private record CurrentArea(Component title, boolean town) {}
+    private record CurrentArea(Component title, boolean town, MenuTheme theme) {}
 }

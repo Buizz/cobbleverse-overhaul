@@ -15,95 +15,23 @@
       "type": "door",
       "position": [
         31,
-        1,
+        5,
         2
       ],
       "safe_spawn": [
         31,
-        1,
+        5,
         3
       ],
       "door_facing": "north",
       "safe_side": "south"
     },
     {
-      "label": "1f_left",
-      "type": "npc_position",
-      "position": [
-        32,
-        1,
-        12
-      ]
-    },
-    {
-      "label": "1f_right",
-      "type": "npc_position",
-      "position": [
-        22,
-        1,
-        4
-      ]
-    },
-    {
-      "label": "2f_left",
-      "type": "npc_position",
-      "position": [
-        22,
-        8,
-        9
-      ]
-    },
-    {
-      "label": "2f_right",
-      "type": "npc_position",
-      "position": [
-        22,
-        8,
-        8
-      ]
-    },
-    {
-      "label": "3f_left",
-      "type": "npc_position",
-      "position": [
-        32,
-        15,
-        13
-      ]
-    },
-    {
-      "label": "3f_right",
-      "type": "npc_position",
-      "position": [
-        31,
-        15,
-        13
-      ]
-    },
-    {
-      "label": "4f_left",
-      "type": "npc_position",
-      "position": [
-        22,
-        22,
-        12
-      ]
-    },
-    {
-      "label": "4f_right",
-      "type": "npc_position",
-      "position": [
-        22,
-        22,
-        11
-      ]
-    },
-    {
       "label": "5f_left",
       "type": "npc_position",
       "position": [
         32,
-        29,
+        33,
         13
       ]
     },
@@ -112,8 +40,80 @@
       "type": "npc_position",
       "position": [
         31,
-        29,
+        33,
         13
+      ]
+    },
+    {
+      "label": "2f_left",
+      "type": "npc_position",
+      "position": [
+        22,
+        12,
+        9
+      ]
+    },
+    {
+      "label": "4f_right",
+      "type": "npc_position",
+      "position": [
+        22,
+        26,
+        11
+      ]
+    },
+    {
+      "label": "3f_left",
+      "type": "npc_position",
+      "position": [
+        32,
+        19,
+        13
+      ]
+    },
+    {
+      "label": "1f_right",
+      "type": "npc_position",
+      "position": [
+        22,
+        5,
+        4
+      ]
+    },
+    {
+      "label": "2f_right",
+      "type": "npc_position",
+      "position": [
+        22,
+        12,
+        8
+      ]
+    },
+    {
+      "label": "3f_right",
+      "type": "npc_position",
+      "position": [
+        31,
+        19,
+        13
+      ]
+    },
+    {
+      "label": "4f_left",
+      "type": "npc_position",
+      "position": [
+        22,
+        26,
+        12
+      ]
+    },
+    {
+      "label": "1f_left",
+      "type": "npc_position",
+      "position": [
+        31,
+        5,
+        12
       ]
     }
   ]

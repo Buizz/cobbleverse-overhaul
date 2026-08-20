@@ -32,8 +32,8 @@ public final class ItemAcquisitionOverlay {
     private ItemAcquisitionOverlay() {}
 
     public static void show(Component message, ResourceLocation sound) {
-        notice = new Notice(message, System.nanoTime());
         Minecraft minecraft = Minecraft.getInstance();
+        notice = new Notice(message, MenuTheme.load(minecraft), System.nanoTime());
         if (minecraft.getSoundManager().getSoundEvent(sound) == null) {
             minecraft.getSoundManager().play(
                 SimpleSoundInstance.forUI(SoundEvents.ITEM_PICKUP, 1.0F, 0.8F)
@@ -76,18 +76,18 @@ public final class ItemAcquisitionOverlay {
         int x = (graphics.guiWidth() - width) / 2;
         int y = graphics.guiHeight() - 58;
         float alpha = (float)Math.min(1.0D, Math.min(elapsed / 5.0D, (DURATION_TICKS - elapsed) / 10.0D));
-        int background = ((int)(alpha * 218.0F) << 24) | 0x142136;
-        int border = ((int)(alpha * 255.0F) << 24) | 0xE9C74F;
-        int foreground = ((int)(alpha * 255.0F) << 24) | 0xFFFFFF;
+        MenuTheme theme = current.theme();
+        int foreground = ThemedOverlayPanel.withOpacity(theme.textColor, alpha);
 
         RenderSystem.enableBlend();
-        graphics.fill(x + 3, y + 3, x + width + 3, y + 29, ((int)(alpha * 90.0F) << 24));
-        graphics.fill(x, y, x + width, y + 29, background);
-        graphics.fill(x, y, x + width, y + 2, border);
-        graphics.fill(x, y + 27, x + width, y + 29, border);
-        graphics.drawCenteredString(minecraft.font, visible, x + width / 2, y + 10, foreground);
+        ThemedOverlayPanel.draw(graphics, theme, x, y, width, 29, alpha, theme.accent);
+        graphics.drawString(
+            minecraft.font, visible,
+            x + (width - minecraft.font.width(visible)) / 2, y + 10,
+            foreground, false
+        );
         RenderSystem.disableBlend();
     }
 
-    private record Notice(Component message, long startedAt) {}
+    private record Notice(Component message, MenuTheme theme, long startedAt) {}
 }

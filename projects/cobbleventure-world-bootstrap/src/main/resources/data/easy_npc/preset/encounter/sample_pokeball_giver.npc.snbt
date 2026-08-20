@@ -14,7 +14,7 @@
     ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"몬스터볼을 나눠주는 연구원\"}",
+    CustomName:"{\"text\":\"몬스터볼을 나눠주는 연구원\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가.",Texts:[{Text:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:poke_ball 5",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"item_explanation",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"item_explanation",Name:"방금 준 아이템을 잘 활용해 보세요.",Texts:[{Text:"방금 준 아이템을 잘 활용해 보세요."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"set:cvf_fb2bd55cfd00:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat_greeting",Name:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!",Priority:100,Texts:[{Text:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!"}],Conditions:[{Name:"cvf_fb2bd55cfd00",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,

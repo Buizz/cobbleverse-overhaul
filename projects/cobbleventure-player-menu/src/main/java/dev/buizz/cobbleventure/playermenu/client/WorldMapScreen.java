@@ -22,25 +22,18 @@ import org.lwjgl.glfw.GLFW;
 /** Interactive hex world map backed by the same content used by world generation. */
 public final class WorldMapScreen extends Screen {
     private static final int PAGE_BACKGROUND = 0x44000000;
-    private static final int SHADOW_COLOR = 0x99000000;
-    private static final int PANEL_COLOR = 0xF01D2630;
-    private static final int PANEL_DARK_COLOR = 0xFF10171E;
-    private static final int PANEL_LIGHT_COLOR = 0xFF34444F;
-    private static final int MAP_BACKGROUND = 0xF010171E;
-    private static final int TILE_BORDER = 0xFF34483D;
-    private static final int INFO_BACKGROUND = 0xF01D2630;
-    private static final int ROUTE_COLOR = 0xFFD8BA70;
-    private static final int TOWN_BORDER = 0xFFF0A43B;
+    private static final int ROUTE_COLOR = 0xFFD92E73;
+    private static final int ROUTE_OUTLINE = 0xFFFFF1BC;
+    private static final int WATER_ROUTE_COLOR = 0xFF247FB3;
+    private static final int TOWN_BORDER = 0xFFE85B57;
     private static final int CAVE_BORDER = 0xFF9AA8B0;
     private static final int CAVE_OPENING = 0xFF080B0E;
     private static final int FOREST_BORDER = 0xFF6FB66A;
     private static final int FOREST_OPENING = 0xFF17331E;
-    private static final int SELECTED_BORDER = 0xFFF2F5EF;
-    private static final int PLAYER_MARKER = 0xFFFFD166;
-    private static final int TEXT = 0xFFF3F5F1;
-    private static final int MUTED_TEXT = 0xFFAAB8B0;
-    private static final int ACCENT_COLOR = 0xFF5EE4E4;
-    private static final int SUCCESS_TEXT = ACCENT_COLOR;
+    private static final int SELECTED_BORDER = 0xFFFFFFFF;
+    private static final int PLAYER_MARKER = 0xFFFFD34E;
+    private static final int MAP_LABEL_BACKGROUND = 0xF5FFF4D6;
+    private static final int MAP_LABEL_HOVER = 0xFFFFD87A;
     private static final int WARNING_TEXT = 0xFFF0A43B;
     private static final int MARGIN = 14;
     private static final int HEADER_HEIGHT = 32;
@@ -53,6 +46,17 @@ public final class WorldMapScreen extends Screen {
 
     private final Screen parent;
     private final String selectionToken;
+    private final MenuTheme menuTheme;
+    private final int SHADOW_COLOR;
+    private final int PANEL_COLOR;
+    private final int PANEL_DARK_COLOR;
+    private final int PANEL_LIGHT_COLOR;
+    private final int MAP_BACKGROUND;
+    private final int INFO_BACKGROUND;
+    private final int TEXT;
+    private final int MUTED_TEXT;
+    private final int ACCENT_COLOR;
+    private final int SUCCESS_TEXT;
     private final MenuOpeningEffect openingEffect = new MenuOpeningEffect();
     private MapContent content = MapContent.instance();
     private MapContent.Hex selected = new MapContent.Hex(0, 0);
@@ -83,6 +87,19 @@ public final class WorldMapScreen extends Screen {
         super(Component.translatable("screen.cobbleventure_player_menu.world_map.title"));
         this.parent = parent;
         this.selectionToken = selectionToken;
+        this.menuTheme = MenuTheme.load(net.minecraft.client.Minecraft.getInstance());
+        // The world map keeps global sizing while using a cartographic palette:
+        // teal water, green land, warm routes, and cream information cards.
+        SHADOW_COLOR = 0x7A153B46;
+        PANEL_COLOR = 0xF5FFF4D6;
+        PANEL_DARK_COLOR = 0xFF286B7A;
+        PANEL_LIGHT_COLOR = 0xFFFFD36A;
+        MAP_BACKGROUND = 0xF22AAFC0;
+        INFO_BACKGROUND = 0xF5FFF4D6;
+        TEXT = 0xFF17343D;
+        MUTED_TEXT = 0xFF49666C;
+        ACCENT_COLOR = 0xFFE96D45;
+        SUCCESS_TEXT = 0xFF277A4B;
     }
 
     @Override
@@ -95,11 +112,13 @@ public final class WorldMapScreen extends Screen {
         }
         selected = playerHex();
         Layout layout = layout();
+        int generationHeaderWidth = generationHeaderWidth();
+        int generationControlsLeft = (width - generationHeaderWidth - 46) / 2;
         previousGenerationButton = addRenderableWidget(new RibbonButton(
-            Component.literal("<"), layout.mapLeft() + 4, 6, 20, 20,
+            Component.literal("<"), generationControlsLeft, 5, 20, 20,
             () -> switchGeneration(-1)));
         nextGenerationButton = addRenderableWidget(new RibbonButton(
-            Component.literal(">"), layout.mapLeft() + 80, 6, 20, 20,
+            Component.literal(">"), generationControlsLeft + generationHeaderWidth + 26, 5, 20, 20,
             () -> switchGeneration(1)));
         zoomOutButton = addRenderableWidget(new RibbonButton(
             Component.literal("−"), layout.mapRight() - 72, layout.top() + 6, 20, 20,
@@ -159,25 +178,17 @@ public final class WorldMapScreen extends Screen {
         openingEffect.begin(graphics, width, height);
         try {
             graphics.fill(0, 0, width, height, PAGE_BACKGROUND);
-            int titleWidth = Math.max(116, font.width(title) + 34);
-            drawRibbonPanel(graphics, (width - titleWidth) / 2, 4, titleWidth, 23, PANEL_COLOR);
-            graphics.fill((width - titleWidth) / 2 + 12, 5,
-                (width - titleWidth) / 2 + 42, 7, ACCENT_COLOR);
-            graphics.drawCenteredString(font, title, width / 2, 11, TEXT);
+            Component generationHeader = generationHeader();
+            int generationHeaderWidth = generationHeaderWidth();
+            int generationHeaderLeft = (width - generationHeaderWidth) / 2;
+            drawRibbonPanel(graphics, generationHeaderLeft, 4, generationHeaderWidth, 23, PANEL_COLOR);
+            graphics.fill(generationHeaderLeft + 12, 5,
+                generationHeaderLeft + 42, 7, ACCENT_COLOR);
+            drawCenteredNoShadow(graphics, generationHeader, width / 2, 11, TEXT);
             Layout layout = layout();
             MapContent.CaveEntrance hoveredCave = caveAtMouse(layout, mouseX, mouseY);
             MapContent.ForestEntrance hoveredForest = hoveredCave == null
                 ? forestAtMouse(layout, mouseX, mouseY) : null;
-            graphics.drawCenteredString(
-                font,
-                Component.translatable(
-                    "screen.cobbleventure_player_menu.world_map.generation",
-                    content.generation()
-                ),
-                layout.mapLeft() + 52,
-                11,
-                TEXT
-            );
             drawMap(graphics, layout, mouseX, mouseY, hoveredCave, hoveredForest);
             drawInfoPanel(graphics, layout, hoveredCave, hoveredForest);
             graphics.drawString(
@@ -319,19 +330,27 @@ public final class WorldMapScreen extends Screen {
                 ScreenPoint point = hexCenter(center, size, q, r);
                 MapContent.Town town = content.townAt(q, r);
                 MapContent.BiomeTile tile = content.tileAt(q, r);
-                if (town == null && tile == null) continue;
-                String biome = town != null ? town.biome() : tile.biome();
-                int border = town != null ? TOWN_BORDER : TILE_BORDER;
-                drawHex(graphics, point.x(), point.y(), size, border, biomeColor(biome));
+                int terrainColor = town == null && tile == null
+                    ? emptyTerrainColor(content.emptyTerrainAt(q, r))
+                    : biomeColor(town != null ? town.biome() : tile.biome());
+                drawMapCell(graphics, point.x(), point.y(), size, terrainColor);
             }
         }
 
         for (MapContent.Route route : content.routes()) {
             List<MapContent.Hex> path = route.path();
             for (int index = 1; index < path.size(); index++) {
-                ScreenPoint from = hexCenter(center, size, path.get(index - 1).q(), path.get(index - 1).r());
-                ScreenPoint to = hexCenter(center, size, path.get(index).q(), path.get(index).r());
-                drawLine(graphics, from.x(), from.y(), to.x(), to.y(), ROUTE_COLOR, 2);
+                MapContent.Hex fromHex = path.get(index - 1);
+                MapContent.Hex toHex = path.get(index);
+                ScreenPoint from = hexCenter(center, size, fromHex.q(), fromHex.r());
+                ScreenPoint to = hexCenter(center, size, toHex.q(), toHex.r());
+                if ("water".equals(route.surfaceStyle())) {
+                    drawDashedLine(graphics, from.x(), from.y(), to.x(), to.y(), ROUTE_OUTLINE, 4, 4, 3);
+                    drawDashedLine(graphics, from.x(), from.y(), to.x(), to.y(), WATER_ROUTE_COLOR, 2, 4, 3);
+                } else {
+                    drawLine(graphics, from.x(), from.y(), to.x(), to.y(), ROUTE_OUTLINE, 4);
+                    drawLine(graphics, from.x(), from.y(), to.x(), to.y(), ROUTE_COLOR, 2);
+                }
             }
         }
 
@@ -344,7 +363,8 @@ public final class WorldMapScreen extends Screen {
             int labelWidth = font.width(label);
             int labelX = point.x() - labelWidth / 2;
             int labelY = point.y() - marker - 11;
-            graphics.fill(labelX - 2, labelY - 1, labelX + labelWidth + 2, labelY + 9, 0xB0121714);
+            graphics.fill(labelX - 2, labelY - 1, labelX + labelWidth + 2, labelY + 9,
+                MAP_LABEL_BACKGROUND);
             graphics.drawString(font, label, labelX, labelY, TEXT, false);
         }
 
@@ -373,7 +393,7 @@ public final class WorldMapScreen extends Screen {
         }
 
         ScreenPoint selectedPoint = hexCenter(center, size, selected.q(), selected.r());
-        drawHexOutline(graphics, selectedPoint.x(), selectedPoint.y(), size + 1, SELECTED_BORDER);
+        drawCellOutline(graphics, selectedPoint.x(), selectedPoint.y(), size + 1, SELECTED_BORDER);
         MapContent.Hex playerHex = currentPlayerHex();
         if (playerHex != null) {
             ScreenPoint player = hexCenter(center, size, playerHex.q(), playerHex.r());
@@ -382,14 +402,20 @@ public final class WorldMapScreen extends Screen {
             graphics.fill(player.x() - 1, player.y() - marker - 1, player.x() + 2, player.y() + marker + 2, 0xFF161A18);
             graphics.fill(player.x() - marker, player.y(), player.x() + marker + 1, player.y() + 1, PLAYER_MARKER);
             graphics.fill(player.x(), player.y() - marker, player.x() + 1, player.y() + marker + 1, PLAYER_MARKER);
-            graphics.drawString(font, "현재 위치", player.x() + marker + 3, player.y() - 4, PLAYER_MARKER, true);
+            String currentLabel = "현재 위치";
+            int currentX = player.x() + marker + 3;
+            int currentY = player.y() - 4;
+            graphics.fill(currentX - 2, currentY - 1,
+                currentX + font.width(currentLabel) + 2, currentY + 9,
+                MAP_LABEL_BACKGROUND);
+            graphics.drawString(font, currentLabel, currentX, currentY, TEXT, false);
         }
 
         if (layout.mapContains(mouseX, mouseY)) {
             MapContent.Hex hover = screenToHex(layout, mouseX, mouseY);
             if (isPopulated(hover.q(), hover.r())) {
                 ScreenPoint point = hexCenter(center, size, hover.q(), hover.r());
-                drawHexOutline(graphics, point.x(), point.y(), size, 0x99FFFFFF);
+                drawCellOutline(graphics, point.x(), point.y(), size, 0x99FFFFFF);
             }
         }
         graphics.disableScissor();
@@ -509,6 +535,25 @@ public final class WorldMapScreen extends Screen {
         }
     }
 
+    private static MapContent.Hex screenPointToHex(
+        ScreenPoint center, int size, double x, double y
+    ) {
+        double localX = x - center.x();
+        double localY = y - center.y();
+        double q = (Math.sqrt(3.0D) / 3.0D * localX - localY / 3.0D) / size;
+        double r = (2.0D / 3.0D * localY) / size;
+        double s = -q - r;
+        int rq = (int) Math.round(q);
+        int rr = (int) Math.round(r);
+        int rs = (int) Math.round(s);
+        double qDiff = Math.abs(rq - q);
+        double rDiff = Math.abs(rr - r);
+        double sDiff = Math.abs(rs - s);
+        if (qDiff > rDiff && qDiff > sDiff) rq = -rr - rs;
+        else if (rDiff > sDiff) rr = -rq - rs;
+        return new MapContent.Hex(rq, rr);
+    }
+
     private static String withObjectParticle(String value) {
         if (value == null || value.isEmpty()) return "";
         char last = value.charAt(value.length() - 1);
@@ -578,7 +623,7 @@ public final class WorldMapScreen extends Screen {
         return nearest;
     }
 
-    private static void drawCaveMarker(
+    private void drawCaveMarker(
         GuiGraphics graphics, int centerX, int centerY, int radius, boolean hovered
     ) {
         int border = hovered ? ACCENT_COLOR : CAVE_BORDER;
@@ -610,7 +655,7 @@ public final class WorldMapScreen extends Screen {
         }
     }
 
-    private static void drawForestMarker(
+    private void drawForestMarker(
         GuiGraphics graphics, int centerX, int centerY, int radius, boolean hovered
     ) {
         int border = hovered ? ACCENT_COLOR : FOREST_BORDER;
@@ -645,7 +690,7 @@ public final class WorldMapScreen extends Screen {
         int labelY = centerY - radius - 12;
         graphics.fill(centerX - labelWidth / 2 - 3, labelY - 2,
             centerX + (labelWidth + 1) / 2 + 3, labelY + 10,
-            hovered ? 0xE010171E : 0xB010171E);
+            hovered ? MAP_LABEL_HOVER : MAP_LABEL_BACKGROUND);
         graphics.drawString(
             font, label, centerX - labelWidth / 2, labelY,
             hovered ? ACCENT_COLOR : TEXT, false
@@ -904,45 +949,43 @@ public final class WorldMapScreen extends Screen {
     private MapContent.Hex screenToHex(Layout layout, double x, double y) {
         ScreenPoint center = mapCenter(layout);
         int size = hexSize(layout);
-        double localX = x - center.x();
-        double localY = y - center.y();
-        double q = (Math.sqrt(3.0D) / 3.0D * localX - localY / 3.0D) / size;
-        double r = (2.0D / 3.0D * localY) / size;
-        double s = -q - r;
-        int rq = (int) Math.round(q);
-        int rr = (int) Math.round(r);
-        int rs = (int) Math.round(s);
-        double qDiff = Math.abs(rq - q);
-        double rDiff = Math.abs(rr - r);
-        double sDiff = Math.abs(rs - s);
-        if (qDiff > rDiff && qDiff > sDiff) rq = -rr - rs;
-        else if (rDiff > sDiff) rr = -rq - rs;
-        return new MapContent.Hex(rq, rr);
+        return screenPointToHex(center, size, x, y);
     }
 
-    private static void drawHex(GuiGraphics graphics, int centerX, int centerY, int size, int border, int fill) {
-        fillHex(graphics, centerX, centerY, size, border);
-        fillHex(graphics, centerX, centerY, Math.max(1, size - 1), fill);
+    /** Draws one seamless atlas patch at the exact spacing used by the axial map. */
+    private static void drawMapCell(
+        GuiGraphics graphics, int centerX, int centerY, int size, int color
+    ) {
+        int halfWidth = mapCellHalfWidth(size);
+        int halfHeight = mapCellHalfHeight(size);
+        graphics.fill(
+            centerX - halfWidth, centerY - halfHeight,
+            centerX + halfWidth + 1, centerY + halfHeight + 1,
+            color
+        );
     }
 
-    private static void drawHexOutline(GuiGraphics graphics, int centerX, int centerY, int size, int color) {
-        int halfWidth = (int) Math.round(Math.sqrt(3.0D) * 0.5D * size);
-        int halfHeight = size / 2;
-        int[] xs = { centerX, centerX + halfWidth, centerX + halfWidth, centerX, centerX - halfWidth, centerX - halfWidth };
-        int[] ys = { centerY - size, centerY - halfHeight, centerY + halfHeight, centerY + size, centerY + halfHeight, centerY - halfHeight };
-        for (int index = 0; index < 6; index++) {
-            int next = (index + 1) % 6;
-            drawLine(graphics, xs[index], ys[index], xs[next], ys[next], color, 1);
-        }
+    private static void drawCellOutline(
+        GuiGraphics graphics, int centerX, int centerY, int size, int color
+    ) {
+        int halfWidth = mapCellHalfWidth(size);
+        int halfHeight = mapCellHalfHeight(size);
+        int left = centerX - halfWidth;
+        int top = centerY - halfHeight;
+        int right = centerX + halfWidth + 1;
+        int bottom = centerY + halfHeight + 1;
+        graphics.fill(left, top, right, top + 1, color);
+        graphics.fill(left, bottom - 1, right, bottom, color);
+        graphics.fill(left, top, left + 1, bottom, color);
+        graphics.fill(right - 1, top, right, bottom, color);
     }
 
-    private static void fillHex(GuiGraphics graphics, int centerX, int centerY, int size, int color) {
-        for (int offsetY = -size; offsetY <= size; offsetY++) {
-            double ratio = Math.abs(offsetY) / (double) size;
-            double widthFactor = ratio <= 0.5D ? 1.0D : 2.0D * (1.0D - ratio);
-            int halfWidth = Math.max(0, (int) Math.round(Math.sqrt(3.0D) * 0.5D * size * widthFactor));
-            graphics.fill(centerX - halfWidth, centerY + offsetY, centerX + halfWidth + 1, centerY + offsetY + 1, color);
-        }
+    private static int mapCellHalfWidth(int size) {
+        return Math.max(2, (int) Math.ceil(Math.sqrt(3.0D) * 0.5D * size));
+    }
+
+    private static int mapCellHalfHeight(int size) {
+        return Math.max(2, (int) Math.ceil(0.75D * size));
     }
 
     private static void drawLine(GuiGraphics graphics, int x0, int y0, int x1, int y1, int color, int width) {
@@ -960,18 +1003,58 @@ public final class WorldMapScreen extends Screen {
         }
     }
 
+    private static void drawDashedLine(
+        GuiGraphics graphics, int x0, int y0, int x1, int y1,
+        int color, int width, int dashLength, int gapLength
+    ) {
+        int dx = Math.abs(x1 - x0);
+        int sx = x0 < x1 ? 1 : -1;
+        int dy = -Math.abs(y1 - y0);
+        int sy = y0 < y1 ? 1 : -1;
+        int error = dx + dy;
+        int step = 0;
+        int period = dashLength + gapLength;
+        while (true) {
+            if (step % period < dashLength) {
+                graphics.fill(
+                    x0 - width / 2, y0 - width / 2,
+                    x0 + (width + 1) / 2, y0 + (width + 1) / 2, color
+                );
+            }
+            if (x0 == x1 && y0 == y1) break;
+            int twice = error * 2;
+            if (twice >= dy) { error += dy; x0 += sx; }
+            if (twice <= dx) { error += dx; y0 += sy; }
+            step++;
+        }
+    }
+
     private static int biomeColor(String biome) {
         String value = biome.toLowerCase();
-        if (value.contains("ocean") || value.contains("river")) return 0xFF356E91;
-        if (value.contains("beach")) return 0xFFB8A66A;
-        if (value.contains("badlands") || value.contains("desert")) return 0xFFA86B43;
-        if (value.contains("snow") || value.contains("ice") || value.contains("frozen")) return 0xFF9EC2CB;
-        if (value.contains("peak") || value.contains("mountain") || value.contains("windswept")) return 0xFF727D79;
-        if (value.contains("jungle")) return 0xFF34784A;
-        if (value.contains("forest") || value.contains("taiga")) return 0xFF3F6845;
-        if (value.contains("swamp") || value.contains("mangrove")) return 0xFF526E48;
-        if (value.contains("meadow") || value.contains("flower")) return 0xFF699B62;
-        return 0xFF63875D;
+        if (value.contains("ocean") || value.contains("river")) return 0xFF53C6D7;
+        if (value.contains("beach")) return 0xFFF4D67A;
+        if (value.contains("badlands") || value.contains("desert")) return 0xFFE9B45C;
+        if (value.contains("snow") || value.contains("ice") || value.contains("frozen")) return 0xFFD9F3EE;
+        if (value.contains("peak") || value.contains("mountain") || value.contains("windswept")) return 0xFF9AB89B;
+        if (value.contains("jungle")) return 0xFF50A957;
+        if (value.contains("forest") || value.contains("taiga")) return 0xFF65B966;
+        if (value.contains("swamp") || value.contains("mangrove")) return 0xFF78A95F;
+        if (value.contains("meadow") || value.contains("flower")) return 0xFF9CD765;
+        return 0xFF8DCE63;
+    }
+
+    private static int emptyTerrainColor(String terrain) {
+        return switch (terrain) {
+            case "ocean" -> 0xFF35AFC4;
+            case "deep_ocean" -> 0xFF247FA8;
+            case "desert" -> 0xFFE4B65B;
+            case "stone_mountain" -> 0xFF91A39B;
+            case "red_rock_mountain" -> 0xFFC27858;
+            case "snow_mountain" -> 0xFFD6ECE8;
+            case "dense_forest" -> 0xFF4E8950;
+            case "high_forest" -> 0xFF65985B;
+            default -> 0xFF65985B;
+        };
     }
 
     private static String gymName(String theme) {
@@ -1007,7 +1090,7 @@ public final class WorldMapScreen extends Screen {
         };
     }
 
-    private static void drawRibbonPanel(
+    private void drawRibbonPanel(
         GuiGraphics graphics,
         int x,
         int y,
@@ -1015,14 +1098,34 @@ public final class WorldMapScreen extends Screen {
         int panelHeight,
         int innerColor
     ) {
-        fillRoundedRect(graphics, x + 4, y + 5, x + panelWidth + 4, y + panelHeight + 5,
-            9, SHADOW_COLOR);
-        fillRoundedRect(graphics, x, y, x + panelWidth, y + panelHeight, 9, PANEL_DARK_COLOR);
+        int radius = menuTheme.cornerRadius;
+        fillRoundedRect(graphics, x + menuTheme.shadowOffset, y + menuTheme.shadowOffset,
+            x + panelWidth + menuTheme.shadowOffset, y + panelHeight + menuTheme.shadowOffset,
+            radius, SHADOW_COLOR);
+        fillRoundedRect(graphics, x, y, x + panelWidth, y + panelHeight, radius, PANEL_DARK_COLOR);
         fillRoundedRect(graphics, x + 1, y + 1, x + panelWidth - 1, y + panelHeight - 1,
-            8, innerColor);
+            Math.max(0, radius - 1), innerColor);
         graphics.fill(x + 12, y + 1, x + panelWidth - 12, y + 2, PANEL_LIGHT_COLOR);
         graphics.fill(x + panelWidth - 42, y + panelHeight - 3,
             x + panelWidth - 8, y + panelHeight - 1, ACCENT_COLOR);
+    }
+
+    private void drawCenteredNoShadow(
+        GuiGraphics graphics, Component text, int centerX, int y, int color
+    ) {
+        graphics.drawString(font, text, centerX - font.width(text) / 2, y, color, false);
+    }
+
+    private Component generationHeader() {
+        return Component.literal(content.displayName());
+    }
+
+    private int generationHeaderWidth() {
+        return Math.max(176, font.width(generationHeader()) + 34);
+    }
+
+    private int rowRadius(int height) {
+        return Math.min(menuTheme.rowRadius, Math.max(0, height / 2));
     }
 
     private static void fillRoundedRect(
@@ -1066,16 +1169,17 @@ public final class WorldMapScreen extends Screen {
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             int border = active && isHovered() ? ACCENT_COLOR : PANEL_LIGHT_COLOR;
-            int fill = active && isHovered() ? 0xE0374650 : PANEL_DARK_COLOR;
+            int fill = active && isHovered() ? MAP_LABEL_HOVER : PANEL_COLOR;
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                getHeight() / 2, border);
+                rowRadius(getHeight()), border);
             fillRoundedRect(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
-                Math.max(1, getHeight() / 2 - 1), fill);
+                Math.max(0, rowRadius(getHeight()) - 1), fill);
             int color = active ? (isHovered() ? ACCENT_COLOR : TEXT) : MUTED_TEXT;
-            graphics.drawCenteredString(font,
-                font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8),
-                getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, color);
+            String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8);
+            graphics.drawString(font, label,
+                getX() + (getWidth() - font.width(label)) / 2,
+                getY() + (getHeight() - 8) / 2, color, false);
         }
 
         @Override

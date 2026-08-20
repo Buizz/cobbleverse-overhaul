@@ -14,7 +14,7 @@
     ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"해독제를 나눠주는 약초꾼\"}",
+    CustomName:"{\"text\":\"해독제를 나눠주는 약초꾼\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"숲에는 독을 쓰는 포켓몬이 많아. 이 해독제를 가져가.",Texts:[{Text:"숲에는 독을 쓰는 포켓몬이 많아. 이 해독제를 가져가."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:antidote 2",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"item_explanation",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"item_explanation",Name:"방금 준 아이템을 잘 활용해 보세요.",Texts:[{Text:"방금 준 아이템을 잘 활용해 보세요."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"set:cvf_fe39f75f5e36:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat_greeting",Name:"숲에서는 독 상태를 조심해. 해독제는 이미 건넸단다.",Priority:100,Texts:[{Text:"숲에서는 독 상태를 조심해. 해독제는 이미 건넸단다."}],Conditions:[{Name:"cvf_fe39f75f5e36",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,

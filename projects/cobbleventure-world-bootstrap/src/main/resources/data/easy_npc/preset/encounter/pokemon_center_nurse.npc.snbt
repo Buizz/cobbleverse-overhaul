@@ -14,7 +14,7 @@
     ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"간호순\"}",
+    CustomName:"{\"text\":\"간호순\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[{Label:"fallback",Name:"포켓몬을 치료해 드릴게요.",Texts:[{Text:"포켓몬을 치료해 드릴게요."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,

@@ -12,6 +12,11 @@
   ],
   "client": [
     "BiomePrecipitationMixin",
+    "CobblemonBattleMoveFontMixin",
+    "CobblemonBattleOverlayFontMixin",
+    "CobblemonBattleSwitchFontMixin",
+    "CobblemonBattleTargetFontMixin",
+    "CobblemonPokemonLabelFontMixin",
     "GymBlockerEntityRenderMixin",
     "GymBlockerPickMixin"
   ],

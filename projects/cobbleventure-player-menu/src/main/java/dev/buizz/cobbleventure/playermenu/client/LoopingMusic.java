@@ -43,4 +43,15 @@ public final class LoopingMusic {
         }
         return authoredMusicActive;
     }
+
+    public static void stop() {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.execute(() -> {
+            authoredMusicActive = false;
+            if (current != null && minecraft.getSoundManager().isActive(current)) {
+                current.fadeOut();
+            }
+            current = null;
+        });
+    }
 }

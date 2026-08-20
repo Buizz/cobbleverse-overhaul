@@ -27,6 +27,7 @@ final class StarterSpawnSystem {
     );
     private static final String WAITING = "cobbleventureGenerationWaiting";
     private static final String STARTED_PREFIX = "cobbleventureStarterGeneration";
+    private static final String VALIDATED_PREFIX = "cobbleventureStarterDestinationValidatedV2";
     private static volatile int defaultGeneration = 1;
     private static volatile Map<Integer, StarterConfig> configs = Map.of();
 
@@ -35,6 +36,7 @@ final class StarterSpawnSystem {
 
     static void register() {
         NeoForge.EVENT_BUS.addListener(StarterSpawnSystem::onChangedDimension);
+        NeoForge.EVENT_BUS.addListener(StarterSpawnSystem::onLoggedIn);
     }
 
     static void initialize(MinecraftServer server) {
@@ -82,13 +84,57 @@ final class StarterSpawnSystem {
         BuildingRuntimeSystem.SpawnDestination destination = config == null || !config.enabled
             ? null : CobbleventureBootstrap.resolveStarterSpawn(player.getServer(), config);
         if (destination == null) {
+            if (config != null && config.enabled) {
+                LOGGER.error(
+                    "Configured starter destination is unavailable; refusing to confirm the "
+                        + "world fallback as the player's start: generation={}, building={}, "
+                        + "space={}, slot={}",
+                    config.generation, config.building, config.space, config.npcSlot
+                );
+                return false;
+            }
             destination = new BuildingRuntimeSystem.SpawnDestination(
                 fallbackLevel, fallbackPosition.above(), 0.0F
             );
         }
         move(player, destination, config == null || config.setRespawn);
         markStarted(player, config == null ? 1 : config.generation);
+        markValidated(player, config == null ? 1 : config.generation);
         return true;
+    }
+
+    private static void onLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        StarterConfig config = configs.get(defaultGeneration);
+        if (config == null || !config.enabled || !hasStarted(player, config.generation)
+            || isValidated(player, config.generation)) {
+            return;
+        }
+        BuildingRuntimeSystem.SpawnDestination destination =
+            CobbleventureBootstrap.resolveStarterSpawn(player.getServer(), config);
+        if (destination == null) {
+            return;
+        }
+        BlockPos position = destination.position();
+        if (config.setRespawn) {
+            player.setRespawnPosition(
+                destination.level().dimension(), position, destination.yaw(), true, false
+            );
+            PokemonCenterDefeatReturn.recordStarterFallback(
+                player, destination.level(), position
+            );
+        }
+        BlockPos current = player.blockPosition();
+        boolean correctDimension = player.serverLevel().dimension().equals(
+            destination.level().dimension()
+        );
+        if (!correctDimension || current.distSqr(position) > 64.0D
+            || player.serverLevel().getBlockState(current.below()).isAir()) {
+            move(player, destination, config.setRespawn);
+        }
+        markValidated(player, config.generation);
     }
 
     private static void onChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
@@ -109,6 +155,7 @@ final class StarterSpawnSystem {
         if (destination != null) {
             move(player, destination, config.setRespawn);
             markStarted(player, config.generation);
+            markValidated(player, config.generation);
         }
     }
 
@@ -144,6 +191,14 @@ final class StarterSpawnSystem {
 
     private static void markStarted(ServerPlayer player, int generation) {
         player.getPersistentData().putBoolean(STARTED_PREFIX + generation, true);
+    }
+
+    private static boolean isValidated(ServerPlayer player, int generation) {
+        return player.getPersistentData().getBoolean(VALIDATED_PREFIX + generation);
+    }
+
+    private static void markValidated(ServerPlayer player, int generation) {
+        player.getPersistentData().putBoolean(VALIDATED_PREFIX + generation, true);
     }
 
     private static String optional(JsonObject object, String field) {

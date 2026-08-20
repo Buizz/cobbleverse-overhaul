@@ -1089,10 +1089,6 @@ def _house_door_approach(
 def _structure_door_approach(
     plot: dict[str, object], root: Path | None = None,
 ) -> tuple[int, int] | None:
-    if str(plot.get("id", "")) not in {
-        "facility_pokemon_center", "facility_pokemart", "facility_department_store",
-    }:
-        return None
     structure = plot.get("structure")
     if root is None or not isinstance(structure, str) or not structure.startswith("cobbleventure:"):
         return None
@@ -1159,8 +1155,13 @@ def _plot_entrances(
     plot: dict[str, object], root: Path | None = None
 ) -> list[tuple[str, int, int]]:
     primary_x, primary_z = _plot_entrance(plot, root)
+    primary_facing = (_structure_door_safe_side(plot, root)
+                      if "gym" in str(plot["id"]) else None) or str(plot["entrance_facing"])
+    primary_x, primary_z = _project_entrance_outside_nbt(
+        plot, primary_facing, primary_x, primary_z
+    )
     if "gym" in str(plot["id"]):
-        return [("south", primary_x, primary_z)]
+        return [(primary_facing, primary_x, primary_z)]
     if str(plot["id"]) != "facility_department_store":
         return [(str(plot["entrance_facing"]), primary_x, primary_z)]
     x = math.floor(float(plot["x"]) + 0.5)
@@ -1172,6 +1173,58 @@ def _plot_entrances(
         ("west", x - 1, plaza_z),
         ("east", x + width, plaza_z),
     ]
+
+
+def _project_entrance_outside_nbt(
+    plot: dict[str, object], facing: str, entrance_x: int, entrance_z: int
+) -> tuple[int, int]:
+    min_x = math.floor(float(plot["x"]) + 0.5)
+    min_z = math.floor(float(plot["z"]) + 0.5)
+    rotation = str(plot.get("rotation", "none"))
+    quarter_turn = rotation in {"clockwise_90", "counterclockwise_90"}
+    placed_width = int(plot["depth"] if quarter_turn else plot["width"])
+    placed_depth = int(plot["width"] if quarter_turn else plot["depth"])
+    max_x = min_x + placed_width - 1
+    max_z = min_z + placed_depth - 1
+    if not (min_x <= entrance_x <= max_x and min_z <= entrance_z <= max_z):
+        return entrance_x, entrance_z
+    if facing == "east":
+        return max_x + 1, entrance_z
+    if facing == "south":
+        return entrance_x, max_z + 1
+    if facing == "west":
+        return min_x - 1, entrance_z
+    return entrance_x, min_z - 1
+
+
+def _structure_door_safe_side(
+    plot: dict[str, object], root: Path | None = None
+) -> str | None:
+    structure = plot.get("structure")
+    if not isinstance(structure, str) or ":" not in structure:
+        return None
+    _, path = structure.split(":", 1)
+    metadata_path = (root or Path()) / CONTENT_ROOT / "structures" / f"{path}.structure.json"
+    if not metadata_path.is_file():
+        return None
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
+    door = next((
+        anchor for anchor in anchors or []
+        if isinstance(anchor, dict) and anchor.get("type") == "door"
+    ), None)
+    if not isinstance(door, dict) or door.get("safe_side") not in {
+        "north", "east", "south", "west"
+    }:
+        return None
+    directions = ["north", "east", "south", "west"]
+    turns = {
+        "none": 0,
+        "clockwise_90": 1,
+        "clockwise_180": 2,
+        "counterclockwise_90": 3,
+    }.get(str(plot.get("rotation", "none")), 0)
+    return directions[(directions.index(str(door["safe_side"])) + turns) % 4]
 
 
 def _compile_town_layout_attempt(
@@ -1697,7 +1750,7 @@ def _compile_town_layout_attempt(
             else:
                 road_x, road_z = int(connection["x"]), int(connection["z"])
             if road_x != entrance_x and road_z != entrance_z:
-                corner = (entrance_x, road_z) if facing in {"east", "west"} else (road_x, entrance_z)
+                corner = (road_x, entrance_z) if facing in {"east", "west"} else (entrance_x, road_z)
                 result.append({
                     "building": building["id"],
                     "x1": road_x, "z1": road_z, "x2": corner[0], "z2": corner[1],

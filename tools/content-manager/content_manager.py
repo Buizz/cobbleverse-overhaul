@@ -576,6 +576,13 @@ def validate_hex_worlds(
         schema_version = world.get("schema_version")
         if schema_version not in {1, 2}:
             _issue(issues, "error", path, "$.schema_version", "지원 버전은 1 또는 2입니다.")
+        display_name = world.get("display_name")
+        if display_name is not None:
+            _localized_text(display_name, issues, path, "$.display_name")
+            if isinstance(display_name, dict):
+                for language, name in display_name.items():
+                    if isinstance(name, str) and len(name) > 64:
+                        _issue(issues, "error", path, f"$.display_name.{language}", "지역 이름은 64자 이하여야 합니다.")
         grid = world.get("grid")
         if not isinstance(grid, dict) or grid.get("orientation") != "pointy_top":
             _issue(issues, "error", path, "$.grid.orientation", "pointy_top 육각 격자만 지원합니다.")
@@ -4483,7 +4490,7 @@ DIALOGUE_THEME_DEFAULTS: dict[str, Any] = {
     "panel": {"background": "#f8fbff", "background_opacity": 0.98, "border": "#72a8d4", "inner_border": "#d9f4ff", "border_width": 3, "inner_border_width": 2, "corner_radius": 18, "shadow": "#24445f", "shadow_opacity": 0.45, "shadow_offset": 3, "speaker_color": "#c52b2b", "text_color": "#27323d", "hint_color": "#57758e", "page_color": "#72a8d4", "height_ratio": 0.333, "min_height": 112, "max_height": 166},
     "choice": {"panel_background": "#f8fbff", "panel_opacity": 0.98, "panel_border": "#72a8d4", "panel_inner_border": "#d9f4ff", "corner_radius": 12, "panel_width": 190, "panel_gap": 8, "panel_padding": 10, "selected_background": "#d9f4ff", "hover_background": "#eaf7ff", "background": "#f8fbff", "selected_accent": "#4f8fc2", "text_color": "#27323d", "row_height": 24},
     "menu": {"background": "#f8fbff", "background_opacity": 0.98, "border": "#72a8d4", "inner_border": "#d9f4ff", "corner_radius": 14, "row_radius": 7, "selected_background": "#d9f4ff", "hover_background": "#eaf7ff", "text_color": "#27323d", "selected_text_color": "#173f5f", "accent": "#4f8fc2"},
-    "portrait": {"yaw_degrees": 18.0, "pitch_degrees": -4.0, "scale": 1.0, "background": "#0a1017", "background_opacity": 0.72, "accent": "#5e7789"},
+    "portrait": {"yaw_degrees": 18.0, "pitch_degrees": -4.0, "scale": 0.7, "background": "#0a1017", "background_opacity": 0.72, "accent": "#5e7789"},
 }
 
 

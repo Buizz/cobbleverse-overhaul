@@ -14,7 +14,7 @@
     ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"짧은치마 유나\"}",
+    CustomName:"{\"text\":\"짧은치마 유나\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,

@@ -29,6 +29,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -66,6 +67,7 @@ public final class ProgressionNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(ProgressionNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(ProgressionNetwork::registerCommands);
+        NeoForge.EVENT_BUS.addListener(ProgressionNetwork::onPlayerClone);
         CobblemonEvents.EXPERIENCE_GAINED_EVENT_PRE.subscribe(
             Priority.HIGHEST,
             ProgressionNetwork::applyLevelCap
@@ -87,6 +89,27 @@ public final class ProgressionNetwork {
         int initial = initialLevelCap(player.getServer());
         player.getPersistentData().putInt(LEVEL_CAP_KEY, initial);
         return initial;
+    }
+
+    private static void onPlayerClone(PlayerEvent.Clone event) {
+        if (!(event.getOriginal() instanceof ServerPlayer original)
+            || !(event.getEntity() instanceof ServerPlayer replacement)) {
+            return;
+        }
+        for (Feature feature : Feature.values()) {
+            String key = FEATURE_PREFIX + feature.id;
+            if (original.getPersistentData().contains(key)) {
+                replacement.getPersistentData().putBoolean(
+                    key, original.getPersistentData().getBoolean(key)
+                );
+            }
+        }
+        if (original.getPersistentData().contains(LEVEL_CAP_KEY)) {
+            replacement.getPersistentData().putInt(
+                LEVEL_CAP_KEY, original.getPersistentData().getInt(LEVEL_CAP_KEY)
+            );
+        }
+        sync(replacement);
     }
 
     private static int initialLevelCap(MinecraftServer server) {

@@ -8,6 +8,9 @@ import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
 import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import dev.buizz.cobbleventure.adventure.event.EventDialogueLifecycle;
+import dev.buizz.cobbleventure.adventure.event.EventNpcInteractionHandler;
+import dev.buizz.cobbleventure.adventure.event.EventSessionKey;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -22,9 +25,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -42,8 +47,12 @@ public final class PokemonCenterDefeatReturn {
     private static final long MONEY_MESSAGE_TICKS = 15L;
     private static final long FADE_OUT_TICKS = 25L;
     private static final long NURSE_GREETING_TICKS = 45L;
-    private static final long NURSE_COMPLETE_TICKS = 75L;
     private static final long RECOVERY_COMPLETE_TICKS = 105L;
+    private static final long NURSE_DIALOGUE_TIMEOUT_TICKS = 20L * 60L;
+    private static final String NURSE_BINDING_TAG =
+        "cves_binding/cobbleventure/facilities/pokemon_center_nurse";
+    private static final String NURSE_SCRIPT_ID =
+        "cobbleventure:event_script/facilities/pokemon_center_nurse";
     private static final Map<UUID, PendingReturn> PENDING_RETURNS = new HashMap<>();
     private static final Map<UUID, RecoverySequence> ACTIVE_RECOVERIES = new HashMap<>();
     private static final Map<UUID, UUID> FORFEITED_BATTLES = new HashMap<>();
@@ -62,15 +71,23 @@ public final class PokemonCenterDefeatReturn {
         CobblemonEvents.BATTLE_FLED.subscribe(
             (Consumer<BattleFledEvent>) PokemonCenterDefeatReturn::onBattleFled
         );
+        EventDialogueLifecycle.register(PokemonCenterDefeatReturn::onDialogueStateChanged);
         NeoForge.EVENT_BUS.addListener(PokemonCenterDefeatReturn::onServerTick);
     }
 
     /** Records a validated server-side forfeit before Cobblemon resolves it as a loss. */
     public static void recordForfeit(PlayerBattleActor actor) {
+        if (!shouldRecordForfeit(actor.getBattle().isPvW())) {
+            return;
+        }
         ServerPlayer player = actor.getEntity();
         if (player != null) {
             FORFEITED_BATTLES.put(player.getUUID(), actor.getBattle().getBattleId());
         }
+    }
+
+    static boolean shouldRecordForfeit(boolean wildBattle) {
+        return !wildBattle;
     }
 
     public static void ensureFallback(
@@ -259,9 +276,10 @@ public final class PokemonCenterDefeatReturn {
             data.getInt(CHECKPOINT_X), data.getInt(CHECKPOINT_Y), data.getInt(CHECKPOINT_Z)
         );
         destination.getChunk(position);
+        boolean center = data.getBoolean(CHECKPOINT_IS_CENTER);
         player.addEffect(new MobEffectInstance(
             MobEffects.DARKNESS,
-            (int) RECOVERY_COMPLETE_TICKS + 20,
+            (int) (center ? NURSE_DIALOGUE_TIMEOUT_TICKS : RECOVERY_COMPLETE_TICKS) + 20,
             0,
             true,
             false,
@@ -276,7 +294,7 @@ public final class PokemonCenterDefeatReturn {
         ACTIVE_RECOVERIES.put(player.getUUID(), new RecoverySequence(
             dimension,
             position,
-            data.getBoolean(CHECKPOINT_IS_CENTER),
+            center,
             gameTime,
             settlement
         ));
@@ -308,40 +326,98 @@ public final class PokemonCenterDefeatReturn {
                     ));
                     continue;
                 }
-                teleportAndHeal(player, destination, recovery.position);
+                teleport(player, destination, recovery.position);
+                if (!recovery.center) {
+                    Cobblemon.INSTANCE.getStorage().getParty(player).heal();
+                }
                 recovery.teleported = true;
             }
-            if (recovery.center && !recovery.greeted && elapsed >= NURSE_GREETING_TICKS) {
-                recovery.greeted = true;
-                player.sendSystemMessage(Component.translatable(
-                    "message.cobbleventure_bootstrap.pokemon_center_nurse_greeting"
-                ));
+            if (recovery.center && !recovery.dialogueStarted
+                && !recovery.dialogueFallback && elapsed >= NURSE_GREETING_TICKS) {
+                ServerLevel destination = server.getLevel(recovery.dimension);
+                Entity nurse = destination == null
+                    ? null : findNurse(destination, recovery.position);
+                if (nurse != null) {
+                    recovery.nurseNpcId = nurse.getUUID();
+                    recovery.dialogueStarted = true;
+                    if (!EventNpcInteractionHandler.startBoundInteraction(player, nurse)) {
+                        recovery.dialogueStarted = false;
+                        recovery.nurseNpcId = null;
+                        startFallbackNurseRecovery(player, recovery);
+                    }
+                } else {
+                    startFallbackNurseRecovery(player, recovery);
+                }
             }
-            if (recovery.center && !recovery.completedDialogue
-                && elapsed >= NURSE_COMPLETE_TICKS) {
-                recovery.completedDialogue = true;
-                player.sendSystemMessage(Component.translatable(
-                    "message.cobbleventure_bootstrap.pokemon_center_nurse_complete"
-                ));
+            if (recovery.center && recovery.dialogueStarted) {
+                if (!recovery.dialogueCompleted
+                    && elapsed < NURSE_DIALOGUE_TIMEOUT_TICKS) {
+                    continue;
+                }
+                if (!recovery.dialogueCompleted && isPartyWiped(player)) {
+                    Cobblemon.INSTANCE.getStorage().getParty(player).heal();
+                }
+                iterator.remove();
+                finishRecovery(player, recovery.center);
+                continue;
             }
             if (elapsed < RECOVERY_COMPLETE_TICKS) {
                 continue;
             }
             iterator.remove();
-            player.removeEffect(MobEffects.DARKNESS);
-            player.sendSystemMessage(Component.translatable(
-                recovery.center
-                    ? "message.cobbleventure_bootstrap.pokemon_center_return"
-                    : "message.cobbleventure_bootstrap.pokemon_center_fallback_return"
-            ));
+            finishRecovery(player, recovery.center);
         }
     }
 
-    private static void teleportAndHeal(
-        ServerPlayer player, ServerLevel destination, BlockPos position
+    private static Entity findNurse(ServerLevel level, BlockPos position) {
+        AABB search = new AABB(position).inflate(12.0D, 6.0D, 12.0D);
+        return level.getEntities((Entity) null, search, entity ->
+                entity.getTags().contains(NURSE_BINDING_TAG))
+            .stream()
+            .min((left, right) -> Double.compare(
+                left.distanceToSqr(position.getCenter()),
+                right.distanceToSqr(position.getCenter())
+            ))
+            .orElse(null);
+    }
+
+    private static void startFallbackNurseRecovery(
+        ServerPlayer player, RecoverySequence recovery
     ) {
-        teleport(player, destination, position);
+        recovery.dialogueFallback = true;
         Cobblemon.INSTANCE.getStorage().getParty(player).heal();
+        player.sendSystemMessage(Component.translatable(
+            "message.cobbleventure_bootstrap.pokemon_center_nurse_greeting"
+        ));
+        player.sendSystemMessage(Component.translatable(
+            "message.cobbleventure_bootstrap.pokemon_center_nurse_complete"
+        ));
+    }
+
+    private static void finishRecovery(ServerPlayer player, boolean center) {
+        player.removeEffect(MobEffects.DARKNESS);
+        player.sendSystemMessage(Component.translatable(
+            center
+                ? "message.cobbleventure_bootstrap.pokemon_center_return"
+                : "message.cobbleventure_bootstrap.pokemon_center_fallback_return"
+        ));
+    }
+
+    private static void onDialogueStateChanged(
+        ServerPlayer player, EventSessionKey key, boolean open
+    ) {
+        if (open || !NURSE_SCRIPT_ID.equals(key.scriptId())) {
+            return;
+        }
+        RecoverySequence recovery = ACTIVE_RECOVERIES.get(player.getUUID());
+        if (recovery == null || !recovery.dialogueStarted
+            || !key.npcId().equals(recovery.nurseNpcId)) {
+            return;
+        }
+        recovery.closedDialogueLines++;
+        if (recovery.closedDialogueLines >= 2) {
+            recovery.dialogueCompleted = true;
+        }
     }
 
     private static void teleport(
@@ -384,8 +460,11 @@ public final class PokemonCenterDefeatReturn {
         private final BattleLossEconomy.Settlement settlement;
         private boolean teleported;
         private boolean moneyAnnounced;
-        private boolean greeted;
-        private boolean completedDialogue;
+        private UUID nurseNpcId;
+        private boolean dialogueStarted;
+        private boolean dialogueFallback;
+        private boolean dialogueCompleted;
+        private int closedDialogueLines;
 
         private RecoverySequence(
             ResourceKey<Level> dimension, BlockPos position,

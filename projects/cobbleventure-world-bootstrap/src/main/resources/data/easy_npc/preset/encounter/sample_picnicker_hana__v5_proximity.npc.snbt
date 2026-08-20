@@ -14,7 +14,7 @@
     ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"피크닉걸 하나\"}",
+    CustomName:"{\"text\":\"피크닉걸 하나\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,

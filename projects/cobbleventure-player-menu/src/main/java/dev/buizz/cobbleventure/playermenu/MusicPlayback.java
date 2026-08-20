@@ -83,10 +83,15 @@ public final class MusicPlayback {
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(NETWORK_VERSION);
         registrar.playToClient(PlayPayload.TYPE, PlayPayload.STREAM_CODEC, MusicPlayback::handlePlay);
+        registrar.playToClient(StopPayload.TYPE, StopPayload.STREAM_CODEC, MusicPlayback::handleStop);
     }
 
     private static void handlePlay(PlayPayload payload, IPayloadContext context) {
         LoopingMusic.play(payload.soundEvent());
+    }
+
+    private static void handleStop(StopPayload payload, IPayloadContext context) {
+        LoopingMusic.stop();
     }
 
     private static void registerCommands(RegisterCommandsEvent event) {
@@ -205,7 +210,9 @@ public final class MusicPlayback {
 
     /** Re-sends retained battle, encounter, or building music after a dimension change. */
     public static void tickRetainedContext(ServerPlayer player) {
-        tickPriority(player, load(player.serverLevel()));
+        if (!tickPriority(player, load(player.serverLevel()))) {
+            stop(player);
+        }
     }
 
     private static boolean tickPriority(ServerPlayer player, MusicData music) {
@@ -256,7 +263,11 @@ public final class MusicPlayback {
     }
 
     private static void play(ServerPlayer player, MusicData music, String track) {
-        if (track == null || track.isBlank() || track.equals(PLAYING.get(player.getUUID()))) return;
+        if (track == null || track.isBlank()) {
+            stop(player);
+            return;
+        }
+        if (track.equals(PLAYING.get(player.getUUID()))) return;
         PLAYING.put(player.getUUID(), track);
         String soundEvent = music.soundEvents.get(track);
         if (soundEvent != null) {
@@ -264,6 +275,12 @@ public final class MusicPlayback {
                 player,
                 new PlayPayload(ResourceLocation.fromNamespaceAndPath(music.namespace, soundEvent))
             );
+        }
+    }
+
+    private static void stop(ServerPlayer player) {
+        if (PLAYING.remove(player.getUUID()) != null) {
+            PacketDistributor.sendToPlayer(player, new StopPayload());
         }
     }
 
@@ -331,6 +348,19 @@ public final class MusicPlayback {
         private static PlayPayload read(RegistryFriendlyByteBuf buffer) {
             return new PlayPayload(buffer.readResourceLocation());
         }
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    record StopPayload() implements CustomPacketPayload {
+        private static final Type<StopPayload> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(CobbleventurePlayerMenu.MOD_ID, "music_stop")
+        );
+        private static final StreamCodec<RegistryFriendlyByteBuf, StopPayload> STREAM_CODEC =
+            StreamCodec.unit(new StopPayload());
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

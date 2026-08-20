@@ -395,7 +395,9 @@ public final class PlayerMenuScreen extends Screen {
 
     private void renderMenuPanel(GuiGraphics graphics) {
         drawRibbonPanel(graphics, menuX, menuY, menuWidth, menuHeight);
-        graphics.drawCenteredString(font, title, menuX + menuWidth / 2, menuY + 7, menuTheme.textColor);
+        graphics.drawString(font, title,
+            menuX + (menuWidth - font.width(title)) / 2,
+            menuY + 7, menuTheme.textColor, false);
         graphics.fill(
             menuX + 12,
             menuY + MENU_HEADER_HEIGHT - 2,

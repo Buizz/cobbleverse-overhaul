@@ -56,6 +56,7 @@ public final class EventDialogueNetwork {
                 locals.toString(),
                 EventDialogueThemeRepository.snapshot()
             ));
+            EventDialogueLifecycle.opened(player, request.sessionKey());
             return new EventDialogueGateway.OpenResult(
                 token, System.currentTimeMillis() + DIALOGUE_TIMEOUT_MILLIS
             );
@@ -195,6 +196,13 @@ public final class EventDialogueNetwork {
         EventSessionKey key = new EventSessionKey(
             player.getUUID(), payload.npcId(), payload.scriptId(), payload.triggerInstance()
         );
+        EventSessionStore sessionStore = SavedEventSessionStore.get(player.getServer());
+        boolean activeDialogue = EventAwaitSessionLocator.find(
+            sessionStore, player.getUUID(), payload.token()
+        ).filter(key::equals).isPresent();
+        if (activeDialogue) {
+            EventDialogueLifecycle.closed(player, key);
+        }
         EventScript script = EventScriptRepository.instance().find(payload.scriptId())
             .orElse(null);
         if (script == null) {
@@ -221,7 +229,7 @@ public final class EventDialogueNetwork {
                     script,
                     environment,
                     serverAdapter(player),
-                    SavedEventSessionStore.get(player.getServer()),
+                    sessionStore,
                     10_000
                 );
             if (outcome.status() != EventAwaitCompletionService.Status.RESUMED

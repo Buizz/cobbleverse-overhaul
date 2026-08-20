@@ -37,6 +37,10 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         preset = generator.encounter_preset_snbt(self.document, self.outfit)
 
         self.assertIn("DialogDataSet", preset)
+        self.assertIn(
+            '\\"font\\":\\"minecraft:uniform\\"',
+            preset,
+        )
         item_objective = generator.item_condition_objective("cobblemon:potion", 1)
         self.assertIn(
             f'Name:"{item_objective}",Operation:"EQUALS",Type:"SCOREBOARD",Value:1',
@@ -82,6 +86,18 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             preset,
         )
         self.assertIn("ON_INTERACTION", preset)
+
+    def test_all_easy_npc_preset_types_use_the_iris_safe_name_font(self) -> None:
+        outfit_preset = generator.preset_snbt(self.outfit)
+        encounter_preset = generator.encounter_preset_snbt(self.document, self.outfit)
+        v5_preset = generator.v5_encounter_preset_snbt(
+            self.document,
+            self.outfit,
+            "cves_binding/cobbleventure/test/ai_test",
+        )
+
+        for preset in (outfit_preset, encounter_preset, v5_preset):
+            self.assertIn('\\"font\\":\\"minecraft:uniform\\"', preset)
 
     def test_event_preset_can_generate_a_unique_state_key_from_the_npc_id(self) -> None:
         document = {

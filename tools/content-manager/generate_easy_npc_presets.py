@@ -305,6 +305,15 @@ def localized(value: dict | None) -> str:
     )
 
 
+def npc_name_component(display: str) -> str:
+    """Use an Iris-safe vanilla bitmap font for in-world EasyNPC nameplates."""
+    return json.dumps(
+        {"text": display, "font": "minecraft:uniform"},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
 def flag_objective(resource_id: str) -> str:
     """Map a long content flag id to a stable Minecraft scoreboard objective."""
     if resource_id == INSTANCE_DEFEATED_FLAG:
@@ -981,7 +990,7 @@ def preset_snbt(outfit: dict) -> str:
     preset_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, outfit["id"] + "/easy_npc_preset"))
     variant = "ALEX" if outfit["arm_model"] == "slim" else "STEVE"
     scale = float(adapter["root_scale"])
-    custom_name = json.dumps({"text": display}, ensure_ascii=False, separators=(",", ":"))
+    custom_name = npc_name_component(display)
     return f'''{{
   PresetMetadata:{{
     author:"Cobbleventure",
@@ -1028,7 +1037,7 @@ def encounter_preset_snbt(
     ).get("arm_model") or outfit["arm_model"]
     variant = "ALEX" if arm_model == "slim" else "STEVE"
     scale = float(adapter["root_scale"])
-    custom_name = json.dumps({"text": display}, ensure_ascii=False, separators=(",", ":"))
+    custom_name = npc_name_component(display)
     if document.get("schema_version") == 4:
         event = document.get("events", [{}])[0]
         encounter = event.get("trigger", {"type": "interact", "range": 4})
@@ -1149,7 +1158,7 @@ def v5_encounter_preset_snbt(
     ).get("arm_model") or outfit["arm_model"]
     variant = "ALEX" if arm_model == "slim" else "STEVE"
     scale = float(adapter["root_scale"])
-    custom_name = json.dumps({"text": display}, ensure_ascii=False, separators=(",", ":"))
+    custom_name = npc_name_component(display)
     trigger_tag = ',"cves_trigger/proximity"' if proximity else ""
     variant_label = " [V5 근접전투]" if proximity else " [V5]"
     return f'''{{

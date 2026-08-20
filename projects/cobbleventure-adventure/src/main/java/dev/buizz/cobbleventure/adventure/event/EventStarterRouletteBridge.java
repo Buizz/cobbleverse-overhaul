@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.common.NeoForge;
@@ -76,11 +77,11 @@ public final class EventStarterRouletteBridge {
             Commands.literal("cobbleventure_event_starter_result")
                 .requires(source -> source.hasPermission(4))
                 .then(Commands.argument("token", StringArgumentType.word())
-                    .then(Commands.argument("species", StringArgumentType.string())
+                    .then(Commands.argument("species", ResourceLocationArgument.id())
                         .executes(context -> complete(
                             context.getSource().getPlayerOrException(),
                             StringArgumentType.getString(context, "token"),
-                            StringArgumentType.getString(context, "species")
+                            ResourceLocationArgument.getId(context, "species")
                         ))))
         );
         event.getDispatcher().register(
@@ -96,16 +97,11 @@ public final class EventStarterRouletteBridge {
         );
     }
 
-    private static int complete(ServerPlayer player, String token, String speciesId) {
+    private static int complete(ServerPlayer player, String token, ResourceLocation species) {
         LOGGER.info(
             "Starter roulette callback received: player={}, token={}, species={}",
-            player.getGameProfile().getName(), token, speciesId
+            player.getGameProfile().getName(), token, species
         );
-        ResourceLocation species = ResourceLocation.tryParse(speciesId);
-        if (species == null) {
-            LOGGER.warn("Invalid starter species callback: {}", speciesId);
-            return 0;
-        }
         SavedEventSessionStore store = SavedEventSessionStore.get(player.getServer());
         Optional<EventSessionKey> key = EventAwaitCallbackRegistry.find(
             store, player.getUUID(), token

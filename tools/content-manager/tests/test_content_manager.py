@@ -28,6 +28,31 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_player_world_map_selection_keeps_a_one_step_outline_margin(self) -> None:
+        source = (
+            CORE_ROOT
+            / "projects/cobbleventure-player-menu/src/main/java/dev/buizz/cobbleventure/playermenu/client/WorldMapScreen.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("int halfWidth = mapCellHalfWidth(size);", source)
+        self.assertIn("int halfHeight = mapCellHalfHeight(size);", source)
+        self.assertIn("Math.sqrt(3.0D) * 0.5D * size", source)
+        self.assertIn("Math.ceil(0.75D * size)", source)
+        self.assertIn(
+            "drawCellOutline(graphics, selectedPoint.x(), selectedPoint.y(), size + 1, SELECTED_BORDER);",
+            source,
+        )
+
+    def test_village_preview_rotates_building_bounds_and_emphasizes_roads(self) -> None:
+        source = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("function rotateMinecraftTopBounds(bounds, width, depth, rotation)", source)
+        self.assertIn("const placedOccupied = rotateMinecraftTopBounds(occupied, width, depthSize, rotation);", source)
+        self.assertIn("width: placedOccupied.width, depth: placedOccupied.depth", source)
+        self.assertIn("placedNbtWidth * scale, placedNbtDepth * scale", source)
+        self.assertIn('context.strokeStyle = "rgba(42,52,47,.82)"', source)
+        self.assertIn('context.strokeStyle = "rgba(255,255,255,.22)"', source)
+
     def test_dialogue_theme_contract_and_global_resource_editor(self) -> None:
         theme = copy.deepcopy(content_manager.DIALOGUE_THEME_DEFAULTS)
         self.assertEqual([], content_manager.validate_dialogue_theme(PROJECT_ROOT, theme))

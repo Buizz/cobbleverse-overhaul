@@ -73,6 +73,7 @@ import org.slf4j.Logger;
 /** Applies builder-authored anchors and building NPC assignments after template placement. */
 final class BuildingRuntimeSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
+    static final String FIXED_POKEMON_TAG = "cobbleventure_building_pokemon";
     private static final String DATA_FILE = "cobbleventure_building_runtime";
     private static final String INTERACTION_COOLDOWN = "cobbleventureBuildingDoorCooldown";
     private static final int LARGE_SLOT_SPACING = 512;
@@ -140,6 +141,10 @@ final class BuildingRuntimeSystem {
         applyFixedNpcs(
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedNpcs, "exterior"
+        );
+        applyFixedVendors(
+            level, metadata, origin.toBlockPos(), rotation, instanceKey,
+            settings == null ? Map.of() : settings.fixedVendors, "exterior"
         );
         applyFixedPokemon(
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
@@ -251,6 +256,36 @@ final class BuildingRuntimeSystem {
         }
         BlockPos local = anchor.safeSpawn == null ? anchor.position : anchor.safeSpawn;
         BlockPos position = transform(origin, local, Rotation.NONE);
+        String preparedKey = key + "|space|" + interior.key;
+        RuntimeData runtime = data(exterior.getServer());
+        level.getChunk(position.getX() >> 4, position.getZ() >> 4);
+        if (!runtime.hasPrepared(preparedKey)
+            || !hasAuthoredInteriorSupport(level, origin, metadata)
+            || !hasSafeSpawnSupport(level, position)) {
+            StructureMetadata exteriorMetadata = METADATA.get(exteriorStructure);
+            if (exteriorMetadata != null) {
+                LOGGER.warn(
+                    "Starter interior was not ready and will be prepared synchronously: "
+                        + "structure={}, space={}, instance={}, origin={}",
+                    interior.structure, interior.key, key, origin
+                );
+                prepareConfiguredInteriors(
+                    exterior, exteriorStructure, exteriorMetadata,
+                    exteriorOrigin.toBlockPos(), rotation(rotationName), key, settings, null
+                );
+                level.getChunk(position.getX() >> 4, position.getZ() >> 4);
+            }
+        }
+        if (!runtime.hasPrepared(preparedKey)
+            || !hasAuthoredInteriorSupport(level, origin, metadata)
+            || !hasSafeSpawnSupport(level, position)) {
+            LOGGER.error(
+                "Starter interior destination rejected after synchronous preparation: "
+                    + "structure={}, space={}, instance={}, origin={}, spawn={}",
+                interior.structure, interior.key, key, origin, position
+            );
+            return null;
+        }
         return new SpawnDestination(level, position, anchor.facing.toYRot());
     }
 
@@ -471,6 +506,13 @@ final class BuildingRuntimeSystem {
                         fixedPokemon.put(pokemon.getKey(), pokemon.getValue().getAsString());
                     }
                 }
+                Map<String, String> fixedVendors = new LinkedHashMap<>();
+                if (value.has("fixed_vendors")) {
+                    for (Map.Entry<String, JsonElement> vendor
+                        : value.getAsJsonObject("fixed_vendors").entrySet()) {
+                        fixedVendors.put(vendor.getKey(), vendor.getValue().getAsString());
+                    }
+                }
                 List<InteriorSetting> interiors = new ArrayList<>();
                 if (value.has("interiors")) {
                     for (JsonElement interiorElement : value.getAsJsonArray("interiors")) {
@@ -511,6 +553,7 @@ final class BuildingRuntimeSystem {
                         && value.get("no_interior_space").getAsBoolean(),
                     Map.copyOf(fixed),
                     Map.copyOf(fixedPokemon),
+                    Map.copyOf(fixedVendors),
                     value.has("citizen_placement_allowed")
                         ? value.get("citizen_placement_allowed").getAsBoolean()
                         : value.has("random_citizen_eligible")
@@ -716,6 +759,33 @@ final class BuildingRuntimeSystem {
         }
     }
 
+    private static void applyFixedVendors(
+        ServerLevel level, StructureMetadata metadata,
+        BlockPos origin, Rotation rotation, String instanceKey,
+        Map<String, String> fixedVendors, String spaceKey
+    ) {
+        if (fixedVendors.isEmpty()) return;
+        RuntimeData runtime = data(level.getServer());
+        for (Anchor anchor : metadata.anchors) {
+            if (!anchor.type.equals("npc_position")) continue;
+            String scoped = spaceKey + ":" + anchor.id;
+            String vendor = fixedVendors.get(scoped);
+            if (vendor == null && spaceKey.equals("exterior")) {
+                vendor = fixedVendors.get(anchor.id);
+            }
+            String spawnKey = instanceKey + "|vendor|" + scoped;
+            if (vendor == null || runtime.hasSpawned(spawnKey)) continue;
+            BlockPos position = transform(origin, anchor.position, rotation);
+            if (CobbleventureBootstrap.spawnConfiguredVendor(
+                level, vendor, new CobbleventureBootstrap.BlockPoint(
+                    position.getX(), position.getY(), position.getZ()
+                )
+            )) {
+                runtime.markSpawned(spawnKey);
+            }
+        }
+    }
+
     private static void applyFixedPokemon(
         ServerLevel level, StructureMetadata metadata,
         BlockPos origin, Rotation rotation, String instanceKey,
@@ -759,7 +829,9 @@ final class BuildingRuntimeSystem {
             entity.setPersistenceRequired();
             entity.setCountsTowardsSpawnCap(false);
             entity.getPokemon().setTradeable(false);
-            entity.addTag("cobbleventure_building_pokemon");
+            entity.setNoAi(true);
+            entity.setDeltaMovement(Vec3.ZERO);
+            entity.addTag(FIXED_POKEMON_TAG);
             return level.addFreshEntity(entity);
         } catch (RuntimeException error) {
             LOGGER.error(
@@ -830,7 +902,17 @@ final class BuildingRuntimeSystem {
                 (index % 4) * 128, placementYOffset(interior.structure), (index / 4) * 128
             );
             String preparedKey = instanceKey + "|space|" + interior.key;
-            if (!runtime.hasPrepared(preparedKey)) {
+            boolean interiorPresent = hasAuthoredInteriorSupport(
+                interiorsLevel, origin, metadata
+            );
+            if (!runtime.hasPrepared(preparedKey) || !interiorPresent) {
+                if (runtime.hasPrepared(preparedKey)) {
+                    LOGGER.warn(
+                        "Prepared building interior is absent and will be rebuilt: "
+                            + "structure={}, instance={}, origin={}",
+                        interior.structure, instanceKey, origin
+                    );
+                }
                 forceChunks(interiorsLevel, origin, template.orElseThrow().getSize());
                 StructurePlaceSettings placementSettings = new StructurePlaceSettings();
                 boolean placed = template.orElseThrow().placeInWorld(
@@ -848,6 +930,15 @@ final class BuildingRuntimeSystem {
                 StructurePlacementFixes.afterPlacement(
                     interiorsLevel, origin, template.orElseThrow(), placementSettings
                 );
+                if (!hasAuthoredInteriorSupport(interiorsLevel, origin, metadata)) {
+                    LOGGER.error(
+                        "Configured interior has no floor at its authored safe spawn after "
+                            + "placement: structure={}, instance={}, origin={}",
+                        interior.structure, instanceKey, origin
+                    );
+                    index++;
+                    continue;
+                }
                 runtime.markPrepared(preparedKey);
             }
             spaces.put(interior.key, new SpaceInstance(
@@ -857,6 +948,10 @@ final class BuildingRuntimeSystem {
             applyFixedNpcs(
                 interiorsLevel, metadata, origin, Rotation.NONE,
                 instanceKey + "|" + interior.key, settings.fixedNpcs, interior.key
+            );
+            applyFixedVendors(
+                interiorsLevel, metadata, origin, Rotation.NONE,
+                instanceKey + "|" + interior.key, settings.fixedVendors, interior.key
             );
             index++;
         }
@@ -972,16 +1067,20 @@ final class BuildingRuntimeSystem {
             );
             if (result == 0) {
                 LOGGER.warn("Building NPC command returned no result: npc={}, position={}", npcId, position);
-            } else if (isNpcSeatBlock(level.getBlockState(position))) {
+            } else {
                 Entity spawnedNpc = level.getEntity(spawnedNpcId);
-                if (spawnedNpc == null) {
+                if (spawnedNpc != null) {
+                    CobbleventureBootstrap.applyNpcWorldFont(spawnedNpc);
+                }
+                if (isNpcSeatBlock(level.getBlockState(position)) && spawnedNpc == null) {
                     PENDING_NPC_SEATS.put(
                         spawnedNpcId,
                         new PendingNpcSeat(
                             level.dimension(), position.immutable(), npcId, 0
                         )
                     );
-                } else if (!seatNpc(level, spawnedNpc, position)) {
+                } else if (isNpcSeatBlock(level.getBlockState(position))
+                    && !seatNpc(level, spawnedNpc, position)) {
                     LOGGER.warn(
                         "Building NPC was spawned but could not ride its seat: npc={}, uuid={}, position={}",
                         npcId, spawnedNpcId, position
@@ -1007,6 +1106,7 @@ final class BuildingRuntimeSystem {
             ServerLevel level = event.getServer().getLevel(pending.dimension);
             Entity npc = level == null ? null : level.getEntity(entry.getKey());
             if (npc != null) {
+                CobbleventureBootstrap.applyNpcWorldFont(npc);
                 if (!seatNpc(level, npc, pending.position)) {
                     LOGGER.warn(
                         "Building NPC was spawned but could not ride its delayed seat: "
@@ -1222,6 +1322,18 @@ final class BuildingRuntimeSystem {
             player.sendSystemMessage(Component.literal("[건물 문] 이동할 공간을 찾을 수 없습니다."));
             return;
         }
+        destination.getChunkAt(target.position);
+        if (target.interior && !hasSafeSpawnSupport(destination, target.position)) {
+            LOGGER.error(
+                "Building teleport blocked because the prepared interior is absent: "
+                    + "dimension={}, destination={}",
+                target.dimension.location(), target.position
+            );
+            player.sendSystemMessage(Component.literal(
+                "[건물 문] 내부 공간이 아직 준비되지 않아 이동을 중단했습니다."
+            ));
+            return;
+        }
         ResourceKey<Level> sourceDimension = player.level().dimension();
         player.teleportTo(
             destination,
@@ -1363,6 +1475,26 @@ final class BuildingRuntimeSystem {
         }
     }
 
+    private static boolean hasAuthoredInteriorSupport(
+        ServerLevel level, BlockPos origin, StructureMetadata metadata
+    ) {
+        for (Anchor anchor : metadata.anchors) {
+            if (anchor.safeSpawn == null) {
+                continue;
+            }
+            if (!hasSafeSpawnSupport(level, transform(origin, anchor.safeSpawn, Rotation.NONE))) {
+                return false;
+            }
+        }
+        // Older interior metadata without safe_spawn cannot be verified without inventing
+        // a coordinate. Preserve its existing prepared-state behavior instead.
+        return true;
+    }
+
+    private static boolean hasSafeSpawnSupport(ServerLevel level, BlockPos safeSpawn) {
+        return !level.getBlockState(safeSpawn.below()).isAir();
+    }
+
     private static BlockPos position(JsonObject value, String key, BlockPos fallback) {
         if (!value.has(key)) {
             return fallback;
@@ -1439,6 +1571,7 @@ final class BuildingRuntimeSystem {
     private record BuildingSettings(
         int placementYOffset, boolean noInteriorSpace,
         Map<String, String> fixedNpcs, Map<String, String> fixedPokemon,
+        Map<String, String> fixedVendors,
         boolean citizenPlacementAllowed,
         List<InteriorSetting> interiors, Map<String, RouteTarget> routes,
         String musicTrack

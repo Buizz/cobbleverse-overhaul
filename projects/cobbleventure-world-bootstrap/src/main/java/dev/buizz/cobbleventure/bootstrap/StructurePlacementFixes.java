@@ -41,7 +41,6 @@ final class StructurePlacementFixes {
         Vec3i size = template.getSize(settings.getRotation());
         repairFridges(level, origin, size);
         restoreCopycatMaterials(level, origin, template, settings);
-        synchronizeBlockEntities(level, origin, size);
     }
 
     /**
@@ -159,20 +158,6 @@ final class StructurePlacementFixes {
             );
         }
         return state;
-    }
-
-    private static void synchronizeBlockEntities(ServerLevel level, BlockPos origin, Vec3i size) {
-        BlockPos end = origin.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
-        for (BlockPos cursor : BlockPos.betweenClosed(origin, end)) {
-            BlockPos position = cursor.immutable();
-            BlockEntity blockEntity = level.getBlockEntity(position);
-            if (blockEntity == null) {
-                continue;
-            }
-            blockEntity.setChanged();
-            BlockState state = level.getBlockState(position);
-            level.sendBlockUpdated(position, state, state, 3);
-        }
     }
 
     private static ResourceLocation id(String namespace, String path) {

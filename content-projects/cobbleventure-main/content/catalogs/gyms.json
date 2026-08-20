@@ -67,6 +67,7 @@
       "theme": "water",
       "access": {
         "require_previous_gym": true,
+        "previous_badge": "cobbleventure:badge/kanto/boulder",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [
@@ -122,6 +123,7 @@
       "theme": "electric",
       "access": {
         "require_previous_gym": true,
+        "previous_badge": "cobbleventure:badge/kanto/cascade",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [
@@ -177,6 +179,7 @@
       "theme": "grass",
       "access": {
         "require_previous_gym": true,
+        "previous_badge": "cobbleventure:badge/kanto/thunder",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [
@@ -232,6 +235,7 @@
       "theme": "poison",
       "access": {
         "require_previous_gym": true,
+        "previous_badge": "cobbleventure:badge/kanto/rainbow",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [
@@ -287,6 +291,7 @@
       "theme": "psychic",
       "access": {
         "require_previous_gym": true,
+        "previous_badge": "cobbleventure:badge/kanto/soul",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [
@@ -342,6 +347,7 @@
       "theme": "fire",
       "access": {
         "require_previous_gym": true,
+        "previous_badge": "cobbleventure:badge/kanto/marsh",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [
@@ -397,6 +403,7 @@
       "theme": "ground",
       "access": {
         "require_previous_gym": true,
+        "previous_badge": "cobbleventure:badge/kanto/volcano",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [

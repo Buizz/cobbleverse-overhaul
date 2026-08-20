@@ -12,7 +12,7 @@ const dialogueThemeDefaults = {
   panel: { background: "#f8fbff", background_opacity: .98, border: "#72a8d4", inner_border: "#d9f4ff", border_width: 3, inner_border_width: 2, corner_radius: 18, shadow: "#24445f", shadow_opacity: .45, shadow_offset: 3, speaker_color: "#c52b2b", text_color: "#27323d", hint_color: "#57758e", page_color: "#72a8d4", height_ratio: .333, min_height: 112, max_height: 166 },
   choice: { panel_background: "#f8fbff", panel_opacity: .98, panel_border: "#72a8d4", panel_inner_border: "#d9f4ff", corner_radius: 12, panel_width: 190, panel_gap: 8, panel_padding: 10, selected_background: "#d9f4ff", hover_background: "#eaf7ff", background: "#f8fbff", selected_accent: "#4f8fc2", text_color: "#27323d", row_height: 24 },
   menu: { background: "#f8fbff", background_opacity: .98, border: "#72a8d4", inner_border: "#d9f4ff", corner_radius: 14, row_radius: 7, selected_background: "#d9f4ff", hover_background: "#eaf7ff", text_color: "#27323d", selected_text_color: "#173f5f", accent: "#4f8fc2" },
-  portrait: { yaw_degrees: 18, pitch_degrees: -4, scale: 1, background: "#0a1017", background_opacity: .72, accent: "#5e7789" }
+  portrait: { yaw_degrees: 18, pitch_degrees: -4, scale: .7, background: "#0a1017", background_opacity: .72, accent: "#5e7789" }
 };
 
 const structureViewPitch = {
@@ -609,6 +609,21 @@ function handleMusicCandidateClick(event) {
 }
 
 const starterRegionNames = { 1: "관동", 2: "성도", 3: "호연", 4: "신오", 5: "하나", 6: "칼로스", 7: "알로라", 8: "가라르", 9: "팔데아" };
+const worldRegionNames = {
+  1: { ko_kr: "관동지방", en_us: "Kanto Region" },
+  2: { ko_kr: "성도지방", en_us: "Johto Region" },
+  3: { ko_kr: "호연지방", en_us: "Hoenn Region" },
+  4: { ko_kr: "신오지방", en_us: "Sinnoh Region" },
+  5: { ko_kr: "하나지방", en_us: "Unova Region" },
+  6: { ko_kr: "칼로스지방", en_us: "Kalos Region" },
+  7: { ko_kr: "알로라지방", en_us: "Alola Region" },
+  8: { ko_kr: "가라르지방", en_us: "Galar Region" },
+  9: { ko_kr: "팔데아지방", en_us: "Paldea Region" }
+};
+
+function defaultWorldDisplayName(generation) {
+  return { ...(worldRegionNames[Number(generation)] || { ko_kr: `${generation}세대`, en_us: `Generation ${generation}` }) };
+}
 
 function starterGenerationFromPath(path = "") {
   const match = path.match(/(?:^|\/)generation_(\d+)(?:\/|$)/);
@@ -1671,7 +1686,11 @@ function renderWorldLayout() {
   state.mapRadius = Math.max(Number(layout.grid?.map_radius_cells || state.mapRadius), occupiedExtent + 1);
   renderGenerationTabs();
   renderMapToolOptions();
-  $("#world-map-title").textContent = `${state.selectedGeneration}세대 월드`;
+  const defaultDisplayName = defaultWorldDisplayName(state.selectedGeneration);
+  const displayName = layout.display_name && typeof layout.display_name === "object" ? layout.display_name : {};
+  $("#world-display-name-ko").value = displayName.ko_kr || defaultDisplayName.ko_kr;
+  $("#world-display-name-en").value = displayName.en_us || defaultDisplayName.en_us;
+  $("#world-map-title").textContent = $("#world-display-name-ko").value;
   $("#tile-radius-blocks").value = layout.grid?.tile_radius_blocks || 64;
   $("#level-overlay-toggle").checked = state.levelOverlayVisible;
   if (!state.mapViewInitialized) fitMapToContent();
@@ -2213,6 +2232,11 @@ async function saveWorldLayout(options = {}) {
   syncConnectionPaths();
   syncAutomaticRouteNames();
   state.worldLayout.schema_version = 2;
+  const defaultDisplayName = defaultWorldDisplayName(state.selectedGeneration);
+  state.worldLayout.display_name = {
+    ko_kr: $("#world-display-name-ko").value.trim() || defaultDisplayName.ko_kr,
+    en_us: $("#world-display-name-en").value.trim() || defaultDisplayName.en_us
+  };
   state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64);
   state.worldLayout.grid.map_radius_cells = Math.max(
     3,
@@ -3930,7 +3954,7 @@ function finishSettlementDrag(event) {
 async function addGeneration() {
   const generation = Array.from({ length: 9 }, (_, index) => index + 1).find((value) => !state.worldGenerations.includes(value));
   if (!generation) { toast("9세대까지 모두 추가되어 있습니다."); return; }
-  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, dimension: `cobbleventure:generation_${generation}`, pokemon_generations: [generation], seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], level_overrides: [], music_overrides: [], settlements: [], cave_entrances: [], forest_entrances: [], connections: [], objects: [] };
+  const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, display_name: defaultWorldDisplayName(generation), dimension: `cobbleventure:generation_${generation}`, pokemon_generations: [generation], seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], level_overrides: [], music_overrides: [], settlements: [], cave_entrances: [], forest_entrances: [], connections: [], objects: [] };
   const result = await request(`/api/world-layout?generation=${generation}`, { method: "PUT", body: JSON.stringify(payload) });
   if (!result.ok) { toast(result.data.error || "세대를 추가하지 못했습니다."); return; }
   state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.worldDirty = false; state.mapViewInitialized = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
@@ -9863,6 +9887,18 @@ function rotateMinecraftTopBlock(x, z, width, depth, rotation) {
   return { x, z };
 }
 
+function rotateMinecraftTopBounds(bounds, width, depth, rotation) {
+  const corners = [
+    [bounds.min_x, bounds.min_z], [bounds.max_x, bounds.min_z],
+    [bounds.min_x, bounds.max_z], [bounds.max_x, bounds.max_z]
+  ].map(([x, z]) => rotateMinecraftTopBlock(Number(x), Number(z), width, depth, rotation));
+  const minX = Math.min(...corners.map((point) => point.x));
+  const maxX = Math.max(...corners.map((point) => point.x));
+  const minZ = Math.min(...corners.map((point) => point.z));
+  const maxZ = Math.max(...corners.map((point) => point.z));
+  return { min_x: minX, max_x: maxX, min_z: minZ, max_z: maxZ, width: maxX - minX + 1, depth: maxZ - minZ + 1 };
+}
+
 function drawMinecraftStructureTopView(context, plot, project, scale) {
   const palette = plot.topView?.palette;
   const blocks = plot.topView?.blocks;
@@ -10049,6 +10085,21 @@ function facilityEntrancePoint(id, occupiedPlot, facing = facilityCanonicalEntra
     south: { x: blockX + occupiedPlot.width / 2, z: blockZ + occupiedPlot.depth },
     west: { x: blockX - 1, z: blockZ + (String(id).includes("gym") ? Math.min(10, occupiedPlot.depth - 1) : occupiedPlot.depth / 2) }
   })[facing];
+}
+
+function projectEntranceOutsideNbt(plot, entrance, facing) {
+  const minX = Math.round(Number(plot.x));
+  const minZ = Math.round(Number(plot.z));
+  const quarterTurn = ["clockwise_90", "counterclockwise_90"].includes(plot.rotation);
+  const placedWidth = quarterTurn ? Number(plot.depth) : Number(plot.width);
+  const placedDepth = quarterTurn ? Number(plot.width) : Number(plot.depth);
+  const maxX = minX + placedWidth - 1;
+  const maxZ = minZ + placedDepth - 1;
+  if (entrance.x < minX || entrance.x > maxX || entrance.z < minZ || entrance.z > maxZ) return entrance;
+  if (facing === "east") return { x: maxX + 1, z: entrance.z };
+  if (facing === "south") return { x: entrance.x, z: maxZ + 1 };
+  if (facing === "west") return { x: minX - 1, z: entrance.z };
+  return { x: entrance.x, z: minZ - 1 };
 }
 
 function gymFallbackTopView(theme, width = 25, depth = 26) {
@@ -10518,17 +10569,20 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         ? definition.footprint?.roadAnchor?.facing || facilityCanonicalEntranceFacing(definition.id)
         : null;
       if (fixedFacilityFacing && roadFacing !== fixedFacilityFacing) continue;
-      const occupiedCenterX = (Number(occupied.min_x) + Number(occupied.max_x) + 1) / 2;
-      const occupiedCenterZ = (Number(occupied.min_z) + Number(occupied.max_z) + 1) / 2;
+      const facing = kind === "house" ? roadFacing : fixedFacilityFacing;
+      const rotation = kind === "house" ? ({ north: "none", east: "clockwise_90", south: "clockwise_180", west: "counterclockwise_90" })[facing] : "none";
+      const placedOccupied = rotateMinecraftTopBounds(occupied, width, depthSize, rotation);
+      const occupiedCenterX = (placedOccupied.min_x + placedOccupied.max_x + 1) / 2;
+      const occupiedCenterZ = (placedOccupied.min_z + placedOccupied.max_z + 1) / 2;
       const originX = horizontal
         ? alongX - occupiedCenterX
         : slot.side > 0
-          ? alongX + roadWidth / 2 - Number(occupied.min_x)
-          : alongX - roadWidth / 2 - Number(occupied.max_x) - 1;
+          ? alongX + roadWidth / 2 - placedOccupied.min_x
+          : alongX - roadWidth / 2 - placedOccupied.max_x - 1;
       const originZ = horizontal
         ? slot.side > 0
-          ? alongZ + roadWidth / 2 - Number(occupied.min_z)
-          : alongZ - roadWidth / 2 - Number(occupied.max_z) - 1
+          ? alongZ + roadWidth / 2 - placedOccupied.min_z
+          : alongZ - roadWidth / 2 - placedOccupied.max_z - 1
         : alongZ - occupiedCenterZ;
       const plot = {
         x: originX, z: originZ,
@@ -10539,13 +10593,12 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         nbtSource: definition.footprint?.source || ""
       };
       plot.occupied = {
-        x: originX + Number(occupied.min_x), z: originZ + Number(occupied.min_z),
-        width: Number(occupied.width), depth: Number(occupied.depth)
+        x: originX + placedOccupied.min_x, z: originZ + placedOccupied.min_z,
+        width: placedOccupied.width, depth: placedOccupied.depth
       };
       if (kind === "house" || kind === "facility") {
-        const facing = kind === "house" ? roadFacing : fixedFacilityFacing;
         plot.entrance_facing = facing;
-        plot.rotation = kind === "house" ? ({ north: "none", east: "clockwise_90", south: "clockwise_180", west: "counterclockwise_90" })[facing] : "none";
+        plot.rotation = rotation;
         plot.road_connection = { x: Math.round(alongX), z: Math.round(alongZ) };
         const doorApproach = definition.footprint?.doorApproach;
         if (kind === "house" && Array.isArray(doorApproach) && doorApproach.length === 3) {
@@ -10565,6 +10618,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         } else {
           plot.entrance = facilityEntrancePoint(definition.id, plot.occupied, facing);
         }
+        plot.entrance = projectEntranceOutsideNbt(plot, plot.entrance, facing);
       }
       if (!villagePlotInsideLayout(plot.occupied, normalizedCellCount, normalizedFootprintShape, customCells)) continue;
       if (plots.some((other) => villagePreviewRectIntersects(plot.occupied, other.occupied || other, densityProfile.plotGap))) continue;
@@ -10661,12 +10715,13 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
     };
     const facing = definition.footprint?.roadAnchor?.facing
       || facilityCanonicalEntranceFacing(definition.id);
-    const entrance = Array.isArray(definition.footprint?.roadAnchor?.position)
+    const authoredEntrance = Array.isArray(definition.footprint?.roadAnchor?.position)
       ? {
           x: plot.x + Number(definition.footprint.roadAnchor.position[0]),
           z: plot.z + Number(definition.footprint.roadAnchor.position[2])
         }
       : facilityEntrancePoint(definition.id, occupiedPlot, facing);
+    const entrance = projectEntranceOutsideNbt(plot, authoredEntrance, facing);
     const roadPoints = roads.flatMap((road) => {
       const x = Math.min(Math.max(entrance.x, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
       const z = Math.min(Math.max(entrance.z, Math.min(road.z1, road.z2)), Math.max(road.z1, road.z2));
@@ -10721,11 +10776,14 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
   }
   const accessRoads = [];
   for (const plot of plots.filter((candidate) => candidate.entrance && candidate.road_connection)) {
-    const entrances = plot.id === "department_store" ? [
+    const entrances = (plot.id === "department_store" ? [
       { facing: "north", x: plot.occupied.x + plot.occupied.width / 2, z: plot.occupied.z - 1 },
       { facing: "west", x: plot.occupied.x - 1, z: plot.occupied.z + Math.min(19, plot.occupied.depth - 1) },
       { facing: "east", x: plot.occupied.x + plot.occupied.width, z: plot.occupied.z + Math.min(19, plot.occupied.depth - 1) }
-    ] : [{ facing: plot.entrance_facing, ...plot.entrance }];
+    ] : [{ facing: plot.entrance_facing, ...plot.entrance }]).map((entrance) => ({
+      facing: entrance.facing,
+      ...projectEntranceOutsideNbt(plot, entrance, entrance.facing)
+    }));
     plot.entrance = entrances[0];
     plot.plazaEntrances = entrances;
     for (let entranceIndex = 0; entranceIndex < entrances.length; entranceIndex += 1) {
@@ -10747,7 +10805,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       if (!connection) continue;
       let roadX = connection.x, roadZ = connection.z;
       if (roadX !== entrance.x && roadZ !== entrance.z) {
-        const corner = ["east", "west"].includes(entrance.facing) ? { x: entrance.x, z: roadZ } : { x: roadX, z: entrance.z };
+        const corner = ["east", "west"].includes(entrance.facing) ? { x: roadX, z: entrance.z } : { x: entrance.x, z: roadZ };
         accessRoads.push({ building: plot.id, x1: roadX, z1: roadZ, x2: corner.x, z2: corner.z });
         roadX = corner.x; roadZ = corner.z;
       }
@@ -11062,21 +11120,19 @@ function renderVillageGenerationTest() {
     }
   }
   const roadColors = { cobblestone: "#8d9292", stone_bricks: "#727b80", bricks: "#a05245", grass_path: "#8a704f", gravel: "#aaa397", packed_mud: "#846b55", sandstone: "#d4ba7d", snow: "#d9e9ed" };
-  context.lineCap = "square";
-  for (const road of result.roads) {
+  const roadColor = roadColors[form.elements.townRoadMaterial.value] || roadColors.cobblestone;
+  const drawRoad = (road, width) => {
     const start = project(road.x1, road.z1); const end = project(road.x2, road.z2);
-    context.strokeStyle = "rgba(49,58,54,.45)"; context.lineWidth = Math.max(4, (roadWidth + 3) * scale);
+    context.lineCap = "square";
+    context.strokeStyle = "rgba(42,52,47,.82)"; context.lineWidth = Math.max(4, (width + 2) * scale);
     context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-    context.strokeStyle = roadColors[form.elements.townRoadMaterial.value] || roadColors.cobblestone;
-    context.lineWidth = Math.max(2, roadWidth * scale);
+    context.strokeStyle = roadColor; context.lineWidth = Math.max(2, width * scale);
     context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-  }
-  context.strokeStyle = roadColors[form.elements.townRoadMaterial.value] || roadColors.cobblestone;
-  context.lineWidth = Math.max(2, 3 * scale);
-  for (const road of result.accessRoads) {
-    const start = project(road.x1, road.z1); const end = project(road.x2, road.z2);
+    context.strokeStyle = "rgba(255,255,255,.22)"; context.lineWidth = Math.max(1, Math.min(width * scale * .16, 2.5));
     context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-  }
+  };
+  result.roads.forEach((road) => drawRoad(road, roadWidth));
+  result.accessRoads.forEach((road) => drawRoad(road, 3));
   for (const [decorationIndex, decoration] of (result.decorations || []).entries()) {
     const position = project(decoration.x, decoration.z);
     state.villageDecorationEditor.hitTargets.push({ index: decorationIndex, x: position.x, y: position.y });
@@ -11103,13 +11159,16 @@ function renderVillageGenerationTest() {
   for (const plot of result.plots) {
     const templatePosition = project(plot.x, plot.z);
     const occupiedPlot = plot.occupied || plot;
+    const quarterTurn = ["clockwise_90", "counterclockwise_90"].includes(plot.rotation);
+    const placedNbtWidth = quarterTurn ? plot.depth : plot.width;
+    const placedNbtDepth = quarterTurn ? plot.width : plot.depth;
     const position = project(occupiedPlot.x, occupiedPlot.z);
     const roofColor = houseRoofColorCatalog.find((item) => item.id === plot.roof_color)?.color;
-    if (plot.nbtResolved && (occupiedPlot.width !== plot.width || occupiedPlot.depth !== plot.depth)) {
+    if (plot.nbtResolved && (occupiedPlot.width !== placedNbtWidth || occupiedPlot.depth !== placedNbtDepth)) {
       context.strokeStyle = "rgba(35,54,65,.35)";
       context.lineWidth = 1;
       context.setLineDash([4, 3]);
-      context.strokeRect(templatePosition.x, templatePosition.y, plot.width * scale, plot.depth * scale);
+      context.strokeRect(templatePosition.x, templatePosition.y, placedNbtWidth * scale, placedNbtDepth * scale);
       context.setLineDash([]);
     }
     const renderedNbtTopView = drawMinecraftStructureTopView(context, plot, project, scale);
@@ -11127,7 +11186,7 @@ function renderVillageGenerationTest() {
     }
     labels.push({
       text: renderedNbtTopView
-        ? (occupiedPlot.width === plot.width && occupiedPlot.depth === plot.depth
+        ? (occupiedPlot.width === placedNbtWidth && occupiedPlot.depth === placedNbtDepth
             ? `${plot.label} · ${plot.width}×${plot.depth}`
             : `${plot.label} · ${occupiedPlot.width}×${occupiedPlot.depth} 점유 · ${plot.width}×${plot.depth} NBT`)
         : `${plot.label} · 대체 외곽 · ${occupiedPlot.width}×${occupiedPlot.depth} 외벽 · ${plot.width}×${plot.depth} NBT`,
@@ -13733,6 +13792,18 @@ $("#level-brush-average").addEventListener("input", (event) => setLevelBrushValu
 $("#level-brush-average-range").addEventListener("input", (event) => setLevelBrushValue(event.target.value));
 $$('[data-level-quick]').forEach((button) => button.addEventListener("click", () => setLevelBrushValue(button.dataset.levelQuick)));
 $("#level-overlay-toggle").addEventListener("change", (event) => { state.levelOverlayVisible = event.target.checked; renderHexMap(); });
+for (const id of ["world-display-name-ko", "world-display-name-en"]) {
+  $(`#${id}`).addEventListener("input", () => {
+    if (!state.worldLayout) return;
+    const defaults = defaultWorldDisplayName(state.selectedGeneration);
+    state.worldLayout.display_name = {
+      ko_kr: $("#world-display-name-ko").value.trim() || defaults.ko_kr,
+      en_us: $("#world-display-name-en").value.trim() || defaults.en_us
+    };
+    $("#world-map-title").textContent = state.worldLayout.display_name.ko_kr;
+    markWorldDirty();
+  });
+}
 $("#tile-radius-blocks").addEventListener("change", () => { state.worldLayout.grid.tile_radius_blocks = Number($("#tile-radius-blocks").value || 64); markWorldDirty(); });
 $("#zoom-in").addEventListener("click", () => zoomWorldMap(state.mapZoom + .1));
 $("#zoom-out").addEventListener("click", () => zoomWorldMap(state.mapZoom - .1));

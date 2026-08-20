@@ -54,7 +54,12 @@ public final class EventDialogueClient {
         awaitKind = locked && kind != null ? kind : "";
         Minecraft minecraft = Minecraft.getInstance();
         if (locked) {
-            if (minecraft.screen == null || !isAuthoredScreen(minecraft.screen, awaitKind)) {
+            if (!usesMovementLockScreen(awaitKind)) {
+                if (minecraft.screen instanceof EventMovementLockScreen) {
+                    minecraft.setScreen(null);
+                }
+            } else if (minecraft.screen == null
+                || !isAuthoredScreen(minecraft.screen, awaitKind)) {
                 minecraft.setScreen(new EventMovementLockScreen());
             }
         } else if (minecraft.screen instanceof EventMovementLockScreen) {
@@ -88,9 +93,14 @@ public final class EventDialogueClient {
         if (minecraft.player == null) {
             awaitInputLocked = false;
             awaitKind = "";
-        } else if (minecraft.screen == null) {
+        } else if (minecraft.screen == null && usesMovementLockScreen(awaitKind)) {
             minecraft.setScreen(new EventMovementLockScreen());
         }
+    }
+
+    /** Cobblemon's battle controller must keep receiving keys after its command screen closes. */
+    static boolean usesMovementLockScreen(String kind) {
+        return !"battle".equals(kind);
     }
 
     private static boolean isAuthoredScreen(Screen screen, String kind) {

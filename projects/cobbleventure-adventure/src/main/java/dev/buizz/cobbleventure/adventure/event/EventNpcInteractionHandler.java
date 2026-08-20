@@ -81,12 +81,24 @@ public final class EventNpcInteractionHandler {
             EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
                 new ServerPlayerEventState(player)
             );
-            double range = EventNpcInteractionContract.interactionRange(interact, environment);
+            double scriptedRange = EventNpcInteractionContract.interactionRange(
+                interact, environment
+            );
+            double playerRange = player.entityInteractionRange();
+            double range = EventNpcInteractionRange.directClickRange(
+                scriptedRange, playerRange
+            );
             if (!EventNpcInteractionRange.contains(
                 player.position(), target.getBoundingBox(), range
             )) {
                 throw new EventRuntimeException(
-                    "NPC 상호작용 거리가 범위를 벗어났습니다: " + range
+                    "NPC 상호작용 거리가 범위를 벗어났습니다: distance="
+                        + EventNpcInteractionRange.distanceToBounds(
+                            player.position(), target.getBoundingBox()
+                        )
+                        + ", scripted=" + scriptedRange
+                        + ", player=" + playerRange
+                        + ", allowed=" + range
                 );
             }
         }

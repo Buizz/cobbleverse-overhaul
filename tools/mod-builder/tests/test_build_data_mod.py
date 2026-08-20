@@ -917,6 +917,41 @@ class DataModBuilderTests(unittest.TestCase):
             }[house["entrance_facing"]]
             self.assertAlmostEqual(road_half_width, distance, places=2, msg=house["id"])
 
+    def test_access_roads_finish_perpendicular_to_building_entrances(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        layout = build_data_mod._compile_town_layout(source)
+        buildings = {
+            **layout["facilities"],
+            **{house["id"]: house for house in layout["houses"]},
+        }
+        grouped: dict[str, list[dict[str, object]]] = {}
+        for road in layout["access_roads"]:
+            grouped.setdefault(str(road["building"]), []).append(road)
+        for building_id, roads in grouped.items():
+            building = buildings[building_id]
+            last = roads[-1]
+            entrance = building["entrance"]
+            min_x = math.floor(float(building["x"]) + 0.5)
+            min_z = math.floor(float(building["z"]) + 0.5)
+            quarter_turn = building.get("rotation") in {
+                "clockwise_90", "counterclockwise_90",
+            }
+            placed_width = int(building["depth"] if quarter_turn else building["width"])
+            placed_depth = int(building["width"] if quarter_turn else building["depth"])
+            self.assertFalse(
+                min_x <= entrance["x"] < min_x + placed_width
+                and min_z <= entrance["z"] < min_z + placed_depth,
+                building_id,
+            )
+            if building["entrance_facing"] in {"north", "south"}:
+                self.assertEqual(last["x1"], last["x2"], building_id)
+            else:
+                self.assertEqual(last["z1"], last["z2"], building_id)
+
     def test_packed_density_places_at_least_as_many_houses_as_normal(self) -> None:
         source = json.loads(
             (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
@@ -1134,9 +1169,13 @@ class DataModBuilderTests(unittest.TestCase):
         layout = settlement["compiled_layout"]
         self.assertIn("gym_building", layout["facilities"])
         gym = layout["facilities"]["gym_building"]
+        authored_entrance = build_data_mod._structure_door_approach(
+            gym, REPOSITORY_ROOT
+        )
+        self.assertIsNotNone(authored_entrance)
         expected_entrance = {
-            "x": math.floor(float(gym["x"]) + 0.5) + int(gym["width"]) // 2,
-            "z": math.floor(float(gym["z"]) + 0.5) + int(gym["depth"]),
+            "x": authored_entrance[0],
+            "z": authored_entrance[1],
         }
         self.assertEqual(expected_entrance, gym["entrance"])
         gym_roads = [

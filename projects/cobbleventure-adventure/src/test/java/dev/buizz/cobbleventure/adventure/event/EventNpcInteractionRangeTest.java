@@ -4,6 +4,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,5 +33,15 @@ final class EventNpcInteractionRangeTest {
         assertTrue(EventNpcInteractionRange.contains(
             new Vec3(4.75D, 1.0D, 0.0D), NPC_BOUNDS, 0.0D
         ));
+    }
+
+    @Test
+    void directClicksHonorCreativeOrExtendedPlayerReach() {
+        assertEquals(5.25D, EventNpcInteractionRange.directClickRange(4.0D, 5.0D));
+    }
+
+    @Test
+    void directClicksRetainAHelpfullyLargerScriptedRange() {
+        assertEquals(6.25D, EventNpcInteractionRange.directClickRange(6.0D, 3.0D));
     }
 }

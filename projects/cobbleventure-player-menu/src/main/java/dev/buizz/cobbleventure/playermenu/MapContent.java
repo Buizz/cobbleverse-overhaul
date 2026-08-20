@@ -25,6 +25,7 @@ public final class MapContent {
     private static final MapContent INSTANCE = MAPS.getFirst();
 
     private final int generation;
+    private final String displayName;
     private final Set<Integer> pokemonGenerations;
     private final String dimension;
     private final int tileRadiusBlocks;
@@ -32,6 +33,8 @@ public final class MapContent {
     private final int originX;
     private final int originY;
     private final int originZ;
+    private final String defaultEmptyTerrain;
+    private final Map<Hex, String> emptyTerrain;
     private final Map<Hex, BiomeTile> tiles;
     private final List<Town> towns;
     private final List<Route> routes;
@@ -44,6 +47,7 @@ public final class MapContent {
 
     private MapContent(
         int generation,
+        String displayName,
         Set<Integer> pokemonGenerations,
         String dimension,
         int tileRadiusBlocks,
@@ -51,6 +55,8 @@ public final class MapContent {
         int originX,
         int originY,
         int originZ,
+        String defaultEmptyTerrain,
+        Map<Hex, String> emptyTerrain,
         Map<Hex, BiomeTile> tiles,
         List<Town> towns,
         List<Route> routes,
@@ -62,6 +68,7 @@ public final class MapContent {
         Map<Hex, BiomeInfo> tileHabitats
     ) {
         this.generation = generation;
+        this.displayName = displayName;
         this.pokemonGenerations = Set.copyOf(pokemonGenerations);
         this.dimension = dimension;
         this.tileRadiusBlocks = tileRadiusBlocks;
@@ -71,6 +78,8 @@ public final class MapContent {
         this.originX = originX;
         this.originY = originY;
         this.originZ = originZ;
+        this.defaultEmptyTerrain = defaultEmptyTerrain;
+        this.emptyTerrain = Map.copyOf(emptyTerrain);
         this.tiles = Map.copyOf(tiles);
         this.towns = List.copyOf(towns);
         this.routes = List.copyOf(routes);
@@ -102,11 +111,15 @@ public final class MapContent {
     }
 
     public int generation() { return generation; }
+    public String displayName() { return displayName; }
     public Set<Integer> pokemonGenerations() { return pokemonGenerations; }
     public String dimension() { return dimension; }
     public int tileRadiusBlocks() { return tileRadiusBlocks; }
     public int mapRadiusCells() { return mapRadiusCells; }
     public int originY() { return originY; }
+    public String emptyTerrainAt(int q, int r) {
+        return emptyTerrain.getOrDefault(new Hex(q, r), defaultEmptyTerrain);
+    }
     public Map<Hex, BiomeTile> tiles() { return tiles; }
     public List<Town> towns() { return towns; }
     public List<Route> routes() { return routes; }
@@ -231,6 +244,19 @@ public final class MapContent {
         JsonObject world = resource("generation_" + generation + ".json");
         JsonObject grid = world.getAsJsonObject("grid");
         JsonObject origin = grid.getAsJsonObject("origin");
+        JsonObject emptyTerrainData = world.has("empty_terrain")
+            ? world.getAsJsonObject("empty_terrain") : new JsonObject();
+        String defaultEmptyTerrain = stringValue(emptyTerrainData, "default_type", "high_forest");
+        Map<Hex, String> emptyTerrain = new LinkedHashMap<>();
+        if (emptyTerrainData.has("tiles")) {
+            for (JsonElement element : emptyTerrainData.getAsJsonArray("tiles")) {
+                JsonObject tile = element.getAsJsonObject();
+                emptyTerrain.put(
+                    new Hex(tile.get("q").getAsInt(), tile.get("r").getAsInt()),
+                    tile.get("type").getAsString()
+                );
+            }
+        }
         Map<Hex, BiomeTile> tiles = new LinkedHashMap<>();
         for (JsonElement element : world.getAsJsonArray("tiles")) {
             JsonObject tile = element.getAsJsonObject();
@@ -277,9 +303,7 @@ public final class MapContent {
         List<Route> routes = new ArrayList<>();
         for (JsonElement element : world.getAsJsonArray("connections")) {
             JsonObject connection = element.getAsJsonObject();
-            if ("water".equals(stringValue(connection, "surface_style", "road"))) {
-                continue;
-            }
+            String surfaceStyle = stringValue(connection, "surface_style", "road");
             List<Hex> path = new ArrayList<>();
             JsonArray pathJson = connection.has("cells")
                 ? connection.getAsJsonArray("cells")
@@ -290,7 +314,9 @@ public final class MapContent {
                     path.add(new Hex(point.get("q").getAsInt(), point.get("r").getAsInt()));
                 }
             }
-            routes.add(new Route(connection.get("id").getAsString(), List.copyOf(path)));
+            routes.add(new Route(
+                connection.get("id").getAsString(), surfaceStyle, List.copyOf(path)
+            ));
         }
 
         Set<Integer> pokemonGenerations = integerSet(world, "pokemon_generations", generation);
@@ -299,15 +325,34 @@ public final class MapContent {
         LoadedCaves loadedCaves = loadCaves(generation, world, loadedBiomes.byBiome(), pokemonCatalog);
         LoadedForests loadedForests = loadForests(generation, world, loadedBiomes.byBiome(), pokemonCatalog);
         return new MapContent(
-            generation, pokemonGenerations,
+            generation,
+            localized(world.has("display_name") ? world.getAsJsonObject("display_name") : null,
+                defaultRegionName(generation)),
+            pokemonGenerations,
             world.get("dimension").getAsString(),
             grid.get("tile_radius_blocks").getAsInt(),
             grid.get("map_radius_cells").getAsInt(),
             origin.get("x").getAsInt(), origin.get("y").getAsInt(), origin.get("z").getAsInt(),
+            defaultEmptyTerrain, emptyTerrain,
             tiles, towns, routes, loadedCaves.entrances(), loadedCaves.byId(),
             loadedForests.entrances(), loadedForests.byId(),
             loadedBiomes.byBiome(), loadedBiomes.byTile()
         );
+    }
+
+    private static String defaultRegionName(int generation) {
+        return switch (generation) {
+            case 1 -> "관동지방";
+            case 2 -> "성도지방";
+            case 3 -> "호연지방";
+            case 4 -> "신오지방";
+            case 5 -> "하나지방";
+            case 6 -> "칼로스지방";
+            case 7 -> "알로라지방";
+            case 8 -> "가라르지방";
+            case 9 -> "팔데아지방";
+            default -> generation + "세대";
+        };
     }
 
     private static LoadedCaves loadCaves(
@@ -730,7 +775,7 @@ public final class MapContent {
     public record Hex(int q, int r) {}
     public record WorldPoint(int x, int z) {}
     public record BiomeTile(Hex hex, String biome) {}
-    public record Route(String id, List<Hex> path) {}
+    public record Route(String id, String surfaceStyle, List<Hex> path) {}
     public record CaveEntrance(
         String id, String caveId, String entranceId, String name, Hex hex, String facing
     ) {}

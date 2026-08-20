@@ -42,6 +42,12 @@
             "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
             "additionalProperties": { "type": "string", "minLength": 1 }
           },
+          "fixed_vendors": {
+            "type": "object",
+            "description": "npc_position 앵커에 배치할 상점 판매원 ID",
+            "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
+            "additionalProperties": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+          },
           "citizen_placement_allowed": { "type": "boolean" },
           "interiors": {
             "type": "array",

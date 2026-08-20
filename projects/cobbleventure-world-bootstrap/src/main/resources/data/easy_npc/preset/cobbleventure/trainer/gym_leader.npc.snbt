@@ -13,7 +13,7 @@
   data:{
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
-    CustomName:"{\"text\":\"체육관 관장 공용 EasyNPC 의상\"}",
+    CustomName:"{\"text\":\"체육관 관장 공용 EasyNPC 의상\",\"font\":\"minecraft:uniform\"}",
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.900f,0.900f,0.900f]}},

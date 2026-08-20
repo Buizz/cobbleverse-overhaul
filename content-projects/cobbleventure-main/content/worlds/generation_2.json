@@ -2,6 +2,10 @@
   "$schema": "../schemas/hex-world.schema.json",
   "schema_version": 2,
   "id": "cobbleventure:world/generation_2",
+  "display_name": {
+    "ko_kr": "성도지방",
+    "en_us": "Johto Region"
+  },
   "dimension": "cobbleventure:generation_2",
   "pokemon_generations": [2],
   "seed_salt": 1702,
