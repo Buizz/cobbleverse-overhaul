@@ -1943,13 +1943,35 @@ public final class StructureBuilderMod {
     private static BlockPos readNbtBlockPos(
         CompoundTag tag, String key, String label
     ) {
-        ListTag values = tag.getList(key, Tag.TAG_INT);
-        if (values.size() != 3) {
-            throw new BuilderException(
-                "Create 엘리베이터 컨트롤러 좌표가 손상되었습니다: " + label
-            );
+        if (tag.contains(key, Tag.TAG_COMPOUND)) {
+            CompoundTag position = tag.getCompound(key);
+            String xKey = position.contains("X", Tag.TAG_ANY_NUMERIC) ? "X" : "x";
+            String yKey = position.contains("Y", Tag.TAG_ANY_NUMERIC) ? "Y" : "y";
+            String zKey = position.contains("Z", Tag.TAG_ANY_NUMERIC) ? "Z" : "z";
+            if (position.contains(xKey, Tag.TAG_ANY_NUMERIC)
+                && position.contains(yKey, Tag.TAG_ANY_NUMERIC)
+                && position.contains(zKey, Tag.TAG_ANY_NUMERIC)) {
+                return new BlockPos(
+                    position.getInt(xKey), position.getInt(yKey), position.getInt(zKey)
+                );
+            }
         }
-        return new BlockPos(values.getInt(0), values.getInt(1), values.getInt(2));
+        if (tag.contains(key, Tag.TAG_INT_ARRAY)) {
+            int[] values = tag.getIntArray(key);
+            if (values.length == 3) {
+                return new BlockPos(values[0], values[1], values[2]);
+            }
+        }
+        ListTag values = tag.getList(key, Tag.TAG_INT);
+        if (values.size() == 3) {
+            return new BlockPos(values.getInt(0), values.getInt(1), values.getInt(2));
+        }
+        if (tag.contains(key, Tag.TAG_LONG)) {
+            return BlockPos.of(tag.getLong(key));
+        }
+        throw new BuilderException(
+            "Create 엘리베이터 컨트롤러 좌표 형식을 읽을 수 없습니다: " + label
+        );
     }
 
     private static boolean isInside(BlockPos position, BlockPos origin, BlockPos end) {
