@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.buizz.cobbleventure.adventure.AdventureWorldContext;
 import java.util.List;
@@ -51,6 +53,15 @@ final class HabitatSpawnRulesTest {
             Map.of(EKANS, 3, RATTATA, 2),
             HabitatSpawnRules.exclusiveRouteWeights(rule)
         );
+    }
+
+    @Test
+    void oceanWaterHeightIsNotAcceptedAsLogBridgeDeck() {
+        int oceanDeckY = CobbleventureBootstrap.WATER_SURFACE_Y + 1;
+
+        assertFalse(HabitatSpawnRules.isLogBridgeDeckHeight(oceanDeckY, 61.0D));
+        assertFalse(HabitatSpawnRules.isLogBridgeDeckHeight(oceanDeckY, 64.9D));
+        assertTrue(HabitatSpawnRules.isLogBridgeDeckHeight(oceanDeckY, 65.4D));
     }
 
     private static AdventureWorldContext.WildSpawnRule rule(

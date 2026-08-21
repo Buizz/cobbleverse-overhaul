@@ -18,6 +18,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.opengl.GL11;
 
 /** Interactive hex world map backed by the same content used by world generation. */
 public final class WorldMapScreen extends Screen {
@@ -105,6 +106,9 @@ public final class WorldMapScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        if (minecraft != null && !minecraft.getMainRenderTarget().isStencilEnabled()) {
+            minecraft.getMainRenderTarget().enableStencil();
+        }
         openingEffect.start(minecraft, CobblemonSounds.POKEDEX_CLICK_SHORT, 0.9F, 0.28F);
         if (!generationInitialized) {
             selectPlayerGeneration();
@@ -318,8 +322,7 @@ public final class WorldMapScreen extends Screen {
             MAP_BACKGROUND);
         graphics.fill(layout.mapLeft() + 14, layout.top() + 1,
             layout.mapLeft() + 58, layout.top() + 3, ACCENT_COLOR);
-        graphics.enableScissor(layout.mapLeft() + 2, layout.top() + 2,
-            layout.mapRight() - 2, layout.bottom() - 2);
+        boolean roundedClip = beginRoundedMapClip(graphics, layout);
         int size = hexSize(layout);
         ScreenPoint center = mapCenter(layout);
 
@@ -327,13 +330,12 @@ public final class WorldMapScreen extends Screen {
             int minQ = Math.max(-content.mapRadiusCells(), -r - content.mapRadiusCells());
             int maxQ = Math.min(content.mapRadiusCells(), -r + content.mapRadiusCells());
             for (int q = minQ; q <= maxQ; q++) {
-                ScreenPoint point = hexCenter(center, size, q, r);
                 MapContent.Town town = content.townAt(q, r);
                 MapContent.BiomeTile tile = content.tileAt(q, r);
                 int terrainColor = town == null && tile == null
                     ? emptyTerrainColor(content.emptyTerrainAt(q, r))
                     : biomeColor(town != null ? town.biome() : tile.biome());
-                drawMapCell(graphics, point.x(), point.y(), size, terrainColor);
+                drawMapCell(graphics, mapCellBounds(center, size, q, r), terrainColor);
             }
         }
 
@@ -392,8 +394,9 @@ public final class WorldMapScreen extends Screen {
             );
         }
 
-        ScreenPoint selectedPoint = hexCenter(center, size, selected.q(), selected.r());
-        drawCellOutline(graphics, selectedPoint.x(), selectedPoint.y(), size + 1, SELECTED_BORDER);
+        drawCellOutline(
+            graphics, mapCellBounds(center, size, selected.q(), selected.r()), SELECTED_BORDER
+        );
         MapContent.Hex playerHex = currentPlayerHex();
         if (playerHex != null) {
             ScreenPoint player = hexCenter(center, size, playerHex.q(), playerHex.r());
@@ -414,9 +417,48 @@ public final class WorldMapScreen extends Screen {
         if (layout.mapContains(mouseX, mouseY)) {
             MapContent.Hex hover = screenToHex(layout, mouseX, mouseY);
             if (isPopulated(hover.q(), hover.r())) {
-                ScreenPoint point = hexCenter(center, size, hover.q(), hover.r());
-                drawCellOutline(graphics, point.x(), point.y(), size, 0x99FFFFFF);
+                drawCellOutline(
+                    graphics, mapCellBounds(center, size, hover.q(), hover.r()), 0x99FFFFFF
+                );
             }
+        }
+        endRoundedMapClip(graphics, roundedClip);
+    }
+
+    private boolean beginRoundedMapClip(GuiGraphics graphics, Layout layout) {
+        int left = layout.mapLeft() + 2;
+        int top = layout.top() + 2;
+        int right = layout.mapRight() - 2;
+        int bottom = layout.bottom() - 2;
+        graphics.enableScissor(left, top, right, bottom);
+        if (minecraft == null || !minecraft.getMainRenderTarget().isStencilEnabled()) return false;
+
+        graphics.flush();
+        GL11.glEnable(GL11.GL_STENCIL_TEST);
+        GL11.glStencilMask(0xFF);
+        GL11.glClearStencil(0);
+        GL11.glClear(GL11.GL_STENCIL_BUFFER_BIT);
+        GL11.glStencilFunc(GL11.GL_ALWAYS, 1, 0xFF);
+        GL11.glStencilOp(GL11.GL_KEEP, GL11.GL_KEEP, GL11.GL_REPLACE);
+        GL11.glColorMask(false, false, false, false);
+        fillRoundedRect(
+            graphics, left, top, right, bottom,
+            Math.max(0, menuTheme.cornerRadius - 2), 0xFFFFFFFF
+        );
+        graphics.flush();
+        GL11.glColorMask(true, true, true, true);
+        GL11.glStencilMask(0x00);
+        GL11.glStencilFunc(GL11.GL_EQUAL, 1, 0xFF);
+        return true;
+    }
+
+    private static void endRoundedMapClip(GuiGraphics graphics, boolean roundedClip) {
+        if (roundedClip) {
+            graphics.flush();
+            GL11.glStencilMask(0xFF);
+            GL11.glStencilFunc(GL11.GL_ALWAYS, 0, 0xFF);
+            GL11.glStencilOp(GL11.GL_KEEP, GL11.GL_KEEP, GL11.GL_KEEP);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
         }
         graphics.disableScissor();
     }
@@ -509,7 +551,9 @@ public final class WorldMapScreen extends Screen {
             }
         } else if (tile != null) {
             MapContent.BiomeInfo biome = content.biome(tile);
-            graphics.drawString(font, biome.name() + biome.habitatVariant(), x, y, TEXT, false);
+            graphics.drawString(font,
+                biome.name() + (biome.habitatVariant() > 0 ? biome.habitatVariant() : ""),
+                x, y, TEXT, false);
             y += 15;
             graphics.drawString(font, tile.biome(), x, y, MUTED_TEXT, false);
             y += 19;
@@ -952,40 +996,33 @@ public final class WorldMapScreen extends Screen {
         return screenPointToHex(center, size, x, y);
     }
 
-    /** Draws one seamless atlas patch at the exact spacing used by the axial map. */
-    private static void drawMapCell(
-        GuiGraphics graphics, int centerX, int centerY, int size, int color
-    ) {
-        int halfWidth = mapCellHalfWidth(size);
-        int halfHeight = mapCellHalfHeight(size);
-        graphics.fill(
-            centerX - halfWidth, centerY - halfHeight,
-            centerX + halfWidth + 1, centerY + halfHeight + 1,
-            color
+    /**
+     * Uses shared rounded edges instead of independently expanding each cell around its rounded
+     * center. Adjacent patches therefore meet without one patch overdrawing its neighbour.
+     */
+    private static CellBounds mapCellBounds(ScreenPoint center, int size, int q, int r) {
+        double centerX = center.x() + Math.sqrt(3.0D) * size * (q + r / 2.0D);
+        double centerY = center.y() + 1.5D * size * r;
+        double halfWidth = Math.sqrt(3.0D) * 0.5D * size;
+        double halfHeight = 0.75D * size;
+        return new CellBounds(
+            (int) Math.round(centerX - halfWidth),
+            (int) Math.round(centerY - halfHeight),
+            (int) Math.round(centerX + halfWidth),
+            (int) Math.round(centerY + halfHeight)
         );
     }
 
-    private static void drawCellOutline(
-        GuiGraphics graphics, int centerX, int centerY, int size, int color
-    ) {
-        int halfWidth = mapCellHalfWidth(size);
-        int halfHeight = mapCellHalfHeight(size);
-        int left = centerX - halfWidth;
-        int top = centerY - halfHeight;
-        int right = centerX + halfWidth + 1;
-        int bottom = centerY + halfHeight + 1;
-        graphics.fill(left, top, right, top + 1, color);
-        graphics.fill(left, bottom - 1, right, bottom, color);
-        graphics.fill(left, top, left + 1, bottom, color);
-        graphics.fill(right - 1, top, right, bottom, color);
+    private static void drawMapCell(GuiGraphics graphics, CellBounds bounds, int color) {
+        graphics.fill(bounds.left(), bounds.top(), bounds.right(), bounds.bottom(), color);
     }
 
-    private static int mapCellHalfWidth(int size) {
-        return Math.max(2, (int) Math.ceil(Math.sqrt(3.0D) * 0.5D * size));
-    }
-
-    private static int mapCellHalfHeight(int size) {
-        return Math.max(2, (int) Math.ceil(0.75D * size));
+    /** Draws an outline with the exact same shared bounds as {@link #drawMapCell}. */
+    private static void drawCellOutline(GuiGraphics graphics, CellBounds bounds, int color) {
+        graphics.fill(bounds.left(), bounds.top(), bounds.right(), bounds.top() + 1, color);
+        graphics.fill(bounds.left(), bounds.bottom() - 1, bounds.right(), bounds.bottom(), color);
+        graphics.fill(bounds.left(), bounds.top(), bounds.left() + 1, bounds.bottom(), color);
+        graphics.fill(bounds.right() - 1, bounds.top(), bounds.right(), bounds.bottom(), color);
     }
 
     private static void drawLine(GuiGraphics graphics, int x0, int y0, int x1, int y1, int color, int width) {
@@ -1189,6 +1226,7 @@ public final class WorldMapScreen extends Screen {
     }
 
     private record ScreenPoint(int x, int y) {}
+    private record CellBounds(int left, int top, int right, int bottom) {}
     private record PokemonHover(int left, int top, int right, int bottom, String name) {
         boolean contains(int x, int y) { return x >= left && x < right && y >= top && y < bottom; }
     }

@@ -54,6 +54,55 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('context.strokeStyle = "rgba(255,255,255,.22)"', source)
         self.assertIn("doorPosition: door?.position || door?.safe_spawn || null", source)
         self.assertIn("includesSafeArea: true", source)
+        self.assertIn('request("/api/town-layout-preview"', source)
+        renderer = source[source.index("async function renderVillageGenerationTest()"):
+                          source.index("const customTownDirections")]
+        self.assertNotIn("simulateVillageWithRerolls(", renderer)
+
+    def test_town_layout_preview_returns_game_compiler_layout(self) -> None:
+        settlement_path = (
+            PROJECT_ROOT / "content/settlements/generation_1/celadon_city.json"
+        )
+        document = json.loads(settlement_path.read_text(encoding="utf-8"))
+        server = content_manager.ThreadingHTTPServer(
+            ("127.0.0.1", 0), content_manager.create_handler(CORE_ROOT)
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{server.server_port}/api/town-layout-preview",
+                data=json.dumps({"document": document}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(request) as response:
+                preview = json.load(response)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        layout = preview["compiled_layout"]
+        self.assertEqual(319050506, layout["requested_seed"])
+        self.assertEqual(28, len(layout["roads"]))
+        self.assertEqual(3, len(layout["facilities"]))
+        self.assertEqual(15, len(layout["houses"]))
+        self.assertEqual(
+            {"x": 3.0, "z": -31.5},
+            {
+                "x": layout["facilities"]["facility_department_store"]["x"],
+                "z": layout["facilities"]["facility_department_store"]["z"],
+            },
+        )
+        self.assertEqual(
+            {"x": 63.5, "z": -27.5},
+            {
+                "x": layout["facilities"]["gym_building"]["x"],
+                "z": layout["facilities"]["gym_building"]["z"],
+            },
+        )
+        self.assertEqual(7, len(preview["layout_cells"]))
 
     def test_special_settlement_supports_zero_houses_and_manual_layout(self) -> None:
         source = content_manager._settlement_template("power_plant", "무인 발전소", "generation_1")
@@ -1675,6 +1724,7 @@ class ContentManagerTests(unittest.TestCase):
         root = PROJECT_ROOT
         world = json.loads(json.dumps(content_manager.load_world_layout(root, 1)))
         route = world["connections"][0]
+        route.pop("route_preset", None)
         route["display_name"] = "테스트 도로"
         route["pokemon_spawns"] = {
             "inherit_biome": False,
@@ -1696,6 +1746,20 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(all(entry["route_name"] == "테스트 도로" for entry in route_cells))
         self.assertTrue(all(entry["pokemon_ids"] == ["cobblemon:pikachu"] for entry in route_cells))
         self.assertTrue(all(entry["custom_level_ranges"]["cobblemon:pikachu"] == {"min_level": 20, "max_level": 25} for entry in route_cells))
+
+    def test_world_pokemon_map_prefers_saved_route_preset_encounters(self) -> None:
+        result = content_manager.world_pokemon_map(PROJECT_ROOT, 1)
+        route_cells = [
+            entry for entry in result["locations"]
+            if entry.get("route") == "route_custom_04"
+        ]
+
+        self.assertGreater(len(route_cells), 0)
+        self.assertTrue(all(entry["route_name"] == "상록시티 - 상록숲 길" for entry in route_cells))
+        self.assertTrue(all(entry["pokemon_ids"] == [
+            "cobblemon:caterpie", "cobblemon:pidgey",
+            "cobblemon:rattata", "cobblemon:weedle",
+        ] for entry in route_cells))
 
     def test_cave_preview_supports_direct_editing_views_and_global_water_volume(self) -> None:
         root = PROJECT_ROOT
@@ -4990,8 +5054,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('if /I "%~1"=="builder-import" (', script)
         self.assertNotIn("goto builder_import", script)
         self.assertNotIn("\n:builder_import\n", script)
+        self.assertIn("if not defined JAVA_HOME (", script)
+        self.assertIn('Control\\Session Manager\\Environment" /v JAVA_HOME', script)
         self.assertIn('py -3 -c "import sys"', script)
         self.assertIn('python -c "import sys"', script)
+        self.assertLess(
+            script.index('python -c "import sys"'),
+            script.index('py -3 -c "import sys"'),
+        )
         self.assertIn('if /I not "%~1"=="builder-sync"', script)
 
     def test_structure_builder_settings_api(self) -> None:

@@ -77,6 +77,13 @@ public interface AdventureWorldContext {
         return null;
     }
 
+    /** Runtime variant that can distinguish a bridge deck from water below it. */
+    default Set<ResourceLocation> allowedWildSpecies(
+        ServerLevel level, double x, double y, double z
+    ) {
+        return allowedWildSpecies(level, x, z);
+    }
+
     WildSpawnRule wildSpawnRule(ServerLevel level, double x, double z);
 
     /**

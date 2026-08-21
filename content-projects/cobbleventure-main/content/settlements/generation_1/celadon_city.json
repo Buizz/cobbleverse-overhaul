@@ -108,8 +108,6 @@
         "cobbleventure:vendor/lilycove_support_tms_serin",
         "cobbleventure:vendor/lilycove_dolls_yuri",
         "cobbleventure:vendor/lilycove_cushions_bomi",
-        "cobbleventure:vendor/lilycove_furniture_geonu",
-        "cobbleventure:vendor/lilycove_decor_chorong",
         "cobbleventure:vendor/lilycove_rooftop_manbok"
       ],
       "assignments": [
@@ -158,13 +156,15 @@
       "material": "stone_bricks"
     },
     "generation_profile": {
-      "seed": 293983368,
+      "seed": 319050506,
       "depth": 4,
+      "residential_buildings_enabled": true,
       "basic_buildings": [
         "cobbleventure:placeholder/basic_building_1",
         "cobbleventure:placeholder/basic_building_2",
         "cobbleventure:placeholder/basic_building_3"
       ],
+      "building_density": "normal",
       "house_palette": {
         "bases": [
           "one_story",
@@ -183,10 +183,10 @@
           "blue",
           "brown"
         ]
-      },
-      "building_density": "normal"
+      }
     },
-    "facility_requirements": []
+    "facility_requirements": [],
+    "layout_mode": "automatic"
   },
   "npc_placement": {
     "auto_place_npcs": false,
@@ -222,5 +222,6 @@
     ]
   },
   "load_order": 6,
-  "town_footprint_shape": "line_q"
+  "town_footprint_shape": "line_q",
+  "settlement_flags": []
 }

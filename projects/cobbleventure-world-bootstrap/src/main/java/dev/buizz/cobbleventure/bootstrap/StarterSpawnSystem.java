@@ -25,6 +25,8 @@ final class StarterSpawnSystem {
     private static final ResourceLocation SETTINGS = ResourceLocation.fromNamespaceAndPath(
         "cobbleventure", "catalogs/starter-settings.json"
     );
+    private static final ResourceLocation BUILDING_INTERIORS =
+        ResourceLocation.fromNamespaceAndPath("cobbleventure", "building_interiors");
     private static final String WAITING = "cobbleventureGenerationWaiting";
     private static final String STARTED_PREFIX = "cobbleventureStarterGeneration";
     private static final String VALIDATED_PREFIX = "cobbleventureStarterDestinationValidatedV2";
@@ -97,9 +99,12 @@ final class StarterSpawnSystem {
                 fallbackLevel, fallbackPosition.above(), 0.0F
             );
         }
+        int generation = config == null ? 1 : config.generation;
+        // Dimension-change events fire from teleportTo. Persist the one-shot state first so
+        // the callback cannot mistake this handoff for another first arrival.
+        markStarted(player, generation);
+        markValidated(player, generation);
         move(player, destination, config == null || config.setRespawn);
-        markStarted(player, config == null ? 1 : config.generation);
-        markValidated(player, config == null ? 1 : config.generation);
         return true;
     }
 
@@ -150,13 +155,30 @@ final class StarterSpawnSystem {
         if (config == null || hasStarted(player, config.generation)) {
             return;
         }
+        if (isBuildingInteriorExit(event.getFrom().location())) {
+            // Players created before the starter marker existed can legitimately leave their
+            // authored starting room without a STARTED flag. Treat that exit as completion;
+            // redirecting them back through the starter teleport causes the one-time roof/void
+            // correction seen while generation_1 chunks are handed to the client.
+            markStarted(player, config.generation);
+            markValidated(player, config.generation);
+            LOGGER.info(
+                "Accepted starter building exit as generation arrival: player={}, generation={}",
+                player.getGameProfile().getName(), config.generation
+            );
+            return;
+        }
         BuildingRuntimeSystem.SpawnDestination destination =
             CobbleventureBootstrap.resolveStarterSpawn(player.getServer(), config);
         if (destination != null) {
-            move(player, destination, config.setRespawn);
             markStarted(player, config.generation);
             markValidated(player, config.generation);
+            move(player, destination, config.setRespawn);
         }
+    }
+
+    static boolean isBuildingInteriorExit(ResourceLocation sourceDimension) {
+        return BUILDING_INTERIORS.equals(sourceDimension);
     }
 
     private static void move(
@@ -164,6 +186,7 @@ final class StarterSpawnSystem {
         boolean setRespawn
     ) {
         BlockPos position = destination.position();
+        destination.level().getChunk(position.getX() >> 4, position.getZ() >> 4);
         player.stopRiding();
         player.teleportTo(
             destination.level(),

@@ -40,7 +40,7 @@ const state = {
   routePokemonTarget: "world", routePokemonMethod: "land", routePokemonLevelSpecies: null, routePokemonEditingCard: null, routeFinalizing: false, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null, encounterPokemonEditingCard: null,
   encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
-  villageDecorationEditor: { tool: "select", selected: -1, drag: null, hitTargets: [], preview: null },
+  villageDecorationEditor: { tool: "select", selected: -1, drag: null, hitTargets: [], preview: null, compilation: { requestId: 0, source: "", result: null } },
   villageGpuView: { renderer: null, models: new Map(), yaw: -.72, pitch: -.68, distance: 260, targetY: 8, drag: null, autoRotate: false, frame: 0, requestId: 0, atmosphere: "day" },
   townManualEditor: { library: "building", tool: "select", asset: null, selected: null, hover: null, roadStart: null, roadWidth: 7, drag: null, view3d: false, zoom: 1, panX: 0, panY: 0, hitTargets: [], draft: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
@@ -10225,11 +10225,12 @@ function facilityEntrancePoint(id, occupiedPlot, facing = facilityCanonicalEntra
 }
 
 function projectEntranceOutsideNbt(plot, entrance, facing) {
-  const minX = Math.round(Number(plot.x));
-  const minZ = Math.round(Number(plot.z));
+  const occupied = plot.occupied;
+  const minX = occupied ? Math.round(Number(occupied.x)) : Math.round(Number(plot.x));
+  const minZ = occupied ? Math.round(Number(occupied.z)) : Math.round(Number(plot.z));
   const quarterTurn = ["clockwise_90", "counterclockwise_90"].includes(plot.rotation);
-  const placedWidth = quarterTurn ? Number(plot.depth) : Number(plot.width);
-  const placedDepth = quarterTurn ? Number(plot.width) : Number(plot.depth);
+  const placedWidth = occupied ? Number(occupied.width) : quarterTurn ? Number(plot.depth) : Number(plot.width);
+  const placedDepth = occupied ? Number(occupied.depth) : quarterTurn ? Number(plot.width) : Number(plot.depth);
   const maxX = minX + placedWidth - 1;
   const maxZ = minZ + placedDepth - 1;
   if (entrance.x < minX || entrance.x > maxX || entrance.z < minZ || entrance.z > maxZ) return entrance;
@@ -10735,6 +10736,10 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         x: originX + placedOccupied.min_x, z: originZ + placedOccupied.min_z,
         width: placedOccupied.width, depth: placedOccupied.depth
       };
+      if (["department_store", "facility_department_store"].includes(definition.id)
+        && roadTemplate !== "ring"
+        && plot.occupied.x <= hub.x && hub.x < plot.occupied.x + plot.occupied.width
+        && plot.occupied.z <= hub.z && hub.z < plot.occupied.z + plot.occupied.depth) continue;
       if (kind === "house" || kind === "facility") {
         plot.entrance_facing = facing;
         plot.rotation = rotation;
@@ -10952,17 +10957,12 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       x: Math.round(Number(plot.x)) + Number(occupied.x) - Number(plot.x),
       z: Math.round(Number(plot.z)) + Number(occupied.z) - Number(plot.z)
     };
-    const entrances = (["department_store", "facility_department_store"].includes(plot.id) ? [
-      { facing: "north", x: placedOccupied.x + Math.floor(placedOccupied.width / 2), z: placedOccupied.z - 1 },
-      { facing: "west", x: placedOccupied.x - 1, z: placedOccupied.z + Math.min(19, placedOccupied.depth - 1) },
-      { facing: "east", x: placedOccupied.x + placedOccupied.width, z: placedOccupied.z + Math.min(19, placedOccupied.depth - 1) }
-    ] : [{ facing: plot.entrance_facing, ...plot.entrance, door: plot.door }]).map((entrance) => ({
+    const entrances = [{ facing: plot.entrance_facing, ...plot.entrance, door: plot.door }].map((entrance) => ({
       facing: entrance.facing,
       door: entrance.door,
       ...projectEntranceOutsideNbt(plot, entrance, entrance.facing)
     }));
     plot.entrance = entrances[0];
-    plot.plazaEntrances = entrances;
     for (let entranceIndex = 0; entranceIndex < entrances.length; entranceIndex += 1) {
       const entrance = entrances[entranceIndex];
       let connection = entranceIndex === 0 ? plot.road_connection : null;
@@ -10981,17 +10981,34 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       }
       if (!connection) continue;
       let roadX = connection.x, roadZ = connection.z;
-      if (roadX !== entrance.x && roadZ !== entrance.z) {
+      const needsCorner = ["east", "west"].includes(entrance.facing)
+        ? roadZ !== entrance.z : roadX !== entrance.x;
+      if (needsCorner) {
         const corner = ["east", "west"].includes(entrance.facing) ? { x: roadX, z: entrance.z } : { x: entrance.x, z: roadZ };
         accessRoads.push({ building: plot.id, x1: roadX, z1: roadZ, x2: corner.x, z2: corner.z });
         roadX = corner.x; roadZ = corner.z;
       }
       accessRoads.push({ building: plot.id, x1: roadX, z1: roadZ, x2: entrance.x, z2: entrance.z });
       if (entrance.door && (Number(entrance.door.x) !== Number(entrance.x) || Number(entrance.door.z) !== Number(entrance.z))) {
+        let doorRoadX = Number(entrance.x);
+        let doorRoadZ = Number(entrance.z);
+        const doorX = Number(entrance.door.x);
+        const doorZ = Number(entrance.door.z);
+        if (doorRoadX !== doorX && doorRoadZ !== doorZ) {
+          const corner = ["east", "west"].includes(entrance.facing)
+            ? { x: doorRoadX, z: doorZ }
+            : { x: doorX, z: doorRoadZ };
+          accessRoads.push({
+            building: plot.id, includesSafeArea: true,
+            x1: doorRoadX, z1: doorRoadZ, x2: corner.x, z2: corner.z
+          });
+          doorRoadX = corner.x;
+          doorRoadZ = corner.z;
+        }
         accessRoads.push({
           building: plot.id, includesSafeArea: true,
-          x1: entrance.x, z1: entrance.z,
-          x2: Number(entrance.door.x), z2: Number(entrance.door.z)
+          x1: doorRoadX, z1: doorRoadZ,
+          x2: doorX, z2: doorZ
         });
       }
     }
@@ -11573,7 +11590,73 @@ function villagePreviewAccessRoadWidth(plot, roadWidth) {
   return roadWidth;
 }
 
-function renderVillageGenerationTest() {
+function villageCompiledFacilityLabel(id, requirements) {
+  const canonical = {
+    facility_pokemon_center: "pokemon_center",
+    facility_pokemart: "pokemart",
+    facility_department_store: "department_store",
+    gym_building: "gym_building"
+  }[id] || id;
+  return requirements.find((item) => item.id === canonical || item.id === id)?.label || id;
+}
+
+function villageCompiledPreview(compiledLayout, layoutCells, requirements) {
+  const plot = (source, kind, label) => {
+    const metadata = state.structureSizes[source.structure] || {};
+    return {
+      ...source,
+      kind,
+      label,
+      nbtResolved: Boolean(metadata.width),
+      nbtSource: metadata.source || "",
+      topView: metadata.top_view || null
+    };
+  };
+  const facilities = Object.values(compiledLayout.facilities || {}).map((item) =>
+    plot(item, "facility", villageCompiledFacilityLabel(item.id, requirements))
+  );
+  const houses = (compiledLayout.houses || []).map((item, index) =>
+    plot(item, "house", `기본 건물 ${index + 1}`)
+  );
+  return {
+    roads: compiledLayout.roads || [],
+    accessRoads: compiledLayout.access_roads || [],
+    decorations: compiledLayout.decorations || [],
+    plots: [...facilities, ...houses],
+    missing: [],
+    rejectedRoads: 0,
+    openConnectors: 0,
+    layoutCells,
+    hub: compiledLayout.hub || { x: 0, z: 0 },
+    centerPattern: compiledLayout.center_pattern || "manual",
+    roadLayoutTemplate: compiledLayout.road_layout_template || "manual",
+    requestedSeed: Number(compiledLayout.requested_seed || 0),
+    resolvedSeed: Number(compiledLayout.resolved_seed || 0),
+    rerollCount: Number(compiledLayout.reroll_count || 0),
+    rerollLimit: Number(compiledLayout.reroll_limit || 0)
+  };
+}
+
+function syncCompiledFacilityAnchors(compiledLayout) {
+  const center = state.settlement?.center || { x: 0, y: 64, z: 0 };
+  const placements = state.settlement?.structure_profile?.facility_placements || [];
+  for (const placement of placements) {
+    const canonicalId = ({
+      pokemon_center: "facility_pokemon_center",
+      pokemart: "facility_pokemart",
+      department_store: "facility_department_store"
+    })[placement.facility_type] || placement.id;
+    const compiled = compiledLayout.facilities?.[canonicalId];
+    if (!compiled || !placement.anchor) continue;
+    state.settlement.anchors[placement.anchor] = {
+      x: Math.round(Number(center.x) + Number(compiled.x)),
+      y: Number(center.y),
+      z: Math.round(Number(center.z) + Number(compiled.z))
+    };
+  }
+}
+
+async function renderVillageGenerationTest() {
   const canvas = $("#village-generation-canvas");
   const summary = $("#village-generation-summary");
   if (!canvas || !summary || !state.settlement) return;
@@ -11589,18 +11672,37 @@ function renderVillageGenerationTest() {
   const radiusCells = normalizeTownCellCount(form.elements.townRadiusCells.value);
   const footprintShape = normalizeTownFootprintShape(form.elements.townFootprintShape.value);
   const density = normalizeVillageDensity(form.elements.townBuildingDensity?.value);
-  let result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape, customTownCells(), customTownExits(), density, roadTemplate, form.elements.residentialBuildingsEnabled.checked);
-  if (state.settlement.structure_profile?.layout_mode === "manual") {
-    const manual = ensureManualTownLayout();
-    result = {
-      ...result, roads: manual.roads, accessRoads: [], decorations: manual.decorations,
-      plots: manual.buildings.map((building) => {
-        const metadata = state.structureSizes[building.structure] || {};
-        return { ...building, kind: "house", label: building.id, nbtResolved: Boolean(metadata.width), topView: metadata.top_view || null, occupied: { x: building.x, z: building.z, width: building.width, depth: building.depth } };
-      }),
-      missing: [], rejectedRoads: 0, rerollCount: 0, rerollLimit: 0, resolvedSeed: 0
-    };
+  const compilation = state.villageDecorationEditor.compilation;
+  const source = JSON.stringify(state.settlement);
+  if (compilation.source !== source || (!compilation.result && !compilation.pending)) {
+    compilation.source = source;
+    compilation.result = null;
+    compilation.requestId += 1;
+    compilation.pending = request("/api/town-layout-preview", {
+      method: "POST", body: JSON.stringify({ document: state.settlement })
+    });
   }
+  const requestId = compilation.requestId;
+  if (!compilation.result) {
+    summary.textContent = "게임용 Python 배치를 계산하는 중…";
+    const response = await compilation.pending;
+    if (requestId !== compilation.requestId) return;
+    compilation.pending = null;
+    if (!response.ok) {
+      summary.textContent = `게임용 배치를 계산하지 못했습니다: ${response.data.error || "알 수 없는 오류"}`;
+      summary.classList.add("has-error");
+      return;
+    }
+    compilation.result = response.data;
+    syncCompiledFacilityAnchors(response.data.compiled_layout);
+    compilation.source = JSON.stringify(state.settlement);
+    $("#settlement-json").value = JSON.stringify(state.settlement, null, 2);
+  }
+  const result = villageCompiledPreview(
+    compilation.result.compiled_layout,
+    compilation.result.layout_cells,
+    requirements
+  );
   const configuredDecorations = manualTownDecorations();
   state.villageDecorationEditor.preview = result;
   if (configuredDecorations !== null) result.decorations = configuredDecorations;
@@ -12483,32 +12585,6 @@ function updateSettlementFromForm() {
     facilityRequirements,
     layoutShape, state.settlement.center || { x: 0, y: 64, z: 0 }
   );
-  const generatedLayout = simulateVillageWithRerolls(
-    state.settlement.structure_profile.generation_profile.seed,
-    state.settlement.structure_profile.generation_profile.depth,
-    layoutShape,
-    state.settlement.structure_profile.road_profile.width,
-    [...selectedCivicFacilities(), ...facilityRequirements, ...selectedGymFacility()],
-    Number(form.elements.townRadiusCells.value || 1),
-    state.settlement.structure_profile.generation_profile.house_palette,
-    state.settlement.town_footprint_shape,
-    customTownCells(), customTownExits(),
-    state.settlement.structure_profile.generation_profile.building_density,
-    roadLayoutTemplate,
-    residentialBuildingsEnabled
-  );
-  const generatedFacilityPlots = generatedLayout.plots.filter((plot) => plot.kind === "facility");
-  configuredFacilities.forEach((facility) => {
-    const plot = generatedFacilityPlots.find((candidate) =>
-      candidate.id === facility.requirement.id
-    );
-    if (!plot) return;
-    facility.position = {
-      x: Math.round(Number(state.settlement.center?.x || 0) + plot.x),
-      y: Number(state.settlement.center?.y || 64),
-      z: Math.round(Number(state.settlement.center?.z || 0) + plot.z)
-    };
-  });
   for (const facility of configuredFacilities) {
     state.settlement.anchors[facility.anchor] = facility.position;
   }

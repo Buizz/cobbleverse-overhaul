@@ -26,6 +26,7 @@ final class LeagueProgressionContent {
         try {
             JsonObject progression = read("league-progression.json");
             JsonObject badgeCatalog = read("badges.json");
+            Map<String, LeaderAppearance> rosterAppearances = rosterAppearances(read("trainer-roster.json"));
             Map<String, Badge> badges = badges(badgeCatalog);
             Map<PageKey, List<Entry>> grouped = new LinkedHashMap<>();
             for (JsonElement element : progression.getAsJsonArray("entries")) {
@@ -36,7 +37,7 @@ final class LeagueProgressionContent {
                 if ("gym_leader".equals(role) && badgeId == null) continue;
                 Badge badge = badgeId == null ? null : badges.get(badgeId);
                 LeaderAppearance appearance = "gym_leader".equals(role)
-                    ? leaderAppearance(value) : new LeaderAppearance(null, false);
+                    ? leaderAppearance(value, rosterAppearances) : new LeaderAppearance(null, false);
                 int generation = value.get("generation").getAsInt();
                 String region = value.get("region").getAsString();
                 grouped.computeIfAbsent(new PageKey(generation, region), ignored -> new ArrayList<>()).add(new Entry(
@@ -119,18 +120,34 @@ final class LeagueProgressionContent {
             ? rewards.get("badge_id").getAsString() : null;
     }
 
-    private static LeaderAppearance leaderAppearance(JsonObject entry) {
+    private static Map<String, LeaderAppearance> rosterAppearances(JsonObject roster) {
+        Map<String, LeaderAppearance> appearances = new HashMap<>();
+        for (JsonElement element : roster.getAsJsonArray("league_characters")) {
+            JsonObject character = element.getAsJsonObject();
+            JsonObject appearance = character.getAsJsonObject("appearance");
+            ResourceLocation texture = appearance.has("resource")
+                ? ResourceLocation.tryParse(appearance.get("resource").getAsString()) : null;
+            boolean slim = character.has("body")
+                && "slim".equals(character.getAsJsonObject("body").get("arm_model").getAsString());
+            appearances.put(character.get("id").getAsString(), new LeaderAppearance(texture, slim));
+        }
+        return appearances;
+    }
+
+    private static LeaderAppearance leaderAppearance(JsonObject entry, Map<String, LeaderAppearance> rosterAppearances) {
         JsonObject encounter = entry.getAsJsonObject("encounter");
         JsonObject authored = encounter.has("appearance") ? encounter.getAsJsonObject("appearance") : null;
+        String character = encounter.has("character") ? encounter.get("character").getAsString() : "";
+        LeaderAppearance roster = rosterAppearances.getOrDefault(character, new LeaderAppearance(null, false));
         boolean slim = authored != null && authored.has("arm_model")
-            && "slim".equals(authored.get("arm_model").getAsString());
+            ? "slim".equals(authored.get("arm_model").getAsString()) : roster.slimModel();
         if (authored != null && authored.has("texture") && !authored.get("texture").getAsString().isBlank()) {
             return new LeaderAppearance(ResourceLocation.parse(authored.get("texture").getAsString()), slim);
         }
         ResourceLocation resource = authored != null && authored.has("resource")
             ? ResourceLocation.tryParse(authored.get("resource").getAsString()) : null;
+        if (resource == null) resource = roster.texture();
 
-        String character = encounter.has("character") ? encounter.get("character").getAsString() : "";
         int separator = character.lastIndexOf('/');
         if (separator < 0 || separator == character.length() - 1) {
             return new LeaderAppearance(resource, slim);

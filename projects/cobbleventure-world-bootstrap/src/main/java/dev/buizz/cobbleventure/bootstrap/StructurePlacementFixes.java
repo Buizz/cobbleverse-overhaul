@@ -6,6 +6,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.nbt.CompoundTag;
@@ -20,9 +21,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -33,10 +37,13 @@ final class StructurePlacementFixes {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String AUTHORED_STORAGE_MARKER = "cobbleventureAuthoredStorage";
     private static final ResourceLocation ELEVATOR_PULLEY = id("create", "elevator_pulley");
+    private static final ResourceLocation ELEVATOR_CONTACT = id("create", "elevator_contact");
     private static final int ELEVATOR_ASSEMBLY_DELAY_TICKS = 2;
     private static final int ELEVATOR_ASSEMBLY_MAX_ATTEMPTS = 20;
     private static final Map<ElevatorPulleyKey, PendingElevatorAssembly>
         PENDING_ELEVATOR_ASSEMBLIES = new LinkedHashMap<>();
+    private static final Map<ElevatorDoorKey, ElevatorLandingDoors>
+        ELEVATOR_LANDING_DOORS = new LinkedHashMap<>();
     private static final Map<ResourceLocation, ResourceLocation> FRIDGE_LOWER_BY_UPPER = Map.of(
         id("cobblefurnies", "light_freezer"), id("cobblefurnies", "light_fridge"),
         id("cobblefurnies", "dark_freezer"), id("cobblefurnies", "dark_fridge")
@@ -108,9 +115,11 @@ final class StructurePlacementFixes {
 
     static void clearPendingElevatorAssemblies() {
         PENDING_ELEVATOR_ASSEMBLIES.clear();
+        ELEVATOR_LANDING_DOORS.clear();
     }
 
     static void tickPendingElevatorAssemblies(MinecraftServer server) {
+        tickElevatorLandingDoors(server);
         Iterator<Map.Entry<ElevatorPulleyKey, PendingElevatorAssembly>> iterator =
             PENDING_ELEVATOR_ASSEMBLIES.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -142,7 +151,8 @@ final class StructurePlacementFixes {
             entry.setValue(new PendingElevatorAssembly(
                 attempts,
                 level.getGameTime() + ELEVATOR_ASSEMBLY_DELAY_TICKS,
-                pending.triggered() || result == ElevatorAssemblyResult.RETRY_TRIGGERED
+                pending.triggered() || result == ElevatorAssemblyResult.RETRY_TRIGGERED,
+                pending.minContactY(), pending.maxContactY()
             ));
         }
     }
@@ -153,6 +163,9 @@ final class StructurePlacementFixes {
         StructureTemplate template,
         StructurePlaceSettings settings
     ) {
+        ElevatorContactRange contactRange =
+            repairElevatorColumnTarget(level, origin, template, settings);
+        registerElevatorLandingDoors(level, origin, template, settings);
         Block pulleyBlock = BuiltInRegistries.BLOCK.get(ELEVATOR_PULLEY);
         if (BuiltInRegistries.BLOCK.getKey(pulleyBlock).equals(ELEVATOR_PULLEY)) {
             for (StructureTemplate.StructureBlockInfo info
@@ -163,7 +176,9 @@ final class StructurePlacementFixes {
                 PENDING_ELEVATOR_ASSEMBLIES.put(key, new PendingElevatorAssembly(
                     0,
                     level.getGameTime() + ELEVATOR_ASSEMBLY_DELAY_TICKS,
-                    false
+                    false,
+                    contactRange == null ? Integer.MAX_VALUE : contactRange.minY(),
+                    contactRange == null ? Integer.MIN_VALUE : contactRange.maxY()
                 ));
                 LOGGER.debug(
                     "Scheduled Create elevator assembly at {} in {}",
@@ -171,6 +186,158 @@ final class StructurePlacementFixes {
                 );
             }
         }
+    }
+
+    private static ElevatorContactRange repairElevatorColumnTarget(
+        ServerLevel level,
+        BlockPos origin,
+        StructureTemplate template,
+        StructurePlaceSettings settings
+    ) {
+        Block contactBlock = BuiltInRegistries.BLOCK.get(ELEVATOR_CONTACT);
+        if (!BuiltInRegistries.BLOCK.getKey(contactBlock).equals(ELEVATOR_CONTACT)) {
+            return null;
+        }
+        List<StructureTemplate.StructureBlockInfo> contacts =
+            template.filterBlocks(origin, settings, contactBlock);
+        if (contacts.isEmpty()) {
+            return null;
+        }
+        int minContactY = contacts.stream().mapToInt(info -> info.pos().getY()).min()
+            .orElseThrow();
+        int maxContactY = contacts.stream().mapToInt(info -> info.pos().getY()).max()
+            .orElseThrow();
+        Integer targetY = null;
+        for (StructureTemplate.StructureBlockInfo contact : contacts) {
+            CompoundTag sourceData = contact.nbt();
+            if (sourceData == null) {
+                continue;
+            }
+            String currentFloor = sourceData.getString("LastReportedCurrentFloor");
+            if (!currentFloor.isBlank()
+                && sourceData.getString("ShortName").equals(currentFloor)) {
+                targetY = contact.pos().getY();
+                break;
+            }
+        }
+        if (targetY == null) {
+            return new ElevatorContactRange(minContactY, maxContactY);
+        }
+
+        int repaired = 0;
+        for (StructureTemplate.StructureBlockInfo contact : contacts) {
+            BlockEntity blockEntity = level.getBlockEntity(contact.pos());
+            if (blockEntity == null) {
+                continue;
+            }
+            CompoundTag data = blockEntity.saveWithFullMetadata(level.registryAccess());
+            data.putInt("ColumnTarget", targetY);
+            blockEntity.loadWithComponents(data, level.registryAccess());
+            blockEntity.setChanged();
+            BlockState state = level.getBlockState(contact.pos());
+            level.sendBlockUpdated(contact.pos(), state, state, 16);
+            repaired++;
+        }
+        if (repaired > 0) {
+            LOGGER.debug(
+                "Relocated Create elevator column target to Y={} for {} contacts at {}",
+                targetY, repaired, origin
+            );
+        }
+        return new ElevatorContactRange(minContactY, maxContactY);
+    }
+
+    /**
+     * Create opens a door carried by the elevator and then tries to find the matching
+     * stationary door from the moving actor's world position. After a contraption is
+     * restored from structure-entity NBT, that adjacent-door lookup can fail even though
+     * the elevator and its carried doors work correctly. Bind authored landing doors
+     * directly to their contact so existing interiors do not need to be rebuilt.
+     */
+    private static void registerElevatorLandingDoors(
+        ServerLevel level,
+        BlockPos origin,
+        StructureTemplate template,
+        StructurePlaceSettings settings
+    ) {
+        Block contactBlock = BuiltInRegistries.BLOCK.get(ELEVATOR_CONTACT);
+        if (!BuiltInRegistries.BLOCK.getKey(contactBlock).equals(ELEVATOR_CONTACT)) {
+            return;
+        }
+        for (StructureTemplate.StructureBlockInfo contact
+            : template.filterBlocks(origin, settings, contactBlock)) {
+            CompoundTag sourceData = contact.nbt();
+            if (sourceData != null
+                && sourceData.contains("DoorControl")
+                && sourceData.getString("DoorControl").equalsIgnoreCase("NONE")) {
+                continue;
+            }
+            List<BlockPos> doors = findLandingDoors(level, contact.pos());
+            ElevatorDoorKey key = new ElevatorDoorKey(
+                level.dimension(), contact.pos().immutable()
+            );
+            if (doors.isEmpty()) {
+                ELEVATOR_LANDING_DOORS.remove(key);
+            } else {
+                ELEVATOR_LANDING_DOORS.put(key, new ElevatorLandingDoors(doors));
+            }
+        }
+    }
+
+    private static List<BlockPos> findLandingDoors(
+        ServerLevel level, BlockPos contact
+    ) {
+        LinkedHashSet<BlockPos> doors = new LinkedHashSet<>();
+        int doorY = contact.getY() + 2;
+        for (int deltaX = -3; deltaX <= 3; deltaX++) {
+            for (int deltaZ = -3; deltaZ <= 3; deltaZ++) {
+                BlockPos position = new BlockPos(
+                    contact.getX() + deltaX, doorY, contact.getZ() + deltaZ
+                );
+                BlockState state = level.getBlockState(position);
+                if (state.getBlock() instanceof DoorBlock
+                    && state.hasProperty(DoorBlock.HALF)
+                    && state.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER) {
+                    doors.add(position.immutable());
+                }
+            }
+        }
+        return List.copyOf(doors);
+    }
+
+    private static void tickElevatorLandingDoors(MinecraftServer server) {
+        for (Map.Entry<ElevatorDoorKey, ElevatorLandingDoors> entry
+            : ELEVATOR_LANDING_DOORS.entrySet()) {
+            ElevatorDoorKey key = entry.getKey();
+            ServerLevel level = server.getLevel(key.dimension());
+            if (level == null || !level.isLoaded(key.contact())) {
+                continue;
+            }
+            BlockState contactState = level.getBlockState(key.contact());
+            if (!BuiltInRegistries.BLOCK.getKey(contactState.getBlock())
+                .equals(ELEVATOR_CONTACT)) {
+                continue;
+            }
+            boolean open = booleanProperty(contactState, "powering");
+            for (BlockPos doorPosition : entry.getValue().lowerDoors()) {
+                BlockState doorState = level.getBlockState(doorPosition);
+                if (!(doorState.getBlock() instanceof DoorBlock door)
+                    || !doorState.hasProperty(DoorBlock.OPEN)
+                    || doorState.getValue(DoorBlock.OPEN) == open) {
+                    continue;
+                }
+                door.setOpen(null, level, doorState, doorPosition, open);
+            }
+        }
+    }
+
+    private static boolean booleanProperty(BlockState state, String name) {
+        for (Property<?> property : state.getProperties()) {
+            if (property.getName().equals(name)) {
+                return state.getValue(property).toString().equals("true");
+            }
+        }
+        return false;
     }
 
     private static ElevatorAssemblyResult tryAssembleElevator(
@@ -186,6 +353,8 @@ final class StructurePlacementFixes {
         if (pulley == null) {
             return ElevatorAssemblyResult.RETRY;
         }
+
+        repairElevatorReachability(pulley, pending);
 
         Boolean assembled = elevatorIsAssembled(pulley);
         if (Boolean.TRUE.equals(assembled)) {
@@ -229,6 +398,29 @@ final class StructurePlacementFixes {
         }
         Object running = readField(pulley, "running");
         return running instanceof Boolean value ? value : null;
+    }
+
+    private static void repairElevatorReachability(
+        BlockEntity pulley, PendingElevatorAssembly pending
+    ) {
+        Object movedContraption = readField(pulley, "movedContraption");
+        if (movedContraption == null || movedContraption == FIELD_UNAVAILABLE) {
+            return;
+        }
+        Object contraption = readField(movedContraption, "contraption");
+        if (contraption == null || contraption == FIELD_UNAVAILABLE) {
+            return;
+        }
+        Object currentMin = readField(contraption, "minContactY");
+        Object currentMax = readField(contraption, "maxContactY");
+        if (currentMin instanceof Integer minimum
+            && pending.minContactY() != Integer.MAX_VALUE) {
+            writeField(contraption, "minContactY", Math.min(minimum, pending.minContactY()));
+        }
+        if (currentMax instanceof Integer maximum
+            && pending.maxContactY() != Integer.MIN_VALUE) {
+            writeField(contraption, "maxContactY", Math.max(maximum, pending.maxContactY()));
+        }
     }
 
     private static Double invokeNumberMethod(Object target, String name) {
@@ -284,6 +476,22 @@ final class StructurePlacementFixes {
         return FIELD_UNAVAILABLE;
     }
 
+    private static void writeField(Object target, String name, Object value) {
+        for (Class<?> current = target.getClass(); current != null;
+            current = current.getSuperclass()) {
+            try {
+                Field field = current.getDeclaredField(name);
+                field.setAccessible(true);
+                field.set(target, value);
+                return;
+            } catch (NoSuchFieldException ignored) {
+                // Continue through Create's contraption class hierarchy.
+            } catch (IllegalAccessException | RuntimeException ignored) {
+                return;
+            }
+        }
+    }
+
     /**
      * Structure placement can leave Create and Copycats+ block entities with their default
      * material even though the source template still contains the authored material NBT.
@@ -311,13 +519,14 @@ final class StructurePlacementFixes {
                     continue;
                 }
                 try {
-                    // Copycats+ multi-state entities keep per-part material/model caches.
-                    // Loading NBT into the empty instance made by StructureTemplate can leave
-                    // those caches on the black copycat base. Recreate the entity from the
-                    // authored NBT so its storage is initialized before the data is read.
-                    BlockEntity restoredEntity = BlockEntity.loadStatic(
-                        info.pos(), state, sourceData.copy(), level.registryAccess()
-                    );
+                    // Copycats+ validates the consumed item and material while reading NBT.
+                    // BlockEntity.loadStatic() performs that read before attaching a Level,
+                    // so level-sensitive copycats can reject valid authored material and
+                    // reset themselves to create:copycat_base. Create a fresh entity from the
+                    // already placed type and attach the world before loading its data.
+                    BlockEntity placedEntity = level.getBlockEntity(info.pos());
+                    BlockEntity restoredEntity = placedEntity == null ? null
+                        : placedEntity.getType().create(info.pos(), state);
                     if (restoredEntity == null) {
                         LOGGER.warn(
                             "Copycat material NBT could not create a block entity at {} for {}",
@@ -325,6 +534,10 @@ final class StructurePlacementFixes {
                         );
                         continue;
                     }
+                    restoredEntity.setLevel(level);
+                    restoredEntity.loadWithComponents(
+                        sourceData.copy(), level.registryAccess()
+                    );
                     level.removeBlockEntity(info.pos());
                     level.setBlockEntity(restoredEntity);
                     restoredEntity.setChanged();
@@ -420,10 +633,21 @@ final class StructurePlacementFixes {
     private record ElevatorPulleyKey(ResourceKey<Level> dimension, BlockPos position) {
     }
 
+    private record ElevatorDoorKey(ResourceKey<Level> dimension, BlockPos contact) {
+    }
+
+    private record ElevatorLandingDoors(List<BlockPos> lowerDoors) {
+    }
+
+    private record ElevatorContactRange(int minY, int maxY) {
+    }
+
     private record PendingElevatorAssembly(
         int attempts,
         long nextAttemptTick,
-        boolean triggered
+        boolean triggered,
+        int minContactY,
+        int maxContactY
     ) {
     }
 }

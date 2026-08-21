@@ -22,6 +22,7 @@ public final class StarterRouletteScreen extends Screen {
     private static final int CENTER_WIDGET = VISIBLE_WIDGET_COUNT / 2;
     private static final int MIN_MODEL_SIZE = 32;
     private static final int MAX_MODEL_SIZE = 96;
+    private static final int HORIZONTAL_SAFE_INSET = 24;
     private static final int MODEL_TOP_INSET = 4;
     private static final int NAME_TOP_INSET = 22;
     private static final long STEP_MILLIS = 135L;
@@ -56,7 +57,7 @@ public final class StarterRouletteScreen extends Screen {
     @Override
     protected void init() {
         models.clear();
-        int horizontalPadding = 24;
+        int horizontalPadding = HORIZONTAL_SAFE_INSET * 2;
         int minimumGap = 4;
         int widthLimitedSize = Math.max(
             MIN_MODEL_SIZE,
@@ -81,7 +82,7 @@ public final class StarterRouletteScreen extends Screen {
         nameY = frameY + modelSize + NAME_TOP_INSET;
         statusY = nameY + 16;
         int buttonY = statusY + 16;
-        float modelScale = Math.max(2.0F, 2.6F * modelSize / (float) MAX_MODEL_SIZE);
+        float modelScale = StarterRouletteLayout.modelScaleForSize(modelSize, MAX_MODEL_SIZE);
         for (int index = 0; index < WIDGET_COUNT; index++) {
             ModelWidget widget = new ModelWidget(
                 0, modelY, modelSize, modelSize, renderable(relativeSpecies(relativeIndex(index))),
@@ -270,4 +271,5 @@ public final class StarterRouletteScreen extends Screen {
         if (value == null) value = PokemonSpecies.getByName("bulbasaur");
         return new RenderablePokemon(value, java.util.Set.of(), ItemStack.EMPTY);
     }
+
 }

@@ -924,7 +924,8 @@ final class BuildingRuntimeSystem {
                     );
                 }
                 forceChunks(interiorsLevel, origin, template.orElseThrow().getSize());
-                StructurePlaceSettings placementSettings = new StructurePlaceSettings();
+                StructurePlaceSettings placementSettings = new StructurePlaceSettings()
+                    .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE);
                 boolean placed = template.orElseThrow().placeInWorld(
                     interiorsLevel, origin, origin, placementSettings,
                     RandomSource.create(interiorsLevel.getSeed() ^ origin.asLong()), 2

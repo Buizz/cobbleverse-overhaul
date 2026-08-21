@@ -124,6 +124,7 @@ dependencies {
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'com.google.code.gson:gson:2.10.1'
 }
 
 tasks.withType(Test).configureEach {
@@ -174,6 +175,10 @@ processResources {
         into 'data/cobbleventure_player_menu/map/forests'
         include 'generation_*/*.json'
     }
+    from(new File(contentDir, 'routes')) {
+        into 'data/cobbleventure_player_menu/map/routes'
+        include 'generation_*/*.json'
+    }
     from(new File(contentDir, 'catalogs/biome-profiles.json')) {
         into 'data/cobbleventure_player_menu/map/catalogs'
     }
@@ -187,6 +192,9 @@ processResources {
         into 'data/cobbleventure_player_menu/league'
     }
     from(new File(contentDir, 'catalogs/gyms.json')) {
+        into 'data/cobbleventure_player_menu/league'
+    }
+    from(new File(contentDir, 'catalogs/trainer-roster.json')) {
         into 'data/cobbleventure_player_menu/league'
     }
     from(new File(contentDir, 'source/trainers/gym_leaders')) {

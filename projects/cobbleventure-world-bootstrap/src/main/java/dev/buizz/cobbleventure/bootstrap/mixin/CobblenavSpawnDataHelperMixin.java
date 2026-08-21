@@ -28,14 +28,14 @@ public abstract class CobblenavSpawnDataHelperMixin {
         CallbackInfoReturnable<Object> callback
     ) {
         Map<ResourceLocation, Integer> authored = HabitatSpawnRules.authoredEncounterWeights(
-            player.serverLevel(), player.getX(), player.getZ()
+            player.serverLevel(), player.getX(), player.getY(), player.getZ()
         );
         if (authored != null) {
             callback.setReturnValue(authoredSpawnList(player, bucketName, callback.getReturnValue(), authored));
             return;
         }
         Set<ResourceLocation> allowed = HabitatSpawnRules.allowedSpecies(
-            player.serverLevel(), player.getX(), player.getZ()
+            player.serverLevel(), player.getX(), player.getY(), player.getZ()
         );
         if (allowed == null || !(callback.getReturnValue() instanceof Pair<?, ?> pair)
             || !(pair.getSecond() instanceof List<?> original)) {

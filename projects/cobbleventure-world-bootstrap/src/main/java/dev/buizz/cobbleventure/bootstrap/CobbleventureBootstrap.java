@@ -365,6 +365,13 @@ public final class CobbleventureBootstrap {
             }
 
             @Override
+            public Set<ResourceLocation> allowedWildSpecies(
+                ServerLevel level, double x, double y, double z
+            ) {
+                return HabitatSpawnRules.allowedSpecies(level, x, y, z);
+            }
+
+            @Override
             public AdventureWorldContext.WildSpawnRule wildSpawnRule(
                 ServerLevel level, double x, double z
             ) {
@@ -1982,7 +1989,7 @@ public final class CobbleventureBootstrap {
             null, null, null, 0.0D,
             footprintWidth, footprintDepth, size.getY(), 4
         );
-        prepareSpecialDistrict(level, facility, origin);
+        prepareSpecialDistrict(level, facility, origin, rotation);
         if (!placeFacilityTemplate(level, facility, origin, rotation)) {
             LOGGER.error(
                 "Cave Pokemon Center NBT placement failed: entrance={}, structure={}, origin={}",
@@ -2773,6 +2780,7 @@ public final class CobbleventureBootstrap {
 
     private static boolean placeFacilities(ServerLevel level, SettlementPlan settlement) {
         for (FacilityPlacement facility : settlement.facilities()) {
+            String rotation = facilityRuntimeRotation(settlement, facility);
             BlockPoint referencePosition;
             if (facility.mode().equals("instanced_entry")) {
                 referencePosition = facility.instanceOrigin();
@@ -2789,10 +2797,8 @@ public final class CobbleventureBootstrap {
             if (referencePosition != null && (facility.id().equals("special_district_building")
                 || facility.id().startsWith("facility_")
                 || facility.id().contains("gym"))) {
-                prepareSpecialDistrict(level, facility, referencePosition);
+                prepareSpecialDistrict(level, facility, referencePosition, rotation);
             }
-            String rotation = facility.id().contains("gym")
-                ? RGS_GYM_ROTATION : "none";
             BlockPoint placedOrigin = position == null ? null
                 : facility.mode().equals("direct_template")
                     ? facilityPlacementOrigin(level, facility, position, rotation)
@@ -2816,11 +2822,11 @@ public final class CobbleventureBootstrap {
                     ? settlement.vendorAssignments() : null
             );
             if (facility.mode().equals("direct_template")) {
-                if (!placeFacilityJigsawDecorations(level, facility, position)) {
+                if (!placeFacilityJigsawDecorations(level, facility, position, rotation)) {
                     return false;
                 }
-                cleanupFacilityTemplateMarkers(level, facility.structure(), position);
-                if (!placeFacilityWorkers(level, settlement, facility, position)) {
+                cleanupFacilityTemplateMarkers(level, facility.structure(), position, rotation);
+                if (!placeFacilityWorkers(level, settlement, facility, position, rotation)) {
                     return false;
                 }
             }
@@ -2879,8 +2885,9 @@ public final class CobbleventureBootstrap {
                 BlockPoint position = resolved == null ? null
                     : applyBuildingPlacementYOffset(facility.structure(), resolved);
                 if (position != null) {
+                    String rotation = facilityRuntimeRotation(settlement, facility);
                     GymInteriorSystem.prepareExterior(
-                        level, settlement.id(), position, RGS_GYM_ROTATION
+                        level, settlement.id(), position, rotation
                     );
                 }
             }
@@ -2917,8 +2924,7 @@ public final class CobbleventureBootstrap {
                 BlockPoint position = resolved == null ? null
                     : applyBuildingPlacementYOffset(facility.structure(), resolved);
                 if (position != null) {
-                    String rotation = facility.id().contains("gym")
-                        ? RGS_GYM_ROTATION : "none";
+                    String rotation = facilityRuntimeRotation(settlement, facility);
                     BlockPoint placedOrigin = facility.mode().equals("direct_template")
                         ? facilityPlacementOrigin(level, facility, position, rotation)
                         : position;
@@ -4339,15 +4345,23 @@ public final class CobbleventureBootstrap {
     private static void prepareSpecialDistrict(
         ServerLevel level,
         FacilityPlacement facility,
-        BlockPoint origin
+        BlockPoint origin,
+        String rotationName
     ) {
         int width = Math.max(8, facility.footprintWidth());
         int depth = Math.max(8, facility.footprintDepth());
+        boolean quarterTurn = rotationName.equals("clockwise_90")
+            || rotationName.equals("counterclockwise_90");
+        if (quarterTurn) {
+            int originalWidth = width;
+            width = depth;
+            depth = originalWidth;
+        }
         ResourceLocation structureId = ResourceLocation.tryParse(facility.structure());
         if (structureId != null) {
             var template = level.getStructureManager().get(structureId);
             if (template.isPresent()) {
-                var size = template.get().getSize();
+                var size = template.get().getSize(structureRotation(rotationName));
                 width = Math.max(width, size.getX());
                 depth = Math.max(depth, size.getZ());
             }
@@ -4445,6 +4459,16 @@ public final class CobbleventureBootstrap {
             settlement.id(), facility.id()
         );
         return null;
+    }
+
+    private static String facilityRuntimeRotation(
+        SettlementPlan settlement, FacilityPlacement facility
+    ) {
+        TownPlot generated = generateTownLayout(settlement).facilities().get(facility.id());
+        return FacilityPlacementRotation.resolve(
+            facility.id(), generated == null ? null : generated.rotation(),
+            RGS_GYM_ROTATION
+        );
     }
 
     private static BlockPoint facilityTemplateOrigin(
@@ -9155,9 +9179,13 @@ public final class CobbleventureBootstrap {
             return null;
         }
         ConnectionPath route = strongestRouteAt(world, x, z);
-        if (route == null) {
-            return null;
-        }
+        return wildSpawnRule(route, method);
+    }
+
+    private static AdventureWorldContext.WildSpawnRule wildSpawnRule(
+        ConnectionPath route, AdventureWorldContext.WildEncounterMethod method
+    ) {
+        if (route == null) return null;
         RoutePokemonPool settings = route.pokemonSpawns().pool(
             method.serializedName()
         );
@@ -9184,6 +9212,30 @@ public final class CobbleventureBootstrap {
             settings.inheritBiome(), excluded, additions, levelOverrides,
             settings.enabled(), settings.triggerChance()
         );
+    }
+
+    static boolean isLogBridgeDeckSpawn(
+        ServerLevel level, HexWorldPlan world, double x, double y, double z
+    ) {
+        int blockX = (int) Math.floor(x);
+        int blockZ = (int) Math.floor(z);
+        LogBridgeDeckPlan deck = logBridgeDeckAt(world, blockX, blockZ);
+        if (deck == null) return false;
+        if (!HabitatSpawnRules.isLogBridgeDeckHeight(deck.y(), y)) return false;
+        BlockState actual = level.getBlockState(new BlockPos(blockX, deck.y(), blockZ));
+        return actual.is(Blocks.CAMPFIRE)
+            && actual.hasProperty(BlockStateProperties.LIT)
+            && !actual.getValue(BlockStateProperties.LIT);
+    }
+
+    static boolean isLogBridgeDeckSpawn(
+        ServerLevel level, double x, double y, double z
+    ) {
+        HexWorldPlan world = activeHexWorld;
+        if (world == null) return false;
+        ConnectionPath route = strongestRouteAt(world, x, z);
+        return route != null && route.surfaceStyle().equals("log_bridge")
+            && isLogBridgeDeckSpawn(level, world, x, y, z);
     }
 
     static String authoredWeatherAt(ServerPlayer player) {
@@ -14238,7 +14290,7 @@ public final class CobbleventureBootstrap {
         if (position == null) {
             return null;
         }
-        String rotation = facility.id().contains("gym") ? RGS_GYM_ROTATION : "none";
+        String rotation = facilityRuntimeRotation(settlement, facility);
         BlockPoint placedOrigin = facility.mode().equals("direct_template")
             ? facilityPlacementOrigin(level, facility, position, rotation) : position;
         BuildingRuntimeSystem.onStructurePlaced(

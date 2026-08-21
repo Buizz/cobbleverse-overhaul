@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.FluidTags;
 import org.slf4j.Logger;
 
 /** Applies the world-map level brush to naturally spawned wild Pokemon. */
@@ -60,8 +61,22 @@ final class WildSpawnLeveling {
             return;
         }
         int eventNumber = ++spawnEvents;
-        AdventureWorldContext.WildSpawnRule rule = CobbleventureAdventure.wildSpawnRule(
-            level, entity.getX(), entity.getZ()
+        Set<ResourceLocation> habitatSpecies = entity.getTags().contains(AUTHORED_PURSUIT_TAG)
+            ? null : CobbleventureAdventure.allowedWildSpecies(
+                level, entity.getX(), entity.getY(), entity.getZ()
+            );
+        if (habitatSpecies != null && habitatSpecies.isEmpty()) {
+            logCancellation(
+                eventNumber, entity, pokemon, "empty-habitat-pool", 0
+            );
+            event.cancel();
+            return;
+        }
+        AdventureWorldContext.WildEncounterMethod method = naturalEncounterMethod(
+            level.getFluidState(entity.blockPosition()).is(FluidTags.WATER)
+        );
+        AdventureWorldContext.WildSpawnRule rule = CobbleventureAdventure.authoredEncounterRule(
+            level, entity.getX(), entity.getZ(), method
         );
         AdventureWorldContext.WildSpawnAddition addition = selectAddition(
             entity, pokemon, rule
@@ -75,8 +90,6 @@ final class WildSpawnLeveling {
             event.cancel();
             return;
         }
-        Set<ResourceLocation> habitatSpecies = entity.getTags().contains(AUTHORED_PURSUIT_TAG)
-            ? null : CobbleventureAdventure.allowedWildSpecies(level, entity.getX(), entity.getZ());
         if (shouldLog(eventNumber)) {
             LOGGER.info(
                 "[Spawn diagnosis] Natural spawn event #{}: species={}, dimension={}, position=({}, {}, {}), routeRule={}, habitatPool={}",
@@ -131,6 +144,13 @@ final class WildSpawnLeveling {
 
     private static boolean shouldLog(int eventNumber) {
         return eventNumber <= INITIAL_DIAGNOSTIC_EVENTS || eventNumber % 100 == 0;
+    }
+
+    static AdventureWorldContext.WildEncounterMethod naturalEncounterMethod(
+        boolean inWater
+    ) {
+        return inWater ? AdventureWorldContext.WildEncounterMethod.SURF
+            : AdventureWorldContext.WildEncounterMethod.LAND;
     }
 
     private static void logCancellation(

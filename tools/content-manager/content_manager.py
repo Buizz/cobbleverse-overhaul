@@ -1501,6 +1501,16 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
         except (OSError, json.JSONDecodeError, DuplicateKeyError):
             continue
 
+    route_documents: dict[str, dict[str, Any]] = {}
+    route_dir = root / "content" / "routes"
+    for path in route_dir.rglob("*.json") if route_dir.is_dir() else []:
+        try:
+            document = load_json(path)
+            if isinstance(document, dict) and isinstance(document.get("id"), str):
+                route_documents[document["id"]] = document
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+
     area_documents: list[tuple[str, dict[str, Any]]] = []
     for kind, directory_name in (("cave", "caves"), ("forest", "forests")):
         area_dir = root / "content" / directory_name / f"generation_{generation}"
@@ -1660,9 +1670,17 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
     connections.sort(key=lambda entry: 0 if entry.get("surface_style") == "water" else 1)
     routed_cells: set[tuple[int, int]] = set()
     for connection in connections:
-        settings = connection.get("pokemon_spawns")
+        route_document = route_documents.get(connection.get("route_preset"), {})
+        settings = route_document.get("pokemon_spawns")
+        if not isinstance(settings, dict):
+            settings = connection.get("pokemon_spawns")
         if not isinstance(settings, dict):
             settings = {"inherit_biome": True, "excluded_species": [], "additions": []}
+        route_display_name = route_document.get("display_name", {})
+        if isinstance(route_display_name, dict):
+            route_display_name = route_display_name.get("ko_kr") or route_display_name.get("en_us")
+        if not isinstance(route_display_name, str) or not route_display_name:
+            route_display_name = connection.get("display_name") or connection.get("id", "")
         inherit_biome = settings.get("inherit_biome", True) is not False
         excluded = {
             species for species in settings.get("excluded_species", [])
@@ -1703,7 +1721,7 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
                 "r": coordinate[1],
                 "kind": "route",
                 "route": connection.get("id", ""),
-                "route_name": connection.get("display_name") or connection.get("id", ""),
+                "route_name": route_display_name,
                 "biome": base.get("biome", ""),
                 "profile_ids": base.get("profile_ids", []),
                 "habitat_variants": base.get("habitat_variants", {}),
@@ -12410,6 +12428,44 @@ def create_handler(
                         "issues": [asdict(issue) for issue in issues],
                     },
                 )
+                return
+            if request.path == "/api/town-layout-preview":
+                if (
+                    not isinstance(payload, dict)
+                    or not isinstance(payload.get("document"), dict)
+                ):
+                    self._json(400, {"error": "마을 미리보기 문서가 필요합니다."})
+                    return
+                try:
+                    builder = _mod_builder_module()
+                    compiled_layout = builder._compile_town_layout(
+                        payload["document"], root=core_root,
+                    )
+                    custom_cells = tuple(
+                        (int(cell["q"]), int(cell["r"]))
+                        for cell in compiled_layout.get("footprint_cells", [])
+                        if (
+                            isinstance(cell, dict)
+                            and isinstance(cell.get("q"), int)
+                            and isinstance(cell.get("r"), int)
+                        )
+                    )
+                    layout_cells = builder._town_layout_cells(
+                        int(compiled_layout.get("cell_count", 1)),
+                        str(compiled_layout.get("footprint_shape", "line_q")),
+                        custom_cells,
+                    )
+                    self._json(200, {
+                        "compiled_layout": compiled_layout,
+                        "layout_cells": [
+                            {"q": int(q), "r": int(r)} for q, r in layout_cells
+                        ],
+                    })
+                except (
+                    OSError, ValueError, TypeError, KeyError,
+                    json.JSONDecodeError, DuplicateKeyError, RuntimeError,
+                ) as error:
+                    self._json(422, {"error": str(error)})
                 return
             if request.path == "/api/settlements/order":
                 try:

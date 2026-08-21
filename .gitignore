@@ -17,6 +17,12 @@ build/
 out/
 classes/
 
+# Node.js / local web tooling
+node_modules/
+.wrangler/
+.local-server.pid
+.local-workspace.json
+
 # Minecraft development/runtime data
 run/
 run-builder-world/

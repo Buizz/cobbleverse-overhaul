@@ -16,9 +16,28 @@ public final class HabitatSpawnRules {
     public static Set<ResourceLocation> allowedSpecies(
         ServerLevel level, double x, double z
     ) {
+        return allowedSpecies(level, x, Double.NaN, z, null);
+    }
+
+    public static Set<ResourceLocation> allowedSpecies(
+        ServerLevel level, double x, double y, double z
+    ) {
+        return allowedSpecies(level, x, y, z, null);
+    }
+
+    private static Set<ResourceLocation> allowedSpecies(
+        ServerLevel level, double x, double y, double z,
+        AdventureWorldContext.WildSpawnRule routeRule
+    ) {
         // Authored cave/forest encounters are spawned only by PursuitEncounterSystem.
         // An empty natural pool prevents Cobblemon's independent spawner from duplicating them.
         if (CobbleventureBootstrap.authoredEncounterWeights(level, x, z) != null) {
+            return Set.of();
+        }
+        // Log-bridge decks are traversal only. Water below keeps its ocean pool,
+        // while the authored land route pool is reserved for real grass patches.
+        if (Double.isFinite(y)
+            && CobbleventureBootstrap.isLogBridgeDeckSpawn(level, x, y, z)) {
             return Set.of();
         }
         String dimension = level.dimension().location().toString();
@@ -29,22 +48,16 @@ public final class HabitatSpawnRules {
             MapContent.Hex hex = content.worldToHex(x, z);
             MapContent.BiomeTile tile = content.tileAt(hex.q(), hex.r());
             if (tile == null) {
-                return applyRouteRule(
-                    Set.of(),
-                    CobbleventureBootstrap.wildSpawnRule(level, x, z)
-                );
+                return applyRouteRule(Set.of(), routeRule);
             }
             LinkedHashSet<ResourceLocation> result = new LinkedHashSet<>();
-            for (MapContent.Pokemon pokemon : content.biome(tile).pokemon()) {
+            for (MapContent.Pokemon pokemon : content.spawnBiome(tile).pokemon()) {
                 ResourceLocation id = ResourceLocation.tryParse(pokemon.id());
                 if (id != null) {
                     result.add(id);
                 }
             }
-            return applyRouteRule(
-                result,
-                CobbleventureBootstrap.wildSpawnRule(level, x, z)
-            );
+            return applyRouteRule(result, routeRule);
         }
         return null;
     }
@@ -80,6 +93,20 @@ public final class HabitatSpawnRules {
         );
     }
 
+    public static Map<ResourceLocation, Integer> authoredEncounterWeights(
+        ServerLevel level, double x, double y, double z
+    ) {
+        if (CobbleventureBootstrap.isLogBridgeDeckSpawn(level, x, y, z)) {
+            return Map.of();
+        }
+        Map<ResourceLocation, Integer> authored =
+            CobbleventureBootstrap.authoredEncounterWeights(level, x, z);
+        if (authored != null) return authored;
+        return exclusiveRouteWeights(
+            CobbleventureBootstrap.wildSpawnRule(level, x, z)
+        );
+    }
+
     static Map<ResourceLocation, Integer> exclusiveRouteWeights(
         AdventureWorldContext.WildSpawnRule rule
     ) {
@@ -91,6 +118,11 @@ public final class HabitatSpawnRules {
             result.merge(addition.species(), addition.weight(), Integer::sum);
         }
         return Map.copyOf(result);
+    }
+
+    static boolean isLogBridgeDeckHeight(int deckY, double spawnY) {
+        int feetY = (int) Math.floor(spawnY);
+        return feetY >= deckY && feetY <= deckY + 1;
     }
 
     public static boolean allowsSpawnDetail(

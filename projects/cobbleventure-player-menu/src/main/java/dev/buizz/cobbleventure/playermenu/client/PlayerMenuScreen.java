@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
@@ -73,10 +72,10 @@ public final class PlayerMenuScreen extends Screen {
     private int infoX;
     private int infoWidth;
     private Component statusMessage;
-    private Button rockClimbToggleButton;
-    private Button flashToggleButton;
-    private Button strengthToggleButton;
-    private Button rockSmashToggleButton;
+    private FieldMoveToggleButton rockClimbToggleButton;
+    private FieldMoveToggleButton flashToggleButton;
+    private FieldMoveToggleButton strengthToggleButton;
+    private FieldMoveToggleButton rockSmashToggleButton;
     private long transitionStartedAt;
     private long selectionChangedAt;
     private boolean closing;
@@ -135,34 +134,24 @@ public final class PlayerMenuScreen extends Screen {
         ProgressionNetwork.requestSnapshot();
         initPartyModels();
         int fieldMoveToggleWidth = Math.max(30, (infoWidth - 26) / 4);
-        rockClimbToggleButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.field_move.rock_climb_toggle", "OFF"),
-            button -> PlayerOverviewNetwork.requestToggle("rock_climb")
-        ).bounds(infoX + 8, trainerPanelY() + 89, fieldMoveToggleWidth, 17).build());
+        rockClimbToggleButton = addRenderableWidget(new FieldMoveToggleButton(
+            "rock_climb", infoX + 8, trainerPanelY() + 89, fieldMoveToggleWidth, 17
+        ));
         rockClimbToggleButton.visible = false;
-        flashToggleButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.field_move.flash_toggle", "OFF"),
-            button -> PlayerOverviewNetwork.requestToggle("flash")
-        ).bounds(
-            infoX + 10 + fieldMoveToggleWidth, trainerPanelY() + 89,
+        flashToggleButton = addRenderableWidget(new FieldMoveToggleButton(
+            "flash", infoX + 10 + fieldMoveToggleWidth, trainerPanelY() + 89,
             fieldMoveToggleWidth, 17
-        ).build());
+        ));
         flashToggleButton.visible = false;
-        strengthToggleButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.field_move.strength_toggle", "OFF"),
-            button -> PlayerOverviewNetwork.requestToggle("strength")
-        ).bounds(
-            infoX + 12 + fieldMoveToggleWidth * 2, trainerPanelY() + 89,
+        strengthToggleButton = addRenderableWidget(new FieldMoveToggleButton(
+            "strength", infoX + 12 + fieldMoveToggleWidth * 2, trainerPanelY() + 89,
             fieldMoveToggleWidth, 17
-        ).build());
+        ));
         strengthToggleButton.visible = false;
-        rockSmashToggleButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.field_move.rock_smash_toggle", "OFF"),
-            button -> PlayerOverviewNetwork.requestToggle("rock_smash")
-        ).bounds(
-            infoX + 14 + fieldMoveToggleWidth * 3, trainerPanelY() + 89,
+        rockSmashToggleButton = addRenderableWidget(new FieldMoveToggleButton(
+            "rock_smash", infoX + 14 + fieldMoveToggleWidth * 3, trainerPanelY() + 89,
             fieldMoveToggleWidth, 17
-        ).build());
+        ));
         rockSmashToggleButton.visible = false;
         setFocused(rows.get(selectedIndex));
     }
@@ -297,30 +286,26 @@ public final class PlayerMenuScreen extends Screen {
         boolean rockSmashOwned = moves.contains("rock_smash");
         if (rockClimbToggleButton != null) {
             rockClimbToggleButton.visible = rockClimbOwned;
-            rockClimbToggleButton.setMessage(Component.translatable(
-                "screen.cobbleventure_player_menu.field_move.rock_climb_toggle",
-                PlayerOverviewNetwork.isActive("rock_climb") ? "ON" : "OFF"
+            rockClimbToggleButton.setMessage(fieldMoveToggleLabel(
+                "rock_climb", PlayerOverviewNetwork.isActive("rock_climb")
             ));
         }
         if (flashToggleButton != null) {
             flashToggleButton.visible = flashOwned;
-            flashToggleButton.setMessage(Component.translatable(
-                "screen.cobbleventure_player_menu.field_move.flash_toggle",
-                PlayerOverviewNetwork.isActive("flash") ? "ON" : "OFF"
+            flashToggleButton.setMessage(fieldMoveToggleLabel(
+                "flash", PlayerOverviewNetwork.isActive("flash")
             ));
         }
         if (strengthToggleButton != null) {
             strengthToggleButton.visible = strengthOwned;
-            strengthToggleButton.setMessage(Component.translatable(
-                "screen.cobbleventure_player_menu.field_move.strength_toggle",
-                PlayerOverviewNetwork.isActive("strength") ? "ON" : "OFF"
+            strengthToggleButton.setMessage(fieldMoveToggleLabel(
+                "strength", PlayerOverviewNetwork.isActive("strength")
             ));
         }
         if (rockSmashToggleButton != null) {
             rockSmashToggleButton.visible = rockSmashOwned;
-            rockSmashToggleButton.setMessage(Component.translatable(
-                "screen.cobbleventure_player_menu.field_move.rock_smash_toggle",
-                PlayerOverviewNetwork.isActive("rock_smash") ? "ON" : "OFF"
+            rockSmashToggleButton.setMessage(fieldMoveToggleLabel(
+                "rock_smash", PlayerOverviewNetwork.isActive("rock_smash")
             ));
         }
         Component moveSummary = moves.isEmpty()
@@ -647,6 +632,69 @@ public final class PlayerMenuScreen extends Screen {
             int right = (int)Math.floor(centerX + halfWidth - 0.5D) + 1;
             graphics.fill(left, centerY - radius + row, right, centerY - radius + row + 1, color);
         }
+    }
+
+    private final class FieldMoveToggleButton extends AbstractButton {
+        private final String move;
+
+        private FieldMoveToggleButton(String move, int x, int y, int width, int height) {
+            super(x, y, width, height, fieldMoveToggleLabel(move, false));
+            this.move = move;
+        }
+
+        @Override
+        public void onPress() {
+            PlayerOverviewNetwork.requestToggle(move);
+            playUiSound(CobblemonSounds.POKEDEX_CLICK_SHORT, 1.0F, 0.25F);
+        }
+
+        @Override
+        protected void renderWidget(
+            GuiGraphics graphics, int mouseX, int mouseY, float partialTick
+        ) {
+            boolean toggled = PlayerOverviewNetwork.isActive(move);
+            setMessage(fieldMoveToggleLabel(move, toggled));
+            int radius = Math.min(menuTheme.rowRadius, getHeight() / 2);
+            int border = toggled || isHovered() ? menuTheme.accent : menuTheme.border;
+            int background = toggled ? menuTheme.selectedBackground
+                : isHovered() ? menuTheme.hoverBackground : menuTheme.background;
+            int text = toggled ? menuTheme.selectedTextColor : menuTheme.textColor;
+            fillRoundedRect(
+                graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                radius, border
+            );
+            fillRoundedRect(
+                graphics, getX() + 1, getY() + 1,
+                getX() + getWidth() - 1, getY() + getHeight() - 1,
+                Math.max(0, radius - 1), background
+            );
+            if (toggled) {
+                graphics.fill(
+                    getX() + 7, getY() + getHeight() - 2,
+                    getX() + getWidth() - 7, getY() + getHeight() - 1,
+                    menuTheme.accent
+                );
+            }
+            String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8);
+            graphics.drawString(
+                font, label,
+                getX() + (getWidth() - font.width(label)) / 2,
+                getY() + (getHeight() - 8) / 2,
+                text, false
+            );
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
+    }
+
+    private static Component fieldMoveToggleLabel(String move, boolean toggled) {
+        return Component.translatable(
+            "screen.cobbleventure_player_menu.field_move." + move + "_toggle",
+            toggled ? "ON" : "OFF"
+        );
     }
 
     private final class MenuRow extends AbstractButton {

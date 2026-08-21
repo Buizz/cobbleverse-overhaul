@@ -94,15 +94,9 @@ public final class CobbleventureAdventure {
     }
 
     public static Set<ResourceLocation> allowedWildSpecies(
-        ServerLevel level, double x, double z
+        ServerLevel level, double x, double y, double z
     ) {
-        return worldContext.allowedWildSpecies(level, x, z);
-    }
-
-    static AdventureWorldContext.WildSpawnRule wildSpawnRule(
-        ServerLevel level, double x, double z
-    ) {
-        return worldContext.wildSpawnRule(level, x, z);
+        return worldContext.allowedWildSpecies(level, x, y, z);
     }
 
     /** Public hook used by fishing, surfing, and field-interaction systems. */

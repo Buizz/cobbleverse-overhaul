@@ -1,6 +1,12 @@
 @echo off
 setlocal
 
+if not defined JAVA_HOME (
+    for /f "tokens=1,2,*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v JAVA_HOME 2^>nul') do (
+        if /I "%%A"=="JAVA_HOME" set "JAVA_HOME=%%C"
+    )
+)
+
 set "REPO_ROOT=%~dp0"
 if not defined COBBLEVENTURE_PROJECT_PATH set "COBBLEVENTURE_PROJECT_PATH=%REPO_ROOT%content-projects\cobbleventure-main"
 set "CONTENT_MANAGER=%REPO_ROOT%tools\content-manager\content_manager.py"
@@ -33,16 +39,16 @@ if /I not "%EXPORT_LANGUAGE%"=="ko_kr" if /I not "%EXPORT_LANGUAGE%"=="en_us" (
 )
 set "COBBLEVENTURE_EXPORT_LANGUAGE=%EXPORT_LANGUAGE%"
 
-py -3 -c "import sys" >nul 2>nul
+python -c "import sys" >nul 2>nul
 if not errorlevel 1 (
-    set "PYTHON_CMD=py -3"
+    set "PYTHON_CMD=python"
 ) else (
-    python -c "import sys" >nul 2>nul
+    py -3 -c "import sys" >nul 2>nul
     if errorlevel 1 (
         echo [ERROR] Python 3 was not found. Install Python 3 and try again.
         exit /b 1
     )
-    set "PYTHON_CMD=python"
+    set "PYTHON_CMD=py -3"
 )
 
 if "%~1"=="" goto help

@@ -17,8 +17,10 @@
     "CobblemonBattleSwitchFontMixin",
     "CobblemonBattleTargetFontMixin",
     "CobblemonPokemonLabelFontMixin",
+    "CreateNixieTubeFontMixin",
     "GymBlockerEntityRenderMixin",
-    "GymBlockerPickMixin"
+    "GymBlockerPickMixin",
+    "MinecraftFontAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

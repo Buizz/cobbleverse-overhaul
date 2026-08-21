@@ -97,7 +97,8 @@ def _shared_strings(archive: zipfile.ZipFile) -> list[str]:
 def _sheet_path(archive: zipfile.ZipFile, sheet_name: str) -> str:
     workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
     relationship_id = None
-    for sheet in workbook.find(f"{{{XML_NS}}}sheets") or []:
+    sheets = workbook.find(f"{{{XML_NS}}}sheets")
+    for sheet in sheets if sheets is not None else []:
         if sheet.get("name") == sheet_name:
             relationship_id = sheet.get(f"{{{REL_NS}}}id")
             break

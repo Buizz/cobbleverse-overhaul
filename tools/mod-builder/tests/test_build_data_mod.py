@@ -324,6 +324,14 @@ class DataModBuilderTests(unittest.TestCase):
         bridge = next(connection for connection in world["connections"] if connection["id"] == "route_custom_15")
         self.assertEqual("log_bridge", bridge["surface_style"])
         self.assertEqual({"pattern": "alternating", "detour_blocks": 12}, bridge["log_bridge_layout"])
+        self.assertEqual(
+            {"surf", "old_rod", "good_rod", "super_rod"},
+            set(bridge["pokemon_spawns"]["encounter_pools"]),
+        )
+        self.assertEqual(
+            {"cobblemon:gyarados", "cobblemon:horsea", "cobblemon:magikarp", "cobblemon:seadra", "cobblemon:tentacool", "cobblemon:tentacruel"},
+            {entry["species"] for entry in bridge["pokemon_spawns"]["additions"]},
+        )
 
     def test_settlement_data_uses_authored_load_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -599,13 +607,18 @@ class DataModBuilderTests(unittest.TestCase):
         }
         for house in houses:
             accesses = access_by_house[house["id"]]
-            self.assertIn(len(accesses), {1, 2})
+            self.assertIn(len(accesses), {2, 3})
             self.assertEqual(
                 (accesses[0]["x1"], accesses[0]["z1"]),
                 (house["road_connection"]["x"], house["road_connection"]["z"]),
             )
             self.assertEqual(
                 (accesses[-1]["x2"], accesses[-1]["z2"]),
+                (house["door"]["x"], house["door"]["z"]),
+            )
+            self.assertTrue(accesses[-1]["includes_safe_area"])
+            self.assertEqual(
+                (accesses[-1]["x1"], accesses[-1]["z1"]),
                 (house["entrance"]["x"], house["entrance"]["z"]),
             )
             for index, access in enumerate(accesses):
@@ -625,6 +638,46 @@ class DataModBuilderTests(unittest.TestCase):
 
         self.assertEqual({"one_story", "two_story", "five_story"}, set(build_data_mod.HOUSE_BASES))
         self.assertTrue(all(house["width"] == 16 and house["depth"] == 16 for house in houses))
+
+    def test_starter_facilities_compile_the_preview_occupied_bounds(self) -> None:
+        settlement_path = (
+            REPOSITORY_ROOT / build_data_mod.OUTPUT
+            / "data/cobbleventure/settlements/generation_1/starter_town.json"
+        )
+        settlement = json.loads(settlement_path.read_text(encoding="utf-8"))
+        facilities = settlement["compiled_layout"]["facilities"]
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/starter_town.json")
+            .read_text(encoding="utf-8")
+        )
+        definitions = {
+            item["id"]: item
+            for item in source["structure_profile"]["facility_placements"]
+        }
+
+        for facility_id in {
+            "facility_player_house_1", "facility_laboratory_1",
+        }:
+            plot = facilities[facility_id]
+            footprint = definitions[facility_id]["footprint"]
+            expected = build_data_mod._rotated_structure_bounds(
+                footprint["occupied"],
+                footprint["width"], footprint["depth"], plot["rotation"],
+            )
+            self.assertEqual(
+                {"width": expected["width"], "depth": expected["depth"]},
+                {
+                    "width": plot["occupied"]["width"],
+                    "depth": plot["occupied"]["depth"],
+                },
+            )
+        self.assertEqual(
+            {"width": 21, "depth": 15},
+            {
+                "width": facilities["facility_player_house_1"]["occupied"]["width"],
+                "depth": facilities["facility_player_house_1"]["occupied"]["depth"],
+            },
+        )
 
     def test_house_access_uses_rotated_door_safe_spawn(self) -> None:
         expected = {
@@ -647,6 +700,29 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertEqual(
                 entrance,
                 build_data_mod._plot_entrance(plot, REPOSITORY_ROOT),
+            )
+
+    def test_house_access_finishes_at_rotated_door_position(self) -> None:
+        expected = {
+            "none": (114, 203),
+            "clockwise_90": (112, 214),
+            "clockwise_180": (101, 212),
+            "counterclockwise_90": (103, 201),
+        }
+        for rotation, door in expected.items():
+            plot = {
+                "id": "house_test",
+                "x": 100.0,
+                "z": 200.0,
+                "width": 16,
+                "depth": 16,
+                "base": "one_story",
+                "roof": "gable",
+                "rotation": rotation,
+            }
+            self.assertEqual(
+                door,
+                build_data_mod._plot_door_position(plot, REPOSITORY_ROOT),
             )
 
     def test_house_bases_are_one_two_and_five_story_sixteen_block_plots(self) -> None:
@@ -717,32 +793,23 @@ class DataModBuilderTests(unittest.TestCase):
                         f"{settlement['id']} / {access['building']} -> {other_id}",
                     )
 
-    def test_department_store_plaza_connects_on_three_sides(self) -> None:
+    def test_department_store_uses_one_entrance_instead_of_surrounding_roads(self) -> None:
         settlement_path = (
             REPOSITORY_ROOT / build_data_mod.OUTPUT
             / "data/cobbleventure/settlements/generation_1/celadon_city.json"
         )
         layout = json.loads(settlement_path.read_text(encoding="utf-8"))["compiled_layout"]
         department_store = layout["facilities"]["facility_department_store"]
-        entrances = department_store["plaza_entrances"]
+        entrance = department_store["entrance"]
         access_roads = [
             road for road in layout["access_roads"]
             if road["building"] == "facility_department_store"
         ]
 
-        self.assertEqual(["north", "west", "east"], [entry["facing"] for entry in entrances])
+        self.assertNotIn("plaza_entrances", department_store)
+        self.assertTrue(access_roads)
         road_endpoints = {(road["x2"], road["z2"]) for road in access_roads}
-        self.assertTrue(all((entry["x"], entry["z"]) in road_endpoints for entry in entrances))
-
-        plot_z = float(department_store["z"])
-        self.assertEqual(
-            math.floor(plot_z + 0.5) + 19,
-            next(entry["z"] for entry in entrances if entry["facing"] == "west"),
-        )
-        self.assertEqual(
-            math.floor(plot_z + 0.5) + 19,
-            next(entry["z"] for entry in entrances if entry["facing"] == "east"),
-        )
+        self.assertIn((entrance["x"], entrance["z"]), road_endpoints)
 
     def test_department_store_is_not_forced_into_non_ring_town_center(self) -> None:
         source = json.loads(
@@ -756,10 +823,11 @@ class DataModBuilderTests(unittest.TestCase):
                 source["structure_profile"]["road_layout_template"] = road_template
                 layout = build_data_mod._compile_town_layout(source)
                 store = layout["facilities"]["facility_department_store"]
+                occupied = store.get("occupied", store)
                 hub_x, hub_z = layout["hub"]["x"], layout["hub"]["z"]
                 self.assertFalse(
-                    float(store["x"]) <= hub_x < float(store["x"]) + int(store["width"])
-                    and float(store["z"]) <= hub_z < float(store["z"]) + int(store["depth"])
+                    float(occupied["x"]) <= hub_x < float(occupied["x"]) + int(occupied["width"])
+                    and float(occupied["z"]) <= hub_z < float(occupied["z"]) + int(occupied["depth"])
                 )
                 self.assertIn("road_connection", store)
 
@@ -788,7 +856,9 @@ class DataModBuilderTests(unittest.TestCase):
                     "depth": clearance * 2 + 1,
                 }
                 self.assertFalse(any(
-                    build_data_mod._plots_intersect(footprint, plot, 1.0)
+                    build_data_mod._plots_intersect(
+                        footprint, plot.get("occupied", plot), 1.0
+                    )
                     for plot in plots
                 ), settlement_path.name)
                 self.assertFalse(any(
@@ -902,6 +972,37 @@ class DataModBuilderTests(unittest.TestCase):
             mart["entrance"],
         )
 
+    def test_seven_cell_layout_preserves_web_hex_traversal_order(self) -> None:
+        self.assertEqual(
+            (
+                (-1, 0), (-1, 1), (0, -1), (0, 0),
+                (0, 1), (1, -1), (1, 0),
+            ),
+            build_data_mod._town_layout_cells(7, "line_q"),
+        )
+
+    def test_celadon_facilities_match_web_preview_slots_and_rotation(self) -> None:
+        source = json.loads(
+            (
+                PROJECT_ROOT
+                / "content/settlements/generation_1/celadon_city.json"
+            ).read_text(encoding="utf-8")
+        )
+        layout = build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
+        facilities = layout["facilities"]
+
+        store = facilities["facility_department_store"]
+        self.assertEqual(
+            {"x": 4.0, "z": -30.5, "width": 40, "depth": 28},
+            store["occupied"],
+        )
+        self.assertEqual("none", store["rotation"])
+        gym = facilities["gym_building"]
+        self.assertEqual((63.5, -27.5), (gym["x"], gym["z"]))
+        self.assertEqual("clockwise_180", gym["rotation"])
+        center = facilities["facility_pokemon_center"]
+        self.assertEqual((-30.5, 8.98), (center["x"], center["z"]))
+
     def test_generated_houses_touch_their_assigned_road(self) -> None:
         source = json.loads(
             (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
@@ -940,18 +1041,15 @@ class DataModBuilderTests(unittest.TestCase):
             building = buildings[building_id]
             last = roads[-1]
             entrance = building["entrance"]
-            min_x = math.floor(float(building["x"]) + 0.5)
-            min_z = math.floor(float(building["z"]) + 0.5)
-            quarter_turn = building.get("rotation") in {
-                "clockwise_90", "counterclockwise_90",
-            }
-            placed_width = int(building["depth"] if quarter_turn else building["width"])
-            placed_depth = int(building["width"] if quarter_turn else building["depth"])
-            self.assertFalse(
-                min_x <= entrance["x"] < min_x + placed_width
-                and min_z <= entrance["z"] < min_z + placed_depth,
-                building_id,
+            authored_entrance = build_data_mod._plot_authored_entrance(
+                building, REPOSITORY_ROOT
             )
+            if authored_entrance is not None and building_id.startswith("house_"):
+                self.assertEqual(
+                    authored_entrance,
+                    (entrance["x"], entrance["z"]),
+                    building_id,
+                )
             if building["entrance_facing"] in {"north", "south"}:
                 self.assertEqual(last["x1"], last["x2"], building_id)
             else:
@@ -1182,23 +1280,27 @@ class DataModBuilderTests(unittest.TestCase):
             gym, REPOSITORY_ROOT
         )
         self.assertEqual(gym["entrance_facing"], effective_facing)
-        projected_entrance = build_data_mod._project_entrance_outside_nbt(
-            gym, effective_facing, authored_entrance[0], authored_entrance[1]
-        )
         expected_entrance = {
-            "x": projected_entrance[0],
-            "z": projected_entrance[1],
+            "x": authored_entrance[0],
+            "z": authored_entrance[1],
         }
         self.assertEqual(expected_entrance, gym["entrance"])
+        authored_door = build_data_mod._structure_door_position(
+            gym, REPOSITORY_ROOT
+        )
+        self.assertEqual(
+            {"x": authored_door[0], "z": authored_door[1]}, gym["door"]
+        )
         gym_roads = [
             road for road in layout["access_roads"]
             if road["building"] == "gym_building"
         ]
         self.assertTrue(gym_roads)
         self.assertEqual(
-            (expected_entrance["x"], expected_entrance["z"]),
+            authored_door,
             (gym_roads[-1]["x2"], gym_roads[-1]["z2"]),
         )
+        self.assertTrue(gym_roads[-1]["includes_safe_area"])
 
     def test_does_not_register_generated_template_pools(self) -> None:
         pool_root = (

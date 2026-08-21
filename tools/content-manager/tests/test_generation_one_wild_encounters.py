@@ -26,7 +26,7 @@ class GenerationOneWildEncounterTests(unittest.TestCase):
         "route_custom_12": {"bellsprout": (13, 16), "mankey": (10, 16), "meowth": (10, 16), "oddish": (13, 16), "pidgey": (13, 16)},
         "route_custom_13": {"ekans": (17, 19), "growlithe": (15, 18), "mankey": (18, 20), "meowth": (18, 20), "pidgey": (18, 20), "sandshrew": (17, 19), "vulpix": (15, 18)},
         "route_custom_14": {"bellsprout": (22, 26), "drowzee": (9, 15), "ekans": (12, 15), "gloom": (28, 30), "oddish": (22, 26), "pidgey": (23, 27), "sandshrew": (12, 15), "spearow": (13, 17), "venonat": (24, 26), "weepinbell": (28, 30)},
-        "route_custom_15": {"bellsprout": (22, 26), "ditto": (23, 26), "gloom": (28, 30), "oddish": (22, 26), "pidgeotto": (28, 30), "pidgey": (23, 27), "venonat": (24, 28), "weepinbell": (28, 30)},
+        "route_custom_15": {"gyarados": (25, 30), "horsea": (20, 26), "magikarp": (15, 24), "seadra": (27, 31), "tentacool": (22, 27), "tentacruel": (28, 32)},
         "route_custom_16": {"ekans": (11, 17), "rattata": (14, 17), "sandshrew": (11, 17), "spearow": (13, 17), "voltorb": (14, 17)},
         "route_custom_17": {"ekans": (11, 17), "sandshrew": (11, 17), "spearow": (13, 17), "voltorb": (14, 17)},
         "route_custom_18": {"bellsprout": (22, 26), "drowzee": (9, 15), "ekans": (12, 15), "gloom": (28, 30), "oddish": (22, 26), "pidgey": (23, 27), "sandshrew": (12, 15), "spearow": (13, 17), "venonat": (24, 26), "weepinbell": (28, 30)},
@@ -72,6 +72,23 @@ class GenerationOneWildEncounterTests(unittest.TestCase):
             with self.subTest(area=relative):
                 area = self.load(relative)
                 self.assert_red_blue_pool(area["random_encounters"], expected)
+
+    def test_ocean_bridge_has_surf_and_all_three_rod_pools(self) -> None:
+        route = self.load("routes/generation_1/route_custom_15.json")
+        pools = route["pokemon_spawns"]["encounter_pools"]
+        self.assertEqual({"surf", "old_rod", "good_rod", "super_rod"}, set(pools))
+        self.assertEqual(
+            set(self.ROUTES["route_custom_15"]),
+            set(self.ranges(pools["surf"]["additions"])),
+        )
+        self.assertEqual(
+            {"magikarp", "goldeen"},
+            set(self.ranges(pools["old_rod"]["additions"])),
+        )
+        self.assertEqual(
+            {"gyarados", "seadra", "seaking", "staryu", "tentacruel"},
+            set(self.ranges(pools["super_rod"]["additions"])),
+        )
 
 
 if __name__ == "__main__":
