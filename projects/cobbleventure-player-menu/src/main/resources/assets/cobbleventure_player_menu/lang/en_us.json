@@ -111,6 +111,8 @@
   "screen.cobbleventure_player_menu.trainer_card.region.undecided": "League Format TBD",
   "screen.cobbleventure_player_menu.trainer_card.league.cleared": "League Cleared",
   "screen.cobbleventure_player_menu.trainer_card.league.pending": "Challenge Record",
+  "screen.cobbleventure_player_menu.trainer_card.elite_status": "Elite League",
+  "screen.cobbleventure_player_menu.trainer_card.champion_status": "Champion",
   "screen.cobbleventure_player_menu.trainer_card.badges.empty": "No gyms or leagues registered",
   "screen.cobbleventure_player_menu.entry.quests": "Quests",
   "screen.cobbleventure_player_menu.entry.quests.description": "View current objectives and completed quests",

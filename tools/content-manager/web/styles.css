@@ -540,6 +540,28 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .village-generation-summary { padding: 9px 14px; border-top: 1px solid #aebfa7; background: #fff; color: #51697a; font: 700 10px Consolas, monospace; }
 .village-generation-summary.has-warning { color: #8a5a12; background: #fff8e8; }
 .village-generation-summary.has-error { color: #a53d32; }
+.village-decoration-controls { display: none; }
+.village-preview-actions { display: flex; gap: 7px; }
+.house-palette-fields.is-disabled .house-option-grid { opacity: .38; pointer-events: none; }
+.settlement-classification-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.settlement-classification-fields > label:first-of-type { grid-column: span 3; }
+.town-manual-workspace { position: fixed; inset: 12px; z-index: 120; overflow: hidden; border: 1px solid #9eb1aa; background: #eef4f1; box-shadow: 0 18px 70px rgba(15,34,29,.28); }
+.town-manual-workspace:not([hidden]) { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.town-manual-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 17px; border-bottom: 1px solid #b7c8c1; background: #fff; }
+.town-manual-header h2 { margin: 2px 0; color: #102c38; font-size: 18px; }.town-manual-header small { color: #667b73; }.town-manual-header > div:last-child { display: flex; gap: 8px; }
+.town-manual-body { display: grid; min-height: 0; grid-template-columns: 280px minmax(480px, 1fr) 260px; }
+.town-manual-library, .town-manual-properties { min-height: 0; overflow: auto; padding: 12px; background: #f6faf8; }
+.town-manual-library { border-right: 1px solid #b7c8c1; }.town-manual-properties { border-left: 1px solid #b7c8c1; }
+.town-manual-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 10px; }.town-manual-tabs button, .town-manual-toolbar button { min-height: 32px; border: 1px solid #aebfba; background: #fff; color: #24463e; font-weight: 800; cursor: pointer; }.town-manual-tabs button.is-active, .town-manual-toolbar button.is-active { border-color: #d7951d; background: #fff3cf; color: #6c4700; }
+.town-manual-library > label { display: grid; gap: 5px; color: #526b63; font-size: 10px; }.town-manual-library input { min-height: 36px; padding: 7px 9px; border: 1px solid #b7c8c1; background: #fff; }
+.town-manual-asset-preview { display:grid; gap:5px; margin-top:10px; padding:7px; border:1px solid #bdccc6; background:#1e342e; }.town-manual-asset-preview canvas { display:block; width:100%; height:128px; image-rendering:pixelated; }.town-manual-asset-preview span { color:#bfd1ca; font-size:9px; line-height:1.4; }
+.town-manual-assets { display: grid; gap: 7px; margin-top: 10px; }.town-manual-asset { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 9px; align-items: center; padding: 8px; border: 1px solid #bdccc6; background: #fff; text-align: left; cursor: pointer; }.town-manual-asset:hover, .town-manual-asset.is-active { border-color: #7aa61c; background: #f6ffe8; }.town-manual-asset i { display: grid; width: 40px; height: 40px; place-items: center; background: var(--asset-color,#d8e5d8); color: #193d34; font-style: normal; font-weight: 900; }.town-manual-asset strong, .town-manual-asset small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.town-manual-asset small { margin-top: 3px; color: #71837c; font: 8px Consolas, monospace; }
+.town-manual-asset em { display:block; margin-top:3px; color:#3e685d; font:700 9px Consolas,monospace; font-style:normal; }
+.town-manual-stage { display: grid; width:auto; max-width:none; min-width: 0; min-height: 0; margin:0; padding:0; grid-template-rows: auto minmax(0,1fr) auto; background: #172925; }.town-manual-toolbar { display: flex; align-items: center; gap: 5px; padding: 8px; border-bottom: 1px solid #48625a; background: #f8fbfa; }.town-manual-toolbar button { padding: 4px 11px; }.town-manual-toolbar span { margin-left: auto; color: #536d64; font: 700 10px Consolas,monospace; }
+#town-manual-canvas { display: block; width: 100%; height: 100%; min-height: 0; background: #213b34; cursor: crosshair; touch-action: none; }#town-manual-canvas.is-dragging { cursor:grabbing; }.town-manual-stage footer { padding: 8px 12px; border-top: 1px solid #48625a; background: #f8fbfa; color: #536d64; font: 700 10px Consolas,monospace; }
+.town-manual-stage footer.has-overlap { color:#9f2924; background:#fff0ee; box-shadow:inset 4px 0 #ff514b; }.town-manual-overlap-warning { padding:8px 9px; border:1px solid #e7938e; background:#fff0ee; color:#a32d28; font-size:10px; font-weight:800; }
+.town-manual-property-card { display: grid; gap: 9px; }.town-manual-property-card h3 { margin: 0; }.town-manual-property-card label { display: grid; gap: 4px; color: #587068; font-size: 10px; }.town-manual-property-card input, .town-manual-property-card select { min-height: 34px; padding: 6px 8px; border: 1px solid #b7c8c1; background: #fff; }
+@media (max-width: 1050px) { .town-manual-body { grid-template-columns: 220px minmax(400px,1fr); }.town-manual-properties { position: absolute; right: 0; top: 76px; bottom: 0; width: 250px; box-shadow: -8px 0 24px rgba(20,40,34,.18); }.settlement-classification-fields { grid-template-columns: 1fr; }.settlement-classification-fields > label:first-of-type { grid-column: auto; } }
 .facility-catalog-help { margin: 0; padding: 10px 12px; border: 1px solid #bdd0d5; background: #fff; color: #51697a; font-size: 11px; line-height: 1.55; }
 .civic-facility-options { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(220px, 1.2fr); gap: 12px; align-items: center; padding: 12px; border: 1px solid #bdd0d5; background: #eef8f8; }.civic-facility-options > small { color: #607788; font-size: 10px; line-height: 1.5; }.civic-facility-options label > small { display: block; margin-top: 5px; color: #607788; font-size: 9px; }
 .existing-facilities { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }.existing-facilities span { margin-right: 4px; color: #607788; font-size: 10px; font-weight: 750; }.existing-facilities b { padding: 6px 9px; border: 1px solid #c7d4d9; background: #eef4f5; color: #284256; font-size: 10px; }
@@ -1735,6 +1757,35 @@ body { font-size: 14px; line-height: 1.45; }
 @media (max-width: 1000px) { .space-flow-board { grid-template-columns: 280px minmax(0,1fr); }.space-flow-inspector { display: none; }.space-asset-browser .space-interior-cards { grid-auto-columns:minmax(200px,250px); } }
 
 /* Cobblemon Casino's partitioned AutoConfig JSON editor. */
+.gacha-machine-manager { display:grid; gap:14px; margin-bottom:18px; padding:16px; }
+.gacha-machine-manager > .panel-heading { padding:0 0 13px; }
+.gacha-machine-manager > .panel-heading p { margin:4px 0 0; color:#687b71; font-size:10px; }
+.gacha-machine-workspace { display:grid; grid-template-columns:260px minmax(0,1fr); gap:14px; }
+.gacha-machine-list { display:grid; gap:7px; }
+.gacha-machine-card { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 8px; width:100%; padding:10px; border:1px solid #c7d4cd; border-radius:7px; background:#fff; color:#294035; text-align:left; cursor:pointer; }
+.gacha-machine-card.is-active { border-color:#6a7fef; background:#f2f4ff; box-shadow:0 0 0 2px rgba(87,105,213,.12); }
+.gacha-machine-card strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gacha-machine-card code { grid-column:1/-1; color:#718178; font-size:8px; }
+.gacha-machine-card i { width:9px; height:9px; border-radius:50%; background:#b8c3bd; }
+.gacha-machine-card i.enabled { background:#2b906b; }
+.gacha-machine-editor { display:grid; min-width:0; gap:12px; }
+.gacha-editor-section { display:grid; gap:10px; padding:13px; border:1px solid #d2ddd7; border-radius:7px; background:#fafcfb; }
+.gacha-editor-section > header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.gacha-editor-section h4 { margin:0; color:#2f4b3d; }
+.gacha-field-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.gacha-field-grid label { display:grid; min-width:0; gap:4px; color:#5a6e64; font-size:9px; }
+.gacha-field-grid label.wide { grid-column:1/-1; }
+.gacha-field-grid input:not([type=checkbox]),.gacha-field-grid select,.gacha-reward-row input,.gacha-reward-row select { min-width:0; height:34px; padding:6px 8px; border:1px solid #b7c7be; border-radius:5px; background:#fff; }
+.gacha-check { display:flex!important; align-items:center; gap:7px!important; padding:7px 9px; border:1px solid #d2ddd7; border-radius:5px; background:#fff; }
+.gacha-rarity-tabs { display:flex; flex-wrap:wrap; gap:6px; }
+.gacha-rarity-tabs button { padding:7px 10px; border:1px solid #c9d5ce; border-radius:999px; background:#fff; color:#50645a; cursor:pointer; }
+.gacha-rarity-tabs button.is-active { border-color:#6a7fef; background:#eef0ff; color:#3442a0; font-weight:700; }
+.gacha-reward-table { display:grid; gap:6px; overflow:auto; }
+.gacha-reward-row { display:grid; grid-template-columns:110px 95px minmax(180px,1fr) 70px 70px 75px 32px; align-items:center; gap:6px; min-width:720px; }
+.gacha-reward-row.head { color:#687b71; font-size:8px; font-weight:700; }
+.gacha-machine-delete { border-color:#d9adb4!important; color:#a33b49!important; }
+@media (max-width:900px) { .gacha-machine-workspace{grid-template-columns:1fr}.gacha-machine-list{grid-template-columns:repeat(2,minmax(0,1fr))}.gacha-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:560px) { .gacha-machine-list,.gacha-field-grid{grid-template-columns:1fr}.gacha-field-grid label.wide{grid-column:auto} }
 .casino-config-workspace { display:grid; grid-template-columns:minmax(250px,310px) minmax(0,1fr); gap:16px; align-items:start; }
 .casino-config-files,.casino-config-editor { min-height:640px; }
 .casino-config-file-list { display:grid; gap:7px; padding:0 14px 16px; }

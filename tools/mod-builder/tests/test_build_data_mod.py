@@ -316,6 +316,11 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertNotIn("log_bridge_layout", route)
         self.assertEqual({"mode": "world", "offset": 0}, route["level_scaling"])
         self.assertEqual([], route["npc_placements"])
+        self.assertFalse(route["pokemon_spawns"]["inherit_biome"])
+        self.assertEqual(
+            ["cobblemon:pidgey", "cobblemon:rattata"],
+            [entry["species"] for entry in route["pokemon_spawns"]["additions"]],
+        )
         bridge = next(connection for connection in world["connections"] if connection["id"] == "route_custom_15")
         self.assertEqual("log_bridge", bridge["surface_style"])
         self.assertEqual({"pattern": "alternating", "detour_blocks": 12}, bridge["log_bridge_layout"])

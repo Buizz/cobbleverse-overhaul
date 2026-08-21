@@ -50,6 +50,28 @@ record TrainerCardProgress(List<LeaguePage> pages) {
         LeaguePage {
             challenges = List.copyOf(challenges);
         }
+
+        List<Challenge> gymChallenges() {
+            return challenges.stream().filter(challenge -> challenge.kind() == ChallengeKind.GYM).toList();
+        }
+
+        List<Challenge> eliteChallenges() {
+            return challenges.stream().filter(challenge -> challenge.kind() == ChallengeKind.LEAGUE).toList();
+        }
+
+        List<Challenge> championChallenges() {
+            return challenges.stream().filter(challenge -> challenge.kind() == ChallengeKind.CHAMPION).toList();
+        }
+
+        boolean eliteCleared() {
+            List<Challenge> elite = eliteChallenges();
+            return !elite.isEmpty() && elite.stream().allMatch(Challenge::completed);
+        }
+
+        boolean championCleared() {
+            List<Challenge> champions = championChallenges();
+            return !champions.isEmpty() && champions.stream().allMatch(Challenge::completed);
+        }
     }
 
     record Challenge(

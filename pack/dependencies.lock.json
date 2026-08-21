@@ -180,6 +180,45 @@
       "reason": "가려진 엔티티와 블록 엔티티 렌더링을 생략해 복잡한 마을의 프레임 개선"
     },
     {
+      "id": "entity_model_features",
+      "display_name": "Entity Model Features",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "3.2.4-1.21-neoforge",
+      "curseforge": {
+        "project_id": 844662,
+        "file_id": 8063559
+      },
+      "reason": "Melody 주민 리소스팩의 OptiFine CEM 커스텀 모델을 NeoForge에서 렌더링"
+    },
+    {
+      "id": "entity_texture_features",
+      "display_name": "Entity Texture Features",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "7.1-1.21-neoforge",
+      "curseforge": {
+        "project_id": 568563,
+        "file_id": 7930620
+      },
+      "reason": "Melody 주민 리소스팩의 바이옴·개체별 랜덤 텍스처와 발광 텍스처 지원"
+    },
+    {
+      "id": "resource_pack_overrides",
+      "display_name": "Resource Pack Overrides",
+      "classification": "required",
+      "side": "client",
+      "enabled": true,
+      "version": "21.1.0-1.21.1-neoforge",
+      "curseforge": {
+        "project_id": 832644,
+        "file_id": 5733968
+      },
+      "reason": "CurseForge가 별도로 내려받는 Melody 주민 리소스팩을 첫 실행부터 기본 활성화"
+    },
+    {
       "id": "skin_layers_3d",
       "display_name": "Skin Layers 3D",
       "classification": "required",

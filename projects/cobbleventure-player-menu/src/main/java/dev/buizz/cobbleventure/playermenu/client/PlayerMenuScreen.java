@@ -639,9 +639,13 @@ public final class PlayerMenuScreen extends Screen {
     }
 
     private static void fillCircle(GuiGraphics graphics, int centerX, int centerY, int radius, int color) {
-        for (int y = -radius; y <= radius; y++) {
-            int halfWidth = (int) Math.floor(Math.sqrt(radius * radius - y * y));
-            graphics.fill(centerX - halfWidth, centerY + y, centerX + halfWidth + 1, centerY + y + 1, color);
+        if (radius <= 0) return;
+        for (int row = 0; row < radius * 2; row++) {
+            double offsetY = row + 0.5D - radius;
+            double halfWidth = Math.sqrt(Math.max(0.0D, radius * radius - offsetY * offsetY));
+            int left = (int)Math.ceil(centerX - halfWidth - 0.5D);
+            int right = (int)Math.floor(centerX + halfWidth - 0.5D) + 1;
+            graphics.fill(left, centerY - radius + row, right, centerY - radius + row + 1, color);
         }
     }
 

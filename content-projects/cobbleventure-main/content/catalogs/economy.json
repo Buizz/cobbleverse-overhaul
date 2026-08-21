@@ -56,24 +56,14 @@
           "vendor_unit": "cobbleventure:vendor/lilycove_support_tms_serin"
         },
         {
-          "slot_id": "5f_left_a",
-          "display_name": { "ko_kr": "5층 맨 왼쪽 계산대", "en_us": "5F Far Left Counter" },
+          "slot_id": "5f_left",
+          "display_name": { "ko_kr": "5층 왼쪽 계산대", "en_us": "5F Left Counter" },
           "vendor_unit": "cobbleventure:vendor/lilycove_dolls_yuri"
         },
         {
-          "slot_id": "5f_left_b",
-          "display_name": { "ko_kr": "5층 왼쪽 두 번째 계산대", "en_us": "5F Inner Left Counter" },
+          "slot_id": "5f_right",
+          "display_name": { "ko_kr": "5층 오른쪽 계산대", "en_us": "5F Right Counter" },
           "vendor_unit": "cobbleventure:vendor/lilycove_cushions_bomi"
-        },
-        {
-          "slot_id": "5f_right_a",
-          "display_name": { "ko_kr": "5층 오른쪽 두 번째 계산대", "en_us": "5F Inner Right Counter" },
-          "vendor_unit": "cobbleventure:vendor/lilycove_furniture_geonu"
-        },
-        {
-          "slot_id": "5f_right_b",
-          "display_name": { "ko_kr": "5층 맨 오른쪽 계산대", "en_us": "5F Far Right Counter" },
-          "vendor_unit": "cobbleventure:vendor/lilycove_decor_chorong"
         },
         {
           "slot_id": "rooftop_sale",

@@ -1,0 +1,76 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.143'
+}
+
+version = mod_version
+group = mod_group_id
+base { archivesName = 'cobbleventure-casino' }
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    mavenCentral()
+    maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' }
+    maven { name = 'CurseMaven'; url = 'https://cursemaven.com'; content { includeGroup 'curse.maven' } }
+}
+
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
+    localRuntime "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    localRuntime "curse.maven:kotlin-for-forge-351264:8335665"
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test { useJUnitPlatform() }
+
+neoForge {
+    version = project.neo_version
+    runs { client { client() }; server { server() }; gameTestServer { type = 'gameTestServer' } }
+    mods { "${mod_id}" { sourceSet(sourceSets.main) } }
+    addModdingDependenciesTo sourceSets.test
+}
+
+def contentProject = rootProject.file('../../content-projects/cobbleventure-main')
+processResources {
+    def properties = [
+        minecraft_version_range: minecraft_version_range,
+        neo_version: neo_version,
+        loader_version_range: loader_version_range,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version,
+        cobblemon_version: cobblemon_version,
+    ]
+    inputs.properties properties
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand properties
+    }
+    from(new File(contentProject, 'content/catalogs/gacha-machines.json')) {
+        into 'data/cobbleventure_casino/gacha'
+        rename { 'machines.json' }
+    }
+}
+
+tasks.register('cleanInstalledDevelopmentJars', Delete) {
+    delete fileTree(rootProject.file('../../pack/overrides/development-placeholder/mods')) {
+        include 'cobbleventure-casino-*.jar'
+    }
+}
+
+tasks.register('installDevelopmentJar', Copy) {
+    dependsOn jar
+    dependsOn 'cleanInstalledDevelopmentJars'
+    from jar
+    into rootProject.file('../../pack/overrides/development-placeholder/mods')
+}
+
+tasks.named('build') { finalizedBy 'installDevelopmentJar' }

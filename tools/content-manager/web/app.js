@@ -41,6 +41,7 @@ const state = {
   encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   villageDecorationEditor: { tool: "select", selected: -1, drag: null, hitTargets: [], preview: null },
+  townManualEditor: { library: "building", tool: "select", asset: null, selected: null, hover: null, roadStart: null, drag: null, view3d: false, zoom: 1, panX: 0, panY: 0, hitTargets: [], draft: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
   buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], facilityDefaults: {}, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null, placement: { anchor: { idPrefix: "anchor", kind: "room", radiusX: 12, radiusZ: 12, height: 12 }, entrance: { idPrefix: "entrance", displayName: "입출구", requiredProgress: "", fallbackX: 4, fallbackY: 1, fallbackZ: 0 }, path: { idPrefix: "connection", kind: "tunnel", width: 5 } } },
@@ -56,6 +57,7 @@ const state = {
   structureBuilder: null,
   dialogueTheme: null,
   casinoConfig: { loaded: false, root: "", files: [], selectedPath: "", poolByPath: {}, query: "" },
+  gachaMachines: { loaded: false, schema_version: 1, machines: [], selectedId: "", selectedRarity: "", dirty: false },
   starterSettings: { initialized: false, loaded: false, selectedGeneration: 1, defaultGeneration: 1, configs: [], settlementDocuments: new Map(), requestId: 0 }
 };
 const lazyDataLoaded = { trainers: false, biomes: false, structures: false, buildingSettings: false, definitions: false, economy: false };
@@ -1120,6 +1122,12 @@ async function loadStructureData(force = false) {
       request(`/api/structure-sizes${suffix}`), request(`/api/building-settings${suffix}`)
     ]);
     if (!result.ok) throw new Error(result.data.error || "NBT 구조물 목록을 불러오지 못했습니다.");
+    if (result.data.cache?.refreshing && !Object.keys(result.data.structures || {}).length) {
+      if ($("#nbt-structure-count")) $("#nbt-structure-count").textContent = "작업 중";
+      clearTimeout(loadStructureData.retryTimer);
+      loadStructureData.retryTimer = setTimeout(() => loadStructureData().catch((error) => toast(error.message)), 1200);
+      return;
+    }
     state.structureSizes = result.data.structures || {};
     if (buildingSettings.ok) for (const [id, metadata] of Object.entries(buildingSettings.data.structures || {})) {
       state.structureSizes[id] = { ...(state.structureSizes[id] || {}), ...metadata };
@@ -1158,6 +1166,12 @@ async function loadBuildingSettingsData(force = false) {
   lazyDataPromises.buildingSettings = (async () => {
     const result = await request(`/api/building-settings${force ? "?refresh=1" : ""}`);
     if (!result.ok) throw new Error(result.data.error || "건물 설정을 불러오지 못했습니다.");
+    if (result.data.cache?.refreshing && !Object.keys(result.data.structures || {}).length) {
+      $("#building-settings-path").textContent = "NBT 건물 목록을 백그라운드에서 준비 중…";
+      clearTimeout(loadBuildingSettingsData.retryTimer);
+      loadBuildingSettingsData.retryTimer = setTimeout(() => loadBuildingSettingsData().catch((error) => toast(error.message)), 1200);
+      return;
+    }
     state.buildingSettings.structures = result.data.structures || {};
     state.buildingSettings.npcs = result.data.npcs || [];
     state.buildingSettings.facilityDefaults = {
@@ -1290,6 +1304,116 @@ async function saveDialogueTheme() {
   });
   showIssues("#dialogue-theme-issues", result.data);
   toast(result.ok ? "전역 대화 테마를 저장했습니다." : "대화 테마 값을 확인해 주세요.");
+}
+
+function selectedGachaMachine() {
+  return state.gachaMachines.machines.find((machine) => machine.id === state.gachaMachines.selectedId) || null;
+}
+
+function selectedGachaRarity(machine = selectedGachaMachine()) {
+  if (!machine) return null;
+  const rarities = machine.rarities || [];
+  if (!rarities.some((rarity) => rarity.id === state.gachaMachines.selectedRarity)) state.gachaMachines.selectedRarity = rarities[0]?.id || "";
+  return rarities.find((rarity) => rarity.id === state.gachaMachines.selectedRarity) || null;
+}
+
+function gachaField(label, path, value, options = {}) {
+  const type = options.type || "text";
+  if (type === "checkbox") return `<label class="gacha-check"><input type="checkbox" data-gacha-path="${path}" ${value ? "checked" : ""}><span>${label}</span></label>`;
+  const attrs = [options.min != null ? `min="${options.min}"` : "", options.max != null ? `max="${options.max}"` : "", options.step != null ? `step="${options.step}"` : "", options.readonly ? "readonly" : ""].filter(Boolean).join(" ");
+  return `<label class="${options.wide ? "wide" : ""}"><span>${label}</span><input type="${type}" data-gacha-path="${path}" value="${escapeHtml(String(value ?? ""))}" ${attrs}></label>`;
+}
+
+function renderGachaMachines() {
+  const workspace = state.gachaMachines;
+  const machine = selectedGachaMachine();
+  $("#gacha-machine-list").innerHTML = workspace.machines.length ? workspace.machines.map((entry) => `
+    <button class="gacha-machine-card${entry.id === workspace.selectedId ? " is-active" : ""}" type="button" data-gacha-select="${escapeHtml(entry.id)}"><strong>${escapeHtml(entry.display_name)}</strong><i class="${entry.enabled ? "enabled" : ""}"></i><code>${escapeHtml(entry.id)}</code></button>`).join("") : '<div class="issues empty">등록된 기계가 없습니다.</div>';
+  if (!machine) {
+    $("#gacha-machine-editor").innerHTML = '<div class="issues empty">기계를 추가하거나 선택하세요.</div>';
+    return;
+  }
+  const rarity = selectedGachaRarity(machine);
+  const rarityOptions = (machine.rarities || []).map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} (${escapeHtml(entry.id)})</option>`).join("");
+  const rewards = rarity?.rewards || [];
+  $("#gacha-machine-editor").innerHTML = `
+    <section class="gacha-editor-section"><header><h4>기계 기본 정보</h4><button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-machine>기계 삭제</button></header><div class="gacha-field-grid">
+      ${gachaField("기계 프로필 ID", "id", machine.id, { readonly:true, wide:true })}${gachaField("표시 이름", "display_name", machine.display_name)}${gachaField("천장 공유 그룹", "pity_group", machine.pity_group)}${gachaField("사용", "enabled", machine.enabled, { type:"checkbox" })}
+    </div></section>
+    <section class="gacha-editor-section"><header><h4>기계 외형</h4><small>등록된 Minecraft 블록을 조합해 게임에서 즉시 렌더링합니다.</small></header><div class="gacha-field-grid">
+      ${gachaField("본체 블록", "appearance/base_block", machine.appearance.base_block)}${gachaField("강조 블록", "appearance/accent_block", machine.appearance.accent_block)}${gachaField("전체 크기", "appearance/scale", machine.appearance.scale, {type:"number",min:.25,max:2,step:.05})}
+      ${gachaField("강조 크기", "appearance/accent_scale", machine.appearance.accent_scale, {type:"number",min:.1,max:1.5,step:.05})}${gachaField("강조 높이", "appearance/accent_height", machine.appearance.accent_height, {type:"number",min:0,max:2,step:.05})}${gachaField("회전 각도", "appearance/rotation_degrees", machine.appearance.rotation_degrees, {type:"number",min:-360,max:360,step:15})}${gachaField("이름표 표시", "appearance/show_nameplate", machine.appearance.show_nameplate, {type:"checkbox"})}
+    </div></section>
+    <section class="gacha-editor-section"><header><h4>이용 화폐</h4></header><div class="gacha-field-grid">${gachaField("아이템 ID", "currency/item", machine.currency.item, {wide:true})}${gachaField("1회당 수량", "currency/count", machine.currency.count, {type:"number",min:1,step:1})}</div></section>
+    <section class="gacha-editor-section"><header><h4>희귀도 · 보상 풀</h4><button class="button secondary" type="button" data-gacha-add-rarity>＋ 희귀도</button></header>
+      <div class="gacha-rarity-tabs">${(machine.rarities || []).map((entry) => `<button type="button" class="${entry.id === workspace.selectedRarity ? "is-active" : ""}" data-gacha-rarity="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} · ${entry.weight}</button>`).join("")}</div>
+      ${rarity ? `<div class="gacha-field-grid">${gachaField("희귀도 ID", "rarity/id", rarity.id, {readonly:true})}${gachaField("표시 이름", "rarity/display_name", rarity.display_name)}${gachaField("등장 가중치", "rarity/weight", rarity.weight, {type:"number",min:.01,step:.01})}</div>
+      <div class="gacha-reward-table"><div class="gacha-reward-row head"><span>보상 ID</span><span>종류</span><span>아이템 ID / PokemonProperties</span><span>수량</span><span>가중치</span><span>선택 가능</span><span></span></div>
+      ${rewards.map((reward, index) => `<div class="gacha-reward-row" data-gacha-reward-index="${index}"><input data-gacha-reward="id" value="${escapeHtml(reward.id)}"><select data-gacha-reward="kind"><option value="item" ${reward.kind === "item" ? "selected" : ""}>아이템</option><option value="pokemon" ${reward.kind === "pokemon" ? "selected" : ""}>포켓몬</option></select><input data-gacha-reward="value" value="${escapeHtml(reward.value)}"><input type="number" min="1" data-gacha-reward="count" value="${reward.count}"><input type="number" min=".01" step=".01" data-gacha-reward="weight" value="${reward.weight}"><label class="gacha-check"><input type="checkbox" data-gacha-reward="selectable" ${reward.selectable ? "checked" : ""}> 선택</label><button type="button" class="casino-row-remove" data-gacha-delete-reward="${index}">×</button></div>`).join("")}</div><div><button class="button secondary" type="button" data-gacha-add-reward>＋ 보상</button> <button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-rarity>희귀도 삭제</button></div>` : '<div class="issues empty">희귀도를 추가하세요.</div>'}
+    </section>
+    <section class="gacha-editor-section"><header><h4>천장 시스템</h4><small>소프트는 확률 상승, 확정은 지정 희귀도 보장, 선택은 포인트로 원하는 보상을 교환합니다.</small></header><div class="gacha-field-grid">
+      ${gachaField("소프트 천장", "pity/soft/enabled", machine.pity.soft.enabled, {type:"checkbox"})}${gachaField("시작 횟수", "pity/soft/start", machine.pity.soft.start, {type:"number",min:1})}${gachaField("최대 보정 횟수", "pity/soft/max_at", machine.pity.soft.max_at, {type:"number",min:1})}
+      <label><span>보정 희귀도</span><select data-gacha-path="pity/soft/target_rarity">${rarityOptions}</select></label>${gachaField("최대 확률 (0~1)", "pity/soft/max_chance", machine.pity.soft.max_chance, {type:"number",min:.001,max:1,step:.001})}
+      ${gachaField("확정 천장", "pity/hard/enabled", machine.pity.hard.enabled, {type:"checkbox"})}${gachaField("확정 횟수", "pity/hard/count", machine.pity.hard.count, {type:"number",min:1})}<label><span>확정 희귀도</span><select data-gacha-path="pity/hard/target_rarity">${rarityOptions}</select></label>
+      ${gachaField("선택 천장", "pity/selection/enabled", machine.pity.selection.enabled, {type:"checkbox"})}${gachaField("뽑기당 포인트", "pity/selection/points_per_pull", machine.pity.selection.points_per_pull, {type:"number",min:1})}${gachaField("선택 필요 포인트", "pity/selection/required_points", machine.pity.selection.required_points, {type:"number",min:1})}
+    </div></section>`;
+  $("[data-gacha-path='pity/soft/target_rarity']").value = machine.pity.soft.target_rarity;
+  $("[data-gacha-path='pity/hard/target_rarity']").value = machine.pity.hard.target_rarity;
+}
+
+async function loadGachaMachines(force = false) {
+  if (state.gachaMachines.loaded && !force) { renderGachaMachines(); return; }
+  const result = await request("/api/gacha-machines");
+  if (!result.ok) throw new Error(result.data.error || "가챠 기계 설정을 불러오지 못했습니다.");
+  state.gachaMachines = { ...result.data, loaded:true, selectedId:state.gachaMachines.selectedId, selectedRarity:"", dirty:false };
+  if (!state.gachaMachines.machines.some((machine) => machine.id === state.gachaMachines.selectedId)) state.gachaMachines.selectedId = state.gachaMachines.machines[0]?.id || "";
+  renderGachaMachines();
+  $("#gacha-machine-issues").className = "issues empty";
+  $("#gacha-machine-issues").textContent = "웹 설정과 애드온 데이터가 연결되어 있습니다.";
+}
+
+async function saveGachaMachines() {
+  const payload = { "$schema":"../schemas/gacha-machines.schema.json", schema_version:1, machines:state.gachaMachines.machines };
+  const result = await request("/api/gacha-machines", { method:"PUT", body:JSON.stringify(payload) });
+  showIssues("#gacha-machine-issues", result.data);
+  if (result.ok) state.gachaMachines.dirty = false;
+  toast(result.ok ? "가챠 기계 설정을 저장했습니다." : result.data.error || "기계 설정을 확인해 주세요.");
+}
+
+function addGachaMachine() {
+  let number = 1, id;
+  do id = `cobbleventure:gacha_machine_${String(number++).padStart(2, "0")}`; while (state.gachaMachines.machines.some((machine) => machine.id === id));
+  state.gachaMachines.machines.push({ id, display_name:"새 가챠 기계", enabled:true, pity_group:id.split(":")[1], appearance:{base_block:"minecraft:iron_block",accent_block:"minecraft:glass",scale:1,accent_scale:.45,accent_height:.78,rotation_degrees:0,show_nameplate:true}, currency:{item:"cobblemoncasino:copper_coin",count:1}, rarities:[{id:"common",display_name:"일반",weight:100,rewards:[{id:"sample_reward",kind:"item",value:"minecraft:diamond",count:1,weight:1,selectable:true}]}], pity:{soft:{enabled:false,start:30,max_at:60,target_rarity:"common",max_chance:.25},hard:{enabled:false,count:80,target_rarity:"common"},selection:{enabled:false,points_per_pull:1,required_points:100}} });
+  state.gachaMachines.selectedId = id; state.gachaMachines.selectedRarity = "common"; state.gachaMachines.dirty = true; renderGachaMachines();
+}
+
+function handleGachaMachineClick(event) {
+  const select = event.target.closest("[data-gacha-select]"); if (select) { state.gachaMachines.selectedId = select.dataset.gachaSelect; state.gachaMachines.selectedRarity = ""; renderGachaMachines(); return; }
+  const rarityButton = event.target.closest("[data-gacha-rarity]"); if (rarityButton) { state.gachaMachines.selectedRarity = rarityButton.dataset.gachaRarity; renderGachaMachines(); return; }
+  const machine = selectedGachaMachine(); if (!machine) return;
+  if (event.target.closest("[data-gacha-delete-machine]")) { if (confirm(`${machine.display_name} 기계를 삭제할까요?`)) { state.gachaMachines.machines = state.gachaMachines.machines.filter((entry) => entry !== machine); state.gachaMachines.selectedId = state.gachaMachines.machines[0]?.id || ""; state.gachaMachines.selectedRarity = ""; state.gachaMachines.dirty = true; renderGachaMachines(); } return; }
+  if (event.target.closest("[data-gacha-add-rarity]")) { let n=1,id; do id=`rarity_${n++}`; while (machine.rarities.some((entry)=>entry.id===id)); machine.rarities.push({id,display_name:"새 희귀도",weight:1,rewards:[{id:`${id}_reward`,kind:"item",value:"minecraft:diamond",count:1,weight:1,selectable:false}]}); state.gachaMachines.selectedRarity=id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const rarity = selectedGachaRarity(machine); if (!rarity) return;
+  if (event.target.closest("[data-gacha-delete-rarity]")) { if (machine.rarities.length <= 1) return toast("희귀도는 하나 이상 필요합니다."); machine.rarities = machine.rarities.filter((entry)=>entry!==rarity); state.gachaMachines.selectedRarity=machine.rarities[0].id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  if (event.target.closest("[data-gacha-add-reward]")) { let n=1,id; const ids=new Set(machine.rarities.flatMap((entry)=>entry.rewards.map((reward)=>reward.id))); do id=`reward_${n++}`; while(ids.has(id)); rarity.rewards.push({id,kind:"item",value:"minecraft:diamond",count:1,weight:1,selectable:false}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const remove = event.target.closest("[data-gacha-delete-reward]"); if (remove) { if (rarity.rewards.length <= 1) return toast("각 희귀도에는 보상이 하나 이상 필요합니다."); rarity.rewards.splice(Number(remove.dataset.gachaDeleteReward),1); state.gachaMachines.dirty=true; renderGachaMachines(); }
+}
+
+function updateGachaMachineField(event) {
+  const machine = selectedGachaMachine(); if (!machine) return;
+  const input = event.target;
+  if (input.dataset.gachaPath) {
+    if (input.dataset.gachaPath === "id") return;
+    const value = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
+    setCasinoAt(machine, input.dataset.gachaPath.split("/"), value); state.gachaMachines.dirty=true;
+    if (event.type === "change" && (input.dataset.gachaPath === "display_name" || input.dataset.gachaPath === "enabled")) renderGachaMachines();
+    return;
+  }
+  if (!input.dataset.gachaReward) return;
+  const rarity = selectedGachaRarity(machine), row = input.closest("[data-gacha-reward-index]");
+  const reward = rarity?.rewards[Number(row?.dataset.gachaRewardIndex)]; if (!reward) return;
+  reward[input.dataset.gachaReward] = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
+  state.gachaMachines.dirty=true;
 }
 
 function selectedCasinoConfigFile() {
@@ -1569,7 +1693,7 @@ function loadSectionData(section, force = false) {
   if (section === "definitions") return loadGameDefinitions(force);
   if (section === "economy") return loadEconomy(force);
   if (section === "global-resources") return loadDialogueTheme(force);
-  if (section === "casino-config") return loadCasinoConfig(force);
+  if (section === "casino-config") return Promise.all([loadGachaMachines(force), loadCasinoConfig(force)]);
   if (section === "builds") return loadStructureBuilder();
   return Promise.resolve();
 }
@@ -9899,7 +10023,7 @@ function rotateMinecraftTopBounds(bounds, width, depth, rotation) {
   return { min_x: minX, max_x: maxX, min_z: minZ, max_z: maxZ, width: maxX - minX + 1, depth: maxZ - minZ + 1 };
 }
 
-function drawMinecraftStructureTopView(context, plot, project, scale) {
+function drawMinecraftStructureTopView(context, plot, project, scale, opacity = 1) {
   const palette = plot.topView?.palette;
   const blocks = plot.topView?.blocks;
   if (!Array.isArray(palette) || !Array.isArray(blocks) || !blocks.length) return false;
@@ -9910,11 +10034,13 @@ function drawMinecraftStructureTopView(context, plot, project, scale) {
     const [localX, localZ, y, paletteIndex] = block.map(Number);
     const blockName = palette[paletteIndex] || "minecraft:unknown";
     const rotated = rotateMinecraftTopBlock(localX, localZ, plot.width, plot.depth, plot.rotation);
-    const start = project(plot.x + rotated.x, plot.z + rotated.z);
-    const end = project(plot.x + rotated.x + 1, plot.z + rotated.z + 1);
+    const placedX = Math.round(Number(plot.x));
+    const placedZ = Math.round(Number(plot.z));
+    const start = project(placedX + rotated.x, placedZ + rotated.z);
+    const end = project(placedX + rotated.x + 1, placedZ + rotated.z + 1);
     const heightShade = .82 + ((y - minHeight) / heightRange) * .22;
     const variation = ((localX * 17 + localZ * 31 + paletteIndex * 7) % 5 - 2) * .018;
-    context.globalAlpha = /glass|leaves|water/.test(blockName) ? .82 : 1;
+    context.globalAlpha = (/glass|leaves|water/.test(blockName) ? .82 : 1) * opacity;
     context.fillStyle = shadeMinecraftTopColor(minecraftTopBlockColor(blockName), heightShade + variation);
     context.fillRect(start.x, start.y, Math.max(.7, end.x - start.x + .15), Math.max(.7, end.y - start.y + .15));
     if (scale >= 5) {
@@ -10080,10 +10206,10 @@ function facilityEntrancePoint(id, occupiedPlot, facing = facilityCanonicalEntra
     return { x: blockX + occupiedPlot.width, z: blockZ + Math.min(15, occupiedPlot.depth - 1) };
   }
   return ({
-    north: { x: blockX + occupiedPlot.width / 2, z: blockZ - 1 },
-    east: { x: blockX + occupiedPlot.width, z: blockZ + occupiedPlot.depth / 2 },
-    south: { x: blockX + occupiedPlot.width / 2, z: blockZ + occupiedPlot.depth },
-    west: { x: blockX - 1, z: blockZ + (String(id).includes("gym") ? Math.min(10, occupiedPlot.depth - 1) : occupiedPlot.depth / 2) }
+    north: { x: blockX + Math.floor(occupiedPlot.width / 2), z: blockZ - 1 },
+    east: { x: blockX + occupiedPlot.width, z: blockZ + Math.floor(occupiedPlot.depth / 2) },
+    south: { x: blockX + Math.floor(occupiedPlot.width / 2), z: blockZ + occupiedPlot.depth },
+    west: { x: blockX - 1, z: blockZ + (String(id).includes("gym") ? Math.min(10, occupiedPlot.depth - 1) : Math.floor(occupiedPlot.depth / 2)) }
   })[facing];
 }
 
@@ -10348,7 +10474,7 @@ function villagePlotInsideLayout(plot, cellCount, shape, customCells = []) {
   return samples.every(([x, z]) => villageLayoutContains(x, z, cellCount, shape, 4, customCells));
 }
 
-function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal", roadTemplate = "cross") {
+function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal", roadTemplate = "cross", residentialBuildingsEnabled = true) {
   const random = villagePreviewRandom(seed);
   const normalizedCellCount = normalizeTownCellCount(cellCount);
   const normalizedFootprintShape = normalizeTownFootprintShape(footprintShape);
@@ -10607,13 +10733,13 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
             plot.rotation
           );
           plot.entrance = {
-            x: plot.x + rotatedDoor.x,
-            z: plot.z + rotatedDoor.z
+            x: Math.round(Number(plot.x)) + rotatedDoor.x,
+            z: Math.round(Number(plot.z)) + rotatedDoor.z
           };
         } else if (kind === "facility" && Array.isArray(definition.footprint?.roadAnchor?.position)) {
           plot.entrance = {
-            x: plot.x + Number(definition.footprint.roadAnchor.position[0]),
-            z: plot.z + Number(definition.footprint.roadAnchor.position[2])
+            x: Math.round(Number(plot.x)) + Number(definition.footprint.roadAnchor.position[0]),
+            z: Math.round(Number(plot.z)) + Number(definition.footprint.roadAnchor.position[2])
           };
         } else {
           plot.entrance = facilityEntrancePoint(definition.id, plot.occupied, facing);
@@ -10755,7 +10881,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
   }
 
   const baseHouseTarget = normalizedCellCount === 19 ? Math.min(36, Math.max(12, 6 + depth * 5)) : Math.min(18, Math.max(4, 3 + depth * 3));
-  const houseTarget = Math.max(2, Math.round(baseHouseTarget * densityProfile.houseMultiplier));
+  const houseTarget = residentialBuildingsEnabled ? Math.max(2, Math.round(baseHouseTarget * densityProfile.houseMultiplier)) : 0;
   const palette = normalizedHousePalette(housePalette);
   for (let index = 0; index < houseTarget; index += 1) {
     const base = houseBaseCatalog.find((item) => item.id === palette.bases[Math.floor(random() * palette.bases.length)]) || houseBaseCatalog[0];
@@ -10776,10 +10902,16 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
   }
   const accessRoads = [];
   for (const plot of plots.filter((candidate) => candidate.entrance && candidate.road_connection)) {
-    const entrances = (plot.id === "department_store" ? [
-      { facing: "north", x: plot.occupied.x + plot.occupied.width / 2, z: plot.occupied.z - 1 },
-      { facing: "west", x: plot.occupied.x - 1, z: plot.occupied.z + Math.min(19, plot.occupied.depth - 1) },
-      { facing: "east", x: plot.occupied.x + plot.occupied.width, z: plot.occupied.z + Math.min(19, plot.occupied.depth - 1) }
+    const occupied = plot.occupied || plot;
+    const placedOccupied = {
+      ...occupied,
+      x: Math.round(Number(plot.x)) + Number(occupied.x) - Number(plot.x),
+      z: Math.round(Number(plot.z)) + Number(occupied.z) - Number(plot.z)
+    };
+    const entrances = (["department_store", "facility_department_store"].includes(plot.id) ? [
+      { facing: "north", x: placedOccupied.x + Math.floor(placedOccupied.width / 2), z: placedOccupied.z - 1 },
+      { facing: "west", x: placedOccupied.x - 1, z: placedOccupied.z + Math.min(19, placedOccupied.depth - 1) },
+      { facing: "east", x: placedOccupied.x + placedOccupied.width, z: placedOccupied.z + Math.min(19, placedOccupied.depth - 1) }
     ] : [{ facing: plot.entrance_facing, ...plot.entrance }]).map((entrance) => ({
       facing: entrance.facing,
       ...projectEntranceOutsideNbt(plot, entrance, entrance.facing)
@@ -10793,10 +10925,10 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         const candidates = roads.map((road) => {
           const x = Math.min(Math.max(entrance.x, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
           const z = Math.min(Math.max(entrance.z, Math.min(road.z1, road.z2)), Math.max(road.z1, road.z2));
-          const sameSide = (entrance.facing === "north" && z <= plot.occupied.z)
-            || (entrance.facing === "south" && z >= plot.occupied.z + plot.occupied.depth)
-            || (entrance.facing === "west" && x <= plot.occupied.x)
-            || (entrance.facing === "east" && x >= plot.occupied.x + plot.occupied.width);
+          const sameSide = (entrance.facing === "north" && z <= placedOccupied.z)
+            || (entrance.facing === "south" && z >= placedOccupied.z + placedOccupied.depth)
+            || (entrance.facing === "west" && x <= placedOccupied.x)
+            || (entrance.facing === "east" && x >= placedOccupied.x + placedOccupied.width);
           return { x, z, sameSide, distance: (x - entrance.x) ** 2 + (z - entrance.z) ** 2 };
         });
         const sameSide = candidates.filter((candidate) => candidate.sameSide);
@@ -10865,11 +10997,11 @@ function villageLayoutRerollSeed(seed, attempt) {
   return 1 + ((Math.max(1, Number(seed)) - 1 + attempt * villageLayoutRerollStep) % 999999999);
 }
 
-function simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal", roadTemplate = "cross") {
+function simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, cellCount = 1, housePalette = defaultHousePalette, footprintShape = "line_q", customCells = [], roadExits = [], density = "normal", roadTemplate = "cross", residentialBuildingsEnabled = true) {
   let result = null;
   for (let attempt = 0; attempt < villageLayoutRerollLimit; attempt += 1) {
     const resolvedSeed = villageLayoutRerollSeed(seed, attempt);
-    result = simulateJigsawVillage(resolvedSeed, depth, shape, roadWidth, requirements, cellCount, housePalette, footprintShape, customCells, roadExits, density, roadTemplate);
+    result = simulateJigsawVillage(resolvedSeed, depth, shape, roadWidth, requirements, cellCount, housePalette, footprintShape, customCells, roadExits, density, roadTemplate, residentialBuildingsEnabled);
     Object.assign(result, { requestedSeed: seed, resolvedSeed, rerollCount: attempt, rerollLimit: villageLayoutRerollLimit });
     if (!result.missing.length) return result;
   }
@@ -10893,8 +11025,8 @@ function villageCanvasWorldPosition(canvas, event) {
   const scale = Number(canvas.dataset.fitScale || 1) * state.villageView.zoom;
   return {
     screenX, screenY,
-    x: Math.round(Number(canvas.dataset.worldCenterX || 0) + (screenX - canvas.width / 2 - state.villageView.panX) / scale),
-    z: Math.round(Number(canvas.dataset.worldCenterZ || 0) + (screenY - canvas.height / 2 - state.villageView.panY) / scale)
+    x: Math.floor(Number(canvas.dataset.worldCenterX || 0) + (screenX - canvas.width / 2 - state.villageView.panX) / scale),
+    z: Math.floor(Number(canvas.dataset.worldCenterZ || 0) + (screenY - canvas.height / 2 - state.villageView.panY) / scale)
   };
 }
 
@@ -11016,7 +11148,7 @@ function ensureVillageViewControls(canvas) {
     const worldX = Number(canvas.dataset.worldCenterX || 0) + (screenX - canvas.width / 2 - view.panX) / (fitScale * view.zoom);
     const worldZ = Number(canvas.dataset.worldCenterZ || 0) + (screenY - canvas.height / 2 - view.panY) / (fitScale * view.zoom);
     const position = controls.querySelector("[data-village-position]");
-    position.textContent = `X ${Math.round(worldX)} · Z ${Math.round(worldZ)} · ${Math.round(view.zoom * 100)}% · 1칸=1블록`;
+    position.textContent = `블록 X ${Math.floor(worldX)} · Z ${Math.floor(worldZ)} · ${Math.round(view.zoom * 100)}% · 1칸=1블록`;
   });
   const stopPan = () => {
     state.villageDecorationEditor.drag = null;
@@ -11028,6 +11160,292 @@ function ensureVillageViewControls(canvas) {
   canvas.addEventListener("pointerleave", () => {
     if (!state.villageView.drag) controls.querySelector("[data-village-position]").textContent = `휠 확대 · 드래그 이동 · ${Math.round(state.villageView.zoom * 100)}% · 1칸=1블록`;
   });
+}
+
+const townManualDecorations = [
+  ["street_tree", "가로수", "cobbleventure:town_decorations/street_tree", "#4f8b45"],
+  ["street_lamp", "가로등", "cobbleventure:town_decorations/street_lamp", "#ffd85d"],
+  ["bench", "벤치", "cobbleventure:town_decorations/bench", "#9a7248"],
+  ["flower_bed", "화단", "cobbleventure:town_decorations/flower_bed", "#d97983"],
+  ["fountain", "분수대", "cobbleventure:town_decorations/fountain", "#53b9bc"]
+];
+const townManualRoads = ["cobblestone", "stone_bricks", "bricks", "grass_path", "gravel", "packed_mud", "sandstone", "snow"];
+const townManualBlockScale = 6;
+
+function isTownManualLayout(layout) {
+  return Boolean(layout && Array.isArray(layout.roads) && Array.isArray(layout.buildings) && Array.isArray(layout.decorations));
+}
+
+function townManualLayoutFromCurrentPreview() {
+  const preview = state.villageDecorationEditor.preview;
+  const form = $("#settlement-form");
+  return {
+    roads: (preview?.roads || []).map((road) => ({ x1: Math.round(road.x1), z1: Math.round(road.z1), x2: Math.round(road.x2), z2: Math.round(road.z2), width: Number(form.elements.townRoadWidth.value || 7), material: form.elements.townRoadMaterial.value || "cobblestone" })),
+    buildings: (preview?.plots || []).map((plot, index) => ({ id: `building_${index + 1}`, structure: plot.structure || `cobbleventure:placeholder/${plot.id}`, x: Math.round(plot.x), z: Math.round(plot.z), width: Number(plot.width || 16), depth: Number(plot.depth || 16), height: Number(plot.height || 12), rotation: plot.rotation || "none" })),
+    decorations: (preview?.decorations || []).map((item) => {
+      const definition = townManualDecorations.find(([type]) => type === item.type);
+      const metadata = state.structureSizes[definition?.[2]] || {};
+      return { type: item.type, structure: definition?.[2] || `cobbleventure:town_decorations/${item.type}`, x: Math.round(item.x), z: Math.round(item.z), width: Number(metadata.width || 1), depth: Number(metadata.depth || 1), height: Number(metadata.height || 3), rotation: item.rotation || "none" };
+    })
+  };
+}
+
+function ensureManualTownLayout() {
+  state.settlement.structure_profile ||= {};
+  const editor = state.townManualEditor;
+  if (isTownManualLayout(editor.draft)) return editor.draft;
+  const saved = state.settlement.structure_profile.manual_layout;
+  if (isTownManualLayout(saved)) return saved;
+  return townManualLayoutFromCurrentPreview();
+}
+
+function townManualFootprint() {
+  const form = $("#settlement-form");
+  return {
+    cellCount: normalizeTownCellCount(form.elements.townRadiusCells.value),
+    shape: normalizeTownFootprintShape(form.elements.townFootprintShape.value),
+    customCells: customTownCells()
+  };
+}
+
+function townManualPlacementOrigin(asset, cursor) {
+  const quarter = ["clockwise_90", "counterclockwise_90"].includes(asset.rotation);
+  const width = quarter ? Number(asset.depth || 1) : Number(asset.width || 1);
+  const depth = quarter ? Number(asset.width || 1) : Number(asset.depth || 1);
+  return { x: cursor.x - Math.floor(width / 2), z: cursor.z - Math.floor(depth / 2) };
+}
+
+function townManualBuildingBounds(building) {
+  const quarter = ["clockwise_90", "counterclockwise_90"].includes(building.rotation);
+  const width = quarter ? Number(building.depth || 1) : Number(building.width || 1);
+  const depth = quarter ? Number(building.width || 1) : Number(building.depth || 1);
+  return { left:Number(building.x),top:Number(building.z),right:Number(building.x)+width,bottom:Number(building.z)+depth,width,depth };
+}
+
+function townManualOverlappingBuildings(layout) {
+  const overlapping = new Set();
+  const bounds = layout.buildings.map(townManualBuildingBounds);
+  for (let left=0;left<bounds.length;left+=1) for (let right=left+1;right<bounds.length;right+=1) {
+    const a=bounds[left],b=bounds[right];
+    if (a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top) { overlapping.add(left);overlapping.add(right); }
+  }
+  return overlapping;
+}
+
+function townManualPlacementInside(asset, position) {
+  const footprint = townManualFootprint();
+  const quarter = ["clockwise_90", "counterclockwise_90"].includes(asset.rotation);
+  return villagePlotInsideLayout({
+    x: position.x,
+    z: position.z,
+    width: quarter ? Number(asset.depth || 1) : Number(asset.width || 1),
+    depth: quarter ? Number(asset.width || 1) : Number(asset.depth || 1)
+  }, footprint.cellCount, footprint.shape, footprint.customCells);
+}
+
+function townManualRoadInside(start, end, width) {
+  const footprint = townManualFootprint();
+  const steps = Math.max(Math.abs(end.x - start.x), Math.abs(end.z - start.z), 1);
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const factor = index / steps;
+    return {
+      x: start.x + (end.x - start.x) * factor,
+      z: start.z + (end.z - start.z) * factor
+    };
+  }).every((point) => villageRoadCenterInsideLayout(point.x, point.z, footprint.cellCount, footprint.shape, Number(width || 1) / 2, footprint.customCells));
+}
+
+function nextTownManualBuildingId(layout) {
+  const used = new Set(layout.buildings.map((building) => building.id));
+  let number = 1;
+  while (used.has(`building_${number}`)) number += 1;
+  return `building_${number}`;
+}
+
+function townManualAssetCatalog() {
+  const editor = state.townManualEditor;
+  const query = $("#town-manual-search").value.trim().toLowerCase();
+  if (editor.library === "decoration") return townManualDecorations.map(([type, label, structure, color]) => {
+    const size = state.structureSizes[structure] || {};
+    return { kind: "decoration", id: type, label, structure, color, width: Number(size.width || 1), depth: Number(size.depth || 1), height: Number(size.height || 4) };
+  }).filter((item) => `${item.label} ${item.structure}`.toLowerCase().includes(query));
+  if (editor.library === "road") return townManualRoads.map((material) => ({ kind: "road", id: material, label: routeSurfaceLabel(material), material, width: 7, color: "#8d9292" })).filter((item) => `${item.label} ${item.id}`.toLowerCase().includes(query));
+  return Object.entries(state.structureSizes).filter(([id, metadata]) => {
+    const source = String(metadata?.source || "").toLowerCase();
+    return metadata?.width && metadata?.depth && !/interior|cave|forest/.test(`${id} ${source}`) && `${id} ${source}`.toLowerCase().includes(query);
+  }).slice(0, 240).map(([structure, metadata]) => ({ kind: "building", id: structure.split("/").at(-1), label: structure.split("/").at(-1).replaceAll("_", " "), structure, width: Number(metadata.width), depth: Number(metadata.depth), height: Number(metadata.height || 12), color: "#78a89a" }));
+}
+
+function renderTownManualAssets() {
+  const assets = townManualAssetCatalog();
+  $("#town-manual-assets").innerHTML = assets.length ? assets.map((asset, index) => `<button type="button" class="town-manual-asset${state.townManualEditor.asset?.structure === asset.structure && state.townManualEditor.asset?.id === asset.id ? " is-active" : ""}" data-town-asset="${index}"><i style="--asset-color:${asset.color || "#d8e5d8"}">${asset.kind === "road" ? "길" : asset.kind === "decoration" ? "✦" : "▣"}</i><span><strong>${escapeHtml(asset.label)}</strong><small>${escapeHtml(asset.structure || asset.material || "")}</small><em>${asset.kind === "road" ? `폭 ${asset.width}블록` : `${asset.width}×${asset.depth}×${asset.height}블록`}</em></span></button>`).join("") : '<div class="issues empty">조건에 맞는 리소스가 없습니다.</div>';
+  $("#town-manual-assets").dataset.catalog = JSON.stringify(assets);
+  renderTownManualAssetPreview();
+}
+
+function renderTownManualAssetPreview() {
+  const canvas=$("#town-manual-asset-preview"),context=canvas.getContext("2d"),asset=state.townManualEditor.asset;
+  context.clearRect(0,0,canvas.width,canvas.height);context.fillStyle="#1e342e";context.fillRect(0,0,canvas.width,canvas.height);
+  if(!asset){context.fillStyle="#bfd1ca";context.font="12px sans-serif";context.textAlign="center";context.fillText("왼쪽 목록에서 리소스를 선택하세요",canvas.width/2,canvas.height/2);return;}
+  if(asset.kind==="road"){
+    const road={x1:0,z1:0,x2:24,z2:0,width:Number(asset.width||7)},cells=townManualRoadBlockCells(road),scale=Math.min((canvas.width-24)/25,(canvas.height-24)/Math.max(1,road.width));
+    const minZ=Math.min(...cells.map((cell)=>cell.z));context.fillStyle="#8d9292";
+    for(const cell of cells)context.fillRect(12+cell.x*scale,12+(cell.z-minZ)*scale,Math.ceil(scale),Math.ceil(scale));
+    return;
+  }
+  const metadata=state.structureSizes[asset.structure]||{},topView=metadata.top_view||null,width=Number(asset.width||metadata.width||1),depth=Number(asset.depth||metadata.depth||1),scale=Math.max(.5,Math.min((canvas.width-20)/width,(canvas.height-20)/depth));
+  const project=(x,z)=>({x:10+x*scale,y:10+z*scale});
+  const rendered=drawMinecraftStructureTopView(context,{...asset,x:0,z:0,width,depth,rotation:asset.rotation||"none",topView},project,scale);
+  if(!rendered){context.fillStyle=asset.kind==="decoration"?"#76a85e":"#d8c69e";context.fillRect(10,10,width*scale,depth*scale);}
+  context.strokeStyle="#e5f2d4";context.lineWidth=2;context.strokeRect(10,10,width*scale,depth*scale);
+}
+
+function townManualProject(x, z, height = 0) {
+  const canvas = $("#town-manual-canvas"), editor = state.townManualEditor;
+  const scale = townManualBlockScale * editor.zoom;
+  if (editor.view3d) return { x: canvas.width / 2 + editor.panX + (x - z) * scale * .7, y: canvas.height / 2 + editor.panY + (x + z) * scale * .35 - height * scale * .22 };
+  return { x: canvas.width / 2 + editor.panX + x * scale, y: canvas.height / 2 + editor.panY + z * scale };
+}
+
+function townManualWorldPosition(event) {
+  const canvas = $("#town-manual-canvas"), bounds = canvas.getBoundingClientRect(), editor = state.townManualEditor;
+  const sx = (event.clientX - bounds.left) * canvas.width / bounds.width - canvas.width / 2 - editor.panX;
+  const sy = (event.clientY - bounds.top) * canvas.height / bounds.height - canvas.height / 2 - editor.panY;
+  const scale = townManualBlockScale * editor.zoom;
+  if (editor.view3d) {
+    const diagonalX = sx / (scale * .7), diagonalZ = sy / (scale * .35);
+    return { x: Math.round((diagonalX + diagonalZ) / 2), z: Math.round((diagonalZ - diagonalX) / 2), screenX: sx + canvas.width / 2 + editor.panX, screenY: sy + canvas.height / 2 + editor.panY };
+  }
+  return { x: Math.round(sx / scale), z: Math.round(sy / scale), screenX: sx + canvas.width / 2 + editor.panX, screenY: sy + canvas.height / 2 + editor.panY };
+}
+
+function drawTownManualBox(context, item, selected = false, ghost = false) {
+  const editor = state.townManualEditor;
+  const quarter = ["clockwise_90", "counterclockwise_90"].includes(item.rotation);
+  const width = quarter ? item.depth : item.width, depth = quarter ? item.width : item.depth;
+  const start = townManualProject(item.x, item.z), end = townManualProject(item.x + width, item.z + depth);
+  if (!editor.view3d) {
+    const metadata = state.structureSizes[item.structure] || {};
+    const topView = item.topView || metadata.top_view || null;
+    context.globalAlpha = ghost ? .58 : 1;
+    const rendered = drawMinecraftStructureTopView(context, { ...item, topView }, townManualProject, townManualBlockScale * editor.zoom, ghost ? .58 : 1);
+    if (!rendered) { context.fillStyle = item.kind === "decoration" ? "#76a85e" : "#d8c69e"; context.fillRect(start.x, start.y, end.x - start.x, end.y - start.y); }
+    context.strokeStyle = selected ? "#ffdc62" : ghost ? "#e8f5cd" : "#173b35"; context.lineWidth = selected ? 3 : 1.5;
+    context.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y); context.globalAlpha = 1;
+    return { left: Math.min(start.x, end.x), top: Math.min(start.y, end.y), right: Math.max(start.x, end.x), bottom: Math.max(start.y, end.y) };
+  }
+  const a = townManualProject(item.x, item.z), b = townManualProject(item.x + width, item.z), c = townManualProject(item.x + width, item.z + depth), d = townManualProject(item.x, item.z + depth);
+  const lift = Math.min(Number(item.height || 4), 32); const at = townManualProject(item.x, item.z, lift), bt = townManualProject(item.x + width, item.z, lift), ct = townManualProject(item.x + width, item.z + depth, lift), dt = townManualProject(item.x, item.z + depth, lift);
+  context.globalAlpha = ghost ? .5 : 1; context.fillStyle = "#736d58"; context.beginPath(); context.moveTo(a.x,a.y); context.lineTo(b.x,b.y); context.lineTo(bt.x,bt.y); context.lineTo(at.x,at.y); context.closePath(); context.fill(); context.fillStyle = "#93846b"; context.beginPath(); context.moveTo(b.x,b.y); context.lineTo(c.x,c.y); context.lineTo(ct.x,ct.y); context.lineTo(bt.x,bt.y); context.closePath(); context.fill(); context.fillStyle = item.kind === "decoration" ? "#6da55c" : "#d8c69e"; context.strokeStyle = selected ? "#ffdc62" : "#253e38"; context.lineWidth = selected ? 3 : 1; context.beginPath(); context.moveTo(at.x,at.y); context.lineTo(bt.x,bt.y); context.lineTo(ct.x,ct.y); context.lineTo(dt.x,dt.y); context.closePath(); context.fill(); context.stroke(); context.globalAlpha = 1;
+  const xs = [a.x,b.x,c.x,d.x,at.x,bt.x,ct.x,dt.x], ys = [a.y,b.y,c.y,d.y,at.y,bt.y,ct.y,dt.y]; return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+}
+
+function townManualRoadBlockCells(road) {
+  const cells = new Map();
+  const deltaX = Number(road.x2) - Number(road.x1), deltaZ = Number(road.z2) - Number(road.z1);
+  const steps = Math.max(Math.abs(deltaX), Math.abs(deltaZ), 1), radius = Math.floor(Number(road.width || 1) / 2);
+  for (let step=0; step<=steps; step+=1) {
+    const factor=step/steps, centerX=Math.round(Number(road.x1)+deltaX*factor), centerZ=Math.round(Number(road.z1)+deltaZ*factor);
+    for (let offsetX=-radius;offsetX<=radius;offsetX+=1) for (let offsetZ=-radius;offsetZ<=radius;offsetZ+=1) {
+      if (offsetX*offsetX+offsetZ*offsetZ>radius*radius+radius) continue;
+      const cell={x:centerX+offsetX,z:centerZ+offsetZ}; cells.set(`${cell.x},${cell.z}`,cell);
+    }
+  }
+  return [...cells.values()];
+}
+
+function drawTownManualRoad(context, road, color, ghost = false) {
+  const editor = state.townManualEditor;
+  const cells = townManualRoadBlockCells(road);
+  context.globalAlpha = ghost ? .58 : 1;
+  for (const cell of cells) {
+    const a = townManualProject(cell.x, cell.z), b = townManualProject(cell.x + 1, cell.z), c = townManualProject(cell.x + 1, cell.z + 1), d = townManualProject(cell.x, cell.z + 1);
+    context.fillStyle = color;
+    context.beginPath(); context.moveTo(a.x,a.y); context.lineTo(b.x,b.y); context.lineTo(c.x,c.y); context.lineTo(d.x,d.y); context.closePath(); context.fill();
+    if (!editor.view3d && townManualBlockScale * editor.zoom >= 5) { context.strokeStyle="rgba(29,43,39,.24)"; context.lineWidth=.7; context.stroke(); }
+  }
+  context.globalAlpha = 1;
+  const points = cells.flatMap((cell) => [townManualProject(cell.x,cell.z),townManualProject(cell.x+1,cell.z+1)]);
+  return { left:Math.min(...points.map((point)=>point.x)),top:Math.min(...points.map((point)=>point.y)),right:Math.max(...points.map((point)=>point.x)),bottom:Math.max(...points.map((point)=>point.y)) };
+}
+
+function drawTownManualOverlapOutline(context, building) {
+  const editor=state.townManualEditor,bounds=townManualBuildingBounds(building),height=editor.view3d?Math.min(Number(building.height||1),32):0;
+  const points=[townManualProject(bounds.left,bounds.top,height),townManualProject(bounds.right,bounds.top,height),townManualProject(bounds.right,bounds.bottom,height),townManualProject(bounds.left,bounds.bottom,height)];
+  const stroke=(color,width)=>{context.strokeStyle=color;context.lineWidth=width;context.beginPath();context.moveTo(points[0].x,points[0].y);for(const point of points.slice(1))context.lineTo(point.x,point.y);context.closePath();context.stroke();};
+  stroke("rgba(42,12,10,.92)",7);stroke("#ff514b",4);
+}
+
+function renderTownManualCanvas() {
+  const canvas = $("#town-manual-canvas"), context = canvas.getContext("2d"), editor = state.townManualEditor, layout = ensureManualTownLayout();
+  context.clearRect(0,0,canvas.width,canvas.height); context.fillStyle = editor.view3d ? "#20342f" : "#29483f"; context.fillRect(0,0,canvas.width,canvas.height); editor.hitTargets = [];
+  const footprint = townManualFootprint();
+  const footprintCells = villageLayoutCells(footprint.cellCount, footprint.shape, footprint.customCells);
+  for (const cell of footprintCells) {
+    const center = villageLayoutCenteredCellCenter(cell, footprintCells);
+    const vertices = [[0,-64],[Math.sqrt(3)*32,-32],[Math.sqrt(3)*32,32],[0,64],[-Math.sqrt(3)*32,32],[-Math.sqrt(3)*32,-32]].map(([x,z]) => townManualProject(center.x+x,center.z+z));
+    context.beginPath(); context.moveTo(vertices[0].x,vertices[0].y); vertices.slice(1).forEach((vertex)=>context.lineTo(vertex.x,vertex.y)); context.closePath();
+    context.fillStyle = editor.view3d ? "rgba(88,139,112,.18)" : "rgba(114,164,126,.14)"; context.fill(); context.strokeStyle="rgba(202,231,206,.58)"; context.lineWidth=2; context.stroke();
+  }
+  if (!editor.view3d) {
+    const centers = footprintCells.map((cell)=>villageLayoutCenteredCellCenter(cell,footprintCells));
+    const minX=Math.floor(Math.min(...centers.map((center)=>center.x))-64),maxX=Math.ceil(Math.max(...centers.map((center)=>center.x))+64),minZ=Math.floor(Math.min(...centers.map((center)=>center.z))-64),maxZ=Math.ceil(Math.max(...centers.map((center)=>center.z))+64);
+    for (let value = minX; value <= maxX; value += 1) { const verticalA=townManualProject(value,minZ),verticalB=townManualProject(value,maxZ);context.strokeStyle=value%16===0?"rgba(226,241,229,.38)":"rgba(205,228,211,.13)";context.lineWidth=value%16===0?1.4:.65;context.beginPath();context.moveTo(verticalA.x,verticalA.y);context.lineTo(verticalB.x,verticalB.y);context.stroke(); }
+    for (let value = minZ; value <= maxZ; value += 1) { const horizontalA=townManualProject(minX,value),horizontalB=townManualProject(maxX,value);context.strokeStyle=value%16===0?"rgba(226,241,229,.38)":"rgba(205,228,211,.13)";context.lineWidth=value%16===0?1.4:.65;context.beginPath();context.moveTo(horizontalA.x,horizontalA.y);context.lineTo(horizontalB.x,horizontalB.y);context.stroke(); }
+  }
+  const roadColors = { cobblestone:"#8d9292",stone_bricks:"#727b80",bricks:"#a05245",grass_path:"#8a704f",gravel:"#aaa397",packed_mud:"#846b55",sandstone:"#d4ba7d",snow:"#d9e9ed" };
+  layout.roads.forEach((road,index) => editor.hitTargets.push({kind:"road",index,...drawTownManualRoad(context,road,roadColors[road.material]||roadColors.cobblestone)}));
+  const overlappingBuildings=townManualOverlappingBuildings(layout);
+  const elements = [...layout.buildings.map((item,index)=>({item:{...item,kind:"building"},kind:"building",index})), ...layout.decorations.map((item,index)=>({item:{...item,kind:"decoration"},kind:"decoration",index}))]; if(editor.view3d) elements.sort((a,b)=>(a.item.x+a.item.z)-(b.item.x+b.item.z)); elements.forEach(({item,kind,index})=>{const dragging=editor.drag?.kind===kind&&editor.drag.index===index;const bounds=drawTownManualBox(context,item,editor.selected?.kind===kind&&editor.selected.index===index,dragging);if(dragging&&!editor.drag.valid&&!editor.view3d){context.strokeStyle="#ff4f4b";context.lineWidth=4;context.strokeRect(bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top);}editor.hitTargets.push({kind,index,...bounds});});
+  for(const index of overlappingBuildings)drawTownManualOverlapOutline(context,layout.buildings[index]);
+  if (editor.hover && editor.asset && editor.asset.kind !== "road") {
+    const origin = townManualPlacementOrigin(editor.asset, editor.hover);
+    const valid = townManualPlacementInside(editor.asset, origin);
+    const bounds = drawTownManualBox(context,{...editor.asset,...origin,kind:editor.asset.kind,rotation:editor.asset.rotation||"none"},false,true);
+    if (!valid && !editor.view3d) { context.strokeStyle="#ff726f"; context.lineWidth=3; context.strokeRect(bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top); }
+  }
+  if (editor.roadStart && editor.hover) { const draft={x1:editor.roadStart.x,z1:editor.roadStart.z,x2:editor.hover.x,z2:editor.hover.z,width:Number(editor.asset?.width||7)}; drawTownManualRoad(context,draft,townManualRoadInside(editor.roadStart,editor.hover,draft.width)?"#ffdc62":"#ff726f",true); }
+  const summary=$("#town-manual-summary");summary.classList.toggle("has-overlap",overlappingBuildings.size>0);summary.textContent=`건물 ${layout.buildings.length}개 · 장식 ${layout.decorations.length}개 · 길 ${layout.roads.length}개${overlappingBuildings.size?` · 겹친 건물 ${overlappingBuildings.size}개`:""} · ${editor.view3d?"경량 3D · 전체 NBT 모델을 읽지 않아 빠름":"2D 블록 격자"}`;
+}
+
+function renderTownManualProperties() {
+  const selected = state.townManualEditor.selected, layout = ensureManualTownLayout(), panel = $("#town-manual-properties");
+  const item = selected ? (selected.kind === "road" ? layout.roads[selected.index] : selected.kind === "building" ? layout.buildings[selected.index] : layout.decorations[selected.index]) : null;
+  if (!item) { panel.innerHTML='<div class="issues empty">배치된 요소를 선택하면 좌표와 회전을 편집할 수 있습니다.</div>'; return; }
+  const overlaps=selected.kind==="building"&&townManualOverlappingBuildings(layout).has(selected.index);
+  panel.innerHTML=`<div class="town-manual-property-card" data-kind="${selected.kind}" data-index="${selected.index}"><p class="eyebrow">ELEMENT PROPERTIES</p><h3>${selected.kind === "road" ? "길" : escapeHtml(item.id || item.type || "배치 요소")}</h3>${overlaps?'<div class="town-manual-overlap-warning">다른 건물과 배치 범위가 겹칩니다.</div>':""}${selected.kind === "road" ? `<label>시작 X<input type="number" data-field="x1" value="${item.x1}"></label><label>시작 Z<input type="number" data-field="z1" value="${item.z1}"></label><label>끝 X<input type="number" data-field="x2" value="${item.x2}"></label><label>끝 Z<input type="number" data-field="z2" value="${item.z2}"></label><label>폭<input type="number" min="1" max="15" step="2" data-field="width" value="${item.width}"></label>` : `<label>리소스<input value="${escapeHtml(item.structure)}" readonly></label><label>X<input type="number" data-field="x" value="${item.x}"></label><label>Z<input type="number" data-field="z" value="${item.z}"></label><label>회전<select data-field="rotation"><option value="none">0°</option><option value="clockwise_90">90°</option><option value="clockwise_180">180°</option><option value="counterclockwise_90">270°</option></select></label>`}<button type="button" class="button danger" data-town-delete-selected>선택 요소 삭제</button></div>`;
+  if (item.rotation) panel.querySelector('[data-field="rotation"]').value=item.rotation;
+}
+
+function openTownManualWorkspace() { if(!state.settlement)return; const profile=state.settlement.structure_profile||{}; const source=profile.layout_mode==="manual"&&isTownManualLayout(profile.manual_layout)?profile.manual_layout:townManualLayoutFromCurrentPreview(); state.townManualEditor.draft=structuredClone(source); state.townManualEditor.selected=null; state.townManualEditor.hover=null; state.townManualEditor.drag=null; $("#town-manual-title").textContent=`${state.settlement.display_name?.ko_kr||state.settlement.id} · 수동 배치`; $("#town-manual-workspace").hidden=false; renderTownManualAssets(); renderTownManualProperties(); renderTownManualCanvas(); }
+function closeTownManualWorkspace() { state.townManualEditor.draft=null; state.townManualEditor.drag=null; $("#town-manual-workspace").hidden=true; }
+function applyTownManualWorkspace() { state.settlement.structure_profile.manual_layout=structuredClone(ensureManualTownLayout()); state.settlement.structure_profile.layout_mode="manual"; $("#settlement-json").value=JSON.stringify(state.settlement,null,2); closeTownManualWorkspace(); renderVillageGenerationTest(); toast("수동 배치를 적용했습니다. 마을 저장을 눌러 파일에 반영하세요."); }
+
+function villagePreviewRoadBlockCells(road, width, clipBeyondEnd = false) {
+  const cells = [];
+  const deltaX = Number(road.x2) - Number(road.x1);
+  const deltaZ = Number(road.z2) - Number(road.z1);
+  const steps = Math.max(Math.abs(deltaX), Math.abs(deltaZ));
+  const radius = Math.max(1, Math.floor(Number(width) / 2));
+  const directionX = Math.sign(deltaX);
+  const directionZ = Math.sign(deltaZ);
+  for (let step = 0; step <= steps; step += 1) {
+    const factor = steps === 0 ? 0 : step / steps;
+    const centerX = Math.round(Number(road.x1) + deltaX * factor);
+    const centerZ = Math.round(Number(road.z1) + deltaZ * factor);
+    for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+      for (let offsetZ = -radius; offsetZ <= radius; offsetZ += 1) {
+        if (offsetX * offsetX + offsetZ * offsetZ > radius * radius + radius) continue;
+        const x = centerX + offsetX;
+        const z = centerZ + offsetZ;
+        const beyondEnd = (x - Number(road.x2)) * directionX
+          + (z - Number(road.z2)) * directionZ > 0;
+        if (clipBeyondEnd && beyondEnd) continue;
+        cells.push({ x, z });
+      }
+    }
+  }
+  return cells;
 }
 
 function renderVillageGenerationTest() {
@@ -11046,7 +11464,18 @@ function renderVillageGenerationTest() {
   const radiusCells = normalizeTownCellCount(form.elements.townRadiusCells.value);
   const footprintShape = normalizeTownFootprintShape(form.elements.townFootprintShape.value);
   const density = normalizeVillageDensity(form.elements.townBuildingDensity?.value);
-  const result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape, customTownCells(), customTownExits(), density, roadTemplate);
+  let result = simulateVillageWithRerolls(seed, depth, shape, roadWidth, requirements, radiusCells, selectedHousePalette(), footprintShape, customTownCells(), customTownExits(), density, roadTemplate, form.elements.residentialBuildingsEnabled.checked);
+  if (state.settlement.structure_profile?.layout_mode === "manual") {
+    const manual = ensureManualTownLayout();
+    result = {
+      ...result, roads: manual.roads, accessRoads: [], decorations: manual.decorations,
+      plots: manual.buildings.map((building) => {
+        const metadata = state.structureSizes[building.structure] || {};
+        return { ...building, kind: "house", label: building.id, nbtResolved: Boolean(metadata.width), topView: metadata.top_view || null, occupied: { x: building.x, z: building.z, width: building.width, depth: building.depth } };
+      }),
+      missing: [], rejectedRoads: 0, rerollCount: 0, rerollLimit: 0, resolvedSeed: 0
+    };
+  }
   const configuredDecorations = manualTownDecorations();
   state.villageDecorationEditor.preview = result;
   if (configuredDecorations !== null) result.decorations = configuredDecorations;
@@ -11109,7 +11538,7 @@ function renderVillageGenerationTest() {
       context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
     }
   };
-  if (scale >= 4) drawBlockGrid(1, "rgba(65,88,60,.1)", 1);
+  if (scale >= 3) drawBlockGrid(1, "rgba(65,88,60,.1)", 1);
   else if (scale >= 1.5) drawBlockGrid(4, "rgba(65,88,60,.12)", 1);
   drawBlockGrid(16, "rgba(54,76,49,.3)", 1);
   if (shape === "terraced") {
@@ -11121,20 +11550,65 @@ function renderVillageGenerationTest() {
   }
   const roadColors = { cobblestone: "#8d9292", stone_bricks: "#727b80", bricks: "#a05245", grass_path: "#8a704f", gravel: "#aaa397", packed_mud: "#846b55", sandstone: "#d4ba7d", snow: "#d9e9ed" };
   const roadColor = roadColors[form.elements.townRoadMaterial.value] || roadColors.cobblestone;
-  const drawRoad = (road, width) => {
-    const start = project(road.x1, road.z1); const end = project(road.x2, road.z2);
-    context.lineCap = "square";
-    context.strokeStyle = "rgba(42,52,47,.82)"; context.lineWidth = Math.max(4, (width + 2) * scale);
-    context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-    context.strokeStyle = roadColor; context.lineWidth = Math.max(2, width * scale);
-    context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
-    context.strokeStyle = "rgba(255,255,255,.22)"; context.lineWidth = Math.max(1, Math.min(width * scale * .16, 2.5));
-    context.beginPath(); context.moveTo(start.x, start.y); context.lineTo(end.x, end.y); context.stroke();
+  const roadCells = new Map();
+  const addRoad = (road, width, clipBeyondEnd = false, access = false) => {
+    for (const cell of villagePreviewRoadBlockCells(road, width, clipBeyondEnd)) {
+      roadCells.set(`${cell.x},${cell.z}`, { ...cell, access });
+    }
   };
-  result.roads.forEach((road) => drawRoad(road, roadWidth));
-  result.accessRoads.forEach((road) => drawRoad(road, 3));
+  result.roads.forEach((road) => addRoad(road, roadWidth));
+  const plotsById = new Map(result.plots.map((plot) => [plot.id, plot]));
+  const lastAccessRoadIndex = new Map();
+  result.accessRoads.forEach((road, index) => lastAccessRoadIndex.set(road.building, index));
+  result.accessRoads.forEach((road, index) => {
+    const plot = plotsById.get(road.building);
+    const accessWidth = plot?.kind === "facility"
+      ? (String(plot.id).includes("gym") ? 5 : ["department_store", "facility_department_store"].includes(plot.id) ? 3 : roadWidth)
+      : Math.min(3, roadWidth);
+    const entrances = plot?.plazaEntrances?.length ? plot.plazaEntrances : plot?.entrance ? [plot.entrance] : [];
+    const reachesEntrance = entrances.some((entrance) =>
+      Number(entrance.x) === Number(road.x2) && Number(entrance.z) === Number(road.z2)
+    );
+    addRoad(
+      road, accessWidth,
+      reachesEntrance || lastAccessRoadIndex.get(road.building) === index,
+      true
+    );
+  });
+  for (const cell of roadCells.values()) {
+    const start = project(cell.x, cell.z);
+    const end = project(cell.x + 1, cell.z + 1);
+    context.fillStyle = cell.access ? shadeMinecraftTopColor(roadColor, 1.04) : roadColor;
+    context.fillRect(start.x, start.y, end.x - start.x + .2, end.y - start.y + .2);
+    if (scale >= 5) {
+      context.strokeStyle = "rgba(42,52,47,.13)";
+      context.lineWidth = Math.min(1, scale * .08);
+      context.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+    }
+  }
+  context.strokeStyle = "rgba(42,52,47,.82)";
+  context.lineWidth = Math.max(1, Math.min(2, scale * .22));
+  context.beginPath();
+  for (const cell of roadCells.values()) {
+    const start = project(cell.x, cell.z);
+    const end = project(cell.x + 1, cell.z + 1);
+    if (!roadCells.has(`${cell.x - 1},${cell.z}`)) { context.moveTo(start.x, start.y); context.lineTo(start.x, end.y); }
+    if (!roadCells.has(`${cell.x + 1},${cell.z}`)) { context.moveTo(end.x, start.y); context.lineTo(end.x, end.y); }
+    if (!roadCells.has(`${cell.x},${cell.z - 1}`)) { context.moveTo(start.x, start.y); context.lineTo(end.x, start.y); }
+    if (!roadCells.has(`${cell.x},${cell.z + 1}`)) { context.moveTo(start.x, end.y); context.lineTo(end.x, end.y); }
+  }
+  context.stroke();
+  context.strokeStyle = "rgba(255,255,255,.22)";
+  context.lineWidth = Math.max(1, Math.min(2, scale * .18));
+  context.beginPath();
+  for (const road of result.roads) {
+    const start = project(road.x1, road.z1);
+    const end = project(road.x2, road.z2);
+    context.moveTo(start.x, start.y); context.lineTo(end.x, end.y);
+  }
+  context.stroke();
   for (const [decorationIndex, decoration] of (result.decorations || []).entries()) {
-    const position = project(decoration.x, decoration.z);
+    const position = project(decoration.x + .5, decoration.z + .5);
     state.villageDecorationEditor.hitTargets.push({ index: decorationIndex, x: position.x, y: position.y });
     if (decoration.type === "street_tree") {
       context.fillStyle = "#5a3f28";
@@ -11157,28 +11631,39 @@ function renderVillageGenerationTest() {
   }
   const labels = [];
   for (const plot of result.plots) {
-    const templatePosition = project(plot.x, plot.z);
-    const occupiedPlot = plot.occupied || plot;
+    const placedOriginX = Math.round(Number(plot.x));
+    const placedOriginZ = Math.round(Number(plot.z));
+    const templatePosition = project(placedOriginX, placedOriginZ);
+    const sourceOccupiedPlot = plot.occupied || plot;
+    const occupiedPlot = {
+      ...sourceOccupiedPlot,
+      x: placedOriginX + Number(sourceOccupiedPlot.x) - Number(plot.x),
+      z: placedOriginZ + Number(sourceOccupiedPlot.z) - Number(plot.z)
+    };
     const quarterTurn = ["clockwise_90", "counterclockwise_90"].includes(plot.rotation);
     const placedNbtWidth = quarterTurn ? plot.depth : plot.width;
     const placedNbtDepth = quarterTurn ? plot.width : plot.depth;
     const position = project(occupiedPlot.x, occupiedPlot.z);
     const roofColor = houseRoofColorCatalog.find((item) => item.id === plot.roof_color)?.color;
-    if (plot.nbtResolved && (occupiedPlot.width !== placedNbtWidth || occupiedPlot.depth !== placedNbtDepth)) {
-      context.strokeStyle = "rgba(35,54,65,.35)";
-      context.lineWidth = 1;
-      context.setLineDash([4, 3]);
-      context.strokeRect(templatePosition.x, templatePosition.y, placedNbtWidth * scale, placedNbtDepth * scale);
-      context.setLineDash([]);
-    }
     const renderedNbtTopView = drawMinecraftStructureTopView(context, plot, project, scale);
     context.fillStyle = plot.kind === "facility" ? "#55c9bd" : roofColor || "#e4d5b5";
     context.strokeStyle = plot.kind === "facility" ? "#166b70" : "#796a50";
     context.lineWidth = plot.kind === "facility" ? 3 : 1.5;
     if (!renderedNbtTopView) context.fillRect(position.x, position.y, occupiedPlot.width * scale, occupiedPlot.depth * scale);
     context.strokeRect(position.x, position.y, occupiedPlot.width * scale, occupiedPlot.depth * scale);
+    if (plot.nbtResolved) {
+      context.strokeStyle = "rgba(22,50,70,.72)";
+      context.lineWidth = Math.max(1, Math.min(2, scale * .18));
+      context.setLineDash([Math.max(3, scale), Math.max(2, scale * .65)]);
+      context.strokeRect(templatePosition.x, templatePosition.y, placedNbtWidth * scale, placedNbtDepth * scale);
+      context.setLineDash([]);
+      if (scale >= 3) {
+        context.fillStyle = "#16354a";
+        context.fillRect(templatePosition.x, templatePosition.y, Math.max(2, scale * .45), Math.max(2, scale * .45));
+      }
+    }
     if (plot.entrance) {
-      const entrance = project(plot.entrance.x, plot.entrance.z);
+      const entrance = project(Number(plot.entrance.x) + .5, Number(plot.entrance.z) + .5);
       context.fillStyle = plot.kind === "facility" ? "#ffcf4a" : "#fff4b8";
       context.strokeStyle = plot.kind === "facility" ? "#7b4b00" : "#5f4b26";
       context.lineWidth = 1;
@@ -11219,7 +11704,7 @@ function renderVillageGenerationTest() {
       : " · 첫 시도 성공";
   const missingText = result.missing.length ? ` · 누락 시설: ${result.missing.join(", ")}` : " · 필수 시설 전부 배치";
   const centerPatternLabel = ({ tee_east: "ㅏ형", tee_west: "ㅓ형", tee_north: "ㅗ형", tee_south: "ㅜ형", linear: "일자형", terraced: "계단형" })[result.centerPattern] || result.centerPattern;
-  summary.textContent = `1칸 = 1블록 · ${villageDensityProfiles[density].label} · 확대 ${Math.round(view.zoom * 100)}% · NBT 탑뷰 ${renderedTopViewCount}/${result.plots.length} · 크기 실측 ${resolvedNbtCount}/${result.plots.length} · 마을 크기 ${radiusCells}칸 · 중앙 ${centerPatternLabel} · 허브 X ${result.hub.x} · Z ${result.hub.z} · 요청 시드 ${seed}${rerollText} · 주도로 ${result.roads.length} · 출입구 진입로 ${result.accessRoads.length} · 가로등 ${streetLampCount} · 가로수 ${streetTreeCount} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
+  summary.textContent = `1칸 = 1블록 · ${villageDensityProfiles[density].label} · 확대 ${Math.round(view.zoom * 100)}% · 도로 점유 ${roadCells.size}블록 · NBT 탑뷰 ${renderedTopViewCount}/${result.plots.length} · 크기 실측 ${resolvedNbtCount}/${result.plots.length} · 마을 크기 ${radiusCells}칸 · 중앙 ${centerPatternLabel} · 허브 X ${result.hub.x} · Z ${result.hub.z} · 요청 시드 ${seed}${rerollText} · 주도로 ${result.roads.length} · 출입구 진입로 ${result.accessRoads.length} · 가로등 ${streetLampCount} · 가로수 ${streetTreeCount} · 시설 ${facilityCount} · 기본 건물 ${houseCount} · 막힌 연결 ${result.rejectedRoads}${missingText}`;
   summary.classList.toggle("has-error", result.missing.length > 0);
   summary.classList.toggle("has-warning", !result.missing.length && result.rerollCount > 0);
   canvas.setAttribute("aria-label", `${radiusCells}개 육각 타일에 도로 조각 ${result.roads.length}개, 시설 ${facilityCount}개, 기본 건물 ${houseCount}개가 생성된 마을 테스트`);
@@ -11364,9 +11849,27 @@ function renderSettlementAutoNpcPreview() {
   renderTrainerPopulationPreview("settlement");
 }
 
+function ensureSettlementLayoutControls(form) {
+  const palette = form.querySelector(".house-palette-fields");
+  if (palette && !form.elements.residentialBuildingsEnabled) {
+    palette.insertAdjacentHTML("afterbegin", '<label class="toggle wide"><input type="checkbox" name="residentialBuildingsEnabled" checked><span>기본 주택 자동 생성</span></label>');
+  }
+  const previewHeader = form.querySelector(".village-generation-test > header");
+  if (previewHeader && !$("#open-manual-town-layout")) {
+    const actions = document.createElement("div");
+    actions.className = "village-preview-actions";
+    actions.innerHTML = '<button type="button" class="button secondary" id="open-manual-town-layout">마을 수동 배치</button>';
+    const regenerate = $("#regenerate-village-preview");
+    if (regenerate) actions.append(regenerate);
+    previewHeader.append(actions);
+    actions.querySelector("#open-manual-town-layout").addEventListener("click", openTownManualWorkspace);
+  }
+}
+
 function renderSettlement() {
   const document = state.settlement;
   const form = $("#settlement-form");
+  ensureSettlementLayoutControls(form);
   ensureVillageDensityControl(form);
   $("#selected-settlement-editor").hidden = false;
   $("#settlement-editor-title").textContent = document.display_name?.ko_kr || document.id;
@@ -11374,6 +11877,11 @@ function renderSettlement() {
   setFormValue(form, "id", document.id); setFormValue(form, "enabled", document.enabled);
   setFormValue(form, "nameKo", document.display_name?.ko_kr); setFormValue(form, "nameEn", document.display_name?.en_us);
   setFormValue(form, "region", document.region); setFormValue(form, "dimension", document.dimension);
+  const flags = new Set(document.settlement_flags || []);
+  setFormValue(form, "settlementClassification", flags.has("special_site") ? "special_site" : "standard");
+  setFormValue(form, "industrialFlag", flags.has("industrial"));
+  setFormValue(form, "nonResidentialFlag", flags.has("non_residential"));
+  setFormValue(form, "noAmbientNpcsFlag", flags.has("no_ambient_npcs"));
   const settlementBiome = document.biome_layout?.zones?.[0]?.biome || "minecraft:plains";
   form.elements.settlementBiome.innerHTML = worldBiomeOptions(settlementBiome);
   setFormValue(form, "settlementBiome", settlementBiome);
@@ -11396,7 +11904,9 @@ function renderSettlement() {
   setFormValue(form, "villagePreviewSeed", previewSeed);
   setFormValue(form, "villagePreviewDepth", generationProfile.depth || 4);
   setFormValue(form, "townBuildingDensity", normalizeVillageDensity(generationProfile.building_density));
+  setFormValue(form, "residentialBuildingsEnabled", generationProfile.residential_buildings_enabled !== false);
   renderHousePaletteOptions(generationProfile.house_palette);
+  form.querySelector(".house-palette-fields")?.classList.toggle("is-disabled", generationProfile.residential_buildings_enabled === false);
   const starterPreset = isStarterSettlement(document);
   setFormValue(form, "pokemonCenterEnabled", document.structure_profile?.pokemon_center_enabled ?? !starterPreset);
   const savedCommercial = document.structure_profile?.commercial_center || (starterPreset ? "none" : "pokemart");
@@ -11599,6 +12109,12 @@ function updateSettlementFromForm() {
     town_radius_cells: normalizeTownCellCount(number("townRadiusCells")),
     town_footprint_shape: normalizeTownFootprintShape(form.elements.townFootprintShape.value)
   });
+  state.settlement.settlement_flags = [
+    form.elements.settlementClassification.value === "special_site" ? "special_site" : null,
+    form.elements.industrialFlag.checked ? "industrial" : null,
+    form.elements.nonResidentialFlag.checked ? "non_residential" : null,
+    form.elements.noAmbientNpcsFlag.checked ? "no_ambient_npcs" : null
+  ].filter(Boolean);
   if (form.elements.musicTrack.value) state.settlement.music_track = form.elements.musicTrack.value;
   else delete state.settlement.music_track;
   if (state.settlement.town_footprint_shape === "custom") ensureCustomTownLayout();
@@ -11655,17 +12171,20 @@ function updateSettlementFromForm() {
     width: Number(form.elements.townRoadWidth.value),
     material: form.elements.townRoadMaterial.value
   };
+  const residentialBuildingsEnabled = form.elements.residentialBuildingsEnabled.checked;
   state.settlement.structure_profile.generation_profile = {
     seed: Math.max(1, Math.min(999999999, number("villagePreviewSeed"))),
     depth: Math.max(1, Math.min(7, number("villagePreviewDepth"))),
-    basic_buildings: [
+    residential_buildings_enabled: residentialBuildingsEnabled,
+    basic_buildings: residentialBuildingsEnabled ? [
       "cobbleventure:placeholder/basic_building_1",
       "cobbleventure:placeholder/basic_building_2",
       "cobbleventure:placeholder/basic_building_3"
-    ],
-    house_palette: selectedHousePalette(),
+    ] : [],
     building_density: normalizeVillageDensity(form.elements.townBuildingDensity.value)
   };
+  if (residentialBuildingsEnabled) state.settlement.structure_profile.generation_profile.house_palette = selectedHousePalette();
+  form.querySelector(".house-palette-fields")?.classList.toggle("is-disabled", !residentialBuildingsEnabled);
   state.settlement.structure_profile.facility_requirements = facilityRequirements;
   state.settlement.anchors ||= {};
   for (const anchor of Object.keys(state.settlement.anchors)) {
@@ -11690,7 +12209,8 @@ function updateSettlementFromForm() {
     state.settlement.town_footprint_shape,
     customTownCells(), customTownExits(),
     state.settlement.structure_profile.generation_profile.building_density,
-    roadLayoutTemplate
+    roadLayoutTemplate,
+    residentialBuildingsEnabled
   );
   const generatedFacilityPlots = generatedLayout.plots.filter((plot) => plot.kind === "facility");
   configuredFacilities.forEach((facility) => {
@@ -12884,8 +13404,8 @@ async function runBuild(command) {
   }
 }
 
-async function refreshAll() {
-  showProjectLoading(state.project ? `${state.project.name} 기본 데이터 불러오는 중…` : "프로젝트 데이터 불러오는 중…");
+async function refreshAll(showLoadingOverlay = true) {
+  if (showLoadingOverlay) showProjectLoading(state.project ? `${state.project.name} 기본 데이터 불러오는 중…` : "프로젝트 데이터 불러오는 중…");
   $("#server-dot").classList.remove("online");
   $("#server-label").textContent = "프로젝트 데이터 로드 중";
   const dashboardPromise = loadDashboard();
@@ -13013,6 +13533,11 @@ $("#casino-config-form").addEventListener("click", changeCasinoConfigRows);
 $("#apply-casino-config-json").addEventListener("click", applyCasinoConfigJson);
 $("#save-casino-config").addEventListener("click", saveCasinoConfig);
 $("#reset-casino-config").addEventListener("click", resetCasinoConfig);
+$("#casino-config").addEventListener("click", handleGachaMachineClick);
+$("#gacha-machine-editor").addEventListener("input", updateGachaMachineField);
+$("#gacha-machine-editor").addEventListener("change", updateGachaMachineField);
+$("#add-gacha-machine").addEventListener("click", addGachaMachine);
+$("#save-gacha-machines").addEventListener("click", saveGachaMachines);
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
 $$(".nav-group-toggle").forEach((button) => button.addEventListener("click", () => toggleNavigationGroup(button.closest(".nav-group"))));
@@ -13824,7 +14349,15 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });
 window.addEventListener("resize", () => { resizeWorldMapWorkspace(); renderStructureModel(); renderCaveLayoutPreview(); renderForestPreview(); });
-$("#settlement-form").addEventListener("input", (event) => { applySpecialBuildingPreset(event); keepHousePaletteGroupSelected(event); updateFacilityFormState(); updateSettlementFromForm(); });
+$("#settlement-form").addEventListener("input", (event) => {
+  const form = event.currentTarget;
+  if (event.target.name === "settlementClassification" && event.target.value === "special_site") {
+    form.elements.nonResidentialFlag.checked = true;
+    form.elements.residentialBuildingsEnabled.checked = false;
+  }
+  if (event.target.name === "noAmbientNpcsFlag" && event.target.checked) form.elements.autoPlaceNpcs.checked = false;
+  applySpecialBuildingPreset(event); keepHousePaletteGroupSelected(event); updateFacilityFormState(); updateSettlementFromForm();
+});
 $("#custom-town-layout").addEventListener("click", (event) => {
   const tool = event.target.closest("[data-custom-town-tool]")?.dataset.customTownTool;
   if (tool) { state.customTownTool = tool; $$("[data-custom-town-tool]").forEach((button) => button.classList.toggle("is-active", button.dataset.customTownTool === tool)); return; }
@@ -13839,8 +14372,58 @@ $("#custom-town-layout").addEventListener("click", (event) => {
 $("#regenerate-village-preview").addEventListener("click", () => {
   const input = $("#settlement-form").elements.villagePreviewSeed;
   input.value = String(1 + Math.floor(Math.random() * 999999998));
+  state.settlement.structure_profile.layout_mode = "automatic";
   renderVillageGenerationTest();
 });
+$$('[data-town-library]').forEach((button) => button.addEventListener("click", () => {
+  state.townManualEditor.library = button.dataset.townLibrary;
+  state.townManualEditor.asset = null;
+  state.townManualEditor.tool = "select";
+  $$('[data-town-library]').forEach((item) => item.classList.toggle("is-active", item === button));
+  renderTownManualAssets();
+}));
+$("#town-manual-search").addEventListener("input", renderTownManualAssets);
+$("#town-manual-assets").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-town-asset]"); if (!button) return;
+  const catalog = JSON.parse($("#town-manual-assets").dataset.catalog || "[]");
+  state.townManualEditor.asset = catalog[Number(button.dataset.townAsset)];
+  state.townManualEditor.tool = state.townManualEditor.asset?.kind === "road" ? "road" : "place";
+  state.townManualEditor.selected = null;
+  renderTownManualAssets(); renderTownManualProperties(); renderTownManualCanvas();
+});
+$$('[data-town-tool]').forEach((button) => button.addEventListener("click", () => {
+  state.townManualEditor.tool = button.dataset.townTool; state.townManualEditor.asset = null;
+  $$('[data-town-tool]').forEach((item) => item.classList.toggle("is-active", item === button)); renderTownManualAssets();
+}));
+$("#town-manual-view").addEventListener("click", (event) => { state.townManualEditor.view3d = !state.townManualEditor.view3d; event.target.textContent = state.townManualEditor.view3d ? "2D 격자" : "경량 3D"; renderTownManualCanvas(); });
+$("#town-manual-fit").addEventListener("click", () => { Object.assign(state.townManualEditor,{zoom:1,panX:0,panY:0}); renderTownManualCanvas(); });
+$("#town-manual-cancel").addEventListener("click", closeTownManualWorkspace);
+$("#town-manual-apply").addEventListener("click", applyTownManualWorkspace);
+$("#town-manual-rotate").addEventListener("click", () => {
+  const rotations=["none","clockwise_90","clockwise_180","counterclockwise_90"], editor=state.townManualEditor, layout=ensureManualTownLayout();
+  const item=editor.selected ? (editor.selected.kind==="building"?layout.buildings[editor.selected.index]:editor.selected.kind==="decoration"?layout.decorations[editor.selected.index]:null) : editor.asset;
+  if(item){item.rotation=rotations[(rotations.indexOf(item.rotation||"none")+1)%rotations.length];renderTownManualProperties();renderTownManualCanvas();}
+});
+$("#town-manual-properties").addEventListener("input", (event) => {
+  const card=event.target.closest("[data-kind]"); if(!card||!event.target.dataset.field)return; const layout=ensureManualTownLayout(),kind=card.dataset.kind,index=Number(card.dataset.index); const item=kind==="road"?layout.roads[index]:kind==="building"?layout.buildings[index]:layout.decorations[index]; const field=event.target.dataset.field; item[field]=field==="rotation"?event.target.value:Number(event.target.value); renderTownManualCanvas();
+});
+$("#town-manual-properties").addEventListener("click", (event) => { if(!event.target.closest("[data-town-delete-selected]"))return; const editor=state.townManualEditor,layout=ensureManualTownLayout(); if(editor.selected){(editor.selected.kind==="road"?layout.roads:editor.selected.kind==="building"?layout.buildings:layout.decorations).splice(editor.selected.index,1); editor.selected=null; renderTownManualProperties();renderTownManualCanvas();} });
+const townManualCanvas=$("#town-manual-canvas");
+function townManualHitAt(position) { return [...state.townManualEditor.hitTargets].reverse().find((item)=>position.screenX>=item.left&&position.screenX<=item.right&&position.screenY>=item.top&&position.screenY<=item.bottom); }
+function townManualDraggedItem(layout, drag=state.townManualEditor.drag) { if(!drag)return null;return drag.kind==="building"?layout.buildings[drag.index]:layout.decorations[drag.index]; }
+function cancelTownManualDrag() { const editor=state.townManualEditor,layout=ensureManualTownLayout(),item=townManualDraggedItem(layout);if(item&&editor.drag){item.x=editor.drag.originX;item.z=editor.drag.originZ;}editor.drag=null;townManualCanvas.classList.remove("is-dragging");renderTownManualProperties();renderTownManualCanvas(); }
+townManualCanvas.addEventListener("pointermove", (event) => { const position=townManualWorldPosition(event),editor=state.townManualEditor;editor.hover={x:position.x,z:position.z};if(editor.drag){const layout=ensureManualTownLayout(),item=townManualDraggedItem(layout);if(item){item.x=position.x-editor.drag.offsetX;item.z=position.z-editor.drag.offsetZ;editor.drag.valid=townManualPlacementInside(item,item);editor.drag.moved=editor.drag.moved||item.x!==editor.drag.originX||item.z!==editor.drag.originZ;}}$("#town-manual-position").textContent=`X ${position.x} · Z ${position.z} · 1칸=1블록`; renderTownManualCanvas(); });
+townManualCanvas.addEventListener("pointerleave", () => { if(!state.townManualEditor.drag)state.townManualEditor.hover=null; renderTownManualCanvas(); });
+townManualCanvas.addEventListener("pointerdown", (event) => { const editor=state.townManualEditor,p=townManualWorldPosition(event);if(editor.tool==="road"&&editor.asset){editor.roadStart={x:p.x,z:p.z};townManualCanvas.setPointerCapture(event.pointerId);return;}if(editor.tool!=="select")return;const hit=townManualHitAt(p);if(!hit||hit.kind==="road")return;const layout=ensureManualTownLayout(),item=hit.kind==="building"?layout.buildings[hit.index]:layout.decorations[hit.index];if(!item)return;editor.selected={kind:hit.kind,index:hit.index};editor.drag={kind:hit.kind,index:hit.index,originX:item.x,originZ:item.z,offsetX:p.x-item.x,offsetZ:p.z-item.z,valid:true,moved:false,pointerId:event.pointerId};townManualCanvas.classList.add("is-dragging");townManualCanvas.setPointerCapture(event.pointerId);renderTownManualProperties();renderTownManualCanvas(); });
+townManualCanvas.addEventListener("pointerup", (event) => {
+  const editor=state.townManualEditor,layout=ensureManualTownLayout(),p=townManualWorldPosition(event);
+  if(editor.drag){const item=townManualDraggedItem(layout);if(item&&!editor.drag.valid){item.x=editor.drag.originX;item.z=editor.drag.originZ;toast("마을 점유 칸 안에서만 건물과 장식을 이동할 수 있습니다.");}editor.drag=null;townManualCanvas.classList.remove("is-dragging");if(townManualCanvas.hasPointerCapture(event.pointerId))townManualCanvas.releasePointerCapture(event.pointerId);renderTownManualProperties();renderTownManualCanvas();return;}
+  if(editor.tool==="road"&&editor.asset&&editor.roadStart){if(editor.roadStart.x!==p.x||editor.roadStart.z!==p.z){if(townManualRoadInside(editor.roadStart,p,editor.asset.width))layout.roads.push({x1:editor.roadStart.x,z1:editor.roadStart.z,x2:p.x,z2:p.z,width:Number(editor.asset.width||7),material:editor.asset.material});else toast("길 전체가 마을 점유 칸 안에 들어오도록 배치해 주세요.");}editor.roadStart=null;renderTownManualCanvas();return;}
+  if(editor.tool==="place"&&editor.asset){const origin=townManualPlacementOrigin(editor.asset,p);if(!townManualPlacementInside(editor.asset,origin)){toast("건물과 장식은 마을 점유 칸 안에만 배치할 수 있습니다.");return;}const target=editor.asset.kind==="building"?layout.buildings:layout.decorations;const base={structure:editor.asset.structure,x:origin.x,z:origin.z,width:Number(editor.asset.width||1),depth:Number(editor.asset.depth||1),height:Number(editor.asset.height||1),rotation:editor.asset.rotation||"none"};if(editor.asset.kind==="building")target.push({...base,id:nextTownManualBuildingId(layout)});else target.push({...base,type:editor.asset.id});renderTownManualCanvas();return;}
+  const hit=townManualHitAt(p); if(hit){if(editor.tool==="delete"){(hit.kind==="road"?layout.roads:hit.kind==="building"?layout.buildings:layout.decorations).splice(hit.index,1);editor.selected=null;}else editor.selected={kind:hit.kind,index:hit.index};}else editor.selected=null;renderTownManualProperties();renderTownManualCanvas();
+});
+townManualCanvas.addEventListener("pointercancel", cancelTownManualDrag);
+townManualCanvas.addEventListener("wheel", (event) => { event.preventDefault(); state.townManualEditor.zoom=Math.max(.3,Math.min(4,state.townManualEditor.zoom*(event.deltaY<0?1.12:.89))); renderTownManualCanvas(); },{passive:false});
 $("#town-decoration-convert").addEventListener("click", () => {
   if (manualTownDecorations() !== null) return;
   setManualTownDecorations((state.villageDecorationEditor.preview?.decorations || []).map((item) => ({
@@ -13923,11 +14506,12 @@ $("#economy-pokemon-limit").addEventListener("change", (event) => updateEconomyV
 
 loadActiveProject().then(async () => {
   const requestedSection = new URLSearchParams(window.location.search).get("section");
+  const backgroundLoadSections = ["global-resources", "casino-config", "builds"];
   if (requestedSection && $$(".nav-item").some((button) => button.dataset.section === requestedSection)) {
     switchPage(requestedSection);
-    if (["global-resources", "casino-config", "builds"].includes(requestedSection)) hideProjectLoading();
+    if (backgroundLoadSections.includes(requestedSection)) hideProjectLoading();
   }
-  await refreshAll();
+  await refreshAll(!backgroundLoadSections.includes(requestedSection));
 }).catch((error) => {
   hideProjectLoading();
   $("#server-dot").classList.remove("online");

@@ -111,6 +111,8 @@
   "screen.cobbleventure_player_menu.trainer_card.region.undecided": "리그 구성 미정",
   "screen.cobbleventure_player_menu.trainer_card.league.cleared": "리그 제패",
   "screen.cobbleventure_player_menu.trainer_card.league.pending": "도전 기록",
+  "screen.cobbleventure_player_menu.trainer_card.elite_status": "리그 엘리트",
+  "screen.cobbleventure_player_menu.trainer_card.champion_status": "챔피언",
   "screen.cobbleventure_player_menu.trainer_card.badges.empty": "등록된 관장과 리그가 없습니다",
   "screen.cobbleventure_player_menu.entry.quests": "퀘스트",
   "screen.cobbleventure_player_menu.entry.quests.description": "현재 목표와 완료 기록을 확인합니다",

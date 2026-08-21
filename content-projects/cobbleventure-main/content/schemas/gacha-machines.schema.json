@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/gacha-machines.schema.json",
+  "title": "Cobbleventure Gacha Machines",
+  "type": "object",
+  "required": ["schema_version", "machines"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "machines": { "type": "array", "items": { "$ref": "#/$defs/machine" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "resource": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "machine": {
+      "type": "object",
+      "required": ["id", "display_name", "enabled", "pity_group", "appearance", "currency", "rarities", "pity"],
+      "properties": {
+        "id": { "$ref": "#/$defs/resource" }, "display_name": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" }, "pity_group": { "type": "string", "minLength": 1 },
+        "appearance": {
+          "type": "object", "required": ["base_block", "accent_block", "scale", "accent_scale", "accent_height", "rotation_degrees", "show_nameplate"],
+          "properties": {
+            "base_block": { "$ref": "#/$defs/resource" }, "accent_block": { "$ref": "#/$defs/resource" },
+            "scale": { "type": "number", "minimum": 0.25, "maximum": 2 }, "accent_scale": { "type": "number", "minimum": 0.1, "maximum": 1.5 },
+            "accent_height": { "type": "number", "minimum": 0, "maximum": 2 }, "rotation_degrees": { "type": "number", "minimum": -360, "maximum": 360 },
+            "show_nameplate": { "type": "boolean" }
+          }, "additionalProperties": false
+        },
+        "currency": { "type": "object", "required": ["item", "count"], "properties": { "item": { "$ref": "#/$defs/resource" }, "count": { "type": "integer", "minimum": 1 } }, "additionalProperties": false },
+        "rarities": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/rarity" } },
+        "pity": { "$ref": "#/$defs/pity" }
+      }, "additionalProperties": false
+    },
+    "rarity": {
+      "type": "object", "required": ["id", "display_name", "weight", "rewards"],
+      "properties": { "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }, "display_name": { "type": "string", "minLength": 1 }, "weight": { "type": "number", "exclusiveMinimum": 0 }, "rewards": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/reward" } } },
+      "additionalProperties": false
+    },
+    "reward": {
+      "type": "object", "required": ["id", "kind", "value", "count", "weight", "selectable"],
+      "properties": { "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }, "kind": { "enum": ["item", "pokemon"] }, "value": { "type": "string", "minLength": 1 }, "count": { "type": "integer", "minimum": 1 }, "weight": { "type": "number", "exclusiveMinimum": 0 }, "selectable": { "type": "boolean" } },
+      "additionalProperties": false
+    },
+    "pity": {
+      "type": "object", "required": ["soft", "hard", "selection"],
+      "properties": {
+        "soft": { "type": "object", "required": ["enabled", "start", "max_at", "target_rarity", "max_chance"], "properties": { "enabled": { "type": "boolean" }, "start": { "type": "integer", "minimum": 1 }, "max_at": { "type": "integer", "minimum": 1 }, "target_rarity": { "type": "string" }, "max_chance": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 } }, "additionalProperties": false },
+        "hard": { "type": "object", "required": ["enabled", "count", "target_rarity"], "properties": { "enabled": { "type": "boolean" }, "count": { "type": "integer", "minimum": 1 }, "target_rarity": { "type": "string" } }, "additionalProperties": false },
+        "selection": { "type": "object", "required": ["enabled", "points_per_pull", "required_points"], "properties": { "enabled": { "type": "boolean" }, "points_per_pull": { "type": "integer", "minimum": 1 }, "required_points": { "type": "integer", "minimum": 1 } }, "additionalProperties": false }
+      }, "additionalProperties": false
+    }
+  }
+}

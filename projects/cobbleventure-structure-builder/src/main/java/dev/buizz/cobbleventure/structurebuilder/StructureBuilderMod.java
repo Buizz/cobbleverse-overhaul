@@ -454,23 +454,44 @@ public final class StructureBuilderMod {
             int saved = 0;
             List<String> removedDoorAnchors = new ArrayList<>();
             List<String> repairedMultiblocks = new ArrayList<>();
+            List<String> failedExports = new ArrayList<>();
             for (PlannedEntry planned : editablePlan(catalog, data)) {
                 if (planned.entry().category().equals("interiors")
                     && data.interior(planned.entry().label()).isPresent()) {
                     continue;
                 }
-                ExportResult result = export(source.getServer().overworld(), catalog, planned);
-                removedDoorAnchors.addAll(result.removedDoorAnchors());
-                repairedMultiblocks.addAll(result.repairedMultiblocks());
-                saved++;
+                try {
+                    ExportResult result = export(
+                        source.getServer().overworld(), catalog, planned
+                    );
+                    removedDoorAnchors.addAll(result.removedDoorAnchors());
+                    repairedMultiblocks.addAll(result.repairedMultiblocks());
+                    saved++;
+                } catch (BuilderException error) {
+                    failedExports.add(
+                        planned.entry().label() + ": " + error.getMessage()
+                    );
+                    LOGGER.error(
+                        "Could not export structure {} during save all",
+                        planned.entry().label(), error
+                    );
+                }
             }
             for (InteriorPlot interior : data.interiors()) {
-                ExportResult result = exportInterior(
-                    source.getServer().overworld(), interior
-                );
-                removedDoorAnchors.addAll(result.removedDoorAnchors());
-                repairedMultiblocks.addAll(result.repairedMultiblocks());
-                saved++;
+                try {
+                    ExportResult result = exportInterior(
+                        source.getServer().overworld(), interior
+                    );
+                    removedDoorAnchors.addAll(result.removedDoorAnchors());
+                    repairedMultiblocks.addAll(result.repairedMultiblocks());
+                    saved++;
+                } catch (BuilderException error) {
+                    failedExports.add(interior.id() + ": " + error.getMessage());
+                    LOGGER.error(
+                        "Could not export dynamic interior {} during save all",
+                        interior.id(), error
+                    );
+                }
             }
             int count = saved;
             source.sendSuccess(
@@ -478,6 +499,7 @@ public final class StructureBuilderMod {
                     "[Structure Builder] " + count + "개 부지를 NBT로 내보냈습니다."
                         + removedDoorAnchorNotice(removedDoorAnchors)
                         + repairedMultiblockNotice(repairedMultiblocks)
+                        + failedExportNotice(failedExports)
                 ),
                 true
             );
@@ -1675,36 +1697,32 @@ public final class StructureBuilderMod {
     ) {
         planned = authoredPlot(level, catalog, planned);
         BlockPos exportOrigin = authoredFootprintOrigin(level, planned);
-        CreateElevatorExport elevators = disassembleCreateElevatorsForExport(
+        loadChunks(level, exportOrigin, planned.entry().size());
+        CreateEntityExport createEntities = inspectCreateEntitiesForExport(
             level, exportOrigin, planned.entry().size(), planned.entry().label()
         );
-        try {
-            List<String> repairedMultiblocks = repairKnownMultiblocks(
-                level, exportOrigin, planned.entry().size(), planned.entry().label()
-            );
-            List<String> removedDoorAnchors = reconcileDoorAnchors(
-                level, planned.entry().exportId(), exportOrigin
-            );
-            ResourceLocation exportId = ResourceLocation.parse(planned.entry().exportId());
-            var manager = level.getStructureManager();
-            var template = manager.getOrCreate(exportId);
-            template.fillFromWorld(
-                level, exportOrigin, planned.entry().size(), true, Blocks.STRUCTURE_VOID
-            );
-            validateCapturedCreateGlue(
-                retainOnlyExportableEntities(template, level), elevators, planned.entry().label()
-            );
-            template.setAuthor("Cobbleventure Structure Builder");
-            if (!manager.save(exportId)) {
-                throw new BuilderException("NBT 파일 저장에 실패했습니다: " + exportId);
-            }
-            exportAnchors(level.getServer(), planned);
-            return new ExportResult(removedDoorAnchors, repairedMultiblocks);
-        } finally {
-            reassembleCreateElevators(
-                level, elevators.pulleyPositions(), planned.entry().label()
-            );
+        List<String> repairedMultiblocks = repairKnownMultiblocks(
+            level, exportOrigin, planned.entry().size(), planned.entry().label()
+        );
+        List<String> removedDoorAnchors = reconcileDoorAnchors(
+            level, planned.entry().exportId(), exportOrigin
+        );
+        ResourceLocation exportId = ResourceLocation.parse(planned.entry().exportId());
+        var manager = level.getStructureManager();
+        var template = manager.getOrCreate(exportId);
+        template.fillFromWorld(
+            level, exportOrigin, planned.entry().size(),
+            createEntities.captureExportableEntities(), Blocks.STRUCTURE_VOID
+        );
+        CreateEntityCounts retained = createEntities.captureExportableEntities()
+            ? retainOnlyExportableCreateEntities(template, level) : CreateEntityCounts.NONE;
+        validateCapturedCreateEntities(retained, createEntities, planned.entry().label());
+        template.setAuthor("Cobbleventure Structure Builder");
+        if (!manager.save(exportId)) {
+            throw new BuilderException("NBT 파일 저장에 실패했습니다: " + exportId);
         }
+        exportAnchors(level.getServer(), planned);
+        return new ExportResult(removedDoorAnchors, repairedMultiblocks);
     }
 
     private static PlannedEntry authoredPlot(
@@ -1810,154 +1828,193 @@ public final class StructureBuilderMod {
     }
 
     private static ExportResult exportInterior(ServerLevel level, InteriorPlot plot) {
-        CreateElevatorExport elevators = disassembleCreateElevatorsForExport(
+        loadChunks(level, plot.origin(), plot.size());
+        CreateEntityExport createEntities = inspectCreateEntitiesForExport(
             level, plot.origin(), plot.size(), plot.id()
         );
-        try {
-            List<String> repairedMultiblocks = repairKnownMultiblocks(
-                level, plot.origin(), plot.size(), plot.id()
-            );
-            List<String> removedDoorAnchors = reconcileDoorAnchors(
-                level, plot.key(), plot.origin()
-            );
-            String relative = "interiors/" + plot.id();
-            ResourceLocation exportId = ResourceLocation.fromNamespaceAndPath(
-                "cobbleventure_builder", "export/" + relative
-            );
-            var manager = level.getStructureManager();
-            var template = manager.getOrCreate(exportId);
-            template.fillFromWorld(
-                level, plot.origin(), plot.size(), true, Blocks.STRUCTURE_VOID
-            );
-            validateCapturedCreateGlue(
-                retainOnlyExportableEntities(template, level), elevators, plot.id()
-            );
-            template.setAuthor("Cobbleventure Structure Builder");
-            if (!manager.save(exportId)) {
-                throw new BuilderException("내부 NBT 파일 저장에 실패했습니다: " + exportId);
-            }
-            exportMetadata(
-                level.getServer(), plot.key(), relative,
-                "content/structures/interiors/" + plot.id() + ".nbt",
-                plot.spec(), null, true
-            );
-            return new ExportResult(removedDoorAnchors, repairedMultiblocks);
-        } finally {
-            reassembleCreateElevators(level, elevators.pulleyPositions(), plot.id());
+        List<String> repairedMultiblocks = repairKnownMultiblocks(
+            level, plot.origin(), plot.size(), plot.id()
+        );
+        List<String> removedDoorAnchors = reconcileDoorAnchors(
+            level, plot.key(), plot.origin()
+        );
+        String relative = "interiors/" + plot.id();
+        ResourceLocation exportId = ResourceLocation.fromNamespaceAndPath(
+            "cobbleventure_builder", "export/" + relative
+        );
+        var manager = level.getStructureManager();
+        var template = manager.getOrCreate(exportId);
+        template.fillFromWorld(
+            level, plot.origin(), plot.size(),
+            createEntities.captureExportableEntities(), Blocks.STRUCTURE_VOID
+        );
+        CreateEntityCounts retained = createEntities.captureExportableEntities()
+            ? retainOnlyExportableCreateEntities(template, level) : CreateEntityCounts.NONE;
+        validateCapturedCreateEntities(retained, createEntities, plot.id());
+        template.setAuthor("Cobbleventure Structure Builder");
+        if (!manager.save(exportId)) {
+            throw new BuilderException("내부 NBT 파일 저장에 실패했습니다: " + exportId);
         }
+        exportMetadata(
+            level.getServer(), plot.key(), relative,
+            "content/structures/interiors/" + plot.id() + ".nbt",
+            plot.spec(), null, true
+        );
+        return new ExportResult(removedDoorAnchors, repairedMultiblocks);
     }
 
-    private static CreateElevatorExport disassembleCreateElevatorsForExport(
+    private static CreateEntityExport inspectCreateEntitiesForExport(
         ServerLevel level, BlockPos origin, Vec3i size, String label
     ) {
         BlockPos end = origin.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
-        List<BlockPos> activePulleys = new ArrayList<>();
-        int expectedGlueEntities = 0;
-        for (BlockPos position : BlockPos.betweenClosed(origin, end)) {
-            if (!BuiltInRegistries.BLOCK.getKey(level.getBlockState(position).getBlock())
-                .equals(ResourceLocation.fromNamespaceAndPath("create", "elevator_pulley"))) {
-                continue;
-            }
-            BlockEntity pulley = level.getBlockEntity(position);
-            if (pulley == null) {
-                continue;
-            }
-            Object attached = invokeCreateMethod(pulley, "getAttachedContraption", position);
-            if (!(attached instanceof Entity contraption)) {
-                continue;
+        AABB bounds = new AABB(
+            origin.getX(), origin.getY(), origin.getZ(),
+            end.getX() + 1, end.getY() + 1, end.getZ() + 1
+        );
+        List<Entity> contraptions = level.getEntities(
+            (Entity) null, bounds, StructureBuilderMod::isCreateContraption
+        );
+        int elevatorCount = 0;
+        for (Entity contraption : contraptions) {
+            CompoundTag entityData = contraption.saveWithoutId(new CompoundTag());
+            CompoundTag contraptionData = entityData.getCompound("Contraption");
+            if (!contraptionData.getString("Type").equals("create:elevator")) {
+                throw new BuilderException(
+                    "저장 범위에 엘리베이터가 아닌 Create Contraption이 있습니다: "
+                        + label + " "
+                        + format(contraption.blockPosition().subtract(origin))
+                        + ". 장치를 해체한 뒤 다시 저장하세요."
+                );
             }
             if (!contraption.getPassengers().isEmpty()) {
                 throw new BuilderException(
                     "엘리베이터에 승객이 있어 저장할 수 없습니다: "
-                        + label + " " + format(position.subtract(origin))
+                        + label + " "
+                        + format(contraption.blockPosition().subtract(origin))
                         + ". 모두 내린 뒤 다시 저장하세요."
                 );
             }
-            CompoundTag entityData = contraption.saveWithoutId(new CompoundTag());
-            expectedGlueEntities += entityData.getCompound("Contraption")
-                .getList("Superglue", Tag.TAG_COMPOUND).size();
-            activePulleys.add(position.immutable());
-        }
-
-        List<BlockPos> disassembled = new ArrayList<>();
-        try {
-            for (BlockPos position : activePulleys) {
-                BlockEntity pulley = level.getBlockEntity(position);
-                if (pulley == null) {
-                    throw new BuilderException(
-                        "Create 엘리베이터 풀리를 찾을 수 없습니다: "
-                            + label + " " + format(position.subtract(origin))
-                    );
-                }
-                invokeCreateMethod(pulley, "disassemble", position);
-                disassembled.add(position);
-            }
-
-            AABB bounds = new AABB(
-                origin.getX(), origin.getY(), origin.getZ(),
-                end.getX() + 1, end.getY() + 1, end.getZ() + 1
+            validateContraptionBlocksInsidePlot(
+                contraption.blockPosition(), contraptionData, origin, end, label
             );
-            List<Entity> remaining = level.getEntities(
-                (Entity) null, bounds, StructureBuilderMod::isCreateContraption
+            BlockPos pulleyPosition = contraption.blockPosition().offset(
+                readNbtBlockPos(entityData, "ControllerRelative", label)
             );
-            if (!remaining.isEmpty()) {
-                String locations = remaining.stream()
-                    .map(entity -> format(entity.blockPosition().subtract(origin)))
-                    .distinct()
-                    .limit(8)
-                    .reduce((left, right) -> left + ", " + right)
-                    .orElse("알 수 없는 위치");
+            if (!isInside(pulleyPosition, origin, end)
+                || !BuiltInRegistries.BLOCK.getKey(
+                    level.getBlockState(pulleyPosition).getBlock()
+                ).equals(ResourceLocation.fromNamespaceAndPath("create", "elevator_pulley"))) {
                 throw new BuilderException(
-                    "저장 범위에 자동 해체할 수 없는 Create Contraption이 있습니다: "
-                        + label + " " + locations
-                        + ". 장치를 해체한 뒤 다시 저장하세요."
+                    "Create 엘리베이터의 풀리가 저장 범위 안에 없습니다: "
+                        + label + " " + format(pulleyPosition.subtract(origin))
                 );
             }
-        } catch (RuntimeException error) {
-            reassembleCreateElevators(level, disassembled, label);
-            throw error;
+            elevatorCount++;
         }
-
-        if (!disassembled.isEmpty()) {
-            LOGGER.info(
-                "Temporarily disassembled {} Create elevator(s) before exporting {}",
-                disassembled.size(), label
-            );
-        }
-        return new CreateElevatorExport(
-            List.copyOf(disassembled), expectedGlueEntities
+        int glueCount = level.getEntities(
+            (Entity) null, bounds, StructureBuilderMod::isCreateSuperGlue
+        ).size();
+        return new CreateEntityExport(
+            elevatorCount, glueCount, elevatorCount > 0 || glueCount > 0
         );
     }
 
-    private static int retainOnlyExportableEntities(
+    private static void validateContraptionBlocksInsidePlot(
+        BlockPos anchor, CompoundTag contraptionData,
+        BlockPos origin, BlockPos end, String label
+    ) {
+        ListTag blocks = contraptionData.getCompound("Blocks")
+            .getList("BlockList", Tag.TAG_COMPOUND);
+        for (int index = 0; index < blocks.size(); index++) {
+            BlockPos position = anchor.offset(BlockPos.of(
+                blocks.getCompound(index).getLong("Pos")
+            ));
+            if (isInside(position, origin, end)) {
+                continue;
+            }
+            throw new BuilderException(
+                "Create 엘리베이터 객실이 저장 범위를 벗어납니다: "
+                    + label + " " + format(position.subtract(origin))
+                    + ". 객실을 부지 안으로 이동한 뒤 다시 저장하세요."
+            );
+        }
+    }
+
+    private static BlockPos readNbtBlockPos(
+        CompoundTag tag, String key, String label
+    ) {
+        ListTag values = tag.getList(key, Tag.TAG_INT);
+        if (values.size() != 3) {
+            throw new BuilderException(
+                "Create 엘리베이터 컨트롤러 좌표가 손상되었습니다: " + label
+            );
+        }
+        return new BlockPos(values.getInt(0), values.getInt(1), values.getInt(2));
+    }
+
+    private static boolean isInside(BlockPos position, BlockPos origin, BlockPos end) {
+        return position.getX() >= origin.getX() && position.getX() <= end.getX()
+            && position.getY() >= origin.getY() && position.getY() <= end.getY()
+            && position.getZ() >= origin.getZ() && position.getZ() <= end.getZ();
+    }
+
+    private static CreateEntityCounts retainOnlyExportableCreateEntities(
         StructureTemplate template, ServerLevel level
     ) {
         CompoundTag serialized = template.save(new CompoundTag());
         ListTag entities = serialized.getList("entities", Tag.TAG_COMPOUND);
+        int retainedElevators = 0;
         int retainedGlue = 0;
         for (int index = entities.size() - 1; index >= 0; index--) {
             CompoundTag entityInfo = entities.getCompound(index);
-            String entityId = entityInfo.getCompound("nbt").getString("id");
+            CompoundTag entityData = entityInfo.getCompound("nbt");
+            String entityId = entityData.getString("id");
             if (entityId.equals("create:super_glue")) {
                 retainedGlue++;
                 continue;
             }
+            ResourceLocation parsedId = ResourceLocation.tryParse(entityId);
+            if (parsedId != null
+                && parsedId.getNamespace().equals("create")
+                && parsedId.getPath().contains("contraption")
+                && entityData.getCompound("Contraption").getString("Type")
+                    .equals("create:elevator")) {
+                retainedElevators++;
+                continue;
+            }
             entities.remove(index);
         }
+        sanitizeCreateKineticNetworks(serialized);
         template.load(level.holderLookup(Registries.BLOCK), serialized);
-        return retainedGlue;
+        return new CreateEntityCounts(retainedElevators, retainedGlue);
     }
 
-    private static void validateCapturedCreateGlue(
-        int retainedGlue, CreateElevatorExport elevators, String label
+    private static void sanitizeCreateKineticNetworks(CompoundTag templateData) {
+        ListTag blocks = templateData.getList("blocks", Tag.TAG_COMPOUND);
+        for (int index = 0; index < blocks.size(); index++) {
+            CompoundTag blockEntity = blocks.getCompound(index).getCompound("nbt");
+            if (!blockEntity.getString("id").equals("create:elevator_pulley")) {
+                continue;
+            }
+            blockEntity.remove("Source");
+            blockEntity.remove("Network");
+            blockEntity.remove("Owner");
+            blockEntity.remove("NeedsSpeedUpdate");
+        }
+    }
+
+    private static void validateCapturedCreateEntities(
+        CreateEntityCounts retained, CreateEntityExport expected, String label
     ) {
-        if (retainedGlue >= elevators.expectedGlueEntities()) {
+        if (retained.elevators() == expected.expectedElevators()
+            && retained.glue() == expected.expectedGlueEntities()) {
             return;
         }
         throw new BuilderException(
-            "Create 엘리베이터 접착제를 NBT에 모두 담지 못해 저장하지 않았습니다: "
-                + label + " (필요 " + elevators.expectedGlueEntities()
-                + "개, 저장 " + retainedGlue + "개). 다시 시도하세요."
+            "Create 엘리베이터 엔티티를 NBT에 정확히 담지 못해 저장하지 않았습니다: "
+                + label + " (엘리베이터 " + expected.expectedElevators() + "→"
+                + retained.elevators() + ", 접착제 " + expected.expectedGlueEntities()
+                + "→" + retained.glue() + "). 다시 시도하세요."
         );
     }
 
@@ -1966,43 +2023,9 @@ public final class StructureBuilderMod {
         return id.getNamespace().equals("create") && id.getPath().contains("contraption");
     }
 
-    private static Object invokeCreateMethod(
-        Object target, String methodName, BlockPos position
-    ) {
-        try {
-            return target.getClass().getMethod(methodName).invoke(target);
-        } catch (ReflectiveOperationException error) {
-            throw new BuilderException(
-                "Create 엘리베이터 처리에 실패했습니다: " + format(position)
-                    + " (" + methodName + ")"
-            );
-        }
-    }
-
-    private static void reassembleCreateElevators(
-        ServerLevel level, List<BlockPos> pulleyPositions, String label
-    ) {
-        List<String> failed = new ArrayList<>();
-        for (BlockPos position : pulleyPositions) {
-            BlockEntity pulley = level.getBlockEntity(position);
-            if (pulley == null) {
-                failed.add(format(position));
-                continue;
-            }
-            try {
-                invokeCreateMethod(pulley, "clicked", position);
-            } catch (BuilderException error) {
-                failed.add(format(position));
-                LOGGER.error("Could not reassemble Create elevator at {}", position, error);
-            }
-        }
-        if (!failed.isEmpty()) {
-            throw new BuilderException(
-                "NBT 저장 후 Create 엘리베이터 재조립에 실패했습니다: "
-                    + label + " " + String.join(", ", failed)
-                    + ". 풀리를 직접 다시 조립하세요."
-            );
-        }
+    private static boolean isCreateSuperGlue(Entity entity) {
+        return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+            .equals(ResourceLocation.fromNamespaceAndPath("create", "super_glue"));
     }
 
     private static List<String> repairKnownMultiblocks(
@@ -2133,6 +2156,18 @@ public final class StructureBuilderMod {
         return repaired.isEmpty()
             ? ""
             : " 멀티블록 가구 자동 복구: " + String.join(", ", repaired);
+    }
+
+    private static String failedExportNotice(List<String> failed) {
+        if (failed.isEmpty()) {
+            return "";
+        }
+        String summary = failed.stream().limit(5)
+            .reduce((left, right) -> left + " | " + right).orElse("");
+        if (failed.size() > 5) {
+            summary += " | 외 " + (failed.size() - 5) + "개";
+        }
+        return " 저장 실패 " + failed.size() + "개: " + summary;
     }
 
     private static void exportMetadata(
@@ -2499,9 +2534,14 @@ public final class StructureBuilderMod {
     ) {
     }
 
-    private record CreateElevatorExport(
-        List<BlockPos> pulleyPositions, int expectedGlueEntities
+    private record CreateEntityExport(
+        int expectedElevators, int expectedGlueEntities,
+        boolean captureExportableEntities
     ) {
+    }
+
+    private record CreateEntityCounts(int elevators, int glue) {
+        private static final CreateEntityCounts NONE = new CreateEntityCounts(0, 0);
     }
 
     private record Entry(

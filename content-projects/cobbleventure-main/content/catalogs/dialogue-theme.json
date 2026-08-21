@@ -3,8 +3,8 @@
   "schema_version": 1,
   "font": {
     "resource": "minecraft:default",
-    "body_scale": 1.5,
-    "speaker_scale": 2,
+    "body_scale": 1.2,
+    "speaker_scale": 1.4,
     "hint_scale": 0.85
   },
   "panel": {
@@ -56,9 +56,9 @@
     "accent": "#4f8fc2"
   },
   "portrait": {
-    "yaw_degrees": 19,
-    "pitch_degrees": 4,
-    "scale": 0.7,
+    "yaw_degrees": -12,
+    "pitch_degrees": 6,
+    "scale": 0.65,
     "background": "#0a1017",
     "background_opacity": 0,
     "accent": "#5e7789"

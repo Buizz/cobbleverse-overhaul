@@ -56,6 +56,9 @@ dependencies {
     localRuntime "curse.maven:cobbledollars-859232:8484919"
     localRuntime "curse.maven:kotlin-for-forge-351264:8335665"
     localRuntime "maven.modrinth:caxton:0.6.4+1.21.1-NEOFORGE"
+    localRuntime "maven.modrinth:4I1XuqiY:PAYgk63v"
+    localRuntime "maven.modrinth:BVzZfTc1:YEMROAHv"
+    localRuntime "maven.modrinth:YsFycamt:xf3H2eJV"
 }
 
 def integrationBcaJar = null
@@ -128,6 +131,7 @@ tasks.register('syncDevelopmentClientConfig', Copy) {
     from(rootProject.file('../../pack/overrides/development-placeholder/config')) {
         include 'iris.properties'
         include 'neoforge-client.toml'
+        include 'resourcepackoverrides.json'
     }
     into(file('run/config'))
 }
@@ -153,6 +157,16 @@ def runClientPreparationTasks = [
     'syncDevelopmentResourcePacks',
 ]
 if (integrationInstanceDirectory != null) {
+    tasks.register('syncIntegrationResourcePacks', Copy) {
+        group = 'cobbleventure development'
+        description = 'Copies launcher-downloaded resource packs into the local Minecraft run directory.'
+        from(new File(integrationInstanceDirectory, 'resourcepacks')) {
+            include 'Melodys Cute Villagers v1.11.1_pre-26.1.zip'
+        }
+        into(file('run/resourcepacks'))
+    }
+    runClientPreparationTasks.add('syncIntegrationResourcePacks')
+
     tasks.register('syncIntegrationShaderPacks', Copy) {
         group = 'cobbleventure development'
         description = 'Copies integration-instance shader packs into the local Minecraft run directory.'

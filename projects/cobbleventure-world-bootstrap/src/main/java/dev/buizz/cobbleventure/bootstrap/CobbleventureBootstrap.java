@@ -2095,50 +2095,28 @@ public final class CobbleventureBootstrap {
         Map<String, String> houseStructures = resolveTownHouseStructures(
             settlement, layout.houses()
         );
-        Set<TownRoad> approximateBuildingAccessRoads = layout.buildingAccessRoads()
-            .values().stream().flatMap(List::stream)
-            .collect(Collectors.toSet());
         List<RuntimeAccessRoad> runtimeAccessRoads = new ArrayList<>();
-        Map<TownRoad, Integer> runtimeAccessRoadWidths = new HashMap<>();
         for (TownRoad accessRoad : layout.accessRoads()) {
-            if (approximateBuildingAccessRoads.contains(accessRoad)) {
-                continue;
+            String buildingId = null;
+            boolean entranceSegment = false;
+            for (Map.Entry<String, List<TownRoad>> entry
+                : layout.buildingAccessRoads().entrySet()) {
+                List<TownRoad> buildingRoads = entry.getValue();
+                if (!buildingRoads.contains(accessRoad)) {
+                    continue;
+                }
+                buildingId = entry.getKey();
+                entranceSegment = !buildingRoads.isEmpty()
+                    && buildingRoads.get(buildingRoads.size() - 1).equals(accessRoad);
+                break;
             }
-            runtimeAccessRoads.add(new RuntimeAccessRoad(accessRoad, false));
-            runtimeAccessRoadWidths.put(
-                accessRoad, Math.min(3, road.width())
-            );
-        }
-        for (String facilityId : layout.facilities().keySet()) {
-            if (isDepartmentStoreFacility(facilityId)) {
-                continue;
-            }
-            TownPlot facility = layout.facilities().get(facilityId);
-            int approachWidth = facilityApproachRoadWidth(facilityId, road.width());
-            List<TownRoad> accessRoads = townPlotAccessRoads(
-                level, facility, facility.structure()
-            );
-            for (int index = 0; index < accessRoads.size(); index++) {
-                TownRoad accessRoad = accessRoads.get(index);
-                runtimeAccessRoads.add(new RuntimeAccessRoad(
-                    accessRoad, index == accessRoads.size() - 1
-                ));
-                runtimeAccessRoadWidths.put(accessRoad, approachWidth);
-            }
-        }
-        for (TownPlot house : layout.houses()) {
-            List<TownRoad> accessRoads = townPlotAccessRoads(
-                level, house, houseStructures.get(house.id())
-            );
-            for (int index = 0; index < accessRoads.size(); index++) {
-                TownRoad accessRoad = accessRoads.get(index);
-                runtimeAccessRoads.add(new RuntimeAccessRoad(
-                    accessRoad, index == accessRoads.size() - 1
-                ));
-                runtimeAccessRoadWidths.put(
-                    accessRoad, Math.min(3, road.width())
-                );
-            }
+            int accessWidth = buildingId != null
+                && layout.facilities().containsKey(buildingId)
+                ? facilityApproachRoadWidth(buildingId, road.width())
+                : Math.min(3, road.width());
+            runtimeAccessRoads.add(new RuntimeAccessRoad(
+                accessRoad, accessWidth, entranceSegment
+            ));
         }
         int removedNaturalTrees = clearTownChunkTrees(level, settlement);
         long townTreeClearFinishedAt = System.nanoTime();
@@ -2157,9 +2135,7 @@ public final class CobbleventureBootstrap {
                 roadColumns,
                 center.translate(accessRoad.x1(), accessRoad.z1()),
                 center.translate(accessRoad.x2(), accessRoad.z2()),
-                runtimeAccessRoadWidths.getOrDefault(
-                    accessRoad, Math.min(3, road.width())
-                ),
+                runtimeRoad.width(),
                 runtimeRoad.entranceSegment()
             );
         }
@@ -2181,8 +2157,9 @@ public final class CobbleventureBootstrap {
             String structure = houseStructures.get(house.id());
             int x = center.x() + (int) Math.round(house.x());
             int z = center.z() + (int) Math.round(house.z());
-            int roadX = center.x() + house.roadConnectionX();
-            int roadZ = center.z() + house.roadConnectionZ();
+            TownRoad entranceRoad = townBuildingEntranceRoad(layout, house);
+            int roadX = center.x() + entranceRoad.x2();
+            int roadZ = center.z() + entranceRoad.z2();
             int groundY = roadElevations.getOrDefault(
                 blockColumnKey(roadX, roadZ), loadedRoadSurfaceY(level, roadX, roadZ)
             );
@@ -2215,18 +2192,6 @@ public final class CobbleventureBootstrap {
             houseRuntimeElapsedNanos += System.nanoTime() - runtimeStartedAt;
         }
         long housePlacementFinishedAt = System.nanoTime();
-        // Structure NBTs may contain air padding at their outer edge. Repaint the
-        // authored road mask after placement so every doorway remains physically
-        // connected even when that padding overlaps the road boundary. This pass
-        // only restores a missing surface: vegetation scans, terrain carving and
-        // foundation support were already completed before structure placement.
-        for (long key : roadColumns) {
-            restoreConfiguredRoadSurface(
-                level, blockColumnX(key), blockColumnZ(key), road.material(),
-                roadElevations.get(key),
-                configuredRoadStairDirection(key, roadColumns, roadElevations), true
-            );
-        }
         long housesFinishedAt = System.nanoTime();
         int roadStairs = 0;
         int roadSlabs = 0;
@@ -2584,17 +2549,11 @@ public final class CobbleventureBootstrap {
     }
 
     private static TownRoad townPlotAccessRoad(TownPlot plot) {
-        return townPlotAccessRoad(null, plot, plot.structure());
+        return townPlotAccessRoad(plot, plot.structure());
     }
 
     private static TownRoad townPlotAccessRoad(
         TownPlot plot, String structure
-    ) {
-        return townPlotAccessRoad(null, plot, structure);
-    }
-
-    private static TownRoad townPlotAccessRoad(
-        ServerLevel level, TownPlot plot, String structure
     ) {
         int x = (int) Math.round(plot.x());
         int z = (int) Math.round(plot.z());
@@ -2606,10 +2565,6 @@ public final class CobbleventureBootstrap {
                 default -> "north";
             }
             : facilityCanonicalEntranceFacing(plot.id());
-        BlockPos roadAnchorOffset = level == null || structure == null ? null
-            : BuildingRuntimeSystem.exteriorRoadAnchorOffset(
-                level, structure, plot.rotation()
-            );
         BlockPos doorOffset = structure == null ? null
             : BuildingRuntimeSystem.exteriorDoorApproachOffset(
                 structure, plot.rotation()
@@ -2617,12 +2572,7 @@ public final class CobbleventureBootstrap {
         BlockPoint templateOrigin = rotatedTemplateOrigin(
             x, 0, z, plot.width(), plot.depth(), plot.rotation()
         );
-        Point authoredEntrance = roadAnchorOffset != null
-            ? new Point(
-                templateOrigin.x() + roadAnchorOffset.getX(),
-                templateOrigin.z() + roadAnchorOffset.getZ()
-            )
-            : doorOffset != null
+        Point authoredEntrance = doorOffset != null
             ? new Point(
                 templateOrigin.x() + doorOffset.getX(),
                 templateOrigin.z() + doorOffset.getZ()
@@ -2673,13 +2623,7 @@ public final class CobbleventureBootstrap {
     private static List<TownRoad> townPlotAccessRoads(
         TownPlot plot, String structure
     ) {
-        return townPlotAccessRoads(null, plot, structure);
-    }
-
-    private static List<TownRoad> townPlotAccessRoads(
-        ServerLevel level, TownPlot plot, String structure
-    ) {
-        TownRoad direct = townPlotAccessRoad(level, plot, structure);
+        TownRoad direct = townPlotAccessRoad(plot, structure);
         if (direct.x1() == direct.x2() || direct.z1() == direct.z2()) {
             return List.of(direct);
         }
@@ -2698,6 +2642,19 @@ public final class CobbleventureBootstrap {
         return List.of(
             new TownRoad(direct.x1(), direct.z1(), corner.x(), corner.z()),
             new TownRoad(corner.x(), corner.z(), direct.x2(), direct.z2())
+        );
+    }
+
+    private static TownRoad townBuildingEntranceRoad(
+        TownLayout layout, TownPlot plot
+    ) {
+        List<TownRoad> roads = layout.buildingAccessRoads().get(plot.id());
+        if (roads != null && !roads.isEmpty()) {
+            return roads.get(roads.size() - 1);
+        }
+        return new TownRoad(
+            plot.roadConnectionX(), plot.roadConnectionZ(),
+            plot.roadConnectionX(), plot.roadConnectionZ()
         );
     }
 
@@ -2861,7 +2818,9 @@ public final class CobbleventureBootstrap {
             }
             BuildingRuntimeSystem.onStructurePlaced(
                 level, facility.structure(), placedOrigin, rotation,
-                buildingEventSpaceId(settlement.id(), facility.id())
+                buildingEventSpaceId(settlement.id(), facility.id()),
+                isDepartmentStoreFacility(facility.id())
+                    ? settlement.vendorAssignments() : null
             );
             if (facility.mode().equals("direct_template")) {
                 if (!placeFacilityJigsawDecorations(level, facility, position)) {
@@ -2879,7 +2838,6 @@ public final class CobbleventureBootstrap {
                 );
             }
         }
-        restoreFacilityRoadNetwork(level, settlement);
         return true;
     }
 
@@ -2906,38 +2864,6 @@ public final class CobbleventureBootstrap {
             return 5;
         }
         return defaultWidth;
-    }
-
-    private static void restoreFacilityRoadNetwork(
-        ServerLevel level, SettlementPlan settlement
-    ) {
-        Point center = new Point(settlement.center().x(), settlement.center().z());
-        TownLayout layout = generateTownLayout(settlement);
-        for (String facilityId : layout.facilities().keySet()) {
-            if (isDepartmentStoreFacility(facilityId)) {
-                continue;
-            }
-            TownPlot facility = layout.facilities().get(facilityId);
-            RoadProfile approach = new RoadProfile(
-                facilityApproachRoadWidth(
-                    facilityId, settlement.roadProfile().width()
-                ),
-                settlement.roadProfile().material()
-            );
-            List<TownRoad> accessRoads = townPlotAccessRoads(
-                level, facility, facility.structure()
-            );
-            for (int index = 0; index < accessRoads.size(); index++) {
-                TownRoad road = accessRoads.get(index);
-                drawConfiguredRoad(
-                    level,
-                    center.translate(road.x1(), road.z1()),
-                    center.translate(road.x2(), road.z2()),
-                    approach, true, false, false,
-                    index == accessRoads.size() - 1
-                );
-            }
-        }
     }
 
     private static void prepareExistingGymExteriors(
@@ -4030,31 +3956,6 @@ public final class CobbleventureBootstrap {
         return true;
     }
 
-    private static void restoreConfiguredRoadSurface(
-        ServerLevel level, int x, int z, String material, int baseY,
-        Direction stairDirection,
-        boolean townSurface
-    ) {
-        int groundY = baseY + (stairDirection == null ? 0 : 1);
-        BlockPos surfacePosition = new BlockPos(x, groundY, z);
-        BlockState current = level.getBlockState(surfacePosition);
-        if (!current.isAir() && !current.canBeReplaced()) {
-            return;
-        }
-        BlockState fullRoad = townSurface
-            ? configuredTownRoadBlock(material, x, z)
-            : configuredRoadBlock(material);
-        if (stairDirection != null) {
-            level.setBlock(
-                new BlockPos(x, baseY, z), fullRoad, 2
-            );
-        }
-        level.setBlock(surfacePosition, stairDirection == null
-            ? fullRoad : configuredRoadStair(
-                material, fullRoad, stairDirection
-            ), 2);
-    }
-
     private static boolean isNaturalRoadObstruction(BlockState state) {
         return state.is(Blocks.GRASS_BLOCK)
             || state.is(Blocks.DIRT)
@@ -4518,9 +4419,7 @@ public final class CobbleventureBootstrap {
         if (generated != null) {
             int x = settlement.center().x() + (int) Math.round(generated.x());
             int z = settlement.center().z() + (int) Math.round(generated.z());
-            TownRoad entranceRoad = townPlotAccessRoad(
-                level, generated, facility.structure()
-            );
+            TownRoad entranceRoad = townBuildingEntranceRoad(layout, generated);
             int roadX = settlement.center().x() + entranceRoad.x2();
             int roadZ = settlement.center().z() + entranceRoad.z2();
             int groundY = loadedRoadSurfaceY(level, roadX, roadZ);
@@ -5702,9 +5601,7 @@ public final class CobbleventureBootstrap {
             }
             int originX = settlement.center().x() + (int) Math.round(center.x());
             int originZ = settlement.center().z() + (int) Math.round(center.z());
-            TownRoad entrance = townPlotAccessRoad(
-                level, center, facility.structure()
-            );
+            TownRoad entrance = townBuildingEntranceRoad(layout, center);
             int entranceX = settlement.center().x() + entrance.x2();
             int entranceZ = settlement.center().z() + entrance.z2();
             BlockPoint origin = facilityTemplateOrigin(
@@ -6713,8 +6610,8 @@ public final class CobbleventureBootstrap {
         if (level == null) {
             return 0;
         }
-        TownRoad entrance = townPlotAccessRoad(
-            level, center, center.structure()
+        TownRoad entrance = townBuildingEntranceRoad(
+            settlement.compiledLayout(), center
         );
         BlockPos target = safeTeleportPosition(
             level,
@@ -7153,7 +7050,10 @@ public final class CobbleventureBootstrap {
                 basicBuildings.add(element.getAsString());
             }
         }
-        if (basicBuildings.isEmpty()) {
+        boolean residentialBuildingsEnabled = generationProfile == null
+            || !generationProfile.has("residential_buildings_enabled")
+            || generationProfile.get("residential_buildings_enabled").getAsBoolean();
+        if (basicBuildings.isEmpty() && residentialBuildingsEnabled) {
             basicBuildings.add("cobbleventure:placeholder/basic_building_1");
             basicBuildings.add("cobbleventure:placeholder/basic_building_2");
             basicBuildings.add("cobbleventure:placeholder/basic_building_3");
@@ -7356,9 +7256,21 @@ public final class CobbleventureBootstrap {
         if (!resolved.has("placements")) {
             return List.of();
         }
+        boolean noAmbientNpcs = false;
+        if (root.has("settlement_flags") && root.get("settlement_flags").isJsonArray()) {
+            for (JsonElement element : root.getAsJsonArray("settlement_flags")) {
+                if (element.isJsonPrimitive() && "no_ambient_npcs".equals(element.getAsString())) {
+                    noAmbientNpcs = true;
+                    break;
+                }
+            }
+        }
         List<TownNpcPlacement> placements = new ArrayList<>();
         for (JsonElement element : resolved.getAsJsonArray("placements")) {
             JsonObject value = element.getAsJsonObject();
+            if (noAmbientNpcs && "npc".equals(requiredString(value, "classification"))) {
+                continue;
+            }
             placements.add(new TownNpcPlacement(
                 requiredString(value, "npc"),
                 requiredString(value, "classification"),
@@ -14335,7 +14247,9 @@ public final class CobbleventureBootstrap {
             ? facilityPlacementOrigin(level, facility, position, rotation) : position;
         BuildingRuntimeSystem.onStructurePlaced(
             level, facility.structure(), placedOrigin, rotation,
-            buildingEventSpaceId(settlement.id(), facility.id())
+            buildingEventSpaceId(settlement.id(), facility.id()),
+            isDepartmentStoreFacility(facility.id())
+                ? settlement.vendorAssignments() : null
         );
         BuildingRuntimeSystem.SpawnDestination destination =
             BuildingRuntimeSystem.resolveStarterSpawn(
@@ -14564,7 +14478,9 @@ public final class CobbleventureBootstrap {
 
     record TownRoad(int x1, int z1, int x2, int z2) {}
 
-    private record RuntimeAccessRoad(TownRoad road, boolean entranceSegment) {}
+    private record RuntimeAccessRoad(
+        TownRoad road, int width, boolean entranceSegment
+    ) {}
 
     record TownSlot(int roadIndex, double ratio, int side) {}
 

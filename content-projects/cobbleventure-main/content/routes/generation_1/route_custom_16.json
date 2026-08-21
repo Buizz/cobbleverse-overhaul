@@ -4,7 +4,7 @@
   "id": "cobbleventure:route/route_custom_16",
   "display_name": {
     "ko_kr": "블루시티 - 돌산터널 길",
-    "en_us": "Cerulean City - Rock Tunnel Road"
+    "en_us": "블루시티 - 돌산터널 길"
   },
   "auto_name": true,
   "enabled": true,
@@ -21,18 +21,58 @@
     "inherit_biome": false,
     "excluded_species": [],
     "additions": [
-      { "species": "cobblemon:ekans", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:rattata", "min_level": 14, "max_level": 17 },
-      { "species": "cobblemon:sandshrew", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:spearow", "min_level": 13, "max_level": 17 },
-      { "species": "cobblemon:voltorb", "min_level": 14, "max_level": 17 }
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:rattata",
+        "min_level": 14,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 13,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:voltorb",
+        "min_level": 14,
+        "max_level": 17
+      }
     ],
     "level_overrides": [
-      { "species": "cobblemon:ekans", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:rattata", "min_level": 14, "max_level": 17 },
-      { "species": "cobblemon:sandshrew", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:spearow", "min_level": 13, "max_level": 17 },
-      { "species": "cobblemon:voltorb", "min_level": 14, "max_level": 17 }
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:rattata",
+        "min_level": 14,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 13,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:voltorb",
+        "min_level": 14,
+        "max_level": 17
+      }
     ]
   },
   "npc_placements": []

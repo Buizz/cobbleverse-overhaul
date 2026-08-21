@@ -21,28 +21,108 @@
     "inherit_biome": false,
     "excluded_species": [],
     "additions": [
-      { "species": "cobblemon:arbok", "min_level": 41, "max_level": 41 },
-      { "species": "cobblemon:ditto", "min_level": 33, "max_level": 43 },
-      { "species": "cobblemon:ekans", "min_level": 26, "max_level": 26 },
-      { "species": "cobblemon:fearow", "min_level": 38, "max_level": 43 },
-      { "species": "cobblemon:nidoranf", "min_level": 2, "max_level": 4 },
-      { "species": "cobblemon:nidoranm", "min_level": 2, "max_level": 4 },
-      { "species": "cobblemon:rattata", "min_level": 2, "max_level": 4 },
-      { "species": "cobblemon:sandshrew", "min_level": 26, "max_level": 26 },
-      { "species": "cobblemon:sandslash", "min_level": 41, "max_level": 41 },
-      { "species": "cobblemon:spearow", "min_level": 3, "max_level": 26 }
+      {
+        "species": "cobblemon:arbok",
+        "min_level": 41,
+        "max_level": 41
+      },
+      {
+        "species": "cobblemon:ditto",
+        "min_level": 33,
+        "max_level": 43
+      },
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 26,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:fearow",
+        "min_level": 38,
+        "max_level": 43
+      },
+      {
+        "species": "cobblemon:nidoranf",
+        "min_level": 2,
+        "max_level": 4
+      },
+      {
+        "species": "cobblemon:nidoranm",
+        "min_level": 2,
+        "max_level": 4
+      },
+      {
+        "species": "cobblemon:rattata",
+        "min_level": 2,
+        "max_level": 4
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 26,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:sandslash",
+        "min_level": 41,
+        "max_level": 41
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 3,
+        "max_level": 26
+      }
     ],
     "level_overrides": [
-      { "species": "cobblemon:arbok", "min_level": 41, "max_level": 41 },
-      { "species": "cobblemon:ditto", "min_level": 33, "max_level": 43 },
-      { "species": "cobblemon:ekans", "min_level": 26, "max_level": 26 },
-      { "species": "cobblemon:fearow", "min_level": 38, "max_level": 43 },
-      { "species": "cobblemon:nidoranf", "min_level": 2, "max_level": 4 },
-      { "species": "cobblemon:nidoranm", "min_level": 2, "max_level": 4 },
-      { "species": "cobblemon:rattata", "min_level": 2, "max_level": 4 },
-      { "species": "cobblemon:sandshrew", "min_level": 26, "max_level": 26 },
-      { "species": "cobblemon:sandslash", "min_level": 41, "max_level": 41 },
-      { "species": "cobblemon:spearow", "min_level": 3, "max_level": 26 }
+      {
+        "species": "cobblemon:arbok",
+        "min_level": 41,
+        "max_level": 41
+      },
+      {
+        "species": "cobblemon:ditto",
+        "min_level": 33,
+        "max_level": 43
+      },
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 26,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:fearow",
+        "min_level": 38,
+        "max_level": 43
+      },
+      {
+        "species": "cobblemon:nidoranf",
+        "min_level": 2,
+        "max_level": 4
+      },
+      {
+        "species": "cobblemon:nidoranm",
+        "min_level": 2,
+        "max_level": 4
+      },
+      {
+        "species": "cobblemon:rattata",
+        "min_level": 2,
+        "max_level": 4
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 26,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:sandslash",
+        "min_level": 41,
+        "max_level": 41
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 3,
+        "max_level": 26
+      }
     ]
   },
   "npc_placements": []

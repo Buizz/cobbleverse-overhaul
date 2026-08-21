@@ -21,14 +21,38 @@
     "inherit_biome": false,
     "excluded_species": [],
     "additions": [
-      { "species": "cobblemon:jigglypuff", "min_level": 3, "max_level": 7 },
-      { "species": "cobblemon:pidgey", "min_level": 6, "max_level": 8 },
-      { "species": "cobblemon:spearow", "min_level": 5, "max_level": 8 }
+      {
+        "species": "cobblemon:jigglypuff",
+        "min_level": 3,
+        "max_level": 7
+      },
+      {
+        "species": "cobblemon:pidgey",
+        "min_level": 6,
+        "max_level": 8
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 5,
+        "max_level": 8
+      }
     ],
     "level_overrides": [
-      { "species": "cobblemon:jigglypuff", "min_level": 3, "max_level": 7 },
-      { "species": "cobblemon:pidgey", "min_level": 6, "max_level": 8 },
-      { "species": "cobblemon:spearow", "min_level": 5, "max_level": 8 }
+      {
+        "species": "cobblemon:jigglypuff",
+        "min_level": 3,
+        "max_level": 7
+      },
+      {
+        "species": "cobblemon:pidgey",
+        "min_level": 6,
+        "max_level": 8
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 5,
+        "max_level": 8
+      }
     ]
   },
   "npc_placements": []

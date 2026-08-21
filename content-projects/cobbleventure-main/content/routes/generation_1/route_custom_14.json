@@ -21,28 +21,108 @@
     "inherit_biome": false,
     "excluded_species": [],
     "additions": [
-      { "species": "cobblemon:bellsprout", "min_level": 22, "max_level": 26 },
-      { "species": "cobblemon:drowzee", "min_level": 9, "max_level": 15 },
-      { "species": "cobblemon:ekans", "min_level": 12, "max_level": 15 },
-      { "species": "cobblemon:gloom", "min_level": 28, "max_level": 30 },
-      { "species": "cobblemon:oddish", "min_level": 22, "max_level": 26 },
-      { "species": "cobblemon:pidgey", "min_level": 23, "max_level": 27 },
-      { "species": "cobblemon:sandshrew", "min_level": 12, "max_level": 15 },
-      { "species": "cobblemon:spearow", "min_level": 13, "max_level": 17 },
-      { "species": "cobblemon:venonat", "min_level": 24, "max_level": 26 },
-      { "species": "cobblemon:weepinbell", "min_level": 28, "max_level": 30 }
+      {
+        "species": "cobblemon:bellsprout",
+        "min_level": 22,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:drowzee",
+        "min_level": 9,
+        "max_level": 15
+      },
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 12,
+        "max_level": 15
+      },
+      {
+        "species": "cobblemon:gloom",
+        "min_level": 28,
+        "max_level": 30
+      },
+      {
+        "species": "cobblemon:oddish",
+        "min_level": 22,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:pidgey",
+        "min_level": 23,
+        "max_level": 27
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 12,
+        "max_level": 15
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 13,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:venonat",
+        "min_level": 24,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:weepinbell",
+        "min_level": 28,
+        "max_level": 30
+      }
     ],
     "level_overrides": [
-      { "species": "cobblemon:bellsprout", "min_level": 22, "max_level": 26 },
-      { "species": "cobblemon:drowzee", "min_level": 9, "max_level": 15 },
-      { "species": "cobblemon:ekans", "min_level": 12, "max_level": 15 },
-      { "species": "cobblemon:gloom", "min_level": 28, "max_level": 30 },
-      { "species": "cobblemon:oddish", "min_level": 22, "max_level": 26 },
-      { "species": "cobblemon:pidgey", "min_level": 23, "max_level": 27 },
-      { "species": "cobblemon:sandshrew", "min_level": 12, "max_level": 15 },
-      { "species": "cobblemon:spearow", "min_level": 13, "max_level": 17 },
-      { "species": "cobblemon:venonat", "min_level": 24, "max_level": 26 },
-      { "species": "cobblemon:weepinbell", "min_level": 28, "max_level": 30 }
+      {
+        "species": "cobblemon:bellsprout",
+        "min_level": 22,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:drowzee",
+        "min_level": 9,
+        "max_level": 15
+      },
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 12,
+        "max_level": 15
+      },
+      {
+        "species": "cobblemon:gloom",
+        "min_level": 28,
+        "max_level": 30
+      },
+      {
+        "species": "cobblemon:oddish",
+        "min_level": 22,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:pidgey",
+        "min_level": 23,
+        "max_level": 27
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 12,
+        "max_level": 15
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 13,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:venonat",
+        "min_level": 24,
+        "max_level": 26
+      },
+      {
+        "species": "cobblemon:weepinbell",
+        "min_level": 28,
+        "max_level": 30
+      }
     ]
   },
   "npc_placements": []

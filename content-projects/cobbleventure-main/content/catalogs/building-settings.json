@@ -81,16 +81,14 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_vendors": {
-        "room_1:1f_left": "cobbleventure:vendor/lilycove_supplies_doyun",
-        "room_1:1f_right": "cobbleventure:vendor/lilycove_medicine_sua",
-        "room_1:2f_left": "cobbleventure:vendor/lilycove_vitamins_jiho",
-        "room_1:2f_right": "cobbleventure:vendor/lilycove_battle_items_narae",
-        "room_1:3f_left": "cobbleventure:vendor/lilycove_attack_tms_taeo",
-        "room_1:3f_right": "cobbleventure:vendor/lilycove_support_tms_serin",
-        "room_1:4f_left": "cobbleventure:vendor/lilycove_dolls_yuri",
-        "room_1:4f_right": "cobbleventure:vendor/lilycove_cushions_bomi",
-        "room_1:5f_left": "cobbleventure:vendor/lilycove_furniture_geonu",
-        "room_1:5f_right": "cobbleventure:vendor/lilycove_decor_chorong"
+        "room_1:2f_left": "cobbleventure:vendor/lilycove_supplies_doyun",
+        "room_1:2f_right": "cobbleventure:vendor/lilycove_medicine_sua",
+        "room_1:3f_left": "cobbleventure:vendor/lilycove_vitamins_jiho",
+        "room_1:3f_right": "cobbleventure:vendor/lilycove_battle_items_narae",
+        "room_1:4f_left": "cobbleventure:vendor/lilycove_attack_tms_taeo",
+        "room_1:4f_right": "cobbleventure:vendor/lilycove_support_tms_serin",
+        "room_1:5f_left": "cobbleventure:vendor/lilycove_dolls_yuri",
+        "room_1:5f_right": "cobbleventure:vendor/lilycove_cushions_bomi"
       },
       "citizen_placement_allowed": false,
       "interiors": [

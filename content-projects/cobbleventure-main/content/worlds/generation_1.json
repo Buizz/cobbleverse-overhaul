@@ -1343,6 +1343,41 @@
         "q": -2,
         "r": 5,
         "type": "ocean"
+      },
+      {
+        "q": 10,
+        "r": -1,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 11,
+        "r": -1,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 12,
+        "r": -2,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 12,
+        "r": -3,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 11,
+        "r": -3,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 9,
+        "r": 0,
+        "type": "stone_mountain"
+      },
+      {
+        "q": 11,
+        "r": 0,
+        "type": "stone_mountain"
       }
     ]
   },
@@ -2311,7 +2346,7 @@
         "q": 11,
         "r": -2
       },
-      "facing": "west",
+      "facing": "south",
       "structure": "cobbleventure:cave_entrance/stone_mountain",
       "structure_variants": {
         "high_forest": "cobbleventure:cave_entrance/plains",
@@ -2332,7 +2367,7 @@
         "q": 10,
         "r": 0
       },
-      "facing": "south",
+      "facing": "north",
       "structure": "cobbleventure:cave_entrance/stone_mountain",
       "structure_variants": {
         "high_forest": "cobbleventure:cave_entrance/plains",

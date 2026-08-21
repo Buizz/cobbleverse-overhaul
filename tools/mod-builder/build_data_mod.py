@@ -1782,7 +1782,10 @@ def _compile_town_layout_attempt(
         facilities[identifier] = plot
     houses: list[dict[str, object]] = []
     base_house_target = min(36, max(12, 6 + depth * 5)) if cell_count == 19 else min(18, max(4, 3 + depth * 3))
-    house_target = max(2, round(base_house_target * float(density["multiplier"])))
+    house_target = (
+        max(2, round(base_house_target * float(density["multiplier"])))
+        if generation.get("residential_buildings_enabled", True) else 0
+    )
     for index in range(house_target):
         base_id = house_bases[int(random.next_double() * len(house_bases))]
         roof_id = house_roofs[int(random.next_double() * len(house_roofs))]
@@ -1959,6 +1962,65 @@ def _compile_town_layout(
     data: dict[str, object], root: Path | None = None
 ) -> dict[str, object]:
     profile = data.get("structure_profile")
+    if isinstance(profile, dict) and profile.get("layout_mode") == "manual":
+        manual = profile.get("manual_layout")
+        if not isinstance(manual, dict):
+            raise ModBuildError(f"수동 마을 배치 데이터가 없습니다: {data.get('id')}")
+        roads = [dict(road) for road in manual.get("roads", []) if isinstance(road, dict)]
+        buildings = [dict(building) for building in manual.get("buildings", []) if isinstance(building, dict)]
+        decorations = [dict(item) for item in manual.get("decorations", []) if isinstance(item, dict)]
+        cell_count = int(data.get("town_radius_cells", 1))
+        footprint_shape = str(data.get("town_footprint_shape", "line_q"))
+        custom_cells = tuple(
+            (int(cell["q"]), int(cell["r"]))
+            for cell in data.get("town_footprint_cells", [])
+            if isinstance(cell, dict) and isinstance(cell.get("q"), int) and isinstance(cell.get("r"), int)
+        ) if footprint_shape == "custom" else ()
+        for building in buildings:
+            checked = dict(building)
+            if str(building.get("rotation", "none")) in ("clockwise_90", "counterclockwise_90"):
+                checked["width"], checked["depth"] = int(building["depth"]), int(building["width"])
+            if not _plot_inside_town_layout(checked, cell_count, footprint_shape, custom_cells):
+                raise ModBuildError(
+                    f"수동 배치 건물이 마을 점유 칸을 벗어났습니다: {data.get('id')} / {building.get('id')}"
+                )
+        for road in roads:
+            x1, z1, x2, z2 = (int(road[key]) for key in ("x1", "z1", "x2", "z2"))
+            steps = max(abs(x2 - x1), abs(z2 - z1), 1)
+            margin = int(road.get("width", 1)) / 2.0
+            if not all(
+                _road_center_inside_town_layout(
+                    x1 + (x2 - x1) * step / steps,
+                    z1 + (z2 - z1) * step / steps,
+                    cell_count, footprint_shape, margin, custom_cells,
+                )
+                for step in range(steps + 1)
+            ):
+                raise ModBuildError(
+                    f"수동 배치 길이 마을 점유 칸을 벗어났습니다: {data.get('id')}"
+                )
+        houses = [{
+            "id": str(building["id"]), "structure": str(building["structure"]),
+            "x": int(building["x"]), "z": int(building["z"]),
+            "width": int(building["width"]), "depth": int(building["depth"]),
+            "rotation": str(building.get("rotation", "none")),
+            "road_connection": {"x": int(building["x"]), "z": int(building["z"])},
+        } for building in buildings]
+        return {
+            "schema_version": 1, "shape": "manual", "cell_count": cell_count,
+            "footprint_shape": footprint_shape,
+            "footprint_cells": list(data.get("town_footprint_cells", [])),
+            "road_exits": list(data.get("town_road_exits", [])), "external_exit_points": [],
+            "tile_radius_blocks": int(VILLAGE_TILE_RADIUS), "hub": {"x": 0, "z": 0},
+            "center_pattern": "manual", "road_layout_template": "manual",
+            "building_density": "manual", "roads": roads, "access_roads": [],
+            "decorations": [{
+                "type": str(item["type"]), "x": int(item["x"]), "z": int(item["z"]),
+                "rotation": str(item.get("rotation", "none")),
+            } for item in decorations],
+            "facilities": {}, "houses": houses, "requested_seed": 0, "resolved_seed": 0,
+            "reroll_count": 0, "reroll_limit": 0,
+        }
     generation = profile.get("generation_profile") if isinstance(profile, dict) else None
     requested_seed = int(generation.get("seed", 1)) if isinstance(generation, dict) else 1
     last_error: TownFacilityPlacementError | None = None

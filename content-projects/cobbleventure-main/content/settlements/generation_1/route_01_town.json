@@ -138,7 +138,7 @@
       "material": "grass_path"
     },
     "generation_profile": {
-      "seed": 899002583,
+      "seed": 410801189,
       "depth": 4,
       "basic_buildings": [
         "cobbleventure:placeholder/basic_building_1",
@@ -153,10 +153,7 @@
           "gable"
         ],
         "roof_colors": [
-          "red",
-          "green",
-          "blue",
-          "brown"
+          "green"
         ]
       },
       "building_density": "sparse"

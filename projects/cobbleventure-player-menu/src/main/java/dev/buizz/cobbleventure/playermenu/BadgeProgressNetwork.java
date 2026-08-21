@@ -34,9 +34,12 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Stores item-independent Gym Badge progress and synchronizes it to the trainer card. */
 public final class BadgeProgressNetwork {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
     private static final String DATA_KEY = "cobbleventureBadges";
+    private static final String LEAGUE_DATA_KEY = "cobbleventureLeagueChallenges";
     private static volatile List<String> clientBadges = List.of();
+    private static volatile List<String> clientLeagueChallenges = List.of();
+    private static volatile long clientRevision;
 
     private BadgeProgressNetwork() {}
 
@@ -51,13 +54,20 @@ public final class BadgeProgressNetwork {
         return clientBadges;
     }
 
+    public static List<String> clientLeagueChallenges() {
+        return clientLeagueChallenges;
+    }
+
+    public static long clientRevision() {
+        return clientRevision;
+    }
+
     /** Returns whether the server-side player progression contains this badge. */
     public static boolean hasBadge(ServerPlayer player, String badge) {
         return badges(player).contains(badge);
     }
 
     public static void requestSnapshot() {
-        clientBadges = List.of();
         PacketDistributor.sendToServer(new BadgeRequestPayload());
     }
 
@@ -85,7 +95,7 @@ public final class BadgeProgressNetwork {
                                     write(player, badges);
                                     showBadgeObtained(player, badge);
                                 }
-                                PacketDistributor.sendToPlayer(player, new BadgeSnapshotPayload(List.copyOf(badges)));
+                                sendSnapshot(player);
                             }
                             return targets;
                         }))))
@@ -98,10 +108,25 @@ public final class BadgeProgressNetwork {
                             for (ServerPlayer player : EntityArgument.getPlayers(context, "players")) {
                                 Set<String> badges = badges(player);
                                 if (badges.remove(badge)) { write(player, badges); changed++; }
-                                PacketDistributor.sendToPlayer(player, new BadgeSnapshotPayload(List.copyOf(badges)));
+                                sendSnapshot(player);
                             }
                             return changed;
                         }))))
+        );
+        dispatcher.register(Commands.literal("cobbleventure_league")
+            .requires(source -> source.hasPermission(2))
+            .then(Commands.literal("complete")
+                .then(Commands.argument("players", EntityArgument.players())
+                    .then(Commands.argument("challenge", StringArgumentType.string())
+                        .executes(context -> setLeagueChallenge(
+                            EntityArgument.getPlayers(context, "players"),
+                            StringArgumentType.getString(context, "challenge"), true)))))
+            .then(Commands.literal("revoke")
+                .then(Commands.argument("players", EntityArgument.players())
+                    .then(Commands.argument("challenge", StringArgumentType.string())
+                        .executes(context -> setLeagueChallenge(
+                            EntityArgument.getPlayers(context, "players"),
+                            StringArgumentType.getString(context, "challenge"), false)))))
         );
     }
 
@@ -118,25 +143,64 @@ public final class BadgeProgressNetwork {
         player.getPersistentData().put(DATA_KEY, list);
     }
 
+    private static Set<String> leagueChallenges(ServerPlayer player) {
+        Set<String> result = new LinkedHashSet<>();
+        ListTag list = player.getPersistentData().getList(LEAGUE_DATA_KEY, Tag.TAG_STRING);
+        for (int index = 0; index < list.size(); index++) result.add(list.getString(index));
+        return result;
+    }
+
+    private static void writeLeagueChallenges(ServerPlayer player, Set<String> challenges) {
+        ListTag list = new ListTag();
+        challenges.forEach(challenge -> list.add(StringTag.valueOf(challenge)));
+        player.getPersistentData().put(LEAGUE_DATA_KEY, list);
+    }
+
+    private static int setLeagueChallenge(
+        Iterable<ServerPlayer> players, String challenge, boolean completed
+    ) {
+        if (ResourceLocation.tryParse(challenge) == null
+            || !challenge.startsWith("cobbleventure:league/")) return 0;
+        int changed = 0;
+        for (ServerPlayer player : players) {
+            Set<String> challenges = leagueChallenges(player);
+            if (completed ? challenges.add(challenge) : challenges.remove(challenge)) {
+                writeLeagueChallenges(player, challenges);
+                changed++;
+            }
+            sendSnapshot(player);
+        }
+        return changed;
+    }
+
+    private static void sendSnapshot(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, new BadgeSnapshotPayload(
+            List.copyOf(badges(player)), List.copyOf(leagueChallenges(player))
+        ));
+    }
+
     private static void onPlayerClone(PlayerEvent.Clone event) {
         if (!(event.getOriginal() instanceof ServerPlayer original)
-            || !(event.getEntity() instanceof ServerPlayer replacement)
-            || !original.getPersistentData().contains(DATA_KEY)) {
+            || !(event.getEntity() instanceof ServerPlayer replacement)) {
             return;
         }
-        replacement.getPersistentData().put(
-            DATA_KEY, original.getPersistentData().getList(DATA_KEY, Tag.TAG_STRING).copy()
-        );
-        PacketDistributor.sendToPlayer(
-            replacement, new BadgeSnapshotPayload(List.copyOf(badges(replacement)))
-        );
+        if (original.getPersistentData().contains(DATA_KEY)) {
+            replacement.getPersistentData().put(
+                DATA_KEY, original.getPersistentData().getList(DATA_KEY, Tag.TAG_STRING).copy()
+            );
+        }
+        if (original.getPersistentData().contains(LEAGUE_DATA_KEY)) {
+            replacement.getPersistentData().put(
+                LEAGUE_DATA_KEY,
+                original.getPersistentData().getList(LEAGUE_DATA_KEY, Tag.TAG_STRING).copy()
+            );
+        }
+        sendSnapshot(replacement);
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            PacketDistributor.sendToPlayer(
-                player, new BadgeSnapshotPayload(List.copyOf(badges(player)))
-            );
+            sendSnapshot(player);
         }
     }
 
@@ -166,11 +230,16 @@ public final class BadgeProgressNetwork {
     }
 
     private static void handleRequest(BadgeRequestPayload payload, IPayloadContext context) {
-        context.reply(new BadgeSnapshotPayload(List.copyOf(badges((ServerPlayer) context.player()))));
+        ServerPlayer player = (ServerPlayer) context.player();
+        context.reply(new BadgeSnapshotPayload(
+            List.copyOf(badges(player)), List.copyOf(leagueChallenges(player))
+        ));
     }
 
     private static void handleSnapshot(BadgeSnapshotPayload payload, IPayloadContext context) {
         clientBadges = List.copyOf(payload.badges());
+        clientLeagueChallenges = List.copyOf(payload.leagueChallenges());
+        clientRevision++;
     }
 
     private static ResourceLocation id(String path) {
@@ -183,18 +252,25 @@ public final class BadgeProgressNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record BadgeSnapshotPayload(List<String> badges) implements CustomPacketPayload {
+    public record BadgeSnapshotPayload(
+        List<String> badges, List<String> leagueChallenges
+    ) implements CustomPacketPayload {
         static final Type<BadgeSnapshotPayload> TYPE = new Type<>(id("badge_snapshot"));
         static final StreamCodec<RegistryFriendlyByteBuf, BadgeSnapshotPayload> STREAM_CODEC = StreamCodec.ofMember(BadgeSnapshotPayload::write, BadgeSnapshotPayload::read);
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeVarInt(badges.size());
             for (String badge : badges) buffer.writeUtf(badge, 128);
+            buffer.writeVarInt(leagueChallenges.size());
+            for (String challenge : leagueChallenges) buffer.writeUtf(challenge, 160);
         }
         private static BadgeSnapshotPayload read(RegistryFriendlyByteBuf buffer) {
             int size = Math.max(0, Math.min(128, buffer.readVarInt()));
             List<String> badges = new ArrayList<>(size);
             for (int index = 0; index < size; index++) badges.add(buffer.readUtf(128));
-            return new BadgeSnapshotPayload(List.copyOf(badges));
+            int challengeSize = Math.max(0, Math.min(128, buffer.readVarInt()));
+            List<String> challenges = new ArrayList<>(challengeSize);
+            for (int index = 0; index < challengeSize; index++) challenges.add(buffer.readUtf(160));
+            return new BadgeSnapshotPayload(List.copyOf(badges), List.copyOf(challenges));
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

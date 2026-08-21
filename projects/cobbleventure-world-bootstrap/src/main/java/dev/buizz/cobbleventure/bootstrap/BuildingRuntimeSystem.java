@@ -108,6 +108,7 @@ final class BuildingRuntimeSystem {
         DOORS.clear();
         EVENT_SPACES.clear();
         PENDING_NPC_SEATS.clear();
+        StructurePlacementFixes.clearPendingElevatorAssemblies();
         loadMetadata(server);
         loadSettings(server);
         if (!METADATA.isEmpty() && server.getLevel(INTERIORS) == null) {
@@ -124,12 +125,20 @@ final class BuildingRuntimeSystem {
         ServerLevel level, String structure, CobbleventureBootstrap.BlockPoint origin,
         String rotationName
     ) {
-        onStructurePlaced(level, structure, origin, rotationName, null);
+        onStructurePlaced(level, structure, origin, rotationName, null, null);
     }
 
     static void onStructurePlaced(
         ServerLevel level, String structure, CobbleventureBootstrap.BlockPoint origin,
         String rotationName, String eventSpaceId
+    ) {
+        onStructurePlaced(level, structure, origin, rotationName, eventSpaceId, null);
+    }
+
+    static void onStructurePlaced(
+        ServerLevel level, String structure, CobbleventureBootstrap.BlockPoint origin,
+        String rotationName, String eventSpaceId,
+        List<CobbleventureBootstrap.ShopVendorAssignment> vendorAssignments
     ) {
         StructureMetadata metadata = METADATA.get(structure);
         if (metadata == null) {
@@ -168,7 +177,7 @@ final class BuildingRuntimeSystem {
             );
             prepareConfiguredInteriors(
                 level, structure, metadata, origin.toBlockPos(), rotation,
-                instanceKey, settings, eventSpaceId
+                instanceKey, settings, eventSpaceId, vendorAssignments
             );
         }
     }
@@ -271,7 +280,7 @@ final class BuildingRuntimeSystem {
                 );
                 prepareConfiguredInteriors(
                     exterior, exteriorStructure, exteriorMetadata,
-                    exteriorOrigin.toBlockPos(), rotation(rotationName), key, settings, null
+                    exteriorOrigin.toBlockPos(), rotation(rotationName), key, settings, null, null
                 );
                 level.getChunk(position.getX() >> 4, position.getZ() >> 4);
             }
@@ -872,7 +881,8 @@ final class BuildingRuntimeSystem {
     private static void prepareConfiguredInteriors(
         ServerLevel exterior, String exteriorStructure, StructureMetadata exteriorMetadata,
         BlockPos exteriorOrigin, Rotation exteriorRotation, String instanceKey,
-        BuildingSettings settings, String eventSpaceId
+        BuildingSettings settings, String eventSpaceId,
+        List<CobbleventureBootstrap.ShopVendorAssignment> vendorAssignments
     ) {
         ServerLevel interiorsLevel = exterior.getServer().getLevel(INTERIORS);
         if (interiorsLevel == null) {
@@ -941,6 +951,11 @@ final class BuildingRuntimeSystem {
                 }
                 runtime.markPrepared(preparedKey);
             }
+            // Also covers interiors persisted by an older runtime, where the structure is
+            // already present but its saved Create elevator is still a static assembly.
+            StructurePlacementFixes.scheduleElevatorAssemblies(
+                interiorsLevel, origin, template.orElseThrow(), new StructurePlaceSettings()
+            );
             spaces.put(interior.key, new SpaceInstance(
                 interiorsLevel, origin, Rotation.NONE, metadata,
                 template.orElseThrow().getSize()
@@ -949,9 +964,20 @@ final class BuildingRuntimeSystem {
                 interiorsLevel, metadata, origin, Rotation.NONE,
                 instanceKey + "|" + interior.key, settings.fixedNpcs, interior.key
             );
+            Map<String, String> interiorVendors = settings.fixedVendors;
+            if (vendorAssignments != null) {
+                Map<String, String> catalogVendors = new LinkedHashMap<>();
+                for (CobbleventureBootstrap.ShopVendorAssignment assignment
+                    : vendorAssignments) {
+                    catalogVendors.put(
+                        interior.key + ":" + assignment.slotId(), assignment.vendorUnit()
+                    );
+                }
+                interiorVendors = Map.copyOf(catalogVendors);
+            }
             applyFixedVendors(
                 interiorsLevel, metadata, origin, Rotation.NONE,
-                instanceKey + "|" + interior.key, settings.fixedVendors, interior.key
+                instanceKey + "|" + interior.key, interiorVendors, interior.key
             );
             index++;
         }
@@ -1095,6 +1121,7 @@ final class BuildingRuntimeSystem {
     }
 
     private static void onServerTick(ServerTickEvent.Post event) {
+        StructurePlacementFixes.tickPendingElevatorAssemblies(event.getServer());
         if (PENDING_NPC_SEATS.isEmpty()) {
             return;
         }
@@ -1286,6 +1313,15 @@ final class BuildingRuntimeSystem {
             // A filled display case is part of the authored scenery. Cobblemon swaps or
             // returns its item on any further click, so consume the interaction on both
             // client and server before the block can hand that item to the player.
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            return;
+        }
+        if (StructurePlacementFixes.isAuthoredStorage(
+            event.getLevel().getBlockEntity(event.getPos())
+        )) {
+            // Chests, barrels and modded furniture inventories copied from map
+            // templates are scenery. Player-placed storage has no marker and remains usable.
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
             return;

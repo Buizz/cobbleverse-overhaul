@@ -53,6 +53,55 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('context.strokeStyle = "rgba(42,52,47,.82)"', source)
         self.assertIn('context.strokeStyle = "rgba(255,255,255,.22)"', source)
 
+    def test_special_settlement_supports_zero_houses_and_manual_layout(self) -> None:
+        source = content_manager._settlement_template("power_plant", "무인 발전소", "generation_1")
+        source["settlement_flags"] = ["special_site", "industrial", "non_residential", "no_ambient_npcs"]
+        source["structure_profile"]["required_facilities"] = {}
+        source["structure_profile"]["facility_requirements"] = []
+        source["structure_profile"]["layout_mode"] = "manual"
+        source["structure_profile"]["generation_profile"] = {
+            "seed": 1, "depth": 1, "building_density": "sparse",
+            "residential_buildings_enabled": False, "basic_buildings": [],
+        }
+        source["structure_profile"]["manual_layout"] = {
+            "roads": [{"x1": -12, "z1": 0, "x2": 12, "z2": 0, "width": 5, "material": "stone_bricks"}],
+            "buildings": [{
+                "id": "power_plant", "structure": "cobbleventure:facilities/power_plant",
+                "x": -8, "z": 4, "width": 16, "depth": 12, "height": 24, "rotation": "none",
+            }],
+            "decorations": [],
+        }
+
+        _, issues = content_manager._validate_payload(source, content_manager.validate_settlement_file)
+        self.assertEqual([], [issue for issue in issues if issue.level == "error"])
+        compiled = content_manager._mod_builder_module()._compile_town_layout(source)
+        self.assertEqual("manual", compiled["shape"])
+        self.assertEqual(1, len(compiled["houses"]))
+        self.assertEqual("cobbleventure:facilities/power_plant", compiled["houses"][0]["structure"])
+
+        automatic = copy.deepcopy(source)
+        automatic["structure_profile"]["layout_mode"] = "automatic"
+        automatic["structure_profile"].pop("manual_layout", None)
+        automatic_layout = content_manager._mod_builder_module()._compile_town_layout(automatic)
+        self.assertEqual([], automatic_layout["houses"])
+
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        self.assertIn('id="town-manual-workspace"', page)
+        self.assertIn('id="town-manual-canvas"', page)
+        self.assertIn('id="town-manual-asset-preview"', page)
+        self.assertIn("function applyTownManualWorkspace()", script)
+        self.assertIn("function townManualRoadBlockCells(road)", script)
+        self.assertIn("function townManualPlacementOrigin(asset, cursor)", script)
+        self.assertIn("function townManualLayoutFromCurrentPreview()", script)
+        self.assertIn('profile.layout_mode==="manual"&&isTownManualLayout(profile.manual_layout)', script)
+        self.assertIn("function townManualOverlappingBuildings(layout)", script)
+        self.assertIn("function drawTownManualOverlapOutline(context, building)", script)
+        self.assertIn("function cancelTownManualDrag()", script)
+        self.assertIn('editor.drag={kind:hit.kind,index:hit.index', script)
+        self.assertIn("drawMinecraftStructureTopView(context, { ...item, topView }", script)
+        self.assertIn('state.settlement.structure_profile.layout_mode="manual"', script)
+
     def test_dialogue_theme_contract_and_global_resource_editor(self) -> None:
         theme = copy.deepcopy(content_manager.DIALOGUE_THEME_DEFAULTS)
         self.assertEqual([], content_manager.validate_dialogue_theme(PROJECT_ROOT, theme))
@@ -4136,6 +4185,42 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".casino-config-workspace", styles)
         self.assertIn(".casino-product-row", styles)
 
+        self.assertIn('id="gacha-machine-list"', html)
+        self.assertIn('id="gacha-machine-editor"', html)
+        self.assertIn('id="save-gacha-machines"', html)
+        self.assertIn('request("/api/gacha-machines"', script)
+        self.assertIn("renderGachaMachines", script)
+        self.assertIn(".gacha-machine-workspace", styles)
+
+    def test_gacha_machine_catalog_validates_and_saves_machine_specific_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
+            catalog["machines"][0]["appearance"]["base_block"] = "minecraft:gold_block"
+            catalog["machines"][0]["pity"]["hard"]["count"] = 50
+
+            issues = content_manager.save_gacha_machine_catalog(root, catalog)
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            saved = content_manager.load_json(root / "content/catalogs/gacha-machines.json")
+            self.assertEqual("minecraft:gold_block", saved["machines"][0]["appearance"]["base_block"])
+            self.assertEqual(50, saved["machines"][0]["pity"]["hard"]["count"])
+
+    def test_gacha_machine_catalog_rejects_duplicate_ids_and_invalid_selection_pity(self) -> None:
+        catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
+        duplicate = copy.deepcopy(catalog["machines"][0])
+        duplicate["pity"]["selection"]["enabled"] = True
+        for rarity in duplicate["rarities"]:
+            for reward in rarity["rewards"]:
+                reward["selectable"] = False
+        catalog["machines"].append(duplicate)
+
+        issues = content_manager.validate_gacha_machine_catalog(PROJECT_ROOT, catalog)
+
+        messages = [issue.message for issue in issues if issue.level == "error"]
+        self.assertTrue(any("중복된 기계 ID" in message for message in messages))
+        self.assertTrue(any("선택 가능한 보상" in message for message in messages))
+
     def test_casino_config_payload_and_save_use_pack_override_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             core_root = Path(directory)
@@ -4342,6 +4427,9 @@ class ContentManagerTests(unittest.TestCase):
             "ferritecore": ((429235, 7524151), "both"),
             "immediatelyfast": ((686911, 7537795), "client"),
             "entity_culling": ((448233, 7396695), "client"),
+            "entity_model_features": ((844662, 8063559), "client"),
+            "entity_texture_features": ((568563, 7930620), "client"),
+            "resource_pack_overrides": ((832644, 5733968), "client"),
             "skin_layers_3d": ((521480, 8274824), "client"),
             "complementary_reimagined": ((627557, 5874236), "client"),
             "euphoria_patches": ((915902, 5876050), "client"),
@@ -4365,6 +4453,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(
             {curseforge for curseforge, _ in expected.values()}.issubset(profile_files)
         )
+        self.assertIn((977287, 8193419), profile_files)
+
+        resource_pack_overrides = content_manager.load_json(
+            root
+            / "pack"
+            / "overrides"
+            / "development-placeholder"
+            / "config"
+            / "resourcepackoverrides.json"
+        )
+        melody_pack_id = "file/Melodys Cute Villagers v1.11.1_pre-26.1.zip"
+        self.assertIn(melody_pack_id, resource_pack_overrides["default_packs"])
 
         iris_config = (
             root

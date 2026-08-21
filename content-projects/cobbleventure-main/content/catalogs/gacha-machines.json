@@ -1,0 +1,38 @@
+{
+  "$schema": "../schemas/gacha-machines.schema.json",
+  "schema_version": 1,
+  "machines": [
+    {
+      "id": "cobbleventure:starter_gacha",
+      "display_name": "스타터 가챠",
+      "enabled": true,
+      "pity_group": "starter",
+      "appearance": {
+        "base_block": "minecraft:polished_deepslate",
+        "accent_block": "minecraft:amethyst_block",
+        "scale": 1.0,
+        "accent_scale": 0.45,
+        "accent_height": 0.78,
+        "rotation_degrees": 0.0,
+        "show_nameplate": true
+      },
+      "currency": { "item": "cobblemoncasino:copper_coin", "count": 1 },
+      "rarities": [
+        { "id": "common", "display_name": "일반", "weight": 70.0, "rewards": [
+          { "id": "poke_ball", "kind": "item", "value": "cobblemon:poke_ball", "count": 3, "weight": 1.0, "selectable": false }
+        ] },
+        { "id": "rare", "display_name": "희귀", "weight": 25.0, "rewards": [
+          { "id": "great_ball", "kind": "item", "value": "cobblemon:great_ball", "count": 3, "weight": 1.0, "selectable": true }
+        ] },
+        { "id": "legendary", "display_name": "전설", "weight": 5.0, "rewards": [
+          { "id": "pikachu", "kind": "pokemon", "value": "pikachu level=15", "count": 1, "weight": 1.0, "selectable": true }
+        ] }
+      ],
+      "pity": {
+        "soft": { "enabled": true, "start": 30, "max_at": 60, "target_rarity": "legendary", "max_chance": 0.25 },
+        "hard": { "enabled": true, "count": 80, "target_rarity": "legendary" },
+        "selection": { "enabled": true, "points_per_pull": 1, "required_points": 100 }
+      }
+    }
+  ]
+}

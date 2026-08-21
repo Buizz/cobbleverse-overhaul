@@ -79,6 +79,47 @@ class EconomyCatalogTests(unittest.TestCase):
         vendor["categories"][0]["name"] = {"ko_kr": "기술머신", "en_us": "Technical Machines"}
         self.assertEqual([], self.validate(payload))
 
+    def test_department_store_assignment_without_nbt_anchor_is_a_warning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalogs = root / "content" / "catalogs"
+            interiors = root / "content" / "structures" / "interiors"
+            catalogs.mkdir(parents=True)
+            interiors.mkdir(parents=True)
+            economy = self.valid_catalog()
+            economy["shop_catalogs"][0]["assignments"] = [{
+                "slot_id": "rooftop_sale",
+                "display_name": "옥상 판매대",
+                "vendor_unit": "cobbleventure:vendor/tm_clerk",
+            }]
+            (catalogs / "economy.json").write_text(
+                json.dumps(economy, ensure_ascii=False), encoding="utf-8"
+            )
+            (catalogs / "building-settings.json").write_text(json.dumps({
+                "facility_defaults": {
+                    "department_store": "cobbleventure:facilities/department_store"
+                },
+                "buildings": {
+                    "cobbleventure:facilities/department_store": {
+                        "interiors": [{
+                            "key": "room_1",
+                            "structure": "cobbleventure:interiors/department_store",
+                        }]
+                    }
+                },
+            }), encoding="utf-8")
+            (interiors / "department_store.structure.json").write_text(json.dumps({
+                "anchors": [{
+                    "type": "npc_position", "label": "5f_left", "position": [1, 2, 3]
+                }]
+            }), encoding="utf-8")
+
+            issues = content_manager.validate_department_store_assignment_slots(root)
+
+            self.assertEqual(1, len(issues))
+            self.assertEqual("warning", issues[0].level)
+            self.assertIn("rooftop_sale", issues[0].message)
+
     def test_standard_item_prices_are_validated(self):
         payload = self.valid_catalog()
         payload["standard_prices"] = [{"item": "cobblemon:poke_ball", "price": "200"}]

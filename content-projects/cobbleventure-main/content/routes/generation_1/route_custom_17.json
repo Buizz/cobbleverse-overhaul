@@ -4,7 +4,7 @@
   "id": "cobbleventure:route/route_custom_17",
   "display_name": {
     "ko_kr": "보라타운 - 돌산터널 길",
-    "en_us": "Lavender Town - Rock Tunnel Road"
+    "en_us": "보라타운 - 돌산터널 길"
   },
   "auto_name": true,
   "enabled": true,
@@ -21,16 +21,48 @@
     "inherit_biome": false,
     "excluded_species": [],
     "additions": [
-      { "species": "cobblemon:ekans", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:sandshrew", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:spearow", "min_level": 13, "max_level": 17 },
-      { "species": "cobblemon:voltorb", "min_level": 14, "max_level": 17 }
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 13,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:voltorb",
+        "min_level": 14,
+        "max_level": 17
+      }
     ],
     "level_overrides": [
-      { "species": "cobblemon:ekans", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:sandshrew", "min_level": 11, "max_level": 17 },
-      { "species": "cobblemon:spearow", "min_level": 13, "max_level": 17 },
-      { "species": "cobblemon:voltorb", "min_level": 14, "max_level": 17 }
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 11,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 13,
+        "max_level": 17
+      },
+      {
+        "species": "cobblemon:voltorb",
+        "min_level": 14,
+        "max_level": 17
+      }
     ]
   },
   "npc_placements": []

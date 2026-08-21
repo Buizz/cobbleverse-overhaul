@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import dev.buizz.cobbleventure.adventure.AdventureWorldContext;
 import dev.buizz.cobbleventure.playermenu.MapContent;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -27,7 +29,10 @@ public final class HabitatSpawnRules {
             MapContent.Hex hex = content.worldToHex(x, z);
             MapContent.BiomeTile tile = content.tileAt(hex.q(), hex.r());
             if (tile == null) {
-                return Set.of();
+                return applyRouteRule(
+                    Set.of(),
+                    CobbleventureBootstrap.wildSpawnRule(level, x, z)
+                );
             }
             LinkedHashSet<ResourceLocation> result = new LinkedHashSet<>();
             for (MapContent.Pokemon pokemon : content.biome(tile).pokemon()) {
@@ -36,15 +41,56 @@ public final class HabitatSpawnRules {
                     result.add(id);
                 }
             }
-            return Set.copyOf(result);
+            return applyRouteRule(
+                result,
+                CobbleventureBootstrap.wildSpawnRule(level, x, z)
+            );
         }
         return null;
+    }
+
+    static Set<ResourceLocation> applyRouteRule(
+        Set<ResourceLocation> biomeSpecies,
+        AdventureWorldContext.WildSpawnRule rule
+    ) {
+        if (rule == null) {
+            return Set.copyOf(biomeSpecies);
+        }
+        LinkedHashSet<ResourceLocation> result = new LinkedHashSet<>();
+        if (rule.inheritBiome()) {
+            result.addAll(biomeSpecies);
+            result.removeAll(rule.excludedSpecies());
+        }
+        for (AdventureWorldContext.WildSpawnAddition addition : rule.additions()) {
+            result.add(addition.species());
+        }
+        return Set.copyOf(result);
     }
 
     public static Map<ResourceLocation, Integer> authoredEncounterWeights(
         ServerLevel level, double x, double z
     ) {
-        return CobbleventureBootstrap.authoredEncounterWeights(level, x, z);
+        Map<ResourceLocation, Integer> authored =
+            CobbleventureBootstrap.authoredEncounterWeights(level, x, z);
+        if (authored != null) {
+            return authored;
+        }
+        return exclusiveRouteWeights(
+            CobbleventureBootstrap.wildSpawnRule(level, x, z)
+        );
+    }
+
+    static Map<ResourceLocation, Integer> exclusiveRouteWeights(
+        AdventureWorldContext.WildSpawnRule rule
+    ) {
+        if (rule == null || rule.inheritBiome()) {
+            return null;
+        }
+        Map<ResourceLocation, Integer> result = new LinkedHashMap<>();
+        for (AdventureWorldContext.WildSpawnAddition addition : rule.additions()) {
+            result.merge(addition.species(), addition.weight(), Integer::sum);
+        }
+        return Map.copyOf(result);
     }
 
     public static boolean allowsSpawnDetail(

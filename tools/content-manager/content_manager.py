@@ -269,6 +269,7 @@ BUILD_COMMANDS = {
     "validate": "콘텐츠와 의존성 검사",
     "test": "Python 도구 회귀 테스트",
     "generate": "RCT와 실제 게임용 AI 프로필 생성",
+    "mod-casino": "커스텀 가챠 기계 애드온 JAR 생성",
     "pack-smoke": "최소 CurseForge 임포트 ZIP 생성",
     "pack": "개발용 CurseForge ZIP 생성",
     "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
@@ -2181,6 +2182,10 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
     settlement_id = _resource_id(root.get("id"), issues, path, "$.id")
     if not isinstance(root.get("enabled"), bool):
         _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
+    settlement_flags = root.get("settlement_flags", [])
+    allowed_settlement_flags = {"special_site", "industrial", "non_residential", "no_ambient_npcs"}
+    if not isinstance(settlement_flags, list) or any(not isinstance(flag, str) for flag in settlement_flags) or len(settlement_flags) != len(set(settlement_flags)) or any(flag not in allowed_settlement_flags for flag in settlement_flags):
+        _issue(issues, "error", path, "$.settlement_flags", "지원하는 지역 플래그를 중복 없이 지정해야 합니다.")
     _localized_text(root.get("display_name"), issues, path, "$.display_name")
     _resource_id(root.get("region"), issues, path, "$.region")
     _resource_id(root.get("dimension"), issues, path, "$.dimension")
@@ -2456,14 +2461,6 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
             "$.structure_profile.required_facilities",
         )
         if facilities is not None:
-            if not facilities:
-                _issue(
-                    issues,
-                    "error",
-                    path,
-                    "$.structure_profile.required_facilities",
-                    "하나 이상의 필수 시설이 필요합니다.",
-                )
             for facility_id, structure_id in facilities.items():
                 facility_path = f"$.structure_profile.required_facilities.{facility_id}"
                 if not isinstance(facility_id, str) or not CHOICE_ID.fullmatch(facility_id):
@@ -2511,6 +2508,15 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                         _issue(issues, "error", path, field_path, "하나 이상 선택해야 합니다.")
                     elif len(values) != len(set(values)) or any(value not in allowed for value in values):
                         _issue(issues, "error", path, field_path, "지원하는 항목만 중복 없이 선택해야 합니다.")
+        if generation_profile is not None and not isinstance(
+            generation_profile.get("residential_buildings_enabled", True), bool
+        ):
+            _issue(issues, "error", path, "$.structure_profile.generation_profile.residential_buildings_enabled", "boolean이어야 합니다.")
+        layout_mode = structure_profile.get("layout_mode", "automatic")
+        if layout_mode not in {"automatic", "manual"}:
+            _issue(issues, "error", path, "$.structure_profile.layout_mode", "automatic 또는 manual이어야 합니다.")
+        if layout_mode == "manual" and not isinstance(structure_profile.get("manual_layout"), dict):
+            _issue(issues, "error", path, "$.structure_profile.manual_layout", "수동 배치 모드에는 수동 배치 데이터가 필요합니다.")
         if generation_profile is not None and generation_profile.get("building_density", "normal") not in {
             "sparse", "normal", "dense", "packed"
         }:
@@ -4494,6 +4500,162 @@ DIALOGUE_THEME_DEFAULTS: dict[str, Any] = {
 }
 
 
+GACHA_MACHINE_CATALOG_DEFAULTS: dict[str, Any] = {
+    "$schema": "../schemas/gacha-machines.schema.json",
+    "schema_version": 1,
+    "machines": [{
+        "id": "cobbleventure:starter_gacha", "display_name": "스타터 가챠",
+        "enabled": True, "pity_group": "starter",
+        "appearance": {"base_block": "minecraft:polished_deepslate", "accent_block": "minecraft:amethyst_block", "scale": 1.0, "accent_scale": 0.45, "accent_height": 0.78, "rotation_degrees": 0.0, "show_nameplate": True},
+        "currency": {"item": "cobblemoncasino:copper_coin", "count": 1},
+        "rarities": [
+            {"id": "common", "display_name": "일반", "weight": 70.0, "rewards": [{"id": "poke_ball", "kind": "item", "value": "cobblemon:poke_ball", "count": 3, "weight": 1.0, "selectable": False}]},
+            {"id": "rare", "display_name": "희귀", "weight": 25.0, "rewards": [{"id": "great_ball", "kind": "item", "value": "cobblemon:great_ball", "count": 3, "weight": 1.0, "selectable": True}]},
+            {"id": "legendary", "display_name": "전설", "weight": 5.0, "rewards": [{"id": "pikachu", "kind": "pokemon", "value": "pikachu level=15", "count": 1, "weight": 1.0, "selectable": True}]},
+        ],
+        "pity": {
+            "soft": {"enabled": True, "start": 30, "max_at": 60, "target_rarity": "legendary", "max_chance": 0.25},
+            "hard": {"enabled": True, "count": 80, "target_rarity": "legendary"},
+            "selection": {"enabled": True, "points_per_pull": 1, "required_points": 100},
+        },
+    }],
+}
+
+
+def gacha_machine_catalog_path(root: Path) -> Path:
+    return root / "content" / "catalogs" / "gacha-machines.json"
+
+
+def gacha_machine_catalog_payload(root: Path) -> dict[str, Any]:
+    path = gacha_machine_catalog_path(root)
+    return load_json(path) if path.is_file() else copy.deepcopy(GACHA_MACHINE_CATALOG_DEFAULTS)
+
+
+def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
+    path = gacha_machine_catalog_path(root)
+    issues: list[Issue] = []
+    document = _require_object(data, issues, path, "$")
+    if document is None:
+        return issues
+    if document.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "가챠 기계 카탈로그 버전은 1이어야 합니다.")
+    machines = document.get("machines")
+    if not isinstance(machines, list):
+        _issue(issues, "error", path, "$.machines", "기계 목록은 배열이어야 합니다.")
+        return issues
+    seen_machine_ids: set[str] = set()
+    for machine_index, machine in enumerate(machines):
+        base = f"$.machines[{machine_index}]"
+        if not isinstance(machine, dict):
+            _issue(issues, "error", path, base, "기계 설정은 객체여야 합니다.")
+            continue
+        machine_id = machine.get("id")
+        if not isinstance(machine_id, str) or RESOURCE_ID.fullmatch(machine_id) is None:
+            _issue(issues, "error", path, f"{base}.id", "기계 ID는 namespace:path 형식이어야 합니다.")
+        elif machine_id in seen_machine_ids:
+            _issue(issues, "error", path, f"{base}.id", "중복된 기계 ID입니다.")
+        else:
+            seen_machine_ids.add(machine_id)
+        if not isinstance(machine.get("display_name"), str) or not machine["display_name"].strip():
+            _issue(issues, "error", path, f"{base}.display_name", "기계 표시 이름이 필요합니다.")
+        appearance = machine.get("appearance")
+        if not isinstance(appearance, dict):
+            _issue(issues, "error", path, f"{base}.appearance", "외형 설정이 필요합니다.")
+        else:
+            for key in ("base_block", "accent_block"):
+                if not isinstance(appearance.get(key), str) or RESOURCE_ID.fullmatch(appearance[key]) is None:
+                    _issue(issues, "error", path, f"{base}.appearance.{key}", "올바른 블록 리소스 ID여야 합니다.")
+            for key, minimum, maximum in (("scale", .25, 2.0), ("accent_scale", .1, 1.5), ("accent_height", 0.0, 2.0), ("rotation_degrees", -360.0, 360.0)):
+                value = appearance.get(key)
+                if not isinstance(value, (int, float)) or isinstance(value, bool) or not minimum <= value <= maximum:
+                    _issue(issues, "error", path, f"{base}.appearance.{key}", f"{minimum:g} 이상 {maximum:g} 이하의 숫자여야 합니다.")
+        currency = machine.get("currency")
+        if not isinstance(currency, dict) or not isinstance(currency.get("item"), str) or RESOURCE_ID.fullmatch(currency["item"]) is None:
+            _issue(issues, "error", path, f"{base}.currency.item", "올바른 화폐 아이템 ID가 필요합니다.")
+        if not isinstance(currency, dict) or not isinstance(currency.get("count"), int) or isinstance(currency.get("count"), bool) or currency["count"] <= 0:
+            _issue(issues, "error", path, f"{base}.currency.count", "화폐 수량은 1 이상의 정수여야 합니다.")
+        rarities = machine.get("rarities")
+        if not isinstance(rarities, list) or not rarities:
+            _issue(issues, "error", path, f"{base}.rarities", "하나 이상의 희귀도 풀이 필요합니다.")
+            continue
+        rarity_ids: set[str] = set()
+        reward_ids: set[str] = set()
+        for rarity_index, rarity in enumerate(rarities):
+            rarity_path = f"{base}.rarities[{rarity_index}]"
+            if not isinstance(rarity, dict):
+                _issue(issues, "error", path, rarity_path, "희귀도 풀은 객체여야 합니다.")
+                continue
+            rarity_id = rarity.get("id")
+            if not isinstance(rarity_id, str) or re.fullmatch(r"[a-z0-9_.-]+", rarity_id) is None or rarity_id in rarity_ids:
+                _issue(issues, "error", path, f"{rarity_path}.id", "희귀도 ID는 중복되지 않은 소문자 ID여야 합니다.")
+            else:
+                rarity_ids.add(rarity_id)
+            weight = rarity.get("weight")
+            if not isinstance(weight, (int, float)) or isinstance(weight, bool) or weight <= 0:
+                _issue(issues, "error", path, f"{rarity_path}.weight", "희귀도 가중치는 0보다 커야 합니다.")
+            rewards = rarity.get("rewards")
+            if not isinstance(rewards, list) or not rewards:
+                _issue(issues, "error", path, f"{rarity_path}.rewards", "보상을 하나 이상 추가해야 합니다.")
+                continue
+            for reward_index, reward in enumerate(rewards):
+                reward_path = f"{rarity_path}.rewards[{reward_index}]"
+                if not isinstance(reward, dict):
+                    _issue(issues, "error", path, reward_path, "보상은 객체여야 합니다.")
+                    continue
+                reward_id = reward.get("id")
+                if not isinstance(reward_id, str) or re.fullmatch(r"[a-z0-9_.-]+", reward_id) is None or reward_id in reward_ids:
+                    _issue(issues, "error", path, f"{reward_path}.id", "보상 ID는 기계 안에서 중복되지 않은 소문자 ID여야 합니다.")
+                else:
+                    reward_ids.add(reward_id)
+                if reward.get("kind") not in {"item", "pokemon"}:
+                    _issue(issues, "error", path, f"{reward_path}.kind", "보상 종류는 item 또는 pokemon이어야 합니다.")
+                value = reward.get("value")
+                if not isinstance(value, str) or not value.strip() or (reward.get("kind") == "item" and RESOURCE_ID.fullmatch(value) is None):
+                    _issue(issues, "error", path, f"{reward_path}.value", "아이템 ID 또는 Cobblemon PokemonProperties 문자열이 필요합니다.")
+                for key in ("count", "weight"):
+                    number = reward.get(key)
+                    if not isinstance(number, (int, float)) or isinstance(number, bool) or number <= 0:
+                        _issue(issues, "error", path, f"{reward_path}.{key}", "0보다 큰 숫자여야 합니다.")
+        pity = machine.get("pity")
+        if not isinstance(pity, dict):
+            _issue(issues, "error", path, f"{base}.pity", "천장 설정이 필요합니다.")
+            continue
+        soft, hard, selection = pity.get("soft"), pity.get("hard"), pity.get("selection")
+        if not all(isinstance(entry, dict) for entry in (soft, hard, selection)):
+            _issue(issues, "error", path, f"{base}.pity", "소프트·확정·선택 천장 설정이 모두 필요합니다.")
+            continue
+        for section_name, section in (("soft", soft), ("hard", hard)):
+            if section.get("enabled") is True and section.get("target_rarity") not in rarity_ids:
+                _issue(issues, "error", path, f"{base}.pity.{section_name}.target_rarity", "존재하는 희귀도 ID를 지정해야 합니다.")
+        if soft.get("enabled") is True:
+            start, max_at, chance = soft.get("start"), soft.get("max_at"), soft.get("max_chance")
+            if not isinstance(start, int) or isinstance(start, bool) or start < 1 or not isinstance(max_at, int) or isinstance(max_at, bool) or max_at < start:
+                _issue(issues, "error", path, f"{base}.pity.soft", "소프트 천장 시작·최대 횟수가 올바르지 않습니다.")
+            if not isinstance(chance, (int, float)) or isinstance(chance, bool) or not 0 < chance <= 1:
+                _issue(issues, "error", path, f"{base}.pity.soft.max_chance", "최대 확률은 0 초과 1 이하여야 합니다.")
+        if hard.get("enabled") is True and (not isinstance(hard.get("count"), int) or isinstance(hard.get("count"), bool) or hard["count"] < 1):
+            _issue(issues, "error", path, f"{base}.pity.hard.count", "확정 천장 횟수는 1 이상이어야 합니다.")
+        if selection.get("enabled") is True:
+            for key in ("points_per_pull", "required_points"):
+                if not isinstance(selection.get(key), int) or isinstance(selection.get(key), bool) or selection[key] < 1:
+                    _issue(issues, "error", path, f"{base}.pity.selection.{key}", "선택 천장 포인트는 1 이상의 정수여야 합니다.")
+            if not any(reward.get("selectable") is True for rarity in rarities if isinstance(rarity, dict) for reward in rarity.get("rewards", []) if isinstance(reward, dict)):
+                _issue(issues, "error", path, f"{base}.pity.selection", "선택 천장을 켰다면 선택 가능한 보상이 하나 이상 필요합니다.")
+    return issues
+
+
+def save_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
+    issues = validate_gacha_machine_catalog(root, data)
+    if any(issue.level == "error" for issue in issues):
+        return issues
+    target = gacha_machine_catalog_path(root)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(target)
+    return issues
+
+
 CASINO_CONFIG_RELATIVE_ROOT = Path(
     "pack/overrides/development-placeholder/config/cobblemoncasino"
 )
@@ -5961,6 +6123,73 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
     return issues
 
 
+def validate_department_store_assignment_slots(root: Path) -> list[Issue]:
+    """Warn when a department-store catalog targets an unauthored NPC anchor."""
+    issues: list[Issue] = []
+    economy_path = root / "content" / "catalogs" / "economy.json"
+    settings_path = root / "content" / "catalogs" / "building-settings.json"
+    try:
+        economy = load_json(economy_path)
+        settings = load_json(settings_path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError):
+        return issues
+    if not isinstance(economy, dict) or not isinstance(settings, dict):
+        return issues
+    defaults = settings.get("facility_defaults", {})
+    buildings = settings.get("buildings", {})
+    if not isinstance(defaults, dict) or not isinstance(buildings, dict):
+        return issues
+    exterior_id = defaults.get("department_store")
+    building = buildings.get(exterior_id, {}) if isinstance(exterior_id, str) else {}
+    interiors = building.get("interiors", []) if isinstance(building, dict) else []
+    authored_slots: set[str] = set()
+    for interior in interiors if isinstance(interiors, list) else []:
+        if not isinstance(interior, dict):
+            continue
+        resource_id = interior.get("structure")
+        if not isinstance(resource_id, str) or ":" not in resource_id:
+            continue
+        namespace, resource_path = resource_id.split(":", 1)
+        if namespace != "cobbleventure":
+            continue
+        metadata_path = (
+            root / "content" / "structures" / resource_path
+        ).with_suffix(".structure.json")
+        if not metadata_path.is_file():
+            continue
+        try:
+            metadata = load_json(metadata_path)
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+        anchors = metadata.get("anchors", []) if isinstance(metadata, dict) else []
+        authored_slots.update(
+            anchor.get("label")
+            for anchor in anchors if isinstance(anchor, dict)
+            and anchor.get("type") == "npc_position"
+            and isinstance(anchor.get("label"), str)
+        )
+    if not authored_slots:
+        return issues
+    catalogs = economy.get("shop_catalogs", [])
+    for catalog_index, catalog in enumerate(catalogs if isinstance(catalogs, list) else []):
+        if not isinstance(catalog, dict) or catalog.get("facility_scope") != "department_store":
+            continue
+        assignments = catalog.get("assignments", [])
+        for assignment_index, assignment in enumerate(
+            assignments if isinstance(assignments, list) else []
+        ):
+            if not isinstance(assignment, dict):
+                continue
+            slot_id = assignment.get("slot_id")
+            if isinstance(slot_id, str) and slot_id not in authored_slots:
+                _issue(
+                    issues, "warning", economy_path,
+                    f"$.shop_catalogs[{catalog_index}].assignments[{assignment_index}].slot_id",
+                    f"백화점 NBT에 없는 판매원 위치입니다: {slot_id} (배치 시 건너뜁니다.)",
+                )
+    return issues
+
+
 def save_economy_catalog(root: Path, data: Any) -> list[Issue]:
     target = root / "content" / "catalogs" / "economy.json"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -6361,6 +6590,7 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
     gym = {
         "id": gym_id,
         "enabled": True,
+        "settlement_flags": [],
         "display_name": {"ko_kr": name.strip()},
         "theme": "normal",
         "exterior": {"structure": "cobbleventure:gyms/base_gym"},
@@ -6497,6 +6727,12 @@ def validate_repository(
             issues.extend(validate_starter_settings(root, load_json(starter_path)))
         except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
             _issue(issues, "error", starter_path, "$", f"스타팅 설정을 읽을 수 없습니다: {error}")
+    gacha_path = gacha_machine_catalog_path(root)
+    if gacha_path.is_file():
+        try:
+            issues.extend(validate_gacha_machine_catalog(root, load_json(gacha_path)))
+        except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+            _issue(issues, "error", gacha_path, "$", f"가챠 기계 설정을 읽을 수 없습니다: {error}")
     issues.extend(validate_music_catalog_file(root / "content" / "catalogs" / "music-tracks.json"))
     issues.extend(validate_dimension_anchor_catalog_file(
         root / "content" / "catalogs" / "dimension-anchors.json"
@@ -6513,6 +6749,7 @@ def validate_repository(
     issues.extend(validate_economy_catalog_file(
         root / "content" / "catalogs" / "economy.json", economy_source_items
     ))
+    issues.extend(validate_department_store_assignment_slots(root))
     trainer_class_path = root / "content" / "catalogs" / "trainer-classes.json"
     issues.extend(validate_trainer_class_catalog(trainer_class_path))
     issues.extend(validate_biome_catalogs(root))
@@ -8279,6 +8516,7 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
             "pokemon_center_enabled": True,
             "civic_facilities_explicit": True,
             "layout_shape": "branching",
+            "layout_mode": "automatic",
             "road_profile": {"width": 7, "material": "cobblestone"},
             "required_facilities": {"village_hub": f"cobbleventure:{slug}/village_hub"},
             "facility_requirements": [],
@@ -8298,6 +8536,7 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
             },
             "facility_placements": [],
             "decoration_placements": [],
+            "manual_layout": {"roads": [], "buildings": [], "decorations": []},
         },
         "npc_placement": {
             "auto_place_npcs": False,
@@ -11298,6 +11537,7 @@ def create_handler(
     structure_cache_error: str | None = None
     structure_viewer_catalog_lock = threading.Lock()
     structure_cache_refresh_lock = threading.Lock()
+    structure_cache_refresh_scheduled = threading.Event()
     structure_model_cache: dict[str, dict[str, Any]] = {}
     remote_image_cache: dict[str, bytes] = {}
     remote_image_cache_lock = threading.Lock()
@@ -11382,20 +11622,30 @@ def create_handler(
                 structure_model_cache.clear()
 
     def schedule_structure_cache_refresh() -> None:
+        if structure_cache_refresh_scheduled.is_set():
+            return
+        structure_cache_refresh_scheduled.set()
+
+        def run_refresh() -> None:
+            try:
+                refresh_structure_cache()
+            finally:
+                structure_cache_refresh_scheduled.clear()
+
         threading.Thread(
-            target=refresh_structure_cache,
+            target=run_refresh,
             name="cobbleventure-nbt-cache-refresh",
             daemon=True,
         ).start()
 
     def ensure_structure_cache(validate_signature: bool = False) -> None:
         if structure_size_catalog is None or building_settings_catalog is None:
-            refresh_structure_cache()
+            schedule_structure_cache_refresh()
             return
         if validate_signature and (
             structure_catalog_signature(root, core_root) != structure_cache_signature
         ):
-            refresh_structure_cache()
+            schedule_structure_cache_refresh()
 
     def load_installed_cobbleverse_rct_png(resource_group: str, resource_id: str) -> bytes | None:
         instance_override = os.environ.get("COBBLEVERSE_INSTANCE")
@@ -11570,6 +11820,12 @@ def create_handler(
             if request.path == "/api/casino-config":
                 try:
                     self._json(200, casino_config_payload(core_root))
+                except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/gacha-machines":
+                try:
+                    self._json(200, gacha_machine_catalog_payload(root))
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
@@ -11879,13 +12135,13 @@ def create_handler(
                 nonlocal structure_size_catalog
                 try:
                     if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
-                        refresh_structure_cache()
+                        schedule_structure_cache_refresh()
                     ensure_structure_cache()
                     with structure_size_catalog_lock:
                         payload = copy.deepcopy(structure_size_catalog or {"structures": {}})
                     payload["cache"] = {
                         "generated_at": structure_cache_generated_at,
-                        "refreshing": structure_cache_refresh_lock.locked(),
+                        "refreshing": structure_cache_refresh_scheduled.is_set() or structure_cache_refresh_lock.locked(),
                         "error": structure_cache_error,
                     }
                     self._json(200, payload)
@@ -11896,7 +12152,7 @@ def create_handler(
                 nonlocal structure_viewer_catalog
                 try:
                     if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
-                        refresh_structure_cache()
+                        schedule_structure_cache_refresh()
                     ensure_structure_cache()
                     with structure_viewer_catalog_lock:
                         payload = copy.deepcopy(structure_viewer_catalog or {})
@@ -11904,7 +12160,7 @@ def create_handler(
                         "structures": payload,
                         "cache": {
                             "generated_at": structure_cache_generated_at,
-                            "refreshing": structure_cache_refresh_lock.locked(),
+                            "refreshing": structure_cache_refresh_scheduled.is_set() or structure_cache_refresh_lock.locked(),
                             "error": structure_cache_error,
                         },
                     })
@@ -11913,13 +12169,14 @@ def create_handler(
                 return
             if request.path == "/api/building-settings":
                 try:
-                    if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
-                        refresh_structure_cache()
-                    ensure_structure_cache(validate_signature=True)
+                    refresh_requested = parse_qs(request.query).get("refresh", ["0"])[0] == "1"
+                    if refresh_requested:
+                        schedule_structure_cache_refresh()
+                    ensure_structure_cache(validate_signature=not refresh_requested)
                     payload = copy.deepcopy(building_settings_catalog or {})
                     payload["cache"] = {
                         "generated_at": structure_cache_generated_at,
-                        "refreshing": structure_cache_refresh_lock.locked(),
+                        "refreshing": structure_cache_refresh_scheduled.is_set() or structure_cache_refresh_lock.locked(),
                         "error": structure_cache_error,
                     }
                     self._json(200, payload)
@@ -12446,6 +12703,16 @@ def create_handler(
                     if not isinstance(payload, dict) or not isinstance(payload.get("path"), str):
                         raise ValueError("저장할 카지노 설정 경로와 JSON 문서가 필요합니다.")
                     issues = save_casino_config(core_root, payload["path"], payload.get("document"))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/gacha-machines":
+                try:
+                    payload = self._read_json()
+                    issues = save_gacha_machine_catalog(root, payload)
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})
                     return
