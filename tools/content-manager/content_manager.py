@@ -10160,6 +10160,10 @@ def _structure_named_anchors(path: Path, anchor_types: set[str]) -> list[dict[st
         entry = {"label": label, "position": position}
         if isinstance(anchor.get("safe_spawn"), list):
             entry["safe_spawn"] = anchor["safe_spawn"]
+        if anchor.get("safe_side") in {"north", "east", "south", "west"}:
+            entry["safe_side"] = anchor["safe_side"]
+        if anchor.get("door_facing") in {"north", "east", "south", "west"}:
+            entry["door_facing"] = anchor["door_facing"]
         result.append(entry)
     return result
 

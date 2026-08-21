@@ -2487,7 +2487,7 @@ public final class CobbleventureBootstrap {
             String facing = horizontal
                 ? (slot.side() < 0 ? "south" : "north")
                 : (slot.side() < 0 ? "east" : "west");
-            if (!id.startsWith("house_")
+            if (!id.startsWith("house_") && !id.contains("gym")
                 && !facing.equals(facilityCanonicalEntranceFacing(id))) {
                 continue;
             }
@@ -2500,7 +2500,7 @@ public final class CobbleventureBootstrap {
             TownPlot candidate = new TownPlot(
                 centerX - width / 2.0D, centerZ - depth / 2.0D,
                 width, depth, id, null, rotation,
-                (int) Math.round(alongX), (int) Math.round(alongZ)
+                (int) Math.round(alongX), (int) Math.round(alongZ), facing
             );
             boolean intersects = plots.stream().anyMatch(plot -> townPlotsIntersect(candidate, plot, plotGap));
             if (intersects) continue;
@@ -2557,14 +2557,7 @@ public final class CobbleventureBootstrap {
     ) {
         int x = (int) Math.round(plot.x());
         int z = (int) Math.round(plot.z());
-        String facing = plot.id().startsWith("house_")
-            ? switch (plot.rotation()) {
-                case "clockwise_90" -> "east";
-                case "clockwise_180" -> "south";
-                case "counterclockwise_90" -> "west";
-                default -> "north";
-            }
-            : facilityCanonicalEntranceFacing(plot.id());
+        String facing = plot.entranceFacing();
         BlockPos doorOffset = structure == null ? null
             : BuildingRuntimeSystem.exteriorDoorApproachOffset(
                 structure, plot.rotation()
@@ -7359,7 +7352,10 @@ public final class CobbleventureBootstrap {
             plot.has("road_connection")
                 ? plot.getAsJsonObject("road_connection").get("x").getAsInt() : 0,
             plot.has("road_connection")
-                ? plot.getAsJsonObject("road_connection").get("z").getAsInt() : 0
+                ? plot.getAsJsonObject("road_connection").get("z").getAsInt() : 0,
+            plot.has("entrance_facing")
+                ? requiredString(plot, "entrance_facing")
+                : facilityCanonicalEntranceFacing(requiredString(plot, "id"))
         );
     }
 
@@ -14497,10 +14493,20 @@ public final class CobbleventureBootstrap {
         String structure,
         String rotation,
         int roadConnectionX,
-        int roadConnectionZ
+        int roadConnectionZ,
+        String entranceFacing
     ) {
+        TownPlot(
+            double x, double z, int width, int depth, String id,
+            String structure, String rotation, int roadConnectionX, int roadConnectionZ
+        ) {
+            this(x, z, width, depth, id, structure, rotation,
+                roadConnectionX, roadConnectionZ, facilityCanonicalEntranceFacing(id));
+        }
+
         TownPlot(double x, double z, int width, int depth, String id) {
-            this(x, z, width, depth, id, null, "none", 0, 0);
+            this(x, z, width, depth, id, null, "none", 0, 0,
+                facilityCanonicalEntranceFacing(id));
         }
     }
 

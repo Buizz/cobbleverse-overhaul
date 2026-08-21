@@ -853,8 +853,7 @@ def _plot_inside_town_layout(
 ) -> bool:
     x = float(plot["x"])
     z = float(plot["z"])
-    width = int(plot["width"])
-    depth = int(plot["depth"])
+    width, depth = _placed_plot_dimensions(plot)
     samples = [
         (px, pz)
         for px in [x + min(offset, width) for offset in range(0, width + 4, 4)]
@@ -865,11 +864,13 @@ def _plot_inside_town_layout(
 
 
 def _plots_intersect(a: dict[str, object], b: dict[str, object], margin: float) -> bool:
+    a_width, a_depth = _placed_plot_dimensions(a)
+    b_width, b_depth = _placed_plot_dimensions(b)
     return (
-        float(a["x"]) - margin < float(b["x"]) + int(b["width"])
-        and float(a["x"]) + int(a["width"]) + margin > float(b["x"])
-        and float(a["z"]) - margin < float(b["z"]) + int(b["depth"])
-        and float(a["z"]) + int(a["depth"]) + margin > float(b["z"])
+        float(a["x"]) - margin < float(b["x"]) + b_width
+        and float(a["x"]) + a_width + margin > float(b["x"])
+        and float(a["z"]) - margin < float(b["z"]) + b_depth
+        and float(a["z"]) + a_depth + margin > float(b["z"])
     )
 
 
@@ -1041,6 +1042,46 @@ def _facility_entrance_facing(identifier: str) -> str:
     return "north"
 
 
+def _placed_plot_dimensions(plot: dict[str, object]) -> tuple[int, int]:
+    quarter_turn = str(plot.get("rotation", "none")) in {
+        "clockwise_90", "counterclockwise_90",
+    }
+    return (
+        int(plot["depth"] if quarter_turn else plot["width"]),
+        int(plot["width"] if quarter_turn else plot["depth"]),
+    )
+
+
+def _rotation_between_facings(authored_facing: str, target_facing: str) -> str:
+    directions = ["north", "east", "south", "west"]
+    if authored_facing not in directions or target_facing not in directions:
+        return "none"
+    return ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"][
+        (directions.index(target_facing) - directions.index(authored_facing)) % 4
+    ]
+
+
+def _structure_authored_door_side(
+    structure: str, root: Path | None = None,
+) -> str | None:
+    if root is None or ":" not in structure:
+        return None
+    _, path = structure.split(":", 1)
+    metadata_path = root / CONTENT_ROOT / "structures" / f"{path}.structure.json"
+    if not metadata_path.is_file():
+        return None
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
+    door = next((
+        anchor for anchor in anchors or []
+        if isinstance(anchor, dict) and anchor.get("type") == "door"
+    ), None)
+    if not isinstance(door, dict):
+        return None
+    side = door.get("safe_side", door.get("door_facing"))
+    return str(side) if side in {"north", "east", "south", "west"} else None
+
+
 def _rotated_structure_point(
     x: int, z: int, width: int, depth: int, rotation: str
 ) -> tuple[int, int]:
@@ -1203,19 +1244,8 @@ def _structure_door_safe_side(
     structure = plot.get("structure")
     if not isinstance(structure, str) or ":" not in structure:
         return None
-    _, path = structure.split(":", 1)
-    metadata_path = (root or Path()) / CONTENT_ROOT / "structures" / f"{path}.structure.json"
-    if not metadata_path.is_file():
-        return None
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
-    door = next((
-        anchor for anchor in anchors or []
-        if isinstance(anchor, dict) and anchor.get("type") == "door"
-    ), None)
-    if not isinstance(door, dict) or door.get("safe_side") not in {
-        "north", "east", "south", "west"
-    }:
+    authored_side = _structure_authored_door_side(structure, root)
+    if authored_side is None:
         return None
     directions = ["north", "east", "south", "west"]
     turns = {
@@ -1224,7 +1254,7 @@ def _structure_door_safe_side(
         "clockwise_180": 2,
         "counterclockwise_90": 3,
     }.get(str(plot.get("rotation", "none")), 0)
-    return directions[(directions.index(str(door["safe_side"])) + turns) % 4]
+    return directions[(directions.index(authored_side) + turns) % 4]
 
 
 def _compile_town_layout_attempt(
@@ -1532,6 +1562,7 @@ def _compile_town_layout_attempt(
         identifier: str, width: int, plot_depth: int, attempts: int,
         orient_entrance_to_road: bool = False,
         fixed_entrance_facing: str | None = None,
+        authored_entrance_facing: str | None = None,
         balance_cells: bool = False,
     ) -> dict[str, object] | None:
         # 난수로 같은 후보를 반복 추첨하지 않고 모든 도로 후보를 한 번씩
@@ -1551,28 +1582,32 @@ def _compile_town_layout_attempt(
                 ("south" if side < 0 else "north") if horizontal
                 else ("east" if side < 0 else "west")
             )
-            if fixed_entrance_facing is not None and road_facing != fixed_entrance_facing:
+            if (fixed_entrance_facing is not None
+                    and authored_entrance_facing is None
+                    and road_facing != fixed_entrance_facing):
                 continue
+            rotation = "none"
+            if orient_entrance_to_road:
+                rotation = _rotation_between_facings("north", road_facing)
+            elif authored_entrance_facing is not None:
+                rotation = _rotation_between_facings(authored_entrance_facing, road_facing)
+            placed_width, placed_depth = _placed_plot_dimensions({
+                "width": width, "depth": plot_depth, "rotation": rotation,
+            })
             # The NBT edge meets the road edge. Do not add a decorative buffer:
             # structure templates often contain their own yard/setback.
-            distance = road_width / 2.0 + (plot_depth if horizontal else width) / 2.0
+            distance = road_width / 2.0 + (placed_depth if horizontal else placed_width) / 2.0
             center_x = along_x + (0.0 if horizontal else side * distance)
             center_z = along_z + (side * distance if horizontal else 0.0)
             candidate: dict[str, object] = {
-                "id": identifier, "x": round(center_x - width / 2.0, 2),
-                "z": round(center_z - plot_depth / 2.0, 2),
+                "id": identifier, "x": round(center_x - placed_width / 2.0, 2),
+                "z": round(center_z - placed_depth / 2.0, 2),
                 "width": width, "depth": plot_depth,
             }
-            if orient_entrance_to_road:
-                if width != plot_depth:
-                    raise ModBuildError("회전 배치 건물은 정사각형 부지여야 합니다.")
-                facing = road_facing
+            if orient_entrance_to_road or authored_entrance_facing is not None:
                 candidate.update({
-                    "entrance_facing": facing,
-                    "rotation": {
-                        "north": "none", "east": "clockwise_90",
-                        "south": "clockwise_180", "west": "counterclockwise_90",
-                    }[facing],
+                    "entrance_facing": road_facing,
+                    "rotation": rotation,
                     "road_connection": {
                         "x": math.floor(along_x + 0.5),
                         "z": math.floor(along_z + 0.5),
@@ -1767,10 +1802,13 @@ def _compile_town_layout_attempt(
         _compiled_facility_specs(data, root), key=lambda spec: spec[1] * spec[2], reverse=True
     )
     for identifier, width, plot_depth, structure in facility_specs:
-        entrance_facing = _facility_entrance_facing(identifier)
+        authored_entrance_facing = _structure_authored_door_side(structure, root)
+        entrance_facing = authored_entrance_facing or _facility_entrance_facing(identifier)
         plot = place_plot(
             identifier, width, plot_depth, len(slots) * 4,
-            fixed_entrance_facing=entrance_facing,
+            fixed_entrance_facing=entrance_facing
+            if authored_entrance_facing is None else None,
+            authored_entrance_facing=authored_entrance_facing,
         )
         if plot is None:
             plot = place_grid_plot(
@@ -1978,8 +2016,6 @@ def _compile_town_layout(
         ) if footprint_shape == "custom" else ()
         for building in buildings:
             checked = dict(building)
-            if str(building.get("rotation", "none")) in ("clockwise_90", "counterclockwise_90"):
-                checked["width"], checked["depth"] = int(building["depth"]), int(building["width"])
             if not _plot_inside_town_layout(checked, cell_count, footprint_shape, custom_cells):
                 raise ModBuildError(
                     f"수동 배치 건물이 마을 점유 칸을 벗어났습니다: {data.get('id')} / {building.get('id')}"

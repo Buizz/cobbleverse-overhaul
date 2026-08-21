@@ -1178,9 +1178,16 @@ class DataModBuilderTests(unittest.TestCase):
             gym, REPOSITORY_ROOT
         )
         self.assertIsNotNone(authored_entrance)
+        effective_facing = build_data_mod._structure_door_safe_side(
+            gym, REPOSITORY_ROOT
+        )
+        self.assertEqual(gym["entrance_facing"], effective_facing)
+        projected_entrance = build_data_mod._project_entrance_outside_nbt(
+            gym, effective_facing, authored_entrance[0], authored_entrance[1]
+        )
         expected_entrance = {
-            "x": authored_entrance[0],
-            "z": authored_entrance[1],
+            "x": projected_entrance[0],
+            "z": projected_entrance[1],
         }
         self.assertEqual(expected_entrance, gym["entrance"])
         gym_roads = [

@@ -41,7 +41,8 @@ const state = {
   encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   villageDecorationEditor: { tool: "select", selected: -1, drag: null, hitTargets: [], preview: null },
-  townManualEditor: { library: "building", tool: "select", asset: null, selected: null, hover: null, roadStart: null, drag: null, view3d: false, zoom: 1, panX: 0, panY: 0, hitTargets: [], draft: null },
+  villageGpuView: { renderer: null, models: new Map(), yaw: -.72, pitch: -.68, distance: 260, targetY: 8, drag: null, autoRotate: false, frame: 0, requestId: 0, atmosphere: "day" },
+  townManualEditor: { library: "building", tool: "select", asset: null, selected: null, hover: null, roadStart: null, roadWidth: 7, drag: null, view3d: false, zoom: 1, panX: 0, panY: 0, hitTargets: [], draft: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
   buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], facilityDefaults: {}, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null, placement: { anchor: { idPrefix: "anchor", kind: "room", radiusX: 12, radiusZ: 12, height: 12 }, entrance: { idPrefix: "entrance", displayName: "입출구", requiredProgress: "", fallbackX: 4, fallbackY: 1, fallbackZ: 0 }, path: { idPrefix: "connection", kind: "tunnel", width: 5 } } },
@@ -8972,6 +8973,8 @@ function structureFootprint(structure, fallback = {}) {
     occupied: nbt?.occupied || null,
     topView: nbt?.top_view || null,
     doorApproach: door?.safe_spawn || door?.position || null,
+    doorPosition: door?.position || door?.safe_spawn || null,
+    doorFacing: door?.safe_side || door?.door_facing || null,
     roadAnchor,
     nbtResolved: Boolean(nbt),
     source: nbt?.source || ""
@@ -10196,6 +10199,14 @@ function facilityCanonicalEntranceFacing(id) {
   return "north";
 }
 
+function rotationBetweenFacings(authoredFacing, targetFacing) {
+  const directions = ["north", "east", "south", "west"];
+  const source = directions.indexOf(authoredFacing);
+  const target = directions.indexOf(targetFacing);
+  if (source < 0 || target < 0) return "none";
+  return ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"][(target - source + 4) % 4];
+}
+
 function facilityEntrancePoint(id, occupiedPlot, facing = facilityCanonicalEntranceFacing(id)) {
   const blockX = Math.round(occupiedPlot.x);
   const blockZ = Math.round(occupiedPlot.z);
@@ -10691,12 +10702,14 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       const alongX = road.x1 + (road.x2 - road.x1) * slot.ratio;
       const alongZ = road.z1 + (road.z2 - road.z1) * slot.ratio;
       const roadFacing = horizontal ? (slot.side < 0 ? "south" : "north") : (slot.side < 0 ? "east" : "west");
-      const fixedFacilityFacing = kind === "facility"
+      const authoredFacilityFacing = kind === "facility" ? definition.footprint?.doorFacing : null;
+      const fixedFacilityFacing = kind === "facility" && !authoredFacilityFacing
         ? definition.footprint?.roadAnchor?.facing || facilityCanonicalEntranceFacing(definition.id)
         : null;
       if (fixedFacilityFacing && roadFacing !== fixedFacilityFacing) continue;
-      const facing = kind === "house" ? roadFacing : fixedFacilityFacing;
-      const rotation = kind === "house" ? ({ north: "none", east: "clockwise_90", south: "clockwise_180", west: "counterclockwise_90" })[facing] : "none";
+      const facing = kind === "house" || authoredFacilityFacing ? roadFacing : fixedFacilityFacing;
+      const rotation = kind === "house" ? rotationBetweenFacings("north", facing)
+        : authoredFacilityFacing ? rotationBetweenFacings(authoredFacilityFacing, facing) : "none";
       const placedOccupied = rotateMinecraftTopBounds(occupied, width, depthSize, rotation);
       const occupiedCenterX = (placedOccupied.min_x + placedOccupied.max_x + 1) / 2;
       const occupiedCenterZ = (placedOccupied.min_z + placedOccupied.max_z + 1) / 2;
@@ -10727,7 +10740,27 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         plot.rotation = rotation;
         plot.road_connection = { x: Math.round(alongX), z: Math.round(alongZ) };
         const doorApproach = definition.footprint?.doorApproach;
+        const doorPosition = definition.footprint?.doorPosition;
+        if (Array.isArray(doorPosition) && doorPosition.length === 3) {
+          const rotatedDoor = rotateMinecraftTopBlock(
+            Number(doorPosition[0]), Number(doorPosition[2]), width, depthSize,
+            plot.rotation
+          );
+          plot.door = {
+            x: Math.round(Number(plot.x)) + rotatedDoor.x,
+            z: Math.round(Number(plot.z)) + rotatedDoor.z
+          };
+        }
         if (kind === "house" && Array.isArray(doorApproach) && doorApproach.length === 3) {
+          const rotatedDoor = rotateMinecraftTopBlock(
+            Number(doorApproach[0]), Number(doorApproach[2]), width, depthSize,
+            plot.rotation
+          );
+          plot.entrance = {
+            x: Math.round(Number(plot.x)) + rotatedDoor.x,
+            z: Math.round(Number(plot.z)) + rotatedDoor.z
+          };
+        } else if (kind === "facility" && Array.isArray(doorApproach) && doorApproach.length === 3) {
           const rotatedDoor = rotateMinecraftTopBlock(
             Number(doorApproach[0]), Number(doorApproach[2]), width, depthSize,
             plot.rotation
@@ -10839,14 +10872,25 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       nbtSource: definition.footprint?.source || "",
       occupied: occupiedPlot
     };
-    const facing = definition.footprint?.roadAnchor?.facing
+    const facing = definition.footprint?.doorFacing || definition.footprint?.roadAnchor?.facing
       || facilityCanonicalEntranceFacing(definition.id);
-    const authoredEntrance = Array.isArray(definition.footprint?.roadAnchor?.position)
+    const authoredEntrance = Array.isArray(definition.footprint?.doorApproach)
+      ? {
+          x: plot.x + Number(definition.footprint.doorApproach[0]),
+          z: plot.z + Number(definition.footprint.doorApproach[2])
+        }
+      : Array.isArray(definition.footprint?.roadAnchor?.position)
       ? {
           x: plot.x + Number(definition.footprint.roadAnchor.position[0]),
           z: plot.z + Number(definition.footprint.roadAnchor.position[2])
         }
       : facilityEntrancePoint(definition.id, occupiedPlot, facing);
+    const authoredDoor = Array.isArray(definition.footprint?.doorPosition)
+      ? {
+          x: plot.x + Number(definition.footprint.doorPosition[0]),
+          z: plot.z + Number(definition.footprint.doorPosition[2])
+        }
+      : null;
     const entrance = projectEntranceOutsideNbt(plot, authoredEntrance, facing);
     const roadPoints = roads.flatMap((road) => {
       const x = Math.min(Math.max(entrance.x, Math.min(road.x1, road.x2)), Math.max(road.x1, road.x2));
@@ -10854,7 +10898,7 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       return [{ x, z, distance: (x - entrance.x) ** 2 + (z - entrance.z) ** 2 }];
     });
     const roadConnection = roadPoints.length ? roadPoints.reduce((best, point) => point.distance < best.distance ? point : best) : hub;
-    Object.assign(plot, { entrance_facing: facing, rotation: "none", entrance, road_connection: { x: Math.round(roadConnection.x), z: Math.round(roadConnection.z) } });
+    Object.assign(plot, { entrance_facing: facing, rotation: "none", entrance, door: authoredDoor, road_connection: { x: Math.round(roadConnection.x), z: Math.round(roadConnection.z) } });
     roads.forEach((road, roadIndex) => {
       if (villagePreviewRectIntersects(occupiedPlot, villagePreviewRoadRect(road, roadWidth), .5)) blockedRoadIndices.add(roadIndex);
     });
@@ -10912,8 +10956,9 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
       { facing: "north", x: placedOccupied.x + Math.floor(placedOccupied.width / 2), z: placedOccupied.z - 1 },
       { facing: "west", x: placedOccupied.x - 1, z: placedOccupied.z + Math.min(19, placedOccupied.depth - 1) },
       { facing: "east", x: placedOccupied.x + placedOccupied.width, z: placedOccupied.z + Math.min(19, placedOccupied.depth - 1) }
-    ] : [{ facing: plot.entrance_facing, ...plot.entrance }]).map((entrance) => ({
+    ] : [{ facing: plot.entrance_facing, ...plot.entrance, door: plot.door }]).map((entrance) => ({
       facing: entrance.facing,
+      door: entrance.door,
       ...projectEntranceOutsideNbt(plot, entrance, entrance.facing)
     }));
     plot.entrance = entrances[0];
@@ -10942,6 +10987,13 @@ function simulateJigsawVillage(seed, depth, shape, roadWidth, requirements, cell
         roadX = corner.x; roadZ = corner.z;
       }
       accessRoads.push({ building: plot.id, x1: roadX, z1: roadZ, x2: entrance.x, z2: entrance.z });
+      if (entrance.door && (Number(entrance.door.x) !== Number(entrance.x) || Number(entrance.door.z) !== Number(entrance.z))) {
+        accessRoads.push({
+          building: plot.id, includesSafeArea: true,
+          x1: entrance.x, z1: entrance.z,
+          x2: Number(entrance.door.x), z2: Number(entrance.door.z)
+        });
+      }
     }
   }
   const visibleRoads = roads.filter((_, index) => !blockedRoadIndices.has(index));
@@ -11179,8 +11231,17 @@ function isTownManualLayout(layout) {
 function townManualLayoutFromCurrentPreview() {
   const preview = state.villageDecorationEditor.preview;
   const form = $("#settlement-form");
+  const roadWidth = Number(form.elements.townRoadWidth.value || 7);
+  const material = form.elements.townRoadMaterial.value || "cobblestone";
+  const plotsById = new Map((preview?.plots || []).map((plot) => [plot.id, plot]));
+  const roads = [
+    ...(preview?.roads || []).map((road) => ({ ...road, width: roadWidth })),
+    ...(preview?.accessRoads || []).map((road) => ({
+      ...road, width: villagePreviewAccessRoadWidth(plotsById.get(road.building), roadWidth)
+    }))
+  ];
   return {
-    roads: (preview?.roads || []).map((road) => ({ x1: Math.round(road.x1), z1: Math.round(road.z1), x2: Math.round(road.x2), z2: Math.round(road.z2), width: Number(form.elements.townRoadWidth.value || 7), material: form.elements.townRoadMaterial.value || "cobblestone" })),
+    roads: roads.map((road) => ({ x1: Math.round(road.x1), z1: Math.round(road.z1), x2: Math.round(road.x2), z2: Math.round(road.z2), width: Number(road.width), material })),
     buildings: (preview?.plots || []).map((plot, index) => ({ id: `building_${index + 1}`, structure: plot.structure || `cobbleventure:placeholder/${plot.id}`, x: Math.round(plot.x), z: Math.round(plot.z), width: Number(plot.width || 16), depth: Number(plot.depth || 16), height: Number(plot.height || 12), rotation: plot.rotation || "none" })),
     decorations: (preview?.decorations || []).map((item) => {
       const definition = townManualDecorations.find(([type]) => type === item.type);
@@ -11197,6 +11258,29 @@ function ensureManualTownLayout() {
   const saved = state.settlement.structure_profile.manual_layout;
   if (isTownManualLayout(saved)) return saved;
   return townManualLayoutFromCurrentPreview();
+}
+
+function townManualGpuPreview() {
+  const layout = ensureManualTownLayout();
+  const footprint = townManualFootprint();
+  return {
+    manualDraft: true,
+    layoutCells: villageLayoutCells(footprint.cellCount, footprint.shape, footprint.customCells),
+    hub: { x: 0, z: 0 },
+    roads: layout.roads.map((road) => ({ ...road })),
+    accessRoads: [],
+    plots: layout.buildings.map((building) => {
+      const metadata = state.structureSizes[building.structure] || {};
+      return {
+        ...building, kind: "house", label: building.id,
+        width: Number(building.width || metadata.width || 8),
+        depth: Number(building.depth || metadata.depth || 8),
+        height: Number(building.height || metadata.height || 8),
+        nbtResolved: Boolean(metadata.width), topView: metadata.top_view || null
+      };
+    }),
+    decorations: layout.decorations.map((decoration) => ({ ...decoration }))
+  };
 }
 
 function townManualFootprint() {
@@ -11269,7 +11353,7 @@ function townManualAssetCatalog() {
     const size = state.structureSizes[structure] || {};
     return { kind: "decoration", id: type, label, structure, color, width: Number(size.width || 1), depth: Number(size.depth || 1), height: Number(size.height || 4) };
   }).filter((item) => `${item.label} ${item.structure}`.toLowerCase().includes(query));
-  if (editor.library === "road") return townManualRoads.map((material) => ({ kind: "road", id: material, label: routeSurfaceLabel(material), material, width: 7, color: "#8d9292" })).filter((item) => `${item.label} ${item.id}`.toLowerCase().includes(query));
+  if (editor.library === "road") return townManualRoads.map((material) => ({ kind: "road", id: material, label: routeSurfaceLabel(material), material, width: editor.roadWidth, color: "#8d9292" })).filter((item) => `${item.label} ${item.id}`.toLowerCase().includes(query));
   return Object.entries(state.structureSizes).filter(([id, metadata]) => {
     const source = String(metadata?.source || "").toLowerCase();
     return metadata?.width && metadata?.depth && !/interior|cave|forest/.test(`${id} ${source}`) && `${id} ${source}`.toLowerCase().includes(query);
@@ -11281,6 +11365,39 @@ function renderTownManualAssets() {
   $("#town-manual-assets").innerHTML = assets.length ? assets.map((asset, index) => `<button type="button" class="town-manual-asset${state.townManualEditor.asset?.structure === asset.structure && state.townManualEditor.asset?.id === asset.id ? " is-active" : ""}" data-town-asset="${index}"><i style="--asset-color:${asset.color || "#d8e5d8"}">${asset.kind === "road" ? "길" : asset.kind === "decoration" ? "✦" : "▣"}</i><span><strong>${escapeHtml(asset.label)}</strong><small>${escapeHtml(asset.structure || asset.material || "")}</small><em>${asset.kind === "road" ? `폭 ${asset.width}블록` : `${asset.width}×${asset.depth}×${asset.height}블록`}</em></span></button>`).join("") : '<div class="issues empty">조건에 맞는 리소스가 없습니다.</div>';
   $("#town-manual-assets").dataset.catalog = JSON.stringify(assets);
   renderTownManualAssetPreview();
+}
+
+function normalizeTownManualRoadWidth(value) {
+  const width = Math.max(1, Math.min(15, Math.round(Number(value) || 1)));
+  return width % 2 === 0 ? Math.min(15, width + 1) : width;
+}
+
+function renderTownManualRoadSettings() {
+  const panel = $("#town-manual-road-settings"), editor = state.townManualEditor;
+  panel.hidden = editor.library !== "road";
+  const width = normalizeTownManualRoadWidth(editor.roadWidth);
+  editor.roadWidth = width;
+  $("#town-manual-road-width").value = String(width);
+  $("#town-manual-road-width-output").textContent = `${width}블록`;
+  $$('[data-town-road-width]').forEach((button) => button.classList.toggle("is-active", Number(button.dataset.townRoadWidth) === width));
+}
+
+function renderTownManualToolState() {
+  const editor = state.townManualEditor;
+  $$('[data-town-tool]').forEach((button) => button.classList.toggle("is-active", button.dataset.townTool === editor.tool));
+  const mode = $("#town-manual-mode");
+  if (editor.tool === "road" && editor.asset) mode.textContent = `〰 길 배치 · ${routeSurfaceLabel(editor.asset.material)} · ${editor.asset.width}블록`;
+  else if (editor.tool === "place" && editor.asset) mode.textContent = `＋ ${editor.asset.kind === "decoration" ? "장식" : "건물"} 배치 · ${editor.asset.label}`;
+  else if (editor.tool === "delete") mode.textContent = "× 클릭해서 삭제";
+  else mode.textContent = "↖ 선택 모드";
+  mode.classList.toggle("is-placing", ["road", "place"].includes(editor.tool));
+}
+
+function setTownManualRoadWidth(value) {
+  const width = normalizeTownManualRoadWidth(value);
+  state.townManualEditor.roadWidth = width;
+  if (state.townManualEditor.asset?.kind === "road") state.townManualEditor.asset.width = width;
+  renderTownManualRoadSettings(); renderTownManualToolState(); renderTownManualAssets(); renderTownManualCanvas();
 }
 
 function renderTownManualAssetPreview() {
@@ -11354,15 +11471,16 @@ function townManualRoadBlockCells(road) {
   return [...cells.values()];
 }
 
-function drawTownManualRoad(context, road, color, ghost = false) {
+function drawTownManualRoad(context, road, color, ghost = false, selected = false) {
   const editor = state.townManualEditor;
   const cells = townManualRoadBlockCells(road);
   context.globalAlpha = ghost ? .58 : 1;
   for (const cell of cells) {
     const a = townManualProject(cell.x, cell.z), b = townManualProject(cell.x + 1, cell.z), c = townManualProject(cell.x + 1, cell.z + 1), d = townManualProject(cell.x, cell.z + 1);
-    context.fillStyle = color;
+    context.fillStyle = selected ? "#ffd45a" : color;
     context.beginPath(); context.moveTo(a.x,a.y); context.lineTo(b.x,b.y); context.lineTo(c.x,c.y); context.lineTo(d.x,d.y); context.closePath(); context.fill();
-    if (!editor.view3d && townManualBlockScale * editor.zoom >= 5) { context.strokeStyle="rgba(29,43,39,.24)"; context.lineWidth=.7; context.stroke(); }
+    if (selected) { context.strokeStyle="#7a5200"; context.lineWidth=1.5; context.stroke(); }
+    else if (!editor.view3d && townManualBlockScale * editor.zoom >= 5) { context.strokeStyle="rgba(29,43,39,.24)"; context.lineWidth=.7; context.stroke(); }
   }
   context.globalAlpha = 1;
   const points = cells.flatMap((cell) => [townManualProject(cell.x,cell.z),townManualProject(cell.x+1,cell.z+1)]);
@@ -11394,7 +11512,7 @@ function renderTownManualCanvas() {
     for (let value = minZ; value <= maxZ; value += 1) { const horizontalA=townManualProject(minX,value),horizontalB=townManualProject(maxX,value);context.strokeStyle=value%16===0?"rgba(226,241,229,.38)":"rgba(205,228,211,.13)";context.lineWidth=value%16===0?1.4:.65;context.beginPath();context.moveTo(horizontalA.x,horizontalA.y);context.lineTo(horizontalB.x,horizontalB.y);context.stroke(); }
   }
   const roadColors = { cobblestone:"#8d9292",stone_bricks:"#727b80",bricks:"#a05245",grass_path:"#8a704f",gravel:"#aaa397",packed_mud:"#846b55",sandstone:"#d4ba7d",snow:"#d9e9ed" };
-  layout.roads.forEach((road,index) => editor.hitTargets.push({kind:"road",index,...drawTownManualRoad(context,road,roadColors[road.material]||roadColors.cobblestone)}));
+  layout.roads.forEach((road,index) => editor.hitTargets.push({kind:"road",index,...drawTownManualRoad(context,road,roadColors[road.material]||roadColors.cobblestone,false,editor.selected?.kind==="road"&&editor.selected.index===index)}));
   const overlappingBuildings=townManualOverlappingBuildings(layout);
   const elements = [...layout.buildings.map((item,index)=>({item:{...item,kind:"building"},kind:"building",index})), ...layout.decorations.map((item,index)=>({item:{...item,kind:"decoration"},kind:"decoration",index}))]; if(editor.view3d) elements.sort((a,b)=>(a.item.x+a.item.z)-(b.item.x+b.item.z)); elements.forEach(({item,kind,index})=>{const dragging=editor.drag?.kind===kind&&editor.drag.index===index;const bounds=drawTownManualBox(context,item,editor.selected?.kind===kind&&editor.selected.index===index,dragging);if(dragging&&!editor.drag.valid&&!editor.view3d){context.strokeStyle="#ff4f4b";context.lineWidth=4;context.strokeRect(bounds.left,bounds.top,bounds.right-bounds.left,bounds.bottom-bounds.top);}editor.hitTargets.push({kind,index,...bounds});});
   for(const index of overlappingBuildings)drawTownManualOverlapOutline(context,layout.buildings[index]);
@@ -11417,7 +11535,7 @@ function renderTownManualProperties() {
   if (item.rotation) panel.querySelector('[data-field="rotation"]').value=item.rotation;
 }
 
-function openTownManualWorkspace() { if(!state.settlement)return; const profile=state.settlement.structure_profile||{}; const source=profile.layout_mode==="manual"&&isTownManualLayout(profile.manual_layout)?profile.manual_layout:townManualLayoutFromCurrentPreview(); state.townManualEditor.draft=structuredClone(source); state.townManualEditor.selected=null; state.townManualEditor.hover=null; state.townManualEditor.drag=null; $("#town-manual-title").textContent=`${state.settlement.display_name?.ko_kr||state.settlement.id} · 수동 배치`; $("#town-manual-workspace").hidden=false; renderTownManualAssets(); renderTownManualProperties(); renderTownManualCanvas(); }
+function openTownManualWorkspace() { if(!state.settlement)return; const profile=state.settlement.structure_profile||{}; const source=profile.layout_mode==="manual"&&isTownManualLayout(profile.manual_layout)?profile.manual_layout:townManualLayoutFromCurrentPreview(); state.townManualEditor.draft=structuredClone(source); state.townManualEditor.tool="select"; state.townManualEditor.asset=null; state.townManualEditor.selected=null; state.townManualEditor.hover=null; state.townManualEditor.drag=null; state.townManualEditor.roadWidth=normalizeTownManualRoadWidth($("#settlement-form").elements.townRoadWidth.value||7); $("#town-manual-title").textContent=`${state.settlement.display_name?.ko_kr||state.settlement.id} · 수동 배치`; $("#town-manual-workspace").hidden=false; renderTownManualRoadSettings(); renderTownManualToolState(); renderTownManualAssets(); renderTownManualProperties(); renderTownManualCanvas(); }
 function closeTownManualWorkspace() { state.townManualEditor.draft=null; state.townManualEditor.drag=null; $("#town-manual-workspace").hidden=true; }
 function applyTownManualWorkspace() { state.settlement.structure_profile.manual_layout=structuredClone(ensureManualTownLayout()); state.settlement.structure_profile.layout_mode="manual"; $("#settlement-json").value=JSON.stringify(state.settlement,null,2); closeTownManualWorkspace(); renderVillageGenerationTest(); toast("수동 배치를 적용했습니다. 마을 저장을 눌러 파일에 반영하세요."); }
 
@@ -11446,6 +11564,13 @@ function villagePreviewRoadBlockCells(road, width, clipBeyondEnd = false) {
     }
   }
   return cells;
+}
+
+function villagePreviewAccessRoadWidth(plot, roadWidth) {
+  if (plot?.kind !== "facility") return Math.min(3, roadWidth);
+  if (String(plot.id).includes("gym")) return 5;
+  if (["department_store", "facility_department_store"].includes(plot.id)) return 3;
+  return roadWidth;
 }
 
 function renderVillageGenerationTest() {
@@ -11562,9 +11687,7 @@ function renderVillageGenerationTest() {
   result.accessRoads.forEach((road, index) => lastAccessRoadIndex.set(road.building, index));
   result.accessRoads.forEach((road, index) => {
     const plot = plotsById.get(road.building);
-    const accessWidth = plot?.kind === "facility"
-      ? (String(plot.id).includes("gym") ? 5 : ["department_store", "facility_department_store"].includes(plot.id) ? 3 : roadWidth)
-      : Math.min(3, roadWidth);
+    const accessWidth = villagePreviewAccessRoadWidth(plot, roadWidth);
     const entrances = plot?.plazaEntrances?.length ? plot.plazaEntrances : plot?.entrance ? [plot.entrance] : [];
     const reachesEntrance = entrances.some((entrance) =>
       Number(entrance.x) === Number(road.x2) && Number(entrance.z) === Number(road.z2)
@@ -11845,6 +11968,167 @@ function applySpecialBuildingPreset(event) {
   form.elements.specialDistrictDepth.value = Number(metadata?.depth || 16);
 }
 
+const villageGpuAtmospheres = {
+  day: { sky: "#b9d9df", fog: "#b9d9df", light: [1, .95, .82], ambient: .58 },
+  sunset: { sky: "#d99470", fog: "#c78b70", light: [1, .67, .42], ambient: .44 },
+  night: { sky: "#182538", fog: "#26354a", light: [.55, .68, 1], ambient: .3 }
+};
+
+function villageGpuHexColor(hex) {
+  const normalized = String(hex || "#ffffff").replace("#", "");
+  const value = Number.parseInt(normalized.length === 3 ? normalized.split("").map((part) => part + part).join("") : normalized, 16);
+  return [((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255];
+}
+
+function villageGpuPerspective(fieldOfView, aspect, near, far) {
+  const f = 1 / Math.tan(fieldOfView / 2), range = 1 / (near - far);
+  return new Float32Array([f / aspect,0,0,0, 0,f,0,0, 0,0,(far + near) * range,-1, 0,0,2 * far * near * range,0]);
+}
+
+function villageGpuLookAt(eye, target) {
+  let zx = eye[0] - target[0], zy = eye[1] - target[1], zz = eye[2] - target[2];
+  let length = Math.hypot(zx, zy, zz) || 1; zx /= length; zy /= length; zz /= length;
+  let xx = zz, xy = 0, xz = -zx; length = Math.hypot(xx, xz) || 1; xx /= length; xz /= length;
+  const yx = zy * xz, yy = zz * xx - zx * xz, yz = -zy * xx;
+  return new Float32Array([
+    xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
+    -(xx * eye[0] + xy * eye[1] + xz * eye[2]),
+    -(yx * eye[0] + yy * eye[1] + yz * eye[2]),
+    -(zx * eye[0] + zy * eye[1] + zz * eye[2]),1
+  ]);
+}
+
+function villageGpuShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source); gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader) || "WebGL 셰이더 컴파일 실패");
+  return shader;
+}
+
+function createVillageGpuRenderer(canvas, instanceValues) {
+  const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, powerPreference: "high-performance" });
+  if (!gl) throw new Error("이 브라우저에서는 WebGL2를 사용할 수 없습니다.");
+  const vertex = villageGpuShader(gl, gl.VERTEX_SHADER, `#version 300 es
+    layout(location=0) in vec3 a_position; layout(location=1) in vec3 a_normal;
+    layout(location=2) in vec3 a_offset; layout(location=3) in vec3 a_scale; layout(location=4) in vec3 a_color;
+    uniform mat4 u_projection; uniform mat4 u_view;
+    out vec3 v_normal; out vec3 v_color; out float v_distance;
+    void main(){ vec3 world=a_offset+a_position*a_scale; vec4 viewed=u_view*vec4(world,1.0); gl_Position=u_projection*viewed; v_normal=a_normal; v_color=a_color; v_distance=length(viewed.xyz); }
+  `);
+  const fragment = villageGpuShader(gl, gl.FRAGMENT_SHADER, `#version 300 es
+    precision highp float; in vec3 v_normal; in vec3 v_color; in float v_distance;
+    uniform vec3 u_light; uniform vec3 u_light_color; uniform vec3 u_fog; uniform float u_ambient; uniform float u_far;
+    out vec4 out_color;
+    void main(){ float diffuse=max(dot(normalize(v_normal),normalize(u_light)),0.0); vec3 lit=v_color*(u_ambient+diffuse*(1.0-u_ambient))*u_light_color; float fog=smoothstep(u_far*.55,u_far,v_distance); out_color=vec4(mix(lit,u_fog,fog),1.0); }
+  `);
+  const program = gl.createProgram(); gl.attachShader(program, vertex); gl.attachShader(program, fragment); gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) || "WebGL 프로그램 연결 실패");
+  gl.deleteShader(vertex); gl.deleteShader(fragment); gl.useProgram(program);
+  const faces = [
+    [[0,0,1],[0,0,0],[0,1,0],[0,1,1],[-1,0,0]], [[1,0,0],[1,0,1],[1,1,1],[1,1,0],[1,0,0]],
+    [[0,0,0],[1,0,0],[1,0,1],[0,0,1],[0,-1,0]], [[0,1,1],[1,1,1],[1,1,0],[0,1,0],[0,1,0]],
+    [[1,0,0],[0,0,0],[0,1,0],[1,1,0],[0,0,-1]], [[0,0,1],[1,0,1],[1,1,1],[0,1,1],[0,0,1]]
+  ];
+  const cube = [];
+  for (const [a,b,c,d,normal] of faces) for (const point of [a,b,c,a,c,d]) cube.push(...point, ...normal);
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const cubeBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cube), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+  const instanceBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer); gl.bufferData(gl.ARRAY_BUFFER, instanceValues, gl.STATIC_DRAW);
+  for (const [location, offset] of [[2,0],[3,12],[4,24]]) { gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location, 3, gl.FLOAT, false, 36, offset); gl.vertexAttribDivisor(location, 1); }
+  const uniforms = Object.fromEntries(["u_projection","u_view","u_light","u_light_color","u_fog","u_ambient","u_far"].map((name) => [name, gl.getUniformLocation(program, name)]));
+  gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+  return {
+    gl, count: instanceValues.length / 9,
+    draw() {
+      const ratio = Math.min(2, window.devicePixelRatio || 1), bounds = canvas.getBoundingClientRect();
+      const width = Math.max(1, Math.round(bounds.width * ratio)), height = Math.max(1, Math.round(bounds.height * ratio));
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      gl.viewport(0, 0, width, height);
+      const atmosphere = villageGpuAtmospheres[state.villageGpuView.atmosphere] || villageGpuAtmospheres.day;
+      const sky = villageGpuHexColor(atmosphere.sky), fog = villageGpuHexColor(atmosphere.fog);
+      gl.clearColor(...sky, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      const view = state.villageGpuView, flatDistance = Math.cos(view.pitch) * view.distance;
+      const eye = [Math.sin(view.yaw) * flatDistance, Math.max(8, -Math.sin(view.pitch) * view.distance), Math.cos(view.yaw) * flatDistance];
+      gl.useProgram(program); gl.uniformMatrix4fv(uniforms.u_projection, false, villageGpuPerspective(Math.PI / 4, width / height, .1, Math.max(1000, view.distance * 6)));
+      gl.uniformMatrix4fv(uniforms.u_view, false, villageGpuLookAt(eye, [0, view.targetY, 0]));
+      gl.uniform3f(uniforms.u_light, -.45, .9, .35); gl.uniform3fv(uniforms.u_light_color, atmosphere.light); gl.uniform3fv(uniforms.u_fog, fog);
+      gl.uniform1f(uniforms.u_ambient, atmosphere.ambient); gl.uniform1f(uniforms.u_far, Math.max(350, view.distance * 2.2));
+      gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, this.count);
+    },
+    destroy() { gl.deleteBuffer(cubeBuffer); gl.deleteBuffer(instanceBuffer); gl.deleteVertexArray(vao); gl.deleteProgram(program); }
+  };
+}
+
+async function loadVillageGpuModel(structure) {
+  if (!structure) return null;
+  if (state.villageGpuView.models.has(structure)) return state.villageGpuView.models.get(structure);
+  const pending = request(`/api/structure-model?structure=${encodeURIComponent(structure)}`).then((result) => result.ok ? result.data : null).catch(() => null);
+  state.villageGpuView.models.set(structure, pending);
+  const model = await pending; state.villageGpuView.models.set(structure, model); return model;
+}
+
+async function loadVillageGpuModels(structures, requestId) {
+  const queue = [...new Set(structures.filter(Boolean))], total = queue.length; let completed = 0;
+  const progress = $("#village-gpu-progress");
+  progress.max = Math.max(1, total); progress.value = 0;
+  const worker = async () => { while (queue.length && requestId === state.villageGpuView.requestId) { await loadVillageGpuModel(queue.shift()); completed += 1; progress.value = completed; } };
+  await Promise.all(Array.from({ length: Math.min(4, Math.max(1, total)) }, worker));
+}
+
+function villageGpuInstances(preview) {
+  const instances = [], limit = 220000;
+  const add = (x, y, z, sx, sy, sz, color) => { if (instances.length / 9 >= limit) return; instances.push(x,y,z,sx,sy,sz,...villageGpuHexColor(color)); };
+  const centers = preview.layoutCells.map((cell) => villageLayoutCenteredCellCenter(cell, preview.layoutCells));
+  const minX = Math.floor(Math.min(...centers.map((point) => point.x)) - villagePreviewTileRadius), maxX = Math.ceil(Math.max(...centers.map((point) => point.x)) + villagePreviewTileRadius);
+  const minZ = Math.floor(Math.min(...centers.map((point) => point.z)) - villagePreviewTileRadius), maxZ = Math.ceil(Math.max(...centers.map((point) => point.z)) + villagePreviewTileRadius);
+  const inside = (x, z) => preview.layoutCells.some((cell) => villageLayoutHexContains(x, z, villageLayoutCenteredCellCenter(cell, preview.layoutCells), 0));
+  for (let x = minX; x <= maxX; x += 4) for (let z = minZ; z <= maxZ; z += 4) if (inside(x + 2, z + 2)) add(x, -.8, z, 4, .8, 4, "#6f9c58");
+  const roadCells = new Map();
+  for (const road of [...(preview.roads || []), ...(preview.accessRoads || [])]) for (const cell of villagePreviewRoadBlockCells(road, Number(road.width || $("#settlement-form")?.elements?.townRoadWidth?.value || 5))) roadCells.set(`${cell.x},${cell.z}`, cell);
+  for (const cell of roadCells.values()) add(cell.x, .02, cell.z, 1, .18, 1, "#8c8981");
+  let buildingBlocks = 0, loadedBuildings = 0;
+  for (const plot of preview.plots || []) {
+    const model = state.villageGpuView.models.get(plot.structure);
+    if (!model?.blocks?.length) { add(Number(plot.x), Number(plot.y || 0) + .2, Number(plot.z), Number(plot.width || 8), Math.max(4, Number(plot.height || 8)), Number(plot.depth || 8), plot.kind === "facility" ? "#4eaaa7" : "#b9a37d"); continue; }
+    loadedBuildings += 1;
+    for (const block of model.blocks) {
+      const [x,y,z,paletteIndex] = block, rotated = rotateMinecraftTopBlock(Number(x), Number(z), Number(model.width), Number(model.depth), plot.rotation);
+      add(Math.round(Number(plot.x)) + rotated.x, Number(plot.y || 0) + Number(y), Math.round(Number(plot.z)) + rotated.z, 1, 1, 1, minecraftTopBlockColor(model.palette[paletteIndex])); buildingBlocks += 1;
+    }
+  }
+  for (const decoration of preview.decorations || []) {
+    if (decoration.type === "street_tree") { add(decoration.x, .2, decoration.z, 1, 4, 1, "#684b31"); add(decoration.x - 1.5, 4, decoration.z - 1.5, 4, 4, 4, "#4f873e"); }
+    else { add(decoration.x + .25, .2, decoration.z + .25, .5, 3, .5, "#574a3b"); add(decoration.x, 3.1, decoration.z, 1, 1, 1, "#f2cf69"); }
+  }
+  const centerX = (minX + maxX) / 2, centerZ = (minZ + maxZ) / 2;
+  for (let index = 0; index < instances.length; index += 9) { instances[index] -= centerX; instances[index + 2] -= centerZ; }
+  return { values: new Float32Array(instances), count: instances.length / 9, buildingBlocks, loadedBuildings, buildingCount: preview.plots?.length || 0, diameter: Math.max(maxX - minX, maxZ - minZ) };
+}
+
+function drawVillageGpuView() { state.villageGpuView.renderer?.draw(); }
+function runVillageGpuOrbit() { cancelAnimationFrame(state.villageGpuView.frame); if (!state.villageGpuView.autoRotate || $("#village-gpu-workspace")?.hidden) return; state.villageGpuView.yaw += .0022; drawVillageGpuView(); state.villageGpuView.frame = requestAnimationFrame(runVillageGpuOrbit); }
+
+async function openVillageGpuView(previewOverride = null) {
+  const preview = previewOverride?.layoutCells ? previewOverride : state.villageDecorationEditor.preview;
+  if (!preview) { toast("먼저 마을 미리보기를 생성하세요."); return; }
+  const workspace = $("#village-gpu-workspace"), loading = $("#village-gpu-loading"), requestId = ++state.villageGpuView.requestId;
+  workspace.hidden = false; loading.hidden = false; $("#village-gpu-progress").max = 1; $("#village-gpu-progress").value = 0;
+  $("#village-gpu-title").textContent = `${state.settlement?.display_name?.ko_kr || state.settlement?.id || "마을"} · ${preview.manualDraft ? "수동 편집 미리보기" : "GPU 3D"}`;
+  const structures = (preview.plots || []).map((plot) => plot.structure);
+  await loadVillageGpuModels(structures, requestId); if (requestId !== state.villageGpuView.requestId) return;
+  const scene = villageGpuInstances(preview); state.villageGpuView.renderer?.destroy();
+  try { state.villageGpuView.renderer = createVillageGpuRenderer($("#village-gpu-canvas"), scene.values); }
+  catch (error) { loading.hidden = false; loading.querySelector("strong").textContent = "GPU 3D 보기를 시작할 수 없습니다"; $("#village-gpu-progress").textContent = error.message; return; }
+  Object.assign(state.villageGpuView, { yaw: -.72, pitch: -.68, distance: Math.max(80, scene.diameter * 1.28), targetY: 8 });
+  $("#village-gpu-summary").textContent = `실제 NBT ${scene.loadedBuildings}/${scene.buildingCount}동 · 표면 블록 ${scene.buildingBlocks.toLocaleString()}개 · GPU 인스턴스 ${scene.count.toLocaleString()}개`;
+  $("#village-gpu-performance").textContent = `WebGL2 · 1 draw call · DPR ${Math.min(2, window.devicePixelRatio || 1).toFixed(1)}`;
+  loading.hidden = true; drawVillageGpuView();
+}
+
+function closeVillageGpuView() { state.villageGpuView.requestId += 1; state.villageGpuView.autoRotate = false; cancelAnimationFrame(state.villageGpuView.frame); state.villageGpuView.renderer?.destroy(); state.villageGpuView.renderer = null; $("#village-gpu-workspace").hidden = true; }
+
 function renderSettlementAutoNpcPreview() {
   renderTrainerPopulationPreview("settlement");
 }
@@ -11858,10 +12142,11 @@ function ensureSettlementLayoutControls(form) {
   if (previewHeader && !$("#open-manual-town-layout")) {
     const actions = document.createElement("div");
     actions.className = "village-preview-actions";
-    actions.innerHTML = '<button type="button" class="button secondary" id="open-manual-town-layout">마을 수동 배치</button>';
+    actions.innerHTML = '<button type="button" class="button secondary" id="open-village-gpu-view">GPU 3D 보기</button><button type="button" class="button secondary" id="open-manual-town-layout">마을 수동 배치</button>';
     const regenerate = $("#regenerate-village-preview");
     if (regenerate) actions.append(regenerate);
     previewHeader.append(actions);
+    actions.querySelector("#open-village-gpu-view").addEventListener("click", openVillageGpuView);
     actions.querySelector("#open-manual-town-layout").addEventListener("click", openTownManualWorkspace);
   }
 }
@@ -14348,7 +14633,7 @@ window.addEventListener("keydown", (event) => {
   if (tool) { setActiveMapTool(tool); event.preventDefault(); }
 });
 window.addEventListener("keyup", (event) => { if (event.code === "Space") { state.spacePanActive = false; $("#world-hex-map").classList.remove("is-space-panning"); } });
-window.addEventListener("resize", () => { resizeWorldMapWorkspace(); renderStructureModel(); renderCaveLayoutPreview(); renderForestPreview(); });
+window.addEventListener("resize", () => { resizeWorldMapWorkspace(); renderStructureModel(); renderCaveLayoutPreview(); renderForestPreview(); drawVillageGpuView(); });
 $("#settlement-form").addEventListener("input", (event) => {
   const form = event.currentTarget;
   if (event.target.name === "settlementClassification" && event.target.value === "special_site") {
@@ -14380,8 +14665,10 @@ $$('[data-town-library]').forEach((button) => button.addEventListener("click", (
   state.townManualEditor.asset = null;
   state.townManualEditor.tool = "select";
   $$('[data-town-library]').forEach((item) => item.classList.toggle("is-active", item === button));
-  renderTownManualAssets();
+  renderTownManualRoadSettings(); renderTownManualToolState(); renderTownManualAssets();
 }));
+$("#town-manual-road-width").addEventListener("input", (event) => setTownManualRoadWidth(event.target.value));
+$("#town-manual-road-settings").addEventListener("click", (event) => { const button=event.target.closest("[data-town-road-width]"); if(button)setTownManualRoadWidth(button.dataset.townRoadWidth); });
 $("#town-manual-search").addEventListener("input", renderTownManualAssets);
 $("#town-manual-assets").addEventListener("click", (event) => {
   const button = event.target.closest("[data-town-asset]"); if (!button) return;
@@ -14389,13 +14676,14 @@ $("#town-manual-assets").addEventListener("click", (event) => {
   state.townManualEditor.asset = catalog[Number(button.dataset.townAsset)];
   state.townManualEditor.tool = state.townManualEditor.asset?.kind === "road" ? "road" : "place";
   state.townManualEditor.selected = null;
-  renderTownManualAssets(); renderTownManualProperties(); renderTownManualCanvas();
+  renderTownManualToolState(); renderTownManualAssets(); renderTownManualProperties(); renderTownManualCanvas();
 });
 $$('[data-town-tool]').forEach((button) => button.addEventListener("click", () => {
   state.townManualEditor.tool = button.dataset.townTool; state.townManualEditor.asset = null;
-  $$('[data-town-tool]').forEach((item) => item.classList.toggle("is-active", item === button)); renderTownManualAssets();
+  renderTownManualToolState(); renderTownManualAssets();
 }));
 $("#town-manual-view").addEventListener("click", (event) => { state.townManualEditor.view3d = !state.townManualEditor.view3d; event.target.textContent = state.townManualEditor.view3d ? "2D 격자" : "경량 3D"; renderTownManualCanvas(); });
+$("#town-manual-gpu-view").addEventListener("click", () => openVillageGpuView(townManualGpuPreview()));
 $("#town-manual-fit").addEventListener("click", () => { Object.assign(state.townManualEditor,{zoom:1,panX:0,panY:0}); renderTownManualCanvas(); });
 $("#town-manual-cancel").addEventListener("click", closeTownManualWorkspace);
 $("#town-manual-apply").addEventListener("click", applyTownManualWorkspace);
@@ -14408,13 +14696,30 @@ $("#town-manual-properties").addEventListener("input", (event) => {
   const card=event.target.closest("[data-kind]"); if(!card||!event.target.dataset.field)return; const layout=ensureManualTownLayout(),kind=card.dataset.kind,index=Number(card.dataset.index); const item=kind==="road"?layout.roads[index]:kind==="building"?layout.buildings[index]:layout.decorations[index]; const field=event.target.dataset.field; item[field]=field==="rotation"?event.target.value:Number(event.target.value); renderTownManualCanvas();
 });
 $("#town-manual-properties").addEventListener("click", (event) => { if(!event.target.closest("[data-town-delete-selected]"))return; const editor=state.townManualEditor,layout=ensureManualTownLayout(); if(editor.selected){(editor.selected.kind==="road"?layout.roads:editor.selected.kind==="building"?layout.buildings:layout.decorations).splice(editor.selected.index,1); editor.selected=null; renderTownManualProperties();renderTownManualCanvas();} });
+$("#village-gpu-close").addEventListener("click", closeVillageGpuView);
+$("#village-gpu-reset").addEventListener("click", () => { Object.assign(state.villageGpuView, { yaw: -.72, pitch: -.68 }); drawVillageGpuView(); });
+$("#village-gpu-atmosphere").addEventListener("change", (event) => { state.villageGpuView.atmosphere = event.target.value; drawVillageGpuView(); });
+$("#village-gpu-orbit").addEventListener("click", (event) => { state.villageGpuView.autoRotate = !state.villageGpuView.autoRotate; event.currentTarget.classList.toggle("is-active", state.villageGpuView.autoRotate); event.currentTarget.textContent = state.villageGpuView.autoRotate ? "회전 정지" : "자동 회전"; runVillageGpuOrbit(); });
+const villageGpuCanvas = $("#village-gpu-canvas");
+villageGpuCanvas.addEventListener("pointerdown", (event) => { state.villageGpuView.drag = { x: event.clientX, y: event.clientY, yaw: state.villageGpuView.yaw, pitch: state.villageGpuView.pitch }; villageGpuCanvas.setPointerCapture(event.pointerId); villageGpuCanvas.classList.add("is-dragging"); });
+villageGpuCanvas.addEventListener("pointermove", (event) => { const drag = state.villageGpuView.drag; if (!drag) return; state.villageGpuView.yaw = drag.yaw + (event.clientX - drag.x) * .009; state.villageGpuView.pitch = Math.max(-1.35, Math.min(-.18, drag.pitch - (event.clientY - drag.y) * .007)); drawVillageGpuView(); });
+const finishVillageGpuDrag = (event) => { state.villageGpuView.drag = null; villageGpuCanvas.classList.remove("is-dragging"); if (villageGpuCanvas.hasPointerCapture(event.pointerId)) villageGpuCanvas.releasePointerCapture(event.pointerId); };
+villageGpuCanvas.addEventListener("pointerup", finishVillageGpuDrag); villageGpuCanvas.addEventListener("pointercancel", finishVillageGpuDrag);
+villageGpuCanvas.addEventListener("wheel", (event) => { event.preventDefault(); state.villageGpuView.distance = Math.max(35, Math.min(1200, state.villageGpuView.distance * (event.deltaY < 0 ? .9 : 1.1))); drawVillageGpuView(); }, { passive: false });
 const townManualCanvas=$("#town-manual-canvas");
-function townManualHitAt(position) { return [...state.townManualEditor.hitTargets].reverse().find((item)=>position.screenX>=item.left&&position.screenX<=item.right&&position.screenY>=item.top&&position.screenY<=item.bottom); }
+function townManualHitAt(position) {
+  const editor=state.townManualEditor;
+  const element=[...editor.hitTargets].reverse().find((item)=>item.kind!=="road"&&position.screenX>=item.left&&position.screenX<=item.right&&position.screenY>=item.top&&position.screenY<=item.bottom);
+  if(element)return element;
+  const layout=ensureManualTownLayout();
+  for(let index=layout.roads.length-1;index>=0;index-=1)if(townManualRoadBlockCells(layout.roads[index]).some((cell)=>cell.x===position.x&&cell.z===position.z))return {kind:"road",index};
+  return null;
+}
 function townManualDraggedItem(layout, drag=state.townManualEditor.drag) { if(!drag)return null;return drag.kind==="building"?layout.buildings[drag.index]:layout.decorations[drag.index]; }
 function cancelTownManualDrag() { const editor=state.townManualEditor,layout=ensureManualTownLayout(),item=townManualDraggedItem(layout);if(item&&editor.drag){item.x=editor.drag.originX;item.z=editor.drag.originZ;}editor.drag=null;townManualCanvas.classList.remove("is-dragging");renderTownManualProperties();renderTownManualCanvas(); }
 townManualCanvas.addEventListener("pointermove", (event) => { const position=townManualWorldPosition(event),editor=state.townManualEditor;editor.hover={x:position.x,z:position.z};if(editor.drag){const layout=ensureManualTownLayout(),item=townManualDraggedItem(layout);if(item){item.x=position.x-editor.drag.offsetX;item.z=position.z-editor.drag.offsetZ;editor.drag.valid=townManualPlacementInside(item,item);editor.drag.moved=editor.drag.moved||item.x!==editor.drag.originX||item.z!==editor.drag.originZ;}}$("#town-manual-position").textContent=`X ${position.x} · Z ${position.z} · 1칸=1블록`; renderTownManualCanvas(); });
 townManualCanvas.addEventListener("pointerleave", () => { if(!state.townManualEditor.drag)state.townManualEditor.hover=null; renderTownManualCanvas(); });
-townManualCanvas.addEventListener("pointerdown", (event) => { const editor=state.townManualEditor,p=townManualWorldPosition(event);if(editor.tool==="road"&&editor.asset){editor.roadStart={x:p.x,z:p.z};townManualCanvas.setPointerCapture(event.pointerId);return;}if(editor.tool!=="select")return;const hit=townManualHitAt(p);if(!hit||hit.kind==="road")return;const layout=ensureManualTownLayout(),item=hit.kind==="building"?layout.buildings[hit.index]:layout.decorations[hit.index];if(!item)return;editor.selected={kind:hit.kind,index:hit.index};editor.drag={kind:hit.kind,index:hit.index,originX:item.x,originZ:item.z,offsetX:p.x-item.x,offsetZ:p.z-item.z,valid:true,moved:false,pointerId:event.pointerId};townManualCanvas.classList.add("is-dragging");townManualCanvas.setPointerCapture(event.pointerId);renderTownManualProperties();renderTownManualCanvas(); });
+townManualCanvas.addEventListener("pointerdown", (event) => { const editor=state.townManualEditor,p=townManualWorldPosition(event);if(editor.tool==="road"&&editor.asset){editor.roadStart={x:p.x,z:p.z};townManualCanvas.setPointerCapture(event.pointerId);return;}if(editor.tool!=="select")return;const hit=townManualHitAt(p);if(!hit)return;editor.selected={kind:hit.kind,index:hit.index};renderTownManualProperties();renderTownManualCanvas();if(hit.kind==="road")return;const layout=ensureManualTownLayout(),item=hit.kind==="building"?layout.buildings[hit.index]:layout.decorations[hit.index];if(!item)return;editor.drag={kind:hit.kind,index:hit.index,originX:item.x,originZ:item.z,offsetX:p.x-item.x,offsetZ:p.z-item.z,valid:true,moved:false,pointerId:event.pointerId};townManualCanvas.classList.add("is-dragging");townManualCanvas.setPointerCapture(event.pointerId); });
 townManualCanvas.addEventListener("pointerup", (event) => {
   const editor=state.townManualEditor,layout=ensureManualTownLayout(),p=townManualWorldPosition(event);
   if(editor.drag){const item=townManualDraggedItem(layout);if(item&&!editor.drag.valid){item.x=editor.drag.originX;item.z=editor.drag.originZ;toast("마을 점유 칸 안에서만 건물과 장식을 이동할 수 있습니다.");}editor.drag=null;townManualCanvas.classList.remove("is-dragging");if(townManualCanvas.hasPointerCapture(event.pointerId))townManualCanvas.releasePointerCapture(event.pointerId);renderTownManualProperties();renderTownManualCanvas();return;}

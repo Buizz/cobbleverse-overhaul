@@ -52,6 +52,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("placedNbtWidth * scale, placedNbtDepth * scale", source)
         self.assertIn('context.strokeStyle = "rgba(42,52,47,.82)"', source)
         self.assertIn('context.strokeStyle = "rgba(255,255,255,.22)"', source)
+        self.assertIn("doorPosition: door?.position || door?.safe_spawn || null", source)
+        self.assertIn("includesSafeArea: true", source)
 
     def test_special_settlement_supports_zero_houses_and_manual_layout(self) -> None:
         source = content_manager._settlement_template("power_plant", "무인 발전소", "generation_1")
@@ -87,13 +89,21 @@ class ContentManagerTests(unittest.TestCase):
 
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
         self.assertIn('id="town-manual-workspace"', page)
         self.assertIn('id="town-manual-canvas"', page)
         self.assertIn('id="town-manual-asset-preview"', page)
+        self.assertIn('id="town-manual-gpu-view"', page)
+        self.assertIn('id="town-manual-road-width"', page)
+        self.assertIn('id="town-manual-mode"', page)
+        self.assertIn('id="village-gpu-workspace"', page)
+        self.assertIn('id="village-gpu-canvas"', page)
         self.assertIn("function applyTownManualWorkspace()", script)
         self.assertIn("function townManualRoadBlockCells(road)", script)
         self.assertIn("function townManualPlacementOrigin(asset, cursor)", script)
         self.assertIn("function townManualLayoutFromCurrentPreview()", script)
+        self.assertIn("...(preview?.accessRoads || []).map((road)", script)
+        self.assertIn("function villagePreviewAccessRoadWidth(plot, roadWidth)", script)
         self.assertIn('profile.layout_mode==="manual"&&isTownManualLayout(profile.manual_layout)', script)
         self.assertIn("function townManualOverlappingBuildings(layout)", script)
         self.assertIn("function drawTownManualOverlapOutline(context, building)", script)
@@ -101,6 +111,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('editor.drag={kind:hit.kind,index:hit.index', script)
         self.assertIn("drawMinecraftStructureTopView(context, { ...item, topView }", script)
         self.assertIn('state.settlement.structure_profile.layout_mode="manual"', script)
+        self.assertIn(".town-manual-assets { display: grid; min-height:0; overflow:auto;", styles)
+        self.assertIn(".town-manual-library { display:grid; overflow:hidden;", styles)
+        self.assertIn("function createVillageGpuRenderer(canvas, instanceValues)", script)
+        self.assertIn("gl.drawArraysInstanced", script)
+        self.assertIn("async function loadVillageGpuModel(structure)", script)
+        self.assertIn("function townManualGpuPreview()", script)
+        self.assertIn("function setTownManualRoadWidth(value)", script)
+        self.assertIn("width: editor.roadWidth", script)
+        self.assertIn("function renderTownManualToolState()", script)
+        self.assertIn('if(hit.kind==="road")return;', script)
+        self.assertIn('selected ? "#ffd45a" : color', script)
 
     def test_dialogue_theme_contract_and_global_resource_editor(self) -> None:
         theme = copy.deepcopy(content_manager.DIALOGUE_THEME_DEFAULTS)
@@ -5701,6 +5722,14 @@ class ContentManagerTests(unittest.TestCase):
 
             payload = content_manager.space_connections_payload(root)
             self.assertEqual(1, len(payload["graphs"]))
+            self.assertEqual(
+                [{
+                    "label": "front", "position": [7, 1, 1],
+                    "safe_spawn": [7, 1, 0], "safe_side": "north",
+                    "door_facing": "north",
+                }],
+                payload["structures"]["cobbleventure:houses/test_house"]["door_anchors"],
+            )
             self.assertTrue(payload["structures"]["cobbleventure:cave_entrance/test_cave"]["no_interior_space"])
             self.assertTrue(payload["structures"]["cobbleventure:monuments/test_statue"]["no_interior_space"])
             graph = payload["graphs"][0]
