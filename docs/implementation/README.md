@@ -6,6 +6,7 @@
 
 | 문서 | 담당 범위 | 현재 상태 |
 |------|-----------|-----------|
+| [Cobblemon 1.8 호환성 검증 기록](COBBLEMON_1_8_COMPATIBILITY.md) | 공식 1.8 스냅샷 기준 자체 모드 빌드 결과와 전체 팩 전환 차단 조건 | 자체 모드 통과·전체 팩 대기 |
 | [콘텐츠 제작 및 모드팩 빌드 파이프라인](CONTENT_BUILD_PIPELINE.md) | Excel/JSON 정규화, Python 관리 도구, 대상별 출력과 CurseForge ZIP | 기준 설계·착수 |
 | [트레이너 클래스와 외형 관리](TRAINER_APPEARANCE.md) | RCT 외형 구조, 본가식 클래스와 PokéAPI 미리보기 기준 | 1차 구현 |
 | [모듈식 아키텍처와 의존성 경계](MODULAR_ARCHITECTURE.md) | 플랫폼 독립 코어, 게임 어댑터, 콘텐츠 팩과 선택 호환 계층 | 기준 결정 |

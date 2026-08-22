@@ -54,6 +54,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('context.strokeStyle = "rgba(255,255,255,.22)"', source)
         self.assertIn("doorPosition: door?.position || door?.safe_spawn || null", source)
         self.assertIn("includesSafeArea: true", source)
+
+    def test_trainer_classes_survive_editor_catalog_failure(self) -> None:
+        source = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        class_assignment = source.index("state.trainerClasses = trainerClasses.data.classes || [];")
+        editor_fallback = source.index("if (!editorCatalog.ok) {")
+        self.assertLess(class_assignment, editor_fallback)
+        self.assertIn(
+            'if (!trainerClasses.ok) throw new Error(trainerClasses.data.error',
+            source,
+        )
+        self.assertIn(
+            "트레이너 클래스와 외형 정보는 계속 사용할 수 있습니다.",
+            source,
+        )
         self.assertIn('request("/api/town-layout-preview"', source)
         renderer = source[source.index("async function renderVillageGenerationTest()"):
                           source.index("const customTownDirections")]

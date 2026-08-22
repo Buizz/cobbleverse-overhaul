@@ -1075,14 +1075,18 @@ async function loadTrainerData(force = false) {
     const [trainerClasses, trainerRoster, trainerReferences, editorCatalog] = await Promise.all([
       request("/api/trainer-classes"), request("/api/trainer-roster"), request("/api/trainer-reference-entries"), request("/api/editor-catalog")
     ]);
-    if (!editorCatalog.ok) throw new Error(editorCatalog.data.error || "전투 데이터 카탈로그를 불러오지 못했습니다.");
+    if (!trainerClasses.ok) throw new Error(trainerClasses.data.error || "트레이너 클래스 카탈로그를 불러오지 못했습니다.");
     state.trainerClasses = trainerClasses.data.classes || [];
     state.trainerRoster = trainerRoster.ok ? trainerRoster.data : { organizations: [], league_characters: [] };
     state.trainerReferences = trainerReferences.ok ? trainerReferences.data : { sources: [], entries: [] };
-    state.editorCatalog = editorCatalog.data;
+    if (editorCatalog.ok) state.editorCatalog = editorCatalog.data;
     lazyDataLoaded.trainers = true;
     if (state.trainer) renderTrainer();
-    if (state.battlePreset) renderBattlePreset();
+    if (state.battlePreset && state.editorCatalog) renderBattlePreset();
+    if (!editorCatalog.ok) {
+      console.warn("전투 데이터 카탈로그 로드 실패:", editorCatalog.data.error || "알 수 없는 오류");
+      toast("전투 데이터 카탈로그를 불러오지 못했습니다. 트레이너 클래스와 외형 정보는 계속 사용할 수 있습니다.");
+    }
   })();
   try { await lazyDataPromises.trainers; }
   finally { lazyDataPromises.trainers = null; }
