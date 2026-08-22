@@ -75,5 +75,17 @@
       }
     ]
   },
-  "npc_placements": []
+  "npc_placements": [],
+  "automatic_npc_placement": {
+    "enabled": true,
+    "count": 4,
+    "use_biome_defaults": false,
+    "direct_trainers": [
+      "cobbleventure:npc/kanto_biker_gangho",
+      "cobbleventure:npc/kanto_beauty_sora",
+      "cobbleventure:npc/sample_bird_keeper_ara",
+      "cobbleventure:npc/sample_picnicker_hana"
+    ],
+    "trigger_override": "proximity"
+  }
 }

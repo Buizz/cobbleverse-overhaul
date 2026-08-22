@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_biker_gangho",
+  "enabled": true,
+  "name": { "ko_kr": "폭주족 강호 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_biker_gangho",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:koffing", "level": 27, "gender": "random", "moves": ["smog", "smokescreen", "sludge", "self_destruct"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:grimer", "level": 27, "gender": "random", "moves": ["disable", "sludge", "mud_slap", "minimize"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}

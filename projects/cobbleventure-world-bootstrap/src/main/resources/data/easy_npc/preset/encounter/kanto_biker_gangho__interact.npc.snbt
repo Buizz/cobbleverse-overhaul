@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"폭주족 강호 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"폭주족 강호",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"폭주족 강호\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"greeting",Name:"이 길을 지나려면 우리 독 포켓몬부터 상대해!",Texts:[{Text:"이 길을 지나려면 우리 독 포켓몬부터 상대해!"}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/kanto_biker_gangho tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:kanto_biker_gangho onwin {1:[\"scoreboard objectives add cvf_a93e5332c3d6 dummy\",\"scoreboard players set @1 cvf_a93e5332c3d6 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory",Name:"흥, 제법인데!",Priority:100,Texts:[{Text:"흥, 제법인데!"}],Conditions:[{Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"우리 구역에선 방심하면 안 된다고!",Texts:[{Text:"우리 구역에선 방심하면 안 된다고!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.050f,1.050f,1.050f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-911830607,85742309,-1178862917,-2100489847],
+    SkinData:{Type:"CUSTOM",UUID:[I;648746281,-1670033228,-1721115065,1345087949] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

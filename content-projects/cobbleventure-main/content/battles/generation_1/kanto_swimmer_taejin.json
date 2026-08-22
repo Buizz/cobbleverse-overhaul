@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_swimmer_taejin",
+  "enabled": true,
+  "name": { "ko_kr": "수영팬티 소년 태진 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_swimmer_taejin",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:tentacool", "level": 28, "gender": "random", "moves": ["acid", "water_pulse", "supersonic", "wrap"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:horsea", "level": 28, "gender": "random", "moves": ["water_gun", "smokescreen", "leer", "twister"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}

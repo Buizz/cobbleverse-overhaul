@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_swimmer_nari",
+  "enabled": true,
+  "name": { "ko_kr": "비키니 아가씨 나리 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_swimmer_nari",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:goldeen", "level": 30, "gender": "random", "moves": ["peck", "water_pulse", "supersonic", "horn_attack"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:staryu", "level": 30, "gender": "random", "moves": ["water_gun", "rapid_spin", "recover", "swift"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}

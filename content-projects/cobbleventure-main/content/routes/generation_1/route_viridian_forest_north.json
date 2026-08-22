@@ -68,11 +68,12 @@
   "npc_placements": [],
   "automatic_npc_placement": {
     "enabled": true,
-    "count": 2,
-    "use_biome_defaults": true,
+    "count": 3,
+    "use_biome_defaults": false,
     "direct_trainers": [
       "cobbleventure:npc/sample_bug_catcher_doyun",
-      "cobbleventure:npc/sample_bird_keeper_ara"
+      "cobbleventure:npc/sample_lass_yuna",
+      "cobbleventure:npc/sample_camper_jun"
     ],
     "trigger_override": "proximity"
   }

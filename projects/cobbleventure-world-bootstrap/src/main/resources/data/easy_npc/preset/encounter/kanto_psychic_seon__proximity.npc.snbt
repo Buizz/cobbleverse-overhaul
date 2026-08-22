@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"초능력자 선 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"초능력자 선",
+    variantType:"ALEX",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_NEAR:[{Cmd:"/cobbleventure_proximity_battle @initiator @s encounter.trainer_girl greeting cobbleventure_battle_intro @initiator @s cobbleventure:battle/kanto_psychic_seon tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:kanto_psychic_seon onwin {1:[\"scoreboard objectives add cvf_5882f9712ff0 dummy\",\"scoreboard players set @1 cvf_5882f9712ff0 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"초능력자 선\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"greeting",Name:"네가 올 것을 이미 알고 있었어.",Texts:[{Text:"네가 올 것을 이미 알고 있었어."}],Buttons:[{Label:"battle",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/kanto_psychic_seon tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:kanto_psychic_seon onwin {1:[\"scoreboard objectives add cvf_5882f9712ff0 dummy\",\"scoreboard players set @1 cvf_5882f9712ff0 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]},{Label:"victory",Name:"이 결과는 읽지 못했군.",Priority:100,Texts:[{Text:"이 결과는 읽지 못했군."}],Conditions:[{Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"마음이 흔들리면 다음 수도 보이지 않아.",Texts:[{Text:"마음이 흔들리면 다음 수도 보이지 않아."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;273543787,11883803,-1852435249,2099735301],
+    SkinData:{Type:"CUSTOM",UUID:[I;-901904538,151540892,-1514895356,-839691729] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"ALEX",
+    id:"easy_npc:humanoid"
+  }
+}

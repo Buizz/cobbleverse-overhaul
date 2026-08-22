@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_beauty_sora",
+  "enabled": true,
+  "name": { "ko_kr": "아가씨 소라 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_beauty_sora",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:clefairy", "level": 22, "gender": "random", "moves": ["sing", "double_slap", "minimize", "metronome"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:weepinbell", "level": 22, "gender": "random", "moves": ["vine_whip", "growth", "sleep_powder", "acid"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}

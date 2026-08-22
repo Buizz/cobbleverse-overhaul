@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_gentleman_doyoung",
+  "enabled": true,
+  "name": { "ko_kr": "신사 도영 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_gentleman_doyoung",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:growlithe", "level": 22, "gender": "random", "moves": ["ember", "leer", "bite", "take_down"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:pikachu", "level": 22, "gender": "random", "moves": ["thunder_shock", "quick_attack", "electro_ball", "double_team"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}

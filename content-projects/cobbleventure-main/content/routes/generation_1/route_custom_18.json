@@ -131,10 +131,14 @@
   },
   "npc_placements": [],
   "automatic_npc_placement": {
-    "enabled": false,
-    "count": 0,
-    "use_biome_defaults": true,
-    "direct_trainers": [],
+    "enabled": true,
+    "count": 3,
+    "use_biome_defaults": false,
+    "direct_trainers": [
+      "cobbleventure:npc/sample_fisherman_minsu",
+      "cobbleventure:npc/kanto_sailor_junho",
+      "cobbleventure:npc/kanto_swimmer_taejin"
+    ],
     "trigger_override": "proximity"
   }
 }

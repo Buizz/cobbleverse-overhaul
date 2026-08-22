@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_psychic_seon",
+  "enabled": true,
+  "name": { "ko_kr": "초능력자 선 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_psychic_seon",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:abra", "level": 24, "gender": "random", "moves": ["confusion", "teleport", "reflect", "charge_beam"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:drowzee", "level": 24, "gender": "random", "moves": ["confusion", "disable", "headbutt", "hypnosis"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}

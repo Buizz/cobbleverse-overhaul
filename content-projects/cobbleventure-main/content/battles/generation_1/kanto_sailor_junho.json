@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_sailor_junho",
+  "enabled": true,
+  "name": { "ko_kr": "선원 준호 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_sailor_junho",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:machop", "level": 18, "gender": "random", "moves": ["karate_chop", "low_kick", "leer", "focus_energy"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:shellder", "level": 18, "gender": "random", "moves": ["tackle", "withdraw", "supersonic", "water_gun"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}

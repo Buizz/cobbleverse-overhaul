@@ -1,0 +1,41 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/kanto_sailor_junho",
+  "enabled": true,
+  "name": { "ko_kr": "선원 준호" },
+  "description": { "ko_kr": "갈색시티 주변을 지키는 1세대 선원 트레이너입니다." },
+  "tags": ["trainer", "generation_1", "kanto", "sailor"],
+  "placement_profile": {
+    "classification": "trainer",
+    "expected_level": 18,
+    "preferred_biomes": ["minecraft:beach", "minecraft:ocean"],
+    "automatic_town_placement": false,
+    "automatic_route_placement": true
+  },
+  "npc": {
+    "display_name": { "ko_kr": "선원 준호" },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/sailor",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/sailor_trevor_0087"
+    },
+    "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true }
+  },
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "battle",
+      "initial_trigger": { "type": "interact", "range": 4 },
+      "first_text": { "ko_kr": "바다에서 단련한 균형 감각을 보여 주지!" },
+      "battle": "cobbleventure:battle/kanto_sailor_junho",
+      "after_victory_trigger": { "type": "interact", "range": 4 },
+      "win_text": { "ko_kr": "파도보다 거센 승부였군!" },
+      "loss_text": { "ko_kr": "갑판에 오르기 전에 더 단련하고 와!" },
+      "victory_state_key": "cobbleventure:flag/trainer/kanto_sailor_junho/defeated"
+    }
+  },
+  "event_runtime": { "engine": "cves_v5", "authoring": "preset", "script_id": "cobbleventure:event_script/generation_1/kanto_sailor_junho" }
+}

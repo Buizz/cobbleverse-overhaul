@@ -1,0 +1,22 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/kanto_black_belt_hyuk",
+  "enabled": true,
+  "name": { "ko_kr": "태권왕 혁 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/kanto_black_belt_hyuk",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": true },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:primeape", "level": 41, "gender": "random", "moves": ["karate_chop", "seismic_toss", "focus_energy", "thrash"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:machoke", "level": 42, "gender": "random", "moves": ["low_sweep", "seismic_toss", "knock_off", "strength"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:hitmonlee", "level": 42, "gender": "random", "moves": ["rolling_kick", "jump_kick", "focus_energy", "brick_break"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+    ]
+  }
+}
