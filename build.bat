@@ -29,6 +29,9 @@ set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
 set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
 set "STRUCTURE_BUILDER_PROFILE=pack\profiles\structure-builder.json"
 
+call :configure_cobblemon
+if errorlevel 1 exit /b %errorlevel%
+
 set "EXPORT_LANGUAGE=%COBBLEVENTURE_EXPORT_LANGUAGE%"
 if not defined EXPORT_LANGUAGE set "EXPORT_LANGUAGE=ko_kr"
 if /I not "%~1"=="builder-import" if /I not "%~1"=="builder-sync" if not "%~2"=="" set "EXPORT_LANGUAGE=%~2"
@@ -168,6 +171,12 @@ exit /b %errorlevel%
 exit /b %errorlevel%
 
 :pack
+if /I "%COBBLEVENTURE_COBBLEMON_TARGET%"=="1.8" (
+    echo [ERROR] The full development pack profile is still locked to Cobblemon 1.7.3 dependencies.
+    echo Use test or mod-* commands for 1.8 compatibility builds until the snapshot pack profile is ready.
+    exit /b 1
+)
+
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
@@ -254,4 +263,40 @@ echo   builder-sync   Replace the builder world in an existing CurseForge instan
 echo   builder-import Import exported NBT and refresh in-game generated resources
 echo.
 echo Export language defaults to ko_kr and can also be set with COBBLEVENTURE_EXPORT_LANGUAGE.
+echo Cobblemon defaults to 1.7.3. Set COBBLEVENTURE_COBBLEMON_TARGET=1.8 for the snapshot.
+echo The 1.8 build auto-detects .tmp\cobblemon-1.8-snapshot\Cobblemon-neoforge-1.8*.jar.
 exit /b 1
+
+:configure_cobblemon
+if not defined COBBLEVENTURE_COBBLEMON_TARGET set "COBBLEVENTURE_COBBLEMON_TARGET=1.7.3"
+if /I "%COBBLEVENTURE_COBBLEMON_TARGET%"=="stable" set "COBBLEVENTURE_COBBLEMON_TARGET=1.7.3"
+if /I "%COBBLEVENTURE_COBBLEMON_TARGET%"=="1.7" set "COBBLEVENTURE_COBBLEMON_TARGET=1.7.3"
+if /I "%COBBLEVENTURE_COBBLEMON_TARGET%"=="1.7.3" (
+    echo [INFO] Cobblemon build target: 1.7.3
+    exit /b 0
+)
+if /I "%COBBLEVENTURE_COBBLEMON_TARGET%"=="snapshot" set "COBBLEVENTURE_COBBLEMON_TARGET=1.8"
+if /I "%COBBLEVENTURE_COBBLEMON_TARGET%"=="1.8.0" set "COBBLEVENTURE_COBBLEMON_TARGET=1.8"
+if /I not "%COBBLEVENTURE_COBBLEMON_TARGET%"=="1.8" (
+    echo [ERROR] Unsupported Cobblemon build target: %COBBLEVENTURE_COBBLEMON_TARGET%
+    echo Supported targets: 1.7.3, 1.8
+    exit /b 1
+)
+if defined COBBLEVENTURE_COBBLEMON_JAR goto validate_cobblemon_jar
+for /f "delims=" %%F in ('dir /b /a-d /o-d "%REPO_ROOT%.tmp\cobblemon-1.8-snapshot\Cobblemon-neoforge-1.8*.jar" 2^>nul') do if not defined COBBLEVENTURE_COBBLEMON_JAR set "COBBLEVENTURE_COBBLEMON_JAR=%REPO_ROOT%.tmp\cobblemon-1.8-snapshot\%%F"
+
+:validate_cobblemon_jar
+if not defined COBBLEVENTURE_COBBLEMON_JAR (
+    echo [ERROR] Cobblemon 1.8 snapshot JAR was not found.
+    echo Set COBBLEVENTURE_COBBLEMON_JAR or place the NeoForge JAR under:
+    echo   .tmp\cobblemon-1.8-snapshot\
+    exit /b 1
+)
+if not exist "%COBBLEVENTURE_COBBLEMON_JAR%" (
+    echo [ERROR] Cobblemon 1.8 snapshot JAR does not exist:
+    echo   %COBBLEVENTURE_COBBLEMON_JAR%
+    exit /b 1
+)
+echo [INFO] Cobblemon build target: 1.8
+echo [INFO] Cobblemon snapshot JAR: %COBBLEVENTURE_COBBLEMON_JAR%
+exit /b 0

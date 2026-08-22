@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json", "schema_version": 4,
+  "id": "cobbleventure:npc/rewards/field_move_whirlpool_instructor", "enabled": true,
+  "name": { "ko_kr": "조류 연구 선원" }, "description": { "ko_kr": "플레이어에게 바다회오리 사용 권한을 한 번 지급하는 수동 배치 NPC입니다." },
+  "tags": ["reward", "field_move", "manual_placement"],
+  "placement_profile": { "classification": "ambient", "preferred_biomes": [], "automatic_town_placement": false, "automatic_route_placement": false },
+  "npc": { "display_name": { "ko_kr": "조류 연구 선원" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/sailor",
+    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/sailor_trevor_0087" },
+    "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
+  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
+    { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/field_move/whirlpool", "value": true }], "target": "claimed" },
+    { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "소용돌이는 맞서기보다 흐름의 빈틈을 통과해야 해. 바다회오리 돌파법을 가르쳐 주지." } },
+    { "type": "grant_field_move", "move": "whirlpool" }, { "type": "set_flag", "key": "cobbleventure:flag/rewards/field_move/whirlpool", "value": true },
+    { "type": "dialogue", "id": "granted", "speaker": "npc", "text": { "ko_kr": "이제 거센 소용돌이 앞에서 바다회오리를 사용할 수 있어." } }, { "type": "end" },
+    { "type": "label", "name": "claimed" }, { "type": "dialogue", "id": "repeat", "speaker": "npc", "text": { "ko_kr": "물의 중심이 아니라 가장자리의 흐름을 읽어." } }, { "type": "end" }
+  ] }]
+}

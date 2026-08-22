@@ -3,6 +3,8 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.143'
 }
 
+apply from: rootProject.file('../../gradle/cobblemon-target.gradle')
+
 version = mod_version
 group = mod_group_id
 base { archivesName = 'cobbleventure-casino' }
@@ -20,9 +22,9 @@ configurations {
 }
 
 dependencies {
-    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly cobblemonBuildDependency
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
-    localRuntime "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    localRuntime cobblemonBuildDependency
     localRuntime "curse.maven:kotlin-for-forge-351264:8335665"
     testImplementation platform('org.junit:junit-bom:5.10.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -48,7 +50,8 @@ processResources {
         mod_name: mod_name,
         mod_license: mod_license,
         mod_version: mod_version,
-        cobblemon_version: cobblemon_version,
+        cobblemon_version: cobblemonEffectiveVersion,
+        cobblemon_version_range: cobblemonVersionRange,
     ]
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {

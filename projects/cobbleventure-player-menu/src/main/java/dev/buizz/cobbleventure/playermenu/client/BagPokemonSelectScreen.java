@@ -75,7 +75,7 @@ final class BagPokemonSelectScreen extends Screen {
             ));
             pokemonButtons.add(button);
             int modelSize = Math.min(46, cardHeight - 6);
-            ModelWidget model = new ModelWidget(
+            ModelWidget model = CobblemonModelWidgetCompat.create(
                 cardX + 3, cardY + (cardHeight - modelSize) / 2,
                 modelSize, modelSize, pokemon.asRenderablePokemon(),
                 Math.max(0.85F, modelSize / 42.0F), 25.0F, 0.0D, false, false

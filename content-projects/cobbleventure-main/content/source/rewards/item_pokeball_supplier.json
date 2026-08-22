@@ -1,0 +1,23 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/rewards/item_pokeball_supplier",
+  "enabled": true,
+  "name": { "ko_kr": "포획 지원원" },
+  "description": { "ko_kr": "몬스터볼 5개를 플레이어당 한 번 지급하는 수동 배치 NPC입니다." },
+  "tags": ["reward", "item_giver", "manual_placement"],
+  "placement_profile": { "classification": "ambient", "preferred_biomes": [], "automatic_town_placement": false, "automatic_route_placement": false },
+  "npc": {
+    "display_name": { "ko_kr": "포획 지원원" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/gentleman",
+    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/gentleman_brooks_01e2" },
+    "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true }
+  },
+  "event_runtime": { "engine": "easy_npc_v4", "authoring": "preset" },
+  "event_design": { "mode": "preset", "preset": {
+    "type": "item", "initial_trigger": { "type": "interact", "range": 4 },
+    "first_text": { "ko_kr": "새로운 포켓몬과 만날 준비는 됐나요? 몬스터볼을 보급해 드리죠." },
+    "state_key": "cobbleventure:flag/rewards/item/pokeball_supplier",
+    "repeat_text": { "ko_kr": "포켓몬을 포획하기 전에는 상태와 체력을 잘 살펴보세요." },
+    "item": "cobblemon:poke_ball", "item_count": 5
+  } }
+}

@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"포획 지원원 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"포획 지원원",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"포획 지원원\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"새로운 포켓몬과 만날 준비는 됐나요? 몬스터볼을 보급해 드",Texts:[{Text:"새로운 포켓몬과 만날 준비는 됐나요? 몬스터볼을 보급해 드리죠."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:poke_ball 5",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"item_explanation",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"item_explanation",Name:"방금 준 아이템을 잘 활용해 보세요.",Texts:[{Text:"방금 준 아이템을 잘 활용해 보세요."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"set:cvf_6e86e2fa738b:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat_greeting",Name:"포켓몬을 포획하기 전에는 상태와 체력을 잘 살펴보세요.",Priority:100,Texts:[{Text:"포켓몬을 포획하기 전에는 상태와 체력을 잘 살펴보세요."}],Conditions:[{Name:"cvf_6e86e2fa738b",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.020f,1.020f,1.020f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;1349903467,386422582,-1677192209,1584748176],
+    SkinData:{Type:"CUSTOM",UUID:[I;407733623,1808226569,-1625451968,1685921273] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

@@ -6,6 +6,8 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.143'
 }
 
+apply from: rootProject.file('../../gradle/cobblemon-target.gradle')
+
 def fieldMoveNpcMapFile = layout.buildDirectory.file('generated/field-move-map/field-move-npcs.json')
 def bagConditionMapFile = layout.buildDirectory.file('generated/bag-conditions/bag-conditions.json')
 def contentProjectDir = file(System.getenv('COBBLEVENTURE_PROJECT_PATH') ?: rootProject.file('../../content-projects/cobbleventure-main'))
@@ -119,7 +121,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly cobblemonBuildDependency
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
     testImplementation platform('org.junit:junit-bom:5.11.4')
@@ -153,7 +155,8 @@ processResources {
         mod_name: mod_name,
         mod_license: mod_license,
         mod_version: mod_version,
-        cobblemon_version: cobblemon_version,
+        cobblemon_version: cobblemonEffectiveVersion,
+        cobblemon_version_range: cobblemonVersionRange,
     ]
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {

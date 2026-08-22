@@ -5,6 +5,8 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization' version '2.2.20' apply false
 }
 
+apply from: rootProject.file('../../gradle/cobblemon-target.gradle')
+
 allprojects {
     group = 'dev.buizz.cobbleventure'
     version = '0.1.0-SNAPSHOT'
@@ -68,7 +70,7 @@ repositories {
 
 dependencies {
     jarJar(implementation(project(':shared-ai-core')))
-    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly cobblemonBuildDependency
     compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
 
@@ -120,7 +122,8 @@ processResources {
         mod_name: mod_name,
         mod_license: mod_license,
         mod_version: mod_version,
-        cobblemon_version: cobblemon_version,
+        cobblemon_version: cobblemonEffectiveVersion,
+        cobblemon_version_range: cobblemonVersionRange,
     ]
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') {

@@ -45,7 +45,7 @@ side="BOTH"
 [[dependencies.cobbleventure_bootstrap]]
 modId="cobblemon"
 type="required"
-versionRange="[${cobblemon_version},1.8)"
+versionRange="${cobblemon_version_range}"
 ordering="AFTER"
 side="BOTH"
 

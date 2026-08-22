@@ -3,6 +3,8 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.143'
 }
 
+apply from: rootProject.file('../../gradle/cobblemon-target.gradle')
+
 version = mod_version
 group = mod_group_id
 
@@ -28,7 +30,7 @@ repositories {
 dependencies {
     compileOnly "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
     compileOnly "dev.buizz.cobbleventure:cobbleventure-player-menu:1.5.1"
-    compileOnly "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    compileOnly cobblemonBuildDependency
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
 
@@ -52,7 +54,7 @@ configurations {
 dependencies {
     localRuntime "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
     localRuntime "dev.buizz.cobbleventure:cobbleventure-player-menu:1.5.1"
-    localRuntime "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+    localRuntime cobblemonBuildDependency
     localRuntime "curse.maven:cobbledollars-859232:8484919"
     localRuntime "curse.maven:kotlin-for-forge-351264:8335665"
     localRuntime "maven.modrinth:caxton:0.6.4+1.21.1-NEOFORGE"
@@ -211,7 +213,8 @@ processResources {
         mod_name: mod_name,
         mod_license: mod_license,
         mod_version: mod_version,
-        cobblemon_version: cobblemon_version,
+        cobblemon_version: cobblemonEffectiveVersion,
+        cobblemon_version_range: cobblemonVersionRange,
         export_language: System.getenv('COBBLEVENTURE_EXPORT_LANGUAGE') ?: 'ko_kr',
     ]
     inputs.properties properties

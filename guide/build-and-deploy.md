@@ -45,6 +45,36 @@ cobbleventure-development-<버전>-curseforge.zip.sha256
 
 [사진: dist 폴더의 개발 팩 ZIP과 SHA-256 파일]
 
+## Cobblemon 빌드 대상 전환
+
+기본 빌드 대상은 기존과 같은 Cobblemon `1.7.3`입니다. 공식 Discord에서 받은 NeoForge 1.8 스냅샷 JAR을 `.tmp\cobblemon-1.8-snapshot`에 두면 다음처럼 현재 PowerShell 세션만 1.8 대상으로 전환할 수 있습니다.
+
+```powershell
+$env:COBBLEVENTURE_COBBLEMON_TARGET = "1.8"
+.\build.bat test
+.\build.bat mod-menu
+.\build.bat mod-adventure
+.\build.bat mod-bootstrap
+.\build.bat mod-casino
+```
+
+해당 폴더에 여러 스냅샷이 있으면 가장 최근 파일을 자동으로 사용합니다. 다른 위치의 JAR을 쓰려면 절대 경로를 지정합니다.
+
+```powershell
+$env:COBBLEVENTURE_COBBLEMON_JAR = "D:\mods\Cobblemon-neoforge-1.8.0-snapshot.jar"
+```
+
+1.8 대상으로 빌드하면 커스텀 모드의 컴파일 의존성과 생성된 `neoforge.mods.toml` 범위가 `[1.8.0,1.9)`로 전환됩니다. 기본 1.7.3 대상은 `[1.7.3,1.8)`을 유지합니다.
+
+현재 `pack\profiles\development-placeholder.json`과 외부 애드온 Lock은 아직 1.7.3 기준입니다. 따라서 1.8 상태의 `build.bat pack`은 서로 다른 버전이 섞인 ZIP을 만들지 않도록 의도적으로 중단됩니다. 먼저 위의 `test`와 `mod-*` 명령으로 자체 모드 호환성을 확인하고, 전체 팩 전환은 외부 애드온 검증과 별도 프로필 작업 후 진행합니다.
+
+작업을 마치고 기본 대상으로 돌아오려면 환경 변수를 제거합니다.
+
+```powershell
+Remove-Item Env:COBBLEVENTURE_COBBLEMON_TARGET
+Remove-Item Env:COBBLEVENTURE_COBBLEMON_JAR -ErrorAction SilentlyContinue
+```
+
 ## CurseForge 임포트 확인
 
 1. CurseForge 앱의 Minecraft 화면에서 `Import`를 선택합니다.

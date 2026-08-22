@@ -84,7 +84,7 @@ public final class StarterRouletteScreen extends Screen {
         int buttonY = statusY + 16;
         float modelScale = StarterRouletteLayout.modelScaleForSize(modelSize, MAX_MODEL_SIZE);
         for (int index = 0; index < WIDGET_COUNT; index++) {
-            ModelWidget widget = new ModelWidget(
+            ModelWidget widget = CobblemonModelWidgetCompat.create(
                 0, modelY, modelSize, modelSize, renderable(relativeSpecies(relativeIndex(index))),
                 modelScale, 25.0F, 0.0D, false, false
             );

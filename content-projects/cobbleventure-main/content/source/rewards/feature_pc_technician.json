@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json", "schema_version": 4,
+  "id": "cobbleventure:npc/rewards/feature_pc_technician", "enabled": true,
+  "name": { "ko_kr": "포켓몬 전송 기술자" }, "description": { "ko_kr": "플레이어 메뉴의 PC 기능을 한 번 해금하는 수동 배치 NPC입니다." },
+  "tags": ["reward", "menu_feature", "manual_placement"],
+  "placement_profile": { "classification": "ambient", "preferred_biomes": [], "automatic_town_placement": false, "automatic_route_placement": false },
+  "npc": { "display_name": { "ko_kr": "포켓몬 전송 기술자" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/scientist",
+    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/scientist_rodney_0153" },
+    "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
+  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
+    { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/feature/pc", "value": true }], "target": "claimed" },
+    { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "포켓몬 전송망 사용자 등록이 아직이군요. 지금 연결해 드리겠습니다." } },
+    { "type": "unlock_feature", "feature": "pc" }, { "type": "set_flag", "key": "cobbleventure:flag/rewards/feature/pc", "value": true },
+    { "type": "dialogue", "id": "granted", "speaker": "npc", "text": { "ko_kr": "등록 완료! 이제 메뉴에서 PC 기능을 이용할 수 있습니다." } }, { "type": "end" },
+    { "type": "label", "name": "claimed" }, { "type": "dialogue", "id": "repeat", "speaker": "npc", "text": { "ko_kr": "전송망은 정상 작동 중입니다." } }, { "type": "end" }
+  ] }]
+}

@@ -765,7 +765,7 @@ public final class WorldMapScreen extends Screen {
         capacity = Math.max(columns, capacity - capacity % columns);
         RenderablePokemon fallbackPokemon = new RenderablePokemon(fallback, java.util.Set.of(), ItemStack.EMPTY);
         for (int index = 0; index < capacity; index++) {
-            ModelWidget model = new ModelWidget(
+            ModelWidget model = CobblemonModelWidgetCompat.create(
                 0, 0, POKEMON_ICON_SIZE, POKEMON_ICON_SIZE, fallbackPokemon,
                 0.45F, 25.0F, 0.0D, false, false
             );

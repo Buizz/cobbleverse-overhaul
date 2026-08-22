@@ -488,7 +488,7 @@ public final class PlayerMenuScreen extends Screen {
         int startX = infoX + Math.max(7, (infoWidth - totalWidth) / 2);
         int modelY = trainerPanelY() + 34;
         for (int index = 0; index < partyPokemon.size(); index++) {
-            ModelWidget model = new ModelWidget(
+            ModelWidget model = CobblemonModelWidgetCompat.create(
                 startX + index * (PARTY_ICON_SIZE + PARTY_ICON_GAP), modelY,
                 PARTY_ICON_SIZE, PARTY_ICON_SIZE, partyPokemon.get(index).asRenderablePokemon(),
                 0.65F, 25.0F, 0.0D, false, false

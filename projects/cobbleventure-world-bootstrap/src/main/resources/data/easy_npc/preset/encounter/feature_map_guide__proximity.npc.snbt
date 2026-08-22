@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"지도 제작자 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"지도 제작자",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"지도 제작자\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"offer",Name:"처음 가는 길이라면 기록을 남겨야지. 네 메뉴에 지도를 등",Texts:[{Text:"처음 가는 길이라면 기록을 남겨야지. 네 메뉴에 지도를 등록해 줄게."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventure_progress unlock @initiator map",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_52ddceefbc95:1",Type:"SCOREBOARD"},{Cmd:"granted",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"granted",Name:"이제 메뉴에서 지도를 확인할 수 있어.",Texts:[{Text:"이제 메뉴에서 지도를 확인할 수 있어."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat",Name:"새로운 장소를 발견할 때마다 지도를 확인해 봐.",Priority:100,Texts:[{Text:"새로운 장소를 발견할 때마다 지도를 확인해 봐."}],Conditions:[{Name:"cvf_52ddceefbc95",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.020f,1.020f,1.020f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;1299736435,706500515,-2095285430,1486910758],
+    SkinData:{Type:"CUSTOM",UUID:[I;-1168325703,773347093,-1832510719,2018503361] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

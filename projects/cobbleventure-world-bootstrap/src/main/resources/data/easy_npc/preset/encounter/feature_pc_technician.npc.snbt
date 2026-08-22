@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"포켓몬 전송 기술자 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"포켓몬 전송 기술자",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"포켓몬 전송 기술자\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"offer",Name:"포켓몬 전송망 사용자 등록이 아직이군요. 지금 연결해 드리",Texts:[{Text:"포켓몬 전송망 사용자 등록이 아직이군요. 지금 연결해 드리겠습니다."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventure_progress unlock @initiator pc",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_8f96e22fa2c0:1",Type:"SCOREBOARD"},{Cmd:"granted",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"granted",Name:"등록 완료! 이제 메뉴에서 PC 기능을 이용할 수 있습니다",Texts:[{Text:"등록 완료! 이제 메뉴에서 PC 기능을 이용할 수 있습니다."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat",Name:"전송망은 정상 작동 중입니다.",Priority:100,Texts:[{Text:"전송망은 정상 작동 중입니다."}],Conditions:[{Name:"cvf_8f96e22fa2c0",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-1414219388,-924168129,-1582946325,-768857725],
+    SkinData:{Type:"CUSTOM",UUID:[I;746409872,-1653516678,-1333732974,786934159] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

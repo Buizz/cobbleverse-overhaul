@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"조류 연구 선원 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"조류 연구 선원",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"조류 연구 선원\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"offer",Name:"소용돌이는 맞서기보다 흐름의 빈틈을 통과해야 해. 바다회오",Texts:[{Text:"소용돌이는 맞서기보다 흐름의 빈틈을 통과해야 해. 바다회오리 돌파법을 가르쳐 주지."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventure_field_move grant @initiator whirlpool",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_ab37625b1078:1",Type:"SCOREBOARD"},{Cmd:"granted",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"granted",Name:"이제 거센 소용돌이 앞에서 바다회오리를 사용할 수 있어.",Texts:[{Text:"이제 거센 소용돌이 앞에서 바다회오리를 사용할 수 있어."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat",Name:"물의 중심이 아니라 가장자리의 흐름을 읽어.",Priority:100,Texts:[{Text:"물의 중심이 아니라 가장자리의 흐름을 읽어."}],Conditions:[{Name:"cvf_ab37625b1078",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.030f,1.030f,1.030f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;172730132,-1850713873,-1943355803,519871868],
+    SkinData:{Type:"CUSTOM",UUID:[I;-735414301,-1189127317,-1939737695,-840241960] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

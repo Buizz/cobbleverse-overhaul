@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"수상 안전요원 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"수상 안전요원",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"수상 안전요원\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"offer",Name:"물살을 읽고 포켓몬에게 몸을 맡기는 게 중요해. 파도타기 ",Texts:[{Text:"물살을 읽고 포켓몬에게 몸을 맡기는 게 중요해. 파도타기 안전수칙을 알려 줄게."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventure_field_move grant @initiator surf",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_010c8e1218b6:1",Type:"SCOREBOARD"},{Cmd:"granted",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"granted",Name:"이제 물가에서 파도타기를 사용할 수 있어.",Texts:[{Text:"이제 물가에서 파도타기를 사용할 수 있어."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat",Name:"먼바다로 나가기 전에는 반드시 날씨를 확인해.",Priority:100,Texts:[{Text:"먼바다로 나가기 전에는 반드시 날씨를 확인해."}],Conditions:[{Name:"cvf_010c8e1218b6",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.940f,0.940f,0.940f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;1845478847,-591832949,-1110137822,110844560],
+    SkinData:{Type:"CUSTOM",UUID:[I;-857829939,1675254965,-1893534594,966671172] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters",
+    created:0L,
+    description:"바위 작업반장 EasyNPC 이벤트 NPC",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"바위 작업반장",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"바위 작업반장\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[{Label:"offer",Name:"금이 간 바위는 힘보다 요령이 중요하지. 바위깨기 요령을 ",Texts:[{Text:"금이 간 바위는 힘보다 요령이 중요하지. 바위깨기 요령을 알려 주마."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventure_field_move grant @initiator rock_smash",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_a64d2d97ad5b:1",Type:"SCOREBOARD"},{Cmd:"granted",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"granted",Name:"이제 금이 간 바위를 조사하면 바위깨기를 사용할 수 있을 ",Texts:[{Text:"이제 금이 간 바위를 조사하면 바위깨기를 사용할 수 있을 거다."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat",Name:"바위의 금을 잘 보고 힘을 한곳에 모아라.",Priority:100,Texts:[{Text:"바위의 금을 잘 보고 힘을 한곳에 모아라."}],Conditions:[{Name:"cvf_a64d2d97ad5b",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.050f,1.050f,1.050f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;2130548982,-1090169726,-1327494501,1612471789],
+    SkinData:{Type:"CUSTOM",UUID:[I;-1546602305,170744123,-1737068807,-1855578813] },
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

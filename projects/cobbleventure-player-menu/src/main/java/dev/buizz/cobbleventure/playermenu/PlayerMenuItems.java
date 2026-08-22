@@ -70,7 +70,7 @@ final class PlayerMenuItems {
         public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
             ItemStack stack = player.getItemInHand(hand);
             if (player instanceof ServerPlayer serverPlayer) {
-                return PokemonSelectingItem.super.use(serverPlayer, stack);
+                return CobblemonSelectingItemCompat.use(this, serverPlayer, stack);
             }
             return InteractionResultHolder.success(stack);
         }

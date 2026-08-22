@@ -1,0 +1,52 @@
+def requestedTarget = providers.gradleProperty('cobblemon_target')
+    .orElse(providers.environmentVariable('COBBLEVENTURE_COBBLEMON_TARGET'))
+    .getOrElse('1.7.3')
+    .trim()
+
+def targetAliases = [
+    '1.7': '1.7.3',
+    '1.7.3': '1.7.3',
+    'stable': '1.7.3',
+    '1.8': '1.8',
+    '1.8.0': '1.8',
+    'snapshot': '1.8',
+]
+def normalizedTarget = targetAliases[requestedTarget.toLowerCase(Locale.ROOT)]
+if (normalizedTarget == null) {
+    throw new GradleException(
+        "지원하지 않는 Cobblemon 빌드 대상입니다: ${requestedTarget} (지원: 1.7.3, 1.8)"
+    )
+}
+
+def localJarValue = providers.gradleProperty('cobblemon_local_jar')
+    .orElse(providers.environmentVariable('COBBLEVENTURE_COBBLEMON_JAR'))
+    .orNull
+def localJar = localJarValue == null || localJarValue.isBlank()
+    ? null
+    : file(localJarValue)
+
+if (normalizedTarget == '1.8') {
+    if (localJar == null) {
+        throw new GradleException(
+            'Cobblemon 1.8 빌드에는 -Pcobblemon_local_jar 또는 '
+                + 'COBBLEVENTURE_COBBLEMON_JAR가 필요합니다.'
+        )
+    }
+    if (!localJar.isFile()) {
+        throw new GradleException("Cobblemon 1.8 JAR을 찾을 수 없습니다: ${localJar}")
+    }
+}
+
+ext.cobblemonTarget = normalizedTarget
+ext.cobblemonEffectiveVersion = normalizedTarget == '1.8' ? '1.8.0' : '1.7.3'
+ext.cobblemonVersionRange = normalizedTarget == '1.8'
+    ? '[1.8.0,1.9)'
+    : '[1.7.3,1.8)'
+ext.cobblemonBuildDependency = normalizedTarget == '1.8'
+    ? files(localJar)
+    : "maven.modrinth:cobblemon:${cobblemon_maven_version}"
+
+logger.lifecycle(
+    "Cobblemon target: ${cobblemonTarget}"
+        + (normalizedTarget == '1.8' ? " (${localJar.name})" : '')
+)
