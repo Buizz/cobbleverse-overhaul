@@ -6,8 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.FluidTags;
 
 /** Keeps runtime wild spawns and spawn-list integrations on the authored map pool. */
 public final class HabitatSpawnRules {
@@ -16,13 +18,21 @@ public final class HabitatSpawnRules {
     public static Set<ResourceLocation> allowedSpecies(
         ServerLevel level, double x, double z
     ) {
-        return allowedSpecies(level, x, Double.NaN, z, null);
+        return allowedSpecies(
+            level, x, Double.NaN, z,
+            CobbleventureBootstrap.wildSpawnRule(level, x, z)
+        );
     }
 
     public static Set<ResourceLocation> allowedSpecies(
         ServerLevel level, double x, double y, double z
     ) {
-        return allowedSpecies(level, x, y, z, null);
+        return allowedSpecies(
+            level, x, y, z,
+            CobbleventureBootstrap.wildSpawnRule(
+                level, x, z, encounterMethod(level, x, y, z)
+            )
+        );
     }
 
     private static Set<ResourceLocation> allowedSpecies(
@@ -93,6 +103,15 @@ public final class HabitatSpawnRules {
         );
     }
 
+    private static AdventureWorldContext.WildEncounterMethod encounterMethod(
+        ServerLevel level, double x, double y, double z
+    ) {
+        return Double.isFinite(y)
+            && level.getFluidState(BlockPos.containing(x, y, z)).is(FluidTags.WATER)
+            ? AdventureWorldContext.WildEncounterMethod.SURF
+            : AdventureWorldContext.WildEncounterMethod.LAND;
+    }
+
     public static Map<ResourceLocation, Integer> authoredEncounterWeights(
         ServerLevel level, double x, double y, double z
     ) {
@@ -103,7 +122,9 @@ public final class HabitatSpawnRules {
             CobbleventureBootstrap.authoredEncounterWeights(level, x, z);
         if (authored != null) return authored;
         return exclusiveRouteWeights(
-            CobbleventureBootstrap.wildSpawnRule(level, x, z)
+            CobbleventureBootstrap.wildSpawnRule(
+                level, x, z, encounterMethod(level, x, y, z)
+            )
         );
     }
 

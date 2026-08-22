@@ -20,7 +20,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_brock"
+          "resource": "rctmod:trainers/single/leader_brock_019e"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -52,7 +52,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_misty"
+          "resource": "rctmod:trainers/single/leader_misty_019f"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -84,7 +84,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_ltsurge"
+          "resource": "rctmod:trainers/single/leader_lt_surge_01a0"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -116,7 +116,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_erika"
+          "resource": "rctmod:trainers/single/leader_erika_01a1"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -148,7 +148,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_koga"
+          "resource": "rctmod:trainers/single/leader_koga_01a2"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -180,7 +180,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_sabrina"
+          "resource": "rctmod:trainers/single/leader_sabrina_01a4"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -212,7 +212,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_blaine"
+          "resource": "rctmod:trainers/single/leader_blaine_01a3"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -244,7 +244,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_giovanni"
+          "resource": "rctmod:trainers/single/leader_giovanni_015e"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",

@@ -388,5 +388,24 @@ class StructureBuilderTests(unittest.TestCase):
         }, Path("shared_room.structure.json"))
         self.assertEqual("next_room", document["anchors"][0]["label"])
 
+    def test_npc_facing_is_optional_and_validated_when_present(self) -> None:
+        document = structure_builder._validate_structure_metadata({
+            "schema_version": 1,
+            "anchors": [{
+                "type": "npc_position", "label": "clerk",
+                "position": [4, 1, 3], "facing": "east",
+            }],
+        }, Path("shop.structure.json"))
+        self.assertEqual("east", document["anchors"][0]["facing"])
+
+        with self.assertRaises(structure_builder.StructureBuilderError):
+            structure_builder._validate_structure_metadata({
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "npc_position", "label": "clerk",
+                    "position": [4, 1, 3], "facing": "up",
+                }],
+            }, Path("shop.structure.json"))
+
 if __name__ == "__main__":
     unittest.main()

@@ -472,8 +472,10 @@ final class BuildingRuntimeSystem {
                 anchors.add(new Anchor(
                     id, type, position(value, "position", null),
                     position(value, "safe_spawn", null),
-                    direction(value.has("door_facing")
-                        ? value.get("door_facing").getAsString() : "north"),
+                    direction(value.has("facing")
+                        ? value.get("facing").getAsString()
+                        : value.has("door_facing")
+                            ? value.get("door_facing").getAsString() : "north"),
                     value.has("seal_entry") && value.get("seal_entry").getAsBoolean()
                 ));
             }

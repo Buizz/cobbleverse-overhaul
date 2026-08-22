@@ -2,9 +2,13 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.buizz.cobbleventure.adventure.AdventureWorldContext;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.ConnectionPath;
+import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +68,43 @@ final class HabitatSpawnRulesTest {
         assertTrue(HabitatSpawnRules.isLogBridgeDeckHeight(oceanDeckY, 65.4D));
     }
 
+    @Test
+    void authoredEncounterRouteCoversTheWholeMappedHex() {
+        HexCoord routeCell = new HexCoord(-5, 7);
+        ConnectionPath route = route("route_custom_03", "path", routeCell);
+
+        assertSame(
+            route,
+            RouteEncounterSelector.forCell(
+                routeCell, List.of(route), Set.of()
+            )
+        );
+    }
+
+    @Test
+    void settlementTileKeepsPriorityOverRouteEncounter() {
+        HexCoord townCell = new HexCoord(-4, 4);
+        ConnectionPath route = route("route_custom_03", "path", townCell);
+
+        assertNull(RouteEncounterSelector.forCell(
+            townCell, List.of(route), Set.of(townCell)
+        ));
+    }
+
+    @Test
+    void waterRouteKeepsMapPriorityOnAnOverlappingTile() {
+        HexCoord sharedCell = new HexCoord(7, 6);
+        ConnectionPath land = route("land", "path", sharedCell);
+        ConnectionPath water = route("water", "water", sharedCell);
+
+        assertSame(
+            water,
+            RouteEncounterSelector.forCell(
+                sharedCell, List.of(land, water), Set.of()
+            )
+        );
+    }
+
     private static AdventureWorldContext.WildSpawnRule rule(
         boolean inheritBiome, Set<ResourceLocation> excluded,
         List<AdventureWorldContext.WildSpawnAddition> additions
@@ -77,6 +118,16 @@ final class HabitatSpawnRulesTest {
         ResourceLocation species
     ) {
         return new AdventureWorldContext.WildSpawnAddition(species, false, 1);
+    }
+
+    private static ConnectionPath route(
+        String id, String surfaceStyle, HexCoord... cells
+    ) {
+        return new ConnectionPath(
+            id, id, "from", "to", "minecraft:plains", "none",
+            12.0D, 0.0D, null, surfaceStyle, "none", List.of(cells),
+            List.of(), null, null, List.of(), null
+        );
     }
 
     private static ResourceLocation id(String path) {

@@ -13,6 +13,34 @@ import generate_easy_npc_presets as generator  # noqa: E402
 
 
 class KantoGymLeaderTests(unittest.TestCase):
+    def test_trainer_card_appearances_use_rct_0181_texture_ids(self) -> None:
+        expected = {
+            "brock": "leader_brock_019e",
+            "misty": "leader_misty_019f",
+            "lt_surge": "leader_lt_surge_01a0",
+            "erika": "leader_erika_01a1",
+            "koga": "leader_koga_01a2",
+            "sabrina": "leader_sabrina_01a4",
+            "blaine": "leader_blaine_01a3",
+            "giovanni_gym": "leader_giovanni_015e",
+        }
+        league = content_manager.load_json(PROJECT_ROOT / "content/catalogs/league-progression.json")
+        leaders = [entry for entry in league["entries"] if entry["role"] == "gym_leader"]
+        actual = {
+            entry["encounter"]["character"].rsplit("/", 1)[-1]:
+                entry["encounter"]["appearance"]["resource"].rsplit("/", 1)[-1]
+            for entry in leaders
+        }
+        self.assertEqual(expected, actual)
+
+        roster = content_manager.load_json(PROJECT_ROOT / "content/catalogs/trainer-roster.json")
+        roster_resources = {
+            character["id"].rsplit("/", 1)[-1]: character["appearance"]["resource"].rsplit("/", 1)[-1]
+            for character in roster["league_characters"]
+            if character["id"].rsplit("/", 1)[-1] in expected
+        }
+        self.assertEqual(expected, roster_resources)
+
     def test_red_blue_gym_lineups_and_challenge_caps_match_generation_one(self) -> None:
         expected = {
             "brock": (["geodude", "onix"], [12, 14], 14),

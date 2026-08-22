@@ -620,17 +620,20 @@ public final class StructureBuilderMod {
                 BlockPos position = currentOrigin.offset(anchor.position());
                 BlockPos pairedPosition = pairedDoorPosition(player.serverLevel(), position);
                 markers.add(new EditorMarker(
-                    anchor.label(), anchor.role(), position, pairedPosition
+                    anchor.label(), anchor.role(), position, pairedPosition,
+                    anchor.doorFacing()
                 ));
             });
             builderData.npcAnchors(current.key()).forEach(anchor -> markers.add(
                 new EditorMarker(
-                    anchor.label(), "npc_position", currentOrigin.offset(anchor.position()), null
+                    anchor.label(), "npc_position", currentOrigin.offset(anchor.position()),
+                    null, anchor.facing()
                 )
             ));
             builderData.pointAnchors(current.key()).forEach(anchor -> markers.add(
                 new EditorMarker(
-                    anchor.id(), anchor.type(), currentOrigin.offset(anchor.position()), null
+                    anchor.id(), anchor.type(), currentOrigin.offset(anchor.position()),
+                    null, anchor.facing()
                 )
             ));
         }
@@ -687,7 +690,10 @@ public final class StructureBuilderMod {
             EditContext edit = findContext(catalog, builderData, clicked.above());
             builderData.removeNpcAnchorsAt(edit.key(), clicked.above().subtract(edit.origin()));
             builderData.putNpcAnchor(
-                edit.key(), new NpcAnchor(label, clicked.above().subtract(edit.origin()))
+                edit.key(), new NpcAnchor(
+                    label, clicked.above().subtract(edit.origin()),
+                    player.getDirection().getName()
+                )
             );
         } else if (type.equals("arrival")) {
             EditContext edit = findContext(catalog, builderData, clicked.above());
@@ -1010,7 +1016,8 @@ public final class StructureBuilderMod {
     ) {}
 
     record EditorMarker(
-        String label, String type, BlockPos position, BlockPos pairedPosition
+        String label, String type, BlockPos position, BlockPos pairedPosition,
+        String facing
     ) {}
 
     private static void giveEditorStick(ServerPlayer player) {
@@ -1119,7 +1126,9 @@ public final class StructureBuilderMod {
             );
         }
         EditContext edit = findContext(catalog, data, position);
-        NpcAnchor anchor = new NpcAnchor(label, position.subtract(edit.origin()));
+        NpcAnchor anchor = new NpcAnchor(
+            label, position.subtract(edit.origin()), player.getDirection().getName()
+        );
         data.putNpcAnchor(edit.key(), anchor);
         player.sendSystemMessage(Component.literal(
             "[Structure Builder] " + edit.label() + "에 NPC 위치를 지정했습니다: "
@@ -1148,7 +1157,7 @@ public final class StructureBuilderMod {
             anchor.role() + "=" + format(anchor.position())
         ));
         builderData.npcAnchors(edit.key()).forEach(anchor -> values.add(
-            anchor.label() + "=" + format(anchor.position())
+            anchor.label() + "=" + format(anchor.position()) + " [" + anchor.facing() + "]"
         ));
         builderData.pointAnchors(edit.key()).forEach(anchor -> values.add(
             anchor.id() + "=" + format(anchor.position()) + " [" + anchor.type() + "]"
@@ -2244,6 +2253,7 @@ public final class StructureBuilderMod {
                 value.addProperty("label", anchor.label());
                 value.addProperty("type", "npc_position");
                 value.add("position", vector(anchor.position()));
+                value.addProperty("facing", anchor.facing());
                 values.add(value);
             }
             for (PointAnchor anchor : points) {
@@ -2451,7 +2461,9 @@ public final class StructureBuilderMod {
                                 : anchor.get("id").getAsString();
                             npcs.add(new NpcAnchor(
                                 label,
-                                parsePosition(anchor.getAsJsonArray("position"))
+                                parsePosition(anchor.getAsJsonArray("position")),
+                                anchor.has("facing")
+                                    ? anchor.get("facing").getAsString() : "north"
                             ));
                         } else if (role.equals("door")) {
                             anchors.add(new DoorAnchor(
@@ -2589,7 +2601,7 @@ public final class StructureBuilderMod {
     ) {
     }
 
-    private record NpcAnchor(String label, BlockPos position) {
+    private record NpcAnchor(String label, BlockPos position, String facing) {
     }
 
     private record PointAnchor(
@@ -2716,7 +2728,8 @@ public final class StructureBuilderMod {
                 for (String label : ids.getAllKeys()) {
                     CompoundTag value = ids.getCompound(label);
                     anchors.put(label, new NpcAnchor(
-                        label, readPosition(value, "position")
+                        label, readPosition(value, "position"),
+                        value.contains("facing") ? value.getString("facing") : "north"
                     ));
                 }
                 data.npcAnchors.put(structureId, anchors);
@@ -2968,6 +2981,7 @@ public final class StructureBuilderMod {
                 for (NpcAnchor anchor : structure.getValue().values()) {
                     CompoundTag value = new CompoundTag();
                     writePosition(value, "position", anchor.position());
+                    value.putString("facing", anchor.facing());
                     ids.put(anchor.label(), value);
                 }
                 npcStructures.put(structure.getKey(), ids);

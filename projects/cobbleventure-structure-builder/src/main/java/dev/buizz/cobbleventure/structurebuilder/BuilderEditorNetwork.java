@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class BuilderEditorNetwork {
-    private static final String VERSION = "3";
+    private static final String VERSION = "4";
 
     private BuilderEditorNetwork() {}
 
@@ -117,7 +117,8 @@ public final class BuilderEditorNetwork {
     public record Space(String key, String label, boolean interior, BlockPos origin, Vec3i size,
                         boolean resizable, int floorHeight, int floors) {}
     public record Marker(
-        String label, String type, BlockPos position, BlockPos pairedPosition
+        String label, String type, BlockPos position, BlockPos pairedPosition,
+        String facing
     ) {}
 
     public record SnapshotPayload(
@@ -132,7 +133,8 @@ public final class BuilderEditorNetwork {
             return new SnapshotPayload(snapshot.currentKey(), snapshot.currentLabel(), snapshot.interior(), snapshot.size(),
                 snapshot.spaces().stream().map(space -> new Space(space.key(), space.label(), space.interior(), space.origin(), space.size(), space.resizable(), space.floorHeight(), space.floors())).toList(),
                 snapshot.markers().stream().map(marker -> new Marker(
-                    marker.label(), marker.type(), marker.position(), marker.pairedPosition()
+                    marker.label(), marker.type(), marker.position(), marker.pairedPosition(),
+                    marker.facing()
                 )).toList());
         }
         void write(RegistryFriendlyByteBuf buffer) {
@@ -149,6 +151,7 @@ public final class BuilderEditorNetwork {
                 buffer.writeBlockPos(marker.position);
                 buffer.writeBoolean(marker.pairedPosition != null);
                 if (marker.pairedPosition != null) buffer.writeBlockPos(marker.pairedPosition);
+                buffer.writeUtf(marker.facing == null ? "" : marker.facing);
             }
         }
         static SnapshotPayload read(RegistryFriendlyByteBuf buffer) {
@@ -161,7 +164,11 @@ public final class BuilderEditorNetwork {
                 String markerType = buffer.readUtf();
                 BlockPos markerPosition = buffer.readBlockPos();
                 BlockPos pairedPosition = buffer.readBoolean() ? buffer.readBlockPos() : null;
-                markers.add(new Marker(markerLabel, markerType, markerPosition, pairedPosition));
+                String markerFacing = buffer.readUtf();
+                markers.add(new Marker(
+                    markerLabel, markerType, markerPosition, pairedPosition,
+                    markerFacing.isBlank() ? null : markerFacing
+                ));
             }
             return new SnapshotPayload(key, label, interior, size, List.copyOf(spaces), List.copyOf(markers));
         }

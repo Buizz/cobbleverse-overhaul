@@ -3045,7 +3045,7 @@ public final class CobbleventureBootstrap {
         int z = settlement.center().z() + (int) Math.round(house.z());
         int roadX = settlement.center().x() + house.roadConnectionX();
         int roadZ = settlement.center().z() + house.roadConnectionZ();
-        int groundY = loadedRoadSurfaceY(level, roadX, roadZ);
+        int groundY = runtimeRoadSurfaceY(level, roadX, roadZ);
         BlockPoint origin = rotatedTemplateOrigin(
             x, groundY + BuildingRuntimeSystem.placementYOffset(structure), z,
             house.width(), house.depth(), house.rotation()
@@ -3859,6 +3859,17 @@ public final class CobbleventureBootstrap {
             ? surfaceY - 1 : surfaceY;
     }
 
+    /**
+     * Resolves the road height again after nearby buildings may already exist. A roof or eave
+     * above the authored door can become the heightmap surface, so large upward differences
+     * must fall back to the terrain plan used when the facility was originally placed.
+     */
+    private static int runtimeRoadSurfaceY(ServerLevel level, int x, int z) {
+        return FacilityRuntimeGround.correctedRoadSurfaceY(
+            loadedRoadSurfaceY(level, x, z), plannedTerrainGroundY(level, x, z)
+        );
+    }
+
     private static boolean loadedRoadHeightNeedsVerification(
         ServerLevel level, int x, int surfaceY, int z,
         Map<Long, Integer> roadHeights
@@ -4429,7 +4440,7 @@ public final class CobbleventureBootstrap {
             TownRoad entranceRoad = townBuildingEntranceRoad(layout, generated);
             int roadX = settlement.center().x() + entranceRoad.x2();
             int roadZ = settlement.center().z() + entranceRoad.z2();
-            int groundY = loadedRoadSurfaceY(level, roadX, roadZ);
+            int groundY = runtimeRoadSurfaceY(level, roadX, roadZ);
             LOGGER.info(
                 "Generated town facility lot selected: settlement={}, facility={}, "
                     + "origin=({}, {}, {}), roadConnection=({}, {})",
@@ -9178,8 +9189,24 @@ public final class CobbleventureBootstrap {
         if (world == null) {
             return null;
         }
-        ConnectionPath route = strongestRouteAt(world, x, z);
+        ConnectionPath route = authoredEncounterRouteAt(world, x, z);
         return wildSpawnRule(route, method);
+    }
+
+    /**
+     * Resolves authored encounters by the route hex shown on the regional map.
+     * Terrain generation still uses {@link #strongestRouteAt}; its narrow
+     * centerline corridor must not limit the encounter area advertised for the
+     * entire route tile.
+     */
+    static ConnectionPath authoredEncounterRouteAt(
+        HexWorldPlan world, double x, double z
+    ) {
+        HexCoord cell = world.grid().worldToHex(x, z);
+        CellPlan cellPlan = world.cells().get(cell);
+        Set<HexCoord> settlementCells = cellPlan != null && cellPlan.kind().equals("town")
+            ? Set.of(cell) : Set.of();
+        return RouteEncounterSelector.forCell(cell, world.paths(), settlementCells);
     }
 
     private static AdventureWorldContext.WildSpawnRule wildSpawnRule(

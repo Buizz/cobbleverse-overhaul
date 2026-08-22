@@ -18,6 +18,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.AABB;
@@ -154,6 +155,7 @@ public final class BuilderEditorClient {
             if (marker.type().equals("npc_position")) {
                 renderBox(pose, lines, new AABB(0.22, 0.05, 0.22, 0.78, 1.45, 0.78), 0.25F, 0.9F, 1.0F);
                 renderBox(pose, lines, new AABB(0.16, 1.45, 0.16, 0.84, 2.12, 0.84), 0.25F, 0.9F, 1.0F);
+                renderNpcFacing(pose, lines, marker.facing());
             } else if (isDoorMarker(marker)) {
                 renderBox(pose, lines, new AABB(0.02, 0.02, 0.02, 0.98, 2.0, 0.98), 1.0F, 0.72F, 0.18F);
                 if (marker.pairedPosition() != null) {
@@ -182,6 +184,42 @@ public final class BuilderEditorClient {
         LevelRenderer.renderLineBox(pose, lines, box, r, g, b, 0.95F);
     }
 
+    private static void renderNpcFacing(
+        PoseStack pose, VertexConsumer lines, String facingName
+    ) {
+        Direction facing = markerFacing(facingName);
+        double dx = facing.getStepX();
+        double dz = facing.getStepZ();
+        double startX = 0.5D;
+        double startZ = 0.5D;
+        double endX = startX + dx * 1.25D;
+        double endZ = startZ + dz * 1.25D;
+        renderBox(pose, lines, new AABB(
+            Math.min(startX, endX) - 0.045D, 1.08D,
+            Math.min(startZ, endZ) - 0.045D,
+            Math.max(startX, endX) + 0.045D, 1.17D,
+            Math.max(startZ, endZ) + 0.045D
+        ), 0.2F, 1.0F, 0.55F);
+
+        double wingX = startX + dx * 0.94D;
+        double wingZ = startZ + dz * 0.94D;
+        double sideX = -dz * 0.28D;
+        double sideZ = dx * 0.28D;
+        renderDirectionNode(pose, lines, endX, endZ);
+        renderDirectionNode(pose, lines, wingX + sideX, wingZ + sideZ);
+        renderDirectionNode(pose, lines, wingX - sideX, wingZ - sideZ);
+    }
+
+    private static void renderDirectionNode(
+        PoseStack pose, VertexConsumer lines, double x, double z
+    ) {
+        renderBox(
+            pose, lines,
+            new AABB(x - 0.085D, 1.04D, z - 0.085D, x + 0.085D, 1.21D, z + 0.085D),
+            0.2F, 1.0F, 0.55F
+        );
+    }
+
     private static void renderMarkerName(
         PoseStack pose, MultiBufferSource.BufferSource buffers, RenderLevelStageEvent event,
         BuilderEditorNetwork.Marker marker, Vec3 camera
@@ -189,7 +227,8 @@ public final class BuilderEditorClient {
         BlockPos block = marker.position();
         float height = marker.type().equals("npc_position") ? 2.35F : 2.2F;
         String text = marker.type().equals("npc_position")
-            ? "NPC · " + marker.label() : isDoorMarker(marker)
+            ? "NPC · " + marker.label() + " · " + directionLabel(marker.facing())
+                : isDoorMarker(marker)
                 ? (marker.pairedPosition() == null ? "DOOR · " : "DOUBLE DOOR · ")
                     + marker.label()
                 : "ARRIVAL · " + marker.label();
@@ -211,6 +250,21 @@ public final class BuilderEditorClient {
 
     private static boolean isDoorMarker(BuilderEditorNetwork.Marker marker) {
         return marker.type().equals("door");
+    }
+
+    private static Direction markerFacing(String value) {
+        Direction facing = value == null ? null : Direction.byName(value);
+        return facing == null || facing.getAxis().isVertical() ? Direction.NORTH : facing;
+    }
+
+    private static String directionLabel(String value) {
+        return switch (markerFacing(value)) {
+            case NORTH -> "북쪽";
+            case EAST -> "동쪽";
+            case SOUTH -> "남쪽";
+            case WEST -> "서쪽";
+            default -> "북쪽";
+        };
     }
 
     private static Font minecraftFont() {
@@ -353,12 +407,12 @@ public final class BuilderEditorClient {
                     .bounds(x + 14, y + 76, 232, 20).build());
             }
             addRenderableWidget(Button.builder(Component.literal("저장"), b -> save())
-                .bounds(x + 14, y + 106, 72, 20).build());
+                .bounds(x + 14, y + 120, 72, 20).build());
             addRenderableWidget(Button.builder(Component.literal("위치 삭제"), b -> {
                 BuilderEditorNetwork.applyAnchor(position, "delete", "anchor"); onClose();
-            }).bounds(x + 94, y + 106, 72, 20).build());
+            }).bounds(x + 94, y + 120, 72, 20).build());
             addRenderableWidget(Button.builder(Component.literal("취소"), b -> onClose())
-                .bounds(x + 174, y + 106, 72, 20).build());
+                .bounds(x + 174, y + 120, 72, 20).build());
             setInitialFocus(label);
         }
         private void save() {
@@ -369,10 +423,14 @@ public final class BuilderEditorClient {
         }
         @Override public void render(GuiGraphics g, int mx, int my, float tick) {
             int x = width / 2 - 130, y = height / 2 - 66;
-            panel(g, x, y, 260, 142);
+            panel(g, x, y, 260, 156);
             g.drawString(font, title, x + 14, y + 13, 0xFFFFFFFF, false);
             g.drawString(font, "선택: " + (door ? "실제 문 → 연결 문" : "NPC 생성 위치")
                 + "  @ " + position.toShortString(), x + 14, y + 29, 0xFFB9C5D2, false);
+            if (!door) {
+                g.drawString(font, "저장 시 바라보는 방향 = NPC 방향",
+                    x + 14, y + 103, 0xFF8797A8, false);
+            }
             super.render(g, mx, my, tick);
         }
     }
