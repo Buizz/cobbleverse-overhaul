@@ -5,75 +5,171 @@
   "variables": [
     {
       "id": "cobbleventure:flag/story/starter_received",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "스타팅 포켓몬 수령", "en_us": "Starter Pokémon Received" },
-      "description": { "ko_kr": "플레이어가 스타팅 룰렛에서 첫 포켓몬을 확정했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "스타팅 포켓몬 수령",
+        "en_us": "Starter Pokémon Received"
+      },
+      "description": {
+        "ko_kr": "플레이어가 스타팅 룰렛에서 첫 포켓몬을 확정했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/story/pokedex_received",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "포켓몬 도감 수령", "en_us": "Pokédex Received" },
-      "description": { "ko_kr": "플레이어가 오박사에게 포켓몬 도감을 받았는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "포켓몬 도감 수령",
+        "en_us": "Pokédex Received"
+      },
+      "description": {
+        "ko_kr": "플레이어가 오박사에게 포켓몬 도감을 받았는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/sample/sample_potion_giver/claimed",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "상처약 샘플 보상 수령", "en_us": "Sample Potion Reward Claimed" },
-      "description": { "ko_kr": "플레이어가 샘플 여행자에게 상처약 보상을 받았는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "상처약 샘플 보상 수령",
+        "en_us": "Sample Potion Reward Claimed"
+      },
+      "description": {
+        "ko_kr": "플레이어가 샘플 여행자에게 상처약 보상을 받았는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/trainer/ai_test/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "AI 맨 격파", "en_us": "AI Man Defeated" },
-      "description": { "ko_kr": "플레이어가 개발용 AI 맨 트레이너에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "AI 맨 격파",
+        "en_us": "AI Man Defeated"
+      },
+      "description": {
+        "ko_kr": "플레이어가 개발용 AI 맨 트레이너에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/brock/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "웅 체육관 클리어", "en_us": "Brock Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 회색 체육관 관장 웅에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "웅 체육관 클리어",
+        "en_us": "Brock Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 회색 체육관 관장 웅에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/misty/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "이슬 체육관 클리어", "en_us": "Misty Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 블루 체육관 관장 이슬에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "이슬 체육관 클리어",
+        "en_us": "Misty Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 블루 체육관 관장 이슬에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/lt_surge/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "마티스 체육관 클리어", "en_us": "Lt. Surge Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 갈색 체육관 관장 마티스에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "마티스 체육관 클리어",
+        "en_us": "Lt. Surge Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 갈색 체육관 관장 마티스에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/erika/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "민화 체육관 클리어", "en_us": "Erika Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 무지개 체육관 관장 민화에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "민화 체육관 클리어",
+        "en_us": "Erika Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 무지개 체육관 관장 민화에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/koga/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "독수 체육관 클리어", "en_us": "Koga Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 연분홍 체육관 관장 독수에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "독수 체육관 클리어",
+        "en_us": "Koga Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 연분홍 체육관 관장 독수에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/sabrina/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "초련 체육관 클리어", "en_us": "Sabrina Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 노랑 체육관 관장 초련에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "초련 체육관 클리어",
+        "en_us": "Sabrina Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 노랑 체육관 관장 초련에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/blaine/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "강연 체육관 클리어", "en_us": "Blaine Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 홍련 체육관 관장 강연에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "강연 체육관 클리어",
+        "en_us": "Blaine Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 홍련 체육관 관장 강연에게 승리했는지 기록합니다."
+      }
     },
     {
       "id": "cobbleventure:flag/gym/kanto/giovanni_gym/defeated",
-      "scope": "player", "type": "boolean", "default": false,
-      "display_name": { "ko_kr": "비주기 체육관 클리어", "en_us": "Giovanni Gym Cleared" },
-      "description": { "ko_kr": "플레이어가 상록 체육관 관장 비주기에게 승리했는지 기록합니다." }
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "비주기 체육관 클리어",
+        "en_us": "Giovanni Gym Cleared"
+      },
+      "description": {
+        "ko_kr": "플레이어가 상록 체육관 관장 비주기에게 승리했는지 기록합니다."
+      }
+    },
+    {
+      "id": "test:flag/story/met_guide",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "안내인과 대화함"
+      },
+      "description": {
+        "ko_kr": ""
+      }
     }
   ]
 }

@@ -108,12 +108,12 @@ public final class BuilderEditorClient {
         String hint = "[V] 저장·이동·크기 도구     [G] 공간 이동     [H] 내부 크기 변경";
         int width = font.width(hint) + 24;
         int x = (graphics.guiWidth() - width) / 2;
-        int y = graphics.guiHeight() - 82;
+        int y = 70;
         graphics.fill(x, y, x + width, y + 24, 0xD51A2028);
         graphics.fill(x, y, x + width, y + 2, 0xFF61D7FF);
         graphics.drawString(font, hint, x + 12, y + 8, 0xFFF5F7FA, false);
         graphics.drawCenteredString(font, "막대기 우클릭: 실제 문은 연결 문으로, 일반 블록은 NPC 위치로 설정합니다.",
-            graphics.guiWidth() / 2, y - 12, 0xFFE6EEF6);
+            graphics.guiWidth() / 2, y + 29, 0xFFE6EEF6);
     }
 
     private static void renderMarkers(RenderLevelStageEvent event) {

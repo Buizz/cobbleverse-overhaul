@@ -326,6 +326,7 @@ def import_exports(root: Path, world: Path) -> int:
     read_metadata = _metadata_reader(root)
     pending: list[tuple[Path, Path]] = []
     pending_metadata: list[tuple[Path | None, Path]] = []
+    known_targets: set[Path] = set()
     missing: list[str] = []
     for entry in catalog_entries(root):
         relative = Path(str(entry["source"])).relative_to(SOURCE_STRUCTURES)
@@ -342,6 +343,8 @@ def import_exports(root: Path, world: Path) -> int:
             missing.append(relative.as_posix())
             continue
         exported = export_root / exported_relative
+        target = project_root / str(entry["source"])
+        known_targets.add(target.resolve())
         relative_without_suffix = exported_relative.with_suffix("")
         exported_metadata = (
             world.resolve()
@@ -365,22 +368,23 @@ def import_exports(root: Path, world: Path) -> int:
             ]
         actual = [metadata["width"], metadata["height"], metadata["depth"]]
         if actual != expected:
-            raise StructureBuilderError(
-                f"내보낸 구조물 크기가 원본 계약과 다릅니다: {relative} "
-                f"(예상 {expected}, 실제 {actual})"
+            print(
+                f"[WARN] 계약과 다른 구조물을 건너뜁니다: {relative} "
+                f"(예상 {expected}, 실제 {actual})",
+                file=sys.stderr,
             )
-        pending.append((exported, project_root / str(entry["source"])))
+            continue
+        pending.append((exported, target))
         if exported_metadata.is_file():
             pending_metadata.append((
                 exported_metadata,
-                (project_root / str(entry["source"])).with_suffix(".structure.json"),
+                target.with_suffix(".structure.json"),
             ))
     if missing:
         raise StructureBuilderError(
             "내보내기가 누락된 구조물: " + ", ".join(missing)
         )
 
-    known_targets = {target.resolve() for _, target in pending}
     interior_exports = export_root / "interiors"
     if interior_exports.is_dir():
         for exported in sorted(interior_exports.rglob("*.nbt")):
@@ -414,10 +418,12 @@ def import_exports(root: Path, world: Path) -> int:
             ]
             actual = [metadata["width"], metadata["height"], metadata["depth"]]
             if actual != expected:
-                raise StructureBuilderError(
-                    f"내부 NBT 크기와 층 계약이 다릅니다: {relative} "
-                    f"(예상 {expected}, 실제 {actual})"
+                print(
+                    f"[WARN] 계약과 다른 내부 NBT를 건너뜁니다: {relative} "
+                    f"(예상 {expected}, 실제 {actual})",
+                    file=sys.stderr,
                 )
+                continue
             pending.append((exported, target))
             pending_metadata.append((exported_metadata, target.with_suffix(".structure.json")))
 

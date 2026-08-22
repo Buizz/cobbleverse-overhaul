@@ -9,19 +9,25 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -536,7 +542,13 @@ final class StructurePlacementFixes {
                     }
                     restoredEntity.setLevel(level);
                     restoredEntity.loadWithComponents(
-                        sourceData.copy(), level.registryAccess()
+                        transformCopycatMaterialData(
+                            sourceData,
+                            level.holderLookup(Registries.BLOCK),
+                            settings.getMirror(),
+                            settings.getRotation()
+                        ),
+                        level.registryAccess()
                     );
                     level.removeBlockEntity(info.pos());
                     level.setBlockEntity(restoredEntity);
@@ -555,6 +567,44 @@ final class StructurePlacementFixes {
         if (restored > 0) {
             LOGGER.debug("Restored {} copycat material block entities at {}", restored, origin);
         }
+    }
+
+    /** Applies the same structure transform to materials stored inside copycat NBT. */
+    private static CompoundTag transformCopycatMaterialData(
+        CompoundTag sourceData,
+        HolderGetter<Block> blocks,
+        Mirror mirror,
+        Rotation rotation
+    ) {
+        CompoundTag transformed = sourceData.copy();
+        transformMaterialTag(transformed, "Material", blocks, mirror, rotation);
+
+        if (transformed.contains("material_data", Tag.TAG_COMPOUND)) {
+            CompoundTag materialData = transformed.getCompound("material_data");
+            for (String part : materialData.getAllKeys()) {
+                if (!materialData.contains(part, Tag.TAG_COMPOUND)) {
+                    continue;
+                }
+                transformMaterialTag(
+                    materialData.getCompound(part), "material", blocks, mirror, rotation
+                );
+            }
+        }
+        return transformed;
+    }
+
+    private static void transformMaterialTag(
+        CompoundTag owner,
+        String key,
+        HolderGetter<Block> blocks,
+        Mirror mirror,
+        Rotation rotation
+    ) {
+        if (!owner.contains(key, Tag.TAG_COMPOUND)) {
+            return;
+        }
+        BlockState material = NbtUtils.readBlockState(blocks, owner.getCompound(key));
+        owner.put(key, NbtUtils.writeBlockState(material.mirror(mirror).rotate(rotation)));
     }
 
     private static List<Block> copycatBlocks() {

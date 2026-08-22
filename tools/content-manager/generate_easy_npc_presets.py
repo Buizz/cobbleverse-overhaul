@@ -123,11 +123,25 @@ def installed_rct_skin(resource: str) -> bytes | None:
         f"assets/rctmod/textures/trainers/{match.group(1)}/{match.group(2)}.png"
     )
     instance_root = Path.home() / "curseforge" / "minecraft" / "Instances"
-    candidates: list[Path] = []
+    resource_pack_candidates: list[Path] = []
+    mod_jar_candidates: list[Path] = []
     override = os.environ.get("COBBLEVERSE_INSTANCE")
     if override:
-        candidates.append(Path(override) / "resourcepacks" / "COBBLEVERSE RCTmod RP.zip")
-    candidates.extend(sorted(instance_root.glob("*/resourcepacks/COBBLEVERSE RCTmod RP.zip")))
+        override_path = Path(override)
+        resource_pack_candidates.append(
+            override_path / "resourcepacks" / "COBBLEVERSE RCTmod RP.zip"
+        )
+        mod_jar_candidates.extend(
+            sorted((override_path / "mods").glob("rctmod-*.jar"))
+        )
+    for instance_path in sorted(instance_root.glob("*")):
+        resource_pack_candidates.append(
+            instance_path / "resourcepacks" / "COBBLEVERSE RCTmod RP.zip"
+        )
+        mod_jar_candidates.extend(
+            sorted((instance_path / "mods").glob("rctmod-*.jar"))
+        )
+    candidates = resource_pack_candidates + mod_jar_candidates
     for archive_path in candidates:
         try:
             with zipfile.ZipFile(archive_path) as archive:

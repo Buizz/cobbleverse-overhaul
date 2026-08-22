@@ -25,7 +25,7 @@ const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, forest: null, settlementOrderSaving: false,
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
-  trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", forestPath: "", buildCommands: [], exportLanguages: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
   npcFilter: "all",
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
@@ -936,6 +936,7 @@ async function loadDashboard() {
   showIssues("#dashboard-issues", data.validation);
   state.buildCommands = data.build_commands;
   state.exportLanguages = data.export_languages || [{ id: "ko_kr", name: "한국어" }, { id: "en_us", name: "English (US)" }];
+  state.cobblemonBuildTargets = data.cobblemon_build_targets || [{ id: "1.7.3", name: "1.7.3 안정 버전" }, { id: "1.8", name: "1.8 스냅샷" }];
   renderBuildCommands();
 }
 
@@ -13615,9 +13616,23 @@ function updateEconomyView(field, value) {
 function renderBuildCommands() {
   const descriptions = {
     validate: "모든 콘텐츠와 의존성 Lock을 빠르게 검사합니다.", test: "콘텐츠 관리와 패키징 회귀 테스트를 실행합니다.",
+    "mod-ai": "선택한 Cobblemon 버전용 Battle AI 모드를 빌드합니다.",
+    "mod-adventure": "선택한 Cobblemon 버전용 Adventure 모드를 빌드합니다.",
+    "mod-bootstrap": "선택한 Cobblemon 버전용 월드 부트스트랩 모드를 빌드합니다.",
+    "mod-menu": "선택한 Cobblemon 버전용 플레이어 메뉴 모드를 빌드합니다.",
+    "mod-casino": "선택한 Cobblemon 버전용 카지노 애드온을 빌드합니다.",
     "pack-smoke": "모드 없이 임포트 구조만 확인하는 ZIP을 만듭니다.", pack: "현재 설정으로 개발용 임포트 ZIP을 만듭니다.",
     "validate-pack": "실제 모드 파일과 버전이 모두 확정됐는지 검사합니다."
   };
+  const targetSelect = $("#build-cobblemon-target");
+  const selectedTarget = targetSelect?.value || "1.7.3";
+  if (targetSelect) {
+    targetSelect.innerHTML = state.cobblemonBuildTargets.map((target) =>
+      `<option value="${escapeHtml(target.id)}">${escapeHtml(target.name)}</option>`
+    ).join("");
+    targetSelect.value = state.cobblemonBuildTargets.some((target) => target.id === selectedTarget)
+      ? selectedTarget : "1.7.3";
+  }
   const languageSelect = $("#build-export-language");
   const selectedLanguage = languageSelect?.value || "ko_kr";
   if (languageSelect) {
@@ -13749,12 +13764,13 @@ async function syncStructureBuilder() {
 
 async function runBuild(command) {
   const language = $("#build-export-language")?.value || "ko_kr";
+  const cobblemonTarget = $("#build-cobblemon-target")?.value || "1.7.3";
   const buttons = $$("#builds button");
   buttons.forEach((button) => button.disabled = true);
-  $("#build-state").textContent = `${command} 실행 중`;
+  $("#build-state").textContent = `${command} · Cobblemon ${cobblemonTarget} 실행 중`;
   $("#build-output").textContent = "작업이 끝날 때까지 잠시 기다려 주세요…";
   try {
-    const result = await request("/api/build", { method: "POST", body: JSON.stringify({ command, language }) });
+    const result = await request("/api/build", { method: "POST", body: JSON.stringify({ command, language, cobblemon_target: cobblemonTarget }) });
     $("#build-output").textContent = result.data.output || result.data.error || "결과가 없습니다.";
     $("#build-state").textContent = result.ok ? "성공" : "실패";
     toast(result.ok ? `${command} 작업을 완료했습니다.` : `${command} 작업을 확인해 주세요.`);

@@ -22,7 +22,7 @@
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
     PresetUUID:[I;-704310720,-1253419817,-1967238791,-1194606951],
-    SkinData:{Type:"CUSTOM",UUID:[I;-1560598836,-920299762,-1596757028,-1546285444] },
+    SkinData:{Type:"CUSTOM",UUID:[I;717218930,445994368,-1276077709,-1233761247] },
     Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/gym_leaders/lt_surge"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"

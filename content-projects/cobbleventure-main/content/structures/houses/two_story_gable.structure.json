@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/houses/two_story_gable.nbt",
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        11,
+        1,
+        4
+      ],
+      "safe_spawn": [
+        11,
+        1,
+        3
+      ],
+      "door_facing": "south",
+      "safe_side": "north"
+    }
+  ]
+}

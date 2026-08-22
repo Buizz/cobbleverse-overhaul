@@ -248,8 +248,9 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 | `build.bat validate-pack` | Minecraft·NeoForge·활성 모드 버전과 CurseForge ID까지 엄격 검사 | 의존성 확정 전에는 실패가 정상 |
 | `build.bat web` | 데이터 관리용 Python Web 화면과 API 실행 | `127.0.0.1:8765`에서 종료할 때까지 실행 |
 | `build.bat api` | `build.bat web`의 호환용 별칭 | Web 화면과 API가 동일하게 실행됨 |
-| `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 Adventure·월드·플레이어 메뉴 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
+| `build.bat test` | 콘텐츠/Web/팩 회귀 테스트와 Battle AI·Adventure·월드·플레이어 메뉴 Java 컴파일 | Python `unittest`와 Gradle 테스트가 모두 통과해야 함 |
 | `build.bat spawns` | 엑셀 편집표에서 바이옴·세대 조건이 적용된 Paxi 스폰 데이터팩 생성 | 개발 팩 overrides에 생성 ZIP과 검증 보고서 생성 |
+| `build.bat mod-ai` | 독립 Battle AI NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 Battle AI JAR 생성 |
 | `build.bat mod-adventure` | 전투·경제·귀환·필드 기술용 NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 Adventure JAR 생성 |
 | `build.bat mod-bootstrap` | 무지하 시작 바이옴·세대 차원·BCA 테스트 마을용 NeoForge Java 모드 빌드 | 체육관 NBT 생성 후 개발 팩 `overrides/mods`에 JAR 생성 |
 | `build.bat mod-menu` | 인벤토리 키 기반 원형 플레이어 메뉴 NeoForge 모드 빌드 | 개발 팩 `overrides/mods`에 JAR 생성 |
@@ -262,6 +263,11 @@ CurseForge ZIP을 한 번에 만드는 전체 빌드 스크립트는 아닙니�
 `build.bat`을 인자 없이 실행하면 사용 가능한 명령을 표시합니다. 자세한 검사
 규칙과 종료 코드는 [Content Manager 사용법](tools/content-manager/README.md)을
 참고합니다.
+
+Web의 **빌드 작업** 화면에서는 Cobblemon 빌드 대상을 `1.7.3 안정 버전`과
+`1.8 스냅샷` 중에서 선택할 수 있습니다. 기본값은 계속 1.7.3이며, 선택값은
+해당 실행에만 전달됩니다. 1.8 전체 개발 팩은 아직 지원하지 않으므로 1.8은
+`test`와 `mod-*` 호환성 빌드에 사용합니다.
 
 ### 플랫폼 독립 Java 프로젝트 빌드
 

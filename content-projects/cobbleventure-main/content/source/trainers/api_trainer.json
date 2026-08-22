@@ -1,0 +1,52 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/api_trainer",
+  "enabled": true,
+  "name": {
+    "ko_kr": "API 트레이너"
+  },
+  "description": {
+    "ko_kr": "API 트레이너 NPC 상호작용 콘텐츠입니다."
+  },
+  "tags": [
+    "npc"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": true,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "API 트레이너"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/youngster",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/youngster_yasu_0063"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "simple",
+      "initial_trigger": {
+        "type": "interact",
+        "range": 4.0
+      },
+      "first_text": {
+        "ko_kr": "안녕! 나는 API 트레이너(이)야."
+      }
+    }
+  }
+}

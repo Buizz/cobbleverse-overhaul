@@ -269,6 +269,10 @@ BUILD_COMMANDS = {
     "validate": "콘텐츠와 의존성 검사",
     "test": "Python 도구 회귀 테스트",
     "generate": "RCT와 실제 게임용 AI 프로필 생성",
+    "mod-ai": "독립 Battle AI 모드 JAR 생성",
+    "mod-adventure": "게임플레이 규칙 모드 JAR 생성",
+    "mod-bootstrap": "월드 부트스트랩 모드 JAR 생성",
+    "mod-menu": "플레이어 메뉴 모드 JAR 생성",
     "mod-casino": "커스텀 가챠 기계 애드온 JAR 생성",
     "pack-smoke": "최소 CurseForge 임포트 ZIP 생성",
     "pack": "개발용 CurseForge ZIP 생성",
@@ -278,6 +282,10 @@ BUILD_COMMANDS = {
 EXPORT_LANGUAGES = {
     "ko_kr": "한국어",
     "en_us": "English (US)",
+}
+COBBLEMON_BUILD_TARGETS = {
+    "1.7.3": "1.7.3 안정 버전",
+    "1.8": "1.8 스냅샷",
 }
 STRUCTURE_BUILDER_WORLD_NAME = "Cobbleventure Structure Builder"
 CONTENT_MANAGER_SETTINGS = "tools/content-manager/settings.local.json"
@@ -9172,12 +9180,15 @@ def _create_document(
 
 
 def _run_build(
-    core_root: Path, project_root: Path, command: str, language: str = "ko_kr"
+    core_root: Path, project_root: Path, command: str, language: str = "ko_kr",
+    cobblemon_target: str = "1.7.3",
 ) -> dict[str, Any]:
     if command not in BUILD_COMMANDS:
         raise ValueError("허용되지 않은 빌드 명령입니다.")
     if language not in EXPORT_LANGUAGES:
         raise ValueError("지원하지 않는 내보내기 언어입니다.")
+    if cobblemon_target not in COBBLEMON_BUILD_TARGETS:
+        raise ValueError("지원하지 않는 Cobblemon 빌드 대상입니다.")
     try:
         completed = subprocess.run(
             ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), command, language],
@@ -9186,6 +9197,7 @@ def _run_build(
                 **os.environ,
                 "COBBLEVENTURE_PROJECT_PATH": str(project_root),
                 "COBBLEVENTURE_EXPORT_LANGUAGE": language,
+                "COBBLEVENTURE_COBBLEMON_TARGET": cobblemon_target,
             },
             capture_output=True,
             encoding="utf-8",
@@ -9199,6 +9211,7 @@ def _run_build(
         return {
             "command": command,
             "language": language,
+            "cobblemon_target": cobblemon_target,
             "description": BUILD_COMMANDS[command],
             "success": completed.returncode == 0,
             "return_code": completed.returncode,
@@ -9209,6 +9222,7 @@ def _run_build(
         return {
             "command": command,
             "language": language,
+            "cobblemon_target": cobblemon_target,
             "description": BUILD_COMMANDS[command],
             "success": False,
             "return_code": None,
@@ -11906,6 +11920,10 @@ def create_handler(
                             {"id": language, "name": name}
                             for language, name in EXPORT_LANGUAGES.items()
                         ] if active_project.is_default else [],
+                        "cobblemon_build_targets": [
+                            {"id": target, "name": name}
+                            for target, name in COBBLEMON_BUILD_TARGETS.items()
+                        ] if active_project.is_default else [],
                     },
                 )
                 return
@@ -12566,17 +12584,21 @@ def create_handler(
                     return
                 command = payload.get("command") if isinstance(payload, dict) else None
                 language = payload.get("language", "ko_kr") if isinstance(payload, dict) else "ko_kr"
+                cobblemon_target = payload.get("cobblemon_target", "1.7.3") if isinstance(payload, dict) else "1.7.3"
                 if not isinstance(command, str) or command not in BUILD_COMMANDS:
                     self._json(400, {"error": "허용된 빌드 명령을 선택해야 합니다."})
                     return
                 if not isinstance(language, str) or language not in EXPORT_LANGUAGES:
                     self._json(400, {"error": "지원하는 내보내기 언어를 선택해야 합니다."})
                     return
+                if not isinstance(cobblemon_target, str) or cobblemon_target not in COBBLEMON_BUILD_TARGETS:
+                    self._json(400, {"error": "지원하는 Cobblemon 빌드 대상을 선택해야 합니다."})
+                    return
                 if not build_lock.acquire(blocking=False):
                     self._json(409, {"error": "다른 빌드 명령이 실행 중입니다."})
                     return
                 try:
-                    result = _run_build(core_root, root, command, language)
+                    result = _run_build(core_root, root, command, language, cobblemon_target)
                 finally:
                     build_lock.release()
                 self._json(200 if result["success"] else 422, result)

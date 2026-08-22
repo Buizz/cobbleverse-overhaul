@@ -4985,7 +4985,11 @@ class ContentManagerTests(unittest.TestCase):
         try:
             request = urllib.request.Request(
                 f"http://127.0.0.1:{server.server_port}/api/build",
-                data=json.dumps({"command": "validate", "language": "en_us"}).encode("utf-8"),
+                data=json.dumps({
+                    "command": "validate",
+                    "language": "en_us",
+                    "cobblemon_target": "1.8",
+                }).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
@@ -4997,9 +5001,22 @@ class ContentManagerTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=2)
         runner.assert_called_once_with(
-            root.resolve(), PROJECT_ROOT.resolve(), "validate", "en_us"
+            root.resolve(), PROJECT_ROOT.resolve(), "validate", "en_us", "1.8"
         )
         self.assertTrue(payload["success"])
+
+    def test_build_runner_defaults_to_stable_cobblemon_target(self) -> None:
+        completed = mock.Mock(stdout="완료", stderr="", returncode=0)
+        with mock.patch.object(content_manager.subprocess, "run", return_value=completed) as runner:
+            result = content_manager._run_build(
+                CORE_ROOT.resolve(), PROJECT_ROOT.resolve(), "validate"
+            )
+
+        self.assertEqual(
+            "1.7.3",
+            runner.call_args.kwargs["env"]["COBBLEVENTURE_COBBLEMON_TARGET"],
+        )
+        self.assertEqual("1.7.3", result["cobblemon_target"])
 
     def test_structure_builder_settings_resolve_instance_world(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -5118,7 +5135,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="sync-structure-builder"', markup)
         self.assertIn('id="import-structure-builder"', markup)
         self.assertIn('id="build-export-language"', markup)
-        self.assertIn('JSON.stringify({ command, language })', script)
+        self.assertIn('id="build-cobblemon-target"', markup)
+        self.assertIn('value="1.7.3"', markup)
+        self.assertIn('value="1.8"', markup)
+        self.assertIn('JSON.stringify({ command, language, cobblemon_target: cobblemonTarget })', script)
         self.assertIn("/api/structure-builder/settings", script)
         self.assertIn("/api/structure-builder/import", script)
         self.assertIn("/api/structure-builder/sync", script)

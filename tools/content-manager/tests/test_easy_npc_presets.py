@@ -346,6 +346,24 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         self.assertEqual(png, result)
 
+    def test_reads_selected_rct_skin_from_installed_mod_jar(self) -> None:
+        png = b"\x89PNG\r\n\x1a\n" + b"mod-jar-skin"
+        with tempfile.TemporaryDirectory() as directory:
+            instance = Path(directory)
+            mod_jar = instance / "mods" / "rctmod-neoforge-test.jar"
+            mod_jar.parent.mkdir(parents=True)
+            with zipfile.ZipFile(mod_jar, "w") as archive:
+                archive.writestr(
+                    "assets/rctmod/textures/trainers/single/leader_brock_019e.png",
+                    png,
+                )
+            with mock.patch.dict(os.environ, {"COBBLEVERSE_INSTANCE": directory}):
+                result = generator.installed_rct_skin(
+                    "rctmod:trainers/single/leader_brock_019e"
+                )
+
+        self.assertEqual(png, result)
+
     def test_compiles_gym_leader_rewards_from_league_authoring_entry(self) -> None:
         league = json.loads(
             (PROJECT_ROOT / "content/catalogs/league-progression.json").read_text(encoding="utf-8")

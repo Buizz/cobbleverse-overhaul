@@ -374,6 +374,64 @@ class StructureBuilderTests(unittest.TestCase):
 
             self.assertEqual(0, changed)
 
+    def test_import_skips_size_mismatch_and_imports_valid_exports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            world = Path(directory) / "world"
+            module = root / "tools/content-manager/content_manager.py"
+            module.parent.mkdir(parents=True)
+            shutil.copy2(CONTENT_MANAGER_PATH, module)
+
+            valid_sample = PROJECT_ROOT / "content/structures/placeholder/casino.nbt"
+            invalid_sample = PROJECT_ROOT / "content/structures/houses/five_story_flat.nbt"
+            valid_target = root / "content/structures/placeholder/casino.nbt"
+            invalid_target = root / "content/structures/houses/five_story_flat.nbt"
+            valid_target.parent.mkdir(parents=True)
+            invalid_target.parent.mkdir(parents=True)
+            valid_target.write_bytes(b"old-casino")
+            invalid_target.write_bytes(b"keep-flat")
+
+            export_root = (
+                world / "generated/cobbleventure_builder/structures/export"
+            )
+            valid_export = export_root / "placeholder/casino.nbt"
+            invalid_export = export_root / "houses/five_story_flat.nbt"
+            valid_export.parent.mkdir(parents=True)
+            invalid_export.parent.mkdir(parents=True)
+            shutil.copy2(valid_sample, valid_export)
+            shutil.copy2(invalid_sample, invalid_export)
+
+            valid_size = content_manager.read_minecraft_structure_size(
+                valid_sample.read_bytes()
+            )
+            invalid_size = content_manager.read_minecraft_structure_size(
+                invalid_sample.read_bytes()
+            )
+            entries = [{
+                "source": "content/structures/placeholder/casino.nbt",
+                "size": list(valid_size),
+            }, {
+                "source": "content/structures/houses/five_story_flat.nbt",
+                "size": [invalid_size[0] + 1, invalid_size[1], invalid_size[2]],
+            }]
+
+            with mock.patch.object(
+                structure_builder, "catalog_entries", return_value=entries,
+            ), mock.patch.object(
+                structure_builder,
+                "_metadata_reader",
+                return_value=content_manager.read_minecraft_structure_metadata,
+            ), mock.patch("sys.stderr") as stderr:
+                changed = structure_builder.import_exports(root, world)
+
+            self.assertEqual(1, changed)
+            self.assertEqual(valid_sample.read_bytes(), valid_target.read_bytes())
+            self.assertEqual(b"keep-flat", invalid_target.read_bytes())
+            self.assertIn("건너뜁니다", "".join(
+                str(call.args[0]) for call in stderr.write.call_args_list
+                if call.args
+            ))
+
     def test_named_door_and_arrival_are_valid_builder_anchors(self) -> None:
         document = structure_builder._validate_structure_metadata({
             "schema_version": 1,
