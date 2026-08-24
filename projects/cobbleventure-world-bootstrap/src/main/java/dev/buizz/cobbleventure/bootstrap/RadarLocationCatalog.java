@@ -17,6 +17,11 @@ public final class RadarLocationCatalog {
         return List.copyOf(result);
     }
 
+    /** Returns loaded, nearby NPCs with state resolved for the requesting player. */
+    public static List<NpcLocation> npcLocations(ServerPlayer player) {
+        return NpcRadarLocationSystem.locations(player);
+    }
+
     public static Kind buildingKind(String structure) {
         String normalized = structure.toLowerCase(java.util.Locale.ROOT);
         if (normalized.contains("pokemon_center")) return Kind.POKEMON_CENTER;
@@ -37,6 +42,12 @@ public final class RadarLocationCatalog {
         GATE
     }
 
+    public enum NpcKind {
+        TRAINER,
+        GYM_LEADER,
+        IMPORTANT_NPC
+    }
+
     public record Location(
         String id,
         Kind kind,
@@ -46,5 +57,17 @@ public final class RadarLocationCatalog {
         double z,
         String label,
         String areaId
+    ) {}
+
+    public record NpcLocation(
+        String id,
+        NpcKind kind,
+        ResourceLocation dimension,
+        double x,
+        double y,
+        double z,
+        String label,
+        String areaId,
+        String state
     ) {}
 }

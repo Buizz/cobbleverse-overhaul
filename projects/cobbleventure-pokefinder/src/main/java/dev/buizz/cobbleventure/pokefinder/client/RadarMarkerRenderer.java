@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.pokefinder.client;
 
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarker;
+import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -64,6 +65,12 @@ public final class RadarMarkerRenderer {
             graphics.fill(x, y - 3, x + 1, y + 4, 0xFFFFC44D);
         }
         switch (marker.type()) {
+            case TRAINER -> {
+                graphics.fill(x - 2, y - 2, x - 1, y + 3, color);
+                graphics.fill(x + 2, y - 2, x + 3, y + 3, color);
+                graphics.fill(x - 1, y - 1, x + 2, y, color);
+                graphics.fill(x - 1, y + 1, x + 2, y + 2, color);
+            }
             case POKEMON_CENTER -> {
                 graphics.fill(x - 2, y - 1, x + 3, y + 2, 0xFF101820);
                 graphics.fill(x - 1, y - 2, x + 2, y + 3, 0xFF101820);
@@ -102,17 +109,32 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x + 2, y - 2, x + 3, y + 3, color);
                 graphics.fill(x - 1, y - 2, x + 2, y - 1, color);
             }
+            case IMPORTANT_NPC -> {
+                graphics.fill(x, y - 3, x + 1, y + 1, color);
+                graphics.fill(x, y + 2, x + 1, y + 3, color);
+                graphics.fill(x - 1, y - 2, x + 2, y, color);
+            }
             default -> {
                 graphics.fill(x - 2, y, x + 3, y + 1, 0xFF101820);
                 graphics.fill(x, y - 2, x + 1, y + 3, 0xFF101820);
                 graphics.fill(x, y, x + 1, y + 1, color);
             }
         }
+        if (marker.state() == RadarMarkerState.DEFEATED
+            || marker.state() == RadarMarkerState.COMPLETED) {
+            graphics.fill(x - 3, y + 1, x - 1, y + 2, 0xFFF2F7F5);
+            graphics.fill(x - 2, y + 2, x, y + 3, 0xFFF2F7F5);
+            graphics.fill(x - 1, y, x + 2, y + 1, 0xFFF2F7F5);
+        }
     }
 
     private static int markerColor(RadarMarker marker) {
+        if (marker.state() == RadarMarkerState.DEFEATED) return 0xFF68717D;
+        if (marker.state() == RadarMarkerState.COMPLETED) return 0xFF668276;
         return switch (marker.type()) {
+            case TRAINER -> 0xFFFF8A65;
             case GYM_LEADER -> 0xFFFFD35A;
+            case IMPORTANT_NPC -> 0xFFB89CFF;
             case POKEMON_CENTER -> 0xFFFF6B78;
             case POKEMART -> 0xFF69A7FF;
             case CASINO -> 0xFFFFC44D;

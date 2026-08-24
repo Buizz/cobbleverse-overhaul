@@ -29,17 +29,10 @@ public final class WorldBootstrapRadarProvider {
         try {
             Class<?> catalog = Class.forName(CATALOG);
             Method locations = catalog.getMethod("locations", ServerPlayer.class);
-            Object value = locations.invoke(null, player);
-            if (!(value instanceof List<?> entries)) return List.of();
-            List<RadarMarker> result = new ArrayList<>(entries.size());
-            for (Object entry : entries) {
-                RadarMarker marker = marker(entry);
-                if (marker != null
-                    && marker.position().distanceTo(player.position())
-                        <= RadarRanges.MAX_FALLBACK) {
-                    result.add(marker);
-                }
-            }
+            Method npcLocations = catalog.getMethod("npcLocations", ServerPlayer.class);
+            List<RadarMarker> result = new ArrayList<>();
+            append(result, locations.invoke(null, player), player);
+            append(result, npcLocations.invoke(null, player), player);
             return List.copyOf(result);
         } catch (ClassNotFoundException | NoSuchMethodException
                  | IllegalAccessException | InvocationTargetException error) {
@@ -54,6 +47,9 @@ public final class WorldBootstrapRadarProvider {
     static RadarMarkerType markerType(String kind) {
         return switch (kind) {
             case "GYM" -> RadarMarkerType.GYM_LEADER;
+            case "TRAINER" -> RadarMarkerType.TRAINER;
+            case "GYM_LEADER" -> RadarMarkerType.GYM_LEADER;
+            case "IMPORTANT_NPC" -> RadarMarkerType.IMPORTANT_NPC;
             case "POKEMON_CENTER" -> RadarMarkerType.POKEMON_CENTER;
             case "POKEMART" -> RadarMarkerType.POKEMART;
             case "CASINO" -> RadarMarkerType.CASINO;
@@ -70,6 +66,28 @@ public final class WorldBootstrapRadarProvider {
         return normalized.isBlank() ? "unknown" : normalized;
     }
 
+    static RadarMarkerState markerState(String state) {
+        try {
+            return RadarMarkerState.valueOf(state);
+        } catch (IllegalArgumentException error) {
+            return RadarMarkerState.AVAILABLE;
+        }
+    }
+
+    private static void append(
+        List<RadarMarker> result, Object value, ServerPlayer player
+    ) {
+        if (!(value instanceof List<?> entries)) return;
+        for (Object entry : entries) {
+            RadarMarker marker = marker(entry);
+            if (marker != null
+                && marker.position().distanceTo(player.position())
+                    <= RadarRanges.MAX_FALLBACK) {
+                result.add(marker);
+            }
+        }
+    }
+
     private static RadarMarker marker(Object entry) {
         try {
             Class<?> type = entry.getClass();
@@ -84,6 +102,14 @@ public final class WorldBootstrapRadarProvider {
             double z = (double) type.getMethod("z").invoke(entry);
             String label = (String) type.getMethod("label").invoke(entry);
             String areaId = (String) type.getMethod("areaId").invoke(entry);
+            RadarMarkerState state = RadarMarkerState.AVAILABLE;
+            boolean dynamicNpc = false;
+            try {
+                state = markerState((String) type.getMethod("state").invoke(entry));
+                dynamicNpc = true;
+            } catch (NoSuchMethodException ignored) {
+                // Static location records predate player-specific marker state.
+            }
             return new RadarMarker(
                 ResourceLocation.fromNamespaceAndPath(
                     CobbleventurePokefinder.MOD_ID, safePath(rawId)
@@ -97,10 +123,10 @@ public final class WorldBootstrapRadarProvider {
                     "radar/" + markerType.name().toLowerCase(Locale.ROOT)
                 ),
                 priority(markerType),
-                RadarMarkerState.AVAILABLE,
+                state,
                 areaId,
                 RadarRanges.DEFAULT_LOCAL,
-                true
+                !dynamicNpc
             );
         } catch (ReflectiveOperationException | ClassCastException error) {
             return null;
@@ -110,6 +136,7 @@ public final class WorldBootstrapRadarProvider {
     private static int priority(RadarMarkerType type) {
         return switch (type) {
             case GYM_LEADER -> 500;
+            case TRAINER, IMPORTANT_NPC -> 400;
             case POKEMON_CENTER, POKEMART, CASINO, SPECIAL_BUILDING -> 300;
             case CAVE_ENTRANCE, FOREST_ENTRANCE, GATE -> 200;
             default -> 100;
