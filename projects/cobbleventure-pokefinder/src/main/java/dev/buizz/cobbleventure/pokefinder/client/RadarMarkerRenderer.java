@@ -37,6 +37,7 @@ public final class RadarMarkerRenderer {
             Vec3 playerPosition = player.position();
             for (RadarMarker marker : markers) {
                 if (!marker.dimension().equals(dimension)) continue;
+                if (!RadarDisplaySettings.visible(marker)) continue;
                 Cobblenav233LayoutAdapter.RadarPoint point =
                     Cobblenav233LayoutAdapter.worldToRadar(
                         layout,
@@ -46,10 +47,38 @@ public final class RadarMarkerRenderer {
                         marker.localRange(),
                         marker.edgeTracking()
                     );
-                if (point.visible()) drawMarkerIcon(graphics, marker, point);
+                if (point.visible()) {
+                    drawMarkerIcon(graphics, marker, point);
+                    drawMarkerDetails(graphics, minecraft, marker, point, playerPosition);
+                }
             }
             graphics.pose().popPose();
         });
+    }
+
+    private static void drawMarkerDetails(
+        GuiGraphics graphics, Minecraft minecraft, RadarMarker marker,
+        Cobblenav233LayoutAdapter.RadarPoint point, Vec3 playerPosition
+    ) {
+        boolean names = RadarDisplaySettings.value(RadarDisplaySettings.Option.NAMES);
+        boolean distances = RadarDisplaySettings.value(
+            RadarDisplaySettings.Option.DISTANCES
+        );
+        if (!names && !distances) return;
+        StringBuilder text = new StringBuilder();
+        if (names) text.append(marker.label());
+        if (distances) {
+            if (!text.isEmpty()) text.append(" · ");
+            double dx = marker.position().x - playerPosition.x;
+            double dz = marker.position().z - playerPosition.z;
+            text.append(Math.round(Math.hypot(dx, dz))).append('m');
+        }
+        graphics.drawString(
+            minecraft.font, text.toString(),
+            (int) Math.floor(point.x()) + 4,
+            (int) Math.floor(point.y()) - 4,
+            0xFFF2F7FF, true
+        );
     }
 
     private static void drawMarkerIcon(
