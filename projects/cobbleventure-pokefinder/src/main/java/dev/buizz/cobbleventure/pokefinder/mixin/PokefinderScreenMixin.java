@@ -29,6 +29,6 @@ abstract class PokefinderScreenMixin extends Screen {
             button -> Minecraft.getInstance().setScreen(
                 new RadarSettingsScreen((Screen) (Object) this)
             )
-        ).bounds(screenX + 30, screenY + 6, 78, 18).build());
+        ).bounds(screenX + 30, screenY + 1, 78, 18).build());
     }
 }
