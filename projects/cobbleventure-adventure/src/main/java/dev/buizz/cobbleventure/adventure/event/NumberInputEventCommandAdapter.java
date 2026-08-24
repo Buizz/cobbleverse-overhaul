@@ -32,17 +32,26 @@ public final class NumberInputEventCommandAdapter implements EventCommandAdapter
             || instruction.resultVariable() == null) {
             throw new EventRuntimeException("number_input requires await, resume, and a result variable");
         }
-        Bounds bounds = bounds(instruction, environment, context.locals());
+        InputSpec spec = spec(instruction, environment, context.locals());
         EventNumberInputGateway.OpenResult opened = gateway.open(
             new EventNumberInputGateway.NumberInputRequest(
                 context.sessionKey(), context.sourceDigest(), instruction.instructionId(),
-                bounds.minimum(), bounds.maximum()
+                spec.bounds().minimum(), spec.bounds().maximum(),
+                spec.currentBalance(), spec.unitPrice()
             )
         );
         return new Waiting(opened.token(), opened.expiresAtEpochMilli());
     }
 
     public static Bounds bounds(
+        EventScript.Instruction instruction,
+        EventExpressionEnvironment environment,
+        Map<String, JsonElement> locals
+    ) {
+        return spec(instruction, environment, locals).bounds();
+    }
+
+    public static InputSpec spec(
         EventScript.Instruction instruction,
         EventExpressionEnvironment environment,
         Map<String, JsonElement> locals
@@ -54,6 +63,8 @@ public final class NumberInputEventCommandAdapter implements EventCommandAdapter
         EventExpressionEvaluator evaluator = new EventExpressionEvaluator(environment);
         Integer minimum = null;
         Integer maximum = null;
+        Integer currentBalance = null;
+        Integer unitPrice = null;
         for (JsonElement element : raw.getAsJsonArray()) {
             if (!element.isJsonObject()) throw new EventRuntimeException("number_input property must be an object");
             JsonObject property = element.getAsJsonObject();
@@ -61,12 +72,20 @@ public final class NumberInputEventCommandAdapter implements EventCommandAdapter
             int value = evaluator.evaluateInt(property.get("value"), locals);
             if ("min".equals(name) && minimum == null) minimum = value;
             else if ("max".equals(name) && maximum == null) maximum = value;
+            else if ("current".equals(name) && currentBalance == null) currentBalance = value;
+            else if ("unit_price".equals(name) && unitPrice == null) unitPrice = value;
             else throw new EventRuntimeException("invalid or duplicate number_input property: " + name);
         }
         if (minimum == null || maximum == null || minimum > maximum) {
             throw new EventRuntimeException("number_input requires min <= max");
         }
-        return new Bounds(minimum, maximum);
+        if ((currentBalance == null) != (unitPrice == null)
+            || currentBalance != null && (currentBalance < 0 || unitPrice < 1)) {
+            throw new EventRuntimeException(
+                "number_input current and unit_price must be valid and provided together"
+            );
+        }
+        return new InputSpec(new Bounds(minimum, maximum), currentBalance, unitPrice);
     }
 
     public record Bounds(int minimum, int maximum) {
@@ -74,4 +93,6 @@ public final class NumberInputEventCommandAdapter implements EventCommandAdapter
             return value >= minimum && value <= maximum;
         }
     }
+
+    public record InputSpec(Bounds bounds, Integer currentBalance, Integer unitPrice) {}
 }

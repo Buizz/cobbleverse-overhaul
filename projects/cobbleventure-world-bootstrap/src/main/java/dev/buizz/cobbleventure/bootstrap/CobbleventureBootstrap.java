@@ -103,6 +103,7 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -242,6 +243,9 @@ public final class CobbleventureBootstrap {
         "strength", "rock_smash"
     );
     private static final String CAVE_ROAD_ANCHOR = "cobbleventure:road_anchor";
+    private static final String UNDERGROUND_ENTRY_MARKER = "cobbleventure:underground_entry";
+    private static final Map<String, BlockPoint> ACTIVE_UNDERGROUND_SURFACE_ENTRIES =
+        new ConcurrentHashMap<>();
     private static volatile List<FacilityPortal> activeFacilityPortals = List.of();
     private static volatile List<FacilityMusicZone> activeFacilityMusicZones = List.of();
     private static volatile Map<String, SettlementPlan> activeSettlements = Map.of();
@@ -253,6 +257,7 @@ public final class CobbleventureBootstrap {
     private static volatile List<ForestRegion> activeForestRegions = List.of();
     private static volatile Map<String, JsonObject> activeForestDocuments = Map.of();
     private static volatile Map<String, JsonObject> activeCaveDocuments = Map.of();
+    private static volatile Map<String, JsonObject> activeUndergroundRoadDocuments = Map.of();
     private static volatile ShoreDistanceField activeShoreDistances;
     private static volatile int integrationShutdownTicks = -1;
     private static volatile UUID pendingInitializationPlayer;
@@ -310,6 +315,7 @@ public final class CobbleventureBootstrap {
             ResourceLocation.fromNamespaceAndPath("cobbleventure", "sealed_forest_edge")
         );
     public CobbleventureBootstrap(IEventBus modBus) {
+        modBus.addListener(CobbleventureBootstrap::onCommonSetup);
         EventLocationResolverRegistry.register(
             EventLocationRef.Resource.Kind.SETTLEMENT,
             CobbleventureBootstrap::resolveEventSettlement
@@ -413,6 +419,10 @@ public final class CobbleventureBootstrap {
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerStarted);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onServerTick);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onRegisterCommands);
+    }
+
+    private static void onCommonSetup(FMLCommonSetupEvent event) {
+        event.enqueueWork(DeferredXpBarRegistration::register);
     }
 
     private static EventLocationResolverRegistry.Resolution resolveEventSettlement(
@@ -745,6 +755,7 @@ public final class CobbleventureBootstrap {
         if (data.isTownDebrisCleanupPending(chunkKey)) {
             scheduledTownDebrisCleanup.putIfAbsent(chunkKey, level.getGameTime() + 2L);
         }
+        StructurePlacementFixes.scheduleCopycatChunkSync(player, event.getPos());
         repairLogBridgeChunk(level, event.getPos());
     }
 
@@ -836,6 +847,7 @@ public final class CobbleventureBootstrap {
         activeSettlements = runtime.settlements();
         activeFacilityPortals = facilityPortals(runtime.settlements());
         activeFacilityMusicZones = facilityMusicZones(level, runtime.settlements());
+        ACTIVE_UNDERGROUND_SURFACE_ENTRIES.clear();
         placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(level, runtime.hexWorld());
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
@@ -1305,7 +1317,11 @@ public final class CobbleventureBootstrap {
     }
 
     private static void placeCaveInteriors(ServerLevel level, HexWorldPlan world) {
+        UndergroundRoadSystem.generate(
+            level, world.seed(), activeUndergroundRoadDocuments.values()
+        );
         List<NaturalCaveGenerator.Entrance> entrances = world.caveEntrances().stream()
+            .filter(entrance -> !isUndergroundRoad(entrance))
             .filter(entrance -> entrance.destination() != null && entrance.portalAnchor() != null)
             .map(entrance -> new NaturalCaveGenerator.Entrance(
                 entrance.entrance(), entrance.cave(), entrance.destination(), entrance.portalAnchor(),
@@ -1315,6 +1331,10 @@ public final class CobbleventureBootstrap {
         NaturalCaveGenerator.generate(
             level, world.seed(), entrances
         );
+    }
+
+    private static boolean isUndergroundRoad(CaveEntrancePlan entrance) {
+        return entrance.cave().startsWith("cobbleventure:underground_road/");
     }
 
     private static void placeCaveEntrance(
@@ -1332,10 +1352,19 @@ public final class CobbleventureBootstrap {
         String caveStructure = caveEntranceStructure(world, entrance);
         CaveEntrancePlacement placement = placeCaveEntranceTemplate(
             level, caveStructure, mouthX, plannedFloorY, mouthZ,
-            horizontalDirection(forwardX, forwardZ)
+            horizontalDirection(forwardX, forwardZ), isUndergroundRoad(entrance)
         );
         if (placement == null) {
             return;
+        }
+        if (isUndergroundRoad(entrance)) {
+            ACTIVE_UNDERGROUND_SURFACE_ENTRIES.put(
+                entrance.id(), new BlockPoint(
+                    placement.undergroundEntryPosition().getX(),
+                    placement.undergroundEntryPosition().getY(),
+                    placement.undergroundEntryPosition().getZ()
+                )
+            );
         }
         if (!NativeWorldGeneration.usesNativeGenerator(
             level.getChunkSource().getGenerator()
@@ -1378,7 +1407,8 @@ public final class CobbleventureBootstrap {
      */
     private static CaveEntrancePlacement placeCaveEntranceTemplate(
         ServerLevel level, String structure,
-        int anchorX, int floorY, int anchorZ, Direction inward
+        int anchorX, int floorY, int anchorZ, Direction inward,
+        boolean requireUndergroundEntry
     ) {
         ResourceLocation structureId = ResourceLocation.tryParse(structure);
         if (structureId == null) {
@@ -1392,7 +1422,8 @@ public final class CobbleventureBootstrap {
         }
         StructureTemplate template = optionalTemplate.orElseThrow();
         var size = template.getSize();
-        if ((size.getX() & 1) == 0 || (size.getZ() & 1) == 0) {
+        if (!requireUndergroundEntry
+            && ((size.getX() & 1) == 0 || (size.getZ() & 1) == 0)) {
             LOGGER.error(
                 "Cave entrance template must have odd X/Z dimensions: structure={}, size={}x{}x{}",
                 structure, size.getX(), size.getY(), size.getZ()
@@ -1406,6 +1437,16 @@ public final class CobbleventureBootstrap {
             LOGGER.error(
                 "Cave entrance template requires exactly one {} jigsaw: structure={}, found={}",
                 CAVE_ROAD_ANCHOR, structure, roadAnchors.size()
+            );
+            return null;
+        }
+        List<StructureTemplate.StructureBlockInfo> undergroundEntries = template.filterBlocks(
+            BlockPos.ZERO, new StructurePlaceSettings(), Blocks.JIGSAW
+        ).stream().filter(CobbleventureBootstrap::isUndergroundEntryMarker).toList();
+        if (requireUndergroundEntry && undergroundEntries.size() != 1) {
+            LOGGER.error(
+                "Underground entrance template requires exactly one {} jigsaw: structure={}, found={}",
+                UNDERGROUND_ENTRY_MARKER, structure, undergroundEntries.size()
             );
             return null;
         }
@@ -1482,14 +1523,35 @@ public final class CobbleventureBootstrap {
                 level.setBlock(placedAnchor.pos(), Blocks.AIR.defaultBlockState(), 2);
                 return null;
             }
-            level.setBlock(
-                placedAnchor.pos(), Blocks.COBBLESTONE.defaultBlockState(), 2
-            );
+            BlockState anchorFinalState = Blocks.COBBLESTONE.defaultBlockState();
+            if (placedAnchor.nbt() != null) {
+                try {
+                    anchorFinalState = BlockStateParser.parseForBlock(
+                        level.holderLookup(Registries.BLOCK),
+                        placedAnchor.nbt().getString("final_state"), false
+                    ).blockState();
+                } catch (CommandSyntaxException error) {
+                    LOGGER.warn("Invalid entrance road anchor final_state: {}", structure);
+                }
+            }
+            level.setBlock(placedAnchor.pos(), anchorFinalState, 2);
+            BlockPos undergroundEntryPosition = null;
+            if (requireUndergroundEntry) {
+                List<StructureTemplate.StructureBlockInfo> placedEntries = template.filterBlocks(
+                    blockPos, settings, Blocks.JIGSAW
+                ).stream().filter(CobbleventureBootstrap::isUndergroundEntryMarker).toList();
+                if (placedEntries.size() != 1) {
+                    LOGGER.error("Rotated underground entry marker is invalid: structure={}, found={}", structure, placedEntries.size());
+                    return null;
+                }
+                undergroundEntryPosition = placedEntries.getFirst().pos();
+                level.setBlock(undergroundEntryPosition, Blocks.AIR.defaultBlockState(), 2);
+            }
             LOGGER.info(
                 "Cave entrance template placed: structure={}, roadAnchor={}, rotation={}, voidMask={}",
                 structure, placedAnchor.pos(), rotationName, cleared
             );
-            return new CaveEntrancePlacement(placedAnchor.pos(), floorY);
+            return new CaveEntrancePlacement(placedAnchor.pos(), undergroundEntryPosition, floorY);
         } finally {
             releaseForcedChunks(level, forcedChunks);
         }
@@ -1500,6 +1562,13 @@ public final class CobbleventureBootstrap {
     ) {
         return marker.nbt() != null
             && CAVE_ROAD_ANCHOR.equals(marker.nbt().getString("name"));
+    }
+
+    private static boolean isUndergroundEntryMarker(
+        StructureTemplate.StructureBlockInfo marker
+    ) {
+        return marker.nbt() != null
+            && UNDERGROUND_ENTRY_MARKER.equals(marker.nbt().getString("name"));
     }
 
     private static void restoreCaveApproach(
@@ -1780,6 +1849,7 @@ public final class CobbleventureBootstrap {
 
     private record CaveEntrancePlacement(
         BlockPos markerPosition,
+        BlockPos undergroundEntryPosition,
         int floorY
     ) {}
 
@@ -5557,7 +5627,7 @@ public final class CobbleventureBootstrap {
             return false;
         }
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
-            if (!entrance.pokemonCenterEnabled()) {
+            if (!entrance.pokemonCenterEnabled() && !isUndergroundRoad(entrance)) {
                 continue;
             }
             if (entrance.destination() == null) {
@@ -5565,6 +5635,28 @@ public final class CobbleventureBootstrap {
             }
             CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
             if (player.serverLevel() == generationOne) {
+                if (isUndergroundRoad(entrance)) {
+                    BlockPoint surfaceEntry = ACTIVE_UNDERGROUND_SURFACE_ENTRIES.get(entrance.id());
+                    if (surfaceEntry == null) {
+                        continue;
+                    }
+                    double dx = player.getX() - (surfaceEntry.x() + 0.5D);
+                    double dy = player.getY() - surfaceEntry.y();
+                    double dz = player.getZ() - (surfaceEntry.z() + 0.5D);
+                    if (dx * dx + dz * dz > 4.0D || dy < -1.0D || dy > 3.0D) {
+                        continue;
+                    }
+                    BlockPoint destination = entrance.destination();
+                    player.getPersistentData().putLong(CAVE_PORTAL_COOLDOWN, gameTime + 40L);
+                    player.teleportTo(
+                        dungeons,
+                        destination.x() + 0.5D,
+                        destination.y(),
+                        destination.z() + 0.5D,
+                        player.getYRot(), player.getXRot()
+                    );
+                    return true;
+                }
                 // Use a short corridor volume rather than one two-block circle.
                 // Wide and diagonal cave mouths otherwise let players walk beside
                 // the trigger even though they are visibly inside the entrance.
@@ -5597,8 +5689,9 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             double dx = player.getX() - (portalAnchor.x() + 0.5D);
+            double dy = player.getY() - portalAnchor.y();
             double dz = player.getZ() - (portalAnchor.z() + 0.5D);
-            if (dx * dx + dz * dz > 4.0D) {
+            if (dx * dx + dz * dz > 4.0D || dy < -2.5D || dy > 2.5D) {
                 continue;
             }
             int returnX = mouth.x() - (int) Math.round(mouth.forwardX() * 5.0D);
@@ -7506,8 +7599,25 @@ public final class CobbleventureBootstrap {
         ServerLevel level, HexWorldPlan world
     ) {
         Map<String, JsonObject> caves = new HashMap<>();
+        Map<String, JsonObject> undergroundRoads = new HashMap<>();
         List<CaveEntrancePlan> entrances = new ArrayList<>();
         for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            if (isUndergroundRoad(entrance)) {
+                JsonObject road = undergroundRoads.computeIfAbsent(
+                    entrance.cave(), roadId -> UndergroundRoadSystem.loadDocument(level, roadId)
+                );
+                UndergroundRoadSystem.Port port = UndergroundRoadSystem.resolvePort(
+                    level, road, entrance.entrance()
+                );
+                entrances.add(new CaveEntrancePlan(
+                    entrance.id(), entrance.cave(), entrance.entrance(), entrance.anchor(),
+                    entrance.facing(), entrance.structure(), entrance.structureVariants(),
+                    entrance.pokemonCenterEnabled(), entrance.pokemonCenterStructure(),
+                    entrance.pokemonCenterOffset(), port.destination(), port.portalAnchor(),
+                    NaturalCaveGenerator.Settings.defaults()
+                ));
+                continue;
+            }
             JsonObject cave = caves.computeIfAbsent(entrance.cave(), caveId -> {
                 String slug = caveId.substring(caveId.lastIndexOf('/') + 1);
                 return readJsonResource(level, "caves/generation_1/" + slug + ".json");
@@ -7604,6 +7714,7 @@ public final class CobbleventureBootstrap {
         }
         activeCaveEncounters = List.copyOf(caveEncounters);
         activeCaveDocuments = Map.copyOf(caves);
+        activeUndergroundRoadDocuments = Map.copyOf(undergroundRoads);
         activeForestEncounters = Map.copyOf(forestEncounters);
         activeForestDocuments = Map.copyOf(forests);
         activeForestRegions = forests.entrySet().stream()

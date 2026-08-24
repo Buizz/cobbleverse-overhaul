@@ -1,28 +1,15 @@
 package dev.buizz.cobbleventure.casino;
 
-import com.mojang.math.Transformation;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -37,8 +24,6 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 /** Links a functional dealer NPC to a nearby authored Playing Cards blackjack table. */
 @EventBusSubscriber(modid = CobbleventureCasino.MOD_ID)
@@ -58,14 +43,7 @@ public final class BlackjackTableFacade {
     private static final String LOCKED_DECORATION_TAG =
         "cobbleventure_blackjack_locked_playingcards";
     private static final String DECORATION_ANCHOR = "cobbleventureBlackjackAnchor";
-    private static final ResourceLocation CARD_DECK = itemId("card_deck");
-    private static final ResourceLocation COVERED_CARD = itemId("card_covered");
-    private static final List<ResourceLocation> POKER_CHIPS = List.of(
-        itemId("poker_chip_red"), itemId("poker_chip_blue"),
-        itemId("poker_chip_green"), itemId("poker_chip_black"),
-        itemId("poker_chip_white")
-    );
-
+    private static final String CASINO_TABLE_MARKER = "cobbleventureBlackjackFacade";
     private BlackjackTableFacade() {
     }
 
@@ -250,35 +228,14 @@ public final class BlackjackTableFacade {
     }
 
     private static void ensureDecorations(ServerLevel level, BlockPos backend) {
-        List<BlockPos> facade = facadeCluster(level, backend);
-        if (facade.isEmpty()) {
-            return;
-        }
         long anchor = backend.asLong();
-        List<Entity> existing = level.getEntities(
+        // Earlier builds added one synthetic card and chip display per table block.
+        // Authored Playing Cards entities are the only decorations we keep now.
+        level.getEntities(
             (Entity)null, new AABB(backend).inflate(SEARCH_RADIUS),
             entity -> entity.getTags().contains(DECORATION_TAG)
                 && entity.getPersistentData().getLong(DECORATION_ANCHOR) == anchor
-        );
-        if (existing.size() == facade.size() * 2) {
-            return;
-        }
-        existing.forEach(Entity::discard);
-        facade.sort(Comparator.comparingInt((BlockPos position) -> position.getX())
-            .thenComparingInt(BlockPos::getZ));
-        for (int index = 0; index < facade.size(); index++) {
-            BlockPos position = facade.get(index);
-            ResourceLocation card = index == 0 ? CARD_DECK : COVERED_CARD;
-            spawnDecoration(
-                level, backend, position.getX() + 0.38D, position.getY() + 0.965D,
-                position.getZ() + 0.43D, card, 0.34F, index % 2 == 0 ? -12.0F : 12.0F
-            );
-            spawnDecoration(
-                level, backend, position.getX() + 0.69D, position.getY() + 0.968D,
-                position.getZ() + 0.67D, POKER_CHIPS.get(index % POKER_CHIPS.size()),
-                0.24F, 0.0F
-            );
-        }
+        ).forEach(Entity::discard);
     }
 
     private static BlockPos nearestFacade(Level level, BlockPos center) {
@@ -298,68 +255,6 @@ public final class BlackjackTableFacade {
             }
         }
         return nearest;
-    }
-
-    private static List<BlockPos> facadeCluster(Level level, BlockPos backend) {
-        BlockPos start = null;
-        for (int height = 1; height <= 4; height++) {
-            BlockPos candidate = backend.above(height);
-            if (blockId(level.getBlockState(candidate)).equals(FACADE)) {
-                start = candidate;
-                break;
-            }
-        }
-        if (start == null) {
-            return new ArrayList<>();
-        }
-        ArrayDeque<BlockPos> pending = new ArrayDeque<>();
-        Set<BlockPos> visited = new HashSet<>();
-        pending.add(start.immutable());
-        while (!pending.isEmpty() && visited.size() < 32) {
-            BlockPos position = pending.removeFirst();
-            if (visited.contains(position)
-                || !blockId(level.getBlockState(position)).equals(FACADE)) {
-                continue;
-            }
-            visited.add(position);
-            pending.add(position.north());
-            pending.add(position.east());
-            pending.add(position.south());
-            pending.add(position.west());
-        }
-        return new ArrayList<>(visited);
-    }
-
-    private static void spawnDecoration(
-        ServerLevel level, BlockPos backend, double x, double y, double z,
-        ResourceLocation itemId, float scale, float rotationDegrees
-    ) {
-        Item item = BuiltInRegistries.ITEM.getOptional(itemId).orElse(Items.AIR);
-        Display.ItemDisplay display = EntityType.ITEM_DISPLAY.create(level);
-        if (item == Items.AIR || display == null) {
-            return;
-        }
-        display.setPos(x, y, z);
-        CompoundTag displayData = new CompoundTag();
-        display.saveWithoutId(displayData);
-        displayData.put(
-            "item", new ItemStack(item).save(level.registryAccess(), new CompoundTag())
-        );
-        displayData.putString("item_display", "fixed");
-        Transformation transformation = new Transformation(
-            new Vector3f(),
-            new Quaternionf().rotateX((float)Math.toRadians(90.0D))
-                .rotateZ((float)Math.toRadians(rotationDegrees)),
-            new Vector3f(scale, scale, scale), new Quaternionf()
-        );
-        Transformation.EXTENDED_CODEC.encodeStart(NbtOps.INSTANCE, transformation)
-            .ifSuccess(encoded -> displayData.put("transformation", encoded));
-        display.load(displayData);
-        display.setInvulnerable(true);
-        display.setNoGravity(true);
-        display.addTag(DECORATION_TAG);
-        display.getPersistentData().putLong(DECORATION_ANCHOR, backend.asLong());
-        level.addFreshEntity(display);
     }
 
     private static BlockPos nearestBackend(Level level, BlockPos center) {
@@ -385,6 +280,9 @@ public final class BlackjackTableFacade {
         if (nearestBackend(level, position) != null) {
             return true;
         }
+        if (nearestManagedFacade(level, position) != null) {
+            return true;
+        }
         if (!(level instanceof ServerLevel serverLevel)) {
             return false;
         }
@@ -399,6 +297,28 @@ public final class BlackjackTableFacade {
             }
         }
         return false;
+    }
+
+    private static BlockPos nearestManagedFacade(Level level, BlockPos center) {
+        BlockPos nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (BlockPos cursor : BlockPos.betweenClosed(
+            center.offset(-LINK_RADIUS, -2, -LINK_RADIUS),
+            center.offset(LINK_RADIUS, 2, LINK_RADIUS)
+        )) {
+            if (!blockId(level.getBlockState(cursor)).equals(FACADE)
+                || level.getBlockEntity(cursor) == null
+                || !level.getBlockEntity(cursor).getPersistentData()
+                    .getBoolean(CASINO_TABLE_MARKER)) {
+                continue;
+            }
+            double distance = cursor.distSqr(center);
+            if (distance < nearestDistance) {
+                nearest = cursor.immutable();
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
     }
 
     private static boolean isPlayingCardsItem(ItemStack stack) {
@@ -429,7 +349,4 @@ public final class BlackjackTableFacade {
         return BuiltInRegistries.BLOCK.getKey(state.getBlock());
     }
 
-    private static ResourceLocation itemId(String path) {
-        return ResourceLocation.fromNamespaceAndPath("playingcards", path);
-    }
 }

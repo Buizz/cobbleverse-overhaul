@@ -1873,3 +1873,15 @@ body { font-size: 14px; line-height: 1.45; }
 .gacha-catalog-table { display:grid; gap:6px; overflow:auto; }
 .gacha-catalog-row { display:grid; grid-template-columns:110px 130px 90px minmax(180px,1fr) 64px 105px 32px; align-items:center; gap:6px; min-width:820px; }
 .gacha-catalog-row.head { color:#687b71; font-size:8px; font-weight:700; }
+.underground-module-builder { display:grid; gap:12px; padding:14px; border:1px solid #9fb9b3; background:#f2f7f5; }
+.underground-module-toolbar,.underground-port-toolbar { display:flex; flex-wrap:wrap; align-items:end; gap:8px; }
+.underground-module-toolbar label { display:grid; min-width:120px; flex:1; gap:4px; }
+.underground-module-toolbar label:first-child { flex:3; }
+#underground-module-canvas { width:100%; max-height:560px; border:1px solid #6f8884; background:#10191e; cursor:crosshair; }
+#underground-module-canvas.is-placing { outline:3px solid rgba(215,244,106,.55); outline-offset:2px; }
+.underground-module-selection { display:flex; flex-wrap:wrap; align-items:end; gap:9px; min-height:48px; padding:10px; border-left:4px solid #78951c; background:#fff; }
+.underground-module-selection code { flex:1 1 300px; color:#5a6e64; }
+.underground-module-selection label { display:grid; gap:3px; color:#5a6e64; font-size:9px; }
+.underground-module-selection input { width:78px; }
+.underground-port-toolbar input,.underground-port-toolbar select { min-width:150px; flex:1; }
+@media (max-width:700px) { .underground-module-toolbar,.underground-port-toolbar{display:grid;grid-template-columns:1fr}.underground-module-toolbar>*{width:100%} }

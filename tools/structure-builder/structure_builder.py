@@ -427,6 +427,24 @@ def import_exports(root: Path, world: Path) -> int:
             pending.append((exported, target))
             pending_metadata.append((exported_metadata, target.with_suffix(".structure.json")))
 
+    underground_exports = export_root / "underground_road_modules"
+    if underground_exports.is_dir():
+        for exported in sorted(underground_exports.rglob("*.nbt")):
+            relative = exported.relative_to(export_root)
+            target = project_root / SOURCE_STRUCTURES / relative
+            metadata = read_metadata(exported.read_bytes())
+            ports = metadata.get("underground_connectors", [])
+            tags = [
+                port.get("tag") for port in ports
+                if isinstance(port, dict) and isinstance(port.get("tag"), str)
+            ] if isinstance(ports, list) else []
+            if len(tags) < 1 or len(tags) != len(set(tags)):
+                raise StructureBuilderError(
+                    f"지하통로 조각 NBT에는 중복 없는 직소 커넥터가 하나 이상 필요합니다: "
+                    f"{relative.as_posix()}"
+                )
+            pending.append((exported, target))
+
     changed = 0
     for exported, target in pending:
         payload = exported.read_bytes()

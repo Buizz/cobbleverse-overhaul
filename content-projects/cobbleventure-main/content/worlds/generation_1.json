@@ -2379,6 +2379,58 @@
         "snow_mountain": "cobbleventure:cave_entrance/snow_mountain"
       },
       "pokemon_center_enabled": true
+    },
+    {
+      "id": "cobbleventure:underground_entrance/cerulean_vermilion_cerulean",
+      "underground_road": "cobbleventure:underground_road/cerulean_vermilion",
+      "port": "cerulean",
+      "anchor": {
+        "q": 7,
+        "r": -1
+      },
+      "facing": "south",
+      "structure": "cobbleventure:underground_entrance/underground_passage",
+      "structure_variants": {},
+      "pokemon_center_enabled": false
+    },
+    {
+      "id": "cobbleventure:underground_entrance/cerulean_vermilion_vermilion",
+      "underground_road": "cobbleventure:underground_road/cerulean_vermilion",
+      "port": "vermilion",
+      "anchor": {
+        "q": 4,
+        "r": 4
+      },
+      "facing": "north",
+      "structure": "cobbleventure:underground_entrance/underground_passage",
+      "structure_variants": {},
+      "pokemon_center_enabled": false
+    },
+    {
+      "id": "cobbleventure:underground_entrance/celadon_lavender_celadon",
+      "underground_road": "cobbleventure:underground_road/celadon_lavender",
+      "port": "celadon",
+      "anchor": {
+        "q": 3,
+        "r": 2
+      },
+      "facing": "east",
+      "structure": "cobbleventure:underground_entrance/underground_passage",
+      "structure_variants": {},
+      "pokemon_center_enabled": false
+    },
+    {
+      "id": "cobbleventure:underground_entrance/celadon_lavender_lavender",
+      "underground_road": "cobbleventure:underground_road/celadon_lavender",
+      "port": "lavender",
+      "anchor": {
+        "q": 7,
+        "r": 2
+      },
+      "facing": "west",
+      "structure": "cobbleventure:underground_entrance/underground_passage",
+      "structure_variants": {},
+      "pokemon_center_enabled": false
     }
   ],
   "connections": [
@@ -2679,14 +2731,14 @@
       "id": "route_custom_06",
       "route_preset": "cobbleventure:route/route_custom_06",
       "from": "cobbleventure:settlement/celadon_city",
-      "to": "cobbleventure:settlement/saffron_city",
+      "to": "cobbleventure:underground_entrance/celadon_lavender_celadon",
       "anchors": [
         {
           "q": 1,
           "r": 2
         },
         {
-          "q": 5,
+          "q": 3,
           "r": 2
         }
       ],
@@ -2699,6 +2751,33 @@
           "q": 2,
           "r": 2
         },
+        {
+          "q": 3,
+          "r": 2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "무지개시티 - 동쪽 지하통로 입구 길"
+    },
+    {
+      "id": "route_celadon_underground_entrance",
+      "route_preset": "cobbleventure:route/route_custom_06",
+      "from": "cobbleventure:underground_entrance/celadon_lavender_celadon",
+      "to": "cobbleventure:settlement/saffron_city",
+      "anchors": [
+        {
+          "q": 3,
+          "r": 2
+        },
+        {
+          "q": 5,
+          "r": 2
+        }
+      ],
+      "cells": [
         {
           "q": 3,
           "r": 2
@@ -2716,7 +2795,7 @@
       "edge_noise": 0,
       "surface_style": "road",
       "pathfinding": "explicit",
-      "display_name": "무지개시티 - 노랑시티 길"
+      "display_name": "무지개시티 지하통로 입구 - 노랑시티 길"
     },
     {
       "id": "route_custom_08",
@@ -2818,15 +2897,15 @@
       "id": "route_custom_11",
       "route_preset": "cobbleventure:route/route_custom_11",
       "from": "cobbleventure:settlement/saffron_city",
-      "to": "cobbleventure:settlement/vermilion_city",
+      "to": "cobbleventure:underground_entrance/cerulean_vermilion_vermilion",
       "anchors": [
         {
           "q": 5,
           "r": 2
         },
         {
-          "q": 3,
-          "r": 6
+          "q": 4,
+          "r": 4
         }
       ],
       "cells": [
@@ -2838,6 +2917,33 @@
           "q": 5,
           "r": 3
         },
+        {
+          "q": 4,
+          "r": 4
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "노랑시티 - 갈색시티 지하통로 입구 길"
+    },
+    {
+      "id": "route_vermilion_underground_entrance",
+      "route_preset": "cobbleventure:route/route_custom_11",
+      "from": "cobbleventure:underground_entrance/cerulean_vermilion_vermilion",
+      "to": "cobbleventure:settlement/vermilion_city",
+      "anchors": [
+        {
+          "q": 4,
+          "r": 4
+        },
+        {
+          "q": 3,
+          "r": 6
+        }
+      ],
+      "cells": [
         {
           "q": 4,
           "r": 4
@@ -2855,13 +2961,13 @@
       "edge_noise": 0,
       "surface_style": "road",
       "pathfinding": "explicit",
-      "display_name": "노랑시티 - 갈색시티 길"
+      "display_name": "갈색시티 북쪽 지하통로 입구 길"
     },
     {
       "id": "route_custom_12",
       "route_preset": "cobbleventure:route/route_custom_12",
       "from": "cobbleventure:settlement/saffron_city",
-      "to": "cobbleventure:settlement/cerulean_city",
+      "to": "cobbleventure:underground_entrance/cerulean_vermilion_cerulean",
       "anchors": [
         {
           "q": 5,
@@ -2869,7 +2975,7 @@
         },
         {
           "q": 7,
-          "r": -2
+          "r": -1
         }
       ],
       "cells": [
@@ -2888,6 +2994,33 @@
         {
           "q": 7,
           "r": -1
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "노랑시티 - 블루시티 지하통로 입구 길"
+    },
+    {
+      "id": "route_cerulean_underground_entrance",
+      "route_preset": "cobbleventure:route/route_custom_12",
+      "from": "cobbleventure:underground_entrance/cerulean_vermilion_cerulean",
+      "to": "cobbleventure:settlement/cerulean_city",
+      "anchors": [
+        {
+          "q": 7,
+          "r": -1
+        },
+        {
+          "q": 7,
+          "r": -2
+        }
+      ],
+      "cells": [
+        {
+          "q": 7,
+          "r": -1
         },
         {
           "q": 7,
@@ -2898,20 +3031,20 @@
       "edge_noise": 0,
       "surface_style": "road",
       "pathfinding": "explicit",
-      "display_name": "노랑시티 - 블루시티 길"
+      "display_name": "블루시티 남쪽 지하통로 입구 길"
     },
     {
       "id": "route_custom_13",
       "route_preset": "cobbleventure:route/route_custom_13",
       "from": "cobbleventure:settlement/saffron_city",
-      "to": "cobbleventure:settlement/lavender_town",
+      "to": "cobbleventure:underground_entrance/celadon_lavender_lavender",
       "anchors": [
         {
           "q": 5,
           "r": 2
         },
         {
-          "q": 9,
+          "q": 7,
           "r": 2
         }
       ],
@@ -2924,6 +3057,33 @@
           "q": 6,
           "r": 2
         },
+        {
+          "q": 7,
+          "r": 2
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "노랑시티 - 보라마을 지하통로 입구 길"
+    },
+    {
+      "id": "route_lavender_underground_entrance",
+      "route_preset": "cobbleventure:route/route_custom_13",
+      "from": "cobbleventure:underground_entrance/celadon_lavender_lavender",
+      "to": "cobbleventure:settlement/lavender_town",
+      "anchors": [
+        {
+          "q": 7,
+          "r": 2
+        },
+        {
+          "q": 9,
+          "r": 2
+        }
+      ],
+      "cells": [
         {
           "q": 7,
           "r": 2
@@ -2941,7 +3101,7 @@
       "edge_noise": 0,
       "surface_style": "road",
       "pathfinding": "explicit",
-      "display_name": "노랑시티 - 보라타운 길"
+      "display_name": "보라마을 서쪽 지하통로 입구 길"
     },
     {
       "id": "route_custom_14",

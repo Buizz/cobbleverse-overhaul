@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderGetter;
@@ -24,6 +25,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DoorBlock;
@@ -34,6 +36,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -47,10 +50,22 @@ final class StructurePlacementFixes {
     private static final ResourceLocation ELEVATOR_CONTACT = id("create", "elevator_contact");
     private static final int ELEVATOR_ASSEMBLY_DELAY_TICKS = 2;
     private static final int ELEVATOR_ASSEMBLY_MAX_ATTEMPTS = 20;
+    private static final int COPYCAT_RESTORE_DELAY_TICKS = 2;
+    private static final int COPYCAT_RESTORE_RETRY_TICKS = 5;
+    private static final int COPYCAT_RESTORE_MAX_ATTEMPTS = 20;
+    private static final int COPYCAT_RESTORE_PASSES = 2;
+    private static final int COPYCAT_CHUNK_SYNC_DELAY_TICKS = 2;
+    private static final int COPYCAT_CHUNK_SYNC_PASSES = 2;
     private static final Map<ElevatorPulleyKey, PendingElevatorAssembly>
         PENDING_ELEVATOR_ASSEMBLIES = new LinkedHashMap<>();
     private static final Map<ElevatorDoorKey, ElevatorLandingDoors>
         ELEVATOR_LANDING_DOORS = new LinkedHashMap<>();
+    private static final Map<CopycatBlockKey, PendingCopycatRestore>
+        PENDING_COPYCAT_RESTORES = new LinkedHashMap<>();
+    private static final Map<CopycatChunkSyncKey, PendingCopycatChunkSync>
+        PENDING_COPYCAT_CHUNK_SYNCS = new LinkedHashMap<>();
+    private static final Map<Class<?>, Method> COPYCAT_MULTI_SET_MATERIAL_METHODS =
+        new LinkedHashMap<>();
     private static final Map<ResourceLocation, ResourceLocation> FRIDGE_LOWER_BY_UPPER = Map.of(
         id("cobblefurnies", "light_freezer"), id("cobblefurnies", "light_fridge"),
         id("cobblefurnies", "dark_freezer"), id("cobblefurnies", "dark_fridge")
@@ -123,9 +138,13 @@ final class StructurePlacementFixes {
     static void clearPendingElevatorAssemblies() {
         PENDING_ELEVATOR_ASSEMBLIES.clear();
         ELEVATOR_LANDING_DOORS.clear();
+        PENDING_COPYCAT_RESTORES.clear();
+        PENDING_COPYCAT_CHUNK_SYNCS.clear();
     }
 
     static void tickPendingElevatorAssemblies(MinecraftServer server) {
+        tickPendingCopycatChunkSyncs(server);
+        tickPendingCopycatRestores(server);
         tickElevatorLandingDoors(server);
         Iterator<Map.Entry<ElevatorPulleyKey, PendingElevatorAssembly>> iterator =
             PENDING_ELEVATOR_ASSEMBLIES.entrySet().iterator();
@@ -161,6 +180,140 @@ final class StructurePlacementFixes {
                 pending.triggered() || result == ElevatorAssemblyResult.RETRY_TRIGGERED,
                 pending.minContactY(), pending.maxContactY()
             ));
+        }
+    }
+
+    /**
+     * A structure can finish restoring its copycat materials before a player starts tracking
+     * the containing chunk. In that ordering, the early block-entity packet is discarded by
+     * the client and its already-built chunk model keeps the default copycat-base material.
+     * Resend the authoritative block-entity data just after the chunk becomes visible.
+     */
+    static void scheduleCopycatChunkSync(ServerPlayer player, ChunkPos chunkPos) {
+        ServerLevel level = player.serverLevel();
+        CopycatChunkSyncKey key = new CopycatChunkSyncKey(
+            player.getUUID(), level.dimension(), chunkPos.toLong()
+        );
+        PENDING_COPYCAT_CHUNK_SYNCS.put(
+            key,
+            new PendingCopycatChunkSync(
+                COPYCAT_CHUNK_SYNC_PASSES,
+                level.getGameTime() + COPYCAT_CHUNK_SYNC_DELAY_TICKS
+            )
+        );
+    }
+
+    private static void tickPendingCopycatChunkSyncs(MinecraftServer server) {
+        Iterator<Map.Entry<CopycatChunkSyncKey, PendingCopycatChunkSync>> iterator =
+            PENDING_COPYCAT_CHUNK_SYNCS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<CopycatChunkSyncKey, PendingCopycatChunkSync> entry = iterator.next();
+            CopycatChunkSyncKey key = entry.getKey();
+            PendingCopycatChunkSync pending = entry.getValue();
+            ServerPlayer player = server.getPlayerList().getPlayer(key.playerId());
+            ServerLevel level = server.getLevel(key.dimension());
+            if (player == null || level == null
+                || !player.serverLevel().dimension().equals(key.dimension())) {
+                iterator.remove();
+                continue;
+            }
+            if (level.getGameTime() < pending.nextSyncTick()) {
+                continue;
+            }
+
+            ChunkPos chunkPos = new ChunkPos(key.chunkKey());
+            LevelChunk chunk = level.getChunkSource().getChunkNow(chunkPos.x, chunkPos.z);
+            if (chunk == null) {
+                iterator.remove();
+                continue;
+            }
+
+            int synced = 0;
+            for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
+                ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(
+                    blockEntity.getBlockState().getBlock()
+                );
+                if (!isCopycatBlock(blockId)) {
+                    continue;
+                }
+                var packet = blockEntity.getUpdatePacket();
+                if (packet != null) {
+                    player.connection.send(packet);
+                    synced++;
+                }
+            }
+            if (synced > 0) {
+                LOGGER.debug(
+                    "Resent {} copycat block entities to {} for tracked chunk {}",
+                    synced, player.getGameProfile().getName(), chunkPos
+                );
+            }
+
+            int remainingPasses = pending.remainingPasses() - 1;
+            if (remainingPasses <= 0) {
+                iterator.remove();
+            } else {
+                entry.setValue(new PendingCopycatChunkSync(
+                    remainingPasses, level.getGameTime() + COPYCAT_RESTORE_RETRY_TICKS
+                ));
+            }
+        }
+    }
+
+    private static void tickPendingCopycatRestores(MinecraftServer server) {
+        Iterator<Map.Entry<CopycatBlockKey, PendingCopycatRestore>> iterator =
+            PENDING_COPYCAT_RESTORES.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<CopycatBlockKey, PendingCopycatRestore> entry = iterator.next();
+            CopycatBlockKey key = entry.getKey();
+            PendingCopycatRestore pending = entry.getValue();
+            ServerLevel level = server.getLevel(key.dimension());
+            if (level == null || level.getGameTime() < pending.nextAttemptTick()) {
+                continue;
+            }
+
+            BlockState state = level.getBlockState(key.position());
+            if (!BuiltInRegistries.BLOCK.getKey(state.getBlock()).equals(pending.blockId())) {
+                iterator.remove();
+                continue;
+            }
+
+            BlockEntity blockEntity = level.getBlockEntity(key.position());
+            if (blockEntity == null) {
+                int attempts = pending.attempts() + 1;
+                if (attempts >= COPYCAT_RESTORE_MAX_ATTEMPTS) {
+                    LOGGER.warn(
+                        "Copycat material could not be restored after structure placement: "
+                            + "dimension={}, position={}, block={}",
+                        key.dimension().location(), key.position(), pending.blockId()
+                    );
+                    iterator.remove();
+                } else {
+                    entry.setValue(pending.withRetry(
+                        attempts, level.getGameTime() + COPYCAT_RESTORE_RETRY_TICKS
+                    ));
+                }
+                continue;
+            }
+
+            try {
+                applyCopycatMaterial(level, key.position(), state, blockEntity, pending.data());
+                int remainingPasses = pending.remainingPasses() - 1;
+                if (remainingPasses <= 0) {
+                    iterator.remove();
+                } else {
+                    entry.setValue(pending.withPass(
+                        remainingPasses,
+                        level.getGameTime() + COPYCAT_RESTORE_RETRY_TICKS
+                    ));
+                }
+            } catch (RuntimeException error) {
+                LOGGER.warn(
+                    "Failed delayed copycat material restore at {} for {}",
+                    key.position(), pending.blockId(), error
+                );
+                iterator.remove();
+            }
         }
     }
 
@@ -525,49 +678,42 @@ final class StructurePlacementFixes {
                 if (!state.is(copycatBlock)) {
                     continue;
                 }
+                CompoundTag transformedData = transformCopycatMaterialData(
+                    sourceData,
+                    level.holderLookup(Registries.BLOCK),
+                    settings.getMirror(),
+                    settings.getRotation()
+                );
+                ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(copycatBlock);
+                PENDING_COPYCAT_RESTORES.put(
+                    new CopycatBlockKey(level.dimension(), info.pos().immutable()),
+                    new PendingCopycatRestore(
+                        blockId,
+                        transformedData.copy(),
+                        0,
+                        COPYCAT_RESTORE_PASSES,
+                        level.getGameTime() + COPYCAT_RESTORE_DELAY_TICKS
+                    )
+                );
                 try {
                     // Copycats+ validates the consumed item and material while reading NBT.
                     // BlockEntity.loadStatic() performs that read before attaching a Level,
                     // so level-sensitive copycats can reject valid authored material and
-                    // reset themselves to create:copycat_base. Create a fresh entity from the
-                    // already placed type and attach the world before loading its data.
+                    // reset themselves to create:copycat_base. Reuse the entity already
+                    // registered in the chunk and reload it now that it has a Level. Replacing
+                    // an entity after placement can leave the chunk's lifecycle and pending
+                    // synchronization associated with the original default-material instance.
                     BlockEntity placedEntity = level.getBlockEntity(info.pos());
-                    BlockEntity restoredEntity = placedEntity == null ? null
-                        : placedEntity.getType().create(info.pos(), state);
-                    if (restoredEntity == null) {
+                    if (placedEntity == null) {
                         LOGGER.warn(
-                            "Copycat material NBT could not create a block entity at {} for {}",
+                            "Copycat material NBT found no block entity at {} for {}",
                             info.pos(), BuiltInRegistries.BLOCK.getKey(copycatBlock)
                         );
                         continue;
                     }
-                    restoredEntity.setLevel(level);
-                    restoredEntity.loadWithComponents(
-                        transformCopycatMaterialData(
-                            sourceData,
-                            level.holderLookup(Registries.BLOCK),
-                            settings.getMirror(),
-                            settings.getRotation()
-                        ),
-                        level.registryAccess()
+                    applyCopycatMaterial(
+                        level, info.pos(), state, placedEntity, transformedData
                     );
-                    level.removeBlockEntity(info.pos());
-                    level.setBlockEntity(restoredEntity);
-                    restoredEntity.setChanged();
-                    level.sendBlockUpdated(
-                        info.pos(),
-                        state,
-                        state,
-                        Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE
-                    );
-                    level.getChunkSource().blockChanged(info.pos());
-                    // Structure placement may finish after the client already received this
-                    // chunk. A state update alone does not resend the authored copycat material.
-                    if (restoredEntity.getUpdatePacket() != null) {
-                        for (ServerPlayer player : level.players()) {
-                            player.connection.send(restoredEntity.getUpdatePacket());
-                        }
-                    }
                     restored++;
                 } catch (RuntimeException error) {
                     LOGGER.warn(
@@ -579,6 +725,94 @@ final class StructurePlacementFixes {
         }
         if (restored > 0) {
             LOGGER.debug("Restored {} copycat material block entities at {}", restored, origin);
+        }
+    }
+
+    private static void applyCopycatMaterial(
+        ServerLevel level,
+        BlockPos position,
+        BlockState state,
+        BlockEntity blockEntity,
+        CompoundTag data
+    ) {
+        blockEntity.loadWithComponents(data.copy(), level.registryAccess());
+        applyMultiStateCopycatMaterials(
+            blockEntity, data, level.holderLookup(Registries.BLOCK)
+        );
+        blockEntity.setChanged();
+        level.sendBlockUpdated(
+            position, state, state, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE
+        );
+        level.getChunkSource().blockChanged(position);
+        // A structure can be placed after a player already started tracking its chunk.
+        // Send the block-entity payload as well as the state update so Copycats+ rebuilds
+        // the model data for both single-state copycats and top/bottom copycat slabs.
+        var updatePacket = blockEntity.getUpdatePacket();
+        if (updatePacket != null) {
+            for (ServerPlayer player : level.players()) {
+                player.connection.send(updatePacket);
+            }
+        }
+    }
+
+    /**
+     * Loading the raw block-entity tag is sufficient for storage, but Copycats+' multi-state
+     * blocks (notably {@code copycat_slab}) also rebuild their client model through the public
+     * {@code setMaterial(part, state)} path. Invoke that path for every authored top/bottom part
+     * instead of treating the slab like Create's single-material copycat panel.
+     */
+    private static void applyMultiStateCopycatMaterials(
+        BlockEntity blockEntity,
+        CompoundTag data,
+        HolderGetter<Block> blocks
+    ) {
+        if (!data.contains("material_data", Tag.TAG_COMPOUND)) {
+            return;
+        }
+        Method setMaterial = COPYCAT_MULTI_SET_MATERIAL_METHODS.computeIfAbsent(
+            blockEntity.getClass(), StructurePlacementFixes::findMultiStateSetMaterialMethod
+        );
+        CompoundTag materialData = data.getCompound("material_data");
+        for (String part : materialData.getAllKeys()) {
+            if (!materialData.contains(part, Tag.TAG_COMPOUND)) {
+                continue;
+            }
+            CompoundTag partData = materialData.getCompound(part);
+            if (!partData.contains("material", Tag.TAG_COMPOUND)) {
+                continue;
+            }
+            BlockState material = NbtUtils.readBlockState(
+                blocks, partData.getCompound("material")
+            );
+            try {
+                setMaterial.invoke(blockEntity, part, material);
+            } catch (IllegalAccessException error) {
+                throw new IllegalStateException(
+                    "Cannot access Copycats+ multi-state material setter", error
+                );
+            } catch (InvocationTargetException error) {
+                Throwable cause = error.getCause();
+                if (cause instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new IllegalStateException(
+                    "Copycats+ multi-state material setter failed", cause
+                );
+            }
+        }
+    }
+
+    private static Method findMultiStateSetMaterialMethod(Class<?> blockEntityClass) {
+        try {
+            return blockEntityClass.getMethod(
+                "setMaterial", String.class, BlockState.class
+            );
+        } catch (NoSuchMethodException error) {
+            throw new IllegalStateException(
+                "Block entity contains material_data but has no multi-state material setter: "
+                    + blockEntityClass.getName(),
+                error
+            );
         }
     }
 
@@ -749,6 +983,39 @@ final class StructurePlacementFixes {
     }
 
     private record ElevatorContactRange(int minY, int maxY) {
+    }
+
+    private record CopycatBlockKey(ResourceKey<Level> dimension, BlockPos position) {
+    }
+
+    private record CopycatChunkSyncKey(
+        UUID playerId,
+        ResourceKey<Level> dimension,
+        long chunkKey
+    ) {
+    }
+
+    private record PendingCopycatChunkSync(int remainingPasses, long nextSyncTick) {
+    }
+
+    private record PendingCopycatRestore(
+        ResourceLocation blockId,
+        CompoundTag data,
+        int attempts,
+        int remainingPasses,
+        long nextAttemptTick
+    ) {
+        private PendingCopycatRestore withRetry(int newAttempts, long newAttemptTick) {
+            return new PendingCopycatRestore(
+                blockId, data, newAttempts, remainingPasses, newAttemptTick
+            );
+        }
+
+        private PendingCopycatRestore withPass(int newRemainingPasses, long newAttemptTick) {
+            return new PendingCopycatRestore(
+                blockId, data, attempts, newRemainingPasses, newAttemptTick
+            );
+        }
     }
 
     private record PendingElevatorAssembly(

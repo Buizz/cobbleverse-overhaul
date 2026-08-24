@@ -55,6 +55,44 @@ NPC 링커 표시는 엔티티가 아니라 `.structure.json` 앵커로 저장�
 /cobbleventure_builder anchor show
 ```
 
+## 지하통로 조각 NBT 편집
+
+지하통로는 재사용 가능한 직선·코너·교차로·방 조각을 직접 건축한 뒤 웹에서 조립한다.
+
+```mcfunction
+/cobbleventure_builder underground module create <id> <폭> <높이> <깊이>
+/cobbleventure_builder underground module list
+/cobbleventure_builder underground module tp <id>
+/cobbleventure_builder underground connector <커넥터_태그> [facing|north|east|south|west|up|down]
+/cobbleventure_builder underground module save <id>
+```
+
+다른 조각과 맞물릴 블록 위에 서서 조각 바깥쪽을 바라본 뒤 `underground connector`를
+실행한다. 기존 바닥은 직소의 `final_state`로 보존되고, 직소 이름은
+`cobbleventure:underground_connector/<태그>`로 저장된다. 커넥터가 하나 이상
+있어야 저장 및 가져오기가 가능하다. `builder-import`는 결과를
+`content/structures/underground_road_modules/<id>.nbt`로 가져온다.
+지상 입출구로 사용할 계단 꼭대기는 방향을 `up`으로 지정한다. 웹에서는 연결되지
+않은 `up` 커넥터만 외부 포트로 선택할 수 있다.
+
+기본 플레이스홀더 조각은 `straight_16`, `straight_32`, `corner_16`,
+`t_junction`, `cross_junction`, `dead_end`, `entrance_room`, `small_room`,
+`large_room`, `stairs_up`, `stairs_down`이다. 심층암 통로 지형과 직소가 들어 있어
+즉시 조립할 수 있으며, 아래 명령으로 같은 NBT를 다시 만들 수 있다.
+
+```bat
+py -3 tools\structure-builder\generate_underground_road_modules.py
+```
+
+지상 출입구는 `underground_entrance/underground_passage.nbt` 건물을 사용한다.
+크기는 24×16×20이며, 정문의 `cobbleventure:road_anchor` 직소가 길 높이와 방향을
+정하는 배치 기준이다. 건물 내부 하행 계단의
+`cobbleventure:underground_entry` 직소가 실제 지하 이동 감지 위치다.
+
+```bat
+py -3 tools\structure-builder\generate_underground_entrance.py
+```
+
 ## 저장소로 가져오기
 
 ```bat

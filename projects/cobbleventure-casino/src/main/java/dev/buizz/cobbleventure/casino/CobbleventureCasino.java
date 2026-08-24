@@ -8,7 +8,6 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import com.mojang.math.Transformation;
 import dev.buizz.cobbleventure.casino.client.CasinoBalanceOverlay;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,13 +19,12 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -38,7 +36,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Interaction;
@@ -46,6 +43,9 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.bus.api.IEventBus;
@@ -55,8 +55,6 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,10 +68,15 @@ public final class CobbleventureCasino {
     private static final String ANCHOR_KEY = "cobbleventureGachaAnchor";
     private static volatile GachaCatalog catalog = GachaCatalog.empty();
 
+    static GachaCatalog catalog() {
+        return catalog;
+    }
+
     public CobbleventureCasino(IEventBus modBus) {
         CasinoItems.register(modBus);
         CasinoCashier.register();
         CasinoHudNetwork.register(modBus);
+        GachaMachineNetwork.register(modBus);
         if (FMLEnvironment.dist.isClient()) {
             CasinoBalanceOverlay.register(modBus);
         }
@@ -84,23 +87,25 @@ public final class CobbleventureCasino {
 
     private static void onServerStarted(ServerStartedEvent event) {
         catalog = GachaCatalog.load(event.getServer(), LOGGER);
+        int refreshed = refreshConfiguredMachines(event.getServer());
+        if (refreshed > 0) LOGGER.info("기존 가챠 기계 {}대를 실제 카지노 모델로 갱신했습니다.", refreshed);
     }
 
     private static void onRegisterCommands(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("cvgacha")
             .then(Commands.literal("status")
-                .then(Commands.argument("profile", StringArgumentType.string())
+                .then(Commands.argument("profile", ResourceLocationArgument.id())
                     .suggests((context, builder) -> suggestProfiles(builder))
                     .executes(CobbleventureCasino::status)))
             .then(Commands.literal("select")
-                .then(Commands.argument("profile", StringArgumentType.string())
+                .then(Commands.argument("profile", ResourceLocationArgument.id())
                     .suggests((context, builder) -> suggestProfiles(builder))
                     .then(Commands.argument("reward", StringArgumentType.string())
                         .suggests((context, builder) -> suggestRewards(context, builder))
                         .executes(CobbleventureCasino::selectReward))))
             .then(Commands.literal("place").requires(source -> source.hasPermission(2))
-                .then(Commands.argument("profile", StringArgumentType.string())
+                .then(Commands.argument("profile", ResourceLocationArgument.id())
                     .suggests((context, builder) -> suggestProfiles(builder))
                     .then(Commands.argument("pos", BlockPosArgument.blockPos())
                         .executes(CobbleventureCasino::placeCommand))))
@@ -110,12 +115,12 @@ public final class CobbleventureCasino {
             .then(Commands.literal("ticket")
                 .then(Commands.literal("give").requires(source -> source.hasPermission(2))
                     .then(Commands.argument("players", EntityArgument.players())
-                        .then(Commands.argument("profile", StringArgumentType.string())
+                        .then(Commands.argument("profile", ResourceLocationArgument.id())
                             .suggests((context, builder) -> suggestProfiles(builder))
                             .then(Commands.argument("amount", IntegerArgumentType.integer(1, 6400))
                                 .executes(CobbleventureCasino::giveTickets)))))
                 .then(Commands.literal("buy")
-                    .then(Commands.argument("profile", StringArgumentType.string())
+                    .then(Commands.argument("profile", ResourceLocationArgument.id())
                         .suggests((context, builder) -> suggestProfiles(builder))
                         .then(Commands.argument("amount", IntegerArgumentType.integer(1, 6400))
                             .executes(CobbleventureCasino::buyTickets)))))
@@ -131,7 +136,7 @@ public final class CobbleventureCasino {
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggestRewards(
         CommandContext<CommandSourceStack> context, SuggestionsBuilder builder
     ) {
-        String profile = StringArgumentType.getString(context, "profile");
+        String profile = ResourceLocationArgument.getId(context, "profile").toString();
         catalog.machine(profile).ifPresent(machine -> machine.rarities.stream()
             .flatMap(rarity -> rarity.rewards.stream()).filter(reward -> reward.selectable)
             .forEach(reward -> builder.suggest(reward.id)));
@@ -141,6 +146,12 @@ public final class CobbleventureCasino {
     private static int reloadCommand(CommandContext<CommandSourceStack> context) {
         MinecraftServer server = context.getSource().getServer();
         catalog = GachaCatalog.load(server, LOGGER);
+        int refreshed = refreshConfiguredMachines(server);
+        context.getSource().sendSuccess(() -> Component.literal("[가챠] 프로필을 다시 읽고 기계 " + refreshed + "대를 갱신했습니다."), true);
+        return refreshed;
+    }
+
+    private static int refreshConfiguredMachines(MinecraftServer server) {
         int refreshed = 0;
         for (ServerLevel level : server.getAllLevels()) {
             List<Interaction> interactions = new ArrayList<>();
@@ -152,13 +163,11 @@ public final class CobbleventureCasino {
                 if (placeMachine(level, pos, profile)) refreshed++;
             }
         }
-        int count = refreshed;
-        context.getSource().sendSuccess(() -> Component.literal("[가챠] 프로필을 다시 읽고 기계 " + count + "대를 갱신했습니다."), true);
         return refreshed;
     }
 
     private static int placeCommand(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        String profile = StringArgumentType.getString(context, "profile");
+        String profile = ResourceLocationArgument.getId(context, "profile").toString();
         BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
         if (!catalog.machine(profile).isPresent()) {
             context.getSource().sendFailure(Component.literal("존재하지 않거나 비활성화된 기계 프로필입니다: " + profile));
@@ -181,26 +190,30 @@ public final class CobbleventureCasino {
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
         if (machine == null) return false;
         long anchor = pos.asLong();
-        Block base = block(machine.appearance.base_block, Blocks.IRON_BLOCK);
-        Block accent = block(machine.appearance.accent_block, Blocks.GLASS);
-        Display.BlockDisplay baseDisplay = EntityType.BLOCK_DISPLAY.create(level);
-        Display.BlockDisplay accentDisplay = EntityType.BLOCK_DISPLAY.create(level);
+        Block model = block(machine.appearance.model_block, defaultMachineBlock(machine.machine_type));
         Interaction interaction = EntityType.INTERACTION.create(level);
-        if (baseDisplay == null || accentDisplay == null || interaction == null) return false;
-        configureDisplay(baseDisplay, pos, base, machine.appearance.scale, 0.0F, machine.appearance.rotation_degrees, anchor, profileId);
-        configureDisplay(accentDisplay, pos, accent, machine.appearance.accent_scale, machine.appearance.accent_height, machine.appearance.rotation_degrees, anchor, profileId);
+        if (interaction == null) return false;
+        BlockState lower = machineState(model, machine.appearance.facing, DoubleBlockHalf.LOWER);
+        BlockState upper = machineState(model, machine.appearance.facing, DoubleBlockHalf.UPPER);
+        if (!lower.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
+            || !upper.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
+            LOGGER.error("가챠 외형은 상·하단 구조의 카지노 가챠 블록이어야 합니다: {}", machine.appearance.model_block);
+            return false;
+        }
+        level.setBlock(pos, lower, Block.UPDATE_ALL);
+        level.setBlock(pos.above(), upper, Block.UPDATE_ALL);
         interaction.setPos(pos.getX() + .5D, pos.getY(), pos.getZ() + .5D);
         CompoundTag interactionData = new CompoundTag();
         interaction.saveWithoutId(interactionData);
-        interactionData.putFloat("width", Math.max(.5F, machine.appearance.scale));
-        interactionData.putFloat("height", Math.max(1.2F, machine.appearance.scale + machine.appearance.accent_height));
+        interactionData.putFloat("width", .8F);
+        interactionData.putFloat("height", 2.0F);
         interactionData.putBoolean("response", true);
         interaction.load(interactionData);
         interaction.setInvulnerable(true);
         interaction.setCustomName(Component.literal(machine.display_name));
         interaction.setCustomNameVisible(machine.appearance.show_nameplate);
         markMachineEntity(interaction, anchor, profileId);
-        return level.addFreshEntity(baseDisplay) && level.addFreshEntity(accentDisplay) && level.addFreshEntity(interaction);
+        return level.addFreshEntity(interaction);
     }
 
     /** Places a configured machine for authored building anchors. */
@@ -209,25 +222,29 @@ public final class CobbleventureCasino {
         return placeMachine(level, pos, profileId);
     }
 
-    private static void configureDisplay(
-        Display.BlockDisplay display, BlockPos pos, Block block, float scale, float height,
-        float rotation, long anchor, String profile
-    ) {
-        display.setPos(pos.getX() + .5D, pos.getY(), pos.getZ() + .5D);
-        Quaternionf turn = new Quaternionf().rotateY((float)Math.toRadians(rotation));
-        Transformation transformation = new Transformation(
-            new Vector3f(-scale / 2.0F, height, -scale / 2.0F), turn,
-            new Vector3f(scale, scale, scale), new Quaternionf()
-        );
-        CompoundTag displayData = new CompoundTag();
-        display.saveWithoutId(displayData);
-        displayData.put("block_state", NbtUtils.writeBlockState(block.defaultBlockState()));
-        Transformation.EXTENDED_CODEC.encodeStart(NbtOps.INSTANCE, transformation)
-            .ifSuccess(encoded -> displayData.put("transformation", encoded));
-        display.load(displayData);
-        display.setInvulnerable(true);
-        display.setNoGravity(true);
-        markMachineEntity(display, anchor, profile);
+    private static BlockState machineState(Block block, String facing, DoubleBlockHalf half) {
+        BlockState state = block.defaultBlockState();
+        if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+            state = state.setValue(BlockStateProperties.HORIZONTAL_FACING, switch (facing) {
+                case "east" -> net.minecraft.core.Direction.EAST;
+                case "south" -> net.minecraft.core.Direction.SOUTH;
+                case "west" -> net.minecraft.core.Direction.WEST;
+                default -> net.minecraft.core.Direction.NORTH;
+            });
+        }
+        if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
+            state = state.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, half);
+        }
+        return state;
+    }
+
+    private static Block defaultMachineBlock(String machineType) {
+        String id = switch (machineType) {
+            case "pokemon" -> "cobblemoncasino:pokemon_gacha_machine";
+            case "technical_machine" -> "cobblemoncasino:event_gacha_machine";
+            default -> "cobblemoncasino:gacha_machine";
+        };
+        return block(id, Blocks.IRON_BLOCK);
     }
 
     private static void markMachineEntity(Entity entity, long anchor, String profile) {
@@ -243,49 +260,134 @@ public final class CobbleventureCasino {
 
     private static int removeMachine(ServerLevel level, BlockPos pos) {
         int removed = 0;
+        boolean foundMarker = false;
         for (Entity entity : level.getEntities((Entity)null, new AABB(pos).inflate(2.0D), entity -> entity.getTags().contains(MACHINE_TAG)
             && entity.getPersistentData().getLong(ANCHOR_KEY) == pos.asLong())) {
             entity.discard();
             removed++;
+            foundMarker = true;
+        }
+        if (foundMarker) {
+            if (isCasinoGachaBlock(level.getBlockState(pos).getBlock())) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                removed++;
+            }
+            if (isCasinoGachaBlock(level.getBlockState(pos.above()).getBlock())) {
+                level.setBlock(pos.above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                removed++;
+            }
         }
         return removed;
+    }
+
+    private static boolean isCasinoGachaBlock(Block block) {
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+        return id != null && "cobblemoncasino".equals(id.getNamespace())
+            && ("gacha_machine".equals(id.getPath())
+                || "pokemon_gacha_machine".equals(id.getPath())
+                || "event_gacha_machine".equals(id.getPath())
+                || "plushies_gacha_machine".equals(id.getPath()));
+    }
+
+    /** Routes a real Cobblemon Casino gacha block into the configured ticket system. */
+    public static boolean useConfiguredMachine(ServerPlayer player, BlockPos clickedPos) {
+        Interaction marker = configuredMachineMarker(player.serverLevel(), clickedPos);
+        if (marker == null) return false;
+        openGachaScreen(
+            player,
+            marker.getPersistentData().getString(PROFILE_KEY),
+            BlockPos.of(marker.getPersistentData().getLong(ANCHOR_KEY))
+        );
+        return true;
+    }
+
+    private static Interaction configuredMachineMarker(ServerLevel level, BlockPos clickedPos) {
+        return level.getEntitiesOfClass(
+            Interaction.class,
+            new AABB(clickedPos).inflate(1.25D),
+            interaction -> interaction.getTags().contains(MACHINE_TAG)
+                && configuredAnchorMatches(interaction, clickedPos)
+        ).stream().findFirst().orElse(null);
+    }
+
+    private static boolean configuredAnchorMatches(Interaction interaction, BlockPos clickedPos) {
+        BlockPos anchor = BlockPos.of(interaction.getPersistentData().getLong(ANCHOR_KEY));
+        return anchor.equals(clickedPos) || anchor.above().equals(clickedPos);
     }
 
     private static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (!(event.getEntity() instanceof ServerPlayer player) || event.getHand() != InteractionHand.MAIN_HAND
             || !(event.getTarget() instanceof Interaction interaction) || !interaction.getTags().contains(MACHINE_TAG)) return;
         String profile = interaction.getPersistentData().getString(PROFILE_KEY);
-        pull(player, profile);
+        openGachaScreen(
+            player, profile,
+            BlockPos.of(interaction.getPersistentData().getLong(ANCHOR_KEY))
+        );
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
     }
 
-    private static void pull(ServerPlayer player, String profileId) {
+    private static void openGachaScreen(ServerPlayer player, String profileId, BlockPos anchor) {
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
-        if (machine == null) { player.sendSystemMessage(Component.literal("이 기계의 프로필을 찾을 수 없습니다.")); return; }
-        if (!GachaTickets.take(player, machine, 1)) {
-            player.sendSystemMessage(Component.literal(machine.display_name + ": " + machine.ticket.display_name + "이(가) 필요합니다."));
+        if (machine == null) {
+            player.sendSystemMessage(Component.literal("이 기계의 프로필을 찾을 수 없습니다."));
             return;
+        }
+        GachaMachineNetwork.open(player, anchor, machine, uiState(player, machine));
+    }
+
+    static GachaUiState uiState(ServerPlayer player, GachaCatalog.Machine machine) {
+        Progress progress = playerData(player.server).progress(player.getUUID(), machine.pity_group);
+        return new GachaUiState(
+            GachaTickets.count(player, machine),
+            progress.pullsSinceTarget,
+            machine.pity.hard.enabled ? machine.pity.hard.count : 0,
+            progress.selectionPoints,
+            machine.pity.selection.enabled ? machine.pity.selection.required_points : 0
+        );
+    }
+
+    static GachaCatalog.Machine configuredMachine(String profileId) {
+        return catalog.machine(profileId).orElse(null);
+    }
+
+    static PullOutcome pullForScreen(ServerPlayer player, String profileId) {
+        GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
+        if (machine == null) return PullOutcome.failure("screen.cobbleventure_casino.gacha.invalid", 0);
+        if (!GachaTickets.take(player, machine, 1)) {
+            return PullOutcome.failure(
+                "screen.cobbleventure_casino.gacha.no_ticket",
+                GachaTickets.count(player, machine)
+            );
         }
         Progress progress = playerData(player.server).progress(player.getUUID(), machine.pity_group);
         GachaCatalog.Rarity rarity = chooseRarity(player.getRandom(), machine, progress.pullsSinceTarget);
         GachaCatalog.Reward reward = weighted(player.getRandom(), rarity.rewards, entry -> entry.weight);
         if (reward == null || !grant(player, reward)) {
             GachaTickets.give(player, machine, 1);
-            player.sendSystemMessage(Component.literal("보상 지급에 실패해 티켓을 돌려드렸습니다."));
-            return;
+            return PullOutcome.failure(
+                "screen.cobbleventure_casino.gacha.grant_failed",
+                GachaTickets.count(player, machine)
+            );
         }
         String resetTarget = machine.pity.hard.enabled ? machine.pity.hard.target_rarity : machine.pity.soft.target_rarity;
         progress.pullsSinceTarget = rarity.id.equals(resetTarget) ? 0 : progress.pullsSinceTarget + 1;
         if (machine.pity.selection.enabled) progress.selectionPoints += machine.pity.selection.points_per_pull;
         playerData(player.server).setDirty();
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, .8F, 1.1F);
-        player.sendSystemMessage(Component.literal("[" + machine.display_name + "] " + rarity.display_name + " · " + reward.id + " 당첨!"));
-        sendPityStatus(player, machine, progress);
+        return new PullOutcome(
+            true, "screen.cobbleventure_casino.gacha.received",
+            GachaTickets.count(player, machine), rarity.id, rarity.display_name,
+            reward.id, reward.kind, reward.value, reward.count,
+            progress.pullsSinceTarget,
+            machine.pity.hard.enabled ? machine.pity.hard.count : 0,
+            progress.selectionPoints,
+            machine.pity.selection.enabled ? machine.pity.selection.required_points : 0
+        );
     }
 
     private static int giveTickets(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        String profileId = StringArgumentType.getString(context, "profile");
+        String profileId = ResourceLocationArgument.getId(context, "profile").toString();
         int amount = IntegerArgumentType.getInteger(context, "amount");
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
         if (machine == null) {
@@ -303,17 +405,22 @@ public final class CobbleventureCasino {
         ServerPlayer player;
         try { player = context.getSource().getPlayerOrException(); }
         catch (Exception error) { context.getSource().sendFailure(Component.literal("플레이어만 사용할 수 있습니다.")); return 0; }
-        String profileId = StringArgumentType.getString(context, "profile");
+        String profileId = ResourceLocationArgument.getId(context, "profile").toString();
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
         if (machine == null) { context.getSource().sendFailure(Component.literal("기계 프로필을 찾을 수 없습니다.")); return 0; }
         return GachaTicketVendor.buy(player, machine, IntegerArgumentType.getInteger(context, "amount"));
     }
 
     private static GachaCatalog.Rarity chooseRarity(RandomSource random, GachaCatalog.Machine machine, int misses) {
+        Map<GachaCatalog.Rarity, Double> weights = rarityWeights(machine, misses);
+        return weighted(random, new ArrayList<>(weights.keySet()), weights::get);
+    }
+
+    static Map<GachaCatalog.Rarity, Double> rarityWeights(GachaCatalog.Machine machine, int misses) {
         int nextPull = misses + 1;
         if (machine.pity.hard.enabled && nextPull >= machine.pity.hard.count) {
             GachaCatalog.Rarity forced = machine.rarity(machine.pity.hard.target_rarity);
-            if (forced != null) return forced;
+            if (forced != null) return Map.of(forced, 1.0D);
         }
         Map<GachaCatalog.Rarity, Double> weights = new LinkedHashMap<>();
         for (GachaCatalog.Rarity rarity : machine.rarities) weights.put(rarity, Math.max(0.0D, rarity.weight));
@@ -329,7 +436,7 @@ public final class CobbleventureCasino {
                 if (others > 0 && desired > 0 && desired < 1) weights.put(target, desired * others / (1.0D - desired));
             }
         }
-        return weighted(random, new ArrayList<>(weights.keySet()), weights::get);
+        return Map.copyOf(weights);
     }
 
     private interface Weight<T> { double get(T value); }
@@ -385,7 +492,7 @@ public final class CobbleventureCasino {
     private static int status(CommandContext<CommandSourceStack> context) {
         ServerPlayer player;
         try { player = context.getSource().getPlayerOrException(); } catch (Exception error) { context.getSource().sendFailure(Component.literal("플레이어만 사용할 수 있습니다.")); return 0; }
-        String profile = StringArgumentType.getString(context, "profile");
+        String profile = ResourceLocationArgument.getId(context, "profile").toString();
         GachaCatalog.Machine machine = catalog.machine(profile).orElse(null);
         if (machine == null) { context.getSource().sendFailure(Component.literal("기계 프로필을 찾을 수 없습니다.")); return 0; }
         sendPityStatus(player, machine, playerData(player.server).progress(player.getUUID(), machine.pity_group));
@@ -401,7 +508,7 @@ public final class CobbleventureCasino {
     private static int selectReward(CommandContext<CommandSourceStack> context) {
         ServerPlayer player;
         try { player = context.getSource().getPlayerOrException(); } catch (Exception error) { context.getSource().sendFailure(Component.literal("플레이어만 사용할 수 있습니다.")); return 0; }
-        String profileId = StringArgumentType.getString(context, "profile");
+        String profileId = ResourceLocationArgument.getId(context, "profile").toString();
         String rewardId = StringArgumentType.getString(context, "reward");
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
         GachaCatalog.Reward reward = machine == null ? null : machine.reward(rewardId);
@@ -421,6 +528,26 @@ public final class CobbleventureCasino {
     }
 
     private static final class Progress { int pullsSinceTarget; int selectionPoints; }
+    record GachaUiState(
+        int tickets, int pullsSinceTarget, int hardPityCount,
+        int selectionPoints, int selectionRequired
+    ) {}
+
+    record PullOutcome(
+        boolean success, String messageKey, int tickets,
+        String rarityId, String rarityName,
+        String rewardId, String rewardKind, String rewardValue, int rewardCount,
+        int pullsSinceTarget, int hardPityCount,
+        int selectionPoints, int selectionRequired
+    ) {
+        static PullOutcome failure(String messageKey, int tickets) {
+            return new PullOutcome(
+                false, messageKey, tickets,
+                "", "", "", "", "", 0,
+                0, 0, 0, 0
+            );
+        }
+    }
     private static final class PlayerData extends SavedData {
         private final Map<UUID, Map<String, Progress>> values = new LinkedHashMap<>();
         static PlayerData load(CompoundTag tag, HolderLookup.Provider registries) {

@@ -26,9 +26,67 @@ assert CONTENT_MANAGER_SPEC is not None and CONTENT_MANAGER_SPEC.loader is not N
 content_manager = importlib.util.module_from_spec(CONTENT_MANAGER_SPEC)
 sys.modules[CONTENT_MANAGER_SPEC.name] = content_manager
 CONTENT_MANAGER_SPEC.loader.exec_module(content_manager)
+GENERATOR_PATH = REPOSITORY_ROOT / "tools/structure-builder/generate_underground_road_modules.py"
+GENERATOR_SPEC = importlib.util.spec_from_file_location("underground_module_generator", GENERATOR_PATH)
+assert GENERATOR_SPEC is not None and GENERATOR_SPEC.loader is not None
+underground_module_generator = importlib.util.module_from_spec(GENERATOR_SPEC)
+sys.modules[GENERATOR_SPEC.name] = underground_module_generator
+sys.modules["generate_underground_road_modules"] = underground_module_generator
+GENERATOR_SPEC.loader.exec_module(underground_module_generator)
+ENTRANCE_GENERATOR_PATH = REPOSITORY_ROOT / "tools/structure-builder/generate_underground_entrance.py"
+ENTRANCE_GENERATOR_SPEC = importlib.util.spec_from_file_location("underground_entrance_generator", ENTRANCE_GENERATOR_PATH)
+assert ENTRANCE_GENERATOR_SPEC is not None and ENTRANCE_GENERATOR_SPEC.loader is not None
+underground_entrance_generator = importlib.util.module_from_spec(ENTRANCE_GENERATOR_SPEC)
+sys.modules[ENTRANCE_GENERATOR_SPEC.name] = underground_entrance_generator
+ENTRANCE_GENERATOR_SPEC.loader.exec_module(underground_entrance_generator)
 
 
 class StructureBuilderTests(unittest.TestCase):
+    def test_generated_underground_entrance_has_road_and_stair_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "underground_passage.nbt"
+            with mock.patch.object(underground_entrance_generator, "OUTPUT", target):
+                generated = underground_entrance_generator.generate()
+            metadata = content_manager.read_minecraft_structure_metadata(generated.read_bytes())
+
+            self.assertEqual((24, 16, 20), (metadata["width"], metadata["height"], metadata["depth"]))
+            self.assertEqual(
+                [{"position": [11, 1, 0], "facing": "north", "orientation": "north_up", "final_state": "minecraft:smooth_stone"}],
+                metadata["road_anchors"],
+            )
+            self.assertEqual(
+                [{"name": "cobbleventure:underground_entry", "position": [11, 1, 14], "facing": "down", "orientation": "down_north", "final_state": "minecraft:air"}],
+                metadata["underground_entries"],
+            )
+
+    def test_generated_underground_modules_have_expected_connectors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with mock.patch.object(underground_module_generator, "OUTPUT", output):
+                generated = underground_module_generator.generate()
+                first_payloads = {path.name: path.read_bytes() for path in generated}
+                regenerated = underground_module_generator.generate()
+
+            self.assertEqual(11, len(generated))
+            self.assertEqual(first_payloads, {path.name: path.read_bytes() for path in regenerated})
+            metadata = {
+                path.stem: content_manager.read_minecraft_structure_metadata(path.read_bytes())
+                for path in generated
+            }
+            upward = {
+                name for name, document in metadata.items()
+                if any(connector["facing"] == "up" for connector in document["underground_connectors"])
+            }
+            self.assertEqual({"stairs_up"}, upward)
+            self.assertEqual(
+                {"west", "surface"},
+                {connector["tag"] for connector in metadata["stairs_up"]["underground_connectors"]},
+            )
+            self.assertEqual(
+                {"east", "vertical_down"},
+                {connector["tag"] for connector in metadata["stairs_down"]["underground_connectors"]},
+            )
+
     def test_structure_metadata_allows_single_tall_interior(self) -> None:
         document = structure_builder._validate_structure_metadata({
             "schema_version": 1,
@@ -237,6 +295,55 @@ class StructureBuilderTests(unittest.TestCase):
             self.assertTrue(
                 (root / "content/structures/interiors/sample_room.structure.json").is_file()
             )
+
+    def test_import_adds_new_underground_road_module_with_named_connectors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            world = Path(directory) / "world"
+            exported = (
+                world / "generated/cobbleventure_builder/structures/export"
+                / "underground_road_modules/test_passage.nbt"
+            )
+            exported.parent.mkdir(parents=True)
+            exported.write_bytes(b"authored-underground-passage")
+            metadata = {
+                "width": 64, "height": 24, "depth": 96,
+                "underground_connectors": [
+                    {"tag": "north"}, {"tag": "south"},
+                ],
+            }
+
+            with mock.patch.object(structure_builder, "catalog_entries", return_value=[]), \
+                 mock.patch.object(structure_builder, "_metadata_reader", return_value=lambda _: metadata):
+                changed = structure_builder.import_exports(root, world)
+
+            target = root / "content/structures/underground_road_modules/test_passage.nbt"
+            self.assertEqual(1, changed)
+            self.assertEqual(exported.read_bytes(), target.read_bytes())
+
+    def test_import_rejects_underground_road_module_with_duplicate_connectors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repository"
+            world = Path(directory) / "world"
+            exported = (
+                world / "generated/cobbleventure_builder/structures/export"
+                / "underground_road_modules/test_passage.nbt"
+            )
+            exported.parent.mkdir(parents=True)
+            exported.write_bytes(b"invalid-underground-passage")
+            metadata = {
+                "width": 64, "height": 24, "depth": 96,
+                "underground_connectors": [
+                    {"tag": "exit_1"}, {"tag": "exit_1"},
+                ],
+            }
+
+            with mock.patch.object(structure_builder, "catalog_entries", return_value=[]), \
+                 mock.patch.object(structure_builder, "_metadata_reader", return_value=lambda _: metadata):
+                with self.assertRaisesRegex(
+                    structure_builder.StructureBuilderError, "중복 없는 직소 커넥터"
+                ):
+                    structure_builder.import_exports(root, world)
 
     def test_catalog_restores_authored_door_anchor_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

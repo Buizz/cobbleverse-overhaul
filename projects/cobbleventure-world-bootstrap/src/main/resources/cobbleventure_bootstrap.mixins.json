@@ -8,7 +8,8 @@
     "FlatLevelSourceMixin",
     "JigsawPlacementPlacerMixin",
     "SinglePoolElementMixin",
-    "CobblenavSpawnDataHelperMixin"
+    "CobblenavSpawnDataHelperMixin",
+    "XpBarRegistrationMixin"
   ],
   "client": [
     "BiomePrecipitationMixin",

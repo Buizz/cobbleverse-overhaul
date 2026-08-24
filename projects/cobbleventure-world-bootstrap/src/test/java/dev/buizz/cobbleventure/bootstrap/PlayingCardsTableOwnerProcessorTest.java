@@ -2,7 +2,6 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
@@ -20,6 +19,9 @@ final class PlayingCardsTableOwnerProcessorTest {
         assertNotSame(source, result);
         assertTrue(result.hasUUID("OwnerID"));
         assertEquals("Cobbleventure Casino", result.getString("OwnerName"));
+        assertTrue(result.getCompound("NeoForgeData").getBoolean(
+            PlayingCardsTableOwnerData.CASINO_TABLE_MARKER
+        ));
         assertEquals("preserved", result.getString("custom"));
         assertTrue(!source.hasUUID("OwnerID"));
     }
@@ -33,8 +35,11 @@ final class PlayingCardsTableOwnerProcessorTest {
 
         CompoundTag result = PlayingCardsTableOwnerData.withOwner(source);
 
-        assertSame(source, result);
+        assertNotSame(source, result);
         assertEquals(owner, result.getUUID("OwnerID"));
+        assertTrue(result.getCompound("NeoForgeData").getBoolean(
+            PlayingCardsTableOwnerData.CASINO_TABLE_MARKER
+        ));
         assertEquals("DBingsu", result.getString("OwnerName"));
     }
 }

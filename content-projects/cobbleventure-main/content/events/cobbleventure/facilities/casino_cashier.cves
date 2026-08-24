@@ -13,24 +13,36 @@ event interact(range: 4) {
           ko_kr: "환전하기"
           en_us: "Exchange"
         } {
-          say npc {
-            ko_kr: "환전할 금액을 입력해 주세요."
-            en_us: "Please enter the amount to exchange."
-          }
-          id "exchange/amount" await number_input {
-            min: 1
-            max: 2000000000
-          } -> amount
-          id "exchange/perform" server_command "cvcasino exchange" amount -> exchanged
-          if exchanged {
+          if money() >= 100 {
+            let current_money = money()
+            let affordable_chips = floor_div(current_money, 100)
             say npc {
-              ko_kr: "${amount}원을 카지노 잔액으로 넣었습니다. 즐거운 시간 보내세요."
-              en_us: "${amount} has been added to your casino balance. Enjoy."
+              ko_kr: "카지노 칩 수량을 입력해 주세요. 칩 1개는 100 코블달러입니다."
+              en_us: "Enter the number of casino chips. One chip costs 100 CobbleDollars."
+            }
+            id "exchange/amount" await number_input {
+              min: 1
+              max: affordable_chips
+              current: current_money
+              unit_price: 100
+            } -> amount
+            let exchange_cost = amount * 100
+            id "exchange/perform" server_command "cvcasino exchange" amount -> exchanged
+            if exchanged {
+              say npc {
+                ko_kr: "${exchange_cost} 코블달러로 카지노 칩 ${amount}개를 충전했습니다. 즐거운 시간 보내세요."
+                en_us: "${exchange_cost} CobbleDollars were exchanged for ${amount} casino chips. Enjoy."
+              }
+            } else {
+              say npc {
+                ko_kr: "환전하지 못했습니다. 현재 잔액과 환전 한도를 확인해 주세요."
+                en_us: "The exchange failed. Check your current balance and casino balance limit."
+              }
             }
           } else {
             say npc {
-              ko_kr: "환전하지 못했습니다. 보유 금액과 환전 한도를 확인해 주세요."
-              en_us: "The exchange failed. Check your money and casino balance limit."
+              ko_kr: "카지노 칩 1개를 환전하려면 최소 100 코블달러가 필요합니다."
+              en_us: "You need at least 100 CobbleDollars to exchange one casino chip."
             }
           }
         }

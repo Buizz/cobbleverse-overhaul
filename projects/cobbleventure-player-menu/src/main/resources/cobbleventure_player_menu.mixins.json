@@ -3,6 +3,9 @@
   "minVersion": "0.8",
   "package": "dev.buizz.cobbleventure.playermenu.mixin",
   "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "PlayerBattleActorLevelCapMixin"
+  ],
   "client": [
     "MusicManagerMixin",
     "XPBarOverlayMixin"

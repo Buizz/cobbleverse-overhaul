@@ -11,6 +11,18 @@ import org.junit.jupiter.api.Test;
 
 final class MapContentTest {
     @Test
+    void caveLoaderIgnoresUndergroundRoadEntrances() {
+        MapContent content = MapContent.forGeneration(1);
+
+        assertEquals(List.of(
+            "cobbleventure:cave_entrance/mt_moon_west",
+            "cobbleventure:cave_entrance/mt_moon_east",
+            "cobbleventure:cave_entrance/rock_tunnel_cerulean",
+            "cobbleventure:cave_entrance/rock_tunnel_lavender"
+        ), content.caveEntrances().stream().map(MapContent.CaveEntrance::id).toList());
+    }
+
+    @Test
     void routeTilesUseTheSavedRoutePresetEncounterList() {
         MapContent content = MapContent.forGeneration(1);
         MapContent.BiomeInfo route = content.biome(content.tileAt(-3, 2));

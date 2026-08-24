@@ -113,12 +113,8 @@
       "enabled": true,
       "pity_group": "default_casino/pokemon",
       "appearance": {
-        "base_block": "minecraft:polished_deepslate",
-        "accent_block": "minecraft:amethyst_block",
-        "scale": 1.0,
-        "accent_scale": 0.45,
-        "accent_height": 0.78,
-        "rotation_degrees": 0.0,
+        "model_block": "cobblemoncasino:pokemon_gacha_machine",
+        "facing": "north",
         "show_nameplate": true
       },
       "rarities": [
@@ -195,12 +191,8 @@
       "enabled": true,
       "pity_group": "default_casino/item",
       "appearance": {
-        "base_block": "minecraft:gold_block",
-        "accent_block": "minecraft:emerald_block",
-        "scale": 1.0,
-        "accent_scale": 0.45,
-        "accent_height": 0.78,
-        "rotation_degrees": 120.0,
+        "model_block": "cobblemoncasino:gacha_machine",
+        "facing": "north",
         "show_nameplate": true
       },
       "rarities": [
@@ -277,12 +269,8 @@
       "enabled": true,
       "pity_group": "default_casino/technical_machine",
       "appearance": {
-        "base_block": "minecraft:copper_block",
-        "accent_block": "minecraft:diamond_block",
-        "scale": 1.0,
-        "accent_scale": 0.45,
-        "accent_height": 0.78,
-        "rotation_degrees": 240.0,
+        "model_block": "cobblemoncasino:event_gacha_machine",
+        "facing": "north",
         "show_nameplate": true
       },
       "rarities": [

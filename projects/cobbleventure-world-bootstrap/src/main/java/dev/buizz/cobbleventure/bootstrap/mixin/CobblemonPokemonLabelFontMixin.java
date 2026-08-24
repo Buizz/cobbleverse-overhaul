@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.bootstrap.mixin;
 
+import com.cobblemon.mod.common.api.storage.player.client.ClientGeneralPlayerData;
 import com.cobblemon.mod.common.client.render.pokemon.PokemonRenderer;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import net.minecraft.network.chat.Component;
@@ -9,6 +10,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Keeps in-world Pokémon labels visible with Iris while Caxton handles GUI text. */
@@ -30,6 +32,24 @@ public abstract class CobblemonPokemonLabelFontMixin {
                 label.copy().withStyle(style -> style.withFont(WORLD_LABEL_FONT))
             );
         }
+    }
+
+    /**
+     * Cobblemon hides the challenge hint after the player's first battle win.
+     * Cobbleventure uses the hint as a permanent field interaction guide, so
+     * keep it enabled while leaving Cobblemon's canBattle check intact.
+     */
+    @Redirect(
+        method = "renderNameTag(Lcom/cobblemon/mod/common/entity/pokemon/PokemonEntity;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
+        at = @At(
+            value = "INVOKE",
+            target = "Lcom/cobblemon/mod/common/api/storage/player/client/ClientGeneralPlayerData;getShowChallengeLabel()Z"
+        )
+    )
+    private boolean cobbleventure$alwaysShowChallengeLabel(
+        ClientGeneralPlayerData playerData
+    ) {
+        return true;
     }
 
     @ModifyArg(

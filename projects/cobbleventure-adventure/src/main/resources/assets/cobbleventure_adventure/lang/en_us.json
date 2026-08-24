@@ -9,6 +9,10 @@
   "screen.cobbleventure_adventure.number_input.title": "Enter Amount",
   "screen.cobbleventure_adventure.number_input.field": "Amount",
   "screen.cobbleventure_adventure.number_input.range": "Allowed range: %s to %s",
+  "screen.cobbleventure_adventure.number_input.current": "Current balance: %s",
+  "screen.cobbleventure_adventure.number_input.unit_price": "Cost per item: %s",
+  "screen.cobbleventure_adventure.number_input.total": "Total cost: %s",
+  "screen.cobbleventure_adventure.number_input.remaining": "Balance after: %s",
   "screen.cobbleventure_adventure.number_input.confirm": "Confirm",
   "screen.cobbleventure_adventure.number_input.cancel": "Cancel"
 }

@@ -42,9 +42,15 @@ public final class TrainerCardScreen extends Screen {
     private static final int CARD_MAX_WIDTH = 386;
     private static final int CARD_MAX_HEIGHT = 224;
     // InventoryScreen applies 40 degrees of head yaw and 20 degrees of pitch
-    // per input unit. Keep every leader in the same right-facing three-quarter pose.
-    private static final float LEADER_VIEW_YAW = -45.0F / 40.0F;
-    private static final float LEADER_VIEW_PITCH = -12.0F / 20.0F;
+    // per input unit. Give each slot a restrained, deterministic portrait angle.
+    private static final float[] LEADER_VIEW_YAWS = {
+        -42.0F / 40.0F, -28.0F / 40.0F, -12.0F / 40.0F, 18.0F / 40.0F,
+        35.0F / 40.0F, 10.0F / 40.0F, -32.0F / 40.0F, 26.0F / 40.0F
+    };
+    private static final float[] LEADER_VIEW_PITCHES = {
+        -10.0F / 20.0F, -6.0F / 20.0F, -14.0F / 20.0F, -8.0F / 20.0F,
+        -12.0F / 20.0F, -5.0F / 20.0F, -11.0F / 20.0F, -7.0F / 20.0F
+    };
     private static final ResourceLocation CARD_BACKGROUND = ResourceLocation.fromNamespaceAndPath(
         "cobbleventure_player_menu", "textures/gui/trainer_card_background.png"
     );
@@ -376,7 +382,9 @@ public final class TrainerCardScreen extends Screen {
         }
 
         int nameHeight = 12;
-        renderLeaderModel(graphics, challenge, left + 2, top + 2, right - 2, bottom - nameHeight);
+        renderLeaderModel(
+            graphics, challenge, left + 2, top + 2, right - 2, bottom - nameHeight, index
+        );
         fillRoundedRect(graphics, left + 1, bottom - nameHeight, right - 1, bottom - 1, 3,
             challenge.completed() ? 0xEE3C7390 : 0xDD777B7D);
         String name = font.plainSubstrByWidth(challenge.name().getString(), Math.max(12, slotWidth - 8));
@@ -434,7 +442,7 @@ public final class TrainerCardScreen extends Screen {
 
     private void renderLeaderModel(
         GuiGraphics graphics, TrainerCardProgress.Challenge challenge,
-        int left, int top, int right, int bottom
+        int left, int top, int right, int bottom, int index
     ) {
         CardLeader leader = leaderModel(challenge);
         if (leader == null || right <= left || bottom <= top) {
@@ -446,9 +454,10 @@ public final class TrainerCardScreen extends Screen {
         leader.tickCount = animationTick;
         graphics.enableScissor(left, top, right, bottom);
         int scale = Math.max(20, Math.min(38, bottom - top - 8));
+        int poseIndex = Math.floorMod(index, LEADER_VIEW_YAWS.length);
         InventoryScreen.renderEntityInInventoryFollowsAngle(
             graphics, left, top, right, bottom + 8, scale, 0.0625F,
-            LEADER_VIEW_YAW, LEADER_VIEW_PITCH, leader
+            LEADER_VIEW_YAWS[poseIndex], LEADER_VIEW_PITCHES[poseIndex], leader
         );
         graphics.disableScissor();
     }

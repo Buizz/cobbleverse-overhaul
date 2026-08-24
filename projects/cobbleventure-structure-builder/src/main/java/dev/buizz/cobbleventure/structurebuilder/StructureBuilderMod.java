@@ -24,8 +24,10 @@ import java.util.Optional;
 import java.util.Set;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.FrontAndTop;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.HolderLookup;
@@ -39,6 +41,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -52,7 +55,9 @@ import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.JigsawBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.JigsawBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -101,6 +106,9 @@ public final class StructureBuilderMod {
     private static final int INTERIOR_ORIGIN_X = 512;
     private static final int INTERIOR_ORIGIN_Z = -280;
     private static final int INTERIOR_CELL_SIZE = 96;
+    private static final int UNDERGROUND_ORIGIN_X = 1536;
+    private static final int UNDERGROUND_ORIGIN_Z = -280;
+    private static final int UNDERGROUND_CELL_SIZE = 320;
     private static final Map<ResourceLocation, ResourceLocation> FRIDGE_LOWER_BY_UPPER = Map.of(
         ResourceLocation.fromNamespaceAndPath("cobblefurnies", "light_freezer"),
         ResourceLocation.fromNamespaceAndPath("cobblefurnies", "light_fridge"),
@@ -391,6 +399,42 @@ public final class StructureBuilderMod {
                                                 IntegerArgumentType.getInteger(context, "floor_height"),
                                                 IntegerArgumentType.getInteger(context, "floors")
                                             )))))))))
+                .then(Commands.literal("underground")
+                    .then(Commands.literal("connector")
+                        .then(Commands.argument("tag", StringArgumentType.word())
+                            .executes(context -> placeUndergroundPort(
+                                context.getSource(), StringArgumentType.getString(context, "tag"), "facing"
+                            ))
+                            .then(Commands.argument("direction", StringArgumentType.word())
+                                .executes(context -> placeUndergroundPort(
+                                    context.getSource(), StringArgumentType.getString(context, "tag"),
+                                    StringArgumentType.getString(context, "direction")
+                                )))))
+                    .then(Commands.literal("module")
+                        .then(Commands.literal("list")
+                            .executes(context -> listUndergroundRoads(context.getSource())))
+                        .then(Commands.literal("tp")
+                            .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> teleportToUndergroundRoad(
+                                    context.getSource(), StringArgumentType.getString(context, "id")
+                                ))))
+                        .then(Commands.literal("save")
+                            .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> saveUndergroundRoad(
+                                    context.getSource(), StringArgumentType.getString(context, "id")
+                                ))))
+                        .then(Commands.literal("create")
+                            .then(Commands.argument("id", StringArgumentType.word())
+                                .then(Commands.argument("width", IntegerArgumentType.integer(3, 128))
+                                    .then(Commands.argument("height", IntegerArgumentType.integer(3, 128))
+                                        .then(Commands.argument("depth", IntegerArgumentType.integer(3, 128))
+                                            .executes(context -> createUndergroundRoad(
+                                                context.getSource(),
+                                                StringArgumentType.getString(context, "id"),
+                                                IntegerArgumentType.getInteger(context, "width"),
+                                                IntegerArgumentType.getInteger(context, "height"),
+                                                IntegerArgumentType.getInteger(context, "depth")
+                                            )))))))))
         );
     }
 
@@ -402,6 +446,7 @@ public final class StructureBuilderMod {
                 () -> Component.literal(
                     "[Structure Builder] 구조물=" + catalog.entries().size()
                         + ", 새 내부=" + data.interiorCount()
+                        + ", 지하통로=" + data.undergroundRoadCount()
                         + ", 배치=" + data.prepared
                         + ", 카탈로그="
                         + (data.catalogHash.equals(catalog.catalogHash()) ? "최신" : "변경됨")
@@ -497,6 +542,24 @@ public final class StructureBuilderMod {
                     LOGGER.error(
                         "Could not export dynamic interior {} during save all",
                         interior.id(), error
+                    );
+                }
+            }
+            for (UndergroundRoadPlot undergroundRoad : data.undergroundRoads()) {
+                try {
+                    List<UndergroundPort> ports = undergroundPorts(
+                        source.getServer().overworld(), undergroundRoad
+                    );
+                    if (ports.size() < 2) {
+                        throw new BuilderException("서로 다른 포트가 두 개 이상 필요합니다.");
+                    }
+                    exportUndergroundRoad(source.getServer().overworld(), undergroundRoad);
+                    saved++;
+                } catch (BuilderException error) {
+                    failedExports.add(undergroundRoad.id() + ": " + error.getMessage());
+                    LOGGER.error(
+                        "Could not export underground passage {} during save all",
+                        undergroundRoad.id(), error
                     );
                 }
             }
@@ -1596,6 +1659,175 @@ public final class StructureBuilderMod {
             }
         }
         outlineNbtFootprint(level, plot.origin(), plot.size());
+    }
+
+    private static int createUndergroundRoad(
+        CommandSourceStack source, String id, int width, int height, int depth
+    ) throws CommandSyntaxException {
+        try {
+            if (!id.matches("[a-z0-9][a-z0-9_.-]*")) {
+                throw new BuilderException(
+                    "지하통로 조각 ID는 영문 소문자, 숫자, 밑줄, 점, 하이픈만 사용할 수 있습니다."
+                );
+            }
+            BuilderData builderData = data(source.getServer());
+            if (builderData.undergroundRoad(id).isPresent()) {
+                throw new BuilderException("이미 존재하는 지하통로 조각 작업 구역입니다: " + id);
+            }
+            int index = builderData.undergroundRoadCount();
+            BlockPos origin = new BlockPos(
+                UNDERGROUND_ORIGIN_X + (index % 4) * UNDERGROUND_CELL_SIZE,
+                builderData.groundY + 1,
+                UNDERGROUND_ORIGIN_Z + (index / 4) * UNDERGROUND_CELL_SIZE
+            );
+            UndergroundRoadPlot plot = new UndergroundRoadPlot(
+                id, origin, width, height, depth
+            );
+            builderData.addUndergroundRoad(plot);
+            outlineNbtFootprint(source.getServer().overworld(), origin, plot.size());
+            teleport(source.getPlayerOrException(), origin.offset(1, 0, 1));
+            source.sendSuccess(() -> Component.literal(
+                "[Structure Builder] 지하통로 조각 작업 구역 생성: " + id + " · "
+                    + width + "x" + height + "x" + depth
+                    + " · 연결 면을 바라보고 underground connector <태그>를 실행하세요."
+            ), true);
+            return 1;
+        } catch (BuilderException error) {
+            return fail(source, error);
+        }
+    }
+
+    private static int listUndergroundRoads(CommandSourceStack source) {
+        List<String> values = data(source.getServer()).undergroundRoads().stream()
+            .map(plot -> plot.id() + "(" + plot.width() + "x" + plot.height()
+                + "x" + plot.depth() + ")")
+            .toList();
+        source.sendSuccess(() -> Component.literal(
+            "[Structure Builder] 지하통로 조각: "
+                + (values.isEmpty() ? "없음" : String.join(", ", values))
+        ), false);
+        return values.size();
+    }
+
+    private static int teleportToUndergroundRoad(CommandSourceStack source, String id)
+        throws CommandSyntaxException {
+        UndergroundRoadPlot plot = data(source.getServer()).undergroundRoad(id)
+            .orElseThrow(() -> new BuilderException("지하통로 조각을 찾을 수 없습니다: " + id));
+        teleport(source.getPlayerOrException(), plot.origin().offset(1, 0, 1));
+        return 1;
+    }
+
+    private static int placeUndergroundPort(CommandSourceStack source, String tag, String direction)
+        throws CommandSyntaxException {
+        try {
+            if (!tag.matches("[a-z0-9][a-z0-9_.-]*")) {
+                throw new BuilderException("커넥터 태그는 영문 소문자, 숫자, 밑줄, 점, 하이픈만 사용할 수 있습니다.");
+            }
+            ServerPlayer player = source.getPlayerOrException();
+            ServerLevel level = player.serverLevel();
+            BlockPos position = player.blockPosition().below();
+            UndergroundRoadPlot plot = data(source.getServer()).undergroundRoadAt(position)
+                .orElseThrow(() -> new BuilderException(
+                    "지하통로 조각 작업 구역 안의 연결 블록 위에 서서 실행하세요."
+                ));
+            for (UndergroundPort existing : undergroundPorts(level, plot)) {
+                if (existing.tag().equals(tag) && !existing.position().equals(position)) {
+                    throw new BuilderException("이미 다른 위치에 같은 커넥터 태그가 있습니다: " + tag);
+                }
+            }
+            BlockState previous = level.getBlockState(position);
+            Direction outward = switch (direction) {
+                case "up" -> Direction.UP;
+                case "down" -> Direction.DOWN;
+                case "north" -> Direction.NORTH;
+                case "east" -> Direction.EAST;
+                case "south" -> Direction.SOUTH;
+                case "west" -> Direction.WEST;
+                case "facing" -> player.getDirection();
+                default -> throw new BuilderException("커넥터 방향은 facing, north, east, south, west, up, down 중 하나여야 합니다.");
+            };
+            Direction top = outward.getAxis().isVertical() ? Direction.NORTH : Direction.UP;
+            BlockState jigsawState = Blocks.JIGSAW.defaultBlockState().setValue(
+                JigsawBlock.ORIENTATION, FrontAndTop.fromFrontAndTop(outward, top)
+            );
+            level.setBlock(position, jigsawState, 3);
+            if (!(level.getBlockEntity(position) instanceof JigsawBlockEntity jigsaw)) {
+                throw new BuilderException("직소 블록 엔티티를 만들 수 없습니다: " + format(position));
+            }
+            ResourceLocation empty = ResourceLocation.withDefaultNamespace("empty");
+            jigsaw.setName(ResourceLocation.fromNamespaceAndPath(
+                "cobbleventure", "underground_connector/" + tag
+            ));
+            jigsaw.setTarget(empty);
+            jigsaw.setPool(ResourceKey.create(Registries.TEMPLATE_POOL, empty));
+            jigsaw.setFinalState(BlockStateParser.serialize(previous));
+            jigsaw.setJoint(JigsawBlockEntity.JointType.ALIGNED);
+            jigsaw.setChanged();
+            level.sendBlockUpdated(position, jigsawState, jigsawState, 3);
+            source.sendSuccess(() -> Component.literal(
+                "[Structure Builder] 지하통로 조각 커넥터 지정: " + plot.id() + " / " + tag
+                    + " · 위치=" + format(position.subtract(plot.origin()))
+                    + " · 바깥 방향=" + outward.getName()
+            ), true);
+            return 1;
+        } catch (BuilderException error) {
+            return fail(source, error);
+        }
+    }
+
+    private static int saveUndergroundRoad(CommandSourceStack source, String id) {
+        try {
+            UndergroundRoadPlot plot = data(source.getServer()).undergroundRoad(id)
+                .orElseThrow(() -> new BuilderException("지하통로 조각을 찾을 수 없습니다: " + id));
+            List<UndergroundPort> ports = undergroundPorts(source.getServer().overworld(), plot);
+            if (ports.isEmpty()) {
+                throw new BuilderException("지하통로 조각에는 커넥터가 하나 이상 필요합니다.");
+            }
+            exportUndergroundRoad(source.getServer().overworld(), plot);
+            source.sendSuccess(() -> Component.literal(
+                "[Structure Builder] 지하통로 조각 NBT 내보내기 완료: " + id
+                    + " · 커넥터=" + ports.stream().map(UndergroundPort::tag).toList()
+            ), true);
+            return 1;
+        } catch (BuilderException error) {
+            return fail(source, error);
+        }
+    }
+
+    private static void exportUndergroundRoad(ServerLevel level, UndergroundRoadPlot plot) {
+        loadChunks(level, plot.origin(), plot.size());
+        ResourceLocation exportId = ResourceLocation.fromNamespaceAndPath(
+            "cobbleventure_builder", "export/underground_road_modules/" + plot.id()
+        );
+        var manager = level.getStructureManager();
+        var template = manager.getOrCreate(exportId);
+        template.fillFromWorld(level, plot.origin(), plot.size(), false, Blocks.STRUCTURE_VOID);
+        template.setAuthor("Cobbleventure Structure Builder");
+        if (!manager.save(exportId)) {
+            throw new BuilderException("지하통로 조각 NBT 파일 저장에 실패했습니다: " + exportId);
+        }
+    }
+
+    private static List<UndergroundPort> undergroundPorts(
+        ServerLevel level, UndergroundRoadPlot plot
+    ) {
+        List<UndergroundPort> ports = new ArrayList<>();
+        Set<String> tags = new java.util.HashSet<>();
+        BlockPos end = plot.origin().offset(
+            plot.width() - 1, plot.height() - 1, plot.depth() - 1
+        );
+        for (BlockPos cursor : BlockPos.betweenClosed(plot.origin(), end)) {
+            BlockPos position = cursor.immutable();
+            if (!(level.getBlockEntity(position) instanceof JigsawBlockEntity jigsaw)) continue;
+            String name = jigsaw.getName().toString();
+            String prefix = "cobbleventure:underground_connector/";
+            if (!name.startsWith(prefix)) continue;
+            String tag = name.substring(prefix.length());
+            if (!tags.add(tag)) throw new BuilderException("중복 지하통로 커넥터 태그: " + tag);
+            Direction outward = JigsawBlock.getFrontFacing(level.getBlockState(position));
+            ports.add(new UndergroundPort(tag, position, outward));
+        }
+        return List.copyOf(ports);
     }
 
     private static boolean contains(PlannedEntry planned, BlockPos position) {
@@ -2789,6 +3021,22 @@ public final class StructureBuilderMod {
     ) {
     }
 
+    private record UndergroundRoadPlot(
+        String id, BlockPos origin, int width, int height, int depth
+    ) {
+        Vec3i size() {
+            return new Vec3i(width, height, depth);
+        }
+
+        boolean contains(BlockPos position) {
+            return position.getX() >= origin.getX() && position.getX() < origin.getX() + width
+                && position.getY() >= origin.getY() && position.getY() < origin.getY() + height
+                && position.getZ() >= origin.getZ() && position.getZ() < origin.getZ() + depth;
+        }
+    }
+
+    private record UndergroundPort(String tag, BlockPos position, Direction outward) {}
+
     private enum ToolMode {
         ENTRY("entry", "외부 입장문"),
         EXIT("exit", "내부 퇴장문"),
@@ -2836,6 +3084,7 @@ public final class StructureBuilderMod {
         private final Map<String, Map<String, NpcAnchor>> npcAnchors = new LinkedHashMap<>();
         private final Map<String, Map<String, PointAnchor>> pointAnchors = new LinkedHashMap<>();
         private final Map<String, InteriorPlot> interiorPlots = new LinkedHashMap<>();
+        private final Map<String, UndergroundRoadPlot> undergroundRoadPlots = new LinkedHashMap<>();
         private final Map<String, BlockPos> movedOrigins = new LinkedHashMap<>();
 
         static BuilderData load(CompoundTag tag, HolderLookup.Provider registries) {
@@ -2889,6 +3138,14 @@ public final class StructureBuilderMod {
             CompoundTag origins = tag.getCompound("movedOrigins");
             for (String key : origins.getAllKeys()) {
                 data.movedOrigins.put(key, readPosition(origins, key));
+            }
+            CompoundTag undergroundRoads = tag.getCompound("undergroundRoadPlots");
+            for (String id : undergroundRoads.getAllKeys()) {
+                CompoundTag value = undergroundRoads.getCompound(id);
+                data.undergroundRoadPlots.put(id, new UndergroundRoadPlot(
+                    id, readPosition(value, "origin"), value.getInt("width"),
+                    value.getInt("height"), value.getInt("depth")
+                ));
             }
             CompoundTag pointStructures = tag.getCompound("pointAnchors");
             for (String structureId : pointStructures.getAllKeys()) {
@@ -3092,6 +3349,28 @@ public final class StructureBuilderMod {
             return interiorPlots.size();
         }
 
+        void addUndergroundRoad(UndergroundRoadPlot plot) {
+            undergroundRoadPlots.put(plot.id(), plot);
+            setDirty();
+        }
+
+        Optional<UndergroundRoadPlot> undergroundRoad(String id) {
+            return Optional.ofNullable(undergroundRoadPlots.get(id));
+        }
+
+        Optional<UndergroundRoadPlot> undergroundRoadAt(BlockPos position) {
+            return undergroundRoadPlots.values().stream()
+                .filter(plot -> plot.contains(position)).findFirst();
+        }
+
+        List<UndergroundRoadPlot> undergroundRoads() {
+            return List.copyOf(undergroundRoadPlots.values());
+        }
+
+        int undergroundRoadCount() {
+            return undergroundRoadPlots.size();
+        }
+
         @Override
         public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
             tag.putBoolean("prepared", prepared);
@@ -3152,6 +3431,16 @@ public final class StructureBuilderMod {
                 interiors.put(plot.id(), value);
             }
             tag.put("interiorPlots", interiors);
+            CompoundTag undergroundRoads = new CompoundTag();
+            for (UndergroundRoadPlot plot : undergroundRoadPlots.values()) {
+                CompoundTag value = new CompoundTag();
+                writePosition(value, "origin", plot.origin());
+                value.putInt("width", plot.width());
+                value.putInt("height", plot.height());
+                value.putInt("depth", plot.depth());
+                undergroundRoads.put(plot.id(), value);
+            }
+            tag.put("undergroundRoadPlots", undergroundRoads);
             CompoundTag origins = new CompoundTag();
             for (Map.Entry<String, BlockPos> entry : movedOrigins.entrySet()) {
                 writePosition(origins, entry.getKey(), entry.getValue());

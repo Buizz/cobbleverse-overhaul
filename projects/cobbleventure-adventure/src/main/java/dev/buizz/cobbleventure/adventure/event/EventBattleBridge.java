@@ -84,6 +84,7 @@ public final class EventBattleBridge {
         PENDING.put(player.getUUID(), pending);
         int result;
         try {
+            cancelLegacyProximity(player);
             if (preset.moneyReward() != null) {
                 String rewardCommand = preset.moneyReward().prepareCommand(
                     player.getGameProfile().getName()
@@ -113,6 +114,21 @@ public final class EventBattleBridge {
         return new EventBattleGateway.OpenResult(
             token, System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
         );
+    }
+
+    private static void cancelLegacyProximity(ServerPlayer player) {
+        try {
+            player.getServer().getCommands().getDispatcher().execute(
+                "cobbleventure_proximity_cancel "
+                    + player.getGameProfile().getName(),
+                player.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+            );
+        } catch (CommandSyntaxException error) {
+            LOGGER.debug(
+                "Legacy proximity cancellation command is unavailable for player {}",
+                player.getGameProfile().getName(), error
+            );
+        }
     }
 
     private static Entity findEntity(ServerPlayer player, UUID entityId) {

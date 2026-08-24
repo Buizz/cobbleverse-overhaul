@@ -258,9 +258,10 @@ final class WorldPlanParser {
                     structureVariants.put(variant.getKey(), variant.getValue().getAsString());
                 }
             }
+            boolean undergroundRoad = value.has("underground_road");
             result.add(new CaveEntrancePlan(
-                required(value, "id"), required(value, "cave"),
-                required(value, "entrance"), coordinate(value.getAsJsonObject("anchor")),
+                required(value, "id"), required(value, undergroundRoad ? "underground_road" : "cave"),
+                required(value, undergroundRoad ? "port" : "entrance"), coordinate(value.getAsJsonObject("anchor")),
                 required(value, "facing"), required(value, "structure"),
                 Map.copyOf(structureVariants),
                 pokemonCenterEnabled,

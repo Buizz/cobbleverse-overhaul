@@ -111,7 +111,11 @@ COMMANDS: dict[ast.CommandKind, CommandContract] = {
     ast.CommandKind.MAP_SELECTION: CommandContract(result=ast.ValueType.LOCATION_REF),
     ast.CommandKind.HEAL_PARTY: CommandContract(result=ast.ValueType.HEALING_RESULT),
     ast.CommandKind.NUMBER_INPUT: CommandContract(
-        properties=(_p("min", INT), _p("max", INT)), result=ast.ValueType.INT,
+        properties=(
+            _p("min", INT), _p("max", INT),
+            _p("current", INT, optional=True),
+            _p("unit_price", INT, optional=True),
+        ), result=ast.ValueType.INT,
     ),
     ast.CommandKind.SERVER_COMMAND: CommandContract(
         (_p("command", STRING), _p("integer_argument", INT, optional=True)),
@@ -555,6 +559,12 @@ class SemanticValidator:
             "flag": ((RESOURCE,), ast.ValueType.BOOL),
             "has_item": ((RESOURCE, INT), ast.ValueType.BOOL),
             "money": ((), ast.ValueType.INT),
+            "casino_balance": ((), ast.ValueType.INT),
+            "gacha_ticket_price": ((STRING,), ast.ValueType.INT),
+            "gacha_ticket_purchase_min": ((STRING,), ast.ValueType.INT),
+            "gacha_ticket_purchase_max": ((STRING,), ast.ValueType.INT),
+            "floor_div": ((INT, INT), ast.ValueType.INT),
+            "min_int": ((INT, INT), ast.ValueType.INT),
             "level_cap": ((), ast.ValueType.INT),
             "anchor": ((RESOURCE,), ast.ValueType.LOCATION_REF),
             "settlement": ((RESOURCE,), ast.ValueType.LOCATION_REF),

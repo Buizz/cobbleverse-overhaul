@@ -1,0 +1,93 @@
+{
+  "$schema": "../../schemas/underground-road.schema.json",
+  "schema_version": 2,
+  "id": "cobbleventure:underground_road/cerulean_vermilion",
+  "enabled": true,
+  "display_name": {
+    "ko_kr": "블루시티–갈색시티 지하통로",
+    "en_us": "Cerulean–Vermilion Underground Passage"
+  },
+  "dimension": {
+    "id": "cobbleventure:dungeons",
+    "region_id": "generation_1/cerulean_vermilion",
+    "origin": {
+      "x": 2048,
+      "y": 48,
+      "z": 0
+    }
+  },
+  "modules": [
+    {
+      "id": "cerulean_stairs",
+      "structure": "cobbleventure:underground_road_modules/stairs_up",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "rotation": "clockwise_180"
+    },
+    {
+      "id": "straight_01",
+      "structure": "cobbleventure:underground_road_modules/straight_32",
+      "position": {
+        "x": 16,
+        "y": 0,
+        "z": 1
+      },
+      "rotation": "none"
+    },
+    {
+      "id": "straight_02",
+      "structure": "cobbleventure:underground_road_modules/straight_32",
+      "position": {
+        "x": 48,
+        "y": 0,
+        "z": 1
+      },
+      "rotation": "none"
+    },
+    {
+      "id": "straight_03",
+      "structure": "cobbleventure:underground_road_modules/straight_32",
+      "position": {
+        "x": 80,
+        "y": 0,
+        "z": 1
+      },
+      "rotation": "none"
+    },
+    {
+      "id": "straight_04",
+      "structure": "cobbleventure:underground_road_modules/straight_32",
+      "position": {
+        "x": 112,
+        "y": 0,
+        "z": 1
+      },
+      "rotation": "none"
+    },
+    {
+      "id": "vermilion_stairs",
+      "structure": "cobbleventure:underground_road_modules/stairs_up",
+      "position": {
+        "x": 144,
+        "y": 0,
+        "z": 1
+      },
+      "rotation": "none"
+    }
+  ],
+  "ports": {
+    "cerulean": {
+      "display_name": "블루시티 남쪽 입구",
+      "module": "cerulean_stairs",
+      "connector": "surface"
+    },
+    "vermilion": {
+      "display_name": "갈색시티 북쪽 입구",
+      "module": "vermilion_stairs",
+      "connector": "surface"
+    }
+  }
+}

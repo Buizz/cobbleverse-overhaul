@@ -13,6 +13,22 @@ public interface EventStateAccess {
 
     BigInteger money();
 
+    default BigInteger casinoBalance() {
+        return BigInteger.ZERO;
+    }
+
+    default int gachaTicketPrice(String profile) {
+        throw new UnsupportedOperationException("casino integration is not available");
+    }
+
+    default int gachaTicketPurchaseMin(String profile) {
+        throw new UnsupportedOperationException("casino integration is not available");
+    }
+
+    default int gachaTicketPurchaseMax(String profile) {
+        throw new UnsupportedOperationException("casino integration is not available");
+    }
+
     int levelCap();
 
     void setFlag(String resourceId, boolean value);

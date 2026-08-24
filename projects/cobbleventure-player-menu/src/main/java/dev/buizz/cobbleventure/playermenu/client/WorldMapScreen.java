@@ -44,6 +44,10 @@ public final class WorldMapScreen extends Screen {
     private static final int POKEMON_ICON_GAP = 2;
     private static final int POKEMON_CELL_SIZE = POKEMON_ICON_SIZE + POKEMON_ICON_GAP;
     private static final int MAX_POKEMON_MODELS = 96;
+    private static final int MAP_CONTENT_TOP_INSET = 22;
+    private static final int MAP_CONTROL_SIZE = 16;
+    private static final int MAP_RESET_WIDTH = 36;
+    private static final int MAP_CONTROL_GAP = 2;
 
     private final Screen parent;
     private final String selectionToken;
@@ -124,14 +128,19 @@ public final class WorldMapScreen extends Screen {
         nextGenerationButton = addRenderableWidget(new RibbonButton(
             Component.literal(">"), generationControlsLeft + generationHeaderWidth + 26, 5, 20, 20,
             () -> switchGeneration(1)));
+        int mapControlsRight = layout.mapRight() - 7;
+        int mapControlsY = layout.top() + 5;
+        int resetX = mapControlsRight - MAP_RESET_WIDTH;
+        int zoomOutX = resetX - MAP_CONTROL_GAP - MAP_CONTROL_SIZE;
+        int zoomInX = zoomOutX - MAP_CONTROL_GAP - MAP_CONTROL_SIZE;
         zoomOutButton = addRenderableWidget(new RibbonButton(
-            Component.literal("−"), layout.mapRight() - 72, layout.top() + 6, 20, 20,
+            Component.literal("−"), zoomOutX, mapControlsY, MAP_CONTROL_SIZE, MAP_CONTROL_SIZE,
             () -> changeZoom(-1, layout.mapCenterX(), layout.mapCenterY())));
         resetViewButton = addRenderableWidget(new RibbonButton(
             Component.translatable("screen.cobbleventure_player_menu.world_map.reset_view"),
-            layout.mapRight() - 50, layout.top() + 6, 42, 20, this::resetView));
+            resetX, mapControlsY, MAP_RESET_WIDTH, MAP_CONTROL_SIZE, this::resetView));
         zoomInButton = addRenderableWidget(new RibbonButton(
-            Component.literal("+"), layout.mapRight() - 94, layout.top() + 6, 20, 20,
+            Component.literal("+"), zoomInX, mapControlsY, MAP_CONTROL_SIZE, MAP_CONTROL_SIZE,
             () -> changeZoom(1, layout.mapCenterX(), layout.mapCenterY())));
         teleportButton = addRenderableWidget(new RibbonButton(
             Component.translatable("screen.cobbleventure_player_menu.world_map.teleport"),
@@ -935,7 +944,7 @@ public final class WorldMapScreen extends Screen {
     private int hexSize(Layout layout) {
         MapBounds bounds = mapBounds();
         double horizontal = (layout.mapWidth() - 12.0D) / bounds.width();
-        double vertical = (layout.height() - 12.0D) / bounds.height();
+        double vertical = (layout.height() - 12.0D - MAP_CONTENT_TOP_INSET) / bounds.height();
         int fitted = Math.max(3, Math.min(12, (int) Math.floor(Math.min(horizontal, vertical))));
         return Math.min(32, fitted + zoomLevel * 2);
     }
@@ -949,7 +958,9 @@ public final class WorldMapScreen extends Screen {
         MapBounds bounds = mapBounds();
         int size = hexSize(layout);
         int x = (int) Math.round((layout.mapLeft() + layout.mapRight()) / 2.0D - bounds.centerX() * size);
-        int y = (int) Math.round((layout.top() + layout.bottom()) / 2.0D - bounds.centerY() * size);
+        int y = (int) Math.round(
+            (layout.top() + MAP_CONTENT_TOP_INSET + layout.bottom()) / 2.0D - bounds.centerY() * size
+        );
         return new ScreenPoint(x, y);
     }
 
@@ -1190,6 +1201,25 @@ public final class WorldMapScreen extends Screen {
         }
     }
 
+    private float mapControlOpacity(int mouseX, int mouseY) {
+        if (zoomInButton == null || zoomOutButton == null || resetViewButton == null) return 1.0F;
+        int left = zoomInButton.getX();
+        int top = zoomInButton.getY();
+        int right = resetViewButton.getX() + resetViewButton.getWidth();
+        int bottom = top + MAP_CONTROL_SIZE;
+        int distanceX = mouseX < left ? left - mouseX : Math.max(0, mouseX - right);
+        int distanceY = mouseY < top ? top - mouseY : Math.max(0, mouseY - bottom);
+        double distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+        if (distance <= 16.0D) return 1.0F;
+        if (distance >= 48.0D) return 0.35F;
+        return (float)(1.0D - (distance - 16.0D) / 32.0D * 0.65D);
+    }
+
+    private static int withOpacity(int color, float opacity) {
+        int alpha = Math.round(((color >>> 24) & 0xFF) * Math.max(0.0F, Math.min(1.0F, opacity)));
+        return color & 0x00FFFFFF | alpha << 24;
+    }
+
     private final class RibbonButton extends AbstractButton {
         private final Runnable action;
 
@@ -1207,16 +1237,18 @@ public final class WorldMapScreen extends Screen {
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             int border = active && isHovered() ? ACCENT_COLOR : PANEL_LIGHT_COLOR;
             int fill = active && isHovered() ? MAP_LABEL_HOVER : PANEL_COLOR;
+            boolean mapControl = this == zoomInButton || this == zoomOutButton || this == resetViewButton;
+            float opacity = mapControl ? mapControlOpacity(mouseX, mouseY) : 1.0F;
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                rowRadius(getHeight()), border);
+                rowRadius(getHeight()), withOpacity(border, opacity));
             fillRoundedRect(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
-                Math.max(0, rowRadius(getHeight()) - 1), fill);
+                Math.max(0, rowRadius(getHeight()) - 1), withOpacity(fill, opacity));
             int color = active ? (isHovered() ? ACCENT_COLOR : TEXT) : MUTED_TEXT;
             String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8);
             graphics.drawString(font, label,
                 getX() + (getWidth() - font.width(label)) / 2,
-                getY() + (getHeight() - 8) / 2, color, false);
+                getY() + (getHeight() - 8) / 2, withOpacity(color, opacity), false);
         }
 
         @Override

@@ -12,13 +12,21 @@ public interface EventNumberInputGateway {
         String sourceDigest,
         String instructionId,
         int minimum,
-        int maximum
+        int maximum,
+        Integer currentBalance,
+        Integer unitPrice
     ) {
         public NumberInputRequest {
             Objects.requireNonNull(sessionKey, "sessionKey");
             if (sourceDigest == null || sourceDigest.isBlank()) throw new IllegalArgumentException("sourceDigest is required");
             if (instructionId == null || instructionId.isBlank()) throw new IllegalArgumentException("instructionId is required");
             if (minimum > maximum) throw new IllegalArgumentException("minimum must not exceed maximum");
+            if ((currentBalance == null) != (unitPrice == null)) {
+                throw new IllegalArgumentException("currentBalance and unitPrice must be provided together");
+            }
+            if (currentBalance != null && (currentBalance < 0 || unitPrice < 1)) {
+                throw new IllegalArgumentException("invalid price summary values");
+            }
         }
     }
 

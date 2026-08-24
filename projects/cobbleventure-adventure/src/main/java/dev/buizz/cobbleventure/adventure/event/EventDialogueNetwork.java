@@ -97,7 +97,10 @@ public final class EventDialogueNetwork {
             String token = UUID.randomUUID().toString();
             PacketDistributor.sendToPlayer(player, new NumberInputOpenPayload(
                 token, request.sessionKey().npcId(), request.sessionKey().scriptId(),
-                request.sessionKey().triggerInstance(), request.minimum(), request.maximum()
+                request.sessionKey().triggerInstance(), request.minimum(), request.maximum(),
+                request.currentBalance() == null ? -1 : request.currentBalance(),
+                request.unitPrice() == null ? -1 : request.unitPrice(),
+                EventDialogueThemeRepository.snapshot()
             ));
             return new EventNumberInputGateway.OpenResult(
                 token, System.currentTimeMillis() + DIALOGUE_TIMEOUT_MILLIS
@@ -592,7 +595,7 @@ public final class EventDialogueNetwork {
 
     public record NumberInputOpenPayload(
         String token, UUID npcId, String scriptId, String triggerInstance,
-        int minimum, int maximum
+        int minimum, int maximum, int currentBalance, int unitPrice, String themeJson
     ) implements CustomPacketPayload {
         public static final Type<NumberInputOpenPayload> TYPE = new Type<>(id("event_number_input_open"));
         public static final StreamCodec<RegistryFriendlyByteBuf, NumberInputOpenPayload> STREAM_CODEC =
@@ -603,16 +606,23 @@ public final class EventDialogueNetwork {
                 throw new IllegalArgumentException("invalid number input payload");
             }
             Objects.requireNonNull(npcId, "npcId");
+            themeJson = themeJson == null ? "{}" : themeJson;
         }
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(token); buffer.writeUUID(npcId); buffer.writeUtf(scriptId);
             buffer.writeUtf(triggerInstance); buffer.writeInt(minimum); buffer.writeInt(maximum);
+            buffer.writeInt(currentBalance); buffer.writeInt(unitPrice);
+            buffer.writeUtf(themeJson);
         }
         private static NumberInputOpenPayload read(RegistryFriendlyByteBuf buffer) {
             return new NumberInputOpenPayload(
                 buffer.readUtf(), buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
-                buffer.readInt(), buffer.readInt()
+                buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt(),
+                buffer.readUtf()
             );
+        }
+        public boolean hasPriceSummary() {
+            return currentBalance >= 0 && unitPrice > 0;
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

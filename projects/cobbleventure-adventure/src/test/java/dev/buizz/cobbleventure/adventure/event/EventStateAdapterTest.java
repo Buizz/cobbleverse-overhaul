@@ -29,6 +29,7 @@ final class EventStateAdapterTest {
         FakeState state = new FakeState();
         state.flags.put("cobbleventure:flag/test", true);
         state.balance = BigInteger.valueOf(1250);
+        state.casinoBalance = BigInteger.valueOf(725);
         state.levelCap = 35;
         state.items.put("cobblemon:potion", 2);
         EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(state);
@@ -42,6 +43,16 @@ final class EventStateAdapterTest {
             call("flag", literal("cobbleventure:flag/test")), Map.of()
         ));
         assertEquals(1250, evaluator.evaluate(call("money"), Map.of()).getAsInt());
+        assertEquals(725, evaluator.evaluate(call("casino_balance"), Map.of()).getAsInt());
+        assertEquals(500, evaluator.evaluate(
+            call("gacha_ticket_price", literal("cobbleventure:starter_gacha")), Map.of()
+        ).getAsInt());
+        assertEquals(7, evaluator.evaluate(
+            call("floor_div", literal(725), literal(100)), Map.of()
+        ).getAsInt());
+        assertEquals(7, evaluator.evaluate(
+            call("min_int", literal(64), literal(7)), Map.of()
+        ).getAsInt());
         assertEquals(35, evaluator.evaluate(call("level_cap"), Map.of()).getAsInt());
         assertTrue(evaluator.evaluateBoolean(
             call("has_item", literal("cobblemon:potion"), literal(2)), Map.of()
@@ -308,6 +319,7 @@ final class EventStateAdapterTest {
         private final Map<String, JsonElement> variables = new LinkedHashMap<>();
         private final Map<String, Integer> items = new LinkedHashMap<>();
         private BigInteger balance = BigInteger.ZERO;
+        private BigInteger casinoBalance = BigInteger.ZERO;
         private int levelCap = 5;
         private String unlockedFeature;
         private final Map<String, Boolean> moneyResults = new LinkedHashMap<>();
@@ -323,6 +335,10 @@ final class EventStateAdapterTest {
             return items.getOrDefault(resourceId, 0) >= count;
         }
         @Override public BigInteger money() { return balance; }
+        @Override public BigInteger casinoBalance() { return casinoBalance; }
+        @Override public int gachaTicketPrice(String profile) { return 500; }
+        @Override public int gachaTicketPurchaseMin(String profile) { return 1; }
+        @Override public int gachaTicketPurchaseMax(String profile) { return 64; }
         @Override public int levelCap() { return levelCap; }
         @Override public void setFlag(String resourceId, boolean value) {
             flags.put(resourceId, value);

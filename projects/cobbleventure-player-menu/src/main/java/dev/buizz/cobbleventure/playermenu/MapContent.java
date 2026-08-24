@@ -434,6 +434,7 @@ public final class MapContent {
         Map<String, JsonObject> definitions = new LinkedHashMap<>();
         for (JsonElement element : world.getAsJsonArray("cave_entrances")) {
             JsonObject entrance = element.getAsJsonObject();
+            if (!entrance.has("cave")) continue;
             String caveId = entrance.get("cave").getAsString();
             definitions.computeIfAbsent(caveId, ignored -> {
                 String slug = caveId.substring(caveId.lastIndexOf('/') + 1);
@@ -494,6 +495,7 @@ public final class MapContent {
         List<CaveEntrance> entrances = new ArrayList<>();
         for (JsonElement element : world.getAsJsonArray("cave_entrances")) {
             JsonObject value = element.getAsJsonObject();
+            if (!value.has("cave")) continue;
             String caveId = value.get("cave").getAsString();
             String entranceId = value.get("entrance").getAsString();
             JsonObject anchor = value.getAsJsonObject("anchor");

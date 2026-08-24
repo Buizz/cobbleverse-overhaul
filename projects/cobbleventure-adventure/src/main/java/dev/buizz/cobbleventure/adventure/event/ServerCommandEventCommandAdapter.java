@@ -35,9 +35,6 @@ public final class ServerCommandEventCommandAdapter implements EventCommandAdapt
             || !"server_command".equals(instruction.command())) {
             return fallback.start(context);
         }
-        if (instruction.operationId() == null) {
-            throw new EventRuntimeException("server_command requires a stable operation ID");
-        }
         List<JsonElement> arguments = positional(instruction, context.locals());
         if (arguments.size() < 1 || arguments.size() > 2
             || !arguments.getFirst().isJsonPrimitive()

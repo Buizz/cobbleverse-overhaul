@@ -47,6 +47,7 @@
             <button class="nav-item" data-section="settlements">마을 관리</button>
             <button class="nav-item" data-section="routes">길 관리</button>
             <button class="nav-item" data-section="caves">동굴 관리</button>
+            <button class="nav-item" data-section="underground-roads">지하통로 관리</button>
             <button class="nav-item" data-section="forests">숲 관리</button>
             <button class="nav-item" data-section="biomes">바이옴 관리</button>
           </div>
@@ -373,12 +374,17 @@
                   <p class="tool-panel-note">빈 지도 타일을 눌러 새 마을을 배치합니다. 기존 마을의 선택·이동은 선택 도구에서만 할 수 있습니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="entrance" hidden>
-                  <label><span>출입구 종류</span><select id="world-entrance-kind"><option value="cave">동굴 출입구</option><option value="forest">숲 출입구</option></select></label>
+                  <label><span>출입구 종류</span><select id="world-entrance-kind"><option value="cave">동굴 출입구</option><option value="underground-road">지하통로 출입구</option><option value="forest">숲 출입구</option></select></label>
                   <label><span>포켓몬센터</span><select id="world-entrance-pokemon-center"><option value="false">사용 안 함</option><option value="true">사용</option></select><small>센터로 지정한 출입구도 길의 연결 지점으로 바로 선택할 수 있습니다.</small></label>
                   <div data-world-entrance-panel="cave">
                     <label><span>동굴</span><select id="cave-tool-cave"></select></label>
                     <label><span>내부 입구</span><select id="cave-tool-entrance"></select><small>이미 배치된 내부 입구는 다시 배치할 수 없습니다.</small></label>
                     <label><span>입구 방향</span><select id="cave-tool-facing"><option value="north">북쪽</option><option value="east">동쪽</option><option value="south">남쪽</option><option value="west">서쪽</option></select></label>
+                  </div>
+                  <div data-world-entrance-panel="underground-road" hidden>
+                    <label><span>지하통로</span><select id="underground-road-tool-road"></select></label>
+                    <label><span>내부 포트</span><select id="underground-road-tool-port"></select><small>NBT의 직소 태그를 지상 입구에 배정합니다.</small></label>
+                    <label><span>입구 방향</span><select id="underground-road-tool-facing"><option value="north">북쪽</option><option value="east">동쪽</option><option value="south">남쪽</option><option value="west">서쪽</option></select></label>
                   </div>
                   <div data-world-entrance-panel="forest" hidden>
                     <label><span>숲</span><select id="forest-tool-forest"></select></label>
@@ -617,6 +623,28 @@
               </form>
             </dialog>
             <div id="cave-issues" class="issues empty">동굴을 선택하세요.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="underground-roads">
+        <div class="workspace-grid">
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">AUTHORED UNDERGROUND PASSAGES</p><h2>지하통로 관리</h2></div><div class="list-tools"><span class="count-pill" id="underground-road-list-count">…</span><button class="mini-button" data-create="underground-roads">＋</button></div></div><div id="underground-road-list" class="list-body"><div class="issues empty">프로젝트의 지하통로 목록을 불러오는 중입니다.</div></div></aside>
+          <div class="editor panel" id="selected-underground-road-editor">
+            <div class="panel-heading"><div><p class="eyebrow">MODULAR PASSAGE BUILDER</p><h2 id="underground-road-editor-title">지하통로를 선택하세요</h2><small>재사용 조각 NBT를 배치하고 직소 커넥터를 맞춰 하나의 내부 통로를 조립합니다.</small></div><div class="editor-heading-actions"><span class="path-label" id="underground-road-path">—</span><div><button class="button danger" id="delete-underground-road" disabled>지하통로 삭제</button><button class="button secondary" id="validate-underground-road" disabled>문서 검증</button><button class="button primary" id="save-underground-road" disabled>지하통로 저장</button></div></div></div>
+            <form id="underground-road-form" class="form-grid">
+              <label class="wide"><span>지하통로 ID</span><input name="id" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label>
+              <label><span>한국어 이름</span><input name="nameKo" required></label>
+              <label><span>영문 이름</span><input name="nameEn"></label>
+              <label><span>기준 X</span><input name="originX" type="number" required></label>
+              <label><span>기준 Y</span><input name="originY" type="number" required></label>
+              <label><span>기준 Z</span><input name="originZ" type="number" required></label>
+              <label><span>지하통로 BGM</span><select name="musicTrack"></select></label>
+              <label class="toggle"><input name="enabled" type="checkbox"><span>지하통로 사용</span></label>
+              <fieldset class="wide underground-module-builder"><legend>지하통로 조립 화면</legend><p class="cave-section-help">조각을 고른 뒤 캔버스를 클릭해 배치합니다. 초록 점은 내부 연결, 노란 점은 출입구로 쓸 수 있는 위쪽 계단, 빨간 점은 아직 연결해야 하는 커넥터입니다.</p><div class="underground-module-toolbar"><label><span>조각 NBT</span><select id="underground-module-structure"></select></label><label><span>배치 높이 Y</span><input id="underground-module-level" type="number" value="0"></label><button class="button secondary" id="add-underground-module" type="button">＋ 조각 배치</button><button class="button secondary" id="rotate-underground-module" type="button">↻ 선택 회전</button><button class="button danger" id="remove-underground-module" type="button">선택 삭제</button></div><canvas id="underground-module-canvas" width="900" height="560" aria-label="지하통로 조각 배치 화면"></canvas><div class="underground-module-selection" id="underground-module-selection"><span>조각을 선택하면 좌표와 회전을 편집할 수 있습니다.</span></div></fieldset>
+              <fieldset class="wide cave-settings-group"><legend>지상 출입구 포트</legend><p class="cave-section-help">연결되지 않은 `up` 방향 계단 커넥터만 지상 입구 또는 출구로 등록할 수 있습니다.</p><div class="underground-port-toolbar"><input id="underground-port-tag" placeholder="예: exit_1"><input id="underground-port-name" placeholder="표시 이름"><select id="underground-port-connector"></select><button class="button secondary" id="add-underground-port" type="button">포트 등록</button></div><div id="underground-road-port-list" class="cave-entry-list"><div class="issues empty">외부 포트를 두 개 이상 등록하세요.</div></div></fieldset>
+            </form>
+            <div id="underground-road-issues" class="issues empty">지하통로를 선택하세요.</div>
           </div>
         </div>
       </section>

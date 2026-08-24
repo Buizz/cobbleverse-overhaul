@@ -23,9 +23,9 @@ const structureViewPitch = {
 
 const state = {
   project: null,
-  trainers: [], battles: [], routes: [], settlements: [], caves: [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
+  trainers: [], battles: [], routes: [], settlements: [], caves: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
-  trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
+  trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
   npcFilter: "all",
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
@@ -40,6 +40,7 @@ const state = {
   routePokemonTarget: "world", routePokemonMethod: "land", routePokemonLevelSpecies: null, routePokemonEditingCard: null, routeFinalizing: false, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null, encounterPokemonEditingCard: null,
   encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
+  undergroundModuleEditor: { selectedId: null, placing: false, transform: null },
   villageDecorationEditor: { tool: "select", selected: -1, drag: null, hitTargets: [], preview: null, compilation: { requestId: 0, source: "", result: null } },
   villageGpuView: { renderer: null, models: new Map(), yaw: -.72, pitch: -.68, distance: 260, targetY: 8, drag: null, autoRotate: false, frame: 0, requestId: 0, atmosphere: "day" },
   townManualEditor: { library: "building", tool: "select", asset: null, selected: null, hover: null, roadStart: null, roadWidth: 7, drag: null, view3d: false, zoom: 1, panX: 0, panY: 0, hitTargets: [], draft: null },
@@ -69,6 +70,7 @@ const reservedWorldObjectTypes = new Map([
 ]);
 const defaultWorldEntranceStructures = {
   cave: "cobbleventure:cave_entrance/stone_mountain",
+  undergroundRoad: "cobbleventure:underground_entrance/underground_passage",
   caveVariants: {
     high_forest: "cobbleventure:cave_entrance/plains",
     dense_forest: "cobbleventure:cave_entrance/plains",
@@ -896,7 +898,7 @@ function switchPage(section) {
   const activeNavigationItem = $(`.nav-item[data-section="${navigationSection}"]`);
   if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "Cobblemon Casino 설정", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "Cobblemon Casino 설정", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -1006,14 +1008,14 @@ async function pickProjectFolder() {
 }
 
 async function loadLists() {
-  const [trainers, battles, routes, settlements, caves, forests, worldLayouts, worldLayout, worldPokemonMap, league, gyms, badges, music] = await Promise.all([
-    request("/api/trainers"), request("/api/battles"), request("/api/routes"), request("/api/settlements"), request("/api/caves"), request("/api/forests"),
+  const [trainers, battles, routes, settlements, caves, undergroundRoads, forests, worldLayouts, worldLayout, worldPokemonMap, league, gyms, badges, music] = await Promise.all([
+    request("/api/trainers"), request("/api/battles"), request("/api/routes"), request("/api/settlements"), request("/api/caves"), request("/api/underground-roads"), request("/api/forests"),
     request("/api/world-layouts"), request(`/api/world-layout?generation=${state.selectedGeneration}`),
     request(`/api/world-pokemon-map?generation=${state.selectedGeneration}`), request("/api/league-progression"), request("/api/gyms"), request("/api/badges"), request("/api/music-catalog")
   ]);
   const failures = [];
   const applyDocumentList = (category, result, label) => {
-    const singular = documentSingular(category);
+    const listPrefix = documentListPrefix(category);
     if (result.ok) {
       state[category] = result.data.items || [];
       renderList(category);
@@ -1022,14 +1024,15 @@ async function loadLists() {
     state[category] = [];
     const message = result.data.error || `${label} 목록을 불러오지 못했습니다.`;
     failures.push(`${label}: ${message}`);
-    $(`#${singular}-list-count`).textContent = "오류";
-    $(`#${singular}-list`).innerHTML = `<div class="issues">${escapeHtml(message)}</div>`;
+    $(`#${listPrefix}-list-count`).textContent = "오류";
+    $(`#${listPrefix}-list`).innerHTML = `<div class="issues">${escapeHtml(message)}</div>`;
   };
   applyDocumentList("trainers", trainers, "NPC");
   applyDocumentList("battles", battles, "배틀 프리셋");
   applyDocumentList("routes", routes, "길");
   applyDocumentList("settlements", settlements, "마을");
   applyDocumentList("caves", caves, "동굴");
+  applyDocumentList("underground-roads", undergroundRoads, "지하통로");
   applyDocumentList("forests", forests, "숲");
   if (league.ok) state.leagueProgression = league.data;
   else {
@@ -1117,6 +1120,20 @@ async function loadBiomeData(force = false) {
   finally { lazyDataPromises.biomes = null; }
 }
 
+async function requestStructureCache(url, force, label) {
+  const maximumAttempts = 250;
+  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    const separator = url.includes("?") ? "&" : "?";
+    const result = await request(`${url}${force && attempt === 0 ? `${separator}refresh=1` : ""}`);
+    if (!result.ok) throw new Error(result.data.error || `${label}을 불러오지 못했습니다.`);
+    if (!result.data.cache?.refreshing) return result;
+    const elapsed = Math.round((attempt + 1) * 1.2);
+    updateProjectLoading(`${label} 생성 중… ${elapsed}초`);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  }
+  throw new Error(`${label} 준비 시간이 너무 오래 걸립니다. 서버 작업 상태를 확인해 주세요.`);
+}
+
 async function loadStructureData(force = false) {
   if (lazyDataLoaded.structures && !force) return;
   if (lazyDataPromises.structures) {
@@ -1126,17 +1143,10 @@ async function loadStructureData(force = false) {
   if ($("#nbt-structure-count")) $("#nbt-structure-count").textContent = "불러오는 중";
   if ($("#nbt-structure-list")) $("#nbt-structure-list").innerHTML = '<div class="issues empty">NBT 목록을 필요한 시점에 불러오고 있습니다.</div>';
   lazyDataPromises.structures = (async () => {
-    const suffix = force ? "?refresh=1" : "";
     const [result, buildingSettings] = await Promise.all([
-      request(`/api/structure-sizes${suffix}`), request(`/api/building-settings${suffix}`)
+      requestStructureCache("/api/structure-sizes", force, "NBT 구조물 목록"),
+      requestStructureCache("/api/building-settings", false, "NBT 건물 설정")
     ]);
-    if (!result.ok) throw new Error(result.data.error || "NBT 구조물 목록을 불러오지 못했습니다.");
-    if (result.data.cache?.refreshing && !Object.keys(result.data.structures || {}).length) {
-      if ($("#nbt-structure-count")) $("#nbt-structure-count").textContent = "작업 중";
-      clearTimeout(loadStructureData.retryTimer);
-      loadStructureData.retryTimer = setTimeout(() => loadStructureData().catch((error) => toast(error.message)), 1200);
-      return;
-    }
     state.structureSizes = result.data.structures || {};
     if (buildingSettings.ok) for (const [id, metadata] of Object.entries(buildingSettings.data.structures || {})) {
       state.structureSizes[id] = { ...(state.structureSizes[id] || {}), ...metadata };
@@ -1173,14 +1183,7 @@ async function loadBuildingSettingsData(force = false) {
     if (!force) return;
   }
   lazyDataPromises.buildingSettings = (async () => {
-    const result = await request(`/api/building-settings${force ? "?refresh=1" : ""}`);
-    if (!result.ok) throw new Error(result.data.error || "건물 설정을 불러오지 못했습니다.");
-    if (result.data.cache?.refreshing && !Object.keys(result.data.structures || {}).length) {
-      $("#building-settings-path").textContent = "NBT 건물 목록을 백그라운드에서 준비 중…";
-      clearTimeout(loadBuildingSettingsData.retryTimer);
-      loadBuildingSettingsData.retryTimer = setTimeout(() => loadBuildingSettingsData().catch((error) => toast(error.message)), 1200);
-      return;
-    }
+    const result = await requestStructureCache("/api/building-settings", force, "NBT 건물 설정");
     state.buildingSettings.structures = result.data.structures || {};
     state.buildingSettings.npcs = result.data.npcs || [];
     state.buildingSettings.facilityDefaults = {
@@ -1352,6 +1355,14 @@ function renderGachaMachines() {
     return;
   }
   const rarity = selectedGachaRarity(machine);
+  const modelOptions = [
+    ["cobblemoncasino:pokemon_gacha_machine", "포켓몬 가챠머신"],
+    ["cobblemoncasino:gacha_machine", "아이템 가챠머신"],
+    ["cobblemoncasino:event_gacha_machine", "이벤트 가챠머신"],
+    ["cobblemoncasino:plushies_gacha_machine", "봉제인형 가챠머신"]
+  ].map(([value, label]) => `<option value="${value}" ${machine.appearance.model_block === value ? "selected" : ""}>${label}</option>`).join("");
+  const facingOptions = [["north","북쪽"],["east","동쪽"],["south","남쪽"],["west","서쪽"]]
+    .map(([value, label]) => `<option value="${value}" ${machine.appearance.facing === value ? "selected" : ""}>${label}</option>`).join("");
   const rarityOptions = (machine.rarities || []).map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} (${escapeHtml(entry.id)})</option>`).join("");
   const rewards = rarity?.rewards || [];
   const catalogQuery = (workspace.catalogQuery || "").trim().toLowerCase();
@@ -1361,11 +1372,12 @@ function renderGachaMachines() {
     <section class="gacha-editor-section"><header><h4>${typeLabels[machine.machine_type]} 기계 설정</h4></header><div class="gacha-field-grid">
       ${gachaField("기계 프로필 ID", "id", machine.id, { readonly:true, wide:true })}${gachaField("표시 이름", "display_name", machine.display_name)}<label><span>기계 종류</span><input value="${typeLabels[machine.machine_type]}" readonly></label>${gachaField("천장 공유 그룹", "pity_group", machine.pity_group)}${gachaField("사용", "enabled", machine.enabled, { type:"checkbox" })}
     </div></section>
-    <section class="gacha-editor-section"><header><h4>기계 외형</h4><small>등록된 Minecraft 블록을 조합해 게임에서 즉시 렌더링합니다.</small></header><div class="gacha-field-grid">
-      ${gachaField("본체 블록", "appearance/base_block", machine.appearance.base_block)}${gachaField("강조 블록", "appearance/accent_block", machine.appearance.accent_block)}${gachaField("전체 크기", "appearance/scale", machine.appearance.scale, {type:"number",min:.25,max:2,step:.05})}
-      ${gachaField("강조 크기", "appearance/accent_scale", machine.appearance.accent_scale, {type:"number",min:.1,max:1.5,step:.05})}${gachaField("강조 높이", "appearance/accent_height", machine.appearance.accent_height, {type:"number",min:0,max:2,step:.05})}${gachaField("회전 각도", "appearance/rotation_degrees", machine.appearance.rotation_degrees, {type:"number",min:-360,max:360,step:15})}${gachaField("이름표 표시", "appearance/show_nameplate", machine.appearance.show_nameplate, {type:"checkbox"})}
+    <section class="gacha-editor-section"><header><h4>기계 외형</h4><small>Cobblemon Casino의 실제 2블록 가챠머신 모델을 사용합니다.</small></header><div class="gacha-field-grid">
+      <label><span>기계 모델</span><select data-gacha-path="appearance/model_block">${modelOptions}</select></label>
+      <label><span>기계 방향</span><select data-gacha-path="appearance/facing">${facingOptions}</select></label>
+      ${gachaField("이름표 표시", "appearance/show_nameplate", machine.appearance.show_nameplate, {type:"checkbox"})}
     </div></section>
-    <section class="gacha-editor-section"><header><h4>${typeLabels[machine.machine_type]} 공통 티켓</h4><small>모든 카지노의 같은 종류 기계에서 공통으로 사용됩니다. 카지노마다 달라지는 것은 보상 풀과 외형입니다.</small></header><div class="gacha-field-grid"><label class="wide"><span>티켓 이름</span><input data-gacha-ticket-path="display_name" value="${escapeHtml(ticket.display_name)}"></label><label><span>티켓 1장 가격</span><input type="number" min="1" data-gacha-ticket-path="price" value="${ticket.price}"></label><label><span>최소 구매 수량</span><input type="number" min="1" data-gacha-ticket-path="purchase_min" value="${ticket.purchase_min}"></label><label><span>최대 구매 수량</span><input type="number" min="1" max="6400" data-gacha-ticket-path="purchase_max" value="${ticket.purchase_max}"></label></div></section>
+    <section class="gacha-editor-section"><header><h4>${typeLabels[machine.machine_type]} 공통 티켓</h4><small>가격 단위는 카지노 칩입니다. 저장한 가격과 구매 범위가 티켓 NPC 입력창에 즉시 사용됩니다.</small></header><div class="gacha-field-grid"><label class="wide"><span>티켓 이름</span><input data-gacha-ticket-path="display_name" value="${escapeHtml(ticket.display_name)}"></label><label><span>티켓 1장 가격 (칩)</span><input type="number" min="1" max="2147483647" data-gacha-ticket-path="price" value="${ticket.price}"></label><label><span>최소 구매 수량</span><input type="number" min="1" data-gacha-ticket-path="purchase_min" value="${ticket.purchase_min}"></label><label><span>최대 구매 수량</span><input type="number" min="1" max="6400" data-gacha-ticket-path="purchase_max" value="${ticket.purchase_max}"></label></div></section>
     <section class="gacha-editor-section"><header><div><h4>${typeLabels[machine.machine_type]} 가챠 상품 카탈로그</h4><small>상품을 한 번 등록한 뒤 각 카지노의 희귀도 풀에 복사해 넣습니다.</small></div><button class="button secondary" type="button" data-gacha-add-catalog>＋ 상품</button></header>
       <label class="gacha-catalog-search"><span>상품 검색</span><input data-gacha-catalog-query value="${escapeHtml(workspace.catalogQuery || "")}" placeholder="이름, ID, 아이템 또는 포켓몬"></label>
       <div class="gacha-catalog-table"><div class="gacha-catalog-row head"><span>카탈로그 ID</span><span>표시 이름</span><span>종류</span><span>아이템 ID / PokemonProperties</span><span>수량</span><span></span><span></span></div>${catalogEntries.map(({entry,index}) => `<div class="gacha-catalog-row" data-gacha-catalog-index="${index}"><input data-gacha-catalog="id" value="${escapeHtml(entry.id)}"><input data-gacha-catalog="display_name" value="${escapeHtml(entry.display_name)}"><select data-gacha-catalog="kind"><option value="item" ${entry.kind === "item" ? "selected" : ""}>아이템</option><option value="pokemon" ${entry.kind === "pokemon" ? "selected" : ""}>포켓몬</option></select><input data-gacha-catalog="value" value="${escapeHtml(entry.value)}"><input type="number" min="1" data-gacha-catalog="count" value="${entry.count}"><button class="button secondary" type="button" data-gacha-use-catalog="${index}" ${rarity ? "" : "disabled"}>현재 풀에 추가</button><button type="button" class="casino-row-remove" data-gacha-delete-catalog="${index}">×</button></div>`).join("")}</div>
@@ -1414,7 +1426,8 @@ function newCasinoGachaMachine(id, type, setSlug) {
   };
   const labels = {pokemon:"포켓몬 가챠",item:"아이템 가챠",technical_machine:"기술머신 가챠"};
   const reward = samples[type];
-  return { id, display_name:labels[type], machine_type:type, enabled:true, pity_group:`${setSlug}/${type}`, appearance:{base_block:"minecraft:iron_block",accent_block:"minecraft:glass",scale:1,accent_scale:.45,accent_height:.78,rotation_degrees:0,show_nameplate:true}, rarities:[{id:"common",display_name:"일반",weight:100,rewards:[{...reward,count:1,weight:1,selectable:false}]}], pity:{soft:{enabled:false,start:30,max_at:60,target_rarity:"common",max_chance:.25},hard:{enabled:false,count:80,target_rarity:"common"},selection:{enabled:false,points_per_pull:1,required_points:100}} };
+  const models = {pokemon:"cobblemoncasino:pokemon_gacha_machine",item:"cobblemoncasino:gacha_machine",technical_machine:"cobblemoncasino:event_gacha_machine"};
+  return { id, display_name:labels[type], machine_type:type, enabled:true, pity_group:`${setSlug}/${type}`, appearance:{model_block:models[type],facing:"north",show_nameplate:true}, rarities:[{id:"common",display_name:"일반",weight:100,rewards:[{...reward,count:1,weight:1,selectable:false}]}], pity:{soft:{enabled:false,start:30,max_at:60,target_rarity:"common",max_chance:.25},hard:{enabled:false,count:80,target_rarity:"common"},selection:{enabled:false,points_per_pull:1,required_points:100}} };
 }
 
 function addGachaSet() {
@@ -1737,6 +1750,7 @@ function loadSectionData(section, force = false) {
   if (section === "trainers" || section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
   if (section === "biomes") return loadBiomeData(force);
   if (section === "caves" || section === "forests") return loadBiomeData(force);
+  if (section === "underground-roads") return loadStructureData(force).then(renderUndergroundRoad);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
   if (section === "gyms") return loadGymStructureData(force).then(renderGymEditor);
@@ -1755,6 +1769,7 @@ function settlementSummary(settlementId) {
 }
 function routeSummary(routeId) { return state.routes.find((item) => item.id === routeId); }
 function caveSummary(caveId) { return state.caves.find((item) => item.id === caveId); }
+function undergroundRoadSummary(roadId) { return state["underground-roads"].find((item) => item.id === roadId); }
 function forestSummary(forestId) { return state.forests.find((item) => item.id === forestId); }
 function setWorldManagementTarget(category = "", id = "") {
   const button = $("#open-selected-management");
@@ -2299,10 +2314,12 @@ function renderHexMap() {
     .map((node) => { const center = hexPoint(node.anchor.q, node.anchor.r); const marker = entranceMapPoint(node); const outer = hexPolygon(center.x, center.y, mapHexSize() - 3).split(" ").join("L"); return `<path class="entrance-underlay-hit" data-entrance-underlay-q="${node.anchor.q}" data-entrance-underlay-r="${node.anchor.r}" tabindex="0" role="button" aria-label="Q ${node.anchor.q}, R ${node.anchor.r} 입구 아래 바이옴 선택" fill-rule="evenodd" d="M${outer}ZM${marker.x - 12},${marker.y}a12,12 0 1,0 24,0a12,12 0 1,0 -24,0Z"></path>`; }).join("");
   const caveEntrances = (state.worldLayout.cave_entrances || []).map((node) => {
     const { x, y } = entranceMapPoint(node);
-    const caveName = caveSummary(node.cave)?.name || node.cave.split("/").pop();
+    const targetId = node.underground_road || node.cave;
+    const caveName = node.underground_road ? (undergroundRoadSummary(targetId)?.name || targetId.split("/").pop()) : (caveSummary(targetId)?.name || targetId.split("/").pop());
+    const internalPort = node.port || node.entrance;
     const selected = state.selectedEntrance?.kind === "cave" && state.selectedEntrance.id === node.id;
     const centerBadge = node.pokemon_center_enabled ? `<text class="center-badge" y="-14" aria-label="포켓몬센터">P</text>` : "";
-    return `<g class="hex-cave-entrance${selected ? " is-selected" : ""}${state.entranceDrag?.kind === "cave" && state.entranceDrag.id === node.id ? " is-drag-source" : ""}" data-route-cave-entrance="${escapeHtml(node.id)}" data-drag-entrance-kind="cave" data-drag-entrance-id="${escapeHtml(node.id)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(caveName)} ${escapeHtml(node.entrance)} 입구${node.pokemon_center_enabled ? " 포켓몬센터" : ""} 선택 및 이동"><circle class="entrance-marker-hit" r="18"></circle><circle r="10"></circle><path d="M-6 5Q-5-6 0-7Q5-6 6 5ZM-2 5V1Q0-2 2 1V5Z"></path>${centerBadge}<text y="24">${escapeHtml(caveName)} · ${escapeHtml(node.entrance)}</text></g>`;
+    return `<g class="hex-cave-entrance${selected ? " is-selected" : ""}${state.entranceDrag?.kind === "cave" && state.entranceDrag.id === node.id ? " is-drag-source" : ""}" data-route-cave-entrance="${escapeHtml(node.id)}" data-drag-entrance-kind="cave" data-drag-entrance-id="${escapeHtml(node.id)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(caveName)} ${escapeHtml(internalPort)} 입구${node.pokemon_center_enabled ? " 포켓몬센터" : ""} 선택 및 이동"><circle class="entrance-marker-hit" r="18"></circle><circle r="10"></circle><path d="M-6 5Q-5-6 0-7Q5-6 6 5ZM-2 5V1Q0-2 2 1V5Z"></path>${centerBadge}<text y="24">${escapeHtml(caveName)} · ${escapeHtml(internalPort)}</text></g>`;
   }).join("");
   const forestEntrances = (state.worldLayout.forest_entrances || []).map((node) => {
     const { x, y } = entranceMapPoint(node); const forestName = forestSummary(node.forest)?.name || node.forest.split("/").pop();
@@ -2449,6 +2466,7 @@ function handleHexSelection(q, r) {
   else if (tool === "settlement") placeSettlementWithTool(q, r);
   else if (tool === "entrance") {
     if ($("#world-entrance-kind").value === "forest") placeForestEntranceWithTool(q, r);
+    else if ($("#world-entrance-kind").value === "underground-road") placeUndergroundRoadEntranceWithTool(q, r);
     else placeCaveEntranceWithTool(q, r);
   }
   else if (tool === "gate") placeGateWithTool(q, r);
@@ -2545,6 +2563,13 @@ function caveToolEntranceOptions() {
   return (cave?.entrances || []).map((entry) => `<option value="${escapeHtml(entry.id)}" ${placed.has(entry.id) ? "disabled" : ""}>${escapeHtml(entry.display_name || entry.id)}${placed.has(entry.id) ? " · 배치됨" : ""}</option>`).join("");
 }
 function refreshCaveToolEntrances() { $("#cave-tool-entrance").innerHTML = caveToolEntranceOptions(); }
+function undergroundRoadToolPortOptions() {
+  const roadId = $("#underground-road-tool-road").value;
+  const road = undergroundRoadSummary(roadId);
+  const placed = new Set((state.worldLayout.cave_entrances || []).filter((item) => item.underground_road === roadId).map((item) => item.port));
+  return Object.entries(road?.ports || {}).map(([tag, settings]) => `<option value="${escapeHtml(tag)}" ${placed.has(tag) ? "disabled" : ""}>${escapeHtml(settings.display_name || tag)}${placed.has(tag) ? " · 배치됨" : ""}</option>`).join("");
+}
+function refreshUndergroundRoadToolPorts() { $("#underground-road-tool-port").innerHTML = undergroundRoadToolPortOptions(); }
 function placeCaveEntranceWithTool(q, r) {
   const caveId = $("#cave-tool-cave").value; const entranceId = $("#cave-tool-entrance").value;
   if (!caveId || !entranceId) { toast("배치할 동굴과 미배치 내부 입구를 선택해 주세요."); return; }
@@ -2559,6 +2584,17 @@ function placeCaveEntranceWithTool(q, r) {
     pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true"
   });
   state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id: `cobbleventure:cave_entrance/${slug}_${entranceId}` }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
+}
+function placeUndergroundRoadEntranceWithTool(q, r) {
+  const roadId = $("#underground-road-tool-road").value; const port = $("#underground-road-tool-port").value;
+  if (!roadId || !port) { toast("배치할 지하통로와 미배치 내부 포트를 선택해 주세요."); return; }
+  if (caveEntranceAt(q, r) || settlementAt(q, r)) { toast("이미 마을 또는 출입구가 배치된 타일입니다."); return; }
+  if ((state.worldLayout.cave_entrances || []).some((entry) => entry.underground_road === roadId && entry.port === port)) { toast("같은 지하통로 포트가 이미 배치되어 있습니다."); return; }
+  const slug = roadId.split("/").pop(); const id = `cobbleventure:underground_entrance/${slug}_${port}`;
+  state.worldLayout.cave_entrances.push({ id, underground_road: roadId, port, anchor: { q, r }, facing: $("#underground-road-tool-facing").value,
+    structure: defaultWorldEntranceStructures.undergroundRoad, structure_variants: {},
+    pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true" });
+  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id }; markWorldDirty(); refreshUndergroundRoadToolPorts(); renderWorldLayout(); toast("지하통로 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
 }
 function forestToolEntranceOptions() {
   const forestId = $("#forest-tool-forest").value;
@@ -2822,6 +2858,7 @@ function routePlaceFromId(endpointId) {
   const settlement = settlementSummary(endpointId);
   if (settlement) return { id: endpointId, name: settlement.name || endpointId, kind: "settlement" };
   const caveEntrance = (state.worldLayout?.cave_entrances || []).find((entry) => entry.id === endpointId);
+  if (caveEntrance?.underground_road) return { id: caveEntrance.underground_road, name: undergroundRoadSummary(caveEntrance.underground_road)?.name || caveEntrance.underground_road, kind: "underground-road" };
   if (caveEntrance) return { id: caveEntrance.cave, name: caveSummary(caveEntrance.cave)?.name || caveEntrance.cave, kind: "cave" };
   const forestEntrance = (state.worldLayout?.forest_entrances || []).find((entry) => entry.id === endpointId);
   if (forestEntrance) return { id: forestEntrance.forest, name: forestSummary(forestEntrance.forest)?.name || forestEntrance.forest, kind: "forest" };
@@ -2832,6 +2869,7 @@ function routePlaceAtCell(cell) {
   const settlement = settlementFootprintAt(cell.q, cell.r);
   if (settlement) return routePlaceFromId(settlement.settlement);
   const caveEntrance = caveEntranceAt(cell.q, cell.r);
+  if (caveEntrance?.underground_road) return { id: caveEntrance.underground_road, name: undergroundRoadSummary(caveEntrance.underground_road)?.name || caveEntrance.underground_road, kind: "underground-road" };
   if (caveEntrance) return { id: caveEntrance.cave, name: caveSummary(caveEntrance.cave)?.name || caveEntrance.cave, kind: "cave" };
   const forestEntrance = forestEntranceAt(cell.q, cell.r);
   if (forestEntrance) return { id: forestEntrance.forest, name: forestSummary(forestEntrance.forest)?.name || forestEntrance.forest, kind: "forest" };
@@ -3223,14 +3261,15 @@ function renderRouteInspector(route) {
 
 function renderEntranceInspector(selection) {
   const { kind, entrance } = selection; const form = $("#entrance-inspector-form"); const tile = tileAt(entrance.anchor.q, entrance.anchor.r);
-  setWorldManagementTarget(kind === "cave" ? "caves" : "forests", kind === "cave" ? entrance.cave : entrance.forest);
+  const underground = kind === "cave" && Boolean(entrance.underground_road);
+  setWorldManagementTarget(underground ? "underground-roads" : kind === "cave" ? "caves" : "forests", underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest);
   const underlying = tile ? tile.biome : emptyTerrainLabel(emptyTerrainAt(entrance.anchor.q, entrance.anchor.r));
-  $("#selection-inspector-kind").textContent = kind === "cave" ? "CAVE ENTRANCE" : "FOREST ENTRANCE";
-  $("#selected-tile-title").textContent = kind === "cave" ? `${caveSummary(entrance.cave)?.name || entrance.cave} 입구` : `${forestSummary(entrance.forest)?.name || entrance.forest} 입구`;
+  $("#selection-inspector-kind").textContent = underground ? "UNDERGROUND PASSAGE PORT" : kind === "cave" ? "CAVE ENTRANCE" : "FOREST ENTRANCE";
+  $("#selected-tile-title").textContent = underground ? `${undergroundRoadSummary(entrance.underground_road)?.name || entrance.underground_road} · ${entrance.port}` : kind === "cave" ? `${caveSummary(entrance.cave)?.name || entrance.cave} 입구` : `${forestSummary(entrance.forest)?.name || entrance.forest} 입구`;
   $("#selected-tile-coord").textContent = `Q ${entrance.anchor.q} · R ${entrance.anchor.r}`;
-  $("#entrance-inspector-label").textContent = kind === "cave" ? "동굴 입구 속성" : "숲 입구 속성";
-  $("#entrance-inspector-id").textContent = entrance.id; $("#entrance-target-label").textContent = kind === "cave" ? "연결 동굴" : "연결 숲";
-  form.elements.id.value = entrance.id; form.elements.target.value = kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = entrance.entrance;
+  $("#entrance-inspector-label").textContent = underground ? "지하통로 입구 속성" : kind === "cave" ? "동굴 입구 속성" : "숲 입구 속성";
+  $("#entrance-inspector-id").textContent = entrance.id; $("#entrance-target-label").textContent = underground ? "연결 지하통로" : kind === "cave" ? "연결 동굴" : "연결 숲";
+  form.elements.id.value = entrance.id; form.elements.target.value = underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = underground ? entrance.port : entrance.entrance;
   form.elements.q.value = entrance.anchor.q; form.elements.r.value = entrance.anchor.r; form.elements.facing.value = entrance.facing;
   form.elements.rotation.value = entrance.rotation || 0; form.elements.pokemonCenterEnabled.value = String(Boolean(entrance.pokemon_center_enabled));
   form.elements.treeLog.value = entrance.tree_log || "minecraft:spruce_log"; form.elements.treeLeaves.value = entrance.tree_leaves || "minecraft:spruce_leaves";
@@ -3607,7 +3646,7 @@ const mapToolCopy = {
   level: ["평균 레벨 브러시", "야생 포켓몬 지역의 목표 평균 레벨을 칠합니다."],
   route: ["길 만들기", "마을 자동 연결 또는 타일 경유 경로를 만듭니다."],
   settlement: ["마을 배치", "빈 타일에 관리 중인 마을을 새로 배치합니다."],
-  entrance: ["출입구 배치", "동굴·숲 출입구 종류와 포켓몬센터 여부를 정해 배치합니다."],
+  entrance: ["출입구 배치", "동굴·지하통로·숲 출입구와 포켓몬센터 여부를 정해 배치합니다."],
   gate: ["관문 배치", "건물·지형 연결·NPC·통과 조건을 하나의 관문 시스템으로 배치합니다."],
   object: ["오브젝트 배치", "진행 판정이 없는 랜드마크와 특수 건물 NBT를 배치합니다."],
   eraser: ["지우개", "선택한 월드 레이어를 제거합니다."]
@@ -3629,11 +3668,15 @@ function renderMapToolOptions() {
   $("#cave-tool-cave").innerHTML = state.caves.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentCave && state.caves.some((item) => item.id === currentCave)) $("#cave-tool-cave").value = currentCave;
   refreshCaveToolEntrances();
+  const currentUndergroundRoad = $("#underground-road-tool-road").value;
+  $("#underground-road-tool-road").innerHTML = state["underground-roads"].filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
+  if (currentUndergroundRoad && state["underground-roads"].some((item) => item.id === currentUndergroundRoad)) $("#underground-road-tool-road").value = currentUndergroundRoad;
+  refreshUndergroundRoadToolPorts();
   const currentForest = $("#forest-tool-forest").value;
   $("#forest-tool-forest").innerHTML = state.forests.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentForest && state.forests.some((item) => item.id === currentForest)) $("#forest-tool-forest").value = currentForest;
   refreshForestToolEntrances();
-  const help = { select: "선택 도구 · 기존 타일·마을·길·출입구·관문·오브젝트 선택 및 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", level: "평균 레벨 브러시 · 레벨링 오버레이에 표시", route: "길 도구 · 새 길 생성 (마을·출입구·센터 지정 출입구를 끝점으로 사용 가능)", settlement: "마을 도구 · 새 마을 배치", entrance: "출입구 도구 · 동굴·숲 출입구 배치", gate: "관문 도구 · 지형과 진행 조건을 포함한 관문 배치", object: "오브젝트 도구 · 랜드마크 NBT 배치", eraser: "지우개 · 선택 레이어 제거" };
+  const help = { select: "선택 도구 · 기존 타일·마을·길·출입구·관문·오브젝트 선택 및 이동", biome: "바이옴 브러시 · 누른 채 드래그하여 칠하기", terrain: "빈 지형 브러시 · 마을과 길은 유지", climate: "기후 오버라이드 · 원본 바이옴 설정은 유지", level: "평균 레벨 브러시 · 레벨링 오버레이에 표시", route: "길 도구 · 새 길 생성 (마을·출입구·센터 지정 출입구를 끝점으로 사용 가능)", settlement: "마을 도구 · 새 마을 배치", entrance: "출입구 도구 · 동굴·지하통로·숲 출입구 배치", gate: "관문 도구 · 지형과 진행 조건을 포함한 관문 배치", object: "오브젝트 도구 · 랜드마크 NBT 배치", eraser: "지우개 · 선택 레이어 제거" };
   $("#map-interaction-help").textContent = help[tool];
   $("#world-hex-map").dataset.activeTool = tool;
   renderRouteCreator();
@@ -4136,7 +4179,11 @@ async function addGeneration() {
 }
 
 function documentSingular(category) {
-  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "routes" ? "routePreset" : category === "caves" ? "cave" : category === "forests" ? "forest" : "settlement";
+  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "routes" ? "routePreset" : category === "caves" ? "cave" : category === "underground-roads" ? "undergroundRoad" : category === "forests" ? "forest" : "settlement";
+}
+
+function documentListPrefix(category) {
+  return category === "underground-roads" ? "underground-road" : documentSingular(category);
 }
 
 function renderList(category) {
@@ -4145,8 +4192,9 @@ function renderList(category) {
     ? allItems.filter((item) => (item.classification || (item.battle_type ? "trainer" : "ambient")) === state.npcFilter)
     : allItems;
   const singular = documentSingular(category);
-  $(`#${singular}-list-count`).textContent = category === "trainers" && state.npcFilter !== "all" ? `${items.length}/${allItems.length}` : items.length;
-  const list = $(`#${singular}-list`);
+  const listPrefix = documentListPrefix(category);
+  $(`#${listPrefix}-list-count`).textContent = category === "trainers" && state.npcFilter !== "all" ? `${items.length}/${allItems.length}` : items.length;
+  const list = $(`#${listPrefix}-list`);
   if (category === "trainers") {
     const counts = { all: allItems.length, trainer: 0, ambient: 0 };
     allItems.forEach((item) => { counts[item.classification || (item.battle_type ? "trainer" : "ambient")] += 1; });
@@ -4275,6 +4323,7 @@ async function loadDocument(category, path) {
   else if (category === "battles") renderBattlePreset();
   else if (category === "routes") renderRoutePreset();
   else if (category === "caves") renderCave();
+  else if (category === "underground-roads") renderUndergroundRoad();
   else if (category === "forests") renderForest();
   else await renderSettlement();
   if (category === "settlements") finishSettlementLoading(settlementRequestId);
@@ -4693,6 +4742,121 @@ function renderCaveDimensionSummary() {
   if (!state.cave) return;
   const bounds = state.cave.dimension?.bounds || {};
   $("#cave-dimension-size").textContent = dimensionSizeLabel(bounds);
+}
+
+const undergroundRotations = ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"];
+const undergroundFacingVectors = { north: [0, 0, -1], east: [1, 0, 0], south: [0, 0, 1], west: [-1, 0, 0], up: [0, 1, 0], down: [0, -1, 0] };
+const undergroundOppositeFacing = { north: "south", east: "west", south: "north", west: "east", up: "down", down: "up" };
+
+function undergroundModuleStructures() {
+  return Object.entries(state.structureSizes || {}).filter(([id, metadata]) => id.startsWith("cobbleventure:underground_road_modules/") || metadata?.category === "underground_road_module").sort(([left], [right]) => left.localeCompare(right));
+}
+
+function undergroundRotationTurns(rotation) { return { none: 0, clockwise_90: 1, clockwise_180: 2, counterclockwise_90: 3 }[rotation] ?? 0; }
+function undergroundRotatedSize(metadata, rotation) { const turns = undergroundRotationTurns(rotation); const width = Math.max(1, Number(metadata?.width || 1)), depth = Math.max(1, Number(metadata?.depth || 1)); return turns % 2 ? { width: depth, depth: width } : { width, depth }; }
+function undergroundRotatePoint(x, z, width, depth, rotation) {
+  if (rotation === "clockwise_90") return [depth - 1 - z, x];
+  if (rotation === "clockwise_180") return [width - 1 - x, depth - 1 - z];
+  if (rotation === "counterclockwise_90") return [z, width - 1 - x];
+  return [x, z];
+}
+function undergroundRotateFacing(facing, rotation) { const values = ["north", "east", "south", "west"], index = values.indexOf(facing); return index < 0 ? facing : values[(index + undergroundRotationTurns(rotation)) % 4]; }
+function undergroundModuleBounds(module) { const size = undergroundRotatedSize(state.structureSizes?.[module.structure], module.rotation); const position = module.position || {}; return { minX: Number(position.x || 0), minZ: Number(position.z || 0), maxX: Number(position.x || 0) + size.width, maxZ: Number(position.z || 0) + size.depth, width: size.width, depth: size.depth }; }
+function undergroundPlacedConnectors() {
+  const result = [];
+  for (const module of state.undergroundRoad?.modules || []) {
+    const metadata = state.structureSizes?.[module.structure] || {}, width = Math.max(1, Number(metadata.width || 1)), depth = Math.max(1, Number(metadata.depth || 1)), base = module.position || {};
+    for (const connector of metadata.underground_connectors || metadata.underground_ports || []) {
+      const position = connector.position || [0, 0, 0], [x, z] = undergroundRotatePoint(Number(position[0] || 0), Number(position[2] || 0), width, depth, module.rotation);
+      result.push({ module: module.id, tag: connector.tag, facing: undergroundRotateFacing(connector.facing, module.rotation), x: Number(base.x || 0) + x, y: Number(base.y || 0) + Number(position[1] || 0), z: Number(base.z || 0) + z, paired: false });
+    }
+  }
+  for (let index = 0; index < result.length; index++) for (let other = index + 1; other < result.length; other++) {
+    const left = result[index], right = result[other], vector = undergroundFacingVectors[left.facing] || [0, 0, 0];
+    if (left.x + vector[0] === right.x && left.y + vector[1] === right.y && left.z + vector[2] === right.z && undergroundOppositeFacing[left.facing] === right.facing) left.paired = right.paired = true;
+  }
+  return result;
+}
+function undergroundExternalConnectors() { return undergroundPlacedConnectors().filter((connector) => !connector.paired && connector.facing === "up"); }
+function undergroundNextModuleId() { const used = new Set((state.undergroundRoad?.modules || []).map((module) => module.id)); let index = 1; while (used.has(`module_${index}`)) index++; return `module_${index}`; }
+
+function renderUndergroundModuleCanvas() {
+  const canvas = $("#underground-module-canvas"), context = canvas.getContext("2d"), modules = state.undergroundRoad?.modules || [];
+  context.clearRect(0, 0, canvas.width, canvas.height); context.fillStyle = "#10191e"; context.fillRect(0, 0, canvas.width, canvas.height);
+  const bounds = modules.map(undergroundModuleBounds), minX = Math.min(-8, ...bounds.map((item) => item.minX - 4)), minZ = Math.min(-8, ...bounds.map((item) => item.minZ - 4)), maxX = Math.max(8, ...bounds.map((item) => item.maxX + 4)), maxZ = Math.max(8, ...bounds.map((item) => item.maxZ + 4));
+  const scale = Math.max(2, Math.min(18, (canvas.width - 40) / Math.max(1, maxX - minX), (canvas.height - 40) / Math.max(1, maxZ - minZ))), offsetX = (canvas.width - (maxX - minX) * scale) / 2 - minX * scale, offsetZ = (canvas.height - (maxZ - minZ) * scale) / 2 - minZ * scale;
+  state.undergroundModuleEditor.transform = { scale, offsetX, offsetZ };
+  context.strokeStyle = "rgba(255,255,255,.06)"; context.lineWidth = 1; for (let x = Math.ceil(minX / 8) * 8; x <= maxX; x += 8) { context.beginPath(); context.moveTo(offsetX + x * scale, 0); context.lineTo(offsetX + x * scale, canvas.height); context.stroke(); } for (let z = Math.ceil(minZ / 8) * 8; z <= maxZ; z += 8) { context.beginPath(); context.moveTo(0, offsetZ + z * scale); context.lineTo(canvas.width, offsetZ + z * scale); context.stroke(); }
+  for (const module of modules) { const item = undergroundModuleBounds(module), selected = module.id === state.undergroundModuleEditor.selectedId; context.fillStyle = selected ? "#447d96" : "#294a59"; context.strokeStyle = selected ? "#d7f46a" : "#7eb1bd"; context.lineWidth = selected ? 3 : 1.5; context.fillRect(offsetX + item.minX * scale, offsetZ + item.minZ * scale, item.width * scale, item.depth * scale); context.strokeRect(offsetX + item.minX * scale, offsetZ + item.minZ * scale, item.width * scale, item.depth * scale); context.fillStyle = "#eef7f2"; context.font = "700 11px sans-serif"; context.fillText(module.id, offsetX + item.minX * scale + 6, offsetZ + item.minZ * scale + 15); }
+  for (const connector of undergroundPlacedConnectors()) { const vector = undergroundFacingVectors[connector.facing] || [0, 0, 0]; const x = offsetX + (connector.x + .5 + vector[0] * .3) * scale, z = offsetZ + (connector.z + .5 + vector[2] * .3) * scale; context.beginPath(); context.fillStyle = connector.paired ? "#74d680" : connector.facing === "up" ? "#ffd35a" : "#ef786f"; context.arc(x, z, Math.max(3, Math.min(7, scale * .28)), 0, Math.PI * 2); context.fill(); }
+  if (!modules.length) { context.fillStyle = "#b7c9c2"; context.font = "14px sans-serif"; context.textAlign = "center"; context.fillText("조각 NBT를 고르고 캔버스를 클릭해 첫 조각을 배치하세요.", canvas.width / 2, canvas.height / 2); context.textAlign = "left"; }
+  canvas.classList.toggle("is-placing", state.undergroundModuleEditor.placing);
+}
+
+function renderUndergroundModuleSelection() {
+  const panel = $("#underground-module-selection"), module = (state.undergroundRoad?.modules || []).find((item) => item.id === state.undergroundModuleEditor.selectedId);
+  if (!module) { panel.innerHTML = "<span>조각을 선택하면 좌표와 회전을 편집할 수 있습니다.</span>"; return; }
+  const position = module.position || {};
+  panel.innerHTML = `<strong>${escapeHtml(module.id)}</strong><code>${escapeHtml(module.structure)}</code><label>X <input type="number" data-underground-module-axis="x" value="${Number(position.x || 0)}"></label><label>Y <input type="number" data-underground-module-axis="y" value="${Number(position.y || 0)}"></label><label>Z <input type="number" data-underground-module-axis="z" value="${Number(position.z || 0)}"></label><label>회전 <select data-underground-module-rotation>${undergroundRotations.map((rotation) => `<option value="${rotation}"${rotation === module.rotation ? " selected" : ""}>${rotation}</option>`).join("")}</select></label>`;
+}
+
+function renderUndergroundRoadPorts() {
+  const list = $("#underground-road-port-list"), external = undergroundExternalConnectors(), externalKeys = new Set(external.map((item) => `${item.module}/${item.tag}`));
+  if (!state.undergroundRoad) { list.innerHTML = '<div class="issues empty">지하통로를 선택하세요.</div>'; return; }
+  state.undergroundRoad.ports ||= {};
+  const registeredKeys = new Set(Object.values(state.undergroundRoad.ports).map((port) => `${port.module}/${port.connector}`));
+  const available = external.filter((connector) => !registeredKeys.has(`${connector.module}/${connector.tag}`));
+  $("#underground-port-connector").innerHTML = available.map((connector) => `<option value="${escapeHtml(`${connector.module}/${connector.tag}`)}">${escapeHtml(connector.module)} / ${escapeHtml(connector.tag)} · ${escapeHtml(connector.facing)}</option>`).join("") || '<option value="">등록 가능한 열린 커넥터가 없습니다</option>';
+  const entries = Object.entries(state.undergroundRoad.ports);
+  list.innerHTML = entries.length ? entries.map(([tag, port]) => { const valid = externalKeys.has(`${port.module}/${port.connector}`); return `<article class="cave-entry-card${valid ? "" : " has-error"}" data-underground-port="${escapeHtml(tag)}"><header><strong>${escapeHtml(tag)}</strong><small>${escapeHtml(port.module)} / ${escapeHtml(port.connector)}${valid ? "" : " · 현재 열린 커넥터가 아님"}</small><button type="button" class="button danger compact-button" data-remove-underground-port="${escapeHtml(tag)}">삭제</button></header><div class="cave-entry-fields"><label><span>표시 이름</span><input data-underground-port-field="display_name" value="${escapeHtml(port.display_name || tag)}" required></label></div></article>`; }).join("") : '<div class="issues empty">열린 커넥터를 외부 포트로 두 개 이상 등록하세요.</div>';
+}
+
+function renderUndergroundRoad() {
+  const document = state.undergroundRoad;
+  if (!document) return;
+  const form = $("#underground-road-form");
+  const origin = document.dimension?.origin || {};
+  form.elements.id.value = document.id || "";
+  form.elements.nameKo.value = document.display_name?.ko_kr || "";
+  form.elements.nameEn.value = document.display_name?.en_us || "";
+  document.schema_version = 2; document.modules ||= []; document.ports ||= {}; delete document.structure;
+  const structures = undergroundModuleStructures();
+  $("#underground-module-structure").innerHTML = structures.map(([id, metadata]) => `<option value="${escapeHtml(id)}">${escapeHtml(id)} · ${(metadata.underground_connectors || []).length}개 연결</option>`).join("") || '<option value="">지하통로 조각 NBT가 없습니다</option>';
+  form.elements.originX.value = Number(origin.x || 0);
+  form.elements.originY.value = Number(origin.y ?? 48);
+  form.elements.originZ.value = Number(origin.z || 0);
+  form.elements.musicTrack.innerHTML = musicOptions(document.music_track || "", "cave");
+  form.elements.enabled.checked = document.enabled !== false;
+  $("#selected-underground-road-editor").hidden = false;
+  $("#underground-road-editor-title").textContent = document.display_name?.ko_kr || document.id;
+  $("#underground-road-path").textContent = state.undergroundRoadPath;
+  if (!document.modules.some((module) => module.id === state.undergroundModuleEditor.selectedId)) state.undergroundModuleEditor.selectedId = document.modules[0]?.id || null;
+  renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts();
+  ["#delete-underground-road", "#validate-underground-road", "#save-underground-road"].forEach((selector) => $(selector).disabled = false);
+  showIssues("#underground-road-issues", { valid: true, issues: [] });
+}
+
+function updateUndergroundRoadFromForm() {
+  if (!state.undergroundRoad) return false;
+  const form = $("#underground-road-form");
+  state.undergroundRoad.id = form.elements.id.value.trim();
+  state.undergroundRoad.display_name = { ...(state.undergroundRoad.display_name || {}), ko_kr: form.elements.nameKo.value.trim() };
+  const english = form.elements.nameEn.value.trim();
+  if (english) state.undergroundRoad.display_name.en_us = english; else delete state.undergroundRoad.display_name.en_us;
+  state.undergroundRoad.enabled = form.elements.enabled.checked;
+  const generation = generationFromDocumentPath(state.undergroundRoadPath);
+  state.undergroundRoad.dimension = {
+    id: "cobbleventure:dungeons",
+    region_id: `generation_${generation}/${state.undergroundRoad.id.split("/").pop() || "underground_road"}`,
+    origin: { x: Number(form.elements.originX.value), y: Number(form.elements.originY.value), z: Number(form.elements.originZ.value) }
+  };
+  if (form.elements.musicTrack.value) state.undergroundRoad.music_track = form.elements.musicTrack.value; else delete state.undergroundRoad.music_track;
+  $$("#underground-road-port-list [data-underground-port]").forEach((row) => {
+    const tag = row.dataset.undergroundPort;
+    const displayName = row.querySelector('[data-underground-port-field="display_name"]').value.trim();
+    state.undergroundRoad.ports[tag].display_name = displayName || tag;
+  });
+  return true;
 }
 
 function renderCave() {
@@ -12769,10 +12933,11 @@ async function validateDocument(category) {
     updateSettlementFromForm();
   }
   if (category === "caves" && (!$("#cave-form").reportValidity() || !updateCaveFromForm())) return false;
+  if (category === "underground-roads" && (!$("#underground-road-form").reportValidity() || !updateUndergroundRoadFromForm())) return false;
   if (category === "forests" && (!$("#forest-form").reportValidity() || !updateForestFromForm())) return false;
   if (category === "routes" && (!$("#route-preset-form").reportValidity() || !updateRoutePresetFromForm())) return false;
   if (category === "battles" && !updateBattlePresetFromForm()) return false;
-  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return false;
   const result = await request(`/api/document-validation?category=${category}`, { method: "POST", body: JSON.stringify(document) });
   if (result.ok && category === "trainers" && state.battlePreset) {
@@ -12797,12 +12962,15 @@ async function saveDocument(category) {
   if (category === "caves") {
     if (!$("#cave-form").reportValidity() || !updateCaveFromForm()) { toast("입력값을 확인해 주세요."); return; }
   }
+  if (category === "underground-roads") {
+    if (!$("#underground-road-form").reportValidity() || !updateUndergroundRoadFromForm()) { toast("입력값을 확인해 주세요."); return; }
+  }
   if (category === "forests") {
     if (!$("#forest-form").reportValidity() || !updateForestFromForm()) { toast("입력값을 확인해 주세요."); return; }
   }
   if (category === "routes" && (!$("#route-preset-form").reportValidity() || !updateRoutePresetFromForm())) { toast("입력값을 확인해 주세요."); return; }
   if (category === "battles" && !updateBattlePresetFromForm()) return;
-  const document = category === "caves" ? state.cave : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return;
   const saveButton = $(`#save-${singular}`);
   const originalLabel = saveButton.textContent;
@@ -12836,6 +13004,7 @@ async function saveDocument(category) {
   await Promise.all([loadDashboard(), loadLists()]);
   if (category === "settlements") renderSettlement();
   else if (category === "caves") renderCave();
+  else if (category === "underground-roads") renderUndergroundRoad();
   else if (category === "forests") renderForest();
   else if (category === "routes") { renderRoutePreset(); renderWorldLayout(); }
   else if (category === "battles") renderBattlePreset();
@@ -12847,8 +13016,8 @@ function openCreateDialog(category) {
   form.reset();
   form.elements.category.value = category;
   form.elements.generation.value = ["trainers", "battles"].includes(category) ? "generation_1" : `generation_${state.selectedGeneration}`;
-  $("#create-title").textContent = category === "trainers" ? "새 NPC" : category === "battles" ? "새 배틀 프리셋" : category === "routes" ? "새 길" : category === "caves" ? "새 동굴" : category === "forests" ? "새 숲" : "새 마을";
-  $("#generation-field").hidden = ["trainers", "battles", "caves", "forests"].includes(category);
+  $("#create-title").textContent = category === "trainers" ? "새 NPC" : category === "battles" ? "새 배틀 프리셋" : category === "routes" ? "새 길" : category === "caves" ? "새 동굴" : category === "underground-roads" ? "새 지하통로" : category === "forests" ? "새 숲" : "새 마을";
+  $("#generation-field").hidden = ["trainers", "battles", "caves", "underground-roads", "forests"].includes(category);
   $("#battle-reference-field").hidden = category !== "battles";
   if (category === "battles") {
     form.elements.referenceId.value = "";
@@ -12880,7 +13049,7 @@ async function createDocument(event) {
     await Promise.all([loadDashboard(), loadLists()]);
     switchPage(payload.category);
     await loadDocument(payload.category, result.data.path);
-    toast(payload.category === "trainers" ? "새 NPC를 만들었습니다." : payload.category === "battles" ? "새 배틀 프리셋을 만들었습니다." : payload.category === "routes" ? "새 길을 만들었습니다." : payload.category === "caves" ? "새 동굴을 만들었습니다." : payload.category === "forests" ? "새 숲을 만들었습니다." : "새 마을을 만들었습니다.");
+    toast(payload.category === "trainers" ? "새 NPC를 만들었습니다." : payload.category === "battles" ? "새 배틀 프리셋을 만들었습니다." : payload.category === "routes" ? "새 길을 만들었습니다." : payload.category === "caves" ? "새 동굴을 만들었습니다." : payload.category === "underground-roads" ? "새 지하통로를 만들었습니다." : payload.category === "forests" ? "새 숲을 만들었습니다." : "새 마을을 만들었습니다.");
   } finally {
     $("#create-submit").disabled = false;
   }
@@ -12891,7 +13060,7 @@ async function deleteManagedDocument(category) {
   const document = category === "battles" ? state.battlePreset : state[singular];
   const path = category === "battles" ? state.battlePath : state[`${singular}Path`];
   if (!document || !path) return;
-  const labels = { trainers: "NPC", battles: "배틀 프리셋", routes: "길", caves: "동굴", forests: "숲" };
+  const labels = { trainers: "NPC", battles: "배틀 프리셋", routes: "길", caves: "동굴", "underground-roads": "지하통로", forests: "숲" };
   const label = labels[category];
   const name = document.name?.ko_kr || document.display_name?.ko_kr || document.id;
   if (!confirm(`'${name}' ${label} 파일을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
@@ -13796,7 +13965,8 @@ async function importStructureBuilder() {
     $("#building-search").value = "";
     $("#building-category").value = "all";
     updateProjectLoading("3/3 · NBT 목록과 3D 미리보기를 다시 불러오고 있습니다…");
-    await Promise.all([loadStructureData(true), loadBuildingSettingsData(true)]);
+    await loadStructureData(true);
+    await loadBuildingSettingsData();
     switchPage("structures");
     const entries = buildingEntries();
     const preferred = entries.some(([id]) => id === state.buildingSettings.selected)
@@ -13877,9 +14047,8 @@ async function refreshAll(showLoadingOverlay = true) {
   if (showLoadingOverlay) showProjectLoading(state.project ? `${state.project.name} 기본 데이터 불러오는 중…` : "프로젝트 데이터 불러오는 중…");
   $("#server-dot").classList.remove("online");
   $("#server-label").textContent = "프로젝트 데이터 로드 중";
-  const dashboardPromise = loadDashboard();
   const listsPromise = loadLists();
-  const nbtPromise = Promise.all([loadStructureData(true), loadBuildingSettingsData(true)]);
+  const nbtPromise = Promise.all([loadStructureData(), loadBuildingSettingsData()]);
   listsPromise.then(() => {
     $("#server-dot").classList.add("online");
     $("#server-label").textContent = "기본 데이터 로드됨 · NBT 준비 중";
@@ -13889,30 +14058,44 @@ async function refreshAll(showLoadingOverlay = true) {
     $("#server-label").textContent = "일부 데이터 로드 실패";
   });
   nbtPromise.then(() => {
-    $("#server-label").textContent = "프로젝트 데이터 로드됨 · 검증 중";
-    updateProjectLoading("NBT 준비 완료 · 화면 여는 중…");
+    $("#server-label").textContent = "프로젝트 데이터 로드됨 · 현재 화면 준비 중";
+    updateProjectLoading("NBT 준비 완료 · 현재 화면 데이터 불러오는 중…");
   }, () => {
     $("#server-label").textContent = "일부 데이터 로드 실패";
   });
-  Promise.allSettled([listsPromise, nbtPromise]).then(() => hideProjectLoading());
-  const [dashboardResult, listsResult, nbtResult] = await Promise.allSettled([
-    dashboardPromise, listsPromise, nbtPromise
-  ]);
-  const errors = [dashboardResult, listsResult, nbtResult]
+  const [listsResult, nbtResult] = await Promise.allSettled([listsPromise, nbtPromise]);
+  const errors = [listsResult, nbtResult]
     .filter((result) => result.status === "rejected")
     .map((result) => result.reason?.message || "알 수 없는 로드 오류");
-  if (dashboardResult.status === "rejected") {
-    $("#dashboard-issues").className = "issues";
-    $("#dashboard-issues").textContent = dashboardResult.reason?.message || "검증 결과를 불러오지 못했습니다.";
+  for (const result of [listsResult, nbtResult]) {
+    if (result.status === "rejected") console.error("Project data load failed", result.reason);
   }
   if (listsResult.status === "fulfilled") {
     const activeSection = $(".nav-item.is-active")?.dataset.section || "dashboard";
-    try { await loadSectionData(activeSection, true); }
+    updateProjectLoading(`${$("#page-title").textContent || "현재 화면"} 준비 중…`);
+    try { await loadSectionData(activeSection); }
     catch (error) { errors.push(error.message); }
   }
   $("#server-dot").classList.add("online");
-  $("#server-label").textContent = errors.length ? "일부 데이터 로드 실패" : "서버 연결됨";
-  if (errors.length) toast(errors[0].split("\n")[0]);
+  $("#server-label").textContent = errors.length ? "일부 데이터 로드 실패" : "서버 연결됨 · 검증 중";
+  if (errors.length) {
+    hideProjectLoading();
+    toast(errors[0].split("\n")[0]);
+    return;
+  }
+  updateProjectLoading("마지막 검증 결과 불러오는 중…");
+  try {
+    await loadDashboard();
+    $("#server-label").textContent = "서버 연결됨";
+    updateProjectLoading("모든 프로젝트 데이터를 불러왔습니다.");
+  } catch (error) {
+    $("#dashboard-issues").className = "issues";
+    $("#dashboard-issues").textContent = error.message || "검증 결과를 불러오지 못했습니다.";
+    $("#server-label").textContent = "검증 결과 로드 실패";
+    toast((error.message || "검증 결과를 불러오지 못했습니다.").split("\n")[0]);
+  } finally {
+    hideProjectLoading();
+  }
 }
 
 $("#starter-generation-list").addEventListener("click", (event) => {
@@ -14220,7 +14403,8 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
   try {
     lazyDataLoaded.structures = false;
     lazyDataLoaded.buildingSettings = false;
-    await Promise.all([loadStructureData(true), loadBuildingSettingsData(true)]);
+    await loadStructureData(true);
+    await loadBuildingSettingsData();
     toast("NBT 목록 캐시를 최신 상태로 갱신했습니다.");
   } catch (error) {
     toast(error.message || "NBT 목록 갱신에 실패했습니다.");
@@ -14453,6 +14637,24 @@ $("#save-settlement").addEventListener("click", () => saveDocument("settlements"
 $("#validate-cave").addEventListener("click", () => validateDocument("caves"));
 $("#save-cave").addEventListener("click", () => saveDocument("caves"));
 $("#delete-cave").addEventListener("click", () => deleteManagedDocument("caves"));
+$("#validate-underground-road").addEventListener("click", () => validateDocument("underground-roads"));
+$("#save-underground-road").addEventListener("click", () => saveDocument("underground-roads"));
+$("#delete-underground-road").addEventListener("click", () => deleteManagedDocument("underground-roads"));
+$("#underground-road-form").addEventListener("input", updateUndergroundRoadFromForm);
+$("#underground-road-form").addEventListener("change", updateUndergroundRoadFromForm);
+$("#add-underground-module").addEventListener("click", () => { state.undergroundModuleEditor.placing = !state.undergroundModuleEditor.placing; $("#add-underground-module").textContent = state.undergroundModuleEditor.placing ? "캔버스를 클릭하세요" : "＋ 조각 배치"; renderUndergroundModuleCanvas(); });
+$("#underground-module-canvas").addEventListener("click", (event) => {
+  if (!state.undergroundRoad) return; const transform = state.undergroundModuleEditor.transform; if (!transform) return;
+  const rect = event.currentTarget.getBoundingClientRect(), canvasX = (event.clientX - rect.left) * event.currentTarget.width / rect.width, canvasZ = (event.clientY - rect.top) * event.currentTarget.height / rect.height, x = Math.round((canvasX - transform.offsetX) / transform.scale), z = Math.round((canvasZ - transform.offsetZ) / transform.scale);
+  if (state.undergroundModuleEditor.placing) { const structure = $("#underground-module-structure").value; if (!structure) return; const id = undergroundNextModuleId(); state.undergroundRoad.modules.push({ id, structure, position: { x, y: Number($("#underground-module-level").value || 0), z }, rotation: "none" }); state.undergroundModuleEditor.selectedId = id; state.undergroundModuleEditor.placing = false; $("#add-underground-module").textContent = "＋ 조각 배치"; }
+  else { const hit = [...state.undergroundRoad.modules].reverse().find((module) => { const item = undergroundModuleBounds(module); return x >= item.minX && x < item.maxX && z >= item.minZ && z < item.maxZ; }); state.undergroundModuleEditor.selectedId = hit?.id || null; }
+  renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts();
+});
+$("#rotate-underground-module").addEventListener("click", () => { const module = state.undergroundRoad?.modules?.find((item) => item.id === state.undergroundModuleEditor.selectedId); if (!module) return; module.rotation = undergroundRotations[(undergroundRotations.indexOf(module.rotation) + 1) % undergroundRotations.length]; renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts(); });
+$("#remove-underground-module").addEventListener("click", () => { if (!state.undergroundRoad || !state.undergroundModuleEditor.selectedId) return; state.undergroundRoad.modules = state.undergroundRoad.modules.filter((item) => item.id !== state.undergroundModuleEditor.selectedId); state.undergroundModuleEditor.selectedId = state.undergroundRoad.modules[0]?.id || null; renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts(); });
+$("#underground-module-selection").addEventListener("input", (event) => { const module = state.undergroundRoad?.modules?.find((item) => item.id === state.undergroundModuleEditor.selectedId); if (!module) return; if (event.target.dataset.undergroundModuleAxis) module.position[event.target.dataset.undergroundModuleAxis] = Number(event.target.value); if (event.target.matches("[data-underground-module-rotation]")) module.rotation = event.target.value; renderUndergroundModuleCanvas(); renderUndergroundRoadPorts(); });
+$("#add-underground-port").addEventListener("click", () => { if (!state.undergroundRoad) return; const tag = $("#underground-port-tag").value.trim(), value = $("#underground-port-connector").value; if (!tag || !/^[a-z0-9_.-]+$/.test(tag) || !value) { toast("포트 태그와 열린 커넥터를 확인해 주세요."); return; } if (state.undergroundRoad.ports[tag]) { toast("이미 사용 중인 포트 태그입니다."); return; } const slash = value.indexOf("/"), module = value.slice(0, slash), connector = value.slice(slash + 1); if (Object.values(state.undergroundRoad.ports).some((port) => port.module === module && port.connector === connector)) { toast("이미 등록된 커넥터입니다."); return; } state.undergroundRoad.ports[tag] = { display_name: $("#underground-port-name").value.trim() || tag, module, connector }; $("#underground-port-tag").value = ""; $("#underground-port-name").value = ""; renderUndergroundRoadPorts(); });
+$("#underground-road-port-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-underground-port]"); if (!button || !state.undergroundRoad) return; delete state.undergroundRoad.ports[button.dataset.removeUndergroundPort]; renderUndergroundRoadPorts(); });
 $("#cave-form").addEventListener("input", (event) => { if (handleCavePlacementInput(event) || handleCavePreviewInspectorInput(event)) return; updateCaveFromForm(); if (event.target.dataset.field === "trainer_id") updateTrainerPartyStripForSelect(event.target); renderCaveLayoutPreview(); });
 $("#cave-form").addEventListener("change", (event) => { if (handleCavePlacementInput(event) || handleCavePreviewInspectorInput(event)) return; updateCaveFromForm(); if (event.target.dataset.field === "trainer_id") updateTrainerPartyStripForSelect(event.target); renderCaveLayoutPreview(); });
 $("#cave-form").addEventListener("click", handleCaveEditorClick);
@@ -14771,6 +14973,7 @@ $("#cancel-route").addEventListener("click", cancelRouteConnection);
 $("#undo-route-anchor").addEventListener("click", undoRouteAnchor);
 $$('[data-map-tool]').forEach((button) => button.addEventListener("click", () => setActiveMapTool(button.dataset.mapTool)));
 $("#cave-tool-cave").addEventListener("change", refreshCaveToolEntrances);
+$("#underground-road-tool-road").addEventListener("change", refreshUndergroundRoadToolPorts);
 $("#forest-tool-forest").addEventListener("change", refreshForestToolEntrances);
 $("#world-entrance-kind").addEventListener("change", (event) => {
   $$('[data-world-entrance-panel]').forEach((panel) => panel.hidden = panel.dataset.worldEntrancePanel !== event.target.value);
@@ -15004,12 +15207,10 @@ $("#economy-pokemon-limit").addEventListener("change", (event) => updateEconomyV
 
 loadActiveProject().then(async () => {
   const requestedSection = new URLSearchParams(window.location.search).get("section");
-  const backgroundLoadSections = ["global-resources", "casino-config", "builds"];
   if (requestedSection && $$(".nav-item").some((button) => button.dataset.section === requestedSection)) {
     switchPage(requestedSection);
-    if (backgroundLoadSections.includes(requestedSection)) hideProjectLoading();
   }
-  await refreshAll(!backgroundLoadSections.includes(requestedSection));
+  await refreshAll(true);
 }).catch((error) => {
   hideProjectLoading();
   $("#server-dot").classList.remove("online");

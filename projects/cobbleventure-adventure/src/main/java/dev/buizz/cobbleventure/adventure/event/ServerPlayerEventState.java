@@ -93,6 +93,26 @@ public final class ServerPlayerEventState implements EventStateAccess {
     }
 
     @Override
+    public BigInteger casinoBalance() {
+        return BigInteger.valueOf(invokeCasinoLong("casinoBalance", player));
+    }
+
+    @Override
+    public int gachaTicketPrice(String profile) {
+        return Math.toIntExact(invokeCasinoLong("ticketPrice", profile));
+    }
+
+    @Override
+    public int gachaTicketPurchaseMin(String profile) {
+        return Math.toIntExact(invokeCasinoLong("ticketPurchaseMin", profile));
+    }
+
+    @Override
+    public int gachaTicketPurchaseMax(String profile) {
+        return Math.toIntExact(invokeCasinoLong("ticketPurchaseMax", profile));
+    }
+
+    @Override
     public int levelCap() {
         int stored = player.getPersistentData().getInt(LEVEL_CAP_KEY);
         return stored <= 0 ? DEFAULT_LEVEL_CAP : Math.max(1, Math.min(100, stored));
@@ -236,6 +256,23 @@ public final class ServerPlayerEventState implements EventStateAccess {
         } catch (CommandSyntaxException error) {
             throw new EventRuntimeException(
                 "player-menu 상태 브리지 명령을 실행하지 못했습니다: " + command, error
+            );
+        }
+    }
+
+    private static long invokeCasinoLong(String methodName, Object argument) {
+        try {
+            Class<?> bridge = Class.forName(
+                "dev.buizz.cobbleventure.casino.CasinoEventStateBridge"
+            );
+            Method method = bridge.getMethod(methodName, argument instanceof ServerPlayer
+                ? ServerPlayer.class : String.class);
+            Object value = method.invoke(null, argument);
+            if (value instanceof Number number) return number.longValue();
+            throw new EventRuntimeException("카지노 상태 값이 숫자가 아닙니다: " + methodName);
+        } catch (ReflectiveOperationException | ArithmeticException error) {
+            throw new EventRuntimeException(
+                "카지노 상태 값을 읽지 못했습니다: " + methodName, error
             );
         }
     }

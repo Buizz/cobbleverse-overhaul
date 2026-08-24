@@ -130,6 +130,14 @@ public final class BattleIntro {
                     )))
         );
         event.getDispatcher().register(
+            Commands.literal("cobbleventure_proximity_cancel")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .executes(context -> cancelLegacyProximity(
+                        EntityArgument.getPlayer(context, "player")
+                    )))
+        );
+        event.getDispatcher().register(
             Commands.literal("cobbleventure_proximity_battle")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("player", EntityArgument.player())
@@ -177,6 +185,14 @@ public final class BattleIntro {
         ServerPlayer player, Entity opponent, String encounterTrack,
         String dialogueLabel, String battleCommand
     ) {
+        if (!LegacyProximityRouting.accepts(opponent.getTags())) {
+            cancelLegacyProximity(player);
+            LOGGER.debug(
+                "Ignored legacy proximity encounter for CVES NPC: npc={}, player={}",
+                opponent.getUUID(), player.getGameProfile().getName()
+            );
+            return 1;
+        }
         String normalized = battleCommand.startsWith("/")
             ? battleCommand.substring(1)
             : battleCommand;
@@ -219,6 +235,22 @@ public final class BattleIntro {
             "Registered proximity trainer encounter: npc={}, player={}",
             opponent.getUUID(), player.getGameProfile().getName()
         );
+        return 1;
+    }
+
+    private static int cancelLegacyProximity(ServerPlayer player) {
+        UUID playerId = player.getUUID();
+        PENDING.remove(playerId);
+        PROXIMITY_PENDING.keySet().removeIf(key -> key.playerId.equals(playerId));
+        DIALOGUE_PENDING.keySet().removeIf(key -> key.playerId.equals(playerId));
+        PROXIMITY_EXIT_BLOCKED.keySet().removeIf(key -> key.playerId.equals(playerId));
+        POST_BATTLE_PROXIMITY_GRACE.put(
+            playerId,
+            player.getServer().overworld().getGameTime()
+                + POST_BATTLE_PROXIMITY_GRACE_TICKS
+        );
+        dismissWarning(player);
+        MusicPlayback.cancelEncounter(player);
         return 1;
     }
 

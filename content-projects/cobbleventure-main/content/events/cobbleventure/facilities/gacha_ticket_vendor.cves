@@ -13,69 +13,99 @@ event interact(range: 4) {
             ko_kr: "포켓몬 공통 티켓"
             en_us: "Shared Pokemon Ticket"
           } {
-          say npc {
-            ko_kr: "구매할 수량을 입력해 주세요."
-            en_us: "Enter the quantity."
-          }
-          id "pokemon/amount" await number_input {
-            min: 1
-            max: 6400
-          } -> amount
-          id "pokemon/buy" server_command "cvgacha ticket buy cobbleventure:starter_gacha" amount -> bought
-          if bought {
+          let pokemon_price = gacha_ticket_price("cobbleventure:starter_gacha")
+          let pokemon_balance = casino_balance()
+          let pokemon_min = gacha_ticket_purchase_min("cobbleventure:starter_gacha")
+          let pokemon_max = min_int(gacha_ticket_purchase_max("cobbleventure:starter_gacha"), floor_div(pokemon_balance, pokemon_price))
+          if pokemon_max >= pokemon_min {
             say npc {
-            ko_kr: "포켓몬 가챠 티켓을 가방에 넣어 드렸습니다."
-            en_us: "The Pokemon tickets are in your bag."
-          } }
-          else { say npc {
-            ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
-            en_us: "The exchange failed. Check your balance and quantity."
+              ko_kr: "포켓몬 티켓은 1장당 ${pokemon_price}칩입니다. 구매할 수량을 입력해 주세요."
+              en_us: "Pokemon tickets cost ${pokemon_price} chips each. Enter the quantity."
+            }
+            id "pokemon/amount" await number_input {
+              min: pokemon_min
+              max: pokemon_max
+              current: pokemon_balance
+              unit_price: pokemon_price
+            } -> amount
+            id "pokemon/buy" server_command "cvgacha ticket buy cobbleventure:starter_gacha" amount -> bought
+            if bought { say npc {
+              ko_kr: "포켓몬 가챠 티켓 ${amount}장을 가방에 넣어 드렸습니다."
+              en_us: "${amount} Pokemon tickets are now in your bag."
+            } }
+            else { say npc {
+              ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
+              en_us: "The exchange failed. Check your balance and quantity."
+            } }
+          } else { say npc {
+            ko_kr: "포켓몬 티켓을 구매할 카지노 칩이 부족합니다. 1장 가격은 ${pokemon_price}칩입니다."
+            en_us: "You do not have enough casino chips. One Pokemon ticket costs ${pokemon_price} chips."
           } }
         }
         {
             ko_kr: "아이템 공통 티켓"
             en_us: "Shared Item Ticket"
           } {
-          say npc {
-            ko_kr: "구매할 수량을 입력해 주세요."
-            en_us: "Enter the quantity."
-          }
-          id "item/amount" await number_input {
-            min: 1
-            max: 6400
-          } -> amount
-          id "item/buy" server_command "cvgacha ticket buy cobbleventure:item_gacha" amount -> bought
-          if bought {
+          let item_price = gacha_ticket_price("cobbleventure:item_gacha")
+          let item_balance = casino_balance()
+          let item_min = gacha_ticket_purchase_min("cobbleventure:item_gacha")
+          let item_max = min_int(gacha_ticket_purchase_max("cobbleventure:item_gacha"), floor_div(item_balance, item_price))
+          if item_max >= item_min {
             say npc {
-            ko_kr: "아이템 가챠 티켓을 가방에 넣어 드렸습니다."
-            en_us: "The Item tickets are in your bag."
-          } }
-          else { say npc {
-            ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
-            en_us: "The exchange failed. Check your balance and quantity."
+              ko_kr: "아이템 티켓은 1장당 ${item_price}칩입니다. 구매할 수량을 입력해 주세요."
+              en_us: "Item tickets cost ${item_price} chips each. Enter the quantity."
+            }
+            id "item/amount" await number_input {
+              min: item_min
+              max: item_max
+              current: item_balance
+              unit_price: item_price
+            } -> amount
+            id "item/buy" server_command "cvgacha ticket buy cobbleventure:item_gacha" amount -> bought
+            if bought { say npc {
+              ko_kr: "아이템 가챠 티켓 ${amount}장을 가방에 넣어 드렸습니다."
+              en_us: "${amount} Item tickets are now in your bag."
+            } }
+            else { say npc {
+              ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
+              en_us: "The exchange failed. Check your balance and quantity."
+            } }
+          } else { say npc {
+            ko_kr: "아이템 티켓을 구매할 카지노 칩이 부족합니다. 1장 가격은 ${item_price}칩입니다."
+            en_us: "You do not have enough casino chips. One Item ticket costs ${item_price} chips."
           } }
         }
         {
             ko_kr: "기술머신 공통 티켓"
             en_us: "Shared TM Ticket"
           } {
-          say npc {
-            ko_kr: "구매할 수량을 입력해 주세요."
-            en_us: "Enter the quantity."
-          }
-          id "tm/amount" await number_input {
-            min: 1
-            max: 6400
-          } -> amount
-          id "tm/buy" server_command "cvgacha ticket buy cobbleventure:technical_machine_gacha" amount -> bought
-          if bought {
+          let tm_price = gacha_ticket_price("cobbleventure:technical_machine_gacha")
+          let tm_balance = casino_balance()
+          let tm_min = gacha_ticket_purchase_min("cobbleventure:technical_machine_gacha")
+          let tm_max = min_int(gacha_ticket_purchase_max("cobbleventure:technical_machine_gacha"), floor_div(tm_balance, tm_price))
+          if tm_max >= tm_min {
             say npc {
-            ko_kr: "기술머신 가챠 티켓을 가방에 넣어 드렸습니다."
-            en_us: "The TM tickets are in your bag."
-          } }
-          else { say npc {
-            ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
-            en_us: "The exchange failed. Check your balance and quantity."
+              ko_kr: "기술머신 티켓은 1장당 ${tm_price}칩입니다. 구매할 수량을 입력해 주세요."
+              en_us: "TM tickets cost ${tm_price} chips each. Enter the quantity."
+            }
+            id "tm/amount" await number_input {
+              min: tm_min
+              max: tm_max
+              current: tm_balance
+              unit_price: tm_price
+            } -> amount
+            id "tm/buy" server_command "cvgacha ticket buy cobbleventure:technical_machine_gacha" amount -> bought
+            if bought { say npc {
+              ko_kr: "기술머신 가챠 티켓 ${amount}장을 가방에 넣어 드렸습니다."
+              en_us: "${amount} TM tickets are now in your bag."
+            } }
+            else { say npc {
+              ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
+              en_us: "The exchange failed. Check your balance and quantity."
+            } }
+          } else { say npc {
+            ko_kr: "기술머신 티켓을 구매할 카지노 칩이 부족합니다. 1장 가격은 ${tm_price}칩입니다."
+            en_us: "You do not have enough casino chips. One TM ticket costs ${tm_price} chips."
           } }
         }
         {

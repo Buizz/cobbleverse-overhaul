@@ -784,6 +784,50 @@ class ContentManagerTests(unittest.TestCase):
         )
         return gzip.compress(payload)
 
+    @staticmethod
+    def _underground_road_nbt(*ports: tuple[str, tuple[int, int, int], str]) -> bytes:
+        def nbt_string(value: str) -> bytes:
+            encoded = value.encode("utf-8")
+            return struct.pack(">H", len(encoded)) + encoded
+
+        def string_tag(name: str, value: str) -> bytes:
+            return b"\x08" + nbt_string(name) + nbt_string(value)
+
+        orientations: list[str] = []
+        for _, _, facing in ports:
+            orientation = f"{facing}_north" if facing in {"up", "down"} else f"{facing}_up"
+            if orientation not in orientations:
+                orientations.append(orientation)
+        palette_payload = b"".join(
+            string_tag("Name", "minecraft:jigsaw")
+            + b"\x0a" + nbt_string("Properties")
+            + string_tag("orientation", orientation) + b"\x00"
+            + b"\x00"
+            for orientation in orientations
+        )
+        blocks_payload = b""
+        for tag, (x, y, z), facing in ports:
+            orientation = f"{facing}_north" if facing in {"up", "down"} else f"{facing}_up"
+            blocks_payload += (
+                b"\x09" + nbt_string("pos") + b"\x03" + struct.pack(">i", 3)
+                + struct.pack(">iii", x, y, z)
+                + b"\x03" + nbt_string("state") + struct.pack(">i", orientations.index(orientation))
+                + b"\x0a" + nbt_string("nbt")
+                + string_tag("name", f"cobbleventure:underground_connector/{tag}")
+                + string_tag("final_state", "minecraft:stone_bricks")
+                + b"\x00\x00"
+            )
+        payload = (
+            b"\x0a\x00\x00"
+            + b"\x09" + nbt_string("size") + b"\x03" + struct.pack(">i", 3)
+            + struct.pack(">iii", 16, 8, 16)
+            + b"\x09" + nbt_string("palette") + b"\x0a" + struct.pack(">i", len(orientations))
+            + palette_payload
+            + b"\x09" + nbt_string("blocks") + b"\x0a" + struct.pack(">i", len(ports))
+            + blocks_payload + b"\x00"
+        )
+        return gzip.compress(payload)
+
     def test_loads_cobbleventure_project_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1153,6 +1197,98 @@ class ContentManagerTests(unittest.TestCase):
             },
             metadata["occupied"],
         )
+
+    def test_reads_named_underground_connectors_from_jigsaw_blocks(self) -> None:
+        metadata = content_manager.read_minecraft_structure_metadata(
+            self._underground_road_nbt(
+                ("exit_1", (1, 2, 3), "north"),
+                ("exit_2", (14, 2, 12), "south"),
+            )
+        )
+
+        self.assertEqual(
+            [
+                {"tag": "exit_1", "name": "cobbleventure:underground_connector/exit_1", "position": [1, 2, 3], "facing": "north", "orientation": "north_up", "final_state": "minecraft:stone_bricks"},
+                {"tag": "exit_2", "name": "cobbleventure:underground_connector/exit_2", "position": [14, 2, 12], "facing": "south", "orientation": "south_up", "final_state": "minecraft:stone_bricks"},
+            ],
+            metadata["underground_connectors"],
+        )
+
+    def test_underground_road_ports_must_match_open_module_connectors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/underground_road_modules/test_passage.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._underground_road_nbt(
+                ("exit_1", (5, 7, 5), "up"),
+                ("exit_2", (10, 7, 10), "up"),
+            ))
+            document = {
+                "schema_version": 2,
+                "id": "cobbleventure:underground_road/test_passage",
+                "enabled": True,
+                "display_name": {"ko_kr": "시험 통로"},
+                "modules": [{"id": "module_1", "structure": "cobbleventure:underground_road_modules/test_passage", "position": {"x": 0, "y": 0, "z": 0}, "rotation": "none"}],
+                "dimension": {"id": "cobbleventure:dungeons", "region_id": "generation_1/test_passage", "origin": {"x": 0, "y": 32, "z": 0}},
+                "ports": {"exit_1": {"display_name": "1번 출구", "module": "module_1", "connector": "exit_1"}, "missing": {"display_name": "없는 출구", "module": "module_1", "connector": "missing"}},
+            }
+
+            _, issues = content_manager.validate_underground_road_document(document, Path("candidate.json"), root)
+            self.assertTrue(any("연결되지 않은 위쪽 계단 커넥터" in issue.message for issue in issues))
+            self.assertTrue(any("해당 커넥터가 없습니다" in issue.message for issue in issues))
+            document["ports"] = {"exit_1": {"display_name": "1번 출구", "module": "module_1", "connector": "exit_1"}, "exit_2": {"display_name": "2번 출구", "module": "module_1", "connector": "exit_2"}}
+            _, valid_issues = content_manager.validate_underground_road_document(document, Path("candidate.json"), root)
+            self.assertFalse(any(issue.level == "error" for issue in valid_issues))
+
+    def test_underground_road_list_exposes_ports_for_world_map_tool(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "content/underground_roads/generation_2/test_passage.json"
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({
+                "schema_version": 2,
+                "id": "cobbleventure:underground_road/test_passage",
+                "enabled": True,
+                "display_name": {"ko_kr": "시험 통로"},
+                "modules": [{"id": "module_1", "structure": "cobbleventure:underground_road_modules/test_passage", "position": {"x": 0, "y": 0, "z": 0}, "rotation": "none"}],
+                "dimension": {"id": "cobbleventure:dungeons", "region_id": "generation_2/test_passage", "origin": {"x": 0, "y": 32, "z": 0}},
+                "ports": {"exit_1": {"display_name": "1번 출구", "module": "module_1", "connector": "exit_1"}, "exit_2": {"display_name": "2번 출구", "module": "module_1", "connector": "exit_2"}},
+            }), encoding="utf-8")
+
+            summaries = content_manager._list_documents(root, "underground-roads")
+
+            self.assertEqual(2, summaries[0]["generation"])
+            self.assertEqual(2, summaries[0]["port_count"])
+            self.assertEqual(1, summaries[0]["module_count"])
+            self.assertEqual("1번 출구", summaries[0]["ports"]["exit_1"]["display_name"])
+
+    def test_underground_road_accepts_adjacent_opposite_module_connectors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            left_structure = root / "content/structures/underground_road_modules/left_stair.nbt"
+            right_structure = root / "content/structures/underground_road_modules/right_stair.nbt"
+            left_structure.parent.mkdir(parents=True)
+            left_structure.write_bytes(self._underground_road_nbt(("east", (15, 2, 8), "east"), ("surface", (7, 7, 7), "up")))
+            right_structure.write_bytes(self._underground_road_nbt(("west", (0, 2, 8), "west"), ("surface", (7, 7, 7), "up")))
+            document = {
+                "schema_version": 2,
+                "id": "cobbleventure:underground_road/two_straights",
+                "enabled": True,
+                "display_name": {"ko_kr": "직선 두 조각"},
+                "dimension": {"id": "cobbleventure:dungeons", "region_id": "generation_1/two_straights", "origin": {"x": 0, "y": 32, "z": 0}},
+                "modules": [
+                    {"id": "left", "structure": "cobbleventure:underground_road_modules/left_stair", "position": {"x": 0, "y": 0, "z": 0}, "rotation": "none"},
+                    {"id": "right", "structure": "cobbleventure:underground_road_modules/right_stair", "position": {"x": 16, "y": 0, "z": 0}, "rotation": "none"},
+                ],
+                "ports": {
+                    "exit_1": {"display_name": "왼쪽 계단", "module": "left", "connector": "surface"},
+                    "exit_2": {"display_name": "오른쪽 계단", "module": "right", "connector": "surface"},
+                },
+            }
+
+            _, issues = content_manager.validate_underground_road_document(document, Path("candidate.json"), root)
+
+            self.assertFalse(any(issue.level == "error" for issue in issues), [issue.message for issue in issues])
 
     def test_reads_visible_block_faces_for_structure_model(self) -> None:
         model = content_manager.read_minecraft_structure_model(
@@ -4313,6 +4449,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("addGachaSet", script)
         self.assertIn("공통 티켓", script)
         self.assertIn("가챠 상품 카탈로그", script)
+        self.assertIn("Cobblemon Casino의 실제 2블록 가챠머신 모델", script)
+        self.assertIn("appearance/model_block", script)
+        self.assertIn("appearance/facing", script)
         self.assertIn("reward_catalog:state.gachaMachines.reward_catalog", script)
         self.assertIn(".gacha-machine-workspace", styles)
         self.assertIn(".gacha-catalog-table", styles)
@@ -4321,20 +4460,32 @@ class ContentManagerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
-            catalog["machines"][0]["appearance"]["base_block"] = "minecraft:gold_block"
+            catalog["machines"][0]["appearance"]["model_block"] = "cobblemoncasino:event_gacha_machine"
             catalog["machines"][0]["pity"]["hard"]["count"] = 50
 
             issues = content_manager.save_gacha_machine_catalog(root, catalog)
 
             self.assertFalse(any(issue.level == "error" for issue in issues))
             saved = content_manager.load_json(root / "content/catalogs/gacha-machines.json")
-            self.assertEqual("minecraft:gold_block", saved["machines"][0]["appearance"]["base_block"])
+            self.assertEqual("cobblemoncasino:event_gacha_machine", saved["machines"][0]["appearance"]["model_block"])
+            self.assertEqual("north", saved["machines"][0]["appearance"]["facing"])
             self.assertEqual(50, saved["machines"][0]["pity"]["hard"]["count"])
             self.assertEqual("pokemon", saved["machines"][0]["machine_type"])
             self.assertEqual("포켓몬 가챠 티켓", saved["tickets"]["pokemon"]["display_name"])
             self.assertNotIn("ticket", saved["machines"][0])
             self.assertEqual(3, len(saved["casino_sets"][0]["machines"]))
             self.assertEqual("pikachu", saved["reward_catalog"][0]["id"])
+
+    def test_gacha_machine_catalog_rejects_non_machine_appearance(self) -> None:
+        catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
+        catalog["machines"][0]["appearance"]["model_block"] = "minecraft:iron_block"
+
+        issues = content_manager.validate_gacha_machine_catalog(PROJECT_ROOT, catalog)
+
+        self.assertTrue(any(
+            issue.level == "error" and "가챠 모델" in issue.message
+            for issue in issues
+        ))
 
     def test_gacha_machine_catalog_rejects_duplicate_reward_catalog_ids(self) -> None:
         catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
@@ -4448,6 +4599,79 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(all(reference in routes for reference in references))
         self.assertEqual(len(references), len(set(references)))
         self.assertEqual(routes, set(references))
+
+    def test_hex_world_rejects_entrance_inside_town_footprint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_dir = root / "content/catalogs"
+            catalog_dir.mkdir(parents=True)
+            (catalog_dir / "boundary-profiles.json").write_text(json.dumps({
+                "schema_version": 1,
+                "profiles": [{
+                    "id": "cobbleventure:boundary/test",
+                    "type": "wall",
+                    "collision": "hard",
+                }],
+            }), encoding="utf-8")
+            world_dir = root / "content/worlds"
+            world_dir.mkdir(parents=True)
+            (world_dir / "generation_1.json").write_text(json.dumps({
+                "schema_version": 2,
+                "grid": {
+                    "orientation": "pointy_top",
+                    "tile_radius_blocks": 64,
+                },
+                "settlements": [{
+                    "settlement": "cobbleventure:settlement/test_town",
+                    "anchor": {"q": 0, "r": 0},
+                    "town_radius_cells": 1,
+                    "town_footprint_shape": "line_q",
+                    "town_biome": "minecraft:plains",
+                    "boundary_profile": "cobbleventure:boundary/test",
+                    "terrain_profile": {
+                        "base_height_offset": 0,
+                        "height_variation": 0,
+                        "noise_scale_blocks": 64,
+                    },
+                    "surroundings": [],
+                }],
+                "tiles": [],
+                "cave_entrances": [{
+                    "id": "cobbleventure:underground_entrance/test",
+                    "underground_road": "cobbleventure:underground_road/test",
+                    "port": "test",
+                    "anchor": {"q": 0, "r": 0},
+                    "facing": "north",
+                    "structure": "cobbleventure:underground_entrance/test",
+                }],
+                "connections": [{
+                    "id": "route_inside_town",
+                    "from": "cobbleventure:settlement/test_town",
+                    "to": "cobbleventure:underground_entrance/test",
+                    "anchors": [{"q": 0, "r": 0}, {"q": 0, "r": 0}],
+                    "cells": [{"q": 0, "r": 0}],
+                    "corridor_width_blocks": 12,
+                    "edge_noise": 0,
+                    "surface_style": "road",
+                }],
+            }), encoding="utf-8")
+
+            issues = content_manager.validate_hex_worlds(
+                root,
+                {"cobbleventure:settlement/test_town"},
+                underground_documents={
+                    "cobbleventure:underground_road/test": {"ports": {"test": {}}},
+                },
+            )
+
+            self.assertTrue(any(
+                issue.level == "error" and "마을 영역 밖" in issue.message
+                for issue in issues
+            ))
+            self.assertTrue(any(
+                issue.level == "error" and "중심선이 생성되지 않습니다" in issue.message
+                for issue in issues
+            ))
 
     def test_world_authoring_navigation_groups_spatial_presets(self) -> None:
         html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
@@ -5058,16 +5282,52 @@ class ContentManagerTests(unittest.TestCase):
 
     def test_build_runner_defaults_to_stable_cobblemon_target(self) -> None:
         completed = mock.Mock(stdout="완료", stderr="", returncode=0)
-        with mock.patch.object(content_manager.subprocess, "run", return_value=completed) as runner:
+        music_catalog = {
+            "local_library": {
+                "registered_ogg": 18,
+                "registered_tracks": 16,
+                "missing_tracks": 0,
+            },
+        }
+        with (
+            mock.patch.object(
+                content_manager,
+                "sync_local_music_catalog",
+                return_value=(music_catalog, 0),
+            ) as music_sync,
+            mock.patch.object(
+                content_manager.subprocess, "run", return_value=completed
+            ) as runner,
+        ):
             result = content_manager._run_build(
                 CORE_ROOT.resolve(), PROJECT_ROOT.resolve(), "validate"
             )
 
+        music_sync.assert_called_once_with(PROJECT_ROOT.resolve(), CORE_ROOT.resolve())
         self.assertEqual(
             "1.7.3",
             runner.call_args.kwargs["env"]["COBBLEVENTURE_COBBLEMON_TARGET"],
         )
         self.assertEqual("1.7.3", result["cobblemon_target"])
+        self.assertIn("로컬 음원 자동 갱신", result["output"])
+
+    def test_build_runner_stops_when_automatic_music_refresh_fails(self) -> None:
+        with (
+            mock.patch.object(
+                content_manager,
+                "sync_local_music_catalog",
+                side_effect=ValueError("음원 폴더 오류"),
+            ),
+            mock.patch.object(content_manager.subprocess, "run") as runner,
+        ):
+            result = content_manager._run_build(
+                CORE_ROOT.resolve(), PROJECT_ROOT.resolve(), "pack"
+            )
+
+        runner.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertIn("빌드 전 로컬 음원", result["output"])
+        self.assertIn("음원 폴더 오류", result["output"])
 
     def test_structure_builder_settings_resolve_instance_world(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -5725,6 +5985,47 @@ class ContentManagerTests(unittest.TestCase):
 
             self.assertEqual(24, payload["structures"]["cobbleventure:cached"]["width"])
             self.assertEqual(456, payload["cache"]["generated_at"])
+
+    def test_building_settings_api_serves_cache_without_rescanning_nbt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content_manager.save_structure_web_cache(root, {
+                "version": content_manager.STRUCTURE_WEB_CACHE_VERSION,
+                "generated_at": 123,
+                "signature": [],
+                "size_catalog": {"structures": {}, "warnings": []},
+                "viewer_catalog": {},
+                "building_settings": {
+                    "schema_version": 1,
+                    "structures": {"cobbleventure:cached": {"width": 7}},
+                    "npcs": [],
+                    "path": "content/catalogs/building-settings.json",
+                },
+            })
+            with mock.patch.object(
+                content_manager, "structure_catalog_signature", return_value=()
+            ):
+                handler = content_manager.create_handler(root)
+            server = content_manager.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with mock.patch.object(
+                    content_manager, "structure_catalog_signature",
+                    side_effect=AssertionError("cached request must not scan files"),
+                ):
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{server.server_port}/api/building-settings"
+                    ) as response:
+                        payload = json.load(response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+            self.assertEqual(7, payload["structures"]["cobbleventure:cached"]["width"])
+            self.assertEqual(123, payload["cache"]["generated_at"])
+
     def test_structure_web_cache_is_invalidated_after_structure_signature_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -5860,7 +6161,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="save-building-settings"', structures)
         self.assertIn('id="refresh-nbt-catalog"', structures)
         self.assertIn("/api/building-settings", script)
-        self.assertIn("?refresh=1", script)
+        self.assertIn('`${separator}refresh=1`', script)
         self.assertIn("/api/interior-spaces", script)
         self.assertIn("/api/exterior-structures/copy", script)
         self.assertIn('id="copy-exterior-nbt"', structures)
@@ -5869,6 +6170,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("specialBuildingPresetOptions", script)
         self.assertIn("npc_labels", script)
         self.assertIn("citizen_placement_allowed", script)
+        self.assertIn(
+            'category === "underground-roads" ? "underground-road" : documentSingular(category)',
+            script,
+        )
         self.assertIn("gym_exterior", script)
         self.assertIn("anchor_conflicts", script)
         self.assertIn("remove_out_of_bounds_anchors", script)
@@ -5890,8 +6195,32 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('setStatus("complete", "내부 NBT 생성 완료"', script)
         self.assertIn("await lazyDataPromises.buildingSettings;\n    if (!force) return;", script)
         self.assertIn(
-            "Promise.all([loadStructureData(true), loadBuildingSettingsData(true)])",
+            'requestStructureCache("/api/structure-sizes", force, "NBT 구조물 목록")',
             script,
+        )
+        self.assertIn(
+            'requestStructureCache("/api/building-settings", false, "NBT 건물 설정")',
+            script,
+        )
+        self.assertIn("if (!result.data.cache?.refreshing) return result;", script)
+        self.assertNotIn('request("/api/building-settings?refresh=1")', script)
+        refresh_all = script.split("async function refreshAll", 1)[1].split(
+            '$("#starter-generation-list")', 1
+        )[0]
+        self.assertIn(
+            "Promise.all([loadStructureData(), loadBuildingSettingsData()])",
+            refresh_all,
+        )
+        self.assertNotIn("loadStructureData(true)", refresh_all)
+        self.assertNotIn("loadBuildingSettingsData(true)", refresh_all)
+        self.assertIn("await loadSectionData(activeSection);", refresh_all)
+        self.assertIn("await loadDashboard();", refresh_all)
+        self.assertIn("finally {\n    hideProjectLoading();\n  }", refresh_all)
+        self.assertNotIn("backgroundLoadSections", script)
+        self.assertIn("await refreshAll(true);", script)
+        self.assertGreaterEqual(
+            script.count("await loadStructureData(true);\n    await loadBuildingSettingsData();"),
+            2,
         )
         self.assertIn('window.dispatchEvent(new CustomEvent("building-settings-saved"))', script)
         styles = (web_root / "styles.css").read_text(encoding="utf-8")

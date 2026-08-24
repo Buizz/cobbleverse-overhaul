@@ -436,13 +436,14 @@ class CvesCompilerTests(unittest.TestCase):
         self.assertTrue(number_input["await"])
         self.assertEqual("amount", number_input["result"])
         self.assertEqual(
-            ["min", "max"],
+            ["min", "max", "current", "unit_price"],
             [value["name"] for value in number_input["properties"]],
         )
         self.assertEqual(
-            "cobbleventure:event_script/facilities/casino_cashier/exchange/perform",
-            exchange["operation_id"],
+            "exchange/perform",
+            exchange["instruction_id"],
         )
+        self.assertNotIn("operation_id", exchange)
         self.assertEqual("exchanged", exchange["result"])
 
     def test_source_map_changes_do_not_change_canonical_source_digest(self) -> None:

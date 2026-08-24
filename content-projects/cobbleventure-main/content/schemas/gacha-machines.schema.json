@@ -100,40 +100,16 @@
         "appearance": {
           "type": "object",
           "required": [
-            "base_block",
-            "accent_block",
-            "scale",
-            "accent_scale",
-            "accent_height",
-            "rotation_degrees",
+            "model_block",
+            "facing",
             "show_nameplate"
           ],
           "properties": {
-            "base_block": {
+            "model_block": {
               "$ref": "#/$defs/resource"
             },
-            "accent_block": {
-              "$ref": "#/$defs/resource"
-            },
-            "scale": {
-              "type": "number",
-              "minimum": 0.25,
-              "maximum": 2
-            },
-            "accent_scale": {
-              "type": "number",
-              "minimum": 0.1,
-              "maximum": 1.5
-            },
-            "accent_height": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 2
-            },
-            "rotation_degrees": {
-              "type": "number",
-              "minimum": -360,
-              "maximum": 360
+            "facing": {
+              "enum": ["north", "east", "south", "west"]
             },
             "show_nameplate": {
               "type": "boolean"
@@ -325,7 +301,8 @@
         },
         "price": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "maximum": 2147483647
         },
         "purchase_min": {
           "type": "integer",

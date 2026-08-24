@@ -89,7 +89,7 @@ final class GachaCatalog {
         Reward reward(String id) { return rarities.stream().flatMap(entry -> entry.rewards.stream()).filter(entry -> entry.id.equals(id)).findFirst().orElse(null); }
     }
     static final class Appearance {
-        String base_block; String accent_block; float scale; float accent_scale; float accent_height; float rotation_degrees; boolean show_nameplate;
+        String model_block; String facing; boolean show_nameplate;
     }
     static final class Ticket { String display_name; long price; int purchase_min; int purchase_max; }
     static final class Rarity { String id; String display_name; double weight; List<Reward> rewards; }

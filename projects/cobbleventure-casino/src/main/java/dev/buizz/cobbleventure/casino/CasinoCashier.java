@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.casino;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.logging.LogUtils;
 import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
@@ -14,14 +15,20 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import org.slf4j.Logger;
 
 public final class CasinoCashier {
+    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final long COBBLEDOLLARS_PER_CHIP = 100L;
     public static final String CASHIER_TAG = "cobbleventure_npc/cobbleventure/npc/casino_cashier";
     private static final long SESSION_TICKS = 20L * 60L * 5L;
     private static final double MAX_DISTANCE_SQUARED = 64.0D;
@@ -30,7 +37,9 @@ public final class CasinoCashier {
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(CasinoCashier::registerCommands);
-        NeoForge.EVENT_BUS.addListener(CasinoCashier::onEntityInteract);
+        // V5 NPC interactions cancel the event at the default priority. Capture the
+        // cashier first so the following number-input command always has a session.
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, CasinoCashier::onEntityInteract);
         NeoForge.EVENT_BUS.addListener(CasinoCashier::onChipTableInteract);
         NeoForge.EVENT_BUS.addListener(CasinoCashier::onLegacyWalletUse);
     }
@@ -96,11 +105,18 @@ public final class CasinoCashier {
             return 0;
         }
         if (amount <= 0L) return 0;
-        BigInteger requested = BigInteger.valueOf(amount);
+        BigInteger requested;
+        try {
+            requested = BigInteger.valueOf(Math.multiplyExact(amount, COBBLEDOLLARS_PER_CHIP));
+        } catch (ArithmeticException overflow) {
+            player.displayClientMessage(Component.translatable(
+                "message.cobbleventure_casino.cashier.balance_limit"), true);
+            return 0;
+        }
         BigInteger before = PlayerExtensionKt.getCobbleDollars(player).max(BigInteger.ZERO);
         if (before.compareTo(requested) < 0) {
             player.displayClientMessage(Component.translatable(
-                "message.cobbleventure_casino.cashier.insufficient"), true);
+                "message.cobbleventure_casino.cashier.insufficient", requested, before), true);
             return 0;
         }
         var balances = net.narrnouille.cobblemoncasino.data.PlayerCasinoBalanceData.get(player.getServer());
@@ -112,24 +128,53 @@ public final class CasinoCashier {
         }
         PlayerExtensionKt.setCobbleDollars(player, before.subtract(requested));
         balances.setBalance(player.getUUID(), casinoBefore + amount);
+        player.serverLevel().playSound(
+            null,
+            player.blockPosition(),
+            SoundEvents.EXPERIENCE_ORB_PICKUP,
+            SoundSource.PLAYERS,
+            0.8F,
+            1.15F
+        );
+        LOGGER.info(
+            "Casino exchange completed: player={}, chips={}, cost={}, cobbleDollarsBefore={}, casinoBalanceAfter={}",
+            player.getGameProfile().getName(), amount, requested, before, casinoBefore + amount
+        );
         player.displayClientMessage(Component.translatable(
-            "message.cobbleventure_casino.cashier.success", amount, casinoBefore + amount), true);
+            "message.cobbleventure_casino.cashier.success",
+            requested, amount, casinoBefore + amount), true);
         return 1;
     }
 
     private static Entity validCashier(ServerPlayer player) {
         Session session = SESSIONS.get(player.getUUID());
-        if (session == null || player.serverLevel().getGameTime() > session.expiresAt()) {
-            SESSIONS.remove(player.getUUID());
-            return null;
+        if (session != null && player.serverLevel().getGameTime() <= session.expiresAt()) {
+            Entity cashier = player.serverLevel().getEntity(session.cashier());
+            if (isUsableCashier(player, cashier)) return cashier;
         }
-        Entity cashier = player.serverLevel().getEntity(session.cashier());
-        if (cashier == null || !cashier.isAlive() || !cashier.getTags().contains(CASHIER_TAG)
-            || player.distanceToSqr(cashier) > MAX_DISTANCE_SQUARED) {
-            SESSIONS.remove(player.getUUID());
-            return null;
+        SESSIONS.remove(player.getUUID());
+
+        // Also recover when another V5 interaction listener consumed the click
+        // before this add-on observed it. The command still requires the player to
+        // be physically next to an entity with the exact cashier tag.
+        Entity nearby = player.serverLevel().getEntities(
+            player,
+            player.getBoundingBox().inflate(Math.sqrt(MAX_DISTANCE_SQUARED)),
+            entity -> isUsableCashier(player, entity)
+        ).stream().min(java.util.Comparator.comparingDouble(player::distanceToSqr)).orElse(null);
+        if (nearby != null) {
+            SESSIONS.put(player.getUUID(), new Session(
+                nearby.getUUID(), player.serverLevel().getGameTime() + SESSION_TICKS
+            ));
         }
-        return cashier;
+        return nearby;
+    }
+
+    private static boolean isUsableCashier(ServerPlayer player, Entity cashier) {
+        return cashier != null
+            && cashier.isAlive()
+            && cashier.getTags().contains(CASHIER_TAG)
+            && player.distanceToSqr(cashier) <= MAX_DISTANCE_SQUARED;
     }
 
     public static boolean hasCoinCase(ServerPlayer player) {

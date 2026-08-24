@@ -1,0 +1,59 @@
+{
+  "rarity_base_weights": {
+    "common": 60,
+    "uncommon": 25,
+    "rare": 10,
+    "ultrarare": 4,
+    "legendary": 1
+  },
+  "coin_multipliers": {
+    "copper": {
+      "common": 1,
+      "uncommon": 1,
+      "rare": 1,
+      "ultrarare": 1,
+      "legendary": 0.1
+    },
+    "iron": {
+      "common": 0.85,
+      "uncommon": 1.1,
+      "rare": 1.4,
+      "ultrarare": 1.6,
+      "legendary": 0.5
+    },
+    "gold": {
+      "common": 0.55,
+      "uncommon": 1.2,
+      "rare": 2.1,
+      "ultrarare": 2.5,
+      "legendary": 0.95
+    },
+    "diamond": {
+      "common": 0.32,
+      "uncommon": 1.1,
+      "rare": 3,
+      "ultrarare": 3.2,
+      "legendary": 2.3
+    }
+  },
+  "pity": {
+    "enable": true,
+    "pityUpdateMessages": true,
+    "iron": {
+      "usesToMax": 0,
+      "maxLegendaryChance": 0
+    },
+    "gold": {
+      "usesToMax": 80,
+      "maxLegendaryChance": 0.25
+    },
+    "diamond": {
+      "usesToMax": 25,
+      "maxLegendaryChance": 0.25
+    }
+  },
+  "premier_bonus": {
+    "enable": true,
+    "coinsToBonus": 10
+  }
+}

@@ -9,6 +9,10 @@
   "screen.cobbleventure_adventure.number_input.title": "수량 입력",
   "screen.cobbleventure_adventure.number_input.field": "수량",
   "screen.cobbleventure_adventure.number_input.range": "입력 범위: %s ~ %s",
+  "screen.cobbleventure_adventure.number_input.current": "현재 보유: %s",
+  "screen.cobbleventure_adventure.number_input.unit_price": "1개당 비용: %s",
+  "screen.cobbleventure_adventure.number_input.total": "총 필요 금액: %s",
+  "screen.cobbleventure_adventure.number_input.remaining": "이용 후 잔액: %s",
   "screen.cobbleventure_adventure.number_input.confirm": "확인",
   "screen.cobbleventure_adventure.number_input.cancel": "취소"
 }
