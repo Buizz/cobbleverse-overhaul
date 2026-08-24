@@ -30,6 +30,24 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+def integrationModsPath = providers.gradleProperty('integration_mods_dir')
+    .orElse(providers.environmentVariable('COBBLEVENTURE_INTEGRATION_MODS_DIR'))
+    .orNull
+if (integrationModsPath != null && !integrationModsPath.isBlank()) {
+    def integrationModsDirectory = file(integrationModsPath)
+    dependencies {
+        localRuntime fileTree(integrationModsDirectory) {
+            include '*.jar'
+            exclude 'cobbleventure-pokefinder-*.jar'
+        }
+    }
+}
+
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
@@ -37,7 +55,13 @@ tasks.withType(Test).configureEach {
 neoForge {
     version = project.neo_version
     runs {
-        client { client() }
+        client {
+            client()
+            systemProperty 'cobbleventure.pokefinder.testMarker',
+                System.getProperty('cobbleventure.pokefinder.testMarker', 'false')
+            systemProperty 'cobbleventure.pokefinder.visualRegression',
+                System.getProperty('cobbleventure.pokefinder.visualRegression', 'false')
+        }
         server { server() }
     }
     mods {

@@ -2,7 +2,7 @@
 
 CobbleNav 2.3.3 포켓파인더 HUD 위에 Cobbleventure 탐색 마커를 렌더링하는 전용 NeoForge 모듈이다.
 
-현재 구현 범위는 1단계 호환성 골격과 2단계 정적 장소 스냅샷이다.
+현재 구현 범위는 정적 장소, NPC 상태, 현재 목표, 통합 설정과 마커 겹침 처리다.
 
 - CobbleNav와 독립적인 범용 `RadarMarker` 모델
 - 원자적으로 교체되는 클라이언트 마커 스냅샷
@@ -34,3 +34,22 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-pokefinde
 ```text
 -Dcobbleventure.pokefinder.testMarker=true
 ```
+
+전체 아이콘, 상태 표시, 우선순위 겹침, 일반 장소의 범위 제한과 장거리 목표의
+가장자리 고정을 한 화면에서 확인하려면 시각 회귀 시나리오를 사용한다. 이
+시나리오의 마커는 사용자의 탐색 정보 필터와 관계없이 보이며 실제 서버
+스냅샷에는 저장되지 않는다.
+
+```bat
+set "COBBLEVENTURE_INTEGRATION_MODS_DIR=%USERPROFILE%\curseforge\minecraft\Instances\Cobbleventure Development Test Pack\mods"
+projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-pokefinder -Dcobbleventure.pokefinder.visualRegression=true runClient
+```
+
+`COBBLEVENTURE_INTEGRATION_MODS_DIR`에는 CobbleNav와 Cobbleventure World
+Bootstrap을 포함한 개발 모드팩의 `mods` 디렉터리를 지정한다. Gradle의
+`integration_mods_dir` 프로젝트 속성으로도 같은 값을 지정할 수 있다.
+PowerShell이 `-D` 인수를 변형하는 환경에서는 위 명령을 `cmd`에서 실행한다.
+
+포켓파인더를 주손과 보조손에 번갈아 들고 Minecraft의 GUI 배율을 1, 2, 3,
+4로 바꿔 레이더 경계와 아이콘 정렬을 확인한다. 플레이어를 회전하면 모든
+마커가 포켓몬 점과 같은 방향으로 회전해야 한다.

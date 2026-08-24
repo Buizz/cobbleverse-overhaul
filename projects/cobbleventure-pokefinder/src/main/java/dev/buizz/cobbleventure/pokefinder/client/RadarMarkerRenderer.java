@@ -16,6 +16,9 @@ public final class RadarMarkerRenderer {
     private static final boolean DEBUG_MARKER = Boolean.getBoolean(
         "cobbleventure.pokefinder.testMarker"
     );
+    private static final boolean VISUAL_REGRESSION = Boolean.getBoolean(
+        RadarVisualRegressionScenario.SYSTEM_PROPERTY
+    );
 
     private RadarMarkerRenderer() {}
 
@@ -27,6 +30,11 @@ public final class RadarMarkerRenderer {
         Cobblenav233LayoutAdapter.radarLayout(minecraft).ifPresent(layout -> {
             List<RadarMarker> markers = new ArrayList<>(RadarMarkerSnapshot.markers());
             if (DEBUG_MARKER) markers.add(DebugMarker.create(player));
+            if (VISUAL_REGRESSION) {
+                markers.addAll(RadarVisualRegressionScenario.create(
+                    player.level().dimension().location(), player.position()
+                ));
+            }
 
             graphics.pose().pushPose();
             graphics.pose().scale(layout.scale(), layout.scale(), 1.0F);
@@ -35,7 +43,8 @@ public final class RadarMarkerRenderer {
             List<RadarMarkerLayout.Candidate> candidates = new ArrayList<>();
             for (RadarMarker marker : markers) {
                 if (!marker.dimension().equals(dimension)) continue;
-                if (!RadarDisplaySettings.visible(marker)) continue;
+                if (!RadarVisualRegressionScenario.contains(marker)
+                    && !RadarDisplaySettings.visible(marker)) continue;
                 Cobblenav233LayoutAdapter.RadarPoint point =
                     Cobblenav233LayoutAdapter.worldToRadar(
                         layout,
