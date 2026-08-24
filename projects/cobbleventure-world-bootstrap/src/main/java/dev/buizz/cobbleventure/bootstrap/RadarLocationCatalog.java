@@ -22,6 +22,12 @@ public final class RadarLocationCatalog {
         return NpcRadarLocationSystem.locations(player);
     }
 
+    /** Returns the primary progression target selected for this player. */
+    public static List<ObjectiveLocation> objectiveLocations(ServerPlayer player) {
+        List<ObjectiveLocation> story = NpcRadarLocationSystem.objectives(player);
+        return story.isEmpty() ? GymInteriorSystem.radarObjectives(player) : story;
+    }
+
     public static Kind buildingKind(String structure) {
         String normalized = structure.toLowerCase(java.util.Locale.ROOT);
         if (normalized.contains("pokemon_center")) return Kind.POKEMON_CENTER;
@@ -62,6 +68,18 @@ public final class RadarLocationCatalog {
     public record NpcLocation(
         String id,
         NpcKind kind,
+        ResourceLocation dimension,
+        double x,
+        double y,
+        double z,
+        String label,
+        String areaId,
+        String state
+    ) {}
+
+    public record ObjectiveLocation(
+        String id,
+        String kind,
         ResourceLocation dimension,
         double x,
         double y,

@@ -19,6 +19,8 @@ class WorldBootstrapRadarProviderTest {
             WorldBootstrapRadarProvider.markerType("TRAINER"));
         assertEquals(RadarMarkerType.IMPORTANT_NPC,
             WorldBootstrapRadarProvider.markerType("IMPORTANT_NPC"));
+        assertEquals(RadarMarkerType.OBJECTIVE,
+            WorldBootstrapRadarProvider.markerType("OBJECTIVE"));
         assertEquals(RadarMarkerType.SPECIAL_BUILDING,
             WorldBootstrapRadarProvider.markerType("UNKNOWN"));
     }

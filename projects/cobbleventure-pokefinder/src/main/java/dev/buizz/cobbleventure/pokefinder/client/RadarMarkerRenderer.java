@@ -114,6 +114,12 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x, y + 2, x + 1, y + 3, color);
                 graphics.fill(x - 1, y - 2, x + 2, y, color);
             }
+            case OBJECTIVE -> {
+                graphics.fill(x - 2, y - 2, x + 2, y - 1, color);
+                graphics.fill(x - 2, y - 1, x - 1, y + 2, color);
+                graphics.fill(x - 1, y + 1, x + 3, y + 2, color);
+                graphics.fill(x + 1, y - 1, x + 2, y + 1, color);
+            }
             default -> {
                 graphics.fill(x - 2, y, x + 3, y + 1, 0xFF101820);
                 graphics.fill(x, y - 2, x + 1, y + 3, 0xFF101820);
@@ -135,6 +141,7 @@ public final class RadarMarkerRenderer {
             case TRAINER -> 0xFFFF8A65;
             case GYM_LEADER -> 0xFFFFD35A;
             case IMPORTANT_NPC -> 0xFFB89CFF;
+            case OBJECTIVE -> 0xFFFFFFFF;
             case POKEMON_CENTER -> 0xFFFF6B78;
             case POKEMART -> 0xFF69A7FF;
             case CASINO -> 0xFFFFC44D;

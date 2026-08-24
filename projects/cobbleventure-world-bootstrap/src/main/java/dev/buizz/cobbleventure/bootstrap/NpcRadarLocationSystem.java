@@ -26,6 +26,8 @@ import org.slf4j.Logger;
 final class NpcRadarLocationSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String BINDING_PREFIX = "cves_binding/";
+    private static final String STARTER_RECEIVED_FLAG =
+        "cobbleventure:flag/story/starter_received";
     private static final double RANGE = 64.0D;
     private static volatile CachedProfiles cachedProfiles;
     private static volatile boolean catalogFailureLogged;
@@ -57,6 +59,26 @@ final class NpcRadarLocationSystem {
         return List.copyOf(result);
     }
 
+    static List<RadarLocationCatalog.ObjectiveLocation> objectives(ServerPlayer player) {
+        ServerPlayerEventState state = new ServerPlayerEventState(player);
+        if (state.flag(STARTER_RECEIVED_FLAG)) return List.of();
+        ServerLevel level = player.serverLevel();
+        double rangeSquared = RANGE * RANGE;
+        return level.getEntitiesOfClass(
+            Entity.class, player.getBoundingBox().inflate(RANGE),
+            candidate -> isEasyNpc(candidate)
+                && candidate.distanceToSqr(player) <= rangeSquared
+                && "professor_oak".equals(slug(binding(candidate.getTags())))
+        ).stream().sorted(java.util.Comparator.comparing(Entity::getUUID))
+            .findFirst()
+            .map(entity -> List.of(new RadarLocationCatalog.ObjectiveLocation(
+                "objective/story/professor_oak", "OBJECTIVE",
+                level.dimension().location(), entity.getX(), entity.getY(), entity.getZ(),
+                "오박사에게서 스타터 받기", "", "PRIMARY"
+            )))
+            .orElseGet(List::of);
+    }
+
     static RadarLocationCatalog.NpcKind kind(String binding, Set<String> trainerSlugs) {
         if (binding == null) return null;
         String normalized = binding.toLowerCase(Locale.ROOT);
@@ -67,6 +89,9 @@ final class NpcRadarLocationSystem {
             return RadarLocationCatalog.NpcKind.TRAINER;
         }
         if (normalized.contains("/rewards/")) {
+            return RadarLocationCatalog.NpcKind.IMPORTANT_NPC;
+        }
+        if (normalized.endsWith("/professor_oak")) {
             return RadarLocationCatalog.NpcKind.IMPORTANT_NPC;
         }
         return null;

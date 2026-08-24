@@ -30,9 +30,13 @@ public final class WorldBootstrapRadarProvider {
             Class<?> catalog = Class.forName(CATALOG);
             Method locations = catalog.getMethod("locations", ServerPlayer.class);
             Method npcLocations = catalog.getMethod("npcLocations", ServerPlayer.class);
+            Method objectiveLocations = catalog.getMethod(
+                "objectiveLocations", ServerPlayer.class
+            );
             List<RadarMarker> result = new ArrayList<>();
             append(result, locations.invoke(null, player), player);
             append(result, npcLocations.invoke(null, player), player);
+            append(result, objectiveLocations.invoke(null, player), player);
             return List.copyOf(result);
         } catch (ClassNotFoundException | NoSuchMethodException
                  | IllegalAccessException | InvocationTargetException error) {
@@ -50,6 +54,7 @@ public final class WorldBootstrapRadarProvider {
             case "TRAINER" -> RadarMarkerType.TRAINER;
             case "GYM_LEADER" -> RadarMarkerType.GYM_LEADER;
             case "IMPORTANT_NPC" -> RadarMarkerType.IMPORTANT_NPC;
+            case "OBJECTIVE" -> RadarMarkerType.OBJECTIVE;
             case "POKEMON_CENTER" -> RadarMarkerType.POKEMON_CENTER;
             case "POKEMART" -> RadarMarkerType.POKEMART;
             case "CASINO" -> RadarMarkerType.CASINO;
@@ -81,8 +86,9 @@ public final class WorldBootstrapRadarProvider {
         for (Object entry : entries) {
             RadarMarker marker = marker(entry);
             if (marker != null
-                && marker.position().distanceTo(player.position())
-                    <= RadarRanges.MAX_FALLBACK) {
+                && (marker.type() == RadarMarkerType.OBJECTIVE
+                    || marker.position().distanceTo(player.position())
+                        <= RadarRanges.MAX_FALLBACK)) {
                 result.add(marker);
             }
         }
@@ -103,10 +109,10 @@ public final class WorldBootstrapRadarProvider {
             String label = (String) type.getMethod("label").invoke(entry);
             String areaId = (String) type.getMethod("areaId").invoke(entry);
             RadarMarkerState state = RadarMarkerState.AVAILABLE;
-            boolean dynamicNpc = false;
+            boolean playerSpecific = false;
             try {
                 state = markerState((String) type.getMethod("state").invoke(entry));
-                dynamicNpc = true;
+                playerSpecific = true;
             } catch (NoSuchMethodException ignored) {
                 // Static location records predate player-specific marker state.
             }
@@ -126,7 +132,7 @@ public final class WorldBootstrapRadarProvider {
                 state,
                 areaId,
                 RadarRanges.DEFAULT_LOCAL,
-                !dynamicNpc
+                markerType == RadarMarkerType.OBJECTIVE || !playerSpecific
             );
         } catch (ReflectiveOperationException | ClassCastException error) {
             return null;
@@ -136,6 +142,7 @@ public final class WorldBootstrapRadarProvider {
     private static int priority(RadarMarkerType type) {
         return switch (type) {
             case GYM_LEADER -> 500;
+            case OBJECTIVE -> 600;
             case TRAINER, IMPORTANT_NPC -> 400;
             case POKEMON_CENTER, POKEMART, CASINO, SPECIAL_BUILDING -> 300;
             case CAVE_ENTRANCE, FOREST_ENTRANCE, GATE -> 200;

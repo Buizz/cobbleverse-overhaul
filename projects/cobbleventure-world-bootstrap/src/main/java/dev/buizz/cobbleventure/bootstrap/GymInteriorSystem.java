@@ -10,6 +10,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 import dev.buizz.cobbleventure.playermenu.BadgeProgressNetwork;
+import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -67,6 +68,8 @@ final class GymInteriorSystem {
         ResourceLocation.fromNamespaceAndPath("cobbleventure", "gym_interiors")
     );
     private static final String INTERACTION_COOLDOWN = "cobbleventureGymDoorCooldown";
+    private static final String STARTER_RECEIVED_FLAG =
+        "cobbleventure:flag/story/starter_received";
     private static final int INSTANCE_GAP = 128;
     private static final int SLOT_Y = 64;
     private static final BlockPoint DEFAULT_DOOR = new BlockPoint(12, 3, 3);
@@ -147,6 +150,7 @@ final class GymInteriorSystem {
                     module.metadata
                 ));
             }
+            captureExteriorTarget(gym, spaces);
             for (GymConnection connection : gym.connections) {
                 registerConnection(gym, spaces, connection);
             }
@@ -159,6 +163,8 @@ final class GymInteriorSystem {
         BlockPos door = origin.offset(doorOffset.x, doorOffset.y, doorOffset.z);
         BlockPos destination = gym.instanceOrigin.offset(gym.entryOffset.x, gym.entryOffset.y, gym.entryOffset.z);
         BlockPos outside = origin.offset(outsideOffset.x, outsideOffset.y, outsideOffset.z);
+        gym.exteriorDimension = level.dimension();
+        gym.exteriorTarget = outside.immutable();
         registerDoor(level, door, new DoorTarget(
             INTERIORS, destination, blocker(gym, level, blockerPosition(door, outside)), gym.previousBadge,
             gym.conditions, gym.conditionMode,
@@ -228,6 +234,77 @@ final class GymInteriorSystem {
         boolean cleared = objective != null
             && player.getScoreboard().getOrCreatePlayerScore(player, objective).get() > 0;
         return new GymArrivalInfo(gym.displayName, gym.theme, cleared);
+    }
+
+    static List<RadarLocationCatalog.ObjectiveLocation> radarObjectives(ServerPlayer player) {
+        if (!new ServerPlayerEventState(player).flag(STARTER_RECEIVED_FLAG)) {
+            return List.of();
+        }
+        List<GymConfig> gyms = GYMS.values().stream()
+            .filter(gym -> gym.exteriorDimension != null && gym.exteriorTarget != null)
+            .toList();
+        List<ObjectiveProgress> progress = gyms.stream().map(gym -> {
+            Objective objective = player.getScoreboard().getObjective(gym.clearObjective);
+            boolean cleared = objective != null
+                && player.getScoreboard().getOrCreatePlayerScore(player, objective).get() > 0;
+            boolean unlocked = gym.previousBadge == null
+                || BadgeProgressNetwork.hasBadge(player, gym.previousBadge);
+            boolean sameDimension = player.level().dimension().equals(gym.exteriorDimension);
+            double distanceSquared = sameDimension
+                ? player.distanceToSqr(Vec3.atCenterOf(gym.exteriorTarget))
+                : Double.POSITIVE_INFINITY;
+            return new ObjectiveProgress(
+                gym.settlementId, cleared, unlocked, sameDimension, distanceSquared
+            );
+        }).toList();
+        int selected = currentObjectiveIndex(progress);
+        if (selected < 0) return List.of();
+        GymConfig gym = gyms.get(selected);
+        BlockPos target = gym.exteriorTarget;
+        return List.of(new RadarLocationCatalog.ObjectiveLocation(
+            "objective/gym/" + gym.settlementId, "OBJECTIVE",
+            gym.exteriorDimension.location(),
+            target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D,
+            gym.displayName + "에 도전", gym.settlementId, "PRIMARY"
+        ));
+    }
+
+    static int currentObjectiveIndex(List<ObjectiveProgress> candidates) {
+        int selected = -1;
+        for (int index = 0; index < candidates.size(); index++) {
+            ObjectiveProgress candidate = candidates.get(index);
+            if (candidate.cleared || !candidate.unlocked) continue;
+            if (selected < 0 || compareObjective(candidate, candidates.get(selected)) < 0) {
+                selected = index;
+            }
+        }
+        return selected;
+    }
+
+    private static int compareObjective(ObjectiveProgress left, ObjectiveProgress right) {
+        int dimension = Boolean.compare(right.sameDimension, left.sameDimension);
+        if (dimension != 0) return dimension;
+        int distance = Double.compare(left.distanceSquared, right.distanceSquared);
+        return distance != 0 ? distance : left.id.compareTo(right.id);
+    }
+
+    private static void captureExteriorTarget(
+        GymConfig gym, Map<String, SpaceInstance> spaces
+    ) {
+        SpaceInstance exterior = spaces.get("exterior");
+        if (exterior == null) return;
+        for (GymConnection connection : gym.connections) {
+            String doorId = connection.fromSpace.equals("exterior")
+                ? connection.fromDoor
+                : connection.toSpace.equals("exterior") ? connection.toDoor : null;
+            DoorAnchor door = doorId == null ? null
+                : exterior.metadata.doorAnchors.get(doorId);
+            if (door != null) {
+                gym.exteriorDimension = exterior.level.dimension();
+                gym.exteriorTarget = exterior.position(door.safeSpawn).immutable();
+                return;
+            }
+        }
     }
 
     private static void loadConfigs(MinecraftServer server) {
@@ -1033,6 +1110,11 @@ final class GymInteriorSystem {
 
     record GymArrivalInfo(String displayName, String theme, boolean cleared) {}
 
+    record ObjectiveProgress(
+        String id, boolean cleared, boolean unlocked,
+        boolean sameDimension, double distanceSquared
+    ) {}
+
     private record ExteriorPalette(BlockState primary, BlockState secondary, BlockState glass) {}
 
     private record DoorAnchor(BlockPoint position, BlockPoint safeSpawn) {}
@@ -1085,6 +1167,8 @@ final class GymInteriorSystem {
         final String blockingNpcPreset;
         final List<GymStaffMember> staff;
         BlockPos instanceOrigin;
+        ResourceKey<Level> exteriorDimension;
+        BlockPos exteriorTarget;
 
         GymConfig(
             String settlementId, String displayName, String theme, String clearObjective,
