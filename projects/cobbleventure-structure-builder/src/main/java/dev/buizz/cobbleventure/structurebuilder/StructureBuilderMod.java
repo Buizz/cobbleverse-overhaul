@@ -33,6 +33,8 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.DoubleTag;
+import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -174,11 +176,16 @@ public final class StructureBuilderMod {
                     "[Structure Builder] 구조물 " + catalog.entries().size()
                         + "개를 건축 부지에 배치했습니다."
                 ));
-            } else if (!data.catalogHash.equals(catalog.catalogHash())) {
-                player.sendSystemMessage(Component.literal(
-                    "[Structure Builder] 원본 NBT가 변경되었습니다. 편집 내용을 보존했으며 "
-                        + "필요할 때 /cobbleventure_builder load confirm을 사용하세요."
-                ));
+            } else {
+                repairExistingPlayingCardsTableOwners(
+                    server.overworld(), catalog, data.groundY, player
+                );
+                if (!data.catalogHash.equals(catalog.catalogHash())) {
+                    player.sendSystemMessage(Component.literal(
+                        "[Structure Builder] 원본 NBT가 변경되었습니다. 편집 내용을 보존했으며 "
+                            + "필요할 때 /cobbleventure_builder load confirm을 사용하세요."
+                    ));
+                }
             }
             BlockPos spawn = spawnPosition(data.groundY);
             player.teleportTo(
@@ -1669,8 +1676,11 @@ public final class StructureBuilderMod {
             );
         }
         loadChunks(level, planned.origin(), expected);
+        StructurePlaceSettings placementSettings = new StructurePlaceSettings()
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
+            .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE);
         boolean placed = template.placeInWorld(
-            level, planned.origin(), planned.origin(), new StructurePlaceSettings(),
+            level, planned.origin(), planned.origin(), placementSettings,
             RandomSource.create(level.getSeed() ^ planned.origin().asLong()), 2
         );
         if (!placed) {
@@ -1701,6 +1711,62 @@ public final class StructureBuilderMod {
         }
     }
 
+    private static void repairExistingPlayingCardsTableOwners(
+        ServerLevel level, Catalog catalog, int groundY, ServerPlayer owner
+    ) {
+        ResourceLocation pokerTableId = ResourceLocation.fromNamespaceAndPath(
+            "playingcards", "poker_table"
+        );
+        var pokerTable = BuiltInRegistries.BLOCK.get(pokerTableId);
+        if (!BuiltInRegistries.BLOCK.getKey(pokerTable).equals(pokerTableId)) {
+            return;
+        }
+        int repaired = 0;
+        for (PlannedEntry planned : plan(catalog, groundY)) {
+            ResourceLocation structureId = ResourceLocation.parse(
+                planned.entry().structureId()
+            );
+            var template = level.getStructureManager().get(structureId);
+            if (template.isEmpty()) {
+                continue;
+            }
+            for (StructureTemplate.StructureBlockInfo info : template.orElseThrow()
+                .filterBlocks(planned.origin(), new StructurePlaceSettings(), pokerTable)) {
+                BlockEntity blockEntity = level.getBlockEntity(info.pos());
+                if (blockEntity == null) {
+                    continue;
+                }
+                try {
+                    Object currentOwner = blockEntity.getClass()
+                        .getMethod("getOwnerID")
+                        .invoke(blockEntity);
+                    if (currentOwner != null) {
+                        continue;
+                    }
+                    blockEntity.getClass()
+                        .getMethod("setOwner", net.minecraft.world.entity.player.Player.class)
+                        .invoke(blockEntity, owner);
+                    blockEntity.setChanged();
+                    BlockState state = level.getBlockState(info.pos());
+                    level.sendBlockUpdated(info.pos(), state, state, 3);
+                    repaired++;
+                } catch (ReflectiveOperationException error) {
+                    LOGGER.warn(
+                        "Playing Cards table owner repair failed at {}",
+                        info.pos(), error
+                    );
+                }
+            }
+        }
+        if (repaired > 0) {
+            LOGGER.info("Repaired {} Playing Cards table owners", repaired);
+            owner.sendSystemMessage(Component.literal(
+                "[Structure Builder] 기존 카지노 테이블 소유자 정보 "
+                    + repaired + "개를 복구했습니다."
+            ));
+        }
+    }
+
     private static ExportResult export(
         ServerLevel level, Catalog catalog, PlannedEntry planned
     ) {
@@ -1721,10 +1787,11 @@ public final class StructureBuilderMod {
         var template = manager.getOrCreate(exportId);
         template.fillFromWorld(
             level, exportOrigin, planned.entry().size(),
-            createEntities.captureExportableEntities(), Blocks.STRUCTURE_VOID
+            false, Blocks.STRUCTURE_VOID
         );
-        CreateEntityCounts retained = createEntities.captureExportableEntities()
-            ? retainOnlyExportableCreateEntities(template, level) : CreateEntityCounts.NONE;
+        CreateEntityCounts retained = writeExportableCreateEntities(
+            template, level, exportOrigin, createEntities, planned.entry().label()
+        );
         validateCapturedCreateEntities(retained, createEntities, planned.entry().label());
         template.setAuthor("Cobbleventure Structure Builder");
         if (!manager.save(exportId)) {
@@ -1855,10 +1922,11 @@ public final class StructureBuilderMod {
         var template = manager.getOrCreate(exportId);
         template.fillFromWorld(
             level, plot.origin(), plot.size(),
-            createEntities.captureExportableEntities(), Blocks.STRUCTURE_VOID
+            false, Blocks.STRUCTURE_VOID
         );
-        CreateEntityCounts retained = createEntities.captureExportableEntities()
-            ? retainOnlyExportableCreateEntities(template, level) : CreateEntityCounts.NONE;
+        CreateEntityCounts retained = writeExportableCreateEntities(
+            template, level, plot.origin(), createEntities, plot.id()
+        );
         validateCapturedCreateEntities(retained, createEntities, plot.id());
         template.setAuthor("Cobbleventure Structure Builder");
         if (!manager.save(exportId)) {
@@ -1880,20 +1948,30 @@ public final class StructureBuilderMod {
             origin.getX(), origin.getY(), origin.getZ(),
             end.getX() + 1, end.getY() + 1, end.getZ() + 1
         );
-        List<Entity> contraptions = level.getEntities(
-            (Entity) null, bounds, StructureBuilderMod::isCreateContraption
-        );
+        List<Entity> exportableEntities = new ArrayList<>();
         int elevatorCount = 0;
-        for (Entity contraption : contraptions) {
+        for (Entity contraption : level.getAllEntities()) {
+            if (!isCreateContraption(contraption)) {
+                continue;
+            }
             CompoundTag entityData = contraption.saveWithoutId(new CompoundTag());
             CompoundTag contraptionData = entityData.getCompound("Contraption");
             if (!contraptionData.getString("Type").equals("create:elevator")) {
+                if (!contraption.getBoundingBox().intersects(bounds)) {
+                    continue;
+                }
                 throw new BuilderException(
                     "저장 범위에 엘리베이터가 아닌 Create Contraption이 있습니다: "
                         + label + " "
                         + format(contraption.blockPosition().subtract(origin))
                         + ". 장치를 해체한 뒤 다시 저장하세요."
                 );
+            }
+            BlockPos pulleyPosition = contraption.blockPosition().offset(
+                readNbtBlockPos(entityData, "ControllerRelative", label)
+            );
+            if (!isInside(pulleyPosition, origin, end)) {
+                continue;
             }
             if (!contraption.getPassengers().isEmpty()) {
                 throw new BuilderException(
@@ -1906,11 +1984,7 @@ public final class StructureBuilderMod {
             validateContraptionBlocksInsidePlot(
                 contraption.blockPosition(), contraptionData, origin, end, label
             );
-            BlockPos pulleyPosition = contraption.blockPosition().offset(
-                readNbtBlockPos(entityData, "ControllerRelative", label)
-            );
-            if (!isInside(pulleyPosition, origin, end)
-                || !BuiltInRegistries.BLOCK.getKey(
+            if (!BuiltInRegistries.BLOCK.getKey(
                     level.getBlockState(pulleyPosition).getBlock()
                 ).equals(ResourceLocation.fromNamespaceAndPath("create", "elevator_pulley"))) {
                 throw new BuilderException(
@@ -1918,16 +1992,27 @@ public final class StructureBuilderMod {
                         + label + " " + format(pulleyPosition.subtract(origin))
                 );
             }
+            exportableEntities.add(contraption);
             elevatorCount++;
         }
-        int glueCount = level.getEntities(
-            (Entity) null, bounds, StructureBuilderMod::isCreateSuperGlue
-        ).size();
+        List<Entity> glueEntities = new ArrayList<>();
+        for (Entity entity : level.getAllEntities()) {
+            if (isCreateSuperGlue(entity)
+                && (isInside(entity.blockPosition(), origin, end)
+                    || entity.getBoundingBox().intersects(bounds))) {
+                glueEntities.add(entity);
+            }
+        }
+        exportableEntities.addAll(glueEntities);
+        List<Entity> playingCardsEntities = level.getEntities(
+            (Entity)null, bounds, StructureBuilderMod::isPlayingCardsEntity
+        );
+        exportableEntities.addAll(playingCardsEntities);
         return new CreateEntityExport(
-            elevatorCount, glueCount, elevatorCount > 0 || glueCount > 0
+            List.copyOf(exportableEntities), elevatorCount, glueEntities.size(),
+            playingCardsEntities.size()
         );
     }
-
     private static void validateContraptionBlocksInsidePlot(
         BlockPos anchor, CompoundTag contraptionData,
         BlockPos origin, BlockPos end, String label
@@ -1989,35 +2074,83 @@ public final class StructureBuilderMod {
             && position.getZ() >= origin.getZ() && position.getZ() <= end.getZ();
     }
 
-    private static CreateEntityCounts retainOnlyExportableCreateEntities(
-        StructureTemplate template, ServerLevel level
+    private static CreateEntityCounts writeExportableCreateEntities(
+        StructureTemplate template, ServerLevel level, BlockPos origin,
+        CreateEntityExport expected, String label
     ) {
         CompoundTag serialized = template.save(new CompoundTag());
-        ListTag entities = serialized.getList("entities", Tag.TAG_COMPOUND);
+        ListTag entities = new ListTag();
         int retainedElevators = 0;
         int retainedGlue = 0;
-        for (int index = entities.size() - 1; index >= 0; index--) {
-            CompoundTag entityInfo = entities.getCompound(index);
-            CompoundTag entityData = entityInfo.getCompound("nbt");
-            String entityId = entityData.getString("id");
-            if (entityId.equals("create:super_glue")) {
+        int retainedPlayingCards = 0;
+        for (Entity entity : expected.entities()) {
+            ResourceLocation entityId = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+            CompoundTag entityData = entity.saveWithoutId(new CompoundTag());
+            entityData.putString("id", entityId.toString());
+            entityData.remove("UUID");
+
+            CompoundTag entityInfo = new CompoundTag();
+            ListTag position = new ListTag();
+            position.add(DoubleTag.valueOf(entity.getX() - origin.getX()));
+            position.add(DoubleTag.valueOf(entity.getY() - origin.getY()));
+            position.add(DoubleTag.valueOf(entity.getZ() - origin.getZ()));
+            entityInfo.put("pos", position);
+
+            BlockPos relativeBlockPosition = entity.blockPosition().subtract(origin);
+            ListTag blockPosition = new ListTag();
+            blockPosition.add(IntTag.valueOf(relativeBlockPosition.getX()));
+            blockPosition.add(IntTag.valueOf(relativeBlockPosition.getY()));
+            blockPosition.add(IntTag.valueOf(relativeBlockPosition.getZ()));
+            entityInfo.put("blockPos", blockPosition);
+            entityInfo.put("nbt", entityData);
+            entities.add(entityInfo);
+
+            if (entityId.getNamespace().equals("playingcards")) {
+                retainedPlayingCards++;
+                continue;
+            }
+            if (entityId.equals(ResourceLocation.fromNamespaceAndPath("create", "super_glue"))) {
                 retainedGlue++;
                 continue;
             }
-            ResourceLocation parsedId = ResourceLocation.tryParse(entityId);
-            if (parsedId != null
-                && parsedId.getNamespace().equals("create")
-                && parsedId.getPath().contains("contraption")
+            if (entityId.getNamespace().equals("create")
+                && entityId.getPath().contains("contraption")
                 && entityData.getCompound("Contraption").getString("Type")
                     .equals("create:elevator")) {
                 retainedElevators++;
-                continue;
             }
-            entities.remove(index);
+        }
+        serialized.put("entities", entities);
+        int runningPulleys = countRunningElevatorPulleys(serialized);
+        if (runningPulleys > 0 && retainedElevators == 0) {
+            throw new BuilderException(
+                "작동 중인 Create 엘리베이터 풀리는 있지만 객실 엔티티가 없어 저장하지 않았습니다: "
+                    + label + ". 현재 에딧월드에서 객실이 조립된 상태인지 확인하세요."
+            );
         }
         sanitizeCreateKineticNetworks(serialized);
         template.load(level.holderLookup(Registries.BLOCK), serialized);
-        return new CreateEntityCounts(retainedElevators, retainedGlue);
+        LOGGER.info(
+            "Wrote exportable entities for {}: elevators={}, glue={}, playingCards={}, "
+                + "runningPulleys={}",
+            label, retainedElevators, retainedGlue, retainedPlayingCards, runningPulleys
+        );
+        return new CreateEntityCounts(
+            retainedElevators, retainedGlue, retainedPlayingCards
+        );
+    }
+
+    private static int countRunningElevatorPulleys(CompoundTag templateData) {
+        ListTag blocks = templateData.getList("blocks", Tag.TAG_COMPOUND);
+        int count = 0;
+        for (int index = 0; index < blocks.size(); index++) {
+            CompoundTag blockEntity = blocks.getCompound(index).getCompound("nbt");
+            if (blockEntity.getString("id").equals("create:elevator_pulley")
+                && blockEntity.getBoolean("Running")) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static void sanitizeCreateKineticNetworks(CompoundTag templateData) {
@@ -2038,14 +2171,17 @@ public final class StructureBuilderMod {
         CreateEntityCounts retained, CreateEntityExport expected, String label
     ) {
         if (retained.elevators() == expected.expectedElevators()
-            && retained.glue() == expected.expectedGlueEntities()) {
+            && retained.glue() == expected.expectedGlueEntities()
+            && retained.playingCards() == expected.expectedPlayingCardsEntities()) {
             return;
         }
         throw new BuilderException(
-            "Create 엘리베이터 엔티티를 NBT에 정확히 담지 못해 저장하지 않았습니다: "
+            "내보내기 대상 엔티티를 NBT에 정확히 담지 못해 저장하지 않았습니다: "
                 + label + " (엘리베이터 " + expected.expectedElevators() + "→"
                 + retained.elevators() + ", 접착제 " + expected.expectedGlueEntities()
-                + "→" + retained.glue() + "). 다시 시도하세요."
+                + "→" + retained.glue() + ", Playing Cards "
+                + expected.expectedPlayingCardsEntities() + "→"
+                + retained.playingCards() + "). 다시 시도하세요."
         );
     }
 
@@ -2057,6 +2193,11 @@ public final class StructureBuilderMod {
     private static boolean isCreateSuperGlue(Entity entity) {
         return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
             .equals(ResourceLocation.fromNamespaceAndPath("create", "super_glue"));
+    }
+
+    private static boolean isPlayingCardsEntity(Entity entity) {
+        return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+            .getNamespace().equals("playingcards");
     }
 
     private static List<String> repairKnownMultiblocks(
@@ -2569,13 +2710,12 @@ public final class StructureBuilderMod {
     }
 
     private record CreateEntityExport(
-        int expectedElevators, int expectedGlueEntities,
-        boolean captureExportableEntities
+        List<Entity> entities, int expectedElevators, int expectedGlueEntities,
+        int expectedPlayingCardsEntities
     ) {
     }
 
-    private record CreateEntityCounts(int elevators, int glue) {
-        private static final CreateEntityCounts NONE = new CreateEntityCounts(0, 0);
+    private record CreateEntityCounts(int elevators, int glue, int playingCards) {
     }
 
     private record Entry(

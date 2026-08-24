@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/field_move/strength") {
+    say npc {
+      ko_kr: "억지로 밀지 말고 포켓몬의 움직임에 맞춰라."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "큰 바위를 움직이려면 포켓몬과 호흡을 맞춰야 한다. 괴력의 비결을 전수하지."
+    }
+    id "grant/field_move" grant_field_move strength -> granted
+    id "grant/state" set_flag "cobbleventure:flag/rewards/field_move/strength" true
+    say npc {
+      ko_kr: "이제 무거운 바위 앞에서 괴력을 사용할 수 있다."
+    }
+  }
+}

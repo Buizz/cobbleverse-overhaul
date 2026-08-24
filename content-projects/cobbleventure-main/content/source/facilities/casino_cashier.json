@@ -1,0 +1,54 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/casino_cashier",
+  "enabled": true,
+  "name": {"ko_kr": "카지노 환전상", "en_us": "Casino Cashier"},
+  "description": {
+    "ko_kr": "동전케이스를 확인하고 돈을 카지노 게임 잔액으로 직접 환전합니다.",
+    "en_us": "Checks the Coin Case and directly converts money into casino game balance."
+  },
+  "tags": ["service", "casino", "cashier", "building_runtime"],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {"ko_kr": "카지노 환전상", "en_us": "Casino Cashier"},
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/waiter",
+    "appearance": {
+      "source": "custom",
+      "type": "skin",
+      "resource": "cobbleventure:trainer_skin/waiter",
+      "arm_model": "slim"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "custom",
+    "script_id": "cobbleventure:event_script/facilities/casino_cashier"
+  },
+  "event_design": {"mode": "easy_npc_events"},
+  "events": [{
+    "id": "on_interact",
+    "trigger": {"type": "interact", "range": 4},
+    "commands": [{
+      "type": "dialogue",
+      "id": "fallback",
+      "speaker": "npc",
+      "text": {
+        "ko_kr": "카지노 환전은 동전케이스가 필요합니다.",
+        "en_us": "A Coin Case is required for casino exchange."
+      }
+    }, {"type": "end"}]
+  }]
+}

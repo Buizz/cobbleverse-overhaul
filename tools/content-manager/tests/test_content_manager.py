@@ -2191,6 +2191,20 @@ class ContentManagerTests(unittest.TestCase):
             self.assertIn(f"#{editor_id}", styles)
         self.assertIn("position: sticky; z-index: 30; top: 0", styles)
 
+    def test_settlement_selection_shows_loading_until_preview_is_ready(self) -> None:
+        web_root = CORE_ROOT / "tools/content-manager/web"
+        page = (web_root / "index.html").read_text(encoding="utf-8")
+        script = (web_root / "app.js").read_text(encoding="utf-8")
+        styles = (web_root / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('id="settlement-loading-state" role="status"', page)
+        self.assertIn("function showSettlementLoading(path)", script)
+        self.assertIn("function finishSettlementLoading(requestId)", script)
+        self.assertIn("else await renderSettlement();", script)
+        self.assertIn("await renderVillageGenerationTest();", script)
+        self.assertIn(".settlement-order-row.is-loading", styles)
+        self.assertIn("#selected-settlement-editor.is-loading", styles)
+
     def test_forest_uses_dedicated_runtime_dimension(self) -> None:
         forest = content_manager.load_json(
             PROJECT_ROOT / "content/forests/generation_1/viridian_forest.json"
@@ -4065,8 +4079,14 @@ class ContentManagerTests(unittest.TestCase):
                 battle_script["script_id"],
             )
             self.assertEqual(battle_script["script_id"], battle_binding["script_id"])
-            self.assertEqual(3, result["cves_scripts"])
-            self.assertEqual(3, result["cves_bindings"])
+            self.assertEqual(
+                len(list((root / "content" / "events").rglob("*.cves"))),
+                result["cves_scripts"],
+            )
+            self.assertEqual(
+                len(list((root / "content" / "event-bindings").rglob("*.json"))),
+                result["cves_bindings"],
+            )
         self.assertEqual(legacy_before, legacy_oak.read_bytes())
 
     def test_cheater_probability_is_exported_for_runtime_use(self) -> None:
@@ -4290,7 +4310,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="save-gacha-machines"', html)
         self.assertIn('request("/api/gacha-machines"', script)
         self.assertIn("renderGachaMachines", script)
+        self.assertIn("addGachaSet", script)
+        self.assertIn("공통 티켓", script)
+        self.assertIn("가챠 상품 카탈로그", script)
+        self.assertIn("reward_catalog:state.gachaMachines.reward_catalog", script)
         self.assertIn(".gacha-machine-workspace", styles)
+        self.assertIn(".gacha-catalog-table", styles)
 
     def test_gacha_machine_catalog_validates_and_saves_machine_specific_profiles(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -4305,6 +4330,22 @@ class ContentManagerTests(unittest.TestCase):
             saved = content_manager.load_json(root / "content/catalogs/gacha-machines.json")
             self.assertEqual("minecraft:gold_block", saved["machines"][0]["appearance"]["base_block"])
             self.assertEqual(50, saved["machines"][0]["pity"]["hard"]["count"])
+            self.assertEqual("pokemon", saved["machines"][0]["machine_type"])
+            self.assertEqual("포켓몬 가챠 티켓", saved["tickets"]["pokemon"]["display_name"])
+            self.assertNotIn("ticket", saved["machines"][0])
+            self.assertEqual(3, len(saved["casino_sets"][0]["machines"]))
+            self.assertEqual("pikachu", saved["reward_catalog"][0]["id"])
+
+    def test_gacha_machine_catalog_rejects_duplicate_reward_catalog_ids(self) -> None:
+        catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
+        catalog["reward_catalog"].append(copy.deepcopy(catalog["reward_catalog"][0]))
+
+        issues = content_manager.validate_gacha_machine_catalog(PROJECT_ROOT, catalog)
+
+        self.assertTrue(any(
+            issue.level == "error" and "카탈로그 ID" in issue.message
+            for issue in issues
+        ))
 
     def test_gacha_machine_catalog_rejects_duplicate_ids_and_invalid_selection_pity(self) -> None:
         catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
@@ -4320,6 +4361,16 @@ class ContentManagerTests(unittest.TestCase):
         messages = [issue.message for issue in issues if issue.level == "error"]
         self.assertTrue(any("중복된 기계 ID" in message for message in messages))
         self.assertTrue(any("선택 가능한 보상" in message for message in messages))
+
+    def test_gacha_machine_catalog_rejects_wrong_machine_type_in_casino_set(self) -> None:
+        catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
+        catalog["casino_sets"][0]["machines"]["pokemon"] = "cobbleventure:item_gacha"
+
+        issues = content_manager.validate_gacha_machine_catalog(PROJECT_ROOT, catalog)
+
+        messages = [issue.message for issue in issues if issue.level == "error"]
+        self.assertTrue(any("pokemon 종류" in message for message in messages))
+        self.assertTrue(any("연결되지 않은 기계" in message for message in messages))
 
     def test_casino_config_payload_and_save_use_pack_override_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -5231,6 +5282,59 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(defaults, content_manager.load_building_settings(root)["facility_defaults"])
             self.assertEqual(defaults, content_manager.building_settings_payload(root)["facility_defaults"])
 
+    def test_building_settings_accept_numbered_npc_anchor_wildcard(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/interiors/casino.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 8, 16)))
+            structure.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {
+                        "type": "npc_position",
+                        "label": "blackjack_dealer_1",
+                        "position": [6, 1, 6],
+                    },
+                    {
+                        "type": "npc_position",
+                        "label": "blackjack_dealer_2",
+                        "position": [10, 1, 6],
+                    },
+                ],
+            }), encoding="utf-8")
+            npc = root / "content/source/blackjack_dealer.json"
+            npc.parent.mkdir(parents=True)
+            npc.write_text(json.dumps({
+                "schema_version": 4,
+                "id": "cobbleventure:npc/blackjack_dealer",
+                "enabled": True,
+                "name": {"ko_kr": "블랙잭 딜러"},
+                "npc": {"display_name": {"ko_kr": "블랙잭 딜러"}},
+                "events": [],
+            }), encoding="utf-8")
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:interiors/casino": {
+                        "fixed_npcs": {
+                            "blackjack_dealer_*":
+                                "cobbleventure:npc/blackjack_dealer",
+                        },
+                        "citizen_placement_allowed": False,
+                    },
+                },
+            })
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            self.assertEqual(
+                "cobbleventure:npc/blackjack_dealer",
+                content_manager.load_building_settings(root)["buildings"]
+                    ["cobbleventure:interiors/casino"]["fixed_npcs"]
+                    ["blackjack_dealer_*"],
+            )
+
     def test_citizen_building_without_explicit_interior_uses_basic_capacity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -5365,6 +5469,46 @@ class ContentManagerTests(unittest.TestCase):
                 and "요청 11명 / 수용 10명" in issue.message
                 for issue in issues
             ))
+
+    def test_building_settings_save_fixed_gacha_machine_anchor_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/interiors/casino.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((32, 8, 24)))
+            structure.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "npc_position", "label": "gacha_default_pokemon",
+                    "position": [19, 1, 12], "facing": "north",
+                }],
+            }), encoding="utf-8")
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {"cobbleventure:interiors/casino": {
+                    "fixed_npcs": {}, "fixed_pokemon": {},
+                    "fixed_gacha_machines": {
+                        "gacha_default_pokemon": "cobbleventure:starter_gacha",
+                    },
+                    "citizen_placement_allowed": False,
+                    "interiors": [], "door_routes": {},
+                }},
+            })
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            saved = content_manager.load_building_settings(root)["buildings"]
+            self.assertEqual(
+                "cobbleventure:starter_gacha",
+                saved["cobbleventure:interiors/casino"]["fixed_gacha_machines"]
+                    ["gacha_default_pokemon"],
+            )
+            payload = content_manager.building_settings_payload(root)
+            self.assertEqual(
+                "cobbleventure:starter_gacha",
+                payload["structures"]["cobbleventure:interiors/casino"]
+                    ["settings"]["fixed_gacha_machines"]["gacha_default_pokemon"],
+            )
 
     def test_building_settings_reject_invalid_placement_y_offset(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -5536,6 +5680,51 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(7, payload["structures"]["cobbleventure:cached"]["width"])
             self.assertEqual(123, payload["cache"]["generated_at"])
 
+    def test_explicit_structure_size_refresh_waits_for_new_catalog(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stale = {
+                "version": content_manager.STRUCTURE_WEB_CACHE_VERSION,
+                "generated_at": 123,
+                "signature": [],
+                "size_catalog": {
+                    "structures": {"cobbleventure:cached": {"width": 7}},
+                    "warnings": [],
+                },
+                "viewer_catalog": {},
+                "building_settings": {
+                    "schema_version": 1, "structures": {}, "npcs": [],
+                    "path": "content/catalogs/building-settings.json",
+                },
+            }
+            refreshed = {
+                **stale,
+                "generated_at": 456,
+                "size_catalog": {
+                    "structures": {"cobbleventure:cached": {"width": 24}},
+                    "warnings": [],
+                },
+            }
+            content_manager.save_structure_web_cache(root, stale)
+            handler = content_manager.create_handler(root)
+            server = content_manager.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with mock.patch.object(
+                    content_manager, "build_structure_web_cache", return_value=refreshed,
+                ):
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{server.server_port}/api/structure-sizes?refresh=1"
+                    ) as response:
+                        payload = json.load(response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+            self.assertEqual(24, payload["structures"]["cobbleventure:cached"]["width"])
+            self.assertEqual(456, payload["cache"]["generated_at"])
     def test_structure_web_cache_is_invalidated_after_structure_signature_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -5700,6 +5889,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('button.textContent = "NBT 목록 갱신 중…"', script)
         self.assertIn('setStatus("complete", "내부 NBT 생성 완료"', script)
         self.assertIn("await lazyDataPromises.buildingSettings;\n    if (!force) return;", script)
+        self.assertIn(
+            "Promise.all([loadStructureData(true), loadBuildingSettingsData(true)])",
+            script,
+        )
         self.assertIn('window.dispatchEvent(new CustomEvent("building-settings-saved"))', script)
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
         self.assertIn(".building-door-route", styles)

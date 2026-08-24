@@ -23,6 +23,7 @@ set "ADVENTURE_PROJECT=%REPO_ROOT%projects\cobbleventure-adventure"
 set "WORLD_BOOTSTRAP_PROJECT=%REPO_ROOT%projects\cobbleventure-world-bootstrap"
 set "PLAYER_MENU_PROJECT=%REPO_ROOT%projects\cobbleventure-player-menu"
 set "CASINO_PROJECT=%REPO_ROOT%projects\cobbleventure-casino"
+set "POKEFINDER_PROJECT=%REPO_ROOT%projects\cobbleventure-pokefinder"
 set "STRUCTURE_BUILDER_PROJECT=%REPO_ROOT%projects\cobbleventure-structure-builder"
 set "STRUCTURE_BUILDER_TOOL=%REPO_ROOT%tools\structure-builder\structure_builder.py"
 set "MUSIC_PACK_BUILDER=%REPO_ROOT%tools\music-catalog\music_catalog.py"
@@ -69,6 +70,7 @@ if /I "%~1"=="mod-adventure" goto mod_adventure
 if /I "%~1"=="mod-bootstrap" goto mod_bootstrap
 if /I "%~1"=="mod-menu" goto mod_menu
 if /I "%~1"=="mod-casino" goto mod_casino
+if /I "%~1"=="mod-pokefinder" goto mod_pokefinder
 if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
 if /I "%~1"=="pack-release" goto pack_release
@@ -123,6 +125,8 @@ call "%GRADLEW%" -p "%PLAYER_MENU_PROJECT%" test
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%CASINO_PROJECT%" test
 if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%POKEFINDER_PROJECT%" test
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\structure-builder\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" test
@@ -174,6 +178,10 @@ exit /b %errorlevel%
 call "%GRADLEW%" -p "%CASINO_PROJECT%" build
 exit /b %errorlevel%
 
+:mod_pokefinder
+call "%GRADLEW%" -p "%POKEFINDER_PROJECT%" build
+exit /b %errorlevel%
+
 :pack_smoke
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%SMOKE_PROFILE%"
 exit /b %errorlevel%
@@ -208,6 +216,8 @@ if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%PLAYER_MENU_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%CASINO_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%POKEFINDER_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
 exit /b %errorlevel%
@@ -266,6 +276,7 @@ echo   mod-adventure  Build the gameplay rules NeoForge Java mod JAR
 echo   mod-bootstrap  Build the starter-town NeoForge Java mod JAR
 echo   mod-menu       Build the radial player menu NeoForge Java mod JAR
 echo   mod-casino     Build the custom gacha machine NeoForge addon JAR
+echo   mod-pokefinder Build the CobbleNav Pokefinder radar extension JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked

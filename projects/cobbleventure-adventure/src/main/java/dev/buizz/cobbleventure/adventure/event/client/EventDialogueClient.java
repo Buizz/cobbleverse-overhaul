@@ -48,6 +48,10 @@ public final class EventDialogueClient {
         minecraft.setScreen(new EventChoiceScreen(payload, renderedPrompt, renderedOptions));
     }
 
+    public static void openNumberInput(EventDialogueNetwork.NumberInputOpenPayload payload) {
+        Minecraft.getInstance().setScreen(new EventNumberInputScreen(payload));
+    }
+
     public static void setAwaitInputLocked(String kind, boolean locked) {
         ensureInputHooksRegistered();
         awaitInputLocked = locked;
@@ -107,6 +111,7 @@ public final class EventDialogueClient {
         if (screen instanceof EventMovementLockScreen
             || screen instanceof EventDialogueScreen
             || screen instanceof EventChoiceScreen
+            || screen instanceof EventNumberInputScreen
             || screen instanceof EventFadeScreen) {
             return true;
         }

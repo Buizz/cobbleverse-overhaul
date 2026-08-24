@@ -1441,6 +1441,7 @@ public final class CobbleventureBootstrap {
         Rotation rotation = structureRotation(rotationName);
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(CaveTemplateAirPreservationProcessor.INSTANCE);
         List<ChunkPos> forcedChunks = forceTemplateChunks(level, structure, blockPos);
         try {
@@ -2980,6 +2981,7 @@ public final class CobbleventureBootstrap {
                 ? legacySpawnKey + "|interior-v2" : legacySpawnKey;
             ServerLevel spawnLevel = level;
             BlockPos position = null;
+            float yaw = 0.0F;
             if (placement.placementArea().equals("indoor")) {
                 TownPlot house = placement.building() == null
                     ? null : houses.get(placement.building());
@@ -2994,6 +2996,7 @@ public final class CobbleventureBootstrap {
                 if (destination != null) {
                     spawnLevel = destination.level();
                     position = destination.position();
+                    yaw = destination.yaw();
                     BuildingRuntimeSystem.showAutomaticNpcPresence(
                         level, housePlacement.structure(), housePlacement.position(),
                         housePlacement.rotation(),
@@ -3025,7 +3028,7 @@ public final class CobbleventureBootstrap {
             if (data.hasSpawnedTownNpc(spawnKey)) {
                 continue;
             }
-            if (BuildingRuntimeSystem.spawnNpc(spawnLevel, placement.npc(), position)) {
+            if (BuildingRuntimeSystem.spawnNpc(spawnLevel, placement.npc(), position, yaw)) {
                 data.markTownNpcSpawned(spawnKey);
                 spawned++;
             }
@@ -3612,6 +3615,12 @@ public final class CobbleventureBootstrap {
     static boolean spawnConfiguredVendor(
         ServerLevel level, String vendorUnitId, BlockPoint position
     ) {
+        return spawnConfiguredVendor(level, vendorUnitId, position, 0.0F);
+    }
+
+    static boolean spawnConfiguredVendor(
+        ServerLevel level, String vendorUnitId, BlockPoint position, float yaw
+    ) {
         try {
             JsonObject definition = configuredVendorDefinition(level, vendorUnitId);
             if (definition == null) return false;
@@ -3662,6 +3671,10 @@ public final class CobbleventureBootstrap {
             Entity spawned = level.getEntity(merchantId);
             if (spawned instanceof Mob mob) {
                 mob.setNoAi(true);
+                mob.moveTo(mob.getX(), mob.getY(), mob.getZ(), yaw, 0.0F);
+                mob.setYRot(yaw);
+                mob.setYBodyRot(yaw);
+                mob.setYHeadRot(yaw);
                 applyNpcWorldFont(mob);
             } else if (result != 0) {
                 LOGGER.warn(
@@ -5029,6 +5042,7 @@ public final class CobbleventureBootstrap {
             Rotation rotation = structureRotation(rotationName);
             StructurePlaceSettings settings = new StructurePlaceSettings()
                 .setRotation(rotation)
+                .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
                 .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE)
                 .addProcessor(new FacilityTerrainPreservationProcessor(
                     facilityGroundLevelY(level, facility, position, rotationName)
@@ -5085,6 +5099,7 @@ public final class CobbleventureBootstrap {
             return false;
         }
         StructurePlaceSettings settings = new StructurePlaceSettings()
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         boolean placed = template.orElseThrow().placeInWorld(
             level, blockPos, blockPos, settings,
@@ -5115,6 +5130,7 @@ public final class CobbleventureBootstrap {
         BlockPos blockPos = position.toBlockPos();
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         boolean placed = template.get().placeInWorld(
             level, blockPos, blockPos, settings,
@@ -6146,10 +6162,15 @@ public final class CobbleventureBootstrap {
             } else {
                 LOGGER.info("Background town initialization completed: {}", settlementId);
             }
+            if (allSettlementsGenerated) {
+                // Route trainers must be restored after the last background town. Spawning
+                // them after only the starter town can query incomplete route chunks at Y=0,
+                // and later structure placement can invalidate an otherwise safe position.
+                spawnRouteNpcs(job.level, job.runtime.hexWorld());
+            }
             return;
         }
         job.data.complete(job.spawnPos, job.villagePos, MAP_VERSION);
-        spawnRouteNpcs(job.level, job.runtime.hexWorld());
         job.progress.update(100, "시작 지역 생성 완료");
         moveWaitingPlayersToStart(job.level, job.spawnPos);
         removeWaitingArea(job.level, job.waitingArea);
@@ -12540,6 +12561,7 @@ public final class CobbleventureBootstrap {
                     : placement.side().equals("right") ? 1.0D : 0.0D;
                 int x = (int) Math.round(point.x() + point.normalX() * placement.offsetBlocks() * side);
                 int z = (int) Math.round(point.z() + point.normalZ() * placement.offsetBlocks() * side);
+                loadRouteNpcChunk(level, x, z);
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 double facingX = placement.facing().equals("against") ? -point.tangentX() : point.tangentX();
                 double facingZ = placement.facing().equals("against") ? -point.tangentZ() : point.tangentZ();
@@ -12582,6 +12604,7 @@ public final class CobbleventureBootstrap {
                     );
                     continue;
                 }
+                loadRouteNpcChunk(level, x, z);
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 float yaw = (float) Math.toDegrees(Math.atan2(-point.tangentX(), point.tangentZ()));
                 if (spawnRegionalNpc(
@@ -12591,6 +12614,12 @@ public final class CobbleventureBootstrap {
             }
         }
         if (spawned > 0) LOGGER.info("Route NPC placement completed: spawned={}", spawned);
+    }
+
+    private static void loadRouteNpcChunk(ServerLevel level, int x, int z) {
+        // getHeight can return the minimum build height while a native route chunk is
+        // still absent. Resolve the full chunk before selecting a standing position.
+        level.getChunk(x >> 4, z >> 4);
     }
 
     private static boolean isRegionalEntranceHex(HexWorldPlan world, int x, int z) {

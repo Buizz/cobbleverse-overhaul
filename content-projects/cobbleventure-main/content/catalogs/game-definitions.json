@@ -1,7 +1,20 @@
 {
   "$schema": "../schemas/game-definitions.schema.json",
   "schema_version": 1,
-  "items": [],
+  "items": [
+    {
+      "id": "cobbleventure_casino:coin_case",
+      "base_item": "cobbleventure_casino:coin_case",
+      "display_name": {
+        "ko_kr": "동전케이스",
+        "en_us": "Coin Case"
+      },
+      "description": {
+        "ko_kr": "카지노 환전상 이용에 필요한 소지품입니다.",
+        "en_us": "Required to use the casino cashier."
+      }
+    }
+  ],
   "variables": [
     {
       "id": "cobbleventure:flag/story/starter_received",
@@ -158,6 +171,94 @@
       "description": {
         "ko_kr": "플레이어가 상록 체육관 관장 비주기에게 승리했는지 기록합니다."
       }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/feature/map",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "지도 기능 해금", "en_us": "Map Feature Unlocked" },
+      "description": { "ko_kr": "플레이어 메뉴의 지도 기능을 해금했는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/feature/pc",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "PC 기능 해금", "en_us": "PC Feature Unlocked" },
+      "description": { "ko_kr": "플레이어 메뉴의 포켓몬 PC 기능을 해금했는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/feature/settlement_teleport",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "마을 이동 기능 해금", "en_us": "Settlement Teleport Unlocked" },
+      "description": { "ko_kr": "방문한 마을로 이동하는 메뉴 기능을 해금했는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/surf",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "파도타기 해금", "en_us": "Surf Unlocked" },
+      "description": { "ko_kr": "필드에서 파도타기를 사용할 수 있는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/fly",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "공중날기 해금", "en_us": "Fly Unlocked" },
+      "description": { "ko_kr": "필드에서 공중날기를 사용할 수 있는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/flash",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "플래시 해금", "en_us": "Flash Unlocked" },
+      "description": { "ko_kr": "필드에서 플래시를 사용할 수 있는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/defog",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "안개제거 해금", "en_us": "Defog Unlocked" },
+      "description": { "ko_kr": "필드에서 안개제거를 사용할 수 있는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/rock_climb",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "락클라임 해금", "en_us": "Rock Climb Unlocked" },
+      "description": { "ko_kr": "필드에서 락클라임을 사용할 수 있는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/rock_smash",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "바위깨기 해금", "en_us": "Rock Smash Unlocked" },
+      "description": { "ko_kr": "필드에서 바위깨기를 사용할 수 있는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/strength",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "괴력 해금", "en_us": "Strength Unlocked" },
+      "description": { "ko_kr": "필드에서 괴력을 사용할 수 있는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/field_move/whirlpool",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "바다회오리 해금", "en_us": "Whirlpool Unlocked" },
+      "description": { "ko_kr": "필드에서 바다회오리를 사용할 수 있는지 기록합니다." }
     },
     {
       "id": "test:flag/story/met_guide",

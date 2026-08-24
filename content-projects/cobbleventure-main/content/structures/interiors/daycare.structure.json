@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/interiors/daycare.nbt",
+  "interior": {
+    "id": "daycare",
+    "width": 32,
+    "depth": 32,
+    "floor_height": 12,
+    "floors": 1
+  },
+  "anchors": []
+}

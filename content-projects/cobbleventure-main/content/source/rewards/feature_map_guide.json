@@ -7,7 +7,7 @@
   "npc": { "display_name": { "ko_kr": "지도 제작자" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/gentleman",
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/gentleman_arthur_01a6" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/feature_map_guide" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/feature/map", "value": true }], "target": "claimed" },
     { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "처음 가는 길이라면 기록을 남겨야지. 네 메뉴에 지도를 등록해 줄게." } },

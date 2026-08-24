@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/feature/settlement_teleport") {
+    say npc {
+      ko_kr: "새 마을에 도착하면 이동 지점부터 확인해 둬."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "한 번 방문한 마을의 길은 기억할 수 있어. 이동 안내 기능을 열어 줄게."
+    }
+    id "grant/feature" unlock_feature settlement_teleport
+    id "grant/state" set_flag "cobbleventure:flag/rewards/feature/settlement_teleport" true
+    say npc {
+      ko_kr: "이제 메뉴에서 방문한 마을을 선택해 이동할 수 있어."
+    }
+  }
+}

@@ -36,6 +36,35 @@ class CvesBehaviorPresetTests(unittest.TestCase):
         self.assertIn('id="event-cves-preview"', markup)
         self.assertIn('new URLSearchParams(window.location.search).get("path")', cves_script)
 
+    def test_authoritative_npc_sources_and_generated_presets_are_v5_only(self) -> None:
+        source_root = PROJECT_ROOT / "content/source"
+        binding_root = PROJECT_ROOT / "content/event-bindings"
+        preset_root = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/"
+            "easy_npc/preset/encounter"
+        )
+        sources = sorted(source_root.rglob("*.json"))
+        self.assertGreater(len(sources), 0)
+        for source in sources:
+            with self.subTest(source=source.relative_to(source_root).as_posix()):
+                document = json.loads(source.read_text(encoding="utf-8"))
+                self.assertEqual("cves_v5", document.get("event_runtime", {}).get("engine"))
+                relative = source.relative_to(source_root).with_suffix(".json")
+                namespace = document["id"].split(":", 1)[0]
+                self.assertTrue((binding_root / namespace / relative).is_file())
+
+        presets = sorted(preset_root.glob("*.npc.snbt"))
+        self.assertGreater(len(presets), 0)
+        for preset in presets:
+            with self.subTest(preset=preset.name):
+                source = preset.read_text(encoding="utf-8")
+                self.assertIn("cves_binding/", source)
+                self.assertIn("ActionEventSet:{}", source)
+                self.assertIn("DialogDataSet:[]", source)
+                self.assertNotIn("cobbleventure_npc_preset_v4", source)
+                self.assertNotIn("OPEN_DEFAULT_DIALOG", source)
+                self.assertNotIn("tbcs battle", source)
+
     def test_world_placement_selects_v5_representation_for_v5_npcs(self) -> None:
         bootstrap = (
             ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/"

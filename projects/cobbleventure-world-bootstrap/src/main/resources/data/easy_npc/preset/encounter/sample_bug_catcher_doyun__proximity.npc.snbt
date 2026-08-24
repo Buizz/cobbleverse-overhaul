@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"곤충채집소년 도윤 EasyNPC 이벤트 NPC",
+    description:"곤충채집소년 도윤 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"곤충채집소년 도윤",
+    name:"곤충채집소년 도윤 [V5 근접전투]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_NEAR:[{Cmd:"/cobbleventure_proximity_battle @initiator @s encounter.trainer_boy greeting cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_bug_catcher_doyun -2 7 rctmod:sample_bug_catcher_doyun tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_bug_catcher_doyun onwin {1:[\"scoreboard objectives add cvf_138a01bcb69b dummy\",\"scoreboard players set @1 cvf_138a01bcb69b 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"곤충채집소년 도윤\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"greeting",Name:"숲에서 키운 내 포켓몬을 보여 줄게!",Texts:[{Text:"숲에서 키운 내 포켓몬을 보여 줄게!"}],Buttons:[{Label:"battle",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_scaled_trainer_battle @initiator @s cobbleventure:battle/sample_bug_catcher_doyun -2 7 rctmod:sample_bug_catcher_doyun tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_bug_catcher_doyun onwin {1:[\"scoreboard objectives add cvf_138a01bcb69b dummy\",\"scoreboard players set @1 cvf_138a01bcb69b 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]},{Label:"victory",Name:"좋은 승부였어! 다음에 다시 겨뤄 보자.",Priority:100,Texts:[{Text:"좋은 승부였어! 다음에 다시 겨뤄 보자."}],Conditions:[{Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!",Texts:[{Text:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.780f,0.780f,0.780f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;422642180,-674082572,-1471207255,1140662351],
+    PresetUUID:[I;1597535753,-1820960244,-2068181754,431396047],
     SkinData:{Type:"CUSTOM",UUID:[I;554030396,346775299,-1258453688,-1088027809] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/samples/sample_bug_catcher_doyun","cves_trigger/proximity"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

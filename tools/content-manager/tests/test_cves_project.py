@@ -21,47 +21,26 @@ class CvesProjectBuildTests(unittest.TestCase):
             item_catalog=ROOT / "trainer-data/catalogs/cobblemon-items.json",
         )
 
-        sample_slugs = [
-            "sample_ace_jiwon", "sample_antidote_giver", "sample_bird_keeper_ara",
-            "sample_bug_catcher_doyun", "sample_camper_jun", "sample_fisherman_minsu",
-            "sample_hiker_seok", "sample_lass_yuna", "sample_oran_berry_giver",
-            "sample_picnicker_hana", "sample_pokeball_giver", "sample_potion_giver",
-            "sample_veteran_taeho", "sample_youngster_minjun",
+        event_root = PROJECT_ROOT / "content" / "events"
+        expected_scripts = [
+            Path(source.relative_to(event_root).parts[0])
+            / "event_script"
+            / Path(*source.relative_to(event_root).parts[1:]).with_suffix(".json")
+            for source in sorted(event_root.rglob("*.cves"))
+        ]
+        binding_root = PROJECT_ROOT / "content" / "event-bindings"
+        expected_bindings = [
+            Path(source.relative_to(binding_root).parts[0])
+            / "npc_event_binding"
+            / Path(*source.relative_to(binding_root).parts[1:])
+            for source in sorted(binding_root.rglob("*.json"))
         ]
         self.assertEqual(
-            [
-                Path("cobbleventure/event_script/examples/ai_test.json"),
-                Path("cobbleventure/event_script/facilities/pokemon_center_nurse.json"),
-                Path("cobbleventure/event_script/gym_leaders/blaine.json"),
-                Path("cobbleventure/event_script/gym_leaders/brock.json"),
-                Path("cobbleventure/event_script/gym_leaders/erika.json"),
-                Path("cobbleventure/event_script/gym_leaders/giovanni_gym.json"),
-                Path("cobbleventure/event_script/gym_leaders/koga.json"),
-                Path("cobbleventure/event_script/gym_leaders/lt_surge.json"),
-                Path("cobbleventure/event_script/gym_leaders/misty.json"),
-                Path("cobbleventure/event_script/gym_leaders/sabrina.json"),
-                *[Path(f"cobbleventure/event_script/samples/{slug}.json") for slug in sample_slugs],
-                Path("cobbleventure/event_script/story/professor_oak.json"),
-                Path("cobbleventure/event_script/story/starter_town_gatekeeper_minho.json"),
-            ],
+            expected_scripts,
             [artifact.relative_path for artifact in build.scripts],
         )
         self.assertEqual(
-            [
-                Path("cobbleventure/npc_event_binding/examples/ai_test.json"),
-                Path("cobbleventure/npc_event_binding/facilities/pokemon_center_nurse.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/blaine.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/brock.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/erika.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/giovanni_gym.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/koga.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/lt_surge.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/misty.json"),
-                Path("cobbleventure/npc_event_binding/gym_leaders/sabrina.json"),
-                *[Path(f"cobbleventure/npc_event_binding/samples/{slug}.json") for slug in sample_slugs],
-                Path("cobbleventure/npc_event_binding/story/professor_oak.json"),
-                Path("cobbleventure/npc_event_binding/story/starter_town_gatekeeper_minho.json"),
-            ],
+            expected_bindings,
             [artifact.relative_path for artifact in build.bindings],
         )
         potion_binding = next(

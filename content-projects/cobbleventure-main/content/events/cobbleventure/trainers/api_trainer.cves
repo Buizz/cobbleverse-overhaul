@@ -1,0 +1,7 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "안녕! 나는 API 트레이너(이)야."
+    }
+  }
+}

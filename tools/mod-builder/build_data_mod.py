@@ -914,12 +914,28 @@ def _facility_structure(
     return DEFAULT_FACILITY_STRUCTURES[facility_type]
 
 
-def _managed_structure_size(root: Path | None, structure: str) -> tuple[int, int] | None:
+def _managed_structure_path(root: Path | None, structure: str) -> Path | None:
     if root is None or not structure.startswith("cobbleventure:"):
         return None
     relative = structure.split(":", 1)[1]
     path = root / CONTENT_ROOT / "structures" / f"{relative}.nbt"
-    if not path.is_file():
+    if path.is_file():
+        return path
+    # Coloured house variants are generated from one authored base/roof NBT.
+    # Resolve the generated runtime ID back to that source while compiling.
+    if relative.startswith("houses/"):
+        for colour in HOUSE_ROOF_BLOCKS:
+            suffix = f"_{colour}"
+            if relative.endswith(suffix):
+                authored = root / CONTENT_ROOT / "structures" / f"{relative[:-len(suffix)]}.nbt"
+                if authored.is_file():
+                    return authored
+    return None
+
+
+def _managed_structure_size(root: Path | None, structure: str) -> tuple[int, int] | None:
+    path = _managed_structure_path(root, structure)
+    if path is None:
         return None
     raw = path.read_bytes()
     if raw.startswith(b"\x1f\x8b"):
@@ -983,11 +999,8 @@ def _managed_structure_occupied_bounds(
     root: Path | None, structure: str, width: int, depth: int,
 ) -> dict[str, int] | None:
     """Return the same non-terrain top bounds used by the web preview."""
-    if root is None or not structure.startswith("cobbleventure:"):
-        return None
-    relative = structure.split(":", 1)[1]
-    path = root / CONTENT_ROOT / "structures" / f"{relative}.nbt"
-    if not path.is_file():
+    path = _managed_structure_path(root, structure)
+    if path is None:
         return None
     raw = path.read_bytes()
     if raw.startswith(b"\x1f\x8b"):
@@ -2162,18 +2175,26 @@ def _compile_town_layout_attempt(
         base_id = house_bases[int(random.next_double() * len(house_bases))]
         roof_id = house_roofs[int(random.next_double() * len(house_roofs))]
         roof_color = house_roof_colors[int(random.next_double() * len(house_roof_colors))]
-        width, _, plot_depth = HOUSE_BASES[base_id]["size"]  # type: ignore[misc]
+        structure = f"cobbleventure:houses/{base_id}_{roof_id}_{roof_color}"
+        fallback_width, _, fallback_depth = HOUSE_BASES[base_id]["size"]  # type: ignore[misc]
+        width, plot_depth = _managed_structure_size(root, structure) or (
+            fallback_width, fallback_depth,
+        )
+        occupied_bounds = _managed_structure_occupied_bounds(
+            root, structure, width, plot_depth,
+        )
         plot = place_plot(
             f"house_{index + 1}", width, plot_depth, len(slots) * 2,
             orient_entrance_to_road=True,
             balance_cells=True,
+            occupied_bounds=occupied_bounds,
         )
         if plot is not None:
             plot.update({
                 "base": base_id,
                 "roof": roof_id,
                 "roof_color": roof_color,
-                "structure": f"cobbleventure:houses/{base_id}_{roof_id}_{roof_color}",
+                "structure": structure,
             })
             houses.append(plot)
     access_roads: list[dict[str, object]] = []
@@ -2211,6 +2232,11 @@ def _compile_town_layout_attempt(
         if any(
             _plots_intersect(footprint, plot.get("occupied", plot), 1.0)
             for plot in plots
+        ):
+            return
+        if any(
+            _plot_intersects_road(footprint, road, road_width, 0.0)
+            for road in visible_roads
         ):
             return
         if any(

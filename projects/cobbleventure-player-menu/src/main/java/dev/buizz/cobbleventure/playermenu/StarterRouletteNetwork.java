@@ -1,8 +1,7 @@
 package dev.buizz.cobbleventure.playermenu;
 
 import com.cobblemon.mod.common.Cobblemon;
-import com.cobblemon.mod.common.api.events.CobblemonEvents;
-import com.cobblemon.mod.common.api.events.starter.StarterChosenEvent;
+import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.api.storage.player.GeneralPlayerData;
 import com.cobblemon.mod.common.config.starter.StarterCategory;
 import com.mojang.logging.LogUtils;
@@ -15,7 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -55,9 +53,6 @@ public final class StarterRouletteNetwork {
         modBus.addListener(StarterRouletteNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(StarterRouletteCommands::register);
         NeoForge.EVENT_BUS.addListener(StarterRouletteNetwork::onServerTick);
-        CobblemonEvents.STARTER_CHOSEN.subscribe(
-            (Consumer<StarterChosenEvent>) event -> event.getPokemon().setLevel(STARTER_LEVEL)
-        );
     }
 
     static int queueOpen(ServerPlayer player) {
@@ -245,7 +240,9 @@ public final class StarterRouletteNetwork {
         List<StarterEntry> result = new ArrayList<>();
         for (StarterCategory category : Cobblemon.INSTANCE.getStarterHandler().getStarterList(player)) {
             for (int index = 0; index < category.getPokemon().size(); index++) {
-                String species = category.getPokemon().get(index).asRenderablePokemon()
+                var properties = category.getPokemon().get(index);
+                properties.setLevel(STARTER_LEVEL);
+                String species = properties.asRenderablePokemon()
                     .getSpecies().getResourceIdentifier().toString();
                 result.add(new StarterEntry(category.getName(), index, species));
             }
@@ -317,6 +314,12 @@ public final class StarterRouletteNetwork {
         );
         if (awarded) {
             setStarterReceivedScore(player, true);
+            ResourceLocation speciesId = ResourceLocation.parse(selected.species());
+            var species = PokemonSpecies.getByIdentifier(speciesId);
+            ItemAcquisition.showStarter(
+                player,
+                species == null ? Component.literal(speciesId.getPath()) : species.getTranslatedName()
+            );
             if (session.continuation() instanceof DialogueContinuation dialogue) {
                 PENDING_DIALOGUES.put(player.getUUID(), new PendingDialogue(
                     player.getServer().getTickCount() + CONTINUATION_DELAY_TICKS,

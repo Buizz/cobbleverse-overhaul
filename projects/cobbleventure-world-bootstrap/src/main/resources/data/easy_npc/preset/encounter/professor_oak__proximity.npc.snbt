@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"오박사 EasyNPC 이벤트 NPC",
+    description:"오박사 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"오박사",
+    name:"오박사 [V5]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Cmd:"/cobbleventure_starter_state @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"오박사\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"greeting_1",Name:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다.",Texts:[{Text:"어서 오너라! 나는 포켓몬을 연구하는 오박사란다."}],Buttons:[{Label:"next",Name:"다음",Actions:[{Cmd:"greeting_2",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"greeting_2",Name:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!",Texts:[{Text:"이제 너와 함께 모험할 첫 포켓몬을 정해 보자꾸나!"}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_starter_roulette @initiator @s starter_chosen_praise",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]},{Label:"starter_chosen_praise",Name:"좋은 포켓몬을 골랐구나!",Priority:98,Texts:[{Text:"좋은 포켓몬을 골랐구나!"}],Conditions:[{Name:"cv_starter_recv",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"next",Name:"다음",Actions:[{Cmd:"pokedex_offer",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"pokedex_offer",Name:"그럼 이것도 받아라. 포켓몬 도감이란다.",Texts:[{Text:"그럼 이것도 받아라. 포켓몬 도감이란다."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:pokedex_red 1",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_0a2dac5ae4da:1",Type:"SCOREBOARD"},{Cmd:"pokedex_explanation",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"pokedex_explanation",Name:"포켓몬 도감은 만난 포켓몬과 잡은 포켓몬의 정보를 자동으로",Texts:[{Text:"포켓몬 도감은 만난 포켓몬과 잡은 포켓몬의 정보를 자동으로 기록해 준단다. 여러 포켓몬을 만나 도감을 완성해 보렴!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"starter_received",Name:"이미 첫 포켓몬을 골랐구나. 그 아이와 함께 멋진 모험을 ",Priority:99,Texts:[{Text:"이미 첫 포켓몬을 골랐구나. 그 아이와 함께 멋진 모험을 해 보렴!"}],Conditions:[{Name:"cvf_0a2dac5ae4da",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;908025698,81220883,-1984381619,-1459171030],
+    PresetUUID:[I;-1101847163,827480378,-1511201346,-946465430],
     SkinData:{Type:"CUSTOM",UUID:[I;-284269829,1807177415,-2000416670,714829734] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/story/professor_oak"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

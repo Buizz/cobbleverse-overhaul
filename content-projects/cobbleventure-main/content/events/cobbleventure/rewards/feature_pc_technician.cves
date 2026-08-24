@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/feature/pc") {
+    say npc {
+      ko_kr: "전송망은 정상 작동 중입니다."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "포켓몬 전송망 사용자 등록이 아직이군요. 지금 연결해 드리겠습니다."
+    }
+    id "grant/feature" unlock_feature pc
+    id "grant/state" set_flag "cobbleventure:flag/rewards/feature/pc" true
+    say npc {
+      ko_kr: "등록 완료! 이제 메뉴에서 PC 기능을 이용할 수 있습니다."
+    }
+  }
+}

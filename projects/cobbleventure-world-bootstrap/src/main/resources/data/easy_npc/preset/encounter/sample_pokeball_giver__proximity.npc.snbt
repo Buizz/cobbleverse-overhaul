@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"몬스터볼을 나눠주는 연구원 EasyNPC 이벤트 NPC",
+    description:"몬스터볼을 나눠주는 연구원 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"몬스터볼을 나눠주는 연구원",
+    name:"몬스터볼을 나눠주는 연구원 [V5]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"몬스터볼을 나눠주는 연구원\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가.",Texts:[{Text:"새로운 포켓몬을 만날 때를 대비해 몬스터볼을 챙겨 가."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:poke_ball 5",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"item_explanation",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"item_explanation",Name:"방금 준 아이템을 잘 활용해 보세요.",Texts:[{Text:"방금 준 아이템을 잘 활용해 보세요."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"set:cvf_fb2bd55cfd00:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat_greeting",Name:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!",Priority:100,Texts:[{Text:"몬스터볼은 한 번 건넸어. 멋진 파트너를 만나길 바랄게!"}],Conditions:[{Name:"cvf_fb2bd55cfd00",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.800f,0.800f,0.800f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;-302661862,1748063817,-1590286563,-1640437882],
+    PresetUUID:[I;1398850885,-1914872172,-1487893647,623449572],
     SkinData:{Type:"CUSTOM",UUID:[I;1143281601,1172461966,-1543807145,1949558341] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/samples/sample_pokeball_giver"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

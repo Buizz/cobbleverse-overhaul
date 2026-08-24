@@ -135,8 +135,8 @@
             </form>
             <div class="subsection-heading"><div><p class="eyebrow">NPC BEHAVIOR</p><h3>행동 프리셋</h3><small>일반적인 NPC는 프리셋만 저장하며 EasyNPC 이벤트는 빌드할 때 자동 생성합니다.</small></div></div>
             <div class="event-design-mode event-trigger-editor">
-              <label class="wide"><span>이벤트 실행 방식</span><select id="event-runtime-engine" disabled><option value="easy_npc_v4">EasyNPC V4 — 레거시</option><option value="cves_v5">CVES V5 — 행동 프리셋 자동 생성</option></select><small id="event-runtime-help">V4 원본과 프리셋은 전환 기간 동안 그대로 보존합니다.</small></label>
-              <label class="wide"><span>설계 방식</span><select id="event-design-mode" disabled><option value="preset">행동 프리셋 사용</option><option value="easy_npc_events">EasyNPC 직접 이벤트 — V4 고급</option><option value="cves_custom" disabled>CVES 사용자 정의 트리 — V5 고급</option></select><small>표준 NPC는 행동 프리셋을 사용하고, 특수 NPC만 사용자 정의 CVES로 전환합니다.</small></label>
+              <label class="wide"><span>이벤트 실행 방식</span><select id="event-runtime-engine" disabled><option value="cves_v5">CVES V5 — 기본 실행 엔진</option><option value="easy_npc_v4" hidden>EasyNPC V4 — 읽기 전용 호환</option></select><small id="event-runtime-help">행동 프리셋과 사용자 정의 트리는 모두 CVES V5로 실행됩니다.</small></label>
+              <label class="wide"><span>설계 방식</span><select id="event-design-mode" disabled><option value="preset">행동 프리셋 사용</option><option value="cves_custom" disabled>CVES 사용자 정의 트리 — V5 고급</option><option value="easy_npc_events" hidden disabled>EasyNPC 직접 이벤트 — V4 읽기 전용</option></select><small>표준 NPC는 행동 프리셋을 사용하고, 특수 NPC만 사용자 정의 CVES로 전환합니다.</small></label>
               <label class="wide" id="event-script-link" hidden><span>연결된 V5 이벤트</span><div class="inline-field"><input id="event-script-id" readonly disabled><button class="button secondary" id="preview-cves-event" type="button" disabled>저장 결과 미리보기</button><button class="button secondary" id="customize-cves-event" type="button" disabled>사용자 정의로 전환</button><button class="button secondary" id="open-cves-event" type="button" disabled>트리 열기</button></div><small id="event-script-help">행동 프리셋을 저장하면 이 CVES와 바인딩이 자동으로 갱신됩니다.</small></label>
             </div>
             <section class="event-cves-preview" id="event-cves-preview" hidden><header><div><strong>V5 저장 결과 미리보기</strong><small id="event-cves-preview-summary">파일은 아직 변경되지 않았습니다.</small></div><button class="button secondary" id="close-cves-preview" type="button">닫기</button></header><div id="event-cves-preview-artifacts"></div><pre id="event-cves-preview-diff"></pre></section>
@@ -672,6 +672,7 @@
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">SETTLEMENT MANAGEMENT</p><h2>마을 관리</h2><small>목록 순서가 인게임 마을 로드 순서로 사용됩니다.</small></div><div class="list-tools"><span class="count-pill" id="settlement-list-count">…</span><button class="mini-button" data-create="settlements">＋</button></div></div><div id="settlement-list" class="list-body"><div class="issues empty">프로젝트의 마을 목록을 불러오는 중입니다.</div></div></aside>
           <div class="editor panel" id="selected-settlement-editor">
             <div class="panel-heading settlement-editor-heading"><div><p class="eyebrow">SETTLEMENT SETTINGS</p><h2 id="settlement-editor-title">마을을 선택하세요</h2></div><div class="editor-heading-actions"><span class="path-label" id="settlement-path">—</span><div><button class="button danger" id="delete-settlement" disabled>마을 삭제</button><button class="button secondary" id="validate-settlement" disabled>문서 검증</button><button class="button primary" id="save-settlement" disabled>마을 저장</button></div></div></div>
+            <div class="settlement-loading-state" id="settlement-loading-state" role="status" aria-live="polite" hidden><span class="settlement-loading-spinner" aria-hidden="true"></span><span><strong id="settlement-loading-title">마을을 불러오는 중입니다</strong><small id="settlement-loading-detail">설정과 NBT 배치를 준비하고 있습니다.</small></span></div>
             <form id="settlement-form" class="form-grid">
               <label class="wide"><span>마을 ID</span><input name="id" disabled></label>
               <label><span>한국어 이름</span><input name="nameKo" disabled></label>
@@ -1158,14 +1159,14 @@
         </div>
         <section class="panel gacha-machine-manager">
           <header class="panel-heading">
-            <div><p class="eyebrow">COBBLEVENTURE GACHA ADDON</p><h3>커스텀 가챠 기계</h3><p>기계마다 외형, 화폐, 보상 풀과 소프트·확정·선택 천장을 독립적으로 설정합니다.</p></div>
-            <div class="editor-heading-actions"><span class="path-label">content/catalogs/gacha-machines.json</span><button class="button secondary" id="add-gacha-machine" type="button">＋ 기계 추가</button><button class="button primary" id="save-gacha-machines" type="button">기계 설정 저장</button></div>
+            <div><p class="eyebrow">COBBLEVENTURE GACHA ADDON</p><h3>카지노별 가챠 세트</h3><p>카지노마다 포켓몬·아이템·기술머신 3기를 한 세트로 구성하고, 공통 티켓을 사용하면서 보상과 외형은 세트별로 설정합니다.</p></div>
+            <div class="editor-heading-actions"><span class="path-label">content/catalogs/gacha-machines.json</span><button class="button secondary" id="add-gacha-machine" type="button">＋ 카지노 세트 추가</button><button class="button primary" id="save-gacha-machines" type="button">가챠 세트 저장</button></div>
           </header>
           <div class="gacha-machine-workspace">
             <aside><div id="gacha-machine-list" class="gacha-machine-list"><div class="issues empty">기계 설정을 불러오는 중입니다.</div></div></aside>
             <div id="gacha-machine-editor" class="gacha-machine-editor"><div class="issues empty">편집할 기계를 선택하세요.</div></div>
           </div>
-          <div class="casino-config-help"><b>게임 적용</b><span>저장한 프로필은 새 <code>cobbleventure-casino</code> 애드온에 포함됩니다. 운영자는 <code>/cvgacha place &lt;profile&gt; &lt;x y z&gt;</code>로 파괴 불가 기계를 배치합니다.</span></div>
+          <div class="casino-config-help"><b>게임 적용</b><span>저장한 프로필은 <code>gacha_&lt;세트&gt;_&lt;종류&gt;</code> NPC 플래그에 연결할 수 있습니다. 기본 카지노의 3기는 실내 구조물 플래그에서 자동 배치됩니다.</span></div>
           <div id="gacha-machine-issues" class="issues empty">기계 설정을 불러오는 중입니다.</div>
         </section>
         <div class="casino-config-workspace">

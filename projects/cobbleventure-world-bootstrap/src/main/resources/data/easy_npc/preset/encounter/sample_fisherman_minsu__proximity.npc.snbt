@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"낚시꾼 민수 EasyNPC 이벤트 NPC",
+    description:"낚시꾼 민수 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"낚시꾼 민수",
+    name:"낚시꾼 민수 [V5 근접전투]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}],ON_DISTANCE_NEAR:[{Cmd:"/cobbleventure_proximity_battle @initiator @s encounter.trainer_boy greeting cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_fisherman_minsu tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_fisherman_minsu onwin {1:[\"scoreboard objectives add cvf_546f429d3095 dummy\",\"scoreboard players set @1 cvf_546f429d3095 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"낚시꾼 민수\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"greeting",Name:"기다림도 실력이지. 낚시로 단련한 집중력을 보여 주마!",Texts:[{Text:"기다림도 실력이지. 낚시로 단련한 집중력을 보여 주마!"}],Buttons:[{Label:"battle",Name:"계속",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/sample_fisherman_minsu tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:sample_fisherman_minsu onwin {1:[\"scoreboard objectives add cvf_546f429d3095 dummy\",\"scoreboard players set @1 cvf_546f429d3095 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]}]},{Label:"victory",Name:"좋은 승부였어! 다음에 다시 겨뤄 보자.",Priority:100,Texts:[{Text:"좋은 승부였어! 다음에 다시 겨뤄 보자."}],Conditions:[{Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!",Texts:[{Text:"멋진 승부였어. 준비가 되면 언제든 다시 도전해!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;-175109268,797859457,-2076157752,-2002336919],
+    PresetUUID:[I;-1070070891,-628467862,-1897701049,1931180379],
     SkinData:{Type:"CUSTOM",UUID:[I;-1507812695,-532524325,-1968234870,-685783817] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/samples/sample_fisherman_minsu","cves_trigger/proximity"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

@@ -83,7 +83,9 @@ COMMANDS: dict[ast.CommandKind, CommandContract] = {
     ast.CommandKind.SET_FLAG: CommandContract((_p("key", RESOURCE, resource=ResourceKind.FLAG), _p("value", BOOL))),
     ast.CommandKind.SET_VARIABLE: CommandContract((_p("name", STRING), _p("value"))),
     ast.CommandKind.SET_PLAYER_VARIABLE: CommandContract((_p("key", RESOURCE, resource=ResourceKind.VARIABLE), _p("value"))),
-    ast.CommandKind.UNLOCK_FEATURE: CommandContract((_p("feature", RESOURCE, resource=ResourceKind.FEATURE),)),
+    ast.CommandKind.UNLOCK_FEATURE: CommandContract((
+        _p("feature", names=frozenset({"map", "settlement_teleport", "pc"})),
+    )),
     ast.CommandKind.SET_LEVEL_CAP: CommandContract((_p("level", INT),)),
     ast.CommandKind.GIVE_ITEM: CommandContract(
         (_p("item", RESOURCE, resource=ResourceKind.ITEM),), (_p("count", INT, optional=True),), frozenset({"notify"}),
@@ -108,6 +110,13 @@ COMMANDS: dict[ast.CommandKind, CommandContract] = {
     ast.CommandKind.STARTER_ROULETTE: CommandContract(result=ast.ValueType.POKEMON_SELECTION),
     ast.CommandKind.MAP_SELECTION: CommandContract(result=ast.ValueType.LOCATION_REF),
     ast.CommandKind.HEAL_PARTY: CommandContract(result=ast.ValueType.HEALING_RESULT),
+    ast.CommandKind.NUMBER_INPUT: CommandContract(
+        properties=(_p("min", INT), _p("max", INT)), result=ast.ValueType.INT,
+    ),
+    ast.CommandKind.SERVER_COMMAND: CommandContract(
+        (_p("command", STRING), _p("integer_argument", INT, optional=True)),
+        result=ast.ValueType.BOOL,
+    ),
     ast.CommandKind.MOVE: CommandContract(
         (_p("subject", names=frozenset({"player", "npc"})), _p("destination", LOCATION)),
         properties=MOVE_PROPERTIES, result=ast.ValueType.MOVEMENT_RESULT,

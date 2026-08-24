@@ -22,7 +22,7 @@
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
     PresetUUID:[I;1791795531,149118190,-1464448119,-1161128570],
-    SkinData:{Type:"CUSTOM",UUID:[I;1004908433,-268805444,-1390640948,506551311] },
+    SkinData:{Type:"CUSTOM",UUID:[I;-55360839,266687800,-1456701085,1356054673] },
     Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/gym_leaders/blaine"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"

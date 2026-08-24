@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/kanto_sailor_junho/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/kanto_sailor_junho/defeated") {
+    say npc {
+      ko_kr: "바다에서 단련한 균형 감각을 보여 주지!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/kanto_sailor_junho" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/kanto_sailor_junho/defeated" true
+      say npc {
+        ko_kr: "파도보다 거센 승부였군!"
+      }
+    } else {
+      say npc {
+        ko_kr: "갑판에 오르기 전에 더 단련하고 와!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/kanto_sailor_junho/defeated") {
+    say npc {
+      ko_kr: "파도보다 거센 승부였군!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "바다에서 단련한 균형 감각을 보여 주지!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/kanto_sailor_junho" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/kanto_sailor_junho/defeated" true
+          say npc {
+            ko_kr: "파도보다 거센 승부였군!"
+          }
+        } else {
+          say npc {
+            ko_kr: "갑판에 오르기 전에 더 단련하고 와!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

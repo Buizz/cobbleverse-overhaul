@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/kanto_swimmer_nari/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/kanto_swimmer_nari/defeated") {
+    say npc {
+      ko_kr: "이 수로의 포켓몬은 물살만큼 재빠르다고!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/kanto_swimmer_nari" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/kanto_swimmer_nari/defeated" true
+      say npc {
+        ko_kr: "상쾌한 승부였어!"
+      }
+    } else {
+      say npc {
+        ko_kr: "준비 운동부터 다시 하고 와!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/kanto_swimmer_nari/defeated") {
+    say npc {
+      ko_kr: "상쾌한 승부였어!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "이 수로의 포켓몬은 물살만큼 재빠르다고!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/kanto_swimmer_nari" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/kanto_swimmer_nari/defeated" true
+          say npc {
+            ko_kr: "상쾌한 승부였어!"
+          }
+        } else {
+          say npc {
+            ko_kr: "준비 운동부터 다시 하고 와!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

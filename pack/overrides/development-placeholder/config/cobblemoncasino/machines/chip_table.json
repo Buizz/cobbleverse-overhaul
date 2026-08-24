@@ -1,0 +1,11 @@
+{
+  "enable_currency_to_chips": false,
+  "enable_chips_to_relic_coins": false,
+  "enable_chips_to_cobbledollars": false,
+  "enable_cobbledollars_to_chips": false,
+  "relic_coin_value": 10,
+  "handful_of_relic_coins_value": 40,
+  "relic_coin_pouch_value": 90,
+  "relic_coin_sack_value": 810,
+  "stack_of_relic_coins_value": 160
+}

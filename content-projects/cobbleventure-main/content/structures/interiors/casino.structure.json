@@ -8,5 +8,113 @@
     "floor_height": 12,
     "floors": 1
   },
-  "anchors": []
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        23,
+        1,
+        1
+      ],
+      "safe_spawn": [
+        23,
+        1,
+        2
+      ],
+      "door_facing": "south",
+      "safe_side": "south"
+    },
+    {
+      "label": "blackjack_dealer_2",
+      "type": "npc_position",
+      "position": [
+        12,
+        1,
+        7
+      ],
+      "facing": "west"
+    },
+    {
+      "label": "blackjack_dealer_1",
+      "type": "npc_position",
+      "position": [
+        15,
+        1,
+        7
+      ],
+      "facing": "east"
+    },
+    {
+      "label": "npc1",
+      "type": "npc_position",
+      "position": [
+        32,
+        1,
+        14
+      ],
+      "facing": "north"
+    },
+    {
+      "label": "npc2",
+      "type": "npc_position",
+      "position": [
+        31,
+        1,
+        14
+      ],
+      "facing": "north"
+    },
+    {
+      "label": "npc3",
+      "type": "npc_position",
+      "position": [
+        14,
+        1,
+        14
+      ],
+      "facing": "north"
+    },
+    {
+      "label": "npc4",
+      "type": "npc_position",
+      "position": [
+        13,
+        1,
+        14
+      ],
+      "facing": "north"
+    },
+    {
+      "label": "gacha_default_pokemon",
+      "type": "npc_position",
+      "position": [
+        19,
+        1,
+        12
+      ],
+      "facing": "north"
+    },
+    {
+      "label": "gacha_default_item",
+      "type": "npc_position",
+      "position": [
+        23,
+        1,
+        12
+      ],
+      "facing": "north"
+    },
+    {
+      "label": "gacha_default_tm",
+      "type": "npc_position",
+      "position": [
+        27,
+        1,
+        12
+      ],
+      "facing": "north"
+    }
+  ]
 }

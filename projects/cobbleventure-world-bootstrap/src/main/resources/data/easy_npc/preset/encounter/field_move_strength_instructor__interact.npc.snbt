@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"괴력 수련가 EasyNPC 이벤트 NPC",
+    description:"괴력 수련가 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"괴력 수련가",
+    name:"괴력 수련가 [V5]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"괴력 수련가\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"offer",Name:"큰 바위를 움직이려면 포켓몬과 호흡을 맞춰야 한다. 괴력의",Texts:[{Text:"큰 바위를 움직이려면 포켓몬과 호흡을 맞춰야 한다. 괴력의 비결을 전수하지."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventure_field_move grant @initiator strength",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_79514e478c4a:1",Type:"SCOREBOARD"},{Cmd:"granted",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"granted",Name:"이제 무거운 바위 앞에서 괴력을 사용할 수 있다.",Texts:[{Text:"이제 무거운 바위 앞에서 괴력을 사용할 수 있다."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat",Name:"억지로 밀지 말고 포켓몬의 움직임에 맞춰라.",Priority:100,Texts:[{Text:"억지로 밀지 말고 포켓몬의 움직임에 맞춰라."}],Conditions:[{Name:"cvf_79514e478c4a",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[1.040f,1.040f,1.040f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;-507203942,1349410799,-1177330293,928558480],
+    PresetUUID:[I;-862695137,1653036930,-1449818252,1264308040],
     SkinData:{Type:"CUSTOM",UUID:[I;2140083951,1220236769,-2147277241,2810332] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/rewards/field_move_strength_instructor"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

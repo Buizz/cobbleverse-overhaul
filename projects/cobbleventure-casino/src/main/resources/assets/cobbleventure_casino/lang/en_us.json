@@ -1,0 +1,18 @@
+{
+  "item.cobbleventure_casino.coin_case": "Coin Case",
+  "message.cobbleventure_casino.cashier.coin_case_required": "You need a Coin Case to use this cashier.",
+  "message.cobbleventure_casino.cashier.use_npc": "칩 교환대는 사용하지 않습니다. 동전 케이스를 가지고 환전상 NPC를 이용하세요.",
+  "message.cobbleventure_casino.cashier.wallet_disabled": "카지노 지갑은 사용하지 않습니다. 환전상 NPC에서 잔액을 충전하세요.",
+  "message.cobbleventure_casino.cashier.header": "CobbleDollars: %s · Casino balance: %s",
+  "message.cobbleventure_casino.cashier.all": "전액",
+  "message.cobbleventure_casino.cashier.one_way": "코블달러 → 카지노 잔액 단방향 환전입니다. 역환전은 불가능합니다.",
+  "message.cobbleventure_casino.cashier.exchange_hover": "선택한 금액을 카지노 잔액으로 충전합니다.",
+  "message.cobbleventure_casino.cashier.session_expired": "환전상과의 거리가 멀어졌거나 이용 시간이 만료되었습니다.",
+  "message.cobbleventure_casino.cashier.insufficient": "코블달러가 부족합니다.",
+  "message.cobbleventure_casino.cashier.balance_limit": "카지노 잔액 한도를 초과합니다.",
+  "message.cobbleventure_casino.cashier.success": "%s 코블달러를 환전했습니다. 현재 카지노 잔액: %s",
+  "message.cobbleventure_casino.cashier.deposit_at_npc": "칩 입금은 사용하지 않습니다. 환전상 NPC에서 카지노 잔액을 충전하세요.",
+  "message.cobbleventure_casino.cashier.withdraw_disabled": "카지노 잔액은 코블달러나 칩으로 역환전할 수 없습니다.",
+  "message.cobbleventure_casino.game.balance_required": "You have no casino coins. Bring a Coin Case and exchange CobbleDollars with the cashier NPC first.",
+  "item.cobbleventure_casino.gacha_ticket": "Gacha Ticket"
+}

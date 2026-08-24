@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"길지기 민호 EasyNPC 이벤트 NPC",
+    description:"길지기 민호 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"길지기 민호",
+    name:"길지기 민호 [V5]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"길지기 민호\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"greeting",Name:"이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사",Texts:[{Text:"이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사님께 먼저 다녀오렴."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;1218772041,-1517397219,-1422754927,69783645],
+    PresetUUID:[I;2010894849,1608798789,-1665058474,-502897141],
     SkinData:{Type:"CUSTOM",UUID:[I;1412740566,-1331473461,-2039964127,-1839010353] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/story/starter_town_gatekeeper_minho"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"회복 지원원 EasyNPC 이벤트 NPC",
+    description:"회복 지원원 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"회복 지원원",
+    name:"회복 지원원 [V5]",
     variantType:"ALEX",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"회복 지원원\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"모험 중에는 작은 상처도 방심하면 안 돼요. 상처약을 챙겨",Texts:[{Text:"모험 중에는 작은 상처도 방심하면 안 돼요. 상처약을 챙겨 가세요."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:potion 3",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"item_explanation",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"item_explanation",Name:"방금 준 아이템을 잘 활용해 보세요.",Texts:[{Text:"방금 준 아이템을 잘 활용해 보세요."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"set:cvf_447715ca42a6:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat_greeting",Name:"상처약은 필요한 순간 바로 쓸 수 있게 정리해 두세요.",Priority:100,Texts:[{Text:"상처약은 필요한 순간 바로 쓸 수 있게 정리해 두세요."}],Conditions:[{Name:"cvf_447715ca42a6",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.780f,0.780f,0.780f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;-1826663661,2079084788,-1357339384,-2045064855],
+    PresetUUID:[I;-1024966931,2003918737,-1185323531,-1494909297],
     SkinData:{Type:"CUSTOM",UUID:[I;254294188,-19967304,-1347670737,-250557175] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/rewards/item_potion_supplier"],
     VariantType:"ALEX",
     id:"easy_npc:humanoid"
   }

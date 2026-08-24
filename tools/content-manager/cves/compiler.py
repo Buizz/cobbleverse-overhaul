@@ -21,7 +21,7 @@ UNKNOWN_SPAN = SourceSpan("<ast>", UNKNOWN_POSITION, UNKNOWN_POSITION)
 
 # Repeatable services still need a stable instruction anchor for await recovery,
 # but must not be added to the cross-invocation idempotency journal.
-REPEATABLE_AWAIT_COMMANDS = {ast.CommandKind.HEAL_PARTY}
+REPEATABLE_AWAIT_COMMANDS = {ast.CommandKind.HEAL_PARTY, ast.CommandKind.NUMBER_INPUT}
 PERSISTENT_COMMANDS = (AWAIT_COMMANDS - REPEATABLE_AWAIT_COMMANDS) | {
     ast.CommandKind.SHOW_CHOICES,
     ast.CommandKind.SET_FLAG,
@@ -39,7 +39,9 @@ PERSISTENT_COMMANDS = (AWAIT_COMMANDS - REPEATABLE_AWAIT_COMMANDS) | {
     ast.CommandKind.WAIT,
     ast.CommandKind.SOUND,
     ast.CommandKind.EFFECT,
+    ast.CommandKind.SERVER_COMMAND,
 }
+
 STABLE_COMMANDS = PERSISTENT_COMMANDS | REPEATABLE_AWAIT_COMMANDS
 IMPLICIT_AWAIT_COMMANDS = {
     ast.CommandKind.SHOW_CHOICES,

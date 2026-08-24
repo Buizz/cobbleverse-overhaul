@@ -6,6 +6,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.buizz.cobbleventure.adventure.FieldMoveRidingAccess;
 import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
+import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -60,7 +61,29 @@ public final class ServerPlayerEventState implements EventStateAccess {
             throw new EventRuntimeException("아이템 조건 수량은 1 이상이어야 합니다: " + count);
         }
         return BuiltInRegistries.ITEM.getOptional(id)
-            .map(item -> player.getInventory().countItem(item) >= count)
+            .map(item -> {
+                int found = player.getInventory().countItem(item);
+                if (found >= count) return true;
+                try {
+                    Class<?> storage = Class.forName(
+                        "dev.buizz.cobbleventure.playermenu.BagStorage"
+                    );
+                    Method load = storage.getMethod("load", ServerPlayer.class);
+                    Object value = load.invoke(null, player);
+                    if (value instanceof Iterable<?> stacks) {
+                        for (Object entry : stacks) {
+                            if (entry instanceof net.minecraft.world.item.ItemStack stack
+                                && stack.is(item)) {
+                                found += stack.getCount();
+                                if (found >= count) return true;
+                            }
+                        }
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                    // The player-menu module is optional in isolated runtime tests.
+                }
+                return false;
+            })
             .orElse(false);
     }
 

@@ -774,6 +774,7 @@ final class WorldGateSystem {
         );
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         if (!structure.placeInWorld(
             level, origin, origin, settings,
@@ -1015,6 +1016,7 @@ final class WorldGateSystem {
         );
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         int outsideOffset = (geometry.inward().getAxis() == Direction.Axis.X
             ? template.getSize(rotation).getX()

@@ -9,6 +9,9 @@ displayName="${mod_name}"
 authors="Buizz"
 description='''웹에서 만든 프로필로 파괴 불가 커스텀 가챠 기계를 실행합니다.'''
 
+[[mixins]]
+config="cobbleventure_casino.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
@@ -34,5 +37,19 @@ side="BOTH"
 modId="cobblemoncasino"
 type="required"
 versionRange="[2.0.0,3)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="cobbledollars"
+type="required"
+versionRange="[2.0.0,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="playingcards"
+type="required"
+versionRange="[2.0.1,3)"
 ordering="AFTER"
 side="BOTH"

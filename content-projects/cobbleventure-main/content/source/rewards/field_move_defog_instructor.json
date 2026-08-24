@@ -7,7 +7,7 @@
   "npc": { "display_name": { "ko_kr": "안개 관측가" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/psychic",
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/psychic_johan_0118" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/field_move_defog_instructor" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/field_move/defog", "value": true }], "target": "claimed" },
     { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "짙은 안개도 흐름을 읽으면 걷어낼 수 있어. 안개제거 방법을 알려 주지." } },

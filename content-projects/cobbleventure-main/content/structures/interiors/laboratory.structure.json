@@ -44,7 +44,7 @@
         1,
         6
       ],
-      "facing": "north"
+      "facing": "east"
     },
     {
       "label": "researcher1",
@@ -54,7 +54,7 @@
         1,
         6
       ],
-      "facing": "north"
+      "facing": "west"
     }
   ]
 }

@@ -144,18 +144,19 @@ V5 편집기는 `content/events/<namespace>/**/*.cves`만 권위 원본으로 �
 벗어난 식은 standalone expression parser가 공통 AST로 변환한다. 명령·트리거 폼은 Python 의미 계약을 직접
 사용하므로 웹에 별도의 허용 명령이나 타입 목록을 중복 유지하지 않는다.
 
-V4 item preset을 단계적으로 이전할 때는 `content/source/<path>.json`과 대응하는
-`content/event-bindings/<namespace>/<path>.json`을 같은 상대 경로로 둔다. 프로젝트
-컴파일러가 상호작용 범위, claimed 플래그, 최초/반복 대사와 지급 아이템·수량을 V5와
-자동 비교한다. EasyNPC 생성기는 기존 V4 프리셋을 덮어쓰지 않고 `__v5.npc.snbt`
-표현 프리셋을 추가하며, 이 프리셋에는 `cves_binding/<namespace>/<path>` 태그와 외형만
-포함된다. 실제 배치 시 V4 프리셋과 V5 프리셋 중 하나만 선택해야 한다.
+현재 저장소의 NPC는 모두 `event_runtime.engine = cves_v5`와 대응하는
+`content/event-bindings/<namespace>/<path>.json`을 가진다. 행동 프리셋 저장은 같은
+상대 경로의 CVES와 binding을 함께 만들며, 직접 수정된 CVES는 자동으로 덮어쓰지 않는다.
+새 NPC 생성도 이 세 파일을 한 번에 만든다.
 
-V4 배틀 이벤트 이전도 같은 상대 경로 규칙을 사용한다. 프로젝트 컴파일러는 V4의
-`start_battle`을 발견하면 조건 대사와 선택지, battle 결과 승패 분기, 격파 플래그,
-전리품 및 battle preset의 `money_reward`가 V5 트리와 같은지 검사한다. V5의
-`has_item("namespace:item", count)` 조건은 타입 및 아이템 카탈로그 검사를 거치며,
-EasyNPC `__v5` 표현 프리셋에는 배틀·상금·전리품 명령이 들어가지 않는다.
+EasyNPC 생성기의 접미사 없는 `<slug>.npc.snbt`가 기본 V5 표현 프리셋이다. 이
+프리셋에는 외형과 `cves_binding/<namespace>/<path>` 태그만 있으며 대사·조건·보상·
+배틀 액션은 없다. `__v5`, `__interact`, `__proximity` 출력은 기존 월드와 배치
+참조를 위한 동일 V5 호환 별칭이다.
+
+V4 문서와 생성 경로는 외부 레거시 프로젝트 및 기존 월드의 읽기 전용 fallback으로만
+남아 있다. 웹의 신규 작성 경로는 V5로 고정되며 V4 선택지는 레거시 문서를 열었을 때만
+읽기 전용으로 표시한다. 호환 원본을 자동 변환하거나 덮어쓰지 않는다.
 
 이동 문법과 프로젝트 위치 카탈로그의 통합 예제는
 `tests/fixtures/movement_showcase.cves`에 있다. 상대 좌표, 절대 `position`, settlement

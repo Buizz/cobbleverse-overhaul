@@ -581,7 +581,8 @@ final class GymInteriorSystem {
                 Vec3i size = template.orElseThrow().getSize(module.rotation);
                 forceChunks(level, moduleOrigin, size);
                 StructurePlaceSettings settings = new StructurePlaceSettings()
-                    .setRotation(module.rotation);
+                    .setRotation(module.rotation)
+                    .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
                 boolean placed = template.orElseThrow().placeInWorld(
                     level, moduleOrigin, moduleOrigin, settings,
                     RandomSource.create(level.getSeed() ^ moduleOrigin.asLong()), 2

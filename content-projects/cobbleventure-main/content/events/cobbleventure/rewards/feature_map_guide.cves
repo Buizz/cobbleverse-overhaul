@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/feature/map") {
+    say npc {
+      ko_kr: "새로운 장소를 발견할 때마다 지도를 확인해 봐."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "처음 가는 길이라면 기록을 남겨야지. 네 메뉴에 지도를 등록해 줄게."
+    }
+    id "grant/feature" unlock_feature map
+    id "grant/state" set_flag "cobbleventure:flag/rewards/feature/map" true
+    say npc {
+      ko_kr: "이제 메뉴에서 지도를 확인할 수 있어."
+    }
+  }
+}

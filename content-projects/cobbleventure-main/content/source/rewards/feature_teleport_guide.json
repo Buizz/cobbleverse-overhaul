@@ -7,7 +7,7 @@
   "npc": { "display_name": { "ko_kr": "마을 이동 안내원" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/psychic",
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/psychic_johan_0118" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/feature_teleport_guide" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/feature/settlement_teleport", "value": true }], "target": "claimed" },
     { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "한 번 방문한 마을의 길은 기억할 수 있어. 이동 안내 기능을 열어 줄게." } },

@@ -14,6 +14,22 @@
         ]
       }
     },
+    "building:cobbleventure:facilities/pokemart": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:facilities/pokemon_center": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
     "building:cobbleventure:houses/five_story_flat": {
       "nodes": {
         "exterior": [
@@ -163,6 +179,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          470,
+          90
         ]
       }
     },
@@ -376,6 +396,8 @@
         "enter_dialogue": []
       }
     },
+    "building:cobbleventure:facilities/pokemart": {},
+    "building:cobbleventure:facilities/pokemon_center": {},
     "building:cobbleventure:houses/five_story_flat": {},
     "building:cobbleventure:houses/five_story_gable": {},
     "building:cobbleventure:houses/five_story_gambrel": {},
@@ -420,7 +442,14 @@
     "building:cobbleventure:placeholder/basic_building_2": {},
     "building:cobbleventure:placeholder/basic_building_3": {},
     "building:cobbleventure:placeholder/battle_tower": {},
-    "building:cobbleventure:placeholder/casino": {},
+    "building:cobbleventure:placeholder/casino": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:placeholder/daycare": {},
     "building:cobbleventure:placeholder/fossil_laboratory": {},
     "building:cobbleventure:placeholder/gym_site": {},

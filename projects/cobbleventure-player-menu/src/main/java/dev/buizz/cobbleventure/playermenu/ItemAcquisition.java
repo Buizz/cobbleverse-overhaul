@@ -45,6 +45,16 @@ public final class ItemAcquisition {
         );
     }
 
+    public static void showStarter(ServerPlayer player, Component pokemonName) {
+        Component message = Component.translatable(
+            "message.cobbleventure_player_menu.starter_acquired",
+            player.getDisplayName(), pokemonName
+        );
+        PacketDistributor.sendToPlayer(
+            player, new AcquiredPayload(message, sound(player, "item_acquired"))
+        );
+    }
+
     public static void showLoot(ServerPlayer player, int count) {
         Component message = Component.translatable(
             "message.cobbleventure_player_menu.loot_acquired",

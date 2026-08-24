@@ -41,6 +41,10 @@ public final class TrainerCardScreen extends Screen {
     private static final int LEAGUE_COMPLETE = 0xFF75C6C8;
     private static final int CARD_MAX_WIDTH = 386;
     private static final int CARD_MAX_HEIGHT = 224;
+    // InventoryScreen applies 40 degrees of head yaw and 20 degrees of pitch
+    // per input unit. Keep every leader in the same right-facing three-quarter pose.
+    private static final float LEADER_VIEW_YAW = -45.0F / 40.0F;
+    private static final float LEADER_VIEW_PITCH = -12.0F / 20.0F;
     private static final ResourceLocation CARD_BACKGROUND = ResourceLocation.fromNamespaceAndPath(
         "cobbleventure_player_menu", "textures/gui/trainer_card_background.png"
     );
@@ -437,11 +441,14 @@ public final class TrainerCardScreen extends Screen {
             drawLeaderSilhouette(graphics, left, top, right, bottom);
             return;
         }
+        // Card-only entities are not part of the client world's tick list. Advancing
+        // their age here enables the vanilla humanoid idle arm animation.
+        leader.tickCount = animationTick;
         graphics.enableScissor(left, top, right, bottom);
         int scale = Math.max(20, Math.min(38, bottom - top - 8));
-        InventoryScreen.renderEntityInInventoryFollowsMouse(
+        InventoryScreen.renderEntityInInventoryFollowsAngle(
             graphics, left, top, right, bottom + 8, scale, 0.0625F,
-            left + (right - left) / 2, top + (bottom - top) / 3, leader
+            LEADER_VIEW_YAW, LEADER_VIEW_PITCH, leader
         );
         graphics.disableScissor();
     }
@@ -490,14 +497,17 @@ public final class TrainerCardScreen extends Screen {
         TrainerCardProgress.Challenge challenge, int index, float partialTick
     ) {
         double angle = (animationTick + partialTick) * 0.095D + index * 0.72D;
-        float widthScale = (float)Math.cos(angle);
+        // Keep the authored front artwork on both sides of the spin. A negative X scale
+        // mirrors the quad and its back face can be culled by the GUI render pipeline.
+        float widthScale = Math.abs((float)Math.cos(angle));
         graphics.fill(centerX - drawSize / 2 + 2, centerY + drawSize / 2 - 2,
             centerX + drawSize / 2 + 2, centerY + drawSize / 2 + 2, 0x55000000);
         graphics.pose().pushPose();
         graphics.pose().translate(centerX, centerY, 300.0F);
         graphics.pose().scale(widthScale, 1.0F, 1.0F);
-        graphics.blit(challenge.texture(), -drawSize / 2, -drawSize / 2,
-            (float)challenge.textureU(), (float)challenge.textureV(), drawSize, drawSize,
+        graphics.blit(challenge.texture(), -drawSize / 2, -drawSize / 2, drawSize, drawSize,
+            (float)challenge.textureU(), (float)challenge.textureV(),
+            challenge.textureSize(), challenge.textureSize(),
             challenge.atlasWidth(), challenge.atlasHeight());
         graphics.pose().popPose();
         if (Math.abs(widthScale) < 0.16F) {

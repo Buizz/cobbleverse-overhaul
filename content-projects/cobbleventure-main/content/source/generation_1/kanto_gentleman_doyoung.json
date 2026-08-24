@@ -3,35 +3,87 @@
   "schema_version": 4,
   "id": "cobbleventure:npc/kanto_gentleman_doyoung",
   "enabled": true,
-  "name": { "ko_kr": "신사 도영" },
-  "description": { "ko_kr": "갈색시티 주변을 여행하는 1세대 신사 트레이너입니다." },
-  "tags": ["trainer", "generation_1", "kanto", "gentleman"],
+  "name": {
+    "ko_kr": "신사 도영"
+  },
+  "description": {
+    "ko_kr": "갈색시티 주변을 여행하는 1세대 신사 트레이너입니다."
+  },
+  "tags": [
+    "trainer",
+    "generation_1",
+    "kanto",
+    "gentleman"
+  ],
   "placement_profile": {
     "classification": "trainer",
     "expected_level": 22,
-    "preferred_biomes": ["minecraft:plains", "minecraft:beach"],
+    "preferred_biomes": [
+      "minecraft:plains",
+      "minecraft:beach"
+    ],
     "automatic_town_placement": true,
     "automatic_route_placement": true
   },
   "npc": {
-    "display_name": { "ko_kr": "신사 도영" },
+    "display_name": {
+      "ko_kr": "신사 도영"
+    },
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/gentleman",
-    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/gentleman_brooks_01e2" },
-    "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true }
+    "battle_rewards": {
+      "money": {
+        "enabled": true,
+        "mode": "regional_level",
+        "fallback_region_level": 22,
+        "per_level": 20,
+        "offset": 100,
+        "held_item_bonus": true,
+        "held_item": "cobblemon:amulet_coin",
+        "held_item_multiplier": 2,
+        "conditions": []
+      }
+    },
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/gentleman_brooks_01e2"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
   },
   "event_design": {
     "mode": "preset",
     "preset": {
       "type": "battle",
-      "initial_trigger": { "type": "interact", "range": 4 },
-      "first_text": { "ko_kr": "여행길의 예의 바른 승부를 청하겠네." },
+      "initial_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "first_text": {
+        "ko_kr": "여행길의 예의 바른 승부를 청하겠네."
+      },
       "battle": "cobbleventure:battle/kanto_gentleman_doyoung",
-      "after_victory_trigger": { "type": "interact", "range": 4 },
-      "win_text": { "ko_kr": "훌륭한 실력이군. 경의를 표하지." },
-      "loss_text": { "ko_kr": "침착함을 잃지 않는 것이 중요하다네." },
+      "after_victory_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "win_text": {
+        "ko_kr": "훌륭한 실력이군. 경의를 표하지."
+      },
+      "loss_text": {
+        "ko_kr": "침착함을 잃지 않는 것이 중요하다네."
+      },
       "victory_state_key": "cobbleventure:flag/trainer/kanto_gentleman_doyoung/defeated"
     }
   },
-  "event_runtime": { "engine": "cves_v5", "authoring": "preset", "script_id": "cobbleventure:event_script/generation_1/kanto_gentleman_doyoung" }
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/generation_1/kanto_gentleman_doyoung"
+  }
 }

@@ -122,6 +122,17 @@ def installed_rct_skin(resource: str) -> bytes | None:
     archive_entry = (
         f"assets/rctmod/textures/trainers/{match.group(1)}/{match.group(2)}.png"
     )
+    bundled_path = RESOURCE_ROOT / archive_entry
+    try:
+        bundled_data = bundled_path.read_bytes()
+    except OSError:
+        bundled_data = None
+    if (
+        bundled_data is not None
+        and len(bundled_data) <= 2 * 1024 * 1024
+        and bundled_data.startswith(b"\x89PNG\r\n\x1a\n")
+    ):
+        return bundled_data
     instance_root = Path.home() / "curseforge" / "minecraft" / "Instances"
     resource_pack_candidates: list[Path] = []
     mod_jar_candidates: list[Path] = []
@@ -260,6 +271,11 @@ def league_encounter_document(entry: dict, post_victory_level_cap: int = 100) ->
         "name": copy.deepcopy(name),
         "description": {"ko_kr": "리그 운영 약식 설정에서 빌드 시 생성된 관장 NPC입니다."},
         "tags": ["trainer", "gym_leader", region, slug, "generated_from_league"],
+        "event_runtime": {
+            "engine": "cves_v5", "authoring": "custom",
+            "script_id": f"cobbleventure:event_script/gym_leaders/{slug}",
+        },
+
         "npc": {
             "display_name": display_name,
             "trainer_class": "cobbleventure:trainer_class/gym_leader",
@@ -1280,6 +1296,7 @@ def paired_encounter_documents(documents: list[dict], battle_presets: dict[str, 
             continue
         if not source.get("enabled", True) or not (
             source.get("dialogue") or source.get("interaction") or source.get("events")
+            or source.get("_cves_binding_tag")
         ):
             continue
         owner = copy.deepcopy(source)
@@ -1442,16 +1459,25 @@ def generate(
         slug = document["id"].rsplit("/", 1)[-1]
         preset = RESOURCE_ROOT / "data" / "easy_npc" / "preset" / "encounter" / f"{slug}.npc.snbt"
         preset.parent.mkdir(parents=True, exist_ok=True)
+        binding_tag = document.get("_cves_binding_tag")
+        if isinstance(binding_tag, str):
+            primary_source = v5_encounter_preset_snbt(document, outfit, binding_tag)
+        else:
+            primary_source = encounter_preset_snbt(
+                document, outfit, music_defaults=music_defaults
+            )
         preset.write_text(
-            encounter_preset_snbt(document, outfit, music_defaults=music_defaults),
+            primary_source,
             encoding="utf-8", newline="\n",
         )
         written.append(preset)
-        binding_tag = document.get("_cves_binding_tag")
         if isinstance(binding_tag, str):
+            # The unsuffixed preset is now the canonical V5 representation.
+            # Keep the transition-era names as inert compatibility aliases so
+            # existing placement data never falls back to executable V4 actions.
             v5_preset = preset.with_name(f"{slug}__v5.npc.snbt")
             v5_preset.write_text(
-                v5_encounter_preset_snbt(document, outfit, binding_tag),
+                primary_source,
                 encoding="utf-8", newline="\n",
             )
             written.append(v5_preset)
@@ -1460,27 +1486,38 @@ def generate(
                 preset_type in {"battle", "gym", "elite", "champion"}
                 or has_cves_proximity_events(binding_tag)
             )
+            proximity_source = v5_encounter_preset_snbt(
+                document, outfit, binding_tag, proximity=has_proximity
+            )
             if has_proximity:
                 proximity_preset = preset.with_name(f"{slug}__v5_proximity.npc.snbt")
                 proximity_preset.write_text(
-                    v5_encounter_preset_snbt(
-                        document, outfit, binding_tag, proximity=True
-                    ),
+                    proximity_source,
                     encoding="utf-8", newline="\n",
                 )
                 written.append(proximity_preset)
-        for trigger_override in ("interact", "proximity"):
-            override_preset = preset.with_name(
-                f"{slug}__{trigger_override}.npc.snbt"
-            )
-            override_preset.write_text(
-                encounter_preset_snbt(
-                    document, outfit, trigger_override, music_defaults
-                ),
-                encoding="utf-8",
-                newline="\n",
-            )
-            written.append(override_preset)
+            compatibility_sources = {
+                "interact": primary_source,
+                "proximity": proximity_source,
+            }
+            for suffix, source in compatibility_sources.items():
+                compatibility_preset = preset.with_name(f"{slug}__{suffix}.npc.snbt")
+                compatibility_preset.write_text(source, encoding="utf-8", newline="\n")
+                written.append(compatibility_preset)
+        else:
+            # Read-only compatibility for projects that have not been migrated.
+            for trigger_override in ("interact", "proximity"):
+                override_preset = preset.with_name(
+                    f"{slug}__{trigger_override}.npc.snbt"
+                )
+                override_preset.write_text(
+                    encounter_preset_snbt(
+                        document, outfit, trigger_override, music_defaults
+                    ),
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                written.append(override_preset)
     return written
 
 

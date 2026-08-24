@@ -5,5 +5,10 @@
   "screen.cobbleventure_adventure.dialogue.next_page": "Click or press Enter for the next page",
   "screen.cobbleventure_adventure.choice.title": "Choice",
   "screen.cobbleventure_adventure.choice.controls": "Arrow keys to move · Enter to choose · Esc to cancel",
-  "screen.cobbleventure_adventure.choice.reveal": "Click or press Enter to reveal the prompt"
+  "screen.cobbleventure_adventure.choice.reveal": "Click or press Enter to reveal the prompt",
+  "screen.cobbleventure_adventure.number_input.title": "Enter Amount",
+  "screen.cobbleventure_adventure.number_input.field": "Amount",
+  "screen.cobbleventure_adventure.number_input.range": "Allowed range: %s to %s",
+  "screen.cobbleventure_adventure.number_input.confirm": "Confirm",
+  "screen.cobbleventure_adventure.number_input.cancel": "Cancel"
 }

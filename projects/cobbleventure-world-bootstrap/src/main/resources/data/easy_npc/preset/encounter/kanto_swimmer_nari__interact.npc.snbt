@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"비키니 아가씨 나리 EasyNPC 이벤트 NPC",
+    description:"비키니 아가씨 나리 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"비키니 아가씨 나리",
+    name:"비키니 아가씨 나리 [V5]",
     variantType:"ALEX",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"비키니 아가씨 나리\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"greeting",Name:"이 수로의 포켓몬은 물살만큼 재빠르다고!",Texts:[{Text:"이 수로의 포켓몬은 물살만큼 재빠르다고!"}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/kanto_swimmer_nari tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:kanto_swimmer_nari onwin {1:[\"scoreboard objectives add cvf_d8c09cfb5971 dummy\",\"scoreboard players set @1 cvf_d8c09cfb5971 1\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory",Name:"상쾌한 승부였어!",Priority:100,Texts:[{Text:"상쾌한 승부였어!"}],Conditions:[{Name:"cv_npc_defeated",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat",Name:"준비 운동부터 다시 하고 와!",Texts:[{Text:"준비 운동부터 다시 하고 와!"}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.940f,0.940f,0.940f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;1361937203,-411151611,-1424094313,1940330823],
+    PresetUUID:[I;-657016666,959602067,-2081399843,-823783038],
     SkinData:{Type:"CUSTOM",UUID:[I;1499002477,-1319805255,-1554885778,515887140] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/generation_1/kanto_swimmer_nari"],
     VariantType:"ALEX",
     id:"easy_npc:humanoid"
   }

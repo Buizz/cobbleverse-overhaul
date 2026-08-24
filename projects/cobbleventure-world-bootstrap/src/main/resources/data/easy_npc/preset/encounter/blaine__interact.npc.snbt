@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"체육관 관장 강연 EasyNPC 이벤트 NPC",
+    description:"체육관 관장 강연 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"체육관 관장 강연",
+    name:"체육관 관장 강연 [V5]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_INTERACTION:[{Cmd:"/cobbleventure_trainer_state prepare @npc-uuid @initiator",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"체육관 관장 강연\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"challenge_1",Name:"체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",Texts:[{Text:"체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!"}],Buttons:[{Label:"battle",Name:"승부한다",Actions:[{Type:"CLOSE_DIALOG"},{Cmd:"/cobbleventure_battle_intro @initiator @s cobbleventure:battle/gym_leader/blaine tbcs battle GEN_9_SINGLES @initiator vs @s as rctmod:blaine onwin {1:[\"scoreboard objectives add cvf_1442648e10cb dummy\",\"scoreboard players set @1 cvf_1442648e10cb 1\",\"cobbleventure_badge grant @1 cobbleventure:badge/kanto/volcano\",\"cobbleventure_progress level_cap @1 50\",\"cobbleventure_trainer_state complete @npc-uuid @initiator\",\"easy_npc dialog open @npc-uuid @initiator victory_1\"],2:[\"easy_npc dialog open @npc-uuid @initiator defeat_1\"]}",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"}]},{Label:"cancel",Name:"다음에 도전한다",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"victory_1",Name:"훌륭한 승부였다. 이 배지는 네 것이다.",Texts:[{Text:"훌륭한 승부였다. 이 배지는 네 것이다."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"defeat_1",Name:"좋은 승부였다. 준비해서 다시 도전해라.",Texts:[{Text:"좋은 승부였다. 준비해서 다시 도전해라."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"cleared_1",Name:"이미 실력을 증명했군. 다음 목표를 향해 나아가라.",Priority:100,Texts:[{Text:"이미 실력을 증명했군. 다음 목표를 향해 나아가라."}],Conditions:[{Name:"cvf_1442648e10cb",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.900f,0.900f,0.900f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;1715629705,994401396,-1384224620,-1294299526],
-    SkinData:{Type:"CUSTOM",UUID:[I;1004908433,-268805444,-1390640948,506551311] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    PresetUUID:[I;1791795531,149118190,-1464448119,-1161128570],
+    SkinData:{Type:"CUSTOM",UUID:[I;-55360839,266687800,-1456701085,1356054673] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/gym_leaders/blaine"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

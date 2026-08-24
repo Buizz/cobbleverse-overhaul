@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/field_move/rock_climb") {
+    say npc {
+      ko_kr: "오르기 전에 내려올 길도 먼저 살펴라."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "가파른 벽도 발 디딜 곳은 있어. 락클라임 경로를 찾는 법을 알려 주마."
+    }
+    id "grant/field_move" grant_field_move rock_climb -> granted
+    id "grant/state" set_flag "cobbleventure:flag/rewards/field_move/rock_climb" true
+    say npc {
+      ko_kr: "이제 오를 수 있는 절벽에서 락클라임을 사용할 수 있다."
+    }
+  }
+}

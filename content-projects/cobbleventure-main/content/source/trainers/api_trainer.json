@@ -36,6 +36,11 @@
       "collision": true
     }
   },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/trainers/api_trainer"
+  },
   "event_design": {
     "mode": "preset",
     "preset": {

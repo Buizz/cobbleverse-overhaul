@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/houses/five_story_flat.nbt",
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        22,
+        1,
+        10
+      ],
+      "safe_spawn": [
+        23,
+        1,
+        10
+      ],
+      "door_facing": "west",
+      "safe_side": "east"
+    }
+  ]
+}

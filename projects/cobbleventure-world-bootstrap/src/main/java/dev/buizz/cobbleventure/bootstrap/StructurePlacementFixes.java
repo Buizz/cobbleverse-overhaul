@@ -22,6 +22,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -553,8 +554,20 @@ final class StructurePlacementFixes {
                     level.removeBlockEntity(info.pos());
                     level.setBlockEntity(restoredEntity);
                     restoredEntity.setChanged();
-                    level.sendBlockUpdated(info.pos(), state, state, 16);
+                    level.sendBlockUpdated(
+                        info.pos(),
+                        state,
+                        state,
+                        Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE
+                    );
                     level.getChunkSource().blockChanged(info.pos());
+                    // Structure placement may finish after the client already received this
+                    // chunk. A state update alone does not resend the authored copycat material.
+                    if (restoredEntity.getUpdatePacket() != null) {
+                        for (ServerPlayer player : level.players()) {
+                            player.connection.send(restoredEntity.getUpdatePacket());
+                        }
+                    }
                     restored++;
                 } catch (RuntimeException error) {
                     LOGGER.warn(
@@ -581,16 +594,62 @@ final class StructurePlacementFixes {
 
         if (transformed.contains("material_data", Tag.TAG_COMPOUND)) {
             CompoundTag materialData = transformed.getCompound("material_data");
+            CompoundTag remappedMaterialData = new CompoundTag();
             for (String part : materialData.getAllKeys()) {
                 if (!materialData.contains(part, Tag.TAG_COMPOUND)) {
+                    remappedMaterialData.put(part, materialData.get(part).copy());
                     continue;
                 }
+                CompoundTag partData = materialData.getCompound(part).copy();
                 transformMaterialTag(
-                    materialData.getCompound(part), "material", blocks, mirror, rotation
+                    partData, "material", blocks, mirror, rotation
+                );
+                remappedMaterialData.put(
+                    transformCopycatPartKey(part, mirror, rotation), partData
                 );
             }
+            transformed.put("material_data", remappedMaterialData);
         }
         return transformed;
+    }
+
+    /**
+     * Copycats+ stores multi-state materials under the same directional part names used by
+     * the block state. StructureTemplate rotates the state, so those names must follow it.
+     */
+    static String transformCopycatPartKey(
+        String part, Mirror mirror, Rotation rotation
+    ) {
+        int separator = part.lastIndexOf('_');
+        if (separator < 0 || separator == part.length() - 1) {
+            return part;
+        }
+        String quadrant = part.substring(separator + 1);
+        Direction northSouth;
+        Direction eastWest;
+        if (quadrant.startsWith("north")) {
+            northSouth = Direction.NORTH;
+        } else if (quadrant.startsWith("south")) {
+            northSouth = Direction.SOUTH;
+        } else {
+            return part;
+        }
+        if (quadrant.endsWith("east")) {
+            eastWest = Direction.EAST;
+        } else if (quadrant.endsWith("west")) {
+            eastWest = Direction.WEST;
+        } else {
+            return part;
+        }
+
+        Direction first = rotation.rotate(mirror.mirror(northSouth));
+        Direction second = rotation.rotate(mirror.mirror(eastWest));
+        Direction transformedNorthSouth = first.getAxis() == Direction.Axis.Z
+            ? first : second;
+        Direction transformedEastWest = first.getAxis() == Direction.Axis.X
+            ? first : second;
+        return part.substring(0, separator + 1)
+            + transformedNorthSouth.getName() + transformedEastWest.getName();
     }
 
     private static void transformMaterialTag(

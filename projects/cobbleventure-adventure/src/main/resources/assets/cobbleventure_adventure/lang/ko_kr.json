@@ -5,5 +5,10 @@
   "screen.cobbleventure_adventure.dialogue.next_page": "클릭 또는 Enter로 다음 페이지",
   "screen.cobbleventure_adventure.choice.title": "선택",
   "screen.cobbleventure_adventure.choice.controls": "방향키로 이동 · Enter로 선택 · Esc로 취소",
-  "screen.cobbleventure_adventure.choice.reveal": "클릭 또는 Enter로 대사 표시"
+  "screen.cobbleventure_adventure.choice.reveal": "클릭 또는 Enter로 대사 표시",
+  "screen.cobbleventure_adventure.number_input.title": "수량 입력",
+  "screen.cobbleventure_adventure.number_input.field": "수량",
+  "screen.cobbleventure_adventure.number_input.range": "입력 범위: %s ~ %s",
+  "screen.cobbleventure_adventure.number_input.confirm": "확인",
+  "screen.cobbleventure_adventure.number_input.cancel": "취소"
 }

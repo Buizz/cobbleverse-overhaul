@@ -48,14 +48,14 @@
       "z": -290
     },
     "facility_player_house_1": {
-      "x": 574,
+      "x": 500,
       "y": 69,
-      "z": -308
+      "z": -378
     },
     "facility_laboratory_1": {
-      "x": 604,
+      "x": 558,
       "y": 69,
-      "z": -298
+      "z": -390
     }
   },
   "biome_layout": {
@@ -109,13 +109,15 @@
       "material": "grass_path"
     },
     "generation_profile": {
-      "seed": 962276741,
+      "seed": 768923709,
       "depth": 2,
+      "residential_buildings_enabled": true,
       "basic_buildings": [
         "cobbleventure:placeholder/basic_building_1",
         "cobbleventure:placeholder/basic_building_2",
         "cobbleventure:placeholder/basic_building_3"
       ],
+      "building_density": "normal",
       "house_palette": {
         "bases": [
           "one_story"
@@ -126,8 +128,7 @@
         "roof_colors": [
           "orange"
         ]
-      },
-      "building_density": "normal"
+      }
     },
     "required_facilities": {
       "village_hub": "cobbleventure:starter_town/village_hub"
@@ -2054,6 +2055,12 @@
             1,
             2
           ],
+          "doorPosition": [
+            14,
+            1,
+            3
+          ],
+          "doorFacing": "north",
           "roadAnchor": null,
           "nbtResolved": true,
           "source": "content/structures/placeholder/player_house.nbt"
@@ -4399,6 +4406,12 @@
             1,
             1
           ],
+          "doorPosition": [
+            11,
+            1,
+            2
+          ],
+          "doorFacing": "north",
           "roadAnchor": null,
           "nbtResolved": true,
           "source": "content/structures/placeholder/laboratory.nbt"
@@ -6349,6 +6362,12 @@
             1,
             2
           ],
+          "doorPosition": [
+            14,
+            1,
+            3
+          ],
+          "doorFacing": "north",
           "roadAnchor": null,
           "nbtResolved": true,
           "source": "content/structures/placeholder/player_house.nbt"
@@ -8696,6 +8715,12 @@
             1,
             1
           ],
+          "doorPosition": [
+            11,
+            1,
+            2
+          ],
+          "doorFacing": "north",
           "roadAnchor": null,
           "nbtResolved": true,
           "source": "content/structures/placeholder/laboratory.nbt"
@@ -8707,7 +8732,8 @@
       "catalog_id": "cobbleventure:shop_catalog/none",
       "vendor_units": [],
       "assignments": []
-    }
+    },
+    "layout_mode": "automatic"
   },
   "npc_placement": {
     "auto_place_npcs": false,
@@ -8742,5 +8768,6 @@
     ]
   },
   "town_footprint_shape": "line_q",
-  "load_order": 1
+  "load_order": 1,
+  "settlement_flags": []
 }

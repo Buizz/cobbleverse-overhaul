@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 /** NeoForge transport for CVES dialogue and structured choice screens. */
 public final class EventDialogueNetwork {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final String VERSION = "4";
+    private static final String VERSION = "5";
     private static final int MAX_JSON_LENGTH = 65_535;
     private static final long DIALOGUE_TIMEOUT_MILLIS = 5L * 60L * 1000L;
 
@@ -88,6 +88,23 @@ public final class EventDialogueNetwork {
         };
     }
 
+    public static EventNumberInputGateway numberInputGateway(ServerPlayer player) {
+        Objects.requireNonNull(player, "player");
+        return request -> {
+            if (!request.sessionKey().playerId().equals(player.getUUID())) {
+                throw new EventRuntimeException("number input player mismatch");
+            }
+            String token = UUID.randomUUID().toString();
+            PacketDistributor.sendToPlayer(player, new NumberInputOpenPayload(
+                token, request.sessionKey().npcId(), request.sessionKey().scriptId(),
+                request.sessionKey().triggerInstance(), request.minimum(), request.maximum()
+            ));
+            return new EventNumberInputGateway.OpenResult(
+                token, System.currentTimeMillis() + DIALOGUE_TIMEOUT_MILLIS
+            );
+        };
+    }
+
     static void setMovementInputLocked(ServerPlayer player, boolean locked) {
         setAwaitInputLocked(player, "movement", locked);
     }
@@ -112,7 +129,10 @@ public final class EventDialogueNetwork {
                     + (command == null ? context.instruction().operation() : command)
             );
         };
-        return new EventAwaitInputLockAdapter(player, new DialogueEventCommandAdapter(
+        return new EventAwaitInputLockAdapter(player, new NumberInputEventCommandAdapter(
+            numberInputGateway(player),
+            environment,
+            new DialogueEventCommandAdapter(
             gateway(player),
             new ChoiceEventCommandAdapter(
                 choiceGateway(player),
@@ -142,7 +162,12 @@ public final class EventDialogueNetwork {
                                                     new GiveLootEventCommandAdapter(
                                                         EventLootGrantBridge.gateway(player),
                                                         environment,
-                                                        new StateEventCommandAdapter(environment, unsupported)
+                                                        new StateEventCommandAdapter(
+                                                            environment,
+                                                            new ServerCommandEventCommandAdapter(
+                                                                player, environment, unsupported
+                                                            )
+                                                        )
                                                     )
                                                 )
                                             )
@@ -154,7 +179,7 @@ public final class EventDialogueNetwork {
                     )
                 )
             )
-        ));
+        )));
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -167,6 +192,10 @@ public final class EventDialogueNetwork {
             EventDialogueNetwork::handleChoiceOpen);
         registrar.playToServer(ChoiceCompletePayload.TYPE, ChoiceCompletePayload.STREAM_CODEC,
             EventDialogueNetwork::handleChoiceComplete);
+        registrar.playToClient(NumberInputOpenPayload.TYPE, NumberInputOpenPayload.STREAM_CODEC,
+            EventDialogueNetwork::handleNumberInputOpen);
+        registrar.playToServer(NumberInputCompletePayload.TYPE, NumberInputCompletePayload.STREAM_CODEC,
+            EventDialogueNetwork::handleNumberInputComplete);
         registrar.playToClient(MovementLockPayload.TYPE, MovementLockPayload.STREAM_CODEC,
             EventDialogueNetwork::handleMovementLock);
         registrar.playToClient(FadePayload.TYPE, FadePayload.STREAM_CODEC,
@@ -179,6 +208,58 @@ public final class EventDialogueNetwork {
 
     private static void handleChoiceOpen(ChoiceOpenPayload payload, IPayloadContext context) {
         EventDialogueClient.openChoice(payload);
+    }
+
+    private static void handleNumberInputOpen(
+        NumberInputOpenPayload payload, IPayloadContext context
+    ) {
+        EventDialogueClient.openNumberInput(payload);
+    }
+
+    private static void handleNumberInputComplete(
+        NumberInputCompletePayload payload, IPayloadContext context
+    ) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        EventSessionKey key = new EventSessionKey(
+            player.getUUID(), payload.npcId(), payload.scriptId(), payload.triggerInstance()
+        );
+        EventScript script = EventScriptRepository.instance().find(payload.scriptId()).orElse(null);
+        if (script == null) return;
+        EventSessionStore store = SavedEventSessionStore.get(player.getServer());
+        EventSession session = store.find(key).orElse(null);
+        if (session == null || session.awaiting() == null
+            || !"number_input".equals(session.awaiting().kind())
+            || !payload.token().equals(session.awaiting().token())) {
+            return;
+        }
+        EventSession.AwaitCompletion completion;
+        if (payload.cancelled()) {
+            completion = new EventSession.AwaitCompletion(
+                EventSession.CompletionKind.CANCELLED, new JsonPrimitive("client_cancelled")
+            );
+        } else {
+            EventScript.Instruction instruction = script.events().get(session.eventIndex())
+                .instruction(session.programCounter());
+            EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
+                new ServerPlayerEventState(player)
+            );
+            NumberInputEventCommandAdapter.Bounds bounds = NumberInputEventCommandAdapter.bounds(
+                instruction, environment, session.locals()
+            );
+            if (!bounds.contains(payload.value())) {
+                LOGGER.warn("Rejected CVES number input outside server bounds: player={}, value={}",
+                    player.getGameProfile().getName(), payload.value());
+                return;
+            }
+            completion = new EventSession.AwaitCompletion(
+                EventSession.CompletionKind.COMPLETED, new JsonPrimitive(payload.value())
+            );
+        }
+        EventAwaitCompletionService.completeAndRun(
+            player.getUUID(), key, payload.token(), completion, script,
+            new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
+            serverAdapter(player), store, 10_000
+        );
     }
 
     private static void handleMovementLock(
@@ -506,6 +587,60 @@ public final class EventDialogueNetwork {
             );
         }
 
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record NumberInputOpenPayload(
+        String token, UUID npcId, String scriptId, String triggerInstance,
+        int minimum, int maximum
+    ) implements CustomPacketPayload {
+        public static final Type<NumberInputOpenPayload> TYPE = new Type<>(id("event_number_input_open"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, NumberInputOpenPayload> STREAM_CODEC =
+            StreamCodec.ofMember(NumberInputOpenPayload::write, NumberInputOpenPayload::read);
+        public NumberInputOpenPayload {
+            if (token == null || token.isBlank() || scriptId == null || scriptId.isBlank()
+                || triggerInstance == null || triggerInstance.isBlank() || minimum > maximum) {
+                throw new IllegalArgumentException("invalid number input payload");
+            }
+            Objects.requireNonNull(npcId, "npcId");
+        }
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(token); buffer.writeUUID(npcId); buffer.writeUtf(scriptId);
+            buffer.writeUtf(triggerInstance); buffer.writeInt(minimum); buffer.writeInt(maximum);
+        }
+        private static NumberInputOpenPayload read(RegistryFriendlyByteBuf buffer) {
+            return new NumberInputOpenPayload(
+                buffer.readUtf(), buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
+                buffer.readInt(), buffer.readInt()
+            );
+        }
+        @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
+    public record NumberInputCompletePayload(
+        String token, UUID npcId, String scriptId, String triggerInstance,
+        int value, boolean cancelled
+    ) implements CustomPacketPayload {
+        public static final Type<NumberInputCompletePayload> TYPE = new Type<>(id("event_number_input_complete"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, NumberInputCompletePayload> STREAM_CODEC =
+            StreamCodec.ofMember(NumberInputCompletePayload::write, NumberInputCompletePayload::read);
+        public NumberInputCompletePayload {
+            if (token == null || token.isBlank() || scriptId == null || scriptId.isBlank()
+                || triggerInstance == null || triggerInstance.isBlank()) {
+                throw new IllegalArgumentException("invalid number input completion");
+            }
+            Objects.requireNonNull(npcId, "npcId");
+        }
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(token); buffer.writeUUID(npcId); buffer.writeUtf(scriptId);
+            buffer.writeUtf(triggerInstance); buffer.writeInt(value); buffer.writeBoolean(cancelled);
+        }
+        private static NumberInputCompletePayload read(RegistryFriendlyByteBuf buffer) {
+            return new NumberInputCompletePayload(
+                buffer.readUtf(), buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
+                buffer.readInt(), buffer.readBoolean()
+            );
+        }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 

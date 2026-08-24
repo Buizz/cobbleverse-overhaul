@@ -13,16 +13,16 @@ import generate_easy_npc_presets as generator  # noqa: E402
 
 
 class KantoGymLeaderTests(unittest.TestCase):
-    def test_trainer_card_appearances_use_rct_0181_texture_ids(self) -> None:
+    def test_trainer_card_appearances_use_bundled_kanto_texture_ids(self) -> None:
         expected = {
-            "brock": "leader_brock_019e",
-            "misty": "leader_misty_019f",
-            "lt_surge": "leader_lt_surge_01a0",
-            "erika": "leader_erika_01a1",
-            "koga": "leader_koga_01a2",
-            "sabrina": "leader_sabrina_01a4",
-            "blaine": "leader_blaine_01a3",
-            "giovanni_gym": "leader_giovanni_015e",
+            "brock": "kanto_brock",
+            "misty": "kanto_misty",
+            "lt_surge": "kanto_ltsurge",
+            "erika": "kanto_erika",
+            "koga": "kanto_koga",
+            "sabrina": "kanto_sabrina",
+            "blaine": "kanto_blaine",
+            "giovanni_gym": "kanto_giovanni",
         }
         league = content_manager.load_json(PROJECT_ROOT / "content/catalogs/league-progression.json")
         leaders = [entry for entry in league["entries"] if entry["role"] == "gym_leader"]
@@ -41,6 +41,45 @@ class KantoGymLeaderTests(unittest.TestCase):
         }
         self.assertEqual(expected, roster_resources)
 
+        texture_root = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources"
+            / "assets/rctmod/textures/trainers/single"
+        )
+        for slug in expected.values():
+            texture = texture_root / f"{slug}.png"
+            with self.subTest(texture=slug):
+                self.assertTrue(texture.is_file())
+                self.assertEqual(b"\x89PNG\r\n\x1a\n", texture.read_bytes()[:8])
+                self.assertEqual(
+                    texture.read_bytes(),
+                    generator.installed_rct_skin(f"rctmod:trainers/single/{slug}"),
+                )
+
+    def test_previous_wrong_skin_uuids_resolve_to_correct_kanto_textures(self) -> None:
+        aliases = {
+            "kanto_brock": "b5891107-35df-5685-8d16-5aedd0b3cc30",
+            "kanto_misty": "b7aecf2d-1e9c-584b-b20f-49b4ee243a3d",
+            "kanto_ltsurge": "2abfe472-1a95-5580-b3f0-9973b6764c21",
+            "kanto_erika": "d1e7710e-509b-58f3-9283-1f42d7c49139",
+            "kanto_koga": "655f39f3-b8d0-56c2-affa-eec25fedb8ca",
+            "kanto_sabrina": "59c1a438-b69f-5fb7-a19d-40b2c13cf7bd",
+            "kanto_blaine": "3be5af91-effa-5abc-ad1c-80cc1e315c0f",
+            "kanto_giovanni": "bbe69b2e-c900-59ac-be96-a99b46202bd3",
+        }
+        texture_root = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources"
+            / "assets/rctmod/textures/trainers/single"
+        )
+        skin_root = (
+            ROOT / "pack/overrides/development-placeholder/config/easy_npc"
+            / "skin/humanoid"
+        )
+        for slug, skin_uuid in aliases.items():
+            with self.subTest(texture=slug):
+                self.assertEqual(
+                    (texture_root / f"{slug}.png").read_bytes(),
+                    (skin_root / f"{skin_uuid}.png").read_bytes(),
+                )
     def test_red_blue_gym_lineups_and_challenge_caps_match_generation_one(self) -> None:
         expected = {
             "brock": (["geodude", "onix"], [12, 14], 14),
@@ -66,8 +105,31 @@ class KantoGymLeaderTests(unittest.TestCase):
             self.assertEqual(species, [member["species"].split(":", 1)[1] for member in battle["team"]])
             self.assertEqual(levels, [member["level"] for member in battle["team"]])
             self.assertEqual(level_cap, entry["level_cap"])
+            self.assertEqual(level_cap * 100, entry["encounter"]["rewards"]["money"])
             self.assertEqual([], battle["bag"])
             self.assertFalse(any(battle["mechanics"].values()))
+
+    def test_generation_one_trainers_prepare_regional_money_rewards(self) -> None:
+        source_root = PROJECT_ROOT / "content/source/generation_1"
+        documents = [
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in sorted(source_root.glob("*.json"))
+        ]
+
+        self.assertEqual(8, len(documents))
+        for document in documents:
+            money = document["npc"]["battle_rewards"]["money"]
+            with self.subTest(trainer=document["id"]):
+                self.assertTrue(money["enabled"])
+                self.assertEqual(
+                    document["placement_profile"]["expected_level"],
+                    money["fallback_region_level"],
+                )
+                self.assertEqual(20, money["per_level"])
+                self.assertEqual(100, money["offset"])
+                self.assertTrue(money["held_item_bonus"])
+                commands = generator.npc_money_reward_commands(document, "@initiator")
+                self.assertEqual(1, len(commands))
 
     def test_catalog_has_exactly_eight_kanto_gyms(self) -> None:
         catalog = content_manager.load_json(PROJECT_ROOT / "content/catalogs/gyms.json")

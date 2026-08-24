@@ -1,0 +1,21 @@
+{
+  "money_chip_values": {
+    "red_chip": 1,
+    "blue_chip": 5,
+    "yellow_chip": 10,
+    "purple_chip": 50,
+    "copper_chip": 100,
+    "iron_chip": 500,
+    "emerald_chip": 1000,
+    "gold_chip": 5000,
+    "diamond_chip": 10000,
+    "netherite_chip": 50000,
+    "black_chip": 100000,
+    "white_chip": 500000,
+    "rainbow_chip": 1000000
+  },
+  "enableMachinesCrafting": false,
+  "enableGachaCurrencyCrafting": false,
+  "makeMachinesUnbreakable": true,
+  "enableChipTableCasinoVillagerConversion": false
+}

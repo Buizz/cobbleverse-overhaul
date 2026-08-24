@@ -415,6 +415,36 @@ class CvesCompilerTests(unittest.TestCase):
         self.assertEqual(labels["routine"], call["target"])
         self.assertEqual(call["address"] + 1, call["return_address"])
 
+    def test_casino_cashier_compiles_bounded_number_input_and_exchange(self) -> None:
+        source = (
+            PROJECT_ROOT
+            / "content/events/cobbleventure/facilities/casino_cashier.cves"
+        )
+        ir = compile_program(
+            parse(source.read_text(encoding="utf-8"), str(source)),
+            "cobbleventure:event_script/facilities/casino_cashier",
+            self.catalog,
+        )
+        instructions = ir["events"][0]["instructions"]
+        number_input = next(
+            value for value in instructions if value.get("command") == "number_input"
+        )
+        exchange = next(
+            value for value in instructions if value.get("command") == "server_command"
+        )
+
+        self.assertTrue(number_input["await"])
+        self.assertEqual("amount", number_input["result"])
+        self.assertEqual(
+            ["min", "max"],
+            [value["name"] for value in number_input["properties"]],
+        )
+        self.assertEqual(
+            "cobbleventure:event_script/facilities/casino_cashier/exchange/perform",
+            exchange["operation_id"],
+        )
+        self.assertEqual("exchanged", exchange["result"])
+
     def test_source_map_changes_do_not_change_canonical_source_digest(self) -> None:
         canonical = compile_program(
             self.program,

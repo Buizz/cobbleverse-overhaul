@@ -35,6 +35,16 @@ build.bat builder-world
 도구와 충돌하므로 나무도끼는 사용하지 않는다. `save`는 NBT와 출입구
 `.structure.json`을 함께 내보낸다.
 
+## 엔티티 내보내기
+
+구조 저장은 일반 몹·NPC·아이템 엔티티를 제외한다. 다음 장식·설비 엔티티만 저장
+범위 안에서 NBT의 `entities` 목록으로 별도 보존하고, 저장 전후 개수를 검증한다.
+
+- Create 엘리베이터 객실과 Super Glue
+- `playingcards` 네임스페이스의 카드, 카드 덱, 포커 칩 엔티티
+
+NPC 링커 표시는 엔티티가 아니라 `.structure.json` 앵커로 저장된다.
+
 ```mcfunction
 /cobbleventure_builder interior create <id> <폭> <깊이> <층높이> <층수>
 /cobbleventure_builder interior list

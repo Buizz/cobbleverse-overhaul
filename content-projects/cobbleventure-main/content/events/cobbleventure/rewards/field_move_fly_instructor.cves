@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/field_move/fly") {
+    say npc {
+      ko_kr: "날씨가 나쁠 때는 무리해서 날지 마."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "하늘길은 빠르지만 출발과 착륙이 중요해. 공중날기 요령을 알려 줄게."
+    }
+    id "grant/field_move" grant_field_move fly -> granted
+    id "grant/state" set_flag "cobbleventure:flag/rewards/field_move/fly" true
+    say npc {
+      ko_kr: "이제 조건이 맞는 곳에서 공중날기를 이용할 수 있어."
+    }
+  }
+}

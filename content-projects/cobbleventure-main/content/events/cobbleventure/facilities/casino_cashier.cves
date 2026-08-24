@@ -1,0 +1,54 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "어서 오세요. 이곳에서는 보유한 돈을 카지노 게임 잔액으로 환전해 드립니다."
+      en_us: "Welcome. Here you can convert your money directly into casino game balance."
+    }
+    if has_item("cobbleventure_casino:coin_case", 1) {
+      choice {
+        ko_kr: "환전은 되돌릴 수 없습니다. 환전하시겠습니까?"
+        en_us: "Exchange cannot be reversed. Would you like to continue?"
+      } {
+        {
+          ko_kr: "환전하기"
+          en_us: "Exchange"
+        } {
+          say npc {
+            ko_kr: "환전할 금액을 입력해 주세요."
+            en_us: "Please enter the amount to exchange."
+          }
+          id "exchange/amount" await number_input {
+            min: 1
+            max: 2000000000
+          } -> amount
+          id "exchange/perform" server_command "cvcasino exchange" amount -> exchanged
+          if exchanged {
+            say npc {
+              ko_kr: "${amount}원을 카지노 잔액으로 넣었습니다. 즐거운 시간 보내세요."
+              en_us: "${amount} has been added to your casino balance. Enjoy."
+            }
+          } else {
+            say npc {
+              ko_kr: "환전하지 못했습니다. 보유 금액과 환전 한도를 확인해 주세요."
+              en_us: "The exchange failed. Check your money and casino balance limit."
+            }
+          }
+        }
+        {
+          ko_kr: "그만두기"
+          en_us: "Cancel"
+        } {
+          say npc {
+            ko_kr: "필요할 때 다시 말씀해 주세요."
+            en_us: "Come back whenever you need me."
+          }
+        }
+      }
+    } else {
+      say npc {
+        ko_kr: "먼저 동전케이스를 준비해 주세요. 동전케이스가 있어야 환전을 이용할 수 있습니다."
+        en_us: "Please bring a Coin Case first. It is required to use the exchange."
+      }
+    }
+  }
+}

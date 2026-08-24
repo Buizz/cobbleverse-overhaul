@@ -23,7 +23,7 @@ AWAIT_COMMANDS = {
     ast.CommandKind.BATTLE, ast.CommandKind.STARTER_ROULETTE,
     ast.CommandKind.MAP_SELECTION, ast.CommandKind.MOVE,
     ast.CommandKind.TELEPORT, ast.CommandKind.ENTER_SPACE,
-    ast.CommandKind.HEAL_PARTY,
+    ast.CommandKind.HEAL_PARTY, ast.CommandKind.NUMBER_INPUT,
 }
 
 PRECEDENCE = {"||": 1, "&&": 2, "==": 3, "!=": 3, "<": 4, "<=": 4, ">": 4, ">=": 4,

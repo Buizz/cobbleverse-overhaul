@@ -270,6 +270,24 @@ class CvesSemanticTests(unittest.TestCase):
         diagnostics = validate(parse(wrong_count, "has-item-count.cves"))
         self.assertTrue(any("has_item 함수 인자 타입" in issue.message for issue in diagnostics))
 
+    def test_unlock_feature_uses_the_runtime_feature_key_enum(self) -> None:
+        source = '''event interact {
+  page default {
+    unlock_feature map
+    unlock_feature settlement_teleport
+    unlock_feature pc
+  }
+}
+'''
+        self.assertEqual((), validate(parse(source, "feature-keys.cves")))
+
+        invalid = source.replace("unlock_feature pc", "unlock_feature bag")
+        diagnostics = validate(parse(invalid, "feature-key-invalid.cves"))
+
+        self.assertEqual(1, len(diagnostics))
+        self.assertIn("map, pc, settlement_teleport 중 하나", diagnostics[0].message)
+
+
     def test_reports_unknown_variable_wrong_filter_and_bad_resource_id(self) -> None:
         source = '''event interact {
   page default {

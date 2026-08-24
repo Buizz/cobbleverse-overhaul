@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"절벽 등반가 EasyNPC 이벤트 NPC",
+    description:"절벽 등반가 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"절벽 등반가",
+    name:"절벽 등반가 [V5]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"절벽 등반가\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"offer",Name:"가파른 벽도 발 디딜 곳은 있어. 락클라임 경로를 찾는 법",Texts:[{Text:"가파른 벽도 발 디딜 곳은 있어. 락클라임 경로를 찾는 법을 알려 주마."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventure_field_move grant @initiator rock_climb",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"set:cvf_aaa9c3722903:1",Type:"SCOREBOARD"},{Cmd:"granted",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"granted",Name:"이제 오를 수 있는 절벽에서 락클라임을 사용할 수 있다.",Texts:[{Text:"이제 오를 수 있는 절벽에서 락클라임을 사용할 수 있다."}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat",Name:"오르기 전에 내려올 길도 먼저 살펴라.",Priority:100,Texts:[{Text:"오르기 전에 내려올 길도 먼저 살펴라."}],Conditions:[{Name:"cvf_aaa9c3722903",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[1.050f,1.050f,1.050f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;1234978516,680352007,-1766197041,-801386515],
+    PresetUUID:[I;-930317303,-709406378,-1628311558,1899278100],
     SkinData:{Type:"CUSTOM",UUID:[I;859317617,2039831162,-1281003781,-453224927] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/rewards/field_move_rock_climb_instructor"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

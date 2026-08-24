@@ -1,29 +1,29 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"오랭열매를 나눠주는 농부 EasyNPC 이벤트 NPC",
+    description:"오랭열매를 나눠주는 농부 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"오랭열매를 나눠주는 농부",
+    name:"오랭열매를 나눠주는 농부 [V5]",
     variantType:"STEVE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{ON_DISTANCE_VERY_CLOSE:[{Type:"OPEN_DEFAULT_DIALOG"}]},ActionPermissionLevel:2},
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
     ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"오랭열매를 나눠주는 농부\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[{Label:"first_greeting",Name:"오늘 수확한 오랭열매야. 모험에 보탬이 될 거야.",Texts:[{Text:"오늘 수확한 오랭열매야. 모험에 보탬이 될 거야."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"/cobbleventurebag acquire @initiator cobblemon:oran_berry 4",Debug:1b,ExecAsUser:0b,PermLevel:2,Type:"COMMAND"},{Cmd:"item_explanation",Type:"OPEN_NAMED_DIALOG"}]}]},{Label:"item_explanation",Name:"방금 준 아이템을 잘 활용해 보세요.",Texts:[{Text:"방금 준 아이템을 잘 활용해 보세요."}],Buttons:[{Label:"continue",Name:"계속",Actions:[{Cmd:"set:cvf_ef0b74e8a059:1",Type:"SCOREBOARD"},{Type:"CLOSE_DIALOG"}]}]},{Label:"repeat_greeting",Name:"열매는 이미 나눠 줬어. 다음 수확 때 다시 보자!",Priority:100,Texts:[{Text:"열매는 이미 나눠 줬어. 다음 수확 때 다시 보자!"}],Conditions:[{Name:"cvf_ef0b74e8a059",Operation:"EQUALS",Type:"SCOREBOARD",Value:1}],Buttons:[{Label:"close",Name:"닫기",Actions:[{Type:"CLOSE_DIALOG"}]}]}],Type:"CUSTOM"},
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
     ModelData:{Root:{Scale:[0.880f,0.880f,0.880f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;1320701247,-168929906,-1855635653,191950510],
+    PresetUUID:[I;-1065137315,-2144183580,-2009370769,1481910204],
     SkinData:{Type:"CUSTOM",UUID:[I;1625847573,1130978256,-1429545841,945721541] },
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"],
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/samples/sample_oran_berry_giver"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"
   }

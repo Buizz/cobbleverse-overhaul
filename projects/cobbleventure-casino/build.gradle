@@ -23,9 +23,15 @@ configurations {
 
 dependencies {
     compileOnly cobblemonBuildDependency
+    compileOnly "curse.maven:cobbledollars-859232:8484919"
+    compileOnly "curse.maven:cobblemon-casino-1572769:8235485"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
     localRuntime cobblemonBuildDependency
     localRuntime "curse.maven:kotlin-for-forge-351264:8335665"
+    localRuntime "curse.maven:cobblemon-casino-1572769:8235485"
+    localRuntime "curse.maven:cobbledollars-859232:8484919"
+    localRuntime "curse.maven:playing-cards-and-chips-1162591:7219926"
+    localRuntime "curse.maven:cloth-config-348521:5729127"
     testImplementation platform('org.junit:junit-bom:5.10.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

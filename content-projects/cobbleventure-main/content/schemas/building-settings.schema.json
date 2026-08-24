@@ -4,78 +4,172 @@
   "title": "Cobbleventure building settings",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "buildings"],
+  "required": [
+    "schema_version",
+    "buildings"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "schema_version": { "const": 1 },
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
     "facility_defaults": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "pokemon_center": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
-        "pokemart": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
-        "department_store": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+        "pokemon_center": {
+          "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+        },
+        "pokemart": {
+          "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+        },
+        "department_store": {
+          "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+        }
       }
     },
     "buildings": {
       "type": "object",
-      "propertyNames": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+      "propertyNames": {
+        "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+      },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["fixed_npcs", "citizen_placement_allowed", "interiors", "door_routes"],
+        "required": [
+          "fixed_npcs",
+          "citizen_placement_allowed",
+          "interiors",
+          "door_routes"
+        ],
         "properties": {
-          "placement_y_offset": { "type": "integer", "minimum": -64, "maximum": 64 },
-          "structure_category": {
-            "enum": ["building", "residential", "gym_exterior", "gym_interior", "interior", "league", "placeholder", "decoration", "natural_feature"]
+          "placement_y_offset": {
+            "type": "integer",
+            "minimum": -64,
+            "maximum": 64
           },
-          "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-          "no_interior_space": { "type": "boolean" },
+          "structure_category": {
+            "enum": [
+              "building",
+              "residential",
+              "gym_exterior",
+              "gym_interior",
+              "interior",
+              "league",
+              "placeholder",
+              "decoration",
+              "natural_feature"
+            ]
+          },
+          "music_track": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.-]+$"
+          },
+          "no_interior_space": {
+            "type": "boolean"
+          },
           "fixed_npcs": {
             "type": "object",
-            "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
-            "additionalProperties": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+            "propertyNames": {
+              "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+            }
           },
           "fixed_pokemon": {
             "type": "object",
             "description": "npc_position 앵커에 배치할 Cobblemon PokemonProperties 문자열",
-            "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
-            "additionalProperties": { "type": "string", "minLength": 1 }
+            "propertyNames": {
+              "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
           },
           "fixed_vendors": {
             "type": "object",
             "description": "npc_position 앵커에 배치할 상점 판매원 ID",
-            "propertyNames": { "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$" },
-            "additionalProperties": { "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+            "propertyNames": {
+              "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+            }
           },
-          "citizen_placement_allowed": { "type": "boolean" },
+          "citizen_placement_allowed": {
+            "type": "boolean"
+          },
           "interiors": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["key", "structure"],
+              "required": [
+                "key",
+                "structure"
+              ],
               "properties": {
-                "key": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
-                "structure": { "pattern": "^[a-z0-9_.-]+:interiors/[a-z0-9_./-]+$" }
+                "key": {
+                  "pattern": "^[a-z0-9][a-z0-9_]*$"
+                },
+                "structure": {
+                  "pattern": "^[a-z0-9_.-]+:interiors/[a-z0-9_./-]+$"
+                }
               }
             }
           },
           "door_routes": {
             "type": "object",
-            "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_]*:[a-z0-9][a-z0-9_]*$" },
+            "propertyNames": {
+              "pattern": "^[a-z0-9][a-z0-9_]*:[a-z0-9][a-z0-9_]*$"
+            },
             "additionalProperties": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["space", "door"],
+              "required": [
+                "space",
+                "door"
+              ],
               "properties": {
-                "space": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
-                "door": { "pattern": "^[a-z0-9][a-z0-9_]*$" },
-                "condition_mode": { "$ref": "player-condition.schema.json#/$defs/mode" },
-                "conditions": { "$ref": "player-condition.schema.json#/$defs/condition_list" },
-                "locked_dialogue": { "type": "array", "items": { "type": "string" } },
-                "enter_dialogue": { "type": "array", "items": { "type": "string" } }
+                "space": {
+                  "pattern": "^[a-z0-9][a-z0-9_]*$"
+                },
+                "door": {
+                  "pattern": "^[a-z0-9][a-z0-9_]*$"
+                },
+                "condition_mode": {
+                  "$ref": "player-condition.schema.json#/$defs/mode"
+                },
+                "conditions": {
+                  "$ref": "player-condition.schema.json#/$defs/condition_list"
+                },
+                "locked_dialogue": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "enter_dialogue": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
               }
+            }
+          },
+          "fixed_gacha_machines": {
+            "type": "object",
+            "description": "npc_position 앵커에 배치할 Cobbleventure 가챠 기계 프로필 ID",
+            "propertyNames": {
+              "pattern": "^(?:[a-z0-9][a-z0-9_]*:)?[a-z0-9][a-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
             }
           }
         }

@@ -23,7 +23,7 @@ const structureViewPitch = {
 
 const state = {
   project: null,
-  trainers: [], battles: [], routes: [], settlements: [], caves: [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, forest: null, settlementOrderSaving: false,
+  trainers: [], battles: [], routes: [], settlements: [], caves: [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -58,7 +58,7 @@ const state = {
   structureBuilder: null,
   dialogueTheme: null,
   casinoConfig: { loaded: false, root: "", files: [], selectedPath: "", poolByPath: {}, query: "" },
-  gachaMachines: { loaded: false, schema_version: 1, machines: [], selectedId: "", selectedRarity: "", dirty: false },
+  gachaMachines: { loaded: false, schema_version: 3, tickets: {}, reward_catalog: [], casino_sets: [], machines: [], selectedId: "", selectedRarity: "", catalogQuery: "", dirty: false },
   starterSettings: { initialized: false, loaded: false, selectedGeneration: 1, defaultGeneration: 1, configs: [], settlementDocuments: new Map(), requestId: 0 }
 };
 const lazyDataLoaded = { trainers: false, biomes: false, structures: false, buildingSettings: false, definitions: false, economy: false };
@@ -1119,7 +1119,10 @@ async function loadBiomeData(force = false) {
 
 async function loadStructureData(force = false) {
   if (lazyDataLoaded.structures && !force) return;
-  if (lazyDataPromises.structures) return lazyDataPromises.structures;
+  if (lazyDataPromises.structures) {
+    await lazyDataPromises.structures;
+    if (!force) return;
+  }
   if ($("#nbt-structure-count")) $("#nbt-structure-count").textContent = "불러오는 중";
   if ($("#nbt-structure-list")) $("#nbt-structure-list").innerHTML = '<div class="issues empty">NBT 목록을 필요한 시점에 불러오고 있습니다.</div>';
   lazyDataPromises.structures = (async () => {
@@ -1312,6 +1315,10 @@ async function saveDialogueTheme() {
   toast(result.ok ? "전역 대화 테마를 저장했습니다." : "대화 테마 값을 확인해 주세요.");
 }
 
+function selectedGachaSet() {
+  return (state.gachaMachines.casino_sets || []).find((entry) => Object.values(entry.machines || {}).includes(state.gachaMachines.selectedId)) || null;
+}
+
 function selectedGachaMachine() {
   return state.gachaMachines.machines.find((machine) => machine.id === state.gachaMachines.selectedId) || null;
 }
@@ -1333,24 +1340,37 @@ function gachaField(label, path, value, options = {}) {
 function renderGachaMachines() {
   const workspace = state.gachaMachines;
   const machine = selectedGachaMachine();
-  $("#gacha-machine-list").innerHTML = workspace.machines.length ? workspace.machines.map((entry) => `
-    <button class="gacha-machine-card${entry.id === workspace.selectedId ? " is-active" : ""}" type="button" data-gacha-select="${escapeHtml(entry.id)}"><strong>${escapeHtml(entry.display_name)}</strong><i class="${entry.enabled ? "enabled" : ""}"></i><code>${escapeHtml(entry.id)}</code></button>`).join("") : '<div class="issues empty">등록된 기계가 없습니다.</div>';
-  if (!machine) {
-    $("#gacha-machine-editor").innerHTML = '<div class="issues empty">기계를 추가하거나 선택하세요.</div>';
+  const casinoSet = selectedGachaSet();
+  const ticket = machine ? workspace.tickets?.[machine.machine_type] : null;
+  const typeLabels = { pokemon:"포켓몬", item:"아이템", technical_machine:"기술머신" };
+  $("#gacha-machine-list").innerHTML = (workspace.casino_sets || []).length ? workspace.casino_sets.map((set) => `
+    <section class="gacha-editor-section"><header><strong>${escapeHtml(set.display_name)}</strong><code>${escapeHtml(set.id)}</code></header>
+      ${["pokemon","item","technical_machine"].map((type) => { const entry = workspace.machines.find((item) => item.id === set.machines?.[type]); return entry ? `<button class="gacha-machine-card${entry.id === workspace.selectedId ? " is-active" : ""}" type="button" data-gacha-select="${escapeHtml(entry.id)}"><strong>${typeLabels[type]} · ${escapeHtml(entry.display_name)}</strong><i class="${entry.enabled ? "enabled" : ""}"></i><code>${escapeHtml(entry.id)}</code></button>` : ""; }).join("")}
+    </section>`).join("") : '<div class="issues empty">등록된 카지노 세트가 없습니다.</div>';
+  if (!machine || !casinoSet || !ticket) {
+    $("#gacha-machine-editor").innerHTML = '<div class="issues empty">카지노 세트를 추가하거나 기계를 선택하세요.</div>';
     return;
   }
   const rarity = selectedGachaRarity(machine);
   const rarityOptions = (machine.rarities || []).map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} (${escapeHtml(entry.id)})</option>`).join("");
   const rewards = rarity?.rewards || [];
+  const catalogQuery = (workspace.catalogQuery || "").trim().toLowerCase();
+  const catalogEntries = (workspace.reward_catalog || []).map((entry, index) => ({entry,index})).filter(({entry}) => entry.machine_type === machine.machine_type && (!catalogQuery || `${entry.id} ${entry.display_name} ${entry.value}`.toLowerCase().includes(catalogQuery)));
   $("#gacha-machine-editor").innerHTML = `
-    <section class="gacha-editor-section"><header><h4>기계 기본 정보</h4><button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-machine>기계 삭제</button></header><div class="gacha-field-grid">
-      ${gachaField("기계 프로필 ID", "id", machine.id, { readonly:true, wide:true })}${gachaField("표시 이름", "display_name", machine.display_name)}${gachaField("천장 공유 그룹", "pity_group", machine.pity_group)}${gachaField("사용", "enabled", machine.enabled, { type:"checkbox" })}
+    <section class="gacha-editor-section"><header><h4>카지노 세트</h4><button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-set>세트 삭제</button></header><div class="gacha-field-grid"><label class="wide"><span>세트 표시 이름</span><input data-gacha-set-name value="${escapeHtml(casinoSet.display_name)}"></label><label class="wide"><span>세트 ID</span><input value="${escapeHtml(casinoSet.id)}" readonly></label></div></section>
+    <section class="gacha-editor-section"><header><h4>${typeLabels[machine.machine_type]} 기계 설정</h4></header><div class="gacha-field-grid">
+      ${gachaField("기계 프로필 ID", "id", machine.id, { readonly:true, wide:true })}${gachaField("표시 이름", "display_name", machine.display_name)}<label><span>기계 종류</span><input value="${typeLabels[machine.machine_type]}" readonly></label>${gachaField("천장 공유 그룹", "pity_group", machine.pity_group)}${gachaField("사용", "enabled", machine.enabled, { type:"checkbox" })}
     </div></section>
     <section class="gacha-editor-section"><header><h4>기계 외형</h4><small>등록된 Minecraft 블록을 조합해 게임에서 즉시 렌더링합니다.</small></header><div class="gacha-field-grid">
       ${gachaField("본체 블록", "appearance/base_block", machine.appearance.base_block)}${gachaField("강조 블록", "appearance/accent_block", machine.appearance.accent_block)}${gachaField("전체 크기", "appearance/scale", machine.appearance.scale, {type:"number",min:.25,max:2,step:.05})}
       ${gachaField("강조 크기", "appearance/accent_scale", machine.appearance.accent_scale, {type:"number",min:.1,max:1.5,step:.05})}${gachaField("강조 높이", "appearance/accent_height", machine.appearance.accent_height, {type:"number",min:0,max:2,step:.05})}${gachaField("회전 각도", "appearance/rotation_degrees", machine.appearance.rotation_degrees, {type:"number",min:-360,max:360,step:15})}${gachaField("이름표 표시", "appearance/show_nameplate", machine.appearance.show_nameplate, {type:"checkbox"})}
     </div></section>
-    <section class="gacha-editor-section"><header><h4>이용 화폐</h4></header><div class="gacha-field-grid">${gachaField("아이템 ID", "currency/item", machine.currency.item, {wide:true})}${gachaField("1회당 수량", "currency/count", machine.currency.count, {type:"number",min:1,step:1})}</div></section>
+    <section class="gacha-editor-section"><header><h4>${typeLabels[machine.machine_type]} 공통 티켓</h4><small>모든 카지노의 같은 종류 기계에서 공통으로 사용됩니다. 카지노마다 달라지는 것은 보상 풀과 외형입니다.</small></header><div class="gacha-field-grid"><label class="wide"><span>티켓 이름</span><input data-gacha-ticket-path="display_name" value="${escapeHtml(ticket.display_name)}"></label><label><span>티켓 1장 가격</span><input type="number" min="1" data-gacha-ticket-path="price" value="${ticket.price}"></label><label><span>최소 구매 수량</span><input type="number" min="1" data-gacha-ticket-path="purchase_min" value="${ticket.purchase_min}"></label><label><span>최대 구매 수량</span><input type="number" min="1" max="6400" data-gacha-ticket-path="purchase_max" value="${ticket.purchase_max}"></label></div></section>
+    <section class="gacha-editor-section"><header><div><h4>${typeLabels[machine.machine_type]} 가챠 상품 카탈로그</h4><small>상품을 한 번 등록한 뒤 각 카지노의 희귀도 풀에 복사해 넣습니다.</small></div><button class="button secondary" type="button" data-gacha-add-catalog>＋ 상품</button></header>
+      <label class="gacha-catalog-search"><span>상품 검색</span><input data-gacha-catalog-query value="${escapeHtml(workspace.catalogQuery || "")}" placeholder="이름, ID, 아이템 또는 포켓몬"></label>
+      <div class="gacha-catalog-table"><div class="gacha-catalog-row head"><span>카탈로그 ID</span><span>표시 이름</span><span>종류</span><span>아이템 ID / PokemonProperties</span><span>수량</span><span></span><span></span></div>${catalogEntries.map(({entry,index}) => `<div class="gacha-catalog-row" data-gacha-catalog-index="${index}"><input data-gacha-catalog="id" value="${escapeHtml(entry.id)}"><input data-gacha-catalog="display_name" value="${escapeHtml(entry.display_name)}"><select data-gacha-catalog="kind"><option value="item" ${entry.kind === "item" ? "selected" : ""}>아이템</option><option value="pokemon" ${entry.kind === "pokemon" ? "selected" : ""}>포켓몬</option></select><input data-gacha-catalog="value" value="${escapeHtml(entry.value)}"><input type="number" min="1" data-gacha-catalog="count" value="${entry.count}"><button class="button secondary" type="button" data-gacha-use-catalog="${index}" ${rarity ? "" : "disabled"}>현재 풀에 추가</button><button type="button" class="casino-row-remove" data-gacha-delete-catalog="${index}">×</button></div>`).join("")}</div>
+      ${catalogEntries.length ? "" : '<div class="issues empty">현재 기계 종류에 등록된 상품이 없습니다.</div>'}
+    </section>
     <section class="gacha-editor-section"><header><h4>희귀도 · 보상 풀</h4><button class="button secondary" type="button" data-gacha-add-rarity>＋ 희귀도</button></header>
       <div class="gacha-rarity-tabs">${(machine.rarities || []).map((entry) => `<button type="button" class="${entry.id === workspace.selectedRarity ? "is-active" : ""}" data-gacha-rarity="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} · ${entry.weight}</button>`).join("")}</div>
       ${rarity ? `<div class="gacha-field-grid">${gachaField("희귀도 ID", "rarity/id", rarity.id, {readonly:true})}${gachaField("표시 이름", "rarity/display_name", rarity.display_name)}${gachaField("등장 가중치", "rarity/weight", rarity.weight, {type:"number",min:.01,step:.01})}</div>
@@ -1371,7 +1391,7 @@ async function loadGachaMachines(force = false) {
   if (state.gachaMachines.loaded && !force) { renderGachaMachines(); return; }
   const result = await request("/api/gacha-machines");
   if (!result.ok) throw new Error(result.data.error || "가챠 기계 설정을 불러오지 못했습니다.");
-  state.gachaMachines = { ...result.data, loaded:true, selectedId:state.gachaMachines.selectedId, selectedRarity:"", dirty:false };
+  state.gachaMachines = { ...result.data, reward_catalog:result.data.reward_catalog || [], loaded:true, selectedId:state.gachaMachines.selectedId, selectedRarity:"", catalogQuery:"", dirty:false };
   if (!state.gachaMachines.machines.some((machine) => machine.id === state.gachaMachines.selectedId)) state.gachaMachines.selectedId = state.gachaMachines.machines[0]?.id || "";
   renderGachaMachines();
   $("#gacha-machine-issues").className = "issues empty";
@@ -1379,35 +1399,61 @@ async function loadGachaMachines(force = false) {
 }
 
 async function saveGachaMachines() {
-  const payload = { "$schema":"../schemas/gacha-machines.schema.json", schema_version:1, machines:state.gachaMachines.machines };
+  const payload = { "$schema":"../schemas/gacha-machines.schema.json", schema_version:3, tickets:state.gachaMachines.tickets, reward_catalog:state.gachaMachines.reward_catalog, casino_sets:state.gachaMachines.casino_sets, machines:state.gachaMachines.machines };
   const result = await request("/api/gacha-machines", { method:"PUT", body:JSON.stringify(payload) });
   showIssues("#gacha-machine-issues", result.data);
   if (result.ok) state.gachaMachines.dirty = false;
   toast(result.ok ? "가챠 기계 설정을 저장했습니다." : result.data.error || "기계 설정을 확인해 주세요.");
 }
 
-function addGachaMachine() {
-  let number = 1, id;
-  do id = `cobbleventure:gacha_machine_${String(number++).padStart(2, "0")}`; while (state.gachaMachines.machines.some((machine) => machine.id === id));
-  state.gachaMachines.machines.push({ id, display_name:"새 가챠 기계", enabled:true, pity_group:id.split(":")[1], appearance:{base_block:"minecraft:iron_block",accent_block:"minecraft:glass",scale:1,accent_scale:.45,accent_height:.78,rotation_degrees:0,show_nameplate:true}, currency:{item:"cobblemoncasino:copper_coin",count:1}, rarities:[{id:"common",display_name:"일반",weight:100,rewards:[{id:"sample_reward",kind:"item",value:"minecraft:diamond",count:1,weight:1,selectable:true}]}], pity:{soft:{enabled:false,start:30,max_at:60,target_rarity:"common",max_chance:.25},hard:{enabled:false,count:80,target_rarity:"common"},selection:{enabled:false,points_per_pull:1,required_points:100}} });
-  state.gachaMachines.selectedId = id; state.gachaMachines.selectedRarity = "common"; state.gachaMachines.dirty = true; renderGachaMachines();
+function newCasinoGachaMachine(id, type, setSlug) {
+  const samples = {
+    pokemon:{id:"sample_pokemon",kind:"pokemon",value:"pikachu level=15"},
+    item:{id:"sample_item",kind:"item",value:"cobblemon:poke_ball"},
+    technical_machine:{id:"sample_tm",kind:"item",value:"tmcraft:tm_protect"}
+  };
+  const labels = {pokemon:"포켓몬 가챠",item:"아이템 가챠",technical_machine:"기술머신 가챠"};
+  const reward = samples[type];
+  return { id, display_name:labels[type], machine_type:type, enabled:true, pity_group:`${setSlug}/${type}`, appearance:{base_block:"minecraft:iron_block",accent_block:"minecraft:glass",scale:1,accent_scale:.45,accent_height:.78,rotation_degrees:0,show_nameplate:true}, rarities:[{id:"common",display_name:"일반",weight:100,rewards:[{...reward,count:1,weight:1,selectable:false}]}], pity:{soft:{enabled:false,start:30,max_at:60,target_rarity:"common",max_chance:.25},hard:{enabled:false,count:80,target_rarity:"common"},selection:{enabled:false,points_per_pull:1,required_points:100}} };
+}
+
+function addGachaSet() {
+  let number=1, slug, setId;
+  do { slug=`casino_${String(number++).padStart(2,"0")}`; setId=`cobbleventure:casino/${slug}`; } while ((state.gachaMachines.casino_sets || []).some((entry)=>entry.id===setId));
+  const ids={pokemon:`cobbleventure:${slug}_pokemon_gacha`,item:`cobbleventure:${slug}_item_gacha`,technical_machine:`cobbleventure:${slug}_technical_machine_gacha`};
+  state.gachaMachines.casino_sets.push({id:setId,display_name:`새 카지노 ${number-1}`,machines:ids});
+  for (const type of ["pokemon","item","technical_machine"]) state.gachaMachines.machines.push(newCasinoGachaMachine(ids[type],type,slug));
+  state.gachaMachines.selectedId=ids.pokemon; state.gachaMachines.selectedRarity="common"; state.gachaMachines.dirty=true; renderGachaMachines();
 }
 
 function handleGachaMachineClick(event) {
   const select = event.target.closest("[data-gacha-select]"); if (select) { state.gachaMachines.selectedId = select.dataset.gachaSelect; state.gachaMachines.selectedRarity = ""; renderGachaMachines(); return; }
   const rarityButton = event.target.closest("[data-gacha-rarity]"); if (rarityButton) { state.gachaMachines.selectedRarity = rarityButton.dataset.gachaRarity; renderGachaMachines(); return; }
   const machine = selectedGachaMachine(); if (!machine) return;
-  if (event.target.closest("[data-gacha-delete-machine]")) { if (confirm(`${machine.display_name} 기계를 삭제할까요?`)) { state.gachaMachines.machines = state.gachaMachines.machines.filter((entry) => entry !== machine); state.gachaMachines.selectedId = state.gachaMachines.machines[0]?.id || ""; state.gachaMachines.selectedRarity = ""; state.gachaMachines.dirty = true; renderGachaMachines(); } return; }
-  if (event.target.closest("[data-gacha-add-rarity]")) { let n=1,id; do id=`rarity_${n++}`; while (machine.rarities.some((entry)=>entry.id===id)); machine.rarities.push({id,display_name:"새 희귀도",weight:1,rewards:[{id:`${id}_reward`,kind:"item",value:"minecraft:diamond",count:1,weight:1,selectable:false}]}); state.gachaMachines.selectedRarity=id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  if (event.target.closest("[data-gacha-add-catalog]")) { let n=1,id; const ids=new Set((state.gachaMachines.reward_catalog || []).map((entry)=>entry.id)); do id=`catalog_${n++}`; while(ids.has(id)); state.gachaMachines.reward_catalog.push({id,display_name:"새 가챠 상품",machine_type:machine.machine_type,kind:machine.machine_type === "pokemon" ? "pokemon" : "item",value:machine.machine_type === "pokemon" ? "pikachu level=15" : machine.machine_type === "technical_machine" ? "tmcraft:tm_protect" : "minecraft:diamond",count:1}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const deleteCatalog=event.target.closest("[data-gacha-delete-catalog]"); if (deleteCatalog) { state.gachaMachines.reward_catalog.splice(Number(deleteCatalog.dataset.gachaDeleteCatalog),1); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const useCatalog=event.target.closest("[data-gacha-use-catalog]"); if (useCatalog) { const rarity=selectedGachaRarity(machine), entry=state.gachaMachines.reward_catalog[Number(useCatalog.dataset.gachaUseCatalog)]; if (!rarity || !entry) return; const ids=new Set(machine.rarities.flatMap((pool)=>pool.rewards.map((reward)=>reward.id))); let id=entry.id,n=2; while(ids.has(id)) id=`${entry.id}_${n++}`; rarity.rewards.push({id,kind:entry.kind,value:entry.value,count:entry.count,weight:1,selectable:false}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  if (event.target.closest("[data-gacha-delete-set]")) { const casinoSet=selectedGachaSet(); if (casinoSet && confirm(`${casinoSet.display_name} 세트와 3개 기계를 삭제할까요?`)) { const ids=new Set(Object.values(casinoSet.machines)); state.gachaMachines.casino_sets=state.gachaMachines.casino_sets.filter((entry)=>entry!==casinoSet); state.gachaMachines.machines=state.gachaMachines.machines.filter((entry)=>!ids.has(entry.id)); state.gachaMachines.selectedId=state.gachaMachines.casino_sets[0]?.machines?.pokemon || ""; state.gachaMachines.selectedRarity=""; state.gachaMachines.dirty=true; renderGachaMachines(); } return; }
+  if (event.target.closest("[data-gacha-add-rarity]")) { let n=1,id; do id=`rarity_${n++}`; while (machine.rarities.some((entry)=>entry.id===id)); machine.rarities.push({id,display_name:"새 희귀도",weight:1,rewards:[{id:`${id}_reward`,kind:machine.machine_type === "pokemon" ? "pokemon" : "item",value:machine.machine_type === "pokemon" ? "pikachu level=15" : machine.machine_type === "technical_machine" ? "tmcraft:tm_protect" : "minecraft:diamond",count:1,weight:1,selectable:false}]}); state.gachaMachines.selectedRarity=id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
   const rarity = selectedGachaRarity(machine); if (!rarity) return;
   if (event.target.closest("[data-gacha-delete-rarity]")) { if (machine.rarities.length <= 1) return toast("희귀도는 하나 이상 필요합니다."); machine.rarities = machine.rarities.filter((entry)=>entry!==rarity); state.gachaMachines.selectedRarity=machine.rarities[0].id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
-  if (event.target.closest("[data-gacha-add-reward]")) { let n=1,id; const ids=new Set(machine.rarities.flatMap((entry)=>entry.rewards.map((reward)=>reward.id))); do id=`reward_${n++}`; while(ids.has(id)); rarity.rewards.push({id,kind:"item",value:"minecraft:diamond",count:1,weight:1,selectable:false}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  if (event.target.closest("[data-gacha-add-reward]")) { let n=1,id; const ids=new Set(machine.rarities.flatMap((entry)=>entry.rewards.map((reward)=>reward.id))); do id=`reward_${n++}`; while(ids.has(id)); rarity.rewards.push({id,kind:machine.machine_type === "pokemon" ? "pokemon" : "item",value:machine.machine_type === "pokemon" ? "pikachu level=15" : machine.machine_type === "technical_machine" ? "tmcraft:tm_protect" : "minecraft:diamond",count:1,weight:1,selectable:false}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
   const remove = event.target.closest("[data-gacha-delete-reward]"); if (remove) { if (rarity.rewards.length <= 1) return toast("각 희귀도에는 보상이 하나 이상 필요합니다."); rarity.rewards.splice(Number(remove.dataset.gachaDeleteReward),1); state.gachaMachines.dirty=true; renderGachaMachines(); }
 }
 
 function updateGachaMachineField(event) {
   const machine = selectedGachaMachine(); if (!machine) return;
   const input = event.target;
+  if (input.dataset.gachaCatalogQuery != null) { state.gachaMachines.catalogQuery=input.value; renderGachaMachines(); const search=$("[data-gacha-catalog-query]"); if (search) { search.focus(); search.setSelectionRange(search.value.length,search.value.length); } return; }
+  if (input.dataset.gachaCatalog) { const row=input.closest("[data-gacha-catalog-index]"), entry=state.gachaMachines.reward_catalog[Number(row?.dataset.gachaCatalogIndex)]; if (!entry) return; entry[input.dataset.gachaCatalog]=input.type === "number" ? Number(input.value) : input.value; entry.machine_type=machine.machine_type; state.gachaMachines.dirty=true; return; }
+  if (input.dataset.gachaSetName != null) {
+    const casinoSet=selectedGachaSet(); if (casinoSet) casinoSet.display_name=input.value; state.gachaMachines.dirty=true;
+    if (event.type === "change") renderGachaMachines(); return;
+  }
+  if (input.dataset.gachaTicketPath) {
+    const ticket=state.gachaMachines.tickets?.[machine.machine_type]; if (!ticket) return;
+    ticket[input.dataset.gachaTicketPath]=input.type === "number" ? Number(input.value) : input.value; state.gachaMachines.dirty=true; return;
+  }
   if (input.dataset.gachaPath) {
     if (input.dataset.gachaPath === "id") return;
     const value = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
@@ -1770,8 +1816,7 @@ function worldSettlementOptions(selected) {
 }
 function easyNpcPresetResource(npcId) {
   const slug = String(npcId || "").split("/").at(-1);
-  const v5 = state.trainers.find((trainer) => trainer.id === npcId)?.event_engine === "cves_v5";
-  return slug ? `easy_npc:preset/encounter/${slug}${v5 ? "__v5" : ""}.npc.snbt` : "";
+  return slug ? `easy_npc:preset/encounter/${slug}.npc.snbt` : "";
 }
 function worldGatekeeperOptions(selected = "") {
   const options = state.trainers.map((trainer) => {
@@ -4111,8 +4156,9 @@ function renderList(category) {
   if (!items.length) { list.innerHTML = '<div class="issues empty">등록된 문서가 없습니다.</div>'; return; }
   if (category === "settlements") {
     const orderSaving = state.settlementOrderSaving;
+    const selectedPath = state.settlementLoading.path || state.settlementPath;
     list.innerHTML = items.map((item, index) => `
-      <article class="document-button settlement-order-row ${state.settlementPath === item.path ? "is-active" : ""}">
+      <article class="document-button settlement-order-row ${selectedPath === item.path ? "is-active" : ""}${state.settlementLoading.path === item.path ? " is-loading" : ""}">
         <button type="button" class="settlement-order-select" data-path="${escapeHtml(item.path)}">
           <span class="settlement-order-index">${String(index + 1).padStart(2, "0")}</span>
           <span><strong>${escapeHtml(item.name || item.id || "이름 없음")}</strong><small>${escapeHtml(item.id || item.path)}</small></span>
@@ -4159,10 +4205,46 @@ async function moveSettlementPreset(path, delta) {
   toast("마을 편집 순서와 인게임 로드 순서를 저장했습니다.");
 }
 
+function showSettlementLoading(path) {
+  const item = state.settlements.find((entry) => entry.path === path);
+  const name = item?.name || item?.id || "마을";
+  const editor = $("#selected-settlement-editor");
+  const loading = $("#settlement-loading-state");
+  editor.classList.add("is-loading");
+  editor.setAttribute("aria-busy", "true");
+  loading.hidden = false;
+  $("#settlement-loading-title").textContent = `${name} 불러오는 중…`;
+  $("#settlement-loading-detail").textContent = "마을 설정과 NBT 배치를 읽고 생성 미리보기를 계산하고 있습니다.";
+  $("#settlement-editor-title").textContent = `${name} 불러오는 중…`;
+  $("#settlement-path").textContent = path;
+}
+
+function finishSettlementLoading(requestId) {
+  if (requestId !== state.settlementLoading.requestId) return;
+  state.settlementLoading.path = "";
+  const editor = $("#selected-settlement-editor");
+  editor.classList.remove("is-loading");
+  editor.setAttribute("aria-busy", "false");
+  $("#settlement-loading-state").hidden = true;
+  renderList("settlements");
+}
+
 async function loadDocument(category, path) {
   const singular = documentSingular(category);
+  const settlementRequestId = category === "settlements"
+    ? ++state.settlementLoading.requestId : 0;
+  if (category === "settlements") {
+    state.settlementLoading.path = path;
+    renderList(category);
+    showSettlementLoading(path);
+  }
   const result = await request(`/api/${category}?path=${encodeURIComponent(path)}`);
-  if (!result.ok) { toast(result.data.error || "문서를 불러오지 못했습니다."); return; }
+  if (category === "settlements" && settlementRequestId !== state.settlementLoading.requestId) return;
+  if (!result.ok) {
+    toast(result.data.error || "문서를 불러오지 못했습니다.");
+    if (category === "settlements") finishSettlementLoading(settlementRequestId);
+    return;
+  }
   if (category === "battles") {
     state.battlePreset = result.data.document;
     state.battlePath = result.data.path;
@@ -4194,7 +4276,8 @@ async function loadDocument(category, path) {
   else if (category === "routes") renderRoutePreset();
   else if (category === "caves") renderCave();
   else if (category === "forests") renderForest();
-  else renderSettlement();
+  else await renderSettlement();
+  if (category === "settlements") finishSettlementLoading(settlementRequestId);
 }
 
 function routeNpcOptions(selected = "") {
@@ -5834,8 +5917,7 @@ function renderTrainer() {
   setFormValue(form, "rewardItem", fixedReward.item);
   setFormValue(form, "rewardItemCount", fixedReward.count);
   setFormValue(form, "rewardLootTable", itemReward.loot_table || "cobbleventure:trainer/rewards");
-  const v5Runtime = document.event_runtime?.engine === "cves_v5";
-  setFormValue(form, "spawnCommand", `/easy_npc preset import_new data easy_npc:preset/encounter/${document.id.split("/").at(-1)}${v5Runtime ? "__v5" : ""}.npc.snbt ~ ~ ~`);
+  setFormValue(form, "spawnCommand", `/easy_npc preset import_new data easy_npc:preset/encounter/${document.id.split("/").at(-1)}.npc.snbt ~ ~ ~`);
   renderTrainerRewardFields(form);
   $("#max-item-uses").value = Number.isInteger(battle.rules?.max_item_uses)
     ? battle.rules.max_item_uses
@@ -6074,10 +6156,10 @@ function expectedNpcCves() {
 }
 
 function renderEventRuntime() {
-  const engine = state.trainer?.event_runtime?.engine || "easy_npc_v4";
+  const engine = state.trainer?.event_runtime?.engine || "cves_v5";
   const expected = expectedNpcCves();
   $("#event-runtime-engine").value = engine;
-  $("#event-runtime-engine").disabled = false;
+  $("#event-runtime-engine").disabled = true;
   $("#event-script-link").hidden = engine !== "cves_v5";
   $("#event-script-id").value = state.trainer?.event_runtime?.script_id || expected.scriptId;
   $("#open-cves-event").disabled = engine !== "cves_v5" || !expected.path;
@@ -6090,10 +6172,12 @@ function renderEventRuntime() {
     ? "사용자 정의 CVES입니다. NPC 행동 프리셋을 저장해도 이 트리를 덮어쓰지 않습니다."
     : "행동 프리셋 관리 이벤트입니다. 직접 수정하려면 먼저 사용자 정의로 전환하세요.";
   $("#event-runtime-help").textContent = engine === "cves_v5"
-    ? "NPC 설정의 행동 프리셋을 AST로 변환해 CVES와 바인딩을 자동 저장합니다."
-    : "V4 원본과 프리셋은 전환 기간 동안 그대로 보존합니다.";
+    ? "행동 프리셋은 AST로 변환해 CVES와 바인딩을 자동 저장하며, 사용자 정의 이벤트도 같은 V5 런타임을 사용합니다."
+    : "레거시 V4 문서는 읽기와 기존 월드 호환만 지원합니다. 새 NPC는 V5로 작성해야 합니다.";
+  const legacyOption = $("#event-runtime-engine").querySelector('option[value="easy_npc_v4"]');
+  if (legacyOption) legacyOption.hidden = engine !== "easy_npc_v4";
   const directOption = $("#event-design-mode").querySelector('option[value="easy_npc_events"]');
-  if (directOption) directOption.disabled = engine === "cves_v5";
+  if (directOption) { directOption.disabled = true; directOption.hidden = engine !== "easy_npc_v4"; }
 }
 
 function changeEventRuntimeEngine() {
@@ -11621,7 +11705,11 @@ function villageCompiledPreview(compiledLayout, layoutCells, requirements) {
     plot(item, "facility", villageCompiledFacilityLabel(item.id, requirements))
   );
   const houses = (compiledLayout.houses || []).map((item, index) =>
-    plot(item, "house", `기본 건물 ${index + 1}`)
+    plot(
+      item,
+      "house",
+      `${houseBaseCatalog.find((entry) => entry.id === item.base)?.label || item.base || `주택 ${index + 1}`} · ${houseRoofCatalog.find((entry) => entry.id === item.roof)?.label || item.roof || "NBT"}`
+    )
   );
   return {
     roads: compiledLayout.roads || [],
@@ -12258,7 +12346,7 @@ function ensureSettlementLayoutControls(form) {
   }
 }
 
-function renderSettlement() {
+async function renderSettlement() {
   const document = state.settlement;
   const form = $("#settlement-form");
   ensureSettlementLayoutControls(form);
@@ -12344,7 +12432,7 @@ function renderSettlement() {
   renderSharedTrainerPopulation("settlement");
   [...form.elements].forEach((element) => element.disabled = false);
   updateFacilityFormState(normalizeTownFootprintShape(document.town_footprint_shape));
-  renderVillageGenerationTest();
+  await renderVillageGenerationTest();
   renderTrainerSlots();
   renderSettlementAutoNpcPreview();
   $("#settlement-json").value = JSON.stringify(document, null, 2);
@@ -13708,7 +13796,7 @@ async function importStructureBuilder() {
     $("#building-search").value = "";
     $("#building-category").value = "all";
     updateProjectLoading("3/3 · NBT 목록과 3D 미리보기를 다시 불러오고 있습니다…");
-    await loadBuildingSettingsData(true);
+    await Promise.all([loadStructureData(true), loadBuildingSettingsData(true)]);
     switchPage("structures");
     const entries = buildingEntries();
     const preferred = entries.some(([id]) => id === state.buildingSettings.selected)
@@ -13791,7 +13879,7 @@ async function refreshAll(showLoadingOverlay = true) {
   $("#server-label").textContent = "프로젝트 데이터 로드 중";
   const dashboardPromise = loadDashboard();
   const listsPromise = loadLists();
-  const nbtPromise = Promise.all([loadStructureData(), loadBuildingSettingsData()]);
+  const nbtPromise = Promise.all([loadStructureData(true), loadBuildingSettingsData(true)]);
   listsPromise.then(() => {
     $("#server-dot").classList.add("online");
     $("#server-label").textContent = "기본 데이터 로드됨 · NBT 준비 중";
@@ -13917,7 +14005,7 @@ $("#reset-casino-config").addEventListener("click", resetCasinoConfig);
 $("#casino-config").addEventListener("click", handleGachaMachineClick);
 $("#gacha-machine-editor").addEventListener("input", updateGachaMachineField);
 $("#gacha-machine-editor").addEventListener("change", updateGachaMachineField);
-$("#add-gacha-machine").addEventListener("click", addGachaMachine);
+$("#add-gacha-machine").addEventListener("click", addGachaSet);
 $("#save-gacha-machines").addEventListener("click", saveGachaMachines);
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
@@ -14132,7 +14220,7 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
   try {
     lazyDataLoaded.structures = false;
     lazyDataLoaded.buildingSettings = false;
-    await loadBuildingSettingsData(true);
+    await Promise.all([loadStructureData(true), loadBuildingSettingsData(true)]);
     toast("NBT 목록 캐시를 최신 상태로 갱신했습니다.");
   } catch (error) {
     toast(error.message || "NBT 목록 갱신에 실패했습니다.");
@@ -14752,8 +14840,17 @@ $("#custom-town-layout").addEventListener("click", (event) => {
 });
 $("#regenerate-village-preview").addEventListener("click", () => {
   const input = $("#settlement-form").elements.villagePreviewSeed;
-  input.value = String(1 + Math.floor(Math.random() * 999999998));
+  const seed = 1 + Math.floor(Math.random() * 999999998);
+  input.value = String(seed);
   state.settlement.structure_profile.layout_mode = "automatic";
+  state.settlement.structure_profile.generation_profile ||= {};
+  state.settlement.structure_profile.generation_profile.seed = seed;
+  const compilation = state.villageDecorationEditor.compilation;
+  compilation.requestId += 1;
+  compilation.source = "";
+  compilation.result = null;
+  compilation.pending = null;
+  state.villageDecorationEditor.preview = null;
   renderVillageGenerationTest();
 });
 $$('[data-town-library]').forEach((button) => button.addEventListener("click", () => {

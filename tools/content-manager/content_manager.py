@@ -3733,6 +3733,8 @@ def validate_npc_event_file(path: Path) -> tuple[str | None, list[Issue]]:
     if root.get("schema_version") != 4:
         _issue(issues, "error", path, "$.schema_version", "NPC 이벤트 스크립트 버전은 4입니다.")
     event_runtime = root.get("event_runtime")
+    if event_runtime is None:
+        _issue(issues, "error", path, "$.event_runtime", "NPC 이벤트 실행 방식은 cves_v5 또는 명시적인 레거시 easy_npc_v4여야 합니다.")
     if event_runtime is not None:
         event_runtime = _require_object(event_runtime, issues, path, "$.event_runtime")
         if event_runtime is not None:
@@ -4526,27 +4528,39 @@ DIALOGUE_THEME_DEFAULTS: dict[str, Any] = {
 }
 
 
-GACHA_MACHINE_CATALOG_DEFAULTS: dict[str, Any] = {
-    "$schema": "../schemas/gacha-machines.schema.json",
-    "schema_version": 1,
-    "machines": [{
-        "id": "cobbleventure:starter_gacha", "display_name": "스타터 가챠",
-        "enabled": True, "pity_group": "starter",
+def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str, reward: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": machine_id, "display_name": display_name, "machine_type": machine_type,
+        "enabled": True, "pity_group": f"default_casino/{machine_type}",
         "appearance": {"base_block": "minecraft:polished_deepslate", "accent_block": "minecraft:amethyst_block", "scale": 1.0, "accent_scale": 0.45, "accent_height": 0.78, "rotation_degrees": 0.0, "show_nameplate": True},
-        "currency": {"item": "cobblemoncasino:copper_coin", "count": 1},
-        "rarities": [
-            {"id": "common", "display_name": "일반", "weight": 70.0, "rewards": [{"id": "poke_ball", "kind": "item", "value": "cobblemon:poke_ball", "count": 3, "weight": 1.0, "selectable": False}]},
-            {"id": "rare", "display_name": "희귀", "weight": 25.0, "rewards": [{"id": "great_ball", "kind": "item", "value": "cobblemon:great_ball", "count": 3, "weight": 1.0, "selectable": True}]},
-            {"id": "legendary", "display_name": "전설", "weight": 5.0, "rewards": [{"id": "pikachu", "kind": "pokemon", "value": "pikachu level=15", "count": 1, "weight": 1.0, "selectable": True}]},
-        ],
+        "rarities": [{"id": "common", "display_name": "일반", "weight": 100.0, "rewards": [reward]}],
         "pity": {
-            "soft": {"enabled": True, "start": 30, "max_at": 60, "target_rarity": "legendary", "max_chance": 0.25},
-            "hard": {"enabled": True, "count": 80, "target_rarity": "legendary"},
-            "selection": {"enabled": True, "points_per_pull": 1, "required_points": 100},
+            "soft": {"enabled": False, "start": 30, "max_at": 60, "target_rarity": "common", "max_chance": 0.25},
+            "hard": {"enabled": False, "count": 80, "target_rarity": "common"},
+            "selection": {"enabled": False, "points_per_pull": 1, "required_points": 100},
         },
-    }],
-}
+    }
 
+
+GACHA_MACHINE_CATALOG_DEFAULTS: dict[str, Any] = {
+    "$schema": "../schemas/gacha-machines.schema.json", "schema_version": 3,
+    "tickets": {
+        "pokemon": {"display_name": "포켓몬 가챠 티켓", "price": 500, "purchase_min": 1, "purchase_max": 64},
+        "item": {"display_name": "아이템 가챠 티켓", "price": 200, "purchase_min": 1, "purchase_max": 64},
+        "technical_machine": {"display_name": "기술머신 가챠 티켓", "price": 300, "purchase_min": 1, "purchase_max": 64},
+    },
+    "reward_catalog": [
+        {"id": "pikachu", "display_name": "피카츄", "machine_type": "pokemon", "kind": "pokemon", "value": "pikachu level=15", "count": 1},
+        {"id": "poke_ball", "display_name": "몬스터볼 묶음", "machine_type": "item", "kind": "item", "value": "cobblemon:poke_ball", "count": 5},
+        {"id": "protect", "display_name": "방어 기술머신", "machine_type": "technical_machine", "kind": "item", "value": "tmcraft:tm_protect", "count": 1},
+    ],
+    "casino_sets": [{"id": "cobbleventure:casino/default", "display_name": "기본 카지노", "machines": {"pokemon": "cobbleventure:starter_gacha", "item": "cobbleventure:item_gacha", "technical_machine": "cobbleventure:technical_machine_gacha"}}],
+    "machines": [
+        _default_gacha_machine("cobbleventure:starter_gacha", "포켓몬 가챠", "pokemon", {"id": "pikachu", "kind": "pokemon", "value": "pikachu level=15", "count": 1, "weight": 1.0, "selectable": False}),
+        _default_gacha_machine("cobbleventure:item_gacha", "아이템 가챠", "item", {"id": "poke_ball", "kind": "item", "value": "cobblemon:poke_ball", "count": 5, "weight": 1.0, "selectable": False}),
+        _default_gacha_machine("cobbleventure:technical_machine_gacha", "기술머신 가챠", "technical_machine", {"id": "protect", "kind": "item", "value": "tmcraft:tm_protect", "count": 1, "weight": 1.0, "selectable": False}),
+    ],
+}
 
 def gacha_machine_catalog_path(root: Path) -> Path:
     return root / "content" / "catalogs" / "gacha-machines.json"
@@ -4563,13 +4577,62 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
     document = _require_object(data, issues, path, "$")
     if document is None:
         return issues
-    if document.get("schema_version") != 1:
-        _issue(issues, "error", path, "$.schema_version", "가챠 기계 카탈로그 버전은 1이어야 합니다.")
+    if document.get("schema_version") != 3:
+        _issue(issues, "error", path, "$.schema_version", "가챠 기계 카탈로그 버전은 3이어야 합니다.")
+    ticket_types = ("pokemon", "item", "technical_machine")
+    tickets = document.get("tickets")
+    if not isinstance(tickets, dict):
+        _issue(issues, "error", path, "$.tickets", "공통 티켓 3종 설정이 필요합니다.")
+        tickets = {}
+    for ticket_type in ticket_types:
+        ticket = tickets.get(ticket_type)
+        ticket_path = f"$.tickets.{ticket_type}"
+        if not isinstance(ticket, dict):
+            _issue(issues, "error", path, ticket_path, "티켓 설정이 필요합니다.")
+            continue
+        if not isinstance(ticket.get("display_name"), str) or not ticket["display_name"].strip():
+            _issue(issues, "error", path, f"{ticket_path}.display_name", "티켓 표시 이름이 필요합니다.")
+        for key in ("price", "purchase_min", "purchase_max"):
+            value = ticket.get(key)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+                _issue(issues, "error", path, f"{ticket_path}.{key}", "1 이상의 정수여야 합니다.")
+        if isinstance(ticket.get("purchase_min"), int) and isinstance(ticket.get("purchase_max"), int) and ticket["purchase_max"] < ticket["purchase_min"]:
+            _issue(issues, "error", path, f"{ticket_path}.purchase_max", "최대 구매 수량은 최소 구매 수량 이상이어야 합니다.")
+    reward_catalog = document.get("reward_catalog")
+    if not isinstance(reward_catalog, list):
+        _issue(issues, "error", path, "$.reward_catalog", "가챠 상품 카탈로그는 배열이어야 합니다.")
+    else:
+        catalog_ids: set[str] = set()
+        for catalog_index, reward in enumerate(reward_catalog):
+            reward_path = f"$.reward_catalog[{catalog_index}]"
+            if not isinstance(reward, dict):
+                _issue(issues, "error", path, reward_path, "카탈로그 상품은 객체여야 합니다.")
+                continue
+            reward_id = reward.get("id")
+            if not isinstance(reward_id, str) or re.fullmatch(r"[a-z0-9_.-]+", reward_id) is None or reward_id in catalog_ids:
+                _issue(issues, "error", path, f"{reward_path}.id", "카탈로그 ID는 중복되지 않은 소문자 ID여야 합니다.")
+            else:
+                catalog_ids.add(reward_id)
+            if not isinstance(reward.get("display_name"), str) or not reward["display_name"].strip():
+                _issue(issues, "error", path, f"{reward_path}.display_name", "카탈로그 표시 이름이 필요합니다.")
+            machine_type = reward.get("machine_type")
+            kind = reward.get("kind")
+            if machine_type not in ticket_types:
+                _issue(issues, "error", path, f"{reward_path}.machine_type", "상품 기계 종류가 올바르지 않습니다.")
+            if kind not in {"item", "pokemon"} or (machine_type == "pokemon") != (kind == "pokemon"):
+                _issue(issues, "error", path, f"{reward_path}.kind", "기계 종류에 맞는 상품 종류가 필요합니다.")
+            value = reward.get("value")
+            if not isinstance(value, str) or not value.strip() or (kind == "item" and RESOURCE_ID.fullmatch(value) is None):
+                _issue(issues, "error", path, f"{reward_path}.value", "아이템 ID 또는 PokemonProperties 문자열이 필요합니다.")
+            count = reward.get("count")
+            if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                _issue(issues, "error", path, f"{reward_path}.count", "수량은 1 이상의 정수여야 합니다.")
     machines = document.get("machines")
     if not isinstance(machines, list):
         _issue(issues, "error", path, "$.machines", "기계 목록은 배열이어야 합니다.")
         return issues
     seen_machine_ids: set[str] = set()
+    machine_types_by_id: dict[str, str] = {}
     for machine_index, machine in enumerate(machines):
         base = f"$.machines[{machine_index}]"
         if not isinstance(machine, dict):
@@ -4584,6 +4647,11 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
             seen_machine_ids.add(machine_id)
         if not isinstance(machine.get("display_name"), str) or not machine["display_name"].strip():
             _issue(issues, "error", path, f"{base}.display_name", "기계 표시 이름이 필요합니다.")
+        machine_type = machine.get("machine_type")
+        if machine_type not in {"pokemon", "item", "technical_machine"}:
+            _issue(issues, "error", path, f"{base}.machine_type", "기계 종류는 pokemon, item, technical_machine 중 하나여야 합니다.")
+        elif isinstance(machine_id, str) and RESOURCE_ID.fullmatch(machine_id) is not None:
+            machine_types_by_id[machine_id] = machine_type
         appearance = machine.get("appearance")
         if not isinstance(appearance, dict):
             _issue(issues, "error", path, f"{base}.appearance", "외형 설정이 필요합니다.")
@@ -4595,11 +4663,6 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
                 value = appearance.get(key)
                 if not isinstance(value, (int, float)) or isinstance(value, bool) or not minimum <= value <= maximum:
                     _issue(issues, "error", path, f"{base}.appearance.{key}", f"{minimum:g} 이상 {maximum:g} 이하의 숫자여야 합니다.")
-        currency = machine.get("currency")
-        if not isinstance(currency, dict) or not isinstance(currency.get("item"), str) or RESOURCE_ID.fullmatch(currency["item"]) is None:
-            _issue(issues, "error", path, f"{base}.currency.item", "올바른 화폐 아이템 ID가 필요합니다.")
-        if not isinstance(currency, dict) or not isinstance(currency.get("count"), int) or isinstance(currency.get("count"), bool) or currency["count"] <= 0:
-            _issue(issues, "error", path, f"{base}.currency.count", "화폐 수량은 1 이상의 정수여야 합니다.")
         rarities = machine.get("rarities")
         if not isinstance(rarities, list) or not rarities:
             _issue(issues, "error", path, f"{base}.rarities", "하나 이상의 희귀도 풀이 필요합니다.")
@@ -4635,6 +4698,10 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
                     reward_ids.add(reward_id)
                 if reward.get("kind") not in {"item", "pokemon"}:
                     _issue(issues, "error", path, f"{reward_path}.kind", "보상 종류는 item 또는 pokemon이어야 합니다.")
+                elif machine_type == "pokemon" and reward.get("kind") != "pokemon":
+                    _issue(issues, "error", path, f"{reward_path}.kind", "포켓몬 기계에는 포켓몬 보상만 넣을 수 있습니다.")
+                elif machine_type in {"item", "technical_machine"} and reward.get("kind") != "item":
+                    _issue(issues, "error", path, f"{reward_path}.kind", "아이템·기술머신 기계에는 아이템 보상만 넣을 수 있습니다.")
                 value = reward.get("value")
                 if not isinstance(value, str) or not value.strip() or (reward.get("kind") == "item" and RESOURCE_ID.fullmatch(value) is None):
                     _issue(issues, "error", path, f"{reward_path}.value", "아이템 ID 또는 Cobblemon PokemonProperties 문자열이 필요합니다.")
@@ -4667,6 +4734,39 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
                     _issue(issues, "error", path, f"{base}.pity.selection.{key}", "선택 천장 포인트는 1 이상의 정수여야 합니다.")
             if not any(reward.get("selectable") is True for rarity in rarities if isinstance(rarity, dict) for reward in rarity.get("rewards", []) if isinstance(reward, dict)):
                 _issue(issues, "error", path, f"{base}.pity.selection", "선택 천장을 켰다면 선택 가능한 보상이 하나 이상 필요합니다.")
+    casino_sets = document.get("casino_sets")
+    if not isinstance(casino_sets, list) or not casino_sets:
+        _issue(issues, "error", path, "$.casino_sets", "하나 이상의 카지노 세트가 필요합니다.")
+    else:
+        seen_set_ids: set[str] = set()
+        assigned_machines: set[str] = set()
+        for set_index, casino_set in enumerate(casino_sets):
+            set_path = f"$.casino_sets[{set_index}]"
+            if not isinstance(casino_set, dict):
+                _issue(issues, "error", path, set_path, "카지노 세트는 객체여야 합니다.")
+                continue
+            set_id = casino_set.get("id")
+            if not isinstance(set_id, str) or RESOURCE_ID.fullmatch(set_id) is None or set_id in seen_set_ids:
+                _issue(issues, "error", path, f"{set_path}.id", "카지노 세트 ID는 중복되지 않은 namespace:path 형식이어야 합니다.")
+            else:
+                seen_set_ids.add(set_id)
+            if not isinstance(casino_set.get("display_name"), str) or not casino_set["display_name"].strip():
+                _issue(issues, "error", path, f"{set_path}.display_name", "카지노 세트 표시 이름이 필요합니다.")
+            set_machines = casino_set.get("machines")
+            if not isinstance(set_machines, dict):
+                _issue(issues, "error", path, f"{set_path}.machines", "포켓몬·아이템·기술머신 기계 참조가 필요합니다.")
+                continue
+            for machine_type in ticket_types:
+                machine_id = set_machines.get(machine_type)
+                ref_path = f"{set_path}.machines.{machine_type}"
+                if machine_types_by_id.get(machine_id) != machine_type:
+                    _issue(issues, "error", path, ref_path, f"{machine_type} 종류의 존재하는 기계 ID를 지정해야 합니다.")
+                elif machine_id in assigned_machines:
+                    _issue(issues, "error", path, ref_path, "하나의 기계는 한 카지노 세트에만 속할 수 있습니다.")
+                else:
+                    assigned_machines.add(machine_id)
+        for machine_id in seen_machine_ids - assigned_machines:
+            _issue(issues, "error", path, "$.casino_sets", f"카지노 세트에 연결되지 않은 기계입니다: {machine_id}")
     return issues
 
 
@@ -4698,10 +4798,10 @@ CASINO_CONFIG_FILES: dict[str, dict[str, Any]] = {
                 "black_chip": 100000, "white_chip": 500000,
                 "rainbow_chip": 1000000,
             },
-            "enableMachinesCrafting": True,
-            "enableGachaCurrencyCrafting": True,
-            "makeMachinesUnbreakable": False,
-            "enableChipTableCasinoVillagerConversion": True,
+            "enableMachinesCrafting": False,
+            "enableGachaCurrencyCrafting": False,
+            "makeMachinesUnbreakable": True,
+            "enableChipTableCasinoVillagerConversion": False,
         },
     },
     "machines/slot_machine.json": {
@@ -4732,10 +4832,10 @@ CASINO_CONFIG_FILES: dict[str, dict[str, Any]] = {
         "label": "칩 교환대",
         "description": "화폐 교환 방향과 유물 주화 묶음별 가치를 설정합니다.",
         "default": {
-            "enable_currency_to_chips": True,
-            "enable_chips_to_relic_coins": True,
-            "enable_chips_to_cobbledollars": True,
-            "enable_cobbledollars_to_chips": True,
+            "enable_currency_to_chips": False,
+            "enable_chips_to_relic_coins": False,
+            "enable_chips_to_cobbledollars": False,
+            "enable_cobbledollars_to_chips": False,
             "relic_coin_value": 10,
             "handful_of_relic_coins_value": 40,
             "relic_coin_pouch_value": 90,
@@ -7910,7 +8010,7 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["preferred_biomes"] = profile.get("preferred_biomes", [])
                 summary["automatic_town_placement"] = profile.get("automatic_town_placement", False)
                 summary["automatic_route_placement"] = profile.get("automatic_route_placement", False)
-                summary["event_engine"] = data.get("event_runtime", {}).get("engine", "easy_npc_v4")
+                summary["event_engine"] = data.get("event_runtime", {}).get("engine", "cves_v5")
             elif category == "battles":
                 summary["battle_type"] = data.get("battle", {}).get("battle_type", "singles")
             elif category == "routes":
@@ -8608,6 +8708,11 @@ def _npc_event_template(slug: str, name: str) -> dict[str, Any]:
                 "invulnerable": True, "collision": True,
             },
         },
+        "event_runtime": {
+            "engine": "cves_v5", "authoring": "preset",
+            "script_id": f"cobbleventure:event_script/trainers/{slug}",
+        },
+
         "event_design": {"mode": "preset", "preset": {
             "type": "simple",
             "initial_trigger": {"type": "interact", "range": 4.0},
@@ -9137,6 +9242,8 @@ def _create_document(
     if category == "trainers":
         relative_path = f"content/source/trainers/{slug}.json"
         document = _npc_event_template(slug, name.strip())
+        # A new project may not have a content tree yet; V5 preset validation indexes it.
+        (root / "content").mkdir(parents=True, exist_ok=True)
     elif category == "battles":
         relative_path = f"content/battles/{slug}.json"
         document = _battle_template(slug, name.strip())
@@ -10508,6 +10615,7 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
                 "structure_category": structure_categories.get(owner, "building"),
                 "fixed_npcs": current.get("fixed_npcs", {}) if isinstance(current, dict) else {},
                 "fixed_pokemon": current.get("fixed_pokemon", {}) if isinstance(current, dict) else {},
+                "fixed_gacha_machines": current.get("fixed_gacha_machines", {}) if isinstance(current, dict) else {},
                 "citizen_placement_allowed": bool(current.get("citizen_placement_allowed", False)) if isinstance(current, dict) else False,
                 "interiors": [{"key": node["id"], "structure": node.get("structure", "")} for node in interiors],
                 "door_routes": {
@@ -10601,6 +10709,8 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
                 if isinstance(entry.get("fixed_npcs", {}), dict) else {},
                 "fixed_pokemon": entry.get("fixed_pokemon", {})
                 if isinstance(entry.get("fixed_pokemon", {}), dict) else {},
+                "fixed_gacha_machines": entry.get("fixed_gacha_machines", {})
+                if isinstance(entry.get("fixed_gacha_machines", {}), dict) else {},
                 "citizen_placement_allowed": bool(entry.get(
                     "citizen_placement_allowed",
                     entry.get("random_citizen_eligible", residential),
@@ -11050,6 +11160,10 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             normalized_defaults[facility] = structure_id
     structure_files = managed_structure_files(root)
     npc_ids = {item.get("id") for item in _list_documents(root, "trainers") if item.get("id")}
+    gacha_machine_ids = {
+        machine.get("id") for machine in gacha_machine_catalog_payload(root).get("machines", [])
+        if isinstance(machine, dict) and isinstance(machine.get("id"), str)
+    }
     music_catalog_path = root / "content" / "catalogs" / "music-tracks.json"
     music_track_ids: set[str] | None = None
     if music_catalog_path.is_file():
@@ -11166,7 +11280,17 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
         labels.update(item["label"] for item in _structure_npc_labels(structure))
         normalized_fixed: dict[str, str] = {}
         for label, npc_id in sorted(fixed.items()):
-            if label not in labels:
+            wildcard = (
+                isinstance(label, str)
+                and label.endswith("*")
+                and label.count("*") == 1
+                and len(label) > 1
+            )
+            label_exists = (
+                any(candidate.startswith(label[:-1]) for candidate in labels)
+                if wildcard else label in labels
+            )
+            if not label_exists:
                 _issue(issues, "error", path, f"{entry_path}.fixed_npcs.{label}", "NBT에 없는 NPC 라벨입니다.")
             elif not isinstance(npc_id, str) or npc_id not in npc_ids:
                 _issue(issues, "error", path, f"{entry_path}.fixed_npcs.{label}", "존재하는 NPC 콘텐츠를 선택해야 합니다.")
@@ -11189,6 +11313,18 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 _issue(issues, "error", path, f"{entry_path}.fixed_pokemon.{label}", "Cobblemon 포켓몬 속성 문자열이 필요합니다.")
             else:
                 normalized_fixed_pokemon[label] = properties.strip()
+        fixed_gacha = settings.get("fixed_gacha_machines", {})
+        if not isinstance(fixed_gacha, dict):
+            _issue(issues, "error", path, f"{entry_path}.fixed_gacha_machines", "고정 가챠 기계 배정은 객체여야 합니다.")
+            continue
+        normalized_fixed_gacha: dict[str, str] = {}
+        for label, profile_id in sorted(fixed_gacha.items()):
+            if label not in labels:
+                _issue(issues, "error", path, f"{entry_path}.fixed_gacha_machines.{label}", "NBT에 없는 가챠 플래그입니다.")
+            elif not isinstance(profile_id, str) or profile_id not in gacha_machine_ids:
+                _issue(issues, "error", path, f"{entry_path}.fixed_gacha_machines.{label}", "존재하는 가챠 기계 프로필을 선택해야 합니다.")
+            else:
+                normalized_fixed_gacha[label] = profile_id
         citizen_placement_allowed = bool(settings.get(
             "citizen_placement_allowed",
             settings.get("random_citizen_eligible", residential),
@@ -11229,6 +11365,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             "no_interior_space": no_interior_space,
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
             "fixed_pokemon": normalized_fixed_pokemon,
+            "fixed_gacha_machines": normalized_fixed_gacha,
             "citizen_placement_allowed": citizen_placement_allowed,
             "interiors": [] if no_interior_space else normalized_interiors,
             "door_routes": {} if no_interior_space else normalized_routes,
@@ -12175,7 +12312,7 @@ def create_handler(
                 nonlocal structure_size_catalog
                 try:
                     if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
-                        schedule_structure_cache_refresh()
+                        refresh_structure_cache()
                     ensure_structure_cache()
                     with structure_size_catalog_lock:
                         payload = copy.deepcopy(structure_size_catalog or {"structures": {}})
@@ -12192,7 +12329,7 @@ def create_handler(
                 nonlocal structure_viewer_catalog
                 try:
                     if parse_qs(request.query).get("refresh", ["0"])[0] == "1":
-                        schedule_structure_cache_refresh()
+                        refresh_structure_cache()
                     ensure_structure_cache()
                     with structure_viewer_catalog_lock:
                         payload = copy.deepcopy(structure_viewer_catalog or {})
@@ -12211,7 +12348,7 @@ def create_handler(
                 try:
                     refresh_requested = parse_qs(request.query).get("refresh", ["0"])[0] == "1"
                     if refresh_requested:
-                        schedule_structure_cache_refresh()
+                        refresh_structure_cache()
                     ensure_structure_cache(validate_signature=not refresh_requested)
                     payload = copy.deepcopy(building_settings_catalog or {})
                     payload["cache"] = {

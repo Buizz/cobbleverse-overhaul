@@ -375,6 +375,19 @@
       "reason": "슬롯머신, 블랙잭, 가챠와 카지노 칩 경제를 제공하는 기본 카지노 시설"
     },
     {
+      "id": "playingcards",
+      "display_name": "Playing Cards & Chips",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "2.0.1-neoforge",
+      "curseforge": {
+        "project_id": 1162591,
+        "file_id": 7219926
+      },
+      "reason": "블랙잭 게임은 Cobblemon Casino에 유지하고 마인크래프트형 연결식 테이블 외형을 제공"
+    },
+    {
       "id": "architectury_api",
       "display_name": "Architectury API",
       "classification": "required",

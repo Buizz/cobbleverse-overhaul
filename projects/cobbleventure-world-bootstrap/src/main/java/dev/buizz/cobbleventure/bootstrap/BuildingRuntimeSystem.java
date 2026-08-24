@@ -47,6 +47,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
@@ -158,6 +159,10 @@ final class BuildingRuntimeSystem {
         applyFixedPokemon(
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedPokemon, "exterior"
+        );
+        applyFixedGachaMachines(
+            level, metadata, origin.toBlockPos(), rotation, instanceKey,
+            settings == null ? Map.of() : settings.fixedGachaMachines, "exterior"
         );
         if (settings != null && settings.noInteriorSpace) {
             return;
@@ -524,6 +529,13 @@ final class BuildingRuntimeSystem {
                         fixedVendors.put(vendor.getKey(), vendor.getValue().getAsString());
                     }
                 }
+                Map<String, String> fixedGachaMachines = new LinkedHashMap<>();
+                if (value.has("fixed_gacha_machines")) {
+                    for (Map.Entry<String, JsonElement> machine
+                        : value.getAsJsonObject("fixed_gacha_machines").entrySet()) {
+                        fixedGachaMachines.put(machine.getKey(), machine.getValue().getAsString());
+                    }
+                }
                 List<InteriorSetting> interiors = new ArrayList<>();
                 if (value.has("interiors")) {
                     for (JsonElement interiorElement : value.getAsJsonArray("interiors")) {
@@ -565,6 +577,7 @@ final class BuildingRuntimeSystem {
                     Map.copyOf(fixed),
                     Map.copyOf(fixedPokemon),
                     Map.copyOf(fixedVendors),
+                    Map.copyOf(fixedGachaMachines),
                     value.has("citizen_placement_allowed")
                         ? value.get("citizen_placement_allowed").getAsBoolean()
                         : value.has("random_citizen_eligible")
@@ -755,16 +768,17 @@ final class BuildingRuntimeSystem {
                 continue;
             }
             String scoped = spaceKey + ":" + anchor.id;
-            String npc = fixedNpcs.get(scoped);
+            String npc = FixedNpcAssignments.match(fixedNpcs, scoped);
             if (npc == null && spaceKey.equals("exterior")) {
-                npc = fixedNpcs.get(anchor.id);
+                npc = FixedNpcAssignments.match(fixedNpcs, anchor.id);
             }
             String spawnKey = instanceKey + "|npc|" + scoped;
             if (npc == null || data.hasSpawned(spawnKey)) {
                 continue;
             }
             BlockPos position = transform(origin, anchor.position, rotation);
-            if (spawnNpc(level, npc, position)) {
+            float yaw = rotation.rotate(anchor.facing).toYRot();
+            if (spawnNpc(level, npc, position, yaw)) {
                 data.markSpawned(spawnKey);
             }
         }
@@ -787,13 +801,53 @@ final class BuildingRuntimeSystem {
             String spawnKey = instanceKey + "|vendor|" + scoped;
             if (vendor == null || runtime.hasSpawned(spawnKey)) continue;
             BlockPos position = transform(origin, anchor.position, rotation);
+            float yaw = rotation.rotate(anchor.facing).toYRot();
             if (CobbleventureBootstrap.spawnConfiguredVendor(
                 level, vendor, new CobbleventureBootstrap.BlockPoint(
                     position.getX(), position.getY(), position.getZ()
-                )
+                ), yaw
             )) {
                 runtime.markSpawned(spawnKey);
             }
+        }
+    }
+
+    private static void applyFixedGachaMachines(
+        ServerLevel level, StructureMetadata metadata,
+        BlockPos origin, Rotation rotation, String instanceKey,
+        Map<String, String> fixedMachines, String spaceKey
+    ) {
+        if (fixedMachines.isEmpty()) return;
+        RuntimeData runtime = data(level.getServer());
+        for (Anchor anchor : metadata.anchors) {
+            if (!anchor.type.equals("npc_position")) continue;
+            String scoped = spaceKey + ":" + anchor.id;
+            String profile = fixedMachines.get(scoped);
+            if (profile == null && spaceKey.equals("exterior")) profile = fixedMachines.get(anchor.id);
+            String spawnKey = instanceKey + "|gacha|" + scoped;
+            if (profile == null || runtime.hasSpawned(spawnKey)) continue;
+            BlockPos position = transform(origin, anchor.position, rotation);
+            if (placeConfiguredGachaMachine(level, position, profile)) runtime.markSpawned(spawnKey);
+        }
+    }
+
+    private static boolean placeConfiguredGachaMachine(
+        ServerLevel level, BlockPos position, String profile
+    ) {
+        try {
+            Class<?> integration = Class.forName(
+                "dev.buizz.cobbleventure.casino.CobbleventureCasino"
+            );
+            Object result = integration.getMethod(
+                "placeConfiguredMachine", ServerLevel.class, BlockPos.class, String.class
+            ).invoke(null, level, position, profile);
+            return result instanceof Boolean placed && placed;
+        } catch (ReflectiveOperationException error) {
+            LOGGER.warn(
+                "Casino gacha integration unavailable: profile={}, position={}",
+                profile, position, error
+            );
+            return false;
         }
     }
 
@@ -814,14 +868,15 @@ final class BuildingRuntimeSystem {
             String spawnKey = instanceKey + "|pokemon|" + scoped;
             if (properties == null || runtime.hasSpawned(spawnKey)) continue;
             BlockPos position = transform(origin, anchor.position, rotation);
-            if (spawnFixedPokemon(level, properties, position)) {
+            float yaw = rotation.rotate(anchor.facing).toYRot();
+            if (spawnFixedPokemon(level, properties, position, yaw)) {
                 runtime.markSpawned(spawnKey);
             }
         }
     }
 
     private static boolean spawnFixedPokemon(
-        ServerLevel level, String properties, BlockPos position
+        ServerLevel level, String properties, BlockPos position, float yaw
     ) {
         if (!canNpcStandAt(level, position)) {
             LOGGER.warn(
@@ -835,8 +890,9 @@ final class BuildingRuntimeSystem {
                 .parse(properties + " uncatchable").createEntity(level);
             entity.moveTo(
                 position.getX() + 0.5D, position.getY(), position.getZ() + 0.5D,
-                0.0F, 0.0F
+                yaw, 0.0F
             );
+            applyEntityFacing(entity, yaw);
             entity.setPersistenceRequired();
             entity.setCountsTowardsSpawnCap(false);
             entity.getPokemon().setTradeable(false);
@@ -927,6 +983,7 @@ final class BuildingRuntimeSystem {
                 }
                 forceChunks(interiorsLevel, origin, template.orElseThrow().getSize());
                 StructurePlaceSettings placementSettings = new StructurePlaceSettings()
+                    .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
                     .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE);
                 boolean placed = template.orElseThrow().placeInWorld(
                     interiorsLevel, origin, origin, placementSettings,
@@ -981,6 +1038,10 @@ final class BuildingRuntimeSystem {
             applyFixedVendors(
                 interiorsLevel, metadata, origin, Rotation.NONE,
                 instanceKey + "|" + interior.key, interiorVendors, interior.key
+            );
+            applyFixedGachaMachines(
+                interiorsLevel, metadata, origin, Rotation.NONE,
+                instanceKey + "|" + interior.key, settings.fixedGachaMachines, interior.key
             );
             index++;
         }
@@ -1070,6 +1131,12 @@ final class BuildingRuntimeSystem {
     }
 
     static boolean spawnNpc(ServerLevel level, String npcId, BlockPos position) {
+        return spawnNpc(level, npcId, position, 0.0F);
+    }
+
+    static boolean spawnNpc(
+        ServerLevel level, String npcId, BlockPos position, float yaw
+    ) {
         if (!isNpcSeatBlock(level.getBlockState(position))
             && !canNpcStandAt(level, position)) {
             LOGGER.warn(
@@ -1098,17 +1165,19 @@ final class BuildingRuntimeSystem {
                 LOGGER.warn("Building NPC command returned no result: npc={}, position={}", npcId, position);
             } else {
                 Entity spawnedNpc = level.getEntity(spawnedNpcId);
+                boolean seated = isNpcSeatBlock(level.getBlockState(position));
                 if (spawnedNpc != null) {
                     CobbleventureBootstrap.applyNpcWorldFont(spawnedNpc);
+                    applyEntityFacing(spawnedNpc, yaw);
                 }
-                if (isNpcSeatBlock(level.getBlockState(position)) && spawnedNpc == null) {
+                if (spawnedNpc == null) {
                     PENDING_NPC_SEATS.put(
                         spawnedNpcId,
                         new PendingNpcSeat(
-                            level.dimension(), position.immutable(), npcId, 0
+                            level.dimension(), position.immutable(), npcId, yaw, seated, 0
                         )
                     );
-                } else if (isNpcSeatBlock(level.getBlockState(position))
+                } else if (seated
                     && !seatNpc(level, spawnedNpc, position)) {
                     LOGGER.warn(
                         "Building NPC was spawned but could not ride its seat: npc={}, uuid={}, position={}",
@@ -1137,7 +1206,8 @@ final class BuildingRuntimeSystem {
             Entity npc = level == null ? null : level.getEntity(entry.getKey());
             if (npc != null) {
                 CobbleventureBootstrap.applyNpcWorldFont(npc);
-                if (!seatNpc(level, npc, pending.position)) {
+                applyEntityFacing(npc, pending.yaw);
+                if (pending.seated && !seatNpc(level, npc, pending.position)) {
                     LOGGER.warn(
                         "Building NPC was spawned but could not ride its delayed seat: "
                             + "npc={}, uuid={}, position={}",
@@ -1157,7 +1227,7 @@ final class BuildingRuntimeSystem {
             } else {
                 entry.setValue(new PendingNpcSeat(
                     pending.dimension, pending.position, pending.npcId,
-                    pending.attempts + 1
+                    pending.yaw, pending.seated, pending.attempts + 1
                 ));
             }
         }
@@ -1166,6 +1236,16 @@ final class BuildingRuntimeSystem {
     private static boolean isEasyNpc(Entity entity) {
         return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
             .getNamespace().equals("easy_npc");
+    }
+
+    private static void applyEntityFacing(Entity entity, float yaw) {
+        entity.moveTo(entity.getX(), entity.getY(), entity.getZ(), yaw, 0.0F);
+        entity.setYRot(yaw);
+        entity.setXRot(0.0F);
+        if (entity instanceof LivingEntity living) {
+            living.setYBodyRot(yaw);
+            living.setYHeadRot(yaw);
+        }
     }
 
     private static boolean isNpcSeatBlock(BlockState state) {
@@ -1610,7 +1690,7 @@ final class BuildingRuntimeSystem {
     private record BuildingSettings(
         int placementYOffset, boolean noInteriorSpace,
         Map<String, String> fixedNpcs, Map<String, String> fixedPokemon,
-        Map<String, String> fixedVendors,
+        Map<String, String> fixedVendors, Map<String, String> fixedGachaMachines,
         boolean citizenPlacementAllowed,
         List<InteriorSetting> interiors, Map<String, RouteTarget> routes,
         String musicTrack
@@ -1641,7 +1721,8 @@ final class BuildingRuntimeSystem {
     }
 
     private record PendingNpcSeat(
-        ResourceKey<Level> dimension, BlockPos position, String npcId, int attempts
+        ResourceKey<Level> dimension, BlockPos position, String npcId,
+        float yaw, boolean seated, int attempts
     ) {
     }
 

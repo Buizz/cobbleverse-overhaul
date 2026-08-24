@@ -7,7 +7,7 @@
   "npc": { "display_name": { "ko_kr": "조류 연구 선원" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/sailor",
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/sailor_trevor_0087" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/field_move_whirlpool_instructor" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/field_move/whirlpool", "value": true }], "target": "claimed" },
     { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "소용돌이는 맞서기보다 흐름의 빈틈을 통과해야 해. 바다회오리 돌파법을 가르쳐 주지." } },

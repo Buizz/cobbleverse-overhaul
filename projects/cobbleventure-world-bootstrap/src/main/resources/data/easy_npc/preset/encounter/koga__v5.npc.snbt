@@ -22,7 +22,7 @@
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
     PresetUUID:[I;-232063218,274682700,-1893660791,-1436818831],
-    SkinData:{Type:"CUSTOM",UUID:[I;1700739571,-1194305854,-1342509374,1609414858] },
+    SkinData:{Type:"CUSTOM",UUID:[I;-1464259140,-2048110522,-1420952626,-1996259285] },
     Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/gym_leaders/koga"],
     VariantType:"STEVE",
     id:"easy_npc:humanoid"

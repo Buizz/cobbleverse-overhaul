@@ -14,7 +14,7 @@
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/hiker_alan_00b9" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true }
   },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" },
+  "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/field_move_rock_smash_instructor" },
   "event_design": { "mode": "easy_npc_events" },
   "events": [{
     "id": "on_interact",

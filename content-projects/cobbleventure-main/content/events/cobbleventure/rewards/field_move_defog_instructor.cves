@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/field_move/defog") {
+    say npc {
+      ko_kr: "안개가 걷혀도 서두르지는 마."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "짙은 안개도 흐름을 읽으면 걷어낼 수 있어. 안개제거 방법을 알려 주지."
+    }
+    id "grant/field_move" grant_field_move defog -> granted
+    id "grant/state" set_flag "cobbleventure:flag/rewards/field_move/defog" true
+    say npc {
+      ko_kr: "이제 짙은 안개를 만났을 때 안개제거를 사용할 수 있어."
+    }
+  }
+}

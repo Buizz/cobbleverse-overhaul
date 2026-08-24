@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/field_move/whirlpool") {
+    say npc {
+      ko_kr: "물의 중심이 아니라 가장자리의 흐름을 읽어."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "소용돌이는 맞서기보다 흐름의 빈틈을 통과해야 해. 바다회오리 돌파법을 가르쳐 주지."
+    }
+    id "grant/field_move" grant_field_move whirlpool -> granted
+    id "grant/state" set_flag "cobbleventure:flag/rewards/field_move/whirlpool" true
+    say npc {
+      ko_kr: "이제 거센 소용돌이 앞에서 바다회오리를 사용할 수 있어."
+    }
+  }
+}

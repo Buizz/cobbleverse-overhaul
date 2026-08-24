@@ -7,7 +7,7 @@
   "npc": { "display_name": { "ko_kr": "괴력 수련가" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/black_belt",
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/black_belt_hitoshi_0141" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/field_move_strength_instructor" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/field_move/strength", "value": true }], "target": "claimed" },
     { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "큰 바위를 움직이려면 포켓몬과 호흡을 맞춰야 한다. 괴력의 비결을 전수하지." } },

@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.buizz.cobbleventure.casino.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "PlayingCardsDecorationEntityMixin",
+    "CasinoBetScreenMixin",
+    "CasinoWithdrawScreenMixin",
+    "CasinoMachineUseMixin",
+    "CasinoMenuScreenMixin",
+    "CasinoReturnScreenMixin"
+  ],
+  "client": [
+    "CasinoMachineButtonsMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

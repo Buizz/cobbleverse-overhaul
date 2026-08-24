@@ -20,7 +20,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_brock_019e"
+          "resource": "rctmod:trainers/single/kanto_brock"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -29,7 +29,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 1400,
           "badge_id": "cobbleventure:badge/kanto/boulder"
         }
       }
@@ -52,7 +52,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_misty_019f"
+          "resource": "rctmod:trainers/single/kanto_misty"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -61,7 +61,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 2100,
           "badge_id": "cobbleventure:badge/kanto/cascade"
         }
       }
@@ -84,7 +84,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_lt_surge_01a0"
+          "resource": "rctmod:trainers/single/kanto_ltsurge"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -93,7 +93,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 2400,
           "badge_id": "cobbleventure:badge/kanto/thunder"
         }
       }
@@ -116,7 +116,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_erika_01a1"
+          "resource": "rctmod:trainers/single/kanto_erika"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -125,7 +125,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 2900,
           "badge_id": "cobbleventure:badge/kanto/rainbow"
         }
       }
@@ -148,7 +148,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_koga_01a2"
+          "resource": "rctmod:trainers/single/kanto_koga"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -157,7 +157,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 4300,
           "badge_id": "cobbleventure:badge/kanto/soul"
         }
       }
@@ -180,7 +180,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_sabrina_01a4"
+          "resource": "rctmod:trainers/single/kanto_sabrina"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -189,7 +189,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 4300,
           "badge_id": "cobbleventure:badge/kanto/marsh"
         }
       }
@@ -212,7 +212,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_blaine_01a3"
+          "resource": "rctmod:trainers/single/kanto_blaine"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -221,7 +221,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 4700,
           "badge_id": "cobbleventure:badge/kanto/volcano"
         }
       }
@@ -244,7 +244,7 @@
         "appearance": {
           "source": "rct_single",
           "type": "skin",
-          "resource": "rctmod:trainers/single/leader_giovanni_015e"
+          "resource": "rctmod:trainers/single/kanto_giovanni"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -253,7 +253,7 @@
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
-          "money": 0,
+          "money": 5000,
           "badge_id": "cobbleventure:badge/kanto/earth"
         }
       }

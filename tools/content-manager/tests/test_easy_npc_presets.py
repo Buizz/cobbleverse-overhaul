@@ -337,11 +337,11 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             resource_pack.parent.mkdir(parents=True)
             with zipfile.ZipFile(resource_pack, "w") as archive:
                 archive.writestr(
-                    "assets/rctmod/textures/trainers/single/kanto_koga.png", png
+                    "assets/rctmod/textures/trainers/single/resource_pack_test.png", png
                 )
             with mock.patch.dict(os.environ, {"COBBLEVERSE_INSTANCE": directory}):
                 result = generator.installed_rct_skin(
-                    "rctmod:trainers/single/kanto_koga"
+                    "rctmod:trainers/single/resource_pack_test"
                 )
 
         self.assertEqual(png, result)

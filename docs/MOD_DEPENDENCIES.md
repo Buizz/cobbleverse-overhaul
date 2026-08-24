@@ -44,6 +44,7 @@
 | `fabric_language_kotlin` | Fabric Language Kotlin | 필수 | 양쪽 | BCA의 Fabric Kotlin 진입점 실행 | 1.13.8 / CF `308769:7340876` |
 | `cobbledollars` | CobbleDollars | 필수 | 양쪽 | BCA 상점과 백화점 화폐·상인 기능 | 2.0.0 Beta-6.1 / CF `859232:8484919` |
 | `cobblemon_casino` | Cobblemon Casino | 필수 | 양쪽 | 슬롯머신, 블랙잭, 가챠와 카지노 칩 경제 | 2.0.0 / CF `1572769:8235485` |
+| `playingcards` | Playing Cards & Chips | 필수 | 양쪽 | 블랙잭 테이블의 연결식 마인크래프트 외형 | 2.0.1-neoforge / CF `1162591:7219926` |
 | `architectury_api` | Architectury API | 필수 | 양쪽 | CobbleFurnies 공용 API | 13.0.11 / CF `419699:8492726` |
 | `create` | Create | 필수 | 양쪽 | 체육관 벨트·선풍기·이동 장치와 기계 장식 | 6.0.10 / CF `328085:7963363` |
 | `copycats` | Create: Copycats+ | 필수 | 양쪽 | 재질을 입힐 수 있는 카피캣 블록과 문·패널·계단 확장 | 3.0.4 / CF `968398:7251823` |
@@ -89,6 +90,10 @@ Iris의 기본 `R` 셰이더 새로고침 단축키는 플레이어 메뉴 클�
 제공하며 기존 필수 모드인 CobbleDollars를 선택적으로 연동한다. 보호 차원의 실제
 상호작용과 경제 설정 검증 절차는
 [`CASINOCRAFT_INTEGRATION.md`](implementation/CASINOCRAFT_INTEGRATION.md)를 따른다.
+
+`Playing Cards & Chips`의 `playingcards:poker_table`은 블랙잭 외형 전용으로 사용한다.
+게임과 메뉴는 숨겨 둔 `cobblemoncasino:blackjack_table`이 계속 담당하며, 카지노
+애드온이 포커 테이블 우클릭을 반경 8블록 안의 가장 가까운 블랙잭 테이블로 전달한다.
 
 ## 콘텐츠팩 의존성
 

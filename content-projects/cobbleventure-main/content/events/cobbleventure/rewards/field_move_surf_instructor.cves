@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/field_move/surf") {
+    say npc {
+      ko_kr: "먼바다로 나가기 전에는 반드시 날씨를 확인해."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "물살을 읽고 포켓몬에게 몸을 맡기는 게 중요해. 파도타기 안전수칙을 알려 줄게."
+    }
+    id "grant/field_move" grant_field_move surf -> granted
+    id "grant/state" set_flag "cobbleventure:flag/rewards/field_move/surf" true
+    say npc {
+      ko_kr: "이제 물가에서 파도타기를 사용할 수 있어."
+    }
+  }
+}

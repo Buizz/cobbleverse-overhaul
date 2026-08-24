@@ -870,6 +870,33 @@ class DataModBuilderTests(unittest.TestCase):
             decoration_types,
         )
 
+    def test_automatic_town_decorations_do_not_overlap_main_roads(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/celadon_city.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        layout = build_data_mod._compile_town_layout(source, root=REPOSITORY_ROOT)
+        road_width = int(source["structure_profile"]["road_profile"]["width"])
+
+        for decoration in layout["decorations"]:
+            clearance = 3 if decoration["type"] == "fountain" else 2
+            footprint = {
+                "x": decoration["x"] - clearance,
+                "z": decoration["z"] - clearance,
+                "width": clearance * 2 + 1,
+                "depth": clearance * 2 + 1,
+            }
+            self.assertFalse(
+                any(
+                    build_data_mod._plot_intersects_road(
+                        footprint, road, road_width, 0.0
+                    )
+                    for road in layout["roads"]
+                ),
+                decoration,
+            )
+
     def test_manual_town_decorations_replace_automatic_placements(self) -> None:
         source = json.loads(
             (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
@@ -1143,6 +1170,29 @@ class DataModBuilderTests(unittest.TestCase):
             {("five_story", "flat", "black", "cobbleventure:houses/five_story_flat_black")},
             {(house["base"], house["roof"], house["roof_color"], house["structure"]) for house in houses},
         )
+
+    def test_compile_uses_authored_house_nbt_dimensions_for_colour_variant(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source.setdefault("structure_profile", {}).setdefault("generation_profile", {}).update({
+            "house_palette": {
+                "bases": ["one_story"], "roofs": ["gable"], "roof_colors": ["orange"],
+            }
+        })
+
+        houses = build_data_mod._compile_town_layout(source, root=REPOSITORY_ROOT)["houses"]
+
+        self.assertTrue(houses)
+        for house in houses:
+            expected = build_data_mod._managed_structure_size(
+                REPOSITORY_ROOT, house["structure"]
+            )
+            self.assertIsNotNone(expected)
+            self.assertEqual(expected, (house["width"], house["depth"]))
+        self.assertTrue(any((house["width"], house["depth"]) != (16, 16) for house in houses))
 
     def test_legacy_wide_house_palette_migrates_to_one_story(self) -> None:
         source = json.loads(

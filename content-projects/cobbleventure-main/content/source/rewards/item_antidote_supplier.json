@@ -3,21 +3,63 @@
   "schema_version": 4,
   "id": "cobbleventure:npc/rewards/item_antidote_supplier",
   "enabled": true,
-  "name": { "ko_kr": "야외 탐사 지원원" },
-  "description": { "ko_kr": "해독제 2개를 플레이어당 한 번 지급하는 수동 배치 NPC입니다." },
-  "tags": ["reward", "item_giver", "manual_placement"],
-  "placement_profile": { "classification": "ambient", "preferred_biomes": [], "automatic_town_placement": false, "automatic_route_placement": false },
-  "npc": {
-    "display_name": { "ko_kr": "야외 탐사 지원원" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/hiker",
-    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/hiker_alan_00b9" },
-    "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true }
+  "name": {
+    "ko_kr": "야외 탐사 지원원"
   },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "preset" },
-  "event_design": { "mode": "preset", "preset": {
-    "type": "item", "initial_trigger": { "type": "interact", "range": 4 },
-    "first_text": { "ko_kr": "숲과 동굴에는 독을 쓰는 포켓몬이 많아. 해독제를 챙겨 가." },
-    "state_key": "cobbleventure:flag/rewards/item/antidote_supplier",
-    "repeat_text": { "ko_kr": "독에 걸리면 늦기 전에 해독제를 사용해." },
-    "item": "cobblemon:antidote", "item_count": 2
-  } }
+  "description": {
+    "ko_kr": "해독제 2개를 플레이어당 한 번 지급하는 수동 배치 NPC입니다."
+  },
+  "tags": [
+    "reward",
+    "item_giver",
+    "manual_placement"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "야외 탐사 지원원"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/hiker",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/hiker_alan_00b9"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/rewards/item_antidote_supplier"
+  },
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "item",
+      "initial_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "first_text": {
+        "ko_kr": "숲과 동굴에는 독을 쓰는 포켓몬이 많아. 해독제를 챙겨 가."
+      },
+      "state_key": "cobbleventure:flag/rewards/item/antidote_supplier",
+      "repeat_text": {
+        "ko_kr": "독에 걸리면 늦기 전에 해독제를 사용해."
+      },
+      "item": "cobblemon:antidote",
+      "item_count": 2
+    }
+  }
 }

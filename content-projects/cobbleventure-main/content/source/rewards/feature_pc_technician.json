@@ -7,7 +7,7 @@
   "npc": { "display_name": { "ko_kr": "포켓몬 전송 기술자" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/scientist",
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/scientist_rodney_0153" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
-  "event_runtime": { "engine": "easy_npc_v4", "authoring": "custom" }, "event_design": { "mode": "easy_npc_events" },
+  "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/feature_pc_technician" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/feature/pc", "value": true }], "target": "claimed" },
     { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "포켓몬 전송망 사용자 등록이 아직이군요. 지금 연결해 드리겠습니다." } },

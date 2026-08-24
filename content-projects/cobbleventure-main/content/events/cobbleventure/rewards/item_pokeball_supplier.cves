@@ -1,0 +1,19 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/item/pokeball_supplier") {
+    say npc {
+      ko_kr: "포켓몬을 포획하기 전에는 상태와 체력을 잘 살펴보세요."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "새로운 포켓몬과 만날 준비는 됐나요? 몬스터볼을 보급해 드리죠."
+    }
+    id "first/give_item" give_item "cobblemon:poke_ball" count 5 notify -> reward
+    if reward.remaining_count > 0 {
+      narrate "가방에 빈 공간이 없어 보상을 모두 받을 수 없습니다."
+      stop
+    }
+    id "first/set_claimed" set_flag "cobbleventure:flag/rewards/item/pokeball_supplier" true
+  }
+}

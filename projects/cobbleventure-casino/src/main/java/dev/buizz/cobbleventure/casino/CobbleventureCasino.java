@@ -4,10 +4,12 @@ import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.math.Transformation;
+import dev.buizz.cobbleventure.casino.client.CasinoBalanceOverlay;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -47,6 +50,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -66,7 +70,13 @@ public final class CobbleventureCasino {
     private static final String ANCHOR_KEY = "cobbleventureGachaAnchor";
     private static volatile GachaCatalog catalog = GachaCatalog.empty();
 
-    public CobbleventureCasino(IEventBus ignoredModBus) {
+    public CobbleventureCasino(IEventBus modBus) {
+        CasinoItems.register(modBus);
+        CasinoCashier.register();
+        CasinoHudNetwork.register(modBus);
+        if (FMLEnvironment.dist.isClient()) {
+            CasinoBalanceOverlay.register(modBus);
+        }
         NeoForge.EVENT_BUS.addListener(CobbleventureCasino::onServerStarted);
         NeoForge.EVENT_BUS.addListener(CobbleventureCasino::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(CobbleventureCasino::onEntityInteract);
@@ -97,6 +107,18 @@ public final class CobbleventureCasino {
             .then(Commands.literal("remove").requires(source -> source.hasPermission(2))
                 .then(Commands.argument("pos", BlockPosArgument.blockPos())
                     .executes(CobbleventureCasino::removeCommand)))
+            .then(Commands.literal("ticket")
+                .then(Commands.literal("give").requires(source -> source.hasPermission(2))
+                    .then(Commands.argument("players", EntityArgument.players())
+                        .then(Commands.argument("profile", StringArgumentType.string())
+                            .suggests((context, builder) -> suggestProfiles(builder))
+                            .then(Commands.argument("amount", IntegerArgumentType.integer(1, 6400))
+                                .executes(CobbleventureCasino::giveTickets)))))
+                .then(Commands.literal("buy")
+                    .then(Commands.argument("profile", StringArgumentType.string())
+                        .suggests((context, builder) -> suggestProfiles(builder))
+                        .then(Commands.argument("amount", IntegerArgumentType.integer(1, 6400))
+                            .executes(CobbleventureCasino::buyTickets)))))
             .then(Commands.literal("reload").requires(source -> source.hasPermission(2))
                 .executes(CobbleventureCasino::reloadCommand)));
     }
@@ -181,6 +203,12 @@ public final class CobbleventureCasino {
         return level.addFreshEntity(baseDisplay) && level.addFreshEntity(accentDisplay) && level.addFreshEntity(interaction);
     }
 
+    /** Places a configured machine for authored building anchors. */
+    public static boolean placeConfiguredMachine(ServerLevel level, BlockPos pos, String profileId) {
+        removeMachine(level, pos);
+        return placeMachine(level, pos, profileId);
+    }
+
     private static void configureDisplay(
         Display.BlockDisplay display, BlockPos pos, Block block, float scale, float height,
         float rotation, long anchor, String profile
@@ -235,17 +263,16 @@ public final class CobbleventureCasino {
     private static void pull(ServerPlayer player, String profileId) {
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
         if (machine == null) { player.sendSystemMessage(Component.literal("이 기계의 프로필을 찾을 수 없습니다.")); return; }
-        Item currency = item(machine.currency.item);
-        if (currency == null || !take(player, currency, machine.currency.count)) {
-            player.sendSystemMessage(Component.literal(machine.display_name + ": 필요한 화폐가 부족합니다. (" + machine.currency.item + " ×" + machine.currency.count + ")"));
+        if (!GachaTickets.take(player, machine, 1)) {
+            player.sendSystemMessage(Component.literal(machine.display_name + ": " + machine.ticket.display_name + "이(가) 필요합니다."));
             return;
         }
         Progress progress = playerData(player.server).progress(player.getUUID(), machine.pity_group);
         GachaCatalog.Rarity rarity = chooseRarity(player.getRandom(), machine, progress.pullsSinceTarget);
         GachaCatalog.Reward reward = weighted(player.getRandom(), rarity.rewards, entry -> entry.weight);
         if (reward == null || !grant(player, reward)) {
-            player.getInventory().add(new ItemStack(currency, machine.currency.count));
-            player.sendSystemMessage(Component.literal("보상 지급에 실패해 화폐를 돌려드렸습니다."));
+            GachaTickets.give(player, machine, 1);
+            player.sendSystemMessage(Component.literal("보상 지급에 실패해 티켓을 돌려드렸습니다."));
             return;
         }
         String resetTarget = machine.pity.hard.enabled ? machine.pity.hard.target_rarity : machine.pity.soft.target_rarity;
@@ -255,6 +282,31 @@ public final class CobbleventureCasino {
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, .8F, 1.1F);
         player.sendSystemMessage(Component.literal("[" + machine.display_name + "] " + rarity.display_name + " · " + reward.id + " 당첨!"));
         sendPityStatus(player, machine, progress);
+    }
+
+    private static int giveTickets(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String profileId = StringArgumentType.getString(context, "profile");
+        int amount = IntegerArgumentType.getInteger(context, "amount");
+        GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
+        if (machine == null) {
+            context.getSource().sendFailure(Component.literal("존재하지 않거나 비활성화된 기계 프로필입니다: " + profileId));
+            return 0;
+        }
+        var players = EntityArgument.getPlayers(context, "players");
+        players.forEach(player -> GachaTickets.give(player, machine, amount));
+        context.getSource().sendSuccess(() -> Component.literal(
+            "[가챠] " + machine.ticket.display_name + " ×" + amount + "을(를) " + players.size() + "명에게 지급했습니다."), true);
+        return players.size();
+    }
+
+    private static int buyTickets(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player;
+        try { player = context.getSource().getPlayerOrException(); }
+        catch (Exception error) { context.getSource().sendFailure(Component.literal("플레이어만 사용할 수 있습니다.")); return 0; }
+        String profileId = StringArgumentType.getString(context, "profile");
+        GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
+        if (machine == null) { context.getSource().sendFailure(Component.literal("기계 프로필을 찾을 수 없습니다.")); return 0; }
+        return GachaTicketVendor.buy(player, machine, IntegerArgumentType.getInteger(context, "amount"));
     }
 
     private static GachaCatalog.Rarity chooseRarity(RandomSource random, GachaCatalog.Machine machine, int misses) {

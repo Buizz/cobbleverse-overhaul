@@ -48,6 +48,8 @@ class CommandKind(str, Enum):
     STARTER_ROULETTE = "starter_roulette"
     MAP_SELECTION = "map_selection"
     HEAL_PARTY = "heal_party"
+    NUMBER_INPUT = "number_input"
+    SERVER_COMMAND = "server_command"
     MOVE = "move"
     TELEPORT = "teleport"
     ENTER_SPACE = "enter_space"

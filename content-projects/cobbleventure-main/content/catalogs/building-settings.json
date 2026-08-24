@@ -1,40 +1,17 @@
 {
   "schema_version": 1,
   "facility_defaults": {
-    "pokemon_center": "cobbleventure:facilities/pokemon_center",
+    "department_store": "cobbleventure:facilities/department_store",
     "pokemart": "cobbleventure:facilities/pokemart",
-    "department_store": "cobbleventure:facilities/department_store"
+    "pokemon_center": "cobbleventure:facilities/pokemon_center"
   },
   "buildings": {
-    "cobbleventure:facilities/pokemon_center": {
-      "placement_y_offset": 0,
-      "structure_category": "building",
-      "no_interior_space": false,
-      "fixed_npcs": {
-        "nurse": "cobbleventure:npc/pokemon_center_nurse"
-      },
-      "fixed_pokemon": {
-        "chansey": "chansey level=30 female"
-      },
-      "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
-    },
-    "cobbleventure:facilities/pokemart": {
-      "placement_y_offset": 0,
-      "structure_category": "building",
-      "no_interior_space": false,
-      "fixed_npcs": {},
-      "fixed_pokemon": {},
-      "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
-    },
     "cobbleventure:cave_entrance/ocean": {
       "placement_y_offset": -1,
       "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -44,6 +21,7 @@
       "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -53,6 +31,7 @@
       "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -62,6 +41,7 @@
       "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -71,6 +51,7 @@
       "structure_category": "natural_feature",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -80,16 +61,7 @@
       "structure_category": "building",
       "no_interior_space": false,
       "fixed_npcs": {},
-      "fixed_vendors": {
-        "room_1:2f_left": "cobbleventure:vendor/lilycove_supplies_doyun",
-        "room_1:2f_right": "cobbleventure:vendor/lilycove_medicine_sua",
-        "room_1:3f_left": "cobbleventure:vendor/lilycove_vitamins_jiho",
-        "room_1:3f_right": "cobbleventure:vendor/lilycove_battle_items_narae",
-        "room_1:4f_left": "cobbleventure:vendor/lilycove_attack_tms_taeo",
-        "room_1:4f_right": "cobbleventure:vendor/lilycove_support_tms_serin",
-        "room_1:5f_left": "cobbleventure:vendor/lilycove_dolls_yuri",
-        "room_1:5f_right": "cobbleventure:vendor/lilycove_cushions_bomi"
-      },
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [
         {
@@ -108,11 +80,36 @@
         }
       }
     },
+    "cobbleventure:facilities/pokemart": {
+      "placement_y_offset": 0,
+      "structure_category": "building",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "fixed_pokemon": {},
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:facilities/pokemon_center": {
+      "placement_y_offset": 0,
+      "structure_category": "building",
+      "no_interior_space": false,
+      "fixed_npcs": {
+        "nurse": "cobbleventure:npc/pokemon_center_nurse"
+      },
+      "fixed_pokemon": {
+        "chansey": "chansey level=30 female"
+      },
+      "citizen_placement_allowed": false,
+      "interiors": [],
+      "door_routes": {}
+    },
     "cobbleventure:forest_gate/forest_gate": {
       "placement_y_offset": 0,
       "structure_category": "natural_feature",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -122,6 +119,7 @@
       "structure_category": "natural_feature",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -131,6 +129,7 @@
       "structure_category": "gym_exterior",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -140,6 +139,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -149,6 +149,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -158,6 +159,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -167,6 +169,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -176,6 +179,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [
         {
@@ -199,6 +203,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [
         {
@@ -222,6 +227,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [
         {
@@ -245,6 +251,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [
         {
@@ -268,6 +275,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -277,6 +285,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -286,6 +295,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -295,6 +305,7 @@
       "structure_category": "residential",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -303,16 +314,27 @@
       "placement_y_offset": 0,
       "structure_category": "interior",
       "no_interior_space": false,
-      "fixed_npcs": {},
+      "fixed_npcs": {
+        "blackjack_dealer_*": "cobbleventure:npc/blackjack_dealer",
+        "npc1": "cobbleventure:npc/casino_cashier",
+        "npc2": "cobbleventure:npc/gacha_ticket_vendor"
+      },
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
-      "door_routes": {}
+      "door_routes": {},
+      "fixed_gacha_machines": {
+        "gacha_default_pokemon": "cobbleventure:starter_gacha",
+        "gacha_default_item": "cobbleventure:item_gacha",
+        "gacha_default_tm": "cobbleventure:technical_machine_gacha"
+      }
     },
     "cobbleventure:interiors/department_store": {
       "placement_y_offset": 0,
       "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -322,6 +344,7 @@
       "structure_category": "gym_interior",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -331,6 +354,7 @@
       "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -340,6 +364,7 @@
       "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -349,6 +374,7 @@
       "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -358,6 +384,7 @@
       "structure_category": "interior",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -367,6 +394,7 @@
       "structure_category": "league",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -376,6 +404,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -385,6 +414,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -394,6 +424,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -403,6 +434,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -411,16 +443,41 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "fixed_npcs": {},
+      "fixed_npcs": {
+        "room_1:blackjack_dealer_*": "cobbleventure:npc/blackjack_dealer",
+        "room_1:npc1": "cobbleventure:npc/casino_cashier",
+        "room_1:npc2": "cobbleventure:npc/gacha_ticket_vendor"
+      },
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/casino"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      },
+      "fixed_gacha_machines": {
+        "room_1:gacha_default_pokemon": "cobbleventure:starter_gacha",
+        "room_1:gacha_default_item": "cobbleventure:item_gacha",
+        "room_1:gacha_default_tm": "cobbleventure:technical_machine_gacha"
+      }
     },
     "cobbleventure:placeholder/daycare": {
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -430,6 +487,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -439,6 +497,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -448,6 +507,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -459,6 +519,7 @@
       "fixed_npcs": {
         "room_1:professor_oak": "cobbleventure:npc/professor_oak"
       },
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [
         {
@@ -482,6 +543,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -491,6 +553,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -500,6 +563,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [
         {
@@ -523,6 +587,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -532,6 +597,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -541,6 +607,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -550,6 +617,7 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -559,6 +627,7 @@
       "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -568,6 +637,7 @@
       "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -577,6 +647,7 @@
       "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -586,6 +657,7 @@
       "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -595,6 +667,7 @@
       "structure_category": "decoration",
       "no_interior_space": true,
       "fixed_npcs": {},
+      "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}

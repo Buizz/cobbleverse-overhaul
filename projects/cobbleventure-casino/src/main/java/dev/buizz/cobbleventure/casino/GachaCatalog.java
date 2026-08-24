@@ -33,12 +33,15 @@ final class GachaCatalog {
             var resource = server.getResourceManager().getResourceOrThrow(RESOURCE);
             try (Reader reader = resource.openAsReader()) {
                 Document document = new Gson().fromJson(reader, Document.class);
-                if (document == null || document.schema_version != 1 || document.machines == null) {
-                    throw new JsonParseException("schema_version=1 machines 배열이 필요합니다.");
+                if (document == null || document.schema_version != 3 || document.machines == null
+                    || document.tickets == null || document.casino_sets == null) {
+                    throw new JsonParseException("schema_version=3 tickets, casino_sets, machines가 필요합니다.");
                 }
                 for (Machine machine : document.machines) {
                     if (machine == null || machine.id == null || machine.id.isBlank() || !machine.enabled) continue;
-                    normalize(machine);
+                    Ticket ticket = document.tickets.get(machine.machine_type);
+                    if (ticket == null) throw new JsonParseException("티켓 종류가 없습니다: " + machine.machine_type);
+                    normalize(machine, ticket);
                     loaded.put(machine.id, machine);
                 }
             }
@@ -49,9 +52,16 @@ final class GachaCatalog {
         return new GachaCatalog(loaded);
     }
 
-    private static void normalize(Machine machine) {
+    private static void normalize(Machine machine, Ticket ticket) {
         machine.display_name = machine.display_name == null || machine.display_name.isBlank() ? machine.id : machine.display_name;
+        machine.machine_type = machine.machine_type == null || machine.machine_type.isBlank() ? "item" : machine.machine_type;
         machine.pity_group = machine.pity_group == null || machine.pity_group.isBlank() ? machine.id : machine.pity_group;
+        machine.ticket = ticket;
+        machine.ticket.display_name = machine.ticket.display_name == null || machine.ticket.display_name.isBlank()
+            ? machine.display_name + " 티켓" : machine.ticket.display_name;
+        machine.ticket.price = Math.max(1L, machine.ticket.price);
+        machine.ticket.purchase_min = Math.max(1, machine.ticket.purchase_min);
+        machine.ticket.purchase_max = Math.max(machine.ticket.purchase_min, machine.ticket.purchase_max);
         machine.rarities = machine.rarities == null ? new ArrayList<>() : machine.rarities;
         for (Rarity rarity : machine.rarities) rarity.rewards = rarity.rewards == null ? new ArrayList<>() : rarity.rewards;
     }
@@ -64,17 +74,24 @@ final class GachaCatalog {
         return List.copyOf(machines.keySet());
     }
 
-    static final class Document { int schema_version; List<Machine> machines; }
+    List<Machine> machines() {
+        return List.copyOf(machines.values());
+    }
+
+    static final class Document {
+        int schema_version; Map<String, Ticket> tickets; List<CasinoSet> casino_sets; List<Machine> machines;
+    }
+    static final class CasinoSet { String id; String display_name; Map<String, String> machines; }
     static final class Machine {
-        String id; String display_name; boolean enabled; String pity_group;
-        Appearance appearance; Currency currency; List<Rarity> rarities; Pity pity;
+        String id; String display_name; String machine_type; boolean enabled; String pity_group;
+        Appearance appearance; Ticket ticket; List<Rarity> rarities; Pity pity;
         Rarity rarity(String id) { return rarities.stream().filter(entry -> entry.id.equals(id)).findFirst().orElse(null); }
         Reward reward(String id) { return rarities.stream().flatMap(entry -> entry.rewards.stream()).filter(entry -> entry.id.equals(id)).findFirst().orElse(null); }
     }
     static final class Appearance {
         String base_block; String accent_block; float scale; float accent_scale; float accent_height; float rotation_degrees; boolean show_nameplate;
     }
-    static final class Currency { String item; int count; }
+    static final class Ticket { String display_name; long price; int purchase_min; int purchase_max; }
     static final class Rarity { String id; String display_name; double weight; List<Reward> rewards; }
     static final class Reward { String id; String kind; String value; int count; double weight; boolean selectable; }
     static final class Pity { Soft soft; Hard hard; Selection selection; }

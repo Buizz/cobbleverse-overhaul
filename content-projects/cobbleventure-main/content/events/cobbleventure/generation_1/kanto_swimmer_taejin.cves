@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/kanto_swimmer_taejin/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/kanto_swimmer_taejin/defeated") {
+    say npc {
+      ko_kr: "끝없는 수영으로 키운 지구력을 받아 봐!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/kanto_swimmer_taejin" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/kanto_swimmer_taejin/defeated" true
+      say npc {
+        ko_kr: "이번 승부는 네가 한 수 위였어!"
+      }
+    } else {
+      say npc {
+        ko_kr: "물살을 읽고 다시 도전해 봐!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/kanto_swimmer_taejin/defeated") {
+    say npc {
+      ko_kr: "이번 승부는 네가 한 수 위였어!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "끝없는 수영으로 키운 지구력을 받아 봐!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/kanto_swimmer_taejin" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/kanto_swimmer_taejin/defeated" true
+          say npc {
+            ko_kr: "이번 승부는 네가 한 수 위였어!"
+          }
+        } else {
+          say npc {
+            ko_kr: "물살을 읽고 다시 도전해 봐!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

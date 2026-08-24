@@ -3,52 +3,422 @@
   "$id": "https://cobbleventure.local/schemas/gacha-machines.schema.json",
   "title": "Cobbleventure Gacha Machines",
   "type": "object",
-  "required": ["schema_version", "machines"],
+  "required": [
+    "schema_version",
+    "tickets",
+    "reward_catalog",
+    "casino_sets",
+    "machines"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "schema_version": { "const": 1 },
-    "machines": { "type": "array", "items": { "$ref": "#/$defs/machine" } }
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 3
+    },
+    "tickets": {
+      "type": "object",
+      "required": [
+        "pokemon",
+        "item",
+        "technical_machine"
+      ],
+      "properties": {
+        "pokemon": {
+          "$ref": "#/$defs/ticket"
+        },
+        "item": {
+          "$ref": "#/$defs/ticket"
+        },
+        "technical_machine": {
+          "$ref": "#/$defs/ticket"
+        }
+      },
+      "additionalProperties": false
+    },
+    "casino_sets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/casino_set"
+      }
+    },
+    "machines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/machine"
+      }
+    },
+    "reward_catalog": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reward_template"
+      }
+    }
   },
   "additionalProperties": false,
   "$defs": {
-    "resource": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+    "resource": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
     "machine": {
       "type": "object",
-      "required": ["id", "display_name", "enabled", "pity_group", "appearance", "currency", "rarities", "pity"],
+      "required": [
+        "id",
+        "display_name",
+        "machine_type",
+        "enabled",
+        "pity_group",
+        "appearance",
+        "rarities",
+        "pity"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/resource" }, "display_name": { "type": "string", "minLength": 1 },
-        "enabled": { "type": "boolean" }, "pity_group": { "type": "string", "minLength": 1 },
-        "appearance": {
-          "type": "object", "required": ["base_block", "accent_block", "scale", "accent_scale", "accent_height", "rotation_degrees", "show_nameplate"],
-          "properties": {
-            "base_block": { "$ref": "#/$defs/resource" }, "accent_block": { "$ref": "#/$defs/resource" },
-            "scale": { "type": "number", "minimum": 0.25, "maximum": 2 }, "accent_scale": { "type": "number", "minimum": 0.1, "maximum": 1.5 },
-            "accent_height": { "type": "number", "minimum": 0, "maximum": 2 }, "rotation_degrees": { "type": "number", "minimum": -360, "maximum": 360 },
-            "show_nameplate": { "type": "boolean" }
-          }, "additionalProperties": false
+        "id": {
+          "$ref": "#/$defs/resource"
         },
-        "currency": { "type": "object", "required": ["item", "count"], "properties": { "item": { "$ref": "#/$defs/resource" }, "count": { "type": "integer", "minimum": 1 } }, "additionalProperties": false },
-        "rarities": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/rarity" } },
-        "pity": { "$ref": "#/$defs/pity" }
-      }, "additionalProperties": false
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "machine_type": {
+          "enum": [
+            "pokemon",
+            "item",
+            "technical_machine"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "pity_group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "appearance": {
+          "type": "object",
+          "required": [
+            "base_block",
+            "accent_block",
+            "scale",
+            "accent_scale",
+            "accent_height",
+            "rotation_degrees",
+            "show_nameplate"
+          ],
+          "properties": {
+            "base_block": {
+              "$ref": "#/$defs/resource"
+            },
+            "accent_block": {
+              "$ref": "#/$defs/resource"
+            },
+            "scale": {
+              "type": "number",
+              "minimum": 0.25,
+              "maximum": 2
+            },
+            "accent_scale": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 1.5
+            },
+            "accent_height": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "rotation_degrees": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "show_nameplate": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "rarities": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/rarity"
+          }
+        },
+        "pity": {
+          "$ref": "#/$defs/pity"
+        }
+      },
+      "additionalProperties": false
     },
     "rarity": {
-      "type": "object", "required": ["id", "display_name", "weight", "rewards"],
-      "properties": { "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }, "display_name": { "type": "string", "minLength": 1 }, "weight": { "type": "number", "exclusiveMinimum": 0 }, "rewards": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/reward" } } },
+      "type": "object",
+      "required": [
+        "id",
+        "display_name",
+        "weight",
+        "rewards"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rewards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reward"
+          }
+        }
+      },
       "additionalProperties": false
     },
     "reward": {
-      "type": "object", "required": ["id", "kind", "value", "count", "weight", "selectable"],
-      "properties": { "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }, "kind": { "enum": ["item", "pokemon"] }, "value": { "type": "string", "minLength": 1 }, "count": { "type": "integer", "minimum": 1 }, "weight": { "type": "number", "exclusiveMinimum": 0 }, "selectable": { "type": "boolean" } },
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "value",
+        "count",
+        "weight",
+        "selectable"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+$"
+        },
+        "kind": {
+          "enum": [
+            "item",
+            "pokemon"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "weight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "selectable": {
+          "type": "boolean"
+        }
+      },
       "additionalProperties": false
     },
     "pity": {
-      "type": "object", "required": ["soft", "hard", "selection"],
+      "type": "object",
+      "required": [
+        "soft",
+        "hard",
+        "selection"
+      ],
       "properties": {
-        "soft": { "type": "object", "required": ["enabled", "start", "max_at", "target_rarity", "max_chance"], "properties": { "enabled": { "type": "boolean" }, "start": { "type": "integer", "minimum": 1 }, "max_at": { "type": "integer", "minimum": 1 }, "target_rarity": { "type": "string" }, "max_chance": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 } }, "additionalProperties": false },
-        "hard": { "type": "object", "required": ["enabled", "count", "target_rarity"], "properties": { "enabled": { "type": "boolean" }, "count": { "type": "integer", "minimum": 1 }, "target_rarity": { "type": "string" } }, "additionalProperties": false },
-        "selection": { "type": "object", "required": ["enabled", "points_per_pull", "required_points"], "properties": { "enabled": { "type": "boolean" }, "points_per_pull": { "type": "integer", "minimum": 1 }, "required_points": { "type": "integer", "minimum": 1 } }, "additionalProperties": false }
-      }, "additionalProperties": false
+        "soft": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "start",
+            "max_at",
+            "target_rarity",
+            "max_chance"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "start": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_at": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "target_rarity": {
+              "type": "string"
+            },
+            "max_chance": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "hard": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "count",
+            "target_rarity"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "target_rarity": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "selection": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "points_per_pull",
+            "required_points"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "points_per_pull": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required_points": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ticket": {
+      "type": "object",
+      "required": [
+        "display_name",
+        "price",
+        "purchase_min",
+        "purchase_max"
+      ],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "price": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "purchase_min": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "purchase_max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6400
+        }
+      },
+      "additionalProperties": false
+    },
+    "casino_set": {
+      "type": "object",
+      "required": [
+        "id",
+        "display_name",
+        "machines"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/resource"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "machines": {
+          "type": "object",
+          "required": [
+            "pokemon",
+            "item",
+            "technical_machine"
+          ],
+          "properties": {
+            "pokemon": {
+              "$ref": "#/$defs/resource"
+            },
+            "item": {
+              "$ref": "#/$defs/resource"
+            },
+            "technical_machine": {
+              "$ref": "#/$defs/resource"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "reward_template": {
+      "type": "object",
+      "required": [
+        "id",
+        "display_name",
+        "machine_type",
+        "kind",
+        "value",
+        "count"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "machine_type": {
+          "enum": [
+            "pokemon",
+            "item",
+            "technical_machine"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "item",
+            "pokemon"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

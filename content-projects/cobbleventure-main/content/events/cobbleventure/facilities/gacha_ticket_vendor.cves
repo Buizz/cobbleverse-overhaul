@@ -1,0 +1,98 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "어서 오세요. 카지노 칩을 모든 카지노에서 쓸 수 있는 종류별 공통 가챠 티켓으로 교환해 드립니다."
+      en_us: "Welcome. I exchange casino chips for shared gacha tickets usable at every casino."
+    }
+    if has_item("cobbleventure_casino:coin_case", 1) {
+      choice {
+        ko_kr: "어떤 티켓이 필요하신가요?"
+        en_us: "Which ticket do you need?"
+      } {
+        {
+            ko_kr: "포켓몬 공통 티켓"
+            en_us: "Shared Pokemon Ticket"
+          } {
+          say npc {
+            ko_kr: "구매할 수량을 입력해 주세요."
+            en_us: "Enter the quantity."
+          }
+          id "pokemon/amount" await number_input {
+            min: 1
+            max: 6400
+          } -> amount
+          id "pokemon/buy" server_command "cvgacha ticket buy cobbleventure:starter_gacha" amount -> bought
+          if bought {
+            say npc {
+            ko_kr: "포켓몬 가챠 티켓을 가방에 넣어 드렸습니다."
+            en_us: "The Pokemon tickets are in your bag."
+          } }
+          else { say npc {
+            ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
+            en_us: "The exchange failed. Check your balance and quantity."
+          } }
+        }
+        {
+            ko_kr: "아이템 공통 티켓"
+            en_us: "Shared Item Ticket"
+          } {
+          say npc {
+            ko_kr: "구매할 수량을 입력해 주세요."
+            en_us: "Enter the quantity."
+          }
+          id "item/amount" await number_input {
+            min: 1
+            max: 6400
+          } -> amount
+          id "item/buy" server_command "cvgacha ticket buy cobbleventure:item_gacha" amount -> bought
+          if bought {
+            say npc {
+            ko_kr: "아이템 가챠 티켓을 가방에 넣어 드렸습니다."
+            en_us: "The Item tickets are in your bag."
+          } }
+          else { say npc {
+            ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
+            en_us: "The exchange failed. Check your balance and quantity."
+          } }
+        }
+        {
+            ko_kr: "기술머신 공통 티켓"
+            en_us: "Shared TM Ticket"
+          } {
+          say npc {
+            ko_kr: "구매할 수량을 입력해 주세요."
+            en_us: "Enter the quantity."
+          }
+          id "tm/amount" await number_input {
+            min: 1
+            max: 6400
+          } -> amount
+          id "tm/buy" server_command "cvgacha ticket buy cobbleventure:technical_machine_gacha" amount -> bought
+          if bought {
+            say npc {
+            ko_kr: "기술머신 가챠 티켓을 가방에 넣어 드렸습니다."
+            en_us: "The TM tickets are in your bag."
+          } }
+          else { say npc {
+            ko_kr: "교환하지 못했습니다. 칩 잔액과 구매 범위를 확인해 주세요."
+            en_us: "The exchange failed. Check your balance and quantity."
+          } }
+        }
+        {
+            ko_kr: "그만두기"
+            en_us: "Cancel"
+          } {
+          say npc {
+            ko_kr: "필요할 때 다시 찾아주세요."
+            en_us: "Come back whenever you need tickets."
+          }
+        }
+      }
+    } else {
+      say npc {
+        ko_kr: "동전케이스가 있어야 티켓을 교환할 수 있습니다."
+        en_us: "You need a Coin Case to exchange tickets."
+      }
+    }
+  }
+}

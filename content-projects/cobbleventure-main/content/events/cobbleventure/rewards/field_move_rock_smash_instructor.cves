@@ -1,0 +1,18 @@
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/rewards/field_move/rock_smash") {
+    say npc {
+      ko_kr: "바위의 금을 잘 보고 힘을 한곳에 모아라."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "금이 간 바위는 힘보다 요령이 중요하지. 바위깨기 요령을 알려 주마."
+    }
+    id "grant/field_move" grant_field_move rock_smash -> granted
+    id "grant/state" set_flag "cobbleventure:flag/rewards/field_move/rock_smash" true
+    say npc {
+      ko_kr: "이제 금이 간 바위를 조사하면 바위깨기를 사용할 수 있을 거다."
+    }
+  }
+}

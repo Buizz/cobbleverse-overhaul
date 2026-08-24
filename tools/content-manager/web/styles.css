@@ -1518,6 +1518,14 @@ body { font-size: 14px; line-height: 1.45; }
 .settlement-editor-heading .path-label {
   max-width: 280px;
 }
+.settlement-loading-state { position: sticky; z-index: 29; top: 86px; display: flex; align-items: center; gap: 12px; margin: 12px 24px 0; padding: 13px 15px; border: 1px solid #9fc1c7; border-left: 4px solid #168f99; border-radius: 5px; background: #edf8fa; color: #173f4b; box-shadow: 0 8px 22px rgba(27,72,79,.14); }
+.settlement-loading-state[hidden] { display: none; }
+.settlement-loading-state strong,.settlement-loading-state small { display: block; }
+.settlement-loading-state small { margin-top: 3px; color: #5b7680; font-size: 10px; }
+.settlement-loading-spinner { width: 22px; height: 22px; flex: 0 0 22px; border: 3px solid rgba(22,143,153,.2); border-top-color: #168f99; border-radius: 50%; animation: project-loading-spin .75s linear infinite; }
+#selected-settlement-editor.is-loading > :not(.panel-heading):not(.settlement-loading-state) { opacity: .42; pointer-events: none; }
+.settlement-order-row.is-loading .settlement-order-index { animation: settlement-list-loading-pulse .85s ease-in-out infinite alternate; }
+@keyframes settlement-list-loading-pulse { to { color: #fff; background: #168f99; } }
 
 @media (max-width: 900px) {
   .settlement-editor-heading,
@@ -1859,3 +1867,9 @@ body { font-size: 14px; line-height: 1.45; }
 @media (max-width:900px) { .casino-config-workspace{grid-template-columns:1fr}.casino-config-files,.casino-config-editor{min-height:0}.casino-config-file-list{grid-template-columns:repeat(2,minmax(0,1fr))}.casino-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:560px) { .casino-config-file-list{grid-template-columns:1fr}.casino-config-path{align-items:flex-start;flex-direction:column}.casino-config-help{grid-template-columns:1fr}.casino-field-grid{grid-template-columns:1fr}.casino-category>header{align-items:stretch;flex-direction:column}.casino-category>header>*{width:100%} }
 .custom-town-layout{border:1px solid #b8c9d2;background:#f4f8f7;padding:14px;display:grid;gap:12px}.custom-town-layout[hidden]{display:none}.custom-town-layout header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.custom-town-layout header div:first-child{display:grid;gap:4px}.custom-town-layout header small{color:#587080}.custom-town-tools{display:flex;gap:6px;flex-wrap:wrap}.custom-town-tools button{border:1px solid #9fb4bf;background:#fff;color:#17354a;padding:8px 12px;cursor:pointer}.custom-town-tools button.is-active{background:#17354a;color:#fff}.custom-town-layout svg{width:100%;max-width:760px;min-height:360px;margin:auto;background:#e9f0eb;border:1px solid #c6d4cf}.custom-town-hex{fill:#dce8df;stroke:#789084;stroke-width:2;cursor:pointer}.custom-town-hex:hover{fill:#eef7d9}.custom-town-hex.is-cell{fill:#c8df98;stroke:#52703e;stroke-width:3}.custom-town-hex.is-exit{fill:#f5b942;stroke:#9c5f00;stroke-width:4}.custom-town-coordinate{font:700 12px monospace;fill:#466050;pointer-events:none;text-anchor:middle}.custom-town-exit-mark{font:900 20px sans-serif;fill:#563000;pointer-events:none;text-anchor:middle}.custom-town-layout-summary{padding:10px 12px;background:#fff;border-left:4px solid #6c8d4e;color:#36515f}.custom-town-layout-summary.has-error{border-left-color:#d1495b;color:#9c2635}
+
+.gacha-catalog-search { display:grid; grid-template-columns:auto minmax(180px,360px); align-items:center; justify-content:start; gap:8px; color:#5a6e64; font-size:9px; }
+.gacha-catalog-search input,.gacha-catalog-row input,.gacha-catalog-row select { min-width:0; height:34px; padding:6px 8px; border:1px solid #b7c7be; border-radius:5px; background:#fff; }
+.gacha-catalog-table { display:grid; gap:6px; overflow:auto; }
+.gacha-catalog-row { display:grid; grid-template-columns:110px 130px 90px minmax(180px,1fr) 64px 105px 32px; align-items:center; gap:6px; min-width:820px; }
+.gacha-catalog-row.head { color:#687b71; font-size:8px; font-weight:700; }

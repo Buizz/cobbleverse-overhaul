@@ -9,10 +9,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.ItemStack;
 
 /** A continuously scrolling row of Cobblemon models with a server-validated stop result. */
@@ -45,8 +48,9 @@ public final class StarterRouletteScreen extends Screen {
     private int frameY;
     private int nameY;
     private int statusY;
+    private MenuTheme menuTheme;
     private Component status = Component.translatable("screen.cobbleventure_player_menu.starter.hint");
-    private Button actionButton;
+    private RouletteButton actionButton;
 
     public StarterRouletteScreen(UUID token, List<String> speciesIds) {
         super(Component.translatable("screen.cobbleventure_player_menu.starter.title"));
@@ -57,6 +61,7 @@ public final class StarterRouletteScreen extends Screen {
     @Override
     protected void init() {
         models.clear();
+        menuTheme = MenuTheme.load(minecraft);
         int horizontalPadding = HORIZONTAL_SAFE_INSET * 2;
         int minimumGap = 4;
         int widthLimitedSize = Math.max(
@@ -92,9 +97,10 @@ public final class StarterRouletteScreen extends Screen {
         }
         stepStartedAt = System.currentTimeMillis();
         int buttonWidth = Math.min(120, width - 24);
-        actionButton = addRenderableWidget(Button.builder(
-            Component.translatable("screen.cobbleventure_player_menu.starter.stop"), button -> pressAction()
-        ).bounds(width / 2 - buttonWidth / 2, buttonY, buttonWidth, 20).build());
+        actionButton = addRenderableWidget(new RouletteButton(
+            Component.translatable("screen.cobbleventure_player_menu.starter.stop"),
+            width / 2 - buttonWidth / 2, buttonY, buttonWidth, 20
+        ));
         positionModels(0.0D);
     }
 
@@ -111,6 +117,7 @@ public final class StarterRouletteScreen extends Screen {
             centerIndex = Math.floorMod(centerIndex + 1, speciesIds.size());
             stepStartedAt += STEP_MILLIS;
             refreshModels();
+            playRouletteTick();
         }
     }
 
@@ -128,21 +135,24 @@ public final class StarterRouletteScreen extends Screen {
         positionModels(progress);
 
         int frameX = width / 2 - modelSize / 2 - 8;
-        graphics.fill(frameX, frameY, frameX + modelSize + 16, frameY + modelSize + 16, 0xD02A3543);
-        graphics.fill(frameX, frameY, frameX + modelSize + 16, frameY + 3, 0xFFFFC928);
-        graphics.fill(frameX, frameY + modelSize + 13, frameX + modelSize + 16, frameY + modelSize + 16, 0xFFFFC928);
+        int frameSize = modelSize + 16;
+        ThemedOverlayPanel.draw(
+            graphics, menuTheme, frameX, frameY, frameSize, frameSize,
+            1.0F, menuTheme.accent
+        );
         graphics.drawCenteredString(font, title, width / 2, Math.max(8, frameY - 18), 0xFFFFFFFF);
         graphics.drawCenteredString(font, status, width / 2, statusY, received ? 0xFF8EF0A7 : 0xFFE8EDF2);
 
-        int centerX = width / 2 - modelSize / 2;
-        int visibleRadius = VISIBLE_WIDGET_COUNT / 2;
-        int rouletteLeft = Math.max(0, centerX - visibleRadius * slotSpacing);
-        int rouletteRight = Math.min(
-            width, centerX + visibleRadius * slotSpacing + modelSize
+        int clipInset = 4;
+        graphics.enableScissor(
+            frameX + clipInset, frameY + clipInset,
+            frameX + frameSize - clipInset, frameY + frameSize - clipInset
         );
-        graphics.enableScissor(rouletteLeft, 0, rouletteRight, height);
-        super.render(graphics, mouseX, mouseY, partialTick);
+        for (ModelWidget model : models) {
+            model.render(graphics, mouseX, mouseY, partialTick);
+        }
         graphics.disableScissor();
+        actionButton.render(graphics, mouseX, mouseY, partialTick);
         Species centered = species(sequenceAt(centerIndex));
         if (centered != null) {
             graphics.drawCenteredString(font, centered.getTranslatedName(), width / 2, nameY, 0xFFFFFFFF);
@@ -215,6 +225,7 @@ public final class StarterRouletteScreen extends Screen {
         if (nextCenterIndex != centerIndex) {
             centerIndex = nextCenterIndex;
             refreshModels();
+            playRouletteTick();
         }
         return absolutePosition - wholeSlots;
     }
@@ -270,6 +281,52 @@ public final class StarterRouletteScreen extends Screen {
         Species value = species(id);
         if (value == null) value = PokemonSpecies.getByName("bulbasaur");
         return new RenderablePokemon(value, java.util.Set.of(), ItemStack.EMPTY);
+    }
+
+    private void playRouletteTick() {
+        if (minecraft == null) return;
+        minecraft.getSoundManager().play(
+            SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_HAT.value(), 1.35F, 0.28F)
+        );
+    }
+
+    private final class RouletteButton extends AbstractButton {
+        private RouletteButton(
+            Component message, int x, int y, int width, int height
+        ) {
+            super(x, y, width, height, message);
+        }
+
+        @Override
+        public void onPress() {
+            pressAction();
+        }
+
+        @Override
+        protected void renderWidget(
+            GuiGraphics graphics, int mouseX, int mouseY, float partialTick
+        ) {
+            int accent = active && isHovered() ? menuTheme.accent : menuTheme.border;
+            ThemedOverlayPanel.draw(
+                graphics, menuTheme, getX(), getY(), getWidth(), getHeight(),
+                active ? 1.0F : 0.55F, accent
+            );
+            int textColor = active
+                ? isHovered() ? menuTheme.selectedTextColor : menuTheme.textColor
+                : ThemedOverlayPanel.withOpacity(menuTheme.textColor, 0.55F);
+            graphics.drawCenteredString(
+                font,
+                font.plainSubstrByWidth(getMessage().getString(), getWidth() - 12),
+                getX() + getWidth() / 2,
+                getY() + (getHeight() - font.lineHeight) / 2,
+                textColor
+            );
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
     }
 
 }
