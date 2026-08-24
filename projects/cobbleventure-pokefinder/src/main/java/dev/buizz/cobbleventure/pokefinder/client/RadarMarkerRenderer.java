@@ -2,8 +2,8 @@ package dev.buizz.cobbleventure.pokefinder.client;
 
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarker;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
+import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerType;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,8 +13,6 @@ import net.minecraft.world.phys.Vec3;
 
 /** Draws server snapshots over the already-rendered CobbleNav radar. */
 public final class RadarMarkerRenderer {
-    private static final Comparator<RadarMarker> RENDER_ORDER = Comparator
-        .comparingInt(RadarMarker::priority);
     private static final boolean DEBUG_MARKER = Boolean.getBoolean(
         "cobbleventure.pokefinder.testMarker"
     );
@@ -29,12 +27,12 @@ public final class RadarMarkerRenderer {
         Cobblenav233LayoutAdapter.radarLayout(minecraft).ifPresent(layout -> {
             List<RadarMarker> markers = new ArrayList<>(RadarMarkerSnapshot.markers());
             if (DEBUG_MARKER) markers.add(DebugMarker.create(player));
-            markers.sort(RENDER_ORDER);
 
             graphics.pose().pushPose();
             graphics.pose().scale(layout.scale(), layout.scale(), 1.0F);
             ResourceLocation dimension = player.level().dimension().location();
             Vec3 playerPosition = player.position();
+            List<RadarMarkerLayout.Candidate> candidates = new ArrayList<>();
             for (RadarMarker marker : markers) {
                 if (!marker.dimension().equals(dimension)) continue;
                 if (!RadarDisplaySettings.visible(marker)) continue;
@@ -45,19 +43,30 @@ public final class RadarMarkerRenderer {
                         marker.position().z - playerPosition.z,
                         player.getYRot(),
                         marker.localRange(),
+                        marker.type() == RadarMarkerType.OBJECTIVE
+                            ? Double.POSITIVE_INFINITY
+                            : Cobblenav233LayoutAdapter.MAX_FALLBACK_RANGE,
                         marker.edgeTracking()
                     );
-                if (point.visible()) {
-                    drawMarkerIcon(graphics, marker, point);
-                    drawMarkerDetails(graphics, minecraft, marker, point, playerPosition);
-                }
+                if (point.visible()) candidates.add(
+                    new RadarMarkerLayout.Candidate(marker, point)
+                );
+            }
+            for (RadarMarkerLayout.Placed placed : RadarMarkerLayout.resolve(candidates)) {
+                drawMarkerIcon(graphics, placed.marker(), placed.point());
+                drawOverlapIndicator(graphics, placed);
+                drawMarkerDetails(
+                    graphics, minecraft, layout, placed.marker(),
+                    placed.point(), playerPosition
+                );
             }
             graphics.pose().popPose();
         });
     }
 
     private static void drawMarkerDetails(
-        GuiGraphics graphics, Minecraft minecraft, RadarMarker marker,
+        GuiGraphics graphics, Minecraft minecraft,
+        Cobblenav233LayoutAdapter.Layout layout, RadarMarker marker,
         Cobblenav233LayoutAdapter.RadarPoint point, Vec3 playerPosition
     ) {
         boolean names = RadarDisplaySettings.value(RadarDisplaySettings.Option.NAMES);
@@ -73,12 +82,33 @@ public final class RadarMarkerRenderer {
             double dz = marker.position().z - playerPosition.z;
             text.append(Math.round(Math.hypot(dx, dz))).append('m');
         }
+        int textWidth = minecraft.font.width(text.toString());
+        int x = (int) Math.floor(point.x()) + 4;
+        if (x + textWidth > layout.left() + Cobblenav233LayoutAdapter.WIDTH - 3) {
+            x = (int) Math.floor(point.x()) - 4 - textWidth;
+        }
+        int y = Math.max(
+            layout.top() + 2,
+            Math.min(
+                (int) Math.floor(point.y()) - 4,
+                layout.top() + Cobblenav233LayoutAdapter.HEIGHT - 10
+            )
+        );
         graphics.drawString(
             minecraft.font, text.toString(),
-            (int) Math.floor(point.x()) + 4,
-            (int) Math.floor(point.y()) - 4,
+            x, y,
             0xFFF2F7FF, true
         );
+    }
+
+    private static void drawOverlapIndicator(
+        GuiGraphics graphics, RadarMarkerLayout.Placed placed
+    ) {
+        if (placed.overlapCount() <= 0) return;
+        int x = (int) Math.floor(placed.point().x());
+        int y = (int) Math.floor(placed.point().y());
+        graphics.fill(x + 3, y - 3, x + 5, y - 2, 0xFFF2F7FF);
+        graphics.fill(x + 4, y - 4, x + 5, y - 1, 0xFFF2F7FF);
     }
 
     private static void drawMarkerIcon(

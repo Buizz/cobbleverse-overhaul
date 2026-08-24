@@ -47,4 +47,32 @@ class Cobblenav233LayoutAdapterTest {
 
         assertFalse(point.visible());
     }
+
+    @Test
+    void keepsGlobalObjectivePinnedBeyondTheOrdinaryFallbackLimit() {
+        Cobblenav233LayoutAdapter.RadarPoint point =
+            Cobblenav233LayoutAdapter.worldToRadar(
+                LAYOUT, 2048.0D, 0.0D, 180.0F, 64.0D,
+                Double.POSITIVE_INFINITY, true
+            );
+
+        assertTrue(point.visible());
+        assertTrue(point.edgePinned());
+        assertEquals(116.7D, point.x(), 0.0001D);
+    }
+
+    @Test
+    void logicalRadarCoordinatesRemainStableAcrossOverlayScales() {
+        var half = Cobblenav233LayoutAdapter.worldToRadar(
+            new Cobblenav233LayoutAdapter.Layout(10, 20, 0.5F, true),
+            10.0D, 0.0D, 180.0F, 64.0D, false
+        );
+        var doubleScale = Cobblenav233LayoutAdapter.worldToRadar(
+            new Cobblenav233LayoutAdapter.Layout(10, 20, 2.0F, true),
+            10.0D, 0.0D, 180.0F, 64.0D, false
+        );
+
+        assertEquals(half.x(), doubleScale.x(), 0.0001D);
+        assertEquals(half.y(), doubleScale.y(), 0.0001D);
+    }
 }

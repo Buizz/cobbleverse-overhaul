@@ -48,9 +48,24 @@ public final class Cobblenav233LayoutAdapter {
         double localRange,
         boolean edgeTracking
     ) {
+        return worldToRadar(
+            layout, deltaX, deltaZ, playerYaw, localRange,
+            MAX_FALLBACK_RANGE, edgeTracking
+        );
+    }
+
+    public static RadarPoint worldToRadar(
+        Layout layout,
+        double deltaX,
+        double deltaZ,
+        float playerYaw,
+        double localRange,
+        double maximumRange,
+        boolean edgeTracking
+    ) {
         double distance = Math.hypot(deltaX, deltaZ);
         if (distance > localRange && !edgeTracking) return RadarPoint.hidden();
-        if (distance > MAX_FALLBACK_RANGE) return RadarPoint.hidden();
+        if (distance > maximumRange) return RadarPoint.hidden();
 
         double angle = Math.toRadians(180.0D - playerYaw);
         double radarX = deltaX * Math.cos(angle) - deltaZ * Math.sin(angle);
