@@ -34,3 +34,10 @@ type="required"
 versionRange="${cobblenav_version_range}"
 ordering="AFTER"
 side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="cobbleventure_bootstrap"
+type="required"
+versionRange="[0.66.0,0.67)"
+ordering="AFTER"
+side="BOTH"

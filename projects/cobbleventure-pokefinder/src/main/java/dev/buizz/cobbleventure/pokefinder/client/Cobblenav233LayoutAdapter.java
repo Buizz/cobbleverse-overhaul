@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.pokefinder.client;
 import com.metacontent.cobblenav.client.CobblenavClient;
 import com.metacontent.cobblenav.config.ClientCobblenavConfig;
 import com.metacontent.cobblenav.item.Pokefinder;
+import dev.buizz.cobbleventure.pokefinder.marker.RadarRanges;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -13,8 +14,8 @@ public final class Cobblenav233LayoutAdapter {
     public static final int WIDTH = 145;
     public static final int HEIGHT = 97;
     public static final double RADAR_SCALE = 0.55D;
-    public static final double DEFAULT_LOCAL_RANGE = 64.0D;
-    public static final double MAX_FALLBACK_RANGE = 256.0D;
+    public static final double DEFAULT_LOCAL_RANGE = RadarRanges.DEFAULT_LOCAL;
+    public static final double MAX_FALLBACK_RANGE = RadarRanges.MAX_FALLBACK;
 
     private Cobblenav233LayoutAdapter() {}
 

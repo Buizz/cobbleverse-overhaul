@@ -10,6 +10,7 @@ public final class CobbleventurePokefinder {
     public static final String MOD_ID = "cobbleventure_pokefinder";
 
     public CobbleventurePokefinder(IEventBus modBus) {
+        RadarMarkerNetwork.register(modBus);
         if (FMLEnvironment.dist.isClient()) {
             PokefinderRadarClient.register(modBus);
         }

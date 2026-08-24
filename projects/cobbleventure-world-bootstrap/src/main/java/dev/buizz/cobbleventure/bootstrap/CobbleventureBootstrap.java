@@ -7694,6 +7694,34 @@ public final class CobbleventureBootstrap {
         return Map.copyOf(result);
     }
 
+    static List<RadarLocationCatalog.Location> radarWorldLocations(ServerLevel level) {
+        HexWorldPlan world = activeHexWorld;
+        if (world == null) return List.of();
+        boolean generationDimension = level.dimension().equals(GENERATION_ONE);
+        List<RadarLocationCatalog.Location> result = new ArrayList<>(
+            WorldGateSystem.radarLocations(level, world, generationDimension)
+        );
+        if (!generationDimension) return List.copyOf(result);
+
+        for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            CaveMouthGeometry mouth = caveMouthGeometry(world, entrance);
+            int y = plannedCaveMouthFloorY(level, mouth.x(), mouth.z());
+            if (!level.getBlockState(new BlockPos(mouth.x(), y - 2, mouth.z()))
+                .is(Blocks.LODESTONE)) continue;
+            result.add(new RadarLocationCatalog.Location(
+                "cave/" + entrance.id(),
+                RadarLocationCatalog.Kind.CAVE_ENTRANCE,
+                level.dimension().location(),
+                mouth.x() + 0.5D,
+                y,
+                mouth.z() + 0.5D,
+                entrance.cave(),
+                entrance.cave()
+            ));
+        }
+        return List.copyOf(result);
+    }
+
     private record PursuitEncounterZone(
         PursuitEncounterSystem.Config config, int minX, int minZ, int maxX, int maxZ
     ) {

@@ -1629,6 +1629,34 @@ final class BuildingRuntimeSystem {
         return value.get(key).getAsString();
     }
 
+    static List<RadarLocationCatalog.Location> radarLocations(
+        MinecraftServer server, ResourceLocation dimension
+    ) {
+        List<RadarLocationCatalog.Location> result = new ArrayList<>();
+        for (PersistedBuildingInstance instance : data(server).buildingInstances()) {
+            if (!instance.dimension.equals(dimension.toString())) continue;
+            if (instance.rotation == null || instance.rotation.isBlank()) continue;
+            BlockPos offset = exteriorDoorApproachOffset(
+                instance.structure, instance.rotation
+            );
+            if (offset == null) continue;
+            BlockPos entrance = instance.origin.offset(offset);
+            String id = "building/" + instance.structure + "/"
+                + entrance.getX() + "/" + entrance.getY() + "/" + entrance.getZ();
+            result.add(new RadarLocationCatalog.Location(
+                id,
+                RadarLocationCatalog.buildingKind(instance.structure),
+                dimension,
+                entrance.getX() + 0.5D,
+                entrance.getY(),
+                entrance.getZ() + 0.5D,
+                instance.structure,
+                instance.eventSpaceId == null ? "" : instance.eventSpaceId
+            ));
+        }
+        return List.copyOf(result);
+    }
+
     private static RuntimeData data(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
             new SavedData.Factory<>(RuntimeData::new, RuntimeData::load), DATA_FILE

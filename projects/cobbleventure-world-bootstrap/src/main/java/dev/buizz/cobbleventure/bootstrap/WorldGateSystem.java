@@ -362,6 +362,53 @@ final class WorldGateSystem {
             : new CobbleventureBootstrap.Point((int) Math.round(bestX), authored.z());
     }
 
+    static List<RadarLocationCatalog.Location> radarLocations(
+        ServerLevel level, HexWorldPlan world, boolean generationDimension
+    ) {
+        List<RadarLocationCatalog.Location> result = new ArrayList<>();
+        for (Gate gate : world.gates()) {
+            ForestEntryMarker marker;
+            RadarLocationCatalog.Kind kind;
+            if (generationDimension) {
+                marker = gate.destinationForest() == null
+                    ? null : FOREST_ENTRY_MARKERS.get(gate.id());
+                if (gate.destinationForest() != null && marker == null) continue;
+                kind = gate.destinationForest() == null
+                    ? RadarLocationCatalog.Kind.GATE
+                    : RadarLocationCatalog.Kind.FOREST_ENTRANCE;
+            } else {
+                if (gate.forestDimension() == null
+                    || !gate.forestDimension().equals(level.dimension())) continue;
+                marker = FOREST_EXIT_MARKERS.get(gate.id());
+                if (marker == null) continue;
+                kind = RadarLocationCatalog.Kind.FOREST_ENTRANCE;
+            }
+
+            int x;
+            int y;
+            int z;
+            if (marker != null) {
+                x = marker.position().getX();
+                y = marker.position().getY();
+                z = marker.position().getZ();
+            } else {
+                CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
+                BlockPos completion = new BlockPos(
+                    center.x(), world.grid().origin().y() - 16, center.z()
+                );
+                if (!level.getBlockState(completion).is(Blocks.RESPAWN_ANCHOR)) continue;
+                x = center.x();
+                z = center.z();
+                y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            }
+            result.add(new RadarLocationCatalog.Location(
+                "gate/" + gate.id(), kind, level.dimension().location(),
+                x + 0.5D, y, z + 0.5D, gate.id(), ""
+            ));
+        }
+        return List.copyOf(result);
+    }
+
     private static String inaccessibleTerrainType(
         HexWorldPlan world, CobbleventureBootstrap.Point center,
         Direction outward
