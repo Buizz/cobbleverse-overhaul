@@ -1,13 +1,13 @@
 {
   "$schema": "../../schemas/npc-event-script.schema.json",
   "schema_version": 4,
-  "id": "cobbleventure:npc/rocket_power_plant_grunt",
+  "id": "cobbleventure:npc/rocket_casino_admin",
   "enabled": true,
   "name": {
-    "ko_kr": "발전소 로켓단 조무래기"
+    "ko_kr": "카지노 기지 관리자"
   },
   "description": {
-    "ko_kr": "점거된 발전소를 지키는 로켓단 조무래기입니다."
+    "ko_kr": "카지노 지하 작전을 관리하는 로켓단 간부입니다."
   },
   "tags": [
     "trainer",
@@ -25,15 +25,11 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "로켓단 조무래기"
+      "ko_kr": "카지노 기지 관리자"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/villain_grunt",
-    "appearance": {
-      "source": "custom",
-      "type": "skin",
-      "resource": "cobbleventure:trainer_skin/team_rocket_grunt_male"
-    },
+    "trainer_class": "cobbleventure:trainer_class/villain_admin",
+    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/rocket_admin_archer_002a" },
     "behavior": {
       "movement": "stationary",
       "look_at_player": true,
@@ -52,25 +48,25 @@
         "indicator": "trainer_nearby"
       },
       "first_text": {
-        "ko_kr": "여긴 로켓단 작전 구역이다. 돌아가!"
+        "ko_kr": "이 넓은 기지를 여기까지 내려오다니 제법이군."
       },
-      "battle": "cobbleventure:battle/rocket_power_plant_grunt",
+      "battle": "cobbleventure:battle/rocket_power_plant_officer",
       "after_victory_trigger": {
         "type": "interact",
         "range": 4
       },
       "win_text": {
-        "ko_kr": "으윽, 간부님께 가기 전에 막았어야 했는데…"
+        "ko_kr": "본부에 보고해야겠군…"
       },
       "loss_text": {
-        "ko_kr": "로켓단을 얕보지 마라!"
+        "ko_kr": "침입자는 지상으로 돌려보내 주지."
       },
-      "victory_state_key": "cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"
+      "victory_state_key": "cobbleventure:flag/trainer/rocket_casino_admin/defeated"
     }
   },
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/rocket_power_plant_grunt"
+    "script_id": "cobbleventure:event_script/generation_1/rocket_casino_admin"
   }
 }

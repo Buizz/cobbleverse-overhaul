@@ -1,13 +1,13 @@
 {
   "$schema": "../../schemas/npc-event-script.schema.json",
   "schema_version": 4,
-  "id": "cobbleventure:npc/rocket_power_plant_grunt",
+  "id": "cobbleventure:npc/rocket_silph_guard",
   "enabled": true,
   "name": {
-    "ko_kr": "발전소 로켓단 조무래기"
+    "ko_kr": "실프 사옥 경비"
   },
   "description": {
-    "ko_kr": "점거된 발전소를 지키는 로켓단 조무래기입니다."
+    "ko_kr": "점거된 실프 사옥의 중층을 지키는 로켓단입니다."
   },
   "tags": [
     "trainer",
@@ -25,7 +25,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "로켓단 조무래기"
+      "ko_kr": "실프 사옥 경비"
     },
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/villain_grunt",
@@ -52,7 +52,7 @@
         "indicator": "trainer_nearby"
       },
       "first_text": {
-        "ko_kr": "여긴 로켓단 작전 구역이다. 돌아가!"
+        "ko_kr": "엘리베이터는 봉쇄됐다. 계단으로도 위에는 못 간다!"
       },
       "battle": "cobbleventure:battle/rocket_power_plant_grunt",
       "after_victory_trigger": {
@@ -60,17 +60,17 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "으윽, 간부님께 가기 전에 막았어야 했는데…"
+        "ko_kr": "최상층 경비를 불러야 해…"
       },
       "loss_text": {
-        "ko_kr": "로켓단을 얕보지 마라!"
+        "ko_kr": "이 빌딩은 이미 우리 것이다!"
       },
-      "victory_state_key": "cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"
+      "victory_state_key": "cobbleventure:flag/trainer/rocket_silph_guard/defeated"
     }
   },
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/rocket_power_plant_grunt"
+    "script_id": "cobbleventure:event_script/generation_1/rocket_silph_guard"
   }
 }

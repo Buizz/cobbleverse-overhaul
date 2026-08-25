@@ -1,13 +1,13 @@
 {
   "$schema": "../../schemas/npc-event-script.schema.json",
   "schema_version": 4,
-  "id": "cobbleventure:npc/rocket_power_plant_grunt",
+  "id": "cobbleventure:npc/rocket_silph_admin",
   "enabled": true,
   "name": {
-    "ko_kr": "발전소 로켓단 조무래기"
+    "ko_kr": "실프 점거 간부"
   },
   "description": {
-    "ko_kr": "점거된 발전소를 지키는 로켓단 조무래기입니다."
+    "ko_kr": "실프주식회사 최상층을 점거한 로켓단 간부입니다."
   },
   "tags": [
     "trainer",
@@ -25,15 +25,11 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "로켓단 조무래기"
+      "ko_kr": "실프 점거 간부"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/villain_grunt",
-    "appearance": {
-      "source": "custom",
-      "type": "skin",
-      "resource": "cobbleventure:trainer_skin/team_rocket_grunt_male"
-    },
+    "trainer_class": "cobbleventure:trainer_class/villain_admin",
+    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/rocket_admin_archer_002a" },
     "behavior": {
       "movement": "stationary",
       "look_at_player": true,
@@ -52,25 +48,25 @@
         "indicator": "trainer_nearby"
       },
       "first_text": {
-        "ko_kr": "여긴 로켓단 작전 구역이다. 돌아가!"
+        "ko_kr": "좁은 계단을 끝까지 올라왔군. 하지만 작전은 여기서 끝나지 않는다."
       },
-      "battle": "cobbleventure:battle/rocket_power_plant_grunt",
+      "battle": "cobbleventure:battle/rocket_power_plant_officer",
       "after_victory_trigger": {
         "type": "interact",
         "range": 4
       },
       "win_text": {
-        "ko_kr": "으윽, 간부님께 가기 전에 막았어야 했는데…"
+        "ko_kr": "실프의 자료를 두고 물러나다니…"
       },
       "loss_text": {
-        "ko_kr": "로켓단을 얕보지 마라!"
+        "ko_kr": "이제 회사 전체가 로켓단의 연구소다."
       },
-      "victory_state_key": "cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"
+      "victory_state_key": "cobbleventure:flag/trainer/rocket_silph_admin/defeated"
     }
   },
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/rocket_power_plant_grunt"
+    "script_id": "cobbleventure:event_script/generation_1/rocket_silph_admin"
   }
 }

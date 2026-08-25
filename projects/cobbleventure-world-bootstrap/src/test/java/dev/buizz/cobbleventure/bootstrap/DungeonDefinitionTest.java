@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import com.google.gson.JsonParser;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -10,6 +12,32 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
+    @Test
+    void parsesEveryLevelOneRocketTestDungeonResource() throws Exception {
+        List<String> resources = List.of(
+            "rocket_power_plant",
+            "rocket_casino_hideout",
+            "rocket_silph_company",
+            "rocket_pokemon_tower"
+        );
+        for (String name : resources) {
+            var stream = getClass().getClassLoader().getResourceAsStream(
+                "data/cobbleventure/dungeons/generation_1/" + name + ".json"
+            );
+            assertTrue(stream != null, "Missing dungeon resource: " + name);
+            try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+                DungeonDefinition definition = DungeonDefinition.parse(
+                    JsonParser.parseReader(reader).getAsJsonObject()
+                );
+                assertEquals("fixed_template", definition.terrain().mode(), name);
+                assertEquals(1, definition.difficulty().recommendedMin(), name);
+                assertEquals(1, definition.difficulty().recommendedMax(), name);
+                assertEquals(1, definition.difficulty().internalMin(), name);
+                assertEquals(1, definition.difficulty().internalMax(), name);
+            }
+        }
+    }
+
     @Test
     void parsesFixedTemplateDungeonAndIndependentLevelRanges() {
         DungeonDefinition definition = DungeonDefinition.parse(

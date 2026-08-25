@@ -15,19 +15,19 @@
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
       {
-        "species": "cobblemon:magnemite", "level": 28, "form": null, "aspects": [],
+        "species": "cobblemon:magnemite", "level": 1, "form": null, "aspects": [],
         "gender": "genderless", "nature": null, "ability": null, "held_item": null,
         "gimmick": null, "moves": ["spark", "thunder_wave", "light_screen", "sonic_boom"],
         "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false
       },
       {
-        "species": "cobblemon:muk", "level": 29, "form": null, "aspects": [],
+        "species": "cobblemon:muk", "level": 1, "form": null, "aspects": [],
         "gender": "random", "nature": null, "ability": null, "held_item": null,
         "gimmick": null, "moves": ["sludge", "mud_shot", "disable", "minimize"],
         "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false
       },
       {
-        "species": "cobblemon:raichu", "level": 30, "form": null, "aspects": [],
+        "species": "cobblemon:raichu", "level": 1, "form": null, "aspects": [],
         "gender": "random", "nature": null, "ability": null, "held_item": null,
         "gimmick": null, "moves": ["spark", "quick_attack", "electro_ball", "double_team"],
         "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false

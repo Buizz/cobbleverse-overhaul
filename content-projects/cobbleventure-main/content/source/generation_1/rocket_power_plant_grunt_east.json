@@ -3,24 +3,42 @@
   "schema_version": 4,
   "id": "cobbleventure:npc/rocket_power_plant_grunt_east",
   "enabled": true,
-  "name": { "ko_kr": "발전소 동쪽 로켓단 조무래기" },
-  "description": { "ko_kr": "점거된 발전소 동쪽 통로를 지키는 로켓단 조무래기입니다." },
-  "tags": ["trainer", "generation_1", "kanto", "team_rocket", "dungeon"],
+  "name": {
+    "ko_kr": "발전소 동쪽 로켓단 조무래기"
+  },
+  "description": {
+    "ko_kr": "점거된 발전소 동쪽 통로를 지키는 로켓단 조무래기입니다."
+  },
+  "tags": [
+    "trainer",
+    "generation_1",
+    "kanto",
+    "team_rocket",
+    "dungeon"
+  ],
   "placement_profile": {
-    "classification": "trainer", "expected_level": 25, "preferred_biomes": [],
-    "automatic_town_placement": false, "automatic_route_placement": false
+    "classification": "trainer",
+    "expected_level": 1,
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
   },
   "npc": {
-    "display_name": { "ko_kr": "로켓단 조무래기" },
+    "display_name": {
+      "ko_kr": "로켓단 조무래기"
+    },
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/villain_grunt",
     "appearance": {
-      "source": "custom", "type": "skin",
+      "source": "custom",
+      "type": "skin",
       "resource": "cobbleventure:trainer_skin/team_rocket_grunt_male"
     },
     "behavior": {
-      "movement": "stationary", "look_at_player": true,
-      "invulnerable": true, "collision": true
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
     }
   },
   "event_design": {
@@ -28,19 +46,31 @@
     "preset": {
       "type": "battle",
       "initial_trigger": {
-        "type": "proximity", "range": 6,
-        "warning_offset": 3, "indicator": "trainer_nearby"
+        "type": "proximity",
+        "range": 6,
+        "warning_offset": 3,
+        "indicator": "trainer_nearby"
       },
-      "first_text": { "ko_kr": "제어실에는 한 발짝도 가까이 갈 수 없다!" },
+      "first_text": {
+        "ko_kr": "제어실에는 한 발짝도 가까이 갈 수 없다!"
+      },
       "battle": "cobbleventure:battle/rocket_power_plant_grunt",
-      "after_victory_trigger": { "type": "interact", "range": 4 },
-      "win_text": { "ko_kr": "내가 통로를 내주다니…" },
-      "loss_text": { "ko_kr": "제어실은 우리가 지킨다!" },
+      "after_victory_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "win_text": {
+        "ko_kr": "내가 통로를 내주다니…"
+      },
+      "loss_text": {
+        "ko_kr": "제어실은 우리가 지킨다!"
+      },
       "victory_state_key": "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated"
     }
   },
   "event_runtime": {
-    "engine": "cves_v5", "authoring": "preset",
+    "engine": "cves_v5",
+    "authoring": "preset",
     "script_id": "cobbleventure:event_script/generation_1/rocket_power_plant_grunt_east"
   }
 }

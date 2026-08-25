@@ -1,50 +1,50 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated") {
+  page when !flag("cobbleventure:flag/trainer/rocket_tower_guard/defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated") {
+  page when !flag("cobbleventure:flag/trainer/rocket_tower_guard/defeated") {
     say npc {
-      ko_kr: "제어실에는 한 발짝도 가까이 갈 수 없다!"
+      ko_kr: "조용히 돌아가. 이 위층은 지금 로켓단이 사용 중이다."
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_grunt" -> battle_result
     if battle_result.outcome == "win" {
-      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated" true
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_tower_guard/defeated" true
       say npc {
-        ko_kr: "내가 통로를 내주다니…"
+        ko_kr: "이런 곳까지 따라오다니…"
       }
     } else {
       say npc {
-        ko_kr: "제어실은 우리가 지킨다!"
+        ko_kr: "탑의 소문이 무섭지도 않나 보군."
       }
     }
   }
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated") {
+  page when flag("cobbleventure:flag/trainer/rocket_tower_guard/defeated") {
     say npc {
-      ko_kr: "내가 통로를 내주다니…"
+      ko_kr: "이런 곳까지 따라오다니…"
     }
   }
 
   page default {
     say npc {
-      ko_kr: "제어실에는 한 발짝도 가까이 갈 수 없다!"
+      ko_kr: "조용히 돌아가. 이 위층은 지금 로켓단이 사용 중이다."
     }
     choice { ko_kr: "도전하시겠습니까?" } {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_grunt" -> battle_result
         if battle_result.outcome == "win" {
-          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated" true
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_tower_guard/defeated" true
           say npc {
-            ko_kr: "내가 통로를 내주다니…"
+            ko_kr: "이런 곳까지 따라오다니…"
           }
         } else {
           say npc {
-            ko_kr: "제어실은 우리가 지킨다!"
+            ko_kr: "탑의 소문이 무섭지도 않나 보군."
           }
         }
       }

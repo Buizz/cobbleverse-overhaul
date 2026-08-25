@@ -23,10 +23,13 @@ from starter_gym import (
     TOWN_DECORATION_SIZES,
     build_facility_placeholder_nbt,
     build_power_plant_dungeon_nbt,
+    build_rocket_test_dungeon_nbt,
     build_house_variant_nbt,
     build_town_decoration_nbt,
     build_village_hub_nbt,
     power_plant_dungeon_layout,
+    rocket_test_dungeon_layout,
+    ROCKET_TEST_DUNGEONS,
     recolor_house_roof_nbt,
 )
 
@@ -3062,6 +3065,14 @@ def build(root: Path) -> Path:
             generated.write_bytes(_read_authored_structure_nbt(authored, "시설 NBT"))
         else:
             generated.write_bytes(build_facility_placeholder_nbt(facility_id))
+    for dungeon_id in ROCKET_TEST_DUNGEONS:
+        generated = _inside(
+            root,
+            output / "data/cobbleventure/structure/dungeon" / f"{dungeon_id}.nbt",
+            "생성 로켓단 테스트 던전",
+        )
+        generated.parent.mkdir(parents=True, exist_ok=True)
+        generated.write_bytes(build_rocket_test_dungeon_nbt(dungeon_id))
     for base_id in HOUSE_BASES:
         for roof_id in sorted(HOUSE_ROOFS):
             authored = _inside(

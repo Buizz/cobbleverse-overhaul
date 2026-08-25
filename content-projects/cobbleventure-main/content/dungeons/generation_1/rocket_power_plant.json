@@ -25,10 +25,10 @@
     "confirm_required": true
   },
   "difficulty": {
-    "recommended_min": 25,
-    "recommended_max": 30,
-    "internal_min": 24,
-    "internal_max": 31
+    "recommended_min": 1,
+    "recommended_max": 1,
+    "internal_min": 1,
+    "internal_max": 1
   },
   "eligibility": {
     "minimum_party_size": 1,
@@ -127,32 +127,32 @@
     "additions": [
       {
         "species": "cobblemon:magnemite",
-        "min_level": 24,
-        "max_level": 28,
+        "min_level": 1,
+        "max_level": 1,
         "weight": 35
       },
       {
         "species": "cobblemon:voltorb",
-        "min_level": 25,
-        "max_level": 29,
+        "min_level": 1,
+        "max_level": 1,
         "weight": 30
       },
       {
         "species": "cobblemon:grimer",
-        "min_level": 24,
-        "max_level": 28,
+        "min_level": 1,
+        "max_level": 1,
         "weight": 20
       },
       {
         "species": "cobblemon:koffing",
-        "min_level": 26,
-        "max_level": 30,
+        "min_level": 1,
+        "max_level": 1,
         "weight": 10
       },
       {
         "species": "cobblemon:electabuzz",
-        "min_level": 28,
-        "max_level": 31,
+        "min_level": 1,
+        "max_level": 1,
         "weight": 5
       }
     ]

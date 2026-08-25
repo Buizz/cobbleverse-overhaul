@@ -1,13 +1,13 @@
 {
   "$schema": "../../schemas/npc-event-script.schema.json",
   "schema_version": 4,
-  "id": "cobbleventure:npc/rocket_power_plant_grunt",
+  "id": "cobbleventure:npc/rocket_tower_guard",
   "enabled": true,
   "name": {
-    "ko_kr": "발전소 로켓단 조무래기"
+    "ko_kr": "포켓몬타워 경비"
   },
   "description": {
-    "ko_kr": "점거된 발전소를 지키는 로켓단 조무래기입니다."
+    "ko_kr": "포켓몬타워 추모층을 막고 있는 로켓단입니다."
   },
   "tags": [
     "trainer",
@@ -25,7 +25,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "로켓단 조무래기"
+      "ko_kr": "포켓몬타워 경비"
     },
     "role": "default",
     "trainer_class": "cobbleventure:trainer_class/villain_grunt",
@@ -52,7 +52,7 @@
         "indicator": "trainer_nearby"
       },
       "first_text": {
-        "ko_kr": "여긴 로켓단 작전 구역이다. 돌아가!"
+        "ko_kr": "조용히 돌아가. 이 위층은 지금 로켓단이 사용 중이다."
       },
       "battle": "cobbleventure:battle/rocket_power_plant_grunt",
       "after_victory_trigger": {
@@ -60,17 +60,17 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "으윽, 간부님께 가기 전에 막았어야 했는데…"
+        "ko_kr": "이런 곳까지 따라오다니…"
       },
       "loss_text": {
-        "ko_kr": "로켓단을 얕보지 마라!"
+        "ko_kr": "탑의 소문이 무섭지도 않나 보군."
       },
-      "victory_state_key": "cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"
+      "victory_state_key": "cobbleventure:flag/trainer/rocket_tower_guard/defeated"
     }
   },
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/rocket_power_plant_grunt"
+    "script_id": "cobbleventure:event_script/generation_1/rocket_tower_guard"
   }
 }

@@ -1,0 +1,35 @@
+{
+  "$schema": "../../schemas/dungeon.schema.json",
+  "schema_version": 1,
+  "dungeon_id": "cobbleventure:dungeon/rocket_pokemon_tower",
+  "display_name": { "ko_kr": "포켓몬타워 로켓단", "en_us": "Rocket-Occupied Pokemon Tower" },
+  "description": { "ko_kr": "낮은 중형 타워를 올라가는 로켓단 점거 테스트입니다.", "en_us": "A test occupation spanning a short, medium-width tower." },
+  "preset": "cobbleventure:team_rocket_facility",
+  "entrances": [{ "entrance_id": "cobbleventure:entrance/pokemon_tower", "destination_entry": "main", "activation": "proximity", "visibility": "always", "return_policy": "source_safe_anchor" }],
+  "entry_ui": { "info_mode": "mystery", "confirm_required": true },
+  "difficulty": { "recommended_min": 1, "recommended_max": 1, "internal_min": 1, "internal_max": 1 },
+  "eligibility": { "minimum_party_size": 1, "maximum_party_size": 6, "require_usable_pokemon": true, "level_measure": "average", "recommended_level_policy": "warn" },
+  "multiplayer": { "mode": "solo", "min_size": 1, "max_size": 1 },
+  "match": { "required_players": 1, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "cancel", "stay_radius": 8 },
+  "battle": { "allow_flee": false, "allow_capture": true, "allow_items": false, "allow_escape_actions": false },
+  "terrain": { "mode": "fixed_template", "template": "cobbleventure:dungeon/pokemon_tower", "entry_position": [16, 1, 3], "exit_position": [16, 1, 1] },
+  "encounters": [
+    {
+      "id": "memorial_guard", "display_name": { "ko_kr": "추모층 로켓단", "en_us": "Memorial Floor Guard" },
+      "npcs": ["cobbleventure:npc/rocket_tower_guard"], "opponents": ["cobbleventure:battle/rocket_power_plant_grunt"],
+      "requires": [], "position": [16, 8, 16], "yaw": 180, "boss": false
+    },
+    {
+      "id": "tower_admin", "display_name": { "ko_kr": "상층 로켓단 간부", "en_us": "Tower Admin" },
+      "npcs": ["cobbleventure:npc/rocket_tower_admin"], "opponents": ["cobbleventure:battle/rocket_power_plant_officer"],
+      "requires": ["memorial_guard"], "position": [16, 15, 24], "yaw": 180, "boss": true
+    }
+  ],
+  "random_encounters": { "enabled": false, "minimum_distance": 6, "maximum_distance": 12, "max_active": 1, "spawn_interval_ticks": 100, "spawn_bounds": { "min": [2, 1, 2], "max": [29, 15, 29] }, "additions": [] },
+  "support": { "healing_stations": [] },
+  "gates": [],
+  "loot": { "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies", "ownership": "per_player", "on_failure": "keep_collected", "containers": [{ "id": "memorial_cache", "position": [25, 8, 25], "block": "barrel", "facing": "north", "requires_completion": false }] },
+  "rewards": { "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear", "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear", "first_clear_field_moves": [] },
+  "lifecycle": { "on_wipe": "reset_run", "wipe_return": "pokemon_center", "heal_on_wipe": true, "reconnect_grace_seconds": 120 },
+  "completion": { "victory_flag": "cobbleventure:flag/dungeon/rocket_pokemon_tower/boss_defeated", "repeatable": true, "return_trigger": "clear_exit", "clear_exit_position": [16, 15, 27], "clear_exit_block": "minecraft:lodestone" }
+}

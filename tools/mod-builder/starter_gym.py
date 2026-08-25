@@ -118,6 +118,8 @@ FACILITY_PLACEHOLDERS = {
     "tm_workshop": {"label": "기술머신 조합소", "size": (32, 10, 16), "frame": "minecraft:orange_concrete"},
     "hotel": {"label": "호텔", "size": (32, 20, 32), "frame": "minecraft:pink_concrete"},
     "casino": {"label": "카지노", "size": (48, 20, 48), "frame": "minecraft:yellow_concrete"},
+    "silph_company": {"label": "실프주식회사", "size": (32, 48, 32), "frame": "minecraft:cyan_concrete"},
+    "pokemon_tower": {"label": "포켓몬타워", "size": (32, 28, 32), "frame": "minecraft:purple_concrete"},
     "battle_tower": {"label": "배틀타워", "size": (48, 32, 48), "frame": "minecraft:purple_concrete"},
     "radio_tower": {"label": "라디오 타워", "size": (48, 32, 48), "frame": "minecraft:blue_concrete"},
     "train_station": {"label": "기차역", "size": (48, 14, 64), "frame": "minecraft:gray_concrete"},
@@ -459,6 +461,85 @@ def power_plant_dungeon_layout() -> tuple[
 def build_power_plant_dungeon_nbt() -> bytes:
     """Build the first authored Team Rocket power-plant dungeon and exterior."""
     size, blocks = power_plant_dungeon_layout()
+    return _build_structure_nbt(size, blocks)
+
+
+ROCKET_TEST_DUNGEONS = {
+    "casino_hideout": {
+        "size": (48, 25, 48), "floors": (1, 9, 17),
+        "shell": "minecraft:deepslate_bricks", "floor": "minecraft:polished_blackstone",
+        "accent": "minecraft:red_concrete", "entry_floor": 2,
+    },
+    "silph_company": {
+        "size": (24, 43, 24), "floors": (1, 8, 15, 22, 29, 36),
+        "shell": "minecraft:smooth_quartz", "floor": "minecraft:light_gray_concrete",
+        "accent": "minecraft:cyan_concrete", "entry_floor": 0,
+    },
+    "pokemon_tower": {
+        "size": (32, 22, 32), "floors": (1, 8, 15),
+        "shell": "minecraft:deepslate_tiles", "floor": "minecraft:polished_diorite",
+        "accent": "minecraft:purple_concrete", "entry_floor": 0,
+    },
+}
+
+
+def rocket_test_dungeon_layout(dungeon_id: str) -> tuple[
+    tuple[int, int, int],
+    dict[tuple[int, int, int], tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None]],
+]:
+    """Return a navigable fixed-template Rocket dungeon with a distinct vertical profile."""
+    profile = ROCKET_TEST_DUNGEONS[dungeon_id]
+    width, height, depth = profile["size"]
+    floors = profile["floors"]
+    blocks: dict[
+        tuple[int, int, int],
+        tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None],
+    ] = {}
+
+    def set_block(
+        x: int, y: int, z: int, name: str,
+        properties: dict[str, str] | None = None,
+    ) -> None:
+        blocks[(x, y, z)] = (name, tuple(sorted((properties or {}).items())), None)
+
+    def fill(x1: int, y1: int, z1: int, x2: int, y2: int, z2: int, name: str) -> None:
+        for x in range(x1, x2 + 1):
+            for y in range(y1, y2 + 1):
+                for z in range(z1, z2 + 1):
+                    set_block(x, y, z, name)
+
+    fill(0, 0, 0, width - 1, height - 1, depth - 1, "minecraft:air")
+    for floor_index, floor_y in enumerate(floors):
+        fill(0, floor_y - 1, 0, width - 1, floor_y - 1, depth - 1, profile["floor"])
+        fill(0, floor_y, 0, width - 1, min(floor_y + 5, height - 1), 0, profile["shell"])
+        fill(0, floor_y, depth - 1, width - 1, min(floor_y + 5, height - 1), depth - 1, profile["shell"])
+        fill(0, floor_y, 0, 0, min(floor_y + 5, height - 1), depth - 1, profile["shell"])
+        fill(width - 1, floor_y, 0, width - 1, min(floor_y + 5, height - 1), depth - 1, profile["shell"])
+        # Alternating partitions make every floor readable while retaining broad routes.
+        partition_z = depth // 2 + (-4 if floor_index % 2 == 0 else 4)
+        fill(4, floor_y, partition_z, width - 5, floor_y + 3, partition_z, profile["shell"])
+        door_x = width // 4 if floor_index % 2 == 0 else width * 3 // 4
+        fill(door_x - 2, floor_y, partition_z, door_x + 2, floor_y + 2, partition_z, "minecraft:air")
+        fill(2, floor_y - 1, 2, width - 3, floor_y - 1, 3, profile["accent"])
+        for x in range(5, width - 4, 6):
+            set_block(x, floor_y + 4, 1, "minecraft:sea_lantern")
+
+    # Wide bunker descends from the top; towers ascend from the ground floor.
+    ladder_points = ((5, depth - 6), (width - 6, 5))
+    for index in range(len(floors) - 1):
+        lower, upper = floors[index], floors[index + 1]
+        x, z = ladder_points[index % 2]
+        for y in range(lower, upper + 1):
+            set_block(x, y, z + 1, profile["shell"])
+            set_block(x, y, z, "minecraft:ladder", {"facing": "north", "waterlogged": "false"})
+        set_block(x, upper - 1, z, "minecraft:ladder", {"facing": "north", "waterlogged": "false"})
+        set_block(x, upper - 1, z + 1, profile["shell"])
+
+    return (width, height, depth), blocks
+
+
+def build_rocket_test_dungeon_nbt(dungeon_id: str) -> bytes:
+    size, blocks = rocket_test_dungeon_layout(dungeon_id)
     return _build_structure_nbt(size, blocks)
 
 

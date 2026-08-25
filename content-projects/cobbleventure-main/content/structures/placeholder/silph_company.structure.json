@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/placeholder/silph_company.nbt",
+  "anchors": [
+    {
+      "id": "rocket_dungeon_entry",
+      "label": "rocket_dungeon_entry",
+      "type": "dungeon_entrance",
+      "position": [15, 1, 1],
+      "safe_spawn": [15, 1, 3],
+      "facing": "north",
+      "entrance_id": "cobbleventure:entrance/silph_company"
+    }
+  ]
+}

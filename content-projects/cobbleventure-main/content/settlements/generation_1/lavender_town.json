@@ -47,6 +47,11 @@
       "x": -106,
       "y": 69,
       "z": -35
+    },
+    "facility_pokemon_tower_1": {
+      "x": -80,
+      "y": 69,
+      "z": 0
     }
   },
   "biome_layout": {
@@ -100,6 +105,14 @@
       "anchor": "gym_building"
     },
     "facility_placements": [
+      {
+        "id": "facility_pokemon_tower_1",
+        "facility_type": "pokemon_tower",
+        "mode": "direct_template",
+        "structure": "cobbleventure:placeholder/pokemon_tower",
+        "anchor": "facility_pokemon_tower_1",
+        "label": "포켓몬타워"
+      },
       {
         "id": "facility_pokemon_center_1",
         "facility_type": "pokemon_center",

@@ -15,13 +15,13 @@
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
       {
-        "species": "cobblemon:rattata", "level": 24, "form": null, "aspects": [],
+        "species": "cobblemon:rattata", "level": 1, "form": null, "aspects": [],
         "gender": "random", "nature": null, "ability": null, "held_item": null,
         "gimmick": null, "moves": ["quick_attack", "hyper_fang", "bite", "focus_energy"],
         "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false
       },
       {
-        "species": "cobblemon:koffing", "level": 25, "form": null, "aspects": [],
+        "species": "cobblemon:koffing", "level": 1, "form": null, "aspects": [],
         "gender": "random", "nature": null, "ability": null, "held_item": null,
         "gimmick": null, "moves": ["smog", "sludge", "smokescreen", "assurance"],
         "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false

@@ -37,6 +37,11 @@
       "x": 57,
       "y": 69,
       "z": -125
+    },
+    "facility_silph_company_1": {
+      "x": -80,
+      "y": 69,
+      "z": 0
     }
   },
   "biome_layout": {
@@ -90,6 +95,14 @@
       "anchor": "gym_building"
     },
     "facility_placements": [
+      {
+        "id": "facility_silph_company_1",
+        "facility_type": "silph_company",
+        "mode": "direct_template",
+        "structure": "cobbleventure:placeholder/silph_company",
+        "anchor": "facility_silph_company_1",
+        "label": "실프주식회사"
+      },
       {
         "id": "gym_building",
         "mode": "direct_template",

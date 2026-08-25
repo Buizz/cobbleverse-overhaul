@@ -1623,6 +1623,26 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertIn(b"minecraft:copper_block", structure)
         self.assertIn(b"minecraft:sea_lantern", structure)
 
+    def test_rocket_test_dungeons_have_distinct_vertical_profiles(self) -> None:
+        expected = {
+            "casino_hideout": ((48, 25, 48), (1, 9, 17)),
+            "silph_company": ((24, 43, 24), (1, 8, 15, 22, 29, 36)),
+            "pokemon_tower": ((32, 22, 32), (1, 8, 15)),
+        }
+        for dungeon_id, (expected_size, floors) in expected.items():
+            with self.subTest(dungeon=dungeon_id):
+                size, layout = build_data_mod.rocket_test_dungeon_layout(dungeon_id)
+                self.assertEqual(expected_size, size)
+                blocks = {position: state[0] for position, state in layout.items()}
+                self.assertTrue(any(block == "minecraft:ladder" for block in blocks.values()))
+                for floor_y in floors:
+                    self.assertNotEqual("minecraft:air", blocks[(2, floor_y - 1, 2)])
+                    self.assertEqual("minecraft:air", blocks[(size[0] // 2, floor_y, size[2] // 2)])
+                structure = gzip.decompress(
+                    build_data_mod.build_rocket_test_dungeon_nbt(dungeon_id)
+                )
+                self.assertIn(b"minecraft:ladder", structure)
+
     def test_packages_copied_external_nbt_and_metadata_as_runtime_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

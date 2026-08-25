@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/rocket_silph_admin/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/rocket_silph_admin/defeated") {
+    say npc {
+      ko_kr: "좁은 계단을 끝까지 올라왔군. 하지만 작전은 여기서 끝나지 않는다."
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_officer" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_silph_admin/defeated" true
+      say npc {
+        ko_kr: "실프의 자료를 두고 물러나다니…"
+      }
+    } else {
+      say npc {
+        ko_kr: "이제 회사 전체가 로켓단의 연구소다."
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/rocket_silph_admin/defeated") {
+    say npc {
+      ko_kr: "실프의 자료를 두고 물러나다니…"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "좁은 계단을 끝까지 올라왔군. 하지만 작전은 여기서 끝나지 않는다."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_officer" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_silph_admin/defeated" true
+          say npc {
+            ko_kr: "실프의 자료를 두고 물러나다니…"
+          }
+        } else {
+          say npc {
+            ko_kr: "이제 회사 전체가 로켓단의 연구소다."
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

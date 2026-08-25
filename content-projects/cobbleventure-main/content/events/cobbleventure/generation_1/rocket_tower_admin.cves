@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/rocket_tower_admin/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/rocket_tower_admin/defeated") {
+    say npc {
+      ko_kr: "낮은 탑이라고 얕봤나? 이곳의 흔적은 우리가 가져간다."
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_officer" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_tower_admin/defeated" true
+      say npc {
+        ko_kr: "계획을 접어야겠군…"
+      }
+    } else {
+      say npc {
+        ko_kr: "탑에서 본 건 모두 잊어라."
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/rocket_tower_admin/defeated") {
+    say npc {
+      ko_kr: "계획을 접어야겠군…"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "낮은 탑이라고 얕봤나? 이곳의 흔적은 우리가 가져간다."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_officer" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_tower_admin/defeated" true
+          say npc {
+            ko_kr: "계획을 접어야겠군…"
+          }
+        } else {
+          say npc {
+            ko_kr: "탑에서 본 건 모두 잊어라."
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}
