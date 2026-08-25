@@ -22,9 +22,11 @@ from starter_gym import (
     HOUSE_ROOF_BLOCKS,
     TOWN_DECORATION_SIZES,
     build_facility_placeholder_nbt,
+    build_power_plant_dungeon_nbt,
     build_house_variant_nbt,
     build_town_decoration_nbt,
     build_village_hub_nbt,
+    power_plant_dungeon_layout,
     recolor_house_roof_nbt,
 )
 

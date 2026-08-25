@@ -324,6 +324,144 @@ def build_facility_placeholder_nbt(facility_id: str) -> bytes:
     return _build_structure_nbt((width, height, depth), blocks)
 
 
+def power_plant_dungeon_layout() -> tuple[
+    tuple[int, int, int],
+    dict[
+        tuple[int, int, int],
+        tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None],
+    ],
+]:
+    """Return blocks for the first authored Team Rocket dungeon and exterior."""
+    width, height, depth = FACILITY_PLACEHOLDERS["power_plant"]["size"]  # type: ignore[misc]
+    blocks: dict[
+        tuple[int, int, int],
+        tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None],
+    ] = {}
+
+    def set_block(
+        x: int, y: int, z: int, name: str,
+        properties: dict[str, str] | None = None,
+        block_nbt: dict[str, object] | None = None,
+    ) -> None:
+        blocks[(x, y, z)] = (name, tuple(sorted((properties or {}).items())), block_nbt)
+
+    def fill(
+        x1: int, y1: int, z1: int, x2: int, y2: int, z2: int, name: str,
+        properties: dict[str, str] | None = None,
+    ) -> None:
+        for x in range(x1, x2 + 1):
+            for y in range(y1, y2 + 1):
+                for z in range(z1, z2 + 1):
+                    set_block(x, y, z, name, properties)
+
+    # Explicit air makes the same template safe both in an isolated slot and
+    # when used as the overworld entrance building.
+    fill(0, 0, 0, width - 1, height - 1, depth - 1, "minecraft:air")
+    fill(0, 0, 0, width - 1, 0, depth - 1, "minecraft:polished_andesite")
+
+    # Industrial shell, flat roof, facade bands, and two exhaust stacks.
+    for x in range(width):
+        for z in (0, depth - 1):
+            fill(x, 1, z, x, 8, z, "minecraft:light_gray_concrete")
+    for z in range(depth):
+        for x in (0, width - 1):
+            fill(x, 1, z, x, 8, z, "minecraft:light_gray_concrete")
+    fill(0, 1, 0, width - 1, 1, 0, "minecraft:gray_concrete")
+    fill(0, 8, 0, width - 1, 8, 0, "minecraft:gray_concrete")
+    fill(0, 1, depth - 1, width - 1, 1, depth - 1, "minecraft:gray_concrete")
+    fill(0, 8, depth - 1, width - 1, 8, depth - 1, "minecraft:gray_concrete")
+    fill(0, 9, 0, width - 1, 9, depth - 1, "minecraft:smooth_stone")
+    for x in range(3, width - 3, 6):
+        fill(x, 3, 0, min(x + 2, width - 2), 5, 0, "minecraft:tinted_glass")
+        fill(x, 3, depth - 1, min(x + 2, width - 2), 5, depth - 1, "minecraft:tinted_glass")
+    for z in range(4, depth - 4, 7):
+        fill(0, 3, z, 0, 5, min(z + 2, depth - 2), "minecraft:tinted_glass")
+        fill(width - 1, 3, z, width - 1, 5, min(z + 2, depth - 2), "minecraft:tinted_glass")
+    # Re-open and frame the south entrance after applying facade windows.
+    fill(22, 1, 0, 25, 4, 0, "minecraft:air")
+    fill(21, 1, 0, 21, 5, 0, "minecraft:yellow_concrete")
+    fill(26, 1, 0, 26, 5, 0, "minecraft:yellow_concrete")
+    fill(21, 5, 0, 26, 5, 0, "minecraft:black_concrete")
+    for stack_x in (7, 39):
+        fill(stack_x - 2, 9, 35, stack_x + 2, 11, 39, "minecraft:stone_bricks")
+        for y in range(12, 22):
+            fill(stack_x - 1, y, 36, stack_x + 1, y, 38, "minecraft:stone_bricks")
+            fill(stack_x, y, 37, stack_x, y, 37, "minecraft:air")
+        fill(stack_x - 2, 22, 35, stack_x + 2, 22, 39, "minecraft:deepslate_bricks")
+
+    # Bright safety route from the entrance through the S-shaped dungeon path.
+    fill(23, 0, 1, 24, 0, 23, "minecraft:yellow_concrete")
+    fill(24, 0, 22, 36, 0, 23, "minecraft:yellow_concrete")
+    fill(35, 0, 24, 36, 0, 31, "minecraft:yellow_concrete")
+    fill(24, 0, 30, 36, 0, 31, "minecraft:yellow_concrete")
+    fill(23, 0, 31, 24, 0, 46, "minecraft:yellow_concrete")
+
+    # Lobby boundary, generator-hall bulkhead, and control-room checkpoint.
+    for wall_z, openings in (
+        (10, range(20, 28)),
+        (24, range(32, 39)),
+        (33, range(21, 27)),
+    ):
+        for x in range(1, width - 1):
+            if x in openings:
+                continue
+            fill(x, 1, wall_z, x, 5, wall_z, "minecraft:gray_concrete")
+        fill(1, 6, wall_z, width - 2, 6, wall_z, "minecraft:iron_bars")
+    # Keep the authored openings clear through player height.
+    fill(20, 1, 10, 27, 4, 10, "minecraft:air")
+    fill(32, 1, 24, 38, 4, 24, "minecraft:air")
+    fill(21, 1, 33, 26, 4, 33, "minecraft:air")
+
+    # Generator banks create readable lanes without blocking the marked route.
+    for x1, x2 in ((4, 9), (17, 21), (27, 31), (39, 43)):
+        fill(x1, 1, 13, x2, 2, 15, "minecraft:iron_block")
+        fill(x1, 3, 13, x2, 3, 15, "minecraft:copper_block")
+        for x in range(x1, x2 + 1, 2):
+            set_block(x, 4, 14, "minecraft:redstone_lamp", {"lit": "true"})
+        fill(x1, 1, 20, x2, 2, 22, "minecraft:iron_block")
+        fill(x1, 3, 20, x2, 3, 22, "minecraft:cut_copper")
+        for x in range(x1, x2 + 1, 2):
+            set_block(x, 4, 21, "minecraft:redstone_lamp", {"lit": "true"})
+    # A west-side optional maintenance branch surrounds the first grunt.
+    fill(3, 1, 17, 3, 5, 23, "minecraft:stone_bricks")
+    fill(11, 1, 12, 11, 4, 20, "minecraft:iron_bars")
+    fill(11, 1, 16, 11, 3, 18, "minecraft:air")
+    fill(5, 1, 18, 8, 2, 21, "minecraft:barrel")
+
+    # East transformer corridor and warning stripes around live machinery.
+    for z in (27, 30):
+        fill(29, 1, z, 31, 3, z, "minecraft:iron_block")
+        fill(39, 1, z, 42, 3, z, "minecraft:iron_block")
+        fill(32, 0, z, 38, 0, z, "minecraft:black_concrete")
+    for x in (30, 41):
+        set_block(x, 4, 28, "minecraft:lightning_rod", {"facing": "up", "waterlogged": "false"})
+
+    # Control room: raised console wall, clear boss arena, and a central core.
+    fill(3, 1, 36, 10, 3, 44, "minecraft:gray_concrete")
+    fill(37, 1, 36, 44, 3, 44, "minecraft:gray_concrete")
+    for z in range(37, 45, 2):
+        set_block(10, 3, z, "minecraft:redstone_lamp", {"lit": "true"})
+        set_block(37, 3, z, "minecraft:redstone_lamp", {"lit": "true"})
+    fill(20, 1, 44, 27, 2, 46, "minecraft:iron_block")
+    fill(21, 3, 45, 26, 3, 45, "minecraft:redstone_lamp", {"lit": "true"})
+    fill(22, 1, 37, 25, 1, 38, "minecraft:redstone_block")
+    fill(22, 2, 37, 25, 5, 38, "minecraft:glass")
+
+    # Ceiling lights make combat spaces usable without relying on night vision.
+    for z in (5, 14, 21, 28, 39, 45):
+        fill(6, 8, z, 41, 8, z, "minecraft:sea_lantern")
+        for x in range(7, 41, 2):
+            set_block(x, 8, z, "minecraft:smooth_stone")
+
+    return (width, height, depth), blocks
+
+
+def build_power_plant_dungeon_nbt() -> bytes:
+    """Build the first authored Team Rocket power-plant dungeon and exterior."""
+    size, blocks = power_plant_dungeon_layout()
+    return _build_structure_nbt(size, blocks)
+
+
 TOWN_DECORATION_SIZES = {
     "street_lamp": (3, 6, 3),
     "bench": (5, 3, 3),

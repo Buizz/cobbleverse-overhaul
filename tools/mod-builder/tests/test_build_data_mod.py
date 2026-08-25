@@ -1608,6 +1608,21 @@ class DataModBuilderTests(unittest.TestCase):
             )
             self.assertEqual(authored_bytes, packaged.read_bytes())
 
+    def test_power_plant_dungeon_has_authored_route_and_combat_spaces(self) -> None:
+        size, layout = build_data_mod.power_plant_dungeon_layout()
+        self.assertEqual((48, 24, 48), size)
+        blocks = {position: state[0] for position, state in layout.items()}
+        for position in ((24, 1, 4), (14, 1, 16), (34, 1, 27), (24, 1, 40)):
+            self.assertEqual("minecraft:air", blocks[position])
+            self.assertNotEqual("minecraft:air", blocks[(position[0], 0, position[2])])
+        self.assertEqual("minecraft:air", blocks[(24, 2, 10)])
+        self.assertEqual("minecraft:air", blocks[(35, 2, 24)])
+        self.assertEqual("minecraft:air", blocks[(24, 2, 33)])
+        self.assertEqual("minecraft:redstone_lamp", blocks[(21, 3, 45)])
+        structure = gzip.decompress(build_data_mod.build_power_plant_dungeon_nbt())
+        self.assertIn(b"minecraft:copper_block", structure)
+        self.assertIn(b"minecraft:sea_lantern", structure)
+
     def test_packages_copied_external_nbt_and_metadata_as_runtime_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
