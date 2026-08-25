@@ -62,6 +62,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
 import org.slf4j.Logger;
 
 /** Validates dungeon content and runs the first fixed-template solo prototype. */
@@ -96,6 +97,7 @@ final class DungeonSystem {
             DungeonSystem::handlePartyWipe
         );
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(DungeonSystem::onTeleport);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedOut);
     }
@@ -196,6 +198,14 @@ final class DungeonSystem {
     static synchronized void tick(ServerPlayer player, long gameTime) {
         ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
         if (player.serverLevel().dimension().equals(DUNGEONS)) {
+            if (run != null && escapeActionsBlocked(run)
+                && !insideRunBounds(player.position(), run.origin(), run.size())) {
+                returnPlayer(
+                    player,
+                    "던전 경계를 벗어나 도전이 종료되었습니다. 입구로 복귀합니다."
+                );
+                return;
+            }
             if (run != null && completionReached(player, run)) {
                 completeRun(player, run);
                 return;
@@ -207,7 +217,14 @@ final class DungeonSystem {
             return;
         }
         if (run != null) {
-            abandonRun(player);
+            if (escapeActionsBlocked(run)) {
+                returnPlayer(
+                    player,
+                    "외부 이동이 감지되어 던전 도전이 종료되었습니다."
+                );
+            } else {
+                abandonRun(player);
+            }
         }
         PlacedEntrance touching = ACTIVE_ENTRANCES.values().stream()
             .filter(placed -> placed.dimension().equals(player.serverLevel().dimension()))
@@ -225,6 +242,36 @@ final class DungeonSystem {
         }
         INSIDE_ENTRANCES.put(player.getUUID(), touching.entranceId());
         openGuide(player, touching);
+    }
+
+    private static synchronized void onTeleport(EntityTeleportEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !escapeActionsBlocked(run)) {
+            return;
+        }
+        event.setCanceled(true);
+        player.displayClientMessage(Component.literal(
+            "[Cobbleventure] 던전 도전 중에는 외부 순간이동을 사용할 수 없습니다."
+        ), true);
+    }
+
+    private static boolean escapeActionsBlocked(ActiveRun run) {
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        return definition != null && !definition.battleRules().allowEscapeActions();
+    }
+
+    static boolean insideRunBounds(Vec3 position, BlockPos origin, BlockPos size) {
+        double margin = 2.0D;
+        return size.getX() > 0 && size.getY() > 0 && size.getZ() > 0
+            && position.x >= origin.getX() - margin
+            && position.x < origin.getX() + size.getX() + margin
+            && position.y >= origin.getY() - margin
+            && position.y < origin.getY() + size.getY() + margin
+            && position.z >= origin.getZ() - margin
+            && position.z < origin.getZ() + size.getZ() + margin;
     }
 
     static synchronized PursuitEncounterSystem.Config randomEncounterConfig(
@@ -374,11 +421,15 @@ final class DungeonSystem {
         }
         BlockPos origin = slotOrigin(slot);
         BlockPos size = BlockPos.ZERO;
+        PursuitEncounterSystem.Config randomEncounters;
         try {
             size = prepareFixedTemplate(dungeonLevel, definition, origin);
             placeHealingStations(dungeonLevel, definition, origin, size);
             placeLootContainers(dungeonLevel, definition, origin);
             spawnEncounters(dungeonLevel, definition, origin);
+            randomEncounters = createRandomEncounterConfig(
+                definition, origin, size, slot
+            );
         } catch (RuntimeException error) {
             ACTIVE_SLOTS.remove(slot);
             if (!size.equals(BlockPos.ZERO)) {
@@ -397,18 +448,26 @@ final class DungeonSystem {
         BlockPos entry = origin.offset(definition.terrain().entryPosition());
         BlockPos exit = origin.offset(definition.terrain().exitPosition());
         long cooldown = dungeonLevel.getGameTime() + 40L;
-        ACTIVE_RUNS.put(
-            player.getUUID(),
-            new ActiveRun(
-                definition.id(), slot, origin, size, entry, exit, cooldown,
-                createRandomEncounterConfig(definition, origin, size, slot),
-                new HashMap<>()
-            )
-        );
         player.teleportTo(
             dungeonLevel,
             entry.getX() + 0.5D, entry.getY(), entry.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
+        );
+        if (player.serverLevel() != dungeonLevel) {
+            popReturnFrame(player);
+            ACTIVE_SLOTS.remove(slot);
+            clearSlot(dungeonLevel, origin, size);
+            player.sendSystemMessage(Component.literal(
+                "던전 내부로 이동하지 못해 준비된 슬롯을 초기화했습니다."
+            ));
+            return;
+        }
+        ACTIVE_RUNS.put(
+            player.getUUID(),
+            new ActiveRun(
+                definition.id(), slot, origin, size, entry, exit, cooldown,
+                randomEncounters, new HashMap<>()
+            )
         );
         player.sendSystemMessage(Component.literal(
             definition.displayName() + " 도전을 시작합니다."

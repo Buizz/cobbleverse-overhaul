@@ -40,7 +40,8 @@
   "battle": {
     "allow_flee": false,
     "allow_capture": true,
-    "allow_items": true
+    "allow_items": true,
+    "allow_escape_actions": false
   },
   "terrain": {
     "mode": "fixed_template",

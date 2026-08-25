@@ -59,11 +59,14 @@
     "battle": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["allow_flee", "allow_capture", "allow_items"],
+      "required": [
+        "allow_flee", "allow_capture", "allow_items", "allow_escape_actions"
+      ],
       "properties": {
         "allow_flee": { "type": "boolean" },
         "allow_capture": { "type": "boolean" },
-        "allow_items": { "type": "boolean" }
+        "allow_items": { "type": "boolean" },
+        "allow_escape_actions": { "type": "boolean" }
       }
     },
     "terrain": {

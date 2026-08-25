@@ -43,7 +43,8 @@ final class DungeonDefinitionTest {
                   "battle": {
                     "allow_flee": false,
                     "allow_capture": true,
-                    "allow_items": true
+                    "allow_items": true,
+                    "allow_escape_actions": false
                   },
                   "terrain": {
                     "mode": "fixed_template",
@@ -122,6 +123,7 @@ final class DungeonDefinitionTest {
         assertFalse(definition.battleRules().allowFlee());
         assertTrue(definition.battleRules().allowCapture());
         assertTrue(definition.battleRules().allowItems());
+        assertFalse(definition.battleRules().allowEscapeActions());
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals("boss", definition.encounters().getFirst().id());
@@ -194,7 +196,8 @@ final class DungeonDefinitionTest {
                   "battle": {
                     "allow_flee": true,
                     "allow_capture": true,
-                    "allow_items": true
+                    "allow_items": true,
+                    "allow_escape_actions": true
                   },
                   "terrain": {
                     "mode": "fixed_template",

@@ -362,7 +362,8 @@ record DungeonDefinition(
             new BattleRules(
                 requiredBoolean(battleRules, "allow_flee"),
                 requiredBoolean(battleRules, "allow_capture"),
-                requiredBoolean(battleRules, "allow_items")
+                requiredBoolean(battleRules, "allow_items"),
+                requiredBoolean(battleRules, "allow_escape_actions")
             ),
             new Terrain(terrainMode, template, entryPosition, exitPosition),
             List.copyOf(encounters),
@@ -500,7 +501,12 @@ record DungeonDefinition(
         String levelMeasure,
         String recommendedLevelPolicy
     ) {}
-    record BattleRules(boolean allowFlee, boolean allowCapture, boolean allowItems) {}
+    record BattleRules(
+        boolean allowFlee,
+        boolean allowCapture,
+        boolean allowItems,
+        boolean allowEscapeActions
+    ) {}
     record Terrain(
         String mode,
         String template,

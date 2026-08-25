@@ -301,7 +301,7 @@ DungeonEntrance
 | 생성 시점 | `plan.max_attempts` | 유효 계획 재생성 횟수 | 부하 테스트 후 결정 |
 | 공간 | `instance.scope` | `player`, `party`, `shared` | `party` |
 | 공간 | `instance.bounds` | 가로·높이·세로 최대 크기 | 프리셋 상속 |
-| 공간 | `instance.protection` | 블록 설치·파괴, 탈출·워프, PvP 허용 여부 | 모두 제한 |
+| 공간 | `instance.protection` | 탈출·워프, PvP 허용 여부. 블록 설치·파괴는 전역 월드 보호를 재사용 | 모두 제한 |
 | 지형 | `terrain.mode` | `fixed_template`, `nbt_pieces`, `procedural_cave`, `hybrid` | 프리셋 상속 |
 | 지형 | `terrain.cave_generator` | 현재 월드와 같은 Minecraft 동굴 생성기 | `minecraft_worldgen` |
 | 경로 | `layout.mode` | `fixed`, `critical_path_branches`, `maze`, `rooms_and_corridors` | `critical_path_branches` |
