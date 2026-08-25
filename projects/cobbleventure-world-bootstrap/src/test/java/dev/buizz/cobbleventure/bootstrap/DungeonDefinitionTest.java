@@ -33,7 +33,9 @@ final class DungeonDefinitionTest {
                   },
                   "terrain": {
                     "mode": "fixed_template",
-                    "template": "cobbleventure:placeholder/power_plant"
+                    "template": "cobbleventure:placeholder/power_plant",
+                    "entry_position": [24, 1, 4],
+                    "exit_position": [24, 1, 0]
                   }
                 }
                 """).getAsJsonObject()
@@ -42,6 +44,8 @@ final class DungeonDefinitionTest {
         assertEquals("점거된 발전소", definition.displayName());
         assertEquals(25, definition.difficulty().recommendedMin());
         assertEquals(24, definition.difficulty().internalMin());
+        assertEquals(4, definition.terrain().entryPosition().getZ());
+        assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals(
             "cobbleventure:entrance/rocket_power_plant",
             definition.entrances().getFirst().entranceId()
@@ -73,11 +77,22 @@ final class DungeonDefinitionTest {
                     "internal_min": 10,
                     "internal_max": 15
                   },
-                  "terrain": {"mode": "fixed_template"}
+                  "terrain": {
+                    "mode": "fixed_template",
+                    "entry_position": [1, 1, 1],
+                    "exit_position": [1, 1, 0]
+                  }
                 }
                 """).getAsJsonObject())
         );
 
         assertEquals(true, error.getMessage().contains("terrain.template"));
+    }
+
+    @Test
+    void assignsDungeonSlotsOnASeparatedEightByEightGrid() {
+        assertEquals(new net.minecraft.core.BlockPos(32768, 80, 0), DungeonSystem.slotOrigin(0));
+        assertEquals(new net.minecraft.core.BlockPos(36352, 80, 0), DungeonSystem.slotOrigin(7));
+        assertEquals(new net.minecraft.core.BlockPos(32768, 80, 512), DungeonSystem.slotOrigin(8));
     }
 }

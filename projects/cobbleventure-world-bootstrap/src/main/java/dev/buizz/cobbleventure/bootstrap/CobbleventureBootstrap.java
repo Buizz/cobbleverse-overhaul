@@ -409,6 +409,7 @@ public final class CobbleventureBootstrap {
         LocalWeatherSystem.register(modBus);
         GateDialogueNetwork.register(modBus);
         GymBlockerVisibilityNetwork.register(modBus);
+        DungeonSystem.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
         DoorTransitionSound.register();
@@ -5443,6 +5444,10 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             if (dungeons != null && player.serverLevel() == dungeons) {
+                DungeonSystem.tick(player, gameTime);
+                if (player.serverLevel() != dungeons) {
+                    continue;
+                }
                 PursuitEncounterSystem.tick(
                     player, pursuitEncounterAt(dungeons, player.getX(), player.getZ()), gameTime
                 );
@@ -5506,6 +5511,7 @@ public final class CobbleventureBootstrap {
             }
             HexWorldPlan world = activeHexWorld;
             if (world != null) {
+                DungeonSystem.tick(player, gameTime);
                 WorldGateSystem.tick(player, level, world, gameTime);
                 if (gameTime % 10L == 0L) {
                     String facilityMusic = facilityMusicContextAt(player);

@@ -132,6 +132,9 @@ final class WorldStructureSystem {
             ),
             rotationName(configured.rotation())
         );
+        DungeonSystem.registerWorldPlacement(
+            level, configured, origin, rotation
+        );
     }
 
     static BlockPos rotatedTemplateOrigin(

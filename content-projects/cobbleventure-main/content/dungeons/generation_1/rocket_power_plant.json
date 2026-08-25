@@ -33,7 +33,7 @@
   "terrain": {
     "mode": "fixed_template",
     "template": "cobbleventure:placeholder/power_plant",
-    "entry_position": [24, 1, 2],
-    "exit_position": [24, 1, 1]
+    "entry_position": [24, 1, 4],
+    "exit_position": [24, 1, 0]
   }
 }

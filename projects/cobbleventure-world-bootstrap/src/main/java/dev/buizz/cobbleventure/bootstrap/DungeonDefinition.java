@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -107,6 +108,10 @@ record DungeonDefinition(
                 "fixed_template dungeon requires terrain.template: " + id
             );
         }
+        BlockPos entryPosition = terrainMode.equals("fixed_template")
+            ? blockPosition(terrain, "entry_position") : null;
+        BlockPos exitPosition = terrainMode.equals("fixed_template")
+            ? blockPosition(terrain, "exit_position") : null;
         return new DungeonDefinition(
             id,
             localized(displayName, "ko_kr", "en_us"),
@@ -117,7 +122,7 @@ record DungeonDefinition(
                 requiredBoolean(entryUi, "confirm_required")
             ),
             new Difficulty(recommendedMin, recommendedMax, internalMin, internalMax),
-            new Terrain(terrainMode, template),
+            new Terrain(terrainMode, template, entryPosition, exitPosition),
             List.copyOf(entrances)
         );
     }
@@ -203,9 +208,26 @@ record DungeonDefinition(
         return value.getAsJsonArray(key);
     }
 
+    private static BlockPos blockPosition(JsonObject value, String key) {
+        JsonArray position = requiredArray(value, key);
+        if (position.size() != 3) {
+            throw new IllegalStateException("Dungeon block position requires three values: " + key);
+        }
+        return new BlockPos(
+            position.get(0).getAsInt(),
+            position.get(1).getAsInt(),
+            position.get(2).getAsInt()
+        );
+    }
+
     record EntryUi(String infoMode, boolean confirmRequired) {}
     record Difficulty(int recommendedMin, int recommendedMax, int internalMin, int internalMax) {}
-    record Terrain(String mode, String template) {}
+    record Terrain(
+        String mode,
+        String template,
+        BlockPos entryPosition,
+        BlockPos exitPosition
+    ) {}
     record Entrance(
         String entranceId,
         String destinationEntry,
