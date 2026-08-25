@@ -332,12 +332,13 @@
     "loot_container": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "position", "block", "facing"],
+      "required": ["id", "position", "block", "facing", "requires_completion"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "position": { "$ref": "#/$defs/block_position" },
         "block": { "enum": ["chest", "barrel"] },
-        "facing": { "enum": ["north", "south", "west", "east"] }
+        "facing": { "enum": ["north", "south", "west", "east"] },
+        "requires_completion": { "type": "boolean" }
       }
     },
     "wild_species": {

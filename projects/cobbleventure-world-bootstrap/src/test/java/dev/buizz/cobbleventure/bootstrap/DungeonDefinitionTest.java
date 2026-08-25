@@ -129,7 +129,8 @@ final class DungeonDefinitionTest {
                       "id": "maintenance_cache",
                       "position": [6, 1, 17],
                       "block": "barrel",
-                      "facing": "south"
+                      "facing": "south",
+                      "requires_completion": true
                     }]
                   },
                   "rewards": {
@@ -208,6 +209,7 @@ final class DungeonDefinitionTest {
         assertEquals("per_player", definition.loot().ownership());
         assertEquals("grant_on_clear_only", definition.loot().onFailure());
         assertEquals("barrel", definition.loot().containers().getFirst().block());
+        assertTrue(definition.loot().containers().getFirst().requiresCompletion());
         assertEquals("reset_run", definition.lifecycle().onWipe());
         assertEquals("source_entrance", definition.lifecycle().wipeReturn());
         assertTrue(definition.lifecycle().healOnWipe());

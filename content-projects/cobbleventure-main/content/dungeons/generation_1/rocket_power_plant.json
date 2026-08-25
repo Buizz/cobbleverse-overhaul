@@ -188,19 +188,22 @@
         "id": "west_maintenance_cache",
         "position": [6, 1, 17],
         "block": "barrel",
-        "facing": "south"
+        "facing": "south",
+        "requires_completion": false
       },
       {
         "id": "east_transformer_cache",
         "position": [43, 1, 25],
         "block": "chest",
-        "facing": "west"
+        "facing": "west",
+        "requires_completion": false
       },
       {
         "id": "control_room_cache",
         "position": [35, 1, 43],
         "block": "chest",
-        "facing": "west"
+        "facing": "west",
+        "requires_completion": true
       }
     ]
   },

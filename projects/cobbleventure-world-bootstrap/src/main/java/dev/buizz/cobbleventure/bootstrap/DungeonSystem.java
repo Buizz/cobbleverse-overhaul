@@ -1054,7 +1054,7 @@ final class DungeonSystem {
             return false;
         }
         DungeonDefinition definition = definitions.get(run.dungeonId());
-        if (definition == null || definition.loot().ownership().equals("run_shared")) {
+        if (definition == null) {
             return false;
         }
         DungeonDefinition.LootContainer container = definition.loot().containers()
@@ -1062,6 +1062,15 @@ final class DungeonSystem {
             .filter(candidate -> run.origin().offset(candidate.position()).equals(position))
             .findFirst().orElse(null);
         if (container == null) return false;
+        if (container.requiresCompletion() && !completionReached(player, run)) {
+            player.displayClientMessage(Component.literal(
+                "[던전] 클리어 조건을 달성해야 이 상자를 열 수 있습니다."
+            ), true);
+            return true;
+        }
+        if (definition.loot().ownership().equals("run_shared")) {
+            return false;
+        }
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             player.displayClientMessage(Component.literal(
                 "[던전] 전투 중에는 전리품 상자를 열 수 없습니다."
