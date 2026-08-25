@@ -80,6 +80,7 @@ final class DungeonSystem {
     private static final Map<UUID, PendingEntry> PENDING_ENTRIES = new HashMap<>();
     private static final Map<UUID, ActiveRun> ACTIVE_RUNS = new HashMap<>();
     private static final Set<Integer> ACTIVE_SLOTS = new HashSet<>();
+    private static final Set<UUID> COMPLETING_RUNS = new HashSet<>();
 
     private DungeonSystem() {}
 
@@ -148,6 +149,7 @@ final class DungeonSystem {
         PENDING_ENTRIES.clear();
         ACTIVE_RUNS.clear();
         ACTIVE_SLOTS.clear();
+        COMPLETING_RUNS.clear();
         LOGGER.info(
             "Dungeon catalog loaded: definitions={}, entrances={}",
             definitions.size(), entrances.size()
@@ -284,7 +286,8 @@ final class DungeonSystem {
                 definition.difficulty().internalMax(),
                 definition.entryUi().infoMode(),
                 definition.lifecycle().wipeReturn(),
-                definition.lifecycle().healOnWipe()
+                definition.lifecycle().healOnWipe(),
+                definition.completion().repeatable()
             )
         );
     }
@@ -323,8 +326,12 @@ final class DungeonSystem {
             return;
         }
         ServerPlayerEventState state = new ServerPlayerEventState(player);
-        if (!definition.completion().repeatable()
-            && state.flag(definition.completion().victoryFlag())) {
+        int previousClears = DungeonClearProgress.importLegacyClear(
+            player.getPersistentData(),
+            definition.id(),
+            state.flag(definition.completion().victoryFlag())
+        );
+        if (!definition.completion().repeatable() && previousClears > 0) {
             player.sendSystemMessage(Component.literal("이미 클리어한 던전입니다."));
             return;
         }
@@ -664,16 +671,31 @@ final class DungeonSystem {
     }
 
     private static void completeRun(ServerPlayer player, ActiveRun run) {
+        if (!COMPLETING_RUNS.add(player.getUUID())) {
+            return;
+        }
         DungeonDefinition definition = definitions.get(run.dungeonId());
         if (definition == null) {
             returnPlayer(player, "던전을 클리어했습니다.");
             return;
         }
-        ServerPlayerEventState state = new ServerPlayerEventState(player);
-        for (String move : definition.completion().fieldMoves()) {
-            state.grantFieldMove(move);
+        try {
+            ServerPlayerEventState state = new ServerPlayerEventState(player);
+            for (String move : definition.completion().fieldMoves()) {
+                state.grantFieldMove(move);
+            }
+            int clearCount = DungeonClearProgress.recordClear(
+                player.getPersistentData(), definition.id()
+            );
+            returnPlayer(
+                player,
+                definition.displayName() + " 클리어! 보상을 획득했습니다. ("
+                    + clearCount + "회차)"
+            );
+        } catch (RuntimeException error) {
+            COMPLETING_RUNS.remove(player.getUUID());
+            throw error;
         }
-        returnPlayer(player, definition.displayName() + " 클리어! 보상을 획득했습니다.");
     }
 
     private static void abandonRun(ServerPlayer player) {
@@ -747,6 +769,7 @@ final class DungeonSystem {
     }
 
     private static ActiveRun releaseRun(UUID playerId) {
+        COMPLETING_RUNS.remove(playerId);
         ActiveRun removed = ACTIVE_RUNS.remove(playerId);
         if (removed != null) {
             ACTIVE_SLOTS.remove(removed.slot());

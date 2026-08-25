@@ -89,7 +89,9 @@ public final class DungeonGuideScreen extends Screen {
         );
         lineY += 16;
         graphics.drawString(
-            font, "인원: 1명 · 고정 지역 · 퇴장 시 귀환",
+            font,
+            "인원: 1명 · 고정 지역 · "
+                + (data.repeatable() ? "반복 도전 가능" : "1회 클리어"),
             left + 20, lineY, 0xFFB9C8DB, false
         );
         lineY += 16;

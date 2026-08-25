@@ -66,7 +66,8 @@ public final class DungeonGuideNetwork {
         int internalMax,
         String infoMode,
         String wipeReturn,
-        boolean healOnWipe
+        boolean healOnWipe,
+        boolean repeatable
     ) {
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(entranceId);
@@ -79,6 +80,7 @@ public final class DungeonGuideNetwork {
             buffer.writeUtf(infoMode);
             buffer.writeUtf(wipeReturn);
             buffer.writeBoolean(healOnWipe);
+            buffer.writeBoolean(repeatable);
         }
 
         private static GuideData read(RegistryFriendlyByteBuf buffer) {
@@ -86,7 +88,7 @@ public final class DungeonGuideNetwork {
                 buffer.readUtf(), buffer.readUtf(), buffer.readUtf(),
                 buffer.readVarInt(), buffer.readVarInt(),
                 buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(),
-                buffer.readUtf(), buffer.readBoolean()
+                buffer.readUtf(), buffer.readBoolean(), buffer.readBoolean()
             );
         }
     }
