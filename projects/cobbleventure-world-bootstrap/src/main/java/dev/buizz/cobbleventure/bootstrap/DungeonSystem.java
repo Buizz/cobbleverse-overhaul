@@ -158,6 +158,15 @@ final class DungeonSystem {
         ACTIVE_ENTRANCES.clear();
         INSIDE_ENTRANCES.clear();
         PENDING_ENTRIES.clear();
+        for (Map.Entry<UUID, QueuedEntry> queued : QUEUED_ENTRIES.entrySet()) {
+            ServerPlayer player = server.getPlayerList().getPlayer(queued.getKey());
+            if (player != null) {
+                DungeonGuideNetwork.closeQueue(
+                    player,
+                    queued.getValue().pending().ref().entrance().entranceId()
+                );
+            }
+        }
         ENTRY_QUEUE.clear();
         QUEUED_ENTRIES.clear();
         ACTIVE_RUNS.clear();
@@ -424,6 +433,16 @@ final class DungeonSystem {
             player.getUUID(),
             new QueuedEntry(pending, expiresAt, stayRadius * stayRadius)
         );
+        DungeonGuideNetwork.openQueue(
+            player,
+            new DungeonGuideNetwork.QueueData(
+                pending.ref().entrance().entranceId(),
+                definition.displayName(),
+                ENTRY_QUEUE.size(poolKey),
+                definition.match().requiredPlayers(),
+                definition.match().timeoutSeconds()
+            )
+        );
         List<DungeonEntryQueue.Request> matched = ENTRY_QUEUE.poll(
             poolKey, definition.match().requiredPlayers()
         );
@@ -459,6 +478,9 @@ final class DungeonSystem {
                 return;
             }
         }
+        entries.forEach(entry -> DungeonGuideNetwork.preparingQueue(
+            entry.player(), entry.pending().ref().entrance().entranceId()
+        ));
         startMatchedRun(List.copyOf(entries));
     }
 
@@ -566,6 +588,9 @@ final class DungeonSystem {
             }
         }
         for (MatchedEntry matched : entries) {
+            DungeonGuideNetwork.closeQueue(
+                matched.player(), matched.pending().ref().entrance().entranceId()
+            );
             matched.player().sendSystemMessage(Component.literal(
                 definition.displayName() + " 도전을 " + entries.size()
                     + "명이 함께 시작합니다."
@@ -575,6 +600,9 @@ final class DungeonSystem {
 
     private static void cancelMatch(List<MatchedEntry> entries, String message) {
         for (MatchedEntry entry : entries) {
+            DungeonGuideNetwork.closeQueue(
+                entry.player(), entry.pending().ref().entrance().entranceId()
+            );
             entry.player().sendSystemMessage(Component.literal(message));
         }
     }
@@ -869,10 +897,25 @@ final class DungeonSystem {
     }
 
     private static void cancelQueuedEntry(ServerPlayer player, String message) {
-        ENTRY_QUEUE.remove(player.getUUID());
-        QUEUED_ENTRIES.remove(player.getUUID());
+        DungeonEntryQueue.Request request = ENTRY_QUEUE.remove(player.getUUID());
+        QueuedEntry queued = QUEUED_ENTRIES.remove(player.getUUID());
         PENDING_ENTRIES.remove(player.getUUID());
+        String entranceId = queued != null
+            ? queued.pending().ref().entrance().entranceId()
+            : request != null ? request.poolKey() : null;
+        if (entranceId != null) {
+            DungeonGuideNetwork.closeQueue(player, entranceId);
+        }
         player.sendSystemMessage(Component.literal(message));
+    }
+
+    static synchronized void cancelWaiting(ServerPlayer player, String entranceId) {
+        QueuedEntry queued = QUEUED_ENTRIES.get(player.getUUID());
+        if (queued == null || !queued.pending().ref().entrance().entranceId()
+            .equals(entranceId)) {
+            return;
+        }
+        cancelQueuedEntry(player, "던전 매칭 대기를 취소했습니다.");
     }
 
     private static void failRun(ActiveRun run, String message, boolean heal) {
