@@ -31,6 +31,7 @@ record DungeonDefinition(
     RandomEncounters randomEncounters,
     Support support,
     Loot loot,
+    Rewards rewards,
     Lifecycle lifecycle,
     Completion completion,
     List<Entrance> entrances
@@ -307,15 +308,26 @@ record DungeonDefinition(
                 );
             }
         }
-        JsonObject lifecycle = requiredObject(root, "lifecycle");
-        JsonObject completion = requiredObject(root, "completion");
-        List<String> fieldMoves = new ArrayList<>();
-        for (JsonElement element : requiredArray(completion, "field_moves")) {
+        JsonObject rewards = requiredObject(root, "rewards");
+        List<String> firstClearFieldMoves = new ArrayList<>();
+        for (JsonElement element : requiredArray(rewards, "first_clear_field_moves")) {
             String move = element.getAsString();
             if (move.isBlank()) {
-                throw new IllegalStateException("Dungeon completion field move is empty: " + id);
+                throw new IllegalStateException(
+                    "Dungeon first-clear field move is empty: " + id
+                );
             }
-            fieldMoves.add(move);
+            firstClearFieldMoves.add(move);
+        }
+        String repeatTable = rewards.has("repeat_table")
+            ? resourceId(rewards, "repeat_table") : null;
+        JsonObject lifecycle = requiredObject(root, "lifecycle");
+        JsonObject completion = requiredObject(root, "completion");
+        boolean repeatable = requiredBoolean(completion, "repeatable");
+        if (repeatable && repeatTable == null) {
+            throw new IllegalStateException(
+                "Repeatable dungeon requires rewards.repeat_table: " + id
+            );
         }
         return new DungeonDefinition(
             id,
@@ -346,6 +358,11 @@ record DungeonDefinition(
             ),
             new Support(List.copyOf(healingStations)),
             new Loot(resourceId(loot, "loot_table"), List.copyOf(lootContainers)),
+            new Rewards(
+                resourceId(rewards, "first_clear_table"),
+                repeatTable,
+                List.copyOf(firstClearFieldMoves)
+            ),
             new Lifecycle(
                 enumValue(lifecycle, "on_wipe", List.of("reset_run")),
                 enumValue(lifecycle, "wipe_return", List.of(
@@ -355,8 +372,7 @@ record DungeonDefinition(
             ),
             new Completion(
                 resourceId(completion, "victory_flag"),
-                requiredBoolean(completion, "repeatable"),
-                List.copyOf(fieldMoves)
+                repeatable
             ),
             List.copyOf(entrances)
         );
@@ -494,8 +510,13 @@ record DungeonDefinition(
     ) {}
     record Loot(String lootTable, List<LootContainer> containers) {}
     record LootContainer(String id, BlockPos position, String block, String facing) {}
+    record Rewards(
+        String firstClearTable,
+        String repeatTable,
+        List<String> firstClearFieldMoves
+    ) {}
     record Lifecycle(String onWipe, String wipeReturn, boolean healOnWipe) {}
-    record Completion(String victoryFlag, boolean repeatable, List<String> fieldMoves) {}
+    record Completion(String victoryFlag, boolean repeatable) {}
     record Entrance(
         String entranceId,
         String destinationEntry,

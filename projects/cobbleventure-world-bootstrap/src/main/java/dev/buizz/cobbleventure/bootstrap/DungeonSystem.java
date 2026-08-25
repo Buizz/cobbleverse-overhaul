@@ -5,12 +5,14 @@ import com.cobblemon.mod.common.battles.BattleRegistry;
 import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
+import dev.buizz.cobbleventure.playermenu.BagApi;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.List;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -39,6 +41,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Blocks;
@@ -47,6 +50,9 @@ import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
 import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.Vec3;
@@ -680,9 +686,19 @@ final class DungeonSystem {
             return;
         }
         try {
+            int previousClears = DungeonClearProgress.clearCount(
+                player.getPersistentData(), definition.id()
+            );
+            boolean firstClear = previousClears == 0;
+            String rewardTable = firstClear
+                ? definition.rewards().firstClearTable()
+                : definition.rewards().repeatTable();
+            List<ItemStack> itemRewards = generateClearRewards(player, rewardTable);
             ServerPlayerEventState state = new ServerPlayerEventState(player);
-            for (String move : definition.completion().fieldMoves()) {
-                state.grantFieldMove(move);
+            if (firstClear) {
+                for (String move : definition.rewards().firstClearFieldMoves()) {
+                    state.grantFieldMove(move);
+                }
             }
             int clearCount = DungeonClearProgress.recordClear(
                 player.getPersistentData(), definition.id()
@@ -692,10 +708,48 @@ final class DungeonSystem {
                 definition.displayName() + " 클리어! 보상을 획득했습니다. ("
                     + clearCount + "회차)"
             );
+            grantClearItems(player, itemRewards);
         } catch (RuntimeException error) {
             COMPLETING_RUNS.remove(player.getUUID());
             throw error;
         }
+    }
+
+    private static List<ItemStack> generateClearRewards(
+        ServerPlayer player, String lootTableId
+    ) {
+        if (lootTableId == null) {
+            return List.of();
+        }
+        ResourceKey<LootTable> key = ResourceKey.create(
+            Registries.LOOT_TABLE, ResourceLocation.parse(lootTableId)
+        );
+        LootTable lootTable = player.getServer().reloadableRegistries().getLootTable(key);
+        if (lootTable == LootTable.EMPTY) {
+            throw new IllegalStateException(
+                "Dungeon clear reward loot table is missing: " + lootTableId
+            );
+        }
+        LootParams params = new LootParams.Builder(player.serverLevel())
+            .withParameter(LootContextParams.ORIGIN, player.position())
+            .withParameter(LootContextParams.THIS_ENTITY, player)
+            .create(LootContextParamSets.GIFT);
+        return lootTable.getRandomItems(params);
+    }
+
+    private static void grantClearItems(ServerPlayer player, List<ItemStack> rewards) {
+        if (BagApi.insertAll(player, rewards).complete()) {
+            return;
+        }
+        for (ItemStack reward : rewards) {
+            if (reward.isEmpty()) continue;
+            ItemStack remainder = reward.copy();
+            player.getInventory().add(remainder);
+            if (!remainder.isEmpty()) {
+                player.drop(remainder, false, true);
+            }
+        }
+        player.containerMenu.broadcastChanges();
     }
 
     private static void abandonRun(ServerPlayer player) {

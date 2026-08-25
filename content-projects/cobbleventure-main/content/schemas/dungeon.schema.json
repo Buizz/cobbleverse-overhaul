@@ -7,7 +7,7 @@
   "required": [
     "$schema", "schema_version", "dungeon_id", "display_name", "description",
     "preset", "entrances", "entry_ui", "difficulty", "battle", "terrain", "encounters",
-    "random_encounters", "support", "loot", "lifecycle", "completion"
+    "random_encounters", "support", "loot", "rewards", "lifecycle", "completion"
   ],
   "properties": {
     "$schema": { "type": "string" },
@@ -123,6 +123,20 @@
         }
       }
     },
+    "rewards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first_clear_table", "first_clear_field_moves"],
+      "properties": {
+        "first_clear_table": { "$ref": "#/$defs/resource_id" },
+        "repeat_table": { "$ref": "#/$defs/resource_id" },
+        "first_clear_field_moves": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+        }
+      }
+    },
     "lifecycle": {
       "type": "object",
       "additionalProperties": false,
@@ -136,18 +150,31 @@
     "completion": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["victory_flag", "repeatable", "field_moves"],
+      "required": ["victory_flag", "repeatable"],
       "properties": {
         "victory_flag": { "$ref": "#/$defs/resource_id" },
-        "repeatable": { "type": "boolean" },
-        "field_moves": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
-        }
+        "repeatable": { "type": "boolean" }
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "completion": {
+            "properties": { "repeatable": { "const": true } },
+            "required": ["repeatable"]
+          }
+        },
+        "required": ["completion"]
+      },
+      "then": {
+        "properties": {
+          "rewards": { "required": ["repeat_table"] }
+        }
+      }
+    }
+  ],
   "$defs": {
     "resource_id": {
       "type": "string",

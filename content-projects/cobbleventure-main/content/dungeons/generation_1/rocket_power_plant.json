@@ -143,6 +143,11 @@
       }
     ]
   },
+  "rewards": {
+    "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
+    "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear",
+    "first_clear_field_moves": ["flash"]
+  },
   "lifecycle": {
     "on_wipe": "reset_run",
     "wipe_return": "source_entrance",
@@ -150,7 +155,6 @@
   },
   "completion": {
     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
-    "repeatable": true,
-    "field_moves": ["flash"]
+    "repeatable": true
   }
 }

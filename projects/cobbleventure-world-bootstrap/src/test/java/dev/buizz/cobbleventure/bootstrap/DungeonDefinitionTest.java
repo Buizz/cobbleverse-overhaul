@@ -88,6 +88,11 @@ final class DungeonDefinitionTest {
                       "facing": "south"
                     }]
                   },
+                  "rewards": {
+                    "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
+                    "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear",
+                    "first_clear_field_moves": ["flash"]
+                  },
                   "lifecycle": {
                     "on_wipe": "reset_run",
                     "wipe_return": "source_entrance",
@@ -95,8 +100,7 @@ final class DungeonDefinitionTest {
                   },
                   "completion": {
                     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
-                    "repeatable": true,
-                    "field_moves": ["flash"]
+                    "repeatable": true
                   }
                 }
                 """).getAsJsonObject()
@@ -130,7 +134,15 @@ final class DungeonDefinitionTest {
         assertEquals("reset_run", definition.lifecycle().onWipe());
         assertEquals("source_entrance", definition.lifecycle().wipeReturn());
         assertTrue(definition.lifecycle().healOnWipe());
-        assertEquals("flash", definition.completion().fieldMoves().getFirst());
+        assertEquals(
+            "cobbleventure:dungeon/rocket_power_plant_first_clear",
+            definition.rewards().firstClearTable()
+        );
+        assertEquals(
+            "cobbleventure:dungeon/rocket_power_plant_repeat_clear",
+            definition.rewards().repeatTable()
+        );
+        assertEquals("flash", definition.rewards().firstClearFieldMoves().getFirst());
         assertEquals(
             "cobbleventure:entrance/rocket_power_plant",
             definition.entrances().getFirst().entranceId()
