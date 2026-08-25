@@ -147,6 +147,31 @@ record DungeonDefinition(
                 "Solo dungeon match requires exactly one player: " + id
             );
         }
+        Tether tether = null;
+        String battleJoin = multiplayer.has("battle_join")
+            ? enumValue(multiplayer, "battle_join", List.of(
+                "summon_all", "require_nearby", "initiator_only"
+            ))
+            : "initiator_only";
+        if (multiplayerMode.equals("cooperative")) {
+            JsonObject configuredTether = requiredObject(multiplayer, "tether");
+            int warningDistance = requiredInt(configuredTether, "warn_distance");
+            int maximumDistance = requiredInt(configuredTether, "max_distance");
+            if (warningDistance < 1 || maximumDistance > 256
+                || warningDistance >= maximumDistance) {
+                throw new IllegalStateException(
+                    "Invalid dungeon cooperative tether range: "
+                        + warningDistance + ".." + maximumDistance
+                );
+            }
+            tether = new Tether(
+                warningDistance,
+                maximumDistance,
+                enumValue(configuredTether, "on_exceed", List.of(
+                    "return_to_partner"
+                ))
+            );
+        }
         int timeoutSeconds = requiredInt(match, "timeout_seconds");
         if (timeoutSeconds < 1 || timeoutSeconds > 3600) {
             throw new IllegalStateException(
@@ -398,7 +423,9 @@ record DungeonDefinition(
                     "ignore", "warn", "enforce"
                 ))
             ),
-            new Multiplayer(multiplayerMode, minimumPlayers, maximumPlayers),
+            new Multiplayer(
+                multiplayerMode, minimumPlayers, maximumPlayers, battleJoin, tether
+            ),
             new Match(
                 requiredPlayers,
                 enumValue(match, "scope", List.of("same_entrance")),
@@ -548,7 +575,14 @@ record DungeonDefinition(
         String levelMeasure,
         String recommendedLevelPolicy
     ) {}
-    record Multiplayer(String mode, int minSize, int maxSize) {}
+    record Multiplayer(
+        String mode,
+        int minSize,
+        int maxSize,
+        String battleJoin,
+        Tether tether
+    ) {}
+    record Tether(int warnDistance, int maxDistance, String onExceed) {}
     record Match(
         int requiredPlayers,
         String scope,

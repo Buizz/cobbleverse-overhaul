@@ -91,6 +91,8 @@ final class DungeonSystem {
     private static final Map<UUID, ActiveRun> ACTIVE_RUNS = new HashMap<>();
     private static final Set<Integer> ACTIVE_SLOTS = new HashSet<>();
     private static final Set<UUID> COMPLETING_RUNS = new HashSet<>();
+    private static final Set<UUID> INTERNAL_TELEPORTS = new HashSet<>();
+    private static final long TETHER_WARNING_COOLDOWN_TICKS = 100L;
 
     private DungeonSystem() {}
 
@@ -172,6 +174,7 @@ final class DungeonSystem {
         ACTIVE_RUNS.clear();
         ACTIVE_SLOTS.clear();
         COMPLETING_RUNS.clear();
+        INTERNAL_TELEPORTS.clear();
         LOGGER.info(
             "Dungeon catalog loaded: definitions={}, entrances={}",
             definitions.size(), entrances.size()
@@ -219,6 +222,9 @@ final class DungeonSystem {
                     "참가자가 던전 경계를 벗어나 도전이 종료되었습니다.",
                     false
                 );
+                return;
+            }
+            if (run != null && enforceCooperativeTether(player, run, gameTime)) {
                 return;
             }
             if (run != null && completionReached(player, run)) {
@@ -285,7 +291,8 @@ final class DungeonSystem {
             return;
         }
         ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
-        if (run == null || !escapeActionsBlocked(run)) {
+        if (run == null || INTERNAL_TELEPORTS.contains(player.getUUID())
+            || !escapeActionsBlocked(run)) {
             return;
         }
         event.setCanceled(true);
@@ -308,6 +315,102 @@ final class DungeonSystem {
             && position.y < origin.getY() + size.getY() + margin
             && position.z >= origin.getZ() - margin
             && position.z < origin.getZ() + size.getZ() + margin;
+    }
+
+    private static boolean enforceCooperativeTether(
+        ServerPlayer player, ActiveRun run, long gameTime
+    ) {
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null
+            || !definition.multiplayer().mode().equals("cooperative")
+            || definition.multiplayer().tether() == null
+            || run.participantIds().size() < 2
+            || BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            return false;
+        }
+        ServerPlayer partner = run.participantIds().stream()
+            .filter(id -> !id.equals(player.getUUID()))
+            .map(id -> run.server().getPlayerList().getPlayer(id))
+            .filter(candidate -> candidate != null
+                && candidate.serverLevel() == player.serverLevel())
+            .findFirst().orElse(null);
+        if (partner == null
+            || BattleRegistry.getBattleByParticipatingPlayer(partner) != null) {
+            return false;
+        }
+        DungeonDefinition.Tether tether = definition.multiplayer().tether();
+        DungeonTetherPolicy.Zone zone = DungeonTetherPolicy.classify(
+            player.distanceToSqr(partner), tether.warnDistance(), tether.maxDistance()
+        );
+        if (zone == DungeonTetherPolicy.Zone.TOGETHER) {
+            run.tetherWarningUntil().remove(player.getUUID());
+            return false;
+        }
+        if (zone == DungeonTetherPolicy.Zone.WARNING) {
+            long warningUntil = run.tetherWarningUntil().getOrDefault(
+                player.getUUID(), 0L
+            );
+            if (gameTime >= warningUntil) {
+                player.displayClientMessage(Component.literal(
+                    "[던전] 동료와 너무 멀어지고 있습니다. 최대 거리: "
+                        + tether.maxDistance() + "블록"
+                ), true);
+                run.tetherWarningUntil().put(
+                    player.getUUID(), gameTime + TETHER_WARNING_COOLDOWN_TICKS
+                );
+            }
+            return false;
+        }
+        Vec3 target = tetherReturnPosition(player, partner, run);
+        INTERNAL_TELEPORTS.add(player.getUUID());
+        try {
+            player.teleportTo(
+                player.serverLevel(), target.x, target.y, target.z,
+                player.getYRot(), player.getXRot()
+            );
+            player.fallDistance = 0.0F;
+        } finally {
+            INTERNAL_TELEPORTS.remove(player.getUUID());
+        }
+        player.displayClientMessage(Component.literal(
+            "[던전] 동료와의 최대 거리를 넘어 가까운 위치로 복귀했습니다."
+        ), true);
+        partner.displayClientMessage(Component.literal(
+            "[던전] 멀어진 동료가 가까운 위치로 복귀했습니다."
+        ), true);
+        run.tetherWarningUntil().put(
+            player.getUUID(), gameTime + TETHER_WARNING_COOLDOWN_TICKS
+        );
+        return true;
+    }
+
+    private static Vec3 tetherReturnPosition(
+        ServerPlayer player, ServerPlayer partner, ActiveRun run
+    ) {
+        double[][] offsets = {
+            {2.0D, 0.0D}, {-2.0D, 0.0D}, {0.0D, 2.0D}, {0.0D, -2.0D}
+        };
+        for (double[] offset : offsets) {
+            Vec3 candidate = partner.position().add(offset[0], 0.0D, offset[1]);
+            if (!insideRunBounds(candidate, run.origin(), run.size())) {
+                continue;
+            }
+            BlockPos floor = BlockPos.containing(candidate).below();
+            if (!player.serverLevel().getBlockState(floor).isFaceSturdy(
+                player.serverLevel(), floor, Direction.UP
+            )) {
+                continue;
+            }
+            AABB movedBounds = player.getBoundingBox().move(
+                candidate.x - player.getX(),
+                candidate.y - player.getY(),
+                candidate.z - player.getZ()
+            );
+            if (player.serverLevel().noCollision(player, movedBounds)) {
+                return candidate;
+            }
+        }
+        return partner.position();
     }
 
     static synchronized PursuitEncounterSystem.Config randomEncounterConfig(
@@ -387,7 +490,11 @@ final class DungeonSystem {
                 definition.eligibility().levelMeasure(),
                 currentPartyLevel,
                 definition.multiplayer().mode(),
-                definition.match().requiredPlayers()
+                definition.match().requiredPlayers(),
+                definition.multiplayer().tether() == null ? 0
+                    : definition.multiplayer().tether().warnDistance(),
+                definition.multiplayer().tether() == null ? 0
+                    : definition.multiplayer().tether().maxDistance()
             )
         );
     }
@@ -567,7 +674,7 @@ final class DungeonSystem {
             .collect(Collectors.toUnmodifiableSet());
         ActiveRun run = new ActiveRun(
             player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
-            randomEncounters, new HashMap<>(), participantIds
+            randomEncounters, new HashMap<>(), participantIds, new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         for (int index = 0; index < entries.size(); index++) {
@@ -1277,7 +1384,8 @@ final class DungeonSystem {
         long teleportCooldownUntil,
         PursuitEncounterSystem.Config randomEncounters,
         Map<String, Integer> healingUses,
-        Set<UUID> participantIds
+        Set<UUID> participantIds,
+        Map<UUID, Long> tetherWarningUntil
     ) {}
 
     private record ReturnFrame(

@@ -63,8 +63,28 @@
       "properties": {
         "mode": { "enum": ["solo", "cooperative", "independent"] },
         "min_size": { "type": "integer", "minimum": 1, "maximum": 4 },
-        "max_size": { "type": "integer", "minimum": 1, "maximum": 4 }
-      }
+        "max_size": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "battle_join": {
+          "enum": ["summon_all", "require_nearby", "initiator_only"]
+        },
+        "tether": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["warn_distance", "max_distance", "on_exceed"],
+          "properties": {
+            "warn_distance": { "type": "integer", "minimum": 1, "maximum": 255 },
+            "max_distance": { "type": "integer", "minimum": 2, "maximum": 256 },
+            "on_exceed": { "const": "return_to_partner" }
+          }
+        }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "mode": { "const": "cooperative" } },
+          "required": ["mode"]
+        },
+        "then": { "required": ["battle_join", "tether"] }
+      }]
     },
     "match": {
       "type": "object",

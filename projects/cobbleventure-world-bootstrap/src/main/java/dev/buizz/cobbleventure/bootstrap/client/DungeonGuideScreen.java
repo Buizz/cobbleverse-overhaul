@@ -84,6 +84,15 @@ public final class DungeonGuideScreen extends Screen {
             left + 20, lineY, 0xFFFFD166, false
         );
         lineY += 16;
+        if (data.tetherMaxDistance() > 0) {
+            graphics.drawString(
+                font,
+                "협력 거리: " + data.tetherWarnDistance() + "블록부터 경고 · "
+                    + data.tetherMaxDistance() + "블록 초과 시 동료에게 복귀",
+                left + 20, lineY, 0xFFFFD166, false
+            );
+            lineY += 16;
+        }
         graphics.drawString(
             font,
             "내부 레벨  Lv." + data.internalMin() + "–" + data.internalMax(),

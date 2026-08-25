@@ -43,7 +43,13 @@ final class DungeonDefinitionTest {
                   "multiplayer": {
                     "mode": "cooperative",
                     "min_size": 2,
-                    "max_size": 2
+                    "max_size": 2,
+                    "battle_join": "summon_all",
+                    "tether": {
+                      "warn_distance": 32,
+                      "max_distance": 48,
+                      "on_exceed": "return_to_partner"
+                    }
                   },
                   "match": {
                     "required_players": 2,
@@ -133,6 +139,9 @@ final class DungeonDefinitionTest {
         assertEquals("average", definition.eligibility().levelMeasure());
         assertEquals("warn", definition.eligibility().recommendedLevelPolicy());
         assertEquals("cooperative", definition.multiplayer().mode());
+        assertEquals("summon_all", definition.multiplayer().battleJoin());
+        assertEquals(32, definition.multiplayer().tether().warnDistance());
+        assertEquals(48, definition.multiplayer().tether().maxDistance());
         assertEquals(2, definition.match().requiredPlayers());
         assertEquals(300, definition.match().timeoutSeconds());
         assertFalse(definition.battleRules().allowFlee());

@@ -15,7 +15,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Synchronizes dungeon guide and matchmaking screens with server-owned entry state. */
 public final class DungeonGuideNetwork {
-    private static final String VERSION = "3";
+    private static final String VERSION = "4";
 
     private DungeonGuideNetwork() {}
 
@@ -127,7 +127,9 @@ public final class DungeonGuideNetwork {
         String levelMeasure,
         int currentPartyLevel,
         String multiplayerMode,
-        int requiredPlayers
+        int requiredPlayers,
+        int tetherWarnDistance,
+        int tetherMaxDistance
     ) {
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(entranceId);
@@ -145,6 +147,8 @@ public final class DungeonGuideNetwork {
             buffer.writeVarInt(currentPartyLevel);
             buffer.writeUtf(multiplayerMode);
             buffer.writeVarInt(requiredPlayers);
+            buffer.writeVarInt(tetherWarnDistance);
+            buffer.writeVarInt(tetherMaxDistance);
         }
 
         private static GuideData read(RegistryFriendlyByteBuf buffer) {
@@ -153,7 +157,8 @@ public final class DungeonGuideNetwork {
                 buffer.readVarInt(), buffer.readVarInt(),
                 buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(),
                 buffer.readUtf(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readUtf(), buffer.readVarInt(), buffer.readUtf(), buffer.readVarInt()
+                buffer.readUtf(), buffer.readVarInt(), buffer.readUtf(), buffer.readVarInt(),
+                buffer.readVarInt(), buffer.readVarInt()
             );
         }
     }
