@@ -383,7 +383,8 @@
                   </div>
                   <div data-world-entrance-panel="underground-road" hidden>
                     <label><span>지하통로</span><select id="underground-road-tool-road"></select></label>
-                    <label><span>내부 포트</span><select id="underground-road-tool-port"></select><small>NBT의 직소 태그를 지상 입구에 배정합니다.</small></label>
+                    <label><span>입구 이동 영역</span><select id="underground-road-tool-transition"></select><small>지상 입구 NBT에서 배리어로 표시한 이동 영역입니다.</small></label>
+                    <label><span>지하 연결 지점</span><select id="underground-road-tool-endpoint"></select><small>지하통로 조각의 열린 위쪽 계단 커넥터를 직접 연결합니다.</small></label>
                     <label><span>입구 방향</span><select id="underground-road-tool-facing"><option value="north">북쪽</option><option value="east">동쪽</option><option value="south">남쪽</option><option value="west">서쪽</option></select></label>
                   </div>
                   <div data-world-entrance-panel="forest" hidden>
@@ -642,7 +643,7 @@
               <label><span>지하통로 BGM</span><select name="musicTrack"></select></label>
               <label class="toggle"><input name="enabled" type="checkbox"><span>지하통로 사용</span></label>
               <fieldset class="wide underground-module-builder"><legend>지하통로 조립 화면</legend><p class="cave-section-help">조각을 고른 뒤 캔버스를 클릭해 배치합니다. 초록 점은 내부 연결, 노란 점은 출입구로 쓸 수 있는 위쪽 계단, 빨간 점은 아직 연결해야 하는 커넥터입니다.</p><div class="underground-module-toolbar"><label><span>조각 NBT</span><select id="underground-module-structure"></select></label><label><span>배치 높이 Y</span><input id="underground-module-level" type="number" value="0"></label><button class="button secondary" id="add-underground-module" type="button">＋ 조각 배치</button><button class="button secondary" id="rotate-underground-module" type="button">↻ 선택 회전</button><button class="button danger" id="remove-underground-module" type="button">선택 삭제</button></div><canvas id="underground-module-canvas" width="900" height="560" aria-label="지하통로 조각 배치 화면"></canvas><div class="underground-module-selection" id="underground-module-selection"><span>조각을 선택하면 좌표와 회전을 편집할 수 있습니다.</span></div></fieldset>
-              <fieldset class="wide cave-settings-group"><legend>지상 출입구 포트</legend><p class="cave-section-help">연결되지 않은 `up` 방향 계단 커넥터만 지상 입구 또는 출구로 등록할 수 있습니다.</p><div class="underground-port-toolbar"><input id="underground-port-tag" placeholder="예: exit_1"><input id="underground-port-name" placeholder="표시 이름"><select id="underground-port-connector"></select><button class="button secondary" id="add-underground-port" type="button">포트 등록</button></div><div id="underground-road-port-list" class="cave-entry-list"><div class="issues empty">외부 포트를 두 개 이상 등록하세요.</div></div></fieldset>
+              <fieldset class="wide cave-settings-group"><legend>월드맵 연결 가능 지점</legend><p class="cave-section-help">노란색으로 표시된 열린 `up` 방향 계단 커넥터가 월드맵 입구에서 선택할 수 있는 지점입니다. 연결 이름과 입구 배정은 월드맵에서 관리합니다.</p><div id="underground-road-endpoint-list" class="cave-entry-list"><div class="issues empty">열린 위쪽 계단 커넥터가 두 개 이상 필요합니다.</div></div></fieldset>
             </form>
             <div id="underground-road-issues" class="issues empty">지하통로를 선택하세요.</div>
           </div>
@@ -897,7 +898,7 @@
                   <div id="building-interior-assignments" class="building-interior-assignments"></div>
                 </section>
                 <section class="building-space-editor legacy-space-editor">
-                  <header><div><strong>문 이동 설정</strong><small>인게임에서 지정한 실제 문끼리 연결합니다.</small></div></header>
+                  <header><div><strong>출입구 이동 설정</strong><small>실제 문과 배리어 접촉 전환 영역을 같은 방식으로 연결합니다.</small></div></header>
                   <div id="building-door-routes" class="building-door-routes"></div>
                 </section>
                 <section class="building-space-editor">
@@ -1196,7 +1197,7 @@
         <section class="panel gacha-machine-manager">
           <header class="panel-heading">
             <div><p class="eyebrow">COBBLEVENTURE GACHA ADDON</p><h3>카지노별 가챠 세트</h3><p>카지노마다 포켓몬·아이템·기술머신 3기를 한 세트로 구성하고, 공통 티켓을 사용하면서 보상과 외형은 세트별로 설정합니다.</p></div>
-            <div class="editor-heading-actions"><span class="path-label">content/catalogs/gacha-machines.json</span><button class="button secondary" id="add-gacha-machine" type="button">＋ 카지노 세트 추가</button><button class="button primary" id="save-gacha-machines" type="button">가챠 세트 저장</button></div>
+            <div class="editor-heading-actions"><span class="path-label">content/catalogs/gacha-machines.json</span><button class="button secondary" id="add-gacha-machine" type="button">＋ 카지노 세트 추가</button><button class="button primary" id="save-gacha-machines" type="button">가챠 설정 저장</button></div>
           </header>
           <div class="gacha-machine-workspace">
             <aside><div id="gacha-machine-list" class="gacha-machine-list"><div class="issues empty">기계 설정을 불러오는 중입니다.</div></div></aside>
@@ -1217,16 +1218,38 @@
             </header>
             <div class="structure-builder-settings">
               <label class="grow"><span>CurseForge 건축 프로필 인스턴스 경로</span><input id="structure-builder-instance" list="structure-builder-candidates" placeholder="C:\CurseForge\Minecraft\Instances\Cobbleventure Structure Builder"><small>프로필 폴더를 지정합니다. 월드는 그 아래 saves/Cobbleventure Structure Builder에서 자동으로 찾습니다.</small></label>
+              <label class="grow"><span>새 라이브 NBT 에디터 인스턴스 경로</span><input id="structure-builder-live-instance" list="structure-builder-candidates" placeholder="C:\CurseForge\Minecraft\Instances\Cobbleventure Live NBT Editor"><small>기존 건축 팩과 완전히 분리된 새 모드팩 인스턴스입니다.</small></label>
               <datalist id="structure-builder-candidates"></datalist>
               <button class="button secondary" id="save-structure-builder-settings" type="button">경로 저장</button>
             </div>
+            <section class="structure-builder-live">
+              <header><div><strong>단일 NBT 라이브 편집</strong><small>선택한 NBT 하나만 별도 편집 차원에 배치하며, 게임 저장 결과를 웹이 자동으로 원본에 반영합니다.</small></div><span class="path-label" id="structure-builder-live-status">연결 대기</span></header>
+              <div class="structure-builder-live-controls">
+                <label class="grow"><span>편집할 NBT</span><select id="structure-builder-live-source"><option value="">NBT를 선택하세요</option></select></label>
+                <label><span>폭 X</span><input id="structure-builder-live-width" type="number" min="1" max="256" value="16"></label>
+                <label><span>높이 Y</span><input id="structure-builder-live-height" type="number" min="1" max="256" value="16"></label>
+                <label><span>깊이 Z</span><input id="structure-builder-live-depth" type="number" min="1" max="256" value="16"></label>
+              </div>
+              <div class="structure-builder-actions">
+                <button class="button primary" id="open-structure-builder-live" type="button">편집 차원에서 열기</button>
+                <button class="button secondary" id="resize-structure-builder-live" type="button">편집 범위 변경</button>
+                <button class="button secondary" id="save-structure-builder-live" type="button">지금 저장</button>
+                <button class="button secondary" id="test-place-structure-builder-live" type="button">테스트 차원에 사본 배치</button>
+                <label class="button secondary">외부 NBT 추가<input id="structure-builder-external-file" type="file" accept=".nbt" hidden></label>
+              </div>
+              <small id="structure-builder-live-detail">게임을 종료할 필요 없이 웹에서 NBT를 바꿀 수 있습니다.</small>
+              <small class="structure-builder-path" id="structure-builder-live-world-path">새 라이브 에디터 인스턴스 경로를 저장해 주세요.</small>
+            </section>
             <div class="structure-builder-summary">
               <article><span>건축 팩</span><strong id="structure-builder-package">—</strong></article>
               <article><span>건축 월드</span><strong id="structure-builder-world">—</strong></article>
+              <article><span>라이브 에디터 팩</span><strong id="structure-builder-live-package">—</strong></article>
+              <article><span>라이브 편집 월드</span><strong id="structure-builder-live-world">—</strong></article>
               <article><span>내보낸 NBT</span><strong id="structure-builder-exports">—</strong></article>
               <article><span>저장소 NBT</span><strong id="structure-builder-sources">—</strong></article>
             </div>
             <div class="structure-builder-actions">
+              <button class="button primary" id="build-live-nbt-editor" type="button">새 라이브 에디터 팩 빌드</button>
               <button class="button primary" id="build-structure-builder" type="button">건축 팩 빌드</button>
               <button class="button primary" id="sync-structure-builder" type="button">건축 월드 갱신</button>
               <button class="button primary" id="import-structure-builder" type="button">게임 NBT 자동 가져오기</button>

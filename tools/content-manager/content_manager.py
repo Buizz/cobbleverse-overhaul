@@ -281,6 +281,7 @@ BUILD_COMMANDS = {
     "pack": "개발용 CurseForge ZIP 생성",
     "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
     "builder-world": "독립 건축 월드 CurseForge ZIP 생성",
+    "live-editor-world": "단일 NBT 라이브 에디터 CurseForge ZIP 생성",
 }
 EXPORT_LANGUAGES = {
     "ko_kr": "한국어",
@@ -291,6 +292,7 @@ COBBLEMON_BUILD_TARGETS = {
     "1.8": "1.8 스냅샷",
 }
 STRUCTURE_BUILDER_WORLD_NAME = "Cobbleventure Structure Builder"
+LIVE_NBT_EDITOR_WORLD_NAME = "Cobbleventure Live NBT Editor"
 CONTENT_MANAGER_SETTINGS = "tools/content-manager/settings.local.json"
 STATIC_CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
@@ -891,16 +893,29 @@ def validate_hex_worlds(
                 if "cave" in placement or "entrance" in placement:
                     _issue(issues, "error", path, placement_path, "지하통로 입구에는 cave 또는 entrance 필드를 함께 사용할 수 없습니다.")
                 underground = underground_documents.get(underground_id) if isinstance(underground_id, str) else None
-                port_id = placement.get("port")
                 if underground is None:
                     _issue(issues, "error", path, f"{placement_path}.underground_road", f"존재하지 않는 지하통로 ID: {underground_id}")
-                port_ids = set(underground.get("ports", {})) if underground else set()
-                if not isinstance(port_id, str) or port_id not in port_ids:
-                    _issue(issues, "error", path, f"{placement_path}.port", f"지하통로 NBT에 없는 포트 태그: {port_id}")
-                pair = (str(underground_id), str(port_id))
+                module_id = placement.get("underground_module")
+                connector_id = placement.get("underground_connector")
+                endpoints = {
+                    (item["module"], item["connector"])
+                    for item in _underground_road_endpoints(underground, root)
+                } if underground else set()
+                if not isinstance(module_id, str) or not isinstance(connector_id, str) or (module_id, connector_id) not in endpoints:
+                    _issue(issues, "error", path, f"{placement_path}.underground_connector", f"지하통로의 열린 위쪽 커넥터가 아닙니다: {module_id}/{connector_id}")
+                transition = placement.get("transition")
+                structure_id = placement.get("structure")
+                structure_path = managed_structure_files(root).get(structure_id) if isinstance(structure_id, str) else None
+                transition_ids = {
+                    item["label"] for item in _structure_named_anchors(structure_path, {"transition"})
+                } if structure_path is not None else set()
+                if not isinstance(transition, str) or transition not in transition_ids:
+                    _issue(issues, "error", path, f"{placement_path}.transition", f"입구 구조물에 없는 이동 영역입니다: {transition}")
+                pair = (str(underground_id), f"{module_id}/{connector_id}")
             else:
-                if "port" in placement:
-                    _issue(issues, "error", path, placement_path, "동굴 입구에는 지하통로 port 필드를 사용할 수 없습니다.")
+                underground_fields = {"transition", "underground_module", "underground_connector"}
+                if any(field in placement for field in underground_fields):
+                    _issue(issues, "error", path, placement_path, "동굴 입구에는 지하통로 연결 필드를 사용할 수 없습니다.")
                 cave_id = placement.get("cave")
                 entrance_id = placement.get("entrance")
                 cave = cave_documents.get(cave_id) if isinstance(cave_id, str) else None
@@ -914,7 +929,7 @@ def validate_hex_worlds(
                     _issue(issues, "error", path, f"{placement_path}.entrance", f"동굴에 없는 내부 입구 ID: {entrance_id}")
                 pair = (str(cave_id), str(entrance_id))
             if pair in seen_cave_pairs:
-                _issue(issues, "error", path, placement_path, "같은 동굴 입구 또는 지하통로 포트를 월드맵에 중복 배치할 수 없습니다.")
+                _issue(issues, "error", path, placement_path, "같은 동굴 입구 또는 지하통로 커넥터를 월드맵에 중복 배치할 수 없습니다.")
             seen_cave_pairs.add(pair)
             anchor = placement.get("anchor")
             if not isinstance(anchor, dict) or not all(isinstance(anchor.get(key), int) and not isinstance(anchor.get(key), bool) for key in ("q", "r")):
@@ -4591,7 +4606,15 @@ DIALOGUE_THEME_DEFAULTS: dict[str, Any] = {
 }
 
 
-def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str, catalog_id: str) -> dict[str, Any]:
+def _default_gacha_reward(machine_type: str) -> dict[str, Any]:
+    if machine_type == "pokemon":
+        return {"id": "pikachu", "display_name": "피카츄", "kind": "pokemon", "value": "pikachu level=15", "count": 1, "weight": 1.0, "selectable": False}
+    if machine_type == "technical_machine":
+        return {"id": "protect", "display_name": "방어 기술머신", "kind": "item", "value": "tmcraft:tm_protect", "count": 1, "weight": 1.0, "selectable": False}
+    return {"id": "poke_ball", "display_name": "몬스터볼", "kind": "item", "value": "cobblemon:poke_ball", "count": 5, "weight": 1.0, "selectable": False}
+
+
+def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str) -> dict[str, Any]:
     model_blocks = {
         "pokemon": "cobblemoncasino:pokemon_gacha_machine",
         "item": "cobblemoncasino:gacha_machine",
@@ -4599,10 +4622,22 @@ def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str
     }
     return {
         "id": machine_id, "display_name": display_name, "machine_type": machine_type,
-        "enabled": True, "pity_group": f"default_casino/{machine_type}",
+        "enabled": True,
         "appearance": {"model_block": model_blocks[machine_type], "facing": "north", "show_nameplate": True},
+        "themes": [_default_gacha_theme(
+            "default", display_name, 1, f"default_casino/{machine_type}/default", machine_type
+        )],
+    }
+
+
+def _default_gacha_theme(
+    theme_id: str, display_name: str, ticket_cost: int, pity_group: str, machine_type: str
+) -> dict[str, Any]:
+    return {
+        "id": theme_id, "display_name": display_name, "ticket_cost": ticket_cost,
+        "pity_group": pity_group,
         "rarities": [{"id": "common", "display_name": "일반", "weight": 100.0,
-                      "rewards": [{"catalog_id": catalog_id, "weight": 1.0, "selectable": False}]}],
+                      "rewards": [_default_gacha_reward(machine_type)]}],
         "pity": {
             "soft": {"enabled": False, "start": 30, "max_at": 60, "target_rarity": "common", "max_chance": 0.25},
             "hard": {"enabled": False, "count": 80, "target_rarity": "common"},
@@ -4612,22 +4647,17 @@ def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str
 
 
 GACHA_MACHINE_CATALOG_DEFAULTS: dict[str, Any] = {
-    "$schema": "../schemas/gacha-machines.schema.json", "schema_version": 4,
+    "$schema": "../schemas/gacha-machines.schema.json", "schema_version": 6,
     "tickets": {
         "pokemon": {"display_name": "포켓몬 가챠 티켓", "price": 500, "purchase_min": 1, "purchase_max": 64},
         "item": {"display_name": "아이템 가챠 티켓", "price": 200, "purchase_min": 1, "purchase_max": 64},
         "technical_machine": {"display_name": "기술머신 가챠 티켓", "price": 300, "purchase_min": 1, "purchase_max": 64},
     },
-    "reward_catalog": [
-        {"id": "pikachu", "display_name": "피카츄", "machine_type": "pokemon", "kind": "pokemon", "value": "pikachu level=15", "count": 1},
-        {"id": "poke_ball", "display_name": "몬스터볼 묶음", "machine_type": "item", "kind": "item", "value": "cobblemon:poke_ball", "count": 5},
-        {"id": "protect", "display_name": "방어 기술머신", "machine_type": "technical_machine", "kind": "item", "value": "tmcraft:tm_protect", "count": 1},
-    ],
     "casino_sets": [{"id": "cobbleventure:casino/default", "display_name": "기본 카지노", "machines": {"pokemon": "cobbleventure:starter_gacha", "item": "cobbleventure:item_gacha", "technical_machine": "cobbleventure:technical_machine_gacha"}}],
     "machines": [
-        _default_gacha_machine("cobbleventure:starter_gacha", "포켓몬 가챠", "pokemon", "pikachu"),
-        _default_gacha_machine("cobbleventure:item_gacha", "아이템 가챠", "item", "poke_ball"),
-        _default_gacha_machine("cobbleventure:technical_machine_gacha", "기술머신 가챠", "technical_machine", "protect"),
+        _default_gacha_machine("cobbleventure:starter_gacha", "포켓몬 가챠", "pokemon"),
+        _default_gacha_machine("cobbleventure:item_gacha", "아이템 가챠", "item"),
+        _default_gacha_machine("cobbleventure:technical_machine_gacha", "기술머신 가챠", "technical_machine"),
     ],
 }
 
@@ -4637,7 +4667,144 @@ def gacha_machine_catalog_path(root: Path) -> Path:
 
 def gacha_machine_catalog_payload(root: Path) -> dict[str, Any]:
     path = gacha_machine_catalog_path(root)
-    return load_json(path) if path.is_file() else copy.deepcopy(GACHA_MACHINE_CATALOG_DEFAULTS)
+    data = load_json(path) if path.is_file() else copy.deepcopy(GACHA_MACHINE_CATALOG_DEFAULTS)
+    if data.get("schema_version") == 4:
+        data = copy.deepcopy(data)
+        data["schema_version"] = 5
+        for machine in data.get("machines", []):
+            if not isinstance(machine, dict) or machine.get("themes"):
+                continue
+            machine["themes"] = [{
+                "id": "default",
+                "display_name": machine.get("display_name", "기본 가챠"),
+                "ticket_cost": 1,
+                "pity_group": machine.pop("pity_group", machine.get("id", "default")),
+                "rarities": machine.pop("rarities", []),
+                "pity": machine.pop("pity", {}),
+            }]
+    if data.get("schema_version") == 5:
+        data = copy.deepcopy(data)
+        catalog = {entry.get("id"): entry for entry in data.get("reward_catalog", []) if isinstance(entry, dict)}
+        for machine in data.get("machines", []):
+            if not isinstance(machine, dict):
+                continue
+            for theme in machine.get("themes", []):
+                if not isinstance(theme, dict):
+                    continue
+                for rarity in theme.get("rarities", []):
+                    if not isinstance(rarity, dict):
+                        continue
+                    converted: list[dict[str, Any]] = []
+                    for reward in rarity.get("rewards", []):
+                        if not isinstance(reward, dict):
+                            continue
+                        template = catalog.get(reward.get("catalog_id"), {})
+                        converted.append({
+                            "id": template.get("id", reward.get("catalog_id", "missing_reward")),
+                            "display_name": template.get("display_name", reward.get("catalog_id", "보상")),
+                            "kind": template.get("kind", "pokemon" if machine.get("machine_type") == "pokemon" else "item"),
+                            "value": template.get("value", "pikachu level=15" if machine.get("machine_type") == "pokemon" else "minecraft:stone"),
+                            "count": 1 if machine.get("machine_type") == "pokemon" else max(1, int(template.get("count", 1))),
+                            "weight": reward.get("weight", 1.0),
+                            "selectable": reward.get("selectable", False),
+                        })
+                    rarity["rewards"] = converted
+        data.pop("reward_catalog", None)
+        data["schema_version"] = 6
+    return data
+
+
+def _validate_gacha_theme(
+    issues: list[Issue], path: Path, base: str, theme: Any,
+    machine_type: Any,
+) -> None:
+    if not isinstance(theme, dict):
+        _issue(issues, "error", path, base, "가챠 테마는 객체여야 합니다.")
+        return
+    if not isinstance(theme.get("display_name"), str) or not theme["display_name"].strip():
+        _issue(issues, "error", path, f"{base}.display_name", "테마 표시 이름이 필요합니다.")
+    ticket_cost = theme.get("ticket_cost")
+    if not isinstance(ticket_cost, int) or isinstance(ticket_cost, bool) or ticket_cost < 1 or ticket_cost > 6400:
+        _issue(issues, "error", path, f"{base}.ticket_cost", "티켓 소모량은 1~6400의 정수여야 합니다.")
+    if not isinstance(theme.get("pity_group"), str) or not theme["pity_group"].strip():
+        _issue(issues, "error", path, f"{base}.pity_group", "테마별 천장 저장 그룹이 필요합니다.")
+    rarities = theme.get("rarities")
+    if not isinstance(rarities, list) or not rarities:
+        _issue(issues, "error", path, f"{base}.rarities", "하나 이상의 희귀도 풀이 필요합니다.")
+        return
+    rarity_ids: set[str] = set()
+    reward_ids: set[str] = set()
+    for rarity_index, rarity in enumerate(rarities):
+        rarity_path = f"{base}.rarities[{rarity_index}]"
+        if not isinstance(rarity, dict):
+            _issue(issues, "error", path, rarity_path, "희귀도 풀은 객체여야 합니다.")
+            continue
+        rarity_id = rarity.get("id")
+        if not isinstance(rarity_id, str) or re.fullmatch(r"[a-z0-9_.-]+", rarity_id) is None or rarity_id in rarity_ids:
+            _issue(issues, "error", path, f"{rarity_path}.id", "희귀도 ID는 중복되지 않은 소문자 ID여야 합니다.")
+        else:
+            rarity_ids.add(rarity_id)
+        weight = rarity.get("weight")
+        if not isinstance(weight, (int, float)) or isinstance(weight, bool) or weight <= 0:
+            _issue(issues, "error", path, f"{rarity_path}.weight", "희귀도 가중치는 0보다 커야 합니다.")
+        rewards = rarity.get("rewards")
+        if not isinstance(rewards, list) or not rewards:
+            _issue(issues, "error", path, f"{rarity_path}.rewards", "보상을 하나 이상 추가해야 합니다.")
+            continue
+        for reward_index, reward in enumerate(rewards):
+            reward_path = f"{rarity_path}.rewards[{reward_index}]"
+            if not isinstance(reward, dict):
+                _issue(issues, "error", path, reward_path, "보상은 객체여야 합니다.")
+                continue
+            reward_id = reward.get("id")
+            if not isinstance(reward_id, str) or re.fullmatch(r"[a-z0-9_.-]+", reward_id) is None or reward_id in reward_ids:
+                _issue(issues, "error", path, f"{reward_path}.id", "같은 테마에서 중복되지 않은 소문자 보상 ID가 필요합니다.")
+            else:
+                reward_ids.add(reward_id)
+            if not isinstance(reward.get("display_name"), str) or not reward["display_name"].strip():
+                _issue(issues, "error", path, f"{reward_path}.display_name", "보상 표시 이름이 필요합니다.")
+            kind = reward.get("kind")
+            expected_kind = "pokemon" if machine_type == "pokemon" else "item"
+            if kind != expected_kind:
+                _issue(issues, "error", path, f"{reward_path}.kind", "기계 종류에 맞는 보상 종류가 필요합니다.")
+            value = reward.get("value")
+            if not isinstance(value, str) or not value.strip() or (kind == "item" and RESOURCE_ID.fullmatch(value) is None):
+                _issue(issues, "error", path, f"{reward_path}.value", "아이템 ID 또는 PokemonProperties 문자열이 필요합니다.")
+            count = reward.get("count")
+            if machine_type == "pokemon" and count != 1:
+                _issue(issues, "error", path, f"{reward_path}.count", "포켓몬 보상 수량은 항상 1이어야 합니다.")
+            elif not isinstance(count, int) or isinstance(count, bool) or count < 1:
+                _issue(issues, "error", path, f"{reward_path}.count", "수량은 1 이상의 정수여야 합니다.")
+            number = reward.get("weight")
+            if not isinstance(number, (int, float)) or isinstance(number, bool) or number <= 0:
+                _issue(issues, "error", path, f"{reward_path}.weight", "0보다 큰 숫자여야 합니다.")
+            if not isinstance(reward.get("selectable"), bool):
+                _issue(issues, "error", path, f"{reward_path}.selectable", "선택 가능 여부는 true 또는 false여야 합니다.")
+    pity = theme.get("pity")
+    if not isinstance(pity, dict):
+        _issue(issues, "error", path, f"{base}.pity", "천장 설정이 필요합니다.")
+        return
+    soft, hard, selection = pity.get("soft"), pity.get("hard"), pity.get("selection")
+    if not all(isinstance(entry, dict) for entry in (soft, hard, selection)):
+        _issue(issues, "error", path, f"{base}.pity", "소프트·확정·선택 천장 설정이 모두 필요합니다.")
+        return
+    for section_name, section in (("soft", soft), ("hard", hard)):
+        if section.get("enabled") is True and section.get("target_rarity") not in rarity_ids:
+            _issue(issues, "error", path, f"{base}.pity.{section_name}.target_rarity", "존재하는 희귀도 ID를 지정해야 합니다.")
+    if soft.get("enabled") is True:
+        start, max_at, chance = soft.get("start"), soft.get("max_at"), soft.get("max_chance")
+        if not isinstance(start, int) or isinstance(start, bool) or start < 1 or not isinstance(max_at, int) or isinstance(max_at, bool) or max_at < start:
+            _issue(issues, "error", path, f"{base}.pity.soft", "소프트 천장 시작·최대 횟수가 올바르지 않습니다.")
+        if not isinstance(chance, (int, float)) or isinstance(chance, bool) or not 0 < chance <= 1:
+            _issue(issues, "error", path, f"{base}.pity.soft.max_chance", "최대 확률은 0 초과 1 이하여야 합니다.")
+    if hard.get("enabled") is True and (not isinstance(hard.get("count"), int) or isinstance(hard.get("count"), bool) or hard["count"] < 1):
+        _issue(issues, "error", path, f"{base}.pity.hard.count", "확정 천장 횟수는 1 이상이어야 합니다.")
+    if selection.get("enabled") is True:
+        for key in ("points_per_pull", "required_points"):
+            if not isinstance(selection.get(key), int) or isinstance(selection.get(key), bool) or selection[key] < 1:
+                _issue(issues, "error", path, f"{base}.pity.selection.{key}", "선택 천장 포인트는 1 이상의 정수여야 합니다.")
+        if not any(reward.get("selectable") is True for rarity in rarities if isinstance(rarity, dict) for reward in rarity.get("rewards", []) if isinstance(reward, dict)):
+            _issue(issues, "error", path, f"{base}.pity.selection", "선택 천장을 켰다면 선택 가능한 보상이 하나 이상 필요합니다.")
 
 
 def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
@@ -4646,8 +4813,8 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
     document = _require_object(data, issues, path, "$")
     if document is None:
         return issues
-    if document.get("schema_version") != 4:
-        _issue(issues, "error", path, "$.schema_version", "가챠 기계 카탈로그 버전은 4여야 합니다.")
+    if document.get("schema_version") != 6:
+        _issue(issues, "error", path, "$.schema_version", "가챠 기계 설정 버전은 6이어야 합니다.")
     ticket_types = ("pokemon", "item", "technical_machine")
     tickets = document.get("tickets")
     if not isinstance(tickets, dict):
@@ -4669,37 +4836,6 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
             _issue(issues, "error", path, f"{ticket_path}.price", "티켓 가격은 2,147,483,647칩 이하여야 합니다.")
         if isinstance(ticket.get("purchase_min"), int) and isinstance(ticket.get("purchase_max"), int) and ticket["purchase_max"] < ticket["purchase_min"]:
             _issue(issues, "error", path, f"{ticket_path}.purchase_max", "최대 구매 수량은 최소 구매 수량 이상이어야 합니다.")
-    reward_catalog = document.get("reward_catalog")
-    catalog_by_id: dict[str, dict[str, Any]] = {}
-    if not isinstance(reward_catalog, list):
-        _issue(issues, "error", path, "$.reward_catalog", "가챠 상품 카탈로그는 배열이어야 합니다.")
-    else:
-        catalog_ids: set[str] = set()
-        for catalog_index, reward in enumerate(reward_catalog):
-            reward_path = f"$.reward_catalog[{catalog_index}]"
-            if not isinstance(reward, dict):
-                _issue(issues, "error", path, reward_path, "카탈로그 상품은 객체여야 합니다.")
-                continue
-            reward_id = reward.get("id")
-            if not isinstance(reward_id, str) or re.fullmatch(r"[a-z0-9_.-]+", reward_id) is None or reward_id in catalog_ids:
-                _issue(issues, "error", path, f"{reward_path}.id", "카탈로그 ID는 중복되지 않은 소문자 ID여야 합니다.")
-            else:
-                catalog_ids.add(reward_id)
-                catalog_by_id[reward_id] = reward
-            if not isinstance(reward.get("display_name"), str) or not reward["display_name"].strip():
-                _issue(issues, "error", path, f"{reward_path}.display_name", "카탈로그 표시 이름이 필요합니다.")
-            machine_type = reward.get("machine_type")
-            kind = reward.get("kind")
-            if machine_type not in ticket_types:
-                _issue(issues, "error", path, f"{reward_path}.machine_type", "상품 기계 종류가 올바르지 않습니다.")
-            if kind not in {"item", "pokemon"} or (machine_type == "pokemon") != (kind == "pokemon"):
-                _issue(issues, "error", path, f"{reward_path}.kind", "기계 종류에 맞는 상품 종류가 필요합니다.")
-            value = reward.get("value")
-            if not isinstance(value, str) or not value.strip() or (kind == "item" and RESOURCE_ID.fullmatch(value) is None):
-                _issue(issues, "error", path, f"{reward_path}.value", "아이템 ID 또는 PokemonProperties 문자열이 필요합니다.")
-            count = reward.get("count")
-            if not isinstance(count, int) or isinstance(count, bool) or count < 1:
-                _issue(issues, "error", path, f"{reward_path}.count", "수량은 1 이상의 정수여야 합니다.")
     machines = document.get("machines")
     if not isinstance(machines, list):
         _issue(issues, "error", path, "$.machines", "기계 목록은 배열이어야 합니다.")
@@ -4741,74 +4877,19 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
                 _issue(issues, "error", path, f"{base}.appearance.model_block", "Cobblemon Casino 가챠 모델 중 하나를 선택해야 합니다.")
             if appearance.get("facing") not in {"north", "east", "south", "west"}:
                 _issue(issues, "error", path, f"{base}.appearance.facing", "방향은 north, east, south, west 중 하나여야 합니다.")
-        rarities = machine.get("rarities")
-        if not isinstance(rarities, list) or not rarities:
-            _issue(issues, "error", path, f"{base}.rarities", "하나 이상의 희귀도 풀이 필요합니다.")
+        themes = machine.get("themes")
+        if not isinstance(themes, list) or not themes:
+            _issue(issues, "error", path, f"{base}.themes", "기계에는 하나 이상의 가챠 테마가 필요합니다.")
             continue
-        rarity_ids: set[str] = set()
-        reward_ids: set[str] = set()
-        for rarity_index, rarity in enumerate(rarities):
-            rarity_path = f"{base}.rarities[{rarity_index}]"
-            if not isinstance(rarity, dict):
-                _issue(issues, "error", path, rarity_path, "희귀도 풀은 객체여야 합니다.")
-                continue
-            rarity_id = rarity.get("id")
-            if not isinstance(rarity_id, str) or re.fullmatch(r"[a-z0-9_.-]+", rarity_id) is None or rarity_id in rarity_ids:
-                _issue(issues, "error", path, f"{rarity_path}.id", "희귀도 ID는 중복되지 않은 소문자 ID여야 합니다.")
+        theme_ids: set[str] = set()
+        for theme_index, theme in enumerate(themes):
+            theme_path = f"{base}.themes[{theme_index}]"
+            theme_id = theme.get("id") if isinstance(theme, dict) else None
+            if not isinstance(theme_id, str) or re.fullmatch(r"[a-z0-9_.-]+", theme_id) is None or theme_id in theme_ids:
+                _issue(issues, "error", path, f"{theme_path}.id", "테마 ID는 기계 안에서 중복되지 않은 소문자 ID여야 합니다.")
             else:
-                rarity_ids.add(rarity_id)
-            weight = rarity.get("weight")
-            if not isinstance(weight, (int, float)) or isinstance(weight, bool) or weight <= 0:
-                _issue(issues, "error", path, f"{rarity_path}.weight", "희귀도 가중치는 0보다 커야 합니다.")
-            rewards = rarity.get("rewards")
-            if not isinstance(rewards, list) or not rewards:
-                _issue(issues, "error", path, f"{rarity_path}.rewards", "보상을 하나 이상 추가해야 합니다.")
-                continue
-            for reward_index, reward in enumerate(rewards):
-                reward_path = f"{rarity_path}.rewards[{reward_index}]"
-                if not isinstance(reward, dict):
-                    _issue(issues, "error", path, reward_path, "보상은 객체여야 합니다.")
-                    continue
-                catalog_id = reward.get("catalog_id")
-                catalog_reward = catalog_by_id.get(catalog_id) if isinstance(catalog_id, str) else None
-                if catalog_reward is None:
-                    _issue(issues, "error", path, f"{reward_path}.catalog_id", "카탈로그에 존재하는 상품 ID가 필요합니다.")
-                elif catalog_id in reward_ids:
-                    _issue(issues, "error", path, f"{reward_path}.catalog_id", "같은 기계에서 상품을 중복 참조할 수 없습니다.")
-                else:
-                    reward_ids.add(catalog_id)
-                    if catalog_reward.get("machine_type") != machine_type:
-                        _issue(issues, "error", path, f"{reward_path}.catalog_id", "기계 종류와 같은 카탈로그 상품을 선택해야 합니다.")
-                number = reward.get("weight")
-                if not isinstance(number, (int, float)) or isinstance(number, bool) or number <= 0:
-                    _issue(issues, "error", path, f"{reward_path}.weight", "0보다 큰 숫자여야 합니다.")
-                if not isinstance(reward.get("selectable"), bool):
-                    _issue(issues, "error", path, f"{reward_path}.selectable", "선택 가능 여부는 true 또는 false여야 합니다.")
-        pity = machine.get("pity")
-        if not isinstance(pity, dict):
-            _issue(issues, "error", path, f"{base}.pity", "천장 설정이 필요합니다.")
-            continue
-        soft, hard, selection = pity.get("soft"), pity.get("hard"), pity.get("selection")
-        if not all(isinstance(entry, dict) for entry in (soft, hard, selection)):
-            _issue(issues, "error", path, f"{base}.pity", "소프트·확정·선택 천장 설정이 모두 필요합니다.")
-            continue
-        for section_name, section in (("soft", soft), ("hard", hard)):
-            if section.get("enabled") is True and section.get("target_rarity") not in rarity_ids:
-                _issue(issues, "error", path, f"{base}.pity.{section_name}.target_rarity", "존재하는 희귀도 ID를 지정해야 합니다.")
-        if soft.get("enabled") is True:
-            start, max_at, chance = soft.get("start"), soft.get("max_at"), soft.get("max_chance")
-            if not isinstance(start, int) or isinstance(start, bool) or start < 1 or not isinstance(max_at, int) or isinstance(max_at, bool) or max_at < start:
-                _issue(issues, "error", path, f"{base}.pity.soft", "소프트 천장 시작·최대 횟수가 올바르지 않습니다.")
-            if not isinstance(chance, (int, float)) or isinstance(chance, bool) or not 0 < chance <= 1:
-                _issue(issues, "error", path, f"{base}.pity.soft.max_chance", "최대 확률은 0 초과 1 이하여야 합니다.")
-        if hard.get("enabled") is True and (not isinstance(hard.get("count"), int) or isinstance(hard.get("count"), bool) or hard["count"] < 1):
-            _issue(issues, "error", path, f"{base}.pity.hard.count", "확정 천장 횟수는 1 이상이어야 합니다.")
-        if selection.get("enabled") is True:
-            for key in ("points_per_pull", "required_points"):
-                if not isinstance(selection.get(key), int) or isinstance(selection.get(key), bool) or selection[key] < 1:
-                    _issue(issues, "error", path, f"{base}.pity.selection.{key}", "선택 천장 포인트는 1 이상의 정수여야 합니다.")
-            if not any(reward.get("selectable") is True for rarity in rarities if isinstance(rarity, dict) for reward in rarity.get("rewards", []) if isinstance(reward, dict)):
-                _issue(issues, "error", path, f"{base}.pity.selection", "선택 천장을 켰다면 선택 가능한 보상이 하나 이상 필요합니다.")
+                theme_ids.add(theme_id)
+            _validate_gacha_theme(issues, path, theme_path, theme, machine_type)
     casino_sets = document.get("casino_sets")
     if not isinstance(casino_sets, list) or not casino_sets:
         _issue(issues, "error", path, "$.casino_sets", "하나 이상의 카지노 세트가 필요합니다.")
@@ -7680,6 +7761,61 @@ def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
     return cave_id, issues
 
 
+def _underground_road_endpoints(data: Any, root: Path) -> list[dict[str, str]]:
+    """Return unpaired upward connectors that a world-map entrance can target."""
+    if not isinstance(data, dict) or not isinstance(data.get("modules"), list):
+        return []
+    structures = managed_structure_files(root)
+    directions = ["north", "east", "south", "west"]
+    nodes: list[dict[str, Any]] = []
+    for module in data["modules"]:
+        if not isinstance(module, dict) or not isinstance(module.get("id"), str):
+            continue
+        structure = structures.get(module.get("structure"))
+        position = module.get("position")
+        rotation = module.get("rotation", "none")
+        if structure is None or not isinstance(position, dict) or any(
+            not isinstance(position.get(axis), int) or isinstance(position.get(axis), bool)
+            for axis in ("x", "y", "z")
+        ):
+            continue
+        try:
+            metadata = read_minecraft_structure_metadata(structure.read_bytes())
+        except (OSError, ValueError, gzip.BadGzipFile):
+            continue
+        width, depth = metadata["width"], metadata["depth"]
+        turns = {"none": 0, "clockwise_90": 1, "clockwise_180": 2, "counterclockwise_90": 3}.get(rotation, 0)
+        for connector in metadata.get("underground_connectors", []):
+            if not isinstance(connector, dict):
+                continue
+            x, y, z = connector["position"]
+            if rotation == "clockwise_90": x, z = depth - 1 - z, x
+            elif rotation == "clockwise_180": x, z = width - 1 - x, depth - 1 - z
+            elif rotation == "counterclockwise_90": x, z = z, width - 1 - x
+            facing = connector["facing"]
+            if facing in directions:
+                facing = directions[(directions.index(facing) + turns) % 4]
+            nodes.append({
+                "module": module["id"], "connector": connector["tag"],
+                "x": position["x"] + x, "y": position["y"] + y,
+                "z": position["z"] + z, "facing": facing,
+            })
+    opposites = {"north": "south", "south": "north", "east": "west", "west": "east", "up": "down", "down": "up"}
+    offsets = {"north": (0, 0, -1), "south": (0, 0, 1), "east": (1, 0, 0), "west": (-1, 0, 0), "up": (0, 1, 0), "down": (0, -1, 0)}
+    result: list[dict[str, str]] = []
+    for node in nodes:
+        dx, dy, dz = offsets[node["facing"]]
+        paired = any(
+            other is not node and other["x"] == node["x"] + dx
+            and other["y"] == node["y"] + dy and other["z"] == node["z"] + dz
+            and other["facing"] == opposites[node["facing"]]
+            for other in nodes
+        )
+        if not paired and node["facing"] == "up":
+            result.append({"module": node["module"], "connector": node["connector"]})
+    return result
+
+
 def validate_underground_road_document(
     data: Any, path: Path, root: Path | None = None,
 ) -> tuple[str | None, list[Issue]]:
@@ -7733,20 +7869,8 @@ def validate_underground_road_document(
             _issue(issues, "error", path, f"{base}.position", "정수 상대 좌표 x, y, z가 필요합니다.")
         if module.get("rotation") not in rotations:
             _issue(issues, "error", path, f"{base}.rotation", "지원되는 90도 단위 회전이 필요합니다.")
-    ports = data.get("ports")
-    if not isinstance(ports, dict) or len(ports) < 2:
-        _issue(issues, "error", path, "$.ports", "직소로 정의한 출입구가 두 개 이상 필요합니다.")
-        ports = {}
-    for tag, settings in ports.items():
-        if not isinstance(tag, str) or not CHOICE_ID.fullmatch(tag):
-            _issue(issues, "error", path, f"$.ports.{tag}", "소문자 포트 태그가 필요합니다.")
-            continue
-        if not isinstance(settings, dict) or not isinstance(settings.get("display_name"), str) or not settings["display_name"].strip():
-            _issue(issues, "error", path, f"$.ports.{tag}.display_name", "포트 표시 이름이 필요합니다.")
-        elif settings.get("module") not in module_by_id:
-            _issue(issues, "error", path, f"$.ports.{tag}.module", "배치된 조각 ID를 선택해야 합니다.")
-        if not isinstance(settings, dict) or not isinstance(settings.get("connector"), str) or not CHOICE_ID.fullmatch(settings["connector"]):
-            _issue(issues, "error", path, f"$.ports.{tag}.connector", "조각의 커넥터 태그가 필요합니다.")
+    if "ports" in data:
+        _issue(issues, "error", path, "$.ports", "입구 연결은 지하통로가 아니라 월드맵 입구 배치에서 정의해야 합니다.")
     if root is not None and modules:
         structures = managed_structure_files(root)
         connector_nodes: list[dict[str, Any]] = []
@@ -7790,27 +7914,17 @@ def validate_underground_road_document(
                 a, b = boxes[left], boxes[right]
                 if a[1] < b[4] and a[4] > b[1] and a[2] < b[5] and a[5] > b[2] and a[3] < b[6] and a[6] > b[3]:
                     _issue(issues, "error", path, "$.modules", f"조각 배치가 겹칩니다: {a[0]}, {b[0]}")
-        port_refs = {(settings.get("module"), settings.get("connector")) for settings in ports.values() if isinstance(settings, dict)}
-        if len(port_refs) != len(ports):
-            _issue(issues, "error", path, "$.ports", "같은 조각 커넥터를 여러 외부 포트로 지정할 수 없습니다.")
         opposites = {"north": "south", "south": "north", "east": "west", "west": "east", "up": "down", "down": "up"}; offsets = {"north": (0, 0, -1), "south": (0, 0, 1), "east": (1, 0, 0), "west": (-1, 0, 0), "up": (0, 1, 0), "down": (0, -1, 0)}
-        known_refs = {(node["module"], node["tag"]) for node in connector_nodes}
-        for port_tag, settings in ports.items():
-            if isinstance(settings, dict) and (settings.get("module"), settings.get("connector")) not in known_refs:
-                _issue(issues, "error", path, f"$.ports.{port_tag}", "선택한 조각에 해당 커넥터가 없습니다.")
-            elif isinstance(settings, dict):
-                selected = next((node for node in connector_nodes if (node["module"], node["tag"]) == (settings.get("module"), settings.get("connector"))), None)
-                if selected is not None and selected["facing"] != "up":
-                    _issue(issues, "error", path, f"$.ports.{port_tag}", "외부 입출구는 위쪽을 향한 계단 커넥터만 사용할 수 있습니다.")
+        open_up_connectors = 0
         for node in connector_nodes:
             dx, dy, dz = offsets[node["facing"]]
             paired = any(other is not node and other["x"] == node["x"] + dx and other["y"] == node["y"] + dy and other["z"] == node["z"] + dz and other["facing"] == opposites[node["facing"]] for other in connector_nodes)
-            external = (node["module"], node["tag"]) in port_refs
-            if paired and external:
-                _issue(issues, "error", path, "$.ports", f"내부 연결 커넥터는 외부 포트로 지정할 수 없습니다: {node['module']}/{node['tag']}")
-            elif not paired and not external:
-                message = "연결되지 않은 위쪽 계단 커넥터를 외부 포트로 지정해야 합니다" if node["facing"] == "up" else "수평·아래쪽 커넥터는 다른 조각과 연결해야 합니다"
-                _issue(issues, "error", path, "$.modules", f"{message}: {node['module']}/{node['tag']}")
+            if not paired and node["facing"] == "up":
+                open_up_connectors += 1
+            elif not paired:
+                _issue(issues, "error", path, "$.modules", f"수평·아래쪽 커넥터는 다른 조각과 연결해야 합니다: {node['module']}/{node['tag']}")
+        if open_up_connectors < 2:
+            _issue(issues, "error", path, "$.modules", "월드맵 입구가 연결할 열린 위쪽 계단 커넥터가 두 개 이상 필요합니다.")
     return road_id, issues
 
 
@@ -8364,9 +8478,9 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["cave_type"] = data.get("cave_type", "")
             elif category == "underground-roads":
                 summary["generation"] = int(path.parent.name.removeprefix("generation_")) if path.parent.name.removeprefix("generation_").isdigit() else 1
-                summary["port_count"] = len(data.get("ports", {}))
-                summary["ports"] = data.get("ports", {})
                 summary["module_count"] = len(data.get("modules", []))
+                summary["modules"] = data.get("modules", [])
+                summary["endpoints"] = _underground_road_endpoints(data, root)
             elif category == "forests":
                 summary["generation"] = int(path.parent.name.removeprefix("generation_")) if path.parent.name.removeprefix("generation_").isdigit() else 1
                 summary["entrance_count"] = len(data.get("entrances", []))
@@ -8509,8 +8623,7 @@ def _save_document(
         _, structure_issues = validate_underground_road_document(data, target, root)
         issues.extend(
             issue for issue in structure_issues
-            if issue.path in {"$.structure", "$.ports"}
-            and not any(existing.path == issue.path and existing.message == issue.message for existing in issues)
+            if not any(existing.path == issue.path and existing.message == issue.message for existing in issues)
         )
     duplicate = _duplicate_document_issue(
         root, category, target, document_id, validator
@@ -9460,7 +9573,6 @@ def _underground_road_template(slug: str, name: str, generation: str) -> dict[st
             "origin": {"x": 0, "y": 48, "z": 0},
         },
         "modules": [],
-        "ports": {},
     }
 
 
@@ -9740,27 +9852,37 @@ def _content_manager_settings_path(root: Path) -> Path:
 def _load_structure_builder_settings(root: Path) -> dict[str, str]:
     path = _content_manager_settings_path(root)
     if not path.is_file():
-        return {"instance_path": ""}
+        return {"instance_path": "", "live_instance_path": ""}
     document = load_json(path)
     section = document.get("structure_builder", {}) if isinstance(document, dict) else {}
     instance_path = section.get("instance_path", "") if isinstance(section, dict) else ""
-    if not isinstance(instance_path, str):
+    live_instance_path = section.get("live_instance_path", "") if isinstance(section, dict) else ""
+    if not isinstance(instance_path, str) or not isinstance(live_instance_path, str):
         raise ValueError("건축 월드 인스턴스 경로 설정이 문자열이 아닙니다.")
-    return {"instance_path": instance_path}
+    return {"instance_path": instance_path, "live_instance_path": live_instance_path}
 
 
-def _save_structure_builder_settings(root: Path, instance_path: str) -> dict[str, str]:
-    value = instance_path.strip()
-    if value:
+def _save_structure_builder_settings(
+    root: Path, instance_path: str, live_instance_path: str = ""
+) -> dict[str, str]:
+    def normalize(value: str) -> str:
+        value = value.strip()
+        if not value:
+            return ""
         resolved = Path(os.path.expandvars(value)).expanduser()
         if not resolved.is_absolute():
             raise ValueError("CurseForge 인스턴스 경로는 절대 경로여야 합니다.")
-        value = str(resolved.resolve(strict=False))
+        return str(resolved.resolve(strict=False))
+    value = normalize(instance_path)
+    live_value = normalize(live_instance_path)
     path = _content_manager_settings_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     document = {
         "schema_version": 1,
-        "structure_builder": {"instance_path": value},
+        "structure_builder": {
+            "instance_path": value,
+            "live_instance_path": live_value,
+        },
     }
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
@@ -9771,13 +9893,19 @@ def _save_structure_builder_settings(root: Path, instance_path: str) -> dict[str
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
-    return {"instance_path": value}
+    return {"instance_path": value, "live_instance_path": live_value}
 
 
 def _structure_builder_world_path(instance_path: str) -> Path | None:
     if not instance_path:
         return None
     return Path(instance_path) / "saves" / STRUCTURE_BUILDER_WORLD_NAME
+
+
+def _live_nbt_editor_world_path(instance_path: str) -> Path | None:
+    if not instance_path:
+        return None
+    return Path(instance_path) / "saves" / LIVE_NBT_EDITOR_WORLD_NAME
 
 
 def _structure_builder_export_count(world_path: Path | None) -> int:
@@ -9791,6 +9919,182 @@ def _structure_builder_export_count(world_path: Path | None) -> int:
         / "export"
     )
     return sum(1 for path in export_root.rglob("*.nbt") if path.is_file()) if export_root.is_dir() else 0
+
+
+def _structure_builder_live_root(world_path: Path) -> Path:
+    return world_path / "generated" / "cobbleventure_builder" / "live"
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_bytes(data)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _atomic_write_json(path: Path, document: dict[str, Any]) -> None:
+    _atomic_write_bytes(
+        path,
+        (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8"),
+    )
+
+
+def _structure_builder_sources(project_root: Path) -> list[dict[str, Any]]:
+    structures = project_root / "content" / "structures"
+    result: list[dict[str, Any]] = []
+    if not structures.is_dir():
+        return result
+    for path in sorted(structures.rglob("*.nbt"), key=lambda value: value.as_posix().casefold()):
+        try:
+            data = path.read_bytes()
+            size = read_minecraft_structure_size(data)
+        except (OSError, EOFError, ValueError, gzip.BadGzipFile, struct.error):
+            continue
+        relative = path.relative_to(structures).as_posix()
+        result.append({
+            "id": relative[:-4],
+            "path": f"content/structures/{relative}",
+            "size": list(size),
+            "digest": hashlib.sha256(data).hexdigest(),
+        })
+    return result
+
+
+def _managed_structure_path(project_root: Path, relative_path: str) -> Path:
+    if not relative_path or Path(relative_path).is_absolute():
+        raise ValueError("저장소 기준 NBT 상대 경로가 필요합니다.")
+    base = (project_root / "content" / "structures").resolve()
+    candidate = Path(relative_path.replace("\\", "/"))
+    if candidate.parts[:2] == ("content", "structures"):
+        candidate = Path(*candidate.parts[2:])
+    target = (base / candidate).resolve()
+    if target.suffix.lower() != ".nbt" or base not in target.parents:
+        raise ValueError("관리 NBT 디렉터리 밖에는 접근할 수 없습니다.")
+    return target
+
+
+def _structure_builder_live_state(world_path: Path | None) -> dict[str, Any]:
+    empty = {"connected": False, "active": None, "pending": False, "last_result": None}
+    if world_path is None or not world_path.is_dir():
+        return empty
+    live_root = _structure_builder_live_root(world_path)
+    state_path = live_root / "state.json"
+    result_path = live_root / "outbox" / "result.json"
+    state = load_json(state_path) if state_path.is_file() else None
+    result = load_json(result_path) if result_path.is_file() else None
+    return {
+        "connected": live_root.is_dir(),
+        "active": state if isinstance(state, dict) else None,
+        "pending": (live_root / "command.json").is_file(),
+        "last_result": result if isinstance(result, dict) else None,
+    }
+
+
+def _queue_structure_builder_live_open(
+    project_root: Path,
+    world_path: Path,
+    source_path: str,
+    size: list[int] | tuple[int, int, int] | None = None,
+    *,
+    preserve_current: bool = True,
+) -> dict[str, Any]:
+    managed = _managed_structure_path(project_root, source_path)
+    if managed.suffix.lower() != ".nbt" or not managed.is_file():
+        raise ValueError("불러올 관리 NBT를 찾을 수 없습니다.")
+    data = managed.read_bytes()
+    actual_size = read_minecraft_structure_size(data)
+    requested_size = tuple(size or actual_size)
+    if (
+        len(requested_size) != 3
+        or any(isinstance(value, bool) or not isinstance(value, int) for value in requested_size)
+        or any(value < 1 or value > 256 for value in requested_size)
+    ):
+        raise ValueError("편집 크기는 1~256 사이 정수 3개여야 합니다.")
+    relative = managed.relative_to(project_root).as_posix()
+    live_root = _structure_builder_live_root(world_path)
+    revision = uuid.uuid4().hex
+    _atomic_write_bytes(live_root / "inbox" / "active.nbt", data)
+    metadata = managed.with_suffix(".structure.json")
+    metadata_target = live_root / "inbox" / "active.structure.json"
+    if metadata.is_file():
+        _atomic_write_bytes(metadata_target, metadata.read_bytes())
+    else:
+        metadata_target.unlink(missing_ok=True)
+    command = {
+        "schema_version": 1,
+        "action": "open",
+        "revision": revision,
+        "source": relative,
+        "id": managed.relative_to(project_root / "content" / "structures").with_suffix("").as_posix(),
+        "size": list(requested_size),
+        "source_size": list(actual_size),
+        "source_digest": hashlib.sha256(data).hexdigest(),
+        "preserve_current": preserve_current,
+    }
+    _atomic_write_json(live_root / "command.json", command)
+    return command
+
+
+def _import_structure_builder_live_output(project_root: Path, world_path: Path) -> dict[str, Any] | None:
+    live_root = _structure_builder_live_root(world_path)
+    result_path = live_root / "outbox" / "result.json"
+    nbt_path = live_root / "outbox" / "active.nbt"
+    if not result_path.is_file() or not nbt_path.is_file():
+        return None
+    result = load_json(result_path)
+    if not isinstance(result, dict) or result.get("status") != "saved":
+        return None
+    source = result.get("source")
+    revision = result.get("revision")
+    if not isinstance(source, str) or not isinstance(revision, str):
+        raise ValueError("에딧월드 저장 결과가 올바르지 않습니다.")
+    destination = _managed_structure_path(project_root, source)
+    if destination.suffix.lower() != ".nbt":
+        raise ValueError("에딧월드 저장 대상은 .nbt 파일이어야 합니다.")
+    data = nbt_path.read_bytes()
+    read_minecraft_structure_size(data)
+    _atomic_write_bytes(destination, data)
+    metadata_source = live_root / "outbox" / "active.structure.json"
+    if metadata_source.is_file():
+        _atomic_write_bytes(destination.with_suffix(".structure.json"), metadata_source.read_bytes())
+    receipt = {**result, "imported": True, "imported_at": time.time()}
+    _atomic_write_json(live_root / "outbox" / "receipt.json", receipt)
+    result_path.unlink(missing_ok=True)
+    nbt_path.unlink(missing_ok=True)
+    metadata_source.unlink(missing_ok=True)
+    return receipt
+
+
+def _add_external_structure(
+    project_root: Path, target_id: str, encoded_nbt: str, encoded_metadata: str | None = None
+) -> dict[str, Any]:
+    normalized = target_id.strip().replace("\\", "/").removesuffix(".nbt")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)*", normalized):
+        raise ValueError("NBT ID는 영문 소문자·숫자·점·밑줄·하이픈과 폴더만 사용할 수 있습니다.")
+    try:
+        data = base64.b64decode(encoded_nbt, validate=True)
+    except (ValueError, binascii.Error) as error:
+        raise ValueError("외부 NBT 데이터가 올바른 Base64가 아닙니다.") from error
+    size = read_minecraft_structure_size(data)
+    destination = project_root / "content" / "structures" / f"{normalized}.nbt"
+    if destination.exists():
+        raise ValueError(f"이미 존재하는 NBT입니다: {normalized}")
+    _atomic_write_bytes(destination, data)
+    if encoded_metadata:
+        try:
+            metadata_data = base64.b64decode(encoded_metadata, validate=True)
+            metadata = json.loads(metadata_data.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError, binascii.Error) as error:
+            destination.unlink(missing_ok=True)
+            raise ValueError("외부 NBT 메타데이터가 올바른 JSON이 아닙니다.") from error
+        if not isinstance(metadata, dict):
+            destination.unlink(missing_ok=True)
+            raise ValueError("외부 NBT 메타데이터는 JSON 객체여야 합니다.")
+        _atomic_write_json(destination.with_suffix(".structure.json"), metadata)
+    return {"id": normalized, "path": destination.relative_to(project_root).as_posix(), "size": list(size)}
 
 
 def _structure_builder_instance_candidates() -> list[str]:
@@ -9811,9 +10115,9 @@ def _structure_builder_instance_candidates() -> list[str]:
         except OSError:
             continue
         for child in children:
-            if not child.is_dir() or not (
-                child / "saves" / STRUCTURE_BUILDER_WORLD_NAME
-            ).is_dir():
+            if not child.is_dir() or not any((child / "saves" / name).is_dir() for name in (
+                STRUCTURE_BUILDER_WORLD_NAME, LIVE_NBT_EDITOR_WORLD_NAME
+            )):
                 continue
             value = str(child.resolve())
             key = os.path.normcase(value)
@@ -9831,16 +10135,43 @@ def _structure_builder_status(
     instance_path = settings["instance_path"]
     instance = Path(instance_path) if instance_path else None
     world = _structure_builder_world_path(instance_path)
+    live_instance_path = settings["live_instance_path"]
+    live_instance = Path(live_instance_path) if live_instance_path else None
+    live_world = _live_nbt_editor_world_path(live_instance_path)
     output = core_root / "dist" / "cobbleventure-structure-builder-0.1.0-curseforge.zip"
+    live_output = core_root / "dist" / "cobbleventure-live-nbt-editor-0.1.0-curseforge.zip"
+    live_import = _import_structure_builder_live_output(project_root, live_world) if live_world and live_world.is_dir() else None
+    sources = _structure_builder_sources(project_root)
+    live = _structure_builder_live_state(live_world)
+    active = live.get("active") if isinstance(live, dict) else None
+    if isinstance(active, dict) and not live.get("pending"):
+        active_source = active.get("source")
+        source_entry = next((item for item in sources if item["path"] == active_source), None)
+        if source_entry and source_entry["digest"] != active.get("source_digest"):
+            _queue_structure_builder_live_open(
+                project_root, live_world, active_source, active.get("size"), preserve_current=False
+            )
+            live = _structure_builder_live_state(world)
     return {
         **settings,
         "world_path": str(world) if world is not None else "",
         "instance_exists": bool(instance and instance.is_dir()),
         "world_exists": bool(world and world.is_dir()),
+        "live_world_path": str(live_world) if live_world is not None else "",
+        "live_instance_exists": bool(live_instance and live_instance.is_dir()),
+        "live_world_exists": bool(live_world and live_world.is_dir()),
         "export_count": _structure_builder_export_count(world),
-        "source_count": sum(1 for path in (project_root / "content" / "structures").rglob("*.nbt") if path.is_file()),
+        "source_count": sum(
+            1 for path in (project_root / "content" / "structures").rglob("*.nbt")
+            if path.is_file()
+        ),
+        "sources": sources,
+        "live": live,
+        "live_import": live_import,
         "package_path": str(output),
         "package_exists": output.is_file(),
+        "live_package_path": str(live_output),
+        "live_package_exists": live_output.is_file(),
         "candidates": _structure_builder_instance_candidates(),
     }
 
@@ -10374,10 +10705,9 @@ def resize_minecraft_structure_nbt(data: bytes, size: tuple[int, int, int]) -> b
     return gzip.compress(bytes(resized), mtime=0) if compressed else bytes(resized)
 
 
-def _minecraft_structure_parts(
-    data: bytes,
+def _minecraft_structure_parts_from_root(
+    root: dict[str, Any],
 ) -> tuple[list[int], list[str], list[dict[str, Any]]]:
-    root = _read_minecraft_structure_root(data)
     size = root.get("size")
     if not isinstance(size, list) or len(size) != 3 or any(
         not isinstance(value, int) or value <= 0 or value > 512 for value in size
@@ -10392,10 +10722,16 @@ def _minecraft_structure_parts(
     return size, palette_names, blocks if isinstance(blocks, list) else []
 
 
+def _minecraft_structure_parts(
+    data: bytes,
+) -> tuple[list[int], list[str], list[dict[str, Any]]]:
+    return _minecraft_structure_parts_from_root(_read_minecraft_structure_root(data))
+
+
 def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
     """Read template size, building bounds, and its visible top-down blocks."""
-    size, palette_names, blocks = _minecraft_structure_parts(data)
     root = _read_minecraft_structure_root(data)
+    size, palette_names, blocks = _minecraft_structure_parts_from_root(root)
     palette = root.get("palette", [])
     road_anchors: list[dict[str, Any]] = []
     underground_ports: list[dict[str, Any]] = []
@@ -10591,8 +10927,32 @@ def read_minecraft_structure_model(data: bytes) -> dict[str, Any]:
         "surface_blocks": len(visible),
     }
 def read_minecraft_structure_size(data: bytes) -> tuple[int, int, int]:
-    metadata = read_minecraft_structure_metadata(data)
-    return metadata["width"], metadata["height"], metadata["depth"]
+    """Read only the top-level size tag without materializing every block."""
+    if data.startswith(b"\x1f\x8b"):
+        data = gzip.decompress(data)
+    stream = io.BytesIO(data)
+    root_type = stream.read(1)
+    if not root_type or root_type[0] != 10:
+        raise ValueError("마인크래프트 구조물 NBT의 루트가 Compound가 아닙니다.")
+    _read_nbt_string(stream)
+    while True:
+        tag_data = stream.read(1)
+        if not tag_data:
+            raise ValueError("NBT Compound가 손상되었습니다.")
+        tag_type = tag_data[0]
+        if tag_type == 0:
+            break
+        name = _read_nbt_string(stream)
+        if name == "size":
+            size = _read_nbt_payload(stream, tag_type)
+            if (
+                tag_type == 9 and isinstance(size, list) and len(size) == 3
+                and all(isinstance(value, int) and 0 < value <= 512 for value in size)
+            ):
+                return size[0], size[1], size[2]
+            raise ValueError("구조물 size 태그 형식이 올바르지 않습니다.")
+        _skip_nbt_payload(stream, tag_type)
+    raise ValueError("구조물 size 태그를 찾을 수 없습니다.")
 
 
 _STRUCTURE_ENTRY = re.compile(r"^data/([^/]+)/structures?/(.+)\.nbt$")
@@ -10630,6 +10990,16 @@ def managed_structure_files(root: Path) -> dict[str, Path]:
         for path in sorted(source_root.rglob("*.nbt"))
         if path.is_file()
     }
+
+
+def load_managed_structure_catalog(root: Path) -> dict[str, dict[str, Any]]:
+    structures: dict[str, dict[str, Any]] = {}
+    for resource_id, path in managed_structure_files(root).items():
+        structures[resource_id] = {
+            **read_minecraft_structure_metadata(path.read_bytes()),
+            "source": path.relative_to(root).as_posix(),
+        }
+    return structures
 
 
 def _managed_structure_category(relative: Path) -> str:
@@ -10787,7 +11157,7 @@ def space_connections_payload(
             key: metadata[key]
             for key in (
                 "category", "category_label", "width", "height", "depth",
-                "door_anchors", "arrival_anchors", "cutaway_view",
+                "door_anchors", "arrival_anchors", "transition_anchors", "cutaway_view",
             )
             if key in metadata
         }
@@ -10938,6 +11308,14 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         }
         for resource_id, structure_path in structure_paths.items()
     }
+    connection_labels_by_structure = {
+        resource_id: {
+            anchor["label"] for anchor in _structure_named_anchors(
+                structure_path, {"door", "transition"}
+            )
+        }
+        for resource_id, structure_path in structure_paths.items()
+    }
     layouts: dict[str, Any] = {}
     annotations: dict[str, Any] = {}
     seen_graphs: set[str] = set()
@@ -11014,10 +11392,12 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
             if source.get("node") == target.get("node") and source.get("anchor") == target.get("anchor"):
                 _issue(issues, "error", path, edge_path, "같은 문을 자기 자신에게 연결할 수 없습니다.")
                 continue
-            source_doors = door_labels_by_structure.get(node_structures.get(source.get("node"), ""), set())
-            target_doors = door_labels_by_structure.get(node_structures.get(target.get("node"), ""), set())
+            anchor_catalog = connection_labels_by_structure if kind == "building" else door_labels_by_structure
+            source_doors = anchor_catalog.get(node_structures.get(source.get("node"), ""), set())
+            target_doors = anchor_catalog.get(node_structures.get(target.get("node"), ""), set())
             if source.get("anchor") not in source_doors or target.get("anchor") not in target_doors:
-                _issue(issues, "error", path, edge_path, "연결 양쪽 모두 NBT에 저장된 실제 문 앵커여야 합니다.")
+                message = "연결 양쪽 모두 NBT에 저장된 문 또는 접촉 전환 앵커여야 합니다." if kind == "building" else "연결 양쪽 모두 NBT에 저장된 실제 문 앵커여야 합니다."
+                _issue(issues, "error", path, edge_path, message)
                 continue
             normalized_connections.append(edge)
             edge_id = str(edge.get("id", f"route_{edge_index + 1}"))
@@ -11090,12 +11470,20 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     return issues
 
 
-def building_settings_payload(root: Path) -> dict[str, Any]:
+def building_settings_payload(
+    root: Path,
+    managed_catalog: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     settings = load_building_settings(root)
     configured = settings["buildings"]
     structures: dict[str, dict[str, Any]] = {}
     for resource_id, path in managed_structure_files(root).items():
-        metadata = read_minecraft_structure_metadata(path.read_bytes())
+        metadata = (
+            managed_catalog.get(resource_id)
+            if managed_catalog is not None else None
+        )
+        if metadata is None:
+            metadata = read_minecraft_structure_metadata(path.read_bytes())
         relative = path.relative_to(root / "content" / "structures")
         residential = bool(relative.parts and relative.parts[0] == "houses")
         entry = configured.get(resource_id, {})
@@ -11114,6 +11502,7 @@ def building_settings_payload(root: Path) -> dict[str, Any]:
             "arrival_anchors": _structure_named_anchors(
                 path, {"arrival", "interior_spawn", "exterior_spawn"}
             ),
+            "transition_anchors": _structure_named_anchors(path, {"transition"}),
             "residential": residential,
             "settings": {
                 "placement_y_offset": entry.get("placement_y_offset", 0)
@@ -11635,33 +12024,33 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             normalized_interiors.append({"key": key, "structure": interior_resource})
 
         space_files = {"exterior": structure, **interior_spaces}
-        door_labels = {
+        connection_labels = {
             space: {item["label"] for item in _structure_named_anchors(
-                space_file, {"door"}
+                space_file, {"door", "transition"}
             )}
             for space, space_file in space_files.items()
         }
         routes = settings.get("door_routes", {})
         if not isinstance(routes, dict):
-            _issue(issues, "error", path, f"{entry_path}.door_routes", "문 연결 설정은 객체여야 합니다.")
+            _issue(issues, "error", path, f"{entry_path}.door_routes", "출입구 연결 설정은 객체여야 합니다.")
             routes = {}
         normalized_routes: dict[str, dict[str, Any]] = {}
         for source_key, destination in sorted(routes.items()):
             route_path = f"{entry_path}.door_routes.{source_key}"
             if not isinstance(source_key, str) or ":" not in source_key:
-                _issue(issues, "error", path, route_path, "문 키는 공간:문이름 형식이어야 합니다.")
+                _issue(issues, "error", path, route_path, "출입구 키는 공간:앵커이름 형식이어야 합니다.")
                 continue
             source_space, source_door = source_key.split(":", 1)
-            if source_space not in door_labels or source_door not in door_labels[source_space]:
-                _issue(issues, "error", path, route_path, "NBT에 없는 문입니다.")
+            if source_space not in connection_labels or source_door not in connection_labels[source_space]:
+                _issue(issues, "error", path, route_path, "NBT에 없는 문 또는 접촉 전환 영역입니다.")
                 continue
             if not isinstance(destination, dict):
-                _issue(issues, "error", path, route_path, "문 목적지는 객체여야 합니다.")
+                _issue(issues, "error", path, route_path, "출입구 목적지는 객체여야 합니다.")
                 continue
             target_space = destination.get("space")
             target_door = destination.get("door", destination.get("arrival"))
-            if target_space not in door_labels or target_door not in door_labels[target_space]:
-                _issue(issues, "error", path, route_path, "존재하는 공간의 문을 선택해야 합니다.")
+            if target_space not in connection_labels or target_door not in connection_labels[target_space]:
+                _issue(issues, "error", path, route_path, "존재하는 공간의 문 또는 접촉 전환 영역을 선택해야 합니다.")
                 continue
             normalized_route: dict[str, Any] = {"space": target_space, "door": target_door}
             condition_mode = destination.get("condition_mode", "all")
@@ -11841,7 +12230,12 @@ def load_structure_size_catalog(
         if not overwrite and resource_id in structures:
             return
         try:
-            metadata = read_minecraft_structure_metadata(data)
+            include_preview = resource_id in STRUCTURE_VIEWER_REQUIRED_EXTERNAL
+            if include_preview:
+                metadata = read_minecraft_structure_metadata(data)
+            else:
+                width, height, depth = read_minecraft_structure_size(data)
+                metadata = {"width": width, "height": height, "depth": depth}
         except (OSError, EOFError, ValueError, struct.error) as error:
             warnings.append(f"{resource_id}: {error}")
             return
@@ -11885,16 +12279,23 @@ def load_structure_size_catalog(
 def load_structure_viewer_catalog(
     root: Path, full_catalog: dict[str, Any] | None = None,
     core_root: Path | None = None,
+    managed_catalog: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     core_root = (core_root or root).resolve()
     viewer: dict[str, dict[str, Any]] = {}
     for resource_id, path in managed_structure_files(root).items():
         try:
-            metadata = read_minecraft_structure_metadata(path.read_bytes())
+            metadata = (
+                managed_catalog.get(resource_id)
+                if managed_catalog is not None else None
+            )
+            if metadata is None:
+                metadata = read_minecraft_structure_metadata(path.read_bytes())
         except (OSError, EOFError, ValueError, struct.error):
             continue
         viewer[resource_id] = {
             **metadata,
+            "transition_anchors": _structure_named_anchors(path, {"transition"}),
             "source": path.relative_to(root).as_posix(),
             "managed": True,
         }
@@ -12023,7 +12424,7 @@ def structure_catalog_signature(
     return tuple(signature)
 
 
-STRUCTURE_WEB_CACHE_VERSION = 2
+STRUCTURE_WEB_CACHE_VERSION = 4
 STRUCTURE_WEB_CACHE_PATH = Path("tools/content-manager/.cache/structure-web-catalog.json")
 
 
@@ -12082,13 +12483,16 @@ def build_structure_web_cache(
 ) -> dict[str, Any]:
     signature = structure_catalog_signature(root, core_root)
     size_catalog = load_structure_size_catalog(root, core_root)
+    managed_catalog = load_managed_structure_catalog(root)
     return {
         "version": STRUCTURE_WEB_CACHE_VERSION,
         "generated_at": int(time.time()),
         "signature": [list(entry) for entry in signature],
         "size_catalog": size_catalog,
-        "viewer_catalog": load_structure_viewer_catalog(root, size_catalog, core_root),
-        "building_settings": building_settings_payload(root),
+        "viewer_catalog": load_structure_viewer_catalog(
+            root, size_catalog, core_root, managed_catalog
+        ),
+        "building_settings": building_settings_payload(root, managed_catalog),
     }
 
 
@@ -12231,12 +12635,15 @@ def create_handler(
 
     def ensure_structure_cache(validate_signature: bool = False) -> None:
         if structure_size_catalog is None or building_settings_catalog is None:
-            schedule_structure_cache_refresh()
+            if validate_signature:
+                refresh_structure_cache()
+            else:
+                schedule_structure_cache_refresh()
             return
         if validate_signature and (
             structure_catalog_signature(root, core_root) != structure_cache_signature
         ):
-            schedule_structure_cache_refresh()
+            refresh_structure_cache()
 
     def load_installed_cobbleverse_rct_png(resource_group: str, resource_id: str) -> bytes | None:
         instance_override = os.environ.get("COBBLEVERSE_INSTANCE")
@@ -12298,7 +12705,9 @@ def create_handler(
             self.wfile.write(body)
 
         def _json(self, status: int, payload: Any) -> None:
-            body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+            body = json.dumps(
+                payload, ensure_ascii=False, separators=(",", ":")
+            ).encode("utf-8")
             self._bytes(status, body, "application/json; charset=utf-8")
 
         def _read_json(self) -> Any:
@@ -13256,6 +13665,83 @@ def create_handler(
                     schedule_structure_cache_refresh()
                 self._json(200 if result["success"] else 422, result)
                 return
+            if request.path == "/api/structure-builder/live/open":
+                try:
+                    payload = self._read_json()
+                    status = _structure_builder_status(root, core_root)
+                    if not status["live_world_exists"]:
+                        raise ValueError("먼저 새 라이브 NBT 에디터 월드를 한 번 실행해 주세요.")
+                    source = payload.get("source") if isinstance(payload, dict) else None
+                    if not isinstance(source, str):
+                        raise ValueError("불러올 NBT 경로가 필요합니다.")
+                    command = _queue_structure_builder_live_open(
+                        root,
+                        Path(status["live_world_path"]),
+                        source,
+                        payload.get("size"),
+                        preserve_current=bool(payload.get("preserve_current", True)),
+                    )
+                    self._json(202, {"queued": True, "command": command})
+                except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path in {
+                "/api/structure-builder/live/save",
+                "/api/structure-builder/live/resize",
+                "/api/structure-builder/live/test-place",
+            }:
+                try:
+                    payload = self._read_json()
+                    status = _structure_builder_status(root, core_root)
+                    if not status["live_world_exists"]:
+                        raise ValueError("먼저 새 라이브 NBT 에디터 월드를 한 번 실행해 주세요.")
+                    action = (
+                        "save" if request.path.endswith("/save")
+                        else "test_place" if request.path.endswith("/test-place")
+                        else "resize"
+                    )
+                    command: dict[str, Any] = {
+                        "schema_version": 1,
+                        "action": action,
+                        "revision": uuid.uuid4().hex,
+                    }
+                    if action == "resize":
+                        size = payload.get("size") if isinstance(payload, dict) else None
+                        if (
+                            not isinstance(size, list) or len(size) != 3
+                            or any(isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 256 for value in size)
+                        ):
+                            raise ValueError("편집 크기는 1~256 사이 정수 3개여야 합니다.")
+                        command["size"] = size
+                    _atomic_write_json(
+                        _structure_builder_live_root(Path(status["live_world_path"])) / "command.json",
+                        command,
+                    )
+                    self._json(202, {"queued": True, "command": command})
+                except (OSError, ValueError, json.JSONDecodeError) as error:
+                    self._json(400, {"error": str(error)})
+                return
+            if request.path == "/api/structure-builder/external":
+                try:
+                    payload = self._read_json()
+                    if not isinstance(payload, dict):
+                        raise ValueError("외부 NBT 추가 정보가 필요합니다.")
+                    target_id = payload.get("id")
+                    encoded_nbt = payload.get("nbt")
+                    if not isinstance(target_id, str) or not isinstance(encoded_nbt, str):
+                        raise ValueError("외부 NBT ID와 파일 데이터가 필요합니다.")
+                    created = _add_external_structure(
+                        root, target_id, encoded_nbt,
+                        payload.get("metadata") if isinstance(payload.get("metadata"), str) else None,
+                    )
+                    refresh_structure_cache()
+                    self._json(201, {"created": True, "structure": created})
+                except (
+                    OSError, ValueError, EOFError, struct.error,
+                    json.JSONDecodeError, binascii.Error,
+                ) as error:
+                    self._json(400, {"error": str(error)})
+                return
             if request.path == "/api/structure-builder/sync":
                 if not active_project.is_default:
                     self._json(409, {"error": "건축 월드 교체는 현재 기본 프로젝트에서만 지원합니다."})
@@ -13328,9 +13814,12 @@ def create_handler(
                 try:
                     payload = self._read_json()
                     instance_path = payload.get("instance_path") if isinstance(payload, dict) else None
-                    if not isinstance(instance_path, str):
+                    live_instance_path = payload.get("live_instance_path") if isinstance(payload, dict) else None
+                    if live_instance_path is None:
+                        live_instance_path = _load_structure_builder_settings(core_root)["live_instance_path"]
+                    if not isinstance(instance_path, str) or not isinstance(live_instance_path, str):
                         raise ValueError("CurseForge 인스턴스 경로를 문자열로 입력해야 합니다.")
-                    _save_structure_builder_settings(core_root, instance_path)
+                    _save_structure_builder_settings(core_root, instance_path, live_instance_path)
                     self._json(200, _structure_builder_status(root, core_root))
                 except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(400, {"error": str(error)})

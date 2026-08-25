@@ -40,6 +40,7 @@ const state = {
   routePokemonTarget: "world", routePokemonMethod: "land", routePokemonLevelSpecies: null, routePokemonEditingCard: null, routeFinalizing: false, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null, encounterPokemonEditingCard: null,
   encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
+  structurePreviewPromises: new Map(),
   undergroundModuleEditor: { selectedId: null, placing: false, transform: null },
   villageDecorationEditor: { tool: "select", selected: -1, drag: null, hitTargets: [], preview: null, compilation: { requestId: 0, source: "", result: null } },
   villageGpuView: { renderer: null, models: new Map(), yaw: -.72, pitch: -.68, distance: 260, targetY: 8, drag: null, autoRotate: false, frame: 0, requestId: 0, atmosphere: "day" },
@@ -59,7 +60,8 @@ const state = {
   structureBuilder: null,
   dialogueTheme: null,
   casinoConfig: { loaded: false, root: "", files: [], selectedPath: "", poolByPath: {}, query: "" },
-  gachaMachines: { loaded: false, schema_version: 4, tickets: {}, reward_catalog: [], casino_sets: [], machines: [], selectedId: "", selectedRarity: "", catalogQuery: "", dirty: false },
+  gachaMachines: { loaded: false, schema_version: 6, tickets: {}, casino_sets: [], machines: [], selectedId: "", selectedTheme: "", selectedRarity: "", rewardQuery: "", dirty: false },
+  gachaRewardChoices: { items: [] },
   starterSettings: { initialized: false, loaded: false, selectedGeneration: 1, defaultGeneration: 1, configs: [], settlementDocuments: new Map(), requestId: 0 }
 };
 const lazyDataLoaded = { trainers: false, biomes: false, structures: false, buildingSettings: false, definitions: false, economy: false };
@@ -1143,12 +1145,19 @@ async function loadStructureData(force = false) {
   if ($("#nbt-structure-count")) $("#nbt-structure-count").textContent = "불러오는 중";
   if ($("#nbt-structure-list")) $("#nbt-structure-list").innerHTML = '<div class="issues empty">NBT 목록을 필요한 시점에 불러오고 있습니다.</div>';
   lazyDataPromises.structures = (async () => {
-    const [result, buildingSettings] = await Promise.all([
-      requestStructureCache("/api/structure-sizes", force, "NBT 구조물 목록"),
-      requestStructureCache("/api/building-settings", false, "NBT 건물 설정")
-    ]);
+    let result;
+    if (force) {
+      result = await requestStructureCache("/api/structure-sizes", true, "NBT 구조물 목록");
+      lazyDataLoaded.buildingSettings = false;
+      await loadBuildingSettingsData(false);
+    } else {
+      [result] = await Promise.all([
+        requestStructureCache("/api/structure-sizes", false, "NBT 구조물 목록"),
+        loadBuildingSettingsData(false)
+      ]);
+    }
     state.structureSizes = result.data.structures || {};
-    if (buildingSettings.ok) for (const [id, metadata] of Object.entries(buildingSettings.data.structures || {})) {
+    for (const [id, metadata] of Object.entries(state.buildingSettings.structures || {})) {
       state.structureSizes[id] = { ...(state.structureSizes[id] || {}), ...metadata };
     }
     lazyDataLoaded.structures = true;
@@ -1326,9 +1335,16 @@ function selectedGachaMachine() {
   return state.gachaMachines.machines.find((machine) => machine.id === state.gachaMachines.selectedId) || null;
 }
 
-function selectedGachaRarity(machine = selectedGachaMachine()) {
+function selectedGachaTheme(machine = selectedGachaMachine()) {
   if (!machine) return null;
-  const rarities = machine.rarities || [];
+  const themes = machine.themes || [];
+  if (!themes.some((theme) => theme.id === state.gachaMachines.selectedTheme)) state.gachaMachines.selectedTheme = themes[0]?.id || "";
+  return themes.find((theme) => theme.id === state.gachaMachines.selectedTheme) || null;
+}
+
+function selectedGachaRarity(theme = selectedGachaTheme()) {
+  if (!theme) return null;
+  const rarities = theme.rarities || [];
   if (!rarities.some((rarity) => rarity.id === state.gachaMachines.selectedRarity)) state.gachaMachines.selectedRarity = rarities[0]?.id || "";
   return rarities.find((rarity) => rarity.id === state.gachaMachines.selectedRarity) || null;
 }
@@ -1340,12 +1356,49 @@ function gachaField(label, path, value, options = {}) {
   return `<label class="${options.wide ? "wide" : ""}"><span>${label}</span><input type="${type}" data-gacha-path="${path}" value="${escapeHtml(String(value ?? ""))}" ${attrs}></label>`;
 }
 
+function gachaRewardSpecies(reward) { return String(reward?.value || "").split(/\s+/, 1)[0].replace(/^cobblemon:/, ""); }
+function gachaRewardLevel(reward) { return Math.max(1, Math.min(100, Number(String(reward?.value || "").match(/(?:^|\s)level=(\d+)/)?.[1] || 15))); }
+function gachaRewardId(value, theme) {
+  const base = String(value || "reward").toLowerCase().replace(/^.*:/, "").replace(/[^a-z0-9_.-]+/g, "_").replace(/^_+|_+$/g, "") || "reward";
+  const used = new Set((theme?.rarities || []).flatMap((pool) => pool.rewards || []).map((reward) => reward.id));
+  let id=base, number=2; while (used.has(id)) id=`${base}_${number++}`; return id;
+}
+function gachaRewardBaseChance(theme, rarity, reward) {
+  const rarityTotal=(theme?.rarities || []).reduce((sum,entry)=>sum+Math.max(0,Number(entry.weight)||0),0);
+  const rewardTotal=(rarity?.rewards || []).reduce((sum,entry)=>sum+Math.max(0,Number(entry.weight)||0),0);
+  if (!rarityTotal || !rewardTotal) return 0;
+  return Math.max(0,Number(rarity.weight)||0)/rarityTotal*Math.max(0,Number(reward.weight)||0)/rewardTotal*100;
+}
+function gachaRarityChance(theme, rarity) {
+  const total=(theme?.rarities || []).reduce((sum,entry)=>sum+Math.max(0,Number(entry.weight)||0),0);
+  return total ? Math.max(0,Number(rarity?.weight)||0)/total*100 : 0;
+}
+function gachaRewardPoolChance(rarity, reward) {
+  const total=(rarity?.rewards || []).reduce((sum,entry)=>sum+Math.max(0,Number(entry.weight)||0),0);
+  return total ? Math.max(0,Number(reward?.weight)||0)/total*100 : 0;
+}
+function gachaRewardPicker(machine, theme) {
+  const query=(state.gachaMachines.rewardQuery || "").trim().toLowerCase();
+  const rewards=(theme?.rarities || []).flatMap((pool)=>pool.rewards || []);
+  const usedPokemon=new Set(rewards.filter((reward)=>reward.kind === "pokemon").map(gachaRewardSpecies));
+  const usedItems=new Set(rewards.filter((reward)=>reward.kind === "item").map((reward)=>reward.value));
+  if (machine.machine_type === "pokemon") {
+    const matches=worldPokemonCatalog().filter((entry)=>!query || pokemonSearchText(entry).includes(query)).slice(0,80);
+    return `<div class="gacha-direct-picker"><header><div><strong>포켓몬 선택</strong><small>서식지 편집기와 같은 목록에서 선택합니다. 수량은 항상 1마리입니다.</small></div><label><span>검색</span><input data-gacha-reward-query value="${escapeHtml(state.gachaMachines.rewardQuery || "")}" placeholder="피카츄, Pikachu, pikachu"></label></header><div class="gacha-direct-picker-grid">${matches.map((entry)=>{const id=String(entry.slug || entry.id).replace(/^cobblemon:/,""); const added=usedPokemon.has(id); return `<button type="button" class="route-pokemon-picker-card${added ? " is-added" : ""}" data-gacha-add-pokemon="${escapeHtml(entry.id)}" ${added ? "disabled" : ""}><img loading="lazy" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${entry.dex_number}.png" alt="">${routePokemonCardCopy(entry)}<em>${added ? "추가됨" : "선택"}</em></button>`;}).join("")}</div>${matches.length ? "" : '<div class="issues empty">검색된 포켓몬이 없습니다.</div>'}</div>`;
+  }
+  const all=(state.gachaRewardChoices.items || []).filter((entry)=>machine.machine_type !== "technical_machine" || entry.id.startsWith("tmcraft:") || entry.category === "machines");
+  const matches=all.filter((entry)=>!query || `${entry.id} ${entry.shortId} ${entry.name} ${entry.englishName}`.toLowerCase().includes(query)).slice(0,100);
+  return `<div class="gacha-direct-picker"><header><div><strong>${machine.machine_type === "technical_machine" ? "기술머신" : "아이템"} 선택</strong><small>클릭하면 현재 희귀도 풀에 바로 추가됩니다.</small></div><label><span>검색</span><input data-gacha-reward-query value="${escapeHtml(state.gachaMachines.rewardQuery || "")}" placeholder="이름 또는 아이템 ID"></label></header><div class="gacha-item-picker-grid">${matches.map((entry)=>{const added=usedItems.has(entry.id); return `<button type="button" class="gacha-item-picker-card${added ? " is-added" : ""}" data-gacha-add-item="${escapeHtml(entry.id)}" ${added ? "disabled" : ""}><strong>${escapeHtml(entry.name || entry.shortId || entry.id)}</strong><code>${escapeHtml(entry.id)}</code><small>${escapeHtml(entry.category || entry.namespace || "item")}</small><em>${added ? "추가됨" : "선택"}</em></button>`;}).join("")}</div>${matches.length ? "" : '<div class="issues empty">검색된 아이템이 없습니다.</div>'}</div>`;
+}
+
 function renderGachaMachines() {
   const workspace = state.gachaMachines;
   const machine = selectedGachaMachine();
   const casinoSet = selectedGachaSet();
   const ticket = machine ? workspace.tickets?.[machine.machine_type] : null;
   const typeLabels = { pokemon:"포켓몬", item:"아이템", technical_machine:"기술머신" };
+  const theme = machine ? selectedGachaTheme(machine) : null;
+  const rarity = theme ? selectedGachaRarity(theme) : null;
   $("#gacha-machine-list").innerHTML = (workspace.casino_sets || []).length ? workspace.casino_sets.map((set) => `
     <section class="gacha-editor-section"><header><strong>${escapeHtml(set.display_name)}</strong><code>${escapeHtml(set.id)}</code></header>
       ${["pokemon","item","technical_machine"].map((type) => { const entry = workspace.machines.find((item) => item.id === set.machines?.[type]); return entry ? `<button class="gacha-machine-card${entry.id === workspace.selectedId ? " is-active" : ""}" type="button" data-gacha-select="${escapeHtml(entry.id)}"><strong>${typeLabels[type]} · ${escapeHtml(entry.display_name)}</strong><i class="${entry.enabled ? "enabled" : ""}"></i><code>${escapeHtml(entry.id)}</code></button>` : ""; }).join("")}
@@ -1354,7 +1407,6 @@ function renderGachaMachines() {
     $("#gacha-machine-editor").innerHTML = '<div class="issues empty">카지노 세트를 추가하거나 기계를 선택하세요.</div>';
     return;
   }
-  const rarity = selectedGachaRarity(machine);
   const modelOptions = [
     ["cobblemoncasino:pokemon_gacha_machine", "포켓몬 가챠머신"],
     ["cobblemoncasino:gacha_machine", "아이템 가챠머신"],
@@ -1363,15 +1415,13 @@ function renderGachaMachines() {
   ].map(([value, label]) => `<option value="${value}" ${machine.appearance.model_block === value ? "selected" : ""}>${label}</option>`).join("");
   const facingOptions = [["north","북쪽"],["east","동쪽"],["south","남쪽"],["west","서쪽"]]
     .map(([value, label]) => `<option value="${value}" ${machine.appearance.facing === value ? "selected" : ""}>${label}</option>`).join("");
-  const rarityOptions = (machine.rarities || []).map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} (${escapeHtml(entry.id)})</option>`).join("");
+  const rarityOptions = (theme?.rarities || []).map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} (${escapeHtml(entry.id)})</option>`).join("");
   const rewards = rarity?.rewards || [];
-  const rewardCatalog = new Map((workspace.reward_catalog || []).map((entry) => [entry.id, entry]));
-  const catalogQuery = (workspace.catalogQuery || "").trim().toLowerCase();
-  const catalogEntries = (workspace.reward_catalog || []).map((entry, index) => ({entry,index})).filter(({entry}) => entry.machine_type === machine.machine_type && (!catalogQuery || `${entry.id} ${entry.display_name} ${entry.value}`.toLowerCase().includes(catalogQuery)));
+  const pokemonBySlug = new Map(worldPokemonCatalog().map((entry) => [String(entry.slug || entry.id).replace(/^cobblemon:/,""), entry]));
   $("#gacha-machine-editor").innerHTML = `
     <section class="gacha-editor-section"><header><h4>카지노 세트</h4><button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-set>세트 삭제</button></header><div class="gacha-field-grid"><label class="wide"><span>세트 표시 이름</span><input data-gacha-set-name value="${escapeHtml(casinoSet.display_name)}"></label><label class="wide"><span>세트 ID</span><input value="${escapeHtml(casinoSet.id)}" readonly></label></div></section>
     <section class="gacha-editor-section"><header><h4>${typeLabels[machine.machine_type]} 기계 설정</h4></header><div class="gacha-field-grid">
-      ${gachaField("기계 프로필 ID", "id", machine.id, { readonly:true, wide:true })}${gachaField("표시 이름", "display_name", machine.display_name)}<label><span>기계 종류</span><input value="${typeLabels[machine.machine_type]}" readonly></label>${gachaField("천장 공유 그룹", "pity_group", machine.pity_group)}${gachaField("사용", "enabled", machine.enabled, { type:"checkbox" })}
+      ${gachaField("기계 프로필 ID", "id", machine.id, { readonly:true, wide:true })}${gachaField("표시 이름", "display_name", machine.display_name)}<label><span>기계 종류</span><input value="${typeLabels[machine.machine_type]}" readonly></label>${gachaField("사용", "enabled", machine.enabled, { type:"checkbox" })}
     </div></section>
     <section class="gacha-editor-section"><header><h4>기계 외형</h4><small>Cobblemon Casino의 실제 2블록 가챠머신 모델을 사용합니다.</small></header><div class="gacha-field-grid">
       <label><span>기계 모델</span><select data-gacha-path="appearance/model_block">${modelOptions}</select></label>
@@ -1379,36 +1429,48 @@ function renderGachaMachines() {
       ${gachaField("이름표 표시", "appearance/show_nameplate", machine.appearance.show_nameplate, {type:"checkbox"})}
     </div></section>
     <section class="gacha-editor-section"><header><h4>${typeLabels[machine.machine_type]} 공통 티켓</h4><small>가격 단위는 카지노 칩입니다. 저장한 가격과 구매 범위가 티켓 NPC 입력창에 즉시 사용됩니다.</small></header><div class="gacha-field-grid"><label class="wide"><span>티켓 이름</span><input data-gacha-ticket-path="display_name" value="${escapeHtml(ticket.display_name)}"></label><label><span>티켓 1장 가격 (칩)</span><input type="number" min="1" max="2147483647" data-gacha-ticket-path="price" value="${ticket.price}"></label><label><span>최소 구매 수량</span><input type="number" min="1" data-gacha-ticket-path="purchase_min" value="${ticket.purchase_min}"></label><label><span>최대 구매 수량</span><input type="number" min="1" max="6400" data-gacha-ticket-path="purchase_max" value="${ticket.purchase_max}"></label></div></section>
-    <section class="gacha-editor-section"><header><div><h4>${typeLabels[machine.machine_type]} 가챠 상품 원본</h4><small>아이템·포켓몬과 기본 수량은 여기서 한 번만 관리하며, 이 상품을 사용하는 모든 카지노에 즉시 반영됩니다.</small></div><button class="button secondary" type="button" data-gacha-add-catalog>＋ 상품</button></header>
-      <label class="gacha-catalog-search"><span>상품 검색</span><input data-gacha-catalog-query value="${escapeHtml(workspace.catalogQuery || "")}" placeholder="이름, ID, 아이템 또는 포켓몬"></label>
-      <div class="gacha-catalog-table"><div class="gacha-catalog-row head"><span>카탈로그 ID</span><span>표시 이름</span><span>종류</span><span>아이템 ID / PokemonProperties</span><span>수량</span><span></span><span></span></div>${catalogEntries.map(({entry,index}) => `<div class="gacha-catalog-row" data-gacha-catalog-index="${index}"><input data-gacha-catalog="id" value="${escapeHtml(entry.id)}"><input data-gacha-catalog="display_name" value="${escapeHtml(entry.display_name)}"><select data-gacha-catalog="kind"><option value="item" ${entry.kind === "item" ? "selected" : ""}>아이템</option><option value="pokemon" ${entry.kind === "pokemon" ? "selected" : ""}>포켓몬</option></select><input data-gacha-catalog="value" value="${escapeHtml(entry.value)}"><input type="number" min="1" data-gacha-catalog="count" value="${entry.count}"><button class="button secondary" type="button" data-gacha-use-catalog="${index}" ${rarity && !rewards.some((reward) => reward.catalog_id === entry.id) ? "" : "disabled"}>현재 풀에 연결</button><button type="button" class="casino-row-remove" data-gacha-delete-catalog="${index}">×</button></div>`).join("")}</div>
-      ${catalogEntries.length ? "" : '<div class="issues empty">현재 기계 종류에 등록된 상품이 없습니다.</div>'}
+    <section class="gacha-editor-section"><header><div><h4>기계 안 가챠 테마</h4><small>테마는 개수 제한 없이 추가할 수 있으며 이름·티켓 소모량·보상 풀·천장을 각각 가집니다.</small></div><button class="button secondary" type="button" data-gacha-add-theme>＋ 테마</button></header>
+      <div class="gacha-rarity-tabs">${(machine.themes || []).map((entry, index) => `<button type="button" class="${entry.id === workspace.selectedTheme ? "is-active" : ""}" data-gacha-theme="${escapeHtml(entry.id)}"><span>${escapeHtml(entry.display_name)}</span><small>${entry.ticket_cost}장</small></button>`).join("")}</div>
+      ${theme ? `<div class="gacha-field-grid">${gachaField("테마 ID", "theme/id", theme.id, {readonly:true})}<label class="wide"><span>테마 이름</span><input data-gacha-theme-path="display_name" value="${escapeHtml(theme.display_name)}"></label><label><span>1회 티켓 소모량</span><input type="number" min="1" max="6400" data-gacha-theme-path="ticket_cost" value="${theme.ticket_cost}"></label><label class="wide"><span>테마별 천장 저장 그룹</span><input data-gacha-theme-path="pity_group" value="${escapeHtml(theme.pity_group)}"></label></div><div class="gacha-theme-actions"><button class="button secondary" type="button" data-gacha-move-theme="-1">← 앞으로</button><button class="button secondary" type="button" data-gacha-move-theme="1">뒤로 →</button><button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-theme>테마 삭제</button></div>` : '<div class="issues empty">가챠 테마를 추가하세요.</div>'}
     </section>
-    <section class="gacha-editor-section"><header><h4>희귀도 · 보상 풀</h4><button class="button secondary" type="button" data-gacha-add-rarity>＋ 희귀도</button></header>
-      <div class="gacha-rarity-tabs">${(machine.rarities || []).map((entry) => `<button type="button" class="${entry.id === workspace.selectedRarity ? "is-active" : ""}" data-gacha-rarity="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} · ${entry.weight}</button>`).join("")}</div>
-      ${rarity ? `<div class="gacha-field-grid">${gachaField("희귀도 ID", "rarity/id", rarity.id, {readonly:true})}${gachaField("표시 이름", "rarity/display_name", rarity.display_name)}${gachaField("등장 가중치", "rarity/weight", rarity.weight, {type:"number",min:.01,step:.01})}</div>
-      <div class="gacha-reward-table"><div class="gacha-reward-row head"><span>연결 상품</span><span>종류</span><span>아이템 ID / PokemonProperties</span><span>수량</span><span>가중치</span><span>선택 가능</span><span></span></div>
-      ${rewards.map((reward, index) => { const product = rewardCatalog.get(reward.catalog_id); return `<div class="gacha-reward-row" data-gacha-reward-index="${index}"><strong title="${escapeHtml(reward.catalog_id)}">${escapeHtml(product?.display_name || reward.catalog_id)}</strong><span>${product?.kind === "pokemon" ? "포켓몬" : "아이템"}</span><code>${escapeHtml(product?.value || "카탈로그 상품 없음")}</code><span>${product?.count ?? "—"}</span><input type="number" min=".01" step=".01" data-gacha-reward="weight" value="${reward.weight}"><label class="gacha-check"><input type="checkbox" data-gacha-reward="selectable" ${reward.selectable ? "checked" : ""}> 선택</label><button type="button" class="casino-row-remove" data-gacha-delete-reward="${index}">×</button></div>`; }).join("")}</div><div><small>상품 내용과 수량은 위 상품 원본에서 수정하세요.</small> <button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-rarity>희귀도 삭제</button></div>` : '<div class="issues empty">희귀도를 추가하세요.</div>'}
+    <section class="gacha-editor-section"><header><div><h4>상품 · 확률 설정</h4><small>현재 테마의 희귀도를 고른 뒤 포켓몬 또는 아이템을 바로 선택합니다.</small></div><button class="button secondary" type="button" data-gacha-add-rarity>＋ 희귀도</button></header>
+      <div class="gacha-rarity-tabs">${(theme?.rarities || []).map((entry) => {const chance=gachaRarityChance(theme,entry); return `<button type="button" class="${entry.id === workspace.selectedRarity ? "is-active" : ""}" data-gacha-rarity="${escapeHtml(entry.id)}">${escapeHtml(entry.display_name)} · ${chance.toFixed(chance < 1 ? 2 : 1)}%</button>`;}).join("")}</div>
+      ${rarity ? `<div class="gacha-field-grid">${gachaField("희귀도 ID", "rarity/id", rarity.id, {readonly:true})}${gachaField("표시 이름", "rarity/display_name", rarity.display_name)}${gachaField("등급 확률 비중", "rarity/weight", rarity.weight, {type:"number",min:.01,step:.01})}</div>
+      <div class="gacha-direct-reward-list">${rewards.map((reward,index)=>{const pokemon=reward.kind === "pokemon" ? pokemonBySlug.get(gachaRewardSpecies(reward)) : null; const chance=gachaRewardBaseChance(theme,rarity,reward); const poolChance=gachaRewardPoolChance(rarity,reward); return `<article class="gacha-direct-reward" data-gacha-reward-index="${index}">${pokemon ? `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.dex_number}.png" alt="">` : `<span class="gacha-reward-item-icon">◆</span>`}<div class="gacha-direct-reward-name"><strong>${escapeHtml(reward.display_name || reward.id)}</strong><code>${escapeHtml(reward.kind === "pokemon" ? gachaRewardSpecies(reward) : reward.value)}</code><small>전체 기본 확률 ${chance.toFixed(chance < 1 ? 2 : 1)}%</small></div>${reward.kind === "pokemon" ? `<label><span>레벨</span><input type="number" min="1" max="100" data-gacha-reward="level" value="${gachaRewardLevel(reward)}"></label>` : `<label><span>수량</span><input type="number" min="1" max="6400" data-gacha-reward="count" value="${reward.count}"></label>`}<label><span>등급 내 확률 (%)</span><input type="number" min=".01" max="99.99" step=".01" data-gacha-reward="probability" value="${poolChance.toFixed(2)}" ${rewards.length <= 1 ? "disabled" : ""}></label><label class="gacha-check"><input type="checkbox" data-gacha-reward="selectable" ${reward.selectable ? "checked" : ""}> 천장 선택</label><button type="button" class="casino-row-remove" data-gacha-delete-reward="${index}">×</button></article>`;}).join("")}</div>
+      ${gachaRewardPicker(machine,theme)}
+      <div><small>표시 확률은 천장 보정 전 기본값입니다. 등급 가중치와 상품 가중치를 함께 계산합니다.</small> <button class="button secondary gacha-machine-delete" type="button" data-gacha-delete-rarity>희귀도 삭제</button></div>` : '<div class="issues empty">희귀도를 추가하세요.</div>'}
     </section>
     <section class="gacha-editor-section"><header><h4>천장 시스템</h4><small>소프트는 확률 상승, 확정은 지정 희귀도 보장, 선택은 포인트로 원하는 보상을 교환합니다.</small></header><div class="gacha-field-grid">
-      ${gachaField("소프트 천장", "pity/soft/enabled", machine.pity.soft.enabled, {type:"checkbox"})}${gachaField("시작 횟수", "pity/soft/start", machine.pity.soft.start, {type:"number",min:1})}${gachaField("최대 보정 횟수", "pity/soft/max_at", machine.pity.soft.max_at, {type:"number",min:1})}
-      <label><span>보정 희귀도</span><select data-gacha-path="pity/soft/target_rarity">${rarityOptions}</select></label>${gachaField("최대 확률 (0~1)", "pity/soft/max_chance", machine.pity.soft.max_chance, {type:"number",min:.001,max:1,step:.001})}
-      ${gachaField("확정 천장", "pity/hard/enabled", machine.pity.hard.enabled, {type:"checkbox"})}${gachaField("확정 횟수", "pity/hard/count", machine.pity.hard.count, {type:"number",min:1})}<label><span>확정 희귀도</span><select data-gacha-path="pity/hard/target_rarity">${rarityOptions}</select></label>
-      ${gachaField("선택 천장", "pity/selection/enabled", machine.pity.selection.enabled, {type:"checkbox"})}${gachaField("뽑기당 포인트", "pity/selection/points_per_pull", machine.pity.selection.points_per_pull, {type:"number",min:1})}${gachaField("선택 필요 포인트", "pity/selection/required_points", machine.pity.selection.required_points, {type:"number",min:1})}
+      ${gachaField("소프트 천장", "pity/soft/enabled", theme.pity.soft.enabled, {type:"checkbox"})}${gachaField("시작 횟수", "pity/soft/start", theme.pity.soft.start, {type:"number",min:1})}${gachaField("최대 보정 횟수", "pity/soft/max_at", theme.pity.soft.max_at, {type:"number",min:1})}
+      <label><span>보정 희귀도</span><select data-gacha-path="pity/soft/target_rarity">${rarityOptions}</select></label>${gachaField("최대 확률 (0~1)", "pity/soft/max_chance", theme.pity.soft.max_chance, {type:"number",min:.001,max:1,step:.001})}
+      ${gachaField("확정 천장", "pity/hard/enabled", theme.pity.hard.enabled, {type:"checkbox"})}${gachaField("확정 횟수", "pity/hard/count", theme.pity.hard.count, {type:"number",min:1})}<label><span>확정 희귀도</span><select data-gacha-path="pity/hard/target_rarity">${rarityOptions}</select></label>
+      ${gachaField("선택 천장", "pity/selection/enabled", theme.pity.selection.enabled, {type:"checkbox"})}${gachaField("뽑기당 포인트", "pity/selection/points_per_pull", theme.pity.selection.points_per_pull, {type:"number",min:1})}${gachaField("선택 필요 포인트", "pity/selection/required_points", theme.pity.selection.required_points, {type:"number",min:1})}
     </div></section>`;
-  $("[data-gacha-path='pity/soft/target_rarity']").value = machine.pity.soft.target_rarity;
-  $("[data-gacha-path='pity/hard/target_rarity']").value = machine.pity.hard.target_rarity;
+  $("[data-gacha-path='pity/soft/target_rarity']").value = theme.pity.soft.target_rarity;
+  $("[data-gacha-path='pity/hard/target_rarity']").value = theme.pity.hard.target_rarity;
 }
 
 async function loadGachaMachines(force = false) {
   if (state.gachaMachines.loaded && !force) { renderGachaMachines(); return; }
   const result = await request("/api/gacha-machines");
   if (!result.ok) throw new Error(result.data.error || "가챠 기계 설정을 불러오지 못했습니다.");
-  state.gachaMachines = { ...result.data, reward_catalog:result.data.reward_catalog || [], loaded:true, selectedId:state.gachaMachines.selectedId, selectedRarity:"", catalogQuery:"", dirty:false };
+  state.gachaMachines = { ...result.data, loaded:true, selectedId:state.gachaMachines.selectedId, selectedTheme:"", selectedRarity:"", rewardQuery:"", dirty:false };
   if (!state.gachaMachines.machines.some((machine) => machine.id === state.gachaMachines.selectedId)) state.gachaMachines.selectedId = state.gachaMachines.machines[0]?.id || "";
   renderGachaMachines();
   $("#gacha-machine-issues").className = "issues empty";
   $("#gacha-machine-issues").textContent = "웹 설정과 애드온 데이터가 연결되어 있습니다.";
+}
+
+async function loadGachaRewardChoices(force = false) {
+  if (state.gachaRewardChoices.items.length && !force) return;
+  const result=await request("/api/economy");
+  if (!result.ok) throw new Error(result.data.error || "아이템 선택 목록을 불러오지 못했습니다.");
+  state.gachaRewardChoices.items=(result.data.editor_catalog?.items || []).map((entry)=>({
+    id:entry.id, shortId:String(entry.id || "").split(":").at(-1),
+    name:entry.ko_kr || entry.en_us || entry.id, englishName:entry.en_us || "",
+    category:entry.product_group || "other", namespace:String(entry.id || "").split(":",1)[0]
+  }));
+  if (state.gachaMachines.loaded) renderGachaMachines();
 }
 
 async function loadGachaItemGraphics() {
@@ -1449,7 +1511,7 @@ async function uploadGachaItemGraphic(input) {
 }
 
 async function saveGachaMachines() {
-  const payload = { "$schema":"../schemas/gacha-machines.schema.json", schema_version:4, tickets:state.gachaMachines.tickets, reward_catalog:state.gachaMachines.reward_catalog, casino_sets:state.gachaMachines.casino_sets, machines:state.gachaMachines.machines };
+  const payload = { "$schema":"../schemas/gacha-machines.schema.json", schema_version:6, tickets:state.gachaMachines.tickets, casino_sets:state.gachaMachines.casino_sets, machines:state.gachaMachines.machines };
   const result = await request("/api/gacha-machines", { method:"PUT", body:JSON.stringify(payload) });
   showIssues("#gacha-machine-issues", result.data);
   if (result.ok) state.gachaMachines.dirty = false;
@@ -1458,9 +1520,13 @@ async function saveGachaMachines() {
 
 function newCasinoGachaMachine(id, type, setSlug) {
   const labels = {pokemon:"포켓몬 가챠",item:"아이템 가챠",technical_machine:"기술머신 가챠"};
-  const catalogId = state.gachaMachines.reward_catalog.find((entry) => entry.machine_type === type)?.id || "missing_catalog_product";
   const models = {pokemon:"cobblemoncasino:pokemon_gacha_machine",item:"cobblemoncasino:gacha_machine",technical_machine:"cobblemoncasino:event_gacha_machine"};
-  return { id, display_name:labels[type], machine_type:type, enabled:true, pity_group:`${setSlug}/${type}`, appearance:{model_block:models[type],facing:"north",show_nameplate:true}, rarities:[{id:"common",display_name:"일반",weight:100,rewards:[{catalog_id:catalogId,weight:1,selectable:false}]}], pity:{soft:{enabled:false,start:30,max_at:60,target_rarity:"common",max_chance:.25},hard:{enabled:false,count:80,target_rarity:"common"},selection:{enabled:false,points_per_pull:1,required_points:100}} };
+  return { id, display_name:labels[type], machine_type:type, enabled:true, appearance:{model_block:models[type],facing:"north",show_nameplate:true}, themes:[newGachaTheme("default",labels[type],1,`${setSlug}/${type}/default`,type)] };
+}
+
+function newGachaTheme(id, name, ticketCost, pityGroup, machineType) {
+  const reward=machineType === "pokemon" ? {id:"pikachu",display_name:"피카츄",kind:"pokemon",value:"pikachu level=15",count:1,weight:1,selectable:false} : machineType === "technical_machine" ? {id:"protect",display_name:"방어 기술머신",kind:"item",value:"tmcraft:tm_protect",count:1,weight:1,selectable:false} : {id:"poke_ball",display_name:"몬스터볼",kind:"item",value:"cobblemon:poke_ball",count:1,weight:1,selectable:false};
+  return {id,display_name:name,ticket_cost:ticketCost,pity_group:pityGroup,rarities:[{id:"common",display_name:"일반",weight:100,rewards:[reward]}],pity:{soft:{enabled:false,start:30,max_at:60,target_rarity:"common",max_chance:.25},hard:{enabled:false,count:80,target_rarity:"common"},selection:{enabled:false,points_per_pull:1,required_points:100}}};
 }
 
 function addGachaSet() {
@@ -1469,28 +1535,32 @@ function addGachaSet() {
   const ids={pokemon:`cobbleventure:${slug}_pokemon_gacha`,item:`cobbleventure:${slug}_item_gacha`,technical_machine:`cobbleventure:${slug}_technical_machine_gacha`};
   state.gachaMachines.casino_sets.push({id:setId,display_name:`새 카지노 ${number-1}`,machines:ids});
   for (const type of ["pokemon","item","technical_machine"]) state.gachaMachines.machines.push(newCasinoGachaMachine(ids[type],type,slug));
-  state.gachaMachines.selectedId=ids.pokemon; state.gachaMachines.selectedRarity="common"; state.gachaMachines.dirty=true; renderGachaMachines();
+  state.gachaMachines.selectedId=ids.pokemon; state.gachaMachines.selectedTheme="default"; state.gachaMachines.selectedRarity="common"; state.gachaMachines.dirty=true; renderGachaMachines();
 }
 
 function handleGachaMachineClick(event) {
-  const select = event.target.closest("[data-gacha-select]"); if (select) { state.gachaMachines.selectedId = select.dataset.gachaSelect; state.gachaMachines.selectedRarity = ""; renderGachaMachines(); return; }
+  const select = event.target.closest("[data-gacha-select]"); if (select) { state.gachaMachines.selectedId = select.dataset.gachaSelect; state.gachaMachines.selectedTheme = ""; state.gachaMachines.selectedRarity = ""; state.gachaMachines.rewardQuery = ""; renderGachaMachines(); return; }
+  const themeButton = event.target.closest("[data-gacha-theme]"); if (themeButton) { state.gachaMachines.selectedTheme = themeButton.dataset.gachaTheme; state.gachaMachines.selectedRarity = ""; renderGachaMachines(); return; }
   const rarityButton = event.target.closest("[data-gacha-rarity]"); if (rarityButton) { state.gachaMachines.selectedRarity = rarityButton.dataset.gachaRarity; renderGachaMachines(); return; }
   const machine = selectedGachaMachine(); if (!machine) return;
-  if (event.target.closest("[data-gacha-add-catalog]")) { let n=1,id; const ids=new Set((state.gachaMachines.reward_catalog || []).map((entry)=>entry.id)); do id=`catalog_${n++}`; while(ids.has(id)); state.gachaMachines.reward_catalog.push({id,display_name:"새 가챠 상품",machine_type:machine.machine_type,kind:machine.machine_type === "pokemon" ? "pokemon" : "item",value:machine.machine_type === "pokemon" ? "pikachu level=15" : machine.machine_type === "technical_machine" ? "tmcraft:tm_protect" : "minecraft:diamond",count:1}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
-  const deleteCatalog=event.target.closest("[data-gacha-delete-catalog]"); if (deleteCatalog) { const index=Number(deleteCatalog.dataset.gachaDeleteCatalog), entry=state.gachaMachines.reward_catalog[index]; if (!entry) return; const used=state.gachaMachines.machines.some((item)=>item.rarities.some((pool)=>pool.rewards.some((reward)=>reward.catalog_id===entry.id))); if (used) return toast("보상 풀에서 사용 중인 상품은 삭제할 수 없습니다."); state.gachaMachines.reward_catalog.splice(index,1); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
-  const useCatalog=event.target.closest("[data-gacha-use-catalog]"); if (useCatalog) { const rarity=selectedGachaRarity(machine), entry=state.gachaMachines.reward_catalog[Number(useCatalog.dataset.gachaUseCatalog)]; if (!rarity || !entry || machine.rarities.some((pool)=>pool.rewards.some((reward)=>reward.catalog_id===entry.id))) return; rarity.rewards.push({catalog_id:entry.id,weight:1,selectable:false}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const theme = selectedGachaTheme(machine);
+  if (event.target.closest("[data-gacha-add-theme]")) { let n=1,id; do id=`theme_${n++}`; while(machine.themes.some((entry)=>entry.id===id)); const slug=machine.id.split(":",2).at(-1); machine.themes.push(newGachaTheme(id,"새 가챠 테마",1,`${slug}/${id}`,machine.machine_type)); state.gachaMachines.selectedTheme=id; state.gachaMachines.selectedRarity="common"; state.gachaMachines.rewardQuery=""; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const moveTheme=event.target.closest("[data-gacha-move-theme]"); if (moveTheme && theme) { const from=machine.themes.indexOf(theme), to=Math.max(0,Math.min(machine.themes.length-1,from+Number(moveTheme.dataset.gachaMoveTheme))); if(from!==to){ machine.themes.splice(from,1); machine.themes.splice(to,0,theme); state.gachaMachines.dirty=true; renderGachaMachines(); } return; }
+  if (event.target.closest("[data-gacha-delete-theme]")) { if (machine.themes.length<=1) return toast("기계에는 테마가 하나 이상 필요합니다."); if (theme && confirm(`${theme.display_name} 테마를 삭제할까요?`)) { machine.themes=machine.themes.filter((entry)=>entry!==theme); state.gachaMachines.selectedTheme=machine.themes[0].id; state.gachaMachines.selectedRarity=""; state.gachaMachines.dirty=true; renderGachaMachines(); } return; }
   if (event.target.closest("[data-gacha-delete-set]")) { const casinoSet=selectedGachaSet(); if (casinoSet && confirm(`${casinoSet.display_name} 세트와 3개 기계를 삭제할까요?`)) { const ids=new Set(Object.values(casinoSet.machines)); state.gachaMachines.casino_sets=state.gachaMachines.casino_sets.filter((entry)=>entry!==casinoSet); state.gachaMachines.machines=state.gachaMachines.machines.filter((entry)=>!ids.has(entry.id)); state.gachaMachines.selectedId=state.gachaMachines.casino_sets[0]?.machines?.pokemon || ""; state.gachaMachines.selectedRarity=""; state.gachaMachines.dirty=true; renderGachaMachines(); } return; }
-  if (event.target.closest("[data-gacha-add-rarity]")) { const product=state.gachaMachines.reward_catalog.find((entry)=>entry.machine_type===machine.machine_type && !machine.rarities.some((pool)=>pool.rewards.some((reward)=>reward.catalog_id===entry.id))); if (!product) return toast("먼저 이 기계 종류의 상품 원본을 추가해 주세요."); let n=1,id; do id=`rarity_${n++}`; while (machine.rarities.some((entry)=>entry.id===id)); machine.rarities.push({id,display_name:"새 희귀도",weight:1,rewards:[{catalog_id:product.id,weight:1,selectable:false}]}); state.gachaMachines.selectedRarity=id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
-  const rarity = selectedGachaRarity(machine); if (!rarity) return;
-  if (event.target.closest("[data-gacha-delete-rarity]")) { if (machine.rarities.length <= 1) return toast("희귀도는 하나 이상 필요합니다."); machine.rarities = machine.rarities.filter((entry)=>entry!==rarity); state.gachaMachines.selectedRarity=machine.rarities[0].id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  if (event.target.closest("[data-gacha-add-rarity]")) { if(!theme) return; let n=1,id; do id=`rarity_${n++}`; while (theme.rarities.some((entry)=>entry.id===id)); const fallback=newGachaTheme("temp","temp",1,"temp",machine.machine_type).rarities[0].rewards[0]; fallback.id=gachaRewardId(fallback.id,theme); theme.rarities.push({id,display_name:"새 희귀도",weight:1,rewards:[fallback]}); state.gachaMachines.selectedRarity=id; state.gachaMachines.rewardQuery=""; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const rarity = selectedGachaRarity(theme); if (!rarity) return;
+  const pokemonButton=event.target.closest("[data-gacha-add-pokemon]"); if (pokemonButton) { const entry=worldPokemonCatalog().find((item)=>item.id===pokemonButton.dataset.gachaAddPokemon); if(!entry) return; const species=String(entry.slug || entry.id).replace(/^cobblemon:/,""); const id=gachaRewardId(species,theme); rarity.rewards.push({id,display_name:entry.display_name?.ko_kr || entry.display_name?.en_us || species,kind:"pokemon",value:`${species} level=15`,count:1,weight:1,selectable:false}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  const itemButton=event.target.closest("[data-gacha-add-item]"); if (itemButton) { const entry=(state.gachaRewardChoices.items || []).find((item)=>item.id===itemButton.dataset.gachaAddItem); if(!entry) return; const id=gachaRewardId(entry.shortId || entry.id,theme); rarity.rewards.push({id,display_name:entry.name || entry.englishName || entry.shortId || entry.id,kind:"item",value:entry.id,count:1,weight:1,selectable:false}); state.gachaMachines.dirty=true; renderGachaMachines(); return; }
+  if (event.target.closest("[data-gacha-delete-rarity]")) { if (theme.rarities.length <= 1) return toast("희귀도는 하나 이상 필요합니다."); theme.rarities = theme.rarities.filter((entry)=>entry!==rarity); state.gachaMachines.selectedRarity=theme.rarities[0].id; state.gachaMachines.dirty=true; renderGachaMachines(); return; }
   const remove = event.target.closest("[data-gacha-delete-reward]"); if (remove) { if (rarity.rewards.length <= 1) return toast("각 희귀도에는 보상이 하나 이상 필요합니다."); rarity.rewards.splice(Number(remove.dataset.gachaDeleteReward),1); state.gachaMachines.dirty=true; renderGachaMachines(); }
 }
 
 function updateGachaMachineField(event) {
-  const machine = selectedGachaMachine(); if (!machine) return;
   const input = event.target;
-  if (input.dataset.gachaCatalogQuery != null) { state.gachaMachines.catalogQuery=input.value; renderGachaMachines(); const search=$("[data-gacha-catalog-query]"); if (search) { search.focus(); search.setSelectionRange(search.value.length,search.value.length); } return; }
-  if (input.dataset.gachaCatalog) { const row=input.closest("[data-gacha-catalog-index]"), entry=state.gachaMachines.reward_catalog[Number(row?.dataset.gachaCatalogIndex)]; if (!entry) return; const oldId=entry.id, value=input.type === "number" ? Number(input.value) : input.value; entry[input.dataset.gachaCatalog]=value; entry.machine_type=machine.machine_type; if (input.dataset.gachaCatalog === "id" && oldId !== value) state.gachaMachines.machines.forEach((item)=>item.rarities.forEach((pool)=>pool.rewards.forEach((reward)=>{ if (reward.catalog_id===oldId) reward.catalog_id=value; }))); state.gachaMachines.dirty=true; return; }
+  if (input.dataset.gachaRewardQuery != null) { state.gachaMachines.rewardQuery=input.value; renderGachaMachines(); const search=$("[data-gacha-reward-query]"); if (search) { search.focus(); search.setSelectionRange(search.value.length,search.value.length); } return; }
+  const machine = selectedGachaMachine(); if (!machine) return;
+  const theme = selectedGachaTheme(machine);
   if (input.dataset.gachaSetName != null) {
     const casinoSet=selectedGachaSet(); if (casinoSet) casinoSet.display_name=input.value; state.gachaMachines.dirty=true;
     if (event.type === "change") renderGachaMachines(); return;
@@ -1499,18 +1569,37 @@ function updateGachaMachineField(event) {
     const ticket=state.gachaMachines.tickets?.[machine.machine_type]; if (!ticket) return;
     ticket[input.dataset.gachaTicketPath]=input.type === "number" ? Number(input.value) : input.value; state.gachaMachines.dirty=true; return;
   }
+  if (input.dataset.gachaThemePath) {
+    if (!theme) return;
+    theme[input.dataset.gachaThemePath]=input.type === "number" ? Number(input.value) : input.value; state.gachaMachines.dirty=true;
+    if (event.type === "change" && input.dataset.gachaThemePath === "display_name") renderGachaMachines();
+    return;
+  }
   if (input.dataset.gachaPath) {
-    if (input.dataset.gachaPath === "id") return;
+    if (input.dataset.gachaPath === "id" || input.dataset.gachaPath === "theme/id") return;
     const value = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
-    setCasinoAt(machine, input.dataset.gachaPath.split("/"), value); state.gachaMachines.dirty=true;
+    const parts=input.dataset.gachaPath.split("/");
+    if (parts[0] === "rarity") { const rarity=selectedGachaRarity(theme); if (!rarity) return; rarity[parts[1]]=value; }
+    else if (parts[0] === "pity") { if (!theme) return; setCasinoAt(theme, parts, value); }
+    else setCasinoAt(machine, parts, value);
+    state.gachaMachines.dirty=true;
     if (event.type === "change" && (input.dataset.gachaPath === "display_name" || input.dataset.gachaPath === "enabled")) renderGachaMachines();
     return;
   }
   if (!input.dataset.gachaReward) return;
-  const rarity = selectedGachaRarity(machine), row = input.closest("[data-gacha-reward-index]");
+  const rarity = selectedGachaRarity(theme), row = input.closest("[data-gacha-reward-index]");
   const reward = rarity?.rewards[Number(row?.dataset.gachaRewardIndex)]; if (!reward) return;
-  reward[input.dataset.gachaReward] = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
+  const field=input.dataset.gachaReward;
+  if (field === "level") reward.value=`${gachaRewardSpecies(reward)} level=${Math.max(1,Math.min(100,Number(input.value)||1))}`;
+  else if (field === "probability") {
+    const others=rarity.rewards.filter((entry)=>entry!==reward).reduce((sum,entry)=>sum+Math.max(.01,Number(entry.weight)||0),0);
+    const probability=Math.max(.01,Math.min(99.99,Number(input.value)||.01));
+    if (others > 0) reward.weight=probability/(100-probability)*others;
+  }
+  else reward[field] = input.type === "checkbox" ? input.checked : input.type === "number" ? Number(input.value) : input.value;
+  if (reward.kind === "pokemon") reward.count=1;
   state.gachaMachines.dirty=true;
+  if (event.type === "change" && (field === "probability" || field === "level" || field === "count")) renderGachaMachines();
 }
 
 function selectedCasinoConfigFile() {
@@ -1791,7 +1880,7 @@ function loadSectionData(section, force = false) {
   if (section === "definitions") return loadGameDefinitions(force);
   if (section === "economy") return loadEconomy(force);
   if (section === "global-resources") return loadDialogueTheme(force);
-  if (section === "casino-config") return Promise.all([loadGachaMachines(force), loadGachaItemGraphics()]);
+  if (section === "casino-config") return Promise.all([loadGachaMachines(force), loadGachaRewardChoices(force), loadGachaItemGraphics()]);
   if (section === "builds") return loadStructureBuilder();
   return Promise.resolve();
 }
@@ -2375,7 +2464,7 @@ function renderHexMap() {
     const { x, y } = entranceMapPoint(node);
     const targetId = node.underground_road || node.cave;
     const caveName = node.underground_road ? (undergroundRoadSummary(targetId)?.name || targetId.split("/").pop()) : (caveSummary(targetId)?.name || targetId.split("/").pop());
-    const internalPort = node.port || node.entrance;
+    const internalPort = node.underground_road ? `${node.underground_module}/${node.underground_connector}` : node.entrance;
     const selected = state.selectedEntrance?.kind === "cave" && state.selectedEntrance.id === node.id;
     const centerBadge = node.pokemon_center_enabled ? `<text class="center-badge" y="-14" aria-label="포켓몬센터">P</text>` : "";
     return `<g class="hex-cave-entrance${selected ? " is-selected" : ""}${state.entranceDrag?.kind === "cave" && state.entranceDrag.id === node.id ? " is-drag-source" : ""}" data-route-cave-entrance="${escapeHtml(node.id)}" data-drag-entrance-kind="cave" data-drag-entrance-id="${escapeHtml(node.id)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(caveName)} ${escapeHtml(internalPort)} 입구${node.pokemon_center_enabled ? " 포켓몬센터" : ""} 선택 및 이동"><circle class="entrance-marker-hit" r="18"></circle><circle r="10"></circle><path d="M-6 5Q-5-6 0-7Q5-6 6 5ZM-2 5V1Q0-2 2 1V5Z"></path>${centerBadge}<text y="24">${escapeHtml(caveName)} · ${escapeHtml(internalPort)}</text></g>`;
@@ -2622,13 +2711,18 @@ function caveToolEntranceOptions() {
   return (cave?.entrances || []).map((entry) => `<option value="${escapeHtml(entry.id)}" ${placed.has(entry.id) ? "disabled" : ""}>${escapeHtml(entry.display_name || entry.id)}${placed.has(entry.id) ? " · 배치됨" : ""}</option>`).join("");
 }
 function refreshCaveToolEntrances() { $("#cave-tool-entrance").innerHTML = caveToolEntranceOptions(); }
-function undergroundRoadToolPortOptions() {
+function undergroundRoadToolEndpointOptions() {
   const roadId = $("#underground-road-tool-road").value;
   const road = undergroundRoadSummary(roadId);
-  const placed = new Set((state.worldLayout.cave_entrances || []).filter((item) => item.underground_road === roadId).map((item) => item.port));
-  return Object.entries(road?.ports || {}).map(([tag, settings]) => `<option value="${escapeHtml(tag)}" ${placed.has(tag) ? "disabled" : ""}>${escapeHtml(settings.display_name || tag)}${placed.has(tag) ? " · 배치됨" : ""}</option>`).join("");
+  const placed = new Set((state.worldLayout.cave_entrances || []).filter((item) => item.underground_road === roadId).map((item) => `${item.underground_module}/${item.underground_connector}`));
+  return (road?.endpoints || []).map((endpoint) => { const value = `${endpoint.module}/${endpoint.connector}`; return `<option value="${escapeHtml(value)}" ${placed.has(value) ? "disabled" : ""}>${escapeHtml(endpoint.module)} / ${escapeHtml(endpoint.connector)}${placed.has(value) ? " · 배치됨" : ""}</option>`; }).join("") || '<option value="">열린 위쪽 커넥터가 없습니다</option>';
 }
-function refreshUndergroundRoadToolPorts() { $("#underground-road-tool-port").innerHTML = undergroundRoadToolPortOptions(); }
+function refreshUndergroundRoadToolConnections() {
+  $("#underground-road-tool-endpoint").innerHTML = undergroundRoadToolEndpointOptions();
+  const structure = defaultWorldEntranceStructures.undergroundRoad;
+  const transitions = state.structureSizes?.[structure]?.transition_anchors || [{ label: "underground_entry" }];
+  $("#underground-road-tool-transition").innerHTML = transitions.map((anchor) => `<option value="${escapeHtml(anchor.label)}">${escapeHtml(anchor.label)}</option>`).join("") || '<option value="">이동 영역이 없습니다</option>';
+}
 function placeCaveEntranceWithTool(q, r) {
   const caveId = $("#cave-tool-cave").value; const entranceId = $("#cave-tool-entrance").value;
   if (!caveId || !entranceId) { toast("배치할 동굴과 미배치 내부 입구를 선택해 주세요."); return; }
@@ -2645,15 +2739,16 @@ function placeCaveEntranceWithTool(q, r) {
   state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id: `cobbleventure:cave_entrance/${slug}_${entranceId}` }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
 }
 function placeUndergroundRoadEntranceWithTool(q, r) {
-  const roadId = $("#underground-road-tool-road").value; const port = $("#underground-road-tool-port").value;
-  if (!roadId || !port) { toast("배치할 지하통로와 미배치 내부 포트를 선택해 주세요."); return; }
+  const roadId = $("#underground-road-tool-road").value; const endpoint = $("#underground-road-tool-endpoint").value; const transition = $("#underground-road-tool-transition").value;
+  if (!roadId || !endpoint || !transition) { toast("입구 이동 영역과 지하 연결 지점을 선택해 주세요."); return; }
   if (caveEntranceAt(q, r) || settlementAt(q, r)) { toast("이미 마을 또는 출입구가 배치된 타일입니다."); return; }
-  if ((state.worldLayout.cave_entrances || []).some((entry) => entry.underground_road === roadId && entry.port === port)) { toast("같은 지하통로 포트가 이미 배치되어 있습니다."); return; }
-  const slug = roadId.split("/").pop(); const id = `cobbleventure:underground_entrance/${slug}_${port}`;
-  state.worldLayout.cave_entrances.push({ id, underground_road: roadId, port, anchor: { q, r }, facing: $("#underground-road-tool-facing").value,
+  const slash = endpoint.indexOf("/"), undergroundModule = endpoint.slice(0, slash), undergroundConnector = endpoint.slice(slash + 1);
+  if ((state.worldLayout.cave_entrances || []).some((entry) => entry.underground_road === roadId && entry.underground_module === undergroundModule && entry.underground_connector === undergroundConnector)) { toast("같은 지하 연결 지점이 이미 배치되어 있습니다."); return; }
+  const slug = roadId.split("/").pop(); const id = `cobbleventure:underground_entrance/${slug}_${undergroundModule}_${undergroundConnector}`;
+  state.worldLayout.cave_entrances.push({ id, underground_road: roadId, transition, underground_module: undergroundModule, underground_connector: undergroundConnector, anchor: { q, r }, facing: $("#underground-road-tool-facing").value,
     structure: defaultWorldEntranceStructures.undergroundRoad, structure_variants: {},
     pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true" });
-  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id }; markWorldDirty(); refreshUndergroundRoadToolPorts(); renderWorldLayout(); toast("지하통로 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
+  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id }; markWorldDirty(); refreshUndergroundRoadToolConnections(); renderWorldLayout(); toast("지하통로 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
 }
 function forestToolEntranceOptions() {
   const forestId = $("#forest-tool-forest").value;
@@ -3323,12 +3418,12 @@ function renderEntranceInspector(selection) {
   const underground = kind === "cave" && Boolean(entrance.underground_road);
   setWorldManagementTarget(underground ? "underground-roads" : kind === "cave" ? "caves" : "forests", underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest);
   const underlying = tile ? tile.biome : emptyTerrainLabel(emptyTerrainAt(entrance.anchor.q, entrance.anchor.r));
-  $("#selection-inspector-kind").textContent = underground ? "UNDERGROUND PASSAGE PORT" : kind === "cave" ? "CAVE ENTRANCE" : "FOREST ENTRANCE";
-  $("#selected-tile-title").textContent = underground ? `${undergroundRoadSummary(entrance.underground_road)?.name || entrance.underground_road} · ${entrance.port}` : kind === "cave" ? `${caveSummary(entrance.cave)?.name || entrance.cave} 입구` : `${forestSummary(entrance.forest)?.name || entrance.forest} 입구`;
+  $("#selection-inspector-kind").textContent = underground ? "UNDERGROUND PASSAGE ENTRANCE" : kind === "cave" ? "CAVE ENTRANCE" : "FOREST ENTRANCE";
+  $("#selected-tile-title").textContent = underground ? `${undergroundRoadSummary(entrance.underground_road)?.name || entrance.underground_road} · ${entrance.underground_module}/${entrance.underground_connector}` : kind === "cave" ? `${caveSummary(entrance.cave)?.name || entrance.cave} 입구` : `${forestSummary(entrance.forest)?.name || entrance.forest} 입구`;
   $("#selected-tile-coord").textContent = `Q ${entrance.anchor.q} · R ${entrance.anchor.r}`;
   $("#entrance-inspector-label").textContent = underground ? "지하통로 입구 속성" : kind === "cave" ? "동굴 입구 속성" : "숲 입구 속성";
   $("#entrance-inspector-id").textContent = entrance.id; $("#entrance-target-label").textContent = underground ? "연결 지하통로" : kind === "cave" ? "연결 동굴" : "연결 숲";
-  form.elements.id.value = entrance.id; form.elements.target.value = underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = underground ? entrance.port : entrance.entrance;
+  form.elements.id.value = entrance.id; form.elements.target.value = underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = underground ? `${entrance.transition} → ${entrance.underground_module}/${entrance.underground_connector}` : entrance.entrance;
   form.elements.q.value = entrance.anchor.q; form.elements.r.value = entrance.anchor.r; form.elements.facing.value = entrance.facing;
   form.elements.rotation.value = entrance.rotation || 0; form.elements.pokemonCenterEnabled.value = String(Boolean(entrance.pokemon_center_enabled));
   form.elements.treeLog.value = entrance.tree_log || "minecraft:spruce_log"; form.elements.treeLeaves.value = entrance.tree_leaves || "minecraft:spruce_leaves";
@@ -3730,7 +3825,7 @@ function renderMapToolOptions() {
   const currentUndergroundRoad = $("#underground-road-tool-road").value;
   $("#underground-road-tool-road").innerHTML = state["underground-roads"].filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentUndergroundRoad && state["underground-roads"].some((item) => item.id === currentUndergroundRoad)) $("#underground-road-tool-road").value = currentUndergroundRoad;
-  refreshUndergroundRoadToolPorts();
+  refreshUndergroundRoadToolConnections();
   const currentForest = $("#forest-tool-forest").value;
   $("#forest-tool-forest").innerHTML = state.forests.filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name || item.id)}</option>`).join("");
   if (currentForest && state.forests.some((item) => item.id === currentForest)) $("#forest-tool-forest").value = currentForest;
@@ -4859,15 +4954,10 @@ function renderUndergroundModuleSelection() {
   panel.innerHTML = `<strong>${escapeHtml(module.id)}</strong><code>${escapeHtml(module.structure)}</code><label>X <input type="number" data-underground-module-axis="x" value="${Number(position.x || 0)}"></label><label>Y <input type="number" data-underground-module-axis="y" value="${Number(position.y || 0)}"></label><label>Z <input type="number" data-underground-module-axis="z" value="${Number(position.z || 0)}"></label><label>회전 <select data-underground-module-rotation>${undergroundRotations.map((rotation) => `<option value="${rotation}"${rotation === module.rotation ? " selected" : ""}>${rotation}</option>`).join("")}</select></label>`;
 }
 
-function renderUndergroundRoadPorts() {
-  const list = $("#underground-road-port-list"), external = undergroundExternalConnectors(), externalKeys = new Set(external.map((item) => `${item.module}/${item.tag}`));
+function renderUndergroundRoadEndpoints() {
+  const list = $("#underground-road-endpoint-list"), external = undergroundExternalConnectors();
   if (!state.undergroundRoad) { list.innerHTML = '<div class="issues empty">지하통로를 선택하세요.</div>'; return; }
-  state.undergroundRoad.ports ||= {};
-  const registeredKeys = new Set(Object.values(state.undergroundRoad.ports).map((port) => `${port.module}/${port.connector}`));
-  const available = external.filter((connector) => !registeredKeys.has(`${connector.module}/${connector.tag}`));
-  $("#underground-port-connector").innerHTML = available.map((connector) => `<option value="${escapeHtml(`${connector.module}/${connector.tag}`)}">${escapeHtml(connector.module)} / ${escapeHtml(connector.tag)} · ${escapeHtml(connector.facing)}</option>`).join("") || '<option value="">등록 가능한 열린 커넥터가 없습니다</option>';
-  const entries = Object.entries(state.undergroundRoad.ports);
-  list.innerHTML = entries.length ? entries.map(([tag, port]) => { const valid = externalKeys.has(`${port.module}/${port.connector}`); return `<article class="cave-entry-card${valid ? "" : " has-error"}" data-underground-port="${escapeHtml(tag)}"><header><strong>${escapeHtml(tag)}</strong><small>${escapeHtml(port.module)} / ${escapeHtml(port.connector)}${valid ? "" : " · 현재 열린 커넥터가 아님"}</small><button type="button" class="button danger compact-button" data-remove-underground-port="${escapeHtml(tag)}">삭제</button></header><div class="cave-entry-fields"><label><span>표시 이름</span><input data-underground-port-field="display_name" value="${escapeHtml(port.display_name || tag)}" required></label></div></article>`; }).join("") : '<div class="issues empty">열린 커넥터를 외부 포트로 두 개 이상 등록하세요.</div>';
+  list.innerHTML = external.length ? external.map((connector) => `<article class="cave-entry-card"><header><strong>${escapeHtml(connector.module)}</strong><small>${escapeHtml(connector.tag)} · 위쪽 계단</small></header></article>`).join("") : '<div class="issues empty">열린 위쪽 계단 커넥터가 없습니다.</div>';
 }
 
 function renderUndergroundRoad() {
@@ -4878,7 +4968,7 @@ function renderUndergroundRoad() {
   form.elements.id.value = document.id || "";
   form.elements.nameKo.value = document.display_name?.ko_kr || "";
   form.elements.nameEn.value = document.display_name?.en_us || "";
-  document.schema_version = 2; document.modules ||= []; document.ports ||= {}; delete document.structure;
+  document.schema_version = 2; document.modules ||= []; delete document.ports; delete document.structure;
   const structures = undergroundModuleStructures();
   $("#underground-module-structure").innerHTML = structures.map(([id, metadata]) => `<option value="${escapeHtml(id)}">${escapeHtml(id)} · ${(metadata.underground_connectors || []).length}개 연결</option>`).join("") || '<option value="">지하통로 조각 NBT가 없습니다</option>';
   form.elements.originX.value = Number(origin.x || 0);
@@ -4890,7 +4980,7 @@ function renderUndergroundRoad() {
   $("#underground-road-editor-title").textContent = document.display_name?.ko_kr || document.id;
   $("#underground-road-path").textContent = state.undergroundRoadPath;
   if (!document.modules.some((module) => module.id === state.undergroundModuleEditor.selectedId)) state.undergroundModuleEditor.selectedId = document.modules[0]?.id || null;
-  renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts();
+  renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadEndpoints();
   ["#delete-underground-road", "#validate-underground-road", "#save-underground-road"].forEach((selector) => $(selector).disabled = false);
   showIssues("#underground-road-issues", { valid: true, issues: [] });
 }
@@ -4910,11 +5000,6 @@ function updateUndergroundRoadFromForm() {
     origin: { x: Number(form.elements.originX.value), y: Number(form.elements.originY.value), z: Number(form.elements.originZ.value) }
   };
   if (form.elements.musicTrack.value) state.undergroundRoad.music_track = form.elements.musicTrack.value; else delete state.undergroundRoad.music_track;
-  $$("#underground-road-port-list [data-underground-port]").forEach((row) => {
-    const tag = row.dataset.undergroundPort;
-    const displayName = row.querySelector('[data-underground-port-field="display_name"]').value.trim();
-    state.undergroundRoad.ports[tag].display_name = displayName || tag;
-  });
   return true;
 }
 
@@ -9341,6 +9426,34 @@ function renderStructureBrowser() {
     </button>`).join("") : '<div class="issues empty">검색 조건에 맞는 NBT가 없습니다.</div>';
 }
 
+async function ensureStructureTopView(structureId) {
+  if (!structureId || state.structureSizes[structureId]?.top_view) return;
+  if (state.structurePreviewPromises.has(structureId)) {
+    await state.structurePreviewPromises.get(structureId);
+    return;
+  }
+  const pending = (async () => {
+    const result = await request(`/api/structure-model?structure=${encodeURIComponent(structureId)}`);
+    if (!result.ok) return;
+    const model = result.data;
+    const columns = new Map();
+    for (const block of model.blocks || []) {
+      const [x, y, z, paletteIndex] = block;
+      const key = `${x},${z}`;
+      const current = columns.get(key);
+      if (!current || y > current[2]) columns.set(key, [x, z, y, paletteIndex]);
+    }
+    state.structureSizes[structureId] = {
+      ...(state.structureSizes[structureId] || {}),
+      width: model.width, height: model.height, depth: model.depth,
+      top_view: { palette: model.palette || [], blocks: [...columns.values()] }
+    };
+  })();
+  state.structurePreviewPromises.set(structureId, pending);
+  try { await pending; }
+  finally { state.structurePreviewPromises.delete(structureId); }
+}
+
 async function loadStructureModel(structureId) {
   state.structureViewer.selected = structureId;
   state.structureViewer.model = null;
@@ -10110,17 +10223,15 @@ function renderBuildingInteriorAssignments(metadata) {
 
 function renderBuildingDoorRoutes(metadata, spaces = buildingConfiguredSpaces(metadata)) {
   const target = $("#building-door-routes");
-  const arrivals = spaces.flatMap(({ key, metadata: space }) =>
-    (space?.arrival_anchors || []).map((anchor) => ({ value: `${key}:${anchor.label}`, label: `${key}:${anchor.label}` }))
-  );
-  const doors = spaces.flatMap(({ key, metadata: space }) =>
-    (space?.door_anchors || []).map((anchor) => ({ key: `${key}:${anchor.label}`, position: anchor.position }))
-  );
-  target.innerHTML = doors.length ? doors.map((door) => {
-    const route = metadata.settings?.door_routes?.[door.key];
-    const selected = route ? `${route.space}:${route.arrival}` : "";
-    return `<label class="building-door-route"><span><strong>${escapeHtml(door.key)}</strong><small>문 위치 ${door.position.join(", ")}</small></span><select data-building-door-route="${escapeHtml(door.key)}"><option value="">목적지 미지정</option>${arrivals.map((arrival) => `<option value="${escapeHtml(arrival.value)}"${arrival.value === selected ? " selected" : ""}>${escapeHtml(arrival.label)}</option>`).join("")}</select></label>`;
-  }).join("") : '<div class="issues empty">이 건물과 연결된 내부 NBT에 이름 있는 문이 없습니다.</div>';
+  const connections = spaces.flatMap(({ key, metadata: space }) => [
+    ...(space?.door_anchors || []).map((anchor) => ({ key: `${key}:${anchor.label}`, position: anchor.position, type: "문" })),
+    ...(space?.transition_anchors || []).map((anchor) => ({ key: `${key}:${anchor.label}`, position: anchor.position, type: "접촉 영역" }))
+  ]);
+  target.innerHTML = connections.length ? connections.map((connection) => {
+    const route = metadata.settings?.door_routes?.[connection.key];
+    const selected = route ? `${route.space}:${route.door || route.arrival}` : "";
+    return `<label class="building-door-route"><span><strong>${escapeHtml(connection.key)}</strong><small>${connection.type} 위치 ${connection.position.join(", ")}</small></span><select data-building-door-route="${escapeHtml(connection.key)}"><option value="">목적지 미지정</option>${connections.map((destination) => `<option value="${escapeHtml(destination.key)}"${destination.key === selected ? " selected" : ""}>${escapeHtml(destination.key)} · ${destination.type}</option>`).join("")}</select></label>`;
+  }).join("") : '<div class="issues empty">이 건물과 연결된 내부 NBT에 이름 있는 문이나 접촉 전환 영역이 없습니다.</div>';
 }
 
 function buildingNpcOptions(selected) {
@@ -13968,15 +14079,106 @@ function renderStructureBuilder() {
   if (!data) return;
   const instanceInput = $("#structure-builder-instance");
   if (document.activeElement !== instanceInput) instanceInput.value = data.instance_path || "";
+  const liveInstanceInput = $("#structure-builder-live-instance");
+  if (document.activeElement !== liveInstanceInput) liveInstanceInput.value = data.live_instance_path || "";
   $("#structure-builder-candidates").innerHTML = (data.candidates || []).map((path) => `<option value="${escapeHtml(path)}"></option>`).join("");
   $("#structure-builder-package").textContent = data.package_exists ? "생성됨" : "없음";
   $("#structure-builder-world").textContent = data.world_exists ? "연결됨" : "찾지 못함";
+  $("#structure-builder-live-package").textContent = data.live_package_exists ? "생성됨" : "없음";
+  $("#structure-builder-live-world").textContent = data.live_world_exists ? "연결됨" : "찾지 못함";
   $("#structure-builder-exports").textContent = `${data.export_count || 0}개`;
   $("#structure-builder-sources").textContent = `${data.source_count || 0}개`;
   $("#structure-builder-world-path").textContent = data.world_path || "인스턴스 경로를 저장해 주세요.";
+  $("#structure-builder-live-world-path").textContent = data.live_world_path || "새 라이브 에디터 인스턴스 경로를 저장해 주세요.";
   $("#structure-builder-status").textContent = !data.instance_path ? "경로 설정 필요" : data.world_exists ? "가져오기 준비" : "월드 실행 필요";
   $("#import-structure-builder").disabled = !data.world_exists || Number(data.export_count || 0) === 0;
   $("#sync-structure-builder").disabled = !data.instance_exists;
+  const sourceSelect = $("#structure-builder-live-source");
+  const selected = sourceSelect.value;
+  sourceSelect.innerHTML = `<option value="">NBT를 선택하세요</option>${(data.sources || []).map((item) =>
+    `<option value="${escapeHtml(item.path)}">${escapeHtml(item.id)} · ${item.size.join("×")}</option>`
+  ).join("")}`;
+  const active = data.live?.active;
+  sourceSelect.value = (data.sources || []).some((item) => item.path === selected)
+    ? selected : active?.source || "";
+  if (active && document.activeElement?.id?.startsWith("structure-builder-live-") !== true) {
+    $("#structure-builder-live-width").value = active.size?.[0] || 1;
+    $("#structure-builder-live-height").value = active.size?.[1] || 1;
+    $("#structure-builder-live-depth").value = active.size?.[2] || 1;
+  }
+  $("#structure-builder-live-status").textContent = !data.live_world_exists
+    ? "새 팩 경로 설정 필요" : data.live?.pending
+      ? "게임 반영 대기" : active ? "라이브 연결됨" : "NBT 선택 대기";
+  $("#structure-builder-live-detail").textContent = active
+    ? `${active.id} · ${active.size?.join("×")} · ${active.source}`
+    : "게임을 종료할 필요 없이 웹에서 NBT를 바꿀 수 있습니다.";
+  $("#open-structure-builder-live").disabled = !data.live_world_exists || !sourceSelect.value;
+  $("#resize-structure-builder-live").disabled = !active || data.live?.pending;
+  $("#save-structure-builder-live").disabled = !active || data.live?.pending;
+  $("#test-place-structure-builder-live").disabled = !active || data.live?.pending;
+  if (data.live_import?.imported) toast(`에딧월드 저장 반영: ${data.live_import.id}`);
+}
+
+function structureBuilderLiveSize() {
+  const size = ["width", "height", "depth"].map((axis) =>
+    Number($("#structure-builder-live-" + axis).value)
+  );
+  if (size.some((value) => !Number.isInteger(value) || value < 1 || value > 256)) {
+    throw new Error("편집 크기는 각 축 1~256 사이 정수여야 합니다.");
+  }
+  return size;
+}
+
+async function openStructureBuilderLive() {
+  const source = $("#structure-builder-live-source").value;
+  if (!source) { toast("편집할 NBT를 선택해 주세요."); return; }
+  const item = state.structureBuilder?.sources?.find((entry) => entry.path === source);
+  const size = item?.size || structureBuilderLiveSize();
+  ["width", "height", "depth"].forEach((axis, index) => {
+    $("#structure-builder-live-" + axis).value = size[index];
+  });
+  const result = await request("/api/structure-builder/live/open", {
+    method: "POST", body: JSON.stringify({ source, size, preserve_current: true })
+  });
+  if (!result.ok) { toast(result.data.error || "NBT를 열지 못했습니다."); return; }
+  toast("게임 편집 차원에 NBT 로드를 요청했습니다.");
+  await loadStructureBuilder();
+}
+
+async function runStructureBuilderLiveCommand(action) {
+  let size;
+  try { size = structureBuilderLiveSize(); } catch (error) { toast(error.message); return; }
+  const result = await request(`/api/structure-builder/live/${action}`, {
+    method: "POST", body: JSON.stringify(action === "resize" ? { size } : {})
+  });
+  if (!result.ok) { toast(result.data.error || "라이브 명령을 보내지 못했습니다."); return; }
+  toast(action === "save" ? "게임에 NBT 저장을 요청했습니다."
+    : action === "test-place" ? "테스트 차원에 현재 사본 배치를 요청했습니다."
+      : "편집 범위 변경을 요청했습니다.");
+  await loadStructureBuilder();
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function addExternalStructure(file) {
+  if (!file) return;
+  const suggested = file.name.replace(/\.nbt$/i, "").toLowerCase().replace(/[^a-z0-9_.-]+/g, "_");
+  const id = prompt("추가할 NBT ID를 입력하세요. 폴더도 사용할 수 있습니다.", `external/${suggested}`);
+  if (!id) return;
+  const nbt = bytesToBase64(new Uint8Array(await file.arrayBuffer()));
+  const result = await request("/api/structure-builder/external", {
+    method: "POST", body: JSON.stringify({ id, nbt })
+  });
+  if (!result.ok) { toast(result.data.error || "외부 NBT를 추가하지 못했습니다."); return; }
+  toast(`외부 NBT 추가 완료: ${result.data.structure.id}`);
+  await loadStructureBuilder();
+  $("#structure-builder-live-source").value = result.data.structure.path;
 }
 
 async function loadStructureBuilder() {
@@ -13988,8 +14190,9 @@ async function loadStructureBuilder() {
 
 async function saveStructureBuilderSettings() {
   const instancePath = $("#structure-builder-instance").value.trim();
+  const liveInstancePath = $("#structure-builder-live-instance").value.trim();
   const result = await request("/api/structure-builder/settings", {
-    method: "PUT", body: JSON.stringify({ instance_path: instancePath })
+    method: "PUT", body: JSON.stringify({ instance_path: instancePath, live_instance_path: liveInstancePath })
   });
   if (!result.ok) { toast(result.data.error || "인스턴스 경로를 저장하지 못했습니다."); return; }
   state.structureBuilder = result.data;
@@ -14236,8 +14439,8 @@ $("#casino-config").addEventListener("click", handleGachaMachineClick);
 $("#casino-config").addEventListener("change", (event) => {
   if (event.target.matches("[data-gacha-graphic-file]")) uploadGachaItemGraphic(event.target);
 });
-$("#gacha-machine-editor").addEventListener("input", updateGachaMachineField);
-$("#gacha-machine-editor").addEventListener("change", updateGachaMachineField);
+$("#casino-config").addEventListener("input", updateGachaMachineField);
+$("#casino-config").addEventListener("change", updateGachaMachineField);
 $("#add-gacha-machine").addEventListener("click", addGachaSet);
 $("#save-gacha-machines").addEventListener("click", saveGachaMachines);
 
@@ -14390,8 +14593,8 @@ $("#building-door-routes").addEventListener("change", (event) => {
   metadata.settings.door_routes ||= {};
   if (!event.target.value) delete metadata.settings.door_routes[source];
   else {
-    const [space, arrival] = event.target.value.split(":", 2);
-    metadata.settings.door_routes[source] = { space, arrival };
+    const [space, door] = event.target.value.split(":", 2);
+    metadata.settings.door_routes[source] = { space, door };
   }
   markBuildingSettingsDirty();
 });
@@ -14472,8 +14675,28 @@ $("#project-cancel").addEventListener("click", () => $("#project-dialog").close(
 $("#save-structure-builder-settings").addEventListener("click", saveStructureBuilderSettings);
 $("#refresh-structure-builder").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
 $("#build-structure-builder").addEventListener("click", async () => { await runBuild("builder-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
+$("#build-live-nbt-editor").addEventListener("click", async () => { await runBuild("live-editor-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
 $("#sync-structure-builder").addEventListener("click", syncStructureBuilder);
 $("#import-structure-builder").addEventListener("click", importStructureBuilder);
+$("#structure-builder-live-source").addEventListener("change", (event) => {
+  const item = state.structureBuilder?.sources?.find((entry) => entry.path === event.target.value);
+  if (!item) return;
+  ["width", "height", "depth"].forEach((axis, index) => {
+    $("#structure-builder-live-" + axis).value = item.size[index];
+  });
+  renderStructureBuilder();
+});
+$("#open-structure-builder-live").addEventListener("click", () => openStructureBuilderLive().catch((error) => toast(error.message)));
+$("#resize-structure-builder-live").addEventListener("click", () => runStructureBuilderLiveCommand("resize").catch((error) => toast(error.message)));
+$("#save-structure-builder-live").addEventListener("click", () => runStructureBuilderLiveCommand("save").catch((error) => toast(error.message)));
+$("#test-place-structure-builder-live").addEventListener("click", () => runStructureBuilderLiveCommand("test-place").catch((error) => toast(error.message)));
+$("#structure-builder-external-file").addEventListener("change", (event) => {
+  addExternalStructure(event.target.files?.[0]).catch((error) => toast(error.message));
+  event.target.value = "";
+});
+setInterval(() => {
+  if (state.structureBuilder?.live_world_exists) loadStructureBuilder().catch(() => {});
+}, 1500);
 $("#add-game-item").addEventListener("click", () => addGameDefinition("item"));
 $("#add-game-variable").addEventListener("click", () => addGameDefinition("variable"));
 $("#save-game-definitions").addEventListener("click", saveGameDefinitions);
@@ -14698,13 +14921,11 @@ $("#underground-module-canvas").addEventListener("click", (event) => {
   const rect = event.currentTarget.getBoundingClientRect(), canvasX = (event.clientX - rect.left) * event.currentTarget.width / rect.width, canvasZ = (event.clientY - rect.top) * event.currentTarget.height / rect.height, x = Math.round((canvasX - transform.offsetX) / transform.scale), z = Math.round((canvasZ - transform.offsetZ) / transform.scale);
   if (state.undergroundModuleEditor.placing) { const structure = $("#underground-module-structure").value; if (!structure) return; const id = undergroundNextModuleId(); state.undergroundRoad.modules.push({ id, structure, position: { x, y: Number($("#underground-module-level").value || 0), z }, rotation: "none" }); state.undergroundModuleEditor.selectedId = id; state.undergroundModuleEditor.placing = false; $("#add-underground-module").textContent = "＋ 조각 배치"; }
   else { const hit = [...state.undergroundRoad.modules].reverse().find((module) => { const item = undergroundModuleBounds(module); return x >= item.minX && x < item.maxX && z >= item.minZ && z < item.maxZ; }); state.undergroundModuleEditor.selectedId = hit?.id || null; }
-  renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts();
+  renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadEndpoints();
 });
-$("#rotate-underground-module").addEventListener("click", () => { const module = state.undergroundRoad?.modules?.find((item) => item.id === state.undergroundModuleEditor.selectedId); if (!module) return; module.rotation = undergroundRotations[(undergroundRotations.indexOf(module.rotation) + 1) % undergroundRotations.length]; renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts(); });
-$("#remove-underground-module").addEventListener("click", () => { if (!state.undergroundRoad || !state.undergroundModuleEditor.selectedId) return; state.undergroundRoad.modules = state.undergroundRoad.modules.filter((item) => item.id !== state.undergroundModuleEditor.selectedId); state.undergroundModuleEditor.selectedId = state.undergroundRoad.modules[0]?.id || null; renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadPorts(); });
-$("#underground-module-selection").addEventListener("input", (event) => { const module = state.undergroundRoad?.modules?.find((item) => item.id === state.undergroundModuleEditor.selectedId); if (!module) return; if (event.target.dataset.undergroundModuleAxis) module.position[event.target.dataset.undergroundModuleAxis] = Number(event.target.value); if (event.target.matches("[data-underground-module-rotation]")) module.rotation = event.target.value; renderUndergroundModuleCanvas(); renderUndergroundRoadPorts(); });
-$("#add-underground-port").addEventListener("click", () => { if (!state.undergroundRoad) return; const tag = $("#underground-port-tag").value.trim(), value = $("#underground-port-connector").value; if (!tag || !/^[a-z0-9_.-]+$/.test(tag) || !value) { toast("포트 태그와 열린 커넥터를 확인해 주세요."); return; } if (state.undergroundRoad.ports[tag]) { toast("이미 사용 중인 포트 태그입니다."); return; } const slash = value.indexOf("/"), module = value.slice(0, slash), connector = value.slice(slash + 1); if (Object.values(state.undergroundRoad.ports).some((port) => port.module === module && port.connector === connector)) { toast("이미 등록된 커넥터입니다."); return; } state.undergroundRoad.ports[tag] = { display_name: $("#underground-port-name").value.trim() || tag, module, connector }; $("#underground-port-tag").value = ""; $("#underground-port-name").value = ""; renderUndergroundRoadPorts(); });
-$("#underground-road-port-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-underground-port]"); if (!button || !state.undergroundRoad) return; delete state.undergroundRoad.ports[button.dataset.removeUndergroundPort]; renderUndergroundRoadPorts(); });
+$("#rotate-underground-module").addEventListener("click", () => { const module = state.undergroundRoad?.modules?.find((item) => item.id === state.undergroundModuleEditor.selectedId); if (!module) return; module.rotation = undergroundRotations[(undergroundRotations.indexOf(module.rotation) + 1) % undergroundRotations.length]; renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadEndpoints(); });
+$("#remove-underground-module").addEventListener("click", () => { if (!state.undergroundRoad || !state.undergroundModuleEditor.selectedId) return; state.undergroundRoad.modules = state.undergroundRoad.modules.filter((item) => item.id !== state.undergroundModuleEditor.selectedId); state.undergroundModuleEditor.selectedId = state.undergroundRoad.modules[0]?.id || null; renderUndergroundModuleCanvas(); renderUndergroundModuleSelection(); renderUndergroundRoadEndpoints(); });
+$("#underground-module-selection").addEventListener("input", (event) => { const module = state.undergroundRoad?.modules?.find((item) => item.id === state.undergroundModuleEditor.selectedId); if (!module) return; if (event.target.dataset.undergroundModuleAxis) module.position[event.target.dataset.undergroundModuleAxis] = Number(event.target.value); if (event.target.matches("[data-underground-module-rotation]")) module.rotation = event.target.value; renderUndergroundModuleCanvas(); renderUndergroundRoadEndpoints(); });
 $("#cave-form").addEventListener("input", (event) => { if (handleCavePlacementInput(event) || handleCavePreviewInspectorInput(event)) return; updateCaveFromForm(); if (event.target.dataset.field === "trainer_id") updateTrainerPartyStripForSelect(event.target); renderCaveLayoutPreview(); });
 $("#cave-form").addEventListener("change", (event) => { if (handleCavePlacementInput(event) || handleCavePreviewInspectorInput(event)) return; updateCaveFromForm(); if (event.target.dataset.field === "trainer_id") updateTrainerPartyStripForSelect(event.target); renderCaveLayoutPreview(); });
 $("#cave-form").addEventListener("click", handleCaveEditorClick);
@@ -15023,7 +15244,7 @@ $("#cancel-route").addEventListener("click", cancelRouteConnection);
 $("#undo-route-anchor").addEventListener("click", undoRouteAnchor);
 $$('[data-map-tool]').forEach((button) => button.addEventListener("click", () => setActiveMapTool(button.dataset.mapTool)));
 $("#cave-tool-cave").addEventListener("change", refreshCaveToolEntrances);
-$("#underground-road-tool-road").addEventListener("change", refreshUndergroundRoadToolPorts);
+$("#underground-road-tool-road").addEventListener("change", refreshUndergroundRoadToolConnections);
 $("#forest-tool-forest").addEventListener("change", refreshForestToolEntrances);
 $("#world-entrance-kind").addEventListener("change", (event) => {
   $$('[data-world-entrance-panel]').forEach((panel) => panel.hidden = panel.dataset.worldEntrancePanel !== event.target.value);
@@ -15116,13 +15337,20 @@ $$('[data-town-library]').forEach((button) => button.addEventListener("click", (
 $("#town-manual-road-width").addEventListener("input", (event) => setTownManualRoadWidth(event.target.value));
 $("#town-manual-road-settings").addEventListener("click", (event) => { const button=event.target.closest("[data-town-road-width]"); if(button)setTownManualRoadWidth(button.dataset.townRoadWidth); });
 $("#town-manual-search").addEventListener("input", renderTownManualAssets);
-$("#town-manual-assets").addEventListener("click", (event) => {
+$("#town-manual-assets").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-town-asset]"); if (!button) return;
   const catalog = JSON.parse($("#town-manual-assets").dataset.catalog || "[]");
   state.townManualEditor.asset = catalog[Number(button.dataset.townAsset)];
   state.townManualEditor.tool = state.townManualEditor.asset?.kind === "road" ? "road" : "place";
   state.townManualEditor.selected = null;
   renderTownManualToolState(); renderTownManualAssets(); renderTownManualProperties(); renderTownManualCanvas();
+  const selectedStructure = state.townManualEditor.asset?.structure;
+  if (selectedStructure && !state.structureSizes[selectedStructure]?.top_view) {
+    await ensureStructureTopView(selectedStructure);
+    if (state.townManualEditor.asset?.structure === selectedStructure) {
+      renderTownManualAssetPreview(); renderTownManualCanvas();
+    }
+  }
 });
 $$('[data-town-tool]').forEach((button) => button.addEventListener("click", () => {
   state.townManualEditor.tool = button.dataset.townTool; state.townManualEditor.asset = null;

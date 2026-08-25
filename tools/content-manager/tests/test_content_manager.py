@@ -1215,7 +1215,7 @@ class ContentManagerTests(unittest.TestCase):
             metadata["underground_connectors"],
         )
 
-    def test_underground_road_ports_must_match_open_module_connectors(self) -> None:
+    def test_underground_road_exposes_open_module_connectors_without_ports(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             structure = root / "content/structures/underground_road_modules/test_passage.nbt"
@@ -1231,19 +1231,26 @@ class ContentManagerTests(unittest.TestCase):
                 "display_name": {"ko_kr": "시험 통로"},
                 "modules": [{"id": "module_1", "structure": "cobbleventure:underground_road_modules/test_passage", "position": {"x": 0, "y": 0, "z": 0}, "rotation": "none"}],
                 "dimension": {"id": "cobbleventure:dungeons", "region_id": "generation_1/test_passage", "origin": {"x": 0, "y": 32, "z": 0}},
-                "ports": {"exit_1": {"display_name": "1번 출구", "module": "module_1", "connector": "exit_1"}, "missing": {"display_name": "없는 출구", "module": "module_1", "connector": "missing"}},
             }
 
             _, issues = content_manager.validate_underground_road_document(document, Path("candidate.json"), root)
-            self.assertTrue(any("연결되지 않은 위쪽 계단 커넥터" in issue.message for issue in issues))
-            self.assertTrue(any("해당 커넥터가 없습니다" in issue.message for issue in issues))
-            document["ports"] = {"exit_1": {"display_name": "1번 출구", "module": "module_1", "connector": "exit_1"}, "exit_2": {"display_name": "2번 출구", "module": "module_1", "connector": "exit_2"}}
-            _, valid_issues = content_manager.validate_underground_road_document(document, Path("candidate.json"), root)
-            self.assertFalse(any(issue.level == "error" for issue in valid_issues))
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            self.assertEqual([
+                {"module": "module_1", "connector": "exit_1"},
+                {"module": "module_1", "connector": "exit_2"},
+            ], content_manager._underground_road_endpoints(document, root))
+            document["ports"] = {}
+            _, legacy_issues = content_manager.validate_underground_road_document(document, Path("candidate.json"), root)
+            self.assertTrue(any("월드맵 입구 배치" in issue.message for issue in legacy_issues))
 
-    def test_underground_road_list_exposes_ports_for_world_map_tool(self) -> None:
+    def test_underground_road_list_exposes_endpoints_for_world_map_tool(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            structure = root / "content/structures/underground_road_modules/test_passage.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._underground_road_nbt(
+                ("exit_1", (5, 7, 5), "up"), ("exit_2", (10, 7, 10), "up"),
+            ))
             path = root / "content/underground_roads/generation_2/test_passage.json"
             path.parent.mkdir(parents=True)
             path.write_text(json.dumps({
@@ -1253,15 +1260,16 @@ class ContentManagerTests(unittest.TestCase):
                 "display_name": {"ko_kr": "시험 통로"},
                 "modules": [{"id": "module_1", "structure": "cobbleventure:underground_road_modules/test_passage", "position": {"x": 0, "y": 0, "z": 0}, "rotation": "none"}],
                 "dimension": {"id": "cobbleventure:dungeons", "region_id": "generation_2/test_passage", "origin": {"x": 0, "y": 32, "z": 0}},
-                "ports": {"exit_1": {"display_name": "1번 출구", "module": "module_1", "connector": "exit_1"}, "exit_2": {"display_name": "2번 출구", "module": "module_1", "connector": "exit_2"}},
             }), encoding="utf-8")
 
             summaries = content_manager._list_documents(root, "underground-roads")
 
             self.assertEqual(2, summaries[0]["generation"])
-            self.assertEqual(2, summaries[0]["port_count"])
             self.assertEqual(1, summaries[0]["module_count"])
-            self.assertEqual("1번 출구", summaries[0]["ports"]["exit_1"]["display_name"])
+            self.assertEqual([
+                {"module": "module_1", "connector": "exit_1"},
+                {"module": "module_1", "connector": "exit_2"},
+            ], summaries[0]["endpoints"])
 
     def test_underground_road_accepts_adjacent_opposite_module_connectors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1281,10 +1289,6 @@ class ContentManagerTests(unittest.TestCase):
                     {"id": "left", "structure": "cobbleventure:underground_road_modules/left_stair", "position": {"x": 0, "y": 0, "z": 0}, "rotation": "none"},
                     {"id": "right", "structure": "cobbleventure:underground_road_modules/right_stair", "position": {"x": 16, "y": 0, "z": 0}, "rotation": "none"},
                 ],
-                "ports": {
-                    "exit_1": {"display_name": "왼쪽 계단", "module": "left", "connector": "surface"},
-                    "exit_2": {"display_name": "오른쪽 계단", "module": "right", "connector": "surface"},
-                },
             }
 
             _, issues = content_manager.validate_underground_road_document(document, Path("candidate.json"), root)
@@ -1304,6 +1308,43 @@ class ContentManagerTests(unittest.TestCase):
             model["palette"],
         )
         self.assertEqual([61, 62, 63, 63], [block[4] for block in model["blocks"]])
+
+    def test_structure_size_reader_skips_full_nbt_materialization(self) -> None:
+        data = self._structure_nbt_with_blocks()
+
+        with mock.patch.object(
+            content_manager,
+            "_read_minecraft_structure_root",
+            side_effect=AssertionError("size lookup must not build the full NBT tree"),
+        ):
+            size = content_manager.read_minecraft_structure_size(data)
+
+        self.assertEqual((4, 4, 4), size)
+
+    def test_structure_size_catalog_keeps_unselected_mod_previews_lightweight(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mods = root / "pack/overrides/development-placeholder/mods"
+            mods.mkdir(parents=True)
+            with zipfile.ZipFile(mods / "structures.jar", "w") as archive:
+                archive.writestr(
+                    "data/example/structure/town/center.nbt",
+                    self._structure_nbt_with_blocks(),
+                )
+                archive.writestr(
+                    "data/bca/structure/default/one_off/pokecenter.nbt",
+                    self._structure_nbt_with_blocks(),
+                )
+
+            catalog = content_manager.load_structure_size_catalog(root)
+
+            lightweight = catalog["structures"]["example:town/center"]
+            required = catalog["structures"]["bca:default/one_off/pokecenter"]
+            self.assertEqual(
+                {"width", "height", "depth", "source"}, set(lightweight)
+            )
+            self.assertIn("top_view", required)
+            self.assertIn("cutaway_view", required)
 
     def test_structure_viewer_catalog_only_includes_managed_and_required_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -4448,17 +4489,24 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertIn('id="gacha-machine-list"', html)
         self.assertIn('id="gacha-machine-editor"', html)
+        self.assertNotIn('id="gacha-reward-catalog"', html)
+        self.assertNotIn("공통 가챠 상품 카탈로그", html)
         self.assertIn('id="save-gacha-machines"', html)
         self.assertIn('request("/api/gacha-machines"', script)
         self.assertIn("renderGachaMachines", script)
         self.assertIn("addGachaSet", script)
         self.assertIn("공통 티켓", script)
-        self.assertIn("가챠 상품 원본", script)
+        self.assertIn("상품 · 확률 설정", script)
+        self.assertIn("data-gacha-add-pokemon", script)
+        self.assertIn("data-gacha-add-item", script)
+        self.assertIn("data-gacha-reward=\"level\"", script)
         self.assertIn("Cobblemon Casino의 실제 2블록 가챠머신 모델", script)
         self.assertIn("appearance/model_block", script)
         self.assertIn("appearance/facing", script)
-        self.assertIn("reward_catalog:state.gachaMachines.reward_catalog", script)
-        self.assertIn("catalog_id", script)
+        self.assertNotIn("reward_catalog:state.gachaMachines.reward_catalog", script)
+        self.assertIn("data-gacha-add-theme", script)
+        self.assertIn("data-gacha-theme-path", script)
+        self.assertIn("1회 티켓 소모량", script)
         self.assertIn('class="panel gacha-item-graphics"', html)
         self.assertIn('data-gacha-graphic-file="coin_case"', html)
         self.assertIn('data-gacha-graphic-file="gacha_ticket_pokemon"', html)
@@ -4466,14 +4514,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-gacha-graphic-file="gacha_ticket_technical_machine"', html)
         self.assertIn('request("/api/gacha-item-graphics"', script)
         self.assertIn(".gacha-machine-workspace", styles)
-        self.assertIn(".gacha-catalog-table", styles)
+        self.assertIn(".gacha-direct-picker", styles)
 
     def test_gacha_machine_catalog_validates_and_saves_machine_specific_profiles(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
             catalog["machines"][0]["appearance"]["model_block"] = "cobblemoncasino:event_gacha_machine"
-            catalog["machines"][0]["pity"]["hard"]["count"] = 50
+            catalog["machines"][0]["themes"][0]["pity"]["hard"]["count"] = 50
 
             issues = content_manager.save_gacha_machine_catalog(root, catalog)
 
@@ -4481,14 +4529,35 @@ class ContentManagerTests(unittest.TestCase):
             saved = content_manager.load_json(root / "content/catalogs/gacha-machines.json")
             self.assertEqual("cobblemoncasino:event_gacha_machine", saved["machines"][0]["appearance"]["model_block"])
             self.assertEqual("north", saved["machines"][0]["appearance"]["facing"])
-            self.assertEqual(50, saved["machines"][0]["pity"]["hard"]["count"])
+            self.assertEqual(50, saved["machines"][0]["themes"][0]["pity"]["hard"]["count"])
             self.assertEqual("pokemon", saved["machines"][0]["machine_type"])
             self.assertEqual("포켓몬 가챠 티켓", saved["tickets"]["pokemon"]["display_name"])
             self.assertNotIn("ticket", saved["machines"][0])
             self.assertEqual(3, len(saved["casino_sets"][0]["machines"]))
-            self.assertEqual("pikachu", saved["reward_catalog"][0]["id"])
-            self.assertEqual("pikachu", saved["machines"][0]["rarities"][0]["rewards"][0]["catalog_id"])
-            self.assertNotIn("value", saved["machines"][0]["rarities"][0]["rewards"][0])
+            self.assertEqual(1, saved["machines"][0]["themes"][0]["ticket_cost"])
+            reward = saved["machines"][0]["themes"][0]["rarities"][0]["rewards"][0]
+            self.assertEqual("pikachu", reward["id"])
+            self.assertEqual("pikachu level=15", reward["value"])
+            self.assertEqual(1, reward["count"])
+
+    def test_gacha_machine_catalog_migrates_legacy_product_catalog_to_direct_rewards(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "content/catalogs/gacha-machines.json"
+            target.parent.mkdir(parents=True)
+            legacy = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
+            legacy["schema_version"] = 5
+            legacy["reward_catalog"] = [{"id": "pikachu", "display_name": "피카츄", "machine_type": "pokemon", "kind": "pokemon", "value": "pikachu level=25", "count": 1}]
+            legacy["machines"][0]["themes"][0]["rarities"][0]["rewards"] = [{"catalog_id": "pikachu", "weight": 2.0, "selectable": True}]
+            target.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+
+            migrated = content_manager.gacha_machine_catalog_payload(root)
+
+            reward = migrated["machines"][0]["themes"][0]["rarities"][0]["rewards"][0]
+            self.assertEqual(6, migrated["schema_version"])
+            self.assertNotIn("reward_catalog", migrated)
+            self.assertEqual("pikachu level=25", reward["value"])
+            self.assertEqual(2.0, reward["weight"])
 
     def test_gacha_machine_catalog_rejects_non_machine_appearance(self) -> None:
         catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
@@ -4501,22 +4570,23 @@ class ContentManagerTests(unittest.TestCase):
             for issue in issues
         ))
 
-    def test_gacha_machine_catalog_rejects_duplicate_reward_catalog_ids(self) -> None:
+    def test_gacha_machine_catalog_rejects_duplicate_direct_reward_ids(self) -> None:
         catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
-        catalog["reward_catalog"].append(copy.deepcopy(catalog["reward_catalog"][0]))
+        rewards = catalog["machines"][0]["themes"][0]["rarities"][0]["rewards"]
+        rewards.append(copy.deepcopy(rewards[0]))
 
         issues = content_manager.validate_gacha_machine_catalog(PROJECT_ROOT, catalog)
 
         self.assertTrue(any(
-            issue.level == "error" and "카탈로그 ID" in issue.message
+            issue.level == "error" and "보상 ID" in issue.message
             for issue in issues
         ))
 
     def test_gacha_machine_catalog_rejects_duplicate_ids_and_invalid_selection_pity(self) -> None:
         catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
         duplicate = copy.deepcopy(catalog["machines"][0])
-        duplicate["pity"]["selection"]["enabled"] = True
-        for rarity in duplicate["rarities"]:
+        duplicate["themes"][0]["pity"]["selection"]["enabled"] = True
+        for rarity in duplicate["themes"][0]["rarities"]:
             for reward in rarity["rewards"]:
                 reward["selectable"] = False
         catalog["machines"].append(duplicate)
@@ -4536,6 +4606,24 @@ class ContentManagerTests(unittest.TestCase):
         messages = [issue.message for issue in issues if issue.level == "error"]
         self.assertTrue(any("pokemon 종류" in message for message in messages))
         self.assertTrue(any("연결되지 않은 기계" in message for message in messages))
+
+    def test_gacha_machine_accepts_multiple_named_themes_with_independent_ticket_costs(self) -> None:
+        catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
+        machine = catalog["machines"][0]
+        second = copy.deepcopy(machine["themes"][0])
+        second.update({
+            "id": "legendary",
+            "display_name": "전설 포켓몬 가챠",
+            "ticket_cost": 10,
+            "pity_group": "default_casino/pokemon/legendary",
+        })
+        machine["themes"].append(second)
+
+        issues = content_manager.validate_gacha_machine_catalog(PROJECT_ROOT, catalog)
+
+        self.assertFalse(any(issue.level == "error" for issue in issues))
+        self.assertEqual(2, len(machine["themes"]))
+        self.assertEqual(10, machine["themes"][1]["ticket_cost"])
 
     def test_gacha_item_graphic_save_writes_texture_and_item_model(self) -> None:
         source = (
@@ -4676,7 +4764,9 @@ class ContentManagerTests(unittest.TestCase):
                 "cave_entrances": [{
                     "id": "cobbleventure:underground_entrance/test",
                     "underground_road": "cobbleventure:underground_road/test",
-                    "port": "test",
+                    "transition": "underground_entry",
+                    "underground_module": "stairs",
+                    "underground_connector": "surface",
                     "anchor": {"q": 0, "r": 0},
                     "facing": "north",
                     "structure": "cobbleventure:underground_entrance/test",
@@ -4697,7 +4787,7 @@ class ContentManagerTests(unittest.TestCase):
                 root,
                 {"cobbleventure:settlement/test_town"},
                 underground_documents={
-                    "cobbleventure:underground_road/test": {"ports": {"test": {}}},
+                    "cobbleventure:underground_road/test": {"modules": []},
                 },
             )
 
@@ -5474,12 +5564,34 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(str(instance.resolve()), saved["instance_path"])
             self.assertTrue(status["instance_exists"])
 
+    def test_live_editor_uses_a_separate_instance_and_world(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy_instance = root / "legacy"
+            live_instance = root / "live"
+            legacy_instance.mkdir()
+            (live_instance / "saves" / content_manager.LIVE_NBT_EDITOR_WORLD_NAME).mkdir(parents=True)
+
+            saved = content_manager._save_structure_builder_settings(
+                root, str(legacy_instance), str(live_instance)
+            )
+            status = content_manager._structure_builder_status(root)
+
+            self.assertEqual(str(legacy_instance.resolve()), saved["instance_path"])
+            self.assertEqual(str(live_instance.resolve()), saved["live_instance_path"])
+            self.assertTrue(status["live_instance_exists"])
+            self.assertTrue(status["live_world_exists"])
+            self.assertIn(content_manager.LIVE_NBT_EDITOR_WORLD_NAME, status["live_world_path"])
+
     def test_structure_builder_web_controls_are_present(self) -> None:
         web_root = Path(__file__).parents[1] / "web"
         markup = (web_root / "index.html").read_text(encoding="utf-8")
         script = (web_root / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="structure-builder-instance"', markup)
         self.assertIn('id="build-structure-builder"', markup)
+        self.assertIn('id="build-live-nbt-editor"', markup)
+        self.assertIn('id="structure-builder-live-instance"', markup)
+        self.assertIn('id="structure-builder-live-source"', markup)
         self.assertIn('id="sync-structure-builder"', markup)
         self.assertIn('id="import-structure-builder"', markup)
         self.assertIn('id="build-export-language"', markup)
@@ -5578,6 +5690,51 @@ class ContentManagerTests(unittest.TestCase):
             self.assertFalse(any(issue.level == "error" for issue in issues))
             self.assertEqual(defaults, content_manager.load_building_settings(root)["facility_defaults"])
             self.assertEqual(defaults, content_manager.building_settings_payload(root)["facility_defaults"])
+
+    def test_building_settings_connect_transition_anchors_like_doors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            exterior = root / "content/structures/houses/test_house.nbt"
+            interior = root / "content/structures/interiors/test_room.nbt"
+            exterior.parent.mkdir(parents=True)
+            interior.parent.mkdir(parents=True)
+            exterior.write_bytes(self._structure_nbt((8, 5, 8)))
+            interior.write_bytes(self._structure_nbt((8, 5, 8)))
+            exterior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "transition", "label": "entrance",
+                    "position": [1, 1, 1], "safe_spawn": [1, 1, 2],
+                    "facing": "south",
+                }],
+            }), encoding="utf-8")
+            interior.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "transition", "label": "exit",
+                    "position": [2, 1, 2], "safe_spawn": [2, 1, 3],
+                    "facing": "south",
+                }],
+            }), encoding="utf-8")
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {"cobbleventure:houses/test_house": {
+                    "fixed_npcs": {},
+                    "citizen_placement_allowed": False,
+                    "interiors": [{
+                        "key": "room", "structure": "cobbleventure:interiors/test_room",
+                    }],
+                    "door_routes": {
+                        "exterior:entrance": {"space": "room", "door": "exit"},
+                    },
+                }},
+            })
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            saved_route = content_manager.load_building_settings(root)["buildings"] \
+                ["cobbleventure:houses/test_house"]["door_routes"]["exterior:entrance"]
+            self.assertEqual("exit", saved_route["door"])
 
     def test_building_settings_accept_numbered_npc_anchor_wildcard(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -6232,14 +6389,26 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('setStatus("complete", "내부 NBT 생성 완료"', script)
         self.assertIn("await lazyDataPromises.buildingSettings;\n    if (!force) return;", script)
         self.assertIn(
-            'requestStructureCache("/api/structure-sizes", force, "NBT 구조물 목록")',
+            'requestStructureCache("/api/structure-sizes", true, "NBT 구조물 목록")',
             script,
         )
         self.assertIn(
-            'requestStructureCache("/api/building-settings", false, "NBT 건물 설정")',
+            'requestStructureCache("/api/structure-sizes", false, "NBT 구조물 목록")',
             script,
         )
+        self.assertIn(
+            'loadBuildingSettingsData(false)',
+            script,
+        )
+        self.assertEqual(
+            1,
+            script.count(
+                'requestStructureCache("/api/building-settings", force, "NBT 건물 설정")'
+            ),
+        )
         self.assertIn("if (!result.data.cache?.refreshing) return result;", script)
+        self.assertIn("async function ensureStructureTopView(structureId)", script)
+        self.assertIn("await ensureStructureTopView(selectedStructure);", script)
         self.assertNotIn('request("/api/building-settings?refresh=1")', script)
         refresh_all = script.split("async function refreshAll", 1)[1].split(
             '$("#starter-generation-list")', 1
@@ -6656,6 +6825,55 @@ class ContentManagerTests(unittest.TestCase):
                 thread.join(timeout=2)
             self.assertTrue(payload["created"])
             self.assertTrue((root / payload["path"]).is_file())
+
+    def test_live_builder_queues_one_structure_and_imports_saved_result(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "project"
+            world = Path(directory) / "world"
+            source = root / "content/structures/houses/test_house.nbt"
+            source.parent.mkdir(parents=True)
+            original = self._structure_nbt((9, 7, 11))
+            source.write_bytes(original)
+            world.mkdir()
+
+            command = content_manager._queue_structure_builder_live_open(
+                root, world, "content/structures/houses/test_house.nbt", [12, 8, 14]
+            )
+
+            live = world / "generated/cobbleventure_builder/live"
+            self.assertEqual("houses/test_house", command["id"])
+            self.assertEqual([12, 8, 14], command["size"])
+            self.assertEqual(original, (live / "inbox/active.nbt").read_bytes())
+            saved = self._structure_nbt((12, 8, 14))
+            (live / "outbox").mkdir(parents=True)
+            (live / "outbox/active.nbt").write_bytes(saved)
+            (live / "outbox/result.json").write_text(json.dumps({
+                "status": "saved",
+                "revision": "game-save-1",
+                "source": "content/structures/houses/test_house.nbt",
+                "size": [12, 8, 14],
+            }), encoding="utf-8")
+
+            receipt = content_manager._import_structure_builder_live_output(root, world)
+
+            self.assertTrue(receipt["imported"])
+            self.assertEqual((12, 8, 14), content_manager.read_minecraft_structure_size(source.read_bytes()))
+            self.assertFalse((live / "outbox/result.json").exists())
+
+    def test_external_nbt_can_be_added_to_managed_structures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = self._structure_nbt((5, 6, 7))
+
+            created = content_manager._add_external_structure(
+                root, "external/test_tower", base64.b64encode(data).decode("ascii")
+            )
+
+            self.assertEqual([5, 6, 7], created["size"])
+            self.assertEqual(
+                data,
+                (root / "content/structures/external/test_tower.nbt").read_bytes(),
+            )
 
 
 if __name__ == "__main__":

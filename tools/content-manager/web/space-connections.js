@@ -112,7 +112,11 @@ function renderLibrary() {
 
 function nodeAnchorEntries(node) {
   const metadata = flow.structures[node.structure] || {};
-  return metadata.door_anchors || [];
+  return [
+    ...(metadata.door_anchors || []).map((anchor) => ({ ...anchor, connectionType: "문" })),
+    ...(selectedGraph()?.kind === "building" ? metadata.transition_anchors || [] : [])
+      .map((anchor) => ({ ...anchor, connectionType: "접촉 영역" })),
+  ];
 }
 
 function nodePorts(node) {
@@ -129,7 +133,7 @@ function nodePorts(node) {
     const left = Math.max(3, Math.min(97, (Number(position[0]) + .5) / width * 100));
     const top = Math.max(3, Math.min(97, (Number(position[2]) + .5) / depth * 100));
     const aboveCut = Number(position[1]) >= cutoff;
-    return `<button class="space-node-port space-map-pin door${active ? " is-active" : ""}${compatible ? " is-compatible" : ""}${aboveCut ? " is-above-cut" : ""}" style="left:${left}%;top:${top}%" type="button" data-port-type="door" data-node-id="${escapeHtml(node.id)}" data-anchor="${escapeHtml(anchor.label)}" title="실제 문 · ${escapeHtml(anchor.label)} · X ${position[0]} / Y ${position[1]} / Z ${position[2]}${aboveCut ? " · 절단면 위 앵커" : ""}"><i></i><span>${escapeHtml(anchor.label)}</span></button>`;
+    return `<button class="space-node-port space-map-pin door${active ? " is-active" : ""}${compatible ? " is-compatible" : ""}${aboveCut ? " is-above-cut" : ""}" style="left:${left}%;top:${top}%" type="button" data-port-type="door" data-node-id="${escapeHtml(node.id)}" data-anchor="${escapeHtml(anchor.label)}" title="${anchor.connectionType} · ${escapeHtml(anchor.label)} · X ${position[0]} / Y ${position[1]} / Z ${position[2]}${aboveCut ? " · 절단면 위 앵커" : ""}"><i></i><span>${escapeHtml(anchor.label)}</span></button>`;
   }).join("");
 }
 
@@ -265,7 +269,7 @@ function renderInspector() {
       </div>
       ${node.kind === "interior" ? '<button class="button danger space-delete" id="delete-space-node" type="button">이 공간 삭제</button>' : ""}`;
   } else if (edge) {
-    inspector.innerHTML = `<header><p class="eyebrow">DOOR LINK</p><h3>${escapeHtml(edge.from.node)}:${escapeHtml(edge.from.anchor)}</h3><small>↔ ${escapeHtml(edge.to.node)}:${escapeHtml(edge.to.anchor)} · 양방향 문 연결</small></header>
+    inspector.innerHTML = `<header><p class="eyebrow">SPACE LINK</p><h3>${escapeHtml(edge.from.node)}:${escapeHtml(edge.from.anchor)}</h3><small>↔ ${escapeHtml(edge.to.node)}:${escapeHtml(edge.to.anchor)} · 양방향 출입구 연결</small></header>
       <div class="space-inspector-fields">
         <p class="space-route-note">두 문은 서로 오갈 수 있습니다. 아래 잠금 조건과 대사는 <b>${escapeHtml(edge.from.node)} → ${escapeHtml(edge.to.node)}</b> 입장 방향에만 적용되고, 반대편 퇴장은 항상 가능합니다.</p>
         <label><span>조건 조합</span><select data-edge-field="condition_mode"><option value="all"${edge.condition_mode !== "any" ? " selected" : ""}>모두 만족</option><option value="any"${edge.condition_mode === "any" ? " selected" : ""}>하나 이상 만족</option></select></label>
@@ -275,7 +279,7 @@ function renderInspector() {
       </div><button class="button danger space-delete" id="delete-space-edge" type="button">연결선 삭제</button>`;
   } else {
     inspector.innerHTML = graph
-      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>아래 내부 공간 리소스를 캔버스로 끌어 놓으세요.</p><p>외부의 <b>문 핀</b>을 내부의 <b>문 핀</b>까지 끌면 하나의 양방향 출입구가 됩니다.</p><p>핀은 NBT 안에 실제 문 블록으로 저장된 위치만 표시합니다.</p><p>연결선을 누르면 외부에서 입장할 때의 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
+      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>아래 내부 공간 리소스를 캔버스로 끌어 놓으세요.</p><p>외부의 <b>출입구 핀</b>을 내부 핀까지 끌면 하나의 양방향 출입구가 됩니다.</p><p>핀은 NBT 안의 실제 문과 배리어 접촉 영역을 함께 표시합니다.</p><p>연결선을 누르면 외부에서 입장할 때의 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
       : '<div class="issues empty">왼쪽에서 오버월드 건물을 선택하세요.</div>';
   }
 }
