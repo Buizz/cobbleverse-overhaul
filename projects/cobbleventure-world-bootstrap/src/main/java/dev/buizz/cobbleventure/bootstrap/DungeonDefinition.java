@@ -199,8 +199,15 @@ record DungeonDefinition(
         BlockPos exitPosition = terrainMode.equals("fixed_template")
             ? blockPosition(terrain, "exit_position") : null;
         List<Encounter> encounters = new ArrayList<>();
+        Set<String> encounterIds = new HashSet<>();
         for (JsonElement element : requiredArray(root, "encounters")) {
             JsonObject encounter = element.getAsJsonObject();
+            String encounterId = requiredString(encounter, "id");
+            if (!encounterIds.add(encounterId)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon encounter ID: " + id + " -> " + encounterId
+                );
+            }
             List<String> npcs = new ArrayList<>();
             for (JsonElement npc : requiredArray(encounter, "npcs")) {
                 String npcId = npc.getAsString();
@@ -233,15 +240,32 @@ record DungeonDefinition(
                         + id + " -> " + requiredString(encounter, "id")
                 );
             }
+            List<String> requirements = new ArrayList<>();
+            for (JsonElement requirement : requiredArray(encounter, "requires")) {
+                String requiredEncounter = requirement.getAsString();
+                if (requiredEncounter.isBlank()
+                    || !requirements.add(requiredEncounter)) {
+                    throw new IllegalStateException(
+                        "Invalid dungeon encounter requirement: " + id + " -> "
+                            + encounterId + " -> " + requiredEncounter
+                    );
+                }
+            }
             encounters.add(new Encounter(
-                requiredString(encounter, "id"),
+                encounterId,
                 List.copyOf(npcs),
                 List.copyOf(opponents),
+                List.copyOf(requirements),
                 blockPosition(encounter, "position"),
                 encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
                 requiredBoolean(encounter, "boss")
             ));
         }
+        Map<String, List<String>> encounterRequirements = new LinkedHashMap<>();
+        encounters.forEach(encounter ->
+            encounterRequirements.put(encounter.id(), encounter.requires())
+        );
+        DungeonEncounterRequirements.validate(id, encounterRequirements);
         long bossCount = encounters.stream().filter(Encounter::boss).count();
         if (bossCount != 1L) {
             throw new IllegalStateException(
@@ -661,6 +685,7 @@ record DungeonDefinition(
         String id,
         List<String> npcs,
         List<String> opponents,
+        List<String> requires,
         BlockPos position,
         float yaw,
         boolean boss

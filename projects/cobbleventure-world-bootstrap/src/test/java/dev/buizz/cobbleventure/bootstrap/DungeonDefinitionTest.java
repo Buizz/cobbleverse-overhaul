@@ -81,6 +81,7 @@ final class DungeonDefinitionTest {
                       "cobbleventure:battle/rocket_power_plant_officer",
                       "cobbleventure:battle/rocket_power_plant_officer"
                     ],
+                    "requires": [],
                     "position": [24, 1, 40],
                     "yaw": 180,
                     "boss": true
@@ -176,6 +177,7 @@ final class DungeonDefinitionTest {
             ),
             definition.encounters().getFirst().opponents()
         );
+        assertTrue(definition.encounters().getFirst().requires().isEmpty());
         assertEquals(2, definition.randomEncounters().maxActive());
         assertEquals(
             "cobblemon:magnemite",

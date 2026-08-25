@@ -288,7 +288,7 @@
     "encounter": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "npcs", "opponents", "position", "boss"],
+      "required": ["id", "npcs", "opponents", "requires", "position", "boss"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "npcs": {
@@ -302,6 +302,11 @@
           "minItems": 2,
           "maxItems": 2,
           "items": { "$ref": "#/$defs/resource_id" }
+        },
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
         },
         "position": { "$ref": "#/$defs/block_position" },
         "yaw": { "type": "number", "minimum": -180, "maximum": 180 },

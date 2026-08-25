@@ -1110,6 +1110,17 @@ final class DungeonSystem {
             ), true);
             return true;
         }
+        List<String> missingRequirements = encounter.requires().stream()
+            .filter(required -> run.encounters().statusById.get(required)
+                != EncounterStatus.DEFEATED)
+            .toList();
+        if (!missingRequirements.isEmpty()) {
+            initiator.displayClientMessage(Component.literal(
+                "[던전] 먼저 완료해야 할 조우: "
+                    + String.join(", ", missingRequirements)
+            ), true);
+            return true;
+        }
         if (status != EncounterStatus.AVAILABLE
             || run.encounters().pendingEncounterId != null
             || run.encounters().statusById.containsValue(EncounterStatus.ACTIVE)) {

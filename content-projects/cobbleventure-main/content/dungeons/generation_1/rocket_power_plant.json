@@ -78,6 +78,7 @@
         "cobbleventure:battle/rocket_power_plant_grunt",
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
+      "requires": [],
       "position": [14, 1, 16],
       "yaw": 90,
       "boss": false
@@ -92,6 +93,7 @@
         "cobbleventure:battle/rocket_power_plant_grunt",
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
+      "requires": [],
       "position": [34, 1, 27],
       "yaw": -90,
       "boss": false
@@ -106,6 +108,7 @@
         "cobbleventure:battle/rocket_power_plant_officer",
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
+      "requires": ["west_grunt", "east_grunt"],
       "position": [24, 1, 40],
       "yaw": 180,
       "boss": true
