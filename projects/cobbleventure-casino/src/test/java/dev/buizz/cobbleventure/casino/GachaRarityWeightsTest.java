@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Test;
 final class GachaRarityWeightsTest {
     @Test
     void hardPityExposesOnlyTheGuaranteedRarity() {
-        GachaCatalog.Machine machine = machine();
-        machine.pity.hard.enabled = true;
-        machine.pity.hard.count = 10;
-        machine.pity.hard.target_rarity = "rare";
+        GachaCatalog.Theme theme = theme();
+        theme.pity.hard.enabled = true;
+        theme.pity.hard.count = 10;
+        theme.pity.hard.target_rarity = "rare";
 
         Map<GachaCatalog.Rarity, Double> weights =
-            CobbleventureCasino.rarityWeights(machine, 9);
+            CobbleventureCasino.rarityWeights(theme, 9);
 
         assertEquals(1, weights.size());
         assertEquals("rare", weights.keySet().iterator().next().id);
@@ -24,15 +24,15 @@ final class GachaRarityWeightsTest {
 
     @Test
     void softPityRaisesTheDisplayedTargetChance() {
-        GachaCatalog.Machine machine = machine();
-        machine.pity.soft.enabled = true;
-        machine.pity.soft.start = 2;
-        machine.pity.soft.max_at = 6;
-        machine.pity.soft.target_rarity = "rare";
-        machine.pity.soft.max_chance = .5D;
+        GachaCatalog.Theme theme = theme();
+        theme.pity.soft.enabled = true;
+        theme.pity.soft.start = 2;
+        theme.pity.soft.max_at = 6;
+        theme.pity.soft.target_rarity = "rare";
+        theme.pity.soft.max_chance = .5D;
 
-        double base = normalizedRareChance(CobbleventureCasino.rarityWeights(machine, 0));
-        double boosted = normalizedRareChance(CobbleventureCasino.rarityWeights(machine, 5));
+        double base = normalizedRareChance(CobbleventureCasino.rarityWeights(theme, 0));
+        double boosted = normalizedRareChance(CobbleventureCasino.rarityWeights(theme, 5));
 
         assertTrue(boosted > base);
         assertEquals(.5D, boosted, 1.0E-9D);
@@ -45,7 +45,7 @@ final class GachaRarityWeightsTest {
             .findFirst().orElseThrow().getValue() / total;
     }
 
-    private static GachaCatalog.Machine machine() {
+    private static GachaCatalog.Theme theme() {
         GachaCatalog.Rarity common = new GachaCatalog.Rarity();
         common.id = "common";
         common.weight = 90.0D;
@@ -54,12 +54,12 @@ final class GachaRarityWeightsTest {
         rare.id = "rare";
         rare.weight = 10.0D;
         rare.rewards = List.of();
-        GachaCatalog.Machine machine = new GachaCatalog.Machine();
-        machine.rarities = List.of(common, rare);
-        machine.pity = new GachaCatalog.Pity();
-        machine.pity.soft = new GachaCatalog.Soft();
-        machine.pity.hard = new GachaCatalog.Hard();
-        machine.pity.selection = new GachaCatalog.Selection();
-        return machine;
+        GachaCatalog.Theme theme = new GachaCatalog.Theme();
+        theme.rarities = List.of(common, rare);
+        theme.pity = new GachaCatalog.Pity();
+        theme.pity.soft = new GachaCatalog.Soft();
+        theme.pity.hard = new GachaCatalog.Hard();
+        theme.pity.selection = new GachaCatalog.Selection();
+        return theme;
     }
 }

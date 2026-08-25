@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
 import com.cobblemon.mod.common.pokemon.Species;
 import dev.buizz.cobbleventure.casino.CasinoItems;
 import dev.buizz.cobbleventure.casino.GachaMachineNetwork;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,13 +25,17 @@ import net.minecraft.world.item.component.CustomModelData;
 /** PokeRogue-inspired reward preview with a short server-authoritative reveal. */
 public final class GachaMachineScreen extends Screen {
     private static final int ROW_HEIGHT = 25;
-    private static final int MAX_PANEL_WIDTH = 560;
-    private static final int MAX_PANEL_HEIGHT = 330;
+    private static final int THEME_ROW_HEIGHT = 29;
+    private static final int MAX_PANEL_WIDTH = 680;
+    private static final int MAX_PANEL_HEIGHT = 350;
     private static final int SCREEN_INSET_X = 40;
     private static final int SCREEN_INSET_Y = 36;
     private static final int REVEAL_TICKS = 42;
     private final GachaMachineNetwork.OpenPayload payload;
+    private final List<GachaMachineNetwork.ThemeView> themes;
     private List<GachaMachineNetwork.RewardView> rewards;
+    private int selectedTheme;
+    private int themeScroll;
     private int tickets;
     private int pulls;
     private int hardPity;
@@ -49,17 +54,19 @@ public final class GachaMachineScreen extends Screen {
     private int listTop;
     private int listRight;
     private int listBottom;
+    private int themeLeft;
+    private int themeTop;
+    private int themeRight;
+    private int themeBottom;
     private CasinoMenuTheme menuTheme;
 
     public GachaMachineScreen(GachaMachineNetwork.OpenPayload payload) {
         super(Component.literal(payload.machineName()));
         this.payload = payload;
-        this.rewards = payload.rewards();
+        this.themes = new ArrayList<>(payload.themes());
+        this.rewards = List.of();
         this.tickets = payload.tickets();
-        this.pulls = payload.pullsSinceTarget();
-        this.hardPity = payload.hardPityCount();
-        this.selectionPoints = payload.selectionPoints();
-        this.selectionRequired = payload.selectionRequired();
+        selectTheme(0);
     }
 
     @Override
@@ -71,8 +78,12 @@ public final class GachaMachineScreen extends Screen {
         panelTop = (height - panelHeight) / 2;
         panelRight = panelLeft + panelWidth;
         panelBottom = panelTop + panelHeight;
-        int split = panelLeft + Math.max(230, (panelWidth * 61) / 100);
-        listLeft = panelLeft + 14;
+        themeLeft = panelLeft + 14;
+        themeTop = panelTop + 58;
+        themeRight = Math.min(themeLeft + 142, panelLeft + Math.max(108, panelWidth / 4));
+        themeBottom = panelBottom - 16;
+        int split = panelRight - Math.max(190, panelWidth / 3);
+        listLeft = themeRight + 10;
         listTop = panelTop + 58;
         listRight = split - 8;
         listBottom = panelBottom - 16;
@@ -108,6 +119,10 @@ public final class GachaMachineScreen extends Screen {
 
         renderTicketBadge(graphics);
         graphics.drawString(font,
+            Component.translatable("screen.cobbleventure_casino.gacha.themes"),
+            themeLeft, themeTop - 15, menuTheme.accent, false);
+        renderThemeList(graphics, mouseX, mouseY);
+        graphics.drawString(font,
             Component.translatable("screen.cobbleventure_casino.gacha.pool"),
             listLeft, listTop - 15, menuTheme.accent, false);
         renderRewardList(graphics, mouseX, mouseY);
@@ -141,6 +156,78 @@ public final class GachaMachineScreen extends Screen {
         };
         stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(modelData));
         return stack;
+    }
+
+    private GachaMachineNetwork.ThemeView activeTheme() {
+        return selectedTheme >= 0 && selectedTheme < themes.size() ? themes.get(selectedTheme) : null;
+    }
+
+    private void selectTheme(int index) {
+        if (index < 0 || index >= themes.size()) {
+            selectedTheme = -1;
+            rewards = List.of();
+            pulls = hardPity = selectionPoints = selectionRequired = 0;
+            return;
+        }
+        selectedTheme = index;
+        GachaMachineNetwork.ThemeView theme = themes.get(index);
+        rewards = theme.rewards();
+        pulls = theme.pullsSinceTarget();
+        hardPity = theme.hardPityCount();
+        selectionPoints = theme.selectionPoints();
+        selectionRequired = theme.selectionRequired();
+        scroll = 0;
+        pendingResult = null;
+        state = State.PREVIEW;
+        updateButton();
+    }
+
+    private void renderThemeList(GuiGraphics graphics, int mouseX, int mouseY) {
+        CasinoThemedPanel.roundedFill(
+            graphics, themeLeft, themeTop, themeRight, themeBottom,
+            menuTheme.rowRadius,
+            CasinoThemedPanel.withOpacity(menuTheme.selectedBackground, .42F)
+        );
+        int visible = Math.max(1, (themeBottom - themeTop - 8) / THEME_ROW_HEIGHT);
+        themeScroll = Math.clamp(themeScroll, 0, Math.max(0, themes.size() - visible));
+        graphics.enableScissor(themeLeft, themeTop, themeRight, themeBottom);
+        for (int row = 0; row < visible; row++) {
+            int index = themeScroll + row;
+            if (index >= themes.size()) break;
+            GachaMachineNetwork.ThemeView theme = themes.get(index);
+            int y = themeTop + 4 + row * THEME_ROW_HEIGHT;
+            boolean selected = index == selectedTheme;
+            boolean hovered = mouseX >= themeLeft + 4 && mouseX < themeRight - 4
+                && mouseY >= y && mouseY < y + THEME_ROW_HEIGHT - 3;
+            CasinoThemedPanel.roundedFill(
+                graphics, themeLeft + 4, y, themeRight - 4, y + THEME_ROW_HEIGHT - 3,
+                menuTheme.rowRadius,
+                selected ? menuTheme.selectedBackground
+                    : hovered ? menuTheme.hoverBackground : menuTheme.background
+            );
+            if (selected) CasinoThemedPanel.roundedFill(
+                graphics, themeLeft + 6, y + 3, themeLeft + 9, y + THEME_ROW_HEIGHT - 6,
+                1, menuTheme.accent
+            );
+            int textLeft = themeLeft + (selected ? 13 : 9);
+            graphics.drawString(font,
+                font.plainSubstrByWidth(theme.name(), Math.max(20, themeRight - textLeft - 8)),
+                textLeft, y + 5, selected ? menuTheme.selectedTextColor : menuTheme.textColor, false);
+            graphics.drawString(font, theme.ticketCost() + "장",
+                textLeft, y + 16, menuTheme.mutedText(), false);
+        }
+        graphics.disableScissor();
+        if (themes.size() > visible) {
+            int trackTop = themeTop + 4;
+            int trackBottom = themeBottom - 4;
+            int thumb = Math.max(14, (trackBottom - trackTop) * visible / themes.size());
+            int maxScroll = themes.size() - visible;
+            int thumbTop = trackTop + (trackBottom - trackTop - thumb) * themeScroll / maxScroll;
+            graphics.fill(themeRight - 3, trackTop, themeRight - 1, trackBottom,
+                CasinoThemedPanel.withOpacity(menuTheme.border, .45F));
+            graphics.fill(themeRight - 3, thumbTop, themeRight - 1, thumbTop + thumb,
+                menuTheme.accent);
+        }
     }
 
     private void renderRewardList(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -205,8 +292,10 @@ public final class GachaMachineScreen extends Screen {
             1.0F, menuTheme.accent
         );
         int centerX = (left + right) / 2;
+        GachaMachineNetwork.ThemeView theme = activeTheme();
         graphics.drawCenteredString(font,
-            Component.translatable("screen.cobbleventure_casino.gacha.machine"),
+            theme == null ? Component.translatable("screen.cobbleventure_casino.gacha.machine")
+                : Component.literal(theme.name()),
             centerX, top + 12, menuTheme.mutedText());
 
         if (state == State.ROLLING) {
@@ -262,11 +351,30 @@ public final class GachaMachineScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (mouseX >= themeLeft && mouseX < themeRight && mouseY >= themeTop && mouseY < themeBottom) {
+            themeScroll = Math.max(0, themeScroll + (scrollY < 0 ? 1 : -1));
+            return true;
+        }
         if (mouseX >= listLeft && mouseX < listRight && mouseY >= listTop && mouseY < listBottom) {
             scroll = Math.max(0, scroll + (scrollY < 0 ? 1 : -1));
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (state != State.ROLLING && button == 0
+            && mouseX >= themeLeft && mouseX < themeRight
+            && mouseY >= themeTop && mouseY < themeBottom) {
+            int row = ((int) mouseY - themeTop - 4) / THEME_ROW_HEIGHT;
+            int index = themeScroll + row;
+            if (row >= 0 && index >= 0 && index < themes.size()) {
+                selectTheme(index);
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
@@ -285,23 +393,40 @@ public final class GachaMachineScreen extends Screen {
     }
 
     private void pull() {
-        if (state == State.ROLLING || tickets <= 0) return;
+        GachaMachineNetwork.ThemeView theme = activeTheme();
+        if (state == State.ROLLING || theme == null || tickets < theme.ticketCost()) return;
         pendingResult = null;
         animationTicks = 0;
         state = State.ROLLING;
         updateButton();
-        GachaMachineNetwork.pull(payload.token());
+        GachaMachineNetwork.pull(payload.token(), theme.id());
         playTick();
     }
 
     private void reveal() {
         if (pendingResult == null) return;
         tickets = pendingResult.tickets();
-        pulls = pendingResult.pullsSinceTarget();
-        hardPity = pendingResult.hardPityCount();
-        selectionPoints = pendingResult.selectionPoints();
-        selectionRequired = pendingResult.selectionRequired();
-        if (!pendingResult.rewards().isEmpty()) rewards = pendingResult.rewards();
+        int themeIndex = -1;
+        for (int index = 0; index < themes.size(); index++) {
+            if (themes.get(index).id().equals(pendingResult.themeId())) { themeIndex = index; break; }
+        }
+        if (themeIndex >= 0 && pendingResult.success()) {
+            GachaMachineNetwork.ThemeView previous = themes.get(themeIndex);
+            List<GachaMachineNetwork.RewardView> updatedRewards = pendingResult.rewards().isEmpty()
+                ? previous.rewards() : pendingResult.rewards();
+            themes.set(themeIndex, new GachaMachineNetwork.ThemeView(
+                previous.id(), previous.name(), pendingResult.ticketCost(),
+                pendingResult.pullsSinceTarget(), pendingResult.hardPityCount(),
+                pendingResult.selectionPoints(), pendingResult.selectionRequired(), updatedRewards
+            ));
+            if (themeIndex == selectedTheme) {
+                rewards = updatedRewards;
+                pulls = pendingResult.pullsSinceTarget();
+                hardPity = pendingResult.hardPityCount();
+                selectionPoints = pendingResult.selectionPoints();
+                selectionRequired = pendingResult.selectionRequired();
+            }
+        }
         state = pendingResult.success() ? State.REVEALED : State.ERROR;
         if (minecraft != null) minecraft.getSoundManager().play(
             SimpleSoundInstance.forUI(SoundEvents.PLAYER_LEVELUP, 1.15F, 0.45F)
@@ -311,12 +436,12 @@ public final class GachaMachineScreen extends Screen {
 
     private void updateButton() {
         if (pullButton == null) return;
-        pullButton.active = state != State.ROLLING && tickets > 0;
-        pullButton.setMessage(Component.translatable(
-            state == State.ROLLING
-                ? "screen.cobbleventure_casino.gacha.rolling_button"
-                : "screen.cobbleventure_casino.gacha.pull_button"
-        ));
+        GachaMachineNetwork.ThemeView theme = activeTheme();
+        pullButton.active = state != State.ROLLING && theme != null && tickets >= theme.ticketCost();
+        pullButton.setMessage(state == State.ROLLING
+            ? Component.translatable("screen.cobbleventure_casino.gacha.rolling_button")
+            : Component.translatable("screen.cobbleventure_casino.gacha.pull_button_cost",
+                theme == null ? 1 : theme.ticketCost()));
     }
 
     private void playTick() {

@@ -1,6 +1,6 @@
 {
   "$schema": "../schemas/gacha-machines.schema.json",
-  "schema_version": 4,
+  "schema_version": 6,
   "tickets": {
     "pokemon": {
       "display_name": "포켓몬 가챠 티켓",
@@ -21,80 +21,6 @@
       "purchase_max": 64
     }
   },
-  "reward_catalog": [
-    {
-      "id": "pikachu",
-      "display_name": "피카츄",
-      "machine_type": "pokemon",
-      "kind": "pokemon",
-      "value": "pikachu level=15",
-      "count": 1
-    },
-    {
-      "id": "eevee",
-      "display_name": "이브이",
-      "machine_type": "pokemon",
-      "kind": "pokemon",
-      "value": "eevee level=15",
-      "count": 1
-    },
-    {
-      "id": "dratini",
-      "display_name": "미뇽",
-      "machine_type": "pokemon",
-      "kind": "pokemon",
-      "value": "dratini level=20",
-      "count": 1
-    },
-    {
-      "id": "poke_ball",
-      "display_name": "몬스터볼 묶음",
-      "machine_type": "item",
-      "kind": "item",
-      "value": "cobblemon:poke_ball",
-      "count": 5
-    },
-    {
-      "id": "ultra_ball",
-      "display_name": "하이퍼볼 묶음",
-      "machine_type": "item",
-      "kind": "item",
-      "value": "cobblemon:ultra_ball",
-      "count": 3
-    },
-    {
-      "id": "master_ball",
-      "display_name": "마스터볼",
-      "machine_type": "item",
-      "kind": "item",
-      "value": "cobblemon:master_ball",
-      "count": 1
-    },
-    {
-      "id": "protect",
-      "display_name": "방어 기술머신",
-      "machine_type": "technical_machine",
-      "kind": "item",
-      "value": "tmcraft:tm_protect",
-      "count": 1
-    },
-    {
-      "id": "thunder",
-      "display_name": "번개 기술머신",
-      "machine_type": "technical_machine",
-      "kind": "item",
-      "value": "tmcraft:tm_thunder",
-      "count": 1
-    },
-    {
-      "id": "fire_blast",
-      "display_name": "불대문자 기술머신",
-      "machine_type": "technical_machine",
-      "kind": "item",
-      "value": "tmcraft:tm_fireblast",
-      "count": 1
-    }
-  ],
   "casino_sets": [
     {
       "id": "cobbleventure:casino/default",
@@ -110,209 +36,499 @@
     {
       "id": "cobbleventure:starter_gacha",
       "display_name": "포켓몬 가챠",
+      "machine_type": "pokemon",
       "enabled": true,
-      "pity_group": "default_casino/pokemon",
       "appearance": {
         "model_block": "cobblemoncasino:pokemon_gacha_machine",
         "facing": "north",
         "show_nameplate": true
       },
-      "rarities": [
+      "themes": [
         {
-          "id": "common",
-          "display_name": "일반",
-          "weight": 70.0,
-          "rewards": [
+          "id": "standard",
+          "display_name": "일반 포켓몬 가챠",
+          "ticket_cost": 1,
+          "pity_group": "default_casino/pokemon/standard",
+          "rarities": [
             {
-              "catalog_id": "pikachu",
-              "weight": 1.0,
-              "selectable": false
+              "id": "common",
+              "display_name": "일반",
+              "weight": 70.0,
+              "rewards": [
+                {
+                  "id": "pikachu",
+                  "display_name": "피카츄",
+                  "kind": "pokemon",
+                  "value": "pikachu level=15",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
+            },
+            {
+              "id": "rare",
+              "display_name": "희귀",
+              "weight": 25.0,
+              "rewards": [
+                {
+                  "id": "eevee",
+                  "display_name": "이브이",
+                  "kind": "pokemon",
+                  "value": "eevee level=15",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": true
+                }
+              ]
+            },
+            {
+              "id": "legendary",
+              "display_name": "전설",
+              "weight": 5.0,
+              "rewards": [
+                {
+                  "id": "dratini",
+                  "display_name": "미뇽",
+                  "kind": "pokemon",
+                  "value": "dratini level=20",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": true
+                }
+              ]
             }
-          ]
+          ],
+          "pity": {
+            "soft": {
+              "enabled": true,
+              "start": 30,
+              "max_at": 60,
+              "target_rarity": "legendary",
+              "max_chance": 0.25
+            },
+            "hard": {
+              "enabled": true,
+              "count": 80,
+              "target_rarity": "legendary"
+            },
+            "selection": {
+              "enabled": true,
+              "points_per_pull": 1,
+              "required_points": 100
+            }
+          }
         },
         {
-          "id": "rare",
-          "display_name": "희귀",
-          "weight": 25.0,
-          "rewards": [
+          "id": "starter",
+          "display_name": "스타팅 포켓몬 가챠",
+          "ticket_cost": 3,
+          "pity_group": "default_casino/pokemon/starter",
+          "rarities": [
             {
-              "catalog_id": "eevee",
-              "weight": 1.0,
-              "selectable": true
+              "id": "starter",
+              "display_name": "스타팅",
+              "weight": 100.0,
+              "rewards": [
+                {
+                  "id": "bulbasaur",
+                  "display_name": "이상해씨",
+                  "kind": "pokemon",
+                  "value": "bulbasaur level=10",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                },
+                {
+                  "id": "charmander",
+                  "display_name": "파이리",
+                  "kind": "pokemon",
+                  "value": "charmander level=10",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                },
+                {
+                  "id": "squirtle",
+                  "display_name": "꼬부기",
+                  "kind": "pokemon",
+                  "value": "squirtle level=10",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
             }
-          ]
+          ],
+          "pity": {
+            "soft": {
+              "enabled": false,
+              "start": 30,
+              "max_at": 60,
+              "target_rarity": "starter",
+              "max_chance": 1.0
+            },
+            "hard": {
+              "enabled": false,
+              "count": 80,
+              "target_rarity": "starter"
+            },
+            "selection": {
+              "enabled": false,
+              "points_per_pull": 1,
+              "required_points": 100
+            }
+          }
         },
         {
           "id": "legendary",
-          "display_name": "전설",
-          "weight": 5.0,
-          "rewards": [
+          "display_name": "전설 포켓몬 가챠",
+          "ticket_cost": 10,
+          "pity_group": "default_casino/pokemon/legendary",
+          "rarities": [
             {
-              "catalog_id": "dratini",
-              "weight": 1.0,
-              "selectable": true
+              "id": "legendary",
+              "display_name": "전설",
+              "weight": 100.0,
+              "rewards": [
+                {
+                  "id": "articuno",
+                  "display_name": "프리져",
+                  "kind": "pokemon",
+                  "value": "articuno level=50",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                },
+                {
+                  "id": "zapdos",
+                  "display_name": "썬더",
+                  "kind": "pokemon",
+                  "value": "zapdos level=50",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                },
+                {
+                  "id": "moltres",
+                  "display_name": "파이어",
+                  "kind": "pokemon",
+                  "value": "moltres level=50",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
             }
-          ]
+          ],
+          "pity": {
+            "soft": {
+              "enabled": false,
+              "start": 30,
+              "max_at": 60,
+              "target_rarity": "legendary",
+              "max_chance": 1.0
+            },
+            "hard": {
+              "enabled": false,
+              "count": 80,
+              "target_rarity": "legendary"
+            },
+            "selection": {
+              "enabled": false,
+              "points_per_pull": 1,
+              "required_points": 100
+            }
+          }
         }
-      ],
-      "pity": {
-        "soft": {
-          "enabled": true,
-          "start": 30,
-          "max_at": 60,
-          "target_rarity": "legendary",
-          "max_chance": 0.25
-        },
-        "hard": {
-          "enabled": true,
-          "count": 80,
-          "target_rarity": "legendary"
-        },
-        "selection": {
-          "enabled": true,
-          "points_per_pull": 1,
-          "required_points": 100
-        }
-      },
-      "machine_type": "pokemon"
+      ]
     },
     {
       "id": "cobbleventure:item_gacha",
       "display_name": "아이템 가챠",
+      "machine_type": "item",
       "enabled": true,
-      "pity_group": "default_casino/item",
       "appearance": {
         "model_block": "cobblemoncasino:gacha_machine",
         "facing": "north",
         "show_nameplate": true
       },
-      "rarities": [
+      "themes": [
         {
-          "id": "common",
-          "display_name": "일반",
-          "weight": 75.0,
-          "rewards": [
+          "id": "standard",
+          "display_name": "일반 아이템 가챠",
+          "ticket_cost": 1,
+          "pity_group": "default_casino/item/standard",
+          "rarities": [
             {
-              "catalog_id": "poke_ball",
-              "weight": 1.0,
-              "selectable": false
+              "id": "common",
+              "display_name": "일반",
+              "weight": 75.0,
+              "rewards": [
+                {
+                  "id": "poke_ball",
+                  "display_name": "몬스터볼 묶음",
+                  "kind": "item",
+                  "value": "cobblemon:poke_ball",
+                  "count": 5,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
+            },
+            {
+              "id": "rare",
+              "display_name": "희귀",
+              "weight": 20.0,
+              "rewards": [
+                {
+                  "id": "ultra_ball",
+                  "display_name": "하이퍼볼 묶음",
+                  "kind": "item",
+                  "value": "cobblemon:ultra_ball",
+                  "count": 3,
+                  "weight": 1.0,
+                  "selectable": true
+                }
+              ]
+            },
+            {
+              "id": "legendary",
+              "display_name": "전설",
+              "weight": 5.0,
+              "rewards": [
+                {
+                  "id": "master_ball",
+                  "display_name": "마스터볼",
+                  "kind": "item",
+                  "value": "cobblemon:master_ball",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": true
+                }
+              ]
             }
-          ]
+          ],
+          "pity": {
+            "soft": {
+              "enabled": true,
+              "start": 30,
+              "max_at": 60,
+              "target_rarity": "legendary",
+              "max_chance": 0.25
+            },
+            "hard": {
+              "enabled": true,
+              "count": 80,
+              "target_rarity": "legendary"
+            },
+            "selection": {
+              "enabled": true,
+              "points_per_pull": 1,
+              "required_points": 100
+            }
+          }
         },
         {
-          "id": "rare",
-          "display_name": "희귀",
-          "weight": 20.0,
-          "rewards": [
+          "id": "premium_balls",
+          "display_name": "고급 볼 가챠",
+          "ticket_cost": 5,
+          "pity_group": "default_casino/item/premium_balls",
+          "rarities": [
             {
-              "catalog_id": "ultra_ball",
-              "weight": 1.0,
-              "selectable": true
-            }
-          ]
-        },
-        {
-          "id": "legendary",
-          "display_name": "전설",
-          "weight": 5.0,
-          "rewards": [
+              "id": "rare",
+              "display_name": "희귀",
+              "weight": 90.0,
+              "rewards": [
+                {
+                  "id": "ultra_ball",
+                  "display_name": "하이퍼볼 묶음",
+                  "kind": "item",
+                  "value": "cobblemon:ultra_ball",
+                  "count": 3,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
+            },
             {
-              "catalog_id": "master_ball",
-              "weight": 1.0,
-              "selectable": true
+              "id": "legendary",
+              "display_name": "전설",
+              "weight": 10.0,
+              "rewards": [
+                {
+                  "id": "master_ball",
+                  "display_name": "마스터볼",
+                  "kind": "item",
+                  "value": "cobblemon:master_ball",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
             }
-          ]
+          ],
+          "pity": {
+            "soft": {
+              "enabled": true,
+              "start": 10,
+              "max_at": 25,
+              "target_rarity": "legendary",
+              "max_chance": 0.35
+            },
+            "hard": {
+              "enabled": true,
+              "count": 30,
+              "target_rarity": "legendary"
+            },
+            "selection": {
+              "enabled": false,
+              "points_per_pull": 1,
+              "required_points": 100
+            }
+          }
         }
-      ],
-      "pity": {
-        "soft": {
-          "enabled": true,
-          "start": 30,
-          "max_at": 60,
-          "target_rarity": "legendary",
-          "max_chance": 0.25
-        },
-        "hard": {
-          "enabled": true,
-          "count": 80,
-          "target_rarity": "legendary"
-        },
-        "selection": {
-          "enabled": true,
-          "points_per_pull": 1,
-          "required_points": 100
-        }
-      },
-      "machine_type": "item"
+      ]
     },
     {
       "id": "cobbleventure:technical_machine_gacha",
       "display_name": "기술머신 가챠",
+      "machine_type": "technical_machine",
       "enabled": true,
-      "pity_group": "default_casino/technical_machine",
       "appearance": {
         "model_block": "cobblemoncasino:event_gacha_machine",
         "facing": "north",
         "show_nameplate": true
       },
-      "rarities": [
+      "themes": [
         {
-          "id": "common",
-          "display_name": "일반",
-          "weight": 70.0,
-          "rewards": [
+          "id": "standard",
+          "display_name": "일반 기술머신 가챠",
+          "ticket_cost": 1,
+          "pity_group": "default_casino/technical_machine/standard",
+          "rarities": [
             {
-              "catalog_id": "protect",
-              "weight": 1.0,
-              "selectable": false
+              "id": "common",
+              "display_name": "일반",
+              "weight": 70.0,
+              "rewards": [
+                {
+                  "id": "protect",
+                  "display_name": "방어 기술머신",
+                  "kind": "item",
+                  "value": "tmcraft:tm_protect",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
+            },
+            {
+              "id": "rare",
+              "display_name": "희귀",
+              "weight": 25.0,
+              "rewards": [
+                {
+                  "id": "thunder",
+                  "display_name": "번개 기술머신",
+                  "kind": "item",
+                  "value": "tmcraft:tm_thunder",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": true
+                }
+              ]
+            },
+            {
+              "id": "legendary",
+              "display_name": "전설",
+              "weight": 5.0,
+              "rewards": [
+                {
+                  "id": "fire_blast",
+                  "display_name": "불대문자 기술머신",
+                  "kind": "item",
+                  "value": "tmcraft:tm_fireblast",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": true
+                }
+              ]
             }
-          ]
+          ],
+          "pity": {
+            "soft": {
+              "enabled": true,
+              "start": 30,
+              "max_at": 60,
+              "target_rarity": "legendary",
+              "max_chance": 0.25
+            },
+            "hard": {
+              "enabled": true,
+              "count": 80,
+              "target_rarity": "legendary"
+            },
+            "selection": {
+              "enabled": true,
+              "points_per_pull": 1,
+              "required_points": 100
+            }
+          }
         },
         {
-          "id": "rare",
-          "display_name": "희귀",
-          "weight": 25.0,
-          "rewards": [
+          "id": "powerful",
+          "display_name": "고위력 기술머신 가챠",
+          "ticket_cost": 3,
+          "pity_group": "default_casino/technical_machine/powerful",
+          "rarities": [
             {
-              "catalog_id": "thunder",
-              "weight": 1.0,
-              "selectable": true
+              "id": "rare",
+              "display_name": "희귀",
+              "weight": 100.0,
+              "rewards": [
+                {
+                  "id": "thunder",
+                  "display_name": "번개 기술머신",
+                  "kind": "item",
+                  "value": "tmcraft:tm_thunder",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                },
+                {
+                  "id": "fire_blast",
+                  "display_name": "불대문자 기술머신",
+                  "kind": "item",
+                  "value": "tmcraft:tm_fireblast",
+                  "count": 1,
+                  "weight": 1.0,
+                  "selectable": false
+                }
+              ]
             }
-          ]
-        },
-        {
-          "id": "legendary",
-          "display_name": "전설",
-          "weight": 5.0,
-          "rewards": [
-            {
-              "catalog_id": "fire_blast",
-              "weight": 1.0,
-              "selectable": true
+          ],
+          "pity": {
+            "soft": {
+              "enabled": false,
+              "start": 20,
+              "max_at": 40,
+              "target_rarity": "rare",
+              "max_chance": 1.0
+            },
+            "hard": {
+              "enabled": false,
+              "count": 50,
+              "target_rarity": "rare"
+            },
+            "selection": {
+              "enabled": false,
+              "points_per_pull": 1,
+              "required_points": 100
             }
-          ]
+          }
         }
-      ],
-      "pity": {
-        "soft": {
-          "enabled": true,
-          "start": 30,
-          "max_at": 60,
-          "target_rarity": "legendary",
-          "max_chance": 0.25
-        },
-        "hard": {
-          "enabled": true,
-          "count": 80,
-          "target_rarity": "legendary"
-        },
-        "selection": {
-          "enabled": true,
-          "points_per_pull": 1,
-          "required_points": 100
-        }
-      },
-      "machine_type": "technical_machine"
+      ]
     }
   ]
 }

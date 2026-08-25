@@ -66,6 +66,8 @@ public final class CobbleventureCasino {
     private static final String MACHINE_TAG = "cobbleventure_gacha_machine";
     private static final String PROFILE_KEY = "cobbleventureGachaProfile";
     private static final String ANCHOR_KEY = "cobbleventureGachaAnchor";
+    private static final ResourceLocation WORLD_NAME_FONT =
+        ResourceLocation.withDefaultNamespace("uniform");
     private static volatile GachaCatalog catalog = GachaCatalog.empty();
 
     static GachaCatalog catalog() {
@@ -137,7 +139,8 @@ public final class CobbleventureCasino {
         CommandContext<CommandSourceStack> context, SuggestionsBuilder builder
     ) {
         String profile = ResourceLocationArgument.getId(context, "profile").toString();
-        catalog.machine(profile).ifPresent(machine -> machine.rarities.stream()
+        catalog.machine(profile).ifPresent(machine -> machine.themes.stream()
+            .flatMap(theme -> theme.rarities.stream())
             .flatMap(rarity -> rarity.rewards.stream()).filter(reward -> reward.selectable)
             .forEach(reward -> builder.suggest(reward.id)));
         return builder.buildFuture();
@@ -210,7 +213,10 @@ public final class CobbleventureCasino {
         interactionData.putBoolean("response", true);
         interaction.load(interactionData);
         interaction.setInvulnerable(true);
-        interaction.setCustomName(Component.literal(machine.display_name));
+        interaction.setCustomName(
+            Component.literal(machine.display_name)
+                .withStyle(style -> style.withFont(WORLD_NAME_FONT))
+        );
         interaction.setCustomNameVisible(machine.appearance.show_nameplate);
         markMachineEntity(interaction, anchor, profileId);
         return level.addFreshEntity(interaction);
@@ -333,17 +339,19 @@ public final class CobbleventureCasino {
             player.sendSystemMessage(Component.literal("이 기계의 프로필을 찾을 수 없습니다."));
             return;
         }
-        GachaMachineNetwork.open(player, anchor, machine, uiState(player, machine));
+        GachaMachineNetwork.open(player, anchor, machine);
     }
 
-    static GachaUiState uiState(ServerPlayer player, GachaCatalog.Machine machine) {
-        Progress progress = playerData(player.server).progress(player.getUUID(), machine.pity_group);
+    static GachaUiState uiState(
+        ServerPlayer player, GachaCatalog.Machine machine, GachaCatalog.Theme theme
+    ) {
+        Progress progress = playerData(player.server).progress(player.getUUID(), theme.pity_group);
         return new GachaUiState(
             GachaTickets.count(player, machine),
             progress.pullsSinceTarget,
-            machine.pity.hard.enabled ? machine.pity.hard.count : 0,
+            theme.pity.hard.enabled ? theme.pity.hard.count : 0,
             progress.selectionPoints,
-            machine.pity.selection.enabled ? machine.pity.selection.required_points : 0
+            theme.pity.selection.enabled ? theme.pity.selection.required_points : 0
         );
     }
 
@@ -351,38 +359,42 @@ public final class CobbleventureCasino {
         return catalog.machine(profileId).orElse(null);
     }
 
-    static PullOutcome pullForScreen(ServerPlayer player, String profileId) {
+    static PullOutcome pullForScreen(ServerPlayer player, String profileId, String themeId) {
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
-        if (machine == null) return PullOutcome.failure("screen.cobbleventure_casino.gacha.invalid", 0);
-        if (!GachaTickets.take(player, machine, 1)) {
+        GachaCatalog.Theme theme = machine == null ? null : machine.theme(themeId);
+        if (machine == null || theme == null) {
+            return PullOutcome.failure("screen.cobbleventure_casino.gacha.invalid", 0, themeId, 1);
+        }
+        if (!GachaTickets.take(player, machine, theme.ticket_cost)) {
             return PullOutcome.failure(
                 "screen.cobbleventure_casino.gacha.no_ticket",
-                GachaTickets.count(player, machine)
+                GachaTickets.count(player, machine), theme.id, theme.ticket_cost
             );
         }
-        Progress progress = playerData(player.server).progress(player.getUUID(), machine.pity_group);
-        GachaCatalog.Rarity rarity = chooseRarity(player.getRandom(), machine, progress.pullsSinceTarget);
+        Progress progress = playerData(player.server).progress(player.getUUID(), theme.pity_group);
+        GachaCatalog.Rarity rarity = chooseRarity(player.getRandom(), theme, progress.pullsSinceTarget);
         GachaCatalog.Reward reward = weighted(player.getRandom(), rarity.rewards, entry -> entry.weight);
         if (reward == null || !grant(player, reward)) {
-            GachaTickets.give(player, machine, 1);
+            GachaTickets.give(player, machine, theme.ticket_cost);
             return PullOutcome.failure(
                 "screen.cobbleventure_casino.gacha.grant_failed",
-                GachaTickets.count(player, machine)
+                GachaTickets.count(player, machine), theme.id, theme.ticket_cost
             );
         }
-        String resetTarget = machine.pity.hard.enabled ? machine.pity.hard.target_rarity : machine.pity.soft.target_rarity;
+        String resetTarget = theme.pity.hard.enabled ? theme.pity.hard.target_rarity : theme.pity.soft.target_rarity;
         progress.pullsSinceTarget = rarity.id.equals(resetTarget) ? 0 : progress.pullsSinceTarget + 1;
-        if (machine.pity.selection.enabled) progress.selectionPoints += machine.pity.selection.points_per_pull;
+        if (theme.pity.selection.enabled) progress.selectionPoints += theme.pity.selection.points_per_pull;
         playerData(player.server).setDirty();
         player.serverLevel().playSound(null, player.blockPosition(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, .8F, 1.1F);
         return new PullOutcome(
             true, "screen.cobbleventure_casino.gacha.received",
-            GachaTickets.count(player, machine), rarity.id, rarity.display_name,
+            GachaTickets.count(player, machine), theme.id, theme.ticket_cost,
+            rarity.id, rarity.display_name,
             reward.id, reward.kind, reward.value, reward.count,
             progress.pullsSinceTarget,
-            machine.pity.hard.enabled ? machine.pity.hard.count : 0,
+            theme.pity.hard.enabled ? theme.pity.hard.count : 0,
             progress.selectionPoints,
-            machine.pity.selection.enabled ? machine.pity.selection.required_points : 0
+            theme.pity.selection.enabled ? theme.pity.selection.required_points : 0
         );
     }
 
@@ -411,27 +423,27 @@ public final class CobbleventureCasino {
         return GachaTicketVendor.buy(player, machine, IntegerArgumentType.getInteger(context, "amount"));
     }
 
-    private static GachaCatalog.Rarity chooseRarity(RandomSource random, GachaCatalog.Machine machine, int misses) {
-        Map<GachaCatalog.Rarity, Double> weights = rarityWeights(machine, misses);
+    private static GachaCatalog.Rarity chooseRarity(RandomSource random, GachaCatalog.Theme theme, int misses) {
+        Map<GachaCatalog.Rarity, Double> weights = rarityWeights(theme, misses);
         return weighted(random, new ArrayList<>(weights.keySet()), weights::get);
     }
 
-    static Map<GachaCatalog.Rarity, Double> rarityWeights(GachaCatalog.Machine machine, int misses) {
+    static Map<GachaCatalog.Rarity, Double> rarityWeights(GachaCatalog.Theme theme, int misses) {
         int nextPull = misses + 1;
-        if (machine.pity.hard.enabled && nextPull >= machine.pity.hard.count) {
-            GachaCatalog.Rarity forced = machine.rarity(machine.pity.hard.target_rarity);
+        if (theme.pity.hard.enabled && nextPull >= theme.pity.hard.count) {
+            GachaCatalog.Rarity forced = theme.rarity(theme.pity.hard.target_rarity);
             if (forced != null) return Map.of(forced, 1.0D);
         }
         Map<GachaCatalog.Rarity, Double> weights = new LinkedHashMap<>();
-        for (GachaCatalog.Rarity rarity : machine.rarities) weights.put(rarity, Math.max(0.0D, rarity.weight));
-        if (machine.pity.soft.enabled && nextPull >= machine.pity.soft.start) {
-            GachaCatalog.Rarity target = machine.rarity(machine.pity.soft.target_rarity);
+        for (GachaCatalog.Rarity rarity : theme.rarities) weights.put(rarity, Math.max(0.0D, rarity.weight));
+        if (theme.pity.soft.enabled && nextPull >= theme.pity.soft.start) {
+            GachaCatalog.Rarity target = theme.rarity(theme.pity.soft.target_rarity);
             if (target != null) {
                 double total = weights.values().stream().mapToDouble(Double::doubleValue).sum();
                 double baseChance = total <= 0 ? 0 : weights.get(target) / total;
-                double span = Math.max(1, machine.pity.soft.max_at - machine.pity.soft.start);
-                double ratio = Math.min(1.0D, (nextPull - machine.pity.soft.start) / span);
-                double desired = baseChance + (machine.pity.soft.max_chance - baseChance) * ratio;
+                double span = Math.max(1, theme.pity.soft.max_at - theme.pity.soft.start);
+                double ratio = Math.min(1.0D, (nextPull - theme.pity.soft.start) / span);
+                double desired = baseChance + (theme.pity.soft.max_chance - baseChance) * ratio;
                 double others = total - weights.get(target);
                 if (others > 0 && desired > 0 && desired < 1) weights.put(target, desired * others / (1.0D - desired));
             }
@@ -495,14 +507,16 @@ public final class CobbleventureCasino {
         String profile = ResourceLocationArgument.getId(context, "profile").toString();
         GachaCatalog.Machine machine = catalog.machine(profile).orElse(null);
         if (machine == null) { context.getSource().sendFailure(Component.literal("기계 프로필을 찾을 수 없습니다.")); return 0; }
-        sendPityStatus(player, machine, playerData(player.server).progress(player.getUUID(), machine.pity_group));
+        GachaCatalog.Theme theme = machine.defaultTheme();
+        if (theme == null) { context.getSource().sendFailure(Component.literal("가챠 테마가 없습니다.")); return 0; }
+        sendPityStatus(player, theme, playerData(player.server).progress(player.getUUID(), theme.pity_group));
         return 1;
     }
 
-    private static void sendPityStatus(ServerPlayer player, GachaCatalog.Machine machine, Progress progress) {
-        String hard = machine.pity.hard.enabled ? "확정 " + progress.pullsSinceTarget + "/" + machine.pity.hard.count : "확정 꺼짐";
-        String selection = machine.pity.selection.enabled ? "선택 " + progress.selectionPoints + "/" + machine.pity.selection.required_points : "선택 꺼짐";
-        player.sendSystemMessage(Component.literal("[천장] " + hard + " · " + selection));
+    private static void sendPityStatus(ServerPlayer player, GachaCatalog.Theme theme, Progress progress) {
+        String hard = theme.pity.hard.enabled ? "확정 " + progress.pullsSinceTarget + "/" + theme.pity.hard.count : "확정 꺼짐";
+        String selection = theme.pity.selection.enabled ? "선택 " + progress.selectionPoints + "/" + theme.pity.selection.required_points : "선택 꺼짐";
+        player.sendSystemMessage(Component.literal("[천장 · " + theme.display_name + "] " + hard + " · " + selection));
     }
 
     private static int selectReward(CommandContext<CommandSourceStack> context) {
@@ -511,13 +525,14 @@ public final class CobbleventureCasino {
         String profileId = ResourceLocationArgument.getId(context, "profile").toString();
         String rewardId = StringArgumentType.getString(context, "reward");
         GachaCatalog.Machine machine = catalog.machine(profileId).orElse(null);
-        GachaCatalog.Reward reward = machine == null ? null : machine.reward(rewardId);
-        if (machine == null || !machine.pity.selection.enabled || reward == null || !reward.selectable) { context.getSource().sendFailure(Component.literal("선택할 수 없는 보상입니다.")); return 0; }
+        GachaCatalog.Theme theme = machine == null ? null : machine.themeForReward(rewardId);
+        GachaCatalog.Reward reward = theme == null ? null : theme.reward(rewardId);
+        if (theme == null || !theme.pity.selection.enabled || reward == null || !reward.selectable) { context.getSource().sendFailure(Component.literal("선택할 수 없는 보상입니다.")); return 0; }
         PlayerData data = playerData(player.server);
-        Progress progress = data.progress(player.getUUID(), machine.pity_group);
-        if (progress.selectionPoints < machine.pity.selection.required_points) { context.getSource().sendFailure(Component.literal("선택 천장 포인트가 부족합니다: " + progress.selectionPoints + "/" + machine.pity.selection.required_points)); return 0; }
+        Progress progress = data.progress(player.getUUID(), theme.pity_group);
+        if (progress.selectionPoints < theme.pity.selection.required_points) { context.getSource().sendFailure(Component.literal("선택 천장 포인트가 부족합니다: " + progress.selectionPoints + "/" + theme.pity.selection.required_points)); return 0; }
         if (!grant(player, reward)) { context.getSource().sendFailure(Component.literal("보상 지급에 실패했습니다.")); return 0; }
-        progress.selectionPoints -= machine.pity.selection.required_points;
+        progress.selectionPoints -= theme.pity.selection.required_points;
         data.setDirty();
         context.getSource().sendSuccess(() -> Component.literal("[선택 천장] " + reward.id + " 보상을 받았습니다."), false);
         return 1;
@@ -534,15 +549,15 @@ public final class CobbleventureCasino {
     ) {}
 
     record PullOutcome(
-        boolean success, String messageKey, int tickets,
+        boolean success, String messageKey, int tickets, String themeId, int ticketCost,
         String rarityId, String rarityName,
         String rewardId, String rewardKind, String rewardValue, int rewardCount,
         int pullsSinceTarget, int hardPityCount,
         int selectionPoints, int selectionRequired
     ) {
-        static PullOutcome failure(String messageKey, int tickets) {
+        static PullOutcome failure(String messageKey, int tickets, String themeId, int ticketCost) {
             return new PullOutcome(
-                false, messageKey, tickets,
+                false, messageKey, tickets, themeId, ticketCost,
                 "", "", "", "", "", 0,
                 0, 0, 0, 0
             );

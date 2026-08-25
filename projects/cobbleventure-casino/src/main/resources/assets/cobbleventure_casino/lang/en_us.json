@@ -16,6 +16,7 @@
   "message.cobbleventure_casino.game.balance_required": "You have no casino coins. Bring a Coin Case and exchange CobbleDollars with the cashier NPC first.",
   "item.cobbleventure_casino.gacha_ticket": "Gacha Ticket",
   "screen.cobbleventure_casino.gacha.subtitle": "Review the reward pool, then spend a ticket to roll",
+  "screen.cobbleventure_casino.gacha.themes": "GACHA THEMES",
   "screen.cobbleventure_casino.gacha.pool": "REWARDS · CURRENT ODDS",
   "screen.cobbleventure_casino.gacha.machine": "GACHA SYSTEM",
   "screen.cobbleventure_casino.gacha.ready": "Ready to roll",
@@ -25,6 +26,7 @@
   "screen.cobbleventure_casino.gacha.invalid": "This machine session has expired",
   "screen.cobbleventure_casino.gacha.grant_failed": "The reward failed; your ticket was returned",
   "screen.cobbleventure_casino.gacha.pull_button": "ROLL · 1 TICKET",
+  "screen.cobbleventure_casino.gacha.pull_button_cost": "ROLL · %s TICKETS",
   "screen.cobbleventure_casino.gacha.rolling_button": "ROLLING...",
   "screen.cobbleventure_casino.gacha.hard_pity": "Guaranteed pity  %s / %s",
   "screen.cobbleventure_casino.gacha.selection": "Selection points  %s / %s"

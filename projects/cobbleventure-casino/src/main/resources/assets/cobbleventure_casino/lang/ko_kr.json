@@ -16,6 +16,7 @@
   "message.cobbleventure_casino.game.balance_required": "카지노 코인이 없습니다. 동전 케이스를 가지고 환전상 NPC에서 먼저 충전하세요.",
   "item.cobbleventure_casino.gacha_ticket": "가챠 티켓",
   "screen.cobbleventure_casino.gacha.subtitle": "보상 풀을 확인하고 티켓으로 굴려보세요",
+  "screen.cobbleventure_casino.gacha.themes": "가챠 테마",
   "screen.cobbleventure_casino.gacha.pool": "등장 보상 · 현재 확률",
   "screen.cobbleventure_casino.gacha.machine": "GACHA SYSTEM",
   "screen.cobbleventure_casino.gacha.ready": "굴릴 준비가 되었습니다",
@@ -25,6 +26,7 @@
   "screen.cobbleventure_casino.gacha.invalid": "기계 이용 세션이 만료되었습니다",
   "screen.cobbleventure_casino.gacha.grant_failed": "보상 지급에 실패해 티켓을 돌려드렸습니다",
   "screen.cobbleventure_casino.gacha.pull_button": "굴리기 · 티켓 1장",
+  "screen.cobbleventure_casino.gacha.pull_button_cost": "굴리기 · 티켓 %s장",
   "screen.cobbleventure_casino.gacha.rolling_button": "굴리는 중...",
   "screen.cobbleventure_casino.gacha.hard_pity": "확정 천장  %s / %s",
   "screen.cobbleventure_casino.gacha.selection": "선택 포인트  %s / %s"

@@ -22,10 +22,11 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative machine preview and pull protocol. */
 public final class GachaMachineNetwork {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
     private static final long SESSION_TICKS = 20L * 60L * 2L;
     private static final double MAX_DISTANCE_SQUARED = 64.0D;
     private static final int MAX_REWARDS = 512;
+    private static final int MAX_THEMES = 4096;
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
 
     private GachaMachineNetwork() {}
@@ -35,10 +36,7 @@ public final class GachaMachineNetwork {
         NeoForge.EVENT_BUS.addListener(GachaMachineNetwork::onLoggedOut);
     }
 
-    static void open(
-        ServerPlayer player, BlockPos anchor, GachaCatalog.Machine machine,
-        CobbleventureCasino.GachaUiState state
-    ) {
+    static void open(ServerPlayer player, BlockPos anchor, GachaCatalog.Machine machine) {
         UUID token = UUID.randomUUID();
         SESSIONS.put(player.getUUID(), new Session(
             token, machine.id, anchor,
@@ -47,17 +45,30 @@ public final class GachaMachineNetwork {
         ));
         PacketDistributor.sendToPlayer(player, new OpenPayload(
             token, machine.id, machine.machine_type, machine.display_name, machine.ticket.display_name,
-            state.tickets(), state.pullsSinceTarget(), state.hardPityCount(),
-            state.selectionPoints(), state.selectionRequired(),
-            rewardViews(machine, state.pullsSinceTarget())
+            GachaTickets.count(player, machine), themeViews(player, machine)
         ));
     }
 
-    private static List<RewardView> rewardViews(GachaCatalog.Machine machine, int misses) {
-        Map<GachaCatalog.Rarity, Double> rarityWeights = CobbleventureCasino.rarityWeights(machine, misses);
+    private static List<ThemeView> themeViews(ServerPlayer player, GachaCatalog.Machine machine) {
+        List<ThemeView> result = new ArrayList<>();
+        for (GachaCatalog.Theme theme : machine.themes) {
+            if (result.size() >= MAX_THEMES) break;
+            CobbleventureCasino.GachaUiState state = CobbleventureCasino.uiState(player, machine, theme);
+            result.add(new ThemeView(
+                theme.id, theme.display_name, theme.ticket_cost,
+                state.pullsSinceTarget(), state.hardPityCount(),
+                state.selectionPoints(), state.selectionRequired(),
+                rewardViews(theme, state.pullsSinceTarget())
+            ));
+        }
+        return List.copyOf(result);
+    }
+
+    private static List<RewardView> rewardViews(GachaCatalog.Theme theme, int misses) {
+        Map<GachaCatalog.Rarity, Double> rarityWeights = CobbleventureCasino.rarityWeights(theme, misses);
         double rarityTotal = rarityWeights.values().stream().mapToDouble(Double::doubleValue).sum();
         List<RewardView> result = new ArrayList<>();
-        for (GachaCatalog.Rarity rarity : machine.rarities) {
+        for (GachaCatalog.Rarity rarity : theme.rarities) {
             double rewardTotal = rarity.rewards.stream().mapToDouble(entry -> Math.max(0.0D, entry.weight)).sum();
             double rarityChance = rarityTotal <= 0 ? 0 : rarityWeights.getOrDefault(rarity, 0.0D) / rarityTotal;
             for (GachaCatalog.Reward reward : rarity.rewards) {
@@ -98,7 +109,7 @@ public final class GachaMachineNetwork {
             ) > MAX_DISTANCE_SQUARED
             || tick == session.lastPullTick()) {
             context.reply(ResultPayload.failure(
-                payload.token(), "screen.cobbleventure_casino.gacha.invalid", 0
+                payload.token(), payload.themeId(), "screen.cobbleventure_casino.gacha.invalid", 0, 1
             ));
             return;
         }
@@ -107,10 +118,11 @@ public final class GachaMachineNetwork {
             player.serverLevel().getGameTime() + SESSION_TICKS, tick
         ));
         CobbleventureCasino.PullOutcome outcome =
-            CobbleventureCasino.pullForScreen(player, session.profile());
+            CobbleventureCasino.pullForScreen(player, session.profile(), payload.themeId());
         GachaCatalog.Machine machine = CobbleventureCasino.configuredMachine(session.profile());
-        List<RewardView> updatedRewards = outcome.success() && machine != null
-            ? rewardViews(machine, outcome.pullsSinceTarget())
+        GachaCatalog.Theme theme = machine == null ? null : machine.theme(outcome.themeId());
+        List<RewardView> updatedRewards = outcome.success() && theme != null
+            ? rewardViews(theme, outcome.pullsSinceTarget())
             : List.of();
         context.reply(ResultPayload.from(payload.token(), outcome, updatedRewards));
     }
@@ -141,47 +153,66 @@ public final class GachaMachineNetwork {
         }
     }
 
-    public record OpenPayload(
-        UUID token, String profile, String machineType, String machineName, String ticketName,
-        int tickets, int pullsSinceTarget, int hardPityCount,
+    public record ThemeView(
+        String id, String name, int ticketCost,
+        int pullsSinceTarget, int hardPityCount,
         int selectionPoints, int selectionRequired,
         List<RewardView> rewards
+    ) {
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(id); buffer.writeUtf(name); buffer.writeVarInt(ticketCost);
+            buffer.writeVarInt(pullsSinceTarget); buffer.writeVarInt(hardPityCount);
+            buffer.writeVarInt(selectionPoints); buffer.writeVarInt(selectionRequired);
+            buffer.writeVarInt(rewards.size());
+            rewards.forEach(reward -> reward.write(buffer));
+        }
+        private static ThemeView read(RegistryFriendlyByteBuf buffer) {
+            String id = buffer.readUtf(); String name = buffer.readUtf(); int ticketCost = buffer.readVarInt();
+            int pulls = buffer.readVarInt(); int hard = buffer.readVarInt();
+            int points = buffer.readVarInt(); int required = buffer.readVarInt();
+            int size = Math.clamp(buffer.readVarInt(), 0, MAX_REWARDS);
+            List<RewardView> rewards = new ArrayList<>(size);
+            for (int index = 0; index < size; index++) rewards.add(RewardView.read(buffer));
+            return new ThemeView(id, name, ticketCost, pulls, hard, points, required, List.copyOf(rewards));
+        }
+    }
+
+    public record OpenPayload(
+        UUID token, String profile, String machineType, String machineName, String ticketName,
+        int tickets, List<ThemeView> themes
     ) implements CustomPacketPayload {
         public static final Type<OpenPayload> TYPE = new Type<>(id("gacha_open"));
         public static final StreamCodec<RegistryFriendlyByteBuf, OpenPayload> STREAM_CODEC =
             StreamCodec.ofMember(OpenPayload::write, OpenPayload::read);
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUUID(token); buffer.writeUtf(profile); buffer.writeUtf(machineType); buffer.writeUtf(machineName); buffer.writeUtf(ticketName);
-            buffer.writeVarInt(tickets); buffer.writeVarInt(pullsSinceTarget); buffer.writeVarInt(hardPityCount);
-            buffer.writeVarInt(selectionPoints); buffer.writeVarInt(selectionRequired);
-            buffer.writeVarInt(rewards.size());
-            rewards.forEach(reward -> reward.write(buffer));
+            buffer.writeVarInt(tickets); buffer.writeVarInt(themes.size());
+            themes.forEach(theme -> theme.write(buffer));
         }
         private static OpenPayload read(RegistryFriendlyByteBuf buffer) {
             UUID token = buffer.readUUID();
             String profile = buffer.readUtf(); String machineType = buffer.readUtf();
             String machine = buffer.readUtf(); String ticket = buffer.readUtf();
-            int tickets = buffer.readVarInt(); int pulls = buffer.readVarInt(); int hard = buffer.readVarInt();
-            int points = buffer.readVarInt(); int required = buffer.readVarInt();
-            int size = Math.clamp(buffer.readVarInt(), 0, MAX_REWARDS);
-            List<RewardView> rewards = new ArrayList<>(size);
-            for (int index = 0; index < size; index++) rewards.add(RewardView.read(buffer));
-            return new OpenPayload(token, profile, machineType, machine, ticket, tickets, pulls, hard, points, required, List.copyOf(rewards));
+            int tickets = buffer.readVarInt(); int size = Math.clamp(buffer.readVarInt(), 0, MAX_THEMES);
+            List<ThemeView> themes = new ArrayList<>(size);
+            for (int index = 0; index < size; index++) themes.add(ThemeView.read(buffer));
+            return new OpenPayload(token, profile, machineType, machine, ticket, tickets, List.copyOf(themes));
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record PullPayload(UUID token) implements CustomPacketPayload {
+    public record PullPayload(UUID token, String themeId) implements CustomPacketPayload {
         public static final Type<PullPayload> TYPE = new Type<>(id("gacha_pull"));
         public static final StreamCodec<RegistryFriendlyByteBuf, PullPayload> STREAM_CODEC =
             StreamCodec.ofMember(PullPayload::write, PullPayload::read);
-        private void write(RegistryFriendlyByteBuf buffer) { buffer.writeUUID(token); }
-        private static PullPayload read(RegistryFriendlyByteBuf buffer) { return new PullPayload(buffer.readUUID()); }
+        private void write(RegistryFriendlyByteBuf buffer) { buffer.writeUUID(token); buffer.writeUtf(themeId); }
+        private static PullPayload read(RegistryFriendlyByteBuf buffer) { return new PullPayload(buffer.readUUID(), buffer.readUtf()); }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
     public record ResultPayload(
         UUID token, boolean success, String messageKey, int tickets,
+        String themeId, int ticketCost,
         String rarityId, String rarityName,
         String rewardId, String kind, String value, int count,
         int pullsSinceTarget, int hardPityCount,
@@ -196,17 +227,19 @@ public final class GachaMachineNetwork {
         ) {
             return new ResultPayload(
                 token, outcome.success(), outcome.messageKey(), outcome.tickets(),
+                outcome.themeId(), outcome.ticketCost(),
                 outcome.rarityId(), outcome.rarityName(), outcome.rewardId(),
                 outcome.rewardKind(), outcome.rewardValue(), outcome.rewardCount(),
                 outcome.pullsSinceTarget(), outcome.hardPityCount(),
                 outcome.selectionPoints(), outcome.selectionRequired(), rewards
             );
         }
-        static ResultPayload failure(UUID token, String key, int tickets) {
-            return new ResultPayload(token, false, key, tickets, "", "", "", "", "", 0, 0, 0, 0, 0, List.of());
+        static ResultPayload failure(UUID token, String themeId, String key, int tickets, int ticketCost) {
+            return new ResultPayload(token, false, key, tickets, themeId, ticketCost, "", "", "", "", "", 0, 0, 0, 0, 0, List.of());
         }
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUUID(token); buffer.writeBoolean(success); buffer.writeUtf(messageKey); buffer.writeVarInt(tickets);
+            buffer.writeUtf(themeId); buffer.writeVarInt(ticketCost);
             buffer.writeUtf(rarityId); buffer.writeUtf(rarityName); buffer.writeUtf(rewardId); buffer.writeUtf(kind); buffer.writeUtf(value);
             buffer.writeVarInt(count); buffer.writeVarInt(pullsSinceTarget); buffer.writeVarInt(hardPityCount);
             buffer.writeVarInt(selectionPoints); buffer.writeVarInt(selectionRequired);
@@ -216,6 +249,7 @@ public final class GachaMachineNetwork {
         private static ResultPayload read(RegistryFriendlyByteBuf buffer) {
             UUID token = buffer.readUUID(); boolean success = buffer.readBoolean();
             String message = buffer.readUtf(); int tickets = buffer.readVarInt();
+            String themeId = buffer.readUtf(); int ticketCost = buffer.readVarInt();
             String rarityId = buffer.readUtf(); String rarityName = buffer.readUtf();
             String rewardId = buffer.readUtf(); String kind = buffer.readUtf(); String value = buffer.readUtf();
             int count = buffer.readVarInt(); int pulls = buffer.readVarInt(); int hard = buffer.readVarInt();
@@ -224,7 +258,7 @@ public final class GachaMachineNetwork {
             List<RewardView> rewards = new ArrayList<>(size);
             for (int index = 0; index < size; index++) rewards.add(RewardView.read(buffer));
             return new ResultPayload(
-                token, success, message, tickets, rarityId, rarityName,
+                token, success, message, tickets, themeId, ticketCost, rarityId, rarityName,
                 rewardId, kind, value, count, pulls, hard, points, required,
                 List.copyOf(rewards)
             );
@@ -232,8 +266,8 @@ public final class GachaMachineNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public static void pull(UUID token) {
-        PacketDistributor.sendToServer(new PullPayload(token));
+    public static void pull(UUID token, String themeId) {
+        PacketDistributor.sendToServer(new PullPayload(token, themeId));
     }
 
     private record Session(
