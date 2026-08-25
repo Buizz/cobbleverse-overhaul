@@ -471,7 +471,8 @@ record DungeonDefinition(
                 position,
                 enumValue(container, "block", List.of("chest", "barrel")),
                 enumValue(container, "facing", List.of("north", "south", "west", "east")),
-                requiredBoolean(container, "requires_completion")
+                requiredBoolean(container, "requires_completion"),
+                container.has("loot_table") ? resourceId(container, "loot_table") : null
             ));
         }
         if (lootContainers.isEmpty()) {
@@ -813,7 +814,8 @@ record DungeonDefinition(
         BlockPos position,
         String block,
         String facing,
-        boolean requiresCompletion
+        boolean requiresCompletion,
+        String lootTable
     ) {}
     record Rewards(
         String firstClearTable,

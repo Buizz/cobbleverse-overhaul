@@ -338,7 +338,8 @@
         "position": { "$ref": "#/$defs/block_position" },
         "block": { "enum": ["chest", "barrel"] },
         "facing": { "enum": ["north", "south", "west", "east"] },
-        "requires_completion": { "type": "boolean" }
+        "requires_completion": { "type": "boolean" },
+        "loot_table": { "$ref": "#/$defs/resource_id" }
       }
     },
     "wild_species": {

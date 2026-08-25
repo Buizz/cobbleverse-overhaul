@@ -130,7 +130,8 @@ final class DungeonDefinitionTest {
                       "position": [6, 1, 17],
                       "block": "barrel",
                       "facing": "south",
-                      "requires_completion": true
+                      "requires_completion": true,
+                      "loot_table": "cobbleventure:dungeon/control_room"
                     }]
                   },
                   "rewards": {
@@ -210,6 +211,10 @@ final class DungeonDefinitionTest {
         assertEquals("grant_on_clear_only", definition.loot().onFailure());
         assertEquals("barrel", definition.loot().containers().getFirst().block());
         assertTrue(definition.loot().containers().getFirst().requiresCompletion());
+        assertEquals(
+            "cobbleventure:dungeon/control_room",
+            definition.loot().containers().getFirst().lootTable()
+        );
         assertEquals("reset_run", definition.lifecycle().onWipe());
         assertEquals("source_entrance", definition.lifecycle().wipeReturn());
         assertTrue(definition.lifecycle().healOnWipe());

@@ -911,12 +911,20 @@ final class DungeonSystem {
     private static void placeLootContainers(
         ServerLevel level, DungeonDefinition definition, BlockPos origin
     ) {
-        ResourceKey<LootTable> lootTable = ResourceKey.create(
-            Registries.LOOT_TABLE,
-            ResourceLocation.parse(definition.loot().lootTable())
-        );
         long runSeed = level.getRandom().nextLong() ^ origin.asLong();
         for (DungeonDefinition.LootContainer container : definition.loot().containers()) {
+            String lootTableId = container.lootTable() == null
+                ? definition.loot().lootTable() : container.lootTable();
+            ResourceKey<LootTable> lootTable = ResourceKey.create(
+                Registries.LOOT_TABLE, ResourceLocation.parse(lootTableId)
+            );
+            if (level.getServer().reloadableRegistries().getLootTable(lootTable)
+                == LootTable.EMPTY) {
+                throw new IllegalStateException(
+                    "Dungeon loot table is missing: " + lootTableId
+                        + " (" + definition.id() + " -> " + container.id() + ")"
+                );
+            }
             BlockPos position = origin.offset(container.position());
             Direction facing = Direction.byName(container.facing());
             var blockState = container.block().equals("barrel")
@@ -1090,7 +1098,9 @@ final class DungeonSystem {
 
         List<ItemStack> rewards;
         try {
-            rewards = generateDungeonLoot(player, definition.loot().lootTable(), position);
+            String lootTableId = container.lootTable() == null
+                ? definition.loot().lootTable() : container.lootTable();
+            rewards = generateDungeonLoot(player, lootTableId, position);
         } catch (RuntimeException error) {
             run.lootClaims().release(container.id(), player.getUUID());
             LOGGER.error(

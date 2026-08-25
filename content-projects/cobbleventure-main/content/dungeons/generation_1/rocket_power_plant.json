@@ -203,7 +203,8 @@
         "position": [35, 1, 43],
         "block": "chest",
         "facing": "west",
-        "requires_completion": true
+        "requires_completion": true,
+        "loot_table": "cobbleventure:dungeon/rocket_power_plant_control_room"
       }
     ]
   },
