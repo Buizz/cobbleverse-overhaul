@@ -36,6 +36,18 @@ final class DungeonDefinitionTest {
                     "template": "cobbleventure:placeholder/power_plant",
                     "entry_position": [24, 1, 4],
                     "exit_position": [24, 1, 0]
+                  },
+                  "encounters": [{
+                    "id": "boss",
+                    "npc": "cobbleventure:npc/rocket_power_plant_officer",
+                    "position": [24, 1, 40],
+                    "yaw": 180,
+                    "boss": true
+                  }],
+                  "completion": {
+                    "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
+                    "repeatable": true,
+                    "field_moves": ["flash"]
                   }
                 }
                 """).getAsJsonObject()
@@ -46,6 +58,8 @@ final class DungeonDefinitionTest {
         assertEquals(24, definition.difficulty().internalMin());
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
+        assertEquals("boss", definition.encounters().getFirst().id());
+        assertEquals("flash", definition.completion().fieldMoves().getFirst());
         assertEquals(
             "cobbleventure:entrance/rocket_power_plant",
             definition.entrances().getFirst().entranceId()

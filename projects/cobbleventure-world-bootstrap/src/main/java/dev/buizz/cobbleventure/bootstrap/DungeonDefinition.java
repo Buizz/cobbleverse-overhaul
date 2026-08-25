@@ -24,6 +24,8 @@ record DungeonDefinition(
     EntryUi entryUi,
     Difficulty difficulty,
     Terrain terrain,
+    List<Encounter> encounters,
+    Completion completion,
     List<Entrance> entrances
 ) {
     static Map<String, DungeonDefinition> loadAll(ResourceManager resources) {
@@ -112,6 +114,32 @@ record DungeonDefinition(
             ? blockPosition(terrain, "entry_position") : null;
         BlockPos exitPosition = terrainMode.equals("fixed_template")
             ? blockPosition(terrain, "exit_position") : null;
+        List<Encounter> encounters = new ArrayList<>();
+        for (JsonElement element : requiredArray(root, "encounters")) {
+            JsonObject encounter = element.getAsJsonObject();
+            encounters.add(new Encounter(
+                requiredString(encounter, "id"),
+                resourceId(encounter, "npc"),
+                blockPosition(encounter, "position"),
+                encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
+                requiredBoolean(encounter, "boss")
+            ));
+        }
+        long bossCount = encounters.stream().filter(Encounter::boss).count();
+        if (bossCount != 1L) {
+            throw new IllegalStateException(
+                "Dungeon requires exactly one boss encounter: " + id
+            );
+        }
+        JsonObject completion = requiredObject(root, "completion");
+        List<String> fieldMoves = new ArrayList<>();
+        for (JsonElement element : requiredArray(completion, "field_moves")) {
+            String move = element.getAsString();
+            if (move.isBlank()) {
+                throw new IllegalStateException("Dungeon completion field move is empty: " + id);
+            }
+            fieldMoves.add(move);
+        }
         return new DungeonDefinition(
             id,
             localized(displayName, "ko_kr", "en_us"),
@@ -123,6 +151,12 @@ record DungeonDefinition(
             ),
             new Difficulty(recommendedMin, recommendedMax, internalMin, internalMax),
             new Terrain(terrainMode, template, entryPosition, exitPosition),
+            List.copyOf(encounters),
+            new Completion(
+                resourceId(completion, "victory_flag"),
+                requiredBoolean(completion, "repeatable"),
+                List.copyOf(fieldMoves)
+            ),
             List.copyOf(entrances)
         );
     }
@@ -228,6 +262,8 @@ record DungeonDefinition(
         BlockPos entryPosition,
         BlockPos exitPosition
     ) {}
+    record Encounter(String id, String npc, BlockPos position, float yaw, boolean boss) {}
+    record Completion(String victoryFlag, boolean repeatable, List<String> fieldMoves) {}
     record Entrance(
         String entranceId,
         String destinationEntry,

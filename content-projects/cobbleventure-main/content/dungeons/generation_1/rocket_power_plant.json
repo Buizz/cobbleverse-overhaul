@@ -35,5 +35,33 @@
     "template": "cobbleventure:placeholder/power_plant",
     "entry_position": [24, 1, 4],
     "exit_position": [24, 1, 0]
+  },
+  "encounters": [
+    {
+      "id": "west_grunt",
+      "npc": "cobbleventure:npc/rocket_power_plant_grunt",
+      "position": [14, 1, 16],
+      "yaw": 90,
+      "boss": false
+    },
+    {
+      "id": "east_grunt",
+      "npc": "cobbleventure:npc/rocket_power_plant_grunt_east",
+      "position": [34, 1, 27],
+      "yaw": -90,
+      "boss": false
+    },
+    {
+      "id": "control_room_officer",
+      "npc": "cobbleventure:npc/rocket_power_plant_officer",
+      "position": [24, 1, 40],
+      "yaw": 180,
+      "boss": true
+    }
+  ],
+  "completion": {
+    "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
+    "repeatable": true,
+    "field_moves": ["flash"]
   }
 }

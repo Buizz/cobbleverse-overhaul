@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -30,11 +31,14 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.entity.Entity;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -166,6 +170,10 @@ final class DungeonSystem {
     static synchronized void tick(ServerPlayer player, long gameTime) {
         ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
         if (player.serverLevel().dimension().equals(DUNGEONS)) {
+            if (run != null && completionReached(player, run)) {
+                completeRun(player, run);
+                return;
+            }
             if (run != null && gameTime >= run.teleportCooldownUntil()
                 && distanceSquared(player.position(), run.exit()) <= EXIT_RADIUS_SQUARED) {
                 returnPlayer(player, "던전에서 나왔습니다.");
@@ -173,7 +181,7 @@ final class DungeonSystem {
             return;
         }
         if (run != null) {
-            releaseRun(player.getUUID());
+            abandonRun(player);
         }
         PlacedEntrance touching = ACTIVE_ENTRANCES.values().stream()
             .filter(placed -> placed.dimension().equals(player.serverLevel().dimension()))
@@ -251,16 +259,27 @@ final class DungeonSystem {
             player.sendSystemMessage(Component.literal("던전 차원을 찾을 수 없습니다."));
             return;
         }
+        ServerPlayerEventState state = new ServerPlayerEventState(player);
+        if (!definition.completion().repeatable()
+            && state.flag(definition.completion().victoryFlag())) {
+            player.sendSystemMessage(Component.literal("이미 클리어한 던전입니다."));
+            return;
+        }
         int slot = allocateSlot();
         if (slot < 0) {
             player.sendSystemMessage(Component.literal("사용 가능한 던전 슬롯이 없습니다."));
             return;
         }
         BlockPos origin = slotOrigin(slot);
+        BlockPos size = BlockPos.ZERO;
         try {
-            prepareFixedTemplate(dungeonLevel, definition, origin);
+            size = prepareFixedTemplate(dungeonLevel, definition, origin);
+            spawnEncounters(dungeonLevel, definition, origin);
         } catch (RuntimeException error) {
             ACTIVE_SLOTS.remove(slot);
+            if (!size.equals(BlockPos.ZERO)) {
+                clearSlot(dungeonLevel, origin, size);
+            }
             LOGGER.error("Dungeon instance preparation failed: {}", definition.id(), error);
             player.sendSystemMessage(Component.literal(
                 "던전 준비에 실패했습니다. 서버 로그를 확인하세요."
@@ -268,12 +287,15 @@ final class DungeonSystem {
             return;
         }
         pushReturnFrame(player, pending.placement().safeReturn());
+        if (definition.completion().repeatable()) {
+            state.setFlag(definition.completion().victoryFlag(), false);
+        }
         BlockPos entry = origin.offset(definition.terrain().entryPosition());
         BlockPos exit = origin.offset(definition.terrain().exitPosition());
         long cooldown = dungeonLevel.getGameTime() + 40L;
         ACTIVE_RUNS.put(
             player.getUUID(),
-            new ActiveRun(definition.id(), slot, entry, exit, cooldown)
+            new ActiveRun(definition.id(), slot, origin, size, entry, exit, cooldown)
         );
         player.teleportTo(
             dungeonLevel,
@@ -285,7 +307,7 @@ final class DungeonSystem {
         ));
     }
 
-    private static void prepareFixedTemplate(
+    private static BlockPos prepareFixedTemplate(
         ServerLevel level, DungeonDefinition definition, BlockPos origin
     ) {
         ResourceLocation templateId = ResourceLocation.parse(
@@ -304,6 +326,22 @@ final class DungeonSystem {
             throw new IllegalStateException(
                 "Dungeon template placement failed: " + definition.id()
             );
+        }
+        return new BlockPos(template.getSize());
+    }
+
+    private static void spawnEncounters(
+        ServerLevel level, DungeonDefinition definition, BlockPos origin
+    ) {
+        for (DungeonDefinition.Encounter encounter : definition.encounters()) {
+            BlockPos position = origin.offset(encounter.position());
+            if (!CobbleventureBootstrap.spawnRegionalNpc(
+                level, encounter.npc(), position, encounter.yaw(), "interact"
+            )) {
+                throw new IllegalStateException(
+                    "Dungeon NPC placement failed: " + encounter.id()
+                );
+            }
         }
     }
 
@@ -326,7 +364,7 @@ final class DungeonSystem {
 
     private static void returnPlayer(ServerPlayer player, String message) {
         ReturnFrame frame = popReturnFrame(player);
-        releaseRun(player.getUUID());
+        ActiveRun run = releaseRun(player.getUUID());
         if (frame == null) {
             ServerLevel fallback = player.getServer().getLevel(CobbleventureBootstrap.GENERATION_ONE);
             if (fallback != null) {
@@ -351,7 +389,59 @@ final class DungeonSystem {
         player.teleportTo(
             destination, frame.x(), frame.y(), frame.z(), frame.yaw(), frame.pitch()
         );
+        cleanupRun(player.getServer(), run);
         player.sendSystemMessage(Component.literal(message));
+    }
+
+    private static boolean completionReached(ServerPlayer player, ActiveRun run) {
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        return definition != null && new ServerPlayerEventState(player)
+            .flag(definition.completion().victoryFlag());
+    }
+
+    private static void completeRun(ServerPlayer player, ActiveRun run) {
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null) {
+            returnPlayer(player, "던전을 클리어했습니다.");
+            return;
+        }
+        ServerPlayerEventState state = new ServerPlayerEventState(player);
+        for (String move : definition.completion().fieldMoves()) {
+            state.grantFieldMove(move);
+        }
+        returnPlayer(player, definition.displayName() + " 클리어! 보상을 획득했습니다.");
+    }
+
+    private static void abandonRun(ServerPlayer player) {
+        popReturnFrame(player);
+        ActiveRun run = releaseRun(player.getUUID());
+        cleanupRun(player.getServer(), run);
+    }
+
+    private static void cleanupRun(MinecraftServer server, ActiveRun run) {
+        if (run == null) return;
+        ServerLevel level = server.getLevel(DUNGEONS);
+        if (level != null) {
+            clearSlot(level, run.origin(), run.size());
+        }
+    }
+
+    private static void clearSlot(ServerLevel level, BlockPos origin, BlockPos size) {
+        if (size.getX() <= 0 || size.getY() <= 0 || size.getZ() <= 0) return;
+        AABB bounds = new AABB(
+            origin.getX(), origin.getY(), origin.getZ(),
+            origin.getX() + size.getX(), origin.getY() + size.getY(),
+            origin.getZ() + size.getZ()
+        );
+        for (Entity entity : level.getEntitiesOfClass(Entity.class, bounds)) {
+            if (!(entity instanceof ServerPlayer)) entity.discard();
+        }
+        BlockPos.betweenClosedStream(
+            origin,
+            origin.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1)
+        ).forEach(position -> level.setBlock(
+            position, Blocks.AIR.defaultBlockState(), 18
+        ));
     }
 
     private static void pushReturnFrame(ServerPlayer player, BlockPos safeReturn) {
@@ -392,11 +482,12 @@ final class DungeonSystem {
         ).isEmpty();
     }
 
-    private static void releaseRun(UUID playerId) {
+    private static ActiveRun releaseRun(UUID playerId) {
         ActiveRun removed = ACTIVE_RUNS.remove(playerId);
         if (removed != null) {
             ACTIVE_SLOTS.remove(removed.slot());
         }
+        return removed;
     }
 
     private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -412,7 +503,7 @@ final class DungeonSystem {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        releaseRun(player.getUUID());
+        cleanupRun(player.getServer(), releaseRun(player.getUUID()));
         INSIDE_ENTRANCES.remove(player.getUUID());
         PENDING_ENTRIES.remove(player.getUUID());
     }
@@ -499,6 +590,8 @@ final class DungeonSystem {
     private record ActiveRun(
         String dungeonId,
         int slot,
+        BlockPos origin,
+        BlockPos size,
         BlockPos entry,
         BlockPos exit,
         long teleportCooldownUntil

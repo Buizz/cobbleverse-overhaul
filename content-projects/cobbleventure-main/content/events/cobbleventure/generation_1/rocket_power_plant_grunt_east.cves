@@ -1,0 +1,39 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated") {
+    say npc { ko_kr: "제어실에는 한 발짝도 가까이 갈 수 없다!" }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_grunt" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated" true
+      say npc { ko_kr: "내가 통로를 내주다니…" }
+    } else {
+      say npc { ko_kr: "제어실은 우리가 지킨다!" }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated") {
+    say npc { ko_kr: "내가 통로를 내주다니…" }
+  }
+  page default {
+    say npc { ko_kr: "제어실에는 한 발짝도 가까이 갈 수 없다!" }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_grunt" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated" true
+          say npc { ko_kr: "내가 통로를 내주다니…" }
+        } else {
+          say npc { ko_kr: "제어실은 우리가 지킨다!" }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } { stop }
+    }
+  }
+}

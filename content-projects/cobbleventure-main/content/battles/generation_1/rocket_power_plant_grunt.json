@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/rocket_power_plant_grunt",
+  "enabled": true,
+  "name": { "ko_kr": "발전소 로켓단 조무래기 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/rocket_power_plant_grunt",
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed",
+    "rules": { "can_forfeit": false },
+    "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      {
+        "species": "cobblemon:rattata", "level": 24, "form": null, "aspects": [],
+        "gender": "random", "nature": null, "ability": null, "held_item": null,
+        "gimmick": null, "moves": ["quick_attack", "hyper_fang", "bite", "focus_energy"],
+        "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:koffing", "level": 25, "form": null, "aspects": [],
+        "gender": "random", "nature": null, "ability": null, "held_item": null,
+        "gimmick": null, "moves": ["smog", "sludge", "smokescreen", "assurance"],
+        "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false
+      }
+    ]
+  }
+}
