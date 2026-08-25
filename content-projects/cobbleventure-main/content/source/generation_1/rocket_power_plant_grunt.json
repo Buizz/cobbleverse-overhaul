@@ -33,7 +33,10 @@
     "mode": "preset",
     "preset": {
       "type": "battle",
-      "initial_trigger": { "type": "interact", "range": 4 },
+      "initial_trigger": {
+        "type": "proximity", "range": 6,
+        "warning_offset": 3, "indicator": "trainer_nearby"
+      },
       "first_text": { "ko_kr": "여긴 로켓단 작전 구역이다. 돌아가!" },
       "battle": "cobbleventure:battle/rocket_power_plant_grunt",
       "after_victory_trigger": { "type": "interact", "range": 4 },

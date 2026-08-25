@@ -9,6 +9,7 @@ import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
 import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
+import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
 import dev.buizz.cobbleventure.adventure.event.EventBattlePreset;
 import dev.buizz.cobbleventure.adventure.event.EventBattlePresetRepository;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
@@ -847,7 +848,7 @@ final class DungeonSystem {
                 );
                 if (!CobbleventureBootstrap.spawnRegionalNpc(
                     level, encounter.npcs().get(opponentIndex), position,
-                    encounter.yaw(), "interact"
+                    encounter.yaw(), "proximity"
                 )) {
                     throw new IllegalStateException(
                         "Dungeon NPC placement failed: " + encounter.id()
@@ -1200,6 +1201,10 @@ final class DungeonSystem {
             ));
             return true;
         }
+        if (definition.multiplayer().mode().equals("solo")) {
+            // The CVES V5 proximity script owns solo dialogue and battle launch.
+            return false;
+        }
         EncounterStatus status = run.encounters().statusById.get(encounterId);
         if (status == EncounterStatus.DEFEATED) {
             initiator.displayClientMessage(Component.literal(
@@ -1225,11 +1230,6 @@ final class DungeonSystem {
                 "[던전] 다른 조우가 시작 중이거나 진행 중입니다."
             ), true);
             return true;
-        }
-        if (definition.multiplayer().mode().equals("solo")) {
-            return startSoloEncounter(
-                initiator, opponent, run, definition, encounter
-            );
         }
         if (!definition.multiplayer().mode().equals("cooperative")
             || !definition.multiplayer().battleJoin().equals("summon_all")
@@ -1351,86 +1351,6 @@ final class DungeonSystem {
         return nearest.ref();
     }
 
-    private static boolean startSoloEncounter(
-        ServerPlayer player,
-        Entity opponent,
-        ActiveRun run,
-        DungeonDefinition definition,
-        DungeonDefinition.Encounter encounter
-    ) {
-        if (run.participantIds().size() != 1
-            || !run.participantIds().contains(player.getUUID())) {
-            player.sendSystemMessage(Component.literal(
-                "1인 던전 참가자 정보가 올바르지 않습니다."
-            ));
-            return true;
-        }
-        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
-            player.displayClientMessage(Component.literal(
-                "[던전] 이미 전투 중입니다."
-            ), true);
-            return true;
-        }
-        EventBattlePreset preset;
-        try {
-            preset = EventBattlePresetRepository.instance()
-                .find(encounter.opponents().getFirst())
-                .orElseThrow(() -> new IllegalStateException(
-                    "Dungeon battle preset is missing: "
-                        + encounter.opponents().getFirst()
-                ));
-            if (!definition.battleRules().allowItems()
-                && (preset.maxItemUses() == null || preset.maxItemUses() > 0)) {
-                preset = new EventBattlePreset(
-                    preset.battleId(), preset.trainerId(), preset.format(),
-                    preset.levelMode(), preset.levelOffset(), preset.fallbackLevel(),
-                    0, preset.moneyReward()
-                );
-            }
-        } catch (RuntimeException error) {
-            LOGGER.error(
-                "Dungeon solo battle preset resolution failed: {} -> {}",
-                definition.id(), encounter.id(), error
-            );
-            player.sendSystemMessage(Component.literal(
-                "조우 전투 설정을 불러오지 못했습니다. 서버 로그를 확인하세요."
-            ));
-            return true;
-        }
-
-        EncounterRuntime runtime = run.encounters();
-        runtime.statusById.put(encounter.id(), EncounterStatus.STARTING);
-        runtime.pendingEncounterId = encounter.id();
-        runtime.pendingExpiresAt = player.serverLevel().getGameTime() + 200L;
-        String command = preset.launchCommand(
-            player.getGameProfile().getName(), opponent.getUUID()
-        );
-        try {
-            int result = player.getServer().getCommands().getDispatcher().execute(
-                command,
-                opponent.createCommandSourceStack().withPermission(4).withSuppressedOutput()
-            );
-            if (result <= 0) {
-                throw new IllegalStateException("TBCS rejected the solo battle command");
-            }
-        } catch (CommandSyntaxException | RuntimeException error) {
-            runtime.statusById.put(encounter.id(), EncounterStatus.AVAILABLE);
-            runtime.pendingEncounterId = null;
-            LOGGER.error(
-                "Dungeon solo battle launch failed: {} -> {}",
-                definition.id(), encounter.id(), error
-            );
-            player.sendSystemMessage(Component.literal(
-                "던전 전투를 시작하지 못했습니다. 서버 로그를 확인하세요."
-            ));
-            return true;
-        }
-        player.sendSystemMessage(Component.literal(
-            "[던전] " + encounter.id() + " 전투를 시작합니다."
-        ));
-        return true;
-    }
-
     private static List<ServerPlayer> encounterPlayers(
         ActiveRun run, ServerPlayer initiator
     ) {
@@ -1504,12 +1424,53 @@ final class DungeonSystem {
             .filter(candidate -> candidate.encounters().pendingEncounterId != null)
             .filter(candidate -> players.containsAll(candidate.participantIds()))
             .findFirst().orElse(null);
-        if (run == null) return;
+        if (run == null) {
+            attachCvesSoloBattle(event, players);
+            return;
+        }
         EncounterRuntime runtime = run.encounters();
         String encounterId = runtime.pendingEncounterId;
         runtime.pendingEncounterId = null;
         runtime.statusById.put(encounterId, EncounterStatus.ACTIVE);
         runtime.battleToEncounter.put(event.getBattle().getBattleId(), encounterId);
+    }
+
+    private static void attachCvesSoloBattle(
+        BattleStartedEvent.Post event, Set<UUID> players
+    ) {
+        if (players.size() != 1) return;
+        UUID playerId = players.iterator().next();
+        ActiveRun run = ACTIVE_RUNS.get(playerId);
+        DungeonDefinition definition = run == null ? null
+            : definitions.get(run.dungeonId());
+        if (definition == null || !definition.multiplayer().mode().equals("solo")) {
+            return;
+        }
+        EventBattleBridge.BattleContext context = EventBattleBridge
+            .pendingContext(playerId).orElse(null);
+        ServerLevel level = run.server().getLevel(DUNGEONS);
+        Entity opponent = level == null || context == null ? null
+            : level.getEntity(context.npcId());
+        EncounterEntityRef ref = opponent == null ? null
+            : encounterEntityRef(run, opponent);
+        DungeonDefinition.Encounter encounter = ref == null ? null
+            : definition.encounters().stream()
+                .filter(candidate -> candidate.id().equals(ref.encounterId()))
+                .findFirst().orElse(null);
+        if (encounter == null
+            || !encounter.opponents().contains(context.battleId())
+            || run.encounters().statusById.get(encounter.id())
+                != EncounterStatus.AVAILABLE) {
+            return;
+        }
+        run.encounters().statusById.put(encounter.id(), EncounterStatus.ACTIVE);
+        run.encounters().battleToEncounter.put(
+            event.getBattle().getBattleId(), encounter.id()
+        );
+        LOGGER.debug(
+            "CVES V5 battle attached to dungeon encounter: {} -> {}",
+            context.battleId(), encounter.id()
+        );
     }
 
     private static synchronized void onBattleVictory(BattleVictoryEvent event) {

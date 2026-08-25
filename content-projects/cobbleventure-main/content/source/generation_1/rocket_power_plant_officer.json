@@ -33,7 +33,10 @@
     "mode": "preset",
     "preset": {
       "type": "battle",
-      "initial_trigger": { "type": "interact", "range": 4 },
+      "initial_trigger": {
+        "type": "proximity", "range": 6,
+        "warning_offset": 3, "indicator": "trainer_nearby"
+      },
       "first_text": { "ko_kr": "발전소의 전력은 이제 로켓단의 것이다. 방해자는 제거한다!" },
       "battle": "cobbleventure:battle/rocket_power_plant_officer",
       "after_victory_trigger": { "type": "interact", "range": 4 },

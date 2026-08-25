@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.server.level.ServerLevel;
@@ -53,6 +54,16 @@ public final class EventBattleBridge {
         Objects.requireNonNull(player, "player");
         return request -> open(player, request);
     }
+
+    /** Exposes the active CVES opponent to dungeon progression listeners. */
+    public static Optional<BattleContext> pendingContext(UUID playerId) {
+        PendingBattle pending = PENDING.get(playerId);
+        return pending == null ? Optional.empty() : Optional.of(new BattleContext(
+            pending.key.npcId(), pending.preset.battleId()
+        ));
+    }
+
+    public record BattleContext(UUID npcId, String battleId) {}
 
     private static EventBattleGateway.OpenResult open(
         ServerPlayer player, EventBattleGateway.BattleRequest request

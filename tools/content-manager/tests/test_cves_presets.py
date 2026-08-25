@@ -65,6 +65,45 @@ class CvesBehaviorPresetTests(unittest.TestCase):
                 self.assertNotIn("OPEN_DEFAULT_DIALOG", source)
                 self.assertNotIn("tbcs battle", source)
 
+    def test_power_plant_dungeon_trainers_use_v5_proximity_dialogue(self) -> None:
+        slugs = (
+            "rocket_power_plant_grunt",
+            "rocket_power_plant_grunt_east",
+            "rocket_power_plant_officer",
+        )
+        preset_root = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/"
+            "easy_npc/preset/encounter"
+        )
+        for slug in slugs:
+            with self.subTest(slug=slug):
+                document = json.loads((
+                    PROJECT_ROOT / f"content/source/generation_1/{slug}.json"
+                ).read_text(encoding="utf-8"))
+                trigger = document["event_design"]["preset"]["initial_trigger"]
+                self.assertEqual("cves_v5", document["event_runtime"]["engine"])
+                self.assertEqual("proximity", trigger["type"])
+                self.assertEqual(6, trigger["range"])
+                self.assertTrue(document["event_design"]["preset"]["first_text"]["ko_kr"])
+                script = (
+                    PROJECT_ROOT / f"content/events/cobbleventure/generation_1/{slug}.cves"
+                ).read_text(encoding="utf-8")
+                self.assertIn('event proximity_enter(range: 6', script)
+                self.assertIn("say npc", script)
+                representation = (
+                    preset_root / f"{slug}__v5_proximity.npc.snbt"
+                ).read_text(encoding="utf-8")
+                self.assertIn("cves_binding/cobbleventure/generation_1/", representation)
+                self.assertIn('"cves_trigger/proximity"', representation)
+
+        dungeon_system = (
+            ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/"
+            "cobbleventure/bootstrap/DungeonSystem.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn('encounter.yaw(), "proximity"', dungeon_system)
+        self.assertIn("EventBattleBridge", dungeon_system)
+        self.assertIn(".pendingContext(playerId)", dungeon_system)
+
     def test_world_placement_selects_v5_representation_for_v5_npcs(self) -> None:
         bootstrap = (
             ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/"

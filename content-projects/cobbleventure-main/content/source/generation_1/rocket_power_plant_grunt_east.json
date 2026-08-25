@@ -27,7 +27,10 @@
     "mode": "preset",
     "preset": {
       "type": "battle",
-      "initial_trigger": { "type": "interact", "range": 4 },
+      "initial_trigger": {
+        "type": "proximity", "range": 6,
+        "warning_offset": 3, "indicator": "trainer_nearby"
+      },
       "first_text": { "ko_kr": "제어실에는 한 발짝도 가까이 갈 수 없다!" },
       "battle": "cobbleventure:battle/rocket_power_plant_grunt",
       "after_victory_trigger": { "type": "interact", "range": 4 },
