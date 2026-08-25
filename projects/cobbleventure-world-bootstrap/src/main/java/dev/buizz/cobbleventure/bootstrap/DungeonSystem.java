@@ -845,7 +845,6 @@ final class DungeonSystem {
                 BlockPos position = encounterNpcPosition(
                     level, authoredPosition, encounter.yaw(), opponentIndex
                 );
-                Set<UUID> existing = easyNpcIds(level, position);
                 if (!CobbleventureBootstrap.spawnRegionalNpc(
                     level, encounter.npcs().get(opponentIndex), position,
                     encounter.yaw(), "interact"
@@ -859,18 +858,20 @@ final class DungeonSystem {
                     Entity.class,
                     new AABB(position).inflate(6.0D, 10.0D, 6.0D),
                     candidate -> isEasyNpc(candidate)
-                        && !existing.contains(candidate.getUUID())
+                        && !spawned.containsKey(candidate.getUUID())
                 ).stream().min(java.util.Comparator.comparingDouble(
                     candidate -> candidate.distanceToSqr(Vec3.atCenterOf(position))
-                )).orElseThrow(() -> new IllegalStateException(
-                    "Dungeon NPC entity could not be identified: "
-                        + encounter.id() + "[" + opponentIndex + "]"
-                ));
-                spawned.put(
-                    entity.getUUID(), new EncounterEntityRef(
+                )).orElse(null);
+                if (entity == null) {
+                    LOGGER.debug(
+                        "Dungeon NPC registration is pending: {}[{}] at {}",
+                        encounter.id(), opponentIndex, position
+                    );
+                } else {
+                    spawned.put(entity.getUUID(), new EncounterEntityRef(
                         encounter.id(), opponentIndex
-                    )
-                );
+                    ));
+                }
             }
         }
         return Map.copyOf(spawned);
@@ -898,14 +899,6 @@ final class DungeonSystem {
         }).findFirst().orElseThrow(() -> new IllegalStateException(
             "Dungeon partner NPC has no safe adjacent position: " + authored
         ));
-    }
-
-    private static Set<UUID> easyNpcIds(ServerLevel level, BlockPos position) {
-        return level.getEntitiesOfClass(
-            Entity.class,
-            new AABB(position).inflate(6.0D, 10.0D, 6.0D),
-            DungeonSystem::isEasyNpc
-        ).stream().map(Entity::getUUID).collect(Collectors.toSet());
     }
 
     private static boolean isEasyNpc(Entity entity) {
@@ -1192,9 +1185,7 @@ final class DungeonSystem {
         if (run == null || !initiator.serverLevel().dimension().equals(DUNGEONS)) {
             return false;
         }
-        EncounterEntityRef entityRef = run.encounters().encounterByEntity.get(
-            opponent.getUUID()
-        );
+        EncounterEntityRef entityRef = encounterEntityRef(run, opponent);
         if (entityRef == null) return false;
         deferObjectiveTracker(run, initiator, 60L);
         String encounterId = entityRef.encounterId();
@@ -1319,6 +1310,45 @@ final class DungeonSystem {
             "[던전] " + encounter.id() + " 협력 전투를 시작합니다."
         )));
         return true;
+    }
+
+    private static EncounterEntityRef encounterEntityRef(
+        ActiveRun run, Entity entity
+    ) {
+        EncounterRuntime runtime = run.encounters();
+        EncounterEntityRef mapped = runtime.encounterByEntity.get(entity.getUUID());
+        if (mapped != null || !isEasyNpc(entity)) return mapped;
+        if (!(entity.level() instanceof ServerLevel level)) return null;
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null) return null;
+
+        record Candidate(EncounterEntityRef ref, double distanceSquared) {}
+        Set<EncounterEntityRef> assigned = new HashSet<>(
+            runtime.encounterByEntity.values()
+        );
+        Candidate nearest = null;
+        for (DungeonDefinition.Encounter encounter : definition.encounters()) {
+            BlockPos authored = run.origin().offset(encounter.position());
+            for (int index = 0; index < encounter.npcs().size(); index++) {
+                EncounterEntityRef ref = new EncounterEntityRef(encounter.id(), index);
+                if (assigned.contains(ref)) continue;
+                BlockPos expected = encounterNpcPosition(
+                    level, authored, encounter.yaw(), index
+                );
+                double distance = entity.distanceToSqr(Vec3.atCenterOf(expected));
+                if (distance <= 144.0D
+                    && (nearest == null || distance < nearest.distanceSquared())) {
+                    nearest = new Candidate(ref, distance);
+                }
+            }
+        }
+        if (nearest == null) return null;
+        runtime.encounterByEntity.put(entity.getUUID(), nearest.ref());
+        LOGGER.debug(
+            "Late dungeon NPC registration resolved: {} -> {}[{}]",
+            entity.getUUID(), nearest.ref().encounterId(), nearest.ref().opponentIndex()
+        );
+        return nearest.ref();
     }
 
     private static boolean startSoloEncounter(
@@ -2341,7 +2371,7 @@ final class DungeonSystem {
             Map<UUID, EncounterEntityRef> encounterByEntity,
             List<DungeonDefinition.Encounter> encounters
         ) {
-            this.encounterByEntity = Map.copyOf(encounterByEntity);
+            this.encounterByEntity = new HashMap<>(encounterByEntity);
             encounters.forEach(encounter ->
                 statusById.put(encounter.id(), EncounterStatus.AVAILABLE)
             );
