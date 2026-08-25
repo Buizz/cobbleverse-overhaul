@@ -280,6 +280,9 @@ final class DungeonSystem {
             player.getUUID(), new PendingEntry(ref, placement)
         );
         DungeonDefinition definition = ref.definition();
+        DungeonEntryEligibility.PartySnapshot party = partySnapshot(player);
+        int currentPartyLevel = definition.eligibility().levelMeasure().equals("highest")
+            ? party.highestLevel() : party.averageLevel();
         DungeonGuideNetwork.open(
             player,
             new DungeonGuideNetwork.GuideData(
@@ -293,7 +296,9 @@ final class DungeonSystem {
                 definition.entryUi().infoMode(),
                 definition.lifecycle().wipeReturn(),
                 definition.lifecycle().healOnWipe(),
-                definition.completion().repeatable()
+                definition.completion().repeatable(),
+                definition.eligibility().levelMeasure(),
+                currentPartyLevel
             )
         );
     }
@@ -330,6 +335,27 @@ final class DungeonSystem {
         if (dungeonLevel == null) {
             player.sendSystemMessage(Component.literal("던전 차원을 찾을 수 없습니다."));
             return;
+        }
+        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            player.sendSystemMessage(Component.literal(
+                "배틀 중에는 던전에 입장할 수 없습니다."
+            ));
+            return;
+        }
+        DungeonEntryEligibility.Evaluation eligibility = DungeonEntryEligibility.evaluate(
+            definition.eligibility(), definition.difficulty(), partySnapshot(player)
+        );
+        if (!eligibility.allowed()) {
+            player.sendSystemMessage(Component.literal(
+                eligibilityMessage(definition, eligibility)
+            ));
+            return;
+        }
+        if (eligibility.issue()
+            == DungeonEntryEligibility.Issue.LEVEL_OUTSIDE_RECOMMENDED) {
+            player.sendSystemMessage(Component.literal(
+                "주의: " + eligibilityMessage(definition, eligibility)
+            ));
         }
         ServerPlayerEventState state = new ServerPlayerEventState(player);
         int previousClears = DungeonClearProgress.importLegacyClear(
@@ -387,6 +413,45 @@ final class DungeonSystem {
         player.sendSystemMessage(Component.literal(
             definition.displayName() + " 도전을 시작합니다."
         ));
+    }
+
+    private static DungeonEntryEligibility.PartySnapshot partySnapshot(
+        ServerPlayer player
+    ) {
+        int size = 0;
+        int usable = 0;
+        int levelTotal = 0;
+        int highestLevel = 0;
+        for (var pokemon : Cobblemon.INSTANCE.getStorage().getParty(player)) {
+            size++;
+            if (!pokemon.isFainted()) usable++;
+            levelTotal += pokemon.getLevel();
+            highestLevel = Math.max(highestLevel, pokemon.getLevel());
+        }
+        int averageLevel = size == 0 ? 0 : Math.round((float) levelTotal / size);
+        return new DungeonEntryEligibility.PartySnapshot(
+            size, usable, averageLevel, highestLevel
+        );
+    }
+
+    private static String eligibilityMessage(
+        DungeonDefinition definition,
+        DungeonEntryEligibility.Evaluation evaluation
+    ) {
+        DungeonDefinition.Eligibility settings = definition.eligibility();
+        return switch (evaluation.issue()) {
+            case PARTY_TOO_SMALL -> "던전 입장에는 포켓몬이 최소 "
+                + settings.minimumPartySize() + "마리 필요합니다.";
+            case PARTY_TOO_LARGE -> "이 던전에는 포켓몬을 최대 "
+                + settings.maximumPartySize() + "마리까지 데려갈 수 있습니다.";
+            case NO_USABLE_POKEMON -> "사용 가능한 포켓몬이 없어 던전에 입장할 수 없습니다.";
+            case LEVEL_OUTSIDE_RECOMMENDED -> "현재 파티 "
+                + (settings.levelMeasure().equals("highest") ? "최고" : "평균")
+                + " 레벨은 Lv." + evaluation.measuredLevel()
+                + "이며 권장 범위는 Lv." + definition.difficulty().recommendedMin()
+                + "–" + definition.difficulty().recommendedMax() + "입니다.";
+            case NONE -> "던전 입장 조건을 충족했습니다.";
+        };
     }
 
     private static BlockPos prepareFixedTemplate(

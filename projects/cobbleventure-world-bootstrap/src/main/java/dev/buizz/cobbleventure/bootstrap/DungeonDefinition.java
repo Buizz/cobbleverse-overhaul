@@ -25,6 +25,7 @@ record DungeonDefinition(
     String preset,
     EntryUi entryUi,
     Difficulty difficulty,
+    Eligibility eligibility,
     BattleRules battleRules,
     Terrain terrain,
     List<Encounter> encounters,
@@ -80,6 +81,7 @@ record DungeonDefinition(
         JsonObject displayName = requiredObject(root, "display_name");
         JsonObject entryUi = requiredObject(root, "entry_ui");
         JsonObject difficulty = requiredObject(root, "difficulty");
+        JsonObject eligibility = requiredObject(root, "eligibility");
         JsonObject battleRules = requiredObject(root, "battle");
         JsonObject terrain = requiredObject(root, "terrain");
         List<Entrance> entrances = new ArrayList<>();
@@ -109,6 +111,15 @@ record DungeonDefinition(
         int internalMax = requiredInt(difficulty, "internal_max");
         validateRange("recommended level", recommendedMin, recommendedMax);
         validateRange("internal level", internalMin, internalMax);
+        int minimumPartySize = requiredInt(eligibility, "minimum_party_size");
+        int maximumPartySize = requiredInt(eligibility, "maximum_party_size");
+        if (minimumPartySize < 1 || maximumPartySize > 6
+            || minimumPartySize > maximumPartySize) {
+            throw new IllegalStateException(
+                "Invalid dungeon party size range: "
+                    + minimumPartySize + ".." + maximumPartySize
+            );
+        }
         String terrainMode = enumValue(terrain, "mode", List.of(
             "fixed_template", "nbt_pieces", "procedural_cave", "hybrid"
         ));
@@ -339,6 +350,15 @@ record DungeonDefinition(
                 requiredBoolean(entryUi, "confirm_required")
             ),
             new Difficulty(recommendedMin, recommendedMax, internalMin, internalMax),
+            new Eligibility(
+                minimumPartySize,
+                maximumPartySize,
+                requiredBoolean(eligibility, "require_usable_pokemon"),
+                enumValue(eligibility, "level_measure", List.of("average", "highest")),
+                enumValue(eligibility, "recommended_level_policy", List.of(
+                    "ignore", "warn", "enforce"
+                ))
+            ),
             new BattleRules(
                 requiredBoolean(battleRules, "allow_flee"),
                 requiredBoolean(battleRules, "allow_capture"),
@@ -473,6 +493,13 @@ record DungeonDefinition(
 
     record EntryUi(String infoMode, boolean confirmRequired) {}
     record Difficulty(int recommendedMin, int recommendedMax, int internalMin, int internalMax) {}
+    record Eligibility(
+        int minimumPartySize,
+        int maximumPartySize,
+        boolean requireUsablePokemon,
+        String levelMeasure,
+        String recommendedLevelPolicy
+    ) {}
     record BattleRules(boolean allowFlee, boolean allowCapture, boolean allowItems) {}
     record Terrain(
         String mode,

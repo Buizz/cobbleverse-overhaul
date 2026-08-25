@@ -290,7 +290,10 @@ DungeonEntrance
 | 마을 배치 | `settlement_site.required` | 배치 실패 시 마을 생성 실패 또는 선택적 생략 | 스토리 던전 `true` |
 | 장소 배치 | `placement.mode` | `fixed_anchor`, `marker`, `rule_based` | 지역 종류에 따름 |
 | 장소 배치 | `placement.required` | 후보가 없을 때 생성 실패 또는 선택적 생략 | `true` |
-| 진입 | `entry.level_gate` | 권장 레벨 미달·초과 시 안내만, 확인 후 허용, 입장 차단 | 안내만 |
+| 진입 | `eligibility.minimum_party_size` / `maximum_party_size` | 입장 가능한 포켓몬 파티 크기, 각각 1~6 | 1 / 6 |
+| 진입 | `eligibility.require_usable_pokemon` | 기절하지 않은 포켓몬이 한 마리 이상 필요한지 | `true` |
+| 진입 | `eligibility.level_measure` | 권장 레벨 비교 기준 `average`, `highest` | `average` |
+| 진입 | `eligibility.recommended_level_policy` | `ignore`, `warn`, `enforce` | `warn` |
 | 생성 시점 | `plan.mode` | `authored`, `runtime`, `authored_pool` | `runtime` |
 | 생성 시점 | `plan.seed_policy` | `fixed`, `random_per_run`, `daily`, `weekly`, `match`, `player` | `random_per_run` |
 | 생성 시점 | `plan.fallback` | `reject_entry`, `use_last_valid`, `use_fallback_plan` | `reject_entry` |

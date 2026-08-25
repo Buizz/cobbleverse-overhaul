@@ -78,7 +78,9 @@ public final class DungeonGuideScreen extends Screen {
         lineY += 8;
         graphics.drawString(
             font,
-            "권장 레벨  Lv." + data.recommendedMin() + "–" + data.recommendedMax(),
+            "권장 레벨  Lv." + data.recommendedMin() + "–" + data.recommendedMax()
+                + " · 파티 " + (data.levelMeasure().equals("highest") ? "최고" : "평균")
+                + " Lv." + data.currentPartyLevel(),
             left + 20, lineY, 0xFFFFD166, false
         );
         lineY += 16;

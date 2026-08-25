@@ -33,6 +33,13 @@ final class DungeonDefinitionTest {
                     "internal_min": 24,
                     "internal_max": 31
                   },
+                  "eligibility": {
+                    "minimum_party_size": 1,
+                    "maximum_party_size": 6,
+                    "require_usable_pokemon": true,
+                    "level_measure": "average",
+                    "recommended_level_policy": "warn"
+                  },
                   "battle": {
                     "allow_flee": false,
                     "allow_capture": true,
@@ -109,6 +116,9 @@ final class DungeonDefinitionTest {
         assertEquals("점거된 발전소", definition.displayName());
         assertEquals(25, definition.difficulty().recommendedMin());
         assertEquals(24, definition.difficulty().internalMin());
+        assertTrue(definition.eligibility().requireUsablePokemon());
+        assertEquals("average", definition.eligibility().levelMeasure());
+        assertEquals("warn", definition.eligibility().recommendedLevelPolicy());
         assertFalse(definition.battleRules().allowFlee());
         assertTrue(definition.battleRules().allowCapture());
         assertTrue(definition.battleRules().allowItems());
@@ -173,6 +183,13 @@ final class DungeonDefinitionTest {
                     "recommended_max": 15,
                     "internal_min": 10,
                     "internal_max": 15
+                  },
+                  "eligibility": {
+                    "minimum_party_size": 1,
+                    "maximum_party_size": 6,
+                    "require_usable_pokemon": true,
+                    "level_measure": "average",
+                    "recommended_level_policy": "warn"
                   },
                   "battle": {
                     "allow_flee": true,

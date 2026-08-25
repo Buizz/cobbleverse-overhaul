@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": [
     "$schema", "schema_version", "dungeon_id", "display_name", "description",
-    "preset", "entrances", "entry_ui", "difficulty", "battle", "terrain", "encounters",
+    "preset", "entrances", "entry_ui", "difficulty", "eligibility", "battle", "terrain", "encounters",
     "random_encounters", "support", "loot", "rewards", "lifecycle", "completion"
   ],
   "properties": {
@@ -39,6 +39,21 @@
         "recommended_max": { "$ref": "#/$defs/level" },
         "internal_min": { "$ref": "#/$defs/level" },
         "internal_max": { "$ref": "#/$defs/level" }
+      }
+    },
+    "eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_party_size", "maximum_party_size", "require_usable_pokemon",
+        "level_measure", "recommended_level_policy"
+      ],
+      "properties": {
+        "minimum_party_size": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "maximum_party_size": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "require_usable_pokemon": { "type": "boolean" },
+        "level_measure": { "enum": ["average", "highest"] },
+        "recommended_level_policy": { "enum": ["ignore", "warn", "enforce"] }
       }
     },
     "battle": {
