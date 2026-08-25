@@ -143,6 +143,11 @@
       }
     ]
   },
+  "lifecycle": {
+    "on_wipe": "reset_run",
+    "wipe_return": "source_entrance",
+    "heal_on_wipe": true
+  },
   "completion": {
     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
     "repeatable": true,

@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.battles.BattleRegistry;
+import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import com.google.gson.JsonElement;
@@ -84,6 +85,9 @@ final class DungeonSystem {
 
     static void register(IEventBus modBus) {
         DungeonGuideNetwork.register(modBus);
+        PokemonCenterDefeatReturn.setDefeatRecoveryOverride(
+            DungeonSystem::handlePartyWipe
+        );
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedOut);
@@ -233,6 +237,31 @@ final class DungeonSystem {
         return definition == null ? null : definition.battleRules();
     }
 
+    private static synchronized boolean handlePartyWipe(ServerPlayer player) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+            return false;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null) {
+            Cobblemon.INSTANCE.getStorage().getParty(player).heal();
+            returnPlayer(player, "던전 도전에 실패해 입구로 복귀했습니다.");
+            return true;
+        }
+        DungeonDefinition.Lifecycle lifecycle = definition.lifecycle();
+        if (lifecycle.healOnWipe()) {
+            Cobblemon.INSTANCE.getStorage().getParty(player).heal();
+        }
+        boolean usePokemonCenter = lifecycle.wipeReturn().equals("pokemon_center");
+        returnPlayer(
+            player,
+            usePokemonCenter
+                ? "던전 도전에 실패했습니다. 포켓몬센터로 후송됩니다."
+                : "던전 도전에 실패해 입구로 복귀했습니다."
+        );
+        return !usePokemonCenter;
+    }
+
     private static void openGuide(ServerPlayer player, PlacedEntrance placement) {
         DungeonEntranceRef ref = entrances.get(placement.entranceId());
         if (ref == null) {
@@ -253,7 +282,9 @@ final class DungeonSystem {
                 definition.difficulty().recommendedMax(),
                 definition.difficulty().internalMin(),
                 definition.difficulty().internalMax(),
-                definition.entryUi().infoMode()
+                definition.entryUi().infoMode(),
+                definition.lifecycle().wipeReturn(),
+                definition.lifecycle().healOnWipe()
             )
         );
     }

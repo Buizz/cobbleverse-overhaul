@@ -7,7 +7,7 @@
   "required": [
     "$schema", "schema_version", "dungeon_id", "display_name", "description",
     "preset", "entrances", "entry_ui", "difficulty", "battle", "terrain", "encounters",
-    "random_encounters", "support", "loot", "completion"
+    "random_encounters", "support", "loot", "lifecycle", "completion"
   ],
   "properties": {
     "$schema": { "type": "string" },
@@ -121,6 +121,16 @@
           "minItems": 1,
           "items": { "$ref": "#/$defs/loot_container" }
         }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on_wipe", "wipe_return", "heal_on_wipe"],
+      "properties": {
+        "on_wipe": { "const": "reset_run" },
+        "wipe_return": { "enum": ["source_entrance", "pokemon_center"] },
+        "heal_on_wipe": { "type": "boolean" }
       }
     },
     "completion": {

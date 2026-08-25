@@ -88,6 +88,11 @@ final class DungeonDefinitionTest {
                       "facing": "south"
                     }]
                   },
+                  "lifecycle": {
+                    "on_wipe": "reset_run",
+                    "wipe_return": "source_entrance",
+                    "heal_on_wipe": true
+                  },
                   "completion": {
                     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
                     "repeatable": true,
@@ -122,6 +127,9 @@ final class DungeonDefinitionTest {
             definition.loot().lootTable()
         );
         assertEquals("barrel", definition.loot().containers().getFirst().block());
+        assertEquals("reset_run", definition.lifecycle().onWipe());
+        assertEquals("source_entrance", definition.lifecycle().wipeReturn());
+        assertTrue(definition.lifecycle().healOnWipe());
         assertEquals("flash", definition.completion().fieldMoves().getFirst());
         assertEquals(
             "cobbleventure:entrance/rocket_power_plant",

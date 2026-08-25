@@ -94,7 +94,12 @@ public final class DungeonGuideScreen extends Screen {
         );
         lineY += 16;
         graphics.drawString(
-            font, "현재 테스트 버전에서는 NPC·보상·초기화가 적용되지 않습니다.",
+            font,
+            "패배: 전체 초기화 · "
+                + (data.wipeReturn().equals("pokemon_center")
+                    ? "포켓몬센터 복귀"
+                    : "입구 복귀")
+                + (data.healOnWipe() ? " · 파티 회복" : ""),
             left + 20, lineY, 0xFFFF9F80, false
         );
         super.render(graphics, mouseX, mouseY, partialTick);

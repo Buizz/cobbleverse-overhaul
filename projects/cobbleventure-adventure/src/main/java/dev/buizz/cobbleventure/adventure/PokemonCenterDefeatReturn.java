@@ -16,6 +16,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -56,6 +57,7 @@ public final class PokemonCenterDefeatReturn {
     private static final Map<UUID, PendingReturn> PENDING_RETURNS = new HashMap<>();
     private static final Map<UUID, RecoverySequence> ACTIVE_RECOVERIES = new HashMap<>();
     private static final Map<UUID, UUID> FORFEITED_BATTLES = new HashMap<>();
+    private static Predicate<ServerPlayer> defeatRecoveryOverride = player -> false;
     private static boolean registered;
 
     private PokemonCenterDefeatReturn() {}
@@ -84,6 +86,14 @@ public final class PokemonCenterDefeatReturn {
         if (player != null) {
             FORFEITED_BATTLES.put(player.getUUID(), actor.getBattle().getBattleId());
         }
+    }
+
+    /**
+     * Installs an optional world-specific handler that can replace Pokémon Center recovery.
+     * Returning {@code true} means the handler safely returned and recovered the player.
+     */
+    public static void setDefeatRecoveryOverride(Predicate<ServerPlayer> override) {
+        defeatRecoveryOverride = override == null ? player -> false : override;
     }
 
     static boolean shouldRecordForfeit(boolean wildBattle) {
@@ -165,6 +175,10 @@ public final class PokemonCenterDefeatReturn {
             }
             iterator.remove();
             if (pending.forceRecovery || isPartyWiped(player)) {
+                if (defeatRecoveryOverride.test(player)) {
+                    BattleLossEconomy.announce(player, pending.settlement);
+                    continue;
+                }
                 startRecovery(
                     player, server, gameTime, pending.settlement, pending.forceRecovery
                 );

@@ -31,6 +31,7 @@ record DungeonDefinition(
     RandomEncounters randomEncounters,
     Support support,
     Loot loot,
+    Lifecycle lifecycle,
     Completion completion,
     List<Entrance> entrances
 ) {
@@ -306,6 +307,7 @@ record DungeonDefinition(
                 );
             }
         }
+        JsonObject lifecycle = requiredObject(root, "lifecycle");
         JsonObject completion = requiredObject(root, "completion");
         List<String> fieldMoves = new ArrayList<>();
         for (JsonElement element : requiredArray(completion, "field_moves")) {
@@ -344,6 +346,13 @@ record DungeonDefinition(
             ),
             new Support(List.copyOf(healingStations)),
             new Loot(resourceId(loot, "loot_table"), List.copyOf(lootContainers)),
+            new Lifecycle(
+                enumValue(lifecycle, "on_wipe", List.of("reset_run")),
+                enumValue(lifecycle, "wipe_return", List.of(
+                    "source_entrance", "pokemon_center"
+                )),
+                requiredBoolean(lifecycle, "heal_on_wipe")
+            ),
             new Completion(
                 resourceId(completion, "victory_flag"),
                 requiredBoolean(completion, "repeatable"),
@@ -485,6 +494,7 @@ record DungeonDefinition(
     ) {}
     record Loot(String lootTable, List<LootContainer> containers) {}
     record LootContainer(String id, BlockPos position, String block, String facing) {}
+    record Lifecycle(String onWipe, String wipeReturn, boolean healOnWipe) {}
     record Completion(String victoryFlag, boolean repeatable, List<String> fieldMoves) {}
     record Entrance(
         String entranceId,
