@@ -370,6 +370,15 @@ record DungeonDefinition(
         String lootOwnership = enumValue(loot, "ownership", List.of(
             "per_player", "run_shared", "first_claim"
         ));
+        String lootOnFailure = enumValue(loot, "on_failure", List.of(
+            "keep_collected", "remove_run_loot", "grant_on_clear_only"
+        ));
+        if (lootOwnership.equals("run_shared")
+            && !lootOnFailure.equals("keep_collected")) {
+            throw new IllegalStateException(
+                "run_shared dungeon loot requires keep_collected: " + id
+            );
+        }
         List<LootContainer> lootContainers = new ArrayList<>();
         Set<String> lootContainerIds = new HashSet<>();
         Set<BlockPos> lootContainerPositions = new HashSet<>();
@@ -489,7 +498,7 @@ record DungeonDefinition(
             ),
             new Support(List.copyOf(healingStations)),
             new Loot(
-                resourceId(loot, "loot_table"), lootOwnership,
+                resourceId(loot, "loot_table"), lootOwnership, lootOnFailure,
                 List.copyOf(lootContainers)
             ),
             new Rewards(
@@ -676,7 +685,12 @@ record DungeonDefinition(
         boolean restoreStatus,
         boolean restorePp
     ) {}
-    record Loot(String lootTable, String ownership, List<LootContainer> containers) {}
+    record Loot(
+        String lootTable,
+        String ownership,
+        String onFailure,
+        List<LootContainer> containers
+    ) {}
     record LootContainer(String id, BlockPos position, String block, String facing) {}
     record Rewards(
         String firstClearTable,

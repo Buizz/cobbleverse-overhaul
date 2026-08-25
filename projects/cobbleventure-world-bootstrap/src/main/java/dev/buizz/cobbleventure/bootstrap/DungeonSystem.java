@@ -705,7 +705,7 @@ final class DungeonSystem {
             player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
             randomEncounters, new HashMap<>(), participantIds, new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
-            new DungeonLootClaims()
+            new DungeonLootClaims(), new DungeonLootLedger()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         for (int index = 0; index < entries.size(); index++) {
@@ -1009,18 +1009,27 @@ final class DungeonSystem {
             ));
             return true;
         }
-        if (!BagApi.insertAll(player, rewards).complete()) {
-            run.lootClaims().release(container.id(), player.getUUID());
-            player.sendSystemMessage(Component.literal(
-                "가방 공간이 부족합니다. 공간을 비운 뒤 상자를 다시 여세요."
-            ));
-            return true;
+        boolean deferred = definition.loot().onFailure().equals("grant_on_clear_only");
+        if (!deferred) {
+            if (!BagApi.insertAll(player, rewards).complete()) {
+                run.lootClaims().release(container.id(), player.getUUID());
+                player.sendSystemMessage(Component.literal(
+                    "가방 공간이 부족합니다. 공간을 비운 뒤 상자를 다시 여세요."
+                ));
+                return true;
+            }
         }
+        run.lootLedger().record(
+            definition.loot().onFailure(), player.getUUID(), rewards
+        );
 
         int itemCount = rewards.stream().mapToInt(ItemStack::getCount).sum();
         player.sendSystemMessage(Component.literal(itemCount == 0
             ? "[던전] 상자가 비어 있었습니다."
-            : "[던전] 개인 전리품 " + itemCount + "개를 획득했습니다."
+            : deferred
+                ? "[던전] 개인 전리품 " + itemCount
+                    + "개를 확보했습니다. 클리어하면 지급됩니다."
+                : "[던전] 개인 전리품 " + itemCount + "개를 획득했습니다."
         ));
         player.serverLevel().playSound(
             null, position,
@@ -1498,11 +1507,16 @@ final class DungeonSystem {
 
     private static void failRun(ActiveRun run, String message, boolean heal) {
         if (run == null) return;
+        DungeonDefinition definition = definitions.get(run.dungeonId());
         for (UUID participantId : run.participantIds()) {
             ServerPlayer participant = run.server().getPlayerList().getPlayer(participantId);
             if (participant == null) {
                 releaseRun(participantId);
                 continue;
+            }
+            if (definition != null
+                && definition.loot().onFailure().equals("remove_run_loot")) {
+                removeRunLoot(participant, run.lootLedger().removable(participantId));
             }
             if (heal) {
                 Cobblemon.INSTANCE.getStorage().getParty(participant).heal();
@@ -1510,6 +1524,23 @@ final class DungeonSystem {
             returnPlayer(participant, message);
         }
         cleanupRun(run.server(), run);
+    }
+
+    private static void removeRunLoot(
+        ServerPlayer player, List<ItemStack> recorded
+    ) {
+        int removed = 0;
+        for (ItemStack stack : recorded) {
+            int amount = Math.min(stack.getCount(), BagApi.count(player, stack));
+            if (amount > 0 && BagApi.remove(player, stack, amount)) {
+                removed += amount;
+            }
+        }
+        if (removed > 0) {
+            player.sendSystemMessage(Component.literal(
+                "[던전] 도전 실패로 이번 실행의 전리품 " + removed + "개를 회수했습니다."
+            ));
+        }
     }
 
     private static void returnPlayer(ServerPlayer player, String message) {
@@ -1580,11 +1611,11 @@ final class DungeonSystem {
                 String rewardTable = firstClear
                     ? definition.rewards().firstClearTable()
                     : definition.rewards().repeatTable();
-                rewards.add(new PendingReward(
-                    participant,
-                    firstClear,
+                List<ItemStack> items = new ArrayList<>(
                     generateClearRewards(participant, rewardTable)
-                ));
+                );
+                items.addAll(run.lootLedger().pending(participantId));
+                rewards.add(new PendingReward(participant, firstClear, items));
             }
             for (PendingReward reward : rewards) {
                 ServerPlayer participant = reward.player();
@@ -1858,7 +1889,8 @@ final class DungeonSystem {
         Set<UUID> participantIds,
         Map<UUID, Long> tetherWarningUntil,
         EncounterRuntime encounters,
-        DungeonLootClaims lootClaims
+        DungeonLootClaims lootClaims,
+        DungeonLootLedger lootLedger
     ) {}
 
     private enum EncounterStatus {
