@@ -18,6 +18,7 @@ import dev.buizz.cobbleventure.playermenu.MusicPlayback;
 import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -90,6 +91,7 @@ final class BuildingRuntimeSystem {
     private static final Map<String, StructureMetadata> METADATA = new LinkedHashMap<>();
     private static final Map<String, BuildingSettings> SETTINGS = new LinkedHashMap<>();
     private static final Map<DoorKey, DoorTarget> DOORS = new HashMap<>();
+    private static final List<TransitionTarget> TRANSITIONS = new ArrayList<>();
     private static final Map<String, EventSpaceInstance> EVENT_SPACES = new LinkedHashMap<>();
     private static final Map<UUID, PendingNpcSeat> PENDING_NPC_SEATS = new LinkedHashMap<>();
     private BuildingRuntimeSystem() {
@@ -107,6 +109,7 @@ final class BuildingRuntimeSystem {
         METADATA.clear();
         SETTINGS.clear();
         DOORS.clear();
+        TRANSITIONS.clear();
         EVENT_SPACES.clear();
         PENDING_NPC_SEATS.clear();
         StructurePlacementFixes.clearPendingElevatorAssemblies();
@@ -168,7 +171,7 @@ final class BuildingRuntimeSystem {
             return;
         }
         if (settings != null && !settings.routes.isEmpty()) {
-            if (!hasExteriorRouteDoor(level, metadata, origin.toBlockPos(), rotation, settings)) {
+            if (!hasExteriorRouteTrigger(level, metadata, origin.toBlockPos(), rotation, settings)) {
                 LOGGER.warn(
                     "Configured building runtime skipped because its exterior door is absent: "
                         + "dimension={}, structure={}, origin={}, rotation={}",
@@ -677,7 +680,7 @@ final class BuildingRuntimeSystem {
         return bestMatch == null ? null : SETTINGS.get(bestMatch);
     }
 
-    private static boolean hasExteriorRouteDoor(
+    private static boolean hasExteriorRouteTrigger(
         ServerLevel level, StructureMetadata metadata, BlockPos origin,
         Rotation rotation, BuildingSettings settings
     ) {
@@ -687,11 +690,15 @@ final class BuildingRuntimeSystem {
                 continue;
             }
             hasExteriorRoute = true;
-            Anchor anchor = metadata.namedDoor(route.substring("exterior:".length()));
-            if (anchor != null
-                && level.getBlockState(transform(origin, anchor.position, rotation)).getBlock()
-                    instanceof DoorBlock) {
-                return true;
+            Anchor anchor = metadata.namedConnection(route.substring("exterior:".length()));
+            if (anchor != null) {
+                BlockState state = level.getBlockState(
+                    transform(origin, anchor.position, rotation)
+                );
+                if ((anchor.type.equals("door") && state.getBlock() instanceof DoorBlock)
+                    || (anchor.type.equals("transition") && state.is(Blocks.BARRIER))) {
+                    return true;
+                }
             }
         }
         return !hasExteriorRoute;
@@ -713,7 +720,7 @@ final class BuildingRuntimeSystem {
             }
             String rotationName = instance.rotation;
             if (rotationName == null || rotationName.isBlank()
-                || !hasExteriorRouteDoor(
+                || !hasExteriorRouteTrigger(
                     level, metadata, instance.origin, rotation(rotationName), settings
                 )) {
                 rotationName = detectExteriorRotation(level, instance.origin, metadata, settings);
@@ -745,7 +752,7 @@ final class BuildingRuntimeSystem {
         for (String rotationName : List.of(
             "none", "clockwise_90", "clockwise_180", "counterclockwise_90"
         )) {
-            if (hasExteriorRouteDoor(
+            if (hasExteriorRouteTrigger(
                 level, metadata, origin, rotation(rotationName), settings
             )) {
                 return rotationName;
@@ -948,7 +955,8 @@ final class BuildingRuntimeSystem {
         }
         Map<String, SpaceInstance> spaces = new LinkedHashMap<>();
         spaces.put("exterior", new SpaceInstance(
-            exterior, exteriorOrigin, exteriorRotation, exteriorMetadata, null
+            exterior, exteriorOrigin, exteriorRotation, exteriorMetadata,
+            exteriorStructure, null
         ));
         RuntimeData runtime = data(exterior.getServer());
         BlockPos base = instanceOrigin(runtime, instanceKey, false);
@@ -1018,7 +1026,7 @@ final class BuildingRuntimeSystem {
             );
             spaces.put(interior.key, new SpaceInstance(
                 interiorsLevel, origin, Rotation.NONE, metadata,
-                template.orElseThrow().getSize()
+                interior.structure, template.orElseThrow().getSize()
             ));
             applyFixedNpcs(
                 interiorsLevel, metadata, origin, Rotation.NONE,
@@ -1064,37 +1072,31 @@ final class BuildingRuntimeSystem {
                 continue;
             }
             String sourceSpaceKey = route.getKey().substring(0, separator);
-            String sourceDoorId = route.getKey().substring(separator + 1);
+            String sourceAnchorId = route.getKey().substring(separator + 1);
             SpaceInstance sourceSpace = spaces.get(sourceSpaceKey);
             SpaceInstance targetSpace = spaces.get(route.getValue().space);
             if (sourceSpace == null || targetSpace == null) {
                 LOGGER.warn("Building route references an unavailable space: {}", route.getKey());
                 continue;
             }
-            Anchor sourceDoor = sourceSpace.metadata.namedDoor(sourceDoorId);
-            Anchor targetDoor = targetSpace.metadata.namedDoor(route.getValue().door);
-            if (sourceDoor == null || targetDoor == null) {
-                LOGGER.warn("Building route references a missing door: {}", route.getKey());
+            Anchor sourceAnchor = sourceSpace.metadata.namedConnection(sourceAnchorId);
+            Anchor targetAnchor = targetSpace.metadata.namedConnection(route.getValue().door);
+            if (sourceAnchor == null || targetAnchor == null) {
+                LOGGER.warn("Building route references a missing door or transition: {}", route.getKey());
                 continue;
             }
-            BlockPos door = transform(
-                sourceSpace.origin, sourceDoor.position, sourceSpace.rotation
-            );
-            BlockPos targetDoorPosition = transform(
-                targetSpace.origin, targetDoor.position, targetSpace.rotation
-            );
             BlockPos destination = transform(
                 targetSpace.origin,
-                targetDoor.safeSpawn == null ? targetDoor.position : targetDoor.safeSpawn,
+                safeDestination(targetAnchor),
                 targetSpace.rotation
             );
             BlockPos reverseDestination = transform(
                 sourceSpace.origin,
-                sourceDoor.safeSpawn == null ? sourceDoor.position : sourceDoor.safeSpawn,
+                safeDestination(sourceAnchor),
                 sourceSpace.rotation
             );
-            registerDoor(
-                sourceSpace.level, door,
+            registerConnectionTrigger(
+                sourceSpace, sourceAnchor,
                 new DoorTarget(
                     targetSpace.level.dimension(), destination,
                     route.getValue().conditions, route.getValue().conditionMode,
@@ -1102,8 +1104,8 @@ final class BuildingRuntimeSystem {
                     !route.getValue().space.equals("exterior"), settings.musicTrack
                 )
             );
-            registerDoor(
-                targetSpace.level, targetDoorPosition,
+            registerConnectionTrigger(
+                targetSpace, targetAnchor,
                 new DoorTarget(
                     sourceSpace.level.dimension(), reverseDestination,
                     List.of(), "all", List.of(), List.of(),
@@ -1194,6 +1196,7 @@ final class BuildingRuntimeSystem {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         StructurePlacementFixes.tickPendingElevatorAssemblies(event.getServer());
+        tickTransitions(event.getServer());
         if (PENDING_NPC_SEATS.isEmpty()) {
             return;
         }
@@ -1230,6 +1233,25 @@ final class BuildingRuntimeSystem {
                     pending.yaw, pending.seated, pending.attempts + 1
                 ));
             }
+        }
+    }
+
+    private static void tickTransitions(MinecraftServer server) {
+        if (TRANSITIONS.isEmpty()) return;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            long gameTime = player.level().getGameTime();
+            if (player.getPersistentData().getLong(INTERACTION_COOLDOWN) > gameTime) {
+                continue;
+            }
+            AABB playerBounds = player.getBoundingBox().inflate(0.08D);
+            TransitionTarget transition = TRANSITIONS.stream()
+                .filter(candidate -> candidate.dimension.equals(player.level().dimension()))
+                .filter(candidate -> candidate.blocks.stream().anyMatch(
+                    position -> playerBounds.intersects(new AABB(position))
+                ))
+                .findFirst().orElse(null);
+            if (transition == null) continue;
+            activateTarget(player, transition.target, 10L);
         }
     }
 
@@ -1334,6 +1356,73 @@ final class BuildingRuntimeSystem {
         }
     }
 
+    private static BlockPos safeDestination(Anchor anchor) {
+        if (anchor.safeSpawn != null) return anchor.safeSpawn;
+        return anchor.type.equals("transition")
+            ? anchor.position.relative(anchor.facing) : anchor.position;
+    }
+
+    private static void registerConnectionTrigger(
+        SpaceInstance space, Anchor anchor, DoorTarget target
+    ) {
+        BlockPos position = transform(space.origin, anchor.position, space.rotation);
+        if (anchor.type.equals("door")) {
+            registerDoor(space.level, position, target);
+            return;
+        }
+        Set<BlockPos> blocks = transitionBlocks(space, anchor);
+        if (blocks.isEmpty()) {
+            LOGGER.warn(
+                "Configured building transition has no connected barrier blocks: "
+                    + "structure={}, anchor={}, position={}",
+                space.structure, anchor.id, position
+            );
+            return;
+        }
+        Set<BlockPos> immutableBlocks = Set.copyOf(blocks);
+        TRANSITIONS.removeIf(existing -> existing.dimension.equals(space.level.dimension())
+            && existing.blocks.equals(immutableBlocks));
+        TRANSITIONS.add(new TransitionTarget(
+            space.level.dimension(), immutableBlocks, target
+        ));
+    }
+
+    private static Set<BlockPos> transitionBlocks(
+        SpaceInstance space, Anchor anchor
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(space.structure);
+        var template = structureId == null
+            ? java.util.Optional.<StructureTemplate>empty()
+            : space.level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return Set.of();
+        Set<BlockPos> barriers = template.orElseThrow().filterBlocks(
+            BlockPos.ZERO, new StructurePlaceSettings(), Blocks.BARRIER
+        ).stream().map(StructureTemplate.StructureBlockInfo::pos)
+            .collect(java.util.stream.Collectors.toSet());
+        if (!barriers.contains(anchor.position)) return Set.of();
+        Set<BlockPos> connected = new HashSet<>();
+        ArrayDeque<BlockPos> pending = new ArrayDeque<>();
+        pending.add(anchor.position);
+        while (!pending.isEmpty()) {
+            BlockPos current = pending.removeFirst();
+            if (!barriers.contains(current) || !connected.add(current)) continue;
+            if (connected.size() > 4096) {
+                LOGGER.error(
+                    "Building transition barrier region is too large: structure={}, anchor={}",
+                    space.structure, anchor.id
+                );
+                return Set.of();
+            }
+            for (net.minecraft.core.Direction direction
+                : net.minecraft.core.Direction.values()) {
+                pending.add(current.relative(direction));
+            }
+        }
+        return connected.stream().map(local -> transform(
+            space.origin, local, space.rotation
+        )).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
     private static void registerDoor(ServerLevel level, BlockPos lower, DoorTarget target) {
         if (!(level.getBlockState(lower).getBlock() instanceof DoorBlock)) {
             LOGGER.warn(
@@ -1426,11 +1515,19 @@ final class BuildingRuntimeSystem {
         }
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
+        activateTarget(player, target, 10L);
+    }
+
+    private static void activateTarget(
+        ServerPlayer player, DoorTarget target, long cooldownTicks
+    ) {
         long gameTime = player.level().getGameTime();
         if (player.getPersistentData().getLong(INTERACTION_COOLDOWN) > gameTime) {
             return;
         }
-        player.getPersistentData().putLong(INTERACTION_COOLDOWN, gameTime + 10L);
+        player.getPersistentData().putLong(
+            INTERACTION_COOLDOWN, gameTime + cooldownTicks
+        );
         if (!target.allows(player)) {
             sendDialogue(player, target.lockedDialogue);
             return;
@@ -1438,7 +1535,7 @@ final class BuildingRuntimeSystem {
         sendDialogue(player, target.enterDialogue);
         ServerLevel destination = player.getServer().getLevel(target.dimension);
         if (destination == null) {
-            player.sendSystemMessage(Component.literal("[건물 문] 이동할 공간을 찾을 수 없습니다."));
+            player.sendSystemMessage(Component.literal("[건물 출입구] 이동할 공간을 찾을 수 없습니다."));
             return;
         }
         destination.getChunkAt(target.position);
@@ -1449,7 +1546,7 @@ final class BuildingRuntimeSystem {
                 target.dimension.location(), target.position
             );
             player.sendSystemMessage(Component.literal(
-                "[건물 문] 내부 공간이 아직 준비되지 않아 이동을 중단했습니다."
+                "[건물 출입구] 내부 공간이 아직 준비되지 않아 이동을 중단했습니다."
             ));
             return;
         }
@@ -1674,9 +1771,9 @@ final class BuildingRuntimeSystem {
             return anchors.stream().filter(anchor -> anchor.type.equals(type)).findFirst().orElse(null);
         }
 
-        Anchor namedDoor(String id) {
+        Anchor namedConnection(String id) {
             return anchors.stream().filter(anchor -> anchor.id.equals(id)
-                && anchor.type.equals("door"))
+                && (anchor.type.equals("door") || anchor.type.equals("transition")))
                 .findFirst().orElse(null);
         }
 
@@ -1700,7 +1797,7 @@ final class BuildingRuntimeSystem {
 
     private record SpaceInstance(
         ServerLevel level, BlockPos origin, Rotation rotation, StructureMetadata metadata,
-        Vec3i size
+        String structure, Vec3i size
     ) {
         boolean contains(BlockPos position) {
             return BuildingEventSpaceBounds.contains(origin, size, position);
@@ -1726,6 +1823,11 @@ final class BuildingRuntimeSystem {
     }
 
     private record DoorKey(ResourceKey<Level> dimension, BlockPos position) {
+    }
+
+    private record TransitionTarget(
+        ResourceKey<Level> dimension, Set<BlockPos> blocks, DoorTarget target
+    ) {
     }
 
     private record DoorTarget(

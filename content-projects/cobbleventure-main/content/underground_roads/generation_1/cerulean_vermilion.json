@@ -77,17 +77,5 @@
       },
       "rotation": "none"
     }
-  ],
-  "ports": {
-    "cerulean": {
-      "display_name": "블루시티 남쪽 입구",
-      "module": "cerulean_stairs",
-      "connector": "surface"
-    },
-    "vermilion": {
-      "display_name": "갈색시티 북쪽 입구",
-      "module": "vermilion_stairs",
-      "connector": "surface"
-    }
-  }
+  ]
 }

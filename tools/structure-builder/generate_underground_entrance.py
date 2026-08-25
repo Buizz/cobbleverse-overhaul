@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from generate_underground_road_modules import ROOT, marker, serialize_structure
 
 SIZE = (24, 16, 20)
 OUTPUT = ROOT / "content-projects/cobbleventure-main/content/structures/underground_entrance/underground_passage.nbt"
+METADATA_OUTPUT = OUTPUT.with_suffix(".structure.json")
 
 
 def generate() -> Path:
@@ -78,7 +80,8 @@ def generate() -> Path:
     )
 
     # A coarse descending stair and dark landing show where the future authored
-    # stairwell belongs. The second jigsaw is the actual surface teleport trigger.
+    # stairwell belongs. The connected barrier wall is the touch transition zone;
+    # its seed and label live in the structure metadata instead of a jigsaw.
     for offset, y in enumerate((4, 3, 2, 1)):
         z = 9 + offset
         for x in range(10, 14):
@@ -87,12 +90,27 @@ def generate() -> Path:
     for x in range(9, 15):
         for z in range(13, 17):
             blocks[(x, 0, z)] = ("minecraft:polished_blackstone_bricks", (), None)
-    blocks[(11, 1, 14)] = marker(
-        "cobbleventure:underground_entry", "down", "minecraft:air"
-    )
+    for x in range(10, 14):
+        for y in range(1, 4):
+            blocks[(x, y, 14)] = ("minecraft:barrier", (), None)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_bytes(serialize_structure(SIZE, blocks))
+    METADATA_OUTPUT.write_text(
+        json.dumps({
+            "schema_version": 1,
+            "structure": "content/structures/underground_entrance/underground_passage.nbt",
+            "anchors": [{
+                "id": "underground_entry",
+                "label": "underground_entry",
+                "type": "transition",
+                "position": [11, 1, 14],
+                "safe_spawn": [11, 1, 13],
+                "facing": "north",
+            }],
+        }, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return OUTPUT
 
 

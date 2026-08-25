@@ -124,6 +124,7 @@
           },
           "door_routes": {
             "type": "object",
+            "description": "건물 문 또는 배리어 접촉 전환 영역 사이의 이동 연결",
             "propertyNames": {
               "pattern": "^[a-z0-9][a-z0-9_]*:[a-z0-9][a-z0-9_]*$"
             },
@@ -139,6 +140,7 @@
                   "pattern": "^[a-z0-9][a-z0-9_]*$"
                 },
                 "door": {
+                  "description": "목적지 공간의 door 또는 transition 앵커 라벨",
                   "pattern": "^[a-z0-9][a-z0-9_]*$"
                 },
                 "condition_mode": {

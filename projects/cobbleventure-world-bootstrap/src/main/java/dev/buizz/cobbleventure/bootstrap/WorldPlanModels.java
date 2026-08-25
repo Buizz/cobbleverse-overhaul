@@ -203,7 +203,9 @@ final class WorldPlanModels {
     record EnvironmentOverride(String temperature, String humidity, String weather) {}
 
     record CaveEntrancePlan(
-        String id, String cave, String entrance, HexCoord anchor, String facing,
+        String id, String cave, String entrance,
+        String surfaceTransition, String undergroundModule, String undergroundConnector,
+        HexCoord anchor, String facing,
         String structure, Map<String, String> structureVariants,
         boolean pokemonCenterEnabled, String pokemonCenterStructure,
         HexCoord pokemonCenterOffset,

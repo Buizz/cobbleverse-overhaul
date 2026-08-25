@@ -77,17 +77,5 @@
       },
       "rotation": "none"
     }
-  ],
-  "ports": {
-    "celadon": {
-      "display_name": "무지개시티 동쪽 입구",
-      "module": "celadon_stairs",
-      "connector": "surface"
-    },
-    "lavender": {
-      "display_name": "보라마을 서쪽 입구",
-      "module": "lavender_stairs",
-      "connector": "surface"
-    }
-  }
+  ]
 }

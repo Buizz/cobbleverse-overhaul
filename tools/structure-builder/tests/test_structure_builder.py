@@ -42,10 +42,13 @@ ENTRANCE_GENERATOR_SPEC.loader.exec_module(underground_entrance_generator)
 
 
 class StructureBuilderTests(unittest.TestCase):
-    def test_generated_underground_entrance_has_road_and_stair_markers(self) -> None:
+    def test_generated_underground_entrance_has_road_anchor_and_transition_barriers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "underground_passage.nbt"
-            with mock.patch.object(underground_entrance_generator, "OUTPUT", target):
+            metadata_target = target.with_suffix(".structure.json")
+            with mock.patch.object(underground_entrance_generator, "OUTPUT", target), mock.patch.object(
+                underground_entrance_generator, "METADATA_OUTPUT", metadata_target
+            ):
                 generated = underground_entrance_generator.generate()
             metadata = content_manager.read_minecraft_structure_metadata(generated.read_bytes())
 
@@ -54,10 +57,10 @@ class StructureBuilderTests(unittest.TestCase):
                 [{"position": [11, 1, 0], "facing": "north", "orientation": "north_up", "final_state": "minecraft:smooth_stone"}],
                 metadata["road_anchors"],
             )
-            self.assertEqual(
-                [{"name": "cobbleventure:underground_entry", "position": [11, 1, 14], "facing": "down", "orientation": "down_north", "final_state": "minecraft:air"}],
-                metadata["underground_entries"],
-            )
+            self.assertEqual([], metadata["underground_entries"])
+            authored = json.loads(metadata_target.read_text(encoding="utf-8"))
+            self.assertEqual("transition", authored["anchors"][0]["type"])
+            self.assertEqual([11, 1, 14], authored["anchors"][0]["position"])
 
     def test_generated_underground_modules_have_expected_connectors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -82,6 +85,11 @@ class StructureBuilderTests(unittest.TestCase):
                 {"west", "surface"},
                 {connector["tag"] for connector in metadata["stairs_up"]["underground_connectors"]},
             )
+            surface = next(
+                connector for connector in metadata["stairs_up"]["underground_connectors"]
+                if connector["tag"] == "surface"
+            )
+            self.assertEqual([13, 10, 7], surface["position"])
             self.assertEqual(
                 {"east", "vertical_down"},
                 {connector["tag"] for connector in metadata["stairs_down"]["underground_connectors"]},
@@ -101,6 +109,20 @@ class StructureBuilderTests(unittest.TestCase):
         }, Path("department_store.structure.json"))
 
         self.assertEqual(80, document["interior"]["floor_height"])
+
+    def test_structure_metadata_accepts_touch_transition_anchor(self) -> None:
+        document = structure_builder._validate_structure_metadata({
+            "schema_version": 1,
+            "anchors": [{
+                "id": "underground_entry",
+                "type": "transition",
+                "position": [11, 1, 14],
+                "safe_spawn": [11, 1, 13],
+                "facing": "north",
+            }],
+        }, Path("underground_passage.structure.json"))
+
+        self.assertEqual("transition", document["anchors"][0]["type"])
 
     def test_structure_metadata_rejects_total_interior_height_over_limit(self) -> None:
         with self.assertRaisesRegex(

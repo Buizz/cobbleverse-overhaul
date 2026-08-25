@@ -8,6 +8,7 @@ import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -57,24 +58,59 @@ final class UndergroundRoadSystem {
         }
     }
 
-    static Port resolvePort(ServerLevel level, JsonObject document, String tag) {
+    static ConnectionTarget resolveConnection(
+        ServerLevel level, JsonObject document, String moduleId, String connectorId
+    ) {
         RoadData road = roadData(level, document);
-        JsonObject ports = document.getAsJsonObject("ports");
-        if (ports == null || !ports.has(tag)) {
-            throw new IllegalStateException("Underground passage port is missing: " + road.id() + " / " + tag);
-        }
-        JsonObject port = ports.getAsJsonObject(tag);
-        ModuleData module = road.modulesById().get(port.get("module").getAsString());
-        if (module == null) throw new IllegalStateException("Underground passage port module is missing: " + tag);
-        StructureTemplate.StructureBlockInfo connector = module.connectors().get(port.get("connector").getAsString());
-        if (connector == null) throw new IllegalStateException("Underground passage connector is missing: " + tag);
+        ModuleData module = road.modulesById().get(moduleId);
+        if (module == null) throw new IllegalStateException(
+            "Underground passage module is missing: " + road.id() + " / " + moduleId
+        );
+        StructureTemplate.StructureBlockInfo connector = module.connectors().get(connectorId);
+        if (connector == null) throw new IllegalStateException(
+            "Underground passage connector is missing: " + moduleId + " / " + connectorId
+        );
         Direction outward = JigsawBlock.getFrontFacing(connector.state());
         if (outward != Direction.UP) {
-            throw new IllegalStateException("Underground passage external port must use an upward stair connector: " + tag);
+            throw new IllegalStateException("Underground passage connection must use an upward stair connector: " + moduleId + " / " + connectorId);
         }
         BlockPos portal = connector.pos();
         BlockPos destination = portal.relative(outward.getOpposite(), 3).above();
-        return new Port(point(destination), point(portal));
+        Set<BlockPos> component = transitionBlocks(module, portal, moduleId + "/" + connectorId);
+        return new ConnectionTarget(
+            point(destination), point(portal),
+            component.stream().map(UndergroundRoadSystem::point).toList()
+        );
+    }
+
+    private static Set<BlockPos> transitionBlocks(
+        ModuleData module, BlockPos portal, String tag
+    ) {
+        Set<BlockPos> barriers = new HashSet<>();
+        for (StructureTemplate.StructureBlockInfo barrier : module.template().filterBlocks(
+            module.placementOrigin(), module.settings(), Blocks.BARRIER
+        )) {
+            barriers.add(barrier.pos());
+        }
+        BlockPos seed = barriers.stream().min(java.util.Comparator.comparingInt(
+            position -> position.distManhattan(portal)
+        )).orElseThrow(() -> new IllegalStateException(
+            "Underground passage external port requires a touch-transition barrier: " + tag
+        ));
+        if (seed.distManhattan(portal) > 4) {
+            throw new IllegalStateException(
+                "Underground passage transition barrier is too far from its port: " + tag
+            );
+        }
+        Set<BlockPos> component = new HashSet<>();
+        ArrayDeque<BlockPos> pending = new ArrayDeque<>();
+        pending.add(seed);
+        while (!pending.isEmpty()) {
+            BlockPos current = pending.removeFirst();
+            if (!barriers.contains(current) || !component.add(current)) continue;
+            for (Direction direction : Direction.values()) pending.add(current.relative(direction));
+        }
+        return Set.copyOf(component);
     }
 
     static void generate(ServerLevel level, long worldSeed, Collection<JsonObject> documents) {
@@ -82,7 +118,21 @@ final class UndergroundRoadSystem {
             if (document.has("enabled") && !document.get("enabled").getAsBoolean()) continue;
             RoadData road = roadData(level, document);
             BlockPos generatedMarker = road.origin().offset(-1, -1, -1);
-            if (level.getBlockState(generatedMarker).is(Blocks.REINFORCED_DEEPSLATE)) continue;
+            if (level.getBlockState(generatedMarker).is(Blocks.REINFORCED_DEEPSLATE)) {
+                for (ModuleData module : road.modules()) {
+                    for (Map.Entry<String, StructureTemplate.StructureBlockInfo> entry
+                        : module.connectors().entrySet()) {
+                        StructureTemplate.StructureBlockInfo connector = entry.getValue();
+                        if (JigsawBlock.getFrontFacing(connector.state()) != Direction.UP) continue;
+                        for (BlockPos barrier : transitionBlocks(
+                            module, connector.pos(), module.id() + "/" + entry.getKey()
+                        )) {
+                        level.setBlock(barrier, Blocks.BARRIER.defaultBlockState(), 2);
+                        }
+                    }
+                }
+                continue;
+            }
             Set<ChunkPos> forcedChunks = new HashSet<>();
             for (ModuleData module : road.modules()) {
                 for (int x = SectionMath.blockToSectionCoord(module.min().getX()); x <= SectionMath.blockToSectionCoord(module.max().getX()); x++) {
@@ -179,7 +229,11 @@ final class UndergroundRoadSystem {
         return new CobbleventureBootstrap.BlockPoint(position.getX(), position.getY(), position.getZ());
     }
 
-    record Port(CobbleventureBootstrap.BlockPoint destination, CobbleventureBootstrap.BlockPoint portalAnchor) {}
+    record ConnectionTarget(
+        CobbleventureBootstrap.BlockPoint destination,
+        CobbleventureBootstrap.BlockPoint portalAnchor,
+        List<CobbleventureBootstrap.BlockPoint> transitionBlocks
+    ) {}
     private record RoadData(String id, BlockPos origin, List<ModuleData> modules, Map<String, ModuleData> modulesById) {}
     private record ModuleData(String id, StructureTemplate template, StructurePlaceSettings settings,
         BlockPos placementOrigin, BlockPos min, BlockPos max, Map<String, StructureTemplate.StructureBlockInfo> connectors) {}

@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class BuilderEditorNetwork {
-    private static final String VERSION = "4";
+    private static final String VERSION = "5";
 
     private BuilderEditorNetwork() {}
 
@@ -39,8 +39,10 @@ public final class BuilderEditorNetwork {
         registrar.playToServer(MoveCurrentPayload.TYPE, MoveCurrentPayload.CODEC, BuilderEditorNetwork::handleMoveCurrent);
     }
 
-    static void openAnchorEditor(ServerPlayer player, BlockPos position, boolean door) {
-        PacketDistributor.sendToPlayer(player, new OpenAnchorPayload(position, door));
+    static void openAnchorEditor(
+        ServerPlayer player, BlockPos position, boolean door, boolean transition
+    ) {
+        PacketDistributor.sendToPlayer(player, new OpenAnchorPayload(position, door, transition));
         sendSnapshot(player);
     }
 
@@ -68,7 +70,9 @@ public final class BuilderEditorNetwork {
     }
 
     private static void handleOpenAnchor(OpenAnchorPayload payload, IPayloadContext context) {
-        BuilderEditorClient.openAnchorEditor(payload.position(), payload.door());
+        BuilderEditorClient.openAnchorEditor(
+            payload.position(), payload.door(), payload.transition()
+        );
     }
 
     private static void handleRequest(RequestPayload payload, IPayloadContext context) {
@@ -175,11 +179,17 @@ public final class BuilderEditorNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record OpenAnchorPayload(BlockPos position, boolean door) implements CustomPacketPayload {
+    public record OpenAnchorPayload(
+        BlockPos position, boolean door, boolean transition
+    ) implements CustomPacketPayload {
         static final Type<OpenAnchorPayload> TYPE = new Type<>(id("open_anchor"));
         static final StreamCodec<RegistryFriendlyByteBuf, OpenAnchorPayload> CODEC = StreamCodec.ofMember(OpenAnchorPayload::write, OpenAnchorPayload::read);
-        void write(RegistryFriendlyByteBuf b) { b.writeBlockPos(position); b.writeBoolean(door); }
-        static OpenAnchorPayload read(RegistryFriendlyByteBuf b) { return new OpenAnchorPayload(b.readBlockPos(), b.readBoolean()); }
+        void write(RegistryFriendlyByteBuf b) {
+            b.writeBlockPos(position); b.writeBoolean(door); b.writeBoolean(transition);
+        }
+        static OpenAnchorPayload read(RegistryFriendlyByteBuf b) {
+            return new OpenAnchorPayload(b.readBlockPos(), b.readBoolean(), b.readBoolean());
+        }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
     public record RequestPayload() implements CustomPacketPayload {

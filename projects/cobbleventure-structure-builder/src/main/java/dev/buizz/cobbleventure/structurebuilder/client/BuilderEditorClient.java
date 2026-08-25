@@ -62,9 +62,11 @@ public final class BuilderEditorClient {
         snapshot = value;
     }
 
-    public static void openAnchorEditor(BlockPos position, boolean door) {
+    public static void openAnchorEditor(
+        BlockPos position, boolean door, boolean transition
+    ) {
         Minecraft minecraft = Minecraft.getInstance();
-        minecraft.setScreen(new AnchorEditorScreen(position, door));
+        minecraft.setScreen(new AnchorEditorScreen(position, door, transition));
     }
 
     private static void registerKeys(RegisterKeyMappingsEvent event) {
@@ -112,7 +114,7 @@ public final class BuilderEditorClient {
         graphics.fill(x, y, x + width, y + 24, 0xD51A2028);
         graphics.fill(x, y, x + width, y + 2, 0xFF61D7FF);
         graphics.drawString(font, hint, x + 12, y + 8, 0xFFF5F7FA, false);
-        graphics.drawCenteredString(font, "막대기 우클릭: 실제 문은 연결 문으로, 일반 블록은 NPC 위치로 설정합니다.",
+        graphics.drawCenteredString(font, "막대기 우클릭: 문=클릭 이동, 베리어=접촉 이동, 일반 블록=NPC 위치",
             graphics.guiWidth() / 2, y + 29, 0xFFE6EEF6);
     }
 
@@ -165,6 +167,8 @@ public final class BuilderEditorClient {
                         offset.getX() + 0.98, 2.0, offset.getZ() + 0.98
                     ), 1.0F, 0.72F, 0.18F);
                 }
+            } else if (marker.type().equals("transition")) {
+                renderBox(pose, lines, new AABB(0.02, 0.02, 0.02, 0.98, 0.98, 0.98), 0.75F, 0.3F, 1.0F);
             } else {
                 renderBox(pose, lines, new AABB(0.15, 0.02, 0.15, 0.85, 0.18, 0.85), 0.35F, 1.0F, 0.45F);
             }
@@ -231,6 +235,8 @@ public final class BuilderEditorClient {
                 : isDoorMarker(marker)
                 ? (marker.pairedPosition() == null ? "DOOR · " : "DOUBLE DOOR · ")
                     + marker.label()
+                : marker.type().equals("transition")
+                ? "TOUCH TRANSITION · " + marker.label()
                 : "ARRIVAL · " + marker.label();
         double centerX = block.getX() + 0.5D;
         double centerZ = block.getZ() + 0.5D;
@@ -381,28 +387,31 @@ public final class BuilderEditorClient {
     private static final class AnchorEditorScreen extends EditorScreen {
         private final BlockPos position;
         private final boolean door;
+        private final boolean transition;
         private EditBox label;
         private String type;
-        AnchorEditorScreen(BlockPos position, boolean door) {
-            super(door ? "연결 문 설정" : "NPC 위치 설정");
+        AnchorEditorScreen(BlockPos position, boolean door, boolean transition) {
+            super(door ? "연결 문 설정" : transition ? "접촉 전환 영역 설정" : "NPC 위치 설정");
             this.position = position;
             this.door = door;
-            this.type = door ? "door" : "npc_position";
+            this.transition = transition;
+            this.type = door ? "door" : transition ? "transition" : "npc_position";
         }
         @Override protected void init() {
             int x = width / 2 - 130, y = height / 2 - 66;
             label = new EditBox(font, x + 14, y + 47, 232, 20, Component.literal("이름"));
             label.setMaxLength(64);
-            label.setValue(door ? "door" : "npc");
+            label.setValue(door ? "door" : transition ? "transition" : "npc");
             snapshot.markers().stream()
                 .filter(marker -> marker.position().equals(position) || marker.position().equals(position.above())
                     || marker.position().equals(position.below()))
                 .findFirst().ifPresent(marker -> {
-                    type = marker.type().equals("door") ? "door" : "npc_position";
+                    type = marker.type().equals("door") ? "door"
+                        : marker.type().equals("transition") ? "transition" : "npc_position";
                     label.setValue(marker.label());
                 });
             addRenderableWidget(label);
-            if (!door) {
+            if (!door && !transition) {
                 addRenderableWidget(Button.builder(Component.literal("관장 NPC"), b -> { type = "npc_position"; label.setValue("leader"); })
                     .bounds(x + 14, y + 76, 232, 20).build());
             }
@@ -425,9 +434,10 @@ public final class BuilderEditorClient {
             int x = width / 2 - 130, y = height / 2 - 66;
             panel(g, x, y, 260, 156);
             g.drawString(font, title, x + 14, y + 13, 0xFFFFFFFF, false);
-            g.drawString(font, "선택: " + (door ? "실제 문 → 연결 문" : "NPC 생성 위치")
+            g.drawString(font, "선택: " + (door ? "실제 문 → 연결 문"
+                    : transition ? "연결된 베리어 → 접촉 이동 영역" : "NPC 생성 위치")
                 + "  @ " + position.toShortString(), x + 14, y + 29, 0xFFB9C5D2, false);
-            if (!door) {
+            if (!door && !transition) {
                 g.drawString(font, "저장 시 바라보는 방향 = NPC 방향",
                     x + 14, y + 103, 0xFF8797A8, false);
             }

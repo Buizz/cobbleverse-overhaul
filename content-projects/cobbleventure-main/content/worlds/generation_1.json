@@ -2383,7 +2383,9 @@
     {
       "id": "cobbleventure:underground_entrance/cerulean_vermilion_cerulean",
       "underground_road": "cobbleventure:underground_road/cerulean_vermilion",
-      "port": "cerulean",
+      "transition": "underground_entry",
+      "underground_module": "cerulean_stairs",
+      "underground_connector": "surface",
       "anchor": {
         "q": 7,
         "r": -1
@@ -2396,7 +2398,9 @@
     {
       "id": "cobbleventure:underground_entrance/cerulean_vermilion_vermilion",
       "underground_road": "cobbleventure:underground_road/cerulean_vermilion",
-      "port": "vermilion",
+      "transition": "underground_entry",
+      "underground_module": "vermilion_stairs",
+      "underground_connector": "surface",
       "anchor": {
         "q": 4,
         "r": 4
@@ -2409,7 +2413,9 @@
     {
       "id": "cobbleventure:underground_entrance/celadon_lavender_celadon",
       "underground_road": "cobbleventure:underground_road/celadon_lavender",
-      "port": "celadon",
+      "transition": "underground_entry",
+      "underground_module": "celadon_stairs",
+      "underground_connector": "surface",
       "anchor": {
         "q": 3,
         "r": 2
@@ -2422,7 +2428,9 @@
     {
       "id": "cobbleventure:underground_entrance/celadon_lavender_lavender",
       "underground_road": "cobbleventure:underground_road/celadon_lavender",
-      "port": "lavender",
+      "transition": "underground_entry",
+      "underground_module": "lavender_stairs",
+      "underground_connector": "surface",
       "anchor": {
         "q": 7,
         "r": 2

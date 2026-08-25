@@ -189,6 +189,13 @@ def _module(
             for z in range(cz - 2, cz + 3):
                 for y in range(1, level + 1):
                     blocks[(x, y, z)] = ("minecraft:stone_bricks", (), None)
+        if stairs == "up":
+            # Players climb into this connected invisible wall. The external
+            # connector only identifies the linked port; touching this wall
+            # performs the transition back to the surface entrance.
+            for z in range(cz - 2, cz + 3):
+                for y in range(1, height - 1):
+                    blocks[(width - 2, y, z)] = ("minecraft:barrier", (), None)
     for tag, (position, facing) in connectors.items():
         name, properties, nbt = _jigsaw(tag, facing)
         blocks[position] = (name, properties, nbt)
@@ -204,7 +211,7 @@ def generate() -> list[Path]:
         footprint = _room(width, depth, directions, room_margin) if room_margin is not None else _arms(width, depth, directions)
         connectors = {direction: (_connector_position(width, depth, direction), direction) for direction in directions}
         if surface:
-            connectors["surface"] = (((width - 1) // 2, height - 1, (depth - 1) // 2), "up")
+            connectors["surface"] = ((width - 3, height - 2, (depth - 1) // 2), "up")
         if vertical_down:
             connectors["vertical_down"] = (((width - 1) // 2, 0, (depth - 1) // 2), "down")
         definitions[name] = size, footprint, connectors, stairs

@@ -16,7 +16,9 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -223,10 +225,23 @@ public final class StructureBuilderMod {
             BuilderData data = data(player.getServer());
             requireCurrentCatalog(data, catalog);
             BlockPos door = lowerDoorPosition(player.serverLevel(), event.getPos());
+            boolean transition = player.serverLevel().getBlockState(event.getPos()).is(Blocks.BARRIER);
+            BlockPos editorPosition = door == null
+                ? event.getPos() : canonicalDoorPosition(player.serverLevel(), door);
+            if (transition) {
+                EditContext edit = findContext(catalog, data, event.getPos());
+                for (PointAnchor anchor : data.pointAnchors(edit.key())) {
+                    if (!anchor.type().equals("transition")) continue;
+                    BlockPos seed = edit.origin().offset(anchor.position());
+                    if (connectedBarrierRegion(player.serverLevel(), edit, seed)
+                        .contains(event.getPos())) {
+                        editorPosition = seed;
+                        break;
+                    }
+                }
+            }
             BuilderEditorNetwork.openAnchorEditor(
-                player,
-                door == null ? event.getPos() : canonicalDoorPosition(player.serverLevel(), door),
-                door != null
+                player, editorPosition, door != null, transition
             );
         } catch (BuilderException error) {
             player.sendSystemMessage(Component.literal(
@@ -247,7 +262,8 @@ public final class StructureBuilderMod {
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
         player.sendSystemMessage(Component.literal(
-            "[Structure Builder] 실제 문 우클릭=연결 문, 일반 블록 우클릭=NPC 위치, "
+            "[Structure Builder] 실제 문 우클릭=클릭 이동, 베리어 우클릭=접촉 이동, "
+                + "일반 블록 우클릭=NPC 위치, "
                 + "웅크리기+좌클릭=설정 삭제"
         ));
     }
@@ -266,7 +282,8 @@ public final class StructureBuilderMod {
             BuilderData data = data(player.getServer());
             BlockPos selected = lowerDoorPosition(player.serverLevel(), event.getPos());
             if (selected == null) {
-                selected = event.getPos().above();
+                selected = player.serverLevel().getBlockState(event.getPos()).is(Blocks.BARRIER)
+                    ? event.getPos() : event.getPos().above();
             } else {
                 selected = canonicalDoorPosition(player.serverLevel(), selected);
             }
@@ -724,7 +741,10 @@ public final class StructureBuilderMod {
             door = canonicalDoorPosition(player.serverLevel(), door);
         }
         if (type.equals("delete")) {
-            BlockPos target = door == null ? clicked.above() : door;
+            BlockPos target = door == null
+                ? player.serverLevel().getBlockState(clicked).is(Blocks.BARRIER)
+                    ? clicked : clicked.above()
+                : door;
             EditContext edit = findContext(catalog, builderData, target);
             BlockPos relative = target.subtract(edit.origin());
             int removed = builderData.removeAnchorsAt(edit.key(), relative)
@@ -770,7 +790,28 @@ public final class StructureBuilderMod {
             builderData.removePointAnchorsAt(edit.key(), clicked.above().subtract(edit.origin()));
             builderData.putPointAnchor(edit.key(), new PointAnchor(
                 label, "arrival", clicked.above().subtract(edit.origin()),
+                null, player.getDirection().getName()
+            ));
+        } else if (type.equals("transition")) {
+            if (!player.serverLevel().getBlockState(clicked).is(Blocks.BARRIER)) {
+                throw new BuilderException("접촉 전환 영역은 베리어 블록에 지정해야 합니다.");
+            }
+            EditContext edit = findContext(catalog, builderData, clicked);
+            Set<BlockPos> region = connectedBarrierRegion(player.serverLevel(), edit, clicked);
+            if (region.isEmpty()) {
+                throw new BuilderException("연결된 베리어 영역을 찾을 수 없습니다.");
+            }
+            builderData.removePointAnchorsAt(
+                edit.key(), clicked.subtract(edit.origin())
+            );
+            builderData.putPointAnchor(edit.key(), new PointAnchor(
+                label, "transition", clicked.subtract(edit.origin()),
+                player.blockPosition().subtract(edit.origin()),
                 player.getDirection().getName()
+            ));
+            player.sendSystemMessage(Component.literal(
+                "[Structure Builder] 연결된 베리어 " + region.size()
+                    + "개를 접촉 전환 영역으로 지정했습니다."
             ));
         } else {
             throw new BuilderException("지원하지 않는 앵커 종류입니다: " + type);
@@ -779,6 +820,31 @@ public final class StructureBuilderMod {
             "[Structure Builder] " + type + " '" + label + "' 저장 완료"
         ));
         BuilderEditorNetwork.sendSnapshot(player);
+    }
+
+    private static Set<BlockPos> connectedBarrierRegion(
+        ServerLevel level, EditContext edit, BlockPos seed
+    ) {
+        if (!edit.contains(seed) || !level.getBlockState(seed).is(Blocks.BARRIER)) {
+            return Set.of();
+        }
+        Set<BlockPos> result = new HashSet<>();
+        ArrayDeque<BlockPos> pending = new ArrayDeque<>();
+        pending.add(seed.immutable());
+        while (!pending.isEmpty()) {
+            BlockPos current = pending.removeFirst();
+            if (!edit.contains(current) || !level.getBlockState(current).is(Blocks.BARRIER)
+                || !result.add(current)) {
+                continue;
+            }
+            if (result.size() > 4096) {
+                throw new BuilderException("접촉 전환 베리어 영역은 4096블록 이하여야 합니다.");
+            }
+            for (Direction direction : Direction.values()) {
+                pending.add(current.relative(direction));
+            }
+        }
+        return Set.copyOf(result);
     }
 
     static void editorTeleport(ServerPlayer player, String key) {
@@ -1291,7 +1357,8 @@ public final class StructureBuilderMod {
             id = data.nextPointId(edit.key(), type);
         }
         PointAnchor anchor = new PointAnchor(
-            id, type, position.subtract(edit.origin()), player.getDirection().getName()
+            id, type, position.subtract(edit.origin()), null,
+            player.getDirection().getName()
         );
         data.putPointAnchor(edit.key(), anchor);
         player.sendSystemMessage(Component.literal(
@@ -2634,6 +2701,9 @@ public final class StructureBuilderMod {
                 value.addProperty("id", anchor.id());
                 value.addProperty("type", anchor.type());
                 value.add("position", vector(anchor.position()));
+                if (anchor.safeSpawn() != null) {
+                    value.add("safe_spawn", vector(anchor.safeSpawn()));
+                }
                 value.addProperty("facing", anchor.facing());
                 values.add(value);
             }
@@ -2855,6 +2925,8 @@ public final class StructureBuilderMod {
                                 anchor.get("id").getAsString(),
                                 role,
                                 parsePosition(anchor.getAsJsonArray("position")),
+                                anchor.has("safe_spawn")
+                                    ? parsePosition(anchor.getAsJsonArray("safe_spawn")) : null,
                                 anchor.get("facing").getAsString()
                             ));
                         }
@@ -2977,13 +3049,19 @@ public final class StructureBuilderMod {
     }
 
     private record PointAnchor(
-        String id, String type, BlockPos position, String facing
+        String id, String type, BlockPos position, BlockPos safeSpawn, String facing
     ) {
     }
 
     private record EditContext(
         String key, String label, BlockPos origin, Vec3i size, boolean interior
     ) {
+        boolean contains(BlockPos position) {
+            BlockPos relative = position.subtract(origin);
+            return relative.getX() >= 0 && relative.getX() < size.getX()
+                && relative.getY() >= 0 && relative.getY() < size.getY()
+                && relative.getZ() >= 0 && relative.getZ() < size.getZ();
+        }
     }
 
     private record InteriorPlot(
@@ -3157,6 +3235,8 @@ public final class StructureBuilderMod {
                         id,
                         value.getString("type"),
                         readPosition(value, "position"),
+                        value.contains("safeSpawn")
+                            ? readPosition(value, "safeSpawn") : null,
                         value.getString("facing")
                     ));
                 }
@@ -3414,6 +3494,9 @@ public final class StructureBuilderMod {
                     CompoundTag value = new CompoundTag();
                     value.putString("type", anchor.type());
                     writePosition(value, "position", anchor.position());
+                    if (anchor.safeSpawn() != null) {
+                        writePosition(value, "safeSpawn", anchor.safeSpawn());
+                    }
                     value.putString("facing", anchor.facing());
                     ids.put(anchor.id(), value);
                 }

@@ -28,10 +28,15 @@ build.bat builder-world
 접속 시 지급되는 막대기로 문과 블록을 클릭한다.
 
 - 웅크리기 + 허공 우클릭: 모드 전환
-- 대상 우클릭: entry, exit, teleport, spawn, npc, interaction, patrol 또는 inspect 적용
+- 실제 문 우클릭: 우클릭 이동용 `door` 앵커 편집
+- 배리어 우클릭: 연결된 배리어 전체를 접촉 이동용 `transition` 앵커로 편집
+- 일반 블록 우클릭: NPC 위치 등 선택한 앵커 종류 적용
 - 웅크리기 + 대상 좌클릭: 지정 해제
 
-플레이어가 서 있는 문 쪽의 인접 칸이 도착 위치로 자동 기록된다. WorldEdit 선택
+`door`는 플레이어가 서 있는 문 쪽의 인접 칸을, `transition`은 편집 시 플레이어가
+서 있던 칸을 안전 도착 위치로 자동 기록한다. 두 종류 모두 웹의 건물 출입구 연결에서
+같은 `door_routes`로 연결하므로 지하통로뿐 아니라 일반 건물에도 재사용할 수 있다.
+WorldEdit 선택
 도구와 충돌하므로 나무도끼는 사용하지 않는다. `save`는 NBT와 출입구
 `.structure.json`을 함께 내보낸다.
 
@@ -73,7 +78,8 @@ NPC 링커 표시는 엔티티가 아니라 `.structure.json` 앵커로 저장�
 있어야 저장 및 가져오기가 가능하다. `builder-import`는 결과를
 `content/structures/underground_road_modules/<id>.nbt`로 가져온다.
 지상 입출구로 사용할 계단 꼭대기는 방향을 `up`으로 지정한다. 웹에서는 연결되지
-않은 `up` 커넥터만 외부 포트로 선택할 수 있다.
+않은 `up` 커넥터를 연결 가능 지점으로 표시한다. 지상 입구의 이동 영역과 실제
+`조각 ID/커넥터 태그` 연결은 지하통로 문서가 아니라 월드맵 입구 배치에서 정한다.
 
 기본 플레이스홀더 조각은 `straight_16`, `straight_32`, `corner_16`,
 `t_junction`, `cross_junction`, `dead_end`, `entrance_room`, `small_room`,
@@ -86,8 +92,8 @@ py -3 tools\structure-builder\generate_underground_road_modules.py
 
 지상 출입구는 `underground_entrance/underground_passage.nbt` 건물을 사용한다.
 크기는 24×16×20이며, 정문의 `cobbleventure:road_anchor` 직소가 길 높이와 방향을
-정하는 배치 기준이다. 건물 내부 하행 계단의
-`cobbleventure:underground_entry` 직소가 실제 지하 이동 감지 위치다.
+정하는 배치 기준이다. 건물 내부 하행 계단의 연결된 배리어 벽은
+`underground_entry` transition 앵커이며, 플레이어가 닿으면 실제 이동이 발동한다.
 
 ```bat
 py -3 tools\structure-builder\generate_underground_entrance.py

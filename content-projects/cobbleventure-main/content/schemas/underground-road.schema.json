@@ -3,7 +3,7 @@
   "$id": "https://cobbleventure.dev/schemas/underground-road.schema.json",
   "title": "Cobbleventure Modular Underground Passage",
   "type": "object",
-  "required": ["schema_version", "id", "enabled", "display_name", "dimension", "modules", "ports"],
+  "required": ["schema_version", "id", "enabled", "display_name", "dimension", "modules"],
   "properties": {
     "schema_version": { "const": 2 },
     "id": { "type": "string", "pattern": "^cobbleventure:underground_road/[a-z0-9_./-]+$" },
@@ -30,21 +30,6 @@
           "structure": { "type": "string", "pattern": "^cobbleventure:underground_road_modules/[a-z0-9_./-]+$" },
           "position": { "$ref": "#/$defs/position" },
           "rotation": { "enum": ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"] }
-        },
-        "additionalProperties": false
-      }
-    },
-    "ports": {
-      "type": "object",
-      "minProperties": 2,
-      "propertyNames": { "pattern": "^[a-z0-9_.-]+$" },
-      "additionalProperties": {
-        "type": "object",
-        "required": ["display_name", "module", "connector"],
-        "properties": {
-          "display_name": { "type": "string", "minLength": 1 },
-          "module": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-          "connector": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
         },
         "additionalProperties": false
       }

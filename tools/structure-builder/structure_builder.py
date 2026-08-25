@@ -156,12 +156,15 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
         anchor_type = anchor.get("type")
         if anchor_type not in {
             "door", "npc_position", "easy_npc_spawn",
-            "arrival", "interior_spawn", "exterior_spawn", "interaction_point", "patrol_point",
+            "arrival", "transition", "interior_spawn", "exterior_spawn", "interaction_point", "patrol_point",
         }:
             raise StructureBuilderError(f"알 수 없는 출입구 앵커입니다: {path} #{index}")
         is_door = anchor_type == "door"
         is_npc = anchor_type in {"npc_position", "easy_npc_spawn"}
-        position_fields = ("position", "safe_spawn") if is_door else ("position",)
+        position_fields = (
+            ("position", "safe_spawn")
+            if is_door or anchor_type == "transition" else ("position",)
+        )
         for field in position_fields:
             value = anchor.get(field)
             if (not isinstance(value, list) or len(value) != 3
@@ -186,11 +189,11 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
                 raise StructureBuilderError(
                     f"NPC 위치 라벨이 올바르지 않습니다: {path} #{index}"
                 )
-        if anchor_type in {"door", "arrival"}:
+        if anchor_type in {"door", "arrival", "transition"}:
             label = anchor.get("id", anchor.get("label"))
             if not isinstance(label, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_]*", label):
                 raise StructureBuilderError(
-                    f"문·도착 지점 이름이 올바르지 않습니다: {path} #{index}"
+                    f"문·도착·전환 지점 이름이 올바르지 않습니다: {path} #{index}"
                 )
     interior = document.get("interior")
     if interior is not None:

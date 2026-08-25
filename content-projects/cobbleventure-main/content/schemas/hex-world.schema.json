@@ -473,15 +473,17 @@
       "additionalProperties": false,
       "required": ["id", "anchor", "facing", "structure"],
       "oneOf": [
-        { "required": ["cave", "entrance"], "not": { "anyOf": [{ "required": ["underground_road"] }, { "required": ["port"] }] } },
-        { "required": ["underground_road", "port"], "not": { "anyOf": [{ "required": ["cave"] }, { "required": ["entrance"] }] } }
+        { "required": ["cave", "entrance"], "not": { "anyOf": [{ "required": ["underground_road"] }, { "required": ["transition"] }, { "required": ["underground_module"] }, { "required": ["underground_connector"] }] } },
+        { "required": ["underground_road", "transition", "underground_module", "underground_connector"], "not": { "anyOf": [{ "required": ["cave"] }, { "required": ["entrance"] }] } }
       ],
       "properties": {
         "id": { "$ref": "#/$defs/resource_id" },
         "cave": { "$ref": "#/$defs/resource_id" },
         "entrance": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "underground_road": { "$ref": "#/$defs/resource_id" },
-        "port": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "transition": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "underground_module": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "underground_connector": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "anchor": { "$ref": "#/$defs/axial_coordinate" },
         "facing": { "enum": ["north", "east", "south", "west"] },
         "structure": { "$ref": "#/$defs/resource_id" },
