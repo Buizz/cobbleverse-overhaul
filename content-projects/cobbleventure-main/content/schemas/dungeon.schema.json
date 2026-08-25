@@ -227,11 +227,23 @@
     "completion": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["victory_flag", "repeatable"],
+      "required": ["victory_flag", "repeatable", "return_trigger"],
       "properties": {
         "victory_flag": { "$ref": "#/$defs/resource_id" },
-        "repeatable": { "type": "boolean" }
-      }
+        "repeatable": { "type": "boolean" },
+        "return_trigger": { "enum": ["automatic", "clear_exit"] },
+        "clear_exit_position": { "$ref": "#/$defs/block_position" },
+        "clear_exit_block": { "$ref": "#/$defs/resource_id" }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "return_trigger": { "const": "clear_exit" } },
+          "required": ["return_trigger"]
+        },
+        "then": {
+          "required": ["clear_exit_position", "clear_exit_block"]
+        }
+      }]
     }
   },
   "allOf": [

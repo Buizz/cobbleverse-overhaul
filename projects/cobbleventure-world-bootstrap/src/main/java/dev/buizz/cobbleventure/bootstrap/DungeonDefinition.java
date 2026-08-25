@@ -520,6 +520,33 @@ record DungeonDefinition(
         }
         JsonObject completion = requiredObject(root, "completion");
         boolean repeatable = requiredBoolean(completion, "repeatable");
+        String returnTrigger = enumValue(completion, "return_trigger", List.of(
+            "automatic", "clear_exit"
+        ));
+        BlockPos clearExitPosition = completion.has("clear_exit_position")
+            ? blockPosition(completion, "clear_exit_position") : null;
+        String clearExitBlock = completion.has("clear_exit_block")
+            ? resourceId(completion, "clear_exit_block") : null;
+        if (returnTrigger.equals("clear_exit")
+            && (clearExitPosition == null || clearExitBlock == null)) {
+            throw new IllegalStateException(
+                "clear_exit completion requires a position and block: " + id
+            );
+        }
+        if (clearExitPosition != null
+            && (clearExitPosition.getX() < 0 || clearExitPosition.getY() < 0
+                || clearExitPosition.getZ() < 0)) {
+            throw new IllegalStateException(
+                "Dungeon clear exit position cannot be negative: " + id
+            );
+        }
+        if (clearExitPosition != null
+            && (reservedPositions.contains(clearExitPosition)
+                || lootContainerPositions.contains(clearExitPosition))) {
+            throw new IllegalStateException(
+                "Dungeon clear exit overlaps a reserved position: " + id
+            );
+        }
         if (repeatable && repeatTable == null) {
             throw new IllegalStateException(
                 "Repeatable dungeon requires rewards.repeat_table: " + id
@@ -593,7 +620,10 @@ record DungeonDefinition(
             ),
             new Completion(
                 resourceId(completion, "victory_flag"),
-                repeatable
+                repeatable,
+                returnTrigger,
+                clearExitPosition,
+                clearExitBlock
             ),
             List.copyOf(entrances)
         );
@@ -789,7 +819,13 @@ record DungeonDefinition(
         boolean healOnWipe,
         int reconnectGraceSeconds
     ) {}
-    record Completion(String victoryFlag, boolean repeatable) {}
+    record Completion(
+        String victoryFlag,
+        boolean repeatable,
+        String returnTrigger,
+        BlockPos clearExitPosition,
+        String clearExitBlock
+    ) {}
     record Entrance(
         String entranceId,
         String destinationEntry,

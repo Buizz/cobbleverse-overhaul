@@ -257,13 +257,26 @@ final class DungeonSystem {
             if (run != null && expirePendingEncounter(run, gameTime)) {
                 return;
             }
-            if (run != null && completionReached(player, run)) {
-                completeRun(player, run);
-                return;
+            boolean completed = run != null && completionReached(player, run);
+            if (completed) {
+                DungeonDefinition definition = definitions.get(run.dungeonId());
+                if (definition.completion().returnTrigger().equals("automatic")
+                    || (run.clearExit() != null
+                        && distanceSquared(player.position(), run.clearExit())
+                            <= EXIT_RADIUS_SQUARED)) {
+                    completeRun(player, run);
+                    return;
+                }
             }
             if (run != null && gameTime >= run.teleportCooldownUntil()
                 && distanceSquared(player.position(), run.exit()) <= EXIT_RADIUS_SQUARED) {
-                failRun(run, "참가자가 출구를 사용해 던전 도전이 종료되었습니다.", false);
+                if (completed) {
+                    completeRun(player, run);
+                } else {
+                    failRun(
+                        run, "참가자가 출구를 사용해 던전 도전이 종료되었습니다.", false
+                    );
+                }
             }
             return;
         }
@@ -670,11 +683,13 @@ final class DungeonSystem {
         }
         BlockPos origin = slotOrigin(slot);
         BlockPos size = BlockPos.ZERO;
+        BlockPos clearExit = null;
         PursuitEncounterSystem.Config randomEncounters;
         Map<UUID, EncounterEntityRef> encounterByEntity;
         try {
             size = prepareFixedTemplate(dungeonLevel, definition, origin);
             placeGates(dungeonLevel, definition, origin, size);
+            clearExit = placeClearExit(dungeonLevel, definition, origin, size);
             placeHealingStations(dungeonLevel, definition, origin, size);
             placeLootContainers(dungeonLevel, definition, origin);
             encounterByEntity = spawnEncounters(
@@ -707,8 +722,9 @@ final class DungeonSystem {
             .map(matched -> matched.player().getUUID())
             .collect(Collectors.toUnmodifiableSet());
         ActiveRun run = new ActiveRun(
-            player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
-            randomEncounters, new HashMap<>(), participantIds, new HashMap<>(),
+            player.getServer(), definition.id(), slot, origin, size, entry, exit,
+            clearExit, cooldown, randomEncounters, new HashMap<>(), participantIds,
+            new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
             new DungeonLootClaims(), new DungeonLootLedger(), new HashMap<>(),
             new HashSet<>()
@@ -954,6 +970,37 @@ final class DungeonSystem {
                 );
             }
         }
+    }
+
+    private static BlockPos placeClearExit(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        BlockPos size
+    ) {
+        DungeonDefinition.Completion completion = definition.completion();
+        if (!completion.returnTrigger().equals("clear_exit")) {
+            return null;
+        }
+        BlockPos relative = completion.clearExitPosition();
+        if (relative.getX() >= size.getX() || relative.getY() >= size.getY()
+            || relative.getZ() >= size.getZ()) {
+            throw new IllegalStateException(
+                "Dungeon clear exit exceeds the template: " + definition.id()
+            );
+        }
+        ResourceLocation blockId = ResourceLocation.parse(completion.clearExitBlock());
+        var block = BuiltInRegistries.BLOCK.getOptional(blockId).orElseThrow(() ->
+            new IllegalStateException("Dungeon clear exit block is missing: " + blockId)
+        );
+        BlockPos position = origin.offset(relative);
+        if (block == Blocks.AIR
+            || !level.setBlock(position, block.defaultBlockState(), 3)) {
+            throw new IllegalStateException(
+                "Dungeon clear exit placement failed: " + definition.id()
+            );
+        }
+        return position;
     }
 
     private static void placeGates(
@@ -1356,10 +1403,37 @@ final class DungeonSystem {
                     );
                 }
             }
+            activateClearExit(run, definition);
         }
         notifyEncounterResult(run, won
             ? "[던전] 협력 전투에서 승리했습니다."
             : "[던전] 협력 전투에서 패배했습니다.");
+    }
+
+    private static void activateClearExit(
+        ActiveRun run, DungeonDefinition definition
+    ) {
+        if (!definition.completion().returnTrigger().equals("clear_exit")
+            || run.clearExit() == null) {
+            return;
+        }
+        ServerLevel level = run.server().getLevel(DUNGEONS);
+        if (level != null) {
+            BlockPos position = run.clearExit();
+            level.playSound(
+                null, position, SoundEvents.BEACON_ACTIVATE,
+                SoundSource.BLOCKS, 1.0F, 1.0F
+            );
+            level.sendParticles(
+                ParticleTypes.END_ROD,
+                position.getX() + 0.5D, position.getY() + 1.0D,
+                position.getZ() + 0.5D,
+                24, 0.6D, 0.8D, 0.6D, 0.03D
+            );
+        }
+        notifyEncounterResult(
+            run, "[던전] 보스가 쓰러졌습니다. 클리어 룸의 귀환 장치가 활성화되었습니다."
+        );
     }
 
     private static void unlockSatisfiedGates(
@@ -2064,6 +2138,7 @@ final class DungeonSystem {
         BlockPos size,
         BlockPos entry,
         BlockPos exit,
+        BlockPos clearExit,
         long teleportCooldownUntil,
         PursuitEncounterSystem.Config randomEncounters,
         Map<String, Integer> healingUses,

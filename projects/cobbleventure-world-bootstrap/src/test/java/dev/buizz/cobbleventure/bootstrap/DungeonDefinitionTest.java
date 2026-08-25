@@ -145,7 +145,10 @@ final class DungeonDefinitionTest {
                   },
                   "completion": {
                     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
-                    "repeatable": true
+                    "repeatable": true,
+                    "return_trigger": "clear_exit",
+                    "clear_exit_position": [24, 1, 43],
+                    "clear_exit_block": "minecraft:lodestone"
                   }
                 }
                 """).getAsJsonObject()
@@ -218,6 +221,9 @@ final class DungeonDefinitionTest {
             definition.rewards().repeatTable()
         );
         assertEquals("flash", definition.rewards().firstClearFieldMoves().getFirst());
+        assertEquals("clear_exit", definition.completion().returnTrigger());
+        assertEquals(43, definition.completion().clearExitPosition().getZ());
+        assertEquals("minecraft:lodestone", definition.completion().clearExitBlock());
         assertEquals(
             "cobbleventure:entrance/rocket_power_plant",
             definition.entrances().getFirst().entranceId()
