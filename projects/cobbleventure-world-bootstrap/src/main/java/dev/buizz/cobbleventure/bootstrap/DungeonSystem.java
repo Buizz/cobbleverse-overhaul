@@ -1235,6 +1235,11 @@ final class DungeonSystem {
             ), true);
             return true;
         }
+        if (definition.multiplayer().mode().equals("solo")) {
+            return startSoloEncounter(
+                initiator, opponent, run, definition, encounter
+            );
+        }
         if (!definition.multiplayer().mode().equals("cooperative")
             || !definition.multiplayer().battleJoin().equals("summon_all")
             || run.participantIds().size() != 2) {
@@ -1313,6 +1318,86 @@ final class DungeonSystem {
         players.forEach(player -> player.sendSystemMessage(Component.literal(
             "[던전] " + encounter.id() + " 협력 전투를 시작합니다."
         )));
+        return true;
+    }
+
+    private static boolean startSoloEncounter(
+        ServerPlayer player,
+        Entity opponent,
+        ActiveRun run,
+        DungeonDefinition definition,
+        DungeonDefinition.Encounter encounter
+    ) {
+        if (run.participantIds().size() != 1
+            || !run.participantIds().contains(player.getUUID())) {
+            player.sendSystemMessage(Component.literal(
+                "1인 던전 참가자 정보가 올바르지 않습니다."
+            ));
+            return true;
+        }
+        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            player.displayClientMessage(Component.literal(
+                "[던전] 이미 전투 중입니다."
+            ), true);
+            return true;
+        }
+        EventBattlePreset preset;
+        try {
+            preset = EventBattlePresetRepository.instance()
+                .find(encounter.opponents().getFirst())
+                .orElseThrow(() -> new IllegalStateException(
+                    "Dungeon battle preset is missing: "
+                        + encounter.opponents().getFirst()
+                ));
+            if (!definition.battleRules().allowItems()
+                && (preset.maxItemUses() == null || preset.maxItemUses() > 0)) {
+                preset = new EventBattlePreset(
+                    preset.battleId(), preset.trainerId(), preset.format(),
+                    preset.levelMode(), preset.levelOffset(), preset.fallbackLevel(),
+                    0, preset.moneyReward()
+                );
+            }
+        } catch (RuntimeException error) {
+            LOGGER.error(
+                "Dungeon solo battle preset resolution failed: {} -> {}",
+                definition.id(), encounter.id(), error
+            );
+            player.sendSystemMessage(Component.literal(
+                "조우 전투 설정을 불러오지 못했습니다. 서버 로그를 확인하세요."
+            ));
+            return true;
+        }
+
+        EncounterRuntime runtime = run.encounters();
+        runtime.statusById.put(encounter.id(), EncounterStatus.STARTING);
+        runtime.pendingEncounterId = encounter.id();
+        runtime.pendingExpiresAt = player.serverLevel().getGameTime() + 200L;
+        String command = preset.launchCommand(
+            player.getGameProfile().getName(), opponent.getUUID()
+        );
+        try {
+            int result = player.getServer().getCommands().getDispatcher().execute(
+                command,
+                opponent.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+            );
+            if (result <= 0) {
+                throw new IllegalStateException("TBCS rejected the solo battle command");
+            }
+        } catch (CommandSyntaxException | RuntimeException error) {
+            runtime.statusById.put(encounter.id(), EncounterStatus.AVAILABLE);
+            runtime.pendingEncounterId = null;
+            LOGGER.error(
+                "Dungeon solo battle launch failed: {} -> {}",
+                definition.id(), encounter.id(), error
+            );
+            player.sendSystemMessage(Component.literal(
+                "던전 전투를 시작하지 못했습니다. 서버 로그를 확인하세요."
+            ));
+            return true;
+        }
+        player.sendSystemMessage(Component.literal(
+            "[던전] " + encounter.id() + " 전투를 시작합니다."
+        ));
         return true;
     }
 
@@ -1432,8 +1517,8 @@ final class DungeonSystem {
             activateClearExit(run, definition);
         }
         notifyEncounterResult(run, won
-            ? "[던전] 협력 전투에서 승리했습니다."
-            : "[던전] 협력 전투에서 패배했습니다.");
+            ? "[던전] 전투에서 승리했습니다."
+            : "[던전] 전투에서 패배했습니다.");
     }
 
     private static void activateClearExit(
@@ -1506,7 +1591,7 @@ final class DungeonSystem {
             event.getBattle().getBattleId()
         );
         run.encounters().statusById.put(encounterId, EncounterStatus.AVAILABLE);
-        notifyEncounterResult(run, "[던전] 협력 전투가 중단되었습니다.");
+        notifyEncounterResult(run, "[던전] 전투가 중단되었습니다.");
     }
 
     private static ActiveRun runForBattle(UUID battleId) {

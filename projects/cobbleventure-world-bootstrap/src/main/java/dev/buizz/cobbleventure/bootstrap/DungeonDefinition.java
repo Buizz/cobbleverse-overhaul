@@ -219,9 +219,11 @@ record DungeonDefinition(
                 }
                 npcs.add(npcId);
             }
-            if (npcs.size() != 2) {
+            int expectedActors = multiplayerMode.equals("cooperative") ? 2 : 1;
+            if (npcs.size() != expectedActors) {
                 throw new IllegalStateException(
-                    "Dungeon cooperative encounter requires exactly two NPCs: "
+                    "Dungeon " + multiplayerMode + " encounter requires exactly "
+                        + expectedActors + " NPC(s): "
                         + id + " -> " + requiredString(encounter, "id")
                 );
             }
@@ -235,9 +237,10 @@ record DungeonDefinition(
                 }
                 opponents.add(battleId);
             }
-            if (opponents.size() != 2) {
+            if (opponents.size() != expectedActors) {
                 throw new IllegalStateException(
-                    "Dungeon cooperative encounter requires exactly two opponents: "
+                    "Dungeon " + multiplayerMode + " encounter requires exactly "
+                        + expectedActors + " opponent(s): "
                         + id + " -> " + requiredString(encounter, "id")
                 );
             }

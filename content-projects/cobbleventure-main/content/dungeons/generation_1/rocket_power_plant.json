@@ -38,18 +38,12 @@
     "recommended_level_policy": "warn"
   },
   "multiplayer": {
-    "mode": "cooperative",
-    "min_size": 2,
-    "max_size": 2,
-    "battle_join": "summon_all",
-    "tether": {
-      "warn_distance": 32,
-      "max_distance": 48,
-      "on_exceed": "return_to_partner"
-    }
+    "mode": "solo",
+    "min_size": 1,
+    "max_size": 1
   },
   "match": {
-    "required_players": 2,
+    "required_players": 1,
     "scope": "same_entrance",
     "timeout_seconds": 300,
     "on_timeout": "cancel",
@@ -75,11 +69,9 @@
         "en_us": "West Maintenance Team Rocket"
       },
       "npcs": [
-        "cobbleventure:npc/rocket_power_plant_grunt",
-        "cobbleventure:npc/rocket_power_plant_grunt_east"
+        "cobbleventure:npc/rocket_power_plant_grunt"
       ],
       "opponents": [
-        "cobbleventure:battle/rocket_power_plant_grunt",
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
       "requires": [],
@@ -94,11 +86,9 @@
         "en_us": "East Transformer Team Rocket"
       },
       "npcs": [
-        "cobbleventure:npc/rocket_power_plant_grunt_east",
-        "cobbleventure:npc/rocket_power_plant_grunt"
+        "cobbleventure:npc/rocket_power_plant_grunt_east"
       ],
       "opponents": [
-        "cobbleventure:battle/rocket_power_plant_grunt",
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
       "requires": [],
@@ -113,12 +103,10 @@
         "en_us": "Control Room Team Rocket Officer"
       },
       "npcs": [
-        "cobbleventure:npc/rocket_power_plant_officer",
-        "cobbleventure:npc/rocket_power_plant_grunt_east"
+        "cobbleventure:npc/rocket_power_plant_officer"
       ],
       "opponents": [
-        "cobbleventure:battle/rocket_power_plant_officer",
-        "cobbleventure:battle/rocket_power_plant_grunt"
+        "cobbleventure:battle/rocket_power_plant_officer"
       ],
       "requires": ["west_grunt", "east_grunt"],
       "position": [24, 1, 40],

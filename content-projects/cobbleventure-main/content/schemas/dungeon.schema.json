@@ -312,13 +312,13 @@
         "display_name": { "$ref": "#/$defs/localized_text" },
         "npcs": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "maxItems": 2,
           "items": { "$ref": "#/$defs/resource_id" }
         },
         "opponents": {
           "type": "array",
-          "minItems": 2,
+          "minItems": 1,
           "maxItems": 2,
           "items": { "$ref": "#/$defs/resource_id" }
         },
