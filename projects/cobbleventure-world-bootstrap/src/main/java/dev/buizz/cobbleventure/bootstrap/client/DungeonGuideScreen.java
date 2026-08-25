@@ -71,6 +71,14 @@ public final class DungeonGuideScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(
+        GuiGraphics graphics, int mouseX, int mouseY, float partialTick
+    ) {
+        // The panel draws its own dim overlay. Minecraft's default implementation
+        // blurs the completed screen, including its text and buttons.
+    }
+
+    @Override
     public void render(
         GuiGraphics graphics, int mouseX, int mouseY, float partialTick
     ) {

@@ -90,6 +90,13 @@ public final class DungeonQueueScreen extends Screen {
     }
 
     @Override
+    public void renderBackground(
+        GuiGraphics graphics, int mouseX, int mouseY, float partialTick
+    ) {
+        // Keep Minecraft's fullscreen blur away from the queue text and controls.
+    }
+
+    @Override
     public void render(
         GuiGraphics graphics, int mouseX, int mouseY, float partialTick
     ) {
