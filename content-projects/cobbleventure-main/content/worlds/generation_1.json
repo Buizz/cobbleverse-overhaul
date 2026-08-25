@@ -3482,6 +3482,28 @@
   ],
   "objects": [
     {
+      "id": "rocket_power_plant",
+      "type": "villain_base",
+      "anchor": {
+        "q": 12,
+        "r": -2
+      },
+      "resource": "cobbleventure:placeholder/power_plant",
+      "rotation": 0,
+      "properties": {
+        "terrain_fit": "foundation"
+      },
+      "connections": [
+        {
+          "from": "structure:dungeon_entry",
+          "target": {
+            "type": "dungeon",
+            "entrance_id": "cobbleventure:entrance/rocket_power_plant"
+          }
+        }
+      ]
+    },
+    {
       "id": "test",
       "type": "gate",
       "anchor": {

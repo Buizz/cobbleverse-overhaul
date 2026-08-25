@@ -1,0 +1,39 @@
+{
+  "$schema": "../../schemas/dungeon.schema.json",
+  "schema_version": 1,
+  "dungeon_id": "cobbleventure:dungeon/rocket_power_plant",
+  "display_name": {
+    "ko_kr": "점거된 발전소",
+    "en_us": "Occupied Power Plant"
+  },
+  "description": {
+    "ko_kr": "로켓단이 돌산터널 인근의 무인 발전소를 점거했습니다.",
+    "en_us": "Team Rocket has occupied the abandoned power plant near Rock Tunnel."
+  },
+  "preset": "cobbleventure:team_rocket_facility",
+  "entrances": [
+    {
+      "entrance_id": "cobbleventure:entrance/rocket_power_plant",
+      "destination_entry": "main",
+      "activation": "proximity",
+      "visibility": "always",
+      "return_policy": "source_safe_anchor"
+    }
+  ],
+  "entry_ui": {
+    "info_mode": "summary",
+    "confirm_required": true
+  },
+  "difficulty": {
+    "recommended_min": 25,
+    "recommended_max": 30,
+    "internal_min": 24,
+    "internal_max": 31
+  },
+  "terrain": {
+    "mode": "fixed_template",
+    "template": "cobbleventure:placeholder/power_plant",
+    "entry_position": [24, 1, 2],
+    "exit_position": [24, 1, 1]
+  }
+}

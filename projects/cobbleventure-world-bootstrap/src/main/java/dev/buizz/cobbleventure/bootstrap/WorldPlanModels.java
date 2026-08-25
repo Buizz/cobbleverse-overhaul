@@ -197,7 +197,8 @@ final class WorldPlanModels {
         Map<HexCoord, String> emptyTerrainTiles,
         Map<HexCoord, EnvironmentOverride> environmentOverrides,
         Map<HexCoord, Integer> levelOverrides, List<CaveEntrancePlan> caveEntrances,
-        List<WorldGateSystem.Gate> gates
+        List<WorldGateSystem.Gate> gates,
+        List<WorldStructureSystem.WorldStructure> worldStructures
     ) {}
 
     record EnvironmentOverride(String temperature, String humidity, String weather) {}

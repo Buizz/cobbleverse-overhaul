@@ -871,6 +871,8 @@ public final class CobbleventureBootstrap {
             GymInteriorSystem.initialize(event.getServer());
         }
         BuildingRuntimeSystem.initialize(event.getServer());
+        DungeonSystem.initialize(event.getServer(), runtime.hexWorld());
+        WorldStructureSystem.placeAll(level, runtime.hexWorld());
         StarterSpawnSystem.initialize(event.getServer());
         prepareExistingGymExteriors(level, runtime.settlements());
         prepareExistingBuildingRuntime(level, runtime.settlements());
@@ -1255,6 +1257,7 @@ public final class CobbleventureBootstrap {
         }
         placeCaveEntrances(level, runtime.hexWorld());
         WorldGateSystem.placeAll(level, runtime.hexWorld());
+        WorldStructureSystem.placeAll(level, runtime.hexWorld());
         BlockPos spawnPos = starter.playerSpawn().toBlockPos();
         BlockPos villagePos = townSurfacePosition(level, starter);
         level.setDefaultSpawnPos(spawnPos, 0.0F);
@@ -7810,7 +7813,7 @@ public final class CobbleventureBootstrap {
             world.grid(), world.seed(), world.cells(), world.paths(), world.settlements(),
             world.boundaryProfiles(), world.defaultEmptyTerrain(), world.emptyTerrainTiles(),
             world.environmentOverrides(), world.levelOverrides(),
-            List.copyOf(entrances), List.copyOf(gates)
+            List.copyOf(entrances), List.copyOf(gates), world.worldStructures()
         );
     }
 
@@ -8273,8 +8276,10 @@ public final class CobbleventureBootstrap {
             WorldPlanParser.environmentOverrides(root);
         Map<HexCoord, Integer> levelOverrides = WorldPlanParser.levelOverrides(root);
         List<WorldGateSystem.Gate> gates = new ArrayList<>();
+        List<WorldStructureSystem.WorldStructure> worldStructures = new ArrayList<>();
         if (root.has("objects")) {
             gates.addAll(WorldGateSystem.parse(root.getAsJsonArray("objects")));
+            worldStructures.addAll(WorldStructureSystem.parse(root.getAsJsonArray("objects")));
         }
         if (root.has("forest_entrances")) {
             gates.addAll(WorldGateSystem.parseForestEntrances(root.getAsJsonArray("forest_entrances")));
@@ -8284,7 +8289,7 @@ public final class CobbleventureBootstrap {
             List.copyOf(placedTiles), defaultEmptyTerrain,
             Map.copyOf(emptyTerrainTiles), Map.copyOf(environmentOverrides),
             Map.copyOf(levelOverrides), profiles,
-            List.copyOf(caveEntrances), gates
+            List.copyOf(caveEntrances), gates, List.copyOf(worldStructures)
         );
         LOGGER.info(
             "Hex world planned: cells={}, settlements={}, routes={}",
@@ -8330,7 +8335,8 @@ public final class CobbleventureBootstrap {
         Map<HexCoord, Integer> levelOverrides,
         Map<String, BoundaryProfile> profiles,
         List<CaveEntrancePlan> caveEntrances,
-        List<WorldGateSystem.Gate> gates
+        List<WorldGateSystem.Gate> gates,
+        List<WorldStructureSystem.WorldStructure> worldStructures
     ) {
         Map<HexCoord, CellPlan> cells = new LinkedHashMap<>();
         Map<HexCoord, String> townOwners = new HashMap<>();
@@ -8418,7 +8424,7 @@ public final class CobbleventureBootstrap {
         return new HexWorldPlan(
             grid, seed, Map.copyOf(cells), List.copyOf(paths), Map.copyOf(byId), profiles,
             defaultEmptyTerrain, emptyTerrainTiles, environmentOverrides,
-            levelOverrides, caveEntrances, gates
+            levelOverrides, caveEntrances, gates, worldStructures
         );
     }
 

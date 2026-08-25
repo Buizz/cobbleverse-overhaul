@@ -236,6 +236,10 @@ processResources {
         into 'data/cobbleventure/underground_roads'
         include '**/*.json'
     }
+    from(new File(contentDir, 'dungeons')) {
+        into 'data/cobbleventure/dungeons'
+        include '**/*.json'
+    }
     from(new File(contentDir, 'catalogs/economy.json')) {
         into 'data/cobbleventure/economy'
         rename { 'catalog.json' }

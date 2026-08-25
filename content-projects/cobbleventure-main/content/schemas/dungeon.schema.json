@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/dungeon.schema.json",
+  "title": "Cobbleventure dungeon definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "dungeon_id", "display_name", "description",
+    "preset", "entrances", "entry_ui", "difficulty", "terrain"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "dungeon_id": { "$ref": "#/$defs/resource_id" },
+    "display_name": { "$ref": "#/$defs/localized_text" },
+    "description": { "$ref": "#/$defs/localized_text" },
+    "preset": { "$ref": "#/$defs/resource_id" },
+    "entrances": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entrance" }
+    },
+    "entry_ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["info_mode", "confirm_required"],
+      "properties": {
+        "info_mode": { "enum": ["exact", "summary", "mystery"] },
+        "confirm_required": { "type": "boolean" }
+      }
+    },
+    "difficulty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommended_min", "recommended_max", "internal_min", "internal_max"],
+      "properties": {
+        "recommended_min": { "$ref": "#/$defs/level" },
+        "recommended_max": { "$ref": "#/$defs/level" },
+        "internal_min": { "$ref": "#/$defs/level" },
+        "internal_max": { "$ref": "#/$defs/level" }
+      }
+    },
+    "terrain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["fixed_template", "nbt_pieces", "procedural_cave", "hybrid"] },
+        "template": { "$ref": "#/$defs/resource_id" },
+        "entry_position": { "$ref": "#/$defs/block_position" },
+        "exit_position": { "$ref": "#/$defs/block_position" }
+      },
+      "allOf": [{
+        "if": { "properties": { "mode": { "const": "fixed_template" } }, "required": ["mode"] },
+        "then": { "required": ["template", "entry_position", "exit_position"] }
+      }]
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "localized_text": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "properties": {
+        "ko_kr": { "type": "string", "minLength": 1 },
+        "en_us": { "type": "string", "minLength": 1 }
+      }
+    },
+    "level": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "block_position": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer" }, { "type": "integer" }, { "type": "integer" }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "entrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entrance_id", "destination_entry", "activation", "visibility", "return_policy"
+      ],
+      "properties": {
+        "entrance_id": { "$ref": "#/$defs/resource_id" },
+        "destination_entry": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "activation": { "enum": ["interact", "cross", "portal", "proximity"] },
+        "visibility": { "enum": ["always", "discovered", "conditioned", "hidden"] },
+        "return_policy": { "enum": ["source_position", "source_safe_anchor", "configured_exit"] }
+      }
+    }
+  }
+}

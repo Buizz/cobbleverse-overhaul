@@ -385,7 +385,27 @@
         "anchor": { "$ref": "#/$defs/axial_coordinate" },
         "resource": { "$ref": "#/$defs/resource_id" },
         "rotation": { "type": "integer", "minimum": 0, "maximum": 5 },
-        "properties": { "type": "object" }
+        "properties": { "type": "object" },
+        "connections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "target"],
+            "properties": {
+              "from": { "type": "string", "pattern": "^structure:[a-z0-9_.-]+$" },
+              "target": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "entrance_id"],
+                "properties": {
+                  "type": { "const": "dungeon" },
+                  "entrance_id": { "$ref": "#/$defs/resource_id" }
+                }
+              }
+            }
+          }
+        }
       },
       "allOf": [{
         "if": { "properties": { "type": { "const": "gate" } }, "required": ["type"] },

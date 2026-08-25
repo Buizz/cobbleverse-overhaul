@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/placeholder/power_plant.nbt",
+  "anchors": [
+    {
+      "id": "dungeon_entry",
+      "label": "dungeon_entry",
+      "type": "interaction_point",
+      "position": [24, 1, 0],
+      "facing": "north"
+    }
+  ]
+}
