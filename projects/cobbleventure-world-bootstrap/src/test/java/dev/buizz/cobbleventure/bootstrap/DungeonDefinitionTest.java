@@ -73,7 +73,10 @@ final class DungeonDefinitionTest {
                   },
                   "encounters": [{
                     "id": "boss",
-                    "npc": "cobbleventure:npc/rocket_power_plant_officer",
+                    "npcs": [
+                      "cobbleventure:npc/rocket_power_plant_officer",
+                      "cobbleventure:npc/rocket_power_plant_grunt"
+                    ],
                     "opponents": [
                       "cobbleventure:battle/rocket_power_plant_officer",
                       "cobbleventure:battle/rocket_power_plant_officer"
@@ -156,6 +159,13 @@ final class DungeonDefinitionTest {
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals("boss", definition.encounters().getFirst().id());
+        assertEquals(
+            List.of(
+                "cobbleventure:npc/rocket_power_plant_officer",
+                "cobbleventure:npc/rocket_power_plant_grunt"
+            ),
+            definition.encounters().getFirst().npcs()
+        );
         assertEquals(
             List.of(
                 "cobbleventure:battle/rocket_power_plant_officer",

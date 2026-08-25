@@ -277,10 +277,15 @@
     "encounter": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "npc", "opponents", "position", "boss"],
+      "required": ["id", "npcs", "opponents", "position", "boss"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
-        "npc": { "$ref": "#/$defs/resource_id" },
+        "npcs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/resource_id" }
+        },
         "opponents": {
           "type": "array",
           "minItems": 2,

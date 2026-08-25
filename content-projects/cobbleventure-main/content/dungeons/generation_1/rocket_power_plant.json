@@ -70,7 +70,10 @@
   "encounters": [
     {
       "id": "west_grunt",
-      "npc": "cobbleventure:npc/rocket_power_plant_grunt",
+      "npcs": [
+        "cobbleventure:npc/rocket_power_plant_grunt",
+        "cobbleventure:npc/rocket_power_plant_grunt_east"
+      ],
       "opponents": [
         "cobbleventure:battle/rocket_power_plant_grunt",
         "cobbleventure:battle/rocket_power_plant_grunt"
@@ -81,7 +84,10 @@
     },
     {
       "id": "east_grunt",
-      "npc": "cobbleventure:npc/rocket_power_plant_grunt_east",
+      "npcs": [
+        "cobbleventure:npc/rocket_power_plant_grunt_east",
+        "cobbleventure:npc/rocket_power_plant_grunt"
+      ],
       "opponents": [
         "cobbleventure:battle/rocket_power_plant_grunt",
         "cobbleventure:battle/rocket_power_plant_grunt"
@@ -92,10 +98,13 @@
     },
     {
       "id": "control_room_officer",
-      "npc": "cobbleventure:npc/rocket_power_plant_officer",
+      "npcs": [
+        "cobbleventure:npc/rocket_power_plant_officer",
+        "cobbleventure:npc/rocket_power_plant_grunt_east"
+      ],
       "opponents": [
         "cobbleventure:battle/rocket_power_plant_officer",
-        "cobbleventure:battle/rocket_power_plant_officer"
+        "cobbleventure:battle/rocket_power_plant_grunt"
       ],
       "position": [24, 1, 40],
       "yaw": 180,

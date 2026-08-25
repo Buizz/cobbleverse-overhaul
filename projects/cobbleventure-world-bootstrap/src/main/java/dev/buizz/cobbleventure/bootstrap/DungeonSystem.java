@@ -667,7 +667,7 @@ final class DungeonSystem {
         BlockPos origin = slotOrigin(slot);
         BlockPos size = BlockPos.ZERO;
         PursuitEncounterSystem.Config randomEncounters;
-        Map<UUID, String> encounterByEntity;
+        Map<UUID, EncounterEntityRef> encounterByEntity;
         try {
             size = prepareFixedTemplate(dungeonLevel, definition, origin);
             placeHealingStations(dungeonLevel, definition, origin, size);
@@ -806,33 +806,70 @@ final class DungeonSystem {
         return new BlockPos(template.getSize());
     }
 
-    private static Map<UUID, String> spawnEncounters(
+    private static Map<UUID, EncounterEntityRef> spawnEncounters(
         ServerLevel level, DungeonDefinition definition, BlockPos origin
     ) {
-        Map<UUID, String> spawned = new HashMap<>();
+        Map<UUID, EncounterEntityRef> spawned = new HashMap<>();
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
-            BlockPos position = origin.offset(encounter.position());
-            Set<UUID> existing = easyNpcIds(level, position);
-            if (!CobbleventureBootstrap.spawnRegionalNpc(
-                level, encounter.npc(), position, encounter.yaw(), "interact"
-            )) {
-                throw new IllegalStateException(
-                    "Dungeon NPC placement failed: " + encounter.id()
+            BlockPos authoredPosition = origin.offset(encounter.position());
+            for (int index = 0; index < encounter.npcs().size(); index++) {
+                int opponentIndex = index;
+                BlockPos position = encounterNpcPosition(
+                    level, authoredPosition, encounter.yaw(), opponentIndex
+                );
+                Set<UUID> existing = easyNpcIds(level, position);
+                if (!CobbleventureBootstrap.spawnRegionalNpc(
+                    level, encounter.npcs().get(opponentIndex), position,
+                    encounter.yaw(), "interact"
+                )) {
+                    throw new IllegalStateException(
+                        "Dungeon NPC placement failed: " + encounter.id()
+                            + "[" + opponentIndex + "]"
+                    );
+                }
+                Entity entity = level.getEntitiesOfClass(
+                    Entity.class,
+                    new AABB(position).inflate(6.0D, 10.0D, 6.0D),
+                    candidate -> isEasyNpc(candidate)
+                        && !existing.contains(candidate.getUUID())
+                ).stream().min(java.util.Comparator.comparingDouble(
+                    candidate -> candidate.distanceToSqr(Vec3.atCenterOf(position))
+                )).orElseThrow(() -> new IllegalStateException(
+                    "Dungeon NPC entity could not be identified: "
+                        + encounter.id() + "[" + opponentIndex + "]"
+                ));
+                spawned.put(
+                    entity.getUUID(), new EncounterEntityRef(
+                        encounter.id(), opponentIndex
+                    )
                 );
             }
-            Entity entity = level.getEntitiesOfClass(
-                Entity.class,
-                new AABB(position).inflate(6.0D, 10.0D, 6.0D),
-                candidate -> isEasyNpc(candidate)
-                    && !existing.contains(candidate.getUUID())
-            ).stream().min(java.util.Comparator.comparingDouble(
-                candidate -> candidate.distanceToSqr(Vec3.atCenterOf(position))
-            )).orElseThrow(() -> new IllegalStateException(
-                "Dungeon NPC entity could not be identified: " + encounter.id()
-            ));
-            spawned.put(entity.getUUID(), encounter.id());
         }
         return Map.copyOf(spawned);
+    }
+
+    private static BlockPos encounterNpcPosition(
+        ServerLevel level, BlockPos authored, float yaw, int index
+    ) {
+        if (index == 0) return authored;
+        Direction facing = Direction.fromYRot(yaw);
+        Direction right = facing.getClockWise();
+        List<BlockPos> candidates = List.of(
+            authored.relative(right, 2),
+            authored.relative(right.getOpposite(), 2),
+            authored.relative(facing, 2),
+            authored.relative(facing.getOpposite(), 2)
+        );
+        return candidates.stream().filter(position -> {
+            BlockPos floor = position.below();
+            return level.getBlockState(floor).isFaceSturdy(level, floor, Direction.UP)
+                && level.getBlockState(position).getCollisionShape(level, position).isEmpty()
+                && level.getBlockState(position.above()).getCollisionShape(
+                    level, position.above()
+                ).isEmpty();
+        }).findFirst().orElseThrow(() -> new IllegalStateException(
+            "Dungeon partner NPC has no safe adjacent position: " + authored
+        ));
     }
 
     private static Set<UUID> easyNpcIds(ServerLevel level, BlockPos position) {
@@ -939,8 +976,11 @@ final class DungeonSystem {
         if (run == null || !initiator.serverLevel().dimension().equals(DUNGEONS)) {
             return false;
         }
-        String encounterId = run.encounters().encounterByEntity.get(opponent.getUUID());
-        if (encounterId == null) return false;
+        EncounterEntityRef entityRef = run.encounters().encounterByEntity.get(
+            opponent.getUUID()
+        );
+        if (entityRef == null) return false;
+        String encounterId = entityRef.encounterId();
         DungeonDefinition definition = definitions.get(run.dungeonId());
         DungeonDefinition.Encounter encounter = definition == null ? null
             : definition.encounters().stream()
@@ -997,6 +1037,9 @@ final class DungeonSystem {
                         "Dungeon battle preset is missing: " + battleId
                     ))
             ).map(EventBattlePreset::rctTrainerId).toList();
+            if (entityRef.opponentIndex() == 1) {
+                trainerIds = List.of(trainerIds.get(1), trainerIds.get(0));
+            }
         } catch (RuntimeException error) {
             LOGGER.error(
                 "Dungeon encounter battle preset resolution failed: {} -> {}",
@@ -1727,14 +1770,14 @@ final class DungeonSystem {
     }
 
     private static final class EncounterRuntime {
-        private final Map<UUID, String> encounterByEntity;
+        private final Map<UUID, EncounterEntityRef> encounterByEntity;
         private final Map<String, EncounterStatus> statusById = new HashMap<>();
         private final Map<UUID, String> battleToEncounter = new HashMap<>();
         private String pendingEncounterId;
         private long pendingExpiresAt;
 
         private EncounterRuntime(
-            Map<UUID, String> encounterByEntity,
+            Map<UUID, EncounterEntityRef> encounterByEntity,
             List<DungeonDefinition.Encounter> encounters
         ) {
             this.encounterByEntity = Map.copyOf(encounterByEntity);
@@ -1743,6 +1786,8 @@ final class DungeonSystem {
             );
         }
     }
+
+    private record EncounterEntityRef(String encounterId, int opponentIndex) {}
 
     private record ReturnFrame(
         String dimension,
