@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "profile_id": "live-nbt-editor",
+  "name": "Cobbleventure Live NBT Editor",
+  "version": "0.1.0-dev",
+  "author": "Buizz",
+  "purpose": "single-slot-live-nbt-authoring-world",
+  "production_ready": false,
+  "notice": "기존 Structure Builder와 분리된 단일 NBT 라이브 편집 팩입니다. Content Studio와 연결해 게임을 끄지 않고 NBT를 교체, 저장, 크기 변경 및 외부 NBT 추가할 수 있습니다.",
+  "icon": "pack/assets/cobbleventure-import-test-icon.png",
+  "minecraft": {
+    "version": "1.21.1",
+    "mod_loader": { "id": "neoforge-21.1.248", "primary": true }
+  },
+  "files": [
+    { "projectID": 687131, "fileID": 7553231, "required": true },
+    { "projectID": 351264, "fileID": 8335665, "required": true },
+    { "projectID": 1572769, "fileID": 8235485, "required": true },
+    { "projectID": 1162591, "fileID": 7219926, "required": true },
+    { "projectID": 348521, "fileID": 5729127, "required": true },
+    { "projectID": 419699, "fileID": 8492726, "required": true },
+    { "projectID": 1188698, "fileID": 8340192, "required": true },
+    { "projectID": 841890, "fileID": 8061947, "required": true },
+    { "projectID": 225608, "fileID": 5830452, "required": true },
+    { "projectID": 394468, "fileID": 6382651, "required": true },
+    { "projectID": 455508, "fileID": 6213632, "required": true },
+    { "projectID": 627557, "fileID": 5874236, "required": true },
+    { "projectID": 915902, "fileID": 5876050, "required": true },
+    { "projectID": 328085, "fileID": 7963363, "required": true },
+    { "projectID": 968398, "fileID": 7251823, "required": true },
+    { "projectID": 302113, "fileID": 8515718, "required": true }
+  ],
+  "overrides_directory": "pack/overrides/live-nbt-editor",
+  "output": "dist/cobbleventure-live-nbt-editor-0.1.0-curseforge.zip"
+}

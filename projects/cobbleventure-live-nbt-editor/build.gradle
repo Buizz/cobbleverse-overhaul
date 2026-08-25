@@ -1,0 +1,85 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.143'
+}
+
+version = mod_version
+group = mod_group_id
+base { archivesName = 'cobbleventure-live-nbt-editor' }
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+repositories { mavenCentral() }
+
+def editorRunDirectory = file('run-live-editor-world')
+def editorWorldDirectory = file('run-live-editor-world/Cobbleventure Live NBT Editor')
+def packagedWorldDirectory = rootProject.file('../../pack/overrides/live-nbt-editor/saves/Cobbleventure Live NBT Editor')
+
+tasks.register('resetLiveEditorWorld') {
+    doLast {
+        delete editorWorldDirectory
+        editorRunDirectory.mkdirs()
+        file('run-live-editor-world/eula.txt').setText('eula=true\n', 'UTF-8')
+        file('run-live-editor-world/server.properties').setText('''\
+allow-flight=true
+difficulty=peaceful
+gamemode=creative
+generate-structures=false
+level-name=Cobbleventure Live NBT Editor
+level-seed=19960227
+level-type=minecraft:flat
+max-tick-time=-1
+online-mode=false
+server-port=0
+simulation-distance=4
+spawn-animals=false
+spawn-monsters=false
+spawn-npcs=false
+view-distance=6
+''', 'UTF-8')
+    }
+}
+
+neoForge {
+    version = project.neo_version
+    runs {
+        liveEditorWorldServer {
+            server()
+            gameDirectory = editorRunDirectory
+            systemProperty 'cobbleventure.liveEditor.prepareWorld', 'true'
+            taskBefore tasks.named('resetLiveEditorWorld')
+        }
+    }
+    mods { "${mod_id}" { sourceSet sourceSets.main } }
+}
+
+processResources {
+    def properties = [
+        minecraft_version_range: minecraft_version_range,
+        neo_version: neo_version,
+        loader_version_range: loader_version_range,
+        mod_id: mod_id,
+        mod_name: mod_name,
+        mod_license: mod_license,
+        mod_version: mod_version,
+    ]
+    inputs.properties properties
+    filesMatching('META-INF/neoforge.mods.toml') { expand properties }
+}
+
+tasks.register('cleanInstalledLiveEditorJars', Delete) {
+    delete fileTree(rootProject.file('../../pack/overrides/live-nbt-editor/mods')) {
+        include 'cobbleventure-live-nbt-editor-*.jar'
+    }
+}
+tasks.register('installLiveEditorJar', Copy) {
+    dependsOn jar
+    dependsOn 'cleanInstalledLiveEditorJars'
+    from jar
+    into rootProject.file('../../pack/overrides/live-nbt-editor/mods')
+}
+tasks.register('syncLiveEditorWorld', Sync) {
+    dependsOn 'runLiveEditorWorldServer'
+    from editorWorldDirectory
+    exclude 'session.lock'
+    into packagedWorldDirectory
+}
+tasks.named('build') { finalizedBy 'installLiveEditorJar' }

@@ -1,0 +1,19 @@
+Cobbleventure Live NBT Editor
+
+기존 Cobbleventure Structure Builder를 변경하지 않는 별도 단일 NBT 편집 팩입니다.
+월드 목록에서 "Cobbleventure Live NBT Editor"를 엽니다.
+
+Content Studio의 빌드 화면에서 이 CurseForge 인스턴스 경로를 지정한 뒤 NBT를 선택합니다.
+전용 편집 차원에는 항상 NBT 하나만 배치되며 다른 NBT를 열기 전에 현재 작업을 저장합니다.
+테스트 차원에는 현재 NBT 사본을 계속 추가해 다른 구조물과 함께 배치하고 시험할 수 있습니다.
+
+월드는 시작할 때 아침으로 설정되고 시간이 흐르지 않습니다. /time 명령으로 원하는 시각으로 바꿀 수 있습니다.
+Cobblemon 자연 스폰은 비활성화되어 있으며, Iris에서 Complementary Reimagined + Euphoria Patches 셰이더가 기본 적용됩니다.
+
+명령:
+/cobbleventure_live status
+/cobbleventure_live sync
+/cobbleventure_live save
+/cobbleventure_live tp
+/cobbleventure_live test place
+/cobbleventure_live test tp

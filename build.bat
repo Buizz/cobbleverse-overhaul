@@ -25,18 +25,20 @@ set "PLAYER_MENU_PROJECT=%REPO_ROOT%projects\cobbleventure-player-menu"
 set "CASINO_PROJECT=%REPO_ROOT%projects\cobbleventure-casino"
 set "POKEFINDER_PROJECT=%REPO_ROOT%projects\cobbleventure-pokefinder"
 set "STRUCTURE_BUILDER_PROJECT=%REPO_ROOT%projects\cobbleventure-structure-builder"
+set "LIVE_NBT_EDITOR_PROJECT=%REPO_ROOT%projects\cobbleventure-live-nbt-editor"
 set "STRUCTURE_BUILDER_TOOL=%REPO_ROOT%tools\structure-builder\structure_builder.py"
 set "MUSIC_PACK_BUILDER=%REPO_ROOT%tools\music-catalog\music_catalog.py"
 set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
 set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
 set "STRUCTURE_BUILDER_PROFILE=pack\profiles\structure-builder.json"
+set "LIVE_NBT_EDITOR_PROFILE=pack\profiles\live-nbt-editor.json"
 
 call :configure_cobblemon
 if errorlevel 1 exit /b %errorlevel%
 
 set "EXPORT_LANGUAGE=%COBBLEVENTURE_EXPORT_LANGUAGE%"
 if not defined EXPORT_LANGUAGE set "EXPORT_LANGUAGE=ko_kr"
-if /I not "%~1"=="builder-import" if /I not "%~1"=="builder-sync" if not "%~2"=="" set "EXPORT_LANGUAGE=%~2"
+if /I not "%~1"=="builder-import" if /I not "%~1"=="builder-sync" if /I not "%~1"=="live-editor-sync" if not "%~2"=="" set "EXPORT_LANGUAGE=%~2"
 if /I not "%EXPORT_LANGUAGE%"=="ko_kr" if /I not "%EXPORT_LANGUAGE%"=="en_us" (
     echo [ERROR] Unsupported export language: %EXPORT_LANGUAGE%
     echo Supported languages: ko_kr, en_us
@@ -75,6 +77,8 @@ if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
 if /I "%~1"=="pack-release" goto pack_release
 if /I "%~1"=="builder-world" goto builder_world
+if /I "%~1"=="live-editor-world" goto live_editor_world
+if /I "%~1"=="live-editor-sync" goto live_editor_sync
 if /I "%~1"=="builder-sync" goto builder_sync
 if /I "%~1"=="builder-import" (
     if "%~2"=="" (
@@ -130,6 +134,8 @@ if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\structure-builder\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" test
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" test
 exit /b %errorlevel%
 
 :generate
@@ -257,6 +263,31 @@ if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." deploy "%~2"
 exit /b %errorlevel%
 
+:live_editor_world
+call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" build --no-configuration-cache
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" syncLiveEditorWorld --no-configuration-cache
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%LIVE_NBT_EDITOR_PROFILE%"
+exit /b %errorlevel%
+
+:live_editor_sync
+if "%~2"=="" (
+    echo [ERROR] CurseForge live editor instance path is required.
+    echo Usage: build.bat live-editor-sync "^<CurseForge instance^>"
+    exit /b 1
+)
+call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" build --no-configuration-cache
+if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" syncLiveEditorWorld --no-configuration-cache
+if errorlevel 1 exit /b %errorlevel%
+xcopy /E /I /Y "%REPO_ROOT%pack\overrides\live-nbt-editor\mods" "%~2\mods" >nul
+if errorlevel 1 exit /b %errorlevel%
+xcopy /E /I /Y "%REPO_ROOT%pack\overrides\live-nbt-editor\config" "%~2\config" >nul
+if errorlevel 1 exit /b %errorlevel%
+xcopy /E /I /Y "%REPO_ROOT%pack\overrides\live-nbt-editor\saves\Cobbleventure Live NBT Editor" "%~2\saves\Cobbleventure Live NBT Editor" >nul
+exit /b %errorlevel%
+
 :help_error
 echo [ERROR] Unknown command: %~1
 
@@ -281,6 +312,8 @@ echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked
 echo   builder-world  Build the standalone CurseForge structure authoring pack and world
+echo   live-editor-world Build the separate single-NBT live editor pack and world
+echo   live-editor-sync  Update the live editor mod and world in an existing instance
 echo   builder-sync   Replace the builder world in an existing CurseForge instance
 echo   builder-import Import exported NBT and refresh in-game generated resources
 echo.

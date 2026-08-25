@@ -26,6 +26,7 @@ node_modules/
 # Minecraft development/runtime data
 run/
 run-builder-world/
+run-live-editor-world/
 .minecraft/
 logs/
 crash-reports/
@@ -41,6 +42,7 @@ pack/overrides/development-placeholder/mods/cobbleventure-battle-ai-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-player-menu-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-pokefinder-*.jar
 pack/overrides/structure-builder/mods/cobbleventure-structure-builder-*.jar
+pack/overrides/live-nbt-editor/mods/cobbleventure-live-nbt-editor-*.jar
 *.mrpack
 *.zip
 !pack/overrides/development-placeholder/config/paxi/datapacks/CCCC-1.7.2.zip
