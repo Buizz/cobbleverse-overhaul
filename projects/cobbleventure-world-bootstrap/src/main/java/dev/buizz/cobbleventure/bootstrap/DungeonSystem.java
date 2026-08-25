@@ -212,6 +212,17 @@ final class DungeonSystem {
         return run == null ? null : run.randomEncounters();
     }
 
+    static synchronized DungeonDefinition.BattleRules activeBattleRules(
+        ServerPlayer player
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+            return null;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        return definition == null ? null : definition.battleRules();
+    }
+
     private static void openGuide(ServerPlayer player, PlacedEntrance placement) {
         DungeonEntranceRef ref = entrances.get(placement.entranceId());
         if (ref == null) {

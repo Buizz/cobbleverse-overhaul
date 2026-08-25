@@ -9,6 +9,10 @@
     "JigsawPlacementPlacerMixin",
     "SinglePoolElementMixin",
     "CobblenavSpawnDataHelperMixin",
+    "DungeonBagItemActionResponseMixin",
+    "DungeonForfeitActionResponseMixin",
+    "DungeonHealItemActionResponseMixin",
+    "DungeonPokeBallItemMixin",
     "XpBarRegistrationMixin"
   ],
   "client": [

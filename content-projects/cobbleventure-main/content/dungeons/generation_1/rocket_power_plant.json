@@ -30,6 +30,11 @@
     "internal_min": 24,
     "internal_max": 31
   },
+  "battle": {
+    "allow_flee": false,
+    "allow_capture": true,
+    "allow_items": true
+  },
   "terrain": {
     "mode": "fixed_template",
     "template": "cobbleventure:placeholder/power_plant",

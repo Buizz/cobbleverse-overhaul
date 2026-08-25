@@ -25,6 +25,7 @@ record DungeonDefinition(
     String preset,
     EntryUi entryUi,
     Difficulty difficulty,
+    BattleRules battleRules,
     Terrain terrain,
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
@@ -76,6 +77,7 @@ record DungeonDefinition(
         JsonObject displayName = requiredObject(root, "display_name");
         JsonObject entryUi = requiredObject(root, "entry_ui");
         JsonObject difficulty = requiredObject(root, "difficulty");
+        JsonObject battleRules = requiredObject(root, "battle");
         JsonObject terrain = requiredObject(root, "terrain");
         List<Entrance> entrances = new ArrayList<>();
         JsonArray configuredEntrances = requiredArray(root, "entrances");
@@ -271,6 +273,11 @@ record DungeonDefinition(
                 requiredBoolean(entryUi, "confirm_required")
             ),
             new Difficulty(recommendedMin, recommendedMax, internalMin, internalMax),
+            new BattleRules(
+                requiredBoolean(battleRules, "allow_flee"),
+                requiredBoolean(battleRules, "allow_capture"),
+                requiredBoolean(battleRules, "allow_items")
+            ),
             new Terrain(terrainMode, template, entryPosition, exitPosition),
             List.copyOf(encounters),
             new RandomEncounters(
@@ -388,6 +395,7 @@ record DungeonDefinition(
 
     record EntryUi(String infoMode, boolean confirmRequired) {}
     record Difficulty(int recommendedMin, int recommendedMax, int internalMin, int internalMax) {}
+    record BattleRules(boolean allowFlee, boolean allowCapture, boolean allowItems) {}
     record Terrain(
         String mode,
         String template,

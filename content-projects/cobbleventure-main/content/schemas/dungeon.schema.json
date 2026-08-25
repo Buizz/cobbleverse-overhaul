@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": [
     "$schema", "schema_version", "dungeon_id", "display_name", "description",
-    "preset", "entrances", "entry_ui", "difficulty", "terrain", "encounters",
+    "preset", "entrances", "entry_ui", "difficulty", "battle", "terrain", "encounters",
     "random_encounters", "loot", "completion"
   ],
   "properties": {
@@ -39,6 +39,16 @@
         "recommended_max": { "$ref": "#/$defs/level" },
         "internal_min": { "$ref": "#/$defs/level" },
         "internal_max": { "$ref": "#/$defs/level" }
+      }
+    },
+    "battle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow_flee", "allow_capture", "allow_items"],
+      "properties": {
+        "allow_flee": { "type": "boolean" },
+        "allow_capture": { "type": "boolean" },
+        "allow_items": { "type": "boolean" }
       }
     },
     "terrain": {

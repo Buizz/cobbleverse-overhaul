@@ -33,6 +33,11 @@ final class DungeonDefinitionTest {
                     "internal_min": 24,
                     "internal_max": 31
                   },
+                  "battle": {
+                    "allow_flee": false,
+                    "allow_capture": true,
+                    "allow_items": true
+                  },
                   "terrain": {
                     "mode": "fixed_template",
                     "template": "cobbleventure:placeholder/power_plant",
@@ -84,6 +89,9 @@ final class DungeonDefinitionTest {
         assertEquals("점거된 발전소", definition.displayName());
         assertEquals(25, definition.difficulty().recommendedMin());
         assertEquals(24, definition.difficulty().internalMin());
+        assertFalse(definition.battleRules().allowFlee());
+        assertTrue(definition.battleRules().allowCapture());
+        assertTrue(definition.battleRules().allowItems());
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals("boss", definition.encounters().getFirst().id());
@@ -129,6 +137,11 @@ final class DungeonDefinitionTest {
                     "recommended_max": 15,
                     "internal_min": 10,
                     "internal_max": 15
+                  },
+                  "battle": {
+                    "allow_flee": true,
+                    "allow_capture": true,
+                    "allow_items": true
                   },
                   "terrain": {
                     "mode": "fixed_template",
