@@ -367,6 +367,9 @@ record DungeonDefinition(
             ));
         }
         JsonObject loot = requiredObject(root, "loot");
+        String lootOwnership = enumValue(loot, "ownership", List.of(
+            "per_player", "run_shared", "first_claim"
+        ));
         List<LootContainer> lootContainers = new ArrayList<>();
         Set<String> lootContainerIds = new HashSet<>();
         Set<BlockPos> lootContainerPositions = new HashSet<>();
@@ -485,7 +488,10 @@ record DungeonDefinition(
                 List.copyOf(wildSpecies)
             ),
             new Support(List.copyOf(healingStations)),
-            new Loot(resourceId(loot, "loot_table"), List.copyOf(lootContainers)),
+            new Loot(
+                resourceId(loot, "loot_table"), lootOwnership,
+                List.copyOf(lootContainers)
+            ),
             new Rewards(
                 resourceId(rewards, "first_clear_table"),
                 repeatTable,
@@ -670,7 +676,7 @@ record DungeonDefinition(
         boolean restoreStatus,
         boolean restorePp
     ) {}
-    record Loot(String lootTable, List<LootContainer> containers) {}
+    record Loot(String lootTable, String ownership, List<LootContainer> containers) {}
     record LootContainer(String id, BlockPos position, String block, String facing) {}
     record Rewards(
         String firstClearTable,

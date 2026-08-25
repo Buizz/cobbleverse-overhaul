@@ -704,7 +704,8 @@ final class DungeonSystem {
         ActiveRun run = new ActiveRun(
             player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
             randomEncounters, new HashMap<>(), participantIds, new HashMap<>(),
-            new EncounterRuntime(encounterByEntity, definition.encounters())
+            new EncounterRuntime(encounterByEntity, definition.encounters()),
+            new DungeonLootClaims()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         for (int index = 0; index < entries.size(); index++) {
@@ -910,8 +911,10 @@ final class DungeonSystem {
                     "Dungeon loot block entity is missing: " + container.id()
                 );
             }
-            blockEntity.setLootTable(lootTable);
-            blockEntity.setLootTableSeed(runSeed ^ container.id().hashCode());
+            if (definition.loot().ownership().equals("run_shared")) {
+                blockEntity.setLootTable(lootTable);
+                blockEntity.setLootTableSeed(runSeed ^ container.id().hashCode());
+            }
             blockEntity.setChanged();
         }
     }
@@ -951,11 +954,106 @@ final class DungeonSystem {
         if (event.getLevel().isClientSide()
             || event.getHand() != InteractionHand.MAIN_HAND
             || !(event.getEntity() instanceof ServerPlayer player)
-            || !useHealingStation(player, event.getPos())) {
+            || (!claimDungeonLoot(player, event.getPos())
+                && !useHealingStation(player, event.getPos()))) {
             return;
         }
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
+    }
+
+    private static synchronized boolean claimDungeonLoot(
+        ServerPlayer player, BlockPos position
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+            return false;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null || definition.loot().ownership().equals("run_shared")) {
+            return false;
+        }
+        DungeonDefinition.LootContainer container = definition.loot().containers()
+            .stream()
+            .filter(candidate -> run.origin().offset(candidate.position()).equals(position))
+            .findFirst().orElse(null);
+        if (container == null) return false;
+        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            player.displayClientMessage(Component.literal(
+                "[던전] 전투 중에는 전리품 상자를 열 수 없습니다."
+            ), true);
+            return true;
+        }
+        boolean perPlayer = definition.loot().ownership().equals("per_player");
+        if (run.lootClaims().claim(
+            definition.loot().ownership(), container.id(), player.getUUID()
+        ) == DungeonLootClaims.ClaimResult.ALREADY_CLAIMED) {
+            player.displayClientMessage(Component.literal(perPlayer
+                ? "[던전] 이 상자의 개인 전리품은 이미 수령했습니다."
+                : "[던전] 이 상자의 전리품은 다른 참가자가 먼저 수령했습니다."
+            ), true);
+            return true;
+        }
+
+        List<ItemStack> rewards;
+        try {
+            rewards = generateDungeonLoot(player, definition.loot().lootTable(), position);
+        } catch (RuntimeException error) {
+            run.lootClaims().release(container.id(), player.getUUID());
+            LOGGER.error(
+                "Dungeon loot claim failed: dungeon={}, container={}, player={}",
+                definition.id(), container.id(), player.getUUID(), error
+            );
+            player.sendSystemMessage(Component.literal(
+                "전리품을 지급하지 못했습니다. 잠시 후 다시 시도하세요."
+            ));
+            return true;
+        }
+        if (!BagApi.insertAll(player, rewards).complete()) {
+            run.lootClaims().release(container.id(), player.getUUID());
+            player.sendSystemMessage(Component.literal(
+                "가방 공간이 부족합니다. 공간을 비운 뒤 상자를 다시 여세요."
+            ));
+            return true;
+        }
+
+        int itemCount = rewards.stream().mapToInt(ItemStack::getCount).sum();
+        player.sendSystemMessage(Component.literal(itemCount == 0
+            ? "[던전] 상자가 비어 있었습니다."
+            : "[던전] 개인 전리품 " + itemCount + "개를 획득했습니다."
+        ));
+        player.serverLevel().playSound(
+            null, position,
+            container.block().equals("barrel")
+                ? SoundEvents.BARREL_OPEN : SoundEvents.CHEST_OPEN,
+            SoundSource.BLOCKS, 0.7F, 1.0F
+        );
+        player.serverLevel().sendParticles(
+            ParticleTypes.HAPPY_VILLAGER,
+            position.getX() + 0.5D, position.getY() + 1.0D, position.getZ() + 0.5D,
+            8, 0.25D, 0.25D, 0.25D, 0.01D
+        );
+        return true;
+    }
+
+    private static List<ItemStack> generateDungeonLoot(
+        ServerPlayer player, String lootTableId, BlockPos position
+    ) {
+        ResourceKey<LootTable> key = ResourceKey.create(
+            Registries.LOOT_TABLE, ResourceLocation.parse(lootTableId)
+        );
+        LootTable lootTable = player.getServer().reloadableRegistries().getLootTable(key);
+        if (lootTable == LootTable.EMPTY) {
+            throw new IllegalStateException(
+                "Dungeon loot table is missing: " + lootTableId
+            );
+        }
+        LootParams params = new LootParams.Builder(player.serverLevel())
+            .withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(position))
+            .withOptionalParameter(LootContextParams.THIS_ENTITY, player)
+            .withLuck(player.getLuck())
+            .create(LootContextParamSets.CHEST);
+        return lootTable.getRandomItems(params);
     }
 
     private static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
@@ -1504,7 +1602,7 @@ final class DungeonSystem {
                     definition.displayName() + " 클리어! 보상을 획득했습니다. ("
                         + clearCount + "회차)"
                 );
-                grantClearItems(participant, reward.items());
+                grantItems(participant, reward.items());
             }
         } catch (RuntimeException error) {
             COMPLETING_RUNS.removeAll(run.participantIds());
@@ -1534,7 +1632,7 @@ final class DungeonSystem {
         return lootTable.getRandomItems(params);
     }
 
-    private static void grantClearItems(ServerPlayer player, List<ItemStack> rewards) {
+    private static void grantItems(ServerPlayer player, List<ItemStack> rewards) {
         if (BagApi.insertAll(player, rewards).complete()) {
             return;
         }
@@ -1759,7 +1857,8 @@ final class DungeonSystem {
         Map<String, Integer> healingUses,
         Set<UUID> participantIds,
         Map<UUID, Long> tetherWarningUntil,
-        EncounterRuntime encounters
+        EncounterRuntime encounters,
+        DungeonLootClaims lootClaims
     ) {}
 
     private enum EncounterStatus {

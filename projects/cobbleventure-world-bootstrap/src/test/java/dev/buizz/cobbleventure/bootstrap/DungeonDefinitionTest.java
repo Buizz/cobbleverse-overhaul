@@ -115,6 +115,7 @@ final class DungeonDefinitionTest {
                   },
                   "loot": {
                     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
+                    "ownership": "per_player",
                     "containers": [{
                       "id": "maintenance_cache",
                       "position": [6, 1, 17],
@@ -188,6 +189,7 @@ final class DungeonDefinitionTest {
             "cobbleventure:dungeon/rocket_power_plant_supplies",
             definition.loot().lootTable()
         );
+        assertEquals("per_player", definition.loot().ownership());
         assertEquals("barrel", definition.loot().containers().getFirst().block());
         assertEquals("reset_run", definition.lifecycle().onWipe());
         assertEquals("source_entrance", definition.lifecycle().wipeReturn());

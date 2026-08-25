@@ -169,6 +169,7 @@
   },
   "loot": {
     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
+    "ownership": "per_player",
     "containers": [
       {
         "id": "west_maintenance_cache",

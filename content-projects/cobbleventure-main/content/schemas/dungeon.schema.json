@@ -175,9 +175,10 @@
     "loot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["loot_table", "containers"],
+      "required": ["loot_table", "ownership", "containers"],
       "properties": {
         "loot_table": { "$ref": "#/$defs/resource_id" },
+        "ownership": { "enum": ["per_player", "run_shared", "first_claim"] },
         "containers": {
           "type": "array",
           "minItems": 1,
