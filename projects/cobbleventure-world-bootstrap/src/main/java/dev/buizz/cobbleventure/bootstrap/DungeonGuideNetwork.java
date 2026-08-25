@@ -14,7 +14,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Opens the dungeon guide and returns the player's explicit entry choice. */
 public final class DungeonGuideNetwork {
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
 
     private DungeonGuideNetwork() {}
 
@@ -69,7 +69,9 @@ public final class DungeonGuideNetwork {
         boolean healOnWipe,
         boolean repeatable,
         String levelMeasure,
-        int currentPartyLevel
+        int currentPartyLevel,
+        String multiplayerMode,
+        int requiredPlayers
     ) {
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(entranceId);
@@ -85,6 +87,8 @@ public final class DungeonGuideNetwork {
             buffer.writeBoolean(repeatable);
             buffer.writeUtf(levelMeasure);
             buffer.writeVarInt(currentPartyLevel);
+            buffer.writeUtf(multiplayerMode);
+            buffer.writeVarInt(requiredPlayers);
         }
 
         private static GuideData read(RegistryFriendlyByteBuf buffer) {
@@ -93,7 +97,7 @@ public final class DungeonGuideNetwork {
                 buffer.readVarInt(), buffer.readVarInt(),
                 buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(),
                 buffer.readUtf(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readUtf(), buffer.readVarInt()
+                buffer.readUtf(), buffer.readVarInt(), buffer.readUtf(), buffer.readVarInt()
             );
         }
     }

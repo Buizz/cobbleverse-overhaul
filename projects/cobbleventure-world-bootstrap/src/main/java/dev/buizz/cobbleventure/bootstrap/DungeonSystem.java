@@ -12,6 +12,7 @@ import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,7 +66,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
 import org.slf4j.Logger;
 
-/** Validates dungeon content and runs the first fixed-template solo prototype. */
+/** Validates dungeon content and runs fixed-template dungeon instances. */
 final class DungeonSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final ResourceKey<Level> DUNGEONS = ResourceKey.create(
@@ -85,6 +86,8 @@ final class DungeonSystem {
     private static final Map<String, PlacedEntrance> ACTIVE_ENTRANCES = new HashMap<>();
     private static final Map<UUID, String> INSIDE_ENTRANCES = new HashMap<>();
     private static final Map<UUID, PendingEntry> PENDING_ENTRIES = new HashMap<>();
+    private static final DungeonEntryQueue ENTRY_QUEUE = new DungeonEntryQueue();
+    private static final Map<UUID, QueuedEntry> QUEUED_ENTRIES = new HashMap<>();
     private static final Map<UUID, ActiveRun> ACTIVE_RUNS = new HashMap<>();
     private static final Set<Integer> ACTIVE_SLOTS = new HashSet<>();
     private static final Set<UUID> COMPLETING_RUNS = new HashSet<>();
@@ -155,6 +158,8 @@ final class DungeonSystem {
         ACTIVE_ENTRANCES.clear();
         INSIDE_ENTRANCES.clear();
         PENDING_ENTRIES.clear();
+        ENTRY_QUEUE.clear();
+        QUEUED_ENTRIES.clear();
         ACTIVE_RUNS.clear();
         ACTIVE_SLOTS.clear();
         COMPLETING_RUNS.clear();
@@ -200,9 +205,10 @@ final class DungeonSystem {
         if (player.serverLevel().dimension().equals(DUNGEONS)) {
             if (run != null && escapeActionsBlocked(run)
                 && !insideRunBounds(player.position(), run.origin(), run.size())) {
-                returnPlayer(
-                    player,
-                    "던전 경계를 벗어나 도전이 종료되었습니다. 입구로 복귀합니다."
+                failRun(
+                    run,
+                    "참가자가 던전 경계를 벗어나 도전이 종료되었습니다.",
+                    false
                 );
                 return;
             }
@@ -212,18 +218,39 @@ final class DungeonSystem {
             }
             if (run != null && gameTime >= run.teleportCooldownUntil()
                 && distanceSquared(player.position(), run.exit()) <= EXIT_RADIUS_SQUARED) {
-                returnPlayer(player, "던전에서 나왔습니다.");
+                failRun(run, "참가자가 출구를 사용해 던전 도전이 종료되었습니다.", false);
             }
             return;
         }
         if (run != null) {
             if (escapeActionsBlocked(run)) {
-                returnPlayer(
-                    player,
-                    "외부 이동이 감지되어 던전 도전이 종료되었습니다."
+                failRun(
+                    run,
+                    "참가자의 외부 이동이 감지되어 던전 도전이 종료되었습니다.",
+                    false
                 );
             } else {
                 abandonRun(player);
+            }
+            return;
+        }
+        QueuedEntry queued = QUEUED_ENTRIES.get(player.getUUID());
+        if (queued != null) {
+            if (!queued.pending().placement().dimension().equals(
+                    player.serverLevel().dimension())
+                || distanceSquared(
+                    player.position(), queued.pending().placement().trigger()
+                ) > queued.stayRadiusSquared()
+                || BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+                cancelQueuedEntry(
+                    player,
+                    "입구에서 멀어졌거나 다른 행동을 시작해 던전 대기가 취소되었습니다."
+                );
+            } else if (gameTime >= queued.expiresAt()
+                && queued.pending().ref().definition().match().onTimeout().equals("cancel")) {
+                cancelQueuedEntry(player, "던전 매칭 대기 시간이 만료되었습니다.");
+            } else {
+                return;
             }
         }
         PlacedEntrance touching = ACTIVE_ENTRANCES.values().stream()
@@ -305,15 +332,19 @@ final class DungeonSystem {
         }
         DungeonDefinition.Lifecycle lifecycle = definition.lifecycle();
         if (lifecycle.healOnWipe()) {
-            Cobblemon.INSTANCE.getStorage().getParty(player).heal();
+            for (UUID participantId : run.participantIds()) {
+                ServerPlayer participant = player.getServer().getPlayerList().getPlayer(
+                    participantId
+                );
+                if (participant != null) {
+                    Cobblemon.INSTANCE.getStorage().getParty(participant).heal();
+                }
+            }
         }
         boolean usePokemonCenter = lifecycle.wipeReturn().equals("pokemon_center");
-        returnPlayer(
-            player,
-            usePokemonCenter
-                ? "던전 도전에 실패했습니다. 포켓몬센터로 후송됩니다."
-                : "던전 도전에 실패해 입구로 복귀했습니다."
-        );
+        if (!usePokemonCenter) {
+            failRun(run, "파티가 전멸해 던전 도전에 실패했습니다.", false);
+        }
         return !usePokemonCenter;
     }
 
@@ -345,7 +376,9 @@ final class DungeonSystem {
                 definition.lifecycle().healOnWipe(),
                 definition.completion().repeatable(),
                 definition.eligibility().levelMeasure(),
-                currentPartyLevel
+                currentPartyLevel,
+                definition.multiplayer().mode(),
+                definition.match().requiredPlayers()
             )
         );
     }
@@ -367,36 +400,81 @@ final class DungeonSystem {
             ));
             return;
         }
-        startSoloRun(player, pending);
+        String problem = entryProblem(player, pending);
+        if (problem != null) {
+            player.sendSystemMessage(Component.literal(problem));
+            return;
+        }
+        DungeonDefinition definition = pending.ref().definition();
+        if (definition.match().requiredPlayers() == 1) {
+            startMatchedRun(List.of(new MatchedEntry(player, pending)));
+            return;
+        }
+        long queuedAt = player.serverLevel().getGameTime();
+        long expiresAt = queuedAt + definition.match().timeoutSeconds() * 20L;
+        String poolKey = pending.ref().entrance().entranceId();
+        if (!ENTRY_QUEUE.enqueue(player.getUUID(), poolKey, queuedAt, expiresAt)) {
+            player.sendSystemMessage(Component.literal(
+                "이미 다른 던전 입장을 기다리고 있습니다."
+            ));
+            return;
+        }
+        double stayRadius = definition.match().stayRadius();
+        QUEUED_ENTRIES.put(
+            player.getUUID(),
+            new QueuedEntry(pending, expiresAt, stayRadius * stayRadius)
+        );
+        List<DungeonEntryQueue.Request> matched = ENTRY_QUEUE.poll(
+            poolKey, definition.match().requiredPlayers()
+        );
+        if (matched.isEmpty()) {
+            player.sendSystemMessage(Component.literal(
+                "다른 도전자를 기다리는 중입니다. (1/"
+                    + definition.match().requiredPlayers() + ")"
+            ));
+            return;
+        }
+        List<MatchedEntry> entries = new ArrayList<>(matched.size());
+        boolean missingParticipant = false;
+        for (DungeonEntryQueue.Request request : matched) {
+            QueuedEntry queued = QUEUED_ENTRIES.remove(request.playerId());
+            ServerPlayer member = player.getServer().getPlayerList().getPlayer(
+                request.playerId()
+            );
+            if (queued == null || member == null) {
+                missingParticipant = true;
+                continue;
+            }
+            entries.add(new MatchedEntry(member, queued.pending()));
+        }
+        if (missingParticipant) {
+            cancelMatch(entries, "참가자의 연결이 끊겨 던전 매칭이 취소되었습니다.");
+            return;
+        }
+        for (MatchedEntry entry : entries) {
+            String memberProblem = entryProblem(entry.player(), entry.pending());
+            if (memberProblem != null) {
+                cancelMatch(entries, "참가자 조건이 변경되어 매칭이 취소되었습니다.");
+                entry.player().sendSystemMessage(Component.literal(memberProblem));
+                return;
+            }
+        }
+        startMatchedRun(List.copyOf(entries));
     }
 
-    private static void startSoloRun(ServerPlayer player, PendingEntry pending) {
+    private static String entryProblem(ServerPlayer player, PendingEntry pending) {
         DungeonDefinition definition = pending.ref().definition();
         if (!definition.terrain().mode().equals("fixed_template")) {
-            player.sendSystemMessage(Component.literal(
-                "현재 프로토타입은 고정 NBT 던전만 입장할 수 있습니다."
-            ));
-            return;
-        }
-        ServerLevel dungeonLevel = player.getServer().getLevel(DUNGEONS);
-        if (dungeonLevel == null) {
-            player.sendSystemMessage(Component.literal("던전 차원을 찾을 수 없습니다."));
-            return;
+            return "현재 프로토타입은 고정 NBT 던전만 입장할 수 있습니다.";
         }
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
-            player.sendSystemMessage(Component.literal(
-                "배틀 중에는 던전에 입장할 수 없습니다."
-            ));
-            return;
+            return "배틀 중에는 던전에 입장할 수 없습니다.";
         }
         DungeonEntryEligibility.Evaluation eligibility = DungeonEntryEligibility.evaluate(
             definition.eligibility(), definition.difficulty(), partySnapshot(player)
         );
         if (!eligibility.allowed()) {
-            player.sendSystemMessage(Component.literal(
-                eligibilityMessage(definition, eligibility)
-            ));
-            return;
+            return eligibilityMessage(definition, eligibility);
         }
         if (eligibility.issue()
             == DungeonEntryEligibility.Issue.LEVEL_OUTSIDE_RECOMMENDED) {
@@ -411,12 +489,24 @@ final class DungeonSystem {
             state.flag(definition.completion().victoryFlag())
         );
         if (!definition.completion().repeatable() && previousClears > 0) {
-            player.sendSystemMessage(Component.literal("이미 클리어한 던전입니다."));
+            return "이미 클리어한 던전입니다.";
+        }
+        return null;
+    }
+
+    private static void startMatchedRun(List<MatchedEntry> entries) {
+        MatchedEntry first = entries.getFirst();
+        ServerPlayer player = first.player();
+        PendingEntry pending = first.pending();
+        DungeonDefinition definition = pending.ref().definition();
+        ServerLevel dungeonLevel = player.getServer().getLevel(DUNGEONS);
+        if (dungeonLevel == null) {
+            cancelMatch(entries, "던전 차원을 찾을 수 없습니다.");
             return;
         }
         int slot = allocateSlot();
         if (slot < 0) {
-            player.sendSystemMessage(Component.literal("사용 가능한 던전 슬롯이 없습니다."));
+            cancelMatch(entries, "사용 가능한 던전 슬롯이 없습니다.");
             return;
         }
         BlockPos origin = slotOrigin(slot);
@@ -436,42 +526,57 @@ final class DungeonSystem {
                 clearSlot(dungeonLevel, origin, size);
             }
             LOGGER.error("Dungeon instance preparation failed: {}", definition.id(), error);
-            player.sendSystemMessage(Component.literal(
-                "던전 준비에 실패했습니다. 서버 로그를 확인하세요."
-            ));
+            cancelMatch(entries, "던전 준비에 실패했습니다. 서버 로그를 확인하세요.");
             return;
         }
-        pushReturnFrame(player, pending.placement().safeReturn());
-        if (definition.completion().repeatable()) {
-            state.setFlag(definition.completion().victoryFlag(), false);
+        for (MatchedEntry entry : entries) {
+            pushReturnFrame(entry.player(), entry.pending().placement().safeReturn());
+            if (definition.completion().repeatable()) {
+                new ServerPlayerEventState(entry.player()).setFlag(
+                    definition.completion().victoryFlag(), false
+                );
+            }
         }
         BlockPos entry = origin.offset(definition.terrain().entryPosition());
         BlockPos exit = origin.offset(definition.terrain().exitPosition());
         long cooldown = dungeonLevel.getGameTime() + 40L;
-        player.teleportTo(
-            dungeonLevel,
-            entry.getX() + 0.5D, entry.getY(), entry.getZ() + 0.5D,
-            player.getYRot(), player.getXRot()
+        Set<UUID> participantIds = entries.stream()
+            .map(matched -> matched.player().getUUID())
+            .collect(Collectors.toUnmodifiableSet());
+        ActiveRun run = new ActiveRun(
+            player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
+            randomEncounters, new HashMap<>(), participantIds
         );
-        if (player.serverLevel() != dungeonLevel) {
-            popReturnFrame(player);
-            ACTIVE_SLOTS.remove(slot);
-            clearSlot(dungeonLevel, origin, size);
-            player.sendSystemMessage(Component.literal(
-                "던전 내부로 이동하지 못해 준비된 슬롯을 초기화했습니다."
-            ));
-            return;
+        entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
+        for (int index = 0; index < entries.size(); index++) {
+            ServerPlayer member = entries.get(index).player();
+            double xOffset = (index - (entries.size() - 1) / 2.0D) * 1.25D;
+            member.teleportTo(
+                dungeonLevel,
+                entry.getX() + 0.5D + xOffset, entry.getY(), entry.getZ() + 0.5D,
+                member.getYRot(), member.getXRot()
+            );
+            if (member.serverLevel() != dungeonLevel) {
+                failRun(
+                    run,
+                    "참가자 이동에 실패해 준비된 던전이 초기화되었습니다.",
+                    false
+                );
+                return;
+            }
         }
-        ACTIVE_RUNS.put(
-            player.getUUID(),
-            new ActiveRun(
-                definition.id(), slot, origin, size, entry, exit, cooldown,
-                randomEncounters, new HashMap<>()
-            )
-        );
-        player.sendSystemMessage(Component.literal(
-            definition.displayName() + " 도전을 시작합니다."
-        ));
+        for (MatchedEntry matched : entries) {
+            matched.player().sendSystemMessage(Component.literal(
+                definition.displayName() + " 도전을 " + entries.size()
+                    + "명이 함께 시작합니다."
+            ));
+        }
+    }
+
+    private static void cancelMatch(List<MatchedEntry> entries, String message) {
+        for (MatchedEntry entry : entries) {
+            entry.player().sendSystemMessage(Component.literal(message));
+        }
     }
 
     private static DungeonEntryEligibility.PartySnapshot partySnapshot(
@@ -763,6 +868,29 @@ final class DungeonSystem {
         );
     }
 
+    private static void cancelQueuedEntry(ServerPlayer player, String message) {
+        ENTRY_QUEUE.remove(player.getUUID());
+        QUEUED_ENTRIES.remove(player.getUUID());
+        PENDING_ENTRIES.remove(player.getUUID());
+        player.sendSystemMessage(Component.literal(message));
+    }
+
+    private static void failRun(ActiveRun run, String message, boolean heal) {
+        if (run == null) return;
+        for (UUID participantId : run.participantIds()) {
+            ServerPlayer participant = run.server().getPlayerList().getPlayer(participantId);
+            if (participant == null) {
+                releaseRun(participantId);
+                continue;
+            }
+            if (heal) {
+                Cobblemon.INSTANCE.getStorage().getParty(participant).heal();
+            }
+            returnPlayer(participant, message);
+        }
+        cleanupRun(run.server(), run);
+    }
+
     private static void returnPlayer(ServerPlayer player, String message) {
         ReturnFrame frame = popReturnFrame(player);
         ActiveRun run = releaseRun(player.getUUID());
@@ -775,6 +903,7 @@ final class DungeonSystem {
                     player.getYRot(), player.getXRot()
                 );
             }
+            cleanupRun(player.getServer(), run);
             return;
         }
         ResourceLocation dimensionId = ResourceLocation.tryParse(frame.dimension());
@@ -785,6 +914,7 @@ final class DungeonSystem {
             destination = player.getServer().getLevel(CobbleventureBootstrap.GENERATION_ONE);
         }
         if (destination == null) {
+            cleanupRun(player.getServer(), run);
             return;
         }
         player.teleportTo(
@@ -801,40 +931,60 @@ final class DungeonSystem {
     }
 
     private static void completeRun(ServerPlayer player, ActiveRun run) {
-        if (!COMPLETING_RUNS.add(player.getUUID())) {
+        if (run.participantIds().stream().anyMatch(COMPLETING_RUNS::contains)) {
             return;
         }
+        COMPLETING_RUNS.addAll(run.participantIds());
         DungeonDefinition definition = definitions.get(run.dungeonId());
         if (definition == null) {
-            returnPlayer(player, "던전을 클리어했습니다.");
+            failRun(run, "던전을 클리어했습니다.", false);
             return;
         }
         try {
-            int previousClears = DungeonClearProgress.clearCount(
-                player.getPersistentData(), definition.id()
-            );
-            boolean firstClear = previousClears == 0;
-            String rewardTable = firstClear
-                ? definition.rewards().firstClearTable()
-                : definition.rewards().repeatTable();
-            List<ItemStack> itemRewards = generateClearRewards(player, rewardTable);
-            ServerPlayerEventState state = new ServerPlayerEventState(player);
-            if (firstClear) {
-                for (String move : definition.rewards().firstClearFieldMoves()) {
-                    state.grantFieldMove(move);
+            List<PendingReward> rewards = new ArrayList<>();
+            for (UUID participantId : run.participantIds()) {
+                ServerPlayer participant = player.getServer().getPlayerList().getPlayer(
+                    participantId
+                );
+                if (participant == null) {
+                    throw new IllegalStateException(
+                        "Dungeon participant disconnected during completion: "
+                            + participantId
+                    );
                 }
+                int previousClears = DungeonClearProgress.clearCount(
+                    participant.getPersistentData(), definition.id()
+                );
+                boolean firstClear = previousClears == 0;
+                String rewardTable = firstClear
+                    ? definition.rewards().firstClearTable()
+                    : definition.rewards().repeatTable();
+                rewards.add(new PendingReward(
+                    participant,
+                    firstClear,
+                    generateClearRewards(participant, rewardTable)
+                ));
             }
-            int clearCount = DungeonClearProgress.recordClear(
-                player.getPersistentData(), definition.id()
-            );
-            returnPlayer(
-                player,
-                definition.displayName() + " 클리어! 보상을 획득했습니다. ("
-                    + clearCount + "회차)"
-            );
-            grantClearItems(player, itemRewards);
+            for (PendingReward reward : rewards) {
+                ServerPlayer participant = reward.player();
+                if (reward.firstClear()) {
+                    ServerPlayerEventState state = new ServerPlayerEventState(participant);
+                    for (String move : definition.rewards().firstClearFieldMoves()) {
+                        state.grantFieldMove(move);
+                    }
+                }
+                int clearCount = DungeonClearProgress.recordClear(
+                    participant.getPersistentData(), definition.id()
+                );
+                returnPlayer(
+                    participant,
+                    definition.displayName() + " 클리어! 보상을 획득했습니다. ("
+                        + clearCount + "회차)"
+                );
+                grantClearItems(participant, reward.items());
+            }
         } catch (RuntimeException error) {
-            COMPLETING_RUNS.remove(player.getUUID());
+            COMPLETING_RUNS.removeAll(run.participantIds());
             throw error;
         }
     }
@@ -877,13 +1027,13 @@ final class DungeonSystem {
     }
 
     private static void abandonRun(ServerPlayer player) {
-        popReturnFrame(player);
-        ActiveRun run = releaseRun(player.getUUID());
-        cleanupRun(player.getServer(), run);
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        failRun(run, "참가자가 이탈해 던전 도전이 종료되었습니다.", false);
     }
 
     private static void cleanupRun(MinecraftServer server, ActiveRun run) {
         if (run == null) return;
+        if (ACTIVE_RUNS.values().stream().anyMatch(active -> active == run)) return;
         ServerLevel level = server.getLevel(DUNGEONS);
         if (level != null) {
             clearSlot(level, run.origin(), run.size());
@@ -949,7 +1099,9 @@ final class DungeonSystem {
     private static ActiveRun releaseRun(UUID playerId) {
         COMPLETING_RUNS.remove(playerId);
         ActiveRun removed = ACTIVE_RUNS.remove(playerId);
-        if (removed != null) {
+        if (removed != null && ACTIVE_RUNS.values().stream().noneMatch(
+            active -> active == removed
+        )) {
             ACTIVE_SLOTS.remove(removed.slot());
         }
         return removed;
@@ -968,9 +1120,14 @@ final class DungeonSystem {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        cleanupRun(player.getServer(), releaseRun(player.getUUID()));
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run != null) {
+            failRun(run, "참가자의 연결이 끊겨 던전 도전이 종료되었습니다.", false);
+        }
         INSIDE_ENTRANCES.remove(player.getUUID());
         PENDING_ENTRIES.remove(player.getUUID());
+        ENTRY_QUEUE.remove(player.getUUID());
+        QUEUED_ENTRIES.remove(player.getUUID());
     }
 
     private static StructureAnchor readStructureAnchor(
@@ -1052,7 +1209,22 @@ final class DungeonSystem {
 
     private record PendingEntry(DungeonEntranceRef ref, PlacedEntrance placement) {}
 
+    private record QueuedEntry(
+        PendingEntry pending,
+        long expiresAt,
+        double stayRadiusSquared
+    ) {}
+
+    private record MatchedEntry(ServerPlayer player, PendingEntry pending) {}
+
+    private record PendingReward(
+        ServerPlayer player,
+        boolean firstClear,
+        List<ItemStack> items
+    ) {}
+
     private record ActiveRun(
+        MinecraftServer server,
         String dungeonId,
         int slot,
         BlockPos origin,
@@ -1061,7 +1233,8 @@ final class DungeonSystem {
         BlockPos exit,
         long teleportCooldownUntil,
         PursuitEncounterSystem.Config randomEncounters,
-        Map<String, Integer> healingUses
+        Map<String, Integer> healingUses,
+        Set<UUID> participantIds
     ) {}
 
     private record ReturnFrame(

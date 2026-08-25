@@ -26,6 +26,8 @@ record DungeonDefinition(
     EntryUi entryUi,
     Difficulty difficulty,
     Eligibility eligibility,
+    Multiplayer multiplayer,
+    Match match,
     BattleRules battleRules,
     Terrain terrain,
     List<Encounter> encounters,
@@ -82,6 +84,8 @@ record DungeonDefinition(
         JsonObject entryUi = requiredObject(root, "entry_ui");
         JsonObject difficulty = requiredObject(root, "difficulty");
         JsonObject eligibility = requiredObject(root, "eligibility");
+        JsonObject multiplayer = requiredObject(root, "multiplayer");
+        JsonObject match = requiredObject(root, "match");
         JsonObject battleRules = requiredObject(root, "battle");
         JsonObject terrain = requiredObject(root, "terrain");
         List<Entrance> entrances = new ArrayList<>();
@@ -118,6 +122,41 @@ record DungeonDefinition(
             throw new IllegalStateException(
                 "Invalid dungeon party size range: "
                     + minimumPartySize + ".." + maximumPartySize
+            );
+        }
+        String multiplayerMode = enumValue(multiplayer, "mode", List.of(
+            "solo", "cooperative", "independent"
+        ));
+        int minimumPlayers = requiredInt(multiplayer, "min_size");
+        int maximumPlayers = requiredInt(multiplayer, "max_size");
+        if (minimumPlayers < 1 || maximumPlayers > 4
+            || minimumPlayers > maximumPlayers) {
+            throw new IllegalStateException(
+                "Invalid dungeon multiplayer size range: "
+                    + minimumPlayers + ".." + maximumPlayers
+            );
+        }
+        int requiredPlayers = requiredInt(match, "required_players");
+        if (requiredPlayers < minimumPlayers || requiredPlayers > maximumPlayers) {
+            throw new IllegalStateException(
+                "Dungeon match size is outside the multiplayer range: " + id
+            );
+        }
+        if (multiplayerMode.equals("solo") && requiredPlayers != 1) {
+            throw new IllegalStateException(
+                "Solo dungeon match requires exactly one player: " + id
+            );
+        }
+        int timeoutSeconds = requiredInt(match, "timeout_seconds");
+        if (timeoutSeconds < 1 || timeoutSeconds > 3600) {
+            throw new IllegalStateException(
+                "Invalid dungeon match timeout_seconds: " + timeoutSeconds
+            );
+        }
+        int stayRadius = requiredInt(match, "stay_radius");
+        if (stayRadius < 1 || stayRadius > 64) {
+            throw new IllegalStateException(
+                "Invalid dungeon match stay_radius: " + stayRadius
             );
         }
         String terrainMode = enumValue(terrain, "mode", List.of(
@@ -359,6 +398,14 @@ record DungeonDefinition(
                     "ignore", "warn", "enforce"
                 ))
             ),
+            new Multiplayer(multiplayerMode, minimumPlayers, maximumPlayers),
+            new Match(
+                requiredPlayers,
+                enumValue(match, "scope", List.of("same_entrance")),
+                timeoutSeconds,
+                enumValue(match, "on_timeout", List.of("cancel", "keep_waiting")),
+                stayRadius
+            ),
             new BattleRules(
                 requiredBoolean(battleRules, "allow_flee"),
                 requiredBoolean(battleRules, "allow_capture"),
@@ -500,6 +547,14 @@ record DungeonDefinition(
         boolean requireUsablePokemon,
         String levelMeasure,
         String recommendedLevelPolicy
+    ) {}
+    record Multiplayer(String mode, int minSize, int maxSize) {}
+    record Match(
+        int requiredPlayers,
+        String scope,
+        int timeoutSeconds,
+        String onTimeout,
+        int stayRadius
     ) {}
     record BattleRules(
         boolean allowFlee,

@@ -40,6 +40,18 @@ final class DungeonDefinitionTest {
                     "level_measure": "average",
                     "recommended_level_policy": "warn"
                   },
+                  "multiplayer": {
+                    "mode": "cooperative",
+                    "min_size": 2,
+                    "max_size": 2
+                  },
+                  "match": {
+                    "required_players": 2,
+                    "scope": "same_entrance",
+                    "timeout_seconds": 300,
+                    "on_timeout": "cancel",
+                    "stay_radius": 8
+                  },
                   "battle": {
                     "allow_flee": false,
                     "allow_capture": true,
@@ -120,6 +132,9 @@ final class DungeonDefinitionTest {
         assertTrue(definition.eligibility().requireUsablePokemon());
         assertEquals("average", definition.eligibility().levelMeasure());
         assertEquals("warn", definition.eligibility().recommendedLevelPolicy());
+        assertEquals("cooperative", definition.multiplayer().mode());
+        assertEquals(2, definition.match().requiredPlayers());
+        assertEquals(300, definition.match().timeoutSeconds());
         assertFalse(definition.battleRules().allowFlee());
         assertTrue(definition.battleRules().allowCapture());
         assertTrue(definition.battleRules().allowItems());
@@ -192,6 +207,18 @@ final class DungeonDefinitionTest {
                     "require_usable_pokemon": true,
                     "level_measure": "average",
                     "recommended_level_policy": "warn"
+                  },
+                  "multiplayer": {
+                    "mode": "solo",
+                    "min_size": 1,
+                    "max_size": 1
+                  },
+                  "match": {
+                    "required_players": 1,
+                    "scope": "same_entrance",
+                    "timeout_seconds": 300,
+                    "on_timeout": "cancel",
+                    "stay_radius": 8
                   },
                   "battle": {
                     "allow_flee": true,

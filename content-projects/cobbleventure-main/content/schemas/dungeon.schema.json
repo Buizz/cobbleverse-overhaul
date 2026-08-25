@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": [
     "$schema", "schema_version", "dungeon_id", "display_name", "description",
-    "preset", "entrances", "entry_ui", "difficulty", "eligibility", "battle", "terrain", "encounters",
+    "preset", "entrances", "entry_ui", "difficulty", "eligibility", "multiplayer", "match", "battle", "terrain", "encounters",
     "random_encounters", "support", "loot", "rewards", "lifecycle", "completion"
   ],
   "properties": {
@@ -54,6 +54,30 @@
         "require_usable_pokemon": { "type": "boolean" },
         "level_measure": { "enum": ["average", "highest"] },
         "recommended_level_policy": { "enum": ["ignore", "warn", "enforce"] }
+      }
+    },
+    "multiplayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "min_size", "max_size"],
+      "properties": {
+        "mode": { "enum": ["solo", "cooperative", "independent"] },
+        "min_size": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "max_size": { "type": "integer", "minimum": 1, "maximum": 4 }
+      }
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_players", "scope", "timeout_seconds", "on_timeout", "stay_radius"
+      ],
+      "properties": {
+        "required_players": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "scope": { "const": "same_entrance" },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+        "on_timeout": { "enum": ["cancel", "keep_waiting"] },
+        "stay_radius": { "type": "integer", "minimum": 1, "maximum": 64 }
       }
     },
     "battle": {
