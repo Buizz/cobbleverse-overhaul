@@ -23,9 +23,11 @@
 | [본가식 가방 인벤토리](BAG_INVENTORY.md) | 포켓별 가방 UI, 서버 저장과 차원별 포켓 제한 | 기준 설계 |
 | [포켓몬 스폰 프로필](POKEMON_SPAWNS.md) | 기존 서식지 보존, 세대 차원 할당, 스폰 데이터 자동 생성과 검증 | 기술 조사 진행 |
 | [던전 및 지하 차원](DUNGEON_DIMENSIONS.md) | 달맞이산형 던전, 지하 생태계, 입출구 연결, 구조물과 체크포인트 | 기술 조사 진행 |
+| [데이터 기반 던전 생성 및 도전 시스템](DUNGEON_SYSTEM.md) | 건물·동굴·숲·지상·마을 입구, 전체 옵션표, 지형·조우·전리품, 다인 규칙과 초기화 | 계획 작성 |
 | [보호형 서바이벌 필드와 재생 자원](PROTECTED_SURVIVAL_RESOURCES.md) | 필드 권한, 작물 수확, 특수 던전 광물 노드와 자연 동굴 대체 | 기준 설계 |
 | [공용 인스턴스 차원과 상태 변화 건물](INSTANCED_SPACES.md) | 레이드 덴식 슬롯, 임시 전투장과 스토리 단계별 집·건물 내부 | 기술 참고안 |
 | [특수 던전 2인 협동 멀티배틀](COOPERATIVE_DUNGEON_BATTLES.md) | 던전 입장 세션, EasyNPC 보스와 2인 대 2인 `GEN_9_MULTI` PvE | 기준 결정 |
+| [던전 입구 대기열·자동 매칭 시스템](DUNGEON_ENTRY_MATCHMAKING.md) | 입장 대기, FIFO 2인 자동 매칭, 준비 트랜잭션과 협력·독립 실행 | 계획 작성 |
 | [월드 초기화 및 지역 경계](WORLD_BOOTSTRAP_REGIONS.md) | 청크 사전 생성, 지역 셀, 마을·관문 배치, 벽과 제한 통로 | 기술 조사 진행 |
 | [1세대 시작 지역 통합 구현 계획](GENERATION_ONE_BATCH_IMPLEMENTATION.md) | 바이옴·벽·건물·마을 규모·안전층·트레이너 타입의 일괄 구현 순서 | 구현 대기 |
 | [1세대 시작 지역 구현 체크리스트](GENERATION_ONE_IMPLEMENTATION_CHECKLIST.md) | 데이터부터 CurseForge 검증과 후속 NPC 스폰까지 단일 진행표 | 진행 관리 |
