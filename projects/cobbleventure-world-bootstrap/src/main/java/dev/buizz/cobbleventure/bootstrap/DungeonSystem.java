@@ -180,6 +180,9 @@ final class DungeonSystem {
                 }
             }
         }
+        discoverBuildingPlacements(
+            server.getResourceManager(), byEntrance, placements
+        );
         for (String entranceId : byEntrance.keySet()) {
             if (!placements.containsKey(entranceId)) {
                 throw new IllegalStateException(
@@ -244,6 +247,18 @@ final class DungeonSystem {
                 )
             );
         }
+    }
+
+    static synchronized void registerBuildingPlacement(
+        ServerLevel level, String entranceId, BlockPos trigger, BlockPos safeReturn
+    ) {
+        if (!entrances.containsKey(entranceId)) {
+            return;
+        }
+        ACTIVE_ENTRANCES.put(
+            entranceId,
+            new PlacedEntrance(entranceId, level.dimension(), trigger, safeReturn)
+        );
     }
 
     static synchronized void tick(ServerPlayer player, long gameTime) {
@@ -2195,6 +2210,57 @@ final class DungeonSystem {
             }
         }
         return Vec3.atBottomCenterOf(run.entry());
+    }
+
+    private static void discoverBuildingPlacements(
+        ResourceManager resources,
+        Map<String, DungeonEntranceRef> configuredEntrances,
+        Map<String, String> placements
+    ) {
+        Map<ResourceLocation, Resource> metadata = resources.listResources(
+            "structure_metadata",
+            location -> location.getNamespace().equals("cobbleventure")
+                && location.getPath().endsWith(".structure.json")
+        );
+        for (Map.Entry<ResourceLocation, Resource> entry : metadata.entrySet()) {
+            try (Reader reader = entry.getValue().openAsReader()) {
+                JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+                if (!root.has("anchors")) continue;
+                for (JsonElement element : root.getAsJsonArray("anchors")) {
+                    JsonObject anchor = element.getAsJsonObject();
+                    if (!anchor.has("type")
+                        || !anchor.get("type").getAsString().equals("dungeon_entrance")) {
+                        continue;
+                    }
+                    if (!anchor.has("entrance_id")) {
+                        throw new IllegalStateException(
+                            "Building dungeon entrance is missing entrance_id: " + entry.getKey()
+                        );
+                    }
+                    String entranceId = anchor.get("entrance_id").getAsString();
+                    if (!configuredEntrances.containsKey(entranceId)) {
+                        throw new IllegalStateException(
+                            "Building references missing dungeon entrance: "
+                                + entry.getKey() + " -> " + entranceId
+                        );
+                    }
+                    String previous = placements.putIfAbsent(
+                        entranceId, entry.getKey().toString()
+                    );
+                    if (previous != null) {
+                        throw new IllegalStateException(
+                            "Dungeon entrance is placed more than once: " + entranceId
+                                + " (" + previous + " / " + entry.getKey() + ")"
+                        );
+                    }
+                }
+            } catch (IOException | RuntimeException error) {
+                if (error instanceof IllegalStateException state) throw state;
+                throw new IllegalStateException(
+                    "Invalid building dungeon entrance metadata: " + entry.getKey(), error
+                );
+            }
+        }
     }
 
     private static StructureAnchor readStructureAnchor(

@@ -167,6 +167,7 @@ final class BuildingRuntimeSystem {
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedGachaMachines, "exterior"
         );
+        registerDungeonEntrances(level, metadata, origin.toBlockPos(), rotation);
         if (settings != null && settings.noInteriorSpace) {
             return;
         }
@@ -484,7 +485,9 @@ final class BuildingRuntimeSystem {
                         ? value.get("facing").getAsString()
                         : value.has("door_facing")
                             ? value.get("door_facing").getAsString() : "north"),
-                    value.has("seal_entry") && value.get("seal_entry").getAsBoolean()
+                    value.has("seal_entry") && value.get("seal_entry").getAsBoolean(),
+                    value.has("entrance_id")
+                        ? requiredString(value, "entrance_id") : null
                 ));
             }
         }
@@ -759,6 +762,24 @@ final class BuildingRuntimeSystem {
             }
         }
         return null;
+    }
+
+    private static void registerDungeonEntrances(
+        ServerLevel level, StructureMetadata metadata, BlockPos origin, Rotation rotation
+    ) {
+        for (Anchor anchor : metadata.anchors) {
+            if (!anchor.type.equals("dungeon_entrance")
+                || anchor.dungeonEntrance == null) {
+                continue;
+            }
+            BlockPos trigger = transform(origin, anchor.position, rotation);
+            BlockPos safeReturn = anchor.safeSpawn == null
+                ? trigger.relative(rotation.rotate(anchor.facing).getOpposite())
+                : transform(origin, anchor.safeSpawn, rotation);
+            DungeonSystem.registerBuildingPlacement(
+                level, anchor.dungeonEntrance, trigger, safeReturn
+            );
+        }
     }
 
     private static void applyFixedNpcs(
@@ -1054,6 +1075,7 @@ final class BuildingRuntimeSystem {
                 interiorsLevel, metadata, origin, Rotation.NONE,
                 instanceKey + "|" + interior.key, settings.fixedGachaMachines, interior.key
             );
+            registerDungeonEntrances(interiorsLevel, metadata, origin, Rotation.NONE);
             index++;
         }
 
@@ -1765,7 +1787,8 @@ final class BuildingRuntimeSystem {
 
     private record Anchor(
         String id, String type, BlockPos position, BlockPos safeSpawn,
-        net.minecraft.core.Direction facing, boolean sealOpening
+        net.minecraft.core.Direction facing, boolean sealOpening,
+        String dungeonEntrance
     ) {
     }
 
