@@ -7,7 +7,7 @@
   "required": [
     "$schema", "schema_version", "dungeon_id", "display_name", "description",
     "preset", "entrances", "entry_ui", "difficulty", "battle", "terrain", "encounters",
-    "random_encounters", "loot", "completion"
+    "random_encounters", "support", "loot", "completion"
   ],
   "properties": {
     "$schema": { "type": "string" },
@@ -96,6 +96,17 @@
         "additions": {
           "type": "array",
           "items": { "$ref": "#/$defs/wild_species" }
+        }
+      }
+    },
+    "support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["healing_stations"],
+      "properties": {
+        "healing_stations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/healing_station" }
         }
       }
     },
@@ -197,6 +208,23 @@
         "max_level": { "$ref": "#/$defs/level" },
         "weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
         "spawn_as_evolved": { "type": "boolean", "default": false }
+      }
+    },
+    "healing_station": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "position", "block", "uses_per_run",
+        "restore_hp", "restore_status", "restore_pp"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "position": { "$ref": "#/$defs/block_position" },
+        "block": { "$ref": "#/$defs/resource_id" },
+        "uses_per_run": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "restore_hp": { "type": "boolean" },
+        "restore_status": { "type": "boolean" },
+        "restore_pp": { "type": "boolean" }
       }
     }
   }

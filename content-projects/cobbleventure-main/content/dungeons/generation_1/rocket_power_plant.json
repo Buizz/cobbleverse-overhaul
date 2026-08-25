@@ -107,6 +107,19 @@
       }
     ]
   },
+  "support": {
+    "healing_stations": [
+      {
+        "id": "pre_control_room_station",
+        "position": [18, 1, 35],
+        "block": "minecraft:lodestone",
+        "uses_per_run": 1,
+        "restore_hp": true,
+        "restore_status": true,
+        "restore_pp": true
+      }
+    ]
+  },
   "loot": {
     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
     "containers": [

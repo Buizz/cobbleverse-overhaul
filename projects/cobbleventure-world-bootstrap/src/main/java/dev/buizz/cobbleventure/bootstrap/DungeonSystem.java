@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.battles.BattleRegistry;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import com.google.gson.JsonElement;
@@ -17,6 +19,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -29,7 +33,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Blocks;
@@ -45,6 +53,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import org.slf4j.Logger;
 
@@ -75,6 +84,7 @@ final class DungeonSystem {
 
     static void register(IEventBus modBus) {
         DungeonGuideNetwork.register(modBus);
+        NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedOut);
     }
@@ -296,6 +306,7 @@ final class DungeonSystem {
         BlockPos size = BlockPos.ZERO;
         try {
             size = prepareFixedTemplate(dungeonLevel, definition, origin);
+            placeHealingStations(dungeonLevel, definition, origin, size);
             placeLootContainers(dungeonLevel, definition, origin);
             spawnEncounters(dungeonLevel, definition, origin);
         } catch (RuntimeException error) {
@@ -320,7 +331,8 @@ final class DungeonSystem {
             player.getUUID(),
             new ActiveRun(
                 definition.id(), slot, origin, size, entry, exit, cooldown,
-                createRandomEncounterConfig(definition, origin, size, slot)
+                createRandomEncounterConfig(definition, origin, size, slot),
+                new HashMap<>()
             )
         );
         player.teleportTo(
@@ -399,6 +411,136 @@ final class DungeonSystem {
             blockEntity.setLootTable(lootTable);
             blockEntity.setLootTableSeed(runSeed ^ container.id().hashCode());
             blockEntity.setChanged();
+        }
+    }
+
+    private static void placeHealingStations(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        BlockPos size
+    ) {
+        for (DungeonDefinition.HealingStation station
+            : definition.support().healingStations()) {
+            BlockPos relative = station.position();
+            if (relative.getX() < 0 || relative.getY() < 0 || relative.getZ() < 0
+                || relative.getX() >= size.getX() || relative.getY() >= size.getY()
+                || relative.getZ() >= size.getZ()) {
+                throw new IllegalStateException(
+                    "Dungeon healing station exceeds the template: " + station.id()
+                );
+            }
+            ResourceLocation blockId = ResourceLocation.parse(station.block());
+            var block = BuiltInRegistries.BLOCK.getOptional(blockId).orElseThrow(() ->
+                new IllegalStateException(
+                    "Dungeon healing station block is missing: " + blockId
+                )
+            );
+            if (block == Blocks.AIR
+                || !level.setBlock(origin.offset(relative), block.defaultBlockState(), 3)) {
+                throw new IllegalStateException(
+                    "Dungeon healing station placement failed: " + station.id()
+                );
+            }
+        }
+    }
+
+    private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getLevel().isClientSide()
+            || event.getHand() != InteractionHand.MAIN_HAND
+            || !(event.getEntity() instanceof ServerPlayer player)
+            || !useHealingStation(player, event.getPos())) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+    }
+
+    private static synchronized boolean useHealingStation(
+        ServerPlayer player, BlockPos position
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+            return false;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null) return false;
+        DungeonDefinition.HealingStation station = definition.support().healingStations()
+            .stream()
+            .filter(candidate -> run.origin().offset(candidate.position()).equals(position))
+            .findFirst().orElse(null);
+        if (station == null) return false;
+        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            player.displayClientMessage(Component.literal(
+                "전투 중에는 던전 치료소를 사용할 수 없습니다."
+            ), true);
+            return true;
+        }
+        int used = run.healingUses().getOrDefault(station.id(), 0);
+        if (used >= station.usesPerRun()) {
+            player.displayClientMessage(Component.literal(
+                "이 치료소는 이번 도전에서 더 이상 사용할 수 없습니다."
+            ), true);
+            return true;
+        }
+        var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        if (!needsHealing(party, station)) {
+            player.displayClientMessage(Component.literal(
+                "현재 파티는 이 치료소에서 회복할 필요가 없습니다."
+            ), true);
+            return true;
+        }
+        applyHealing(party, station);
+        run.healingUses().put(station.id(), used + 1);
+        int remaining = station.usesPerRun() - used - 1;
+        player.sendSystemMessage(Component.literal(
+            "던전 치료소에서 파티를 회복했습니다. 남은 사용 횟수: " + remaining
+        ));
+        ServerLevel level = player.serverLevel();
+        level.playSound(
+            null, position, SoundEvents.BEACON_ACTIVATE,
+            SoundSource.BLOCKS, 0.8F, 1.25F
+        );
+        level.sendParticles(
+            ParticleTypes.HAPPY_VILLAGER,
+            position.getX() + 0.5D, position.getY() + 1.0D, position.getZ() + 0.5D,
+            16, 0.35D, 0.45D, 0.35D, 0.02D
+        );
+        return true;
+    }
+
+    private static boolean needsHealing(
+        Iterable<com.cobblemon.mod.common.pokemon.Pokemon> party,
+        DungeonDefinition.HealingStation station
+    ) {
+        for (var pokemon : party) {
+            if (station.restoreHp() && !pokemon.isFullHealth()) return true;
+            if (station.restoreStatus() && pokemon.getStatus() != null) return true;
+            if (station.restorePp()) {
+                for (var move : pokemon.getMoveSet()) {
+                    if (move.getCurrentPp() < move.getMaxPp()) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void applyHealing(
+        com.cobblemon.mod.common.api.storage.party.PlayerPartyStore party,
+        DungeonDefinition.HealingStation station
+    ) {
+        if (station.restoreHp() && station.restoreStatus() && station.restorePp()) {
+            party.heal();
+            return;
+        }
+        for (var pokemon : party) {
+            if (station.restoreHp()) pokemon.setCurrentHealth(pokemon.getMaxHealth());
+            if (station.restoreStatus()) pokemon.setStatus(null);
+            if (station.restorePp()) {
+                for (var move : pokemon.getMoveSet()) {
+                    move.setCurrentPp(move.getMaxPp());
+                }
+            }
         }
     }
 
@@ -686,7 +828,8 @@ final class DungeonSystem {
         BlockPos entry,
         BlockPos exit,
         long teleportCooldownUntil,
-        PursuitEncounterSystem.Config randomEncounters
+        PursuitEncounterSystem.Config randomEncounters,
+        Map<String, Integer> healingUses
     ) {}
 
     private record ReturnFrame(

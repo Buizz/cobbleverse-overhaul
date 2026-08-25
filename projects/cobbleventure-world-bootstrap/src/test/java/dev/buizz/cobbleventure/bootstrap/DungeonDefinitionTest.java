@@ -68,6 +68,17 @@ final class DungeonDefinitionTest {
                       "weight": 35
                     }]
                   },
+                  "support": {
+                    "healing_stations": [{
+                      "id": "pre_boss_station",
+                      "position": [18, 1, 35],
+                      "block": "minecraft:lodestone",
+                      "uses_per_run": 1,
+                      "restore_hp": true,
+                      "restore_status": true,
+                      "restore_pp": true
+                    }]
+                  },
                   "loot": {
                     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
                     "containers": [{
@@ -101,6 +112,11 @@ final class DungeonDefinitionTest {
             definition.randomEncounters().additions().getFirst().species()
         );
         assertEquals(45, definition.randomEncounters().maximumPosition().getX());
+        assertEquals(
+            "pre_boss_station",
+            definition.support().healingStations().getFirst().id()
+        );
+        assertEquals(1, definition.support().healingStations().getFirst().usesPerRun());
         assertEquals(
             "cobbleventure:dungeon/rocket_power_plant_supplies",
             definition.loot().lootTable()

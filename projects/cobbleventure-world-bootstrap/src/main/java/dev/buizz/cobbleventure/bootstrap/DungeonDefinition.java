@@ -29,6 +29,7 @@ record DungeonDefinition(
     Terrain terrain,
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
+    Support support,
     Loot loot,
     Completion completion,
     List<Entrance> entrances
@@ -212,6 +213,49 @@ record DungeonDefinition(
                 "Enabled dungeon random encounters require additions: " + id
             );
         }
+        JsonObject support = requiredObject(root, "support");
+        List<HealingStation> healingStations = new ArrayList<>();
+        Set<String> healingStationIds = new HashSet<>();
+        Set<BlockPos> healingStationPositions = new HashSet<>();
+        for (JsonElement element : requiredArray(support, "healing_stations")) {
+            JsonObject station = element.getAsJsonObject();
+            String stationId = requiredString(station, "id");
+            BlockPos position = blockPosition(station, "position");
+            if (!healingStationIds.add(stationId)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon healing station ID: " + id + " -> " + stationId
+                );
+            }
+            if (!healingStationPositions.add(position)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon healing station position: " + id + " -> " + position
+                );
+            }
+            int usesPerRun = requiredInt(station, "uses_per_run");
+            if (usesPerRun < 1 || usesPerRun > 64) {
+                throw new IllegalStateException(
+                    "Invalid dungeon healing station uses_per_run: "
+                        + id + " -> " + stationId
+                );
+            }
+            boolean restoreHp = requiredBoolean(station, "restore_hp");
+            boolean restoreStatus = requiredBoolean(station, "restore_status");
+            boolean restorePp = requiredBoolean(station, "restore_pp");
+            if (!restoreHp && !restoreStatus && !restorePp) {
+                throw new IllegalStateException(
+                    "Dungeon healing station restores nothing: " + id + " -> " + stationId
+                );
+            }
+            healingStations.add(new HealingStation(
+                stationId,
+                position,
+                resourceId(station, "block"),
+                usesPerRun,
+                restoreHp,
+                restoreStatus,
+                restorePp
+            ));
+        }
         JsonObject loot = requiredObject(root, "loot");
         List<LootContainer> lootContainers = new ArrayList<>();
         Set<String> lootContainerIds = new HashSet<>();
@@ -246,6 +290,14 @@ record DungeonDefinition(
         if (entryPosition != null) reservedPositions.add(entryPosition);
         if (exitPosition != null) reservedPositions.add(exitPosition);
         encounters.forEach(encounter -> reservedPositions.add(encounter.position()));
+        for (HealingStation station : healingStations) {
+            if (!reservedPositions.add(station.position())) {
+                throw new IllegalStateException(
+                    "Dungeon healing station overlaps a reserved position: "
+                        + id + " -> " + station.id()
+                );
+            }
+        }
         for (LootContainer container : lootContainers) {
             if (reservedPositions.contains(container.position())) {
                 throw new IllegalStateException(
@@ -290,6 +342,7 @@ record DungeonDefinition(
                 maximumPosition,
                 List.copyOf(wildSpecies)
             ),
+            new Support(List.copyOf(healingStations)),
             new Loot(resourceId(loot, "loot_table"), List.copyOf(lootContainers)),
             new Completion(
                 resourceId(completion, "victory_flag"),
@@ -419,6 +472,16 @@ record DungeonDefinition(
         int maxLevel,
         int weight,
         boolean spawnAsEvolved
+    ) {}
+    record Support(List<HealingStation> healingStations) {}
+    record HealingStation(
+        String id,
+        BlockPos position,
+        String block,
+        int usesPerRun,
+        boolean restoreHp,
+        boolean restoreStatus,
+        boolean restorePp
     ) {}
     record Loot(String lootTable, List<LootContainer> containers) {}
     record LootContainer(String id, BlockPos position, String block, String facing) {}
