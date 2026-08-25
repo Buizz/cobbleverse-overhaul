@@ -442,6 +442,12 @@ record DungeonDefinition(
         String repeatTable = rewards.has("repeat_table")
             ? resourceId(rewards, "repeat_table") : null;
         JsonObject lifecycle = requiredObject(root, "lifecycle");
+        int reconnectGraceSeconds = requiredInt(lifecycle, "reconnect_grace_seconds");
+        if (reconnectGraceSeconds < 0 || reconnectGraceSeconds > 3600) {
+            throw new IllegalStateException(
+                "Invalid dungeon reconnect_grace_seconds: " + reconnectGraceSeconds
+            );
+        }
         JsonObject completion = requiredObject(root, "completion");
         boolean repeatable = requiredBoolean(completion, "repeatable");
         if (repeatable && repeatTable == null) {
@@ -511,7 +517,8 @@ record DungeonDefinition(
                 enumValue(lifecycle, "wipe_return", List.of(
                     "source_entrance", "pokemon_center"
                 )),
-                requiredBoolean(lifecycle, "heal_on_wipe")
+                requiredBoolean(lifecycle, "heal_on_wipe"),
+                reconnectGraceSeconds
             ),
             new Completion(
                 resourceId(completion, "victory_flag"),
@@ -697,7 +704,12 @@ record DungeonDefinition(
         String repeatTable,
         List<String> firstClearFieldMoves
     ) {}
-    record Lifecycle(String onWipe, String wipeReturn, boolean healOnWipe) {}
+    record Lifecycle(
+        String onWipe,
+        String wipeReturn,
+        boolean healOnWipe,
+        int reconnectGraceSeconds
+    ) {}
     record Completion(String victoryFlag, boolean repeatable) {}
     record Entrance(
         String entranceId,

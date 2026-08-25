@@ -132,7 +132,8 @@ final class DungeonDefinitionTest {
                   "lifecycle": {
                     "on_wipe": "reset_run",
                     "wipe_return": "source_entrance",
-                    "heal_on_wipe": true
+                    "heal_on_wipe": true,
+                    "reconnect_grace_seconds": 120
                   },
                   "completion": {
                     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
@@ -196,6 +197,7 @@ final class DungeonDefinitionTest {
         assertEquals("reset_run", definition.lifecycle().onWipe());
         assertEquals("source_entrance", definition.lifecycle().wipeReturn());
         assertTrue(definition.lifecycle().healOnWipe());
+        assertEquals(120, definition.lifecycle().reconnectGraceSeconds());
         assertEquals(
             "cobbleventure:dungeon/rocket_power_plant_first_clear",
             definition.rewards().firstClearTable()

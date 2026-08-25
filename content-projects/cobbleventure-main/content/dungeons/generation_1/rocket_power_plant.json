@@ -200,7 +200,8 @@
   "lifecycle": {
     "on_wipe": "reset_run",
     "wipe_return": "source_entrance",
-    "heal_on_wipe": true
+    "heal_on_wipe": true,
+    "reconnect_grace_seconds": 120
   },
   "completion": {
     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",

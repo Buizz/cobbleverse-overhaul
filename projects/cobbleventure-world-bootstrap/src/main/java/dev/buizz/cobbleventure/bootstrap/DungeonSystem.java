@@ -22,9 +22,11 @@ import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -75,6 +77,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
 /** Validates dungeon content and runs fixed-template dungeon instances. */
@@ -119,6 +122,7 @@ final class DungeonSystem {
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onTeleport);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(DungeonSystem::onServerTick);
         CobblemonEvents.BATTLE_STARTED_POST.subscribe(
             (Consumer<BattleStartedEvent.Post>) DungeonSystem::onBattleStarted
         );
@@ -705,7 +709,7 @@ final class DungeonSystem {
             player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
             randomEncounters, new HashMap<>(), participantIds, new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
-            new DungeonLootClaims(), new DungeonLootLedger()
+            new DungeonLootClaims(), new DungeonLootLedger(), new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         for (int index = 0; index < entries.size(); index++) {
@@ -1759,27 +1763,120 @@ final class DungeonSystem {
         return removed;
     }
 
-    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)
-            || !player.serverLevel().dimension().equals(DUNGEONS)
-            || !hasReturnFrame(player)) {
+    private static synchronized void onPlayerLoggedIn(
+        PlayerEvent.PlayerLoggedInEvent event
+    ) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        ReconnectState reconnect = run == null ? null
+            : run.reconnecting().remove(player.getUUID());
+        if (run != null && reconnect != null) {
+            long gameTime = player.getServer().overworld().getGameTime();
+            if (gameTime >= reconnect.deadline()) {
+                failRun(run, "재접속 유예 시간이 만료되어 던전 도전이 종료되었습니다.", false);
+                return;
+            }
+            ServerLevel dungeonLevel = player.getServer().getLevel(DUNGEONS);
+            if (dungeonLevel == null) {
+                failRun(run, "던전 차원을 찾을 수 없어 도전이 종료되었습니다.", false);
+                return;
+            }
+            Vec3 target = reconnectPosition(player, dungeonLevel, reconnect, run);
+            INTERNAL_TELEPORTS.add(player.getUUID());
+            try {
+                player.teleportTo(
+                    dungeonLevel, target.x, target.y, target.z,
+                    reconnect.yaw(), reconnect.pitch()
+                );
+                player.fallDistance = 0.0F;
+            } finally {
+                INTERNAL_TELEPORTS.remove(player.getUUID());
+            }
+            notifyEncounterResult(run, "[던전] 참가자가 재접속해 도전을 계속합니다.");
+            return;
+        }
+        if (!player.serverLevel().dimension().equals(DUNGEONS)
+            || !hasReturnFrame(player)) return;
         returnPlayer(player, "중단된 던전에서 안전하게 복귀했습니다.");
     }
 
-    private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+    private static synchronized void onPlayerLoggedOut(
+        PlayerEvent.PlayerLoggedOutEvent event
+    ) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
         ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
         if (run != null) {
-            failRun(run, "참가자의 연결이 끊겨 던전 도전이 종료되었습니다.", false);
+            DungeonDefinition definition = definitions.get(run.dungeonId());
+            int graceSeconds = definition == null
+                ? 0 : definition.lifecycle().reconnectGraceSeconds();
+            if (graceSeconds <= 0
+                || BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+                failRun(run, "참가자의 연결이 끊겨 던전 도전이 종료되었습니다.", false);
+            } else {
+                long deadline = player.getServer().overworld().getGameTime()
+                    + graceSeconds * 20L;
+                run.reconnecting().put(player.getUUID(), new ReconnectState(
+                    player.position(), player.getYRot(), player.getXRot(), deadline
+                ));
+                for (UUID participantId : run.participantIds()) {
+                    if (participantId.equals(player.getUUID())) continue;
+                    ServerPlayer partner = run.server().getPlayerList().getPlayer(
+                        participantId
+                    );
+                    if (partner != null) {
+                        partner.sendSystemMessage(Component.literal(
+                            "[던전] 동료의 연결이 끊겼습니다. " + graceSeconds
+                                + "초 동안 재접속을 기다립니다."
+                        ));
+                    }
+                }
+            }
         }
         INSIDE_ENTRANCES.remove(player.getUUID());
         PENDING_ENTRIES.remove(player.getUUID());
         ENTRY_QUEUE.remove(player.getUUID());
         QUEUED_ENTRIES.remove(player.getUUID());
+    }
+
+    private static synchronized void onServerTick(ServerTickEvent.Post event) {
+        long gameTime = event.getServer().overworld().getGameTime();
+        Set<ActiveRun> runs = Collections.newSetFromMap(new IdentityHashMap<>());
+        runs.addAll(ACTIVE_RUNS.values());
+        for (ActiveRun run : runs) {
+            boolean expired = run.reconnecting().values().stream()
+                .anyMatch(state -> gameTime >= state.deadline());
+            if (expired) {
+                failRun(
+                    run,
+                    "재접속 유예 시간이 만료되어 던전 도전이 종료되었습니다.",
+                    false
+                );
+            }
+        }
+    }
+
+    private static Vec3 reconnectPosition(
+        ServerPlayer player,
+        ServerLevel level,
+        ReconnectState reconnect,
+        ActiveRun run
+    ) {
+        Vec3 saved = reconnect.position();
+        if (insideRunBounds(saved, run.origin(), run.size())) {
+            BlockPos floor = BlockPos.containing(saved).below();
+            AABB moved = player.getBoundingBox().move(
+                saved.x - player.getX(), saved.y - player.getY(), saved.z - player.getZ()
+            );
+            if (level.getBlockState(floor).isFaceSturdy(level, floor, Direction.UP)
+                && level.noCollision(player, moved)) {
+                return saved;
+            }
+        }
+        return Vec3.atBottomCenterOf(run.entry());
     }
 
     private static StructureAnchor readStructureAnchor(
@@ -1890,7 +1987,15 @@ final class DungeonSystem {
         Map<UUID, Long> tetherWarningUntil,
         EncounterRuntime encounters,
         DungeonLootClaims lootClaims,
-        DungeonLootLedger lootLedger
+        DungeonLootLedger lootLedger,
+        Map<UUID, ReconnectState> reconnecting
+    ) {}
+
+    private record ReconnectState(
+        Vec3 position,
+        float yaw,
+        float pitch,
+        long deadline
     ) {}
 
     private enum EncounterStatus {
