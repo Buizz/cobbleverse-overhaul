@@ -1356,11 +1356,6 @@
       },
       {
         "q": 12,
-        "r": -2,
-        "type": "stone_mountain"
-      },
-      {
-        "q": 12,
         "r": -3,
         "type": "stone_mountain"
       },
@@ -2056,6 +2051,18 @@
     },
     {
       "q": 11,
+      "r": -2,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 12,
       "r": -2,
       "biome": "minecraft:plains",
       "boundary_profile": "cobbleventure:boundary/earthwork",
