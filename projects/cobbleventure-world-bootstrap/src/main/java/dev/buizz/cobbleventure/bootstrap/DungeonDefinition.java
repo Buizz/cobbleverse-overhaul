@@ -201,9 +201,26 @@ record DungeonDefinition(
         List<Encounter> encounters = new ArrayList<>();
         for (JsonElement element : requiredArray(root, "encounters")) {
             JsonObject encounter = element.getAsJsonObject();
+            List<String> opponents = new ArrayList<>();
+            for (JsonElement opponent : requiredArray(encounter, "opponents")) {
+                String battleId = opponent.getAsString();
+                if (ResourceLocation.tryParse(battleId) == null) {
+                    throw new IllegalStateException(
+                        "Dungeon encounter opponent must be a resource ID: " + battleId
+                    );
+                }
+                opponents.add(battleId);
+            }
+            if (opponents.size() != 2) {
+                throw new IllegalStateException(
+                    "Dungeon cooperative encounter requires exactly two opponents: "
+                        + id + " -> " + requiredString(encounter, "id")
+                );
+            }
             encounters.add(new Encounter(
                 requiredString(encounter, "id"),
                 resourceId(encounter, "npc"),
+                List.copyOf(opponents),
                 blockPosition(encounter, "position"),
                 encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
                 requiredBoolean(encounter, "boss")
@@ -602,7 +619,14 @@ record DungeonDefinition(
         BlockPos entryPosition,
         BlockPos exitPosition
     ) {}
-    record Encounter(String id, String npc, BlockPos position, float yaw, boolean boss) {}
+    record Encounter(
+        String id,
+        String npc,
+        List<String> opponents,
+        BlockPos position,
+        float yaw,
+        boolean boss
+    ) {}
     record RandomEncounters(
         boolean enabled,
         int minimumDistance,

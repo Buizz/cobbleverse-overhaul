@@ -1,14 +1,23 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import com.cobblemon.mod.common.Cobblemon;
+import com.cobblemon.mod.common.api.battles.model.actor.BattleActor;
+import com.cobblemon.mod.common.api.events.CobblemonEvents;
+import com.cobblemon.mod.common.api.events.battles.BattleFledEvent;
+import com.cobblemon.mod.common.api.events.battles.BattleStartedEvent;
+import com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent;
 import com.cobblemon.mod.common.battles.BattleRegistry;
+import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
+import dev.buizz.cobbleventure.adventure.event.EventBattlePreset;
+import dev.buizz.cobbleventure.adventure.event.EventBattlePresetRepository;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import dev.buizz.cobbleventure.playermenu.BagApi;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
@@ -20,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -60,6 +70,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -102,9 +113,21 @@ final class DungeonSystem {
             DungeonSystem::handlePartyWipe
         );
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(
+            EventPriority.HIGHEST, DungeonSystem::onEntityInteract
+        );
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onTeleport);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onPlayerLoggedOut);
+        CobblemonEvents.BATTLE_STARTED_POST.subscribe(
+            (Consumer<BattleStartedEvent.Post>) DungeonSystem::onBattleStarted
+        );
+        CobblemonEvents.BATTLE_VICTORY.subscribe(
+            (Consumer<BattleVictoryEvent>) DungeonSystem::onBattleVictory
+        );
+        CobblemonEvents.BATTLE_FLED.subscribe(
+            (Consumer<BattleFledEvent>) DungeonSystem::onBattleFled
+        );
     }
 
     static synchronized void initialize(MinecraftServer server, HexWorldPlan world) {
@@ -225,6 +248,9 @@ final class DungeonSystem {
                 return;
             }
             if (run != null && enforceCooperativeTether(player, run, gameTime)) {
+                return;
+            }
+            if (run != null && expirePendingEncounter(run, gameTime)) {
                 return;
             }
             if (run != null && completionReached(player, run)) {
@@ -641,11 +667,14 @@ final class DungeonSystem {
         BlockPos origin = slotOrigin(slot);
         BlockPos size = BlockPos.ZERO;
         PursuitEncounterSystem.Config randomEncounters;
+        Map<UUID, String> encounterByEntity;
         try {
             size = prepareFixedTemplate(dungeonLevel, definition, origin);
             placeHealingStations(dungeonLevel, definition, origin, size);
             placeLootContainers(dungeonLevel, definition, origin);
-            spawnEncounters(dungeonLevel, definition, origin);
+            encounterByEntity = spawnEncounters(
+                dungeonLevel, definition, origin
+            );
             randomEncounters = createRandomEncounterConfig(
                 definition, origin, size, slot
             );
@@ -674,7 +703,8 @@ final class DungeonSystem {
             .collect(Collectors.toUnmodifiableSet());
         ActiveRun run = new ActiveRun(
             player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
-            randomEncounters, new HashMap<>(), participantIds, new HashMap<>()
+            randomEncounters, new HashMap<>(), participantIds, new HashMap<>(),
+            new EncounterRuntime(encounterByEntity, definition.encounters())
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         for (int index = 0; index < entries.size(); index++) {
@@ -776,11 +806,13 @@ final class DungeonSystem {
         return new BlockPos(template.getSize());
     }
 
-    private static void spawnEncounters(
+    private static Map<UUID, String> spawnEncounters(
         ServerLevel level, DungeonDefinition definition, BlockPos origin
     ) {
+        Map<UUID, String> spawned = new HashMap<>();
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
             BlockPos position = origin.offset(encounter.position());
+            Set<UUID> existing = easyNpcIds(level, position);
             if (!CobbleventureBootstrap.spawnRegionalNpc(
                 level, encounter.npc(), position, encounter.yaw(), "interact"
             )) {
@@ -788,7 +820,32 @@ final class DungeonSystem {
                     "Dungeon NPC placement failed: " + encounter.id()
                 );
             }
+            Entity entity = level.getEntitiesOfClass(
+                Entity.class,
+                new AABB(position).inflate(6.0D, 10.0D, 6.0D),
+                candidate -> isEasyNpc(candidate)
+                    && !existing.contains(candidate.getUUID())
+            ).stream().min(java.util.Comparator.comparingDouble(
+                candidate -> candidate.distanceToSqr(Vec3.atCenterOf(position))
+            )).orElseThrow(() -> new IllegalStateException(
+                "Dungeon NPC entity could not be identified: " + encounter.id()
+            ));
+            spawned.put(entity.getUUID(), encounter.id());
         }
+        return Map.copyOf(spawned);
+    }
+
+    private static Set<UUID> easyNpcIds(ServerLevel level, BlockPos position) {
+        return level.getEntitiesOfClass(
+            Entity.class,
+            new AABB(position).inflate(6.0D, 10.0D, 6.0D),
+            DungeonSystem::isEasyNpc
+        ).stream().map(Entity::getUUID).collect(Collectors.toSet());
+    }
+
+    private static boolean isEasyNpc(Entity entity) {
+        ResourceLocation type = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        return type != null && type.getNamespace().equals("easy_npc");
     }
 
     private static void placeLootContainers(
@@ -862,6 +919,279 @@ final class DungeonSystem {
         }
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
+    }
+
+    private static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getLevel().isClientSide()
+            || event.getHand() != InteractionHand.MAIN_HAND
+            || !(event.getEntity() instanceof ServerPlayer player)
+            || !startEncounter(player, event.getTarget())) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+    }
+
+    private static synchronized boolean startEncounter(
+        ServerPlayer initiator, Entity opponent
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(initiator.getUUID());
+        if (run == null || !initiator.serverLevel().dimension().equals(DUNGEONS)) {
+            return false;
+        }
+        String encounterId = run.encounters().encounterByEntity.get(opponent.getUUID());
+        if (encounterId == null) return false;
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        DungeonDefinition.Encounter encounter = definition == null ? null
+            : definition.encounters().stream()
+                .filter(candidate -> candidate.id().equals(encounterId))
+                .findFirst().orElse(null);
+        if (encounter == null) {
+            initiator.sendSystemMessage(Component.literal(
+                "던전 조우 설정을 찾을 수 없습니다."
+            ));
+            return true;
+        }
+        EncounterStatus status = run.encounters().statusById.get(encounterId);
+        if (status == EncounterStatus.DEFEATED) {
+            initiator.displayClientMessage(Component.literal(
+                "[던전] 이미 승리한 상대입니다."
+            ), true);
+            return true;
+        }
+        if (status != EncounterStatus.AVAILABLE
+            || run.encounters().pendingEncounterId != null
+            || run.encounters().statusById.containsValue(EncounterStatus.ACTIVE)) {
+            initiator.displayClientMessage(Component.literal(
+                "[던전] 다른 조우가 시작 중이거나 진행 중입니다."
+            ), true);
+            return true;
+        }
+        if (!definition.multiplayer().mode().equals("cooperative")
+            || !definition.multiplayer().battleJoin().equals("summon_all")
+            || run.participantIds().size() != 2) {
+            initiator.sendSystemMessage(Component.literal(
+                "이 조우는 2인 협력 던전에서만 시작할 수 있습니다."
+            ));
+            return true;
+        }
+        List<ServerPlayer> players = encounterPlayers(run, initiator);
+        if (players.size() != 2) {
+            initiator.sendSystemMessage(Component.literal(
+                "동료가 던전에 없어 전투를 시작할 수 없습니다."
+            ));
+            return true;
+        }
+        if (players.stream().anyMatch(player ->
+            BattleRegistry.getBattleByParticipatingPlayer(player) != null)) {
+            initiator.displayClientMessage(Component.literal(
+                "[던전] 참가자 중 전투 중인 사람이 있습니다."
+            ), true);
+            return true;
+        }
+        List<String> trainerIds;
+        try {
+            trainerIds = encounter.opponents().stream().map(battleId ->
+                EventBattlePresetRepository.instance().find(battleId)
+                    .orElseThrow(() -> new IllegalStateException(
+                        "Dungeon battle preset is missing: " + battleId
+                    ))
+            ).map(EventBattlePreset::rctTrainerId).toList();
+        } catch (RuntimeException error) {
+            LOGGER.error(
+                "Dungeon encounter battle preset resolution failed: {} -> {}",
+                definition.id(), encounter.id(), error
+            );
+            initiator.sendSystemMessage(Component.literal(
+                "조우 전투 설정을 불러오지 못했습니다. 서버 로그를 확인하세요."
+            ));
+            return true;
+        }
+
+        EncounterRuntime runtime = run.encounters();
+        runtime.statusById.put(encounterId, EncounterStatus.STARTING);
+        runtime.pendingEncounterId = encounterId;
+        runtime.pendingExpiresAt = initiator.serverLevel().getGameTime() + 200L;
+        gatherEncounterPlayers(players, opponent.position(), run);
+        String command = DungeonCooperativeBattleCommand.build(
+            players.get(0).getGameProfile().getName(),
+            players.get(1).getGameProfile().getName(),
+            trainerIds,
+            definition.battleRules().allowItems()
+        );
+        try {
+            int result = initiator.getServer().getCommands().getDispatcher().execute(
+                command,
+                opponent.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+            );
+            if (result <= 0) {
+                throw new IllegalStateException("TBCS rejected the battle command");
+            }
+        } catch (CommandSyntaxException | RuntimeException error) {
+            runtime.statusById.put(encounterId, EncounterStatus.AVAILABLE);
+            runtime.pendingEncounterId = null;
+            LOGGER.error(
+                "Dungeon cooperative battle launch failed: {} -> {}",
+                definition.id(), encounter.id(), error
+            );
+            players.forEach(player -> player.sendSystemMessage(Component.literal(
+                "협력 전투를 시작하지 못했습니다. 서버 로그를 확인하세요."
+            )));
+            return true;
+        }
+        players.forEach(player -> player.sendSystemMessage(Component.literal(
+            "[던전] " + encounter.id() + " 협력 전투를 시작합니다."
+        )));
+        return true;
+    }
+
+    private static List<ServerPlayer> encounterPlayers(
+        ActiveRun run, ServerPlayer initiator
+    ) {
+        List<ServerPlayer> players = new ArrayList<>();
+        players.add(initiator);
+        run.participantIds().stream()
+            .filter(id -> !id.equals(initiator.getUUID()))
+            .map(id -> run.server().getPlayerList().getPlayer(id))
+            .filter(player -> player != null
+                && player.serverLevel() == initiator.serverLevel())
+            .forEach(players::add);
+        return players;
+    }
+
+    private static void gatherEncounterPlayers(
+        List<ServerPlayer> players, Vec3 anchor, ActiveRun run
+    ) {
+        double[][] preferred = {{2.0D, 0.0D}, {-2.0D, 0.0D}};
+        for (int index = 0; index < players.size(); index++) {
+            ServerPlayer player = players.get(index);
+            Vec3 target = safeEncounterPosition(player, anchor, preferred[index], run);
+            if (target == null) continue;
+            INTERNAL_TELEPORTS.add(player.getUUID());
+            try {
+                player.teleportTo(
+                    player.serverLevel(), target.x, target.y, target.z,
+                    player.getYRot(), player.getXRot()
+                );
+                player.fallDistance = 0.0F;
+            } finally {
+                INTERNAL_TELEPORTS.remove(player.getUUID());
+            }
+        }
+    }
+
+    private static Vec3 safeEncounterPosition(
+        ServerPlayer player, Vec3 anchor, double[] preferred, ActiveRun run
+    ) {
+        double[][] offsets = {
+            preferred, {0.0D, 2.0D}, {0.0D, -2.0D},
+            {-preferred[0], -preferred[1]}
+        };
+        for (double[] offset : offsets) {
+            Vec3 candidate = new Vec3(
+                Math.floor(anchor.x) + 0.5D + offset[0],
+                Math.floor(anchor.y),
+                Math.floor(anchor.z) + 0.5D + offset[1]
+            );
+            if (!insideRunBounds(candidate, run.origin(), run.size())) continue;
+            BlockPos floor = BlockPos.containing(candidate).below();
+            if (!player.serverLevel().getBlockState(floor).isFaceSturdy(
+                player.serverLevel(), floor, Direction.UP
+            )) continue;
+            AABB moved = player.getBoundingBox().move(
+                candidate.x - player.getX(), candidate.y - player.getY(),
+                candidate.z - player.getZ()
+            );
+            if (player.serverLevel().noCollision(player, moved)) return candidate;
+        }
+        return null;
+    }
+
+    private static synchronized void onBattleStarted(BattleStartedEvent.Post event) {
+        Set<UUID> players = new HashSet<>();
+        for (BattleActor actor : event.getBattle().getActors()) {
+            if (actor instanceof PlayerBattleActor playerActor) {
+                players.add(playerActor.getUuid());
+            }
+        }
+        ActiveRun run = ACTIVE_RUNS.values().stream()
+            .filter(candidate -> candidate.encounters().pendingEncounterId != null)
+            .filter(candidate -> players.containsAll(candidate.participantIds()))
+            .findFirst().orElse(null);
+        if (run == null) return;
+        EncounterRuntime runtime = run.encounters();
+        String encounterId = runtime.pendingEncounterId;
+        runtime.pendingEncounterId = null;
+        runtime.statusById.put(encounterId, EncounterStatus.ACTIVE);
+        runtime.battleToEncounter.put(event.getBattle().getBattleId(), encounterId);
+    }
+
+    private static synchronized void onBattleVictory(BattleVictoryEvent event) {
+        ActiveRun run = runForBattle(event.getBattle().getBattleId());
+        if (run == null) return;
+        Set<UUID> winners = event.getWinners().stream()
+            .filter(PlayerBattleActor.class::isInstance)
+            .map(PlayerBattleActor.class::cast)
+            .map(PlayerBattleActor::getUuid)
+            .collect(Collectors.toSet());
+        String encounterId = run.encounters().battleToEncounter.remove(
+            event.getBattle().getBattleId()
+        );
+        boolean won = winners.containsAll(run.participantIds());
+        run.encounters().statusById.put(
+            encounterId, won ? EncounterStatus.DEFEATED : EncounterStatus.AVAILABLE
+        );
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        DungeonDefinition.Encounter encounter = definition == null ? null
+            : definition.encounters().stream()
+                .filter(candidate -> candidate.id().equals(encounterId))
+                .findFirst().orElse(null);
+        if (won && encounter != null && encounter.boss()) {
+            for (UUID participantId : run.participantIds()) {
+                ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
+                if (player != null) {
+                    new ServerPlayerEventState(player).setFlag(
+                        definition.completion().victoryFlag(), true
+                    );
+                }
+            }
+        }
+        notifyEncounterResult(run, won
+            ? "[던전] 협력 전투에서 승리했습니다."
+            : "[던전] 협력 전투에서 패배했습니다.");
+    }
+
+    private static synchronized void onBattleFled(BattleFledEvent event) {
+        ActiveRun run = runForBattle(event.getBattle().getBattleId());
+        if (run == null) return;
+        String encounterId = run.encounters().battleToEncounter.remove(
+            event.getBattle().getBattleId()
+        );
+        run.encounters().statusById.put(encounterId, EncounterStatus.AVAILABLE);
+        notifyEncounterResult(run, "[던전] 협력 전투가 중단되었습니다.");
+    }
+
+    private static ActiveRun runForBattle(UUID battleId) {
+        return ACTIVE_RUNS.values().stream()
+            .filter(run -> run.encounters().battleToEncounter.containsKey(battleId))
+            .findFirst().orElse(null);
+    }
+
+    private static void notifyEncounterResult(ActiveRun run, String message) {
+        for (UUID participantId : run.participantIds()) {
+            ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
+            if (player != null) player.sendSystemMessage(Component.literal(message));
+        }
+    }
+
+    private static boolean expirePendingEncounter(ActiveRun run, long gameTime) {
+        EncounterRuntime runtime = run.encounters();
+        if (runtime.pendingEncounterId == null
+            || gameTime < runtime.pendingExpiresAt) return false;
+        runtime.statusById.put(runtime.pendingEncounterId, EncounterStatus.AVAILABLE);
+        runtime.pendingEncounterId = null;
+        notifyEncounterResult(run, "[던전] 협력 전투 시작 시간이 초과되었습니다.");
+        return true;
     }
 
     private static synchronized boolean useHealingStation(
@@ -1385,8 +1715,34 @@ final class DungeonSystem {
         PursuitEncounterSystem.Config randomEncounters,
         Map<String, Integer> healingUses,
         Set<UUID> participantIds,
-        Map<UUID, Long> tetherWarningUntil
+        Map<UUID, Long> tetherWarningUntil,
+        EncounterRuntime encounters
     ) {}
+
+    private enum EncounterStatus {
+        AVAILABLE,
+        STARTING,
+        ACTIVE,
+        DEFEATED
+    }
+
+    private static final class EncounterRuntime {
+        private final Map<UUID, String> encounterByEntity;
+        private final Map<String, EncounterStatus> statusById = new HashMap<>();
+        private final Map<UUID, String> battleToEncounter = new HashMap<>();
+        private String pendingEncounterId;
+        private long pendingExpiresAt;
+
+        private EncounterRuntime(
+            Map<UUID, String> encounterByEntity,
+            List<DungeonDefinition.Encounter> encounters
+        ) {
+            this.encounterByEntity = Map.copyOf(encounterByEntity);
+            encounters.forEach(encounter ->
+                statusById.put(encounter.id(), EncounterStatus.AVAILABLE)
+            );
+        }
+    }
 
     private record ReturnFrame(
         String dimension,
