@@ -543,6 +543,56 @@ def build_rocket_test_dungeon_nbt(dungeon_id: str) -> bytes:
     return _build_structure_nbt(size, blocks)
 
 
+def zapdos_storm_chamber_layout() -> tuple[
+    tuple[int, int, int],
+    dict[tuple[int, int, int], tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None]],
+]:
+    """Return a compact electric cavern ending in a raised Zapdos arena."""
+    size = (40, 16, 40)
+    width, height, depth = size
+    blocks: dict[
+        tuple[int, int, int],
+        tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None],
+    ] = {}
+
+    def set_block(
+        x: int, y: int, z: int, name: str,
+        properties: dict[str, str] | None = None,
+    ) -> None:
+        blocks[(x, y, z)] = (name, tuple(sorted((properties or {}).items())), None)
+
+    def fill(x1: int, y1: int, z1: int, x2: int, y2: int, z2: int, name: str) -> None:
+        for x in range(x1, x2 + 1):
+            for y in range(y1, y2 + 1):
+                for z in range(z1, z2 + 1):
+                    set_block(x, y, z, name)
+
+    fill(0, 0, 0, width - 1, height - 1, depth - 1, "minecraft:air")
+    fill(0, 0, 0, width - 1, 0, depth - 1, "minecraft:deepslate_tiles")
+    fill(0, 1, 0, 0, 8, depth - 1, "minecraft:deepslate_bricks")
+    fill(width - 1, 1, 0, width - 1, 8, depth - 1, "minecraft:deepslate_bricks")
+    fill(0, 1, depth - 1, width - 1, 8, depth - 1, "minecraft:deepslate_bricks")
+    fill(0, 1, 0, width - 1, 6, 0, "minecraft:deepslate_bricks")
+    fill(17, 0, 1, 22, 0, 23, "minecraft:cut_copper")
+    fill(8, 0, 23, 31, 0, 37, "minecraft:oxidized_cut_copper")
+    fill(14, 1, 25, 25, 1, 35, "minecraft:cut_copper")
+    fill(17, 2, 28, 22, 2, 33, "minecraft:lightning_rod")
+    fill(18, 2, 29, 21, 2, 32, "minecraft:gold_block")
+    for x in (8, 31):
+        for z in (23, 37):
+            fill(x, 1, z, x, 5, z, "minecraft:copper_block")
+            set_block(x, 6, z, "minecraft:lightning_rod")
+    for z in range(5, 23, 4):
+        set_block(15, 1, z, "minecraft:sea_lantern")
+        set_block(24, 1, z, "minecraft:sea_lantern")
+    return size, blocks
+
+
+def build_zapdos_storm_chamber_nbt() -> bytes:
+    size, blocks = zapdos_storm_chamber_layout()
+    return _build_structure_nbt(size, blocks)
+
+
 TOWN_DECORATION_SIZES = {
     "street_lamp": (3, 6, 3),
     "bench": (5, 3, 3),

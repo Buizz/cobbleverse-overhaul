@@ -1,0 +1,70 @@
+{
+  "$schema": "../../schemas/dungeon.schema.json",
+  "schema_version": 1,
+  "dungeon_id": "cobbleventure:dungeon/zapdos_storm_chamber",
+  "display_name": { "ko_kr": "폭뢰의 심장", "en_us": "Heart of the Thunderstorm" },
+  "description": {
+    "ko_kr": "돌산터널 깊은 곳에서 강한 전류와 정체불명의 울음소리가 느껴집니다.",
+    "en_us": "Powerful currents and an unknown cry echo beyond Rock Tunnel."
+  },
+  "preset": "cobbleventure:legendary_encounter",
+  "entrances": [{
+    "entrance_id": "cobbleventure:entrance/zapdos_storm_chamber",
+    "destination_entry": "main", "activation": "proximity",
+    "visibility": "discovered", "return_policy": "source_safe_anchor"
+  }],
+  "entry_ui": { "info_mode": "mystery", "confirm_required": true },
+  "difficulty": { "recommended_min": 1, "recommended_max": 1, "internal_min": 1, "internal_max": 1 },
+  "eligibility": {
+    "minimum_party_size": 1, "maximum_party_size": 6,
+    "require_usable_pokemon": true, "level_measure": "highest",
+    "recommended_level_policy": "warn"
+  },
+  "multiplayer": { "mode": "solo", "min_size": 1, "max_size": 1 },
+  "match": {
+    "required_players": 1, "scope": "same_entrance",
+    "timeout_seconds": 300, "on_timeout": "cancel", "stay_radius": 8
+  },
+  "battle": {
+    "allow_flee": true, "allow_capture": true,
+    "allow_items": true, "allow_escape_actions": false
+  },
+  "terrain": {
+    "mode": "fixed_template", "template": "cobbleventure:dungeon/zapdos_storm_chamber",
+    "entry_position": [20, 1, 3], "exit_position": [20, 1, 1]
+  },
+  "encounters": [{
+    "id": "zapdos", "kind": "wild_pokemon",
+    "display_name": { "ko_kr": "폭뢰의 주인", "en_us": "Lord of the Thunderstorm" },
+    "pokemon": { "species": "cobblemon:zapdos", "level": 1, "catchable": true },
+    "requires": [], "position": [20, 3, 30], "yaw": 180, "boss": true
+  }],
+  "random_encounters": {
+    "enabled": false, "minimum_distance": 8, "maximum_distance": 16,
+    "max_active": 1, "spawn_interval_ticks": 100,
+    "spawn_bounds": { "min": [2, 1, 2], "max": [37, 8, 37] }, "additions": []
+  },
+  "support": { "healing_stations": [] },
+  "gates": [],
+  "loot": {
+    "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
+    "ownership": "per_player", "on_failure": "keep_collected",
+    "containers": [{
+      "id": "storm_cache", "position": [10, 1, 30],
+      "block": "chest", "facing": "east", "requires_completion": false
+    }]
+  },
+  "rewards": {
+    "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
+    "first_clear_field_moves": []
+  },
+  "lifecycle": {
+    "on_wipe": "reset_run", "wipe_return": "source_entrance",
+    "heal_on_wipe": true, "reconnect_grace_seconds": 120
+  },
+  "completion": {
+    "victory_flag": "cobbleventure:flag/dungeon/zapdos_storm_chamber/captured_or_defeated",
+    "repeatable": false, "return_trigger": "clear_exit",
+    "clear_exit_position": [20, 1, 36], "clear_exit_block": "minecraft:lodestone"
+  }
+}

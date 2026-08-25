@@ -266,6 +266,13 @@
     ],
     "placements": []
   },
+  "dungeon_entrances": [
+    {
+      "entrance_id": "cobbleventure:entrance/zapdos_storm_chamber",
+      "position": { "x": 1030, "y": 44, "z": 108 },
+      "safe_spawn": { "x": 1030, "y": 44, "z": 104 }
+    }
+  ],
   "entrances": [
     {
       "id": "cerulean",

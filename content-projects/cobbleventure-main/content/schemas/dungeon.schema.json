@@ -305,10 +305,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id", "display_name", "npcs", "opponents", "requires", "position", "boss"
+        "id", "display_name", "requires", "position", "boss"
       ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "kind": { "enum": ["trainer", "wild_pokemon"], "default": "trainer" },
         "display_name": { "$ref": "#/$defs/localized_text" },
         "npcs": {
           "type": "array",
@@ -322,6 +323,16 @@
           "maxItems": 2,
           "items": { "$ref": "#/$defs/resource_id" }
         },
+        "pokemon": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["species", "level", "catchable"],
+          "properties": {
+            "species": { "$ref": "#/$defs/resource_id" },
+            "level": { "$ref": "#/$defs/level" },
+            "catchable": { "type": "boolean" }
+          }
+        },
         "requires": {
           "type": "array",
           "uniqueItems": true,
@@ -330,7 +341,18 @@
         "position": { "$ref": "#/$defs/block_position" },
         "yaw": { "type": "number", "minimum": -180, "maximum": 180 },
         "boss": { "type": "boolean" }
-      }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "kind": { "const": "wild_pokemon" } },
+          "required": ["kind"]
+        },
+        "then": {
+          "required": ["pokemon"],
+          "not": { "anyOf": [{ "required": ["npcs"] }, { "required": ["opponents"] }] }
+        },
+        "else": { "required": ["npcs", "opponents"] }
+      }]
     },
     "loot_container": {
       "type": "object",

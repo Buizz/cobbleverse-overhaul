@@ -17,8 +17,12 @@
     "require_usable_pokemon": true, "level_measure": "average",
     "recommended_level_policy": "warn"
   },
-  "multiplayer": { "mode": "solo", "min_size": 1, "max_size": 1 },
-  "match": { "required_players": 1, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "cancel", "stay_radius": 8 },
+  "multiplayer": {
+    "mode": "cooperative", "min_size": 2, "max_size": 2,
+    "battle_join": "summon_all",
+    "tether": { "warn_distance": 24, "max_distance": 40, "on_exceed": "return_to_partner" }
+  },
+  "match": { "required_players": 2, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "keep_waiting", "stay_radius": 8 },
   "battle": { "allow_flee": false, "allow_capture": true, "allow_items": true, "allow_escape_actions": false },
   "terrain": {
     "mode": "fixed_template", "template": "cobbleventure:dungeon/casino_hideout",
@@ -27,14 +31,14 @@
   "encounters": [
     {
       "id": "basement_guard", "display_name": { "ko_kr": "지하 창고 경비", "en_us": "Basement Guard" },
-      "npcs": ["cobbleventure:npc/rocket_casino_guard"],
-      "opponents": ["cobbleventure:battle/rocket_power_plant_grunt"],
+      "npcs": ["cobbleventure:npc/rocket_casino_guard", "cobbleventure:npc/rocket_casino_admin"],
+      "opponents": ["cobbleventure:battle/rocket_power_plant_grunt", "cobbleventure:battle/rocket_power_plant_officer"],
       "requires": [], "position": [34, 9, 24], "yaw": -90, "boss": false
     },
     {
       "id": "hideout_admin", "display_name": { "ko_kr": "지하기지 관리자", "en_us": "Hideout Administrator" },
-      "npcs": ["cobbleventure:npc/rocket_casino_admin"],
-      "opponents": ["cobbleventure:battle/rocket_power_plant_officer"],
+      "npcs": ["cobbleventure:npc/rocket_casino_admin", "cobbleventure:npc/rocket_casino_guard"],
+      "opponents": ["cobbleventure:battle/rocket_power_plant_officer", "cobbleventure:battle/rocket_power_plant_grunt"],
       "requires": ["basement_guard"], "position": [24, 1, 38], "yaw": 180, "boss": true
     }
   ],

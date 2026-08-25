@@ -209,8 +209,12 @@ record DungeonDefinition(
                     "Duplicate dungeon encounter ID: " + id + " -> " + encounterId
                 );
             }
+            String encounterKind = encounter.has("kind")
+                ? enumValue(encounter, "kind", List.of("trainer", "wild_pokemon"))
+                : "trainer";
             List<String> npcs = new ArrayList<>();
-            for (JsonElement npc : requiredArray(encounter, "npcs")) {
+            for (JsonElement npc : encounter.has("npcs")
+                ? encounter.getAsJsonArray("npcs") : List.<JsonElement>of()) {
                 String npcId = npc.getAsString();
                 if (ResourceLocation.tryParse(npcId) == null) {
                     throw new IllegalStateException(
@@ -220,7 +224,7 @@ record DungeonDefinition(
                 npcs.add(npcId);
             }
             int expectedActors = multiplayerMode.equals("cooperative") ? 2 : 1;
-            if (npcs.size() != expectedActors) {
+            if (encounterKind.equals("trainer") && npcs.size() != expectedActors) {
                 throw new IllegalStateException(
                     "Dungeon " + multiplayerMode + " encounter requires exactly "
                         + expectedActors + " NPC(s): "
@@ -228,7 +232,8 @@ record DungeonDefinition(
                 );
             }
             List<String> opponents = new ArrayList<>();
-            for (JsonElement opponent : requiredArray(encounter, "opponents")) {
+            for (JsonElement opponent : encounter.has("opponents")
+                ? encounter.getAsJsonArray("opponents") : List.<JsonElement>of()) {
                 String battleId = opponent.getAsString();
                 if (ResourceLocation.tryParse(battleId) == null) {
                     throw new IllegalStateException(
@@ -237,11 +242,43 @@ record DungeonDefinition(
                 }
                 opponents.add(battleId);
             }
-            if (opponents.size() != expectedActors) {
+            if (encounterKind.equals("trainer") && opponents.size() != expectedActors) {
                 throw new IllegalStateException(
                     "Dungeon " + multiplayerMode + " encounter requires exactly "
                         + expectedActors + " opponent(s): "
                         + id + " -> " + requiredString(encounter, "id")
+                );
+            }
+            WildPokemon wildPokemon = null;
+            if (encounterKind.equals("wild_pokemon")) {
+                if (!npcs.isEmpty() || !opponents.isEmpty()) {
+                    throw new IllegalStateException(
+                        "Wild dungeon encounter cannot define NPC opponents: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                if (!multiplayerMode.equals("solo")) {
+                    throw new IllegalStateException(
+                        "Wild dungeon encounter currently requires solo mode: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                JsonObject pokemon = requiredObject(encounter, "pokemon");
+                int level = requiredInt(pokemon, "level");
+                if (level < internalMin || level > internalMax) {
+                    throw new IllegalStateException(
+                        "Dungeon wild boss level is outside the internal range: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                wildPokemon = new WildPokemon(
+                    resourceId(pokemon, "species"), level,
+                    requiredBoolean(pokemon, "catchable")
+                );
+            } else if (encounter.has("pokemon")) {
+                throw new IllegalStateException(
+                    "Trainer dungeon encounter cannot define pokemon: "
+                        + id + " -> " + encounterId
                 );
             }
             List<String> requirements = new ArrayList<>();
@@ -258,8 +295,10 @@ record DungeonDefinition(
             encounters.add(new Encounter(
                 encounterId,
                 localized(requiredObject(encounter, "display_name"), "ko_kr", "en_us"),
+                encounterKind,
                 List.copyOf(npcs),
                 List.copyOf(opponents),
+                wildPokemon,
                 List.copyOf(requirements),
                 blockPosition(encounter, "position"),
                 encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
@@ -767,13 +806,16 @@ record DungeonDefinition(
     record Encounter(
         String id,
         String displayName,
+        String kind,
         List<String> npcs,
         List<String> opponents,
+        WildPokemon pokemon,
         List<String> requires,
         BlockPos position,
         float yaw,
         boolean boss
     ) {}
+    record WildPokemon(String species, int level, boolean catchable) {}
     record RandomEncounters(
         boolean enabled,
         int minimumDistance,

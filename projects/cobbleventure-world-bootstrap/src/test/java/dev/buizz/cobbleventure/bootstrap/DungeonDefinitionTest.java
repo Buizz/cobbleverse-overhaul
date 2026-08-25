@@ -4,6 +4,8 @@ import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -13,12 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
     @Test
-    void parsesEveryLevelOneRocketTestDungeonResource() throws Exception {
+    void parsesEveryLevelOneTestDungeonResource() throws Exception {
         List<String> resources = List.of(
             "rocket_power_plant",
             "rocket_casino_hideout",
             "rocket_silph_company",
-            "rocket_pokemon_tower"
+            "rocket_pokemon_tower",
+            "zapdos_storm_chamber"
         );
         for (String name : resources) {
             var stream = getClass().getClassLoader().getResourceAsStream(
@@ -35,6 +38,49 @@ final class DungeonDefinitionTest {
                 assertEquals(1, definition.difficulty().internalMin(), name);
                 assertEquals(1, definition.difficulty().internalMax(), name);
             }
+        }
+    }
+
+    @Test
+    void exposesDistinctMultiplayerModesAndCatchableZapdosBoss() throws Exception {
+        DungeonDefinition casino = resource("rocket_casino_hideout");
+        DungeonDefinition silph = resource("rocket_silph_company");
+        DungeonDefinition zapdos = resource("zapdos_storm_chamber");
+
+        assertEquals("cooperative", casino.multiplayer().mode());
+        assertEquals(2, casino.match().requiredPlayers());
+        assertEquals("summon_all", casino.multiplayer().battleJoin());
+        assertEquals(2, casino.encounters().getFirst().npcs().size());
+        assertEquals("independent", silph.multiplayer().mode());
+        assertEquals(2, silph.match().requiredPlayers());
+        assertEquals("initiator_only", silph.multiplayer().battleJoin());
+        assertEquals("wild_pokemon", zapdos.encounters().getFirst().kind());
+        assertEquals("cobblemon:zapdos", zapdos.encounters().getFirst().pokemon().species());
+        assertEquals(1, zapdos.encounters().getFirst().pokemon().level());
+        assertTrue(zapdos.encounters().getFirst().pokemon().catchable());
+        assertFalse(zapdos.completion().repeatable());
+    }
+
+    @Test
+    void independentEncounterAcceptsOneParticipantVictory() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        Set<UUID> participants = Set.of(first, second);
+
+        assertTrue(DungeonSystem.encounterWon("independent", Set.of(first), participants));
+        assertFalse(DungeonSystem.encounterWon("cooperative", Set.of(first), participants));
+        assertTrue(DungeonSystem.encounterWon(
+            "cooperative", Set.of(first, second), participants
+        ));
+    }
+
+    private DungeonDefinition resource(String name) throws Exception {
+        var stream = getClass().getClassLoader().getResourceAsStream(
+            "data/cobbleventure/dungeons/generation_1/" + name + ".json"
+        );
+        assertTrue(stream != null, "Missing dungeon resource: " + name);
+        try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            return DungeonDefinition.parse(JsonParser.parseReader(reader).getAsJsonObject());
         }
     }
 

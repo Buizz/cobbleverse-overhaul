@@ -13,8 +13,8 @@
   "entry_ui": { "info_mode": "summary", "confirm_required": true },
   "difficulty": { "recommended_min": 1, "recommended_max": 1, "internal_min": 1, "internal_max": 1 },
   "eligibility": { "minimum_party_size": 1, "maximum_party_size": 6, "require_usable_pokemon": true, "level_measure": "average", "recommended_level_policy": "warn" },
-  "multiplayer": { "mode": "solo", "min_size": 1, "max_size": 1 },
-  "match": { "required_players": 1, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "cancel", "stay_radius": 8 },
+  "multiplayer": { "mode": "independent", "min_size": 2, "max_size": 2, "battle_join": "initiator_only" },
+  "match": { "required_players": 2, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "keep_waiting", "stay_radius": 8 },
   "battle": { "allow_flee": false, "allow_capture": true, "allow_items": true, "allow_escape_actions": false },
   "terrain": { "mode": "fixed_template", "template": "cobbleventure:dungeon/silph_company", "entry_position": [12, 1, 3], "exit_position": [12, 1, 1] },
   "encounters": [

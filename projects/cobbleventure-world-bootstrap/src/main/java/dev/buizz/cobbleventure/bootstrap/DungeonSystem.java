@@ -183,6 +183,9 @@ final class DungeonSystem {
         discoverBuildingPlacements(
             server.getResourceManager(), byEntrance, placements
         );
+        List<CaveDungeonPlacement> cavePlacements = discoverCavePlacements(
+            server.getResourceManager(), byEntrance, placements
+        );
         for (String entranceId : byEntrance.keySet()) {
             if (!placements.containsKey(entranceId)) {
                 throw new IllegalStateException(
@@ -195,6 +198,7 @@ final class DungeonSystem {
         entrances = Map.copyOf(byEntrance);
         structureAnchors = Map.copyOf(anchors);
         ACTIVE_ENTRANCES.clear();
+        activateCavePlacements(server, cavePlacements);
         INSIDE_ENTRANCES.clear();
         PENDING_ENTRIES.clear();
         for (Map.Entry<UUID, QueuedEntry> queued : QUEUED_ENTRIES.entrySet()) {
@@ -301,8 +305,10 @@ final class DungeonSystem {
                 }
                 return;
             }
-            if (run != null) showObjectiveTracker(player, run, gameTime);
-            return;
+            if (run != null) {
+                showObjectiveTracker(player, run, gameTime);
+                return;
+            }
         }
         if (run != null) {
             if (escapeActionsBlocked(run)) {
@@ -861,6 +867,15 @@ final class DungeonSystem {
         Map<UUID, EncounterEntityRef> spawned = new HashMap<>();
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
             BlockPos authoredPosition = origin.offset(encounter.position());
+            if (encounter.kind().equals("wild_pokemon")) {
+                Entity pokemon = DungeonWildEncounterSupport.spawn(
+                    level, encounter.pokemon(), authoredPosition, encounter.yaw()
+                );
+                spawned.put(
+                    pokemon.getUUID(), new EncounterEntityRef(encounter.id(), 0)
+                );
+                continue;
+            }
             for (int index = 0; index < encounter.npcs().size(); index++) {
                 int opponentIndex = index;
                 BlockPos position = encounterNpcPosition(
@@ -1221,8 +1236,9 @@ final class DungeonSystem {
             ));
             return true;
         }
-        if (definition.multiplayer().mode().equals("solo")) {
-            // The CVES V5 proximity script owns solo dialogue and battle launch.
+        if (!definition.multiplayer().mode().equals("cooperative")) {
+            // CVES V5 owns dialogue and battle launch for solo/independent trainers.
+            // Wild Pokemon use Cobblemon's normal battle interaction.
             return false;
         }
         EncounterStatus status = run.encounters().statusById.get(encounterId);
@@ -1445,7 +1461,9 @@ final class DungeonSystem {
             .filter(candidate -> players.containsAll(candidate.participantIds()))
             .findFirst().orElse(null);
         if (run == null) {
-            attachCvesSoloBattle(event, players);
+            if (!attachWildBattle(event, players)) {
+                attachCvesIndividualBattle(event, players);
+            }
             return;
         }
         EncounterRuntime runtime = run.encounters();
@@ -1455,7 +1473,40 @@ final class DungeonSystem {
         runtime.battleToEncounter.put(event.getBattle().getBattleId(), encounterId);
     }
 
-    private static void attachCvesSoloBattle(
+    private static boolean attachWildBattle(
+        BattleStartedEvent.Post event, Set<UUID> players
+    ) {
+        if (players.size() != 1) return false;
+        UUID playerId = players.iterator().next();
+        ActiveRun run = ACTIVE_RUNS.get(playerId);
+        DungeonDefinition definition = run == null ? null
+            : definitions.get(run.dungeonId());
+        if (definition == null) return false;
+        UUID pokemonEntityId = DungeonWildEncounterSupport.findEncounterPokemon(
+            event.getBattle().getActors(), run.encounters().encounterByEntity.keySet()
+        );
+        if (pokemonEntityId == null) return false;
+        EncounterEntityRef ref = run.encounters().encounterByEntity.get(pokemonEntityId);
+        DungeonDefinition.Encounter encounter = definition.encounters().stream()
+            .filter(candidate -> candidate.id().equals(ref.encounterId()))
+            .findFirst().orElse(null);
+        if (encounter == null || !encounter.kind().equals("wild_pokemon")
+            || run.encounters().statusById.get(encounter.id())
+                != EncounterStatus.AVAILABLE) {
+            return false;
+        }
+        run.encounters().statusById.put(encounter.id(), EncounterStatus.ACTIVE);
+        run.encounters().battleToEncounter.put(
+            event.getBattle().getBattleId(), encounter.id()
+        );
+        LOGGER.debug(
+            "Wild Pokemon battle attached to dungeon encounter: {} -> {}",
+            encounter.pokemon().species(), encounter.id()
+        );
+        return true;
+    }
+
+    private static void attachCvesIndividualBattle(
         BattleStartedEvent.Post event, Set<UUID> players
     ) {
         if (players.size() != 1) return;
@@ -1463,7 +1514,8 @@ final class DungeonSystem {
         ActiveRun run = ACTIVE_RUNS.get(playerId);
         DungeonDefinition definition = run == null ? null
             : definitions.get(run.dungeonId());
-        if (definition == null || !definition.multiplayer().mode().equals("solo")) {
+        if (definition == null
+            || definition.multiplayer().mode().equals("cooperative")) {
             return;
         }
         EventBattleBridge.BattleContext context = EventBattleBridge
@@ -1504,11 +1556,14 @@ final class DungeonSystem {
         String encounterId = run.encounters().battleToEncounter.remove(
             event.getBattle().getBattleId()
         );
-        boolean won = winners.containsAll(run.participantIds());
+        DungeonDefinition activeDefinition = definitions.get(run.dungeonId());
+        boolean won = activeDefinition != null && encounterWon(
+            activeDefinition.multiplayer().mode(), winners, run.participantIds()
+        );
         run.encounters().statusById.put(
             encounterId, won ? EncounterStatus.DEFEATED : EncounterStatus.AVAILABLE
         );
-        DungeonDefinition definition = definitions.get(run.dungeonId());
+        DungeonDefinition definition = activeDefinition;
         DungeonDefinition.Encounter encounter = definition == null ? null
             : definition.encounters().stream()
                 .filter(candidate -> candidate.id().equals(encounterId))
@@ -1609,6 +1664,15 @@ final class DungeonSystem {
         return ACTIVE_RUNS.values().stream()
             .filter(run -> run.encounters().battleToEncounter.containsKey(battleId))
             .findFirst().orElse(null);
+    }
+
+    static boolean encounterWon(
+        String multiplayerMode, Set<UUID> winners, Set<UUID> participants
+    ) {
+        if (multiplayerMode.equals("independent")) {
+            return winners.stream().anyMatch(participants::contains);
+        }
+        return winners.containsAll(participants);
     }
 
     private static void notifyEncounterResult(ActiveRun run, String message) {
@@ -2263,6 +2327,106 @@ final class DungeonSystem {
         }
     }
 
+    private static List<CaveDungeonPlacement> discoverCavePlacements(
+        ResourceManager resources,
+        Map<String, DungeonEntranceRef> configuredEntrances,
+        Map<String, String> placements
+    ) {
+        List<CaveDungeonPlacement> result = new ArrayList<>();
+        Map<ResourceLocation, Resource> caves = resources.listResources(
+            "caves", location -> location.getNamespace().equals("cobbleventure")
+                && location.getPath().endsWith(".json")
+        );
+        for (Map.Entry<ResourceLocation, Resource> entry : caves.entrySet()) {
+            try (Reader reader = entry.getValue().openAsReader()) {
+                JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+                if (!root.has("dungeon_entrances")) continue;
+                String dimension = root.getAsJsonObject("dimension")
+                    .get("id").getAsString();
+                for (JsonElement element : root.getAsJsonArray("dungeon_entrances")) {
+                    JsonObject placement = element.getAsJsonObject();
+                    String entranceId = placement.get("entrance_id").getAsString();
+                    if (!configuredEntrances.containsKey(entranceId)) {
+                        throw new IllegalStateException(
+                            "Cave references missing dungeon entrance: "
+                                + entry.getKey() + " -> " + entranceId
+                        );
+                    }
+                    String previous = placements.putIfAbsent(
+                        entranceId, entry.getKey().toString()
+                    );
+                    if (previous != null) {
+                        throw new IllegalStateException(
+                            "Dungeon entrance is placed more than once: " + entranceId
+                                + " (" + previous + " / " + entry.getKey() + ")"
+                        );
+                    }
+                    result.add(new CaveDungeonPlacement(
+                        entranceId,
+                        dimension,
+                        jsonBlockPosition(placement.getAsJsonObject("position")),
+                        jsonBlockPosition(placement.getAsJsonObject("safe_spawn"))
+                    ));
+                }
+            } catch (IOException | RuntimeException error) {
+                if (error instanceof IllegalStateException state) throw state;
+                throw new IllegalStateException(
+                    "Invalid cave dungeon entrance: " + entry.getKey(), error
+                );
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static BlockPos jsonBlockPosition(JsonObject position) {
+        return new BlockPos(
+            position.get("x").getAsInt(), position.get("y").getAsInt(),
+            position.get("z").getAsInt()
+        );
+    }
+
+    private static void activateCavePlacements(
+        MinecraftServer server, List<CaveDungeonPlacement> placements
+    ) {
+        for (CaveDungeonPlacement placement : placements) {
+            ResourceLocation dimensionId = ResourceLocation.tryParse(placement.dimension());
+            ServerLevel level = dimensionId == null ? null : server.getLevel(
+                ResourceKey.create(Registries.DIMENSION, dimensionId)
+            );
+            if (level == null) {
+                throw new IllegalStateException(
+                    "Cave dungeon entrance dimension is unavailable: "
+                        + placement.dimension()
+                );
+            }
+            placeCaveEntranceMarker(level, placement.trigger());
+            ACTIVE_ENTRANCES.put(
+                placement.entranceId(),
+                new PlacedEntrance(
+                    placement.entranceId(), level.dimension(),
+                    placement.trigger(), placement.safeReturn()
+                )
+            );
+        }
+    }
+
+    private static void placeCaveEntranceMarker(ServerLevel level, BlockPos trigger) {
+        BlockPos floor = trigger.below();
+        for (int x = -2; x <= 2; x++) {
+            level.setBlock(floor.offset(x, 0, 0), Blocks.CUT_COPPER.defaultBlockState(), 3);
+        }
+        level.setBlock(floor, Blocks.LODESTONE.defaultBlockState(), 3);
+        for (int x : new int[] {-2, 2}) {
+            for (int y = 1; y <= 3; y++) {
+                level.setBlock(floor.offset(x, y, 0), Blocks.OXIDIZED_CUT_COPPER.defaultBlockState(), 3);
+            }
+        }
+        for (int x = -2; x <= 2; x++) {
+            level.setBlock(floor.offset(x, 3, 0), Blocks.CUT_COPPER.defaultBlockState(), 3);
+        }
+        level.setBlock(floor.offset(0, 4, 0), Blocks.LIGHTNING_ROD.defaultBlockState(), 3);
+    }
+
     private static StructureAnchor readStructureAnchor(
         ResourceManager resources,
         WorldStructureSystem.WorldStructure structure,
@@ -2411,6 +2575,13 @@ final class DungeonSystem {
     }
 
     private record EncounterEntityRef(String encounterId, int opponentIndex) {}
+
+    private record CaveDungeonPlacement(
+        String entranceId,
+        String dimension,
+        BlockPos trigger,
+        BlockPos safeReturn
+    ) {}
 
     private record ReturnFrame(
         String dimension,

@@ -24,11 +24,13 @@ from starter_gym import (
     build_facility_placeholder_nbt,
     build_power_plant_dungeon_nbt,
     build_rocket_test_dungeon_nbt,
+    build_zapdos_storm_chamber_nbt,
     build_house_variant_nbt,
     build_town_decoration_nbt,
     build_village_hub_nbt,
     power_plant_dungeon_layout,
     rocket_test_dungeon_layout,
+    zapdos_storm_chamber_layout,
     ROCKET_TEST_DUNGEONS,
     recolor_house_roof_nbt,
 )
@@ -3073,6 +3075,13 @@ def build(root: Path) -> Path:
         )
         generated.parent.mkdir(parents=True, exist_ok=True)
         generated.write_bytes(build_rocket_test_dungeon_nbt(dungeon_id))
+    generated = _inside(
+        root,
+        output / "data/cobbleventure/structure/dungeon/zapdos_storm_chamber.nbt",
+        "생성 썬더 전설 던전",
+    )
+    generated.parent.mkdir(parents=True, exist_ok=True)
+    generated.write_bytes(build_zapdos_storm_chamber_nbt())
     for base_id in HOUSE_BASES:
         for roof_id in sorted(HOUSE_ROOFS):
             authored = _inside(

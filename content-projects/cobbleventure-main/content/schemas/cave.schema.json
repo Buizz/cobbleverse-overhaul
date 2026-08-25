@@ -115,6 +115,20 @@
         }
       }
     },
+    "dungeon_entrances": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entrance_id", "position", "safe_spawn"],
+        "properties": {
+          "entrance_id": { "$ref": "#/$defs/resource_id" },
+          "position": { "$ref": "#/$defs/block_position" },
+          "safe_spawn": { "$ref": "#/$defs/block_position" }
+        }
+      }
+    },
     "entrances": {
       "type": "array",
       "minItems": 1,

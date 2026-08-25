@@ -1643,6 +1643,15 @@ class DataModBuilderTests(unittest.TestCase):
                 )
                 self.assertIn(b"minecraft:ladder", structure)
 
+    def test_zapdos_storm_chamber_has_electric_arena(self) -> None:
+        size, layout = build_data_mod.zapdos_storm_chamber_layout()
+        self.assertEqual((40, 16, 40), size)
+        blocks = {position: state[0] for position, state in layout.items()}
+        self.assertEqual("minecraft:gold_block", blocks[(20, 2, 30)])
+        self.assertEqual("minecraft:cut_copper", blocks[(20, 0, 10)])
+        structure = gzip.decompress(build_data_mod.build_zapdos_storm_chamber_nbt())
+        self.assertIn(b"minecraft:lightning_rod", structure)
+
     def test_packages_copied_external_nbt_and_metadata_as_runtime_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
