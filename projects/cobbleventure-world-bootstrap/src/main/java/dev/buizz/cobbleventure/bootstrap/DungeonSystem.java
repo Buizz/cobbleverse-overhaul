@@ -96,6 +96,7 @@ final class DungeonSystem {
     private static final double ENTRANCE_RADIUS_SQUARED = 9.0D;
     private static final double EXIT_RADIUS_SQUARED = 2.25D;
     private static volatile Map<String, DungeonDefinition> definitions = Map.of();
+    private static volatile Map<String, DungeonPieceDefinition> pieceDefinitions = Map.of();
     private static volatile Map<String, DungeonEntranceRef> entrances = Map.of();
     private static volatile Map<String, StructureAnchor> structureAnchors = Map.of();
     private static final Map<String, PlacedEntrance> ACTIVE_ENTRANCES = new HashMap<>();
@@ -138,6 +139,9 @@ final class DungeonSystem {
 
     static synchronized void initialize(MinecraftServer server, HexWorldPlan world) {
         Map<String, DungeonDefinition> loaded = DungeonDefinition.loadAll(
+            server.getResourceManager()
+        );
+        Map<String, DungeonPieceDefinition> loadedPieces = DungeonPieceDefinition.loadAll(
             server.getResourceManager()
         );
         Map<String, DungeonEntranceRef> byEntrance = new LinkedHashMap<>();
@@ -184,6 +188,7 @@ final class DungeonSystem {
             }
         }
         definitions = loaded;
+        pieceDefinitions = loadedPieces;
         entrances = Map.copyOf(byEntrance);
         structureAnchors = Map.copyOf(anchors);
         ACTIVE_ENTRANCES.clear();

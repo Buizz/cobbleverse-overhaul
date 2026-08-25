@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.dev/schemas/dungeon-piece.schema.json",
+  "title": "Cobbleventure Dungeon NBT Piece",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "piece_id",
+    "structure",
+    "role",
+    "size",
+    "weight",
+    "allow_rotation",
+    "tags",
+    "connectors",
+    "markers"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "piece_id": { "$ref": "#/$defs/resourceId" },
+    "structure": { "$ref": "#/$defs/resourceId" },
+    "role": {
+      "enum": [
+        "start",
+        "room",
+        "corridor",
+        "junction",
+        "dead_end",
+        "support",
+        "treasure",
+        "boss",
+        "exit"
+      ]
+    },
+    "size": { "$ref": "#/$defs/size" },
+    "weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "allow_rotation": { "type": "boolean" },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/resourceId" }
+    },
+    "connectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/connector" }
+    },
+    "markers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/marker" }
+    }
+  },
+  "$defs": {
+    "resourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$"
+    },
+    "position": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "integer", "minimum": 0 }
+    },
+    "size": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "integer", "minimum": 1, "maximum": 128 }
+    },
+    "connector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position", "facing", "socket", "tags"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "position": { "$ref": "#/$defs/position" },
+        "facing": { "enum": ["north", "south", "east", "west"] },
+        "socket": { "$ref": "#/$defs/resourceId" },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resourceId" }
+        }
+      }
+    },
+    "marker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "position"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "kind": {
+          "enum": [
+            "entry",
+            "exit",
+            "encounter",
+            "boss",
+            "loot",
+            "healing_station",
+            "gate",
+            "checkpoint",
+            "wild_spawn",
+            "objective",
+            "trace"
+          ]
+        },
+        "position": { "$ref": "#/$defs/position" },
+        "reference": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

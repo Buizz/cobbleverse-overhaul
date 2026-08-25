@@ -378,14 +378,24 @@ DungeonEntrance
 
 ### 4.3 NBT 조각 계약
 
-각 조각은 NBT와 별도의 메타데이터를 가진다.
+각 조각은 블록을 담은 NBT와 `content/dungeon_pieces/**/*.json` 메타데이터를
+한 쌍으로 가진다. JSON은 `dungeon-piece.schema.json`을 사용하며 서버 시작 시
+모두 읽어 ID 중복, 범위와 연결 방향을 검증한다.
 
-- `piece_id`, 크기, 허용 회전과 가중치
-- `room_tags`: `entrance`, `combat`, `boss`, `heal`, `loot`, `puzzle`, `clear` 등
-- 연결구의 위치, 방향, 폭, 높이와 연결 태그
-- `npc_spawn`, `boss_spawn`, `wild_spawn`, `loot`, `heal`, `objective`, `decor` 의미 마커
-- 조각당 최소·최대 사용 횟수와 인접 금지 조합
-- 파괴 가능 영역, 보호 영역과 런 종료 시 복원 대상
+- `piece_id`, `structure`, `size`, `weight`, `allow_rotation`
+- `role`: `start`, `room`, `corridor`, `junction`, `dead_end`, `support`,
+  `treasure`, `boss`, `exit`
+- `tags`: 테마·구역·사용 제약을 표현하는 리소스 ID 집합
+- `connectors`: 조각 경계에 있는 `id`, `position`, 수평 `facing`, `socket`, `tags`
+- `markers`: `entry`, `exit`, `encounter`, `boss`, `loot`, `healing_station`,
+  `gate`, `checkpoint`, `wild_spawn`, `objective`, `trace`
+- `reference`: 던전 정의의 조우·상자·목표처럼 마커가 채울 구체 항목의 선택 ID
+
+`start`, `boss`, `exit` 역할은 각각 정확히 하나의 `entry`, `boss`, `exit`
+마커를 가져야 한다. 모든 조각은 하나 이상의 연결구를 가지며 연결구 좌표는
+바라보는 방향의 실제 조각 경계에 있어야 한다. `socket`이 같고 양쪽 연결 태그가
+호환되는 연결구만 조립 후보가 된다. 조각당 최소·최대 사용 횟수, 인접 금지 조합,
+파괴·보호 영역은 계획 생성기 단계에서 이 기본 포맷을 확장한다.
 
 연결되지 않은 출입구는 막음 조각으로 닫는다. 문이나 계단 앞, 연결구 내부와 플레이어 시작 안전 반경에는 NPC나 보상을 놓지 않는다.
 
