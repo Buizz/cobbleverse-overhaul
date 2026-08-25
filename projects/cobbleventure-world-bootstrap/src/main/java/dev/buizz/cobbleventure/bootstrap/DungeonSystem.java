@@ -31,9 +31,13 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.Vec3;
@@ -274,6 +278,7 @@ final class DungeonSystem {
         BlockPos size = BlockPos.ZERO;
         try {
             size = prepareFixedTemplate(dungeonLevel, definition, origin);
+            placeLootContainers(dungeonLevel, definition, origin);
             spawnEncounters(dungeonLevel, definition, origin);
         } catch (RuntimeException error) {
             ACTIVE_SLOTS.remove(slot);
@@ -342,6 +347,37 @@ final class DungeonSystem {
                     "Dungeon NPC placement failed: " + encounter.id()
                 );
             }
+        }
+    }
+
+    private static void placeLootContainers(
+        ServerLevel level, DungeonDefinition definition, BlockPos origin
+    ) {
+        ResourceKey<LootTable> lootTable = ResourceKey.create(
+            Registries.LOOT_TABLE,
+            ResourceLocation.parse(definition.loot().lootTable())
+        );
+        long runSeed = level.getRandom().nextLong() ^ origin.asLong();
+        for (DungeonDefinition.LootContainer container : definition.loot().containers()) {
+            BlockPos position = origin.offset(container.position());
+            Direction facing = Direction.byName(container.facing());
+            var blockState = container.block().equals("barrel")
+                ? Blocks.BARREL.defaultBlockState().setValue(BarrelBlock.FACING, facing)
+                : Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, facing);
+            if (!level.setBlock(position, blockState, 3)) {
+                throw new IllegalStateException(
+                    "Dungeon loot container placement failed: " + container.id()
+                );
+            }
+            if (!(level.getBlockEntity(position)
+                instanceof RandomizableContainerBlockEntity blockEntity)) {
+                throw new IllegalStateException(
+                    "Dungeon loot block entity is missing: " + container.id()
+                );
+            }
+            blockEntity.setLootTable(lootTable);
+            blockEntity.setLootTableSeed(runSeed ^ container.id().hashCode());
+            blockEntity.setChanged();
         }
     }
 

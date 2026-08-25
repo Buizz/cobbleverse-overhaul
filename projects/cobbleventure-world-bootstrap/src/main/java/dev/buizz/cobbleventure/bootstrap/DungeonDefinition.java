@@ -7,9 +7,11 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
@@ -25,6 +27,7 @@ record DungeonDefinition(
     Difficulty difficulty,
     Terrain terrain,
     List<Encounter> encounters,
+    Loot loot,
     Completion completion,
     List<Entrance> entrances
 ) {
@@ -131,6 +134,48 @@ record DungeonDefinition(
                 "Dungeon requires exactly one boss encounter: " + id
             );
         }
+        JsonObject loot = requiredObject(root, "loot");
+        List<LootContainer> lootContainers = new ArrayList<>();
+        Set<String> lootContainerIds = new HashSet<>();
+        Set<BlockPos> lootContainerPositions = new HashSet<>();
+        for (JsonElement element : requiredArray(loot, "containers")) {
+            JsonObject container = element.getAsJsonObject();
+            String containerId = requiredString(container, "id");
+            BlockPos position = blockPosition(container, "position");
+            if (!lootContainerIds.add(containerId)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon loot container ID: " + id + " -> " + containerId
+                );
+            }
+            if (!lootContainerPositions.add(position)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon loot container position: " + id + " -> " + position
+                );
+            }
+            lootContainers.add(new LootContainer(
+                containerId,
+                position,
+                enumValue(container, "block", List.of("chest", "barrel")),
+                enumValue(container, "facing", List.of("north", "south", "west", "east"))
+            ));
+        }
+        if (lootContainers.isEmpty()) {
+            throw new IllegalStateException(
+                "Dungeon requires at least one loot container: " + id
+            );
+        }
+        Set<BlockPos> reservedPositions = new HashSet<>();
+        if (entryPosition != null) reservedPositions.add(entryPosition);
+        if (exitPosition != null) reservedPositions.add(exitPosition);
+        encounters.forEach(encounter -> reservedPositions.add(encounter.position()));
+        for (LootContainer container : lootContainers) {
+            if (reservedPositions.contains(container.position())) {
+                throw new IllegalStateException(
+                    "Dungeon loot container overlaps a reserved position: "
+                        + id + " -> " + container.id()
+                );
+            }
+        }
         JsonObject completion = requiredObject(root, "completion");
         List<String> fieldMoves = new ArrayList<>();
         for (JsonElement element : requiredArray(completion, "field_moves")) {
@@ -152,6 +197,7 @@ record DungeonDefinition(
             new Difficulty(recommendedMin, recommendedMax, internalMin, internalMax),
             new Terrain(terrainMode, template, entryPosition, exitPosition),
             List.copyOf(encounters),
+            new Loot(resourceId(loot, "loot_table"), List.copyOf(lootContainers)),
             new Completion(
                 resourceId(completion, "victory_flag"),
                 requiredBoolean(completion, "repeatable"),
@@ -263,6 +309,8 @@ record DungeonDefinition(
         BlockPos exitPosition
     ) {}
     record Encounter(String id, String npc, BlockPos position, float yaw, boolean boss) {}
+    record Loot(String lootTable, List<LootContainer> containers) {}
+    record LootContainer(String id, BlockPos position, String block, String facing) {}
     record Completion(String victoryFlag, boolean repeatable, List<String> fieldMoves) {}
     record Entrance(
         String entranceId,

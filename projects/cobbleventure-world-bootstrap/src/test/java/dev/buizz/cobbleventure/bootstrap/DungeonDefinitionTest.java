@@ -44,6 +44,15 @@ final class DungeonDefinitionTest {
                     "yaw": 180,
                     "boss": true
                   }],
+                  "loot": {
+                    "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
+                    "containers": [{
+                      "id": "maintenance_cache",
+                      "position": [6, 1, 17],
+                      "block": "barrel",
+                      "facing": "south"
+                    }]
+                  },
                   "completion": {
                     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
                     "repeatable": true,
@@ -59,6 +68,11 @@ final class DungeonDefinitionTest {
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals("boss", definition.encounters().getFirst().id());
+        assertEquals(
+            "cobbleventure:dungeon/rocket_power_plant_supplies",
+            definition.loot().lootTable()
+        );
+        assertEquals("barrel", definition.loot().containers().getFirst().block());
         assertEquals("flash", definition.completion().fieldMoves().getFirst());
         assertEquals(
             "cobbleventure:entrance/rocket_power_plant",
