@@ -2865,6 +2865,20 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("renderWorldObjectNbtOptions", script)
         self.assertIn('teleport_to_gate: "관문으로 이동"', script)
 
+    def test_world_object_inspector_is_separate_from_gate_properties(self) -> None:
+        page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn('section data-tile-field="gate" class="custom-object-fields"', page)
+        self.assertIn('section data-tile-field="object" class="custom-object-fields"', page)
+        self.assertIn('name="genericObjectProperties"', page)
+        self.assertIn('name="genericObjectConnectionAnchor"', page)
+        self.assertIn('name="genericObjectDungeonEntrance"', page)
+        self.assertIn('form.elements.genericObjectProperties.value = customObject?.type !== "gate"', script)
+        self.assertIn('properties = JSON.parse(propertySource)', script)
+        self.assertIn('object.connections = [{ from: connectionAnchor, target: { type: "dungeon", entrance_id: dungeonEntrance } }]', script)
+        self.assertIn("field.dataset.tileField !== kind", script)
+        self.assertNotIn('const tileFieldKind = kind === "gate" ? "object" : kind;', script)
+
     def test_world_gate_denial_opens_easy_npc_dialog_and_uses_organic_forest_edge(self) -> None:
         runtime = (
             CORE_ROOT

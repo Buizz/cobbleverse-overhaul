@@ -2948,7 +2948,7 @@ function renderWorldObjectNbtOptions() {
 }
 
 function ensureWorldObjectTypeOptions() {
-  [$("#generic-object-tool-type"), $("#tile-inspector-form").elements.objectType].forEach((select) => {
+  [$("#generic-object-tool-type"), $("#tile-inspector-form").elements.genericObjectType].forEach((select) => {
     for (const [value, label] of reservedWorldObjectTypes) {
       if (!select.querySelector(`option[value="${value}"]`)) select.insertAdjacentHTML("beforeend", `<option value="${value}">${label}</option>`);
     }
@@ -2977,7 +2977,7 @@ function updateGateOptionVisibility() {
   toolPanel.querySelectorAll("[data-gate-surrounding]").forEach((field) => { field.hidden = false; });
 
   const form = $("#tile-inspector-form");
-  const objectFields = form.querySelector('section[data-tile-field="object"]');
+  const objectFields = form.querySelector('section[data-tile-field="gate"]');
   const inspectorIsGate = form.elements.objectType.value === "gate";
   const inspectorMode = form.elements.objectGateMode.value;
   const inspectorBuilding = inspectorMode === "gate" || inspectorMode === "gate_npc";
@@ -3482,9 +3482,17 @@ function renderTileInspector() {
   renderGateConditionEditor($("#inspector-gate-condition-builder"), customObject?.properties?.conditions || []);
   form.elements.objectDenyDialog.value = customObject?.properties?.deny_dialog || "greeting";
   form.elements.objectDenyMessage.value = customObject?.properties?.deny_message || "아직 이 관문을 통과할 수 없습니다.";
+  const dungeonConnection = customObject?.connections?.find((connection) => connection.target?.type === "dungeon");
+  form.elements.genericObjectId.value = customObject?.type !== "gate" ? customObject?.id || "" : "";
+  form.elements.genericObjectType.value = reservedWorldObjectTypes.has(customObject?.type) ? customObject.type : reservedWorldObjectTypes.keys().next().value;
+  form.elements.genericObjectResource.value = customObject?.type !== "gate" ? customObject?.resource || "" : "";
+  form.elements.genericObjectRotation.value = customObject?.type !== "gate" ? customObject?.rotation || 0 : 0;
+  form.elements.genericObjectProperties.value = customObject?.type !== "gate" && customObject?.properties
+    ? JSON.stringify(customObject.properties, null, 2) : "";
+  form.elements.genericObjectConnectionAnchor.value = dungeonConnection?.from || "";
+  form.elements.genericObjectDungeonEntrance.value = dungeonConnection?.target?.entrance_id || "";
   updateGateOptionVisibility();
-  const tileFieldKind = kind === "gate" ? "object" : kind;
-  $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== tileFieldKind);
+  $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== kind);
   const routePanel = $("#route-overlay-panel");
   routePanel.hidden = !routes.length;
   $("#route-overlay-list").innerHTML = routes.map((route) => `<div class="route-overlay-item"><span>${escapeHtml(route.id)} · ${escapeHtml(route.surface_style)}</span><button type="button" data-remove-route="${escapeHtml(route.id)}">연결 삭제</button></div>`).join("");
@@ -4026,18 +4034,39 @@ function applyTilePlacement() {
   const { q, r } = state.selectedHex || {}; if (q === undefined) return;
   const form = $("#tile-inspector-form");
   const kind = form.elements.kind.value;
-  if (kind === "gate" || kind === "object") {
-    const id = form.elements.objectId.value.trim(); const type = form.elements.objectType.value.trim();
+  if (kind === "object") {
+    const id = form.elements.genericObjectId.value.trim();
+    const type = form.elements.genericObjectType.value.trim();
+    const resource = form.elements.genericObjectResource.value.trim();
+    if (!/^[a-z0-9_.-]+$/.test(id) || !reservedWorldObjectTypes.has(type)) { toast("오브젝트 ID와 타입을 확인해 주세요."); return; }
+    if (!gateResourceIdPattern.test(resource)) { toast(`${reservedWorldObjectTypes.get(type)} NBT 리소스를 선택해 주세요.`); return; }
+    const duplicate = state.worldLayout.objects.find((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r));
+    if (duplicate) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
+    let properties;
+    const propertySource = form.elements.genericObjectProperties.value.trim();
+    if (propertySource) {
+      try { properties = JSON.parse(propertySource); }
+      catch { toast("내부 속성 JSON 형식을 확인해 주세요."); return; }
+      if (!properties || Array.isArray(properties) || typeof properties !== "object") { toast("내부 속성은 JSON 객체여야 합니다."); return; }
+    }
+    const connectionAnchor = form.elements.genericObjectConnectionAnchor.value.trim();
+    const dungeonEntrance = form.elements.genericObjectDungeonEntrance.value.trim();
+    if (Boolean(connectionAnchor) !== Boolean(dungeonEntrance)) { toast("던전 연결의 구조물 앵커와 입구 ID를 모두 입력해 주세요."); return; }
+    if (connectionAnchor && !/^structure:[a-z0-9_.-]+$/.test(connectionAnchor)) { toast("구조물 앵커는 structure:anchor_id 형식이어야 합니다."); return; }
+    if (dungeonEntrance && !gateResourceIdPattern.test(dungeonEntrance)) { toast("던전 입구 ID를 리소스 ID 형식으로 입력해 주세요."); return; }
+    const object = { id, type, anchor: { q, r }, resource, rotation: Number(form.elements.genericObjectRotation.value) };
+    if (properties && Object.keys(properties).length) object.properties = properties;
+    if (connectionAnchor) object.connections = [{ from: connectionAnchor, target: { type: "dungeon", entrance_id: dungeonEntrance } }];
+    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
+    state.worldLayout.objects.push(object); markWorldDirty(); renderWorldLayout(); return;
+  }
+  if (kind === "gate") {
+    const id = form.elements.objectId.value.trim(); const type = "gate";
     if (!/^[a-z0-9_.-]+$/.test(id) || !/^[a-z0-9_.-]+$/.test(type)) { toast("오브젝트 ID와 타입은 영문 소문자, 숫자, ., _, -만 사용할 수 있습니다."); return; }
     const duplicate = state.worldLayout.objects.find((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r));
     if (duplicate) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
     state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
     const resource = form.elements.objectResource.value.trim();
-    if (reservedWorldObjectTypes.has(type)) {
-      if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast(`${reservedWorldObjectTypes.get(type)} NBT 리소스를 선택해 주세요.`); return; }
-      state.worldLayout.objects.push({ id, type, anchor: { q, r }, resource, rotation: Number(form.elements.objectRotation.value) });
-      markWorldDirty(); renderWorldLayout(); return;
-    }
     const gateMode = form.elements.objectGateMode.value;
     const buildingEnabled = gateMode === "gate" || gateMode === "gate_npc";
     if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
@@ -4110,10 +4139,8 @@ function handleTileInspectorChange(event) {
   }
   if (event.target.name === "kind") {
     const selectedKind = event.target.value;
-    const tileFieldKind = selectedKind === "gate" ? "object" : selectedKind;
-    $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== tileFieldKind);
+    $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== selectedKind);
     if (selectedKind === "gate") form.elements.objectType.value = "gate";
-    if (selectedKind === "object" && form.elements.objectType.value === "gate") form.elements.objectType.value = reservedWorldObjectTypes.keys().next().value;
     updateGateOptionVisibility();
     if (["settlement", "gate", "object"].includes(selectedKind)) return;
   }
