@@ -46,7 +46,7 @@ public final class GachaMachineNetwork {
             Integer.MIN_VALUE
         ));
         PacketDistributor.sendToPlayer(player, new OpenPayload(
-            token, machine.id, machine.display_name, machine.ticket.display_name,
+            token, machine.id, machine.machine_type, machine.display_name, machine.ticket.display_name,
             state.tickets(), state.pullsSinceTarget(), state.hardPityCount(),
             state.selectionPoints(), state.selectionRequired(),
             rewardViews(machine, state.pullsSinceTarget())
@@ -142,7 +142,7 @@ public final class GachaMachineNetwork {
     }
 
     public record OpenPayload(
-        UUID token, String profile, String machineName, String ticketName,
+        UUID token, String profile, String machineType, String machineName, String ticketName,
         int tickets, int pullsSinceTarget, int hardPityCount,
         int selectionPoints, int selectionRequired,
         List<RewardView> rewards
@@ -151,7 +151,7 @@ public final class GachaMachineNetwork {
         public static final StreamCodec<RegistryFriendlyByteBuf, OpenPayload> STREAM_CODEC =
             StreamCodec.ofMember(OpenPayload::write, OpenPayload::read);
         private void write(RegistryFriendlyByteBuf buffer) {
-            buffer.writeUUID(token); buffer.writeUtf(profile); buffer.writeUtf(machineName); buffer.writeUtf(ticketName);
+            buffer.writeUUID(token); buffer.writeUtf(profile); buffer.writeUtf(machineType); buffer.writeUtf(machineName); buffer.writeUtf(ticketName);
             buffer.writeVarInt(tickets); buffer.writeVarInt(pullsSinceTarget); buffer.writeVarInt(hardPityCount);
             buffer.writeVarInt(selectionPoints); buffer.writeVarInt(selectionRequired);
             buffer.writeVarInt(rewards.size());
@@ -159,13 +159,14 @@ public final class GachaMachineNetwork {
         }
         private static OpenPayload read(RegistryFriendlyByteBuf buffer) {
             UUID token = buffer.readUUID();
-            String profile = buffer.readUtf(); String machine = buffer.readUtf(); String ticket = buffer.readUtf();
+            String profile = buffer.readUtf(); String machineType = buffer.readUtf();
+            String machine = buffer.readUtf(); String ticket = buffer.readUtf();
             int tickets = buffer.readVarInt(); int pulls = buffer.readVarInt(); int hard = buffer.readVarInt();
             int points = buffer.readVarInt(); int required = buffer.readVarInt();
             int size = Math.clamp(buffer.readVarInt(), 0, MAX_REWARDS);
             List<RewardView> rewards = new ArrayList<>(size);
             for (int index = 0; index < size; index++) rewards.add(RewardView.read(buffer));
-            return new OpenPayload(token, profile, machine, ticket, tickets, pulls, hard, points, required, List.copyOf(rewards));
+            return new OpenPayload(token, profile, machineType, machine, ticket, tickets, pulls, hard, points, required, List.copyOf(rewards));
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

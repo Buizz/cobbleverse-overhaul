@@ -39,9 +39,11 @@ NPC 링커 ID는 `blackjack_dealer_1`, `blackjack_dealer_2`처럼 고유한 번�
 ## 콘텐츠 흐름
 
 1. Content Studio의 `카지노 설정 > 카지노별 가챠 세트`에서 카지노 세트와 3개 기계를 편집합니다.
-2. 설정은 `content-projects/cobbleventure-main/content/catalogs/gacha-machines.json`에 저장됩니다.
-3. `build.bat mod-casino` 또는 `build.bat pack`이 카탈로그를 애드온 JAR의 `data/cobbleventure_casino/gacha/machines.json`으로 포함합니다.
-4. 서버 재시작 후 운영자가 기계를 배치합니다.
+2. 상품의 종류·값·수량은 `가챠 상품 원본`에서 한 번만 관리하고, 각 희귀도 풀은 상품 ID와 가중치만 참조합니다.
+3. 코인케이스와 포켓몬·아이템·기술머신 티켓 PNG는 같은 화면에서 미리 보고 각각 교체할 수 있습니다.
+4. 설정은 `content-projects/cobbleventure-main/content/catalogs/gacha-machines.json`에 저장됩니다.
+5. `build.bat mod-casino` 또는 `build.bat pack`이 카탈로그를 애드온 JAR의 `data/cobbleventure_casino/gacha/machines.json`으로 포함합니다.
+6. 서버 재시작 후 운영자가 기계를 배치합니다.
 
 ## NPC 카지노 잔액 충전
 
@@ -55,8 +57,9 @@ Casino의 내부 잔액으로 바로 충전합니다. 이 잔액은 슬롯과 �
 Tags:["cobbleventure_casino_cashier"] 태그를 추가합니다.
 
 칩 교환대, 카지노 지갑, 게임 내 칩 입금·출금 화면은 모두 차단되어 확장 가방 대신
-기본 Minecraft 인벤토리가 열리는 일이 없습니다. Content Studio의 카지노 설정 중
-칩 교환대 기본값도 모든 교환 방향을 비활성화합니다.
+기본 Minecraft 인벤토리가 열리는 일이 없습니다. 배포팩에 포함된 원본 모드 호환
+설정도 모든 칩 교환 방향을 비활성화합니다. 이 원본 설정은 Content Studio에 노출하지
+않고 커스텀 카지노 콘텐츠만 편집하도록 구성합니다.
 
 ## 카지노 세트와 공통 물리 티켓
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import gzip
@@ -2766,6 +2767,10 @@ class ContentManagerTests(unittest.TestCase):
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="object-tool-facing"', page)
+        self.assertIn('<span>배치 가장자리</span>', page)
+        self.assertIn('북·남은 연결된 길이 한쪽 면에만 있으면 열린 면 중앙으로', page)
+        self.assertIn('function gateMapPoint(gate)', script)
+        self.assertIn('const firstOpen = faceIsOpen(faceOffsets[0])', script)
         self.assertIn('data-map-tool="gate"', page)
         self.assertIn('data-tool-options="gate"', page)
         self.assertIn('id="generic-object-tool-type"', page)
@@ -2834,6 +2839,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("clearNaturalWedgeColumn", runtime)
         self.assertIn('featureIds = List.of("dark_oak_checked")', bootstrap)
         self.assertIn("alignedGateCenter", runtime)
+        self.assertIn('case "north" -> List.of(new HexCoord(0, -1), new HexCoord(1, -1))', runtime)
+        self.assertIn('case "east" -> List.of(new HexCoord(1, 0))', runtime)
+        self.assertIn('case "south" -> List.of(new HexCoord(-1, 1), new HexCoord(0, 1))', runtime)
+        self.assertIn('case "west" -> List.of(new HexCoord(-1, 0))', runtime)
+        self.assertIn("gateFaceIsOpen", runtime)
+        self.assertIn("gateFaceCenter", runtime)
         self.assertIn("handlePendingDenial", runtime)
         self.assertIn("pending.finished = true", runtime)
         self.assertIn("gate_dialogue_state", dialogue_network)
@@ -4421,7 +4432,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(catalog["generations"][0]["spawn"]["set_respawn"])
         self.assertEqual([], content_manager.validate_starter_settings(PROJECT_ROOT, catalog))
 
-    def test_cobblemon_casino_config_editor_is_exposed_in_web_ui(self) -> None:
+    def test_custom_casino_editor_is_exposed_without_original_mod_config_ui(self) -> None:
         web_root = CORE_ROOT / "tools/content-manager/web"
         html = (web_root / "index.html").read_text(encoding="utf-8")
         script = (web_root / "app.js").read_text(encoding="utf-8")
@@ -4429,17 +4440,11 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertIn('data-section="casino-config"', html)
         self.assertIn('data-section="casino-config">카지노 설정', html)
-        self.assertIn('id="casino-config-file-list"', html)
-        self.assertIn('id="casino-config-form"', html)
-        self.assertIn('id="casino-config-json"', html)
-        self.assertIn('id="apply-casino-config-json"', html)
-        self.assertIn('id="save-casino-config"', html)
-        self.assertIn('"casino-config": "Cobblemon Casino 설정"', script)
-        self.assertIn('request("/api/casino-config"', script)
-        self.assertIn("renderCasinoPools", script)
-        self.assertIn("renderCasinoTrades", script)
-        self.assertIn(".casino-config-workspace", styles)
-        self.assertIn(".casino-product-row", styles)
+        self.assertNotIn('id="casino-config-file-list"', html)
+        self.assertNotIn('id="casino-config-form"', html)
+        self.assertNotIn('id="casino-config-json"', html)
+        self.assertNotIn('id="save-casino-config"', html)
+        self.assertIn('"casino-config": "카지노 콘텐츠 설정"', script)
 
         self.assertIn('id="gacha-machine-list"', html)
         self.assertIn('id="gacha-machine-editor"', html)
@@ -4448,11 +4453,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("renderGachaMachines", script)
         self.assertIn("addGachaSet", script)
         self.assertIn("공통 티켓", script)
-        self.assertIn("가챠 상품 카탈로그", script)
+        self.assertIn("가챠 상품 원본", script)
         self.assertIn("Cobblemon Casino의 실제 2블록 가챠머신 모델", script)
         self.assertIn("appearance/model_block", script)
         self.assertIn("appearance/facing", script)
         self.assertIn("reward_catalog:state.gachaMachines.reward_catalog", script)
+        self.assertIn("catalog_id", script)
+        self.assertIn('class="panel gacha-item-graphics"', html)
+        self.assertIn('data-gacha-graphic-file="coin_case"', html)
+        self.assertIn('data-gacha-graphic-file="gacha_ticket_pokemon"', html)
+        self.assertIn('data-gacha-graphic-file="gacha_ticket_item"', html)
+        self.assertIn('data-gacha-graphic-file="gacha_ticket_technical_machine"', html)
+        self.assertIn('request("/api/gacha-item-graphics"', script)
         self.assertIn(".gacha-machine-workspace", styles)
         self.assertIn(".gacha-catalog-table", styles)
 
@@ -4475,6 +4487,8 @@ class ContentManagerTests(unittest.TestCase):
             self.assertNotIn("ticket", saved["machines"][0])
             self.assertEqual(3, len(saved["casino_sets"][0]["machines"]))
             self.assertEqual("pikachu", saved["reward_catalog"][0]["id"])
+            self.assertEqual("pikachu", saved["machines"][0]["rarities"][0]["rewards"][0]["catalog_id"])
+            self.assertNotIn("value", saved["machines"][0]["rarities"][0]["rewards"][0])
 
     def test_gacha_machine_catalog_rejects_non_machine_appearance(self) -> None:
         catalog = copy.deepcopy(content_manager.GACHA_MACHINE_CATALOG_DEFAULTS)
@@ -4522,6 +4536,29 @@ class ContentManagerTests(unittest.TestCase):
         messages = [issue.message for issue in issues if issue.level == "error"]
         self.assertTrue(any("pokemon 종류" in message for message in messages))
         self.assertTrue(any("연결되지 않은 기계" in message for message in messages))
+
+    def test_gacha_item_graphic_save_writes_texture_and_item_model(self) -> None:
+        source = (
+            CORE_ROOT
+            / "projects/cobbleventure-casino/src/main/resources/assets/cobbleventure_casino/textures/item/coin_case.png"
+        ).read_bytes()
+        with tempfile.TemporaryDirectory() as directory:
+            core_root = Path(directory)
+
+            result = content_manager.save_gacha_item_graphic(
+                core_root, "gacha_ticket_pokemon", base64.b64encode(source).decode("ascii")
+            )
+
+            self.assertTrue(result["saved"])
+            texture, model = content_manager._gacha_item_asset_paths(core_root, "gacha_ticket_pokemon")
+            self.assertEqual(source, texture.read_bytes())
+            self.assertEqual(
+                "cobbleventure_casino:item/gacha_ticket_pokemon",
+                content_manager.load_json(model)["textures"]["layer0"],
+            )
+            payload = content_manager.gacha_item_graphics_payload(core_root)
+            ticket = next(entry for entry in payload["items"] if entry["id"] == "gacha_ticket_pokemon")
+            self.assertTrue(ticket["exists"])
 
     def test_casino_config_payload_and_save_use_pack_override_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

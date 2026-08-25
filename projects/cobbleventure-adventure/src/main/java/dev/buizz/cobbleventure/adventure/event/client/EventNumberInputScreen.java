@@ -15,6 +15,7 @@ public final class EventNumberInputScreen extends Screen {
     private final EventDialogueTheme theme;
     private EditBox input;
     private Layout layout;
+    private int selectedAmount;
     private boolean valid;
     private boolean replied;
 
@@ -27,6 +28,11 @@ public final class EventNumberInputScreen extends Screen {
     @Override
     protected void init() {
         layout = calculateLayout();
+        if (payload.hasPriceSummary()) {
+            selectedAmount = payload.minimum();
+            valid = true;
+            return;
+        }
         input = new EditBox(font, layout.inputLeft() + 7, layout.inputTop() + 2,
             layout.inputRight() - layout.inputLeft() - 14,
             layout.inputBottom() - layout.inputTop() - 4,
@@ -55,15 +61,8 @@ public final class EventNumberInputScreen extends Screen {
             "screen.cobbleventure_adventure.number_input.range",
             payload.minimum(), payload.maximum()
         )), layout.left() + 14, layout.top() + 30, theme.hintColor, theme.hintScale);
-        EventPanelRenderer.roundedFill(
-            graphics, layout.inputLeft(), layout.inputTop(), layout.inputRight(),
-            layout.inputBottom(), theme.menuRowRadius, theme.menuAccent
-        );
-        EventPanelRenderer.roundedFill(
-            graphics, layout.inputLeft() + 2, layout.inputTop() + 2,
-            layout.inputRight() - 2, layout.inputBottom() - 2,
-            Math.max(0, theme.menuRowRadius - 2), theme.menuBackground
-        );
+        if (payload.hasPriceSummary()) renderQuantityPicker(graphics, mouseX, mouseY);
+        else renderInputFrame(graphics);
         if (payload.hasPriceSummary()) renderPriceSummary(graphics);
         renderButton(graphics, layout.confirmLeft(), layout.buttonTop(),
             layout.confirmRight(), layout.buttonBottom(),
@@ -86,6 +85,7 @@ public final class EventNumberInputScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && layout != null) {
+            if (payload.hasPriceSummary() && handlePickerClick(mouseX, mouseY)) return true;
             if (valid && contains(mouseX, mouseY, layout.confirmLeft(), layout.buttonTop(),
                 layout.confirmRight(), layout.buttonBottom())) {
                 submit();
@@ -102,6 +102,16 @@ public final class EventNumberInputScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (payload.hasPriceSummary()) {
+            if (keyCode == GLFW.GLFW_KEY_LEFT) {
+                adjustAmount(-1);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_RIGHT) {
+                adjustAmount(1);
+                return true;
+            }
+        }
         if (keyCode == GLFW.GLFW_KEY_ENTER && validValue() != null) {
             submit();
             return true;
@@ -111,6 +121,115 @@ public final class EventNumberInputScreen extends Screen {
 
     private void refresh() {
         valid = validValue() != null;
+    }
+
+    private void renderInputFrame(GuiGraphics graphics) {
+        EventPanelRenderer.roundedFill(
+            graphics, layout.inputLeft(), layout.inputTop(), layout.inputRight(),
+            layout.inputBottom(), theme.menuRowRadius, theme.menuAccent
+        );
+        EventPanelRenderer.roundedFill(
+            graphics, layout.inputLeft() + 2, layout.inputTop() + 2,
+            layout.inputRight() - 2, layout.inputBottom() - 2,
+            Math.max(0, theme.menuRowRadius - 2), theme.menuBackground
+        );
+    }
+
+    private void renderQuantityPicker(GuiGraphics graphics, int mouseX, int mouseY) {
+        PickerLayout picker = pickerLayout();
+        renderStepButton(graphics, picker.minusTenLeft(), picker.minusTenRight(), "-10",
+            selectedAmount > payload.minimum(), mouseX, mouseY);
+        renderStepButton(graphics, picker.minusOneLeft(), picker.minusOneRight(), "-1",
+            selectedAmount > payload.minimum(), mouseX, mouseY);
+
+        EventPanelRenderer.roundedFill(
+            graphics, picker.valueLeft(), layout.inputTop(), picker.valueRight(),
+            layout.inputBottom(), theme.menuRowRadius, theme.menuAccent
+        );
+        EventPanelRenderer.roundedFill(
+            graphics, picker.valueLeft() + 2, layout.inputTop() + 2,
+            picker.valueRight() - 2, layout.inputBottom() - 2,
+            Math.max(0, theme.menuRowRadius - 2), theme.menuBackground
+        );
+        String amount = formatted(selectedAmount);
+        graphics.drawCenteredString(font, amount,
+            (picker.valueLeft() + picker.valueRight()) / 2,
+            layout.inputTop() + (layout.inputBottom() - layout.inputTop() - font.lineHeight) / 2,
+            theme.textColor);
+
+        renderStepButton(graphics, picker.plusOneLeft(), picker.plusOneRight(), "+1",
+            selectedAmount < payload.maximum(), mouseX, mouseY);
+        renderStepButton(graphics, picker.plusTenLeft(), picker.plusTenRight(), "+10",
+            selectedAmount < payload.maximum(), mouseX, mouseY);
+    }
+
+    private void renderStepButton(
+        GuiGraphics graphics, int left, int right, String label,
+        boolean enabled, int mouseX, int mouseY
+    ) {
+        boolean hovered = enabled && contains(
+            mouseX, mouseY, left, layout.inputTop(), right, layout.inputBottom()
+        );
+        int background = !enabled ? theme.choiceBackground
+            : hovered ? theme.choiceHoverBackground : theme.choiceSelectedBackground;
+        EventPanelRenderer.roundedFill(
+            graphics, left, layout.inputTop(), right, layout.inputBottom(),
+            theme.menuRowRadius, background
+        );
+        graphics.drawCenteredString(font, label, (left + right) / 2,
+            layout.inputTop() + (layout.inputBottom() - layout.inputTop() - font.lineHeight) / 2,
+            enabled ? theme.menuSelectedTextColor : theme.hintColor);
+    }
+
+    private boolean handlePickerClick(double mouseX, double mouseY) {
+        PickerLayout picker = pickerLayout();
+        if (contains(mouseX, mouseY, picker.minusTenLeft(), layout.inputTop(),
+            picker.minusTenRight(), layout.inputBottom())) {
+            adjustAmount(-10);
+            return true;
+        }
+        if (contains(mouseX, mouseY, picker.minusOneLeft(), layout.inputTop(),
+            picker.minusOneRight(), layout.inputBottom())) {
+            adjustAmount(-1);
+            return true;
+        }
+        if (contains(mouseX, mouseY, picker.plusOneLeft(), layout.inputTop(),
+            picker.plusOneRight(), layout.inputBottom())) {
+            adjustAmount(1);
+            return true;
+        }
+        if (contains(mouseX, mouseY, picker.plusTenLeft(), layout.inputTop(),
+            picker.plusTenRight(), layout.inputBottom())) {
+            adjustAmount(10);
+            return true;
+        }
+        return false;
+    }
+
+    private void adjustAmount(int delta) {
+        long adjusted = (long) selectedAmount + delta;
+        selectedAmount = (int) Math.max(payload.minimum(), Math.min(payload.maximum(), adjusted));
+        valid = true;
+    }
+
+    private PickerLayout pickerLayout() {
+        int buttonWidth = 44;
+        int valueWidth = 76;
+        int gap = 4;
+        int totalWidth = buttonWidth * 4 + valueWidth + gap * 4;
+        int left = layout.inputLeft() + (layout.inputRight() - layout.inputLeft() - totalWidth) / 2;
+        int minusTenLeft = left;
+        int minusOneLeft = minusTenLeft + buttonWidth + gap;
+        int valueLeft = minusOneLeft + buttonWidth + gap;
+        int plusOneLeft = valueLeft + valueWidth + gap;
+        int plusTenLeft = plusOneLeft + buttonWidth + gap;
+        return new PickerLayout(
+            minusTenLeft, minusTenLeft + buttonWidth,
+            minusOneLeft, minusOneLeft + buttonWidth,
+            valueLeft, valueLeft + valueWidth,
+            plusOneLeft, plusOneLeft + buttonWidth,
+            plusTenLeft, plusTenLeft + buttonWidth
+        );
     }
 
     private void renderPriceSummary(GuiGraphics graphics) {
@@ -250,12 +369,14 @@ public final class EventNumberInputScreen extends Screen {
     }
 
     private Integer validValue() {
+        if (payload.hasPriceSummary()) return selectedAmount;
         Integer value = parsedValue();
         if (value == null) return null;
         return value >= payload.minimum() && value <= payload.maximum() ? value : null;
     }
 
     private Integer parsedValue() {
+        if (payload.hasPriceSummary()) return selectedAmount;
         if (input == null || input.getValue().isBlank() || "-".equals(input.getValue())) return null;
         try {
             return Integer.parseInt(input.getValue());
@@ -285,5 +406,13 @@ public final class EventNumberInputScreen extends Screen {
         int confirmLeft, int confirmRight, int cancelLeft, int cancelRight,
         int buttonTop, int buttonBottom,
         boolean twoColumnSummary
+    ) {}
+
+    private record PickerLayout(
+        int minusTenLeft, int minusTenRight,
+        int minusOneLeft, int minusOneRight,
+        int valueLeft, int valueRight,
+        int plusOneLeft, int plusOneRight,
+        int plusTenLeft, int plusTenRight
     ) {}
 }

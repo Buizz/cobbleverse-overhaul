@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import copy
 import difflib
 import functools
@@ -4589,7 +4591,7 @@ DIALOGUE_THEME_DEFAULTS: dict[str, Any] = {
 }
 
 
-def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str, reward: dict[str, Any]) -> dict[str, Any]:
+def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str, catalog_id: str) -> dict[str, Any]:
     model_blocks = {
         "pokemon": "cobblemoncasino:pokemon_gacha_machine",
         "item": "cobblemoncasino:gacha_machine",
@@ -4599,7 +4601,8 @@ def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str
         "id": machine_id, "display_name": display_name, "machine_type": machine_type,
         "enabled": True, "pity_group": f"default_casino/{machine_type}",
         "appearance": {"model_block": model_blocks[machine_type], "facing": "north", "show_nameplate": True},
-        "rarities": [{"id": "common", "display_name": "일반", "weight": 100.0, "rewards": [reward]}],
+        "rarities": [{"id": "common", "display_name": "일반", "weight": 100.0,
+                      "rewards": [{"catalog_id": catalog_id, "weight": 1.0, "selectable": False}]}],
         "pity": {
             "soft": {"enabled": False, "start": 30, "max_at": 60, "target_rarity": "common", "max_chance": 0.25},
             "hard": {"enabled": False, "count": 80, "target_rarity": "common"},
@@ -4609,7 +4612,7 @@ def _default_gacha_machine(machine_id: str, display_name: str, machine_type: str
 
 
 GACHA_MACHINE_CATALOG_DEFAULTS: dict[str, Any] = {
-    "$schema": "../schemas/gacha-machines.schema.json", "schema_version": 3,
+    "$schema": "../schemas/gacha-machines.schema.json", "schema_version": 4,
     "tickets": {
         "pokemon": {"display_name": "포켓몬 가챠 티켓", "price": 500, "purchase_min": 1, "purchase_max": 64},
         "item": {"display_name": "아이템 가챠 티켓", "price": 200, "purchase_min": 1, "purchase_max": 64},
@@ -4622,9 +4625,9 @@ GACHA_MACHINE_CATALOG_DEFAULTS: dict[str, Any] = {
     ],
     "casino_sets": [{"id": "cobbleventure:casino/default", "display_name": "기본 카지노", "machines": {"pokemon": "cobbleventure:starter_gacha", "item": "cobbleventure:item_gacha", "technical_machine": "cobbleventure:technical_machine_gacha"}}],
     "machines": [
-        _default_gacha_machine("cobbleventure:starter_gacha", "포켓몬 가챠", "pokemon", {"id": "pikachu", "kind": "pokemon", "value": "pikachu level=15", "count": 1, "weight": 1.0, "selectable": False}),
-        _default_gacha_machine("cobbleventure:item_gacha", "아이템 가챠", "item", {"id": "poke_ball", "kind": "item", "value": "cobblemon:poke_ball", "count": 5, "weight": 1.0, "selectable": False}),
-        _default_gacha_machine("cobbleventure:technical_machine_gacha", "기술머신 가챠", "technical_machine", {"id": "protect", "kind": "item", "value": "tmcraft:tm_protect", "count": 1, "weight": 1.0, "selectable": False}),
+        _default_gacha_machine("cobbleventure:starter_gacha", "포켓몬 가챠", "pokemon", "pikachu"),
+        _default_gacha_machine("cobbleventure:item_gacha", "아이템 가챠", "item", "poke_ball"),
+        _default_gacha_machine("cobbleventure:technical_machine_gacha", "기술머신 가챠", "technical_machine", "protect"),
     ],
 }
 
@@ -4643,8 +4646,8 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
     document = _require_object(data, issues, path, "$")
     if document is None:
         return issues
-    if document.get("schema_version") != 3:
-        _issue(issues, "error", path, "$.schema_version", "가챠 기계 카탈로그 버전은 3이어야 합니다.")
+    if document.get("schema_version") != 4:
+        _issue(issues, "error", path, "$.schema_version", "가챠 기계 카탈로그 버전은 4여야 합니다.")
     ticket_types = ("pokemon", "item", "technical_machine")
     tickets = document.get("tickets")
     if not isinstance(tickets, dict):
@@ -4667,6 +4670,7 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
         if isinstance(ticket.get("purchase_min"), int) and isinstance(ticket.get("purchase_max"), int) and ticket["purchase_max"] < ticket["purchase_min"]:
             _issue(issues, "error", path, f"{ticket_path}.purchase_max", "최대 구매 수량은 최소 구매 수량 이상이어야 합니다.")
     reward_catalog = document.get("reward_catalog")
+    catalog_by_id: dict[str, dict[str, Any]] = {}
     if not isinstance(reward_catalog, list):
         _issue(issues, "error", path, "$.reward_catalog", "가챠 상품 카탈로그는 배열이어야 합니다.")
     else:
@@ -4681,6 +4685,7 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
                 _issue(issues, "error", path, f"{reward_path}.id", "카탈로그 ID는 중복되지 않은 소문자 ID여야 합니다.")
             else:
                 catalog_ids.add(reward_id)
+                catalog_by_id[reward_id] = reward
             if not isinstance(reward.get("display_name"), str) or not reward["display_name"].strip():
                 _issue(issues, "error", path, f"{reward_path}.display_name", "카탈로그 표시 이름이 필요합니다.")
             machine_type = reward.get("machine_type")
@@ -4764,24 +4769,21 @@ def validate_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
                 if not isinstance(reward, dict):
                     _issue(issues, "error", path, reward_path, "보상은 객체여야 합니다.")
                     continue
-                reward_id = reward.get("id")
-                if not isinstance(reward_id, str) or re.fullmatch(r"[a-z0-9_.-]+", reward_id) is None or reward_id in reward_ids:
-                    _issue(issues, "error", path, f"{reward_path}.id", "보상 ID는 기계 안에서 중복되지 않은 소문자 ID여야 합니다.")
+                catalog_id = reward.get("catalog_id")
+                catalog_reward = catalog_by_id.get(catalog_id) if isinstance(catalog_id, str) else None
+                if catalog_reward is None:
+                    _issue(issues, "error", path, f"{reward_path}.catalog_id", "카탈로그에 존재하는 상품 ID가 필요합니다.")
+                elif catalog_id in reward_ids:
+                    _issue(issues, "error", path, f"{reward_path}.catalog_id", "같은 기계에서 상품을 중복 참조할 수 없습니다.")
                 else:
-                    reward_ids.add(reward_id)
-                if reward.get("kind") not in {"item", "pokemon"}:
-                    _issue(issues, "error", path, f"{reward_path}.kind", "보상 종류는 item 또는 pokemon이어야 합니다.")
-                elif machine_type == "pokemon" and reward.get("kind") != "pokemon":
-                    _issue(issues, "error", path, f"{reward_path}.kind", "포켓몬 기계에는 포켓몬 보상만 넣을 수 있습니다.")
-                elif machine_type in {"item", "technical_machine"} and reward.get("kind") != "item":
-                    _issue(issues, "error", path, f"{reward_path}.kind", "아이템·기술머신 기계에는 아이템 보상만 넣을 수 있습니다.")
-                value = reward.get("value")
-                if not isinstance(value, str) or not value.strip() or (reward.get("kind") == "item" and RESOURCE_ID.fullmatch(value) is None):
-                    _issue(issues, "error", path, f"{reward_path}.value", "아이템 ID 또는 Cobblemon PokemonProperties 문자열이 필요합니다.")
-                for key in ("count", "weight"):
-                    number = reward.get(key)
-                    if not isinstance(number, (int, float)) or isinstance(number, bool) or number <= 0:
-                        _issue(issues, "error", path, f"{reward_path}.{key}", "0보다 큰 숫자여야 합니다.")
+                    reward_ids.add(catalog_id)
+                    if catalog_reward.get("machine_type") != machine_type:
+                        _issue(issues, "error", path, f"{reward_path}.catalog_id", "기계 종류와 같은 카탈로그 상품을 선택해야 합니다.")
+                number = reward.get("weight")
+                if not isinstance(number, (int, float)) or isinstance(number, bool) or number <= 0:
+                    _issue(issues, "error", path, f"{reward_path}.weight", "0보다 큰 숫자여야 합니다.")
+                if not isinstance(reward.get("selectable"), bool):
+                    _issue(issues, "error", path, f"{reward_path}.selectable", "선택 가능 여부는 true 또는 false여야 합니다.")
         pity = machine.get("pity")
         if not isinstance(pity, dict):
             _issue(issues, "error", path, f"{base}.pity", "천장 설정이 필요합니다.")
@@ -4853,6 +4855,87 @@ def save_gacha_machine_catalog(root: Path, data: Any) -> list[Issue]:
     temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(target)
     return issues
+
+
+GACHA_ITEM_GRAPHICS = {
+    "coin_case": "coin_case",
+    "gacha_ticket_pokemon": "gacha_ticket_pokemon",
+    "gacha_ticket_item": "gacha_ticket_item",
+    "gacha_ticket_technical_machine": "gacha_ticket_technical_machine",
+}
+
+
+def _gacha_item_asset_paths(core_root: Path, item: str) -> tuple[Path, Path]:
+    texture_name = GACHA_ITEM_GRAPHICS.get(item)
+    if texture_name is None:
+        raise ValueError("지원하지 않는 카지노 아이템 그래픽입니다.")
+    asset_root = (
+        core_root / "projects" / "cobbleventure-casino" / "src" / "main"
+        / "resources" / "assets" / "cobbleventure_casino"
+    )
+    return (
+        asset_root / "textures" / "item" / f"{texture_name}.png",
+        asset_root / "models" / "item" / f"{texture_name}.json",
+    )
+
+
+def gacha_item_graphics_payload(core_root: Path) -> dict[str, Any]:
+    items = []
+    for item in GACHA_ITEM_GRAPHICS:
+        texture_path, model_path = _gacha_item_asset_paths(core_root, item)
+        model_texture = f"cobbleventure_casino:item/{item}"
+        try:
+            model = load_json(model_path)
+            model_texture = model.get("textures", {}).get("layer0", model_texture)
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError):
+            pass
+        width = height = 0
+        if texture_path.is_file():
+            try:
+                data = texture_path.read_bytes()
+                if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
+                    width, height = struct.unpack(">II", data[16:24])
+            except OSError:
+                pass
+        items.append({
+            "id": item,
+            "exists": texture_path.is_file(),
+            "width": width,
+            "height": height,
+            "model_texture": model_texture,
+            "preview_url": f"/api/gacha-item-texture?item={item}",
+        })
+    return {"items": items}
+
+
+def save_gacha_item_graphic(core_root: Path, item: str, encoded: str) -> dict[str, Any]:
+    if not isinstance(encoded, str) or not encoded:
+        raise ValueError("저장할 PNG 데이터가 필요합니다.")
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError, TypeError) as error:
+        raise ValueError("PNG 데이터를 읽을 수 없습니다.") from error
+    if len(data) > 2 * 1024 * 1024 or not data.startswith(b"\x89PNG\r\n\x1a\n") or len(data) < 24:
+        raise ValueError("2MB 이하의 올바른 PNG 파일만 사용할 수 있습니다.")
+    width, height = struct.unpack(">II", data[16:24])
+    if width != height or width < 16 or width > 512:
+        raise ValueError("아이템 그래픽은 16~512px 정사각형 PNG여야 합니다.")
+    texture_path, model_path = _gacha_item_asset_paths(core_root, item)
+    texture_path.parent.mkdir(parents=True, exist_ok=True)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = texture_path.with_suffix(".png.tmp")
+    temporary.write_bytes(data)
+    temporary.replace(texture_path)
+    model = {
+        "parent": "minecraft:item/generated",
+        "textures": {"layer0": f"cobbleventure_casino:item/{item}"},
+    }
+    temporary_model = model_path.with_suffix(".json.tmp")
+    temporary_model.write_text(
+        json.dumps(model, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    temporary_model.replace(model_path)
+    return {"saved": True, "item": item, "width": width, "height": height}
 
 
 CASINO_CONFIG_RELATIVE_ROOT = Path(
@@ -12337,6 +12420,19 @@ def create_handler(
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/gacha-item-graphics":
+                self._json(200, gacha_item_graphics_payload(core_root))
+                return
+            if request.path == "/api/gacha-item-texture":
+                item = parse_qs(request.query).get("item", [""])[0]
+                try:
+                    texture_path, _ = _gacha_item_asset_paths(core_root, item)
+                    self._bytes(200, texture_path.read_bytes(), "image/png")
+                except ValueError as error:
+                    self._json(400, {"error": str(error)})
+                except OSError:
+                    self._json(404, {"error": "아직 커스텀 PNG가 지정되지 않았습니다."})
+                return
             if request.path == "/api/cves/scripts":
                 try:
                     self._json(200, {"items": list_cves_scripts(root)})
@@ -13280,6 +13376,18 @@ def create_handler(
                     return
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
+                return
+            if request.path == "/api/gacha-item-graphics":
+                try:
+                    payload = self._read_json()
+                    if not isinstance(payload, dict) or not isinstance(payload.get("item"), str):
+                        raise ValueError("아이템 종류와 PNG 데이터가 필요합니다.")
+                    result = save_gacha_item_graphic(
+                        core_root, payload["item"], payload.get("data_base64")
+                    )
+                    self._json(200, result)
+                except (OSError, ValueError) as error:
+                    self._json(400, {"error": str(error)})
                 return
             if request.path == "/api/starter-settings":
                 try:

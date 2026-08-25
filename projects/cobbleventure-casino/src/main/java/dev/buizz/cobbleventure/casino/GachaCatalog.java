@@ -33,15 +33,21 @@ final class GachaCatalog {
             var resource = server.getResourceManager().getResourceOrThrow(RESOURCE);
             try (Reader reader = resource.openAsReader()) {
                 Document document = new Gson().fromJson(reader, Document.class);
-                if (document == null || document.schema_version != 3 || document.machines == null
-                    || document.tickets == null || document.casino_sets == null) {
-                    throw new JsonParseException("schema_version=3 tickets, casino_sets, machines가 필요합니다.");
+                if (document == null || document.schema_version != 4 || document.machines == null
+                    || document.tickets == null || document.reward_catalog == null
+                    || document.casino_sets == null) {
+                    throw new JsonParseException("schema_version=4 tickets, reward_catalog, casino_sets, machines가 필요합니다.");
+                }
+                Map<String, RewardTemplate> rewards = new LinkedHashMap<>();
+                for (RewardTemplate reward : document.reward_catalog) {
+                    if (reward == null || reward.id == null || reward.id.isBlank()) continue;
+                    rewards.put(reward.id, reward);
                 }
                 for (Machine machine : document.machines) {
                     if (machine == null || machine.id == null || machine.id.isBlank() || !machine.enabled) continue;
                     Ticket ticket = document.tickets.get(machine.machine_type);
                     if (ticket == null) throw new JsonParseException("티켓 종류가 없습니다: " + machine.machine_type);
-                    normalize(machine, ticket);
+                    normalize(machine, ticket, rewards);
                     loaded.put(machine.id, machine);
                 }
             }
@@ -52,7 +58,9 @@ final class GachaCatalog {
         return new GachaCatalog(loaded);
     }
 
-    private static void normalize(Machine machine, Ticket ticket) {
+    private static void normalize(
+        Machine machine, Ticket ticket, Map<String, RewardTemplate> catalog
+    ) {
         machine.display_name = machine.display_name == null || machine.display_name.isBlank() ? machine.id : machine.display_name;
         machine.machine_type = machine.machine_type == null || machine.machine_type.isBlank() ? "item" : machine.machine_type;
         machine.pity_group = machine.pity_group == null || machine.pity_group.isBlank() ? machine.id : machine.pity_group;
@@ -63,7 +71,22 @@ final class GachaCatalog {
         machine.ticket.purchase_min = Math.max(1, machine.ticket.purchase_min);
         machine.ticket.purchase_max = Math.max(machine.ticket.purchase_min, machine.ticket.purchase_max);
         machine.rarities = machine.rarities == null ? new ArrayList<>() : machine.rarities;
-        for (Rarity rarity : machine.rarities) rarity.rewards = rarity.rewards == null ? new ArrayList<>() : rarity.rewards;
+        for (Rarity rarity : machine.rarities) {
+            rarity.rewards = rarity.rewards == null ? new ArrayList<>() : rarity.rewards;
+            for (Reward reward : rarity.rewards) {
+                RewardTemplate template = catalog.get(reward.catalog_id);
+                if (template == null) {
+                    throw new JsonParseException("가챠 상품 카탈로그 참조가 없습니다: " + reward.catalog_id);
+                }
+                if (!machine.machine_type.equals(template.machine_type)) {
+                    throw new JsonParseException("기계 종류와 상품 종류가 다릅니다: " + reward.catalog_id);
+                }
+                reward.id = template.id;
+                reward.kind = template.kind;
+                reward.value = template.value;
+                reward.count = Math.max(1, template.count);
+            }
+        }
     }
 
     Optional<Machine> machine(String id) {
@@ -79,7 +102,8 @@ final class GachaCatalog {
     }
 
     static final class Document {
-        int schema_version; Map<String, Ticket> tickets; List<CasinoSet> casino_sets; List<Machine> machines;
+        int schema_version; Map<String, Ticket> tickets; List<RewardTemplate> reward_catalog;
+        List<CasinoSet> casino_sets; List<Machine> machines;
     }
     static final class CasinoSet { String id; String display_name; Map<String, String> machines; }
     static final class Machine {
@@ -93,7 +117,13 @@ final class GachaCatalog {
     }
     static final class Ticket { String display_name; long price; int purchase_min; int purchase_max; }
     static final class Rarity { String id; String display_name; double weight; List<Reward> rewards; }
-    static final class Reward { String id; String kind; String value; int count; double weight; boolean selectable; }
+    static final class RewardTemplate {
+        String id; String display_name; String machine_type; String kind; String value; int count;
+    }
+    static final class Reward {
+        String catalog_id; String id; String kind; String value; int count;
+        double weight; boolean selectable;
+    }
     static final class Pity { Soft soft; Hard hard; Selection selection; }
     static final class Soft { boolean enabled; int start; int max_at; String target_rarity; double max_chance; }
     static final class Hard { boolean enabled; int count; String target_rarity; }

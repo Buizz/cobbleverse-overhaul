@@ -1,6 +1,6 @@
 {
   "$schema": "../schemas/gacha-machines.schema.json",
-  "schema_version": 3,
+  "schema_version": 4,
   "tickets": {
     "pokemon": {
       "display_name": "포켓몬 가챠 티켓",
@@ -124,10 +124,7 @@
           "weight": 70.0,
           "rewards": [
             {
-              "id": "pikachu",
-              "kind": "pokemon",
-              "value": "pikachu level=15",
-              "count": 1,
+              "catalog_id": "pikachu",
               "weight": 1.0,
               "selectable": false
             }
@@ -139,10 +136,7 @@
           "weight": 25.0,
           "rewards": [
             {
-              "id": "eevee",
-              "kind": "pokemon",
-              "value": "eevee level=15",
-              "count": 1,
+              "catalog_id": "eevee",
               "weight": 1.0,
               "selectable": true
             }
@@ -154,10 +148,7 @@
           "weight": 5.0,
           "rewards": [
             {
-              "id": "dratini",
-              "kind": "pokemon",
-              "value": "dratini level=20",
-              "count": 1,
+              "catalog_id": "dratini",
               "weight": 1.0,
               "selectable": true
             }
@@ -202,10 +193,7 @@
           "weight": 75.0,
           "rewards": [
             {
-              "id": "poke_ball",
-              "kind": "item",
-              "value": "cobblemon:poke_ball",
-              "count": 5,
+              "catalog_id": "poke_ball",
               "weight": 1.0,
               "selectable": false
             }
@@ -217,10 +205,7 @@
           "weight": 20.0,
           "rewards": [
             {
-              "id": "ultra_ball",
-              "kind": "item",
-              "value": "cobblemon:ultra_ball",
-              "count": 3,
+              "catalog_id": "ultra_ball",
               "weight": 1.0,
               "selectable": true
             }
@@ -232,10 +217,7 @@
           "weight": 5.0,
           "rewards": [
             {
-              "id": "master_ball",
-              "kind": "item",
-              "value": "cobblemon:master_ball",
-              "count": 1,
+              "catalog_id": "master_ball",
               "weight": 1.0,
               "selectable": true
             }
@@ -280,10 +262,7 @@
           "weight": 70.0,
           "rewards": [
             {
-              "id": "protect",
-              "kind": "item",
-              "value": "tmcraft:tm_protect",
-              "count": 1,
+              "catalog_id": "protect",
               "weight": 1.0,
               "selectable": false
             }
@@ -295,10 +274,7 @@
           "weight": 25.0,
           "rewards": [
             {
-              "id": "thunder",
-              "kind": "item",
-              "value": "tmcraft:tm_thunder",
-              "count": 1,
+              "catalog_id": "thunder",
               "weight": 1.0,
               "selectable": true
             }
@@ -310,10 +286,7 @@
           "weight": 5.0,
           "rewards": [
             {
-              "id": "fire_blast",
-              "kind": "item",
-              "value": "tmcraft:tm_fireblast",
-              "count": 1,
+              "catalog_id": "fire_blast",
               "weight": 1.0,
               "selectable": true
             }

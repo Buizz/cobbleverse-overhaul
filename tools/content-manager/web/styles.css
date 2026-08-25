@@ -1778,6 +1778,19 @@ body { font-size: 14px; line-height: 1.45; }
 
 /* Cobblemon Casino's partitioned AutoConfig JSON editor. */
 .gacha-machine-manager { display:grid; gap:14px; margin-bottom:18px; padding:16px; }
+.gacha-item-graphics { display:grid; gap:14px; margin-bottom:18px; padding:16px; }
+.gacha-item-graphics > .panel-heading { padding:0 0 13px; }
+.gacha-item-graphic-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.gacha-item-graphic-grid article { display:grid; grid-template-columns:96px minmax(0,1fr); gap:14px; align-items:center; padding:13px; border:1px solid #d2ddd7; border-radius:7px; background:#fafcfb; }
+.gacha-item-graphic-preview { display:grid; width:96px; height:96px; place-items:center; border:1px solid #b9c9c0; border-radius:8px; background:repeating-conic-gradient(#eef3f0 0 25%,#fff 0 50%) 50%/16px 16px; }
+.gacha-item-graphic-preview img { width:72px; height:72px; object-fit:contain; image-rendering:pixelated; filter:drop-shadow(0 7px 4px rgba(31,53,42,.22)); }
+.gacha-item-graphic-preview span { padding:7px; color:#708178; font-size:9px; font-weight:750; text-align:center; }
+.gacha-item-graphic-grid article > div:last-child { display:grid; min-width:0; gap:5px; }
+.gacha-item-graphic-grid strong { color:#294035; font-size:13px; }
+.gacha-item-graphic-grid code { overflow:hidden; color:#718178; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+.gacha-item-graphic-grid small { color:#687b71; font-size:9px; }
+.gacha-item-graphic-grid label.button { width:max-content; margin-top:4px; cursor:pointer; }
+.gacha-item-graphic-grid input[type=file] { display:none; }
 .gacha-machine-manager > .panel-heading { padding:0 0 13px; }
 .gacha-machine-manager > .panel-heading p { margin:4px 0 0; color:#687b71; font-size:10px; }
 .gacha-machine-workspace { display:grid; grid-template-columns:260px minmax(0,1fr); gap:14px; }
@@ -1803,9 +1816,13 @@ body { font-size: 14px; line-height: 1.45; }
 .gacha-reward-table { display:grid; gap:6px; overflow:auto; }
 .gacha-reward-row { display:grid; grid-template-columns:110px 95px minmax(180px,1fr) 70px 70px 75px 32px; align-items:center; gap:6px; min-width:720px; }
 .gacha-reward-row.head { color:#687b71; font-size:8px; font-weight:700; }
+.gacha-reward-row > strong,.gacha-reward-row > span,.gacha-reward-row > code { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gacha-reward-row > strong { color:#2f4b3d; font-size:10px; }
+.gacha-reward-row > span { color:#5f7369; font-size:9px; }
+.gacha-reward-row > code { color:#536c60; font-size:9px; }
 .gacha-machine-delete { border-color:#d9adb4!important; color:#a33b49!important; }
-@media (max-width:900px) { .gacha-machine-workspace{grid-template-columns:1fr}.gacha-machine-list{grid-template-columns:repeat(2,minmax(0,1fr))}.gacha-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
-@media (max-width:560px) { .gacha-machine-list,.gacha-field-grid{grid-template-columns:1fr}.gacha-field-grid label.wide{grid-column:auto} }
+@media (max-width:900px) { .gacha-machine-workspace{grid-template-columns:1fr}.gacha-machine-list{grid-template-columns:repeat(2,minmax(0,1fr))}.gacha-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gacha-item-graphic-grid{grid-template-columns:1fr} }
+@media (max-width:560px) { .gacha-machine-list,.gacha-field-grid{grid-template-columns:1fr}.gacha-field-grid label.wide{grid-column:auto}.gacha-item-graphic-grid article{grid-template-columns:72px minmax(0,1fr)}.gacha-item-graphic-preview{width:72px;height:72px}.gacha-item-graphic-preview img{width:56px;height:56px} }
 .casino-config-workspace { display:grid; grid-template-columns:minmax(250px,310px) minmax(0,1fr); gap:16px; align-items:start; }
 .casino-config-files,.casino-config-editor { min-height:640px; }
 .casino-config-file-list { display:grid; gap:7px; padding:0 14px 16px; }

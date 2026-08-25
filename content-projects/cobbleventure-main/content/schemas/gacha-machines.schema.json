@@ -15,7 +15,7 @@
       "type": "string"
     },
     "schema_version": {
-      "const": 3
+      "const": 4
     },
     "tickets": {
       "type": "object",
@@ -164,31 +164,14 @@
     "reward": {
       "type": "object",
       "required": [
-        "id",
-        "kind",
-        "value",
-        "count",
+        "catalog_id",
         "weight",
         "selectable"
       ],
       "properties": {
-        "id": {
+        "catalog_id": {
           "type": "string",
           "pattern": "^[a-z0-9_.-]+$"
-        },
-        "kind": {
-          "enum": [
-            "item",
-            "pokemon"
-          ]
-        },
-        "value": {
-          "type": "string",
-          "minLength": 1
-        },
-        "count": {
-          "type": "integer",
-          "minimum": 1
         },
         "weight": {
           "type": "number",

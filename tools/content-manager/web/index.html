@@ -399,7 +399,7 @@
                   <label data-gate-mode><span>가운데 배치물</span><select id="object-tool-gate-mode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option></select><small>가운데에 놓을 건물과 관문지기 NPC 조합을 선택합니다.</small></label>
                   <label data-object-resource><span>관문 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default" placeholder="cobbleventure:gate/route_01"></label>
                   <datalist id="world-object-nbt-options"></datalist>
-                  <div class="inline-fields"><label><span>방향</span><select id="object-tool-facing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
+                  <div class="inline-fields"><label><span>배치 가장자리</span><select id="object-tool-facing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 연결된 길이 한쪽 면에만 있으면 열린 면 중앙으로, 양쪽이면 두 면 사이 중앙으로 이동합니다.</small></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
                   <label><span>주변 장애물 종류</span><select id="object-tool-surrounding-type"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
                   <label data-gate-wall><span>벽 블록</span><input id="object-tool-wall-block" value="minecraft:stone_bricks"></label>
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input id="object-tool-tree-log" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input id="object-tool-tree-leaves" value="minecraft:oak_leaves"></label></div>
@@ -459,7 +459,7 @@
                   <label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label>
                   <label><span>타입</span><select name="objectType"><option value="gate">관문</option><option value="villain_base">빌런기지</option></select></label>
                   <label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/default"></label>
-                  <div class="inline-fields"><label><span>방향</span><select name="objectFacing"><option value="north">북쪽 · 가로벽</option><option value="east">동쪽 · 세로벽</option><option value="south">남쪽 · 가로벽</option><option value="west">서쪽 · 세로벽</option></select></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
+                  <div class="inline-fields"><label><span>배치 가장자리</span><select name="objectFacing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 연결된 길이 한쪽 면에만 있으면 열린 면 중앙으로, 양쪽이면 두 면 사이 중앙으로 이동합니다.</small></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
                   <label><span>주변 장애물 종류</span><select name="objectSurroundingType"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
                   <label data-gate-wall><span>벽 블록</span><input name="objectWallBlock" value="minecraft:stone_bricks"></label>
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input name="objectTreeLog" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input name="objectTreeLeaves" value="minecraft:oak_leaves"></label></div>
@@ -1182,9 +1182,17 @@
 
       <section class="page" id="casino-config">
         <div class="section-heading">
-          <div><p class="eyebrow">COBBLEMON CASINO 2.0.0</p><h2>카지노 모드 설정</h2><p>게임 규칙, 가챠 보상과 NPC 거래를 실제 모드 JSON 형식으로 관리합니다.</p></div>
-          <div class="section-actions"><button class="button secondary" id="reset-casino-config" type="button">2.0.0 기본값 복원</button><button class="button primary" id="save-casino-config" type="button">검증 후 저장</button></div>
+          <div><p class="eyebrow">COBBLEVENTURE CASINO</p><h2>카지노 콘텐츠 설정</h2><p>티켓 기반 커스텀 가챠와 카지노 전용 아이템을 관리합니다.</p></div>
         </div>
+        <section class="panel gacha-item-graphics">
+          <header class="panel-heading"><div><p class="eyebrow">ITEM GRAPHICS</p><h3>카지노 아이템 그래픽</h3><p>현재 게임에 적용되는 PNG를 확인하고 새 파일로 교체합니다. 정사각형 PNG를 권장합니다.</p></div></header>
+          <div class="gacha-item-graphic-grid">
+            <article data-gacha-graphic-card="coin_case"><div class="gacha-item-graphic-preview"><img data-gacha-graphic-preview="coin_case" alt="코인케이스 그래픽" hidden><span data-gacha-graphic-fallback="coin_case">이미지 없음</span></div><div><strong>코인케이스</strong><code>cobbleventure_casino:item/coin_case</code><small data-gacha-graphic-status="coin_case">확인 중</small><label class="button secondary">PNG 선택<input type="file" accept="image/png" data-gacha-graphic-file="coin_case"></label></div></article>
+            <article data-gacha-graphic-card="gacha_ticket_pokemon"><div class="gacha-item-graphic-preview"><img data-gacha-graphic-preview="gacha_ticket_pokemon" alt="포켓몬 가챠 티켓 그래픽" hidden><span data-gacha-graphic-fallback="gacha_ticket_pokemon">이미지 없음</span></div><div><strong>포켓몬 티켓</strong><code>cobbleventure_casino:item/gacha_ticket_pokemon</code><small data-gacha-graphic-status="gacha_ticket_pokemon">확인 중</small><label class="button secondary">PNG 선택<input type="file" accept="image/png" data-gacha-graphic-file="gacha_ticket_pokemon"></label></div></article>
+            <article data-gacha-graphic-card="gacha_ticket_item"><div class="gacha-item-graphic-preview"><img data-gacha-graphic-preview="gacha_ticket_item" alt="아이템 가챠 티켓 그래픽" hidden><span data-gacha-graphic-fallback="gacha_ticket_item">이미지 없음</span></div><div><strong>아이템 티켓</strong><code>cobbleventure_casino:item/gacha_ticket_item</code><small data-gacha-graphic-status="gacha_ticket_item">확인 중</small><label class="button secondary">PNG 선택<input type="file" accept="image/png" data-gacha-graphic-file="gacha_ticket_item"></label></div></article>
+            <article data-gacha-graphic-card="gacha_ticket_technical_machine"><div class="gacha-item-graphic-preview"><img data-gacha-graphic-preview="gacha_ticket_technical_machine" alt="기술머신 가챠 티켓 그래픽" hidden><span data-gacha-graphic-fallback="gacha_ticket_technical_machine">이미지 없음</span></div><div><strong>기술머신 티켓</strong><code>cobbleventure_casino:item/gacha_ticket_technical_machine</code><small data-gacha-graphic-status="gacha_ticket_technical_machine">확인 중</small><label class="button secondary">PNG 선택<input type="file" accept="image/png" data-gacha-graphic-file="gacha_ticket_technical_machine"></label></div></article>
+          </div>
+        </section>
         <section class="panel gacha-machine-manager">
           <header class="panel-heading">
             <div><p class="eyebrow">COBBLEVENTURE GACHA ADDON</p><h3>카지노별 가챠 세트</h3><p>카지노마다 포켓몬·아이템·기술머신 3기를 한 세트로 구성하고, 공통 티켓을 사용하면서 보상과 외형은 세트별로 설정합니다.</p></div>
@@ -1197,23 +1205,6 @@
           <div class="casino-config-help"><b>게임 적용</b><span>저장한 프로필은 <code>gacha_&lt;세트&gt;_&lt;종류&gt;</code> NPC 플래그에 연결할 수 있습니다. 기본 카지노의 3기는 실내 구조물 플래그에서 자동 배치됩니다.</span></div>
           <div id="gacha-machine-issues" class="issues empty">기계 설정을 불러오는 중입니다.</div>
         </section>
-        <div class="casino-config-workspace">
-          <aside class="panel casino-config-files">
-            <div class="panel-heading"><div><p class="eyebrow">CONFIG FILES</p><h3>설정 파일</h3></div><span id="casino-config-count" class="count-pill">11</span></div>
-            <div id="casino-config-file-list" class="casino-config-file-list"><div class="issues empty">카지노 설정을 불러오는 중입니다.</div></div>
-          </aside>
-          <section class="panel casino-config-editor">
-            <header class="panel-heading"><div><p class="eyebrow">VISUAL CONFIG EDITOR</p><h3 id="casino-config-title">파일을 선택하세요</h3><p id="casino-config-description"></p></div><span id="casino-config-status" class="path-label">—</span></header>
-            <div class="casino-config-path"><span>배포팩 저장 경로</span><code id="casino-config-path">—</code></div>
-            <div id="casino-config-form" class="casino-config-form"><div class="issues empty">설정 파일을 선택하세요.</div></div>
-            <details class="casino-config-advanced">
-              <summary>고급 JSON 편집</summary>
-              <div class="casino-config-advanced-body"><textarea id="casino-config-json" class="code-editor casino-config-json" spellcheck="false" aria-label="Cobblemon Casino JSON 설정" disabled></textarea><button class="button secondary" id="apply-casino-config-json" type="button">JSON 변경 반영</button></div>
-            </details>
-            <div class="casino-config-help"><b>적용 안내</b><span>상품은 행 단위로 추가·삭제할 수 있고, 검색으로 큰 기본 목록을 빠르게 좁힐 수 있습니다. 아이템 ID는 <code>mod:item</code> 형식을 사용하세요. 저장 후 게임·서버를 다시 시작해야 변경 내용이 적용됩니다.</span></div>
-            <div id="casino-config-issues" class="issues empty">설정 파일을 선택하세요.</div>
-          </section>
-        </div>
       </section>
 
       <section class="page" id="builds">

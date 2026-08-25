@@ -11,6 +11,7 @@ import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,6 +19,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomModelData;
 
 /** PokeRogue-inspired reward preview with a short server-authoritative reveal. */
 public final class GachaMachineScreen extends Screen {
@@ -124,9 +126,21 @@ public final class GachaMachineScreen extends Screen {
             graphics, left + 2, panelTop + 10, left + 5, panelTop + 31,
             1, menuTheme.accent
         );
-        graphics.renderItem(new ItemStack(CasinoItems.GACHA_TICKET.get()), left + 8, panelTop + 13);
+        graphics.renderItem(ticketIcon(), left + 8, panelTop + 13);
         graphics.drawString(font, payload.ticketName(), left + 29, panelTop + 11, menuTheme.mutedText(), false);
         graphics.drawString(font, "× " + tickets, left + 29, panelTop + 22, menuTheme.textColor, false);
+    }
+
+    private ItemStack ticketIcon() {
+        ItemStack stack = new ItemStack(CasinoItems.GACHA_TICKET.get());
+        int modelData = switch (payload.machineType()) {
+            case "pokemon" -> 1;
+            case "item" -> 2;
+            case "technical_machine" -> 3;
+            default -> 0;
+        };
+        stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(modelData));
+        return stack;
     }
 
     private void renderRewardList(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -229,7 +243,7 @@ public final class GachaMachineScreen extends Screen {
                 Component.translatable(pendingResult.messageKey()), centerX, top + 143,
                 menuTheme.accent);
         } else {
-            graphics.renderItem(new ItemStack(CasinoItems.GACHA_TICKET.get()), centerX - 8, top + 60);
+            graphics.renderItem(ticketIcon(), centerX - 8, top + 60);
             Component status = state == State.ERROR && pendingResult != null
                 ? Component.translatable(pendingResult.messageKey())
                 : Component.translatable("screen.cobbleventure_casino.gacha.ready");

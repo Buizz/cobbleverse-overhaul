@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -301,65 +302,85 @@ final class WorldGateSystem {
     }
 
     /**
-     * Keeps the authored hex anchor on its boundary axis while snapping the
-     * perpendicular axis to the nearest route centerline. This puts the NBT,
-     * opening, NPC, collision threshold, and approach road on one shared line.
+     * Resolves an ordinary gate's actual placement on the selected edge of its
+     * anchor hex. East and west each have one face. North and south meet two
+     * diagonal faces, so a route through only one of them selects that face's
+     * midpoint; when both (or neither) are open the gate stays centered between
+     * them. Forest entrances retain their tile-center ray origin because their
+     * separate cave-style geometry already finds the outer collision boundary.
+     * Every gate consumer uses this point, keeping the structure, NPC,
+     * collision threshold, radar marker, and approach road together.
      */
     private static CobbleventureBootstrap.Point alignedGateCenter(
         HexWorldPlan world, Gate gate
     ) {
-        CobbleventureBootstrap.Point authored = world.grid().worldCenter(gate.anchor());
-        Direction normal = facingDirection(gate.facing());
-        double maximumDistance = world.grid().radius() * 1.35D;
-        double bestScore = Double.POSITIVE_INFINITY;
-        double bestX = authored.x();
-        double bestZ = authored.z();
-        for (WorldPlanModels.ConnectionPath path : world.paths()) {
-            List<CobbleventureBootstrap.Point> points = path.centerline();
-            for (int index = 1; index < points.size(); index++) {
-                CobbleventureBootstrap.Point start = points.get(index - 1);
-                CobbleventureBootstrap.Point end = points.get(index);
-                double dx = end.x() - start.x();
-                double dz = end.z() - start.z();
-                double lengthSquared = dx * dx + dz * dz;
-                if (lengthSquared < 1.0D) {
-                    continue;
-                }
-                double alignment = Math.abs(
-                    (dx * normal.getStepX() + dz * normal.getStepZ())
-                        / Math.sqrt(lengthSquared)
-                );
-                if (alignment < 0.65D) {
-                    continue;
-                }
-                double projection = ((authored.x() - start.x()) * dx
-                    + (authored.z() - start.z()) * dz) / lengthSquared;
-                projection = Math.max(0.0D, Math.min(1.0D, projection));
-                double projectedX = start.x() + dx * projection;
-                double projectedZ = start.z() + dz * projection;
-                double distance = Math.hypot(
-                    projectedX - authored.x(), projectedZ - authored.z()
-                );
-                if (distance > maximumDistance) {
-                    continue;
-                }
-                double lateral = normal.getAxis() == Direction.Axis.X
-                    ? Math.abs(projectedZ - authored.z())
-                    : Math.abs(projectedX - authored.x());
-                double score = lateral + distance * 0.12D;
-                if (score < bestScore) {
-                    bestScore = score;
-                    bestX = projectedX;
-                    bestZ = projectedZ;
-                }
-            }
+        if (gate.destinationForest() != null) {
+            return world.grid().worldCenter(gate.anchor());
         }
-        if (!Double.isFinite(bestScore)) {
-            return authored;
+        return gateEdgeCenter(
+            world.grid(), gate.anchor(), gate.facing(),
+            offset -> gateFaceIsOpen(world, gate.anchor(), offset)
+        );
+    }
+
+    static CobbleventureBootstrap.Point gateEdgeCenter(
+        HexGrid grid, HexCoord anchor, String facing, Predicate<HexCoord> faceIsOpen
+    ) {
+        List<HexCoord> faces = switch (facing) {
+            case "north" -> List.of(new HexCoord(0, -1), new HexCoord(1, -1));
+            case "east" -> List.of(new HexCoord(1, 0));
+            case "south" -> List.of(new HexCoord(-1, 1), new HexCoord(0, 1));
+            case "west" -> List.of(new HexCoord(-1, 0));
+            default -> throw new IllegalStateException(
+                "Unsupported gate facing: " + facing
+            );
+        };
+        if (faces.size() == 1) {
+            return gateFaceCenter(grid, anchor, faces.getFirst());
         }
-        return normal.getAxis() == Direction.Axis.X
-            ? new CobbleventureBootstrap.Point(authored.x(), (int) Math.round(bestZ))
-            : new CobbleventureBootstrap.Point((int) Math.round(bestX), authored.z());
+
+        boolean firstOpen = faceIsOpen.test(faces.get(0));
+        boolean secondOpen = faceIsOpen.test(faces.get(1));
+        if (firstOpen != secondOpen) {
+            return gateFaceCenter(
+                grid, anchor, firstOpen ? faces.get(0) : faces.get(1)
+            );
+        }
+        CobbleventureBootstrap.Point tile = grid.worldCenter(anchor);
+        CobbleventureBootstrap.Point firstNeighbor = grid.worldCenter(anchor.plus(faces.get(0)));
+        CobbleventureBootstrap.Point secondNeighbor = grid.worldCenter(anchor.plus(faces.get(1)));
+        return new CobbleventureBootstrap.Point(
+            roundGateCoordinate(tile.x() * 0.5D
+                + (firstNeighbor.x() + secondNeighbor.x()) * 0.25D),
+            roundGateCoordinate(tile.z() * 0.5D
+                + (firstNeighbor.z() + secondNeighbor.z()) * 0.25D)
+        );
+    }
+
+    private static CobbleventureBootstrap.Point gateFaceCenter(
+        HexGrid grid, HexCoord anchor, HexCoord offset
+    ) {
+        CobbleventureBootstrap.Point tile = grid.worldCenter(anchor);
+        CobbleventureBootstrap.Point neighbor = grid.worldCenter(anchor.plus(offset));
+        return new CobbleventureBootstrap.Point(
+            roundGateCoordinate((tile.x() + neighbor.x()) * 0.5D),
+            roundGateCoordinate((tile.z() + neighbor.z()) * 0.5D)
+        );
+    }
+
+    private static int roundGateCoordinate(double value) {
+        return value < 0.0D
+            ? (int) Math.ceil(value - 0.5D)
+            : (int) Math.floor(value + 0.5D);
+    }
+
+    private static boolean gateFaceIsOpen(
+        HexWorldPlan world, HexCoord anchor, HexCoord offset
+    ) {
+        HexCoord neighbor = anchor.plus(offset);
+        return world.paths().stream().anyMatch(path ->
+            path.cells().contains(anchor) && path.cells().contains(neighbor)
+        );
     }
 
     static List<RadarLocationCatalog.Location> radarLocations(

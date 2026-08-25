@@ -7,6 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.CustomModelData;
 
 final class GachaTickets {
     private static final String TICKET_TYPE_KEY = "GachaTicketType";
@@ -19,8 +20,18 @@ final class GachaTickets {
         CompoundTag tag = new CompoundTag();
         tag.putString(TICKET_TYPE_KEY, machine.machine_type);
         stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+        stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(modelData(machine.machine_type)));
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(machine.ticket.display_name));
         return stack;
+    }
+
+    static int modelData(String ticketType) {
+        return switch (ticketType) {
+            case "pokemon" -> 1;
+            case "item" -> 2;
+            case "technical_machine" -> 3;
+            default -> 0;
+        };
     }
 
     static String ticketType(ItemStack stack) {
