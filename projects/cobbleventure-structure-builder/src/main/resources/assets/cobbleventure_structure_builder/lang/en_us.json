@@ -2,5 +2,6 @@
   "key.categories.cobbleventure_structure_builder": "Cobbleventure Building Editor",
   "key.cobbleventure_structure_builder.toolbar": "Open Building Editor",
   "key.cobbleventure_structure_builder.travel": "Open Space Travel",
-  "key.cobbleventure_structure_builder.resize": "Resize Interior Space"
+  "key.cobbleventure_structure_builder.resize": "Resize Interior Space",
+  "block.cobbleventure_bootstrap.excavation_marker": "Excavation Air Marker"
 }

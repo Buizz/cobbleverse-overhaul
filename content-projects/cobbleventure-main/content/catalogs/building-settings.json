@@ -342,6 +342,7 @@
     "cobbleventure:interiors/gyms/base_gym_interior": {
       "placement_y_offset": 0,
       "structure_category": "gym_interior",
+      "music_track": "facility.gym",
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},

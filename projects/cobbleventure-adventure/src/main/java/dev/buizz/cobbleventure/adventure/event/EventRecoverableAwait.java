@@ -6,6 +6,27 @@ import java.util.Objects;
 public final class EventRecoverableAwait {
     private EventRecoverableAwait() {}
 
+    /** Repairs sessions created by the old number-input cancellation callback. */
+    public static boolean resetLegacyCancelledNumberInput(
+        EventSessionStore store, EventSessionKey key
+    ) {
+        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(key, "key");
+        EventSession session = store.find(key).orElse(null);
+        if (session == null
+            || session.status() != EventSession.Status.RUNNING
+            || session.awaiting() != null
+            || session.locals().values().stream().noneMatch(value ->
+                value.isJsonPrimitive()
+                    && value.getAsJsonPrimitive().isString()
+                    && "client_cancelled".equals(value.getAsString()))) {
+            return false;
+        }
+        session.terminate(EventSession.CompletionKind.CANCELLED);
+        store.save(session);
+        return true;
+    }
+
     public static boolean resetStarterRoulette(
         EventSessionStore store, EventSessionKey key
     ) {

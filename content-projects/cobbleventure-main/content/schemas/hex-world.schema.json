@@ -493,7 +493,7 @@
       "additionalProperties": false,
       "required": ["id", "anchor", "facing", "structure"],
       "oneOf": [
-        { "required": ["cave", "entrance"], "not": { "anyOf": [{ "required": ["underground_road"] }, { "required": ["transition"] }, { "required": ["underground_module"] }, { "required": ["underground_connector"] }] } },
+        { "required": ["cave", "entrance", "transition"], "not": { "anyOf": [{ "required": ["underground_road"] }, { "required": ["underground_module"] }, { "required": ["underground_connector"] }] } },
         { "required": ["underground_road", "transition", "underground_module", "underground_connector"], "not": { "anyOf": [{ "required": ["cave"] }, { "required": ["entrance"] }] } }
       ],
       "properties": {

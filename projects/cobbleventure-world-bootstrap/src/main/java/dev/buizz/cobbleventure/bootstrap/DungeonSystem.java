@@ -107,6 +107,7 @@ final class DungeonSystem {
     private static final Set<UUID> COMPLETING_RUNS = new HashSet<>();
     private static final Set<UUID> INTERNAL_TELEPORTS = new HashSet<>();
     private static final long TETHER_WARNING_COOLDOWN_TICKS = 100L;
+    private static final long OBJECTIVE_TRACKER_INTERVAL_TICKS = 80L;
 
     private DungeonSystem() {}
 
@@ -277,7 +278,9 @@ final class DungeonSystem {
                         run, "참가자가 출구를 사용해 던전 도전이 종료되었습니다.", false
                     );
                 }
+                return;
             }
+            if (run != null) showObjectiveTracker(player, run, gameTime);
             return;
         }
         if (run != null) {
@@ -339,6 +342,7 @@ final class DungeonSystem {
             return;
         }
         event.setCanceled(true);
+        deferObjectiveTracker(run, player, 60L);
         player.displayClientMessage(Component.literal(
             "[Cobbleventure] 던전 도전 중에는 외부 순간이동을 사용할 수 없습니다."
         ), true);
@@ -727,7 +731,7 @@ final class DungeonSystem {
             new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
             new DungeonLootClaims(), new DungeonLootLedger(), new HashMap<>(),
-            new HashSet<>()
+            new HashSet<>(), new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         for (int index = 0; index < entries.size(); index++) {
@@ -818,6 +822,7 @@ final class DungeonSystem {
             ));
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
+        ExplicitAirPlacementProcessor.configure(template, settings);
         if (!template.placeInWorld(
             level, origin, origin, settings,
             RandomSource.create(level.getSeed() ^ origin.asLong()), 2
@@ -1070,6 +1075,7 @@ final class DungeonSystem {
             .filter(candidate -> run.origin().offset(candidate.position()).equals(position))
             .findFirst().orElse(null);
         if (container == null) return false;
+        deferObjectiveTracker(run, player, 60L);
         if (container.requiresCompletion() && !completionReached(player, run)) {
             player.displayClientMessage(Component.literal(
                 "[던전] 클리어 조건을 달성해야 이 상자를 열 수 있습니다."
@@ -1190,6 +1196,7 @@ final class DungeonSystem {
             opponent.getUUID()
         );
         if (entityRef == null) return false;
+        deferObjectiveTracker(run, initiator, 60L);
         String encounterId = entityRef.encounterId();
         DungeonDefinition definition = definitions.get(run.dungeonId());
         DungeonDefinition.Encounter encounter = definition == null ? null
@@ -1515,6 +1522,58 @@ final class DungeonSystem {
         }
     }
 
+    private static void showObjectiveTracker(
+        ServerPlayer player, ActiveRun run, long gameTime
+    ) {
+        UUID playerId = player.getUUID();
+        if (gameTime < run.objectiveMessageAfter().getOrDefault(playerId, 0L)
+            || gameTime < run.tetherWarningUntil().getOrDefault(playerId, 0L)
+            || BattleRegistry.getBattleByParticipatingPlayer(player) != null
+            || run.encounters().pendingEncounterId != null
+            || run.encounters().statusById.containsValue(EncounterStatus.ACTIVE)) {
+            return;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null) return;
+        run.objectiveMessageAfter().put(
+            playerId, gameTime + OBJECTIVE_TRACKER_INTERVAL_TICKS
+        );
+        if (completionReached(player, run)) {
+            player.displayClientMessage(Component.literal(
+                definition.completion().returnTrigger().equals("clear_exit")
+                    ? "[던전] 목표 완료 | 클리어 룸의 귀환 장치로 이동하세요."
+                    : "[던전] 목표 완료 | 귀환을 준비합니다."
+            ), true);
+            return;
+        }
+        long defeated = definition.encounters().stream()
+            .filter(encounter -> run.encounters().statusById.get(encounter.id())
+                == EncounterStatus.DEFEATED)
+            .count();
+        List<String> available = definition.encounters().stream()
+            .filter(encounter -> run.encounters().statusById.get(encounter.id())
+                == EncounterStatus.AVAILABLE)
+            .filter(encounter -> encounter.requires().stream().allMatch(required ->
+                run.encounters().statusById.get(required) == EncounterStatus.DEFEATED
+            ))
+            .map(DungeonDefinition.Encounter::displayName)
+            .toList();
+        String objective = available.isEmpty()
+            ? "목표 상태를 갱신하는 중입니다."
+            : String.join(" / ", available);
+        player.displayClientMessage(Component.literal(
+            "[던전] 필수 조우 " + defeated + "/" + definition.encounters().size()
+                + " | 현재 목표: " + objective
+        ), true);
+    }
+
+    private static void deferObjectiveTracker(
+        ActiveRun run, ServerPlayer player, long delayTicks
+    ) {
+        long next = player.serverLevel().getGameTime() + delayTicks;
+        run.objectiveMessageAfter().merge(player.getUUID(), next, Math::max);
+    }
+
     private static boolean expirePendingEncounter(ActiveRun run, long gameTime) {
         EncounterRuntime runtime = run.encounters();
         if (runtime.pendingEncounterId == null
@@ -1539,6 +1598,7 @@ final class DungeonSystem {
             .filter(candidate -> run.origin().offset(candidate.position()).equals(position))
             .findFirst().orElse(null);
         if (station == null) return false;
+        deferObjectiveTracker(run, player, 60L);
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             player.displayClientMessage(Component.literal(
                 "전투 중에는 던전 치료소를 사용할 수 없습니다."
@@ -2167,7 +2227,8 @@ final class DungeonSystem {
         DungeonLootClaims lootClaims,
         DungeonLootLedger lootLedger,
         Map<UUID, ReconnectState> reconnecting,
-        Set<String> openedGates
+        Set<String> openedGates,
+        Map<UUID, Long> objectiveMessageAfter
     ) {}
 
     private record ReconnectState(

@@ -17,5 +17,6 @@
   "message.cobbleventure_bootstrap.battle_forfeit": "%s는 승부를 포기했다!",
   "message.cobbleventure_bootstrap.battle_money_lost": "%s원을 잃었다…",
   "message.cobbleventure_bootstrap.battle_money_paid": "%1$s원을 %2$s에게 줬다…",
-  "message.cobbleventure_bootstrap.battle_opponent": "상대"
+  "message.cobbleventure_bootstrap.battle_opponent": "상대",
+  "block.cobbleventure_bootstrap.excavation_marker": "굴착 공기 마커"
 }

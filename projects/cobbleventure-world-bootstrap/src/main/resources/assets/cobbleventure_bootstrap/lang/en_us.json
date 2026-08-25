@@ -17,5 +17,6 @@
   "message.cobbleventure_bootstrap.battle_forfeit": "%s forfeited the battle!",
   "message.cobbleventure_bootstrap.battle_money_lost": "Lost $%s…",
   "message.cobbleventure_bootstrap.battle_money_paid": "Paid $%1$s to %2$s…",
-  "message.cobbleventure_bootstrap.battle_opponent": "the opponent"
+  "message.cobbleventure_bootstrap.battle_opponent": "the opponent",
+  "block.cobbleventure_bootstrap.excavation_marker": "Excavation Air Marker"
 }

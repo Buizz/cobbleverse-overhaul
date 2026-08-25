@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "anchors": [
+    {
+      "id": "cave_entry",
+      "label": "cave_entry",
+      "type": "transition",
+      "position": [16, 7, 14],
+      "safe_spawn": [16, 7, 13],
+      "facing": "north"
+    }
+  ]
+}

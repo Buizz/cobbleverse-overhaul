@@ -66,6 +66,8 @@ final class StructurePlacementFixes {
         PENDING_COPYCAT_CHUNK_SYNCS = new LinkedHashMap<>();
     private static final Map<Class<?>, Method> COPYCAT_MULTI_SET_MATERIAL_METHODS =
         new LinkedHashMap<>();
+    private static final Map<Class<?>, Method> COPYCAT_SINGLE_SET_MATERIAL_METHODS =
+        new LinkedHashMap<>();
     private static final Map<ResourceLocation, ResourceLocation> FRIDGE_LOWER_BY_UPPER = Map.of(
         id("cobblefurnies", "light_freezer"), id("cobblefurnies", "light_fridge"),
         id("cobblefurnies", "dark_freezer"), id("cobblefurnies", "dark_fridge")
@@ -736,6 +738,9 @@ final class StructurePlacementFixes {
         CompoundTag data
     ) {
         blockEntity.loadWithComponents(data.copy(), level.registryAccess());
+        applySingleStateCopycatMaterial(
+            blockEntity, data, level.holderLookup(Registries.BLOCK)
+        );
         applyMultiStateCopycatMaterials(
             blockEntity, data, level.holderLookup(Registries.BLOCK)
         );
@@ -753,6 +758,33 @@ final class StructurePlacementFixes {
                 player.connection.send(updatePacket);
             }
         }
+    }
+
+    /**
+     * Copycats+' legacy single-state blocks store their appearance in {@code Material} rather
+     * than {@code material_data}. Loading the tag updates the saved field, but it does not
+     * consistently rebuild the rendered model after a structure is placed. Reapply the authored
+     * state through Copycats+' public setter so half panels and the other single-state variants
+     * take the same redraw path as a material applied by a player.
+     */
+    private static void applySingleStateCopycatMaterial(
+        BlockEntity blockEntity,
+        CompoundTag data,
+        HolderGetter<Block> blocks
+    ) {
+        if (!data.contains("Material", Tag.TAG_COMPOUND)) {
+            return;
+        }
+        Method setMaterial = COPYCAT_SINGLE_SET_MATERIAL_METHODS.computeIfAbsent(
+            blockEntity.getClass(), StructurePlacementFixes::findSingleStateSetMaterialMethod
+        );
+        BlockState material = NbtUtils.readBlockState(blocks, data.getCompound("Material"));
+        invokeCopycatMaterialSetter(
+            setMaterial,
+            blockEntity,
+            new Object[] {material},
+            "single-state"
+        );
     }
 
     /**
@@ -784,21 +816,24 @@ final class StructurePlacementFixes {
             BlockState material = NbtUtils.readBlockState(
                 blocks, partData.getCompound("material")
             );
-            try {
-                setMaterial.invoke(blockEntity, part, material);
-            } catch (IllegalAccessException error) {
-                throw new IllegalStateException(
-                    "Cannot access Copycats+ multi-state material setter", error
-                );
-            } catch (InvocationTargetException error) {
-                Throwable cause = error.getCause();
-                if (cause instanceof RuntimeException runtime) {
-                    throw runtime;
-                }
-                throw new IllegalStateException(
-                    "Copycats+ multi-state material setter failed", cause
-                );
-            }
+            invokeCopycatMaterialSetter(
+                setMaterial,
+                blockEntity,
+                new Object[] {part, material},
+                "multi-state"
+            );
+        }
+    }
+
+    private static Method findSingleStateSetMaterialMethod(Class<?> blockEntityClass) {
+        try {
+            return blockEntityClass.getMethod("setMaterial", BlockState.class);
+        } catch (NoSuchMethodException error) {
+            throw new IllegalStateException(
+                "Block entity contains Material but has no single-state material setter: "
+                    + blockEntityClass.getName(),
+                error
+            );
         }
     }
 
@@ -812,6 +847,29 @@ final class StructurePlacementFixes {
                 "Block entity contains material_data but has no multi-state material setter: "
                     + blockEntityClass.getName(),
                 error
+            );
+        }
+    }
+
+    private static void invokeCopycatMaterialSetter(
+        Method setter,
+        BlockEntity blockEntity,
+        Object[] arguments,
+        String kind
+    ) {
+        try {
+            setter.invoke(blockEntity, arguments);
+        } catch (IllegalAccessException error) {
+            throw new IllegalStateException(
+                "Cannot access Copycats+ " + kind + " material setter", error
+            );
+        } catch (InvocationTargetException error) {
+            Throwable cause = error.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new IllegalStateException(
+                "Copycats+ " + kind + " material setter failed", cause
             );
         }
     }

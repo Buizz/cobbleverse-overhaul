@@ -40,6 +40,13 @@ WorldEdit 선택
 도구와 충돌하므로 나무도끼는 사용하지 않는다. `save`는 NBT와 출입구
 `.structure.json`을 함께 내보낸다.
 
+## 굴착 공기 마커
+
+에딧월드 접속 시 `cobbleventure_bootstrap:excavation_marker` 64개를 지급한다.
+이 마커가 하나라도 들어간 NBT는 일반 `air`로 기존 지형을 지우지 않는다. 실제 월드
+배치 시 마커 위치만 공기로 치환되므로, 흙이나 산을 파낼 계단실·통로 공간을 마커로
+채운다. 베리어는 굴착 용도로 사용하지 않고 `transition` 접촉 이동 영역으로 남긴다.
+
 ## 엔티티 내보내기
 
 구조 저장은 일반 몹·NPC·아이템 엔티티를 제외한다. 다음 장식·설비 엔티티만 저장
@@ -94,6 +101,9 @@ py -3 tools\structure-builder\generate_underground_road_modules.py
 크기는 24×16×20이며, 정문의 `cobbleventure:road_anchor` 직소가 길 높이와 방향을
 정하는 배치 기준이다. 건물 내부 하행 계단의 연결된 배리어 벽은
 `underground_entry` transition 앵커이며, 플레이어가 닿으면 실제 이동이 발동한다.
+
+동굴 입구 5종도 같은 규칙을 사용한다. 테이퍼 통로 내부는 굴착 공기 마커로 저장되고,
+`cave_entry`로 지정한 연결 베리어에 닿을 때 동굴 차원으로 이동한다.
 
 ```bat
 py -3 tools\structure-builder\generate_underground_entrance.py

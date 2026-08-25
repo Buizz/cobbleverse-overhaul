@@ -15,7 +15,7 @@ METADATA_OUTPUT = OUTPUT.with_suffix(".structure.json")
 
 def generate() -> Path:
     width, height, depth = SIZE
-    air = ("minecraft:air", (), None)
+    excavation = ("cobbleventure_bootstrap:excavation_marker", (), None)
     blocks: dict[tuple[int, int, int], tuple[str, tuple[tuple[str, str], ...], dict[str, object] | None]] = {}
 
     # Clear and floor the authored building volume. The broad footprint makes
@@ -24,7 +24,7 @@ def generate() -> Path:
         for z in range(2, depth - 2):
             blocks[(x, 0, z)] = ("minecraft:polished_deepslate", (), None)
             for y in range(1, 13):
-                blocks[(x, y, z)] = air
+                blocks[(x, y, z)] = excavation
 
     # Main stone station shell with an open four-block-wide front doorway.
     for y in range(1, 12):
@@ -74,7 +74,7 @@ def generate() -> Path:
         for z in range(0, 3):
             blocks[(x, 0, z)] = ("minecraft:smooth_stone", (), None)
             for y in range(1, 5):
-                blocks[(x, y, z)] = air
+                blocks[(x, y, z)] = excavation
     blocks[(11, 1, 0)] = marker(
         "cobbleventure:road_anchor", "north", "minecraft:smooth_stone"
     )

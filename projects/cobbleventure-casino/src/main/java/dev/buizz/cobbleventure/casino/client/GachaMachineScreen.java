@@ -1,12 +1,15 @@
 package dev.buizz.cobbleventure.casino.client;
 
 import com.cobblemon.mod.common.api.pokemon.PokemonSpecies;
+import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
+import com.cobblemon.mod.common.pokemon.RenderablePokemon;
 import com.cobblemon.mod.common.pokemon.Species;
 import dev.buizz.cobbleventure.casino.CasinoItems;
 import dev.buizz.cobbleventure.casino.GachaMachineNetwork;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -59,6 +62,10 @@ public final class GachaMachineScreen extends Screen {
     private int themeRight;
     private int themeBottom;
     private CasinoMenuTheme menuTheme;
+    private final List<ModelWidget> rewardModels = new ArrayList<>();
+    private final List<String> rewardModelSpecies = new ArrayList<>();
+    private ModelWidget featuredModel;
+    private String featuredModelSpecies = "";
 
     public GachaMachineScreen(GachaMachineNetwork.OpenPayload payload) {
         super(Component.literal(payload.machineName()));
@@ -88,6 +95,7 @@ public final class GachaMachineScreen extends Screen {
         listRight = split - 8;
         listBottom = panelBottom - 16;
         int buttonWidth = Math.max(120, panelRight - split - 28);
+        initPokemonModels();
         pullButton = addRenderableWidget(new GachaButton(
             split + 14, panelBottom - 48, buttonWidth, 28
         ));
@@ -104,6 +112,7 @@ public final class GachaMachineScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        hidePokemonModels();
         graphics.fill(0, 0, width, height, 0xB8050A12);
         CasinoThemedPanel.draw(
             graphics, menuTheme,
@@ -256,7 +265,11 @@ public final class GachaMachineScreen extends Screen {
                 graphics, listLeft + 6, y + 3, listLeft + 9, y + ROW_HEIGHT - 6,
                 1, rarityColor
             );
-            graphics.renderItem(rewardIcon(reward.kind(), reward.value()), listLeft + 11, y + 4);
+            if ("pokemon".equals(reward.kind())) {
+                showRewardPokemon(row, reward.value(), listLeft + 9, y + 1);
+            } else {
+                graphics.renderItem(rewardIcon(reward.kind(), reward.value()), listLeft + 11, y + 4);
+            }
             Component name = rewardName(reward.kind(), reward.value(), reward.rewardId());
             graphics.drawString(font,
                 font.plainSubstrByWidth(name.getString(), Math.max(30, listRight - listLeft - 145)),
@@ -293,7 +306,7 @@ public final class GachaMachineScreen extends Screen {
         );
         int centerX = (left + right) / 2;
         GachaMachineNetwork.ThemeView theme = activeTheme();
-        graphics.drawCenteredString(font,
+        drawCenteredNoShadow(graphics,
             theme == null ? Component.translatable("screen.cobbleventure_casino.gacha.machine")
                 : Component.literal(theme.name()),
             centerX, top + 12, menuTheme.mutedText());
@@ -308,12 +321,12 @@ public final class GachaMachineScreen extends Screen {
             GachaMachineNetwork.RewardView preview = rewards.isEmpty() ? null
                 : rewards.get((animationTicks / 3) % rewards.size());
             if (preview != null) {
-                graphics.renderItem(rewardIcon(preview.kind(), preview.value()), centerX - 8, top + 58);
-                graphics.drawCenteredString(font,
+                renderFeaturedReward(graphics, preview.kind(), preview.value(), centerX, top + 35);
+                drawCenteredNoShadow(graphics,
                     font.plainSubstrByWidth(rewardName(preview.kind(), preview.value(), preview.rewardId()).getString(), right - left - 20),
                     centerX, top + 112, rarityColor(preview.rarityId()));
             }
-            graphics.drawCenteredString(font,
+            drawCenteredNoShadow(graphics,
                 Component.translatable("screen.cobbleventure_casino.gacha.rolling"),
                 centerX, top + 128, menuTheme.accent);
         } else if (state == State.REVEALED && pendingResult != null && pendingResult.success()) {
@@ -323,30 +336,47 @@ public final class GachaMachineScreen extends Screen {
                 graphics, centerX - 33, top + 39, centerX + 33, top + 105,
                 menuTheme.rowRadius, menuTheme.background
             );
-            graphics.renderItem(rewardIcon(pendingResult.kind(), pendingResult.value()), centerX - 8, top + 59);
-            graphics.drawCenteredString(font, pendingResult.rarityName(), centerX, top + 115, color);
-            graphics.drawCenteredString(font,
+            renderFeaturedReward(graphics, pendingResult.kind(), pendingResult.value(), centerX, top + 35);
+            drawCenteredNoShadow(graphics, pendingResult.rarityName(), centerX, top + 115, color);
+            drawCenteredNoShadow(graphics,
                 font.plainSubstrByWidth(rewardName(pendingResult.kind(), pendingResult.value(), pendingResult.rewardId()).getString(), right - left - 18),
                 centerX, top + 129, menuTheme.textColor);
-            graphics.drawCenteredString(font,
+            drawCenteredNoShadow(graphics,
                 Component.translatable(pendingResult.messageKey()), centerX, top + 143,
                 menuTheme.accent);
         } else {
-            graphics.renderItem(ticketIcon(), centerX - 8, top + 60);
+            if ("pokemon".equals(payload.machineType()) && !rewards.isEmpty()) {
+                GachaMachineNetwork.RewardView preview = rewards.getFirst();
+                renderFeaturedReward(graphics, preview.kind(), preview.value(), centerX, top + 35);
+            } else {
+                graphics.renderItem(ticketIcon(), centerX - 8, top + 60);
+            }
             Component status = state == State.ERROR && pendingResult != null
                 ? Component.translatable(pendingResult.messageKey())
                 : Component.translatable("screen.cobbleventure_casino.gacha.ready");
-            graphics.drawCenteredString(font, status, centerX, top + 92,
+            drawCenteredNoShadow(graphics, status, centerX, top + 107,
                 state == State.ERROR ? 0xFFFF7070 : menuTheme.textColor);
         }
 
         int infoY = Math.max(top + 160, bottom - 55);
-        if (hardPity > 0) graphics.drawCenteredString(font,
+        if (hardPity > 0) drawCenteredNoShadow(graphics,
             Component.translatable("screen.cobbleventure_casino.gacha.hard_pity", pulls, hardPity),
             centerX, infoY, menuTheme.mutedText());
-        if (selectionRequired > 0) graphics.drawCenteredString(font,
+        if (selectionRequired > 0) drawCenteredNoShadow(graphics,
             Component.translatable("screen.cobbleventure_casino.gacha.selection", selectionPoints, selectionRequired),
             centerX, infoY + 13, menuTheme.mutedText());
+    }
+
+    private void drawCenteredNoShadow(
+        GuiGraphics graphics, Component text, int centerX, int y, int color
+    ) {
+        graphics.drawString(font, text, centerX - font.width(text) / 2, y, color, false);
+    }
+
+    private void drawCenteredNoShadow(
+        GuiGraphics graphics, String text, int centerX, int y, int color
+    ) {
+        graphics.drawString(font, text, centerX - font.width(text) / 2, y, color, false);
     }
 
     @Override
@@ -451,6 +481,83 @@ public final class GachaMachineScreen extends Screen {
         );
     }
 
+    private void initPokemonModels() {
+        rewardModels.clear();
+        rewardModelSpecies.clear();
+        Species fallback = PokemonSpecies.getByName("bulbasaur");
+        if (fallback == null) return;
+        RenderablePokemon renderable = new RenderablePokemon(fallback, Set.of(), ItemStack.EMPTY);
+        int visibleRewards = Math.max(1, (listBottom - listTop - 8) / ROW_HEIGHT);
+        for (int row = 0; row < visibleRewards; row++) {
+            ModelWidget model = CobblemonModelWidgetCompat.create(
+                0, 0, 20, 20, renderable, .55F, 25.0F, 0.0D, false, false
+            );
+            model.active = false;
+            model.visible = false;
+            rewardModels.add(addRenderableWidget(model));
+            rewardModelSpecies.add("");
+        }
+        featuredModel = CobblemonModelWidgetCompat.create(
+            0, 0, 60, 60, renderable, .85F, 25.0F, 0.0D, false, false
+        );
+        featuredModel.active = false;
+        featuredModel.visible = false;
+        addRenderableWidget(featuredModel);
+    }
+
+    private void hidePokemonModels() {
+        for (ModelWidget model : rewardModels) model.visible = false;
+        if (featuredModel != null) featuredModel.visible = false;
+    }
+
+    private void showRewardPokemon(int row, String value, int x, int y) {
+        if (row < 0 || row >= rewardModels.size()) return;
+        Species species = rewardSpecies(value);
+        if (species == null) return;
+        String id = species.getResourceIdentifier().toString();
+        ModelWidget model = rewardModels.get(row);
+        if (!id.equals(rewardModelSpecies.get(row))) {
+            model.setPokemon(new RenderablePokemon(species, Set.of(), ItemStack.EMPTY));
+            rewardModelSpecies.set(row, id);
+        }
+        model.setX(x);
+        model.setY(y);
+        model.visible = true;
+    }
+
+    private void renderFeaturedReward(
+        GuiGraphics graphics, String kind, String value, int centerX, int y
+    ) {
+        if (!"pokemon".equals(kind)) {
+            graphics.renderItem(rewardIcon(kind, value), centerX - 8, y + 24);
+            return;
+        }
+        Species species = rewardSpecies(value);
+        if (species == null || featuredModel == null) return;
+        String id = species.getResourceIdentifier().toString();
+        if (!id.equals(featuredModelSpecies)) {
+            featuredModel.setPokemon(new RenderablePokemon(species, Set.of(), ItemStack.EMPTY));
+            featuredModelSpecies = id;
+        }
+        featuredModel.setX(centerX - 30);
+        featuredModel.setY(y);
+        featuredModel.visible = true;
+    }
+
+    private Species rewardSpecies(String value) {
+        try {
+            String name = value.strip().split("\\s+", 2)[0];
+            Species species = PokemonSpecies.getByName(name);
+            if (species != null) return species;
+            ResourceLocation id = name.contains(":")
+                ? ResourceLocation.parse(name)
+                : ResourceLocation.fromNamespaceAndPath("cobblemon", name);
+            return PokemonSpecies.getByIdentifier(id);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
     private Component rewardName(String kind, String value, String fallback) {
         try {
             if ("pokemon".equals(kind)) {
@@ -466,12 +573,6 @@ public final class GachaMachineScreen extends Screen {
     }
 
     private ItemStack rewardIcon(String kind, String value) {
-        if ("pokemon".equals(kind)) {
-            Item ball = BuiltInRegistries.ITEM.getOptional(
-                ResourceLocation.fromNamespaceAndPath("cobblemon", "poke_ball")
-            ).orElse(Items.PAPER);
-            return new ItemStack(ball);
-        }
         try {
             Item item = BuiltInRegistries.ITEM.getOptional(ResourceLocation.parse(value)).orElse(Items.PAPER);
             return new ItemStack(item);
@@ -512,7 +613,7 @@ public final class GachaMachineScreen extends Screen {
                 graphics, getX() + 4, getY() + 4, getX() + 7, getY() + getHeight() - 4,
                 1, menuTheme.accent
             );
-            graphics.drawCenteredString(font, getMessage(), getX() + getWidth() / 2,
+            drawCenteredNoShadow(graphics, getMessage(), getX() + getWidth() / 2,
                 getY() + (getHeight() - font.lineHeight) / 2,
                 active ? menuTheme.selectedTextColor : menuTheme.mutedText());
         }

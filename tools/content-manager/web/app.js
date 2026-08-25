@@ -2731,6 +2731,7 @@ function placeCaveEntranceWithTool(q, r) {
   const slug = caveId.split("/").pop();
   state.worldLayout.cave_entrances.push({
     id: `cobbleventure:cave_entrance/${slug}_${entranceId}`, cave: caveId, entrance: entranceId,
+    transition: "cave_entry",
     anchor: { q, r }, facing: $("#cave-tool-facing").value,
     structure: defaultWorldEntranceStructures.cave,
     structure_variants: { ...defaultWorldEntranceStructures.caveVariants },
@@ -3423,7 +3424,7 @@ function renderEntranceInspector(selection) {
   $("#selected-tile-coord").textContent = `Q ${entrance.anchor.q} · R ${entrance.anchor.r}`;
   $("#entrance-inspector-label").textContent = underground ? "지하통로 입구 속성" : kind === "cave" ? "동굴 입구 속성" : "숲 입구 속성";
   $("#entrance-inspector-id").textContent = entrance.id; $("#entrance-target-label").textContent = underground ? "연결 지하통로" : kind === "cave" ? "연결 동굴" : "연결 숲";
-  form.elements.id.value = entrance.id; form.elements.target.value = underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = underground ? `${entrance.transition} → ${entrance.underground_module}/${entrance.underground_connector}` : entrance.entrance;
+  form.elements.id.value = entrance.id; form.elements.target.value = underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = underground ? `${entrance.transition} → ${entrance.underground_module}/${entrance.underground_connector}` : kind === "cave" ? `${entrance.entrance} · ${entrance.transition || "cave_entry"}` : entrance.entrance;
   form.elements.q.value = entrance.anchor.q; form.elements.r.value = entrance.anchor.r; form.elements.facing.value = entrance.facing;
   form.elements.rotation.value = entrance.rotation || 0; form.elements.pokemonCenterEnabled.value = String(Boolean(entrance.pokemon_center_enabled));
   form.elements.treeLog.value = entrance.tree_log || "minecraft:spruce_log"; form.elements.treeLeaves.value = entrance.tree_leaves || "minecraft:spruce_leaves";
@@ -9381,6 +9382,7 @@ function structureFootprint(structure, fallback = {}) {
 function minecraftTopBlockColor(blockName) {
   const name = String(blockName || "").split(":").at(-1);
   const colors = [
+    [/excavation_marker/, "#35d6e8"],
     [/water|bubble_column/, "#3f76e4"], [/lava/, "#ff6b16"],
     [/grass_block|moss/, "#78a84f"], [/leaves|vine/, "#56893f"],
     [/sandstone|sand/, "#d8c47b"], [/snow|ice/, "#dceff2"],
@@ -9548,7 +9550,7 @@ function renderStructureModel() {
     context.moveTo(face.points[0].x, face.points[0].y);
     for (const point of face.points.slice(1)) context.lineTo(point.x, point.y);
     context.closePath();
-    context.globalAlpha = /glass|leaves|water/.test(face.blockName) ? .78 : 1;
+    context.globalAlpha = /glass|leaves|water|excavation_marker/.test(face.blockName) ? .62 : 1;
     context.fillStyle = face.color;
     context.fill();
     if (scale >= 3) {
@@ -10116,7 +10118,7 @@ function renderBuildingModel() {
   for (const face of faces) {
     context.beginPath(); context.moveTo(face.points[0].x, face.points[0].y);
     for (const point of face.points.slice(1)) context.lineTo(point.x, point.y);
-    context.closePath(); context.globalAlpha = /glass|leaves|water/.test(face.blockName) ? .78 : 1;
+    context.closePath(); context.globalAlpha = /glass|leaves|water|excavation_marker/.test(face.blockName) ? .62 : 1;
     context.fillStyle = face.color; context.fill();
     if (scale >= 3) { context.strokeStyle = "rgba(18,25,23,.28)"; context.lineWidth = Math.min(1.2, scale * .09); context.stroke(); }
   }
@@ -10466,7 +10468,7 @@ function drawMinecraftStructureTopView(context, plot, project, scale, opacity = 
     const end = project(placedX + rotated.x + 1, placedZ + rotated.z + 1);
     const heightShade = .82 + ((y - minHeight) / heightRange) * .22;
     const variation = ((localX * 17 + localZ * 31 + paletteIndex * 7) % 5 - 2) * .018;
-    context.globalAlpha = (/glass|leaves|water/.test(blockName) ? .82 : 1) * opacity;
+    context.globalAlpha = (/glass|leaves|water|excavation_marker/.test(blockName) ? .62 : 1) * opacity;
     context.fillStyle = shadeMinecraftTopColor(minecraftTopBlockColor(blockName), heightShade + variation);
     context.fillRect(start.x, start.y, Math.max(.7, end.x - start.x + .15), Math.max(.7, end.y - start.y + .15));
     if (scale >= 5) {

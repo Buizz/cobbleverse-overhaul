@@ -889,6 +889,14 @@ def validate_hex_worlds(
             else:
                 seen_cave_entrance_ids.add(placement_id)
             underground_id = placement.get("underground_road")
+            transition = placement.get("transition")
+            structure_id = placement.get("structure")
+            structure_path = managed_structure_files(root).get(structure_id) if isinstance(structure_id, str) else None
+            transition_ids = {
+                item["label"] for item in _structure_named_anchors(structure_path, {"transition"})
+            } if structure_path is not None else set()
+            if not isinstance(transition, str) or transition not in transition_ids:
+                _issue(issues, "error", path, f"{placement_path}.transition", f"입구 구조물에 없는 이동 영역입니다: {transition}")
             if underground_id is not None:
                 if "cave" in placement or "entrance" in placement:
                     _issue(issues, "error", path, placement_path, "지하통로 입구에는 cave 또는 entrance 필드를 함께 사용할 수 없습니다.")
@@ -903,17 +911,9 @@ def validate_hex_worlds(
                 } if underground else set()
                 if not isinstance(module_id, str) or not isinstance(connector_id, str) or (module_id, connector_id) not in endpoints:
                     _issue(issues, "error", path, f"{placement_path}.underground_connector", f"지하통로의 열린 위쪽 커넥터가 아닙니다: {module_id}/{connector_id}")
-                transition = placement.get("transition")
-                structure_id = placement.get("structure")
-                structure_path = managed_structure_files(root).get(structure_id) if isinstance(structure_id, str) else None
-                transition_ids = {
-                    item["label"] for item in _structure_named_anchors(structure_path, {"transition"})
-                } if structure_path is not None else set()
-                if not isinstance(transition, str) or transition not in transition_ids:
-                    _issue(issues, "error", path, f"{placement_path}.transition", f"입구 구조물에 없는 이동 영역입니다: {transition}")
                 pair = (str(underground_id), f"{module_id}/{connector_id}")
             else:
-                underground_fields = {"transition", "underground_module", "underground_connector"}
+                underground_fields = {"underground_module", "underground_connector"}
                 if any(field in placement for field in underground_fields):
                     _issue(issues, "error", path, placement_path, "동굴 입구에는 지하통로 연결 필드를 사용할 수 없습니다.")
                 cave_id = placement.get("cave")

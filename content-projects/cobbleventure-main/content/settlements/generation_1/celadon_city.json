@@ -9,6 +9,7 @@
   },
   "region": "cobbleventure:generation_1/celadon",
   "dimension": "cobbleventure:generation_1",
+  "music_track": "kanto.celadon_city",
   "town_radius_cells": 7,
   "bounds": {
     "min_x": -160,

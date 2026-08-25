@@ -20,6 +20,7 @@ from cave_road_anchor import (  # noqa: E402
     _list_records,
     _named,
     _road_anchor_block,
+    _string_tag,
 )
 
 
@@ -32,6 +33,15 @@ DEFAULT_CAVE_ROOT = (
     / "cave_entrance"
 )
 ROAD_ANCHOR_HEIGHT_OFFSET = 0
+EXCAVATION_MARKER = "cobbleventure_bootstrap:excavation_marker"
+TRANSITION_ID = "cave_entry"
+TRANSITION_Z_OFFSET = 10
+
+
+def _palette_entry(name: str) -> bytes:
+    return _string_tag("Name", name) + b"\x00"
+
+
 def _plain_block(state: int, position: tuple[int, int, int]) -> bytes:
     return (
         _int_tag("state", state)
@@ -101,19 +111,22 @@ def _state_indices(root: dict) -> tuple[int, int, int]:
     palette = root.get("palette", [])
     names = [entry.get("Name") for entry in palette]
     try:
-        barrier = names.index("minecraft:barrier")
+        excavation = names.index(EXCAVATION_MARKER)
         jigsaw = names.index("minecraft:jigsaw")
     except ValueError as error:
-        raise ValueError("동굴 NBT에 베리어 또는 도로 직소 블록이 없습니다.") from error
+        raise ValueError("동굴 NBT에 굴착 마커 또는 도로 직소 블록이 없습니다.") from error
     counts = collections.Counter(
         block["state"]
         for block in root.get("blocks", [])
         if names[block["state"]]
-        not in {"minecraft:barrier", "minecraft:black_concrete", "minecraft:jigsaw"}
+        not in {
+            EXCAVATION_MARKER, "minecraft:barrier",
+            "minecraft:black_concrete", "minecraft:jigsaw",
+        }
     )
     if not counts:
         raise ValueError("동굴 외벽에 사용할 블록 팔레트가 없습니다.")
-    return barrier, jigsaw, counts.most_common(1)[0][0]
+    return excavation, jigsaw, counts.most_common(1)[0][0]
 
 
 def _authored_anchor(root: dict) -> tuple[int, int, int]:
@@ -148,10 +161,12 @@ def _tunnel_floor(root: dict, start_z: int) -> int:
         block["pos"][1]
         for block in root.get("blocks", [])
         if block["pos"][2] == start_z
-        and palette[block["state"]].get("Name") == "minecraft:barrier"
+        and palette[block["state"]].get("Name") in {
+            EXCAVATION_MARKER, "minecraft:barrier",
+        }
     ]
     if not void_y:
-        raise ValueError("동굴 입구의 내부 베리어를 찾을 수 없습니다.")
+        raise ValueError("동굴 입구의 내부 굴착 마커를 찾을 수 없습니다.")
     return min(void_y) - 1
 
 
@@ -164,18 +179,51 @@ def taper_cave(path: Path) -> bool:
     center_x, _, start_z = authored_anchor
     floor_y = _tunnel_floor(root, start_z)
     end_z = _tunnel_end(root, start_z)
-    barrier_state, jigsaw_state, primary_state = _state_indices(root)
     spans = _minecraft_structure_tag_spans(raw)
+    palette_type, palette_start, palette_end = spans["palette"]
     blocks_type, blocks_start, blocks_end = spans["blocks"]
-    if blocks_type != 9:
+    if palette_type != 9 or blocks_type != 9:
         raise ValueError(f"NBT 블록 목록이 손상되었습니다: {path}")
+    _, palette_records = _list_records(raw[palette_start:palette_end])
+    palette_encoded = [encoded for _, encoded in palette_records]
+    palette_names = [entry.get("Name") for entry, _ in palette_records]
+    legacy_barrier_state = (
+        palette_names.index("minecraft:barrier")
+        if "minecraft:barrier" in palette_names else None
+    )
+    if EXCAVATION_MARKER in palette_names:
+        excavation_state = palette_names.index(EXCAVATION_MARKER)
+    else:
+        excavation_state = len(palette_encoded)
+        palette_encoded.append(_palette_entry(EXCAVATION_MARKER))
+        palette_names.append(EXCAVATION_MARKER)
+    if "minecraft:barrier" in palette_names:
+        barrier_state = palette_names.index("minecraft:barrier")
+    else:
+        barrier_state = len(palette_encoded)
+        palette_encoded.append(_palette_entry("minecraft:barrier"))
+        palette_names.append("minecraft:barrier")
+    jigsaw_state = palette_names.index("minecraft:jigsaw")
+    counts = collections.Counter(
+        block["state"] for block in root.get("blocks", [])
+        if palette_names[block["state"]] not in {
+            EXCAVATION_MARKER, "minecraft:barrier",
+            "minecraft:black_concrete", "minecraft:jigsaw",
+        }
+    )
+    primary_state = counts.most_common(1)[0][0]
     _, records = _list_records(raw[blocks_start:blocks_end])
     existing = {tuple(block["pos"]): (block, encoded) for block, encoded in records}
 
     replacements: dict[tuple[int, int, int], bytes] = {}
-    for position, (_, encoded) in existing.items():
+    for position, (block, encoded) in existing.items():
         if not start_z <= position[2] <= end_z:
-            replacements[position] = encoded
+            replacements[position] = (
+                _plain_block(excavation_state, position)
+                if legacy_barrier_state is not None
+                and block["state"] == legacy_barrier_state
+                else encoded
+            )
 
     palette = root["palette"]
     for z in range(start_z, end_z + 1):
@@ -184,7 +232,7 @@ def taper_cave(path: Path) -> bool:
         shell = _shell(z, opening, radius, center_x, floor_y, start_z, end_z)
         for x, y in opening:
             position = (x, y, z)
-            replacements[position] = _plain_block(barrier_state, position)
+            replacements[position] = _plain_block(excavation_state, position)
         for x, y in shell:
             position = (x, y, z)
             original = existing.get(position)
@@ -193,7 +241,7 @@ def taper_cave(path: Path) -> bool:
                 original_state = original[0]["state"]
                 original_name = palette[original_state].get("Name")
                 if original_name not in {
-                    "minecraft:barrier",
+                    EXCAVATION_MARKER, "minecraft:barrier",
                     "minecraft:black_concrete",
                     "minecraft:jigsaw",
                 }:
@@ -202,11 +250,26 @@ def taper_cave(path: Path) -> bool:
 
     anchor = (center_x, floor_y + ROAD_ANCHOR_HEIGHT_OFFSET, start_z)
     replacements[anchor] = _road_anchor_block(jigsaw_state, anchor)
+    transition_z = start_z + TRANSITION_Z_OFFSET
+    transition_opening = _opening(
+        _opening_radius(transition_z, start_z, end_z), center_x, floor_y
+    )
+    for x, y in transition_opening:
+        replacements[(x, y, transition_z)] = _plain_block(
+            barrier_state, (x, y, transition_z)
+        )
 
+    new_palette = bytes([10]) + struct.pack(">i", len(palette_encoded)) + b"".join(
+        palette_encoded
+    )
     ordered = [replacements[position] for position in sorted(replacements)]
     new_blocks = bytes([10]) + struct.pack(">i", len(ordered)) + b"".join(ordered)
     rebuilt = bytearray(raw)
-    rebuilt[blocks_start:blocks_end] = new_blocks
+    for start, end, replacement in sorted([
+        (palette_start, palette_end, new_palette),
+        (blocks_start, blocks_end, new_blocks),
+    ], reverse=True):
+        rebuilt[start:end] = replacement
     output = gzip.compress(bytes(rebuilt), mtime=0) if compressed else bytes(rebuilt)
     if output == source:
         return False
@@ -220,6 +283,11 @@ def validate_taper(path: Path) -> list[str]:
     center_x, _, start_z = _authored_anchor(root)
     floor_y = _tunnel_floor(root, start_z)
     end_z = _tunnel_end(root, start_z)
+    excavation = {
+        tuple(block["pos"])
+        for block in root.get("blocks", [])
+        if palette[block["state"]].get("Name") == EXCAVATION_MARKER
+    }
     barriers = {
         tuple(block["pos"])
         for block in root.get("blocks", [])
@@ -230,9 +298,20 @@ def validate_taper(path: Path) -> list[str]:
         radius = _opening_radius(z, start_z, end_z)
         expected = {(x, y, z) for x, y in _opening(radius, center_x, floor_y)}
         expected.discard((center_x, floor_y + ROAD_ANCHOR_HEIGHT_OFFSET, start_z))
-        actual = {position for position in barriers if position[2] == z}
+        if z == start_z + TRANSITION_Z_OFFSET:
+            expected.clear()
+        actual = {position for position in excavation if position[2] == z}
         if actual != expected:
             issues.append(f"z={z} 내부 단면이 다릅니다.")
+    transition_z = start_z + TRANSITION_Z_OFFSET
+    expected_transition = {
+        (x, y, transition_z)
+        for x, y in _opening(
+            _opening_radius(transition_z, start_z, end_z), center_x, floor_y
+        )
+    }
+    if barriers != expected_transition:
+        issues.append("동굴 이동 베리어 영역이 다릅니다.")
     if (center_x, floor_y + ROAD_ANCHOR_HEIGHT_OFFSET, start_z) not in {
         tuple(block["pos"])
         for block in root.get("blocks", [])

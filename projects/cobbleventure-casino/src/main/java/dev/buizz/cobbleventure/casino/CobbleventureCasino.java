@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.casino;
 
 import com.cobblemon.mod.common.Cobblemon;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -39,6 +40,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Interaction;
+import net.minecraft.world.entity.Display;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -217,9 +219,34 @@ public final class CobbleventureCasino {
             Component.literal(machine.display_name)
                 .withStyle(style -> style.withFont(WORLD_NAME_FONT))
         );
-        interaction.setCustomNameVisible(machine.appearance.show_nameplate);
+        interaction.setCustomNameVisible(false);
         markMachineEntity(interaction, anchor, profileId);
-        return level.addFreshEntity(interaction);
+        if (!level.addFreshEntity(interaction)) return false;
+        if (machine.appearance.show_nameplate) {
+            placeMachineNameplate(level, pos, machine.display_name, anchor, profileId);
+        }
+        return true;
+    }
+
+    private static void placeMachineNameplate(
+        ServerLevel level, BlockPos pos, String displayName, long anchor, String profileId
+    ) {
+        Display.TextDisplay nameplate = EntityType.TEXT_DISPLAY.create(level);
+        if (nameplate == null) return;
+        JsonObject text = new JsonObject();
+        text.addProperty("text", displayName);
+        text.addProperty("font", WORLD_NAME_FONT.toString());
+        CompoundTag data = nameplate.saveWithoutId(new CompoundTag());
+        data.putString("text", text.toString());
+        data.putString("billboard", "center");
+        data.putInt("background", 0x55000000);
+        data.putBoolean("shadow", true);
+        data.putBoolean("see_through", true);
+        data.putFloat("view_range", 1.0F);
+        nameplate.load(data);
+        nameplate.setPos(pos.getX() + .5D, pos.getY() + 2.35D, pos.getZ() + .5D);
+        markMachineEntity(nameplate, anchor, profileId);
+        level.addFreshEntity(nameplate);
     }
 
     /** Places a configured machine for authored building anchors. */

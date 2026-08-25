@@ -9,6 +9,7 @@
   },
   "region": "cobbleventure:generation_1/region_01",
   "dimension": "cobbleventure:generation_1",
+  "music_track": "kanto.pallet_town",
   "town_radius_cells": 1,
   "bounds": {
     "min_x": 480,

@@ -9,6 +9,7 @@
   },
   "region": "cobbleventure:generation_1/lavender",
   "dimension": "cobbleventure:generation_1",
+  "music_track": "kanto.lavender_town",
   "town_radius_cells": 3,
   "bounds": {
     "min_x": -160,

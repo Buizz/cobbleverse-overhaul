@@ -2,5 +2,6 @@
   "key.categories.cobbleventure_structure_builder": "코블벤처 건축 편집기",
   "key.cobbleventure_structure_builder.toolbar": "건축 편집 도구 열기",
   "key.cobbleventure_structure_builder.travel": "공간 이동 목록 열기",
-  "key.cobbleventure_structure_builder.resize": "내부공간 크기 변경"
+  "key.cobbleventure_structure_builder.resize": "내부공간 크기 변경",
+  "block.cobbleventure_bootstrap.excavation_marker": "굴착 공기 마커"
 }

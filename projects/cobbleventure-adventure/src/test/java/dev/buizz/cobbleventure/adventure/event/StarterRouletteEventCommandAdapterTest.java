@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mojang.brigadier.StringReader;
 import java.util.List;
 import java.util.Map;
@@ -139,6 +140,27 @@ final class StarterRouletteEventCommandAdapterTest {
         ).orElseThrow();
         assertSame(session, restarted);
         assertEquals(EventSession.Status.RUNNING, restarted.status());
+    }
+
+    @Test
+    void legacyNumberInputCancellationSessionIsRecoveredAndCanRestart() {
+        EventScript script = script();
+        EventSessionKey key = key(1);
+        EventSession session = EventSession.create(key, script, 0, 0);
+        session.start();
+        session.putLocal("amount", new JsonPrimitive("client_cancelled"));
+        InMemoryEventSessionStore store = new InMemoryEventSessionStore();
+        store.putIfAbsent(session);
+
+        assertEquals(true, EventRecoverableAwait.resetLegacyCancelledNumberInput(store, key));
+        assertEquals(EventSession.Status.CANCELLED, session.status());
+
+        EventSession restarted = EventInterpreter.startSession(
+            script, 0, key, environment(), store
+        ).orElseThrow();
+        assertSame(session, restarted);
+        assertEquals(EventSession.Status.RUNNING, restarted.status());
+        assertEquals(false, restarted.locals().containsKey("amount"));
     }
 
     @Test

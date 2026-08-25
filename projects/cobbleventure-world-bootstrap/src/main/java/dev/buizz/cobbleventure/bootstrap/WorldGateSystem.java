@@ -844,6 +844,7 @@ final class WorldGateSystem {
             .setRotation(rotation)
             .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+        ExplicitAirPlacementProcessor.configure(structure, settings);
         if (!structure.placeInWorld(
             level, origin, origin, settings,
             RandomSource.create(level.getSeed() ^ origin.asLong()), 2
@@ -1086,6 +1087,7 @@ final class WorldGateSystem {
             .setRotation(rotation)
             .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+        ExplicitAirPlacementProcessor.configure(template, settings);
         int outsideOffset = (geometry.inward().getAxis() == Direction.Axis.X
             ? template.getSize(rotation).getX()
             : template.getSize(rotation).getZ()) + 1;

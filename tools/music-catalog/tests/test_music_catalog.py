@@ -24,7 +24,7 @@ class MusicCatalogTest(unittest.TestCase):
         )
 
     def test_catalog_uses_only_selected_ogg_tracks(self) -> None:
-        self.assertEqual(18, len(self.catalog["tracks"]))
+        self.assertEqual(24, len(self.catalog["tracks"]))
         self.assertFalse(self.catalog["datapack_required"])
         self.assertFalse(self.catalog["source"]["audio_tracked_by_git"])
         self.assertTrue(
@@ -44,6 +44,31 @@ class MusicCatalogTest(unittest.TestCase):
         self.assertIn("music.event.key_item_acquired", manifest)
         self.assertIn("music.event.machine_acquired", manifest)
         self.assertNotIn("Title.ogg", json.dumps(manifest, ensure_ascii=False))
+
+    def test_kanto_settlements_and_gym_interior_have_authored_music(self) -> None:
+        expected = {
+            "celadon_city": "kanto.celadon_city",
+            "cerulean_city": "kanto.cerulean_city",
+            "crimson_town": "kanto.pewter_city",
+            "fuchsia_city": "kanto.cerulean_city",
+            "lavender_town": "kanto.lavender_town",
+            "route_01_town": "kanto.pewter_city",
+            "saffron_city": "kanto.pewter_city",
+            "skyreach_town": "kanto.route_03",
+            "starter_town": "kanto.pallet_town",
+            "tidehaven_town": "kanto.cinnabar_island",
+            "vermilion_city": "kanto.vermilion_city",
+        }
+        settlements = PROJECT_ROOT / "content/settlements/generation_1"
+        for name, track in expected.items():
+            document = json.loads((settlements / f"{name}.json").read_text(encoding="utf-8"))
+            self.assertEqual(track, document["music_track"], name)
+
+        settings = json.loads(
+            (PROJECT_ROOT / "content/catalogs/building-settings.json").read_text(encoding="utf-8")
+        )
+        gym = settings["buildings"]["cobbleventure:interiors/gyms/base_gym_interior"]
+        self.assertEqual("facility.gym", gym["music_track"])
 
     def test_music_notification_uses_full_sound_event_ids(self) -> None:
         manifest = music_catalog.build_music_notification_manifest(self.catalog)

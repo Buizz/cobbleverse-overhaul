@@ -304,9 +304,12 @@
     "encounter": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "npcs", "opponents", "requires", "position", "boss"],
+      "required": [
+        "id", "display_name", "npcs", "opponents", "requires", "position", "boss"
+      ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "display_name": { "$ref": "#/$defs/localized_text" },
         "npcs": {
           "type": "array",
           "minItems": 2,

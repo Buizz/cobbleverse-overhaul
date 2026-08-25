@@ -58,6 +58,19 @@ class StructureBuilderTests(unittest.TestCase):
                 metadata["road_anchors"],
             )
             self.assertEqual([], metadata["underground_entries"])
+            _, palette, blocks = content_manager._minecraft_structure_parts(
+                generated.read_bytes()
+            )
+            excavation_state = palette.index(
+                "cobbleventure_bootstrap:excavation_marker"
+            )
+            barrier_state = palette.index("minecraft:barrier")
+            self.assertGreater(
+                sum(block["state"] == excavation_state for block in blocks), 1000
+            )
+            self.assertEqual(
+                12, sum(block["state"] == barrier_state for block in blocks)
+            )
             authored = json.loads(metadata_target.read_text(encoding="utf-8"))
             self.assertEqual("transition", authored["anchors"][0]["type"])
             self.assertEqual([11, 1, 14], authored["anchors"][0]["position"])

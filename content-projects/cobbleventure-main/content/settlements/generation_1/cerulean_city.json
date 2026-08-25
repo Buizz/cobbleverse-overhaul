@@ -9,6 +9,7 @@
   },
   "region": "cobbleventure:generation_1/cerulean",
   "dimension": "cobbleventure:generation_1",
+  "music_track": "kanto.cerulean_city",
   "town_radius_cells": 5,
   "bounds": {
     "min_x": -160,

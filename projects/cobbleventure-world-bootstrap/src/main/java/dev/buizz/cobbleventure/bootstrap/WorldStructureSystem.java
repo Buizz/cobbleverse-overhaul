@@ -111,6 +111,7 @@ final class WorldStructureSystem {
                 .setRotation(rotation)
                 .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
                 .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+            ExplicitAirPlacementProcessor.configure(template, settings);
             if (!template.placeInWorld(
                 level, origin, origin, settings,
                 RandomSource.create(level.getSeed() ^ origin.asLong()), 2

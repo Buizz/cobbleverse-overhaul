@@ -993,6 +993,9 @@ final class BuildingRuntimeSystem {
                 StructurePlaceSettings placementSettings = new StructurePlaceSettings()
                     .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
                     .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE);
+                ExplicitAirPlacementProcessor.configure(
+                    template.orElseThrow(), placementSettings
+                );
                 boolean placed = template.orElseThrow().placeInWorld(
                     interiorsLevel, origin, origin, placementSettings,
                     RandomSource.create(interiorsLevel.getSeed() ^ origin.asLong()), 2

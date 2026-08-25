@@ -104,12 +104,44 @@
       "stream": false
     },
     {
+      "id": "facility.gym",
+      "sound_event": "music.facility.gym",
+      "resource": "music/facility/gym",
+      "source_file": "another-red-bgm/PWT.ogg",
+      "category": "facility",
+      "usage": "체육관 내부"
+    },
+    {
       "id": "kanto.celadon_city",
       "sound_event": "music.kanto.celadon_city",
       "resource": "music/kanto/celadon_city",
       "source_file": "another-red-bgm/KM_Celadon.ogg",
       "category": "settlement",
       "usage": "무지개시티"
+    },
+    {
+      "id": "kanto.cerulean_city",
+      "sound_event": "music.kanto.cerulean_city",
+      "resource": "music/kanto/cerulean_city",
+      "source_file": "another-red-bgm/KM_Cerulean.ogg",
+      "category": "settlement",
+      "usage": "블루시티 및 연분홍시티"
+    },
+    {
+      "id": "kanto.cinnabar_island",
+      "sound_event": "music.kanto.cinnabar_island",
+      "resource": "music/kanto/cinnabar_island",
+      "source_file": "another-red-bgm/KM_Cinnabar.ogg",
+      "category": "settlement",
+      "usage": "홍련마을"
+    },
+    {
+      "id": "kanto.lavender_town",
+      "sound_event": "music.kanto.lavender_town",
+      "resource": "music/kanto/lavender_town",
+      "source_file": "another-red-bgm/KM_Lavender.ogg",
+      "category": "settlement",
+      "usage": "보라타운"
     },
     {
       "id": "kanto.mt_moon",
@@ -128,6 +160,14 @@
       "usage": "태초마을"
     },
     {
+      "id": "kanto.pewter_city",
+      "sound_event": "music.kanto.pewter_city",
+      "resource": "music/kanto/pewter_city",
+      "source_file": "another-red-bgm/KM_Pewter.ogg",
+      "category": "settlement",
+      "usage": "회색시티·상록시티·노랑시티 계열"
+    },
+    {
       "id": "kanto.route_01",
       "sound_event": "music.kanto.route_01",
       "resource": "music/kanto/route_01",
@@ -142,6 +182,14 @@
       "source_file": "another-red-bgm/KM_Route3.ogg",
       "category": "route",
       "usage": "관동 3번도로 계열"
+    },
+    {
+      "id": "kanto.vermilion_city",
+      "sound_event": "music.kanto.vermilion_city",
+      "resource": "music/kanto/vermilion_city",
+      "source_file": "another-red-bgm/KM_Vermillion.ogg",
+      "category": "settlement",
+      "usage": "갈색시티"
     },
     {
       "id": "kanto.viridian_forest",

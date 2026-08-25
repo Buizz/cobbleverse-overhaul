@@ -49,7 +49,7 @@ final class BagDiscardScreen extends Screen {
     protected void init() {
         panelX = (width - PANEL_WIDTH) / 2;
         panelY = (height - PANEL_HEIGHT) / 2;
-        quantityBox = new EditBox(font, panelX + 91, panelY + 48, 78, 20,
+        quantityBox = new QuantityEditBox(panelX + 91, panelY + 48, 78, 20,
             Component.translatable("screen.cobbleventure_player_menu.bag.discard_quantity"));
         quantityBox.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
         quantityBox.setMaxLength(9);
@@ -97,9 +97,11 @@ final class BagDiscardScreen extends Screen {
         graphics.drawString(font, title, panelX + 32, panelY + 9, TEXT_COLOR, false);
         graphics.drawString(font, font.plainSubstrByWidth(stack.getHoverName().getString(), PANEL_WIDTH - 44),
             panelX + 32, panelY + 21, MUTED_COLOR, false);
-        graphics.drawCenteredString(font,
-            Component.translatable("screen.cobbleventure_player_menu.bag.discard_owned", maximum),
-            panelX + PANEL_WIDTH / 2, panelY + 36, MUTED_COLOR);
+        Component owned = Component.translatable(
+            "screen.cobbleventure_player_menu.bag.discard_owned", maximum
+        );
+        graphics.drawString(font, owned,
+            panelX + (PANEL_WIDTH - font.width(owned)) / 2, panelY + 36, MUTED_COLOR, false);
         drawInputFrame(graphics, panelX + 89, panelY + 46, 82, 24,
             quantityBox.isFocused(), validQuantity() > 0);
         graphics.drawString(font,
@@ -107,6 +109,7 @@ final class BagDiscardScreen extends Screen {
                 + (mode == Mode.DROP ? "drop_warning" : "delete_warning")),
             panelX + 10, panelY + 98, mode == Mode.DROP ? ACTION_BLUE : ACTION_RED, false);
         super.render(graphics, mouseX, mouseY, partialTick);
+        drawQuantity(graphics);
     }
 
     @Override
@@ -192,6 +195,18 @@ final class BagDiscardScreen extends Screen {
         graphics.fill(x + 5, y + height - 4, x + width - 5, y + height - 3, 0xFFD7EAF0);
     }
 
+    private void drawQuantity(GuiGraphics graphics) {
+        String value = quantityBox.getValue();
+        int textWidth = font.width(value);
+        int textX = panelX + (PANEL_WIDTH - textWidth) / 2;
+        int textY = panelY + 54;
+        graphics.drawString(font, value, textX, textY, TEXT_COLOR, false);
+        if (quantityBox.isFocused() && (System.currentTimeMillis() / 500L) % 2L == 0L) {
+            int cursorX = textX + textWidth + 1;
+            graphics.fill(cursorX, textY - 1, cursorX + 1, textY + font.lineHeight + 1, TEXT_COLOR);
+        }
+    }
+
     private enum ButtonTone { PRIMARY, DANGER, NEUTRAL }
 
     private final class DiscardButton extends AbstractButton {
@@ -233,9 +248,10 @@ final class BagDiscardScreen extends Screen {
                 tone == ButtonTone.NEUTRAL ? 0xFFFFFFFF : 0x55FFFFFF);
             int textColor = !active ? 0xFF89969C
                 : tone == ButtonTone.NEUTRAL ? TEXT_COLOR : 0xFFFFFFFF;
-            graphics.drawCenteredString(font,
-                font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8),
-                getX() + getWidth() / 2, getY() + (getHeight() - font.lineHeight) / 2, textColor);
+            String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8);
+            graphics.drawString(font, label,
+                getX() + (getWidth() - font.width(label)) / 2,
+                getY() + (getHeight() - font.lineHeight) / 2, textColor, false);
         }
 
         @Override
@@ -249,6 +265,17 @@ final class BagDiscardScreen extends Screen {
             int green = Math.min(255, ((color >> 8) & 0xFF) + 24);
             int blue = Math.min(255, (color & 0xFF) + 24);
             return 0xFF000000 | red << 16 | green << 8 | blue;
+        }
+    }
+
+    private final class QuantityEditBox extends EditBox {
+        private QuantityEditBox(int x, int y, int width, int height, Component narration) {
+            super(font, x, y, width, height, narration);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            // The value and cursor are rendered by the screen to keep them centered and shadow-free.
         }
     }
 }

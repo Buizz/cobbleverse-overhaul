@@ -254,6 +254,7 @@ record DungeonDefinition(
             }
             encounters.add(new Encounter(
                 encounterId,
+                localized(requiredObject(encounter, "display_name"), "ko_kr", "en_us"),
                 List.copyOf(npcs),
                 List.copyOf(opponents),
                 List.copyOf(requirements),
@@ -762,6 +763,7 @@ record DungeonDefinition(
     ) {}
     record Encounter(
         String id,
+        String displayName,
         List<String> npcs,
         List<String> opponents,
         List<String> requires,

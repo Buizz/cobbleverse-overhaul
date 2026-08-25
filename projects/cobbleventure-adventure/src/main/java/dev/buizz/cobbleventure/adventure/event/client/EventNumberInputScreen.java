@@ -137,6 +137,8 @@ public final class EventNumberInputScreen extends Screen {
 
     private void renderQuantityPicker(GuiGraphics graphics, int mouseX, int mouseY) {
         PickerLayout picker = pickerLayout();
+        renderStepButton(graphics, picker.minusHundredLeft(), picker.minusHundredRight(), "-100",
+            selectedAmount > payload.minimum(), mouseX, mouseY);
         renderStepButton(graphics, picker.minusTenLeft(), picker.minusTenRight(), "-10",
             selectedAmount > payload.minimum(), mouseX, mouseY);
         renderStepButton(graphics, picker.minusOneLeft(), picker.minusOneRight(), "-1",
@@ -161,6 +163,8 @@ public final class EventNumberInputScreen extends Screen {
             selectedAmount < payload.maximum(), mouseX, mouseY);
         renderStepButton(graphics, picker.plusTenLeft(), picker.plusTenRight(), "+10",
             selectedAmount < payload.maximum(), mouseX, mouseY);
+        renderStepButton(graphics, picker.plusHundredLeft(), picker.plusHundredRight(), "+100",
+            selectedAmount < payload.maximum(), mouseX, mouseY);
     }
 
     private void renderStepButton(
@@ -183,6 +187,11 @@ public final class EventNumberInputScreen extends Screen {
 
     private boolean handlePickerClick(double mouseX, double mouseY) {
         PickerLayout picker = pickerLayout();
+        if (contains(mouseX, mouseY, picker.minusHundredLeft(), layout.inputTop(),
+            picker.minusHundredRight(), layout.inputBottom())) {
+            adjustAmount(-100);
+            return true;
+        }
         if (contains(mouseX, mouseY, picker.minusTenLeft(), layout.inputTop(),
             picker.minusTenRight(), layout.inputBottom())) {
             adjustAmount(-10);
@@ -203,6 +212,11 @@ public final class EventNumberInputScreen extends Screen {
             adjustAmount(10);
             return true;
         }
+        if (contains(mouseX, mouseY, picker.plusHundredLeft(), layout.inputTop(),
+            picker.plusHundredRight(), layout.inputBottom())) {
+            adjustAmount(100);
+            return true;
+        }
         return false;
     }
 
@@ -213,22 +227,27 @@ public final class EventNumberInputScreen extends Screen {
     }
 
     private PickerLayout pickerLayout() {
-        int buttonWidth = 44;
-        int valueWidth = 76;
-        int gap = 4;
-        int totalWidth = buttonWidth * 4 + valueWidth + gap * 4;
+        int availableWidth = layout.inputRight() - layout.inputLeft();
+        int gap = availableWidth >= 300 ? 4 : 2;
+        int valueWidth = Math.min(76, Math.max(56, availableWidth / 4));
+        int buttonWidth = Math.max(24, (availableWidth - valueWidth - gap * 6) / 6);
+        int totalWidth = buttonWidth * 6 + valueWidth + gap * 6;
         int left = layout.inputLeft() + (layout.inputRight() - layout.inputLeft() - totalWidth) / 2;
-        int minusTenLeft = left;
+        int minusHundredLeft = left;
+        int minusTenLeft = minusHundredLeft + buttonWidth + gap;
         int minusOneLeft = minusTenLeft + buttonWidth + gap;
         int valueLeft = minusOneLeft + buttonWidth + gap;
         int plusOneLeft = valueLeft + valueWidth + gap;
         int plusTenLeft = plusOneLeft + buttonWidth + gap;
+        int plusHundredLeft = plusTenLeft + buttonWidth + gap;
         return new PickerLayout(
+            minusHundredLeft, minusHundredLeft + buttonWidth,
             minusTenLeft, minusTenLeft + buttonWidth,
             minusOneLeft, minusOneLeft + buttonWidth,
             valueLeft, valueLeft + valueWidth,
             plusOneLeft, plusOneLeft + buttonWidth,
-            plusTenLeft, plusTenLeft + buttonWidth
+            plusTenLeft, plusTenLeft + buttonWidth,
+            plusHundredLeft, plusHundredLeft + buttonWidth
         );
     }
 
@@ -409,10 +428,12 @@ public final class EventNumberInputScreen extends Screen {
     ) {}
 
     private record PickerLayout(
+        int minusHundredLeft, int minusHundredRight,
         int minusTenLeft, int minusTenRight,
         int minusOneLeft, int minusOneRight,
         int valueLeft, int valueRight,
         int plusOneLeft, int plusOneRight,
-        int plusTenLeft, int plusTenRight
+        int plusTenLeft, int plusTenRight,
+        int plusHundredLeft, int plusHundredRight
     ) {}
 }

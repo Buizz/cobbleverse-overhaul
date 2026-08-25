@@ -7,6 +7,29 @@ import org.junit.jupiter.api.Test;
 
 final class WorldPlanParserTest {
     @Test
+    void parsesBarrierTransitionForCaveEntrance() {
+        var root = JsonParser.parseString("""
+            {
+              "cave_entrances": [{
+                "id": "cobbleventure:cave_entrance/test_west",
+                "cave": "cobbleventure:cave/test",
+                "entrance": "west",
+                "transition": "cave_entry",
+                "anchor": {"q": 1, "r": 2},
+                "facing": "north",
+                "structure": "cobbleventure:cave_entrance/stone_mountain"
+              }]
+            }
+            """).getAsJsonObject();
+
+        var entrance = WorldPlanParser.caveEntrances(root).getFirst();
+
+        assertEquals("cobbleventure:cave/test", entrance.cave());
+        assertEquals("west", entrance.entrance());
+        assertEquals("cave_entry", entrance.surfaceTransition());
+    }
+
+    @Test
     void parsesWorldOwnedUndergroundRoadConnection() {
         var root = JsonParser.parseString("""
             {

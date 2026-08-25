@@ -30,6 +30,7 @@ final class EventTriggerExecutor {
         EventSessionKey key = new EventSessionKey(
             player.getUUID(), npc.getUUID(), script.scriptId(), triggerInstance
         );
+        EventRecoverableAwait.resetLegacyCancelledNumberInput(store, key);
         if (EventAwaitInputLockService.isLocked(player.getUUID())) return false;
         resetRecoverableAwait(store, key);
         Optional<EventSession> session = EventInterpreter.startSession(

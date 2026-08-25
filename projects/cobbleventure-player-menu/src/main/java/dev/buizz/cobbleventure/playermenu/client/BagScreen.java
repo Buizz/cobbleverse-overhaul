@@ -4,6 +4,7 @@ import com.cobblemon.mod.common.CobblemonSounds;
 import com.cobblemon.mod.common.api.item.PokemonSelectingItem;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
+import dev.buizz.cobbleventure.playermenu.CobbleventurePlayerMenu;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -19,8 +20,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
@@ -30,6 +33,10 @@ import org.lwjgl.glfw.GLFW;
 
 /** 검색, 포켓 분류와 실제 인벤토리 조작을 제공하는 가방 화면. */
 public final class BagScreen extends Screen {
+    private static final TagKey<Item> KEY_ITEMS = TagKey.create(
+        Registries.ITEM,
+        ResourceLocation.fromNamespaceAndPath(CobbleventurePlayerMenu.MOD_ID, "key_items")
+    );
     private static final int PANEL_MAX_WIDTH = 560;
     private static final int PANEL_MAX_HEIGHT = 320;
     private static final int PANEL_PADDING = 8;
@@ -872,7 +879,8 @@ public final class BagScreen extends Screen {
                 case BALLS -> namespace.equals("cobblemon") && (path.endsWith("_ball") || path.contains("poke_ball"));
                 case BATTLE -> stack.isDamageableItem()
                     || containsAny(path, "sword", "bow", "shield", "vest", "band", "specs", "scarf", "gem");
-                case KEY_ITEMS -> containsAny(path, "pokedex", "exp_share", "key", "badge", "map", "compass");
+                case KEY_ITEMS -> stack.is(BagScreen.KEY_ITEMS)
+                    || containsAny(path, "pokedex", "exp_share", "key", "badge", "map", "compass");
                 case MATERIALS -> !RECOVERY.matches(stack) && !BALLS.matches(stack)
                     && !BATTLE.matches(stack) && !KEY_ITEMS.matches(stack);
                 case ALL -> true;

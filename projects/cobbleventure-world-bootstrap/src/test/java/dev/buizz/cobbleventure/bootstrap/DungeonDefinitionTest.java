@@ -73,6 +73,10 @@ final class DungeonDefinitionTest {
                   },
                   "encounters": [{
                     "id": "boss",
+                    "display_name": {
+                      "ko_kr": "제어실 로켓단 간부",
+                      "en_us": "Control Room Team Rocket Officer"
+                    },
                     "npcs": [
                       "cobbleventure:npc/rocket_power_plant_officer",
                       "cobbleventure:npc/rocket_power_plant_grunt"
@@ -175,6 +179,9 @@ final class DungeonDefinitionTest {
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals("boss", definition.encounters().getFirst().id());
+        assertEquals(
+            "제어실 로켓단 간부", definition.encounters().getFirst().displayName()
+        );
         assertEquals(
             List.of(
                 "cobbleventure:npc/rocket_power_plant_officer",

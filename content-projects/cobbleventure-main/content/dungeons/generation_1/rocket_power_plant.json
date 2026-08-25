@@ -70,6 +70,10 @@
   "encounters": [
     {
       "id": "west_grunt",
+      "display_name": {
+        "ko_kr": "서쪽 정비 구역 로켓단",
+        "en_us": "West Maintenance Team Rocket"
+      },
       "npcs": [
         "cobbleventure:npc/rocket_power_plant_grunt",
         "cobbleventure:npc/rocket_power_plant_grunt_east"
@@ -85,6 +89,10 @@
     },
     {
       "id": "east_grunt",
+      "display_name": {
+        "ko_kr": "동쪽 변전 구역 로켓단",
+        "en_us": "East Transformer Team Rocket"
+      },
       "npcs": [
         "cobbleventure:npc/rocket_power_plant_grunt_east",
         "cobbleventure:npc/rocket_power_plant_grunt"
@@ -100,6 +108,10 @@
     },
     {
       "id": "control_room_officer",
+      "display_name": {
+        "ko_kr": "제어실 로켓단 간부",
+        "en_us": "Control Room Team Rocket Officer"
+      },
       "npcs": [
         "cobbleventure:npc/rocket_power_plant_officer",
         "cobbleventure:npc/rocket_power_plant_grunt_east"

@@ -127,6 +127,7 @@ public final class StructureBuilderMod {
 
     public StructureBuilderMod(IEventBus modBus) {
         BuilderStrengthBlocks.register(modBus);
+        BuilderStructureMarkerBlocks.register(modBus);
         BuilderEditorNetwork.register(modBus);
         if (FMLEnvironment.dist.isClient()) {
             dev.buizz.cobbleventure.structurebuilder.client.BuilderEditorClient.register(modBus);
@@ -177,6 +178,7 @@ public final class StructureBuilderMod {
             "[Structure Builder] 건축 명령 권한을 활성화했습니다. WorldEdit 명령을 사용할 수 있습니다."
         ));
         giveEditorStick(player);
+        giveExcavationMarkers(player);
         try {
             Catalog catalog = loadCatalog(server);
             BuilderData data = data(server);
@@ -1168,6 +1170,19 @@ public final class StructureBuilderMod {
         player.sendSystemMessage(Component.literal(
             "[Structure Builder] 편집 막대기: 실제 문 우클릭=연결 문, "
                 + "일반 블록 우클릭=NPC 위치, 웅크리기+좌클릭=설정 삭제"
+        ));
+    }
+
+    private static void giveExcavationMarkers(ServerPlayer player) {
+        boolean alreadyHasMarkers = player.getInventory().items.stream()
+            .anyMatch(stack -> stack.is(BuilderStructureMarkerBlocks.MARKER_ITEM.get()));
+        if (alreadyHasMarkers) return;
+        player.getInventory().add(new ItemStack(
+            BuilderStructureMarkerBlocks.MARKER_ITEM.get(), 64
+        ));
+        player.sendSystemMessage(Component.literal(
+            "[Structure Builder] 굴착 공기 마커 64개를 지급했습니다. "
+                + "실제 월드 배치 시 이 블록만 공기로 바뀝니다."
         ));
     }
 

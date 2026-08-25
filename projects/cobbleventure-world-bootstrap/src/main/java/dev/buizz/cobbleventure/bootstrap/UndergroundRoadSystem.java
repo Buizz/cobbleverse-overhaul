@@ -174,7 +174,9 @@ final class UndergroundRoadSystem {
             StructureTemplate template = level.getStructureManager().get(structureId)
                 .orElseThrow(() -> new IllegalStateException("Underground passage module is missing: " + structureId));
             Rotation rotation = rotation(json.get("rotation").getAsString());
-            StructurePlaceSettings settings = new StructurePlaceSettings().setRotation(rotation);
+            StructurePlaceSettings settings = ExplicitAirPlacementProcessor.configure(
+                template, new StructurePlaceSettings().setRotation(rotation)
+            );
             JsonObject position = json.getAsJsonObject("position");
             BlockPos minimum = origin.offset(position.get("x").getAsInt(), position.get("y").getAsInt(), position.get("z").getAsInt());
             int width = template.getSize().getX(), depth = template.getSize().getZ();

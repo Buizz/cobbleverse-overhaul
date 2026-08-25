@@ -477,7 +477,7 @@ class ContentManagerTests(unittest.TestCase):
             settings["facility_defaults"]["pokemart"],
         )
 
-    def test_cave_entrance_nbt_variants_use_large_centered_barrier_masks(self) -> None:
+    def test_cave_entrance_nbt_variants_use_excavation_markers_and_transition_barriers(self) -> None:
         variants = {
             "stone_mountain", "red_rock_mountain", "snow_mountain", "plains", "ocean",
         }
@@ -491,15 +491,30 @@ class ContentManagerTests(unittest.TestCase):
                 path.read_bytes()
             )
             self.assertEqual([33, 27, 33], size)
+            excavation_state = palette.index(
+                "cobbleventure_bootstrap:excavation_marker"
+            )
+            excavation_positions = {
+                tuple(block["pos"])
+                for block in blocks
+                if block.get("state") == excavation_state
+            }
             barrier_state = palette.index("minecraft:barrier")
             barrier_positions = {
                 tuple(block["pos"])
                 for block in blocks
                 if block.get("state") == barrier_state
             }
-            self.assertIn((16, 7, 16), barrier_positions)
-            self.assertIn((16, 15, 16), barrier_positions)
-            self.assertGreater(len(barrier_positions), 1000)
+            self.assertIn((16, 7, 16), excavation_positions)
+            self.assertIn((16, 15, 16), excavation_positions)
+            self.assertGreater(len(excavation_positions), 1000)
+            self.assertIn((16, 7, 14), barrier_positions)
+            self.assertEqual(37, len(barrier_positions))
+            metadata = json.loads(
+                path.with_suffix(".structure.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("cave_entry", metadata["anchors"][0]["label"])
+            self.assertEqual("transition", metadata["anchors"][0]["type"])
 
     def test_natural_feature_no_interior_space_setting_is_exposed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -1,6 +1,14 @@
 {
   "replace": false,
   "values": [
-    "cobbleventure_player_menu:world_map"
+    "cobbleventure_player_menu:world_map",
+    {
+      "id": "cobbleventure_casino:coin_case",
+      "required": false
+    },
+    {
+      "id": "cobbleventure_casino:gacha_ticket",
+      "required": false
+    }
   ]
 }

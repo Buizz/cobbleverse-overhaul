@@ -262,7 +262,7 @@ final class WorldPlanParser {
             result.add(new CaveEntrancePlan(
                 required(value, "id"), required(value, undergroundRoad ? "underground_road" : "cave"),
                 undergroundRoad ? null : required(value, "entrance"),
-                undergroundRoad ? required(value, "transition") : null,
+                required(value, "transition"),
                 undergroundRoad ? required(value, "underground_module") : null,
                 undergroundRoad ? required(value, "underground_connector") : null,
                 coordinate(value.getAsJsonObject("anchor")),

@@ -9,6 +9,7 @@
   },
   "region": "cobbleventure:generation_1/region_04",
   "dimension": "cobbleventure:generation_1",
+  "music_track": "kanto.cinnabar_island",
   "town_radius_cells": 3,
   "bounds": {
     "min_x": 1739,

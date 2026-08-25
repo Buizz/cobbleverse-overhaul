@@ -235,31 +235,30 @@ public final class EventDialogueNetwork {
             || !payload.token().equals(session.awaiting().token())) {
             return;
         }
-        EventSession.AwaitCompletion completion;
         if (payload.cancelled()) {
-            completion = new EventSession.AwaitCompletion(
-                EventSession.CompletionKind.CANCELLED, new JsonPrimitive("client_cancelled")
+            EventAwaitCompletionService.terminateWithoutResume(
+                player.getUUID(), key, payload.token(),
+                EventSession.CompletionKind.CANCELLED, script, store
             );
-        } else {
-            EventScript.Instruction instruction = script.events().get(session.eventIndex())
-                .instruction(session.programCounter());
-            EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
-                new ServerPlayerEventState(player)
-            );
-            NumberInputEventCommandAdapter.Bounds bounds = NumberInputEventCommandAdapter.bounds(
-                instruction, environment, session.locals()
-            );
-            if (!bounds.contains(payload.value())) {
-                LOGGER.warn("Rejected CVES number input outside server bounds: player={}, value={}",
-                    player.getGameProfile().getName(), payload.value());
-                return;
-            }
-            completion = new EventSession.AwaitCompletion(
-                EventSession.CompletionKind.COMPLETED, new JsonPrimitive(payload.value())
-            );
+            return;
+        }
+        EventScript.Instruction instruction = script.events().get(session.eventIndex())
+            .instruction(session.programCounter());
+        EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
+            new ServerPlayerEventState(player)
+        );
+        NumberInputEventCommandAdapter.Bounds bounds = NumberInputEventCommandAdapter.bounds(
+            instruction, environment, session.locals()
+        );
+        if (!bounds.contains(payload.value())) {
+            LOGGER.warn("Rejected CVES number input outside server bounds: player={}, value={}",
+                player.getGameProfile().getName(), payload.value());
+            return;
         }
         EventAwaitCompletionService.completeAndRun(
-            player.getUUID(), key, payload.token(), completion, script,
+            player.getUUID(), key, payload.token(), new EventSession.AwaitCompletion(
+                EventSession.CompletionKind.COMPLETED, new JsonPrimitive(payload.value())
+            ), script,
             new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
             serverAdapter(player), store, 10_000
         );

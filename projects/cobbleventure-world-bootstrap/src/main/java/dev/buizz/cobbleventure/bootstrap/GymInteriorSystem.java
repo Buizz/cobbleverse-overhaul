@@ -660,6 +660,7 @@ final class GymInteriorSystem {
                 StructurePlaceSettings settings = new StructurePlaceSettings()
                     .setRotation(module.rotation)
                     .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
+                ExplicitAirPlacementProcessor.configure(template.orElseThrow(), settings);
                 boolean placed = template.orElseThrow().placeInWorld(
                     level, moduleOrigin, moduleOrigin, settings,
                     RandomSource.create(level.getSeed() ^ moduleOrigin.asLong()), 2

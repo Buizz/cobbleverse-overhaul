@@ -9,6 +9,7 @@
   },
   "region": "cobbleventure:generation_1/region_03",
   "dimension": "cobbleventure:generation_1",
+  "music_track": "kanto.pewter_city",
   "town_radius_cells": 3,
   "bounds": {
     "min_x": 1350,

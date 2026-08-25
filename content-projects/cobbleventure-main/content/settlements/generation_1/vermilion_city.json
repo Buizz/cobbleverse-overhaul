@@ -9,6 +9,7 @@
   },
   "region": "cobbleventure:generation_1/vermilion",
   "dimension": "cobbleventure:generation_1",
+  "music_track": "kanto.vermilion_city",
   "town_radius_cells": 3,
   "bounds": {
     "min_x": -160,
