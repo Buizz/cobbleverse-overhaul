@@ -4,7 +4,9 @@ import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
     @Test
@@ -44,6 +46,23 @@ final class DungeonDefinitionTest {
                     "yaw": 180,
                     "boss": true
                   }],
+                  "random_encounters": {
+                    "enabled": true,
+                    "minimum_distance": 8,
+                    "maximum_distance": 16,
+                    "max_active": 2,
+                    "spawn_interval_ticks": 100,
+                    "spawn_bounds": {
+                      "min": [2, 1, 11],
+                      "max": [45, 1, 45]
+                    },
+                    "additions": [{
+                      "species": "cobblemon:magnemite",
+                      "min_level": 24,
+                      "max_level": 28,
+                      "weight": 35
+                    }]
+                  },
                   "loot": {
                     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
                     "containers": [{
@@ -68,6 +87,12 @@ final class DungeonDefinitionTest {
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals("boss", definition.encounters().getFirst().id());
+        assertEquals(2, definition.randomEncounters().maxActive());
+        assertEquals(
+            "cobblemon:magnemite",
+            definition.randomEncounters().additions().getFirst().species()
+        );
+        assertEquals(45, definition.randomEncounters().maximumPosition().getX());
         assertEquals(
             "cobbleventure:dungeon/rocket_power_plant_supplies",
             definition.loot().lootTable()
@@ -122,5 +147,17 @@ final class DungeonDefinitionTest {
         assertEquals(new net.minecraft.core.BlockPos(32768, 80, 0), DungeonSystem.slotOrigin(0));
         assertEquals(new net.minecraft.core.BlockPos(36352, 80, 0), DungeonSystem.slotOrigin(7));
         assertEquals(new net.minecraft.core.BlockPos(32768, 80, 512), DungeonSystem.slotOrigin(8));
+    }
+
+    @Test
+    void limitsRandomEncounterCandidatesToTheConfiguredDungeonFloor() {
+        PursuitEncounterSystem.SpawnBounds bounds = new PursuitEncounterSystem.SpawnBounds(
+            new net.minecraft.core.BlockPos(32770, 81, 11),
+            new net.minecraft.core.BlockPos(32813, 81, 45)
+        );
+
+        assertTrue(bounds.contains(new net.minecraft.core.BlockPos(32790, 81, 30)));
+        assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32790, 82, 30)));
+        assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32769, 81, 30)));
     }
 }

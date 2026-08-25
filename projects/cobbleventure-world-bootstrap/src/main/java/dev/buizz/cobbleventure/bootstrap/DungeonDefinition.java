@@ -27,6 +27,7 @@ record DungeonDefinition(
     Difficulty difficulty,
     Terrain terrain,
     List<Encounter> encounters,
+    RandomEncounters randomEncounters,
     Loot loot,
     Completion completion,
     List<Entrance> entrances
@@ -134,6 +135,81 @@ record DungeonDefinition(
                 "Dungeon requires exactly one boss encounter: " + id
             );
         }
+        JsonObject randomEncounters = requiredObject(root, "random_encounters");
+        int minimumDistance = requiredInt(randomEncounters, "minimum_distance");
+        int maximumDistance = requiredInt(randomEncounters, "maximum_distance");
+        if (minimumDistance < 1 || maximumDistance > 128
+            || minimumDistance > maximumDistance) {
+            throw new IllegalStateException(
+                "Invalid dungeon random encounter distance: "
+                    + minimumDistance + ".." + maximumDistance
+            );
+        }
+        int maxActive = requiredInt(randomEncounters, "max_active");
+        if (maxActive < 1 || maxActive > 16) {
+            throw new IllegalStateException(
+                "Invalid dungeon random encounter max_active: " + maxActive
+            );
+        }
+        int spawnIntervalTicks = requiredInt(randomEncounters, "spawn_interval_ticks");
+        if (spawnIntervalTicks < 20 || spawnIntervalTicks > 12000) {
+            throw new IllegalStateException(
+                "Invalid dungeon random encounter spawn_interval_ticks: "
+                    + spawnIntervalTicks
+            );
+        }
+        JsonObject spawnBounds = requiredObject(randomEncounters, "spawn_bounds");
+        BlockPos minimumPosition = blockPosition(spawnBounds, "min");
+        BlockPos maximumPosition = blockPosition(spawnBounds, "max");
+        if (minimumPosition.getX() < 0 || minimumPosition.getY() < 0
+            || minimumPosition.getZ() < 0
+            || minimumPosition.getX() > maximumPosition.getX()
+            || minimumPosition.getY() > maximumPosition.getY()
+            || minimumPosition.getZ() > maximumPosition.getZ()) {
+            throw new IllegalStateException(
+                "Invalid dungeon random encounter spawn_bounds: " + id
+            );
+        }
+        List<WildSpecies> wildSpecies = new ArrayList<>();
+        Set<String> configuredWildSpecies = new HashSet<>();
+        for (JsonElement element : requiredArray(randomEncounters, "additions")) {
+            JsonObject addition = element.getAsJsonObject();
+            String species = resourceId(addition, "species");
+            if (!configuredWildSpecies.add(species)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon random encounter species: " + id + " -> " + species
+                );
+            }
+            int minimumLevel = requiredInt(addition, "min_level");
+            int maximumLevel = requiredInt(addition, "max_level");
+            validateRange("wild encounter level", minimumLevel, maximumLevel);
+            if (minimumLevel < internalMin || maximumLevel > internalMax) {
+                throw new IllegalStateException(
+                    "Dungeon random encounter level is outside the internal range: "
+                        + id + " -> " + species
+                );
+            }
+            int weight = requiredInt(addition, "weight");
+            if (weight < 1 || weight > 1000) {
+                throw new IllegalStateException(
+                    "Invalid dungeon random encounter weight: " + id + " -> " + species
+                );
+            }
+            wildSpecies.add(new WildSpecies(
+                species,
+                minimumLevel,
+                maximumLevel,
+                weight,
+                addition.has("spawn_as_evolved")
+                    && requiredBoolean(addition, "spawn_as_evolved")
+            ));
+        }
+        boolean randomEncountersEnabled = requiredBoolean(randomEncounters, "enabled");
+        if (randomEncountersEnabled && wildSpecies.isEmpty()) {
+            throw new IllegalStateException(
+                "Enabled dungeon random encounters require additions: " + id
+            );
+        }
         JsonObject loot = requiredObject(root, "loot");
         List<LootContainer> lootContainers = new ArrayList<>();
         Set<String> lootContainerIds = new HashSet<>();
@@ -197,6 +273,16 @@ record DungeonDefinition(
             new Difficulty(recommendedMin, recommendedMax, internalMin, internalMax),
             new Terrain(terrainMode, template, entryPosition, exitPosition),
             List.copyOf(encounters),
+            new RandomEncounters(
+                randomEncountersEnabled,
+                minimumDistance,
+                maximumDistance,
+                maxActive,
+                spawnIntervalTicks,
+                minimumPosition,
+                maximumPosition,
+                List.copyOf(wildSpecies)
+            ),
             new Loot(resourceId(loot, "loot_table"), List.copyOf(lootContainers)),
             new Completion(
                 resourceId(completion, "victory_flag"),
@@ -309,6 +395,23 @@ record DungeonDefinition(
         BlockPos exitPosition
     ) {}
     record Encounter(String id, String npc, BlockPos position, float yaw, boolean boss) {}
+    record RandomEncounters(
+        boolean enabled,
+        int minimumDistance,
+        int maximumDistance,
+        int maxActive,
+        int spawnIntervalTicks,
+        BlockPos minimumPosition,
+        BlockPos maximumPosition,
+        List<WildSpecies> additions
+    ) {}
+    record WildSpecies(
+        String species,
+        int minLevel,
+        int maxLevel,
+        int weight,
+        boolean spawnAsEvolved
+    ) {}
     record Loot(String lootTable, List<LootContainer> containers) {}
     record LootContainer(String id, BlockPos position, String block, String facing) {}
     record Completion(String victoryFlag, boolean repeatable, List<String> fieldMoves) {}

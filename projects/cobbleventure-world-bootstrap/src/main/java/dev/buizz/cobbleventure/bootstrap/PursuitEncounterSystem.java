@@ -34,8 +34,8 @@ final class PursuitEncounterSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     static final String ENTITY_TAG = "cobbleventure_pursuit_encounter";
     static final String FORCE_EVOLVED_SPAWN_TAG = "cobbleventure_force_evolved_spawn";
-    private static final int MAX_AMBIENT_POKEMON = 2;
-    private static final int SPAWN_INTERVAL_TICKS = 20 * 4;
+    private static final int DEFAULT_MAX_AMBIENT_POKEMON = 2;
+    private static final int DEFAULT_SPAWN_INTERVAL_TICKS = 20 * 4;
     private static final int ALERT_ANIMATION_TICKS = 18;
     private static final int WARNING_TICKS = 15;
     private static final int PURSUIT_TICKS = 20 * 12;
@@ -132,7 +132,11 @@ final class PursuitEncounterSystem {
         }
         Config config = new Config(
             id, settings.get("minimum_distance").getAsInt(),
-            settings.get("maximum_distance").getAsInt(), List.copyOf(choices.values())
+            settings.get("maximum_distance").getAsInt(),
+            DEFAULT_MAX_AMBIENT_POKEMON,
+            DEFAULT_SPAWN_INTERVAL_TICKS,
+            null,
+            List.copyOf(choices.values())
         );
         LOGGER.info(
             "[Spawn diagnosis] Ambient encounter loaded: area={}, biome={}, generations={}, habitats={}, species={}, spawnRadius={}-{}",
@@ -201,10 +205,10 @@ final class PursuitEncounterSystem {
             return;
         }
         acquireVisiblePursuer(player, state, gameTime);
-        if (state.pursuer == null && state.encounters.size() < MAX_AMBIENT_POKEMON
+        if (state.pursuer == null && state.encounters.size() < config.maxActive()
             && gameTime >= state.nextSpawnTick) {
             spawn(player, config, state);
-            state.nextSpawnTick = gameTime + SPAWN_INTERVAL_TICKS;
+            state.nextSpawnTick = gameTime + config.spawnIntervalTicks();
         }
     }
 
@@ -292,14 +296,17 @@ final class PursuitEncounterSystem {
             if (level.dimension().equals(CobbleventureBootstrap.GENERATION_ONE)) {
                 int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
                 BlockPos result = new BlockPos(x, y, z);
-                if (level.getBlockState(result).isAir() && level.getBlockState(result.above()).isAir()) return result;
+                if (config.allows(result)
+                    && level.getBlockState(result).isAir()
+                    && level.getBlockState(result.above()).isAir()) return result;
                 continue;
             }
             int top = Math.min(level.getMaxBuildHeight() - 3, player.getBlockY() + 7);
             int bottom = Math.max(level.getMinBuildHeight() + 1, player.getBlockY() - 12);
             for (int y = top; y >= bottom; y--) {
                 BlockPos result = new BlockPos(x, y, z);
-                if (!level.getBlockState(result.below()).isAir()
+                if (config.allows(result)
+                    && !level.getBlockState(result.below()).isAir()
                     && level.getBlockState(result).isAir()
                     && level.getBlockState(result.above()).isAir()) return result;
             }
@@ -510,7 +517,26 @@ final class PursuitEncounterSystem {
         state.battleStartTick = -1L;
     }
 
-    record Config(String id, int minimumDistance, int maximumDistance, List<SpeciesChoice> species) {}
+    record Config(
+        String id,
+        int minimumDistance,
+        int maximumDistance,
+        int maxActive,
+        int spawnIntervalTicks,
+        SpawnBounds bounds,
+        List<SpeciesChoice> species
+    ) {
+        boolean allows(BlockPos position) {
+            return bounds == null || bounds.contains(position);
+        }
+    }
+    record SpawnBounds(BlockPos minimum, BlockPos maximum) {
+        boolean contains(BlockPos position) {
+            return position.getX() >= minimum.getX() && position.getX() <= maximum.getX()
+                && position.getY() >= minimum.getY() && position.getY() <= maximum.getY()
+                && position.getZ() >= minimum.getZ() && position.getZ() <= maximum.getZ();
+        }
+    }
     record SpeciesChoice(
         String species, int minLevel, int maxLevel, int weight, boolean spawnAsEvolved
     ) {}

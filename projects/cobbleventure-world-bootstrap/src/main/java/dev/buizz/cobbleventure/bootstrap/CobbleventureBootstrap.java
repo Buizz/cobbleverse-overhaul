@@ -5448,8 +5448,13 @@ public final class CobbleventureBootstrap {
                 if (player.serverLevel() != dungeons) {
                     continue;
                 }
+                PursuitEncounterSystem.Config dungeonEncounters =
+                    DungeonSystem.randomEncounterConfig(player);
                 PursuitEncounterSystem.tick(
-                    player, pursuitEncounterAt(dungeons, player.getX(), player.getZ()), gameTime
+                    player,
+                    dungeonEncounters != null ? dungeonEncounters
+                        : pursuitEncounterAt(dungeons, player.getX(), player.getZ()),
+                    gameTime
                 );
                 if (gameTime % 10L == 0L) {
                     MusicPlayback.tickDimension(

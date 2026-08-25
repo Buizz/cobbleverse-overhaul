@@ -205,6 +205,13 @@ final class DungeonSystem {
         openGuide(player, touching);
     }
 
+    static synchronized PursuitEncounterSystem.Config randomEncounterConfig(
+        ServerPlayer player
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        return run == null ? null : run.randomEncounters();
+    }
+
     private static void openGuide(ServerPlayer player, PlacedEntrance placement) {
         DungeonEntranceRef ref = entrances.get(placement.entranceId());
         if (ref == null) {
@@ -300,7 +307,10 @@ final class DungeonSystem {
         long cooldown = dungeonLevel.getGameTime() + 40L;
         ACTIVE_RUNS.put(
             player.getUUID(),
-            new ActiveRun(definition.id(), slot, origin, size, entry, exit, cooldown)
+            new ActiveRun(
+                definition.id(), slot, origin, size, entry, exit, cooldown,
+                createRandomEncounterConfig(definition, origin, size, slot)
+            )
         );
         player.teleportTo(
             dungeonLevel,
@@ -379,6 +389,40 @@ final class DungeonSystem {
             blockEntity.setLootTableSeed(runSeed ^ container.id().hashCode());
             blockEntity.setChanged();
         }
+    }
+
+    private static PursuitEncounterSystem.Config createRandomEncounterConfig(
+        DungeonDefinition definition, BlockPos origin, BlockPos size, int slot
+    ) {
+        DungeonDefinition.RandomEncounters settings = definition.randomEncounters();
+        if (!settings.enabled()) return null;
+        BlockPos maximum = settings.maximumPosition();
+        if (maximum.getX() >= size.getX() || maximum.getY() >= size.getY()
+            || maximum.getZ() >= size.getZ()) {
+            throw new IllegalStateException(
+                "Dungeon random encounter bounds exceed the template: " + definition.id()
+            );
+        }
+        return new PursuitEncounterSystem.Config(
+            definition.id() + "#slot-" + slot,
+            settings.minimumDistance(),
+            settings.maximumDistance(),
+            settings.maxActive(),
+            settings.spawnIntervalTicks(),
+            new PursuitEncounterSystem.SpawnBounds(
+                origin.offset(settings.minimumPosition()),
+                origin.offset(settings.maximumPosition())
+            ),
+            settings.additions().stream().map(species ->
+                new PursuitEncounterSystem.SpeciesChoice(
+                    species.species(),
+                    species.minLevel(),
+                    species.maxLevel(),
+                    species.weight(),
+                    species.spawnAsEvolved()
+                )
+            ).toList()
+        );
     }
 
     private static int allocateSlot() {
@@ -630,7 +674,8 @@ final class DungeonSystem {
         BlockPos size,
         BlockPos entry,
         BlockPos exit,
-        long teleportCooldownUntil
+        long teleportCooldownUntil,
+        PursuitEncounterSystem.Config randomEncounters
     ) {}
 
     private record ReturnFrame(

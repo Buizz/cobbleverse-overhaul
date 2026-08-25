@@ -59,6 +59,49 @@
       "boss": true
     }
   ],
+  "random_encounters": {
+    "enabled": true,
+    "minimum_distance": 8,
+    "maximum_distance": 16,
+    "max_active": 2,
+    "spawn_interval_ticks": 100,
+    "spawn_bounds": {
+      "min": [2, 1, 11],
+      "max": [45, 1, 45]
+    },
+    "additions": [
+      {
+        "species": "cobblemon:magnemite",
+        "min_level": 24,
+        "max_level": 28,
+        "weight": 35
+      },
+      {
+        "species": "cobblemon:voltorb",
+        "min_level": 25,
+        "max_level": 29,
+        "weight": 30
+      },
+      {
+        "species": "cobblemon:grimer",
+        "min_level": 24,
+        "max_level": 28,
+        "weight": 20
+      },
+      {
+        "species": "cobblemon:koffing",
+        "min_level": 26,
+        "max_level": 30,
+        "weight": 10
+      },
+      {
+        "species": "cobblemon:electabuzz",
+        "min_level": 28,
+        "max_level": 31,
+        "weight": 5
+      }
+    ]
+  },
   "loot": {
     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
     "containers": [
