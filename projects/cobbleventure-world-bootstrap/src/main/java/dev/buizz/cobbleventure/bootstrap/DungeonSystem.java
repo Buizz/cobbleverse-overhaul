@@ -674,6 +674,7 @@ final class DungeonSystem {
         Map<UUID, EncounterEntityRef> encounterByEntity;
         try {
             size = prepareFixedTemplate(dungeonLevel, definition, origin);
+            placeGates(dungeonLevel, definition, origin, size);
             placeHealingStations(dungeonLevel, definition, origin, size);
             placeLootContainers(dungeonLevel, definition, origin);
             encounterByEntity = spawnEncounters(
@@ -709,7 +710,8 @@ final class DungeonSystem {
             player.getServer(), definition.id(), slot, origin, size, entry, exit, cooldown,
             randomEncounters, new HashMap<>(), participantIds, new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
-            new DungeonLootClaims(), new DungeonLootLedger(), new HashMap<>()
+            new DungeonLootClaims(), new DungeonLootLedger(), new HashMap<>(),
+            new HashSet<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         for (int index = 0; index < entries.size(); index++) {
@@ -951,6 +953,37 @@ final class DungeonSystem {
                     "Dungeon healing station placement failed: " + station.id()
                 );
             }
+        }
+    }
+
+    private static void placeGates(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        BlockPos size
+    ) {
+        for (DungeonDefinition.Gate gate : definition.gates()) {
+            BlockPos maximum = gate.maximum();
+            if (maximum.getX() >= size.getX() || maximum.getY() >= size.getY()
+                || maximum.getZ() >= size.getZ()) {
+                throw new IllegalStateException(
+                    "Dungeon gate exceeds the template: " + gate.id()
+                );
+            }
+            ResourceLocation blockId = ResourceLocation.parse(gate.block());
+            var block = BuiltInRegistries.BLOCK.getOptional(blockId).orElseThrow(() ->
+                new IllegalStateException("Dungeon gate block is missing: " + blockId)
+            );
+            if (block == Blocks.AIR) {
+                throw new IllegalStateException(
+                    "Dungeon gate block cannot be air: " + gate.id()
+                );
+            }
+            BlockPos.betweenClosedStream(
+                origin.offset(gate.minimum()), origin.offset(gate.maximum())
+            ).forEach(position -> level.setBlock(
+                position, block.defaultBlockState(), 3
+            ));
         }
     }
 
@@ -1311,6 +1344,9 @@ final class DungeonSystem {
             : definition.encounters().stream()
                 .filter(candidate -> candidate.id().equals(encounterId))
                 .findFirst().orElse(null);
+        if (won && definition != null) {
+            unlockSatisfiedGates(run, definition);
+        }
         if (won && encounter != null && encounter.boss()) {
             for (UUID participantId : run.participantIds()) {
                 ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
@@ -1324,6 +1360,43 @@ final class DungeonSystem {
         notifyEncounterResult(run, won
             ? "[던전] 협력 전투에서 승리했습니다."
             : "[던전] 협력 전투에서 패배했습니다.");
+    }
+
+    private static void unlockSatisfiedGates(
+        ActiveRun run, DungeonDefinition definition
+    ) {
+        ServerLevel level = run.server().getLevel(DUNGEONS);
+        if (level == null) return;
+        for (DungeonDefinition.Gate gate : definition.gates()) {
+            if (run.openedGates().contains(gate.id())
+                || !gate.requires().stream().allMatch(required ->
+                    run.encounters().statusById.get(required)
+                        == EncounterStatus.DEFEATED
+                )) {
+                continue;
+            }
+            run.openedGates().add(gate.id());
+            BlockPos minimum = run.origin().offset(gate.minimum());
+            BlockPos maximum = run.origin().offset(gate.maximum());
+            BlockPos.betweenClosedStream(minimum, maximum).forEach(position ->
+                level.setBlock(position, Blocks.AIR.defaultBlockState(), 3)
+            );
+            BlockPos center = new BlockPos(
+                (minimum.getX() + maximum.getX()) / 2,
+                (minimum.getY() + maximum.getY()) / 2,
+                (minimum.getZ() + maximum.getZ()) / 2
+            );
+            level.playSound(
+                null, center, SoundEvents.IRON_DOOR_OPEN,
+                SoundSource.BLOCKS, 1.0F, 0.8F
+            );
+            level.sendParticles(
+                ParticleTypes.POOF,
+                center.getX() + 0.5D, center.getY() + 0.5D, center.getZ() + 0.5D,
+                12, 1.0D, 1.0D, 0.2D, 0.02D
+            );
+            notifyEncounterResult(run, "[던전] 잠금 게이트가 해제되었습니다.");
+        }
     }
 
     private static synchronized void onBattleFled(BattleFledEvent event) {
@@ -1999,7 +2072,8 @@ final class DungeonSystem {
         EncounterRuntime encounters,
         DungeonLootClaims lootClaims,
         DungeonLootLedger lootLedger,
-        Map<UUID, ReconnectState> reconnecting
+        Map<UUID, ReconnectState> reconnecting,
+        Set<String> openedGates
     ) {}
 
     private record ReconnectState(

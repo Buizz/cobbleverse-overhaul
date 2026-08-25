@@ -33,6 +33,7 @@ record DungeonDefinition(
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
     Support support,
+    List<Gate> gates,
     Loot loot,
     Rewards rewards,
     Lifecycle lifecycle,
@@ -390,6 +391,51 @@ record DungeonDefinition(
                 restorePp
             ));
         }
+        List<Gate> gates = new ArrayList<>();
+        Set<String> gateIds = new HashSet<>();
+        for (JsonElement element : requiredArray(root, "gates")) {
+            JsonObject gate = element.getAsJsonObject();
+            String gateId = requiredString(gate, "id");
+            if (!gateIds.add(gateId)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon gate ID: " + id + " -> " + gateId
+                );
+            }
+            BlockPos minimum = blockPosition(gate, "min");
+            BlockPos maximum = blockPosition(gate, "max");
+            if (minimum.getX() < 0 || minimum.getY() < 0 || minimum.getZ() < 0
+                || minimum.getX() > maximum.getX()
+                || minimum.getY() > maximum.getY()
+                || minimum.getZ() > maximum.getZ()
+                || (long)(maximum.getX() - minimum.getX() + 1)
+                    * (maximum.getY() - minimum.getY() + 1)
+                    * (maximum.getZ() - minimum.getZ() + 1) > 256L) {
+                throw new IllegalStateException(
+                    "Invalid dungeon gate bounds: " + id + " -> " + gateId
+                );
+            }
+            List<String> requirements = new ArrayList<>();
+            for (JsonElement requirement : requiredArray(gate, "requires")) {
+                String requiredEncounter = requirement.getAsString();
+                if (!encounterIds.contains(requiredEncounter)
+                    || !requirements.add(requiredEncounter)) {
+                    throw new IllegalStateException(
+                        "Invalid dungeon gate requirement: " + id + " -> "
+                            + gateId + " -> " + requiredEncounter
+                    );
+                }
+            }
+            if (requirements.isEmpty()) {
+                throw new IllegalStateException(
+                    "Dungeon gate requires at least one encounter: " + id
+                        + " -> " + gateId
+                );
+            }
+            gates.add(new Gate(
+                gateId, minimum, maximum, resourceId(gate, "block"),
+                List.copyOf(requirements)
+            ));
+        }
         JsonObject loot = requiredObject(root, "loot");
         String lootOwnership = enumValue(loot, "ownership", List.of(
             "per_player", "run_shared", "first_claim"
@@ -527,6 +573,7 @@ record DungeonDefinition(
                 List.copyOf(wildSpecies)
             ),
             new Support(List.copyOf(healingStations)),
+            List.copyOf(gates),
             new Loot(
                 resourceId(loot, "loot_table"), lootOwnership, lootOnFailure,
                 List.copyOf(lootContainers)
@@ -708,6 +755,13 @@ record DungeonDefinition(
         boolean spawnAsEvolved
     ) {}
     record Support(List<HealingStation> healingStations) {}
+    record Gate(
+        String id,
+        BlockPos minimum,
+        BlockPos maximum,
+        String block,
+        List<String> requires
+    ) {}
     record HealingStation(
         String id,
         BlockPos position,

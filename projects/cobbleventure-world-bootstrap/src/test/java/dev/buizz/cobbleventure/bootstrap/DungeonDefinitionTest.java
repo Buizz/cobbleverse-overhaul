@@ -114,6 +114,13 @@ final class DungeonDefinitionTest {
                       "restore_pp": true
                     }]
                   },
+                  "gates": [{
+                    "id": "boss_lockdown",
+                    "min": [22, 1, 33],
+                    "max": [25, 3, 33],
+                    "block": "minecraft:iron_bars",
+                    "requires": ["boss"]
+                  }],
                   "loot": {
                     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
                     "ownership": "per_player",
@@ -189,6 +196,8 @@ final class DungeonDefinitionTest {
             definition.support().healingStations().getFirst().id()
         );
         assertEquals(1, definition.support().healingStations().getFirst().usesPerRun());
+        assertEquals("boss_lockdown", definition.gates().getFirst().id());
+        assertEquals(List.of("boss"), definition.gates().getFirst().requires());
         assertEquals(
             "cobbleventure:dungeon/rocket_power_plant_supplies",
             definition.loot().lootTable()

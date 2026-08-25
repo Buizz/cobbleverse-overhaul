@@ -170,6 +170,15 @@
       }
     ]
   },
+  "gates": [
+    {
+      "id": "control_room_lockdown",
+      "min": [21, 1, 33],
+      "max": [26, 3, 33],
+      "block": "minecraft:iron_bars",
+      "requires": ["west_grunt", "east_grunt"]
+    }
+  ],
   "loot": {
     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
     "ownership": "per_player",

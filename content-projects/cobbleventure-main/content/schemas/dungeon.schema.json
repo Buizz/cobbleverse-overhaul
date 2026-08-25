@@ -7,7 +7,7 @@
   "required": [
     "$schema", "schema_version", "dungeon_id", "display_name", "description",
     "preset", "entrances", "entry_ui", "difficulty", "eligibility", "multiplayer", "match", "battle", "terrain", "encounters",
-    "random_encounters", "support", "loot", "rewards", "lifecycle", "completion"
+    "random_encounters", "support", "gates", "loot", "rewards", "lifecycle", "completion"
   ],
   "properties": {
     "$schema": { "type": "string" },
@@ -171,6 +171,10 @@
           "items": { "$ref": "#/$defs/healing_station" }
         }
       }
+    },
+    "gates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gate" }
     },
     "loot": {
       "type": "object",
@@ -351,6 +355,23 @@
         "restore_hp": { "type": "boolean" },
         "restore_status": { "type": "boolean" },
         "restore_pp": { "type": "boolean" }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "min", "max", "block", "requires"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "min": { "$ref": "#/$defs/block_position" },
+        "max": { "$ref": "#/$defs/block_position" },
+        "block": { "$ref": "#/$defs/resource_id" },
+        "requires": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
+        }
       }
     }
   }
