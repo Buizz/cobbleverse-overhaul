@@ -379,7 +379,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="dungeon-preview-seed"', html)
         self.assertIn("function authoredDungeonPlan(document, planId)", script)
         self.assertIn("function runtimeDungeonPlan(document, seed)", script)
-        self.assertIn("실제 NBT 배치는 서버 검증 결과에 따라 달라질 수 있습니다.", script)
+        self.assertIn("런타임 방 그래프는 실제 생성 결과와 달라질 수 있습니다.", script)
 
     def test_dungeon_piece_editor_exposes_complete_nbt_authoring_flow(self) -> None:
         html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
