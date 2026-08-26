@@ -1,0 +1,56 @@
+{
+  "$schema": "../../schemas/dungeon-piece.schema.json",
+  "schema_version": 1,
+  "piece_id": "cobbleventure:dungeon_piece/rocket/exit",
+  "structure": "cobbleventure:dungeon_pieces/rocket/exit",
+  "role": "exit",
+  "size": [
+    16,
+    8,
+    16
+  ],
+  "weight": 1,
+  "allow_rotation": true,
+  "tags": [
+    "cobbleventure:dungeon_kit/standard_16",
+    "cobbleventure:dungeon_theme/rocket",
+    "cobbleventure:dungeon_shape/exit",
+    "cobbleventure:dungeon_pool/rocket_test"
+  ],
+  "connectors": [
+    {
+      "id": "west",
+      "position": [
+        0,
+        1,
+        7
+      ],
+      "facing": "west",
+      "socket": "cobbleventure:dungeon_socket/standard_5",
+      "tags": [
+        "cobbleventure:dungeon_kit/standard_16"
+      ]
+    }
+  ],
+  "markers": [
+    {
+      "id": "exit",
+      "kind": "exit",
+      "position": [
+        12,
+        1,
+        7
+      ]
+    },
+    {
+      "id": "clear_exit",
+      "kind": "objective",
+      "position": [
+        8,
+        1,
+        8
+      ],
+      "reference": "clear_exit"
+    }
+  ]
+}

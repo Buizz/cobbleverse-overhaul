@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schemas/dungeon-plan.schema.json",
+  "schema_version": 1,
+  "plan_id": "cobbleventure:dungeon_plan/rocket_pokemon_tower_test",
+  "seed": 421,
+  "bounds": [112, 24, 48],
+  "placements": [
+    { "piece_id": "cobbleventure:dungeon_piece/rocket/start", "origin": [1, 1, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/rocket/encounter_room", "origin": [17, 1, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/rocket/stairs_up", "origin": [33, 1, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/rocket/room", "origin": [49, 5, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/rocket/boss", "origin": [65, 5, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/rocket/exit", "origin": [81, 5, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/rocket/treasure", "origin": [49, 5, 17], "rotation": "none", "critical_path": false }
+  ],
+  "links": [
+    { "from_index": 0, "from_connector": "east", "to_index": 1, "to_connector": "west", "critical_path": true },
+    { "from_index": 1, "from_connector": "east", "to_index": 2, "to_connector": "west", "critical_path": true },
+    { "from_index": 2, "from_connector": "east", "to_index": 3, "to_connector": "west", "critical_path": true },
+    { "from_index": 3, "from_connector": "east", "to_index": 4, "to_connector": "west", "critical_path": true },
+    { "from_index": 4, "from_connector": "east", "to_index": 5, "to_connector": "west", "critical_path": true },
+    { "from_index": 3, "from_connector": "south", "to_index": 6, "to_connector": "north", "critical_path": false }
+  ]
+}

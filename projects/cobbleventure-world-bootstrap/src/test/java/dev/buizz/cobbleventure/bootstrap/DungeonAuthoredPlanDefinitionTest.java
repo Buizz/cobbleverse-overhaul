@@ -7,12 +7,42 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 final class DungeonAuthoredPlanDefinitionTest {
+    @Test
+    void loadsRocketSkinPokemonTowerPlanFromPackagedResources() throws Exception {
+        var pieces = new HashMap<String, DungeonPieceDefinition>();
+        for (String id : new String[] {
+            "start", "encounter_room", "stairs_up", "room", "boss", "exit", "treasure"
+        }) {
+            var piece = DungeonPieceDefinition.parse(resourceJson(
+                "data/cobbleventure/dungeon_pieces/rocket/" + id + ".json"
+            ));
+            pieces.put(piece.id(), piece);
+        }
+        var authored = DungeonAuthoredPlanDefinition.parse(resourceJson(
+            "data/cobbleventure/dungeon_plans/generation_1/rocket_pokemon_tower_test.json"
+        ));
+        var dungeon = DungeonDefinition.parse(resourceJson(
+            "data/cobbleventure/dungeons/generation_1/rocket_pokemon_tower.json"
+        ));
+
+        DungeonPieceLayout layout = DungeonPieceLayout.generate(
+            dungeon, pieces.values(), Map.of(authored.id(), authored), 421L
+        );
+
+        assertEquals(new BlockPos(4, 2, 8), layout.requiredMarker("entry", null));
+        assertEquals(new BlockPos(25, 2, 9), layout.requiredMarker("encounter", "encounter_1"));
+        assertEquals(new BlockPos(73, 6, 9), layout.requiredMarker("boss", "boss_1"));
+        assertEquals(new BlockPos(57, 6, 25), layout.requiredMarker("loot", "loot_1"));
+        assertEquals(new BlockPos(93, 6, 8), layout.requiredMarker("exit", null));
+    }
+
     @Test
     void resolvesConfiguredAuthoredPlanThroughRuntimeLayout() throws Exception {
         Map<String, DungeonPieceDefinition> pieces = pieces();
@@ -135,6 +165,14 @@ final class DungeonAuthoredPlanDefinitionTest {
                  "branch_count":[0,0],"branch_depth":[1,1],"loop_chance":0}
                 """).getAsJsonObject());
             return DungeonDefinition.parse(root);
+        }
+    }
+
+    private com.google.gson.JsonObject resourceJson(String path) throws Exception {
+        var stream = getClass().getClassLoader().getResourceAsStream(path);
+        assertNotNull(stream, path);
+        try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            return JsonParser.parseReader(reader).getAsJsonObject();
         }
     }
 

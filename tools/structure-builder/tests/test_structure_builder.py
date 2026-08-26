@@ -39,9 +39,69 @@ assert ENTRANCE_GENERATOR_SPEC is not None and ENTRANCE_GENERATOR_SPEC.loader is
 underground_entrance_generator = importlib.util.module_from_spec(ENTRANCE_GENERATOR_SPEC)
 sys.modules[ENTRANCE_GENERATOR_SPEC.name] = underground_entrance_generator
 ENTRANCE_GENERATOR_SPEC.loader.exec_module(underground_entrance_generator)
+DUNGEON_SKIN_GENERATOR_PATH = REPOSITORY_ROOT / "tools/structure-builder/generate_dungeon_piece_skins.py"
+DUNGEON_SKIN_GENERATOR_SPEC = importlib.util.spec_from_file_location(
+    "dungeon_piece_skin_generator", DUNGEON_SKIN_GENERATOR_PATH
+)
+assert DUNGEON_SKIN_GENERATOR_SPEC is not None and DUNGEON_SKIN_GENERATOR_SPEC.loader is not None
+dungeon_piece_skin_generator = importlib.util.module_from_spec(DUNGEON_SKIN_GENERATOR_SPEC)
+sys.modules[DUNGEON_SKIN_GENERATOR_SPEC.name] = dungeon_piece_skin_generator
+DUNGEON_SKIN_GENERATOR_SPEC.loader.exec_module(dungeon_piece_skin_generator)
 
 
 class StructureBuilderTests(unittest.TestCase):
+    def test_dungeon_piece_skins_share_the_same_shape_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            alternate = {
+                key: "minecraft:stone" for key in next(
+                    iter(dungeon_piece_skin_generator.SKINS.values())
+                )
+            }
+            skins = {
+                "rocket": dungeon_piece_skin_generator.SKINS["rocket"],
+                "alternate": alternate,
+            }
+            with mock.patch.object(dungeon_piece_skin_generator, "SKINS", skins):
+                generated = dungeon_piece_skin_generator.generate(root)
+
+            with mock.patch.object(
+                structure_builder,
+                "_metadata_reader",
+                return_value=content_manager.read_minecraft_structure_metadata,
+            ):
+                catalog = structure_builder.catalog_entries(root)
+
+            self.assertEqual(
+                len(skins) * len(dungeon_piece_skin_generator.SHAPES) * 2,
+                len(generated),
+            )
+            self.assertEqual(
+                len(skins) * len(dungeon_piece_skin_generator.SHAPES),
+                len(catalog),
+            )
+            self.assertEqual({"dungeon_pieces"}, {entry["category"] for entry in catalog})
+            definition_root = (
+                root / dungeon_piece_skin_generator.PROJECT / "content/dungeon_pieces"
+            )
+            structure_root = (
+                root / dungeon_piece_skin_generator.PROJECT / "content/structures/dungeon_pieces"
+            )
+            for shape_name in dungeon_piece_skin_generator.SHAPES:
+                rocket = json.loads(
+                    (definition_root / "rocket" / f"{shape_name}.json").read_text(encoding="utf-8")
+                )
+                alternate_definition = json.loads(
+                    (definition_root / "alternate" / f"{shape_name}.json").read_text(encoding="utf-8")
+                )
+                for field in ("role", "size", "allow_rotation", "connectors", "markers"):
+                    self.assertEqual(rocket[field], alternate_definition[field], (shape_name, field))
+                for skin_name in skins:
+                    size = content_manager.read_minecraft_structure_size(
+                        (structure_root / skin_name / f"{shape_name}.nbt").read_bytes()
+                    )
+                    self.assertEqual(dungeon_piece_skin_generator.SIZE, size)
+
     def test_generated_underground_entrance_has_road_anchor_and_transition_barriers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "underground_passage.nbt"
