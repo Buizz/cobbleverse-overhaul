@@ -24,7 +24,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPieces: new Map(), dungeonPreview: { seed: 1, planId: "", selected: -1, hitTargets: [], plan: null },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPieces: new Map(), dungeonDirty: false, dungeonPreview: { seed: 1, planId: "", selected: -1, hitTargets: [], plan: null },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -4377,7 +4377,7 @@ async function addGeneration() {
 }
 
 function documentSingular(category) {
-  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "routes" ? "routePreset" : category === "caves" ? "cave" : category === "underground-roads" ? "undergroundRoad" : category === "forests" ? "forest" : "settlement";
+  return category === "trainers" ? "trainer" : category === "battles" ? "battle" : category === "routes" ? "routePreset" : category === "caves" ? "cave" : category === "dungeons" ? "dungeon" : category === "underground-roads" ? "undergroundRoad" : category === "forests" ? "forest" : "settlement";
 }
 
 function documentListPrefix(category) {
@@ -4537,11 +4537,135 @@ function renderDungeonList() {
     if (!item) return;
     state.dungeon = item.document;
     state.dungeonPath = item.path;
+    state.dungeonDirty = false;
     state.dungeonPreview.selected = -1;
     state.dungeonPreview.planId = "";
     renderDungeonList();
     renderDungeon();
   }));
+}
+
+function dungeonRangeText(value, fallback) {
+  return dungeonRange(value, fallback).join(", ");
+}
+
+function parseDungeonRange(value, fallback, minimum = 0) {
+  const parsed = csvValues(value).slice(0, 2).map((entry) => Math.round(Number(entry)));
+  if (parsed.length !== 2 || parsed.some((entry) => !Number.isFinite(entry))) return [...fallback];
+  const normalized = parsed.map((entry) => Math.max(minimum, entry));
+  return normalized[0] <= normalized[1] ? normalized : [normalized[1], normalized[0]];
+}
+
+function renderDungeonOptionVisibility() {
+  const form = $("#dungeon-form");
+  const terrainMode = form.elements.terrainMode.value;
+  const multiplayerMode = form.elements.multiplayerMode.value;
+  $$('[data-dungeon-fixed-field]').forEach((element) => element.hidden = terrainMode !== "fixed_template");
+  $$('[data-dungeon-piece-field]').forEach((element) => element.hidden = !["nbt_pieces", "hybrid"].includes(terrainMode));
+  $$('[data-dungeon-bounds-field], [data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
+  $$('[data-dungeon-party-field]').forEach((element) => element.hidden = multiplayerMode === "solo");
+  $$('[data-dungeon-tether-field]').forEach((element) => element.hidden = multiplayerMode !== "cooperative");
+  $$('[data-dungeon-repeat-field]').forEach((element) => element.hidden = !form.elements.repeatable.checked);
+}
+
+function renderDungeonForm() {
+  const document = state.dungeon;
+  if (!document) return;
+  const form = $("#dungeon-form");
+  form.hidden = false;
+  const values = {
+    dungeonId: document.dungeon_id, nameKo: document.display_name?.ko_kr, nameEn: document.display_name?.en_us,
+    descriptionKo: document.description?.ko_kr, preset: document.preset,
+    infoMode: document.entry_ui?.info_mode || "summary", confirmRequired: document.entry_ui?.confirm_required !== false,
+    recommendedMin: document.difficulty?.recommended_min ?? 1, recommendedMax: document.difficulty?.recommended_max ?? 1,
+    internalMin: document.difficulty?.internal_min ?? 1, internalMax: document.difficulty?.internal_max ?? 1,
+    levelMeasure: document.eligibility?.level_measure || "average", levelPolicy: document.eligibility?.recommended_level_policy || "warn",
+    allowFlee: document.battle?.allow_flee, allowCapture: document.battle?.allow_capture, allowItems: document.battle?.allow_items,
+    allowEscapeActions: document.battle?.allow_escape_actions, multiplayerMode: document.multiplayer?.mode || "solo",
+    multiplayerMin: document.multiplayer?.min_size ?? 1, multiplayerMax: document.multiplayer?.max_size ?? 1,
+    requiredPlayers: document.match?.required_players ?? 1, matchTimeout: document.match?.timeout_seconds ?? 300,
+    matchTimeoutAction: document.match?.on_timeout || "cancel", stayRadius: document.match?.stay_radius ?? 8,
+    battleJoin: document.multiplayer?.battle_join || "summon_all", warnDistance: document.multiplayer?.tether?.warn_distance ?? 24,
+    maxDistance: document.multiplayer?.tether?.max_distance ?? 40, terrainMode: document.terrain?.mode || "fixed_template",
+    terrainTemplate: document.terrain?.template || "", piecePool: document.terrain?.piece_pool || "",
+    boundsX: document.terrain?.bounds?.[0] ?? 64, boundsY: document.terrain?.bounds?.[1] ?? 16, boundsZ: document.terrain?.bounds?.[2] ?? 64,
+    planMode: document.plan?.mode || "runtime", seedPolicy: document.plan?.seed_policy || "random_per_run",
+    planFallback: document.plan?.fallback || "reject_entry", generationTimeout: document.plan?.generation_timeout_ms ?? 1000,
+    maxAttempts: document.plan?.max_attempts ?? 32, planIds: (document.plan?.plan_ids || []).join(", "),
+    layoutMode: document.layout?.mode || "critical_path_branches", criticalRooms: dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]),
+    branchCount: dungeonRangeText(document.layout?.branch_count, [1, 2]), branchDepth: dungeonRangeText(document.layout?.branch_depth, [1, 2]),
+    loopChance: document.layout?.loop_chance ?? 0, resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
+    reconnectGrace: document.lifecycle?.reconnect_grace_seconds ?? 120, wipeReturn: document.lifecycle?.wipe_return || "source_entrance",
+    healOnWipe: document.lifecycle?.heal_on_wipe, lootOwnership: document.loot?.ownership || "per_player",
+    lootOnFailure: document.loot?.on_failure || "grant_on_clear_only", repeatable: document.completion?.repeatable,
+    returnTrigger: document.completion?.return_trigger || "clear_exit", firstClearTable: document.rewards?.first_clear_table || "",
+    repeatTable: document.rewards?.repeat_table || "",
+  };
+  Object.entries(values).forEach(([name, value]) => setFormValue(form, name, value));
+  renderDungeonOptionVisibility();
+  renderDungeonSummary();
+  $("#validate-dungeon").disabled = false;
+  $("#save-dungeon").disabled = false;
+  $("#dungeon-save-state").textContent = state.dungeonDirty ? "저장하지 않은 변경" : "저장됨";
+  $("#dungeon-save-state").classList.toggle("is-dirty", state.dungeonDirty);
+}
+
+function renderDungeonSummary() {
+  const document = state.dungeon;
+  if (!document) return;
+  const terrainLabels = { fixed_template: "완성 세트", nbt_pieces: "NBT 조각", procedural_cave: "자동 동굴", hybrid: "혼합형" };
+  const partyLabels = { solo: "1인", cooperative: "협력", independent: "독립행동" };
+  $("#dungeon-type-summary").textContent = terrainLabels[document.terrain?.mode] || document.terrain?.mode || "—";
+  $("#dungeon-party-summary").textContent = `${partyLabels[document.multiplayer?.mode] || "—"} · ${document.multiplayer?.min_size || 1}~${document.multiplayer?.max_size || 1}명`;
+  $("#dungeon-level-summary").textContent = `Lv.${document.difficulty?.recommended_min || 1}~${document.difficulty?.recommended_max || 1}`;
+  $("#dungeon-repeat-summary").textContent = document.completion?.repeatable ? "반복 가능" : "최초 1회";
+}
+
+function updateDungeonFromForm() {
+  if (!state.dungeon) return false;
+  const document = state.dungeon;
+  const form = $("#dungeon-form");
+  const integer = (name, fallback) => Math.round(Number(form.elements[name].value || fallback));
+  document.dungeon_id = form.elements.dungeonId.value.trim();
+  document.display_name = { ...(document.display_name || {}), ko_kr: form.elements.nameKo.value.trim() };
+  const nameEn = form.elements.nameEn.value.trim(); if (nameEn) document.display_name.en_us = nameEn; else delete document.display_name.en_us;
+  document.description = { ...(document.description || {}), ko_kr: form.elements.descriptionKo.value.trim() };
+  document.preset = form.elements.preset.value.trim();
+  document.entry_ui = { info_mode: form.elements.infoMode.value, confirm_required: form.elements.confirmRequired.checked };
+  document.difficulty = { recommended_min: integer("recommendedMin", 1), recommended_max: integer("recommendedMax", 1), internal_min: integer("internalMin", 1), internal_max: integer("internalMax", 1) };
+  document.eligibility ||= { minimum_party_size: 1, maximum_party_size: 6, require_usable_pokemon: true };
+  Object.assign(document.eligibility, { level_measure: form.elements.levelMeasure.value, recommended_level_policy: form.elements.levelPolicy.value });
+  document.battle = { allow_flee: form.elements.allowFlee.checked, allow_capture: form.elements.allowCapture.checked, allow_items: form.elements.allowItems.checked, allow_escape_actions: form.elements.allowEscapeActions.checked };
+  const multiplayerMode = form.elements.multiplayerMode.value;
+  document.multiplayer = { mode: multiplayerMode, min_size: integer("multiplayerMin", 1), max_size: integer("multiplayerMax", 1) };
+  if (multiplayerMode !== "solo") document.multiplayer.battle_join = form.elements.battleJoin.value;
+  if (multiplayerMode === "cooperative") document.multiplayer.tether = { warn_distance: integer("warnDistance", 24), max_distance: integer("maxDistance", 40), on_exceed: "return_to_partner" };
+  document.match = { required_players: integer("requiredPlayers", 1), scope: "same_entrance", timeout_seconds: integer("matchTimeout", 300), on_timeout: form.elements.matchTimeoutAction.value, stay_radius: integer("stayRadius", 8) };
+  const terrainMode = form.elements.terrainMode.value;
+  document.terrain ||= {};
+  document.terrain.mode = terrainMode;
+  if (terrainMode === "fixed_template") {
+    document.terrain.template = form.elements.terrainTemplate.value.trim();
+    document.terrain.entry_position ||= [0, 1, 0]; document.terrain.exit_position ||= [0, 1, 2];
+  } else {
+    document.terrain.bounds = [integer("boundsX", 64), integer("boundsY", 16), integer("boundsZ", 64)];
+    if (["nbt_pieces", "hybrid"].includes(terrainMode)) document.terrain.piece_pool = form.elements.piecePool.value.trim();
+    if (terrainMode === "procedural_cave") document.terrain.cave_generator = "minecraft_worldgen";
+    document.plan = { ...(document.plan || {}), mode: form.elements.planMode.value, seed_policy: form.elements.seedPolicy.value, fallback: form.elements.planFallback.value, generation_timeout_ms: integer("generationTimeout", 1000), max_attempts: integer("maxAttempts", 32) };
+    const planIds = csvValues(form.elements.planIds.value); if (planIds.length) document.plan.plan_ids = planIds; else delete document.plan.plan_ids;
+    document.layout = { mode: form.elements.layoutMode.value, critical_path_rooms: parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3), branch_count: parseDungeonRange(form.elements.branchCount.value, [1, 2], 0), branch_depth: parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1), loop_chance: Number(form.elements.loopChance.value || 0) };
+  }
+  document.lifecycle ||= { on_wipe: "reset_run" };
+  Object.assign(document.lifecycle, { on_wipe: "reset_run", wipe_return: form.elements.wipeReturn.value, heal_on_wipe: form.elements.healOnWipe.checked, resume_mode: form.elements.resumeMode.value, reconnect_grace_seconds: integer("reconnectGrace", 120) });
+  document.loot ||= { loot_table: "cobbleventure:dungeon/default", containers: [] };
+  Object.assign(document.loot, { ownership: form.elements.lootOwnership.value, on_failure: form.elements.lootOnFailure.value });
+  document.rewards ||= { first_clear_field_moves: [] };
+  document.rewards.first_clear_table = form.elements.firstClearTable.value.trim();
+  const repeatTable = form.elements.repeatTable.value.trim(); if (repeatTable) document.rewards.repeat_table = repeatTable; else delete document.rewards.repeat_table;
+  document.completion ||= { victory_flag: `${document.dungeon_id}/cleared` };
+  Object.assign(document.completion, { repeatable: form.elements.repeatable.checked, return_trigger: form.elements.returnTrigger.value });
+  renderDungeonSummary();
+  return true;
 }
 
 function dungeonRange(value, fallback) {
@@ -4654,6 +4778,7 @@ function renderDungeon() {
   if (!document) return;
   $("#dungeon-editor-title").textContent = document.display_name?.ko_kr || document.dungeon_id;
   $("#dungeon-path").textContent = state.dungeonPath;
+  renderDungeonForm();
   const ids = document.terrain?.mode === "fixed_template" ? ["fixed"] : document.plan?.mode === "runtime" ? ["runtime"] : document.plan?.plan_ids || [];
   if (!ids.includes(state.dungeonPreview.planId)) state.dungeonPreview.planId = ids[0] || "";
   const select = $("#dungeon-plan-choice");
@@ -13321,11 +13446,12 @@ async function validateDocument(category) {
     updateSettlementFromForm();
   }
   if (category === "caves" && (!$("#cave-form").reportValidity() || !updateCaveFromForm())) return false;
+  if (category === "dungeons" && (!$("#dungeon-form").reportValidity() || !updateDungeonFromForm())) return false;
   if (category === "underground-roads" && (!$("#underground-road-form").reportValidity() || !updateUndergroundRoadFromForm())) return false;
   if (category === "forests" && (!$("#forest-form").reportValidity() || !updateForestFromForm())) return false;
   if (category === "routes" && (!$("#route-preset-form").reportValidity() || !updateRoutePresetFromForm())) return false;
   if (category === "battles" && !updateBattlePresetFromForm()) return false;
-  const document = category === "caves" ? state.cave : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "dungeons" ? state.dungeon : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return false;
   const result = await request(`/api/document-validation?category=${category}`, { method: "POST", body: JSON.stringify(document) });
   if (result.ok && category === "trainers" && state.battlePreset) {
@@ -13350,6 +13476,9 @@ async function saveDocument(category) {
   if (category === "caves") {
     if (!$("#cave-form").reportValidity() || !updateCaveFromForm()) { toast("입력값을 확인해 주세요."); return; }
   }
+  if (category === "dungeons") {
+    if (!$("#dungeon-form").reportValidity() || !updateDungeonFromForm()) { toast("입력값을 확인해 주세요."); return; }
+  }
   if (category === "underground-roads") {
     if (!$("#underground-road-form").reportValidity() || !updateUndergroundRoadFromForm()) { toast("입력값을 확인해 주세요."); return; }
   }
@@ -13358,7 +13487,7 @@ async function saveDocument(category) {
   }
   if (category === "routes" && (!$("#route-preset-form").reportValidity() || !updateRoutePresetFromForm())) { toast("입력값을 확인해 주세요."); return; }
   if (category === "battles" && !updateBattlePresetFromForm()) return;
-  const document = category === "caves" ? state.cave : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
+  const document = category === "caves" ? state.cave : category === "dungeons" ? state.dungeon : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return;
   const saveButton = $(`#save-${singular}`);
   const originalLabel = saveButton.textContent;
@@ -13388,10 +13517,12 @@ async function saveDocument(category) {
   if (!result.ok) { saveButton.disabled = false; toast("검증 오류로 저장하지 않았습니다."); return; }
   if (category === "battles") state.battlePreset = document;
   else state[singular] = document;
+  if (category === "dungeons") state.dungeonDirty = false;
   toast("검증 후 안전하게 저장했습니다.");
   await Promise.all([loadDashboard(), loadLists()]);
   if (category === "settlements") renderSettlement();
   else if (category === "caves") renderCave();
+  else if (category === "dungeons") { renderDungeonList(); renderDungeon(); }
   else if (category === "underground-roads") renderUndergroundRoad();
   else if (category === "forests") renderForest();
   else if (category === "routes") { renderRoutePreset(); renderWorldLayout(); }
@@ -14885,6 +15016,28 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
   }
 });
 $("#dungeon-plan-choice").addEventListener("change", (event) => { state.dungeonPreview.planId = event.target.value; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
+$("#dungeon-form").addEventListener("input", () => {
+  if (!state.dungeon) return;
+  updateDungeonFromForm();
+  state.dungeonDirty = true;
+  $("#dungeon-save-state").textContent = "저장하지 않은 변경";
+  $("#dungeon-save-state").classList.add("is-dirty");
+  renderDungeonOptionVisibility();
+  renderDungeonPreview();
+});
+$("#dungeon-form").addEventListener("change", (event) => {
+  const form = event.currentTarget;
+  if (event.target.name === "multiplayerMode" && event.target.value === "solo") {
+    form.elements.multiplayerMin.value = 1;
+    form.elements.multiplayerMax.value = 1;
+    form.elements.requiredPlayers.value = 1;
+    updateDungeonFromForm();
+  }
+  renderDungeonOptionVisibility();
+  renderDungeon();
+});
+$("#validate-dungeon").addEventListener("click", () => validateDocument("dungeons"));
+$("#save-dungeon").addEventListener("click", () => saveDocument("dungeons"));
 $("#dungeon-preview-seed").addEventListener("change", (event) => { state.dungeonPreview.seed = Number(event.target.value) || 1; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
 $("#dungeon-repeat-seed").addEventListener("click", renderDungeonPreview);
 $("#dungeon-random-seed").addEventListener("click", () => { state.dungeonPreview.seed = Math.floor(Math.random() * 2147483647) + 1; $("#dungeon-preview-seed").value = state.dungeonPreview.seed; state.dungeonPreview.selected = -1; renderDungeonPreview(); });

@@ -8319,12 +8319,151 @@ def _managed_directory(root: Path, category: str) -> Path:
         "routes": root / "content" / "routes",
         "settlements": root / "content" / "settlements",
         "caves": root / "content" / "caves",
+        "dungeons": root / "content" / "dungeons",
         "underground-roads": root / "content" / "underground_roads",
         "forests": root / "content" / "forests",
     }
     if category not in directories:
         raise ValueError("지원하지 않는 문서 종류입니다.")
     return directories[category].resolve()
+
+
+def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
+    """Validate dungeon-wide authoring options edited by the web manager."""
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        return None, [Issue("error", path.as_posix(), "$", str(error))]
+    if not isinstance(data, dict):
+        return None, [Issue("error", path.as_posix(), "$", "던전 문서는 객체여야 합니다.")]
+
+    required = {
+        "$schema", "schema_version", "dungeon_id", "display_name", "description",
+        "preset", "entrances", "entry_ui", "difficulty", "eligibility",
+        "multiplayer", "match", "battle", "terrain", "encounters",
+        "random_encounters", "support", "gates", "loot", "rewards",
+        "lifecycle", "completion",
+    }
+    for key in sorted(required - data.keys()):
+        _issue(issues, "error", path, f"$.{key}", "필수 던전 설정입니다.")
+
+    dungeon_id = data.get("dungeon_id")
+    _resource_id(dungeon_id, issues, path, "$.dungeon_id")
+    _resource_id(data.get("preset"), issues, path, "$.preset")
+    for field in ("display_name", "description"):
+        value = data.get(field)
+        if not isinstance(value, dict) or not isinstance(value.get("ko_kr"), str) or not value["ko_kr"].strip():
+            _issue(issues, "error", path, f"$.{field}.ko_kr", "한국어 문구가 필요합니다.")
+
+    def object_at(name: str) -> dict[str, Any]:
+        value = data.get(name)
+        if not isinstance(value, dict):
+            _issue(issues, "error", path, f"$.{name}", "객체여야 합니다.")
+            return {}
+        return value
+
+    def integer(value: Any, minimum: int, maximum: int, field: str) -> None:
+        if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
+            _issue(issues, "error", path, field, f"{minimum}~{maximum} 정수여야 합니다.")
+
+    difficulty = object_at("difficulty")
+    for key in ("recommended_min", "recommended_max", "internal_min", "internal_max"):
+        integer(difficulty.get(key), 1, 100, f"$.difficulty.{key}")
+    if isinstance(difficulty.get("recommended_min"), int) and isinstance(difficulty.get("recommended_max"), int) and difficulty["recommended_min"] > difficulty["recommended_max"]:
+        _issue(issues, "error", path, "$.difficulty", "권장 최소 레벨은 최대 레벨보다 클 수 없습니다.")
+    if isinstance(difficulty.get("internal_min"), int) and isinstance(difficulty.get("internal_max"), int) and difficulty["internal_min"] > difficulty["internal_max"]:
+        _issue(issues, "error", path, "$.difficulty", "내부 최소 레벨은 최대 레벨보다 클 수 없습니다.")
+
+    eligibility = object_at("eligibility")
+    integer(eligibility.get("minimum_party_size"), 1, 6, "$.eligibility.minimum_party_size")
+    integer(eligibility.get("maximum_party_size"), 1, 6, "$.eligibility.maximum_party_size")
+    if eligibility.get("level_measure") not in {"average", "highest"}:
+        _issue(issues, "error", path, "$.eligibility.level_measure", "average 또는 highest여야 합니다.")
+    if eligibility.get("recommended_level_policy") not in {"ignore", "warn", "enforce"}:
+        _issue(issues, "error", path, "$.eligibility.recommended_level_policy", "ignore, warn, enforce 중 하나여야 합니다.")
+
+    multiplayer = object_at("multiplayer")
+    mode = multiplayer.get("mode")
+    if mode not in {"solo", "cooperative", "independent"}:
+        _issue(issues, "error", path, "$.multiplayer.mode", "solo, cooperative, independent 중 하나여야 합니다.")
+    integer(multiplayer.get("min_size"), 1, 4, "$.multiplayer.min_size")
+    integer(multiplayer.get("max_size"), 1, 4, "$.multiplayer.max_size")
+    if isinstance(multiplayer.get("min_size"), int) and isinstance(multiplayer.get("max_size"), int) and multiplayer["min_size"] > multiplayer["max_size"]:
+        _issue(issues, "error", path, "$.multiplayer", "최소 인원은 최대 인원보다 클 수 없습니다.")
+    if mode == "solo" and (multiplayer.get("min_size") != 1 or multiplayer.get("max_size") != 1):
+        _issue(issues, "error", path, "$.multiplayer", "1인 던전의 인원 범위는 1~1이어야 합니다.")
+    if mode == "cooperative":
+        if multiplayer.get("battle_join") not in {"summon_all", "require_nearby", "initiator_only"}:
+            _issue(issues, "error", path, "$.multiplayer.battle_join", "협력 전투 합류 방식을 선택해야 합니다.")
+        tether = multiplayer.get("tether")
+        if not isinstance(tether, dict):
+            _issue(issues, "error", path, "$.multiplayer.tether", "협력 던전에는 거리 제한 설정이 필요합니다.")
+        else:
+            integer(tether.get("warn_distance"), 1, 255, "$.multiplayer.tether.warn_distance")
+            integer(tether.get("max_distance"), 2, 256, "$.multiplayer.tether.max_distance")
+            if isinstance(tether.get("warn_distance"), int) and isinstance(tether.get("max_distance"), int) and tether["warn_distance"] >= tether["max_distance"]:
+                _issue(issues, "error", path, "$.multiplayer.tether", "경고 거리는 최대 거리보다 작아야 합니다.")
+
+    match = object_at("match")
+    integer(match.get("required_players"), 1, 4, "$.match.required_players")
+    integer(match.get("timeout_seconds"), 1, 3600, "$.match.timeout_seconds")
+    integer(match.get("stay_radius"), 1, 64, "$.match.stay_radius")
+    if match.get("on_timeout") not in {"cancel", "keep_waiting"}:
+        _issue(issues, "error", path, "$.match.on_timeout", "cancel 또는 keep_waiting이어야 합니다.")
+    if isinstance(match.get("required_players"), int) and isinstance(multiplayer.get("min_size"), int) and match["required_players"] < multiplayer["min_size"]:
+        _issue(issues, "error", path, "$.match.required_players", "매칭 인원은 던전 최소 인원 이상이어야 합니다.")
+
+    battle = object_at("battle")
+    for key in ("allow_flee", "allow_capture", "allow_items", "allow_escape_actions"):
+        if not isinstance(battle.get(key), bool):
+            _issue(issues, "error", path, f"$.battle.{key}", "true 또는 false여야 합니다.")
+
+    terrain = object_at("terrain")
+    terrain_mode = terrain.get("mode")
+    if terrain_mode not in {"fixed_template", "nbt_pieces", "procedural_cave", "hybrid"}:
+        _issue(issues, "error", path, "$.terrain.mode", "지원하지 않는 지형 방식입니다.")
+    if terrain_mode == "fixed_template":
+        _resource_id(terrain.get("template"), issues, path, "$.terrain.template")
+        for key in ("entry_position", "exit_position"):
+            value = terrain.get(key)
+            if not isinstance(value, list) or len(value) != 3 or any(not isinstance(axis, int) or isinstance(axis, bool) for axis in value):
+                _issue(issues, "error", path, f"$.terrain.{key}", "X, Y, Z 정수 좌표 3개가 필요합니다.")
+    if terrain_mode in {"nbt_pieces", "procedural_cave", "hybrid"}:
+        bounds = terrain.get("bounds")
+        if not isinstance(bounds, list) or len(bounds) != 3 or any(not isinstance(axis, int) or isinstance(axis, bool) or axis < 1 for axis in bounds):
+            _issue(issues, "error", path, "$.terrain.bounds", "양수인 X, Y, Z 크기 3개가 필요합니다.")
+
+    if terrain_mode != "fixed_template":
+        plan = object_at("plan")
+        if plan.get("mode") not in {"authored", "runtime", "authored_pool"}:
+            _issue(issues, "error", path, "$.plan.mode", "지원하지 않는 계획 방식입니다.")
+        if plan.get("seed_policy") not in {"fixed", "random_per_run", "daily", "weekly", "match", "player"}:
+            _issue(issues, "error", path, "$.plan.seed_policy", "지원하지 않는 시드 정책입니다.")
+        if plan.get("fallback") not in {"reject_entry", "use_last_valid", "use_fallback_plan"}:
+            _issue(issues, "error", path, "$.plan.fallback", "지원하지 않는 실패 대체 방식입니다.")
+        if plan.get("mode") in {"authored", "authored_pool"} and not isinstance(plan.get("plan_ids"), list):
+            _issue(issues, "error", path, "$.plan.plan_ids", "게시형 계획 ID가 하나 이상 필요합니다.")
+        layout = object_at("layout")
+        if layout.get("mode") not in {"fixed", "critical_path_branches", "maze", "rooms_and_corridors"}:
+            _issue(issues, "error", path, "$.layout.mode", "지원하지 않는 경로 형태입니다.")
+
+    completion = object_at("completion")
+    if not isinstance(completion.get("repeatable"), bool):
+        _issue(issues, "error", path, "$.completion.repeatable", "true 또는 false여야 합니다.")
+    if completion.get("return_trigger") not in {"automatic", "clear_exit"}:
+        _issue(issues, "error", path, "$.completion.return_trigger", "automatic 또는 clear_exit여야 합니다.")
+    rewards = object_at("rewards")
+    if completion.get("repeatable") is True and not isinstance(rewards.get("repeat_table"), str):
+        _issue(issues, "error", path, "$.rewards.repeat_table", "반복 클리어 던전에는 반복 보상 테이블이 필요합니다.")
+    lifecycle = object_at("lifecycle")
+    if lifecycle.get("resume_mode", "keep_until_timeout") not in {"full_reset", "checkpoint", "keep_until_timeout"}:
+        _issue(issues, "error", path, "$.lifecycle.resume_mode", "지원하지 않는 재개 방식입니다.")
+
+    encounters = data.get("encounters")
+    if not isinstance(encounters, list) or not encounters:
+        _issue(issues, "error", path, "$.encounters", "고정 조우가 하나 이상 필요합니다.")
+    return dungeon_id if isinstance(dungeon_id, str) else None, issues
 
 
 def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
@@ -8634,6 +8773,7 @@ def _save_document(
         "routes": validate_route_file,
         "settlements": validate_settlement_file,
         "caves": validate_cave_file,
+        "dungeons": validate_dungeon_file,
         "underground-roads": validate_underground_road_file,
         "forests": validate_forest_file,
     }[category]
@@ -13439,7 +13579,7 @@ def create_handler(
                 return
             if request.path == "/api/document-validation":
                 category = parse_qs(request.query).get("category", [""])[0]
-                if category not in {"trainers", "battles", "routes", "settlements", "caves", "underground-roads", "forests"}:
+                if category not in {"trainers", "battles", "routes", "settlements", "caves", "dungeons", "underground-roads", "forests"}:
                     self._json(400, {"error": "지원하지 않는 문서 종류입니다."})
                     return
                 validator = {
@@ -13448,6 +13588,7 @@ def create_handler(
                     "routes": validate_route_file,
                     "settlements": validate_settlement_file,
                     "caves": validate_cave_file,
+                    "dungeons": validate_dungeon_file,
                     "underground-roads": validate_underground_road_file,
                     "forests": validate_forest_file,
                 }[category]
@@ -14094,6 +14235,7 @@ def create_handler(
                 "/api/routes": "routes",
                 "/api/settlements": "settlements",
                 "/api/caves": "caves",
+                "/api/dungeons": "dungeons",
                 "/api/underground-roads": "underground-roads",
                 "/api/forests": "forests",
             }
