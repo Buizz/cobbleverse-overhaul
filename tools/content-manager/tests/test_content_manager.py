@@ -61,9 +61,9 @@ class ContentManagerTests(unittest.TestCase):
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
 
-        self.assertIn("NBT 후보 마커에 자동 배치", script)
+        self.assertIn("생성된 방·조각 마커에 자동 배치", script)
         self.assertIn('delete entry.position', script)
-        self.assertIn("NPC와 보상은 후보 마커에 자동 배치", markup)
+        self.assertIn("절차 동굴의 생성된 방에 NPC와 보상을 자동 배치", markup)
         self.assertIn("포켓몬 풀에서 즉석 생성", script)
         self.assertIn("battle_start_lines", script)
         self.assertIn("battle_end_lines", script)
@@ -71,6 +71,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('objectiveRequirements', script)
         self.assertIn('itemRequirements', script)
         self.assertIn('terrainMode === "procedural_cave" && option.value !== "runtime"', script)
+        self.assertIn("function runtimeDungeonContentMarkers", script)
 
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -115,6 +116,34 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertFalse(any(issue.level == "error" for issue in authored_issues), authored_issues)
         self.assertTrue(any("입장 시 자동 생성" in issue.message for issue in cave_issues))
+
+    def test_procedural_cave_allows_automatic_encounters_loot_and_objectives(self) -> None:
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
+        document["terrain"] = {
+            "mode": "procedural_cave", "cave_generator": "minecraft_worldgen",
+            "bounds": [160, 48, 160],
+        }
+        document["plan"] = {
+            "mode": "runtime", "seed_policy": "match", "fallback": "reject_entry",
+        }
+        document["layout"] = {
+            "mode": "critical_path_branches", "critical_path_rooms": [7, 7],
+            "branch_count": [2, 2], "branch_depth": [1, 2], "loop_chance": 0.2,
+        }
+        for encounter in document["encounters"]:
+            encounter.pop("position", None)
+        for container in document["loot"]["containers"]:
+            container.pop("position", None)
+        document["objectives"] = [{
+            "id": "trace", "kind": "investigate", "placement": "marker",
+            "block": "minecraft:lodestone", "activation_radius": 3,
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        self.assertFalse(any(issue.level == "error" for issue in issues), issues)
 
     def test_dungeon_document_can_be_validated_and_saved(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))

@@ -76,7 +76,10 @@ final class NaturalCaveGenerator {
             mainRooms, branchCount, loopChance
         );
         generateCave(level, caveId, seed, plan.entrances(), plan.settings());
-        return new InstanceResult(plan.entryPosition(), plan.exitPosition());
+        return new InstanceResult(
+            plan.entryPosition(), plan.exitPosition(),
+            plan.mainRoomPositions(), plan.branchRoomPositions()
+        );
     }
 
     static InstancePlan planInstance(
@@ -223,10 +226,21 @@ final class NaturalCaveGenerator {
             new Entrance("entry", caveId, entry, entry, settings),
             new Entrance("exit", caveId, exit, exit, settings)
         );
+        List<BlockPos> mainRoomPositions = anchors.stream()
+            .filter(anchor -> !anchor.kind().equals("branch"))
+            .map(anchor -> new BlockPos(anchor.x(), anchor.y() + 1, anchor.z())
+                .subtract(origin))
+            .toList();
+        List<BlockPos> branchRoomPositions = anchors.stream()
+            .filter(anchor -> anchor.kind().equals("branch"))
+            .map(anchor -> new BlockPos(anchor.x(), anchor.y() + 1, anchor.z())
+                .subtract(origin))
+            .toList();
         return new InstancePlan(
             entrances, settings,
             entry.toBlockPos().subtract(origin).above(),
-            exit.toBlockPos().subtract(origin).above()
+            exit.toBlockPos().subtract(origin).above(),
+            mainRoomPositions, branchRoomPositions
         );
     }
 
@@ -1466,13 +1480,20 @@ final class NaturalCaveGenerator {
         Settings settings
     ) {}
 
-    record InstanceResult(BlockPos entryPosition, BlockPos exitPosition) {}
+    record InstanceResult(
+        BlockPos entryPosition,
+        BlockPos exitPosition,
+        List<BlockPos> mainRoomPositions,
+        List<BlockPos> branchRoomPositions
+    ) {}
 
     record InstancePlan(
         List<Entrance> entrances,
         Settings settings,
         BlockPos entryPosition,
-        BlockPos exitPosition
+        BlockPos exitPosition,
+        List<BlockPos> mainRoomPositions,
+        List<BlockPos> branchRoomPositions
     ) {}
 
     record Settings(

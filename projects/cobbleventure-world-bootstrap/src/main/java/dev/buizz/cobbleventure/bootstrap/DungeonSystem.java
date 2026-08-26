@@ -1029,9 +1029,14 @@ final class DungeonSystem {
                 + "branches={}, elapsed={}ms",
             definition.id(), seed, layout.mode(), rooms, branches, elapsedMs
         );
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> featurePositions =
+            DungeonCaveFeatureLayout.assign(
+                definition, generated.mainRoomPositions(),
+                generated.branchRoomPositions(), seed
+            );
         return new PreparedTerrain(
             definition.terrain().bounds(),
-            generated.entryPosition(), generated.exitPosition(), Map.of(), seed
+            generated.entryPosition(), generated.exitPosition(), featurePositions, seed
         );
     }
 

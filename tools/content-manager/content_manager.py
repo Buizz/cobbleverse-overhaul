@@ -8631,8 +8631,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             local_id(encounter.get("id"), f"{base}.id", seen_encounters)
             if "position" in encounter:
                 position(encounter.get("position"), f"{base}.position")
-            elif terrain_mode not in {"nbt_pieces", "hybrid"}:
-                _issue(issues, "error", path, f"{base}.position", "NBT 조각 이외의 던전은 고정 좌표가 필요합니다.")
+            elif terrain_mode not in {"nbt_pieces", "procedural_cave", "hybrid"}:
+                _issue(issues, "error", path, f"{base}.position", "자동 생성 지형이 아닌 던전은 고정 좌표가 필요합니다.")
             if not isinstance(encounter.get("boss"), bool):
                 _issue(issues, "error", path, f"{base}.boss", "true 또는 false여야 합니다.")
             requirements = encounter.get("requires")
@@ -8755,8 +8755,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
         if placement not in {"fixed", "marker"}:
             _issue(issues, "error", path, f"{base}.placement", "목표 배치는 fixed 또는 marker여야 합니다.")
         if placement == "marker":
-            if terrain_mode not in {"nbt_pieces", "hybrid"}:
-                _issue(issues, "error", path, f"{base}.placement", "NBT 마커 목표는 NBT 조각 또는 혼합 던전에서만 사용할 수 있습니다.")
+            if terrain_mode not in {"nbt_pieces", "procedural_cave", "hybrid"}:
+                _issue(issues, "error", path, f"{base}.placement", "자동 배치 목표는 생성형 던전에서만 사용할 수 있습니다.")
         else:
             position(objective.get("position"), f"{base}.position")
         _resource_id(objective.get("block"), issues, path, f"{base}.block")
@@ -8843,8 +8843,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             else:
                 if group_name != "containers" or "position" in entry:
                     position(entry.get("position"), f"{base}.position")
-                elif terrain_mode not in {"nbt_pieces", "hybrid"}:
-                    _issue(issues, "error", path, f"{base}.position", "NBT 조각 이외의 던전은 고정 좌표가 필요합니다.")
+                elif terrain_mode not in {"nbt_pieces", "procedural_cave", "hybrid"}:
+                    _issue(issues, "error", path, f"{base}.position", "자동 생성 지형이 아닌 던전은 고정 좌표가 필요합니다.")
     return dungeon_id if isinstance(dungeon_id, str) else None, issues
 
 

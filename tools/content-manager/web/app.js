@@ -4741,11 +4741,11 @@ function dungeonContentLabel(kind, entry) {
 }
 
 function dungeonContentSubtitle(kind, entry) {
-  if (kind === "encounter") return `${entry.kind === "wild_pokemon" ? "야생 포켓몬" : entry.boss ? "보스 트레이너" : "트레이너"} · ${Array.isArray(entry.position) ? entry.position.join(", ") : "NBT 마커 자동"}`;
+  if (kind === "encounter") return `${entry.kind === "wild_pokemon" ? "야생 포켓몬" : entry.boss ? "보스 트레이너" : "트레이너"} · ${Array.isArray(entry.position) ? entry.position.join(", ") : "생성 후보 자동"}`;
   if (kind === "wild_species") return `Lv.${entry.min_level || 1}~${entry.max_level || 1} · 가중치 ${entry.weight || 1}`;
   if (kind === "gate") return `${entry.placement === "marker" ? "NBT 마커 기준" : "고정 좌표"} · ${(entry.min || []).join(", ")} → ${(entry.max || []).join(", ")}`;
-  if (kind === "objective") return `${entry.kind === "investigate" ? "조사" : "스위치"} · ${entry.placement === "marker" ? "NBT 마커 자동" : (entry.position || []).join(", ")}`;
-  if (kind === "loot" && !Array.isArray(entry.position)) return "NBT 마커 자동";
+  if (kind === "objective") return `${entry.kind === "investigate" ? "조사" : "스위치"} · ${entry.placement === "marker" ? "생성 후보 자동" : (entry.position || []).join(", ")}`;
+  if (kind === "loot" && !Array.isArray(entry.position)) return "생성 후보 자동";
   return (entry.position || []).join(", ") || "좌표 미지정";
 }
 
@@ -4753,12 +4753,16 @@ function dungeonSupportsMarkerPlacement() {
   return ["nbt_pieces", "hybrid"].includes(state.dungeon?.terrain?.mode);
 }
 
+function dungeonSupportsAutomaticPlacement() {
+  return ["nbt_pieces", "procedural_cave", "hybrid"].includes(state.dungeon?.terrain?.mode);
+}
+
 function dungeonPlacementFields(entry) {
-  const automatic = dungeonSupportsMarkerPlacement() && !Array.isArray(entry.position);
+  const automatic = dungeonSupportsAutomaticPlacement() && !Array.isArray(entry.position);
   let fields = contentField("배치 방식", "placementMode", automatic ? "marker" : "fixed", {
     wide: true,
-    select: automatic || dungeonSupportsMarkerPlacement()
-      ? [["marker", "NBT 후보 마커에 자동 배치"], ["fixed", "좌표에 고정 배치"]]
+    select: automatic || dungeonSupportsAutomaticPlacement()
+      ? [["marker", "생성된 방·조각 마커에 자동 배치"], ["fixed", "좌표에 고정 배치"]]
       : [["fixed", "좌표에 고정 배치"]],
   });
   if (!automatic) fields += dungeonPositionFields(entry.position);
@@ -4961,14 +4965,14 @@ function addDungeonContent() {
   const entries = dungeonContentGroups().find(([candidate]) => candidate === kind)[1];
   const id = nextDungeonContentId(kind);
   let entry;
-  const fixedPosition = dungeonSupportsMarkerPlacement() ? {} : { position: [0, 1, 0] };
+  const fixedPosition = dungeonSupportsAutomaticPlacement() ? {} : { position: [0, 1, 0] };
   if (requested === "trainer_encounter") entry = { id, display_name: { ko_kr: "새 트레이너 조우" }, npcs: ["cobbleventure:npc/new_encounter"], opponents: ["cobbleventure:battle/new_encounter"], requires: [], ...fixedPosition, yaw: 0, boss: false };
   else if (requested === "wild_encounter") entry = { id, kind: "wild_pokemon", display_name: { ko_kr: "새 야생 포켓몬" }, pokemon: { species: "cobblemon:pikachu", level: 1, catchable: true }, requires: [], ...fixedPosition, yaw: 0, boss: false };
   else if (kind === "wild_species") entry = { species: "cobblemon:pikachu", min_level: 1, max_level: 1, weight: 10, spawn_as_evolved: false };
   else if (kind === "healing") entry = { id, position: [0, 1, 0], block: "minecraft:lodestone", uses_per_run: 1, restore_hp: true, restore_status: true, restore_pp: true };
   else if (kind === "checkpoint") entry = { id, position: [0, 1, 0], activation_radius: 2 };
   else if (kind === "loot") entry = { id, ...fixedPosition, block: "chest", facing: "north", requires_completion: false };
-  else if (kind === "objective") entry = { id, kind: "switch", placement: dungeonSupportsMarkerPlacement() ? "marker" : "fixed", ...fixedPosition, block: "minecraft:lever", activation_radius: 2 };
+  else if (kind === "objective") entry = { id, kind: "switch", placement: dungeonSupportsAutomaticPlacement() ? "marker" : "fixed", ...fixedPosition, block: "minecraft:lever", activation_radius: 2 };
   else {
     const markerPlacement = dungeonSupportsMarkerPlacement();
     entry = { id, placement: markerPlacement ? "marker" : "fixed", min: markerPlacement ? [-1, 0, 0] : [0, 1, 0], max: markerPlacement ? [1, 2, 0] : [2, 3, 0], block: "minecraft:iron_bars", requires: [state.dungeon.encounters?.[0]?.id || "encounter_1"] };
@@ -5383,7 +5387,41 @@ function runtimeDungeonPlan(document, seed) {
   const minZ = Math.min(...placements.map((value) => value.minimum[2]));
   placements.forEach((value) => { value.minimum[0] -= minX; value.minimum[2] -= minZ; });
   const bounds = document.terrain?.bounds || [Math.max(...placements.map((value) => value.minimum[0] + value.size[0])) + 6, 16, Math.max(...placements.map((value) => value.minimum[2] + value.size[2])) + 6];
-  return { kind: "runtime", exact: false, seed, bounds, placements, links, markers: [], planId: "runtime" };
+  const markers = runtimeDungeonContentMarkers(document, placements);
+  return { kind: "runtime", exact: false, seed, bounds, placements, links, markers, planId: "runtime" };
+}
+
+function runtimeDungeonContentMarkers(document, placements) {
+  const markers = [];
+  const used = new Set();
+  const center = (placement, offset = [0, 0]) => [
+    Math.round(placement.minimum[0] + placement.size[0] / 2) + offset[0],
+    Number(placement.minimum[1] || 0) + 1,
+    Math.round(placement.minimum[2] + placement.size[2] / 2) + offset[1],
+  ];
+  const offsets = [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]];
+  const slots = (rooms) => rooms.flatMap((room) => offsets.map((offset) => center(room, offset)));
+  const mainRooms = placements.filter((value) => value.critical && !["start", "exit"].includes(value.role));
+  const branchRooms = placements.filter((value) => !value.critical);
+  const mainSlots = slots(mainRooms); const branchSlots = slots(branchRooms);
+  const take = (...pools) => {
+    for (const pool of pools) for (const position of pool) {
+      const key = position.join(","); if (used.has(key)) continue;
+      used.add(key); return position;
+    }
+    return null;
+  };
+  const add = (kind, position, label, content) => { if (position) markers.push({ kind, position, label, content }); };
+  const encounters = (document.encounters || []).map((entry, index) => ({ entry, index }));
+  [...encounters.filter(({ entry }) => entry.boss), ...encounters.filter(({ entry }) => !entry.boss)].forEach(({ entry, index }) => {
+    if (Array.isArray(entry.position)) return add(entry.boss ? "boss" : "encounter", entry.position, entry.display_name?.ko_kr || entry.id, { kind: "encounter", index });
+    const bossRoom = [...mainRooms].reverse().find((value) => value.role === "boss") || mainRooms.at(-1);
+    const position = entry.boss && bossRoom ? take([center(bossRoom)], mainSlots) : take(mainSlots, branchSlots);
+    add(entry.boss ? "boss" : "encounter", position, entry.display_name?.ko_kr || entry.id, { kind: "encounter", index });
+  });
+  (document.objectives || []).forEach((entry, index) => add("objective", Array.isArray(entry.position) ? entry.position : take(branchSlots, mainSlots), entry.id, { kind: "objective", index }));
+  (document.loot?.containers || []).forEach((entry, index) => add("loot", Array.isArray(entry.position) ? entry.position : take(branchSlots, mainSlots), entry.id, { kind: "loot", index }));
+  return markers;
 }
 
 function selectedDungeonPlan() {
@@ -5461,7 +5499,7 @@ function renderDungeonPreview() {
     context.fillStyle = "#fff"; context.font = "700 10px sans-serif"; context.fillText(placement.role, top.x + 4, top.y + 13);
     state.dungeonPreview.hitTargets.push({ type: "placement", index: placement.index, x: top.x, y: top.y, width: boxWidth, height: boxHeight });
   });
-  const markerColors = { boss: "#ff5968", encounter: "#ff9c54", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", gate: "#b6c1c8" };
+  const markerColors = { boss: "#ff5968", encounter: "#ff9c54", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", objective: "#df7cff", gate: "#b6c1c8" };
   plan.markers.filter(onSelectedFloor).forEach((marker) => {
     const target = point(marker.position);
     const selectedMarker = marker.content && state.dungeonContentSelection?.kind === marker.content.kind && state.dungeonContentSelection?.index === marker.content.index;

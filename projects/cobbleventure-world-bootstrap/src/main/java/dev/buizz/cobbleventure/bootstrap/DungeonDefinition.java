@@ -630,9 +630,11 @@ record DungeonDefinition(
                 objective, "placement", List.of("fixed", "marker")
             );
             if (objectivePlacement.equals("marker")
-                && !Set.of("nbt_pieces", "hybrid").contains(terrainMode)) {
+                && !Set.of(
+                    "nbt_pieces", "procedural_cave", "hybrid"
+                ).contains(terrainMode)) {
                 throw new IllegalStateException(
-                    "Marker-relative dungeon objective requires NBT pieces: "
+                    "Automatic dungeon objective requires generated terrain: "
                         + id + " -> " + objectiveId
                 );
             }
@@ -825,11 +827,11 @@ record DungeonDefinition(
                 );
             }
         }
-        if (!terrainMode.equals("nbt_pieces") && !terrainMode.equals("hybrid")) {
+        if (terrainMode.equals("fixed_template")) {
             for (Encounter encounter : encounters) {
                 if (encounter.position() == null) {
                     throw new IllegalStateException(
-                        "Non-piece dungeon encounter requires a position: "
+                        "Fixed-template dungeon encounter requires a position: "
                             + id + " -> " + encounter.id()
                     );
                 }
@@ -837,7 +839,7 @@ record DungeonDefinition(
             for (LootContainer container : lootContainers) {
                 if (container.position() == null) {
                     throw new IllegalStateException(
-                        "Non-piece dungeon loot container requires a position: "
+                        "Fixed-template dungeon loot container requires a position: "
                             + id + " -> " + container.id()
                     );
                 }
