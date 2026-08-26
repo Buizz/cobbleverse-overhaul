@@ -192,6 +192,27 @@ final class DungeonDefinitionTest {
     }
 
     @Test
+    void parsesMarkerRelativeGateFromPokemonTower() throws Exception {
+        DungeonDefinition tower = resource("rocket_pokemon_tower");
+        DungeonDefinition.Gate gate = tower.gates().getFirst();
+
+        assertEquals("tower_upper_lock", gate.id());
+        assertEquals("marker", gate.placement());
+        assertEquals(-2, gate.minimum().getZ());
+        assertEquals(2, gate.maximum().getZ());
+        assertEquals(List.of("encounter_1"), gate.requires());
+    }
+
+    @Test
+    void rejectsMarkerRelativeGateInFixedTemplateDungeon() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        root.getAsJsonArray("gates").get(0).getAsJsonObject()
+            .addProperty("placement", "marker");
+
+        assertThrows(IllegalStateException.class, () -> DungeonDefinition.parse(root));
+    }
+
+    @Test
     void independentEncounterAcceptsOneParticipantVictory() {
         UUID first = UUID.randomUUID();
         UUID second = UUID.randomUUID();

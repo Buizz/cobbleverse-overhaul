@@ -605,6 +605,7 @@
       "required": ["id", "min", "max", "block", "requires"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "placement": { "enum": ["fixed", "marker"], "default": "fixed" },
         "min": { "$ref": "#/$defs/block_position" },
         "max": { "$ref": "#/$defs/block_position" },
         "block": { "$ref": "#/$defs/resource_id" },

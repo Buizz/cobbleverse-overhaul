@@ -8729,8 +8729,23 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                 continue
             local_id(entry.get("id"), f"{base}.id", seen_ids)
             if group_name == "gates":
+                placement = entry.get("placement", "fixed")
+                if placement not in {"fixed", "marker"}:
+                    _issue(issues, "error", path, f"{base}.placement", "관문 배치는 fixed 또는 marker여야 합니다.")
+                if placement == "marker" and terrain_mode not in {"nbt_pieces", "hybrid"}:
+                    _issue(issues, "error", path, f"{base}.placement", "NBT 마커 관문은 NBT 조각 또는 혼합 던전에서만 사용할 수 있습니다.")
                 position(entry.get("min"), f"{base}.min")
                 position(entry.get("max"), f"{base}.max")
+                minimum = entry.get("min")
+                maximum = entry.get("max")
+                if isinstance(minimum, list) and isinstance(maximum, list) and len(minimum) == len(maximum) == 3 and all(isinstance(value, int) for value in minimum + maximum):
+                    if any(minimum[axis] > maximum[axis] for axis in range(3)):
+                        _issue(issues, "error", path, base, "관문 최소 좌표는 최대 좌표보다 클 수 없습니다.")
+                    volume = (maximum[0] - minimum[0] + 1) * (maximum[1] - minimum[1] + 1) * (maximum[2] - minimum[2] + 1)
+                    if volume > 256:
+                        _issue(issues, "error", path, base, "관문 영역은 256블록을 초과할 수 없습니다.")
+                    if placement == "fixed" and any(value < 0 for value in minimum):
+                        _issue(issues, "error", path, f"{base}.min", "고정 관문 좌표는 음수일 수 없습니다.")
                 requirements = entry.get("requires")
                 if not isinstance(requirements, list) or not requirements:
                     _issue(issues, "error", path, f"{base}.requires", "관문 해제 조건이 하나 이상 필요합니다.")

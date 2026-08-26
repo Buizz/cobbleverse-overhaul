@@ -31,7 +31,8 @@ final class DungeonAuthoredPlanDefinitionTest {
             new DungeonPieceLayout.ResolvedMarker("encounter", null, new BlockPos(2, 1, 2)),
             new DungeonPieceLayout.ResolvedMarker("encounter", null, new BlockPos(8, 1, 8)),
             new DungeonPieceLayout.ResolvedMarker("boss", null, new BlockPos(12, 1, 12)),
-            new DungeonPieceLayout.ResolvedMarker("loot", null, new BlockPos(4, 1, 12))
+            new DungeonPieceLayout.ResolvedMarker("loot", null, new BlockPos(4, 1, 12)),
+            new DungeonPieceLayout.ResolvedMarker("gate", null, new BlockPos(6, 1, 12))
         ));
 
         var first = layout.featureMarkers(dungeon, 928L);

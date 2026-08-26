@@ -741,12 +741,14 @@ final class DungeonSystem {
         Map<String, BlockPos> lootPositions;
         Map<String, BlockPos> healingPositions;
         Map<String, CheckpointPosition> checkpointPositions;
+        Map<String, GateBounds> gateBounds;
         try {
             terrain = prepareTerrain(
                 dungeonLevel, definition, origin, first.player().getUUID()
             );
             size = terrain.size();
-            placeGates(dungeonLevel, definition, origin, size);
+            gateBounds = resolveGateBounds(definition, origin, terrain);
+            placeGates(dungeonLevel, definition, gateBounds);
             clearExit = placeClearExit(dungeonLevel, definition, origin, terrain);
             healingPositions = placeHealingStations(
                 dungeonLevel, definition, origin, terrain
@@ -797,7 +799,7 @@ final class DungeonSystem {
             ),
             new DungeonLootClaims(), new DungeonLootLedger(), lootPositions,
             healingPositions, checkpointPositions, new HashMap<>(), new HashMap<>(),
-            new HashSet<>(), new HashMap<>()
+            gateBounds, new HashSet<>(), new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
         persistActiveRuns(player.getServer());
@@ -1321,20 +1323,44 @@ final class DungeonSystem {
         return position;
     }
 
+    private static Map<String, GateBounds> resolveGateBounds(
+        DungeonDefinition definition,
+        BlockPos origin,
+        PreparedTerrain terrain
+    ) {
+        Map<String, GateBounds> resolved = new HashMap<>();
+        for (DungeonDefinition.Gate gate : definition.gates()) {
+            BlockPos anchor = gate.placement().equals("marker")
+                ? featurePosition(terrain, "gate", gate.id(), null)
+                : BlockPos.ZERO;
+            BlockPos relativeMinimum = anchor.offset(gate.minimum());
+            BlockPos relativeMaximum = anchor.offset(gate.maximum());
+            if (relativeMinimum.getX() < 0 || relativeMinimum.getY() < 0
+                || relativeMinimum.getZ() < 0
+                || relativeMaximum.getX() >= terrain.size().getX()
+                || relativeMaximum.getY() >= terrain.size().getY()
+                || relativeMaximum.getZ() >= terrain.size().getZ()) {
+                throw new IllegalStateException(
+                    "Dungeon gate exceeds the terrain: " + gate.id()
+                );
+            }
+            resolved.put(gate.id(), new GateBounds(
+                origin.offset(relativeMinimum), origin.offset(relativeMaximum)
+            ));
+        }
+        return Map.copyOf(resolved);
+    }
+
     private static void placeGates(
         ServerLevel level,
         DungeonDefinition definition,
-        BlockPos origin,
-        BlockPos size
+        Map<String, GateBounds> resolved
     ) {
         for (DungeonDefinition.Gate gate : definition.gates()) {
-            BlockPos maximum = gate.maximum();
-            if (maximum.getX() >= size.getX() || maximum.getY() >= size.getY()
-                || maximum.getZ() >= size.getZ()) {
-                throw new IllegalStateException(
-                    "Dungeon gate exceeds the template: " + gate.id()
-                );
-            }
+            GateBounds bounds = resolved.get(gate.id());
+            if (bounds == null) throw new IllegalStateException(
+                "Dungeon gate bounds are missing: " + gate.id()
+            );
             ResourceLocation blockId = ResourceLocation.parse(gate.block());
             var block = BuiltInRegistries.BLOCK.getOptional(blockId).orElseThrow(() ->
                 new IllegalStateException("Dungeon gate block is missing: " + blockId)
@@ -1345,7 +1371,7 @@ final class DungeonSystem {
                 );
             }
             BlockPos.betweenClosedStream(
-                origin.offset(gate.minimum()), origin.offset(gate.maximum())
+                bounds.minimum(), bounds.maximum()
             ).forEach(position -> level.setBlock(
                 position, block.defaultBlockState(), 3
             ));
@@ -2072,8 +2098,14 @@ final class DungeonSystem {
                 continue;
             }
             run.openedGates().add(gate.id());
-            BlockPos minimum = run.origin().offset(gate.minimum());
-            BlockPos maximum = run.origin().offset(gate.maximum());
+            GateBounds bounds = run.gateBounds().get(gate.id());
+            if (bounds == null) {
+                throw new IllegalStateException(
+                    "Active dungeon gate bounds are missing: " + gate.id()
+                );
+            }
+            BlockPos minimum = bounds.minimum();
+            BlockPos maximum = bounds.maximum();
             BlockPos.betweenClosedStream(minimum, maximum).forEach(position ->
                 level.setBlock(position, Blocks.AIR.defaultBlockState(), 3)
             );
@@ -2753,6 +2785,7 @@ final class DungeonSystem {
         putBlockPositionMap(tag, "lootPositions", run.lootPositions());
         putBlockPositionMap(tag, "healingPositions", run.healingPositions());
         putCheckpointPositions(tag, run.checkpointPositions());
+        putGateBounds(tag, run.gateBounds());
         putUuidPositionMap(tag, "activeCheckpoints", run.activeCheckpoints());
         putStringIntMap(tag, "healingUses", run.healingUses());
         putStringSet(tag, "openedGates", run.openedGates());
@@ -2853,6 +2886,7 @@ final class DungeonSystem {
                     getBlockPositionMap(tag, "lootPositions"),
                     getBlockPositionMap(tag, "healingPositions"),
                     getCheckpointPositions(tag), activeCheckpoints, reconnecting,
+                    getGateBounds(tag, definition, origin),
                     new HashSet<>(getStringSet(tag, "openedGates")), new HashMap<>()
                 );
                 participants.forEach(participant -> ACTIVE_RUNS.put(participant, run));
@@ -3019,6 +3053,54 @@ final class DungeonSystem {
             result.put(entry.getString("id"), new CheckpointPosition(
                 getPosition(entry, "position"), entry.getInt("radius")
             ));
+        }
+        return Map.copyOf(result);
+    }
+
+    private static void putGateBounds(
+        CompoundTag owner, Map<String, GateBounds> values
+    ) {
+        ListTag list = new ListTag();
+        values.forEach((id, bounds) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putString("id", id);
+            putPosition(entry, "minimum", bounds.minimum());
+            putPosition(entry, "maximum", bounds.maximum());
+            list.add(entry);
+        });
+        owner.put("gateBounds", list);
+    }
+
+    private static Map<String, GateBounds> getGateBounds(
+        CompoundTag owner,
+        DungeonDefinition definition,
+        BlockPos origin
+    ) {
+        Map<String, GateBounds> result = new HashMap<>();
+        if (owner.contains("gateBounds")) {
+            ListTag list = owner.getList("gateBounds", Tag.TAG_COMPOUND);
+            for (int index = 0; index < list.size(); index++) {
+                CompoundTag entry = list.getCompound(index);
+                result.put(entry.getString("id"), new GateBounds(
+                    getPosition(entry, "minimum"), getPosition(entry, "maximum")
+                ));
+            }
+        } else {
+            for (DungeonDefinition.Gate gate : definition.gates()) {
+                if (gate.placement().equals("marker")) {
+                    throw new IllegalStateException(
+                        "Persisted marker gate has no resolved bounds: " + gate.id()
+                    );
+                }
+                result.put(gate.id(), new GateBounds(
+                    origin.offset(gate.minimum()), origin.offset(gate.maximum())
+                ));
+            }
+        }
+        if (!result.keySet().containsAll(
+            definition.gates().stream().map(DungeonDefinition.Gate::id).toList()
+        )) {
+            throw new IllegalStateException("Persisted dungeon gate bounds are incomplete");
         }
         return Map.copyOf(result);
     }
@@ -3427,6 +3509,8 @@ final class DungeonSystem {
 
     private record CheckpointPosition(BlockPos position, int activationRadius) {}
 
+    private record GateBounds(BlockPos minimum, BlockPos maximum) {}
+
     private record ActiveRun(
         UUID runId,
         long seed,
@@ -3451,6 +3535,7 @@ final class DungeonSystem {
         Map<String, CheckpointPosition> checkpointPositions,
         Map<UUID, BlockPos> activeCheckpoints,
         Map<UUID, ReconnectState> reconnecting,
+        Map<String, GateBounds> gateBounds,
         Set<String> openedGates,
         Map<UUID, Long> objectiveMessageAfter
     ) {}

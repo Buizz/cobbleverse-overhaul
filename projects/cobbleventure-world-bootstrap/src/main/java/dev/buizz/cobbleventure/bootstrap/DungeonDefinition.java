@@ -624,7 +624,18 @@ record DungeonDefinition(
             }
             BlockPos minimum = blockPosition(gate, "min");
             BlockPos maximum = blockPosition(gate, "max");
-            if (minimum.getX() < 0 || minimum.getY() < 0 || minimum.getZ() < 0
+            String placement = gate.has("placement")
+                ? enumValue(gate, "placement", List.of("fixed", "marker")) : "fixed";
+            if (placement.equals("marker")
+                && !Set.of("nbt_pieces", "hybrid").contains(terrainMode)) {
+                throw new IllegalStateException(
+                    "Marker-relative dungeon gate requires NBT pieces: "
+                        + id + " -> " + gateId
+                );
+            }
+            if ((placement.equals("fixed")
+                    && (minimum.getX() < 0 || minimum.getY() < 0
+                        || minimum.getZ() < 0))
                 || minimum.getX() > maximum.getX()
                 || minimum.getY() > maximum.getY()
                 || minimum.getZ() > maximum.getZ()
@@ -653,7 +664,7 @@ record DungeonDefinition(
                 );
             }
             gates.add(new Gate(
-                gateId, minimum, maximum, resourceId(gate, "block"),
+                gateId, placement, minimum, maximum, resourceId(gate, "block"),
                 List.copyOf(requirements)
             ));
         }
@@ -1131,6 +1142,7 @@ record DungeonDefinition(
     ) {}
     record Gate(
         String id,
+        String placement,
         BlockPos minimum,
         BlockPos maximum,
         String block,

@@ -4737,7 +4737,7 @@ function dungeonContentLabel(kind, entry) {
 function dungeonContentSubtitle(kind, entry) {
   if (kind === "encounter") return `${entry.kind === "wild_pokemon" ? "야생 포켓몬" : entry.boss ? "보스 트레이너" : "트레이너"} · ${Array.isArray(entry.position) ? entry.position.join(", ") : "NBT 마커 자동"}`;
   if (kind === "wild_species") return `Lv.${entry.min_level || 1}~${entry.max_level || 1} · 가중치 ${entry.weight || 1}`;
-  if (kind === "gate") return `${(entry.min || []).join(", ")} → ${(entry.max || []).join(", ")}`;
+  if (kind === "gate") return `${entry.placement === "marker" ? "NBT 마커 기준" : "고정 좌표"} · ${(entry.min || []).join(", ")} → ${(entry.max || []).join(", ")}`;
   if (kind === "loot" && !Array.isArray(entry.position)) return "NBT 마커 자동";
   return (entry.position || []).join(", ") || "좌표 미지정";
 }
@@ -4837,7 +4837,9 @@ function renderDungeonContentProperties() {
   } else if (kind === "gate") {
     fields += contentField("관문 ID", "id", entry.id, { double: true, required: true });
     fields += contentField("관문 블록", "block", entry.block || "minecraft:iron_bars", { required: true });
+    fields += contentField("배치 방식", "gatePlacement", entry.placement || "fixed", { wide: true, select: dungeonSupportsMarkerPlacement() ? [["fixed", "던전 원점 기준 고정 좌표"], ["marker", "같은 ID의 NBT gate 마커 기준"]] : [["fixed", "던전 원점 기준 고정 좌표"]] });
     fields += dungeonPositionFields(entry.min, "min") + dungeonPositionFields(entry.max, "max");
+    fields += `<p class="command-help wide">마커 배치는 min/max를 gate 마커로부터의 상대 좌표로 사용합니다. 예: [-1, 0, 0] → [1, 2, 0]</p>`;
     fields += contentField("해제 조건 ID — 쉼표 구분", "requires", (entry.requires || []).join(", "), { wide: true, required: true });
   }
   root.innerHTML = `<header class="dungeon-content-property-head"><div><strong>${escapeHtml(dungeonContentLabel(kind, entry))}</strong><small>${escapeHtml(dungeonContentKinds[kind].label)} 속성</small></div><span>${escapeHtml(dungeonContentSubtitle(kind, entry))}</span></header><div class="dungeon-content-fields">${fields}</div>`;
@@ -4908,7 +4910,7 @@ function updateDungeonContentFromEditor() {
     updatePlacement();
     const lootTable = textValue("lootTable"); if (lootTable) entry.loot_table = lootTable; else delete entry.loot_table;
   } else if (kind === "gate") {
-    Object.assign(entry, { id: textValue("id"), block: textValue("block"), min: position("min"), max: position("max"), requires: csvValues(textValue("requires")) });
+    Object.assign(entry, { id: textValue("id"), placement: textValue("gatePlacement") || "fixed", block: textValue("block"), min: position("min"), max: position("max"), requires: csvValues(textValue("requires")) });
   }
 }
 
@@ -4934,7 +4936,10 @@ function addDungeonContent() {
   else if (kind === "healing") entry = { id, position: [0, 1, 0], block: "minecraft:lodestone", uses_per_run: 1, restore_hp: true, restore_status: true, restore_pp: true };
   else if (kind === "checkpoint") entry = { id, position: [0, 1, 0], activation_radius: 2 };
   else if (kind === "loot") entry = { id, ...fixedPosition, block: "chest", facing: "north", requires_completion: false };
-  else entry = { id, min: [0, 1, 0], max: [2, 3, 0], block: "minecraft:iron_bars", requires: [state.dungeon.encounters?.[0]?.id || "encounter_1"] };
+  else {
+    const markerPlacement = dungeonSupportsMarkerPlacement();
+    entry = { id, placement: markerPlacement ? "marker" : "fixed", min: markerPlacement ? [-1, 0, 0] : [0, 1, 0], max: markerPlacement ? [1, 2, 0] : [2, 3, 0], block: "minecraft:iron_bars", requires: [state.dungeon.encounters?.[0]?.id || "encounter_1"] };
+  }
   entries.push(entry);
   state.dungeonContentSelection = { kind, index: entries.length - 1 };
   state.dungeonDirty = true;

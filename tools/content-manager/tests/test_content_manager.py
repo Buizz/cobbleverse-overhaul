@@ -160,6 +160,22 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("동시에 사용할 수 없습니다" in issue.message for issue in conflict_issues))
         self.assertTrue(any("같은 종을 중복 선언" in issue.message for issue in duplicate_issues))
 
+    def test_dungeon_gate_can_use_piece_marker_relative_bounds(self) -> None:
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
+        gate = document["gates"][0]
+        self.assertEqual("marker", gate["placement"])
+        self.assertLess(gate["min"][2], 0)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+        self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        self.assertIn("같은 ID의 NBT gate 마커 기준", script)
+        self.assertIn('placement: textValue("gatePlacement")', script)
+
     def test_authored_dungeon_plan_validates_piece_bounds_and_connectors(self) -> None:
         piece = {
             "$schema": "../schemas/dungeon-piece.schema.json", "schema_version": 1,

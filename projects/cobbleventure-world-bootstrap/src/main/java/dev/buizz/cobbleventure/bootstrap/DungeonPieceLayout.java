@@ -248,6 +248,12 @@ record DungeonPieceLayout(
                 checkpoint.position(), definition.id()
             );
         }
+        for (DungeonDefinition.Gate gate : definition.gates()) {
+            if (!gate.placement().equals("marker")) continue;
+            assignFeature(
+                assigned, candidates, "gate", gate.id(), null, definition.id()
+            );
+        }
         return Map.copyOf(assigned);
     }
 

@@ -89,6 +89,15 @@
         1,
         5
       ]
+    },
+    {
+      "id": "gate_slot",
+      "kind": "gate",
+      "position": [
+        15,
+        1,
+        7
+      ]
     }
   ]
 }

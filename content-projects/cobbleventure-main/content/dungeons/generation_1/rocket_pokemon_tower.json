@@ -29,7 +29,16 @@
   ],
   "random_encounters": { "enabled": false, "minimum_distance": 6, "maximum_distance": 12, "max_active": 1, "spawn_interval_ticks": 100, "spawn_bounds": { "min": [2, 1, 2], "max": [109, 22, 45] }, "additions": [] },
   "support": { "healing_stations": [] },
-  "gates": [],
+  "gates": [
+    {
+      "id": "tower_upper_lock",
+      "placement": "marker",
+      "min": [0, 0, -2],
+      "max": [0, 2, 2],
+      "block": "minecraft:iron_bars",
+      "requires": ["encounter_1"]
+    }
+  ],
   "loot": { "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies", "ownership": "per_player", "on_failure": "keep_collected", "containers": [{ "id": "loot_1", "block": "barrel", "facing": "north", "requires_completion": false }] },
   "rewards": { "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear", "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear", "first_clear_field_moves": [] },
   "lifecycle": { "on_wipe": "reset_run", "wipe_return": "pokemon_center", "heal_on_wipe": true, "reconnect_grace_seconds": 120 },

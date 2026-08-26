@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
@@ -179,6 +180,46 @@ final class DungeonPiecePlannerTest {
     }
 
     @Test
+    void assignsMarkerRelativeGateToAReusableRoomSlot() throws Exception {
+        var stream = getClass().getClassLoader().getResourceAsStream(
+            "data/cobbleventure/dungeons/generation_1/rocket_power_plant.json"
+        );
+        assertTrue(stream != null);
+        DungeonDefinition definition;
+        try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            var root = JsonParser.parseReader(reader).getAsJsonObject();
+            root.add("plan", JsonParser.parseString("""
+                {"mode":"runtime","seed_policy":"fixed","fallback":"reject_entry",
+                 "max_attempts":100}
+                """).getAsJsonObject());
+            root.add("terrain", JsonParser.parseString("""
+                {"mode":"nbt_pieces","piece_pool":"cobbleventure:theme/test",
+                 "bounds":[80,16,80]}
+                """).getAsJsonObject());
+            root.add("layout", JsonParser.parseString("""
+                {"mode":"rooms_and_corridors","critical_path_rooms":[6,6],
+                 "branch_count":[0,0],"branch_depth":[1,1],"loop_chance":0}
+                """).getAsJsonObject());
+            root.add("gates", JsonParser.parseString("""
+                [{"id":"test_lock","placement":"marker","min":[-1,0,0],
+                  "max":[1,2,0],"block":"minecraft:iron_bars",
+                  "requires":["west_grunt"]}]
+                """).getAsJsonArray());
+            definition = DungeonDefinition.parse(root);
+        }
+
+        DungeonPieceLayout layout = DungeonPieceLayout.generate(
+            definition, testPieces(), 7781L
+        );
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> markers =
+            layout.featureMarkers(definition, 7781L);
+
+        assertTrue(markers.containsKey(
+            new DungeonPieceLayout.MarkerKey("gate", "test_lock")
+        ));
+    }
+
+    @Test
     void rejectsPoolThatCannotFitInsideBounds() {
         DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
             new BlockPos(4, 4, 4), 3, 3, 0, 0, 1, 1, 0.0D, 3
@@ -211,14 +252,14 @@ final class DungeonPiecePlannerTest {
     private static List<DungeonPieceDefinition> testPieces() {
         return List.of(
             piece("start", "start", fourConnectors(), marker("entry")),
-            piece("room", "room", fourConnectors(), "[]"),
+            piece("room", "room", fourConnectors(), marker("gate")),
             piece("corridor", "corridor", northSouthConnectors(), "[]"),
-            piece("junction", "junction", fourConnectors(), "[]"),
+            piece("junction", "junction", fourConnectors(), marker("gate")),
             piece("boss", "boss", fourConnectors(), marker("boss", "boss")),
             piece("exit", "exit", terminalConnector(), marker("exit")),
             piece("dead_end", "dead_end", terminalConnector(), "[]"),
             piece("treasure", "treasure", terminalConnector(), "[]"),
-            piece("support", "support", terminalConnector(), "[]")
+            piece("support", "support", terminalConnector(), marker("gate"))
         );
     }
 

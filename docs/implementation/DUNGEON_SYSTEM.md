@@ -361,6 +361,7 @@ DungeonEntrance
 | 전리품 | `loot.ownership` | `per_player`, `run_shared`, `first_claim` | `per_player` |
 | 전리품 | `loot.on_failure` | `keep_collected`, `remove_run_loot`, `grant_on_clear_only` | `keep_collected` |
 | 목표 | `objectives` | 도달, 처치, 수집, 조사, 퍼즐, 생존, 포획 | 필수 목표 모두 완료 |
+| 기믹 관문 | `gates[].placement` | 던전 원점 기준 `fixed`, NBT `gate` 마커 기준 `marker` | NBT 조각은 `marker` 권장 |
 | 클리어 | `completion.repeat_mode` | `once`, `repeatable`, `cooldown`, `limited` | `repeatable` |
 | 클리어 | `completion.limit` | 계정·캐릭터별 횟수와 일·주·시즌 초기화 | 제한 없음 |
 | 클리어 | `completion.reentry_after_clear` | `deny`, `explore_only`, `new_run` | 반복 정책에 따름 |
@@ -420,6 +421,23 @@ DungeonEntrance
 파괴·보호 영역은 계획 생성기 단계에서 이 기본 포맷을 확장한다.
 
 연결되지 않은 출입구는 막음 조각으로 닫는다. 문이나 계단 앞, 연결구 내부와 플레이어 시작 안전 반경에는 NPC나 보상을 놓지 않는다.
+
+#### 마커 기준 잠금 관문
+
+NBT 조각 던전의 잠긴 문·차단벽은 전체 던전 좌표를 다시 계산하지 않고 조각의 `gate` 마커를 기준으로 정의할 수 있다. `placement: marker`인 관문은 같은 ID를 `reference`로 가진 마커를 우선 사용하고, 없으면 참조 없는 `gate` 후보 마커 중 하나를 실행 시드로 배정한다. `min`과 `max`는 이 마커로부터의 상대 좌표이며 음수 오프셋도 허용한다.
+
+```json
+{
+  "id": "upper_floor_lock",
+  "placement": "marker",
+  "min": [0, 0, -2],
+  "max": [0, 2, 2],
+  "block": "minecraft:iron_bars",
+  "requires": ["floor_guard"]
+}
+```
+
+이 방식이면 같은 잠금방 형태를 다른 테마 스킨으로 교체해도 마커와 연결 규격만 같으면 관문 위치가 그대로 유지된다. 관문의 실제 월드 좌표 범위는 `DungeonRun`에 저장하므로 서버 재시작 뒤에도 같은 벽을 해제한다. `placement: fixed`는 완성형 세트 전체처럼 던전 원점 기준 좌표가 편한 경우를 위해 유지한다.
 
 ### 4.4 던전 계획 생성 시점
 
