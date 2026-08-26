@@ -5017,7 +5017,7 @@ async function renderDungeonPieceEditor() {
   form.hidden = !piece; $("#validate-dungeon-piece").disabled = !piece; $("#save-dungeon-piece").disabled = !piece;
   if (!piece) { renderDungeonPieceCanvas(); return; }
   syncDungeonPieceSize(piece);
-  setFormValue(form, "pieceId", piece.piece_id); form.elements.structure.innerHTML = dungeonStructureOptions(piece.structure); setFormValue(form, "role", piece.role); setFormValue(form, "weight", piece.weight ?? 1); setFormValue(form, "allowRotation", piece.allow_rotation !== false); setFormValue(form, "tags", (piece.tags || []).join(", "));
+  setFormValue(form, "pieceId", piece.piece_id); form.elements.structure.innerHTML = dungeonStructureOptions(piece.structure); setFormValue(form, "role", piece.role); setFormValue(form, "weight", piece.weight ?? 1); setFormValue(form, "minPerPlan", piece.min_per_plan ?? 0); setFormValue(form, "maxPerPlan", piece.max_per_plan ?? 256); setFormValue(form, "allowRotation", piece.allow_rotation !== false); setFormValue(form, "tags", (piece.tags || []).join(", "));
   $("#dungeon-piece-size").textContent = (piece.size || []).join(" × "); $("#dungeon-piece-preview-label").textContent = piece.structure || "NBT 미선택";
   $("#dungeon-piece-path").textContent = `${state.dungeonPiecePaths.get(piece.piece_id) || "새 조각"}${state.dungeonPieceDirty ? " · 저장하지 않은 변경" : ""}`;
   $("#dungeon-connector-list").innerHTML = (piece.connectors || []).map((entry, index) => dungeonPieceRow("connector", entry, index, state.dungeonPieceEditor.selectedKind === "connector" && state.dungeonPieceEditor.selectedIndex === index)).join("") || '<div class="issues empty">연결점을 추가하세요.</div>';
@@ -5028,7 +5028,7 @@ async function renderDungeonPieceEditor() {
 function updateDungeonPieceFromForm() {
   const piece = currentDungeonPiece(); if (!piece) return;
   const form = $("#dungeon-piece-form"), oldId = piece.piece_id, nextId = form.elements.pieceId.value.trim();
-  piece.piece_id = nextId; piece.structure = form.elements.structure.value; piece.role = form.elements.role.value; piece.weight = Math.round(Number(form.elements.weight.value || 1)); piece.allow_rotation = form.elements.allowRotation.checked; piece.tags = csvValues(form.elements.tags.value); syncDungeonPieceSize(piece);
+  piece.piece_id = nextId; piece.structure = form.elements.structure.value; piece.role = form.elements.role.value; piece.weight = Math.round(Number(form.elements.weight.value || 1)); piece.min_per_plan = Math.max(0, Math.round(Number(form.elements.minPerPlan.value || 0))); piece.max_per_plan = Math.max(1, Math.round(Number(form.elements.maxPerPlan.value || 256))); piece.allow_rotation = form.elements.allowRotation.checked; piece.tags = csvValues(form.elements.tags.value); syncDungeonPieceSize(piece);
   if (nextId && oldId !== nextId) { const path = state.dungeonPiecePaths.get(oldId); state.dungeonPieces.delete(oldId); state.dungeonPiecePaths.delete(oldId); state.dungeonPieces.set(nextId, piece); if (path) state.dungeonPiecePaths.set(nextId, path); state.dungeonPieceId = nextId; }
 }
 function updateDungeonPieceRows(container, kind) {
@@ -5040,7 +5040,7 @@ function createDungeonPiece() {
   const structures = Object.keys(state.structureSizes || {}).filter((id) => id.startsWith("cobbleventure:")).sort(); const preferred = state.dungeon?.terrain?.template; const structure = preferred && state.structureSizes[preferred] ? preferred : structures[0] || ""; const metadata = state.structureSizes[structure] || {};
   let suffix = state.dungeonPieces.size + 1, pieceId; do { pieceId = `cobbleventure:dungeon_piece/new_room_${suffix++}`; } while (state.dungeonPieces.has(pieceId));
   const generation = state.dungeonPath.match(/generation_\d+/)?.[0] || "generation_1";
-  const piece = { "$schema": "../../schemas/dungeon-piece.schema.json", schema_version: 1, piece_id: pieceId, structure, role: "room", size: [Number(metadata.width || 1), Number(metadata.height || 1), Number(metadata.depth || 1)], weight: 1, allow_rotation: true, tags: [], connectors: [{ id: "north", position: [0, 0, 0], facing: "north", socket: "cobbleventure:dungeon/door", tags: [] }], markers: [] }; snapDungeonConnector(piece.connectors[0], piece.size);
+  const piece = { "$schema": "../../schemas/dungeon-piece.schema.json", schema_version: 1, piece_id: pieceId, structure, role: "room", size: [Number(metadata.width || 1), Number(metadata.height || 1), Number(metadata.depth || 1)], weight: 1, min_per_plan: 0, max_per_plan: 256, allow_rotation: true, tags: [], connectors: [{ id: "north", position: [0, 0, 0], facing: "north", socket: "cobbleventure:dungeon/door", tags: [] }], markers: [] }; snapDungeonConnector(piece.connectors[0], piece.size);
   state.dungeonPieces.set(pieceId, piece); state.dungeonPiecePaths.set(pieceId, `content/dungeon_pieces/${generation}/new_room_${suffix - 1}.json`); state.dungeonPieceId = pieceId; state.dungeonPieceDirty = true; state.dungeonPieceEditor = { selectedKind: "connector", selectedIndex: 0, transform: null }; renderDungeonPieceEditor(); renderDungeonPlanEditor();
 }
 function addDungeonPieceItem(kind) { const piece = currentDungeonPiece(); if (!piece) return; const list = kind === "connector" ? piece.connectors : piece.markers; const index = list.length; if (kind === "connector") { const facing = ["north","east","south","west"][index % 4]; const entry = { id: `connector_${index + 1}`, position: [Math.floor(piece.size[0] / 2), 0, Math.floor(piece.size[2] / 2)], facing, socket: "cobbleventure:dungeon/door", tags: [] }; snapDungeonConnector(entry, piece.size); list.push(entry); } else list.push({ id: `marker_${index + 1}`, kind: "encounter", position: [Math.floor(piece.size[0] / 2), 0, Math.floor(piece.size[2] / 2)] }); state.dungeonPieceEditor.selectedKind = kind; state.dungeonPieceEditor.selectedIndex = index; markDungeonPieceDirty(); renderDungeonPieceEditor(); }
@@ -5452,6 +5452,18 @@ function dungeonPlanPlacementProblems(plan) {
   for (let left = 0; left < (plan.placements || []).length; left += 1) for (let right = left + 1; right < plan.placements.length; right += 1) {
     const a=plan.placements[left],b=plan.placements[right],overlap=[0,1,2].every((axis)=>a.minimum[axis]<b.minimum[axis]+b.size[axis]&&a.minimum[axis]+a.size[axis]>b.minimum[axis]);
     if(overlap){add(a.index,`${b.index+1}번 조각과 겹침`);add(b.index,`${a.index+1}번 조각과 겹침`);}
+  }
+  const usage = new Map();
+  for (const placement of plan.placements || []) {
+    if (!usage.has(placement.pieceId)) usage.set(placement.pieceId, []);
+    usage.get(placement.pieceId).push(placement);
+  }
+  for (const [pieceId, placements] of usage) {
+    const piece = state.dungeonPieces.get(pieceId) || {};
+    const minimum = Number(piece.min_per_plan ?? 0);
+    const maximum = Number(piece.max_per_plan ?? 256);
+    if (placements.length < minimum) placements.forEach((placement) => add(placement.index, `최소 ${minimum}회 필요`));
+    if (placements.length > maximum) placements.slice(maximum).forEach((placement) => add(placement.index, `최대 ${maximum}회`));
   }
   return problems;
 }

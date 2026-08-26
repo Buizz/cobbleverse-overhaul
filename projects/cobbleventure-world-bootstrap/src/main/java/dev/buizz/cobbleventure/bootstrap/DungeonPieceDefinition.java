@@ -25,6 +25,8 @@ record DungeonPieceDefinition(
     String role,
     BlockPos size,
     int weight,
+    int minimumPerPlan,
+    int maximumPerPlan,
     boolean allowRotation,
     Set<String> tags,
     List<Connector> connectors,
@@ -79,6 +81,16 @@ record DungeonPieceDefinition(
         int weight = requiredInt(root, "weight");
         if (weight < 1 || weight > 1000) {
             throw new IllegalStateException("Invalid dungeon piece weight: " + id);
+        }
+        int minimumPerPlan = root.has("min_per_plan")
+            ? requiredInt(root, "min_per_plan") : 0;
+        int maximumPerPlan = root.has("max_per_plan")
+            ? requiredInt(root, "max_per_plan") : 256;
+        if (minimumPerPlan < 0 || maximumPerPlan < 1
+            || minimumPerPlan > maximumPerPlan || maximumPerPlan > 256) {
+            throw new IllegalStateException(
+                "Invalid dungeon piece usage limits: " + id
+            );
         }
 
         Set<String> tags = new HashSet<>();
@@ -166,6 +178,8 @@ record DungeonPieceDefinition(
             role,
             size,
             weight,
+            minimumPerPlan,
+            maximumPerPlan,
             requiredBoolean(root, "allow_rotation"),
             Set.copyOf(tags),
             List.copyOf(connectors),

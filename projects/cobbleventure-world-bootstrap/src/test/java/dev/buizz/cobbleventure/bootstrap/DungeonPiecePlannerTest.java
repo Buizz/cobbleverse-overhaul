@@ -233,6 +233,24 @@ final class DungeonPiecePlannerTest {
         assertTrue(error.getMessage().contains("planning failed"));
     }
 
+    @Test
+    void rejectsPlanThatWouldExceedPieceUsageLimit() {
+        List<DungeonPieceDefinition> pieces = testPieces().stream().map(piece ->
+            piece.id().endsWith("/corridor")
+                ? pieceWithUsage(
+                    "corridor", "corridor", northSouthConnectors(), "[]", 0, 1
+                ) : piece
+        ).toList();
+        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
+            new BlockPos(80, 16, 80), 8, 8, 0, 0, 1, 1,
+            0.0D, 20, "rooms_and_corridors"
+        );
+
+        assertThrows(IllegalStateException.class, () ->
+            DungeonPiecePlanner.generate(pieces, settings, 9981L)
+        );
+    }
+
     private static void assertNoOverlap(DungeonPiecePlan plan) {
         for (int first = 0; first < plan.placements().size(); first++) {
             DungeonPiecePlan.Placement a = plan.placements().get(first);
@@ -305,6 +323,13 @@ final class DungeonPiecePlannerTest {
     private static DungeonPieceDefinition piece(
         String id, String role, String connectors, String markers
     ) {
+        return pieceWithUsage(id, role, connectors, markers, 0, 256);
+    }
+
+    private static DungeonPieceDefinition pieceWithUsage(
+        String id, String role, String connectors, String markers,
+        int minimumPerPlan, int maximumPerPlan
+    ) {
         return DungeonPieceDefinition.parse(JsonParser.parseString("""
             {
               "schema_version": 1,
@@ -313,12 +338,17 @@ final class DungeonPiecePlannerTest {
               "role": "%s",
               "size": [5, 5, 5],
               "weight": 10,
+              "min_per_plan": %d,
+              "max_per_plan": %d,
               "allow_rotation": true,
               "tags": ["cobbleventure:theme/test"],
               "connectors": %s,
               "markers": %s
             }
-            """.formatted(id, id, role, connectors, markers)).getAsJsonObject());
+            """.formatted(
+                id, id, role, minimumPerPlan, maximumPerPlan,
+                connectors, markers
+            )).getAsJsonObject());
     }
 
     private static String marker(String kind) {

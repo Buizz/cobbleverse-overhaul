@@ -211,6 +211,8 @@ class ContentManagerTests(unittest.TestCase):
             self.assertIsNotNone(target)
             self.assertFalse(any(issue.level == "error" for issue in issues), issues)
 
+            piece["max_per_plan"] = 2
+            piece_path.write_text(json.dumps(piece), encoding="utf-8")
             plan["placements"][1]["origin"] = [3, 1, 1]
             plan["links"][0]["to_connector"] = "missing"
             _, invalid_issues = content_manager._save_document(
@@ -219,12 +221,14 @@ class ContentManagerTests(unittest.TestCase):
         messages = [issue.message for issue in invalid_issues]
         self.assertTrue(any("영역이 겹칩니다" in message for message in messages))
         self.assertTrue(any("없는 커넥터" in message for message in messages))
+        self.assertTrue(any("사용 횟수" in message for message in messages))
 
     def test_dungeon_piece_validates_boundary_connectors_and_role_markers(self) -> None:
         piece = {
             "$schema": "../../schemas/dungeon-piece.schema.json", "schema_version": 1,
             "piece_id": "cobbleventure:dungeon_piece/test_start", "structure": "cobbleventure:test/start",
-            "role": "start", "size": [8, 6, 8], "weight": 1, "allow_rotation": True,
+            "role": "start", "size": [8, 6, 8], "weight": 1,
+            "min_per_plan": 1, "max_per_plan": 1, "allow_rotation": True,
             "tags": ["cobbleventure:dungeon/test"],
             "connectors": [{
                 "id": "east", "position": [7, 1, 4], "facing": "east",
@@ -240,6 +244,8 @@ class ContentManagerTests(unittest.TestCase):
             self.assertFalse(any(issue.level == "error" for issue in issues), issues)
             self.assertTrue((root / relative).is_file())
 
+            piece["min_per_plan"] = 2
+            piece["max_per_plan"] = 1
             piece["connectors"][0]["position"] = [3, 1, 4]
             piece["markers"] = []
             _, invalid_issues = content_manager._save_document(
@@ -248,6 +254,7 @@ class ContentManagerTests(unittest.TestCase):
         messages = [issue.message for issue in invalid_issues]
         self.assertTrue(any("조각 경계" in message for message in messages))
         self.assertTrue(any("entry 마커" in message for message in messages))
+        self.assertTrue(any("최소 사용 횟수" in message for message in messages))
 
     def test_dungeon_workspace_loads_definitions_plans_and_piece_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -300,6 +307,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="dungeon-piece-canvas"', html)
         self.assertIn('id="add-dungeon-connector"', html)
         self.assertIn('id="add-dungeon-marker"', html)
+        self.assertIn('name="minPerPlan"', html)
+        self.assertIn('name="maxPerPlan"', html)
+        self.assertIn("piece.min_per_plan", script)
+        self.assertIn("piece.max_per_plan", script)
         self.assertIn("async function saveDungeonPiece()", script)
         self.assertIn("function dungeonPlanPlacementProblems(plan)", script)
 

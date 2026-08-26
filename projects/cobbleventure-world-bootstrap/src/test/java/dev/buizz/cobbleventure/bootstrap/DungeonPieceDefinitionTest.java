@@ -51,6 +51,8 @@ final class DungeonPieceDefinitionTest {
         assertEquals(new BlockPos(16, 8, 16), piece.size());
         assertEquals(Direction.NORTH, piece.connectors().getFirst().facing());
         assertEquals("entry", piece.markers().getFirst().kind());
+        assertEquals(0, piece.minimumPerPlan());
+        assertEquals(256, piece.maximumPerPlan());
     }
 
     @Test
@@ -71,6 +73,25 @@ final class DungeonPieceDefinitionTest {
         );
 
         assertTrue(error.getMessage().contains("exactly one boss marker"));
+    }
+
+    @Test
+    void parsesAndValidatesPerPlanUsageLimits() {
+        DungeonPieceDefinition piece = parse(basePiece(
+            "[7, 1, 0]", "north", "room", "[]"
+        ).replace(
+            "\"weight\": 1,",
+            "\"weight\": 1, \"min_per_plan\": 1, \"max_per_plan\": 2,"
+        ));
+        assertEquals(1, piece.minimumPerPlan());
+        assertEquals(2, piece.maximumPerPlan());
+
+        assertThrows(IllegalStateException.class, () -> parse(basePiece(
+            "[7, 1, 0]", "north", "room", "[]"
+        ).replace(
+            "\"weight\": 1,",
+            "\"weight\": 1, \"min_per_plan\": 3, \"max_per_plan\": 2,"
+        )));
     }
 
     private static DungeonPieceDefinition parse(String json) {

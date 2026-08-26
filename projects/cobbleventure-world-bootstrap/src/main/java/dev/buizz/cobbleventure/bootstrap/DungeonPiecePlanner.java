@@ -49,6 +49,7 @@ final class DungeonPiecePlanner {
             if (!attachBranches(
                 state, pieces, settings, random, targetBranches
             )) continue;
+            if (!usageSatisfied(state, pieces)) continue;
             DungeonPiecePlan plan = state.toPlan(seed, settings.bounds());
             Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
                 java.util.stream.Collectors.toUnmodifiableMap(
@@ -68,7 +69,8 @@ final class DungeonPiecePlanner {
         List<DungeonPieceDefinition> pieces, BlockPos bounds, Random random
     ) {
         List<DungeonPieceDefinition> starts = weightedOrder(
-            pieces.stream().filter(piece -> piece.role().equals("start")).toList(), random
+            pieces.stream().filter(piece -> piece.role().equals("start")
+                && piece.maximumPerPlan() >= 1).toList(), random
         );
         for (DungeonPieceDefinition piece : starts) {
             for (Rotation rotation : rotationOrder(piece, random)) {
@@ -104,7 +106,8 @@ final class DungeonPiecePlanner {
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> requiredRole == null
                 ? flexibleRoles.contains(piece.role())
-                : piece.role().equals(requiredRole)).toList(),
+                : piece.role().equals(requiredRole))
+                .filter(piece -> canUse(state, piece)).toList(),
             random
         );
         Placed current = state.placements.getLast();
@@ -169,7 +172,8 @@ final class DungeonPiecePlanner {
             settings.layoutMode(), remaining, branchDepth
         );
         List<DungeonPieceDefinition> candidates = weightedOrder(
-            pieces.stream().filter(piece -> roles.contains(piece.role())).toList(), random
+            pieces.stream().filter(piece -> roles.contains(piece.role()))
+                .filter(piece -> canUse(state, piece)).toList(), random
         );
         Placed current = state.placements.get(currentIndex);
         for (DungeonPieceDefinition.Connector from : connectorOrder(current, state, random)) {
@@ -309,6 +313,28 @@ final class DungeonPiecePlanner {
 
     private static int randomRange(Random random, int minimum, int maximum) {
         return minimum + random.nextInt(maximum - minimum + 1);
+    }
+
+    private static boolean canUse(State state, DungeonPieceDefinition piece) {
+        return state.placements.stream().filter(placed ->
+            placed.definition().id().equals(piece.id())
+        ).count() < piece.maximumPerPlan();
+    }
+
+    private static boolean usageSatisfied(
+        State state, List<DungeonPieceDefinition> pieces
+    ) {
+        Map<String, Long> counts = state.placements.stream().collect(
+            java.util.stream.Collectors.groupingBy(
+                placed -> placed.definition().id(),
+                java.util.stream.Collectors.counting()
+            )
+        );
+        return pieces.stream().allMatch(piece -> {
+            long count = counts.getOrDefault(piece.id(), 0L);
+            return count >= piece.minimumPerPlan()
+                && count <= piece.maximumPerPlan();
+        });
     }
 
     private static Set<String> criticalRoles(String layoutMode, int depth) {

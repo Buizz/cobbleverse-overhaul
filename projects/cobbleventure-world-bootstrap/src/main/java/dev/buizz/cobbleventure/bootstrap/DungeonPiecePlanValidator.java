@@ -30,6 +30,7 @@ final class DungeonPiecePlanValidator {
         int starts = 0;
         int bosses = 0;
         int exits = 0;
+        Map<String, Integer> usage = new HashMap<>();
         for (DungeonPiecePlan.Placement placement : plan.placements()) {
             if (placement.index() < 0
                 || placements.putIfAbsent(placement.index(), placement) != null) {
@@ -42,6 +43,7 @@ final class DungeonPiecePlanValidator {
             if (!piece.role().equals(placement.role())) {
                 throw invalid("placement role differs from piece metadata");
             }
+            usage.merge(piece.id(), 1, Integer::sum);
             if (!piece.allowRotation()
                 && placement.rotation() != net.minecraft.world.level.block.Rotation.NONE) {
                 throw invalid("placement rotates a non-rotatable piece");
@@ -55,6 +57,13 @@ final class DungeonPiecePlanValidator {
         }
         if (starts != 1 || bosses != 1 || exits != 1) {
             throw invalid("plan requires exactly one start, boss, and exit piece");
+        }
+        for (DungeonPieceDefinition piece : pieces.values()) {
+            if (!piece.tags().contains(requiredPool)) continue;
+            int count = usage.getOrDefault(piece.id(), 0);
+            if (count < piece.minimumPerPlan() || count > piece.maximumPerPlan()) {
+                throw invalid("piece usage is outside its configured limits: " + piece.id());
+            }
         }
         for (int first = 0; first < plan.placements().size(); first++) {
             for (int second = first + 1; second < plan.placements().size(); second++) {

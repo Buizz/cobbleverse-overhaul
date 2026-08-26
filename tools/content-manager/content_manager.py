@@ -8357,6 +8357,14 @@ def validate_dungeon_piece_file(path: Path) -> tuple[str | None, list[Issue]]:
     weight = data.get("weight")
     if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 1000:
         _issue(issues, "error", path, "$.weight", "가중치는 1~1000 정수여야 합니다.")
+    minimum_per_plan = data.get("min_per_plan", 0)
+    maximum_per_plan = data.get("max_per_plan", 256)
+    if not isinstance(minimum_per_plan, int) or isinstance(minimum_per_plan, bool) or not 0 <= minimum_per_plan <= 256:
+        _issue(issues, "error", path, "$.min_per_plan", "계획당 최소 사용 횟수는 0~256 정수여야 합니다.")
+    if not isinstance(maximum_per_plan, int) or isinstance(maximum_per_plan, bool) or not 1 <= maximum_per_plan <= 256:
+        _issue(issues, "error", path, "$.max_per_plan", "계획당 최대 사용 횟수는 1~256 정수여야 합니다.")
+    if isinstance(minimum_per_plan, int) and isinstance(maximum_per_plan, int) and minimum_per_plan > maximum_per_plan:
+        _issue(issues, "error", path, "$.min_per_plan", "최소 사용 횟수는 최대보다 클 수 없습니다.")
     if not isinstance(data.get("allow_rotation"), bool):
         _issue(issues, "error", path, "$.allow_rotation", "true 또는 false여야 합니다.")
     tags = data.get("tags")
@@ -8845,6 +8853,7 @@ def validate_dungeon_plan_document(
     placements = data.get("placements") if isinstance(data.get("placements"), list) else []
     bounds = data.get("bounds") if isinstance(data.get("bounds"), list) and len(data.get("bounds")) == 3 else None
     occupied: list[tuple[int, list[int], list[int]]] = []
+    piece_usage: dict[str, int] = {}
     for index, placement in enumerate(placements):
         if not isinstance(placement, dict):
             continue
@@ -8853,6 +8862,7 @@ def validate_dungeon_plan_document(
         if piece is None:
             _issue(issues, "error", path, f"$.placements[{index}].piece_id", f"등록되지 않은 던전 조각입니다: {piece_id}")
             continue
+        piece_usage[piece_id] = piece_usage.get(piece_id, 0) + 1
         size = piece.get("size")
         origin = placement.get("origin")
         rotation = placement.get("rotation")
@@ -8876,6 +8886,27 @@ def validate_dungeon_plan_document(
             if all(minimum[axis] < other_maximum[axis] and maximum[axis] > other_minimum[axis] for axis in range(3)):
                 _issue(issues, "error", path, f"$.placements[{index}].origin", f"{other_index}번 조각과 영역이 겹칩니다.")
         occupied.append((index, minimum, maximum))
+
+    used_pool_tags = {
+        tag
+        for piece_id in piece_usage
+        for tag in pieces.get(piece_id, {}).get("tags", [])
+        if isinstance(tag, str) and ":dungeon_pool/" in tag
+    }
+    for piece_id, piece in pieces.items():
+        piece_pool_tags = {
+            tag for tag in piece.get("tags", [])
+            if isinstance(tag, str) and ":dungeon_pool/" in tag
+        }
+        if used_pool_tags and not used_pool_tags.intersection(piece_pool_tags):
+            continue
+        if not used_pool_tags and piece_id not in piece_usage:
+            continue
+        minimum = piece.get("min_per_plan", 0)
+        maximum = piece.get("max_per_plan", 256)
+        count = piece_usage.get(piece_id, 0)
+        if isinstance(minimum, int) and isinstance(maximum, int) and not minimum <= count <= maximum:
+            _issue(issues, "error", path, "$.placements", f"{piece_id} 조각 사용 횟수 {count}회가 허용 범위 {minimum}~{maximum}회를 벗어납니다.")
 
     links = data.get("links") if isinstance(data.get("links"), list) else []
     for index, link in enumerate(links):

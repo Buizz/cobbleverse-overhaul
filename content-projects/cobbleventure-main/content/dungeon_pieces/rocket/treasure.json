@@ -10,6 +10,8 @@
     16
   ],
   "weight": 4,
+  "min_per_plan": 0,
+  "max_per_plan": 1,
   "allow_rotation": true,
   "tags": [
     "cobbleventure:dungeon_kit/standard_16",
