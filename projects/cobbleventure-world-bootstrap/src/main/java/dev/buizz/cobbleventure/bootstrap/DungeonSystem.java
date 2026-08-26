@@ -887,7 +887,7 @@ final class DungeonSystem {
         };
     }
 
-    private static BlockPos prepareFixedTemplate(
+    private static PreparedTerrain prepareFixedTemplate(
         ServerLevel level, DungeonDefinition definition, BlockPos origin
     ) {
         ResourceLocation templateId = ResourceLocation.parse(
@@ -908,7 +908,30 @@ final class DungeonSystem {
                 "Dungeon template placement failed: " + definition.id()
             );
         }
-        return new BlockPos(template.getSize());
+        BlockPos size = new BlockPos(template.getSize());
+        ResourceLocation metadataId = ResourceLocation.fromNamespaceAndPath(
+            templateId.getNamespace(),
+            "structure_metadata/" + templateId.getPath() + ".structure.json"
+        );
+        Resource metadataResource = level.getServer().getResourceManager()
+            .getResource(metadataId).orElseThrow(() -> new IllegalStateException(
+                "Dungeon template metadata is missing: " + metadataId
+            ));
+        JsonObject metadata;
+        try (Reader reader = metadataResource.openAsReader()) {
+            metadata = JsonParser.parseReader(reader).getAsJsonObject();
+        } catch (IOException error) {
+            throw new IllegalStateException(
+                "Dungeon template metadata could not be read: " + metadataId, error
+            );
+        }
+        DungeonFixedTemplateLayout layout = DungeonFixedTemplateLayout.parse(
+            definition, size, metadata
+        );
+        return new PreparedTerrain(
+            size, layout.entry(), layout.exit(), layout.markers(),
+            level.getSeed() ^ origin.asLong()
+        );
     }
 
     private static PreparedTerrain prepareTerrain(
@@ -918,12 +941,7 @@ final class DungeonSystem {
         UUID playerId
     ) {
         if (definition.terrain().mode().equals("fixed_template")) {
-            return new PreparedTerrain(
-                prepareFixedTemplate(level, definition, origin),
-                definition.terrain().entryPosition(),
-                definition.terrain().exitPosition(),
-                Map.of(), level.getSeed() ^ origin.asLong()
-            );
+            return prepareFixedTemplate(level, definition, origin);
         }
         return switch (definition.terrain().mode()) {
             case "nbt_pieces" -> prepareNbtPieces(

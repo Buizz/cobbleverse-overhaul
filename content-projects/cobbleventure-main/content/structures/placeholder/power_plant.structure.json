@@ -8,6 +8,51 @@
       "type": "interaction_point",
       "position": [24, 1, 0],
       "facing": "north"
+    },
+    {
+      "id": "run_entry", "type": "dungeon_marker", "kind": "entry",
+      "position": [24, 1, 4]
+    },
+    {
+      "id": "run_exit", "type": "dungeon_marker", "kind": "exit",
+      "position": [24, 1, 0]
+    },
+    {
+      "id": "west_grunt", "type": "dungeon_marker", "kind": "encounter",
+      "reference": "west_grunt", "position": [14, 1, 16]
+    },
+    {
+      "id": "east_grunt", "type": "dungeon_marker", "kind": "encounter",
+      "reference": "east_grunt", "position": [34, 1, 27]
+    },
+    {
+      "id": "control_room_officer", "type": "dungeon_marker", "kind": "boss",
+      "reference": "control_room_officer", "position": [24, 1, 40]
+    },
+    {
+      "id": "pre_control_room_station", "type": "dungeon_marker",
+      "kind": "healing_station", "reference": "pre_control_room_station",
+      "position": [18, 1, 35]
+    },
+    {
+      "id": "west_maintenance_cache", "type": "dungeon_marker", "kind": "loot",
+      "reference": "west_maintenance_cache", "position": [6, 1, 17]
+    },
+    {
+      "id": "east_transformer_cache", "type": "dungeon_marker", "kind": "loot",
+      "reference": "east_transformer_cache", "position": [43, 1, 25]
+    },
+    {
+      "id": "control_room_cache", "type": "dungeon_marker", "kind": "loot",
+      "reference": "control_room_cache", "position": [35, 1, 43]
+    },
+    {
+      "id": "control_room_lockdown", "type": "dungeon_marker", "kind": "gate",
+      "reference": "control_room_lockdown", "position": [23, 1, 33]
+    },
+    {
+      "id": "clear_exit", "type": "dungeon_marker", "kind": "objective",
+      "reference": "clear_exit", "position": [24, 1, 43]
     }
   ]
 }

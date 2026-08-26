@@ -81,6 +81,13 @@ final class DungeonCaveFeatureLayout {
                 mainSlots, definition.id()
             );
         }
+        for (DungeonDefinition.Gate gate : definition.gates()) {
+            if (!gate.placement().equals("marker")) continue;
+            put(
+                assigned, used, "gate", gate.id(), mainSlots,
+                branchSlots, definition.id()
+            );
+        }
         if (definition.completion().returnTrigger().equals("clear_exit")
             && definition.completion().clearExitPosition() == null) {
             List<BlockPos> exitSlots = new ArrayList<>();

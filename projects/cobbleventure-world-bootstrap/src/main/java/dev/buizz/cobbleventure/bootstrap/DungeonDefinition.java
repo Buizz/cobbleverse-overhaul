@@ -198,9 +198,9 @@ record DungeonDefinition(
                 "fixed_template dungeon requires terrain.template: " + id
             );
         }
-        BlockPos entryPosition = terrainMode.equals("fixed_template")
+        BlockPos entryPosition = terrain.has("entry_position")
             ? blockPosition(terrain, "entry_position") : null;
-        BlockPos exitPosition = terrainMode.equals("fixed_template")
+        BlockPos exitPosition = terrain.has("exit_position")
             ? blockPosition(terrain, "exit_position") : null;
         String piecePool = terrain.has("piece_pool")
             ? resourceId(terrain, "piece_pool") : null;
@@ -681,9 +681,11 @@ record DungeonDefinition(
             String placement = gate.has("placement")
                 ? enumValue(gate, "placement", List.of("fixed", "marker")) : "fixed";
             if (placement.equals("marker")
-                && !Set.of("nbt_pieces", "hybrid").contains(terrainMode)) {
+                && !Set.of(
+                    "fixed_template", "nbt_pieces", "procedural_cave", "hybrid"
+                ).contains(terrainMode)) {
                 throw new IllegalStateException(
-                    "Marker-relative dungeon gate requires NBT pieces: "
+                    "Marker-relative dungeon gate requires marker-aware terrain: "
                         + id + " -> " + gateId
                 );
             }
@@ -837,24 +839,6 @@ record DungeonDefinition(
                 );
             }
         }
-        if (terrainMode.equals("fixed_template")) {
-            for (Encounter encounter : encounters) {
-                if (encounter.position() == null) {
-                    throw new IllegalStateException(
-                        "Fixed-template dungeon encounter requires a position: "
-                            + id + " -> " + encounter.id()
-                    );
-                }
-            }
-            for (LootContainer container : lootContainers) {
-                if (container.position() == null) {
-                    throw new IllegalStateException(
-                        "Fixed-template dungeon loot container requires a position: "
-                            + id + " -> " + container.id()
-                    );
-                }
-            }
-        }
         JsonObject rewards = requiredObject(root, "rewards");
         List<String> firstClearFieldMoves = new ArrayList<>();
         for (JsonElement element : requiredArray(rewards, "first_clear_field_moves")) {
@@ -897,12 +881,6 @@ record DungeonDefinition(
         if (returnTrigger.equals("clear_exit") && clearExitBlock == null) {
             throw new IllegalStateException(
                 "clear_exit completion requires a block: " + id
-            );
-        }
-        if (returnTrigger.equals("clear_exit") && terrainMode.equals("fixed_template")
-            && clearExitPosition == null) {
-            throw new IllegalStateException(
-                "fixed_template clear_exit completion requires a position: " + id
             );
         }
         if (clearExitPosition != null

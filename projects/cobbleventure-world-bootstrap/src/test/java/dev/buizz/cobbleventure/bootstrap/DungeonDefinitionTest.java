@@ -247,12 +247,10 @@ final class DungeonDefinitionTest {
     }
 
     @Test
-    void rejectsMarkerRelativeGateInFixedTemplateDungeon() throws Exception {
-        JsonObject root = resourceObject("rocket_power_plant");
-        root.getAsJsonArray("gates").get(0).getAsJsonObject()
-            .addProperty("placement", "marker");
+    void acceptsMarkerRelativeGateInFixedTemplateDungeon() throws Exception {
+        DungeonDefinition dungeon = resource("rocket_power_plant");
 
-        assertThrows(IllegalStateException.class, () -> DungeonDefinition.parse(root));
+        assertEquals("marker", dungeon.gates().getFirst().placement());
     }
 
     @Test

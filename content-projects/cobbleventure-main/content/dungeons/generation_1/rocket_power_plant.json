@@ -57,9 +57,7 @@
   },
   "terrain": {
     "mode": "fixed_template",
-    "template": "cobbleventure:placeholder/power_plant",
-    "entry_position": [24, 1, 4],
-    "exit_position": [24, 1, 0]
+    "template": "cobbleventure:placeholder/power_plant"
   },
   "encounters": [
     {
@@ -75,7 +73,6 @@
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
       "requires": [],
-      "position": [14, 1, 16],
       "yaw": 90,
       "boss": false
     },
@@ -92,7 +89,6 @@
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
       "requires": [],
-      "position": [34, 1, 27],
       "yaw": -90,
       "boss": false
     },
@@ -109,7 +105,6 @@
         "cobbleventure:battle/rocket_power_plant_officer"
       ],
       "requires": ["west_grunt", "east_grunt"],
-      "position": [24, 1, 40],
       "yaw": 180,
       "boss": true
     }
@@ -161,7 +156,6 @@
     "healing_stations": [
       {
         "id": "pre_control_room_station",
-        "position": [18, 1, 35],
         "block": "minecraft:lodestone",
         "uses_per_run": 1,
         "restore_hp": true,
@@ -173,8 +167,9 @@
   "gates": [
     {
       "id": "control_room_lockdown",
-      "min": [21, 1, 33],
-      "max": [26, 3, 33],
+      "placement": "marker",
+      "min": [-2, 0, 0],
+      "max": [3, 2, 0],
       "block": "minecraft:iron_bars",
       "requires": ["west_grunt", "east_grunt"]
     }
@@ -186,21 +181,18 @@
     "containers": [
       {
         "id": "west_maintenance_cache",
-        "position": [6, 1, 17],
         "block": "barrel",
         "facing": "south",
         "requires_completion": false
       },
       {
         "id": "east_transformer_cache",
-        "position": [43, 1, 25],
         "block": "chest",
         "facing": "west",
         "requires_completion": false
       },
       {
         "id": "control_room_cache",
-        "position": [35, 1, 43],
         "block": "chest",
         "facing": "west",
         "requires_completion": true,
@@ -223,7 +215,6 @@
     "victory_flag": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated",
     "repeatable": true,
     "return_trigger": "clear_exit",
-    "clear_exit_position": [24, 1, 43],
     "clear_exit_block": "minecraft:lodestone"
   }
 }

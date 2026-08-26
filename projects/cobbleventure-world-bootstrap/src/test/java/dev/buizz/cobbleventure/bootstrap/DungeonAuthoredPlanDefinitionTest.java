@@ -169,6 +169,7 @@ final class DungeonAuthoredPlanDefinitionTest {
                 {"mode":"fixed","critical_path_rooms":[3,3],
                  "branch_count":[0,0],"branch_depth":[1,1],"loop_chance":0}
                 """).getAsJsonObject());
+            addSyntheticFallbacks(root);
             dungeon = DungeonDefinition.parse(root);
         }
 
@@ -265,8 +266,39 @@ final class DungeonAuthoredPlanDefinitionTest {
                 {"mode":"fixed","critical_path_rooms":[3,3],
                  "branch_count":[0,0],"branch_depth":[1,1],"loop_chance":0}
                 """).getAsJsonObject());
+            addSyntheticFallbacks(root);
             return DungeonDefinition.parse(root);
         }
+    }
+
+    private static void addSyntheticFallbacks(com.google.gson.JsonObject root) {
+        int index = 0;
+        for (var encounter : root.getAsJsonArray("encounters")) {
+            encounter.getAsJsonObject().add(
+                "position", JsonParser.parseString(
+                    "[%d,1,1]".formatted(index++ % 3)
+                )
+            );
+        }
+        for (var station : root.getAsJsonObject("support")
+            .getAsJsonArray("healing_stations")) {
+            station.getAsJsonObject().add(
+                "position", JsonParser.parseString("[2,1,2]")
+            );
+        }
+        index = 0;
+        for (var container : root.getAsJsonObject("loot")
+            .getAsJsonArray("containers")) {
+            container.getAsJsonObject().add(
+                "position", JsonParser.parseString(
+                    "[%d,1,0]".formatted(index++ % 3)
+                )
+            );
+        }
+        root.add("gates", JsonParser.parseString("[]"));
+        root.getAsJsonObject("completion").add(
+            "clear_exit_position", JsonParser.parseString("[0,1,2]")
+        );
     }
 
     private com.google.gson.JsonObject resourceJson(String path) throws Exception {

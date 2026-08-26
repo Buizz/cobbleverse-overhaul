@@ -158,11 +158,13 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             "door", "npc_position", "easy_npc_spawn",
             "arrival", "transition", "interior_spawn", "exterior_spawn", "interaction_point", "patrol_point",
             "dungeon_entrance",
+            "dungeon_marker",
         }:
             raise StructureBuilderError(f"알 수 없는 출입구 앵커입니다: {path} #{index}")
         is_door = anchor_type == "door"
         is_npc = anchor_type in {"npc_position", "easy_npc_spawn"}
         is_dungeon_entrance = anchor_type == "dungeon_entrance"
+        is_dungeon_marker = anchor_type == "dungeon_marker"
         position_fields = (
             ("position", "safe_spawn")
             if is_door or is_dungeon_entrance or anchor_type == "transition"
@@ -179,6 +181,8 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             direction_fields = ("door_facing", "safe_side")
         elif is_npc:
             direction_fields = ("facing",) if "facing" in anchor else ()
+        elif is_dungeon_marker:
+            direction_fields = ()
         else:
             direction_fields = ("facing",)
         for field in direction_fields:
@@ -207,6 +211,23 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             raise StructureBuilderError(
                 f"던전 입구 리소스 ID가 올바르지 않습니다: {path} #{index}"
             )
+        if is_dungeon_marker:
+            kind = anchor.get("kind")
+            if kind not in {
+                "entry", "exit", "encounter", "boss", "loot",
+                "healing_station", "gate", "objective", "checkpoint",
+            }:
+                raise StructureBuilderError(
+                    f"던전 마커 종류가 올바르지 않습니다: {path} #{index}"
+                )
+            reference = anchor.get("reference")
+            if kind not in {"entry", "exit"} and (
+                not isinstance(reference, str)
+                or not re.fullmatch(r"[a-z0-9_.-]+", reference)
+            ):
+                raise StructureBuilderError(
+                    f"던전 마커 참조가 올바르지 않습니다: {path} #{index}"
+                )
     interior = document.get("interior")
     if interior is not None:
         if not isinstance(interior, dict):

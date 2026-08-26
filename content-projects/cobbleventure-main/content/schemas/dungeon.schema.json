@@ -174,7 +174,7 @@
       "allOf": [
         {
           "if": { "properties": { "mode": { "const": "fixed_template" } }, "required": ["mode"] },
-          "then": { "required": ["template", "entry_position", "exit_position"] }
+          "then": { "required": ["template"] }
         },
         {
           "if": { "properties": { "mode": { "const": "nbt_pieces" } }, "required": ["mode"] },
