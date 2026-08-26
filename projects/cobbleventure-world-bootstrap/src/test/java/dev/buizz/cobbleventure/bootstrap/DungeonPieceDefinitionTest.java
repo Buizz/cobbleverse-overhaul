@@ -118,6 +118,22 @@ final class DungeonPieceDefinitionTest {
         assertTrue(!bossTagged.allowsAdjacentTo(branch));
     }
 
+    @Test
+    void gateMarkerCanBindOnlyToAnExistingConnector() {
+        DungeonPieceDefinition piece = parse(basePiece(
+            "[7, 1, 0]", "north", "room",
+            "[{\"id\":\"lock\",\"kind\":\"gate\",\"position\":[7,1,0],"
+                + "\"connector\":\"door\"}]"
+        ));
+        assertEquals("door", piece.markers().getFirst().connector());
+
+        assertThrows(IllegalStateException.class, () -> parse(basePiece(
+            "[7, 1, 0]", "north", "room",
+            "[{\"id\":\"lock\",\"kind\":\"gate\",\"position\":[7,1,0],"
+                + "\"connector\":\"missing\"}]"
+        )));
+    }
+
     private static DungeonPieceDefinition parse(String json) {
         return DungeonPieceDefinition.parse(JsonParser.parseString(json).getAsJsonObject());
     }

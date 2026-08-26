@@ -1,12 +1,15 @@
 package dev.buizz.cobbleventure.bootstrap;
 
-import java.util.Collection;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Mirror;
@@ -57,13 +60,14 @@ record DungeonPieceLayout(
                 DungeonPieceDefinition::id, piece -> piece
             )
         );
-        DungeonPiecePlan plan = definition.plan().mode().equals("runtime")
-            ? runtimePlan(definition, pieces, seed)
-            : authoredPlan(definition, authoredPlans, byId, seed);
+        if (definition.plan().mode().equals("runtime")) {
+            return runtimeLayout(definition, pieces, byId, seed);
+        }
+        DungeonPiecePlan plan = authoredPlan(definition, authoredPlans, byId, seed);
         DungeonPiecePlanValidator.validate(
             plan, byId, definition.terrain().piecePool(), definition.terrain().bounds()
         );
-        return resolveMarkers(definition.id(), plan, byId);
+        return resolveMarkers(definition, plan, byId, seed);
     }
 
     static void validateAuthoredDefinitions(
@@ -90,33 +94,69 @@ record DungeonPieceLayout(
                 DungeonPiecePlanValidator.validate(
                     plan, byId, dungeon.terrain().piecePool(), dungeon.terrain().bounds()
                 );
-                resolveMarkers(dungeon.id(), plan, byId)
-                    .featureMarkers(dungeon, plan.seed());
+                resolveMarkers(dungeon, plan, byId, plan.seed());
             }
         }
     }
 
-    private static DungeonPiecePlan runtimePlan(
+    private static DungeonPieceLayout runtimeLayout(
         DungeonDefinition definition,
         List<DungeonPieceDefinition> pieces,
+        Map<String, DungeonPieceDefinition> byId,
         long seed
     ) {
-        try {
-            return DungeonPiecePlanner.generate(
-                pieces, plannerSettings(definition, false), seed
-            );
-        } catch (IllegalStateException planningFailure) {
-            if (definition.plan().fallback().equals("use_last_valid")) {
-                DungeonPieceLayout cached = LAST_VALID.get(definition.id());
-                if (cached != null) return cached.plan();
+        IllegalStateException lastFailure = null;
+        DungeonPiecePlanner.Settings settings = singleAttempt(
+            plannerSettings(definition, false)
+        );
+        for (int attempt = 0; attempt < definition.plan().maxAttempts(); attempt++) {
+            try {
+                long attemptSeed = attempt == 0 ? seed
+                    : markerSeed(seed + attempt, "layout_attempt");
+                DungeonPiecePlan plan = DungeonPiecePlanner.generate(
+                    pieces, settings, attemptSeed
+                );
+                DungeonPiecePlanValidator.validate(
+                    plan, byId, definition.terrain().piecePool(),
+                    definition.terrain().bounds()
+                );
+                return resolveMarkers(definition, plan, byId, seed);
+            } catch (IllegalStateException failure) {
+                lastFailure = failure;
             }
-            if (!definition.plan().fallback().equals("use_fallback_plan")) {
-                throw planningFailure;
-            }
-            return DungeonPiecePlanner.generate(
-                pieces, plannerSettings(definition, true), seed
-            );
         }
+        if (definition.plan().fallback().equals("use_last_valid")) {
+            DungeonPieceLayout cached = LAST_VALID.get(definition.id());
+            if (cached != null) return cached;
+        }
+        if (definition.plan().fallback().equals("use_fallback_plan")) {
+            try {
+                DungeonPiecePlan fallback = DungeonPiecePlanner.generate(
+                    pieces, plannerSettings(definition, true), seed
+                );
+                DungeonPiecePlanValidator.validate(
+                    fallback, byId, definition.terrain().piecePool(),
+                    definition.terrain().bounds()
+                );
+                return resolveMarkers(definition, fallback, byId, seed);
+            } catch (IllegalStateException fallbackFailure) {
+                if (lastFailure != null) fallbackFailure.addSuppressed(lastFailure);
+                throw fallbackFailure;
+            }
+        }
+        if (lastFailure != null) throw lastFailure;
+        throw new IllegalStateException("Dungeon runtime planning produced no attempts");
+    }
+
+    private static DungeonPiecePlanner.Settings singleAttempt(
+        DungeonPiecePlanner.Settings settings
+    ) {
+        return new DungeonPiecePlanner.Settings(
+            settings.bounds(), settings.criticalPathMin(), settings.criticalPathMax(),
+            settings.branchCountMin(), settings.branchCountMax(),
+            settings.branchDepthMin(), settings.branchDepthMax(),
+            settings.loopChance(), 1, settings.layoutMode()
+        );
     }
 
     private static DungeonPiecePlan authoredPlan(
@@ -139,9 +179,10 @@ record DungeonPieceLayout(
     }
 
     private static DungeonPieceLayout resolveMarkers(
-        String dungeonId,
+        DungeonDefinition definition,
         DungeonPiecePlan plan,
-        Map<String, DungeonPieceDefinition> byId
+        Map<String, DungeonPieceDefinition> byId,
+        long seed
     ) {
         List<ResolvedMarker> markers = new ArrayList<>();
         Map<MarkerKey, BlockPos> uniqueMarkers = new LinkedHashMap<>();
@@ -158,7 +199,8 @@ record DungeonPieceLayout(
                 );
                 BlockPos position = placement.templateOrigin().offset(transformed);
                 markers.add(new ResolvedMarker(
-                    marker.kind(), marker.reference(), position
+                    marker.kind(), marker.reference(), position,
+                    placement.index(), marker.connector()
                 ));
                 if (marker.reference() != null
                     || marker.kind().equals("entry")
@@ -176,7 +218,8 @@ record DungeonPieceLayout(
         requireMarker(markers, "entry", null);
         requireMarker(markers, "exit", null);
         DungeonPieceLayout generated = new DungeonPieceLayout(plan, List.copyOf(markers));
-        LAST_VALID.put(dungeonId, generated);
+        generated.validateGateProgression(definition, seed);
+        LAST_VALID.put(definition.id(), generated);
         return generated;
     }
 
@@ -206,19 +249,31 @@ record DungeonPieceLayout(
     Map<MarkerKey, BlockPos> featureMarkers(
         DungeonDefinition definition, long seed
     ) {
-        Map<MarkerKey, BlockPos> assigned = new LinkedHashMap<>();
-        Map<String, List<BlockPos>> candidates = new HashMap<>();
+        return featureAssignments(definition, seed).entrySet().stream().collect(
+            java.util.stream.Collectors.toUnmodifiableMap(
+                Map.Entry::getKey, entry -> entry.getValue().position()
+            )
+        );
+    }
+
+    private Map<MarkerKey, ResolvedMarker> featureAssignments(
+        DungeonDefinition definition, long seed
+    ) {
+        Map<MarkerKey, ResolvedMarker> assigned = new LinkedHashMap<>();
+        Map<String, List<ResolvedMarker>> candidates = new HashMap<>();
         for (ResolvedMarker marker : markers) {
             if (marker.reference() == null
                 && !marker.kind().equals("entry")
                 && !marker.kind().equals("exit")) {
+                if (marker.kind().equals("gate")
+                    && !isUsableGateMarker(marker)) continue;
                 candidates.computeIfAbsent(marker.kind(), ignored -> new ArrayList<>())
-                    .add(marker.position());
+                    .add(marker);
             } else {
-                assigned.put(new MarkerKey(marker.kind(), marker.reference()), marker.position());
+                assigned.put(new MarkerKey(marker.kind(), marker.reference()), marker);
             }
         }
-        for (Map.Entry<String, List<BlockPos>> entry : candidates.entrySet()) {
+        for (Map.Entry<String, List<ResolvedMarker>> entry : candidates.entrySet()) {
             Collections.shuffle(entry.getValue(), new java.util.Random(
                 markerSeed(seed, entry.getKey())
             ));
@@ -265,8 +320,8 @@ record DungeonPieceLayout(
     }
 
     private static void assignFeature(
-        Map<MarkerKey, BlockPos> assigned,
-        Map<String, List<BlockPos>> candidates,
+        Map<MarkerKey, ResolvedMarker> assigned,
+        Map<String, List<ResolvedMarker>> candidates,
         String kind,
         String reference,
         BlockPos fallback,
@@ -274,11 +329,11 @@ record DungeonPieceLayout(
     ) {
         MarkerKey key = new MarkerKey(kind, reference);
         if (fallback != null) {
-            assigned.put(key, fallback);
+            assigned.put(key, new ResolvedMarker(kind, reference, fallback, -1, null));
             return;
         }
         if (assigned.containsKey(key)) return;
-        List<BlockPos> available = candidates.getOrDefault(kind, List.of());
+        List<ResolvedMarker> available = candidates.getOrDefault(kind, List.of());
         if (!available.isEmpty()) {
             assigned.put(key, available.removeLast());
             return;
@@ -286,6 +341,98 @@ record DungeonPieceLayout(
         throw new IllegalStateException(
             "Dungeon has no available " + kind + " marker: "
                 + dungeonId + " -> " + reference
+        );
+    }
+
+    private void validateGateProgression(DungeonDefinition definition, long seed) {
+        Map<MarkerKey, ResolvedMarker> assigned = featureAssignments(definition, seed);
+        int start = plan.placements().stream()
+            .filter(placement -> placement.role().equals("start"))
+            .map(DungeonPiecePlan.Placement::index).findFirst().orElseThrow();
+        for (DungeonDefinition.Gate gate : definition.gates()) {
+            if (!gate.placement().equals("marker")) continue;
+            ResolvedMarker gateMarker = assigned.get(new MarkerKey("gate", gate.id()));
+            if (gateMarker == null || gateMarker.placementIndex() < 0) {
+                throw invalidGate(gate, "marker is not attached to a planned piece");
+            }
+            if (gateMarker.connector() == null) {
+                throw invalidGate(gate, "marker does not declare its blocked connector");
+            }
+            DungeonPiecePlan.Link blocked = linkedAt(gateMarker).orElseThrow(() -> invalidGate(
+                gate, "marker connector is not used by a plan link"
+            ));
+            Set<Integer> reachable = reachable(start, graphWithout(blocked));
+            boolean fromReachable = reachable.contains(blocked.fromIndex());
+            boolean toReachable = reachable.contains(blocked.toIndex());
+            if (fromReachable == toReachable) {
+                throw invalidGate(gate, "blocked link does not separate locked progression");
+            }
+            for (String requirement : gate.requires()) {
+                DungeonDefinition.Encounter encounter = definition.encounters().stream()
+                    .filter(value -> value.id().equals(requirement)).findFirst().orElseThrow();
+                String kind = encounter.boss() ? "boss" : "encounter";
+                ResolvedMarker required = assigned.get(new MarkerKey(kind, requirement));
+                if (required == null || required.placementIndex() < 0) continue;
+                if (!reachable.contains(required.placementIndex())) {
+                    throw invalidGate(
+                        gate, "required encounter is behind the gate: " + requirement
+                    );
+                }
+            }
+        }
+    }
+
+    private boolean isUsableGateMarker(ResolvedMarker marker) {
+        if (plan == null) return true;
+        if (marker.connector() == null || marker.placementIndex() < 0) return false;
+        return linkedAt(marker).filter(link -> {
+            int start = plan.placements().stream()
+                .filter(placement -> placement.role().equals("start"))
+                .map(DungeonPiecePlan.Placement::index).findFirst().orElseThrow();
+            Set<Integer> reachable = reachable(start, graphWithout(link));
+            return reachable.contains(link.fromIndex())
+                != reachable.contains(link.toIndex());
+        }).isPresent();
+    }
+
+    private java.util.Optional<DungeonPiecePlan.Link> linkedAt(ResolvedMarker marker) {
+        return plan.links().stream().filter(link ->
+            (link.fromIndex() == marker.placementIndex()
+                && link.fromConnector().equals(marker.connector()))
+            || (link.toIndex() == marker.placementIndex()
+                && link.toConnector().equals(marker.connector()))
+        ).findFirst();
+    }
+
+    private Map<Integer, Set<Integer>> graphWithout(DungeonPiecePlan.Link blocked) {
+        Map<Integer, Set<Integer>> graph = new HashMap<>();
+        for (DungeonPiecePlan.Link link : plan.links()) {
+            if (link.equals(blocked)) continue;
+            graph.computeIfAbsent(link.fromIndex(), ignored -> new HashSet<>())
+                .add(link.toIndex());
+            graph.computeIfAbsent(link.toIndex(), ignored -> new HashSet<>())
+                .add(link.fromIndex());
+        }
+        return graph;
+    }
+
+    private static Set<Integer> reachable(int start, Map<Integer, Set<Integer>> graph) {
+        Set<Integer> visited = new HashSet<>();
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        queue.add(start);
+        while (!queue.isEmpty()) {
+            int current = queue.removeFirst();
+            if (!visited.add(current)) continue;
+            graph.getOrDefault(current, Set.of()).forEach(queue::addLast);
+        }
+        return visited;
+    }
+
+    private static IllegalStateException invalidGate(
+        DungeonDefinition.Gate gate, String reason
+    ) {
+        return new IllegalStateException(
+            "Invalid dungeon gate progression: " + gate.id() + " -> " + reason
         );
     }
 
@@ -303,7 +450,17 @@ record DungeonPieceLayout(
             ));
     }
 
-    record ResolvedMarker(String kind, String reference, BlockPos position) {}
+    record ResolvedMarker(
+        String kind,
+        String reference,
+        BlockPos position,
+        int placementIndex,
+        String connector
+    ) {
+        ResolvedMarker(String kind, String reference, BlockPos position) {
+            this(kind, reference, position, -1, null);
+        }
+    }
 
     record MarkerKey(String kind, String reference) {
         private String display() {

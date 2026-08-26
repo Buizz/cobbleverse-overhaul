@@ -8458,6 +8458,12 @@ def validate_dungeon_piece_file(path: Path) -> tuple[str | None, list[Issue]]:
         reference = marker.get("reference")
         if reference is not None and (not isinstance(reference, str) or not reference.strip()):
             _issue(issues, "error", path, f"{base}.reference", "참조 값은 비어 있지 않은 문자열이어야 합니다.")
+        blocked_connector = marker.get("connector")
+        if blocked_connector is not None:
+            if kind != "gate":
+                _issue(issues, "error", path, f"{base}.connector", "차단 커넥터는 gate 마커에만 지정할 수 있습니다.")
+            elif blocked_connector not in seen_connectors:
+                _issue(issues, "error", path, f"{base}.connector", "조각에 존재하는 커넥터 ID가 필요합니다.")
     required_marker = {"start": "entry", "boss": "boss", "exit": "exit"}.get(role)
     if required_marker and marker_counts.get(required_marker, 0) != 1:
         _issue(issues, "error", path, "$.markers", f"{role} 역할은 {required_marker} 마커가 정확히 하나 필요합니다.")
@@ -8954,6 +8960,49 @@ def validate_dungeon_plan_document(
             second_tags = {tag for tag in second.get("tags", []) if isinstance(tag, str)}
             if first_forbidden.intersection(second_tags) or second_forbidden.intersection(first_tags):
                 _issue(issues, "error", path, f"$.links[{index}]", "인접 금지 태그가 지정된 조각끼리는 연결할 수 없습니다.")
+
+    start_index = next((
+        index for index, placement in enumerate(placements)
+        if isinstance(placement, dict)
+        and pieces.get(placement.get("piece_id"), {}).get("role") == "start"
+    ), None)
+    if start_index is not None:
+        for placement_index, placement in enumerate(placements):
+            if not isinstance(placement, dict):
+                continue
+            piece = pieces.get(placement.get("piece_id"), {})
+            for marker in piece.get("markers", []) if isinstance(piece, dict) else []:
+                if not isinstance(marker, dict) or marker.get("kind") != "gate" or not isinstance(marker.get("connector"), str):
+                    continue
+                connector_id = marker["connector"]
+                blocked_index = next((link_index for link_index, link in enumerate(links) if isinstance(link, dict) and (
+                    link.get("from_index") == placement_index and link.get("from_connector") == connector_id
+                    or link.get("to_index") == placement_index and link.get("to_connector") == connector_id
+                )), None)
+                if blocked_index is None:
+                    if marker.get("reference") is not None:
+                        _issue(issues, "error", path, f"$.placements[{placement_index}]", "참조형 gate 마커의 차단 커넥터가 계획에서 연결되지 않았습니다.")
+                    continue
+                graph: dict[int, set[int]] = {}
+                for link_index, link in enumerate(links):
+                    if link_index == blocked_index or not isinstance(link, dict):
+                        continue
+                    first, second = link.get("from_index"), link.get("to_index")
+                    if not isinstance(first, int) or not isinstance(second, int):
+                        continue
+                    graph.setdefault(first, set()).add(second)
+                    graph.setdefault(second, set()).add(first)
+                reachable: set[int] = set()
+                queue = [start_index]
+                while queue:
+                    current = queue.pop()
+                    if current in reachable:
+                        continue
+                    reachable.add(current)
+                    queue.extend(graph.get(current, set()) - reachable)
+                blocked = links[blocked_index]
+                if (blocked.get("from_index") in reachable) == (blocked.get("to_index") in reachable):
+                    _issue(issues, "error", path, f"$.placements[{placement_index}]", "gate 커넥터를 막아도 우회 경로가 남아 관문이 진행 영역을 분리하지 못합니다.")
     return issues
 
 

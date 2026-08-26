@@ -93,6 +93,7 @@
     {
       "id": "gate_slot",
       "kind": "gate",
+      "connector": "east",
       "position": [
         15,
         1,

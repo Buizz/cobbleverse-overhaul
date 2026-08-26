@@ -352,6 +352,12 @@ final class DungeonPiecePlannerTest {
     }
 
     private static String marker(String kind) {
+        if (kind.equals("gate")) {
+            return """
+                [{"id":"gate","kind":"gate","position":[2,1,0],
+                  "connector":"north"}]
+                """;
+        }
         return """
             [{"id":"%s","kind":"%s","position":[2,1,2]}]
             """.formatted(kind, kind);

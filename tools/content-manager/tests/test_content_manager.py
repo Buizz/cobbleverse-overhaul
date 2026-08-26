@@ -254,7 +254,10 @@ class ContentManagerTests(unittest.TestCase):
             piece["placement_scope"] = "near_boss"
             piece["forbid_adjacent_tags"] = ["invalid tag"]
             piece["connectors"][0]["position"] = [3, 1, 4]
-            piece["markers"] = []
+            piece["markers"] = [{
+                "id": "lock", "kind": "gate", "position": [2, 1, 2],
+                "connector": "missing",
+            }]
             _, invalid_issues = content_manager._save_document(
                 root, "dungeon-pieces", "content/dungeon_pieces/generation_1/invalid.json", piece,
             )
@@ -264,6 +267,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("최소 사용 횟수" in message for message in messages))
         self.assertTrue(any("critical_path" in message for message in messages))
         self.assertTrue(any("리소스 ID" in message for message in messages))
+        self.assertTrue(any("커넥터 ID" in message for message in messages))
 
     def test_dungeon_workspace_loads_definitions_plans_and_piece_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -324,6 +328,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("piece.max_per_plan", script)
         self.assertIn("piece.placement_scope", script)
         self.assertIn("piece.forbid_adjacent_tags", script)
+        self.assertIn('name="connector"', script)
+        self.assertIn("marker.connector", script)
         self.assertIn("async function saveDungeonPiece()", script)
         self.assertIn("function dungeonPlanPlacementProblems(plan)", script)
 

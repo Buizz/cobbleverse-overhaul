@@ -181,11 +181,21 @@ record DungeonPieceDefinition(
             String kind = enumValue(value, "kind", MARKER_KINDS);
             String reference = value.has("reference")
                 ? requiredString(value, "reference") : null;
+            String connector = value.has("connector")
+                ? requiredString(value, "connector") : null;
+            if (connector != null && (!kind.equals("gate")
+                || !connectorIds.contains(connector))) {
+                throw new IllegalStateException(
+                    "Dungeon gate marker references an invalid connector: "
+                        + id + " -> " + markerId
+                );
+            }
             markers.add(new Marker(
                 markerId,
                 kind,
                 boundedPosition(value, "position", size, id),
-                reference
+                reference,
+                connector
             ));
         }
         requireRoleMarker(id, role, markers);
@@ -333,5 +343,7 @@ record DungeonPieceDefinition(
         Set<String> tags
     ) {}
 
-    record Marker(String id, String kind, BlockPos position, String reference) {}
+    record Marker(
+        String id, String kind, BlockPos position, String reference, String connector
+    ) {}
 }

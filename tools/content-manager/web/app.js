@@ -5008,7 +5008,9 @@ function renderDungeonPieceList() {
 function dungeonPieceRow(kind, entry, index, selected) {
   const position = entry.position || [0, 0, 0];
   if (kind === "connector") return `<article class="dungeon-piece-row${selected ? " is-selected" : ""}" data-piece-kind="connector" data-piece-index="${index}"><label><span>ID</span><input name="id" value="${escapeHtml(entry.id || "")}"></label><label><span>방향</span><select name="facing">${["north","south","east","west"].map((value) => `<option value="${value}"${entry.facing === value ? " selected" : ""}>${value}</option>`).join("")}</select></label><label><span>소켓</span><input name="socket" value="${escapeHtml(entry.socket || "")}"></label><button type="button" data-remove-piece-row aria-label="연결점 삭제">×</button>${["X","Y","Z"].map((axis, coordinate) => `<label><span>${axis}</span><input name="position${coordinate}" type="number" min="0" value="${Number(position[coordinate] || 0)}"></label>`).join("")}<label class="wide"><span>태그 — 쉼표 구분</span><input name="tags" value="${escapeHtml((entry.tags || []).join(", "))}"></label></article>`;
-  return `<article class="dungeon-piece-row${selected ? " is-selected" : ""}" data-piece-kind="marker" data-piece-index="${index}"><label><span>ID</span><input name="id" value="${escapeHtml(entry.id || "")}"></label><label><span>종류</span><select name="kind">${Object.entries(dungeonMarkerKinds).map(([value,label]) => `<option value="${value}"${entry.kind === value ? " selected" : ""}>${label}</option>`).join("")}</select></label><label><span>참조</span><input name="reference" value="${escapeHtml(entry.reference || "")}" placeholder="선택 사항"></label><button type="button" data-remove-piece-row aria-label="마커 삭제">×</button>${["X","Y","Z"].map((axis, coordinate) => `<label><span>${axis}</span><input name="position${coordinate}" type="number" min="0" value="${Number(position[coordinate] || 0)}"></label>`).join("")}</article>`;
+  const piece = currentDungeonPiece();
+  const connectorOptions = ['<option value="">통로 차단 없음</option>', ...(piece?.connectors || []).map((connector) => `<option value="${escapeHtml(connector.id)}"${entry.connector === connector.id ? " selected" : ""}>${escapeHtml(connector.id)}</option>`)];
+  return `<article class="dungeon-piece-row${selected ? " is-selected" : ""}" data-piece-kind="marker" data-piece-index="${index}"><label><span>ID</span><input name="id" value="${escapeHtml(entry.id || "")}"></label><label><span>종류</span><select name="kind">${Object.entries(dungeonMarkerKinds).map(([value,label]) => `<option value="${value}"${entry.kind === value ? " selected" : ""}>${label}</option>`).join("")}</select></label><label><span>참조</span><input name="reference" value="${escapeHtml(entry.reference || "")}" placeholder="선택 사항"></label><label><span>차단 통로</span><select name="connector"${entry.kind === "gate" ? "" : " disabled"}>${connectorOptions.join("")}</select></label><button type="button" data-remove-piece-row aria-label="마커 삭제">×</button>${["X","Y","Z"].map((axis, coordinate) => `<label><span>${axis}</span><input name="position${coordinate}" type="number" min="0" value="${Number(position[coordinate] || 0)}"></label>`).join("")}</article>`;
 }
 async function renderDungeonPieceEditor() {
   renderDungeonPieceList();
@@ -5034,7 +5036,7 @@ function updateDungeonPieceFromForm() {
 function updateDungeonPieceRows(container, kind) {
   const piece = currentDungeonPiece(); if (!piece) return;
   const target = kind === "connector" ? piece.connectors : piece.markers;
-  container.querySelectorAll("[data-piece-index]").forEach((row) => { const entry = target[Number(row.dataset.pieceIndex)]; if (!entry) return; entry.id = row.querySelector("[name=id]").value.trim(); entry.position = [0,1,2].map((axis) => Math.round(Number(row.querySelector(`[name=position${axis}]`).value || 0))); if (kind === "connector") { entry.facing = row.querySelector("[name=facing]").value; entry.socket = row.querySelector("[name=socket]").value.trim(); entry.tags = csvValues(row.querySelector("[name=tags]").value); snapDungeonConnector(entry, piece.size); } else { entry.kind = row.querySelector("[name=kind]").value; const reference = row.querySelector("[name=reference]").value.trim(); if (reference) entry.reference = reference; else delete entry.reference; entry.position = entry.position.map((axis,index) => Math.max(0, Math.min(piece.size[index] - 1, axis))); } });
+  container.querySelectorAll("[data-piece-index]").forEach((row) => { const entry = target[Number(row.dataset.pieceIndex)]; if (!entry) return; entry.id = row.querySelector("[name=id]").value.trim(); entry.position = [0,1,2].map((axis) => Math.round(Number(row.querySelector(`[name=position${axis}]`).value || 0))); if (kind === "connector") { entry.facing = row.querySelector("[name=facing]").value; entry.socket = row.querySelector("[name=socket]").value.trim(); entry.tags = csvValues(row.querySelector("[name=tags]").value); snapDungeonConnector(entry, piece.size); } else { entry.kind = row.querySelector("[name=kind]").value; const reference = row.querySelector("[name=reference]").value.trim(); if (reference) entry.reference = reference; else delete entry.reference; const connector = row.querySelector("[name=connector]").value; if (entry.kind === "gate" && connector) entry.connector = connector; else delete entry.connector; entry.position = entry.position.map((axis,index) => Math.max(0, Math.min(piece.size[index] - 1, axis))); } });
 }
 function createDungeonPiece() {
   const structures = Object.keys(state.structureSizes || {}).filter((id) => id.startsWith("cobbleventure:")).sort(); const preferred = state.dungeon?.terrain?.template; const structure = preferred && state.structureSizes[preferred] ? preferred : structures[0] || ""; const metadata = state.structureSizes[structure] || {};
@@ -5074,7 +5076,7 @@ function authoredDungeonPlan(document, planId) {
   const source = state.dungeonPlans.get(planId);
   if (!source) return null;
   const placements = (source.placements || []).map(authoredDungeonPlacement);
-  const links = (source.links || []).map((link) => ({ from: Number(link.from_index), to: Number(link.to_index), critical: link.critical_path !== false }));
+  const links = (source.links || []).map((link) => ({ from: Number(link.from_index), fromConnector: link.from_connector, to: Number(link.to_index), toConnector: link.to_connector, critical: link.critical_path !== false }));
   links.forEach((link) => {
     const from = placements[link.from]; const to = placements[link.to];
     if (!from || !to || from.minimum[1] === to.minimum[1]) return;
@@ -5094,7 +5096,9 @@ function authoredDungeonPlan(document, planId) {
       markers.push({
         kind: marker.kind,
         position: transformed.map((axis, index) => axis + origin[index]),
-        label: marker.reference || `${dungeonMarkerKinds[marker.kind] || marker.kind} 후보`,
+        label: marker.reference || `${dungeonMarkerKinds[marker.kind] || marker.kind} 후보${marker.connector ? ` · ${marker.connector} 차단` : ""}`,
+        connector: marker.connector || null,
+        placementIndex,
         floorYs: placements[placementIndex]?.floorYs || [origin[1]],
       });
     });
@@ -5474,6 +5478,21 @@ function dungeonPlanPlacementProblems(plan) {
     const firstPiece = state.dungeonPieces.get(first.pieceId) || {}, secondPiece = state.dungeonPieces.get(second.pieceId) || {};
     const blocked = (firstPiece.forbid_adjacent_tags || []).some((tag) => (secondPiece.tags || []).includes(tag)) || (secondPiece.forbid_adjacent_tags || []).some((tag) => (firstPiece.tags || []).includes(tag));
     if (blocked) { add(first.index, `${second.index + 1}번 조각과 인접 금지`); add(second.index, `${first.index + 1}번 조각과 인접 금지`); }
+  }
+  const start = plan.placements.find((placement) => placement.role === "start")?.index;
+  if (start !== undefined) for (const placement of plan.placements || []) {
+    const piece = state.dungeonPieces.get(placement.pieceId) || {};
+    for (const marker of piece.markers || []) {
+      if (marker.kind !== "gate" || !marker.connector) continue;
+      const blocked = (plan.links || []).find((link) => link.from === placement.index && link.fromConnector === marker.connector || link.to === placement.index && link.toConnector === marker.connector);
+      if (!blocked) { if (marker.reference) add(placement.index, `관문 통로 ${marker.connector} 미연결`); continue; }
+      const graph = new Map();
+      const connect = (from, to) => { if (!graph.has(from)) graph.set(from, new Set()); graph.get(from).add(to); };
+      for (const link of plan.links || []) { if (link === blocked) continue; connect(link.from, link.to); connect(link.to, link.from); }
+      const reachable = new Set(), queue = [start];
+      while (queue.length) { const current = queue.pop(); if (reachable.has(current)) continue; reachable.add(current); for (const next of graph.get(current) || []) queue.push(next); }
+      if (reachable.has(blocked.from) === reachable.has(blocked.to)) add(placement.index, "관문 우회 경로 존재");
+    }
   }
   return problems;
 }

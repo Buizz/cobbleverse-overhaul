@@ -98,6 +98,30 @@ final class DungeonAuthoredPlanDefinitionTest {
     }
 
     @Test
+    void rejectsGateWhoseRequiredEncounterIsBehindItsBlockedConnector() throws Exception {
+        Map<String, DungeonPieceDefinition> pieces = rocketPieces();
+        DungeonAuthoredPlanDefinition authored = DungeonAuthoredPlanDefinition.parse(
+            resourceJson(
+                "data/cobbleventure/dungeon_plans/generation_1/rocket_pokemon_tower_test.json"
+            )
+        );
+        var root = resourceJson(
+            "data/cobbleventure/dungeons/generation_1/rocket_pokemon_tower.json"
+        );
+        root.getAsJsonArray("gates").get(0).getAsJsonObject()
+            .add("requires", JsonParser.parseString("[\"boss_1\"]"));
+        DungeonDefinition dungeon = DungeonDefinition.parse(root);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () ->
+            DungeonPieceLayout.generate(
+                dungeon, pieces.values(), Map.of(authored.id(), authored), 421L
+            )
+        );
+
+        assertTrue(error.getMessage().contains("behind the gate"));
+    }
+
+    @Test
     void resolvesConfiguredAuthoredPlanThroughRuntimeLayout() throws Exception {
         Map<String, DungeonPieceDefinition> pieces = pieces();
         DungeonAuthoredPlanDefinition authored = plan(
@@ -228,6 +252,19 @@ final class DungeonAuthoredPlanDefinitionTest {
         try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
             return JsonParser.parseReader(reader).getAsJsonObject();
         }
+    }
+
+    private Map<String, DungeonPieceDefinition> rocketPieces() throws Exception {
+        var pieces = new HashMap<String, DungeonPieceDefinition>();
+        for (String id : new String[] {
+            "start", "encounter_room", "stairs_up", "room", "boss", "exit", "treasure"
+        }) {
+            var piece = DungeonPieceDefinition.parse(resourceJson(
+                "data/cobbleventure/dungeon_pieces/rocket/" + id + ".json"
+            ));
+            pieces.put(piece.id(), piece);
+        }
+        return pieces;
     }
 
     private static DungeonAuthoredPlanDefinition plan(

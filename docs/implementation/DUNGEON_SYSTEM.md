@@ -415,6 +415,7 @@ DungeonEntrance
 - `connectors`: 조각 경계에 있는 `id`, `position`, 수평 `facing`, `socket`, `tags`
 - `markers`: `entry`, `exit`, `encounter`, `boss`, `loot`, `healing_station`,
   `gate`, `checkpoint`, `wild_spawn`, `objective`, `trace`
+- `markers[].connector`: `gate` 마커가 실제로 차단하는 해당 조각의 커넥터 ID
 - `reference`: 던전 정의의 조우·상자·목표처럼 마커가 채울 구체 항목의 선택 ID
 
 `start`, `boss`, `exit` 역할은 각각 정확히 하나의 `entry`, `boss`, `exit`
@@ -428,6 +429,8 @@ DungeonEntrance
 #### 마커 기준 잠금 관문
 
 NBT 조각 던전의 잠긴 문·차단벽은 전체 던전 좌표를 다시 계산하지 않고 조각의 `gate` 마커를 기준으로 정의할 수 있다. `placement: marker`인 관문은 같은 ID를 `reference`로 가진 마커를 우선 사용하고, 없으면 참조 없는 `gate` 후보 마커 중 하나를 실행 시드로 배정한다. `min`과 `max`는 이 마커로부터의 상대 좌표이며 음수 오프셋도 허용한다.
+
+통로를 막는 `gate` 마커는 `connector`로 차단할 연결구를 지정한다. 계획 검증기는 해당 연결을 임시로 제거한 뒤 시작 방에서 도달 가능한 영역을 다시 계산한다. 관문 양쪽이 다른 영역으로 분리되지 않거나, 관문이 요구하는 조우가 잠긴 쪽에 놓이면 계획을 거부한다. 따라서 주 경로를 우회하는 루프 때문에 관문이 무의미해지는 경우와, 열기 위해 필요한 전투가 문 뒤에 생성되는 순환 잠금을 게시 전에 차단한다. 참조 없는 관문 후보는 실제 계획에서 사용 중이며 진행 영역을 분리하는 커넥터만 자동 배정 대상으로 삼는다.
 
 ```json
 {
