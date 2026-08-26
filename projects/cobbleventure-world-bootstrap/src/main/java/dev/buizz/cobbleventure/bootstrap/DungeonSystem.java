@@ -216,6 +216,7 @@ final class DungeonSystem {
         ACTIVE_SLOTS.clear();
         COMPLETING_RUNS.clear();
         INTERNAL_TELEPORTS.clear();
+        restorePersistedRuns(server);
         LOGGER.info(
             "Dungeon catalog loaded: definitions={}, entrances={}",
             definitions.size(), entrances.size()
@@ -777,7 +778,8 @@ final class DungeonSystem {
             .map(matched -> matched.player().getUUID())
             .collect(Collectors.toUnmodifiableSet());
         ActiveRun run = new ActiveRun(
-            player.getServer(), definition.id(), slot, origin, size, entry, exit,
+            UUID.randomUUID(), terrain.seed(), player.getServer(), definition.id(),
+            slot, origin, size, entry, exit,
             clearExit, cooldown, randomEncounters, new HashMap<>(), participantIds,
             new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
@@ -786,6 +788,7 @@ final class DungeonSystem {
             new HashSet<>(), new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
+        persistActiveRuns(player.getServer());
         for (int index = 0; index < entries.size(); index++) {
             ServerPlayer member = entries.get(index).player();
             double xOffset = (index - (entries.size() - 1) / 2.0D) * 1.25D;
@@ -897,7 +900,7 @@ final class DungeonSystem {
                 prepareFixedTemplate(level, definition, origin),
                 definition.terrain().entryPosition(),
                 definition.terrain().exitPosition(),
-                Map.of()
+                Map.of(), level.getSeed() ^ origin.asLong()
             );
         }
         return switch (definition.terrain().mode()) {
@@ -973,7 +976,7 @@ final class DungeonSystem {
             definition.terrain().bounds(),
             layout.requiredMarker("entry", null),
             layout.requiredMarker("exit", null),
-            layout.markers()
+            layout.markers(), seed
         );
     }
 
@@ -1006,7 +1009,7 @@ final class DungeonSystem {
         );
         return new PreparedTerrain(
             definition.terrain().bounds(),
-            generated.entryPosition(), generated.exitPosition(), Map.of()
+            generated.entryPosition(), generated.exitPosition(), Map.of(), seed
         );
     }
 
@@ -2350,6 +2353,7 @@ final class DungeonSystem {
         if (level != null) {
             clearSlot(level, run.origin(), run.size());
         }
+        persistActiveRuns(server);
     }
 
     private static void clearSlot(ServerLevel level, BlockPos origin, BlockPos size) {
@@ -2520,6 +2524,430 @@ final class DungeonSystem {
                 );
             }
         }
+        if (gameTime % 20L == 0L) {
+            persistActiveRuns(event.getServer());
+        }
+    }
+
+    private static void persistActiveRuns(MinecraftServer server) {
+        Set<ActiveRun> runs = Collections.newSetFromMap(new IdentityHashMap<>());
+        runs.addAll(ACTIVE_RUNS.values());
+        DungeonRunSavedData.data(server).replace(
+            runs.stream().map(DungeonSystem::snapshotRun).toList()
+        );
+    }
+
+    private static CompoundTag snapshotRun(ActiveRun run) {
+        CompoundTag tag = new CompoundTag();
+        tag.putUUID("runId", run.runId());
+        tag.putLong("seed", run.seed());
+        tag.putString("dungeonId", run.dungeonId());
+        tag.putInt("slot", run.slot());
+        putPosition(tag, "origin", run.origin());
+        putPosition(tag, "size", run.size());
+        putPosition(tag, "entry", run.entry());
+        putPosition(tag, "exit", run.exit());
+        if (run.clearExit() != null) putPosition(tag, "clearExit", run.clearExit());
+        putUuidSet(tag, "participants", run.participantIds());
+        putBlockPositionMap(tag, "lootPositions", run.lootPositions());
+        putBlockPositionMap(tag, "healingPositions", run.healingPositions());
+        putCheckpointPositions(tag, run.checkpointPositions());
+        putUuidPositionMap(tag, "activeCheckpoints", run.activeCheckpoints());
+        putStringIntMap(tag, "healingUses", run.healingUses());
+        putStringSet(tag, "openedGates", run.openedGates());
+        Set<String> defeated = run.encounters().statusById.entrySet().stream()
+            .filter(entry -> entry.getValue() == EncounterStatus.DEFEATED)
+            .map(Map.Entry::getKey).collect(Collectors.toSet());
+        putStringSet(tag, "defeatedEncounters", defeated);
+        putEncounterEntities(tag, run.encounters().encounterByEntity);
+        putLootClaims(tag, run.lootClaims().snapshot());
+        putItemMap(
+            tag, "pendingLoot", run.lootLedger().pendingSnapshot(), run.server()
+        );
+        putItemMap(
+            tag, "removableLoot", run.lootLedger().removableSnapshot(), run.server()
+        );
+        putResumePositions(tag, run);
+        return tag;
+    }
+
+    private static void restorePersistedRuns(MinecraftServer server) {
+        ServerLevel level = server.getLevel(DUNGEONS);
+        if (level == null) return;
+        long now = server.overworld().getGameTime();
+        int restored = 0;
+        for (CompoundTag tag : DungeonRunSavedData.data(server).snapshots()) {
+            int reservedSlot = -1;
+            try {
+                String dungeonId = tag.getString("dungeonId");
+                DungeonDefinition definition = definitions.get(dungeonId);
+                if (definition == null) {
+                    clearPersistedSlot(level, tag);
+                    continue;
+                }
+                if (definition.lifecycle().resumeMode().equals("full_reset")) {
+                    clearPersistedSlot(level, tag);
+                    continue;
+                }
+                int slot = tag.getInt("slot");
+                BlockPos origin = getPosition(tag, "origin");
+                BlockPos size = getPosition(tag, "size");
+                if (slot < 0 || slot >= MAX_SLOTS || !origin.equals(slotOrigin(slot))
+                    || !ACTIVE_SLOTS.add(slot)) {
+                    throw new IllegalStateException("Invalid or duplicate persisted slot");
+                }
+                reservedSlot = slot;
+                Set<UUID> participants = getUuidSet(tag, "participants");
+                if (participants.isEmpty()) {
+                    ACTIVE_SLOTS.remove(slot);
+                    reservedSlot = -1;
+                    continue;
+                }
+                EncounterRuntime encounterRuntime = new EncounterRuntime(
+                    getEncounterEntities(tag), definition.encounters()
+                );
+                getStringSet(tag, "defeatedEncounters").forEach(id -> {
+                    if (encounterRuntime.statusById.containsKey(id)) {
+                        encounterRuntime.statusById.put(id, EncounterStatus.DEFEATED);
+                    }
+                });
+                Map<UUID, BlockPos> activeCheckpoints = getUuidPositionMap(
+                    tag, "activeCheckpoints"
+                );
+                Map<UUID, ResumePosition> resumePositions = getResumePositions(tag);
+                Map<UUID, ReconnectState> reconnecting = new HashMap<>();
+                long deadline = now + definition.lifecycle().reconnectGraceSeconds() * 20L;
+                for (UUID participant : participants) {
+                    ResumePosition resume = resumePositions.get(participant);
+                    BlockPos checkpoint = activeCheckpoints.get(participant);
+                    Vec3 position = definition.lifecycle().resumeMode().equals("checkpoint")
+                        ? Vec3.atBottomCenterOf(checkpoint == null
+                            ? getPosition(tag, "entry") : checkpoint)
+                        : resume == null
+                            ? Vec3.atBottomCenterOf(getPosition(tag, "entry"))
+                            : resume.position();
+                    reconnecting.put(participant, new ReconnectState(
+                        position,
+                        resume == null ? 0.0F : resume.yaw(),
+                        resume == null ? 0.0F : resume.pitch(),
+                        deadline
+                    ));
+                }
+                ActiveRun run = new ActiveRun(
+                    tag.getUUID("runId"), tag.getLong("seed"), server, dungeonId,
+                    slot, origin, size, getPosition(tag, "entry"),
+                    getPosition(tag, "exit"),
+                    tag.contains("clearExit") ? getPosition(tag, "clearExit") : null,
+                    now + 40L,
+                    createRandomEncounterConfig(definition, origin, size, slot),
+                    getStringIntMap(tag, "healingUses"), participants,
+                    new HashMap<>(), encounterRuntime,
+                    DungeonLootClaims.restore(getLootClaims(tag)),
+                    DungeonLootLedger.restore(
+                        getItemMap(tag, "pendingLoot", server),
+                        getItemMap(tag, "removableLoot", server)
+                    ),
+                    getBlockPositionMap(tag, "lootPositions"),
+                    getBlockPositionMap(tag, "healingPositions"),
+                    getCheckpointPositions(tag), activeCheckpoints, reconnecting,
+                    new HashSet<>(getStringSet(tag, "openedGates")), new HashMap<>()
+                );
+                participants.forEach(participant -> ACTIVE_RUNS.put(participant, run));
+                restored++;
+                reservedSlot = -1;
+            } catch (RuntimeException error) {
+                if (reservedSlot >= 0) ACTIVE_SLOTS.remove(reservedSlot);
+                clearPersistedSlot(level, tag);
+                LOGGER.error("Discarding invalid persisted dungeon run", error);
+            }
+        }
+        persistActiveRuns(server);
+        if (restored > 0) {
+            LOGGER.info("Restored persisted dungeon runs: {}", restored);
+        }
+    }
+
+    private static void clearPersistedSlot(ServerLevel level, CompoundTag tag) {
+        int slot = tag.getInt("slot");
+        if (slot < 0 || slot >= MAX_SLOTS || !tag.contains("origin")
+            || !tag.contains("size") || ACTIVE_SLOTS.contains(slot)) return;
+        BlockPos origin = getPosition(tag, "origin");
+        BlockPos size = getPosition(tag, "size");
+        if (origin.equals(slotOrigin(slot))
+            && size.getX() > 0 && size.getX() <= SLOT_SPACING
+            && size.getY() > 0 && size.getY() <= 256
+            && size.getZ() > 0 && size.getZ() <= SLOT_SPACING) {
+            clearSlot(level, origin, size);
+        }
+    }
+
+    private static void putPosition(CompoundTag owner, String key, BlockPos position) {
+        CompoundTag value = new CompoundTag();
+        value.putInt("x", position.getX());
+        value.putInt("y", position.getY());
+        value.putInt("z", position.getZ());
+        owner.put(key, value);
+    }
+
+    private static BlockPos getPosition(CompoundTag owner, String key) {
+        CompoundTag value = owner.getCompound(key);
+        return new BlockPos(value.getInt("x"), value.getInt("y"), value.getInt("z"));
+    }
+
+    private static void putUuidSet(CompoundTag owner, String key, Set<UUID> values) {
+        ListTag list = new ListTag();
+        values.forEach(value -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("value", value);
+            list.add(entry);
+        });
+        owner.put(key, list);
+    }
+
+    private static Set<UUID> getUuidSet(CompoundTag owner, String key) {
+        Set<UUID> result = new HashSet<>();
+        ListTag list = owner.getList(key, Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            if (entry.hasUUID("value")) result.add(entry.getUUID("value"));
+        }
+        return Set.copyOf(result);
+    }
+
+    private static void putStringSet(CompoundTag owner, String key, Set<String> values) {
+        owner.putString(key, String.join("\n", values));
+    }
+
+    private static Set<String> getStringSet(CompoundTag owner, String key) {
+        String value = owner.getString(key);
+        return value.isBlank() ? Set.of() : Set.of(value.split("\\n"));
+    }
+
+    private static void putStringIntMap(
+        CompoundTag owner, String key, Map<String, Integer> values
+    ) {
+        CompoundTag map = new CompoundTag();
+        values.forEach(map::putInt);
+        owner.put(key, map);
+    }
+
+    private static Map<String, Integer> getStringIntMap(
+        CompoundTag owner, String key
+    ) {
+        CompoundTag map = owner.getCompound(key);
+        Map<String, Integer> result = new HashMap<>();
+        map.getAllKeys().forEach(value -> result.put(value, map.getInt(value)));
+        return result;
+    }
+
+    private static void putBlockPositionMap(
+        CompoundTag owner, String key, Map<String, BlockPos> values
+    ) {
+        ListTag list = new ListTag();
+        values.forEach((id, position) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putString("id", id);
+            putPosition(entry, "position", position);
+            list.add(entry);
+        });
+        owner.put(key, list);
+    }
+
+    private static Map<String, BlockPos> getBlockPositionMap(
+        CompoundTag owner, String key
+    ) {
+        Map<String, BlockPos> result = new HashMap<>();
+        ListTag list = owner.getList(key, Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            result.put(entry.getString("id"), getPosition(entry, "position"));
+        }
+        return Map.copyOf(result);
+    }
+
+    private static void putUuidPositionMap(
+        CompoundTag owner, String key, Map<UUID, BlockPos> values
+    ) {
+        ListTag list = new ListTag();
+        values.forEach((id, position) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("id", id);
+            putPosition(entry, "position", position);
+            list.add(entry);
+        });
+        owner.put(key, list);
+    }
+
+    private static Map<UUID, BlockPos> getUuidPositionMap(
+        CompoundTag owner, String key
+    ) {
+        Map<UUID, BlockPos> result = new HashMap<>();
+        ListTag list = owner.getList(key, Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            if (entry.hasUUID("id")) {
+                result.put(entry.getUUID("id"), getPosition(entry, "position"));
+            }
+        }
+        return result;
+    }
+
+    private static void putCheckpointPositions(
+        CompoundTag owner, Map<String, CheckpointPosition> values
+    ) {
+        ListTag list = new ListTag();
+        values.forEach((id, checkpoint) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putString("id", id);
+            putPosition(entry, "position", checkpoint.position());
+            entry.putInt("radius", checkpoint.activationRadius());
+            list.add(entry);
+        });
+        owner.put("checkpointPositions", list);
+    }
+
+    private static Map<String, CheckpointPosition> getCheckpointPositions(
+        CompoundTag owner
+    ) {
+        Map<String, CheckpointPosition> result = new HashMap<>();
+        ListTag list = owner.getList("checkpointPositions", Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            result.put(entry.getString("id"), new CheckpointPosition(
+                getPosition(entry, "position"), entry.getInt("radius")
+            ));
+        }
+        return Map.copyOf(result);
+    }
+
+    private static void putEncounterEntities(
+        CompoundTag owner, Map<UUID, EncounterEntityRef> values
+    ) {
+        ListTag list = new ListTag();
+        values.forEach((entityId, reference) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("entityId", entityId);
+            entry.putString("encounterId", reference.encounterId());
+            entry.putInt("opponentIndex", reference.opponentIndex());
+            list.add(entry);
+        });
+        owner.put("encounterEntities", list);
+    }
+
+    private static Map<UUID, EncounterEntityRef> getEncounterEntities(CompoundTag owner) {
+        Map<UUID, EncounterEntityRef> result = new HashMap<>();
+        ListTag list = owner.getList("encounterEntities", Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            if (entry.hasUUID("entityId")) {
+                result.put(entry.getUUID("entityId"), new EncounterEntityRef(
+                    entry.getString("encounterId"), entry.getInt("opponentIndex")
+                ));
+            }
+        }
+        return result;
+    }
+
+    private static void putLootClaims(
+        CompoundTag owner, Map<String, Set<UUID>> claims
+    ) {
+        ListTag list = new ListTag();
+        claims.forEach((container, players) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putString("container", container);
+            putUuidSet(entry, "players", players);
+            list.add(entry);
+        });
+        owner.put("lootClaims", list);
+    }
+
+    private static Map<String, Set<UUID>> getLootClaims(CompoundTag owner) {
+        Map<String, Set<UUID>> result = new HashMap<>();
+        ListTag list = owner.getList("lootClaims", Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            result.put(entry.getString("container"), getUuidSet(entry, "players"));
+        }
+        return result;
+    }
+
+    private static void putItemMap(
+        CompoundTag owner,
+        String key,
+        Map<UUID, List<ItemStack>> values,
+        MinecraftServer server
+    ) {
+        ListTag list = new ListTag();
+        values.forEach((playerId, stacks) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("playerId", playerId);
+            ListTag items = new ListTag();
+            stacks.forEach(stack -> items.add(
+                stack.save(server.registryAccess(), new CompoundTag())
+            ));
+            entry.put("items", items);
+            list.add(entry);
+        });
+        owner.put(key, list);
+    }
+
+    private static Map<UUID, List<ItemStack>> getItemMap(
+        CompoundTag owner, String key, MinecraftServer server
+    ) {
+        Map<UUID, List<ItemStack>> result = new HashMap<>();
+        ListTag list = owner.getList(key, Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            if (!entry.hasUUID("playerId")) continue;
+            List<ItemStack> stacks = new ArrayList<>();
+            ListTag items = entry.getList("items", Tag.TAG_COMPOUND);
+            for (int item = 0; item < items.size(); item++) {
+                ItemStack stack = ItemStack.parseOptional(
+                    server.registryAccess(), items.getCompound(item)
+                );
+                if (!stack.isEmpty()) stacks.add(stack);
+            }
+            result.put(entry.getUUID("playerId"), List.copyOf(stacks));
+        }
+        return result;
+    }
+
+    private static void putResumePositions(CompoundTag owner, ActiveRun run) {
+        ListTag list = new ListTag();
+        for (UUID participant : run.participantIds()) {
+            ReconnectState disconnected = run.reconnecting().get(participant);
+            ServerPlayer online = run.server().getPlayerList().getPlayer(participant);
+            Vec3 position = disconnected != null ? disconnected.position()
+                : online != null ? online.position()
+                : Vec3.atBottomCenterOf(run.activeCheckpoints().getOrDefault(
+                    participant, run.entry()
+                ));
+            CompoundTag entry = new CompoundTag();
+            entry.putUUID("playerId", participant);
+            entry.putDouble("x", position.x);
+            entry.putDouble("y", position.y);
+            entry.putDouble("z", position.z);
+            entry.putFloat("yaw", disconnected != null ? disconnected.yaw()
+                : online != null ? online.getYRot() : 0.0F);
+            entry.putFloat("pitch", disconnected != null ? disconnected.pitch()
+                : online != null ? online.getXRot() : 0.0F);
+            list.add(entry);
+        }
+        owner.put("resumePositions", list);
+    }
+
+    private static Map<UUID, ResumePosition> getResumePositions(CompoundTag owner) {
+        Map<UUID, ResumePosition> result = new HashMap<>();
+        ListTag list = owner.getList("resumePositions", Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entry = list.getCompound(index);
+            if (!entry.hasUUID("playerId")) continue;
+            result.put(entry.getUUID("playerId"), new ResumePosition(
+                new Vec3(entry.getDouble("x"), entry.getDouble("y"), entry.getDouble("z")),
+                entry.getFloat("yaw"), entry.getFloat("pitch")
+            ));
+        }
+        return result;
     }
 
     private static Vec3 reconnectPosition(
@@ -2790,12 +3218,15 @@ final class DungeonSystem {
         BlockPos size,
         BlockPos entryPosition,
         BlockPos exitPosition,
-        Map<DungeonPieceLayout.MarkerKey, BlockPos> markers
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> markers,
+        long seed
     ) {}
 
     private record CheckpointPosition(BlockPos position, int activationRadius) {}
 
     private record ActiveRun(
+        UUID runId,
+        long seed,
         MinecraftServer server,
         String dungeonId,
         int slot,
@@ -2827,6 +3258,8 @@ final class DungeonSystem {
         float pitch,
         long deadline
     ) {}
+
+    private record ResumePosition(Vec3 position, float yaw, float pitch) {}
 
     private enum EncounterStatus {
         AVAILABLE,

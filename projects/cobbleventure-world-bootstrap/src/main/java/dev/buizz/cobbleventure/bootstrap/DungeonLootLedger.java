@@ -12,6 +12,24 @@ final class DungeonLootLedger {
     private final Map<UUID, List<ItemStack>> pending = new HashMap<>();
     private final Map<UUID, List<ItemStack>> removable = new HashMap<>();
 
+    static DungeonLootLedger restore(
+        Map<UUID, List<ItemStack>> pending,
+        Map<UUID, List<ItemStack>> removable
+    ) {
+        DungeonLootLedger restored = new DungeonLootLedger();
+        copyInto(pending, restored.pending);
+        copyInto(removable, restored.removable);
+        return restored;
+    }
+
+    Map<UUID, List<ItemStack>> pendingSnapshot() {
+        return snapshot(pending);
+    }
+
+    Map<UUID, List<ItemStack>> removableSnapshot() {
+        return snapshot(removable);
+    }
+
     void record(String onFailure, UUID playerId, List<ItemStack> rewards) {
         if (onFailure.equals("keep_collected")) return;
         Map<UUID, List<ItemStack>> target = onFailure.equals("grant_on_clear_only")
@@ -39,5 +57,20 @@ final class DungeonLootLedger {
     private static List<ItemStack> copies(List<ItemStack> source) {
         if (source == null) return List.of();
         return source.stream().map(ItemStack::copy).toList();
+    }
+
+    private static Map<UUID, List<ItemStack>> snapshot(
+        Map<UUID, List<ItemStack>> source
+    ) {
+        Map<UUID, List<ItemStack>> result = new HashMap<>();
+        source.forEach((player, stacks) -> result.put(player, copies(stacks)));
+        return Map.copyOf(result);
+    }
+
+    private static void copyInto(
+        Map<UUID, List<ItemStack>> source,
+        Map<UUID, List<ItemStack>> target
+    ) {
+        source.forEach((player, stacks) -> target.put(player, copies(stacks)));
     }
 }

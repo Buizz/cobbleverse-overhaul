@@ -57,4 +57,21 @@ class DungeonLootClaimsTest {
             claims.claim("per_player", "cache", RED)
         );
     }
+
+    @Test
+    void restoredClaimsStillPreventDuplicateRewards() {
+        DungeonLootClaims original = new DungeonLootClaims();
+        original.claim("per_player", "cache", RED);
+
+        DungeonLootClaims restored = DungeonLootClaims.restore(original.snapshot());
+
+        assertEquals(
+            DungeonLootClaims.ClaimResult.ALREADY_CLAIMED,
+            restored.claim("per_player", "cache", RED)
+        );
+        assertEquals(
+            DungeonLootClaims.ClaimResult.CLAIMED,
+            restored.claim("per_player", "cache", LEAF)
+        );
+    }
 }

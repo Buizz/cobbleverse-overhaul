@@ -10,6 +10,22 @@ import java.util.UUID;
 final class DungeonLootClaims {
     private final Map<String, Set<UUID>> claims = new HashMap<>();
 
+    static DungeonLootClaims restore(Map<String, Set<UUID>> saved) {
+        DungeonLootClaims restored = new DungeonLootClaims();
+        saved.forEach((container, owners) ->
+            restored.claims.put(container, new HashSet<>(owners))
+        );
+        return restored;
+    }
+
+    Map<String, Set<UUID>> snapshot() {
+        Map<String, Set<UUID>> snapshot = new HashMap<>();
+        claims.forEach((container, owners) ->
+            snapshot.put(container, Set.copyOf(owners))
+        );
+        return Map.copyOf(snapshot);
+    }
+
     ClaimResult claim(String ownership, String containerId, UUID playerId) {
         if (ownership.equals("run_shared")) {
             throw new IllegalArgumentException("run_shared containers use their inventory");
