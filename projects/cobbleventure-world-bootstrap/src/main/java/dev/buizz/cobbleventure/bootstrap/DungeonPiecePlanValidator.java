@@ -43,6 +43,9 @@ final class DungeonPiecePlanValidator {
             if (!piece.role().equals(placement.role())) {
                 throw invalid("placement role differs from piece metadata");
             }
+            if (!piece.allowsPlacement(placement.criticalPath())) {
+                throw invalid("placement is outside the piece path scope: " + piece.id());
+            }
             usage.merge(piece.id(), 1, Integer::sum);
             if (!piece.allowRotation()
                 && placement.rotation() != net.minecraft.world.level.block.Rotation.NONE) {
@@ -89,6 +92,10 @@ final class DungeonPiecePlanValidator {
             DungeonPieceDefinition.Connector to = connector(
                 pieces.get(toPlacement.pieceId()), link.toConnector()
             );
+            if (!pieces.get(fromPlacement.pieceId()).allowsAdjacentTo(
+                pieces.get(toPlacement.pieceId()))) {
+                throw invalid("linked pieces violate an adjacency restriction");
+            }
             if (!used.add(new ConnectorKey(link.fromIndex(), link.fromConnector()))
                 || !used.add(new ConnectorKey(link.toIndex(), link.toConnector()))) {
                 throw invalid("connector is used by more than one link");

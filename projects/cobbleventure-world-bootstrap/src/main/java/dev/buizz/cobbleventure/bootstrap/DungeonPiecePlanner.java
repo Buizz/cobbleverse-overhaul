@@ -70,7 +70,7 @@ final class DungeonPiecePlanner {
     ) {
         List<DungeonPieceDefinition> starts = weightedOrder(
             pieces.stream().filter(piece -> piece.role().equals("start")
-                && piece.maximumPerPlan() >= 1).toList(), random
+                && piece.maximumPerPlan() >= 1 && piece.allowsPlacement(true)).toList(), random
         );
         for (DungeonPieceDefinition piece : starts) {
             for (Rotation rotation : rotationOrder(piece, random)) {
@@ -107,6 +107,7 @@ final class DungeonPiecePlanner {
             pieces.stream().filter(piece -> requiredRole == null
                 ? flexibleRoles.contains(piece.role())
                 : piece.role().equals(requiredRole))
+                .filter(piece -> piece.allowsPlacement(true))
                 .filter(piece -> canUse(state, piece)).toList(),
             random
         );
@@ -173,6 +174,7 @@ final class DungeonPiecePlanner {
         );
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> roles.contains(piece.role()))
+                .filter(piece -> piece.allowsPlacement(false))
                 .filter(piece -> canUse(state, piece)).toList(), random
         );
         Placed current = state.placements.get(currentIndex);
@@ -213,7 +215,8 @@ final class DungeonPiecePlanner {
     ) {
         Direction fromFacing = fromPiece.rotation().rotate(from.facing());
         Direction toFacing = rotation.rotate(to.facing());
-        if (fromFacing.getOpposite() != toFacing || !compatible(from, to)) return null;
+        if (fromFacing.getOpposite() != toFacing || !compatible(from, to)
+            || !fromPiece.definition().allowsAdjacentTo(nextPiece)) return null;
         BlockPos fromPosition = fromPiece.origin().offset(transform(from.position(), fromPiece.rotation()));
         BlockPos target = fromPosition.relative(fromFacing);
         BlockPos nextOrigin = target.subtract(transform(to.position(), rotation));

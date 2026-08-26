@@ -12,6 +12,10 @@
   "weight": 4,
   "min_per_plan": 0,
   "max_per_plan": 1,
+  "placement_scope": "branch",
+  "forbid_adjacent_tags": [
+    "cobbleventure:dungeon_shape/boss"
+  ],
   "allow_rotation": true,
   "tags": [
     "cobbleventure:dungeon_kit/standard_16",

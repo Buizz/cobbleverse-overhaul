@@ -8365,6 +8365,17 @@ def validate_dungeon_piece_file(path: Path) -> tuple[str | None, list[Issue]]:
         _issue(issues, "error", path, "$.max_per_plan", "계획당 최대 사용 횟수는 1~256 정수여야 합니다.")
     if isinstance(minimum_per_plan, int) and isinstance(maximum_per_plan, int) and minimum_per_plan > maximum_per_plan:
         _issue(issues, "error", path, "$.min_per_plan", "최소 사용 횟수는 최대보다 클 수 없습니다.")
+    placement_scope = data.get("placement_scope", "any")
+    if placement_scope not in {"any", "critical_path", "branch"}:
+        _issue(issues, "error", path, "$.placement_scope", "any, critical_path, branch 중 하나여야 합니다.")
+    forbidden_adjacent_tags = data.get("forbid_adjacent_tags", [])
+    if not isinstance(forbidden_adjacent_tags, list):
+        _issue(issues, "error", path, "$.forbid_adjacent_tags", "인접 금지 태그는 리소스 ID 배열이어야 합니다.")
+    else:
+        for index, tag in enumerate(forbidden_adjacent_tags):
+            _resource_id(tag, issues, path, f"$.forbid_adjacent_tags[{index}]")
+        if len(forbidden_adjacent_tags) != len(set(tag for tag in forbidden_adjacent_tags if isinstance(tag, str))):
+            _issue(issues, "error", path, "$.forbid_adjacent_tags", "인접 금지 태그가 중복되었습니다.")
     if not isinstance(data.get("allow_rotation"), bool):
         _issue(issues, "error", path, "$.allow_rotation", "true 또는 false여야 합니다.")
     tags = data.get("tags")
@@ -8863,6 +8874,12 @@ def validate_dungeon_plan_document(
             _issue(issues, "error", path, f"$.placements[{index}].piece_id", f"등록되지 않은 던전 조각입니다: {piece_id}")
             continue
         piece_usage[piece_id] = piece_usage.get(piece_id, 0) + 1
+        placement_scope = piece.get("placement_scope", "any")
+        critical_path = placement.get("critical_path") is True
+        if placement_scope == "critical_path" and not critical_path:
+            _issue(issues, "error", path, f"$.placements[{index}].critical_path", "이 조각은 주 경로에만 배치할 수 있습니다.")
+        if placement_scope == "branch" and critical_path:
+            _issue(issues, "error", path, f"$.placements[{index}].critical_path", "이 조각은 곁가지에만 배치할 수 있습니다.")
         size = piece.get("size")
         origin = placement.get("origin")
         rotation = placement.get("rotation")
@@ -8913,11 +8930,14 @@ def validate_dungeon_plan_document(
         if not isinstance(link, dict):
             continue
         endpoints = (("from", link.get("from_index"), link.get("from_connector")), ("to", link.get("to_index"), link.get("to_connector")))
+        endpoint_pieces: list[dict[str, Any]] = []
         sockets: list[str] = []
         for side, placement_index, connector_id in endpoints:
             if not isinstance(placement_index, int) or not 0 <= placement_index < len(placements) or not isinstance(placements[placement_index], dict):
                 continue
             piece = pieces.get(placements[placement_index].get("piece_id"))
+            if isinstance(piece, dict):
+                endpoint_pieces.append(piece)
             connectors = piece.get("connectors", []) if isinstance(piece, dict) else []
             connector = next((value for value in connectors if isinstance(value, dict) and value.get("id") == connector_id), None)
             if connector is None:
@@ -8926,6 +8946,14 @@ def validate_dungeon_plan_document(
                 sockets.append(connector["socket"])
         if len(sockets) == 2 and sockets[0] != sockets[1]:
             _issue(issues, "error", path, f"$.links[{index}]", "서로 다른 소켓 종류의 커넥터는 연결할 수 없습니다.")
+        if len(endpoint_pieces) == 2:
+            first, second = endpoint_pieces
+            first_forbidden = {tag for tag in first.get("forbid_adjacent_tags", []) if isinstance(tag, str)}
+            second_forbidden = {tag for tag in second.get("forbid_adjacent_tags", []) if isinstance(tag, str)}
+            first_tags = {tag for tag in first.get("tags", []) if isinstance(tag, str)}
+            second_tags = {tag for tag in second.get("tags", []) if isinstance(tag, str)}
+            if first_forbidden.intersection(second_tags) or second_forbidden.intersection(first_tags):
+                _issue(issues, "error", path, f"$.links[{index}]", "인접 금지 태그가 지정된 조각끼리는 연결할 수 없습니다.")
     return issues
 
 

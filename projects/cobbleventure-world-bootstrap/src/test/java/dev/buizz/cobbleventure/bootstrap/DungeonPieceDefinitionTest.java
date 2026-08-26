@@ -53,6 +53,8 @@ final class DungeonPieceDefinitionTest {
         assertEquals("entry", piece.markers().getFirst().kind());
         assertEquals(0, piece.minimumPerPlan());
         assertEquals(256, piece.maximumPerPlan());
+        assertEquals("any", piece.placementScope());
+        assertTrue(piece.forbiddenAdjacentTags().isEmpty());
     }
 
     @Test
@@ -92,6 +94,28 @@ final class DungeonPieceDefinitionTest {
             "\"weight\": 1,",
             "\"weight\": 1, \"min_per_plan\": 3, \"max_per_plan\": 2,"
         )));
+    }
+
+    @Test
+    void parsesPathScopeAndSymmetricAdjacencyRules() {
+        DungeonPieceDefinition branch = parse(basePiece(
+            "[7, 1, 0]", "north", "room", "[]"
+        ).replace(
+            "\"weight\": 1,",
+            "\"weight\": 1, \"placement_scope\": \"branch\", "
+                + "\"forbid_adjacent_tags\": [\"cobbleventure:shape/boss\"],"
+        ));
+        DungeonPieceDefinition bossTagged = parse(basePiece(
+            "[7, 1, 0]", "north", "room", "[]"
+        ).replace(
+            "\"tags\": [],",
+            "\"tags\": [\"cobbleventure:shape/boss\"],"
+        ));
+
+        assertTrue(branch.allowsPlacement(false));
+        assertTrue(!branch.allowsPlacement(true));
+        assertTrue(!branch.allowsAdjacentTo(bossTagged));
+        assertTrue(!bossTagged.allowsAdjacentTo(branch));
     }
 
     private static DungeonPieceDefinition parse(String json) {

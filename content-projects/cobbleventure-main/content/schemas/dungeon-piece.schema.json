@@ -36,6 +36,16 @@
     },
     "size": { "$ref": "#/$defs/size" },
     "weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "placement_scope": {
+      "enum": ["any", "critical_path", "branch"],
+      "default": "any"
+    },
+    "forbid_adjacent_tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/resourceId" },
+      "default": []
+    },
     "min_per_plan": { "type": "integer", "minimum": 0, "maximum": 256, "default": 0 },
     "max_per_plan": { "type": "integer", "minimum": 1, "maximum": 256, "default": 256 },
     "allow_rotation": { "type": "boolean" },

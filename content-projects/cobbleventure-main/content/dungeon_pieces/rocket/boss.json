@@ -10,6 +10,7 @@
     16
   ],
   "weight": 1,
+  "placement_scope": "critical_path",
   "allow_rotation": true,
   "tags": [
     "cobbleventure:dungeon_kit/standard_16",

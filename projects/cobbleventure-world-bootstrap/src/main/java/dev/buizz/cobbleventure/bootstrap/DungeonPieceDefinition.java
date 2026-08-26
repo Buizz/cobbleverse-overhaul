@@ -27,6 +27,8 @@ record DungeonPieceDefinition(
     int weight,
     int minimumPerPlan,
     int maximumPerPlan,
+    String placementScope,
+    Set<String> forbiddenAdjacentTags,
     boolean allowRotation,
     Set<String> tags,
     List<Connector> connectors,
@@ -39,6 +41,9 @@ record DungeonPieceDefinition(
     private static final List<String> MARKER_KINDS = List.of(
         "entry", "exit", "encounter", "boss", "loot", "healing_station",
         "gate", "checkpoint", "wild_spawn", "objective", "trace"
+    );
+    private static final List<String> PLACEMENT_SCOPES = List.of(
+        "any", "critical_path", "branch"
     );
 
     static Map<String, DungeonPieceDefinition> loadAll(ResourceManager resources) {
@@ -91,6 +96,19 @@ record DungeonPieceDefinition(
             throw new IllegalStateException(
                 "Invalid dungeon piece usage limits: " + id
             );
+        }
+        String placementScope = root.has("placement_scope")
+            ? enumValue(root, "placement_scope", PLACEMENT_SCOPES) : "any";
+        Set<String> forbiddenAdjacentTags = new HashSet<>();
+        JsonArray forbiddenTags = root.has("forbid_adjacent_tags")
+            ? requiredArray(root, "forbid_adjacent_tags") : new JsonArray();
+        for (JsonElement element : forbiddenTags) {
+            String tag = element.getAsString();
+            if (ResourceLocation.tryParse(tag) == null || !forbiddenAdjacentTags.add(tag)) {
+                throw new IllegalStateException(
+                    "Invalid forbidden adjacent tag: " + id + " -> " + tag
+                );
+            }
         }
 
         Set<String> tags = new HashSet<>();
@@ -180,11 +198,23 @@ record DungeonPieceDefinition(
             weight,
             minimumPerPlan,
             maximumPerPlan,
+            placementScope,
+            Set.copyOf(forbiddenAdjacentTags),
             requiredBoolean(root, "allow_rotation"),
             Set.copyOf(tags),
             List.copyOf(connectors),
             List.copyOf(markers)
         );
+    }
+
+    boolean allowsPlacement(boolean criticalPath) {
+        return placementScope.equals("any")
+            || placementScope.equals(criticalPath ? "critical_path" : "branch");
+    }
+
+    boolean allowsAdjacentTo(DungeonPieceDefinition other) {
+        return forbiddenAdjacentTags.stream().noneMatch(other.tags()::contains)
+            && other.forbiddenAdjacentTags().stream().noneMatch(tags::contains);
     }
 
     private static void requireRoleMarker(String id, String role, List<Marker> markers) {

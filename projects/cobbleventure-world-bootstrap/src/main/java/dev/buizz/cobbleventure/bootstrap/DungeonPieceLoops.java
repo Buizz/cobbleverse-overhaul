@@ -41,7 +41,8 @@ final class DungeonPieceLoops {
                 secondIndex < plan.placements().size(); secondIndex++) {
                 DungeonPiecePlan.Placement second = plan.placements().get(secondIndex);
                 DungeonPieceDefinition secondDefinition = definitions.get(second.pieceId());
-                if (secondDefinition == null) continue;
+                if (secondDefinition == null
+                    || !firstDefinition.allowsAdjacentTo(secondDefinition)) continue;
                 for (DungeonPieceDefinition.Connector from : firstDefinition.connectors()) {
                     ConnectorKey fromKey = new ConnectorKey(firstIndex, from.id());
                     if (used.contains(fromKey)) continue;
