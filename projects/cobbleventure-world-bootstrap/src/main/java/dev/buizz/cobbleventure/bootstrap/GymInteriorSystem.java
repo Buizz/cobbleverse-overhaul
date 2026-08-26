@@ -846,12 +846,29 @@ final class GymInteriorSystem {
             player.getYRot(), player.getXRot()
         );
         DoorTransitionSound.afterTeleport(player, sourceDimension, target.position);
+        InteriorMusicSystem.sync(player);
     }
 
     private static void sendDialogue(ServerPlayer player, List<String> lines) {
         for (String line : lines) {
             player.sendSystemMessage(Component.literal("[체육관 문] " + line));
         }
+    }
+
+    static boolean isInteriorDimension(ServerLevel level) {
+        return level.dimension().equals(INTERIORS);
+    }
+
+    static String interiorMusicTrack() {
+        for (GymConfig gym : GYMS.values()) {
+            for (InteriorModule module : gym.modules) {
+                String track = BuildingRuntimeSystem.musicTrack(module.structure);
+                if (track != null && !track.isBlank()) {
+                    return track;
+                }
+            }
+        }
+        return null;
     }
 
     private static void spawnNpc(ServerLevel level, GymConfig gym, GymStaffMember staff, BlockPos position) {

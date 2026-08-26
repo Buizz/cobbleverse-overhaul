@@ -2,6 +2,8 @@
   "key.categories.cobbleventure_pokefinder": "Cobbleventure PokéNav",
   "key.cobbleventure_pokefinder.toggle_hud": "Toggle Pokefinder HUD",
   "message.cobbleventure_pokefinder.hud.on": "Pokefinder HUD enabled.",
+  "message.cobbleventure_pokefinder.hud.left": "Pokefinder HUD moved to the bottom left.",
+  "message.cobbleventure_pokefinder.hud.right": "Pokefinder HUD moved to the bottom right.",
   "message.cobbleventure_pokefinder.hud.off": "Pokefinder HUD disabled.",
   "message.cobbleventure_pokefinder.hud.missing_pokenav": "Configure the Pokefinder from your PokéNav first.",
   "screen.cobbleventure_pokefinder.pokenav.hud": "Pokefinder HUD: %s",

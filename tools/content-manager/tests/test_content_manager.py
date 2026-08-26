@@ -3020,6 +3020,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('type: "gate", anchor: { q, r }, resource', script)
         self.assertNotIn(">높은 숲<", page)
 
+    def test_world_underground_entrance_inspector_uses_selects(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('select name="undergroundRoad"', page)
+        self.assertIn('select name="undergroundTransition"', page)
+        self.assertIn('select name="undergroundEndpoint"', page)
+        self.assertIn('function undergroundRoadEndpointOptions(roadId, selected = "", editingEntrance = null)', script)
+        self.assertIn('event.target.name === "undergroundRoad"', script)
+        self.assertIn('event.target.name === "undergroundTransition"', script)
+        self.assertIn('event.target.name === "undergroundEndpoint"', script)
+
     def test_encounter_summaries_show_effective_pokemon_icons(self) -> None:
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -4804,6 +4816,42 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.validate_hex_worlds(root, set(), route_ids=route_ids)
             self.assertTrue(any("존재하지 않는 길 프리셋" in issue.message for issue in issues))
 
+    def test_world_layout_save_validates_structure_anchors_against_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalogs = root / "content/catalogs"
+            catalogs.mkdir(parents=True)
+            (catalogs / "boundary-profiles.json").write_text(
+                json.dumps({"schema_version": 1, "profiles": []}),
+                encoding="utf-8",
+            )
+            observed: dict[str, Path | None] = {}
+
+            def validate_candidate(
+                candidate_root: Path,
+                settlement_ids: set[str],
+                cave_documents: dict[str, dict[str, object]],
+                forest_documents: dict[str, dict[str, object]],
+                route_ids: set[str],
+                underground_documents: dict[str, dict[str, object]] | None = None,
+                structure_root: Path | None = None,
+            ) -> list[content_manager.Issue]:
+                observed["candidate_root"] = candidate_root
+                observed["structure_root"] = structure_root
+                return []
+
+            with mock.patch.object(
+                content_manager, "validate_hex_worlds", side_effect=validate_candidate
+            ):
+                issues = content_manager.save_world_layout(
+                    root,
+                    {"schema_version": 2, "id": "cobbleventure:world/test"},
+                )
+
+            self.assertEqual([], issues)
+            self.assertNotEqual(root, observed["candidate_root"])
+            self.assertEqual(root, observed["structure_root"])
+
     def test_route_preset_editor_is_exposed_in_web_ui(self) -> None:
         html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -4819,6 +4867,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="routePreset"', html)
         self.assertIn('id="open-selected-management"', html)
         self.assertIn('.tile-inspector-head { position: sticky;', styles)
+        self.assertIn('grid-template-columns: 304px minmax(360px,1fr) clamp(286px,22vw,344px);', styles)
         self.assertIn('id="route-copy-source"', html)
         self.assertIn('id="edit-route-preset-pokemon"', html)
         self.assertIn('name="autoName"', html)
@@ -5405,6 +5454,14 @@ class ContentManagerTests(unittest.TestCase):
                 / "options.txt"
             ).exists()
         )
+        key_migration = (
+            root
+            / "projects/cobbleventure-player-menu/src/main/java/dev/buizz/cobbleventure"
+            / "playermenu/client/PlayerMenuClient.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn('COBBLEMON_HIDE_PARTY_KEY = "key.cobblemon.hideparty"', key_migration)
+        self.assertIn('"key.keyboard.o".equals(mapping.saveString())', key_migration)
+        self.assertIn("GLFW.GLFW_KEY_LEFT_BRACKET", key_migration)
 
     def test_create_and_copycats_are_pinned_in_authoring_packs(self) -> None:
         dependency_lock = content_manager.load_json(
@@ -6005,8 +6062,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="structure-builder-instance"', markup)
         self.assertIn('id="build-structure-builder"', markup)
         self.assertIn('id="build-live-nbt-editor"', markup)
+        self.assertIn('data-section="live-nbt-editor"', markup)
+        self.assertIn('class="page" id="live-nbt-editor"', markup)
         self.assertIn('id="structure-builder-live-instance"', markup)
         self.assertIn('id="structure-builder-live-source"', markup)
+        self.assertNotIn('<select id="structure-builder-live-source"', markup)
+        self.assertIn('id="choose-structure-builder-live-source"', markup)
+        self.assertIn('id="structure-builder-source-dialog"', markup)
+        self.assertIn('id="structure-builder-source-search"', markup)
+        self.assertIn('function renderStructureBuilderSourceDialog()', script)
+        self.assertIn('data-structure-builder-source', script)
+        self.assertIn('grid-template-columns:repeat(2,minmax(0,1fr))', (web_root / "styles.css").read_text(encoding="utf-8"))
+        self.assertIn('.structure-builder-source-item strong{overflow-wrap:anywhere', (web_root / "styles.css").read_text(encoding="utf-8"))
         self.assertIn('id="sync-structure-builder"', markup)
         self.assertIn('id="import-structure-builder"', markup)
         self.assertIn('id="build-export-language"', markup)
@@ -6014,6 +6081,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('value="1.7.3"', markup)
         self.assertIn('value="1.8"', markup)
         self.assertIn('JSON.stringify({ command, language, cobblemon_target: cobblemonTarget })', script)
+        live_page = markup.index('<section class="page" id="live-nbt-editor">')
+        builds_page = markup.index('<section class="page" id="builds">')
+        self.assertLess(live_page, markup.index('id="build-live-nbt-editor"'))
+        self.assertLess(markup.index('id="build-live-nbt-editor"'), builds_page)
+        self.assertLess(live_page, markup.index('id="open-structure-builder-live"'))
+        self.assertLess(markup.index('id="open-structure-builder-live"'), builds_page)
+        self.assertIn('!["builder-world", "live-editor-world"].includes(command.id)', script)
+        self.assertIn('state: "#live-editor-build-state"', script)
         self.assertIn("/api/structure-builder/settings", script)
         self.assertIn("/api/structure-builder/import", script)
         self.assertIn("/api/structure-builder/sync", script)
@@ -6925,7 +7000,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("INTERIOR ASSETS", markup)
         self.assertIn(".space-flow-workspace", styles)
         self.assertIn(".space-asset-browser", styles)
-        self.assertIn("grid-auto-flow:column", styles)
+        self.assertIn("grid-template-rows: minmax(420px,1fr) 328px", styles)
+        self.assertIn("grid-template-columns:repeat(auto-fill,minmax(220px,1fr))", styles)
+        self.assertIn("grid-auto-rows:68px", styles)
+        self.assertIn("overflow-x:hidden; overflow-y:auto", styles)
         self.assertNotIn('id="space-library-search"', markup)
         self.assertIn('id="space-library-kind-filter"', markup)
         self.assertIn('id="space-library-route-filter"', markup)
@@ -7436,19 +7514,22 @@ class ContentManagerTests(unittest.TestCase):
             saved = self._structure_nbt((12, 8, 14))
             (live / "outbox").mkdir(parents=True)
             (live / "outbox/active.nbt").write_bytes(saved)
-            (live / "outbox/active.structure.json").write_text(json.dumps({
+            saved_metadata = json.dumps({
                 "schema_version": 1,
                 "structure": "content/structures/houses/test_house.nbt",
                 "anchors": [{
                     "label": "resident", "type": "npc_position",
                     "position": [4, 1, 4], "facing": "south",
                 }],
-            }), encoding="utf-8")
+            }).encode("utf-8")
+            (live / "outbox/active.structure.json").write_bytes(saved_metadata)
             (live / "outbox/result.json").write_text(json.dumps({
                 "status": "saved",
                 "revision": "game-save-1",
                 "source": "content/structures/houses/test_house.nbt",
                 "size": [12, 8, 14],
+                "nbt_digest": hashlib.sha256(saved).hexdigest(),
+                "metadata_digest": hashlib.sha256(saved_metadata).hexdigest(),
             }), encoding="utf-8")
 
             receipt = content_manager._import_structure_builder_live_output(root, world)
@@ -7462,6 +7543,127 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("CC0-1.0", imported_metadata["provenance"]["license"])
             self.assertEqual("resident", imported_metadata["anchors"][0]["label"])
             self.assertFalse((live / "outbox/result.json").exists())
+
+    def test_live_builder_does_not_import_mixed_output_generations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "project"
+            world = Path(directory) / "world"
+            source = root / "content/structures/interiors/casino.nbt"
+            source.parent.mkdir(parents=True)
+            original = self._structure_nbt((48, 12, 48))
+            source.write_bytes(original)
+
+            outbox = world / "generated/cobbleventure_builder/live/outbox"
+            outbox.mkdir(parents=True)
+            newer_nbt = self._structure_nbt((64, 80, 64))
+            metadata_data = json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/interiors/department_store.nbt",
+                "anchors": [],
+            }).encode("utf-8")
+            (outbox / "active.nbt").write_bytes(newer_nbt)
+            (outbox / "active.structure.json").write_bytes(metadata_data)
+            (outbox / "result.json").write_text(json.dumps({
+                "status": "saved",
+                "revision": "casino-save",
+                "source": "content/structures/interiors/casino.nbt",
+                "size": [48, 12, 48],
+                "nbt_digest": hashlib.sha256(original).hexdigest(),
+                "metadata_digest": hashlib.sha256(metadata_data).hexdigest(),
+            }), encoding="utf-8")
+
+            receipt = content_manager._import_structure_builder_live_output(root, world)
+
+            self.assertIsNone(receipt)
+            self.assertEqual(original, source.read_bytes())
+            self.assertTrue((outbox / "result.json").is_file())
+
+    def test_live_builder_post_apis_read_request_body_once(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/structures/houses/test_house.nbt"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(self._structure_nbt((9, 7, 11)))
+            live_instance = root / "live-instance"
+            live_world = (
+                live_instance / "saves" / content_manager.LIVE_NBT_EDITOR_WORLD_NAME
+            )
+            live_world.mkdir(parents=True)
+            content_manager._save_structure_builder_settings(
+                root, "", str(live_instance)
+            )
+            server = content_manager.ThreadingHTTPServer(
+                ("127.0.0.1", 0), content_manager.create_handler(root)
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                def post(path: str, document: dict) -> dict:
+                    request = urllib.request.Request(
+                        f"http://127.0.0.1:{server.server_port}{path}",
+                        data=json.dumps(document).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(request, timeout=2) as response:
+                        return json.load(response)
+
+                opened = post("/api/structure-builder/live/open", {
+                        "source": "content/structures/houses/test_house.nbt",
+                        "size": [9, 7, 11],
+                        "preserve_current": False,
+                    })
+                resized = post("/api/structure-builder/live/resize", {
+                    "size": [10, 8, 12],
+                })
+                external = post("/api/structure-builder/external", {
+                    "id": "external/api_test",
+                    "nbt": base64.b64encode(self._structure_nbt((4, 5, 6))).decode("ascii"),
+                })
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+            self.assertTrue(opened["queued"])
+            self.assertTrue(resized["queued"])
+            self.assertTrue(external["created"])
+            self.assertTrue((
+                live_world / "generated/cobbleventure_builder/live/command.json"
+            ).is_file())
+            self.assertTrue((root / "content/structures/external/api_test.nbt").is_file())
+
+    def test_live_builder_source_refresh_keeps_live_world_status(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy_instance = root / "legacy"
+            live_instance = root / "live-instance"
+            live_world = (
+                live_instance / "saves" / content_manager.LIVE_NBT_EDITOR_WORLD_NAME
+            )
+            live_root = live_world / "generated/cobbleventure_builder/live"
+            source = root / "content/structures/houses/test_house.nbt"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(self._structure_nbt((9, 7, 11)))
+            live_root.mkdir(parents=True)
+            (live_root / "state.json").write_text(json.dumps({
+                "id": "houses/test_house",
+                "source": "content/structures/houses/test_house.nbt",
+                "revision": "game-state-1",
+                "source_digest": "stale",
+                "size": [9, 7, 11],
+                "source_size": [9, 7, 11],
+            }), encoding="utf-8")
+            legacy_instance.mkdir()
+            content_manager._save_structure_builder_settings(
+                root, str(legacy_instance), str(live_instance)
+            )
+
+            status = content_manager._structure_builder_status(root, root)
+
+            self.assertTrue(status["live"]["connected"])
+            self.assertTrue(status["live"]["pending"])
+            self.assertTrue((live_root / "command.json").is_file())
 
     def test_external_nbt_can_be_added_to_managed_structures(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

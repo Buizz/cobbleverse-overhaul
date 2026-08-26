@@ -901,7 +901,7 @@ function switchPage(section) {
   const activeNavigationItem = $(`.nav-item[data-section="${navigationSection}"]`);
   if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -1900,7 +1900,7 @@ function loadSectionData(section, force = false) {
   if (section === "economy") return loadEconomy(force);
   if (section === "global-resources") return loadDialogueTheme(force);
   if (section === "casino-config") return Promise.all([loadGachaMachines(force), loadGachaRewardChoices(force), loadGachaItemGraphics()]);
-  if (section === "builds") return loadStructureBuilder();
+  if (section === "builds" || section === "live-nbt-editor") return loadStructureBuilder();
   return Promise.resolve();
 }
 
@@ -2730,17 +2730,23 @@ function caveToolEntranceOptions() {
   return (cave?.entrances || []).map((entry) => `<option value="${escapeHtml(entry.id)}" ${placed.has(entry.id) ? "disabled" : ""}>${escapeHtml(entry.display_name || entry.id)}${placed.has(entry.id) ? " · 배치됨" : ""}</option>`).join("");
 }
 function refreshCaveToolEntrances() { $("#cave-tool-entrance").innerHTML = caveToolEntranceOptions(); }
-function undergroundRoadToolEndpointOptions() {
-  const roadId = $("#underground-road-tool-road").value;
+function undergroundRoadEndpointOptions(roadId, selected = "", editingEntrance = null) {
   const road = undergroundRoadSummary(roadId);
-  const placed = new Set((state.worldLayout.cave_entrances || []).filter((item) => item.underground_road === roadId).map((item) => `${item.underground_module}/${item.underground_connector}`));
-  return (road?.endpoints || []).map((endpoint) => { const value = `${endpoint.module}/${endpoint.connector}`; return `<option value="${escapeHtml(value)}" ${placed.has(value) ? "disabled" : ""}>${escapeHtml(endpoint.module)} / ${escapeHtml(endpoint.connector)}${placed.has(value) ? " · 배치됨" : ""}</option>`; }).join("") || '<option value="">열린 위쪽 커넥터가 없습니다</option>';
+  const placed = new Set((state.worldLayout.cave_entrances || []).filter((item) => item !== editingEntrance && item.underground_road === roadId).map((item) => `${item.underground_module}/${item.underground_connector}`));
+  return (road?.endpoints || []).map((endpoint) => {
+    const value = `${endpoint.module}/${endpoint.connector}`; const occupied = placed.has(value);
+    return `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""} ${occupied ? "disabled" : ""}>${escapeHtml(endpoint.module)} / ${escapeHtml(endpoint.connector)}${occupied ? " · 배치됨" : ""}</option>`;
+  }).join("") || '<option value="">열린 위쪽 커넥터가 없습니다</option>';
+}
+function undergroundRoadToolEndpointOptions() { return undergroundRoadEndpointOptions($("#underground-road-tool-road").value, $("#underground-road-tool-endpoint").value); }
+function undergroundRoadTransitionOptions(selected = "") {
+  const structure = defaultWorldEntranceStructures.undergroundRoad;
+  const transitions = state.structureSizes?.[structure]?.transition_anchors || [{ label: "underground_entry" }];
+  return transitions.map((anchor) => `<option value="${escapeHtml(anchor.label)}" ${anchor.label === selected ? "selected" : ""}>${escapeHtml(anchor.label)}</option>`).join("") || '<option value="">이동 영역이 없습니다</option>';
 }
 function refreshUndergroundRoadToolConnections() {
   $("#underground-road-tool-endpoint").innerHTML = undergroundRoadToolEndpointOptions();
-  const structure = defaultWorldEntranceStructures.undergroundRoad;
-  const transitions = state.structureSizes?.[structure]?.transition_anchors || [{ label: "underground_entry" }];
-  $("#underground-road-tool-transition").innerHTML = transitions.map((anchor) => `<option value="${escapeHtml(anchor.label)}">${escapeHtml(anchor.label)}</option>`).join("") || '<option value="">이동 영역이 없습니다</option>';
+  $("#underground-road-tool-transition").innerHTML = undergroundRoadTransitionOptions($("#underground-road-tool-transition").value);
 }
 function placeCaveEntranceWithTool(q, r) {
   const caveId = $("#cave-tool-cave").value; const entranceId = $("#cave-tool-entrance").value;
@@ -3444,6 +3450,14 @@ function renderEntranceInspector(selection) {
   $("#entrance-inspector-label").textContent = underground ? "지하통로 입구 속성" : kind === "cave" ? "동굴 입구 속성" : "숲 입구 속성";
   $("#entrance-inspector-id").textContent = entrance.id; $("#entrance-target-label").textContent = underground ? "연결 지하통로" : kind === "cave" ? "연결 동굴" : "연결 숲";
   form.elements.id.value = entrance.id; form.elements.target.value = underground ? entrance.underground_road : kind === "cave" ? entrance.cave : entrance.forest; form.elements.internalEntrance.value = underground ? `${entrance.transition} → ${entrance.underground_module}/${entrance.underground_connector}` : kind === "cave" ? `${entrance.entrance} · ${entrance.transition || "cave_entry"}` : entrance.entrance;
+  $$('[data-standard-entrance-field]').forEach((field) => field.hidden = underground);
+  $$('[data-underground-entrance-field]').forEach((field) => field.hidden = !underground);
+  if (underground) {
+    const endpoint = `${entrance.underground_module}/${entrance.underground_connector}`;
+    form.elements.undergroundRoad.innerHTML = state["underground-roads"].filter((item) => Number(item.generation || 1) === state.selectedGeneration).map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === entrance.underground_road ? "selected" : ""}>${escapeHtml(item.name || item.id)}</option>`).join("");
+    form.elements.undergroundTransition.innerHTML = undergroundRoadTransitionOptions(entrance.transition);
+    form.elements.undergroundEndpoint.innerHTML = undergroundRoadEndpointOptions(entrance.underground_road, endpoint, entrance);
+  }
   form.elements.q.value = entrance.anchor.q; form.elements.r.value = entrance.anchor.r; form.elements.facing.value = entrance.facing;
   form.elements.rotation.value = entrance.rotation || 0; form.elements.pokemonCenterEnabled.value = String(Boolean(entrance.pokemon_center_enabled));
   form.elements.treeLog.value = entrance.tree_log || "minecraft:spruce_log"; form.elements.treeLeaves.value = entrance.tree_leaves || "minecraft:spruce_leaves";
@@ -4168,6 +4182,7 @@ function handleTileInspectorChange(event) {
 
 function handleEntranceInspectorChange(event) {
   const selection = selectedEntrance(); if (!selection) return; const { kind, entrance } = selection; const form = event.currentTarget;
+  const underground = kind === "cave" && Boolean(entrance.underground_road);
   if (event.target.name === "q" || event.target.name === "r") {
     const target = { q: Math.round(Number(form.elements.q.value) || 0), r: Math.round(Number(form.elements.r.value) || 0) };
     const occupied = caveEntranceAt(target.q, target.r) || forestEntranceAt(target.q, target.r);
@@ -4176,6 +4191,20 @@ function handleEntranceInspectorChange(event) {
   } else if (event.target.name === "facing") {
     entrance.facing = event.target.value;
     if (kind === "forest") entrance.rotation = forestGateRotation(entrance.facing);
+  }
+  else if (underground && event.target.name === "undergroundRoad") {
+    const roadId = event.target.value; const previousRoad = entrance.underground_road;
+    entrance.underground_road = roadId;
+    const available = (undergroundRoadSummary(roadId)?.endpoints || []).map((endpoint) => `${endpoint.module}/${endpoint.connector}`).filter((endpoint) => !(state.worldLayout.cave_entrances || []).some((item) => item !== entrance && item.underground_road === roadId && `${item.underground_module}/${item.underground_connector}` === endpoint));
+    if (!available.length) { entrance.underground_road = previousRoad; toast("선택한 지하통로에 사용 가능한 연결 지점이 없습니다."); renderTileInspector(); return; }
+    const current = `${entrance.underground_module}/${entrance.underground_connector}`; const endpoint = available.includes(current) ? current : available[0]; const slash = endpoint.indexOf("/");
+    entrance.underground_module = endpoint.slice(0, slash); entrance.underground_connector = endpoint.slice(slash + 1);
+  }
+  else if (underground && event.target.name === "undergroundTransition") entrance.transition = event.target.value;
+  else if (underground && event.target.name === "undergroundEndpoint") {
+    const endpoint = event.target.value; const slash = endpoint.indexOf("/");
+    if (slash < 1) { renderTileInspector(); return; }
+    entrance.underground_module = endpoint.slice(0, slash); entrance.underground_connector = endpoint.slice(slash + 1);
   }
   else if (event.target.name === "pokemonCenterEnabled") entrance.pokemon_center_enabled = event.target.value === "true";
   else if (kind === "forest" && event.target.name === "rotation") entrance.rotation = Number(event.target.value);
@@ -15161,7 +15190,7 @@ function renderBuildCommands() {
     languageSelect.value = state.exportLanguages.some((language) => language.id === selectedLanguage)
       ? selectedLanguage : "ko_kr";
   }
-  $("#build-command-list").innerHTML = state.buildCommands.filter((command) => command.id !== "builder-world").map((command) => `
+  $("#build-command-list").innerHTML = state.buildCommands.filter((command) => !["builder-world", "live-editor-world"].includes(command.id)).map((command) => `
     <article class="build-command"><div><strong>${escapeHtml(command.id)}</strong><small>${escapeHtml(descriptions[command.id] || command.description)}</small></div><button class="button ${command.id.startsWith("pack") ? "primary" : "secondary"}" data-command="${escapeHtml(command.id)}">실행</button></article>`).join("");
   $$("[data-command]").forEach((button) => button.addEventListener("click", () => runBuild(button.dataset.command)));
 }
@@ -15187,12 +15216,12 @@ function renderStructureBuilder() {
   $("#sync-structure-builder").disabled = !data.instance_exists;
   const sourceSelect = $("#structure-builder-live-source");
   const selected = sourceSelect.value;
-  sourceSelect.innerHTML = `<option value="">NBT를 선택하세요</option>${(data.sources || []).map((item) =>
-    `<option value="${escapeHtml(item.path)}">${escapeHtml(item.id)} · ${item.size.join("×")}</option>`
-  ).join("")}`;
   const active = data.live?.active;
   sourceSelect.value = (data.sources || []).some((item) => item.path === selected)
     ? selected : active?.source || "";
+  const selectedSource = (data.sources || []).find((item) => item.path === sourceSelect.value);
+  $("#structure-builder-live-source-name").textContent = selectedSource ? `${selectedSource.id} · ${selectedSource.size.join("×")}` : "NBT를 선택하세요";
+  $("#structure-builder-live-source-path").textContent = selectedSource?.path || "검색 창에서 편집할 NBT를 선택합니다.";
   if (active && document.activeElement?.id?.startsWith("structure-builder-live-") !== true) {
     $("#structure-builder-live-width").value = active.size?.[0] || 1;
     $("#structure-builder-live-height").value = active.size?.[1] || 1;
@@ -15208,7 +15237,33 @@ function renderStructureBuilder() {
   $("#resize-structure-builder-live").disabled = !active || data.live?.pending;
   $("#save-structure-builder-live").disabled = !active || data.live?.pending;
   $("#test-place-structure-builder-live").disabled = !active || data.live?.pending;
+  if ($("#structure-builder-source-dialog").open) renderStructureBuilderSourceDialog();
   if (data.live_import?.imported) toast(`에딧월드 저장 반영: ${data.live_import.id}`);
+}
+
+function renderStructureBuilderSourceDialog() {
+  const query = $("#structure-builder-source-search").value.trim().toLocaleLowerCase();
+  const selected = $("#structure-builder-live-source").value;
+  const sources = (state.structureBuilder?.sources || []).filter((item) => {
+    const searchable = `${item.id} ${item.path} ${(item.size || []).join("x")} ${(item.size || []).join("×")}`.toLocaleLowerCase();
+    return !query || searchable.includes(query);
+  });
+  $("#structure-builder-source-count").textContent = `${sources.length.toLocaleString()}개`;
+  $("#structure-builder-source-list").innerHTML = sources.length ? sources.map((item) => `<button type="button" class="structure-builder-source-item${item.path === selected ? " is-selected" : ""}" data-structure-builder-source="${escapeHtml(item.path)}" title="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.id)}</strong><small>${escapeHtml(item.path)}</small></span><b>${escapeHtml(item.size.join("×"))}</b></button>`).join("") : '<p>검색 조건에 맞는 NBT가 없습니다.</p>';
+}
+function openStructureBuilderSourceDialog() {
+  $("#structure-builder-source-search").value = "";
+  renderStructureBuilderSourceDialog();
+  $("#structure-builder-source-dialog").showModal();
+  requestAnimationFrame(() => $("#structure-builder-source-search").focus());
+}
+function selectStructureBuilderLiveSource(path) {
+  const item = state.structureBuilder?.sources?.find((entry) => entry.path === path);
+  if (!item) return;
+  $("#structure-builder-live-source").value = item.path;
+  ["width", "height", "depth"].forEach((axis, index) => { $("#structure-builder-live-" + axis).value = item.size[index]; });
+  $("#structure-builder-source-dialog").close();
+  renderStructureBuilder();
 }
 
 function structureBuilderLiveSize() {
@@ -15271,6 +15326,7 @@ async function addExternalStructure(file) {
   toast(`외부 NBT 추가 완료: ${result.data.structure.id}`);
   await loadStructureBuilder();
   $("#structure-builder-live-source").value = result.data.structure.path;
+  renderStructureBuilder();
 }
 
 async function loadStructureBuilder() {
@@ -15374,22 +15430,24 @@ async function syncStructureBuilder() {
   }
 }
 
-async function runBuild(command) {
+async function runBuild(command, targets = {}) {
   const language = $("#build-export-language")?.value || "ko_kr";
   const cobblemonTarget = $("#build-cobblemon-target")?.value || "1.7.3";
-  const buttons = $$("#builds button");
+  const stateTarget = targets.state || "#build-state";
+  const outputTarget = targets.output || "#build-output";
+  const buttons = $$("#builds button, #live-nbt-editor button");
   buttons.forEach((button) => button.disabled = true);
-  $("#build-state").textContent = `${command} · Cobblemon ${cobblemonTarget} 실행 중`;
-  $("#build-output").textContent = "작업이 끝날 때까지 잠시 기다려 주세요…";
+  $(stateTarget).textContent = `${command} · Cobblemon ${cobblemonTarget} 실행 중`;
+  $(outputTarget).textContent = "작업이 끝날 때까지 잠시 기다려 주세요…";
   try {
     const result = await request("/api/build", { method: "POST", body: JSON.stringify({ command, language, cobblemon_target: cobblemonTarget }) });
-    $("#build-output").textContent = result.data.output || result.data.error || "결과가 없습니다.";
-    $("#build-state").textContent = result.ok ? "성공" : "실패";
+    $(outputTarget).textContent = result.data.output || result.data.error || "결과가 없습니다.";
+    $(stateTarget).textContent = result.ok ? "성공" : "실패";
     toast(result.ok ? `${command} 작업을 완료했습니다.` : `${command} 작업을 확인해 주세요.`);
     await loadDashboard();
   } catch (error) {
-    $("#build-output").textContent = error.message;
-    $("#build-state").textContent = "연결 실패";
+    $(outputTarget).textContent = error.message;
+    $(stateTarget).textContent = "연결 실패";
     toast("빌드 서버 연결을 확인해 주세요.");
   } finally {
     buttons.forEach((button) => button.disabled = false);
@@ -15855,19 +15913,17 @@ $("#pick-project-folder").addEventListener("click", pickProjectFolder);
 $("#project-close").addEventListener("click", () => $("#project-dialog").close());
 $("#project-cancel").addEventListener("click", () => $("#project-dialog").close());
 $("#save-structure-builder-settings").addEventListener("click", saveStructureBuilderSettings);
+$("#save-live-editor-settings").addEventListener("click", saveStructureBuilderSettings);
 $("#refresh-structure-builder").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
+$("#refresh-live-editor").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
 $("#build-structure-builder").addEventListener("click", async () => { await runBuild("builder-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
-$("#build-live-nbt-editor").addEventListener("click", async () => { await runBuild("live-editor-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
+$("#build-live-nbt-editor").addEventListener("click", async () => { await runBuild("live-editor-world", { state: "#live-editor-build-state", output: "#live-editor-build-output" }); await loadStructureBuilder().catch((error) => toast(error.message)); });
 $("#sync-structure-builder").addEventListener("click", syncStructureBuilder);
 $("#import-structure-builder").addEventListener("click", importStructureBuilder);
-$("#structure-builder-live-source").addEventListener("change", (event) => {
-  const item = state.structureBuilder?.sources?.find((entry) => entry.path === event.target.value);
-  if (!item) return;
-  ["width", "height", "depth"].forEach((axis, index) => {
-    $("#structure-builder-live-" + axis).value = item.size[index];
-  });
-  renderStructureBuilder();
-});
+$("#choose-structure-builder-live-source").addEventListener("click", openStructureBuilderSourceDialog);
+$("#close-structure-builder-source").addEventListener("click", () => $("#structure-builder-source-dialog").close());
+$("#structure-builder-source-search").addEventListener("input", renderStructureBuilderSourceDialog);
+$("#structure-builder-source-list").addEventListener("click", (event) => { const button = event.target.closest("[data-structure-builder-source]"); if (button) selectStructureBuilderLiveSource(button.dataset.structureBuilderSource); });
 $("#open-structure-builder-live").addEventListener("click", () => openStructureBuilderLive().catch((error) => toast(error.message)));
 $("#resize-structure-builder-live").addEventListener("click", () => runStructureBuilderLiveCommand("resize").catch((error) => toast(error.message)));
 $("#save-structure-builder-live").addEventListener("click", () => runStructureBuilderLiveCommand("save").catch((error) => toast(error.message)));

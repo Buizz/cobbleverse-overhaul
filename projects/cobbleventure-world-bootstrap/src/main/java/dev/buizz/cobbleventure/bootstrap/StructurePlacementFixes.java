@@ -234,6 +234,7 @@ final class StructurePlacementFixes {
             }
 
             int synced = 0;
+            LinkedHashSet<BlockPos> syncedPositions = new LinkedHashSet<>();
             for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
                 ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(
                     blockEntity.getBlockState().getBlock()
@@ -244,9 +245,14 @@ final class StructurePlacementFixes {
                 var packet = blockEntity.getUpdatePacket();
                 if (packet != null) {
                     player.connection.send(packet);
+                    syncedPositions.add(blockEntity.getBlockPos().immutable());
                     synced++;
                 }
             }
+            // Receiving an identical block-entity packet does not run Copycats' public material
+            // setter. Send the exact positions after those packets so the client can apply the
+            // authoritative values through the same lifecycle used by a player interaction.
+            CopycatRenderSyncNetwork.sync(player, syncedPositions);
             if (synced > 0) {
                 LOGGER.debug(
                     "Resent {} copycat block entities to {} for tracked chunk {}",
@@ -578,13 +584,13 @@ final class StructurePlacementFixes {
         }
         Object currentMin = readField(contraption, "minContactY");
         Object currentMax = readField(contraption, "maxContactY");
-        if (currentMin instanceof Integer minimum
+        if (currentMin instanceof Integer
             && pending.minContactY() != Integer.MAX_VALUE) {
-            writeField(contraption, "minContactY", Math.min(minimum, pending.minContactY()));
+            writeField(contraption, "minContactY", pending.minContactY());
         }
-        if (currentMax instanceof Integer maximum
+        if (currentMax instanceof Integer
             && pending.maxContactY() != Integer.MIN_VALUE) {
-            writeField(contraption, "maxContactY", Math.max(maximum, pending.maxContactY()));
+            writeField(contraption, "maxContactY", pending.maxContactY());
         }
     }
 

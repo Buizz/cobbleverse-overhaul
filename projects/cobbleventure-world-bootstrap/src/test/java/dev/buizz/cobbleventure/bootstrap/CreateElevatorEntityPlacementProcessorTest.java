@@ -63,6 +63,17 @@ final class CreateElevatorEntityPlacementProcessorTest {
     }
 
     @Test
+    void replacesStaleAbsoluteLimitsWithPlacedContactRange() {
+        CompoundTag relocated = CreateElevatorEntityRelocation.relocate(
+            elevatorEntity(), new Vec3(39.0, 73.0, 19.0), new BlockPos(39, 73, 19),
+            new StructurePlaceSettings(), new int[] {67, 95}
+        );
+
+        assertEquals(67, relocated.getCompound("Contraption").getInt("MinContactY"));
+        assertEquals(95, relocated.getCompound("Contraption").getInt("MaxContactY"));
+    }
+
+    @Test
     void leavesUnrelatedEntitiesUntouched() {
         CompoundTag source = new CompoundTag();
         source.putString("id", "minecraft:armor_stand");

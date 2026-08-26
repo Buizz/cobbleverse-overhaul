@@ -41,11 +41,19 @@ public final class PokefinderRadarClient {
             return;
         }
 
-        boolean enabled = PinnedPokefinderHud.toggleEnabled();
+        cycleHud();
+    }
+
+    /** Cycles off -> left -> right -> off from either the key or PokéNav app button. */
+    public static void cycleHud() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) return;
+        PinnedPokefinderHud.cycle();
+        String state = !PinnedPokefinderHud.enabled()
+            ? "off"
+            : PinnedPokefinderHud.position() == PokefinderHudPosition.LEFT ? "left" : "right";
         minecraft.player.displayClientMessage(Component.translatable(
-            enabled
-                ? "message.cobbleventure_pokefinder.hud.on"
-                : "message.cobbleventure_pokefinder.hud.off"
+            "message.cobbleventure_pokefinder.hud." + state
         ), true);
     }
 }

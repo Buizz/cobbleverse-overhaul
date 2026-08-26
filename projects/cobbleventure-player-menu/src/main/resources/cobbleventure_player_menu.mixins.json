@@ -8,6 +8,7 @@
   ],
   "client": [
     "MusicManagerMixin",
+    "OpenedRadialMenuMapMixin",
     "XPBarOverlayMixin"
   ],
   "injectors": {

@@ -102,4 +102,17 @@ class Cobblenav233LayoutAdapterTest {
             PinnedPokefinderHud.parseState("right")
         );
     }
+
+    @Test
+    void cyclesHudOffThenLeftThenRightThenOff() {
+        PinnedPokefinderHud.State off = new PinnedPokefinderHud.State(
+            false, PokefinderHudPosition.LEFT
+        );
+        PinnedPokefinderHud.State left = PinnedPokefinderHud.next(off);
+        PinnedPokefinderHud.State right = PinnedPokefinderHud.next(left);
+
+        assertEquals(new PinnedPokefinderHud.State(true, PokefinderHudPosition.LEFT), left);
+        assertEquals(new PinnedPokefinderHud.State(true, PokefinderHudPosition.RIGHT), right);
+        assertEquals(off, PinnedPokefinderHud.next(right));
+    }
 }

@@ -478,8 +478,10 @@ def validate_hex_worlds(
     forest_documents: dict[str, dict[str, Any]] | None = None,
     route_ids: set[str] | None = None,
     underground_documents: dict[str, dict[str, Any]] | None = None,
+    structure_root: Path | None = None,
 ) -> list[Issue]:
     issues: list[Issue] = []
+    structure_root = structure_root or root
     known_pokemon: set[str] | None = None
     pokemon_catalog_path = root / "content" / "catalogs" / "pokemon-habitats.json"
     if pokemon_catalog_path.is_file():
@@ -905,7 +907,7 @@ def validate_hex_worlds(
             underground_id = placement.get("underground_road")
             transition = placement.get("transition")
             structure_id = placement.get("structure")
-            structure_path = managed_structure_files(root).get(structure_id) if isinstance(structure_id, str) else None
+            structure_path = managed_structure_files(structure_root).get(structure_id) if isinstance(structure_id, str) else None
             transition_ids = {
                 item["label"] for item in _structure_named_anchors(structure_path, {"transition"})
             } if structure_path is not None else set()
@@ -921,7 +923,7 @@ def validate_hex_worlds(
                 connector_id = placement.get("underground_connector")
                 endpoints = {
                     (item["module"], item["connector"])
-                    for item in _underground_road_endpoints(underground, root)
+                    for item in _underground_road_endpoints(underground, structure_root)
                 } if underground else set()
                 if not isinstance(module_id, str) or not isinstance(connector_id, str) or (module_id, connector_id) not in endpoints:
                     _issue(issues, "error", path, f"{placement_path}.underground_connector", f"지하통로의 열린 위쪽 커넥터가 아닙니다: {module_id}/{connector_id}")
@@ -1979,6 +1981,7 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
         candidate_issues = validate_hex_worlds(
             candidate_root, settlement_ids, cave_documents, forest_documents, route_ids,
             underground_documents=underground_documents,
+            structure_root=root,
         )
     issues = [
         Issue(issue.level, target.as_posix(), issue.path, issue.message)
@@ -10874,17 +10877,36 @@ def _import_structure_builder_live_output(project_root: Path, world_path: Path) 
     revision = result.get("revision")
     if not isinstance(source, str) or not isinstance(revision, str):
         raise ValueError("에딧월드 저장 결과가 올바르지 않습니다.")
+    expected_nbt_digest = result.get("nbt_digest")
+    expected_metadata_digest = result.get("metadata_digest")
+    if not isinstance(expected_nbt_digest, str) or not isinstance(expected_metadata_digest, str):
+        return None
     destination = _managed_structure_path(project_root, source)
     if destination.suffix.lower() != ".nbt":
         raise ValueError("에딧월드 저장 대상은 .nbt 파일이어야 합니다.")
     data = nbt_path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != expected_nbt_digest:
+        return None
     read_minecraft_structure_size(data)
-    _atomic_write_bytes(destination, data)
     metadata_source = live_root / "outbox" / "active.structure.json"
+    exported_metadata = None
     if metadata_source.is_file():
-        exported_metadata = load_json(metadata_source)
+        metadata_data = metadata_source.read_bytes()
+        if hashlib.sha256(metadata_data).hexdigest() != expected_metadata_digest:
+            return None
+        try:
+            exported_metadata = json.loads(metadata_data.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError("에딧월드 구조물 메타데이터가 올바른 JSON이 아닙니다.") from error
         if not isinstance(exported_metadata, dict):
             raise ValueError("에딧월드 구조물 메타데이터는 JSON 객체여야 합니다.")
+        if exported_metadata.get("structure") != source:
+            raise ValueError(
+                "에딧월드 NBT와 마커 정보의 구조물 경로가 서로 다릅니다: "
+                f"{source} / {exported_metadata.get('structure')}"
+            )
+    _atomic_write_bytes(destination, data)
+    if exported_metadata is not None:
         metadata_target = destination.with_suffix(".structure.json")
         _atomic_write_json(
             metadata_target,
@@ -10981,7 +11003,7 @@ def _structure_builder_status(
             _queue_structure_builder_live_open(
                 project_root, live_world, active_source, active.get("size"), preserve_current=False
             )
-            live = _structure_builder_live_state(world)
+            live = _structure_builder_live_state(live_world)
     return {
         **settings,
         "world_path": str(world) if world is not None else "",
@@ -14689,7 +14711,6 @@ def create_handler(
                 return
             if request.path == "/api/structure-builder/live/open":
                 try:
-                    payload = self._read_json()
                     status = _structure_builder_status(root, core_root)
                     if not status["live_world_exists"]:
                         raise ValueError("먼저 새 라이브 NBT 에디터 월드를 한 번 실행해 주세요.")
@@ -14713,7 +14734,6 @@ def create_handler(
                 "/api/structure-builder/live/test-place",
             }:
                 try:
-                    payload = self._read_json()
                     status = _structure_builder_status(root, core_root)
                     if not status["live_world_exists"]:
                         raise ValueError("먼저 새 라이브 NBT 에디터 월드를 한 번 실행해 주세요.")
@@ -14745,7 +14765,6 @@ def create_handler(
                 return
             if request.path == "/api/structure-builder/external":
                 try:
-                    payload = self._read_json()
                     if not isinstance(payload, dict):
                         raise ValueError("외부 NBT 추가 정보가 필요합니다.")
                     target_id = payload.get("id")

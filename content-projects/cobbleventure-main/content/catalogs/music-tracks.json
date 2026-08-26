@@ -20,7 +20,7 @@
     "settlement": "kanto.pallet_town",
     "cave": "kanto.mt_moon",
     "forest": "kanto.viridian_forest",
-    "building": "kanto.pallet_town",
+    "building": "facility.building",
     "pokemon_center": "facility.pokemon_center",
     "pokemart": "kanto.celadon_city",
     "trainer_encounter_boy": "encounter.trainer_boy",
@@ -36,6 +36,15 @@
     "victory_gym": "battle.victory_gym_leader"
   },
   "tracks": [
+    {
+      "id": "facility.building",
+      "sound_event": "music.facility.building",
+      "resource": "music/facility/building",
+      "source_file": "another-red-bgm/HGSS 104 New Bark Town.ogg",
+      "category": "facility",
+      "usage": "일반 건물 내부",
+      "album": "Pokémon HeartGold & Pokémon SoulSilver"
+    },
     {
       "id": "battle.gym_leader",
       "sound_event": "music.battle.gym_leader",

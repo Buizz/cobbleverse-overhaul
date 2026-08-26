@@ -123,6 +123,7 @@ repositories {
 dependencies {
     compileOnly cobblemonBuildDependency
     compileOnly "curse.maven:cobbledollars-859232:8484919"
+    compileOnly "curse.maven:cobblenav-976014:7940651"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'

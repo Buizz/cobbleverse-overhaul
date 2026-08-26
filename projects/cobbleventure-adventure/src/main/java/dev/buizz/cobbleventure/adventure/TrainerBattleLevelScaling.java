@@ -20,6 +20,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -29,6 +30,7 @@ final class TrainerBattleLevelScaling {
     private static final String TBCS_REGISTRY = "tbcs";
     private static final long PENDING_RETENTION_TICKS = 20L * 20L;
     private static final Map<String, PendingTrainer> PENDING = new HashMap<>();
+    private static final Map<TrainerNPC, PendingTrainer> ACTIVE = new HashMap<>();
     private static boolean registered;
     private static boolean battleListenerRegistered;
 
@@ -43,6 +45,23 @@ final class TrainerBattleLevelScaling {
 
     private static void registerCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
+            Commands.literal("cobbleventure_instanced_trainer_battle")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .then(Commands.argument("opponent", EntityArgument.entity())
+                        .then(Commands.argument("battle_id", ResourceLocationArgument.id())
+                            .then(Commands.argument("trainer_id", ResourceLocationArgument.id())
+                                .then(Commands.argument("battle_command", StringArgumentType.greedyString())
+                                    .executes(context -> startInstanced(
+                                        context.getSource(),
+                                        EntityArgument.getPlayer(context, "player"),
+                                        EntityArgument.getEntity(context, "opponent"),
+                                        ResourceLocationArgument.getId(context, "battle_id"),
+                                        ResourceLocationArgument.getId(context, "trainer_id"),
+                                        StringArgumentType.getString(context, "battle_command")
+                                    )))))))
+        );
+        event.getDispatcher().register(
             Commands.literal("cobbleventure_scaled_trainer_battle")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("player", EntityArgument.player())
@@ -52,7 +71,7 @@ final class TrainerBattleLevelScaling {
                                 .then(Commands.argument("fallback_level", IntegerArgumentType.integer(1, 100))
                                     .then(Commands.argument("trainer_id", ResourceLocationArgument.id())
                                         .then(Commands.argument("battle_command", StringArgumentType.greedyString())
-                                            .executes(context -> start(
+                                            .executes(context -> startScaled(
                                                 context.getSource(),
                                                 EntityArgument.getPlayer(context, "player"),
                                                 EntityArgument.getEntity(context, "opponent"),
@@ -65,7 +84,20 @@ final class TrainerBattleLevelScaling {
         );
     }
 
-    private static int start(
+    private static int startInstanced(
+        CommandSourceStack source,
+        ServerPlayer player,
+        Entity opponent,
+        ResourceLocation battleId,
+        ResourceLocation trainerId,
+        String battleCommand
+    ) {
+        return startWithTrainerCopy(
+            source, player, opponent, battleId, trainerId, battleCommand, null
+        );
+    }
+
+    private static int startScaled(
         CommandSourceStack source,
         ServerPlayer player,
         Entity opponent,
@@ -79,6 +111,20 @@ final class TrainerBattleLevelScaling {
             player.serverLevel(), player.getX(), player.getZ()
         );
         int resolvedLevel = resolveLevel(regionalLevel, fallbackLevel, levelOffset);
+        return startWithTrainerCopy(
+            source, player, opponent, battleId, trainerId, battleCommand, resolvedLevel
+        );
+    }
+
+    private static int startWithTrainerCopy(
+        CommandSourceStack source,
+        ServerPlayer player,
+        Entity opponent,
+        ResourceLocation battleId,
+        ResourceLocation trainerId,
+        String battleCommand,
+        Integer resolvedLevel
+    ) {
         RCTApi tbcs = RCTApi.getInstance(TBCS_REGISTRY);
         if (tbcs == null) {
             source.sendFailure(Component.literal("TBCS trainer registry is not available."));
@@ -92,9 +138,31 @@ final class TrainerBattleLevelScaling {
             return 0;
         }
 
+        ArmorStand battleProxy = new ArmorStand(
+            player.serverLevel(), opponent.getX(), opponent.getY(), opponent.getZ()
+        );
+        battleProxy.setInvisible(true);
+        byte armorStandFlags = battleProxy.getEntityData().get(ArmorStand.DATA_CLIENT_FLAGS);
+        battleProxy.getEntityData().set(
+            ArmorStand.DATA_CLIENT_FLAGS,
+            (byte)(armorStandFlags | ArmorStand.CLIENT_FLAG_MARKER)
+        );
+        battleProxy.setNoGravity(true);
+        battleProxy.setInvulnerable(true);
+        battleProxy.setSilent(true);
+        battleProxy.setCustomName(opponent.getDisplayName());
+        battleProxy.addTag("cobbleventure_battle_proxy");
+        if (!player.serverLevel().addFreshEntity(battleProxy)) {
+            source.sendFailure(Component.literal("Could not create an isolated trainer battle actor."));
+            return 0;
+        }
+
         TrainerNPC scaledTrainer = new TrainerNPC(authoredTrainer);
-        for (var pokemon : scaledTrainer.getTeam()) {
-            pokemon.setLevel(resolvedLevel);
+        scaledTrainer.setEntity(battleProxy);
+        if (resolvedLevel != null) {
+            for (var pokemon : scaledTrainer.getTeam()) {
+                pokemon.setLevel(resolvedLevel);
+            }
         }
 
         ResourceLocation runtimeTrainerId = runtimeTrainerId();
@@ -108,13 +176,13 @@ final class TrainerBattleLevelScaling {
         String runtimeId = runtimeTrainerId.toString();
         registry.registerNPC(runtimeId, scaledTrainer);
         PENDING.put(runtimeId, new PendingTrainer(
-            scaledTrainer,
+            scaledTrainer, battleProxy,
             source.getServer().overworld().getGameTime() + PENDING_RETENTION_TICKS
         ));
 
-        String introCommand = "cobbleventure_battle_intro "
+        String introCommand = "cobbleventure_battle_intro_proxy "
             + player.getGameProfile().getName() + " " + opponent.getUUID() + " "
-            + battleId + " " + scaledCommand;
+            + battleProxy.getUUID() + " " + battleId + " " + scaledCommand;
         source.getServer().getCommands().performPrefixedCommand(source, introCommand);
         return 1;
     }
@@ -123,6 +191,7 @@ final class TrainerBattleLevelScaling {
         if (battleListenerRegistered) return;
         battleListenerRegistered = true;
         tbcs.getEventContext().register(Events.BATTLE_STARTED, event -> onBattleStarted(event.getValue()));
+        tbcs.getEventContext().register(Events.BATTLE_ENDED, event -> onBattleEnded(event.getValue()));
     }
 
     private static void onBattleStarted(BattleState battle) {
@@ -132,9 +201,20 @@ final class TrainerBattleLevelScaling {
         var startedTrainers = participants.toList();
         PENDING.entrySet().removeIf(entry -> {
             if (!startedTrainers.contains(entry.getValue().trainer())) return false;
+            ACTIVE.put(entry.getValue().trainer(), entry.getValue());
             unregister(entry.getKey());
             return true;
         });
+    }
+
+    private static void onBattleEnded(BattleState battle) {
+        Stream.concat(battle.getParticipants1().stream(), battle.getParticipants2().stream())
+            .filter(TrainerNPC.class::isInstance)
+            .map(TrainerNPC.class::cast)
+            .forEach(trainer -> {
+                PendingTrainer runtime = ACTIVE.remove(trainer);
+                if (runtime != null) runtime.proxy().discard();
+            });
     }
 
     private static void onServerTick(ServerTickEvent.Post event) {
@@ -143,6 +223,7 @@ final class TrainerBattleLevelScaling {
         PENDING.entrySet().removeIf(entry -> {
             if (entry.getValue().expiresAt() >= gameTime) return false;
             unregister(entry.getKey());
+            entry.getValue().proxy().discard();
             return true;
         });
     }
@@ -178,5 +259,7 @@ final class TrainerBattleLevelScaling {
             + normalized.substring(markerIndex + marker.length());
     }
 
-    private record PendingTrainer(TrainerNPC trainer, long expiresAt) {}
+    private record PendingTrainer(
+        TrainerNPC trainer, ArmorStand proxy, long expiresAt
+    ) {}
 }

@@ -113,8 +113,27 @@ final class StarterSpawnSystem {
             return;
         }
         StarterConfig config = configs.get(defaultGeneration);
-        if (config == null || !config.enabled || !hasStarted(player, config.generation)
-            || isValidated(player, config.generation)) {
+        if (config == null || !config.enabled || !hasStarted(player, config.generation)) {
+            return;
+        }
+        if (isValidated(player, config.generation)) {
+            String generationDimension = "cobbleventure:generation_" + config.generation;
+            BlockPos current = player.blockPosition();
+            if (!player.serverLevel().dimension().location().toString()
+                    .equals(generationDimension)
+                || !player.serverLevel().getBlockState(current.below()).isAir()) {
+                return;
+            }
+            BuildingRuntimeSystem.SpawnDestination repair =
+                CobbleventureBootstrap.resolveStarterSpawn(player.getServer(), config);
+            if (repair != null) {
+                LOGGER.warn(
+                    "Repairing unsupported multiplayer starter position: player={}, current={}",
+                    player.getGameProfile().getName(), current
+                );
+                move(player, repair, config.setRespawn);
+                CobbleventureBootstrap.markPlayerStarted(player);
+            }
             return;
         }
         BuildingRuntimeSystem.SpawnDestination destination =
@@ -162,6 +181,7 @@ final class StarterSpawnSystem {
             // correction seen while generation_1 chunks are handed to the client.
             markStarted(player, config.generation);
             markValidated(player, config.generation);
+            CobbleventureBootstrap.markPlayerStarted(player);
             LOGGER.info(
                 "Accepted starter building exit as generation arrival: player={}, generation={}",
                 player.getGameProfile().getName(), config.generation
@@ -174,6 +194,7 @@ final class StarterSpawnSystem {
             markStarted(player, config.generation);
             markValidated(player, config.generation);
             move(player, destination, config.setRespawn);
+            CobbleventureBootstrap.markPlayerStarted(player);
         }
     }
 
@@ -196,6 +217,7 @@ final class StarterSpawnSystem {
             destination.yaw(),
             0.0F
         );
+        InteriorMusicSystem.sync(player);
         if (setRespawn) {
             player.setRespawnPosition(
                 destination.level().dimension(), position, destination.yaw(), true, false

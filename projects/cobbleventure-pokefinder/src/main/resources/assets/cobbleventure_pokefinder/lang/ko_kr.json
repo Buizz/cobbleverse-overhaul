@@ -2,6 +2,8 @@
   "key.categories.cobbleventure_pokefinder": "Cobbleventure 포켓내비",
   "key.cobbleventure_pokefinder.toggle_hud": "포켓파인더 HUD 켜기/끄기",
   "message.cobbleventure_pokefinder.hud.on": "포켓파인더 HUD를 켰습니다.",
+  "message.cobbleventure_pokefinder.hud.left": "포켓파인더 HUD를 왼쪽 아래에 표시합니다.",
+  "message.cobbleventure_pokefinder.hud.right": "포켓파인더 HUD를 오른쪽 아래에 표시합니다.",
   "message.cobbleventure_pokefinder.hud.off": "포켓파인더 HUD를 껐습니다.",
   "message.cobbleventure_pokefinder.hud.missing_pokenav": "포켓내비에서 포켓파인더를 먼저 설정하세요.",
   "screen.cobbleventure_pokefinder.pokenav.hud": "포켓파인더 HUD: %s",

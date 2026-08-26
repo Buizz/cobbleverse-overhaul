@@ -30,6 +30,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -291,6 +292,14 @@ public final class PokemonCenterDefeatReturn {
         );
         destination.getChunk(position);
         boolean center = data.getBoolean(CHECKPOINT_IS_CENTER);
+        BlockPos safePosition = resolveRecoveryPosition(destination, position, center);
+        if (safePosition == null) {
+            player.sendSystemMessage(Component.translatable(
+                "message.cobbleventure_bootstrap.pokemon_center_missing"
+            ));
+            return;
+        }
+        position = safePosition;
         player.addEffect(new MobEffectInstance(
             MobEffects.DARKNESS,
             (int) (center ? NURSE_DIALOGUE_TIMEOUT_TICKS : RECOVERY_COMPLETE_TICKS) + 20,
@@ -393,6 +402,76 @@ public final class PokemonCenterDefeatReturn {
                 right.distanceToSqr(position.getCenter())
             ))
             .orElse(null);
+    }
+
+    private static BlockPos resolveRecoveryPosition(
+        ServerLevel level, BlockPos saved, boolean center
+    ) {
+        if (isSafeStandingRoom(level, saved)) return saved;
+        if (center) {
+            AABB column = new AABB(
+                saved.getX() - 32.0D, level.getMinBuildHeight(), saved.getZ() - 32.0D,
+                saved.getX() + 33.0D, level.getMaxBuildHeight(), saved.getZ() + 33.0D
+            );
+            Entity nurse = level.getEntities((Entity) null, column, entity ->
+                    entity.getTags().contains(NURSE_BINDING_TAG))
+                .stream()
+                .min((left, right) -> Double.compare(
+                    horizontalDistance(left.blockPosition(), saved),
+                    horizontalDistance(right.blockPosition(), saved)
+                ))
+                .orElse(null);
+            if (nurse != null) {
+                BlockPos nearNurse = findNearbySafeRoom(level, nurse.blockPosition(), 5, 6);
+                if (nearNurse != null) return nearNurse;
+            }
+        }
+        BlockPos nearby = findNearbySafeRoom(level, saved, 5, 16);
+        if (nearby != null) return nearby;
+        return findNearbySafeRoom(level, level.getSharedSpawnPos(), 8, 16);
+    }
+
+    private static double horizontalDistance(BlockPos left, BlockPos right) {
+        double x = left.getX() - right.getX();
+        double z = left.getZ() - right.getZ();
+        return x * x + z * z;
+    }
+
+    private static BlockPos findNearbySafeRoom(
+        ServerLevel level, BlockPos origin, int radius, int verticalRange
+    ) {
+        for (int horizontal = 0; horizontal <= radius; horizontal++) {
+            for (int x = -horizontal; x <= horizontal; x++) {
+                for (int z = -horizontal; z <= horizontal; z++) {
+                    if (Math.max(Math.abs(x), Math.abs(z)) != horizontal) continue;
+                    BlockPos column = origin.offset(x, 0, z);
+                    if (isSafeStandingRoom(level, column)) return column;
+                    for (int y = 1; y <= verticalRange; y++) {
+                        BlockPos above = column.above(y);
+                        if (isSafeStandingRoom(level, above)) return above;
+                        BlockPos below = column.below(y);
+                        if (isSafeStandingRoom(level, below)) return below;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean isSafeStandingRoom(ServerLevel level, BlockPos feet) {
+        if (feet.getY() <= level.getMinBuildHeight()
+            || feet.getY() + 1 >= level.getMaxBuildHeight()) {
+            return false;
+        }
+        BlockPos floor = feet.below();
+        var floorState = level.getBlockState(floor);
+        if (floorState.isAir() || floorState.is(Blocks.BARRIER)
+            || floorState.getCollisionShape(level, floor).isEmpty()) {
+            return false;
+        }
+        return level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+            && level.getBlockState(feet.above())
+                .getCollisionShape(level, feet.above()).isEmpty();
     }
 
     private static void startFallbackNurseRecovery(

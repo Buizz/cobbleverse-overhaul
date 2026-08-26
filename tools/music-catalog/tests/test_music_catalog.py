@@ -24,7 +24,7 @@ class MusicCatalogTest(unittest.TestCase):
         )
 
     def test_catalog_uses_only_selected_ogg_tracks(self) -> None:
-        self.assertEqual(24, len(self.catalog["tracks"]))
+        self.assertEqual(25, len(self.catalog["tracks"]))
         self.assertFalse(self.catalog["datapack_required"])
         self.assertFalse(self.catalog["source"]["audio_tracked_by_git"])
         self.assertTrue(
@@ -40,6 +40,7 @@ class MusicCatalogTest(unittest.TestCase):
         self.assertIn("music.kanto.pallet_town", manifest)
         self.assertIn("music.battle.victory_trainer", manifest)
         self.assertIn("music.facility.pokemon_center", manifest)
+        self.assertIn("music.facility.building", manifest)
         self.assertFalse(manifest["music.event.item_acquired"]["sounds"][0]["stream"])
         self.assertIn("music.event.key_item_acquired", manifest)
         self.assertIn("music.event.machine_acquired", manifest)

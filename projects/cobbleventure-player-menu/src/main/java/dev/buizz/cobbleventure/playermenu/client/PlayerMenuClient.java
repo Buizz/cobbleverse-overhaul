@@ -13,12 +13,17 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.bus.api.IEventBus;
+import org.lwjgl.glfw.GLFW;
 
 public final class PlayerMenuClient {
     private static final String IRIS_RELOAD_KEY = "iris.keybind.reload";
+    private static final String IRIS_SHADER_PACK_SELECTION_KEY = "iris.keybind.shaderPackSelection";
     private static final String COBBLEMON_SUMMARY_KEY = "key.cobblemon.summary";
+    private static final String COBBLEMON_HIDE_PARTY_KEY = "key.cobblemon.hideparty";
     private static boolean irisReloadKeyChecked;
+    private static boolean irisShaderPackSelectionKeyChecked;
     private static boolean cobblemonSummaryKeyChecked;
+    private static boolean cobblemonHidePartyKeyChecked;
 
     private PlayerMenuClient() {}
 
@@ -124,7 +129,9 @@ public final class PlayerMenuClient {
     private static void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         disableLegacyIrisReloadKey(minecraft);
+        disableLegacyIrisShaderPackSelectionKey(minecraft);
         disableLegacyCobblemonSummaryKey(minecraft);
+        disableLegacyCobblemonHidePartyKey(minecraft);
     }
 
     /** Migrates existing pack instances whose Iris reload key predates options.txt overrides. */
@@ -138,6 +145,26 @@ public final class PlayerMenuClient {
             }
             irisReloadKeyChecked = true;
             if (!"key.keyboard.r".equals(mapping.saveString())) {
+                return;
+            }
+            mapping.setKey(InputConstants.UNKNOWN);
+            KeyMapping.resetMapping();
+            minecraft.options.save();
+            return;
+        }
+    }
+
+    /** Frees O for the Pokefinder HUD while preserving a custom Iris binding. */
+    private static void disableLegacyIrisShaderPackSelectionKey(Minecraft minecraft) {
+        if (irisShaderPackSelectionKeyChecked || minecraft.options == null) {
+            return;
+        }
+        for (KeyMapping mapping : minecraft.options.keyMappings) {
+            if (!IRIS_SHADER_PACK_SELECTION_KEY.equals(mapping.getName())) {
+                continue;
+            }
+            irisShaderPackSelectionKeyChecked = true;
+            if (!"key.keyboard.o".equals(mapping.saveString())) {
                 return;
             }
             mapping.setKey(InputConstants.UNKNOWN);
@@ -161,6 +188,26 @@ public final class PlayerMenuClient {
                 return;
             }
             mapping.setKey(InputConstants.UNKNOWN);
+            KeyMapping.resetMapping();
+            minecraft.options.save();
+            return;
+        }
+    }
+
+    /** Moves Cobblemon's default O party toggle to an unused key for the Pokefinder HUD. */
+    private static void disableLegacyCobblemonHidePartyKey(Minecraft minecraft) {
+        if (cobblemonHidePartyKeyChecked || minecraft.options == null) {
+            return;
+        }
+        for (KeyMapping mapping : minecraft.options.keyMappings) {
+            if (!COBBLEMON_HIDE_PARTY_KEY.equals(mapping.getName())) {
+                continue;
+            }
+            cobblemonHidePartyKeyChecked = true;
+            if (!"key.keyboard.o".equals(mapping.saveString())) {
+                return;
+            }
+            mapping.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_LEFT_BRACKET));
             KeyMapping.resetMapping();
             minecraft.options.save();
             return;

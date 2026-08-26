@@ -9,6 +9,14 @@ base { archivesName = 'cobbleventure-live-nbt-editor' }
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 repositories { mavenCentral() }
 
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test { useJUnitPlatform() }
+
 def editorRunDirectory = file('run-live-editor-world')
 def editorWorldDirectory = file('run-live-editor-world/Cobbleventure Live NBT Editor')
 def packagedWorldDirectory = rootProject.file('../../pack/overrides/live-nbt-editor/saves/Cobbleventure Live NBT Editor')
@@ -49,6 +57,7 @@ neoForge {
         }
     }
     mods { "${mod_id}" { sourceSet sourceSets.main } }
+    addModdingDependenciesTo sourceSets.test
 }
 
 processResources {
@@ -63,6 +72,23 @@ processResources {
     ]
     inputs.properties properties
     filesMatching('META-INF/neoforge.mods.toml') { expand properties }
+    from('../cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure_bootstrap') {
+        into 'assets/cobbleventure_bootstrap'
+        include 'blockstates/excavation_marker.json'
+        include 'blockstates/strength_boulder.json'
+        include 'blockstates/strength_plate.json'
+        include 'blockstates/rock_smash_rock.json'
+        include 'models/block/excavation_marker.json'
+        include 'models/block/strength_boulder.json'
+        include 'models/block/strength_plate.json'
+        include 'models/block/rock_smash_rock.json'
+        include 'models/item/excavation_marker.json'
+        include 'models/item/strength_boulder.json'
+        include 'models/item/strength_plate.json'
+        include 'models/item/rock_smash_rock.json'
+        include 'lang/ko_kr.json'
+        include 'lang/en_us.json'
+    }
 }
 
 tasks.register('cleanInstalledLiveEditorJars', Delete) {

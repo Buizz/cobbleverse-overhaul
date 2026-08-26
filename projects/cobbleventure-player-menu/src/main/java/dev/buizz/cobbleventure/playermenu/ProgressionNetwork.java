@@ -67,6 +67,7 @@ public final class ProgressionNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(ProgressionNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(ProgressionNetwork::registerCommands);
+        NeoForge.EVENT_BUS.addListener(ProgressionNetwork::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(ProgressionNetwork::onPlayerClone);
         CobblemonEvents.EXPERIENCE_GAINED_EVENT_PRE.subscribe(
             Priority.HIGHEST,
@@ -89,6 +90,10 @@ public final class ProgressionNetwork {
         int initial = initialLevelCap(player.getServer());
         player.getPersistentData().putInt(LEVEL_CAP_KEY, initial);
         return initial;
+    }
+
+    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) sync(player);
     }
 
     private static void onPlayerClone(PlayerEvent.Clone event) {

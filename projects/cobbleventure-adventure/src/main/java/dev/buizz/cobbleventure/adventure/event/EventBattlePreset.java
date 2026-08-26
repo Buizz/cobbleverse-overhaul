@@ -79,8 +79,8 @@ public record EventBattlePreset(
                 + opponentId + " " + battleId + " " + levelOffset + " "
                 + fallbackLevel + " " + runtimeTrainerId + " " + nested;
         }
-        return "cobbleventure_battle_intro " + playerName + " " + opponentId
-            + " " + battleId + " " + nested;
+        return "cobbleventure_instanced_trainer_battle " + playerName + " "
+            + opponentId + " " + battleId + " " + runtimeTrainerId + " " + nested;
     }
 
     public String rctTrainerId() {

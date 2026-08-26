@@ -6,7 +6,7 @@
   "client": [
     "GuiMixin",
     "MainScreenMixin",
-    "PokenavScreenAccessor",
+    "OpenedRadialMenuMixin",
     "PokefinderOverlayMixin",
     "PokefinderScreenMixin"
   ],

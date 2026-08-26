@@ -410,6 +410,7 @@ public final class CobbleventureBootstrap {
         LocalWeatherSystem.register(modBus);
         GateDialogueNetwork.register(modBus);
         GymBlockerVisibilityNetwork.register(modBus);
+        CopycatRenderSyncNetwork.register(modBus);
         DungeonSystem.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
@@ -873,6 +874,7 @@ public final class CobbleventureBootstrap {
             GymInteriorSystem.initialize(event.getServer());
         }
         BuildingRuntimeSystem.initialize(event.getServer());
+        prepareExistingEntrancePokemonCenterRuntime(level, runtime.hexWorld());
         DungeonSystem.initialize(event.getServer(), runtime.hexWorld());
         WorldStructureSystem.placeAll(level, runtime.hexWorld());
         StarterSpawnSystem.initialize(event.getServer());
@@ -2158,6 +2160,77 @@ public final class CobbleventureBootstrap {
             "Existing Pokemon Center NBT placed for cave entrance: entrance={}, structure={}, origin={}, facing={}, rotation={}",
             entrance.id(), structure, origin, roadFacing, rotation
         );
+    }
+
+    /**
+     * Entrance facilities are placed before BuildingRuntimeSystem loads its NBT anchor
+     * metadata during server startup. Re-run only the runtime-anchor phase afterwards;
+     * replacing the structure NBT here would overwrite the already generated facility.
+     */
+    private static void prepareExistingEntrancePokemonCenterRuntime(
+        ServerLevel level, HexWorldPlan world
+    ) {
+        int prepared = 0;
+        for (CaveEntrancePlan entrance : world.caveEntrances()) {
+            if (!entrance.pokemonCenterEnabled()) {
+                continue;
+            }
+            Point entranceCenter = world.grid().worldCenter(entrance.anchor());
+            HexCoord offset = entrance.pokemonCenterOffset();
+            Point offsetCenter = world.grid().worldCenter(new HexCoord(
+                entrance.anchor().q() + offset.q(), entrance.anchor().r() + offset.r()
+            ));
+            double deltaX = offsetCenter.x() - entranceCenter.x();
+            double deltaZ = offsetCenter.z() - entranceCenter.z();
+            double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
+            int centerX = entranceCenter.x() + (int) Math.round(deltaX / length * 28.0D);
+            int centerZ = entranceCenter.z() + (int) Math.round(deltaZ / length * 28.0D);
+            String structure = entrance.pokemonCenterStructure();
+            ResourceLocation structureId = ResourceLocation.tryParse(structure);
+            var template = structureId == null
+                ? Optional.<StructureTemplate>empty()
+                : level.getStructureManager().get(structureId);
+            if (template.isEmpty()) {
+                LOGGER.error(
+                    "Entrance Pokemon Center runtime metadata skipped because its template is missing: entrance={}, structure={}",
+                    entrance.id(), structure
+                );
+                continue;
+            }
+            var size = template.orElseThrow().getSize();
+            Direction roadFacing = horizontalDirection(
+                entranceCenter.x() - centerX, entranceCenter.z() - centerZ
+            );
+            String rotation = pokemonCenterRotation(roadFacing);
+            boolean quarterTurn = rotation.equals("clockwise_90")
+                || rotation.equals("counterclockwise_90");
+            int footprintWidth = quarterTurn ? size.getZ() : size.getX();
+            int footprintDepth = quarterTurn ? size.getX() : size.getZ();
+            int groundY = plannedTerrainGroundY(level, centerX, centerZ);
+            BlockPoint origin = new BlockPoint(
+                centerX - footprintWidth / 2,
+                groundY - 3,
+                centerZ - footprintDepth / 2
+            );
+            FacilityPlacement facility = new FacilityPlacement(
+                "facility_pokemon_center", "direct_template", structure,
+                "pokemon_center", "포켓몬센터", "cave_entrance", null, null,
+                null, null, null, 0.0D,
+                footprintWidth, footprintDepth, size.getY(), 4
+            );
+            BlockPoint placedOrigin = facilityPlacementOrigin(
+                level, facility, origin, rotation
+            );
+            BuildingRuntimeSystem.onStructurePlaced(
+                level, structure, placedOrigin, rotation
+            );
+            prepared++;
+        }
+        if (prepared > 0) {
+            LOGGER.info(
+                "Entrance Pokemon Center runtime anchors restored: centers={}", prepared
+            );
+        }
     }
 
     private static String pokemonCenterRotation(Direction facing) {
@@ -5463,6 +5536,7 @@ public final class CobbleventureBootstrap {
                     gameTime
                 );
                 if (gameTime % 10L == 0L) {
+                    InteriorMusicSystem.sync(player);
                     MusicPlayback.tickDimension(
                         player, "cave", caveIdAt(player.getX(), player.getZ())
                     );
@@ -5493,6 +5567,7 @@ public final class CobbleventureBootstrap {
                     );
                 }
                 if (gameTime % 10L == 0L) {
+                    InteriorMusicSystem.sync(player);
                     MusicPlayback.tickDimension(
                         player, "forest", forestRegion.forestId()
                     );
@@ -5504,6 +5579,7 @@ public final class CobbleventureBootstrap {
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
                 if (gameTime % 10L == 0L) {
+                    InteriorMusicSystem.sync(player);
                     MusicPlayback.tickRetainedContext(player);
                 }
                 continue;
@@ -5803,16 +5879,26 @@ public final class CobbleventureBootstrap {
             if (facility == null) {
                 continue;
             }
-            int originX = settlement.center().x() + (int) Math.round(center.x());
-            int originZ = settlement.center().z() + (int) Math.round(center.z());
             TownRoad entrance = townBuildingEntranceRoad(layout, center);
             int entranceX = settlement.center().x() + entrance.x2();
             int entranceZ = settlement.center().z() + entrance.z2();
-            BlockPoint origin = facilityTemplateOrigin(
-                level, facility, originX,
-                loadedRoadSurfaceY(level, entranceX, entranceZ),
-                originZ, center.rotation()
-            );
+            String eventSpaceId = buildingEventSpaceId(settlement.id(), facility.id());
+            BuildingRuntimeSystem.PlacedBuilding placed =
+                BuildingRuntimeSystem.resolvePlacedBuilding(
+                    level.getServer(), level.dimension(), facility.structure(), eventSpaceId
+                );
+            BlockPoint origin;
+            if (placed != null) {
+                origin = placed.origin();
+            } else {
+                int originX = settlement.center().x() + (int) Math.round(center.x());
+                int originZ = settlement.center().z() + (int) Math.round(center.z());
+                origin = facilityTemplateOrigin(
+                    level, facility, originX,
+                    loadedRoadSurfaceY(level, entranceX, entranceZ),
+                    originZ, center.rotation()
+                );
+            }
             BlockPos exit = surfacePosition(
                 level, entranceX, entranceZ
             );
@@ -14556,20 +14642,38 @@ public final class CobbleventureBootstrap {
             );
             return null;
         }
-        BlockPoint resolved = facility.mode().equals("instanced_entry")
-            ? facility.instanceOrigin()
-            : resolveDirectFacilityPosition(level, settlement, facility);
-        BlockPoint position = resolved == null ? null
-            : applyBuildingPlacementYOffset(facility.structure(), resolved);
-        if (position == null) {
-            return null;
+        String eventSpaceId = buildingEventSpaceId(settlement.id(), facility.id());
+        BuildingRuntimeSystem.PlacedBuilding existing =
+            BuildingRuntimeSystem.resolvePlacedBuilding(
+                server, level.dimension(), facility.structure(), eventSpaceId
+            );
+        String rotation;
+        BlockPoint placedOrigin;
+        if (existing != null) {
+            placedOrigin = existing.origin();
+            rotation = existing.rotation() == null || existing.rotation().isBlank()
+                ? facilityRuntimeRotation(settlement, facility)
+                : existing.rotation();
+            LOGGER.debug(
+                "Reusing placed starter building: player-independent eventSpace={}, origin={}",
+                eventSpaceId, placedOrigin
+            );
+        } else {
+            BlockPoint resolved = facility.mode().equals("instanced_entry")
+                ? facility.instanceOrigin()
+                : resolveDirectFacilityPosition(level, settlement, facility);
+            BlockPoint position = resolved == null ? null
+                : applyBuildingPlacementYOffset(facility.structure(), resolved);
+            if (position == null) {
+                return null;
+            }
+            rotation = facilityRuntimeRotation(settlement, facility);
+            placedOrigin = facility.mode().equals("direct_template")
+                ? facilityPlacementOrigin(level, facility, position, rotation) : position;
         }
-        String rotation = facilityRuntimeRotation(settlement, facility);
-        BlockPoint placedOrigin = facility.mode().equals("direct_template")
-            ? facilityPlacementOrigin(level, facility, position, rotation) : position;
         BuildingRuntimeSystem.onStructurePlaced(
             level, facility.structure(), placedOrigin, rotation,
-            buildingEventSpaceId(settlement.id(), facility.id()),
+            eventSpaceId,
             isDepartmentStoreFacility(facility.id())
                 ? settlement.vendorAssignments() : null
         );
@@ -14596,6 +14700,11 @@ public final class CobbleventureBootstrap {
             player.getPersistentData().putBoolean(PLAYER_STARTED, true);
             player.getPersistentData().remove(PLAYER_WAITING);
         }
+    }
+
+    static void markPlayerStarted(ServerPlayer player) {
+        player.getPersistentData().putBoolean(PLAYER_STARTED, true);
+        player.getPersistentData().remove(PLAYER_WAITING);
     }
 
     private static void moveWaitingPlayersToStart(ServerLevel level, BlockPos spawnPos) {

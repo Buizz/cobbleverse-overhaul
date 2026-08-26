@@ -307,6 +307,38 @@ final class BuildingRuntimeSystem {
         return new SpawnDestination(level, position, anchor.facing.toYRot());
     }
 
+    /**
+     * Returns the already placed exterior for a stable authored event-space ID.
+     *
+     * <p>Facility positions must not be recalculated from a heightmap when another player
+     * joins. Native chunks can briefly report an unprepared height during login, while the
+     * persisted building instance remains the authoritative placement.</p>
+     */
+    static PlacedBuilding resolvePlacedBuilding(
+        MinecraftServer server, ResourceKey<Level> dimension,
+        String structure, String eventSpaceId
+    ) {
+        if (server == null || dimension == null || structure == null
+            || eventSpaceId == null || eventSpaceId.isBlank()) {
+            return null;
+        }
+        String dimensionId = dimension.location().toString();
+        return data(server).buildingInstances().stream()
+            .filter(instance -> instance.dimension.equals(dimensionId))
+            .filter(instance -> instance.structure.equals(structure))
+            .filter(instance -> eventSpaceId.equals(instance.eventSpaceId))
+            // A legacy bad login could have persisted a second instance at Y=-1. The
+            // generated structure is the higher, actually placed candidate.
+            .max(java.util.Comparator.comparingInt(instance -> instance.origin.getY()))
+            .map(instance -> new PlacedBuilding(
+                new CobbleventureBootstrap.BlockPoint(
+                    instance.origin.getX(), instance.origin.getY(), instance.origin.getZ()
+                ),
+                instance.rotation
+            ))
+            .orElse(null);
+    }
+
     static SpawnDestination resolveAutomaticNpcSpawn(
         ServerLevel exterior, String exteriorStructure,
         CobbleventureBootstrap.BlockPoint exteriorOrigin, String rotationName, int slot
@@ -662,6 +694,28 @@ final class BuildingRuntimeSystem {
         return settings == null ? null : settings.musicTrack;
     }
 
+    static boolean isInteriorDimension(ServerLevel level) {
+        return level.dimension().equals(INTERIORS);
+    }
+
+    static String interiorMusicTrackAt(ServerPlayer player) {
+        if (!isInteriorDimension(player.serverLevel())) {
+            return null;
+        }
+        BlockPos position = player.blockPosition();
+        for (EventSpaceInstance registration : EVENT_SPACES.values()) {
+            for (SpaceInstance space : registration.spaces.values()) {
+                if (space.level.dimension().equals(INTERIORS) && space.contains(position)) {
+                    String track = musicTrack(space.structure);
+                    if (track != null && !track.isBlank()) {
+                        return track;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Generated house variants append a roof-colour suffix to the editor's
      * base resource ID. Resolve them to the explicitly authored base setting;
@@ -709,7 +763,15 @@ final class BuildingRuntimeSystem {
 
     private static int restorePersistedBuildingInstances(MinecraftServer server) {
         int restored = 0;
-        for (PersistedBuildingInstance instance : data(server).buildingInstances()) {
+        List<PersistedBuildingInstance> persisted = data(server).buildingInstances();
+        for (PersistedBuildingInstance instance : persisted) {
+            if (!isAuthoritativeEventSpaceInstance(instance, persisted)) {
+                LOGGER.warn(
+                    "Ignoring superseded building instance for event space {}: origin={}",
+                    instance.eventSpaceId, instance.origin
+                );
+                continue;
+            }
             ResourceLocation dimensionId = ResourceLocation.tryParse(instance.dimension);
             if (dimensionId == null) {
                 LOGGER.warn("Ignoring building runtime instance with invalid dimension: {}", instance);
@@ -746,6 +808,22 @@ final class BuildingRuntimeSystem {
             restored++;
         }
         return restored;
+    }
+
+    private static boolean isAuthoritativeEventSpaceInstance(
+        PersistedBuildingInstance candidate, List<PersistedBuildingInstance> instances
+    ) {
+        if (candidate.eventSpaceId == null || candidate.eventSpaceId.isBlank()) return true;
+        PersistedBuildingInstance selected = instances.stream()
+            .filter(instance -> candidate.dimension.equals(instance.dimension))
+            .filter(instance -> candidate.structure.equals(instance.structure))
+            .filter(instance -> candidate.eventSpaceId.equals(instance.eventSpaceId))
+            .max(java.util.Comparator
+                .comparingInt((PersistedBuildingInstance instance) -> instance.origin.getY())
+                .thenComparingInt(instance -> instance.origin.getX())
+                .thenComparingInt(instance -> instance.origin.getZ()))
+            .orElse(candidate);
+        return candidate.equals(selected);
     }
 
     private static String detectExteriorRotation(
@@ -1564,24 +1642,27 @@ final class BuildingRuntimeSystem {
             return;
         }
         destination.getChunkAt(target.position);
-        if (target.interior && !hasSafeSpawnSupport(destination, target.position)) {
+        BlockPos safePosition = findSafeDoorDestination(destination, target.position);
+        if (safePosition == null) {
             LOGGER.error(
-                "Building teleport blocked because the prepared interior is absent: "
-                    + "dimension={}, destination={}",
-                target.dimension.location(), target.position
+                "Building teleport blocked because the destination has no safe standing room: "
+                    + "dimension={}, destination={}, interior={}",
+                target.dimension.location(), target.position, target.interior
             );
             player.sendSystemMessage(Component.literal(
-                "[건물 출입구] 내부 공간이 아직 준비되지 않아 이동을 중단했습니다."
+                "[건물 출입구] 안전한 이동 위치를 찾지 못해 이동을 중단했습니다."
             ));
             return;
         }
         ResourceKey<Level> sourceDimension = player.level().dimension();
         player.teleportTo(
             destination,
-            target.position.getX() + 0.5D, target.position.getY(), target.position.getZ() + 0.5D,
+            safePosition.getX() + 0.5D, safePosition.getY(), safePosition.getZ() + 0.5D,
             player.getYRot(), player.getXRot()
         );
-        DoorTransitionSound.afterTeleport(player, sourceDimension, target.position);
+        player.setDeltaMovement(Vec3.ZERO);
+        player.resetFallDistance();
+        DoorTransitionSound.afterTeleport(player, sourceDimension, safePosition);
         if (target.interior) MusicPlayback.enterInterior(player, target.musicTrack);
         else MusicPlayback.leaveInterior(player);
     }
@@ -1736,6 +1817,44 @@ final class BuildingRuntimeSystem {
         return !level.getBlockState(safeSpawn.below()).isAir();
     }
 
+    private static BlockPos findSafeDoorDestination(ServerLevel level, BlockPos authored) {
+        if (hasSafeStandingRoom(level, authored)) return authored;
+        for (int vertical = 1; vertical <= 12; vertical++) {
+            BlockPos above = authored.above(vertical);
+            if (hasSafeStandingRoom(level, above)) return above;
+            BlockPos below = authored.below(vertical);
+            if (hasSafeStandingRoom(level, below)) return below;
+        }
+        for (int radius = 1; radius <= 4; radius++) {
+            for (int x = -radius; x <= radius; x++) {
+                for (int z = -radius; z <= radius; z++) {
+                    if (Math.max(Math.abs(x), Math.abs(z)) != radius) continue;
+                    BlockPos column = authored.offset(x, 0, z);
+                    if (hasSafeStandingRoom(level, column)) return column;
+                    for (int vertical = 1; vertical <= 12; vertical++) {
+                        BlockPos above = column.above(vertical);
+                        if (hasSafeStandingRoom(level, above)) return above;
+                        BlockPos below = column.below(vertical);
+                        if (hasSafeStandingRoom(level, below)) return below;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean hasSafeStandingRoom(ServerLevel level, BlockPos feet) {
+        BlockPos floor = feet.below();
+        BlockState floorState = level.getBlockState(floor);
+        if (floorState.isAir() || floorState.is(Blocks.BARRIER)
+            || floorState.getCollisionShape(level, floor).isEmpty()) {
+            return false;
+        }
+        return level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()
+            && level.getBlockState(feet.above())
+                .getCollisionShape(level, feet.above()).isEmpty();
+    }
+
     private static BlockPos position(JsonObject value, String key, BlockPos fallback) {
         if (!value.has(key)) {
             return fallback;
@@ -1873,6 +1992,11 @@ final class BuildingRuntimeSystem {
     private record PersistedBuildingInstance(
         String dimension, String structure, BlockPos origin, String rotation,
         String eventSpaceId
+    ) {
+    }
+
+    record PlacedBuilding(
+        CobbleventureBootstrap.BlockPoint origin, String rotation
     ) {
     }
 

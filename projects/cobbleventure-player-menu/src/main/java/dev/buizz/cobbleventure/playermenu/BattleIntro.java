@@ -106,6 +106,23 @@ public final class BattleIntro {
                                 ))))))
         );
         event.getDispatcher().register(
+            Commands.literal("cobbleventure_battle_intro_proxy")
+                .requires(source -> source.hasPermission(2))
+                .then(Commands.argument("player", EntityArgument.player())
+                    .then(Commands.argument("display_opponent", EntityArgument.entity())
+                        .then(Commands.argument("battle_opponent", EntityArgument.entity())
+                            .then(Commands.argument("battle_id", ResourceLocationArgument.id())
+                                .then(Commands.argument("battle_command", StringArgumentType.greedyString())
+                                    .executes(context -> start(
+                                        context.getSource(),
+                                        EntityArgument.getPlayer(context, "player"),
+                                        EntityArgument.getEntity(context, "display_opponent"),
+                                        EntityArgument.getEntity(context, "battle_opponent"),
+                                        ResourceLocationArgument.getId(context, "battle_id").toString(),
+                                        StringArgumentType.getString(context, "battle_command")
+                                    )))))))
+        );
+        event.getDispatcher().register(
             Commands.literal("cobbleventure_battle_warning")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.argument("player", EntityArgument.player())
@@ -281,6 +298,13 @@ public final class BattleIntro {
         CommandSourceStack source, ServerPlayer player, Entity opponent,
         String battleId, String battleCommand
     ) {
+        return start(source, player, opponent, opponent, battleId, battleCommand);
+    }
+
+    private static int start(
+        CommandSourceStack source, ServerPlayer player, Entity displayOpponent,
+        Entity battleOpponent, String battleId, String battleCommand
+    ) {
         String normalized = battleCommand.startsWith("/")
             ? battleCommand.substring(1)
             : battleCommand;
@@ -299,23 +323,23 @@ public final class BattleIntro {
         long executeAt = source.getServer().overworld().getGameTime() + DURATION_TICKS;
         Vec3 lockedPosition = player.position();
         PendingBattle pending = new PendingBattle(
-            opponent.createCommandSourceStack()
+            battleOpponent.createCommandSourceStack()
                 .withPermission(4)
                 .withSuppressedOutput(),
-            normalized, executeAt, opponent, lockedPosition,
+            normalized, executeAt, displayOpponent, lockedPosition,
             player.getYRot(), player.getXRot()
         );
         PENDING.put(player.getUUID(), pending);
         DIALOGUE_PENDING.remove(new ProximityKey(
-            player.getUUID(), opponent.getUUID()
+            player.getUUID(), displayOpponent.getUUID()
         ));
         freezeForIntro(player, pending);
         MusicPlayback.prepareBattle(player, battleId);
         PacketDistributor.sendToPlayer(player, new OpenPayload(
             player.getId(),
-            opponent.getId(),
+            displayOpponent.getId(),
             player.getDisplayName().getString(),
-            opponent.getDisplayName().getString(),
+            displayOpponent.getDisplayName().getString(),
             DURATION_TICKS
         ));
         return 1;

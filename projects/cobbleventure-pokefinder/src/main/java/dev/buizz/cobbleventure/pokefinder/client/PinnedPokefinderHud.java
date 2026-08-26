@@ -45,6 +45,19 @@ public final class PinnedPokefinderHud {
         return state.position();
     }
 
+    public static void cycle() {
+        state = next(state);
+        save(STATE_FILE, state);
+    }
+
+    static State next(State current) {
+        if (!current.enabled()) return new State(true, PokefinderHudPosition.LEFT);
+        if (current.position() == PokefinderHudPosition.LEFT) {
+            return new State(true, PokefinderHudPosition.RIGHT);
+        }
+        return new State(false, PokefinderHudPosition.LEFT);
+    }
+
     public static void markPokenavOpened() {
         pokenavOpenedThisSession = true;
     }

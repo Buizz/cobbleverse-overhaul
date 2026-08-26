@@ -16,7 +16,7 @@ final class EventBattlePresetRepositoryTest {
     );
 
     @Test
-    void loadsFixedPresetAndBuildsExistingIntroCommand() {
+    void fixedPresetUsesPerBattleTrainerInstance() {
         EventBattlePresetRepository repository = new EventBattlePresetRepository();
         repository.replace(Map.of(
             ResourceLocation.parse("cobbleventure:examples/ai_test"), document(
@@ -28,8 +28,9 @@ final class EventBattlePresetRepositoryTest {
             .orElseThrow();
         assertEquals("cobbleventure:trainer/ai_test", preset.trainerId());
         assertEquals(
-            "cobbleventure_battle_intro Red " + NPC
-                + " cobbleventure:battle/ai_test tbcs battle GEN_9_SINGLES Red"
+            "cobbleventure_instanced_trainer_battle Red " + NPC
+                + " cobbleventure:battle/ai_test rctmod:ai_test"
+                + " tbcs battle GEN_9_SINGLES Red"
                 + " vs @s as rctmod:ai_test rules {maxItemUses:2}",
             preset.launchCommand("Red", NPC)
         );

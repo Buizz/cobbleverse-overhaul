@@ -23,6 +23,18 @@ final class CreateElevatorEntityRelocation {
         BlockPos placedEntityBlockPosition,
         StructurePlaceSettings settings
     ) {
+        return relocate(
+            source, placedEntityPosition, placedEntityBlockPosition, settings, null
+        );
+    }
+
+    static CompoundTag relocate(
+        CompoundTag source,
+        Vec3 placedEntityPosition,
+        BlockPos placedEntityBlockPosition,
+        StructurePlaceSettings settings,
+        int[] contactRange
+    ) {
         CompoundTag sourceContraption = source.getCompound("Contraption");
         if (!source.getString("id").equals("create:stationary_contraption")
             || !sourceContraption.getString("Type").equals("create:elevator")) {
@@ -48,8 +60,13 @@ final class CreateElevatorEntityRelocation {
         int verticalOffset = (int) Math.round(
             placedEntityPosition.y - authoredEntityPosition.y
         );
-        relocateAbsoluteY(contraption, "MinContactY", verticalOffset);
-        relocateAbsoluteY(contraption, "MaxContactY", verticalOffset);
+        if (contactRange != null) {
+            contraption.putInt("MinContactY", contactRange[0]);
+            contraption.putInt("MaxContactY", contactRange[1]);
+        } else {
+            relocateAbsoluteY(contraption, "MinContactY", verticalOffset);
+            relocateAbsoluteY(contraption, "MaxContactY", verticalOffset);
+        }
 
         ListTag actors = contraption.getList("Actors", Tag.TAG_COMPOUND);
         for (int index = 0; index < actors.size(); index++) {
