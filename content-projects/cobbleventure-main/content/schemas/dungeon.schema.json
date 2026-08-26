@@ -113,6 +113,39 @@
         "allow_escape_actions": { "type": "boolean" }
       }
     },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "seed_policy", "fallback"],
+      "properties": {
+        "mode": { "enum": ["authored", "runtime", "authored_pool"] },
+        "plan_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resource_id" }
+        },
+        "seed_policy": {
+          "enum": ["fixed", "random_per_run", "daily", "weekly", "match", "player"]
+        },
+        "fallback": {
+          "enum": ["reject_entry", "use_last_valid", "use_fallback_plan"]
+        },
+        "generation_timeout_ms": {
+          "type": "integer", "minimum": 1, "maximum": 60000, "default": 1000
+        },
+        "max_attempts": {
+          "type": "integer", "minimum": 1, "maximum": 1000, "default": 32
+        }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "mode": { "const": "authored_pool" } },
+          "required": ["mode"]
+        },
+        "then": { "required": ["plan_ids"] }
+      }]
+    },
     "terrain": {
       "type": "object",
       "additionalProperties": false,
@@ -121,12 +154,38 @@
         "mode": { "enum": ["fixed_template", "nbt_pieces", "procedural_cave", "hybrid"] },
         "template": { "$ref": "#/$defs/resource_id" },
         "entry_position": { "$ref": "#/$defs/block_position" },
-        "exit_position": { "$ref": "#/$defs/block_position" }
+        "exit_position": { "$ref": "#/$defs/block_position" },
+        "piece_pool": { "$ref": "#/$defs/resource_id" },
+        "bounds": { "$ref": "#/$defs/positive_block_position" }
       },
-      "allOf": [{
-        "if": { "properties": { "mode": { "const": "fixed_template" } }, "required": ["mode"] },
-        "then": { "required": ["template", "entry_position", "exit_position"] }
-      }]
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "fixed_template" } }, "required": ["mode"] },
+          "then": { "required": ["template", "entry_position", "exit_position"] }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "nbt_pieces" } }, "required": ["mode"] },
+          "then": { "required": ["piece_pool", "bounds"] }
+        }
+      ]
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode", "critical_path_rooms", "branch_count", "branch_depth"
+      ],
+      "properties": {
+        "mode": {
+          "enum": ["fixed", "critical_path_branches", "maze", "rooms_and_corridors"]
+        },
+        "critical_path_rooms": { "$ref": "#/$defs/room_range" },
+        "branch_count": { "$ref": "#/$defs/nonnegative_range" },
+        "branch_depth": { "$ref": "#/$defs/positive_range" },
+        "loop_chance": {
+          "type": "number", "minimum": 0, "maximum": 1, "default": 0
+        }
+      }
     },
     "encounters": {
       "type": "array",
@@ -250,6 +309,18 @@
     {
       "if": {
         "properties": {
+          "terrain": {
+            "properties": { "mode": { "const": "nbt_pieces" } },
+            "required": ["mode"]
+          }
+        },
+        "required": ["terrain"]
+      },
+      "then": { "required": ["plan", "layout"] }
+    },
+    {
+      "if": {
+        "properties": {
           "completion": {
             "properties": { "repeatable": { "const": true } },
             "required": ["repeatable"]
@@ -286,6 +357,43 @@
       ],
       "minItems": 3,
       "maxItems": 3
+    },
+    "positive_block_position": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "integer", "minimum": 1 },
+        { "type": "integer", "minimum": 1 }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "room_range": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer", "minimum": 3, "maximum": 256 },
+        { "type": "integer", "minimum": 3, "maximum": 256 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "nonnegative_range": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer", "minimum": 0, "maximum": 128 },
+        { "type": "integer", "minimum": 0, "maximum": 128 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "positive_range": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer", "minimum": 1, "maximum": 64 },
+        { "type": "integer", "minimum": 1, "maximum": 64 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
     },
     "entrance": {
       "type": "object",

@@ -29,7 +29,9 @@ record DungeonDefinition(
     Multiplayer multiplayer,
     Match match,
     BattleRules battleRules,
+    Plan plan,
     Terrain terrain,
+    Layout layout,
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
     Support support,
@@ -199,6 +201,88 @@ record DungeonDefinition(
             ? blockPosition(terrain, "entry_position") : null;
         BlockPos exitPosition = terrainMode.equals("fixed_template")
             ? blockPosition(terrain, "exit_position") : null;
+        String piecePool = terrain.has("piece_pool")
+            ? resourceId(terrain, "piece_pool") : null;
+        BlockPos terrainBounds = terrain.has("bounds")
+            ? positiveBlockPosition(terrain, "bounds") : null;
+        if (terrainMode.equals("nbt_pieces")
+            && (piecePool == null || terrainBounds == null)) {
+            throw new IllegalStateException(
+                "nbt_pieces dungeon requires terrain.piece_pool and terrain.bounds: " + id
+            );
+        }
+
+        Plan plan = defaultPlan(terrainMode);
+        if (root.has("plan")) {
+            JsonObject configuredPlan = requiredObject(root, "plan");
+            List<String> planIds = new ArrayList<>();
+            if (configuredPlan.has("plan_ids")) {
+                for (JsonElement element : requiredArray(configuredPlan, "plan_ids")) {
+                    String planId = element.getAsString();
+                    if (ResourceLocation.tryParse(planId) == null) {
+                        throw new IllegalStateException("Invalid dungeon plan ID: " + planId);
+                    }
+                    planIds.add(planId);
+                }
+            }
+            int generationTimeoutMs = configuredPlan.has("generation_timeout_ms")
+                ? requiredInt(configuredPlan, "generation_timeout_ms") : 1000;
+            int maxAttempts = configuredPlan.has("max_attempts")
+                ? requiredInt(configuredPlan, "max_attempts") : 32;
+            if (generationTimeoutMs < 1 || generationTimeoutMs > 60_000
+                || maxAttempts < 1 || maxAttempts > 1000) {
+                throw new IllegalStateException("Invalid dungeon plan limits: " + id);
+            }
+            plan = new Plan(
+                enumValue(configuredPlan, "mode", List.of(
+                    "authored", "runtime", "authored_pool"
+                )),
+                List.copyOf(planIds),
+                enumValue(configuredPlan, "seed_policy", List.of(
+                    "fixed", "random_per_run", "daily", "weekly", "match", "player"
+                )),
+                enumValue(configuredPlan, "fallback", List.of(
+                    "reject_entry", "use_last_valid", "use_fallback_plan"
+                )),
+                generationTimeoutMs,
+                maxAttempts
+            );
+            if (plan.mode().equals("authored_pool") && plan.planIds().isEmpty()) {
+                throw new IllegalStateException(
+                    "authored_pool dungeon requires plan.plan_ids: " + id
+                );
+            }
+        }
+
+        Layout layout = null;
+        if (root.has("layout")) {
+            JsonObject configuredLayout = requiredObject(root, "layout");
+            IntRange criticalPath = integerRange(
+                configuredLayout, "critical_path_rooms", 3, 256
+            );
+            IntRange branchCount = integerRange(
+                configuredLayout, "branch_count", 0, 128
+            );
+            IntRange branchDepth = integerRange(
+                configuredLayout, "branch_depth", 1, 64
+            );
+            double loopChance = configuredLayout.has("loop_chance")
+                ? configuredLayout.get("loop_chance").getAsDouble() : 0.0D;
+            if (loopChance < 0.0D || loopChance > 1.0D) {
+                throw new IllegalStateException("Invalid dungeon layout loop_chance: " + id);
+            }
+            layout = new Layout(
+                enumValue(configuredLayout, "mode", List.of(
+                    "fixed", "critical_path_branches", "maze", "rooms_and_corridors"
+                )),
+                criticalPath, branchCount, branchDepth, loopChance
+            );
+        }
+        if (terrainMode.equals("nbt_pieces") && layout == null) {
+            throw new IllegalStateException(
+                "nbt_pieces dungeon requires layout settings: " + id
+            );
+        }
         List<Encounter> encounters = new ArrayList<>();
         Set<String> encounterIds = new HashSet<>();
         for (JsonElement element : requiredArray(root, "encounters")) {
@@ -632,7 +716,12 @@ record DungeonDefinition(
                 requiredBoolean(battleRules, "allow_items"),
                 requiredBoolean(battleRules, "allow_escape_actions")
             ),
-            new Terrain(terrainMode, template, entryPosition, exitPosition),
+            plan,
+            new Terrain(
+                terrainMode, template, entryPosition, exitPosition,
+                piecePool, terrainBounds
+            ),
+            layout,
             List.copyOf(encounters),
             new RandomEncounters(
                 randomEncountersEnabled,
@@ -686,6 +775,29 @@ record DungeonDefinition(
                 "Invalid dungeon " + name + " range: " + minimum + ".." + maximum
             );
         }
+    }
+
+    private static Plan defaultPlan(String terrainMode) {
+        return terrainMode.equals("fixed_template")
+            ? new Plan("authored", List.of(), "fixed", "reject_entry", 1000, 1)
+            : new Plan("runtime", List.of(), "random_per_run", "reject_entry", 1000, 32);
+    }
+
+    private static IntRange integerRange(
+        JsonObject value, String key, int allowedMinimum, int allowedMaximum
+    ) {
+        JsonArray range = requiredArray(value, key);
+        if (range.size() != 2) {
+            throw new IllegalStateException("Dungeon integer range requires two values: " + key);
+        }
+        int minimum = range.get(0).getAsInt();
+        int maximum = range.get(1).getAsInt();
+        if (minimum < allowedMinimum || maximum > allowedMaximum || minimum > maximum) {
+            throw new IllegalStateException(
+                "Invalid dungeon " + key + " range: " + minimum + ".." + maximum
+            );
+        }
+        return new IntRange(minimum, maximum);
     }
 
     private static String localized(JsonObject value, String primary, String fallback) {
@@ -767,6 +879,14 @@ record DungeonDefinition(
         );
     }
 
+    private static BlockPos positiveBlockPosition(JsonObject value, String key) {
+        BlockPos position = blockPosition(value, key);
+        if (position.getX() < 1 || position.getY() < 1 || position.getZ() < 1) {
+            throw new IllegalStateException("Dungeon positive position is required: " + key);
+        }
+        return position;
+    }
+
     record EntryUi(String infoMode, boolean confirmRequired) {}
     record Difficulty(int recommendedMin, int recommendedMax, int internalMin, int internalMax) {}
     record Eligibility(
@@ -797,12 +917,30 @@ record DungeonDefinition(
         boolean allowItems,
         boolean allowEscapeActions
     ) {}
+    record Plan(
+        String mode,
+        List<String> planIds,
+        String seedPolicy,
+        String fallback,
+        int generationTimeoutMs,
+        int maxAttempts
+    ) {}
     record Terrain(
         String mode,
         String template,
         BlockPos entryPosition,
-        BlockPos exitPosition
+        BlockPos exitPosition,
+        String piecePool,
+        BlockPos bounds
     ) {}
+    record Layout(
+        String mode,
+        IntRange criticalPathRooms,
+        IntRange branchCount,
+        IntRange branchDepth,
+        double loopChance
+    ) {}
+    record IntRange(int minimum, int maximum) {}
     record Encounter(
         String id,
         String displayName,

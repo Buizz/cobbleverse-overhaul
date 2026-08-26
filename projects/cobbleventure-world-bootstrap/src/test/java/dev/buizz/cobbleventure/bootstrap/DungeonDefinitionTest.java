@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import com.google.gson.JsonParser;
+import com.google.gson.JsonObject;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -14,6 +15,62 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
+    @Test
+    void parsesRuntimeNbtPiecePlanningSettings() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        root.add("plan", JsonParser.parseString("""
+            {
+              "mode": "runtime",
+              "seed_policy": "random_per_run",
+              "fallback": "reject_entry",
+              "generation_timeout_ms": 750,
+              "max_attempts": 48
+            }
+            """).getAsJsonObject());
+        root.add("terrain", JsonParser.parseString("""
+            {
+              "mode": "nbt_pieces",
+              "piece_pool": "cobbleventure:rocket_hideout",
+              "bounds": [96, 32, 96]
+            }
+            """).getAsJsonObject());
+        root.add("layout", JsonParser.parseString("""
+            {
+              "mode": "critical_path_branches",
+              "critical_path_rooms": [6, 9],
+              "branch_count": [1, 3],
+              "branch_depth": [1, 2],
+              "loop_chance": 0.15
+            }
+            """).getAsJsonObject());
+
+        DungeonDefinition definition = DungeonDefinition.parse(root);
+
+        assertEquals("runtime", definition.plan().mode());
+        assertEquals("random_per_run", definition.plan().seedPolicy());
+        assertEquals(750, definition.plan().generationTimeoutMs());
+        assertEquals(48, definition.plan().maxAttempts());
+        assertEquals("cobbleventure:rocket_hideout", definition.terrain().piecePool());
+        assertEquals(96, definition.terrain().bounds().getX());
+        assertEquals(6, definition.layout().criticalPathRooms().minimum());
+        assertEquals(9, definition.layout().criticalPathRooms().maximum());
+        assertEquals(0.15D, definition.layout().loopChance());
+    }
+
+    @Test
+    void rejectsNbtPieceDungeonWithoutLayout() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        root.add("terrain", JsonParser.parseString("""
+            {
+              "mode": "nbt_pieces",
+              "piece_pool": "cobbleventure:rocket_hideout",
+              "bounds": [96, 32, 96]
+            }
+            """).getAsJsonObject());
+
+        assertThrows(IllegalStateException.class, () -> DungeonDefinition.parse(root));
+    }
+
     @Test
     void parsesEveryLevelOneTestDungeonResource() throws Exception {
         List<String> resources = List.of(
@@ -75,12 +132,16 @@ final class DungeonDefinitionTest {
     }
 
     private DungeonDefinition resource(String name) throws Exception {
+        return DungeonDefinition.parse(resourceObject(name));
+    }
+
+    private JsonObject resourceObject(String name) throws Exception {
         var stream = getClass().getClassLoader().getResourceAsStream(
             "data/cobbleventure/dungeons/generation_1/" + name + ".json"
         );
         assertTrue(stream != null, "Missing dungeon resource: " + name);
         try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-            return DungeonDefinition.parse(JsonParser.parseReader(reader).getAsJsonObject());
+            return JsonParser.parseReader(reader).getAsJsonObject();
         }
     }
 
