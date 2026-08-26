@@ -195,6 +195,7 @@ final class DungeonSystem {
         }
         definitions = loaded;
         pieceDefinitions = loadedPieces;
+        DungeonPieceLayout.clearCache();
         entrances = Map.copyOf(byEntrance);
         structureAnchors = Map.copyOf(anchors);
         ACTIVE_ENTRANCES.clear();

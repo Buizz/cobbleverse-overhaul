@@ -13,6 +13,37 @@ import org.junit.jupiter.api.Test;
 
 final class DungeonPiecePlannerTest {
     @Test
+    void usesMinimalSafePlanWhenConfiguredGenerationCannotFit() throws Exception {
+        DungeonPieceLayout.clearCache();
+        DungeonDefinition definition = pieceDungeon(
+            "use_fallback_plan", 3, 3, 128, 1, 20
+        );
+
+        DungeonPieceLayout generated = DungeonPieceLayout.generate(
+            definition, testPieces(), 41L
+        );
+
+        assertEquals(3, generated.plan().placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath).count());
+        assertEquals("start", generated.plan().placements().getFirst().role());
+        assertEquals("exit", generated.plan().placements().getLast().role());
+    }
+
+    @Test
+    void reusesLastValidatedPlanWhenLaterGenerationFails() throws Exception {
+        DungeonPieceLayout.clearCache();
+        DungeonPieceLayout valid = DungeonPieceLayout.generate(
+            pieceDungeon("use_last_valid", 6, 6, 0, 100, 80), testPieces(), 91L
+        );
+
+        DungeonPieceLayout recovered = DungeonPieceLayout.generate(
+            pieceDungeon("use_last_valid", 3, 3, 128, 1, 20), testPieces(), 92L
+        );
+
+        assertEquals(valid, recovered);
+    }
+
+    @Test
     void resolvesEntryAndExitMarkersFromRotatedPiecePlan() throws Exception {
         var stream = getClass().getClassLoader().getResourceAsStream(
             "data/cobbleventure/dungeons/generation_1/rocket_power_plant.json"
@@ -124,6 +155,34 @@ final class DungeonPiecePlannerTest {
             piece("treasure", "treasure", terminalConnector(), "[]"),
             piece("support", "support", terminalConnector(), "[]")
         );
+    }
+
+    private DungeonDefinition pieceDungeon(
+        String fallback, int minimumRooms, int maximumRooms,
+        int branchCount, int maxAttempts, int horizontalBounds
+    ) throws Exception {
+        var stream = getClass().getClassLoader().getResourceAsStream(
+            "data/cobbleventure/dungeons/generation_1/rocket_power_plant.json"
+        );
+        assertTrue(stream != null);
+        try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            var root = JsonParser.parseReader(reader).getAsJsonObject();
+            root.add("plan", JsonParser.parseString("""
+                {"mode":"runtime","seed_policy":"fixed","fallback":"%s",
+                 "max_attempts":%d}
+                """.formatted(fallback, maxAttempts)).getAsJsonObject());
+            root.add("terrain", JsonParser.parseString("""
+                {"mode":"nbt_pieces","piece_pool":"cobbleventure:theme/test",
+                 "bounds":[%d,16,%d]}
+                """.formatted(horizontalBounds, horizontalBounds)).getAsJsonObject());
+            root.add("layout", JsonParser.parseString("""
+                {"mode":"critical_path_branches","critical_path_rooms":[%d,%d],
+                 "branch_count":[%d,%d],"branch_depth":[1,1],"loop_chance":0}
+                """.formatted(
+                    minimumRooms, maximumRooms, branchCount, branchCount
+                )).getAsJsonObject());
+            return DungeonDefinition.parse(root);
+        }
     }
 
     private static DungeonPieceDefinition piece(
