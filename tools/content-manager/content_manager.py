@@ -11926,6 +11926,10 @@ def _structure_named_anchors(path: Path, anchor_types: set[str]) -> list[dict[st
             entry["safe_side"] = anchor["safe_side"]
         if anchor.get("door_facing") in {"north", "east", "south", "west"}:
             entry["door_facing"] = anchor["door_facing"]
+        if anchor.get("facing") in {"north", "east", "south", "west"}:
+            entry["facing"] = anchor["facing"]
+        if isinstance(anchor.get("entrance_id"), str):
+            entry["entrance_id"] = anchor["entrance_id"]
         result.append(entry)
     return result
 
@@ -11992,7 +11996,8 @@ def space_connections_payload(
             key: metadata[key]
             for key in (
                 "category", "category_label", "width", "height", "depth",
-                "door_anchors", "arrival_anchors", "transition_anchors", "cutaway_view",
+                "door_anchors", "arrival_anchors", "transition_anchors",
+                "dungeon_entrance_anchors", "cutaway_view",
             )
             if key in metadata
         }
@@ -12338,6 +12343,9 @@ def building_settings_payload(
                 path, {"arrival", "interior_spawn", "exterior_spawn"}
             ),
             "transition_anchors": _structure_named_anchors(path, {"transition"}),
+            "dungeon_entrance_anchors": _structure_named_anchors(
+                path, {"dungeon_entrance"}
+            ),
             "residential": residential,
             "settings": {
                 "placement_y_offset": entry.get("placement_y_offset", 0)
@@ -13274,7 +13282,7 @@ def structure_catalog_signature(
     return tuple(signature)
 
 
-STRUCTURE_WEB_CACHE_VERSION = 4
+STRUCTURE_WEB_CACHE_VERSION = 5
 STRUCTURE_WEB_CACHE_PATH = Path("tools/content-manager/.cache/structure-web-catalog.json")
 
 

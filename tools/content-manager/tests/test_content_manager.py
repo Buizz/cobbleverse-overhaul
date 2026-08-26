@@ -6938,6 +6938,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('text/x-cobbleventure-interior', script)
         self.assertIn('finishConnection', script)
         self.assertIn('data-port-type="door"', script)
+        self.assertIn('data-dungeon-entrance', script)
+        self.assertIn('DUNGEON ENTRANCE', script)
         self.assertNotIn('nodePorts(node, "input")', script)
         self.assertIn('flow.filters.kind', script)
         self.assertIn('flow.filters.route', script)
@@ -6950,6 +6952,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('window.addEventListener("building-settings-saved"', script)
         self.assertIn('"natural_feature"', script)
         self.assertIn('.space-flow-edge', styles)
+        self.assertIn('.space-map-pin.dungeon', styles)
         self.assertIn('.space-library-filters', styles)
         self.assertIn('.space-flow-save-state[data-state="error"]', styles)
         self.assertIn('.legacy-space-editor { display: none', styles)
@@ -6984,6 +6987,11 @@ class ContentManagerTests(unittest.TestCase):
                     {
                         "type": "door", "label": "back", "position": [6, 1, 1],
                         "safe_spawn": [6, 1, 2], "door_facing": "north", "safe_side": "south",
+                    },
+                    {
+                        "type": "dungeon_entrance", "label": "basement",
+                        "position": [9, 1, 9], "safe_spawn": [8, 1, 9],
+                        "facing": "east", "entrance_id": "test:entrance/basement",
                     },
                 ],
                 "interior": {"id": "test_room", "width": 12, "depth": 12, "floor_height": 6, "floors": 1},
@@ -7032,6 +7040,14 @@ class ContentManagerTests(unittest.TestCase):
                     "door_facing": "north",
                 }],
                 payload["structures"]["cobbleventure:houses/test_house"]["door_anchors"],
+            )
+            self.assertEqual(
+                [{
+                    "label": "basement", "position": [9, 1, 9],
+                    "safe_spawn": [8, 1, 9], "facing": "east",
+                    "entrance_id": "test:entrance/basement",
+                }],
+                payload["structures"]["cobbleventure:interiors/test_room"]["dungeon_entrance_anchors"],
             )
             self.assertTrue(payload["structures"]["cobbleventure:cave_entrance/test_cave"]["no_interior_space"])
             self.assertTrue(payload["structures"]["cobbleventure:monuments/test_statue"]["no_interior_space"])
