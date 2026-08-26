@@ -404,7 +404,7 @@ record DungeonDefinition(
                 List.copyOf(opponents),
                 wildPokemon,
                 List.copyOf(requirements),
-                blockPosition(encounter, "position"),
+                encounter.has("position") ? blockPosition(encounter, "position") : null,
                 encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
                 requiredBoolean(encounter, "boss")
             ));
@@ -624,13 +624,14 @@ record DungeonDefinition(
         for (JsonElement element : requiredArray(loot, "containers")) {
             JsonObject container = element.getAsJsonObject();
             String containerId = requiredString(container, "id");
-            BlockPos position = blockPosition(container, "position");
+            BlockPos position = container.has("position")
+                ? blockPosition(container, "position") : null;
             if (!lootContainerIds.add(containerId)) {
                 throw new IllegalStateException(
                     "Duplicate dungeon loot container ID: " + id + " -> " + containerId
                 );
             }
-            if (!lootContainerPositions.add(position)) {
+            if (position != null && !lootContainerPositions.add(position)) {
                 throw new IllegalStateException(
                     "Duplicate dungeon loot container position: " + id + " -> " + position
                 );
@@ -652,7 +653,8 @@ record DungeonDefinition(
         Set<BlockPos> reservedPositions = new HashSet<>();
         if (entryPosition != null) reservedPositions.add(entryPosition);
         if (exitPosition != null) reservedPositions.add(exitPosition);
-        encounters.forEach(encounter -> reservedPositions.add(encounter.position()));
+        encounters.stream().map(Encounter::position).filter(java.util.Objects::nonNull)
+            .forEach(reservedPositions::add);
         for (HealingStation station : healingStations) {
             if (!reservedPositions.add(station.position())) {
                 throw new IllegalStateException(
@@ -662,11 +664,30 @@ record DungeonDefinition(
             }
         }
         for (LootContainer container : lootContainers) {
-            if (reservedPositions.contains(container.position())) {
+            if (container.position() != null
+                && reservedPositions.contains(container.position())) {
                 throw new IllegalStateException(
                     "Dungeon loot container overlaps a reserved position: "
                         + id + " -> " + container.id()
                 );
+            }
+        }
+        if (!terrainMode.equals("nbt_pieces") && !terrainMode.equals("hybrid")) {
+            for (Encounter encounter : encounters) {
+                if (encounter.position() == null) {
+                    throw new IllegalStateException(
+                        "Non-piece dungeon encounter requires a position: "
+                            + id + " -> " + encounter.id()
+                    );
+                }
+            }
+            for (LootContainer container : lootContainers) {
+                if (container.position() == null) {
+                    throw new IllegalStateException(
+                        "Non-piece dungeon loot container requires a position: "
+                            + id + " -> " + container.id()
+                    );
+                }
             }
         }
         JsonObject rewards = requiredObject(root, "rewards");

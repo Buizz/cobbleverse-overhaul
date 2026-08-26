@@ -47,14 +47,13 @@
   ],
   "markers": [
     {
-      "id": "boss_1",
+      "id": "boss_slot",
       "kind": "boss",
       "position": [
         8,
         1,
         8
-      ],
-      "reference": "boss_1"
+      ]
     }
   ]
 }

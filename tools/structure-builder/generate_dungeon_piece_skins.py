@@ -35,10 +35,17 @@ SHAPES = {
     "corridor": Shape("corridor", ("west", "east"), weight=18),
     "corner": Shape("corridor", ("west", "south"), weight=10),
     "junction": Shape("junction", ("west", "east", "north", "south"), weight=7),
-    "room": Shape("room", ("west", "east", "north", "south"), 3, weight=14),
+    "room": Shape(
+        "room", ("west", "east", "north", "south"), 3,
+        markers=(
+            ("encounter_slot", "encounter", (8, 1, 8), None),
+            ("loot_slot", "loot", (5, 1, 5), None),
+        ),
+        weight=14,
+    ),
     "encounter_room": Shape(
         "room", ("west", "east", "north", "south"), 3,
-        markers=(("encounter_1", "encounter", (8, 1, 8), "encounter_1"),),
+        markers=(("encounter_slot", "encounter", (8, 1, 8), None),),
         weight=5,
     ),
     "stairs_up": Shape(
@@ -53,11 +60,11 @@ SHAPES = {
     "support": Shape("support", ("west", "east"), 3, weight=5),
     "treasure": Shape(
         "treasure", ("north",), 3,
-        markers=(("loot_1", "loot", (8, 1, 8), "loot_1"),), weight=4,
+        markers=(("loot_slot", "loot", (8, 1, 8), None),), weight=4,
     ),
     "boss": Shape(
         "boss", ("west", "east"), 2,
-        markers=(("boss_1", "boss", (8, 1, 8), "boss_1"),), weight=1,
+        markers=(("boss_slot", "boss", (8, 1, 8), None),), weight=1,
     ),
     "exit": Shape(
         "exit", ("west",), 3,

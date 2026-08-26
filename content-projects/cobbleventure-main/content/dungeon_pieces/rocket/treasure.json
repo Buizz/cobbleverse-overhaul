@@ -34,14 +34,13 @@
   ],
   "markers": [
     {
-      "id": "loot_1",
+      "id": "loot_slot",
       "kind": "loot",
       "position": [
         8,
         1,
         8
-      ],
-      "reference": "loot_1"
+      ]
     }
   ]
 }

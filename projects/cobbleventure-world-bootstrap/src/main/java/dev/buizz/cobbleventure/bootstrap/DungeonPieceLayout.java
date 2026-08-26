@@ -1,6 +1,9 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +15,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 /** Resolves a planned piece graph and its semantic markers into instance coordinates. */
 record DungeonPieceLayout(
     DungeonPiecePlan plan,
-    Map<MarkerKey, BlockPos> markers
+    List<ResolvedMarker> markers
 ) {
     private static final Map<String, DungeonPieceLayout> LAST_VALID =
         new ConcurrentHashMap<>();
@@ -87,7 +90,8 @@ record DungeonPieceLayout(
                 DungeonPiecePlanValidator.validate(
                     plan, byId, dungeon.terrain().piecePool(), dungeon.terrain().bounds()
                 );
-                resolveMarkers(dungeon.id(), plan, byId);
+                resolveMarkers(dungeon.id(), plan, byId)
+                    .featureMarkers(dungeon, plan.seed());
             }
         }
     }
@@ -139,7 +143,8 @@ record DungeonPieceLayout(
         DungeonPiecePlan plan,
         Map<String, DungeonPieceDefinition> byId
     ) {
-        Map<MarkerKey, BlockPos> markers = new LinkedHashMap<>();
+        List<ResolvedMarker> markers = new ArrayList<>();
+        Map<MarkerKey, BlockPos> uniqueMarkers = new LinkedHashMap<>();
         for (DungeonPiecePlan.Placement placement : plan.placements()) {
             DungeonPieceDefinition piece = byId.get(placement.pieceId());
             if (piece == null) {
@@ -148,28 +153,29 @@ record DungeonPieceLayout(
                 );
             }
             for (DungeonPieceDefinition.Marker marker : piece.markers()) {
-                if (marker.reference() == null
-                    && !marker.kind().equals("entry")
-                    && !marker.kind().equals("exit")) {
-                    continue;
-                }
-                MarkerKey key = new MarkerKey(marker.kind(), marker.reference());
                 BlockPos transformed = StructureTemplate.transform(
                     marker.position(), Mirror.NONE, placement.rotation(), BlockPos.ZERO
                 );
-                BlockPos previous = markers.putIfAbsent(
-                    key, placement.templateOrigin().offset(transformed)
-                );
-                if (previous != null) {
-                    throw new IllegalStateException(
-                        "Duplicate dungeon piece marker: " + key.display()
-                    );
+                BlockPos position = placement.templateOrigin().offset(transformed);
+                markers.add(new ResolvedMarker(
+                    marker.kind(), marker.reference(), position
+                ));
+                if (marker.reference() != null
+                    || marker.kind().equals("entry")
+                    || marker.kind().equals("exit")) {
+                    MarkerKey key = new MarkerKey(marker.kind(), marker.reference());
+                    BlockPos previous = uniqueMarkers.putIfAbsent(key, position);
+                    if (previous != null) {
+                        throw new IllegalStateException(
+                            "Duplicate dungeon piece marker: " + key.display()
+                        );
+                    }
                 }
             }
         }
         requireMarker(markers, "entry", null);
         requireMarker(markers, "exit", null);
-        DungeonPieceLayout generated = new DungeonPieceLayout(plan, Map.copyOf(markers));
+        DungeonPieceLayout generated = new DungeonPieceLayout(plan, List.copyOf(markers));
         LAST_VALID.put(dungeonId, generated);
         return generated;
     }
@@ -197,20 +203,101 @@ record DungeonPieceLayout(
         return requireMarker(markers, kind, reference);
     }
 
-    BlockPos markerOr(String kind, String reference, BlockPos fallback) {
-        return markers.getOrDefault(new MarkerKey(kind, reference), fallback);
+    Map<MarkerKey, BlockPos> featureMarkers(
+        DungeonDefinition definition, long seed
+    ) {
+        Map<MarkerKey, BlockPos> assigned = new LinkedHashMap<>();
+        Map<String, List<BlockPos>> candidates = new HashMap<>();
+        for (ResolvedMarker marker : markers) {
+            if (marker.reference() == null
+                && !marker.kind().equals("entry")
+                && !marker.kind().equals("exit")) {
+                candidates.computeIfAbsent(marker.kind(), ignored -> new ArrayList<>())
+                    .add(marker.position());
+            } else {
+                assigned.put(new MarkerKey(marker.kind(), marker.reference()), marker.position());
+            }
+        }
+        for (Map.Entry<String, List<BlockPos>> entry : candidates.entrySet()) {
+            Collections.shuffle(entry.getValue(), new java.util.Random(
+                markerSeed(seed, entry.getKey())
+            ));
+        }
+
+        for (DungeonDefinition.Encounter encounter : definition.encounters()) {
+            assignFeature(
+                assigned, candidates, encounter.boss() ? "boss" : "encounter",
+                encounter.id(), encounter.position(), definition.id()
+            );
+        }
+        for (DungeonDefinition.LootContainer container : definition.loot().containers()) {
+            assignFeature(
+                assigned, candidates, "loot", container.id(),
+                container.position(), definition.id()
+            );
+        }
+        for (DungeonDefinition.HealingStation station : definition.support().healingStations()) {
+            assignFeature(
+                assigned, candidates, "healing_station", station.id(),
+                station.position(), definition.id()
+            );
+        }
+        for (DungeonDefinition.Checkpoint checkpoint : definition.support().checkpoints()) {
+            assignFeature(
+                assigned, candidates, "checkpoint", checkpoint.id(),
+                checkpoint.position(), definition.id()
+            );
+        }
+        return Map.copyOf(assigned);
+    }
+
+    private static long markerSeed(long seed, String kind) {
+        long mixed = seed ^ ((long) kind.hashCode() * 0x9E3779B97F4A7C15L);
+        mixed = (mixed ^ (mixed >>> 30)) * 0xBF58476D1CE4E5B9L;
+        mixed = (mixed ^ (mixed >>> 27)) * 0x94D049BB133111EBL;
+        return mixed ^ (mixed >>> 31);
+    }
+
+    private static void assignFeature(
+        Map<MarkerKey, BlockPos> assigned,
+        Map<String, List<BlockPos>> candidates,
+        String kind,
+        String reference,
+        BlockPos fallback,
+        String dungeonId
+    ) {
+        MarkerKey key = new MarkerKey(kind, reference);
+        if (fallback != null) {
+            assigned.put(key, fallback);
+            return;
+        }
+        if (assigned.containsKey(key)) return;
+        List<BlockPos> available = candidates.getOrDefault(kind, List.of());
+        if (!available.isEmpty()) {
+            assigned.put(key, available.removeLast());
+            return;
+        }
+        throw new IllegalStateException(
+            "Dungeon has no available " + kind + " marker: "
+                + dungeonId + " -> " + reference
+        );
     }
 
     private static BlockPos requireMarker(
-        Map<MarkerKey, BlockPos> markers, String kind, String reference
+        List<ResolvedMarker> markers, String kind, String reference
     ) {
-        MarkerKey key = new MarkerKey(kind, reference);
-        BlockPos marker = markers.get(key);
-        if (marker == null) {
-            throw new IllegalStateException("Dungeon piece marker is missing: " + key.display());
-        }
-        return marker;
+        return markers.stream()
+            .filter(marker -> marker.kind().equals(kind)
+                && java.util.Objects.equals(marker.reference(), reference))
+            .map(ResolvedMarker::position)
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "Dungeon piece marker is missing: "
+                    + new MarkerKey(kind, reference).display()
+            ));
     }
+
+    record ResolvedMarker(String kind, String reference, BlockPos position) {}
 
     record MarkerKey(String kind, String reference) {
         private String display() {

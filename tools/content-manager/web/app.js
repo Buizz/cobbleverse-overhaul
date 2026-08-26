@@ -4734,10 +4734,27 @@ function dungeonContentLabel(kind, entry) {
 }
 
 function dungeonContentSubtitle(kind, entry) {
-  if (kind === "encounter") return `${entry.kind === "wild_pokemon" ? "야생 포켓몬" : entry.boss ? "보스 트레이너" : "트레이너"} · ${(entry.position || []).join(", ")}`;
+  if (kind === "encounter") return `${entry.kind === "wild_pokemon" ? "야생 포켓몬" : entry.boss ? "보스 트레이너" : "트레이너"} · ${Array.isArray(entry.position) ? entry.position.join(", ") : "NBT 마커 자동"}`;
   if (kind === "wild_species") return `Lv.${entry.min_level || 1}~${entry.max_level || 1} · 가중치 ${entry.weight || 1}`;
   if (kind === "gate") return `${(entry.min || []).join(", ")} → ${(entry.max || []).join(", ")}`;
+  if (kind === "loot" && !Array.isArray(entry.position)) return "NBT 마커 자동";
   return (entry.position || []).join(", ") || "좌표 미지정";
+}
+
+function dungeonSupportsMarkerPlacement() {
+  return ["nbt_pieces", "hybrid"].includes(state.dungeon?.terrain?.mode);
+}
+
+function dungeonPlacementFields(entry) {
+  const automatic = dungeonSupportsMarkerPlacement() && !Array.isArray(entry.position);
+  let fields = contentField("배치 방식", "placementMode", automatic ? "marker" : "fixed", {
+    wide: true,
+    select: automatic || dungeonSupportsMarkerPlacement()
+      ? [["marker", "NBT 후보 마커에 자동 배치"], ["fixed", "좌표에 고정 배치"]]
+      : [["fixed", "좌표에 고정 배치"]],
+  });
+  if (!automatic) fields += dungeonPositionFields(entry.position);
+  return fields;
 }
 
 function contentField(label, name, value, options = {}) {
@@ -4768,7 +4785,7 @@ function renderDungeonContentProperties() {
     fields += contentField("종류", "encounterKind", entry.kind || "trainer", { select: [["trainer", "트레이너"], ["wild_pokemon", "고정 야생 포켓몬"]] });
     fields += contentField("한국어 표시 이름", "displayName", entry.display_name?.ko_kr || "", { wide: true, required: true });
     fields += contentField("선행 조우 ID — 쉼표 구분", "requires", (entry.requires || []).join(", "));
-    fields += dungeonPositionFields(entry.position);
+    fields += dungeonPlacementFields(entry);
     fields += contentField("바라보는 각도", "yaw", entry.yaw ?? 0, { type: "number", min: -180, max: 180 });
     fields += contentField("보스 조우", "boss", entry.boss, { toggle: true });
     if ((entry.kind || "trainer") === "wild_pokemon") {
@@ -4798,7 +4815,7 @@ function renderDungeonContentProperties() {
   } else if (kind === "loot") {
     fields += contentField("상자 ID", "id", entry.id, { double: true, required: true });
     fields += contentField("블록", "containerBlock", entry.block || "chest", { select: [["chest", "상자"], ["barrel", "통"]] });
-    fields += dungeonPositionFields(entry.position);
+    fields += dungeonPlacementFields(entry);
     fields += contentField("방향", "facing", entry.facing || "north", { select: [["north", "북"], ["south", "남"], ["west", "서"], ["east", "동"]] });
     fields += contentField("클리어 후 개방", "requiresCompletion", entry.requires_completion, { toggle: true });
     fields += contentField("개별 전리품 테이블", "lootTable", entry.loot_table || "", { wide: true });
@@ -4832,9 +4849,13 @@ function updateDungeonContentFromEditor() {
   const numberValue = (name, fallback = 0) => Math.round(Number(control(name)?.value || fallback));
   const checked = (name) => Boolean(control(name)?.checked);
   const position = (prefix = "position") => [numberValue(`${prefix}X`), numberValue(`${prefix}Y`, 1), numberValue(`${prefix}Z`)];
+  const updatePlacement = () => {
+    if (textValue("placementMode") === "marker") delete entry.position;
+    else entry.position = position();
+  };
   if (kind === "encounter") {
     entry.id = textValue("id"); entry.display_name = { ...(entry.display_name || {}), ko_kr: textValue("displayName") };
-    entry.kind = textValue("encounterKind"); entry.requires = csvValues(textValue("requires")); entry.position = position(); entry.yaw = numberValue("yaw"); entry.boss = checked("boss");
+    entry.kind = textValue("encounterKind"); entry.requires = csvValues(textValue("requires")); updatePlacement(); entry.yaw = numberValue("yaw"); entry.boss = checked("boss");
     if (entry.kind === "wild_pokemon") {
       entry.pokemon = { species: textValue("species") || entry.pokemon?.species || "cobblemon:pikachu", level: control("level") ? numberValue("level", 1) : entry.pokemon?.level || 1, catchable: control("catchable") ? checked("catchable") : entry.pokemon?.catchable !== false };
       delete entry.npcs; delete entry.opponents;
@@ -4851,7 +4872,8 @@ function updateDungeonContentFromEditor() {
   } else if (kind === "checkpoint") {
     Object.assign(entry, { id: textValue("id"), position: position(), activation_radius: numberValue("activationRadius", 2) });
   } else if (kind === "loot") {
-    Object.assign(entry, { id: textValue("id"), block: textValue("containerBlock"), position: position(), facing: textValue("facing"), requires_completion: checked("requiresCompletion") });
+    Object.assign(entry, { id: textValue("id"), block: textValue("containerBlock"), facing: textValue("facing"), requires_completion: checked("requiresCompletion") });
+    updatePlacement();
     const lootTable = textValue("lootTable"); if (lootTable) entry.loot_table = lootTable; else delete entry.loot_table;
   } else if (kind === "gate") {
     Object.assign(entry, { id: textValue("id"), block: textValue("block"), min: position("min"), max: position("max"), requires: csvValues(textValue("requires")) });
@@ -4873,12 +4895,13 @@ function addDungeonContent() {
   const entries = dungeonContentGroups().find(([candidate]) => candidate === kind)[1];
   const id = nextDungeonContentId(kind);
   let entry;
-  if (requested === "trainer_encounter") entry = { id, display_name: { ko_kr: "새 트레이너 조우" }, npcs: ["cobbleventure:npc/new_encounter"], opponents: ["cobbleventure:battle/new_encounter"], requires: [], position: [0, 1, 0], yaw: 0, boss: false };
-  else if (requested === "wild_encounter") entry = { id, kind: "wild_pokemon", display_name: { ko_kr: "새 야생 포켓몬" }, pokemon: { species: "cobblemon:pikachu", level: 1, catchable: true }, requires: [], position: [0, 1, 0], yaw: 0, boss: false };
+  const fixedPosition = dungeonSupportsMarkerPlacement() ? {} : { position: [0, 1, 0] };
+  if (requested === "trainer_encounter") entry = { id, display_name: { ko_kr: "새 트레이너 조우" }, npcs: ["cobbleventure:npc/new_encounter"], opponents: ["cobbleventure:battle/new_encounter"], requires: [], ...fixedPosition, yaw: 0, boss: false };
+  else if (requested === "wild_encounter") entry = { id, kind: "wild_pokemon", display_name: { ko_kr: "새 야생 포켓몬" }, pokemon: { species: "cobblemon:pikachu", level: 1, catchable: true }, requires: [], ...fixedPosition, yaw: 0, boss: false };
   else if (kind === "wild_species") entry = { species: "cobblemon:pikachu", min_level: 1, max_level: 1, weight: 10, spawn_as_evolved: false };
   else if (kind === "healing") entry = { id, position: [0, 1, 0], block: "minecraft:lodestone", uses_per_run: 1, restore_hp: true, restore_status: true, restore_pp: true };
   else if (kind === "checkpoint") entry = { id, position: [0, 1, 0], activation_radius: 2 };
-  else if (kind === "loot") entry = { id, position: [0, 1, 0], block: "chest", facing: "north", requires_completion: false };
+  else if (kind === "loot") entry = { id, ...fixedPosition, block: "chest", facing: "north", requires_completion: false };
   else entry = { id, min: [0, 1, 0], max: [2, 3, 0], block: "minecraft:iron_bars", requires: [state.dungeon.encounters?.[0]?.id || "encounter_1"] };
   entries.push(entry);
   state.dungeonContentSelection = { kind, index: entries.length - 1 };
@@ -5012,12 +5035,29 @@ function authoredDungeonPlacement(placement, index) {
 function authoredDungeonPlan(document, planId) {
   const source = state.dungeonPlans.get(planId);
   if (!source) return null;
+  const markers = [];
+  (source.placements || []).forEach((placement) => {
+    const piece = state.dungeonPieces.get(placement.piece_id);
+    const origin = (placement.origin || [0, 0, 0]).map(Number);
+    const rotation = placement.rotation || "none";
+    (piece?.markers || []).forEach((marker) => {
+      const local = (marker.position || [0, 0, 0]).map(Number);
+      const transformed = rotation === "clockwise_90" ? [-local[2], local[1], local[0]]
+        : rotation === "clockwise_180" ? [-local[0], local[1], -local[2]]
+        : rotation === "counterclockwise_90" ? [local[2], local[1], -local[0]] : local;
+      markers.push({
+        kind: marker.kind,
+        position: transformed.map((axis, index) => axis + origin[index]),
+        label: marker.reference || `${dungeonMarkerKinds[marker.kind] || marker.kind} 후보`,
+      });
+    });
+  });
   return {
     kind: "authored", exact: true, seed: Number(source.seed || 0),
     bounds: source.bounds || document.terrain?.bounds || [64, 16, 64],
     placements: (source.placements || []).map(authoredDungeonPlacement),
     links: (source.links || []).map((link) => ({ from: Number(link.from_index), to: Number(link.to_index), critical: link.critical_path !== false })),
-    markers: [], planId
+    markers, planId
   };
 }
 

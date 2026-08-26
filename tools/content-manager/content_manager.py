@@ -8602,7 +8602,10 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, base, "고정 조우는 객체여야 합니다.")
                 continue
             local_id(encounter.get("id"), f"{base}.id", seen_encounters)
-            position(encounter.get("position"), f"{base}.position")
+            if "position" in encounter:
+                position(encounter.get("position"), f"{base}.position")
+            elif terrain_mode not in {"nbt_pieces", "hybrid"}:
+                _issue(issues, "error", path, f"{base}.position", "NBT 조각 이외의 던전은 고정 좌표가 필요합니다.")
             if not isinstance(encounter.get("boss"), bool):
                 _issue(issues, "error", path, f"{base}.boss", "true 또는 false여야 합니다.")
             requirements = encounter.get("requires")
@@ -8680,7 +8683,10 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                 if not isinstance(requirements, list) or not requirements:
                     _issue(issues, "error", path, f"{base}.requires", "관문 해제 조건이 하나 이상 필요합니다.")
             else:
-                position(entry.get("position"), f"{base}.position")
+                if group_name != "containers" or "position" in entry:
+                    position(entry.get("position"), f"{base}.position")
+                elif terrain_mode not in {"nbt_pieces", "hybrid"}:
+                    _issue(issues, "error", path, f"{base}.position", "NBT 조각 이외의 던전은 고정 좌표가 필요합니다.")
     return dungeon_id if isinstance(dungeon_id, str) else None, issues
 
 

@@ -2,18 +2,58 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 final class DungeonAuthoredPlanDefinitionTest {
+    @Test
+    void assignsGenericMarkersDeterministicallyWithoutReusingSlots() throws Exception {
+        var root = resourceJson(
+            "data/cobbleventure/dungeons/generation_1/rocket_pokemon_tower.json"
+        );
+        var secondEncounter = root.getAsJsonArray("encounters")
+            .get(0).getAsJsonObject().deepCopy();
+        secondEncounter.addProperty("id", "encounter_2");
+        root.getAsJsonArray("encounters").add(secondEncounter);
+        var dungeon = DungeonDefinition.parse(root);
+        var layout = new DungeonPieceLayout(null, List.of(
+            new DungeonPieceLayout.ResolvedMarker("encounter", null, new BlockPos(2, 1, 2)),
+            new DungeonPieceLayout.ResolvedMarker("encounter", null, new BlockPos(8, 1, 8)),
+            new DungeonPieceLayout.ResolvedMarker("boss", null, new BlockPos(12, 1, 12)),
+            new DungeonPieceLayout.ResolvedMarker("loot", null, new BlockPos(4, 1, 12))
+        ));
+
+        var first = layout.featureMarkers(dungeon, 928L);
+        var repeated = layout.featureMarkers(dungeon, 928L);
+
+        assertEquals(first, repeated);
+        assertNotEquals(
+            first.get(new DungeonPieceLayout.MarkerKey("encounter", "encounter_1")),
+            first.get(new DungeonPieceLayout.MarkerKey("encounter", "encounter_2"))
+        );
+        var selectedAcrossSeeds = new HashSet<BlockPos>();
+        for (long seed = 0; seed < 64; seed++) {
+            selectedAcrossSeeds.add(layout.featureMarkers(dungeon, seed).get(
+                new DungeonPieceLayout.MarkerKey("encounter", "encounter_1")
+            ));
+        }
+        assertEquals(
+            java.util.Set.of(new BlockPos(2, 1, 2), new BlockPos(8, 1, 8)),
+            selectedAcrossSeeds
+        );
+    }
+
     @Test
     void loadsRocketSkinPokemonTowerPlanFromPackagedResources() throws Exception {
         var pieces = new HashMap<String, DungeonPieceDefinition>();
@@ -35,11 +75,24 @@ final class DungeonAuthoredPlanDefinitionTest {
         DungeonPieceLayout layout = DungeonPieceLayout.generate(
             dungeon, pieces.values(), Map.of(authored.id(), authored), 421L
         );
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> features =
+            layout.featureMarkers(dungeon, 421L);
 
         assertEquals(new BlockPos(4, 2, 8), layout.requiredMarker("entry", null));
-        assertEquals(new BlockPos(25, 2, 9), layout.requiredMarker("encounter", "encounter_1"));
-        assertEquals(new BlockPos(73, 6, 9), layout.requiredMarker("boss", "boss_1"));
-        assertEquals(new BlockPos(57, 6, 25), layout.requiredMarker("loot", "loot_1"));
+        assertTrue(java.util.Set.of(
+            new BlockPos(25, 2, 9), new BlockPos(57, 6, 9)
+        ).contains(features.get(
+            new DungeonPieceLayout.MarkerKey("encounter", "encounter_1")
+        )));
+        assertEquals(
+            new BlockPos(73, 6, 9),
+            features.get(new DungeonPieceLayout.MarkerKey("boss", "boss_1"))
+        );
+        assertTrue(java.util.Set.of(
+            new BlockPos(57, 6, 25), new BlockPos(54, 6, 6)
+        ).contains(features.get(
+            new DungeonPieceLayout.MarkerKey("loot", "loot_1")
+        )));
         assertEquals(new BlockPos(93, 6, 8), layout.requiredMarker("exit", null));
     }
 

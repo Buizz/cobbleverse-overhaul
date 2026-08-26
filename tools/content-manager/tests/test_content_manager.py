@@ -29,6 +29,42 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_piece_dungeon_allows_marker_placed_encounters_and_loot(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json"
+        ).read_text(encoding="utf-8"))
+        self.assertNotIn("position", document["encounters"][0])
+        self.assertNotIn("position", document["loot"]["containers"][0])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+
+    def test_fixed_dungeon_rejects_missing_encounter_and_loot_positions(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json"
+        ).read_text(encoding="utf-8"))
+        document["encounters"][0].pop("position")
+        document["loot"]["containers"][0].pop("position")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        self.assertGreaterEqual(
+            sum("고정 좌표" in issue.message for issue in issues), 2
+        )
+
+    def test_dungeon_web_defaults_piece_content_to_marker_placement(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("NBT 후보 마커에 자동 배치", script)
+        self.assertIn('delete entry.position', script)
+        self.assertIn("NPC와 보상은 후보 마커에 자동 배치", markup)
+
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
         document["difficulty"]["recommended_min"] = 20

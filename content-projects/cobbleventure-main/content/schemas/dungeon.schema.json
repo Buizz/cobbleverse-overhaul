@@ -439,7 +439,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id", "display_name", "requires", "position", "boss"
+        "id", "display_name", "requires", "boss"
       ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
@@ -491,7 +491,7 @@
     "loot_container": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "position", "block", "facing", "requires_completion"],
+      "required": ["id", "block", "facing", "requires_completion"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "position": { "$ref": "#/$defs/block_position" },

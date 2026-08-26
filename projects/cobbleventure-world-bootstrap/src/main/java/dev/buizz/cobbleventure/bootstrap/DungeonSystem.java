@@ -736,7 +736,7 @@ final class DungeonSystem {
         PreparedTerrain terrain = null;
         BlockPos clearExit = null;
         PursuitEncounterSystem.Config randomEncounters;
-        Map<UUID, EncounterEntityRef> encounterByEntity;
+        SpawnedEncounters spawnedEncounters;
         Map<String, BlockPos> lootPositions;
         Map<String, BlockPos> healingPositions;
         Map<String, CheckpointPosition> checkpointPositions;
@@ -756,7 +756,7 @@ final class DungeonSystem {
             checkpointPositions = resolveCheckpointPositions(
                 definition, origin, terrain
             );
-            encounterByEntity = spawnEncounters(
+            spawnedEncounters = spawnEncounters(
                 dungeonLevel, definition, origin, terrain
             );
             randomEncounters = createRandomEncounterConfig(
@@ -790,7 +790,10 @@ final class DungeonSystem {
             slot, origin, size, entry, exit,
             clearExit, cooldown, randomEncounters, new HashMap<>(), participantIds,
             new HashMap<>(),
-            new EncounterRuntime(encounterByEntity, definition.encounters()),
+            new EncounterRuntime(
+                spawnedEncounters.entities(), definition.encounters(),
+                spawnedEncounters.positions()
+            ),
             new DungeonLootClaims(), new DungeonLootLedger(), lootPositions,
             healingPositions, checkpointPositions, new HashMap<>(), new HashMap<>(),
             new HashSet<>(), new HashMap<>()
@@ -984,7 +987,7 @@ final class DungeonSystem {
             definition.terrain().bounds(),
             layout.requiredMarker("entry", null),
             layout.requiredMarker("exit", null),
-            layout.markers(), seed
+            layout.featureMarkers(definition, seed), seed
         );
     }
 
@@ -1107,18 +1110,20 @@ final class DungeonSystem {
         }
     }
 
-    private static Map<UUID, EncounterEntityRef> spawnEncounters(
+    private static SpawnedEncounters spawnEncounters(
         ServerLevel level,
         DungeonDefinition definition,
         BlockPos origin,
         PreparedTerrain terrain
     ) {
         Map<UUID, EncounterEntityRef> spawned = new HashMap<>();
+        Map<String, BlockPos> positions = new HashMap<>();
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
             String markerKind = encounter.boss() ? "boss" : "encounter";
             BlockPos authoredPosition = origin.offset(featurePosition(
                 terrain, markerKind, encounter.id(), encounter.position()
             ));
+            positions.put(encounter.id(), authoredPosition);
             if (encounter.kind().equals("wild_pokemon")) {
                 Entity pokemon = DungeonWildEncounterSupport.spawn(
                     level, encounter.pokemon(), authoredPosition, encounter.yaw()
@@ -1162,7 +1167,7 @@ final class DungeonSystem {
                 }
             }
         }
-        return Map.copyOf(spawned);
+        return new SpawnedEncounters(Map.copyOf(spawned), Map.copyOf(positions));
     }
 
     private static BlockPos encounterNpcPosition(
@@ -1634,7 +1639,8 @@ final class DungeonSystem {
         );
         Candidate nearest = null;
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
-            BlockPos authored = run.origin().offset(encounter.position());
+            BlockPos authored = runtime.positionsById.get(encounter.id());
+            if (authored == null) continue;
             for (int index = 0; index < encounter.npcs().size(); index++) {
                 EncounterEntityRef ref = new EncounterEntityRef(encounter.id(), index);
                 if (assigned.contains(ref)) continue;
@@ -2568,6 +2574,7 @@ final class DungeonSystem {
             .map(Map.Entry::getKey).collect(Collectors.toSet());
         putStringSet(tag, "defeatedEncounters", defeated);
         putEncounterEntities(tag, run.encounters().encounterByEntity);
+        putBlockPositionMap(tag, "encounterPositions", run.encounters().positionsById);
         putLootClaims(tag, run.lootClaims().snapshot());
         putItemMap(
             tag, "pendingLoot", run.lootLedger().pendingSnapshot(), run.server()
@@ -2612,7 +2619,8 @@ final class DungeonSystem {
                     continue;
                 }
                 EncounterRuntime encounterRuntime = new EncounterRuntime(
-                    getEncounterEntities(tag), definition.encounters()
+                    getEncounterEntities(tag), definition.encounters(),
+                    getBlockPositionMap(tag, "encounterPositions")
                 );
                 getStringSet(tag, "defeatedEncounters").forEach(id -> {
                     if (encounterRuntime.statusById.containsKey(id)) {
@@ -3278,6 +3286,7 @@ final class DungeonSystem {
 
     private static final class EncounterRuntime {
         private final Map<UUID, EncounterEntityRef> encounterByEntity;
+        private final Map<String, BlockPos> positionsById;
         private final Map<String, EncounterStatus> statusById = new HashMap<>();
         private final Map<UUID, String> battleToEncounter = new HashMap<>();
         private String pendingEncounterId;
@@ -3285,9 +3294,11 @@ final class DungeonSystem {
 
         private EncounterRuntime(
             Map<UUID, EncounterEntityRef> encounterByEntity,
-            List<DungeonDefinition.Encounter> encounters
+            List<DungeonDefinition.Encounter> encounters,
+            Map<String, BlockPos> positionsById
         ) {
             this.encounterByEntity = new HashMap<>(encounterByEntity);
+            this.positionsById = Map.copyOf(positionsById);
             encounters.forEach(encounter ->
                 statusById.put(encounter.id(), EncounterStatus.AVAILABLE)
             );
@@ -3295,6 +3306,11 @@ final class DungeonSystem {
     }
 
     private record EncounterEntityRef(String encounterId, int opponentIndex) {}
+
+    private record SpawnedEncounters(
+        Map<UUID, EncounterEntityRef> entities,
+        Map<String, BlockPos> positions
+    ) {}
 
     private record CaveDungeonPlacement(
         String entranceId,

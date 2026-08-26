@@ -71,5 +71,24 @@
       ]
     }
   ],
-  "markers": []
+  "markers": [
+    {
+      "id": "encounter_slot",
+      "kind": "encounter",
+      "position": [
+        8,
+        1,
+        8
+      ]
+    },
+    {
+      "id": "loot_slot",
+      "kind": "loot",
+      "position": [
+        5,
+        1,
+        5
+      ]
+    }
+  ]
 }
