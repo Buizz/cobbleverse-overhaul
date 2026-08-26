@@ -8320,6 +8320,7 @@ def _managed_directory(root: Path, category: str) -> Path:
         "settlements": root / "content" / "settlements",
         "caves": root / "content" / "caves",
         "dungeons": root / "content" / "dungeons",
+        "dungeon-plans": root / "content" / "dungeon_plans",
         "underground-roads": root / "content" / "underground_roads",
         "forests": root / "content" / "forests",
     }
@@ -8565,6 +8566,147 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             else:
                 position(entry.get("position"), f"{base}.position")
     return dungeon_id if isinstance(dungeon_id, str) else None, issues
+
+
+def validate_dungeon_plan_file(path: Path) -> tuple[str | None, list[Issue]]:
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        return None, [Issue("error", path.as_posix(), "$", str(error))]
+    if not isinstance(data, dict):
+        return None, [Issue("error", path.as_posix(), "$", "던전 계획 문서는 객체여야 합니다.")]
+    plan_id = data.get("plan_id")
+    _resource_id(plan_id, issues, path, "$.plan_id")
+    if data.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "던전 계획 스키마 버전은 1이어야 합니다.")
+
+    def position(value: Any, field: str, positive: bool = False) -> bool:
+        valid = isinstance(value, list) and len(value) == 3 and all(
+            isinstance(axis, int) and not isinstance(axis, bool) and (not positive or axis >= 1)
+            for axis in value
+        )
+        if not valid:
+            _issue(issues, "error", path, field, "정수 좌표 3개가 필요합니다." if not positive else "양수인 X, Y, Z 크기 3개가 필요합니다.")
+        return valid
+
+    position(data.get("bounds"), "$.bounds", positive=True)
+    placements = data.get("placements")
+    if not isinstance(placements, list) or len(placements) < 3:
+        _issue(issues, "error", path, "$.placements", "게시형 계획에는 조각이 3개 이상 필요합니다.")
+        placements = placements if isinstance(placements, list) else []
+    for index, placement in enumerate(placements):
+        base = f"$.placements[{index}]"
+        if not isinstance(placement, dict):
+            _issue(issues, "error", path, base, "조각 배치는 객체여야 합니다.")
+            continue
+        _resource_id(placement.get("piece_id"), issues, path, f"{base}.piece_id")
+        position(placement.get("origin"), f"{base}.origin")
+        if placement.get("rotation") not in {"none", "clockwise_90", "clockwise_180", "counterclockwise_90"}:
+            _issue(issues, "error", path, f"{base}.rotation", "지원하지 않는 회전입니다.")
+        if not isinstance(placement.get("critical_path"), bool):
+            _issue(issues, "error", path, f"{base}.critical_path", "true 또는 false여야 합니다.")
+
+    links = data.get("links")
+    if not isinstance(links, list) or len(links) < 2:
+        _issue(issues, "error", path, "$.links", "게시형 계획에는 연결이 2개 이상 필요합니다.")
+        links = links if isinstance(links, list) else []
+    seen_links: set[tuple[int, str, int, str]] = set()
+    for index, link in enumerate(links):
+        base = f"$.links[{index}]"
+        if not isinstance(link, dict):
+            _issue(issues, "error", path, base, "조각 연결은 객체여야 합니다.")
+            continue
+        for field in ("from_index", "to_index"):
+            value = link.get(field)
+            if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value < len(placements):
+                _issue(issues, "error", path, f"{base}.{field}", "존재하는 조각 번호여야 합니다.")
+        for field in ("from_connector", "to_connector"):
+            value = link.get(field)
+            if not isinstance(value, str) or not CHOICE_ID.fullmatch(value):
+                _issue(issues, "error", path, f"{base}.{field}", "커넥터 ID가 필요합니다.")
+        if link.get("from_index") == link.get("to_index"):
+            _issue(issues, "error", path, base, "같은 조각끼리는 연결할 수 없습니다.")
+        if not isinstance(link.get("critical_path"), bool):
+            _issue(issues, "error", path, f"{base}.critical_path", "true 또는 false여야 합니다.")
+        key = (link.get("from_index"), link.get("from_connector"), link.get("to_index"), link.get("to_connector"))
+        reverse = (key[2], key[3], key[0], key[1])
+        if key in seen_links or reverse in seen_links:
+            _issue(issues, "error", path, base, "같은 커넥터 연결이 중복되었습니다.")
+        seen_links.add(key)
+    return plan_id if isinstance(plan_id, str) else None, issues
+
+
+def validate_dungeon_plan_document(
+    root: Path, data: Any, path: Path,
+) -> list[Issue]:
+    """Validate authored placements against the project's piece catalog."""
+    issues: list[Issue] = []
+    if not isinstance(data, dict):
+        return issues
+    pieces: dict[str, dict[str, Any]] = {}
+    piece_directory = root / "content" / "dungeon_pieces"
+    for piece_path in sorted(piece_directory.rglob("*.json")) if piece_directory.is_dir() else []:
+        try:
+            piece = load_json(piece_path)
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+        if isinstance(piece, dict) and isinstance(piece.get("piece_id"), str):
+            pieces[piece["piece_id"]] = piece
+    placements = data.get("placements") if isinstance(data.get("placements"), list) else []
+    bounds = data.get("bounds") if isinstance(data.get("bounds"), list) and len(data.get("bounds")) == 3 else None
+    occupied: list[tuple[int, list[int], list[int]]] = []
+    for index, placement in enumerate(placements):
+        if not isinstance(placement, dict):
+            continue
+        piece_id = placement.get("piece_id")
+        piece = pieces.get(piece_id)
+        if piece is None:
+            _issue(issues, "error", path, f"$.placements[{index}].piece_id", f"등록되지 않은 던전 조각입니다: {piece_id}")
+            continue
+        size = piece.get("size")
+        origin = placement.get("origin")
+        rotation = placement.get("rotation")
+        if not isinstance(size, list) or len(size) != 3 or not isinstance(origin, list) or len(origin) != 3:
+            continue
+        minimum = list(origin)
+        transformed = list(size)
+        if rotation == "clockwise_90":
+            minimum[0] -= size[2] - 1
+            transformed = [size[2], size[1], size[0]]
+        elif rotation == "clockwise_180":
+            minimum[0] -= size[0] - 1
+            minimum[2] -= size[2] - 1
+        elif rotation == "counterclockwise_90":
+            minimum[2] -= size[0] - 1
+            transformed = [size[2], size[1], size[0]]
+        maximum = [minimum[axis] + transformed[axis] for axis in range(3)]
+        if bounds and any(minimum[axis] < 0 or maximum[axis] > bounds[axis] for axis in range(3)):
+            _issue(issues, "error", path, f"$.placements[{index}].origin", "회전된 조각이 계획 영역 밖으로 나갑니다.")
+        for other_index, other_minimum, other_maximum in occupied:
+            if all(minimum[axis] < other_maximum[axis] and maximum[axis] > other_minimum[axis] for axis in range(3)):
+                _issue(issues, "error", path, f"$.placements[{index}].origin", f"{other_index}번 조각과 영역이 겹칩니다.")
+        occupied.append((index, minimum, maximum))
+
+    links = data.get("links") if isinstance(data.get("links"), list) else []
+    for index, link in enumerate(links):
+        if not isinstance(link, dict):
+            continue
+        endpoints = (("from", link.get("from_index"), link.get("from_connector")), ("to", link.get("to_index"), link.get("to_connector")))
+        sockets: list[str] = []
+        for side, placement_index, connector_id in endpoints:
+            if not isinstance(placement_index, int) or not 0 <= placement_index < len(placements) or not isinstance(placements[placement_index], dict):
+                continue
+            piece = pieces.get(placements[placement_index].get("piece_id"))
+            connectors = piece.get("connectors", []) if isinstance(piece, dict) else []
+            connector = next((value for value in connectors if isinstance(value, dict) and value.get("id") == connector_id), None)
+            if connector is None:
+                _issue(issues, "error", path, f"$.links[{index}].{side}_connector", f"{placement_index}번 조각에 없는 커넥터입니다.")
+            elif isinstance(connector.get("socket"), str):
+                sockets.append(connector["socket"])
+        if len(sockets) == 2 and sockets[0] != sockets[1]:
+            _issue(issues, "error", path, f"$.links[{index}]", "서로 다른 소켓 종류의 커넥터는 연결할 수 없습니다.")
+    return issues
 
 
 def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
@@ -8875,6 +9017,7 @@ def _save_document(
         "settlements": validate_settlement_file,
         "caves": validate_cave_file,
         "dungeons": validate_dungeon_file,
+        "dungeon-plans": validate_dungeon_plan_file,
         "underground-roads": validate_underground_road_file,
         "forests": validate_forest_file,
     }[category]
@@ -8905,6 +9048,8 @@ def _save_document(
             issue for issue in structure_issues
             if not any(existing.path == issue.path and existing.message == issue.message for existing in issues)
         )
+    if category == "dungeon-plans" and isinstance(data, dict):
+        issues.extend(validate_dungeon_plan_document(root, data, target))
     duplicate = _duplicate_document_issue(
         root, category, target, document_id, validator
     )
@@ -13680,7 +13825,7 @@ def create_handler(
                 return
             if request.path == "/api/document-validation":
                 category = parse_qs(request.query).get("category", [""])[0]
-                if category not in {"trainers", "battles", "routes", "settlements", "caves", "dungeons", "underground-roads", "forests"}:
+                if category not in {"trainers", "battles", "routes", "settlements", "caves", "dungeons", "dungeon-plans", "underground-roads", "forests"}:
                     self._json(400, {"error": "지원하지 않는 문서 종류입니다."})
                     return
                 validator = {
@@ -13690,6 +13835,7 @@ def create_handler(
                     "settlements": validate_settlement_file,
                     "caves": validate_cave_file,
                     "dungeons": validate_dungeon_file,
+                    "dungeon-plans": validate_dungeon_plan_file,
                     "underground-roads": validate_underground_road_file,
                     "forests": validate_forest_file,
                 }[category]
@@ -13703,6 +13849,10 @@ def create_handler(
                     _, issues = validate_underground_road_document(
                         payload, root / "content" / "underground_roads" / "candidate.json", root,
                     )
+                if category == "dungeon-plans" and isinstance(payload, dict):
+                    issues.extend(validate_dungeon_plan_document(
+                        root, payload, root / "content" / "dungeon_plans" / "candidate.json",
+                    ))
                 if category == "settlements" and isinstance(payload, dict) and not any(
                     issue.level == "error" for issue in issues
                 ):
@@ -14337,6 +14487,7 @@ def create_handler(
                 "/api/settlements": "settlements",
                 "/api/caves": "caves",
                 "/api/dungeons": "dungeons",
+                "/api/dungeon-plans": "dungeon-plans",
                 "/api/underground-roads": "underground-roads",
                 "/api/forests": "forests",
             }

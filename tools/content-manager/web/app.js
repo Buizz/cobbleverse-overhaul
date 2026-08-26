@@ -24,7 +24,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPieces: new Map(), dungeonDirty: false, dungeonContentSelection: null, dungeonPreview: { seed: 1, planId: "", selected: -1, hitTargets: [], plan: null },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonDirty: false, dungeonPlanDirty: false, dungeonContentSelection: null, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", selected: -1, hitTargets: [], plan: null, transform: null },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -1038,6 +1038,7 @@ async function loadLists() {
   if (dungeons.ok) {
     state.dungeons = dungeons.data.items || [];
     state.dungeonPlans = new Map((dungeons.data.plans || []).map((item) => [item.id, item.document]));
+    state.dungeonPlanPaths = new Map((dungeons.data.plans || []).map((item) => [item.id, item.path]));
     state.dungeonPieces = new Map((dungeons.data.pieces || []).map((item) => [item.id, item.document]));
     renderDungeonList();
     const errors = dungeons.data.errors || [];
@@ -4538,7 +4539,9 @@ function renderDungeonList() {
     state.dungeon = item.document;
     state.dungeonPath = item.path;
     state.dungeonDirty = false;
+    state.dungeonPlanDirty = false;
     state.dungeonContentSelection = null;
+    state.dungeonPlanEditor.selectedPlacement = -1;
     state.dungeonPreview.selected = -1;
     state.dungeonPreview.planId = "";
     renderDungeonList();
@@ -4932,6 +4935,186 @@ function authoredDungeonPlan(document, planId) {
   };
 }
 
+function currentDungeonAuthoredPlan() {
+  return state.dungeonPlans.get(state.dungeonPreview.planId) || null;
+}
+
+function dungeonPieceOptions(selected = "") {
+  const pieces = [...state.dungeonPieces.values()];
+  if (!pieces.length) return '<option value="">등록된 던전 조각이 없습니다</option>';
+  return pieces.map((piece) => `<option value="${escapeHtml(piece.piece_id)}"${piece.piece_id === selected ? " selected" : ""}>${escapeHtml(piece.role)} · ${escapeHtml(piece.piece_id)} · ${piece.size?.join("×") || "크기 미상"}</option>`).join("");
+}
+
+function dungeonPlacementConnectorOptions(plan, placementIndex, selected = "") {
+  const placement = plan?.placements?.[placementIndex];
+  const piece = state.dungeonPieces.get(placement?.piece_id);
+  const connectors = piece?.connectors || [];
+  if (!connectors.length) return `<option value="${escapeHtml(selected)}">커넥터 없음</option>`;
+  return connectors.map((connector) => `<option value="${escapeHtml(connector.id)}"${connector.id === selected ? " selected" : ""}>${escapeHtml(connector.id)} · ${escapeHtml(connector.facing)} · ${escapeHtml(connector.socket)}</option>`).join("");
+}
+
+function markDungeonPlanDirty() {
+  state.dungeonPlanDirty = true;
+  $("#dungeon-authored-plan-path").textContent = `${state.dungeonPlanPaths.get(state.dungeonPreview.planId) || "새 계획"} · 저장하지 않은 변경`;
+}
+
+function renderDungeonPlanEditor() {
+  const document = state.dungeon;
+  const editor = $("#dungeon-authored-plan-editor");
+  const visible = document && document.terrain?.mode !== "fixed_template" && document.plan?.mode !== "runtime";
+  editor.hidden = !visible;
+  if (!visible) return;
+  const plan = currentDungeonAuthoredPlan();
+  $("#dungeon-piece-choice").innerHTML = dungeonPieceOptions();
+  $("#add-dungeon-piece").disabled = !state.dungeonPieces.size || !plan;
+  $("#dungeon-plan-form").hidden = !plan;
+  $("#validate-dungeon-plan").disabled = !plan;
+  $("#save-dungeon-plan").disabled = !plan;
+  if (!plan) {
+    $("#dungeon-authored-plan-path").textContent = "게시형 계획을 새로 만들거나 던전의 계획 ID를 선택하세요.";
+    $("#dungeon-plan-issues").className = "issues empty";
+    $("#dungeon-plan-issues").textContent = "현재 선택된 게시형 계획이 없습니다.";
+    return;
+  }
+  const form = $("#dungeon-plan-form");
+  setFormValue(form, "planId", plan.plan_id); setFormValue(form, "seed", plan.seed ?? 0);
+  setFormValue(form, "boundsX", plan.bounds?.[0] ?? 64); setFormValue(form, "boundsY", plan.bounds?.[1] ?? 16); setFormValue(form, "boundsZ", plan.bounds?.[2] ?? 64);
+  $("#dungeon-authored-plan-path").textContent = `${state.dungeonPlanPaths.get(plan.plan_id) || "새 계획"}${state.dungeonPlanDirty ? " · 저장하지 않은 변경" : ""}`;
+  if (!plan.placements?.[state.dungeonPlanEditor.selectedPlacement]) state.dungeonPlanEditor.selectedPlacement = -1;
+  $("#dungeon-placement-list").innerHTML = (plan.placements || []).map((placement, index) => {
+    const piece = state.dungeonPieces.get(placement.piece_id) || {};
+    return `<button type="button" data-dungeon-placement="${index}" class="${state.dungeonPlanEditor.selectedPlacement === index ? "is-active" : ""}"><i>${index + 1}</i><span><b>${escapeHtml(piece.role || "unknown")} · ${escapeHtml(placement.piece_id)}</b><small>${placement.origin.join(", ")} · ${escapeHtml(placement.rotation)}${placement.critical_path ? " · 주 경로" : ""}</small></span></button>`;
+  }).join("") || '<div class="dungeon-content-empty"><p>조각을 추가하세요.</p></div>';
+  const selectedIndex = state.dungeonPlanEditor.selectedPlacement;
+  const placement = plan.placements?.[selectedIndex];
+  $("#rotate-dungeon-piece").disabled = !placement;
+  $("#remove-dungeon-piece").disabled = !placement;
+  if (!placement) {
+    $("#dungeon-placement-properties").innerHTML = '<div class="dungeon-content-empty"><span>◇</span><p>평면도나 목록에서 조각을 선택하세요.</p></div>';
+  } else {
+    $("#dungeon-placement-properties").innerHTML = `<div class="dungeon-placement-fields"><label><span>NBT 조각</span><select name="pieceId" data-plan-placement-field>${dungeonPieceOptions(placement.piece_id)}</select></label><label><span>원점 X</span><input name="originX" type="number" value="${placement.origin[0]}" data-plan-placement-field></label><label><span>원점 Y</span><input name="originY" type="number" value="${placement.origin[1]}" data-plan-placement-field></label><label><span>원점 Z</span><input name="originZ" type="number" value="${placement.origin[2]}" data-plan-placement-field></label><label><span>회전</span><select name="rotation" data-plan-placement-field><option value="none">회전 없음</option><option value="clockwise_90">시계 90°</option><option value="clockwise_180">180°</option><option value="counterclockwise_90">반시계 90°</option></select></label><label class="toggle"><input name="criticalPath" type="checkbox" data-plan-placement-field${placement.critical_path ? " checked" : ""}><span>주 경로</span></label></div>`;
+    $("#dungeon-placement-properties [name=rotation]").value = placement.rotation;
+  }
+  $("#dungeon-link-list").innerHTML = (plan.links || []).map((link, index) => `<div class="dungeon-link-row" data-dungeon-link="${index}"><label><span>시작 조각</span><select name="fromIndex">${plan.placements.map((placement, placementIndex) => `<option value="${placementIndex}"${placementIndex === link.from_index ? " selected" : ""}>${placementIndex + 1} · ${escapeHtml(placement.piece_id)}</option>`).join("")}</select></label><label><span>시작 커넥터</span><select name="fromConnector">${dungeonPlacementConnectorOptions(plan, link.from_index, link.from_connector)}</select></label><span>→</span><label><span>도착 조각</span><select name="toIndex">${plan.placements.map((placement, placementIndex) => `<option value="${placementIndex}"${placementIndex === link.to_index ? " selected" : ""}>${placementIndex + 1} · ${escapeHtml(placement.piece_id)}</option>`).join("")}</select></label><label><span>도착 커넥터</span><select name="toConnector">${dungeonPlacementConnectorOptions(plan, link.to_index, link.to_connector)}</select></label><label class="toggle"><input name="criticalPath" type="checkbox"${link.critical_path ? " checked" : ""}>주 경로</label><button type="button" data-remove-dungeon-link="${index}" aria-label="연결 삭제">×</button></div>`).join("") || '<div class="issues empty">연결을 추가하세요. 게시형 계획은 최소 2개 연결이 필요합니다.</div>';
+}
+
+function updateDungeonPlanMeta() {
+  const plan = currentDungeonAuthoredPlan();
+  if (!plan) return;
+  const form = $("#dungeon-plan-form");
+  const oldId = plan.plan_id;
+  const nextId = form.elements.planId.value.trim();
+  plan.plan_id = nextId; plan.seed = Math.round(Number(form.elements.seed.value || 0));
+  plan.bounds = [Math.round(Number(form.elements.boundsX.value || 1)), Math.round(Number(form.elements.boundsY.value || 1)), Math.round(Number(form.elements.boundsZ.value || 1))];
+  if (nextId && nextId !== oldId) {
+    const path = state.dungeonPlanPaths.get(oldId);
+    state.dungeonPlans.delete(oldId); state.dungeonPlanPaths.delete(oldId);
+    state.dungeonPlans.set(nextId, plan); if (path) state.dungeonPlanPaths.set(nextId, path);
+    state.dungeonPreview.planId = nextId;
+    const ids = state.dungeon.plan?.plan_ids || [];
+    state.dungeon.plan.plan_ids = ids.map((id) => id === oldId ? nextId : id);
+    state.dungeonDirty = true;
+  }
+}
+
+function createDungeonPlan() {
+  if (!state.dungeon) return;
+  const slug = state.dungeon.dungeon_id?.split("/").pop() || "dungeon";
+  let suffix = 1; let planId;
+  do { planId = `cobbleventure:dungeon_plan/${slug}_${suffix}`; suffix += 1; } while (state.dungeonPlans.has(planId));
+  const generation = state.dungeonPath.match(/generation_\d+/)?.[0] || "generation_1";
+  const plan = { "$schema": "../../schemas/dungeon-plan.schema.json", schema_version: 1, plan_id: planId, seed: 0, bounds: [...(state.dungeon.terrain?.bounds || [64, 16, 64])], placements: [], links: [] };
+  state.dungeonPlans.set(planId, plan);
+  state.dungeonPlanPaths.set(planId, `content/dungeon_plans/${generation}/${slug}_${suffix - 1}.json`);
+  state.dungeon.plan ||= { mode: "authored", seed_policy: "fixed", fallback: "reject_entry" };
+  state.dungeon.plan.mode = state.dungeon.plan.mode === "authored_pool" ? "authored_pool" : "authored";
+  state.dungeon.plan.plan_ids ||= [];
+  if (state.dungeon.plan.mode === "authored") state.dungeon.plan.plan_ids = [planId]; else state.dungeon.plan.plan_ids.push(planId);
+  state.dungeonPreview.planId = planId; state.dungeonPlanEditor.selectedPlacement = -1;
+  state.dungeonDirty = true; state.dungeonPlanDirty = true;
+  renderDungeon();
+}
+
+function addDungeonPlanPiece() {
+  const plan = currentDungeonAuthoredPlan();
+  const pieceId = $("#dungeon-piece-choice").value;
+  const piece = state.dungeonPieces.get(pieceId);
+  if (!plan || !piece) return;
+  const previous = plan.placements.at(-1);
+  const previousPiece = state.dungeonPieces.get(previous?.piece_id);
+  const originX = previous ? Number(previous.origin[0]) + Number(previousPiece?.size?.[0] || 12) + 2 : 1;
+  plan.placements.push({ piece_id: pieceId, origin: [originX, 1, 1], rotation: "none", critical_path: true });
+  state.dungeonPlanEditor.selectedPlacement = plan.placements.length - 1;
+  markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview();
+}
+
+function updateSelectedDungeonPlacement() {
+  const plan = currentDungeonAuthoredPlan();
+  const placement = plan?.placements?.[state.dungeonPlanEditor.selectedPlacement];
+  if (!placement) return;
+  const root = $("#dungeon-placement-properties");
+  placement.piece_id = root.querySelector("[name=pieceId]").value;
+  placement.origin = ["originX", "originY", "originZ"].map((name) => Math.round(Number(root.querySelector(`[name=${name}]`).value || 0)));
+  placement.rotation = root.querySelector("[name=rotation]").value;
+  placement.critical_path = root.querySelector("[name=criticalPath]").checked;
+}
+
+function rotateSelectedDungeonPiece() {
+  const plan = currentDungeonAuthoredPlan();
+  const placement = plan?.placements?.[state.dungeonPlanEditor.selectedPlacement];
+  const piece = state.dungeonPieces.get(placement?.piece_id);
+  if (!placement) return;
+  if (piece?.allow_rotation === false) { toast("이 조각은 회전할 수 없습니다."); return; }
+  const rotations = ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"];
+  placement.rotation = rotations[(rotations.indexOf(placement.rotation) + 1) % rotations.length];
+  markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview();
+}
+
+function removeSelectedDungeonPiece() {
+  const plan = currentDungeonAuthoredPlan();
+  const index = state.dungeonPlanEditor.selectedPlacement;
+  if (!plan?.placements?.[index]) return;
+  plan.placements.splice(index, 1);
+  plan.links = plan.links.filter((link) => link.from_index !== index && link.to_index !== index).map((link) => ({ ...link, from_index: link.from_index > index ? link.from_index - 1 : link.from_index, to_index: link.to_index > index ? link.to_index - 1 : link.to_index }));
+  state.dungeonPlanEditor.selectedPlacement = -1;
+  markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview();
+}
+
+function addDungeonPlanLink() {
+  const plan = currentDungeonAuthoredPlan();
+  if (!plan || plan.placements.length < 2) { toast("연결할 조각을 먼저 2개 이상 배치하세요."); return; }
+  const fromIndex = Math.max(0, plan.placements.length - 2); const toIndex = plan.placements.length - 1;
+  const fromPiece = state.dungeonPieces.get(plan.placements[fromIndex].piece_id); const toPiece = state.dungeonPieces.get(plan.placements[toIndex].piece_id);
+  plan.links.push({ from_index: fromIndex, from_connector: fromPiece?.connectors?.[0]?.id || "connector", to_index: toIndex, to_connector: toPiece?.connectors?.[0]?.id || "connector", critical_path: true });
+  markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview();
+}
+
+function updateDungeonPlanLinks() {
+  const plan = currentDungeonAuthoredPlan();
+  if (!plan) return;
+  plan.links = $$("#dungeon-link-list [data-dungeon-link]").map((row) => ({ from_index: Number(row.querySelector("[name=fromIndex]").value), from_connector: row.querySelector("[name=fromConnector]").value, to_index: Number(row.querySelector("[name=toIndex]").value), to_connector: row.querySelector("[name=toConnector]").value, critical_path: row.querySelector("[name=criticalPath]").checked }));
+}
+
+async function validateDungeonPlan() {
+  const plan = currentDungeonAuthoredPlan();
+  if (!plan || !$("#dungeon-plan-form").reportValidity()) return false;
+  updateDungeonPlanMeta(); updateSelectedDungeonPlacement(); updateDungeonPlanLinks();
+  const result = await request("/api/document-validation?category=dungeon-plans", { method: "POST", body: JSON.stringify(plan) });
+  showIssues("#dungeon-plan-issues", result.data); toast(result.ok ? "게시형 계획 검증을 통과했습니다." : "게시형 계획에 수정할 항목이 있습니다.");
+  return result.ok;
+}
+
+async function saveDungeonPlan() {
+  const plan = currentDungeonAuthoredPlan();
+  if (!plan || !await validateDungeonPlan()) return;
+  const path = state.dungeonPlanPaths.get(plan.plan_id);
+  const result = await request(`/api/dungeon-plans?path=${encodeURIComponent(path)}`, { method: "PUT", body: JSON.stringify(plan) });
+  showIssues("#dungeon-plan-issues", result.data);
+  if (!result.ok) { toast("계획을 저장하지 못했습니다."); return; }
+  state.dungeonPlanDirty = false; renderDungeonPlanEditor();
+  toast(state.dungeonDirty ? "계획을 저장했습니다. 던전의 계획 ID 변경도 저장해 주세요." : "게시형 계획을 저장했습니다.");
+}
+
 function fixedDungeonPlan(document) {
   const markers = [];
   const add = (kind, position, label, content = null) => { if (Array.isArray(position)) markers.push({ kind, position: position.map(Number), label, content }); };
@@ -5014,6 +5197,7 @@ function renderDungeon() {
   $("#dungeon-preview-seed").disabled = document.plan?.mode !== "runtime";
   $("#dungeon-repeat-seed").disabled = document.plan?.mode !== "runtime";
   $("#dungeon-random-seed").disabled = document.plan?.mode !== "runtime";
+  renderDungeonPlanEditor();
   renderDungeonPreview();
 }
 
@@ -5030,6 +5214,7 @@ function renderDungeonPreview() {
   const boundsX = Math.max(1, Number(plan.bounds[0])); const boundsZ = Math.max(1, Number(plan.bounds[2]));
   const scale = Math.min((width - 64) / boundsX, (height - 64) / boundsZ);
   const offsetX = (width - boundsX * scale) / 2; const offsetY = (height - boundsZ * scale) / 2;
+  state.dungeonPreview.transform = { scale, offsetX, offsetY };
   const point = (position) => ({ x: offsetX + Number(position[0]) * scale, y: offsetY + Number(position[2]) * scale });
   context.strokeStyle = "#395057"; context.lineWidth = 1; context.strokeRect(offsetX, offsetY, boundsX * scale, boundsZ * scale);
   const centers = new Map(plan.placements.map((placement) => [placement.index, point([placement.minimum[0] + placement.size[0] / 2, 0, placement.minimum[2] + placement.size[2] / 2])]));
@@ -15250,7 +15435,7 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
     button.textContent = "NBT 목록 갱신";
   }
 });
-$("#dungeon-plan-choice").addEventListener("change", (event) => { state.dungeonPreview.planId = event.target.value; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
+$("#dungeon-plan-choice").addEventListener("change", (event) => { state.dungeonPreview.planId = event.target.value; state.dungeonPreview.selected = -1; state.dungeonPlanEditor.selectedPlacement = -1; renderDungeonPlanEditor(); renderDungeonPreview(); });
 $("#dungeon-form").addEventListener("input", () => {
   if (!state.dungeon) return;
   updateDungeonFromForm();
@@ -15291,12 +15476,35 @@ $("#dungeon-content-properties").addEventListener("change", (event) => {
 });
 $("#add-dungeon-content").addEventListener("click", addDungeonContent);
 $("#delete-dungeon-content").addEventListener("click", deleteDungeonContent);
+$("#new-dungeon-plan").addEventListener("click", createDungeonPlan);
+$("#validate-dungeon-plan").addEventListener("click", validateDungeonPlan);
+$("#save-dungeon-plan").addEventListener("click", saveDungeonPlan);
+$("#dungeon-plan-form").addEventListener("input", (event) => {
+  if (event.target.closest("#dungeon-placement-properties") || event.target.closest("#dungeon-link-list")) return;
+  updateDungeonPlanMeta(); markDungeonPlanDirty(); renderDungeonPreview();
+});
+$("#dungeon-placement-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-dungeon-placement]"); if (!button) return;
+  state.dungeonPlanEditor.selectedPlacement = Number(button.dataset.dungeonPlacement); state.dungeonPreview.selected = state.dungeonPlanEditor.selectedPlacement;
+  renderDungeonPlanEditor(); renderDungeonPreview();
+});
+$("#dungeon-placement-properties").addEventListener("input", () => { updateSelectedDungeonPlacement(); markDungeonPlanDirty(); renderDungeonPreview(); });
+$("#dungeon-placement-properties").addEventListener("change", () => { updateSelectedDungeonPlacement(); renderDungeonPlanEditor(); renderDungeonPreview(); });
+$("#add-dungeon-piece").addEventListener("click", addDungeonPlanPiece);
+$("#rotate-dungeon-piece").addEventListener("click", rotateSelectedDungeonPiece);
+$("#remove-dungeon-piece").addEventListener("click", removeSelectedDungeonPiece);
+$("#add-dungeon-link").addEventListener("click", addDungeonPlanLink);
+$("#dungeon-link-list").addEventListener("change", () => { updateDungeonPlanLinks(); markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview(); });
+$("#dungeon-link-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-dungeon-link]"); if (!button) return; const plan = currentDungeonAuthoredPlan(); plan.links.splice(Number(button.dataset.removeDungeonLink), 1); markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview(); });
 $("#validate-dungeon").addEventListener("click", () => validateDocument("dungeons"));
 $("#save-dungeon").addEventListener("click", () => saveDocument("dungeons"));
 $("#dungeon-preview-seed").addEventListener("change", (event) => { state.dungeonPreview.seed = Number(event.target.value) || 1; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
 $("#dungeon-repeat-seed").addEventListener("click", renderDungeonPreview);
 $("#dungeon-random-seed").addEventListener("click", () => { state.dungeonPreview.seed = Math.floor(Math.random() * 2147483647) + 1; $("#dungeon-preview-seed").value = state.dungeonPreview.seed; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
-$("#dungeon-plan-canvas").addEventListener("click", (event) => { const bounds = event.currentTarget.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const target = [...state.dungeonPreview.hitTargets].reverse().find((value) => x >= value.x && x <= value.x + value.width && y >= value.y && y <= value.y + value.height); if (target?.type === "marker") { state.dungeonContentSelection = { ...target.content }; state.dungeonPreview.selected = -1; renderDungeonContentEditor(); } else { state.dungeonPreview.selected = target?.index ?? -1; } renderDungeonPreview(); });
+$("#dungeon-plan-canvas").addEventListener("click", (event) => { const bounds = event.currentTarget.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const target = [...state.dungeonPreview.hitTargets].reverse().find((value) => x >= value.x && x <= value.x + value.width && y >= value.y && y <= value.y + value.height); if (target?.type === "marker") { state.dungeonContentSelection = { ...target.content }; state.dungeonPreview.selected = -1; renderDungeonContentEditor(); } else { state.dungeonPreview.selected = target?.index ?? -1; if (currentDungeonAuthoredPlan()) { state.dungeonPlanEditor.selectedPlacement = state.dungeonPreview.selected; renderDungeonPlanEditor(); } } renderDungeonPreview(); });
+$("#dungeon-plan-canvas").addEventListener("mousedown", (event) => { const plan = currentDungeonAuthoredPlan(); const transform = state.dungeonPreview.transform; if (!plan || !transform) return; const bounds = event.currentTarget.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const target = [...state.dungeonPreview.hitTargets].reverse().find((value) => value.type === "placement" && x >= value.x && x <= value.x + value.width && y >= value.y && y <= value.y + value.height); const placement = plan.placements?.[target?.index]; if (!placement) return; state.dungeonPlanEditor.selectedPlacement = target.index; state.dungeonPlanEditor.drag = { startX: event.clientX, startY: event.clientY, origin: [...placement.origin], index: target.index }; });
+window.addEventListener("mousemove", (event) => { const drag = state.dungeonPlanEditor.drag; const plan = currentDungeonAuthoredPlan(); const scale = state.dungeonPreview.transform?.scale; const placement = plan?.placements?.[drag?.index]; if (!drag || !placement || !scale) return; placement.origin[0] = drag.origin[0] + Math.round((event.clientX - drag.startX) / scale); placement.origin[2] = drag.origin[2] + Math.round((event.clientY - drag.startY) / scale); state.dungeonPreview.selected = drag.index; markDungeonPlanDirty(); renderDungeonPreview(); });
+window.addEventListener("mouseup", () => { if (!state.dungeonPlanEditor.drag) return; state.dungeonPlanEditor.drag = null; renderDungeonPlanEditor(); renderDungeonPreview(); });
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#open-project").addEventListener("click", openProjectDialog);
 $("#project-form").addEventListener("submit", loadProject);

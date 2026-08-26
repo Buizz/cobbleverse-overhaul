@@ -76,6 +76,50 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("최소 레벨" in message for message in messages))
         self.assertTrue(any("정수 좌표 3개" in message for message in messages))
 
+    def test_authored_dungeon_plan_validates_piece_bounds_and_connectors(self) -> None:
+        piece = {
+            "$schema": "../schemas/dungeon-piece.schema.json", "schema_version": 1,
+            "piece_id": "cobbleventure:dungeon_piece/test_room", "structure": "cobbleventure:test/room",
+            "role": "room", "size": [4, 4, 4], "weight": 1, "allow_rotation": True, "tags": [],
+            "connectors": [
+                {"id": "west", "position": [0, 1, 1], "facing": "west", "socket": "cobbleventure:socket/door", "tags": []},
+                {"id": "east", "position": [3, 1, 1], "facing": "east", "socket": "cobbleventure:socket/door", "tags": []},
+            ], "markers": [],
+        }
+        plan = {
+            "$schema": "../../schemas/dungeon-plan.schema.json", "schema_version": 1,
+            "plan_id": "cobbleventure:dungeon_plan/test", "seed": 0, "bounds": [20, 8, 8],
+            "placements": [
+                {"piece_id": piece["piece_id"], "origin": [1, 1, 1], "rotation": "none", "critical_path": True},
+                {"piece_id": piece["piece_id"], "origin": [6, 1, 1], "rotation": "none", "critical_path": True},
+                {"piece_id": piece["piece_id"], "origin": [11, 1, 1], "rotation": "none", "critical_path": True},
+            ],
+            "links": [
+                {"from_index": 0, "from_connector": "east", "to_index": 1, "to_connector": "west", "critical_path": True},
+                {"from_index": 1, "from_connector": "east", "to_index": 2, "to_connector": "west", "critical_path": True},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            piece_path = root / "content/dungeon_pieces/test_room.json"
+            piece_path.parent.mkdir(parents=True)
+            piece_path.write_text(json.dumps(piece), encoding="utf-8")
+
+            target, issues = content_manager._save_document(
+                root, "dungeon-plans", "content/dungeon_plans/generation_1/test.json", plan,
+            )
+            self.assertIsNotNone(target)
+            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+
+            plan["placements"][1]["origin"] = [3, 1, 1]
+            plan["links"][0]["to_connector"] = "missing"
+            _, invalid_issues = content_manager._save_document(
+                root, "dungeon-plans", "content/dungeon_plans/generation_1/invalid.json", plan,
+            )
+        messages = [issue.message for issue in invalid_issues]
+        self.assertTrue(any("영역이 겹칩니다" in message for message in messages))
+        self.assertTrue(any("없는 커넥터" in message for message in messages))
+
     def test_dungeon_workspace_loads_definitions_plans_and_piece_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
