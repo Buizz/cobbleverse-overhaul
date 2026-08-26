@@ -667,8 +667,13 @@ final class DungeonSystem {
 
     private static String entryProblem(ServerPlayer player, PendingEntry pending) {
         DungeonDefinition definition = pending.ref().definition();
-        if (!definition.terrain().mode().equals("fixed_template")) {
-            return "현재 프로토타입은 고정 NBT 던전만 입장할 수 있습니다.";
+        if (!definition.terrain().mode().equals("fixed_template")
+            && !definition.terrain().mode().equals("nbt_pieces")) {
+            return "아직 지원하지 않는 던전 지형 방식입니다.";
+        }
+        if (definition.terrain().mode().equals("nbt_pieces")
+            && !definition.plan().mode().equals("runtime")) {
+            return "현재는 런타임 조각 생성 던전만 입장할 수 있습니다.";
         }
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             return "배틀 중에는 던전에 입장할 수 없습니다.";
@@ -714,11 +719,15 @@ final class DungeonSystem {
         }
         BlockPos origin = slotOrigin(slot);
         BlockPos size = BlockPos.ZERO;
+        PreparedTerrain terrain = null;
         BlockPos clearExit = null;
         PursuitEncounterSystem.Config randomEncounters;
         Map<UUID, EncounterEntityRef> encounterByEntity;
         try {
-            size = prepareFixedTemplate(dungeonLevel, definition, origin);
+            terrain = prepareTerrain(
+                dungeonLevel, definition, origin, first.player().getUUID()
+            );
+            size = terrain.size();
             placeGates(dungeonLevel, definition, origin, size);
             clearExit = placeClearExit(dungeonLevel, definition, origin, size);
             placeHealingStations(dungeonLevel, definition, origin, size);
@@ -746,8 +755,8 @@ final class DungeonSystem {
                 );
             }
         }
-        BlockPos entry = origin.offset(definition.terrain().entryPosition());
-        BlockPos exit = origin.offset(definition.terrain().exitPosition());
+        BlockPos entry = origin.offset(terrain.entryPosition());
+        BlockPos exit = origin.offset(terrain.exitPosition());
         long cooldown = dungeonLevel.getGameTime() + 40L;
         Set<UUID> participantIds = entries.stream()
             .map(matched -> matched.player().getUUID())
@@ -859,6 +868,108 @@ final class DungeonSystem {
             );
         }
         return new BlockPos(template.getSize());
+    }
+
+    private static PreparedTerrain prepareTerrain(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        UUID playerId
+    ) {
+        if (definition.terrain().mode().equals("fixed_template")) {
+            return new PreparedTerrain(
+                prepareFixedTemplate(level, definition, origin),
+                definition.terrain().entryPosition(),
+                definition.terrain().exitPosition(),
+                Map.of()
+            );
+        }
+        return prepareNbtPieces(level, definition, origin, playerId);
+    }
+
+    private static PreparedTerrain prepareNbtPieces(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        UUID playerId
+    ) {
+        long seed = dungeonPlanSeed(level, definition, origin, playerId);
+        long startedAt = System.nanoTime();
+        DungeonPieceLayout layout = DungeonPieceLayout.generate(
+            definition, pieceDefinitions.values(), seed
+        );
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        if (elapsedMs > definition.plan().generationTimeoutMs()) {
+            throw new IllegalStateException(
+                "Dungeon piece planning exceeded generation_timeout_ms: "
+                    + elapsedMs + "ms > " + definition.plan().generationTimeoutMs() + "ms"
+            );
+        }
+        for (DungeonPiecePlan.Placement placement : layout.plan().placements()) {
+            DungeonPieceDefinition piece = pieceDefinitions.get(placement.pieceId());
+            if (piece == null) {
+                throw new IllegalStateException(
+                    "Dungeon piece definition is missing: " + placement.pieceId()
+                );
+            }
+            ResourceLocation templateId = ResourceLocation.parse(piece.structure());
+            StructureTemplate template = level.getStructureManager().get(templateId)
+                .orElseThrow(() -> new IllegalStateException(
+                    "Dungeon piece template is missing: " + templateId
+                ));
+            BlockPos actualSize = new BlockPos(template.getSize());
+            if (!actualSize.equals(piece.size())) {
+                throw new IllegalStateException(
+                    "Dungeon piece metadata size differs from its template: "
+                        + piece.id() + " (metadata=" + piece.size()
+                        + ", template=" + actualSize + ")"
+                );
+            }
+            StructurePlaceSettings settings = new StructurePlaceSettings()
+                .setRotation(placement.rotation())
+                .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
+            ExplicitAirPlacementProcessor.configure(template, settings);
+            BlockPos placementOrigin = origin.offset(placement.templateOrigin());
+            if (!template.placeInWorld(
+                level, placementOrigin, placementOrigin, settings,
+                RandomSource.create(seed ^ placement.index()), 2
+            )) {
+                throw new IllegalStateException(
+                    "Dungeon piece template placement failed: " + piece.id()
+                );
+            }
+        }
+        LOGGER.info(
+            "Prepared dungeon piece plan: dungeon={}, seed={}, pieces={}, elapsed={}ms",
+            definition.id(), seed, layout.plan().placements().size(), elapsedMs
+        );
+        return new PreparedTerrain(
+            definition.terrain().bounds(),
+            layout.requiredMarker("entry", null),
+            layout.requiredMarker("exit", null),
+            layout.markers()
+        );
+    }
+
+    private static long dungeonPlanSeed(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        UUID playerId
+    ) {
+        long base = level.getSeed() ^ ((long) definition.id().hashCode() << 32);
+        return switch (definition.plan().seedPolicy()) {
+            case "fixed" -> base;
+            case "daily" -> base ^ Math.floorDiv(level.getDayTime(), 24_000L);
+            case "weekly" -> base ^ Math.floorDiv(level.getDayTime(), 168_000L);
+            case "player" -> base ^ playerId.getMostSignificantBits()
+                ^ playerId.getLeastSignificantBits();
+            case "match" -> base ^ origin.asLong();
+            case "random_per_run" -> level.getRandom().nextLong();
+            default -> throw new IllegalStateException(
+                "Unsupported dungeon seed policy: " + definition.plan().seedPolicy()
+            );
+        };
     }
 
     private static Map<UUID, EncounterEntityRef> spawnEncounters(
@@ -2518,6 +2629,13 @@ final class DungeonSystem {
         ServerPlayer player,
         boolean firstClear,
         List<ItemStack> items
+    ) {}
+
+    private record PreparedTerrain(
+        BlockPos size,
+        BlockPos entryPosition,
+        BlockPos exitPosition,
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> markers
     ) {}
 
     private record ActiveRun(

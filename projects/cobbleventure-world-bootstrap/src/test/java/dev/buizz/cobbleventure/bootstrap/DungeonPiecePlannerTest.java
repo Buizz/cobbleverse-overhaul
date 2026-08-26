@@ -5,11 +5,49 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 final class DungeonPiecePlannerTest {
+    @Test
+    void resolvesEntryAndExitMarkersFromRotatedPiecePlan() throws Exception {
+        var stream = getClass().getClassLoader().getResourceAsStream(
+            "data/cobbleventure/dungeons/generation_1/rocket_power_plant.json"
+        );
+        assertTrue(stream != null);
+        DungeonDefinition definition;
+        try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            var root = JsonParser.parseReader(reader).getAsJsonObject();
+            root.add("plan", JsonParser.parseString("""
+                {"mode":"runtime","seed_policy":"fixed","fallback":"reject_entry",
+                 "max_attempts":100}
+                """).getAsJsonObject());
+            root.add("terrain", JsonParser.parseString("""
+                {"mode":"nbt_pieces","piece_pool":"cobbleventure:theme/test",
+                 "bounds":[80,16,80]}
+                """).getAsJsonObject());
+            root.add("layout", JsonParser.parseString("""
+                {"mode":"critical_path_branches","critical_path_rooms":[6,6],
+                 "branch_count":[0,0],"branch_depth":[1,1],"loop_chance":0}
+                """).getAsJsonObject());
+            definition = DungeonDefinition.parse(root);
+        }
+
+        DungeonPieceLayout layout = DungeonPieceLayout.generate(
+            definition, testPieces(), 7734L
+        );
+
+        assertEquals(6, layout.plan().placements().size());
+        assertTrue(layout.requiredMarker("entry", null).getX() >= 0);
+        assertTrue(layout.requiredMarker("exit", null).getX() >= 0);
+        assertTrue(!layout.requiredMarker("entry", null).equals(
+            layout.requiredMarker("exit", null)
+        ));
+    }
+
     @Test
     void createsDeterministicCriticalPathAndBranchesWithoutOverlap() {
         List<DungeonPieceDefinition> pieces = testPieces();
