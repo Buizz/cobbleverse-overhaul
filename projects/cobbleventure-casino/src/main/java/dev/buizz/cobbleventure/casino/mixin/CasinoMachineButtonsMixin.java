@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
     "net.narrnouille.cobblemoncasino.screen.custom.blackjack.BlackjackTableScreen"
 }, remap = false)
 abstract class CasinoMachineButtonsMixin {
-    @Shadow private SlotButton betButton;
-    @Shadow private SlotButton withdrawButton;
+    @Shadow(remap = false) private SlotButton betButton;
+    @Shadow(remap = false) private SlotButton withdrawButton;
 
     @Inject(method = "init", at = @At("RETURN"), remap = false)
     private void cobbleventure$hideBalanceTransferButtons(CallbackInfo callback) {
