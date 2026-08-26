@@ -70,6 +70,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("장치·조사 목표", markup)
         self.assertIn('objectiveRequirements', script)
         self.assertIn('itemRequirements', script)
+        self.assertIn('terrainMode === "procedural_cave" && option.value !== "runtime"', script)
 
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -97,6 +98,23 @@ class ContentManagerTests(unittest.TestCase):
         messages = [issue.message for issue in issues]
         self.assertTrue(any("권장 최소 레벨" in message for message in messages))
         self.assertTrue(any("1인 던전" in message for message in messages))
+
+    def test_dungeon_validator_allows_authored_pieces_but_rejects_authored_caves(self) -> None:
+        authored = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
+        cave = copy.deepcopy(authored)
+        cave["terrain"] = {
+            "mode": "procedural_cave", "cave_generator": "minecraft_worldgen",
+            "bounds": [112, 24, 48],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(authored), encoding="utf-8")
+            _, authored_issues = content_manager.validate_dungeon_file(path)
+            path.write_text(json.dumps(cave), encoding="utf-8")
+            _, cave_issues = content_manager.validate_dungeon_file(path)
+
+        self.assertFalse(any(issue.level == "error" for issue in authored_issues), authored_issues)
+        self.assertTrue(any("입장 시 자동 생성" in issue.message for issue in cave_issues))
 
     def test_dungeon_document_can_be_validated_and_saved(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))

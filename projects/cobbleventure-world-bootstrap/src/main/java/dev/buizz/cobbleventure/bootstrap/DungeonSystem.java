@@ -682,16 +682,8 @@ final class DungeonSystem {
 
     private static String entryProblem(ServerPlayer player, PendingEntry pending) {
         DungeonDefinition definition = pending.ref().definition();
-        if (!definition.terrain().mode().equals("fixed_template")
-            && !definition.terrain().mode().equals("nbt_pieces")
-            && !definition.terrain().mode().equals("procedural_cave")) {
-            return "아직 지원하지 않는 던전 지형 방식입니다.";
-        }
-        if ((definition.terrain().mode().equals("nbt_pieces")
-            || definition.terrain().mode().equals("procedural_cave"))
-            && !definition.plan().mode().equals("runtime")) {
-            return "현재는 런타임 생성 던전만 입장할 수 있습니다.";
-        }
+        String terrainProblem = terrainEntryProblem(definition);
+        if (terrainProblem != null) return terrainProblem;
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             return "배틀 중에는 던전에 입장할 수 없습니다.";
         }
@@ -717,6 +709,15 @@ final class DungeonSystem {
             return "이미 클리어한 던전입니다.";
         }
         return null;
+    }
+
+    static String terrainEntryProblem(DungeonDefinition definition) {
+        return switch (definition.terrain().mode()) {
+            case "fixed_template", "nbt_pieces" -> null;
+            case "procedural_cave" -> definition.plan().mode().equals("runtime")
+                ? null : "절차 동굴은 현재 런타임 계획만 입장할 수 있습니다.";
+            default -> "아직 지원하지 않는 던전 지형 방식입니다.";
+        };
     }
 
     private static void startMatchedRun(List<MatchedEntry> entries) {

@@ -125,6 +125,32 @@ final class DungeonDefinitionTest {
     }
 
     @Test
+    void allowsAuthoredNbtPlansAtEntryButKeepsCavesRuntimeOnly() throws Exception {
+        DungeonDefinition tower = resource("rocket_pokemon_tower");
+        assertEquals("authored", tower.plan().mode());
+        assertEquals(null, DungeonSystem.terrainEntryProblem(tower));
+
+        JsonObject caveRoot = resourceObject("rocket_power_plant");
+        caveRoot.add("plan", JsonParser.parseString("""
+            {"mode":"authored","plan_ids":["cobbleventure:dungeon_plan/test"],
+             "seed_policy":"fixed","fallback":"reject_entry"}
+            """).getAsJsonObject());
+        caveRoot.add("terrain", JsonParser.parseString("""
+            {"mode":"procedural_cave","cave_generator":"minecraft_worldgen",
+             "bounds":[160,48,160]}
+            """).getAsJsonObject());
+        caveRoot.add("layout", JsonParser.parseString("""
+            {"mode":"critical_path_branches","critical_path_rooms":[6,8],
+             "branch_count":[1,3],"branch_depth":[1,2],"loop_chance":0.2}
+            """).getAsJsonObject());
+
+        assertEquals(
+            "절차 동굴은 현재 런타임 계획만 입장할 수 있습니다.",
+            DungeonSystem.terrainEntryProblem(DungeonDefinition.parse(caveRoot))
+        );
+    }
+
+    @Test
     void parsesCheckpointResumePolicyAndRejectsMissingCheckpoint() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
         root.getAsJsonObject("support").add("checkpoints", JsonParser.parseString("""

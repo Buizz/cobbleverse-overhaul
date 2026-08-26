@@ -365,6 +365,25 @@
           "rewards": { "required": ["repeat_table"] }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "terrain": {
+            "properties": { "mode": { "const": "procedural_cave" } },
+            "required": ["mode"]
+          }
+        },
+        "required": ["terrain"]
+      },
+      "then": {
+        "properties": {
+          "plan": {
+            "properties": { "mode": { "const": "runtime" } },
+            "required": ["mode"]
+          }
+        }
+      }
     }
   ],
   "$defs": {

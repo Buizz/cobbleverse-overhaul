@@ -4567,6 +4567,9 @@ function renderDungeonOptionVisibility() {
   const form = $("#dungeon-form");
   const terrainMode = form.elements.terrainMode.value;
   const multiplayerMode = form.elements.multiplayerMode.value;
+  [...form.elements.planMode.options].forEach((option) => {
+    option.disabled = terrainMode === "procedural_cave" && option.value !== "runtime";
+  });
   $$('[data-dungeon-fixed-field]').forEach((element) => element.hidden = terrainMode !== "fixed_template");
   $$('[data-dungeon-piece-field]').forEach((element) => element.hidden = !["nbt_pieces", "hybrid"].includes(terrainMode));
   $$('[data-dungeon-bounds-field], [data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
@@ -15730,6 +15733,10 @@ $("#dungeon-form").addEventListener("input", () => {
 });
 $("#dungeon-form").addEventListener("change", (event) => {
   const form = event.currentTarget;
+  if (event.target.name === "terrainMode" && event.target.value === "procedural_cave") {
+    form.elements.planMode.value = "runtime";
+    updateDungeonFromForm();
+  }
   if (event.target.name === "multiplayerMode" && event.target.value === "solo") {
     form.elements.multiplayerMin.value = 1;
     form.elements.multiplayerMax.value = 1;

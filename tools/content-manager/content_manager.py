@@ -8586,6 +8586,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             _issue(issues, "error", path, "$.plan.fallback", "지원하지 않는 실패 대체 방식입니다.")
         if plan.get("mode") in {"authored", "authored_pool"} and not isinstance(plan.get("plan_ids"), list):
             _issue(issues, "error", path, "$.plan.plan_ids", "게시형 계획 ID가 하나 이상 필요합니다.")
+        if terrain_mode == "procedural_cave" and plan.get("mode") != "runtime":
+            _issue(issues, "error", path, "$.plan.mode", "절차 동굴은 현재 입장 시 자동 생성 계획만 지원합니다.")
         layout = object_at("layout")
         if layout.get("mode") not in {"fixed", "critical_path_branches", "maze", "rooms_and_corridors"}:
             _issue(issues, "error", path, "$.layout.mode", "지원하지 않는 경로 형태입니다.")
