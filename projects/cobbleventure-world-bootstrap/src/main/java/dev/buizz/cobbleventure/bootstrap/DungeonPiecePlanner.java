@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
@@ -48,7 +49,15 @@ final class DungeonPiecePlanner {
             if (!attachBranches(
                 state, pieces, settings, random, targetBranches
             )) continue;
-            return state.toPlan(seed, settings.bounds());
+            DungeonPiecePlan plan = state.toPlan(seed, settings.bounds());
+            Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
+                java.util.stream.Collectors.toUnmodifiableMap(
+                    DungeonPieceDefinition::id, piece -> piece
+                )
+            );
+            return DungeonPieceLoops.add(
+                plan, byId, settings.loopChance(), mixSeed(seed, attempt + 10_000)
+            );
         }
         throw new IllegalStateException(
             "Dungeon piece planning failed after " + settings.maxAttempts() + " attempts"
@@ -321,6 +330,7 @@ final class DungeonPiecePlanner {
         int branchCountMax,
         int branchDepthMin,
         int branchDepthMax,
+        double loopChance,
         int maxAttempts
     ) {
         private void validate() {
@@ -328,6 +338,7 @@ final class DungeonPiecePlanner {
                 || criticalPathMin < 3 || criticalPathMin > criticalPathMax
                 || branchCountMin < 0 || branchCountMin > branchCountMax
                 || branchDepthMin < 1 || branchDepthMin > branchDepthMax
+                || loopChance < 0.0D || loopChance > 1.0D
                 || maxAttempts < 1 || maxAttempts > 1000) {
                 throw new IllegalArgumentException("Invalid dungeon piece planner settings");
             }

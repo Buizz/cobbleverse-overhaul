@@ -31,11 +31,6 @@ record DungeonPieceLayout(
                 "Dungeon piece layout mode is not implemented yet: " + layout.mode()
             );
         }
-        if (layout.loopChance() > 0.0D) {
-            throw new IllegalStateException(
-                "Dungeon piece loops are not implemented yet: " + definition.id()
-            );
-        }
         DungeonPiecePlan plan = DungeonPiecePlanner.generate(
             pieces,
             new DungeonPiecePlanner.Settings(
@@ -46,6 +41,7 @@ record DungeonPieceLayout(
                 layout.branchCount().maximum(),
                 layout.branchDepth().minimum(),
                 layout.branchDepth().maximum(),
+                layout.loopChance(),
                 definition.plan().maxAttempts()
             ),
             seed

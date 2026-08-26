@@ -53,7 +53,7 @@ final class DungeonPiecePlannerTest {
     void createsDeterministicCriticalPathAndBranchesWithoutOverlap() {
         List<DungeonPieceDefinition> pieces = testPieces();
         DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
-            new BlockPos(80, 16, 80), 6, 6, 2, 2, 1, 1, 100
+            new BlockPos(80, 16, 80), 6, 6, 2, 2, 1, 1, 0.0D, 100
         );
 
         DungeonPiecePlan first = DungeonPiecePlanner.generate(pieces, settings, 7734L);
@@ -85,7 +85,7 @@ final class DungeonPiecePlannerTest {
     @Test
     void rejectsPoolThatCannotFitInsideBounds() {
         DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
-            new BlockPos(4, 4, 4), 3, 3, 0, 0, 1, 1, 3
+            new BlockPos(4, 4, 4), 3, 3, 0, 0, 1, 1, 0.0D, 3
         );
 
         IllegalStateException error = assertThrows(
