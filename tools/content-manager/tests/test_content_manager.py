@@ -6939,7 +6939,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('finishConnection', script)
         self.assertIn('data-port-type="door"', script)
         self.assertIn('data-dungeon-entrance', script)
+        self.assertIn('data-dungeon-assignment', script)
         self.assertIn('DUNGEON ENTRANCE', script)
+        self.assertIn('DOOR ANCHOR', script)
         self.assertNotIn('nodePorts(node, "input")', script)
         self.assertIn('flow.filters.kind', script)
         self.assertIn('flow.filters.route', script)
@@ -6976,10 +6978,16 @@ class ContentManagerTests(unittest.TestCase):
             no_interior.write_bytes(self._structure_nbt((16, 8, 16)))
             exterior.with_suffix(".structure.json").write_text(json.dumps({
                 "schema_version": 1,
-                "anchors": [{
-                    "type": "door", "label": "front", "position": [7, 1, 1],
-                    "safe_spawn": [7, 1, 0], "door_facing": "north", "safe_side": "north",
-                }],
+                "anchors": [
+                    {
+                        "type": "door", "label": "front", "position": [7, 1, 1],
+                        "safe_spawn": [7, 1, 0], "door_facing": "north", "safe_side": "north",
+                    },
+                    {
+                        "type": "door", "label": "side", "position": [15, 1, 7],
+                        "safe_spawn": [14, 1, 7], "door_facing": "east", "safe_side": "west",
+                    },
+                ],
             }), encoding="utf-8")
             interior.with_suffix(".structure.json").write_text(json.dumps({
                 "schema_version": 1,
@@ -7030,15 +7038,30 @@ class ContentManagerTests(unittest.TestCase):
             (catalogs / "gyms.json").write_text(json.dumps({
                 "schema_version": 1, "gyms": [], "leagues": [],
             }), encoding="utf-8")
+            dungeon = root / "content/dungeons/generation_1/test_basement.json"
+            dungeon.parent.mkdir(parents=True)
+            dungeon.write_text(json.dumps({
+                "schema_version": 1,
+                "dungeon_id": "test:dungeon/basement",
+                "display_name": {"ko_kr": "테스트 지하실", "en_us": "Test Basement"},
+                "entrances": [{"entrance_id": "test:entrance/basement"}],
+            }), encoding="utf-8")
 
             payload = content_manager.space_connections_payload(root)
             self.assertEqual(1, len(payload["graphs"]))
             self.assertEqual(
-                [{
-                    "label": "front", "position": [7, 1, 1],
-                    "safe_spawn": [7, 1, 0], "safe_side": "north",
-                    "door_facing": "north",
-                }],
+                [
+                    {
+                        "label": "front", "position": [7, 1, 1],
+                        "safe_spawn": [7, 1, 0], "safe_side": "north",
+                        "door_facing": "north",
+                    },
+                    {
+                        "label": "side", "position": [15, 1, 7],
+                        "safe_spawn": [14, 1, 7], "safe_side": "west",
+                        "door_facing": "east",
+                    },
+                ],
                 payload["structures"]["cobbleventure:houses/test_house"]["door_anchors"],
             )
             self.assertEqual(
@@ -7049,11 +7072,30 @@ class ContentManagerTests(unittest.TestCase):
                 }],
                 payload["structures"]["cobbleventure:interiors/test_room"]["dungeon_entrance_anchors"],
             )
+            self.assertEqual(
+                "test:entrance/basement",
+                payload["available_dungeon_entrances"][0]["entrance_id"],
+            )
+            self.assertEqual(
+                [{
+                    "structure": "cobbleventure:interiors/test_room",
+                    "anchor": "basement",
+                    "entrance_id": "test:entrance/basement",
+                }],
+                payload["dungeon_entrance_assignments"],
+            )
             self.assertTrue(payload["structures"]["cobbleventure:cave_entrance/test_cave"]["no_interior_space"])
             self.assertTrue(payload["structures"]["cobbleventure:monuments/test_statue"]["no_interior_space"])
             graph = payload["graphs"][0]
             self.assertEqual("building", graph["kind"])
             self.assertEqual(["exterior", "main"], [node["id"] for node in graph["nodes"]])
+            legacy_save_issues = content_manager.save_space_connections(root, {
+                "schema_version": 1, "graphs": [graph],
+            })
+            self.assertFalse(any(issue.level == "error" for issue in legacy_save_issues), legacy_save_issues)
+            preserved_metadata = json.loads(interior.with_suffix(".structure.json").read_text(encoding="utf-8"))
+            preserved_basement = next(anchor for anchor in preserved_metadata["anchors"] if anchor["label"] == "basement")
+            self.assertEqual("dungeon_entrance", preserved_basement["type"])
             blocked_issues = content_manager.save_space_connections(root, {
                 "schema_version": 1,
                 "graphs": [{
@@ -7075,8 +7117,25 @@ class ContentManagerTests(unittest.TestCase):
                 "operator": ">=", "value": 1,
             }]
             graph["connections"][0]["locked_dialogue"] = ["문이 잠겨 있다."]
+            conflict_issues = content_manager.save_space_connections(root, {
+                "schema_version": 1, "graphs": [graph],
+                "dungeon_entrance_assignments": [{
+                    "structure": "cobbleventure:houses/test_house",
+                    "anchor": "front",
+                    "entrance_id": "test:entrance/basement",
+                }],
+            })
+            self.assertTrue(any(
+                issue.level == "error" and "일반 공간 연결선" in issue.message
+                for issue in conflict_issues
+            ))
             issues = content_manager.save_space_connections(root, {
                 "schema_version": 1, "graphs": [graph],
+                "dungeon_entrance_assignments": [{
+                    "structure": "cobbleventure:houses/test_house",
+                    "anchor": "side",
+                    "entrance_id": "test:entrance/basement",
+                }],
             })
 
             self.assertFalse(any(issue.level == "error" for issue in issues), issues)
@@ -7098,6 +7157,14 @@ class ContentManagerTests(unittest.TestCase):
             graph_id = "building:cobbleventure:houses/test_house"
             self.assertEqual([777, 333], visual["layouts"][graph_id]["nodes"]["main"])
             self.assertEqual(["문이 잠겨 있다."], visual["annotations"][graph_id]["route_1"]["locked_dialogue"])
+            exterior_metadata = json.loads(exterior.with_suffix(".structure.json").read_text(encoding="utf-8"))
+            side = next(anchor for anchor in exterior_metadata["anchors"] if anchor["label"] == "side")
+            self.assertEqual("dungeon_entrance", side["type"])
+            self.assertEqual("test:entrance/basement", side["entrance_id"])
+            interior_metadata = json.loads(interior.with_suffix(".structure.json").read_text(encoding="utf-8"))
+            basement = next(anchor for anchor in interior_metadata["anchors"] if anchor["label"] == "basement")
+            self.assertEqual("door", basement["type"])
+            self.assertNotIn("entrance_id", basement)
 
     def test_new_gym_reuses_shared_exterior_and_base_interior(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

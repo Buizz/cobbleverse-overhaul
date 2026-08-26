@@ -8,7 +8,10 @@ const flow = {
   selectedGraphId: "",
   selectedNodeId: "",
   selectedEdgeId: "",
+  selectedDoorAnchor: null,
   selectedDungeonEntrance: null,
+  availableDungeonEntrances: [],
+  dungeonEntranceAssignments: [],
   connectionDraft: null,
   drag: null,
   pan: null,
@@ -49,6 +52,23 @@ async function api(path, options = {}) {
 function structureLabel(id) {
   const metadata = flow.structures[id] || {};
   return metadata.category_label ? `${metadata.category_label} · ${id}` : id;
+}
+
+function dungeonAssignment(structure, anchor) {
+  return flow.dungeonEntranceAssignments.find((item) =>
+    item.structure === structure && item.anchor === anchor
+  ) || null;
+}
+
+function dungeonEntranceOptions(current = "") {
+  const assignedElsewhere = new Map(flow.dungeonEntranceAssignments
+    .filter((item) => item.entrance_id !== current)
+    .map((item) => [item.entrance_id, `${item.structure}#${item.anchor}`]));
+  return `<option value="">일반 공간 연결 문</option>${flow.availableDungeonEntrances.map((entry) => {
+    const owner = assignedElsewhere.get(entry.entrance_id);
+    const label = `${entry.display_name} · ${entry.entrance_id}${owner ? ` · 사용 중: ${owner}` : ""}`;
+    return `<option value="${escapeHtml(entry.entrance_id)}"${entry.entrance_id === current ? " selected" : ""}${owner ? " disabled" : ""}>${escapeHtml(label)}</option>`;
+  }).join("")}`;
 }
 
 function buildingCardTitle(choice) {
@@ -128,7 +148,8 @@ function nodePorts(node) {
   const depth = Math.max(1, Number(metadata.depth) || 16);
   const cutoff = Number(metadata.cutaway_view?.cutoff_y || Math.ceil((Number(metadata.height) || 1) / 2));
   return entries.map((anchor) => {
-    const active = flow.connectionDraft?.node === node.id && flow.connectionDraft?.anchor === anchor.label;
+    const active = (flow.connectionDraft?.node === node.id && flow.connectionDraft?.anchor === anchor.label)
+      || (flow.selectedDoorAnchor?.node === node.id && flow.selectedDoorAnchor?.label === anchor.label);
     const compatible = flow.connectionDraft && !active;
     const position = Array.isArray(anchor.position) ? anchor.position : [width / 2, 1, depth / 2];
     const left = Math.max(3, Math.min(97, (Number(position[0]) + .5) / width * 100));
@@ -279,6 +300,9 @@ function renderInspector() {
   const inspector = $("#space-flow-inspector");
   const node = graph?.nodes?.find((item) => item.id === flow.selectedNodeId);
   const edge = graph?.connections?.find((item) => item.id === flow.selectedEdgeId);
+  const doorAnchor = node && flow.selectedDoorAnchor?.node === node.id
+    ? nodeAnchorEntries(node).find((anchor) => anchor.label === flow.selectedDoorAnchor.label)
+    : null;
   const dungeonEntrance = node && flow.selectedDungeonEntrance?.node === node.id
     ? (flow.structures[node.structure]?.dungeon_entrance_anchors || [])
       .find((anchor) => anchor.label === flow.selectedDungeonEntrance.label)
@@ -288,11 +312,22 @@ function renderInspector() {
     const safeSpawn = dungeonEntrance.safe_spawn || [];
     inspector.innerHTML = `<header><p class="eyebrow">DUNGEON ENTRANCE</p><h3>${escapeHtml(dungeonEntrance.label)}</h3><small>${escapeHtml(node.structure)}</small></header>
       <div class="space-inspector-fields">
-        <label><span>던전 입구 ID</span><input value="${escapeHtml(dungeonEntrance.entrance_id || "")}" readonly></label>
+        <label><span>연결 방식</span><select data-dungeon-assignment data-structure="${escapeHtml(node.structure)}" data-anchor="${escapeHtml(dungeonEntrance.label)}">${dungeonEntranceOptions(dungeonEntrance.entrance_id || "")}</select></label>
         <label><span>마커 좌표</span><input value="X ${position[0] ?? "?"} / Y ${position[1] ?? "?"} / Z ${position[2] ?? "?"}" readonly></label>
         <label><span>안전 이동 좌표</span><input value="X ${safeSpawn[0] ?? "?"} / Y ${safeSpawn[1] ?? "?"} / Z ${safeSpawn[2] ?? "?"}" readonly></label>
         <label><span>방향</span><input value="${escapeHtml(dungeonEntrance.facing || "미지정")}" readonly></label>
-        <p class="space-route-note">일반 문처럼 공간 위에 표시되지만, 연결선 대신 던전 안내창과 입장을 실행하는 전용 출입구입니다.</p>
+        <p class="space-route-note">다른 던전을 선택하거나 ‘일반 공간 연결 문’으로 되돌릴 수 있습니다. 저장하면 구조물 메타데이터와 런타임 입구가 함께 갱신됩니다.</p>
+      </div>`;
+  } else if (doorAnchor) {
+    const position = doorAnchor.position || [];
+    const safeSpawn = doorAnchor.safe_spawn || [];
+    inspector.innerHTML = `<header><p class="eyebrow">DOOR ANCHOR</p><h3>${escapeHtml(doorAnchor.label)}</h3><small>${escapeHtml(node.structure)}</small></header>
+      <div class="space-inspector-fields">
+        <label><span>연결 방식</span><select data-dungeon-assignment data-structure="${escapeHtml(node.structure)}" data-anchor="${escapeHtml(doorAnchor.label)}">${dungeonEntranceOptions("")}</select></label>
+        <label><span>문 좌표</span><input value="X ${position[0] ?? "?"} / Y ${position[1] ?? "?"} / Z ${position[2] ?? "?"}" readonly></label>
+        <label><span>안전 이동 좌표</span><input value="X ${safeSpawn[0] ?? "?"} / Y ${safeSpawn[1] ?? "?"} / Z ${safeSpawn[2] ?? "?"}" readonly></label>
+        <label><span>문 방향</span><input value="${escapeHtml(doorAnchor.door_facing || doorAnchor.facing || "미지정")}" readonly></label>
+        <p class="space-route-note">그대로 두면 다른 문으로 연결할 수 있습니다. 던전을 선택하면 이 문은 던전 안내창을 여는 전용 입구로 전환됩니다.</p>
       </div>`;
   } else if (node) {
     const world = Array.isArray(node.world_position) ? node.world_position : [0, 0, 0];
@@ -314,7 +349,7 @@ function renderInspector() {
       </div><button class="button danger space-delete" id="delete-space-edge" type="button">연결선 삭제</button>`;
   } else {
     inspector.innerHTML = graph
-      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>아래 내부 공간 리소스를 캔버스로 끌어 놓으세요.</p><p>외부의 <b>출입구 핀</b>을 내부 핀까지 끌면 하나의 양방향 출입구가 됩니다.</p><p>핀은 NBT 안의 실제 문과 배리어 접촉 영역을 함께 표시합니다.</p><p>연결선을 누르면 외부에서 입장할 때의 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
+      ? `<header><p class="eyebrow">FLOW GUIDE</p><h3>${escapeHtml(graph.display_name || graph.owner)}</h3></header><div class="space-flow-help"><p>아래 내부 공간 리소스를 캔버스로 끌어 놓으세요.</p><p>외부의 <b>출입구 핀</b>을 내부 핀까지 끌면 하나의 양방향 출입구가 됩니다.</p><p>문 핀을 짧게 누르면 일반 공간 문과 던전 입구 중에서 연결 방식을 정할 수 있습니다.</p><p>핀은 NBT 안의 실제 문과 배리어 접촉 영역을 함께 표시합니다.</p><p>연결선을 누르면 외부에서 입장할 때의 잠금 조건과 대사를 설정할 수 있습니다.</p></div>`
       : '<div class="issues empty">왼쪽에서 오버월드 건물을 선택하세요.</div>';
   }
 }
@@ -344,9 +379,12 @@ async function loadFlow(force = false) {
     if (!result.ok) throw new Error(result.data.error || "공간 연결 데이터를 불러오지 못했습니다.");
     flow.graphs = result.data.graphs || [];
     flow.structures = result.data.structures || {};
+    flow.availableDungeonEntrances = result.data.available_dungeon_entrances || [];
+    flow.dungeonEntranceAssignments = result.data.dungeon_entrance_assignments || [];
     flow.selectedGraphId = flow.graphs.some((graph) => graph.id === flow.selectedGraphId) ? flow.selectedGraphId : "";
     flow.selectedNodeId = "";
     flow.selectedEdgeId = "";
+    flow.selectedDoorAnchor = null;
     flow.selectedDungeonEntrance = null;
     flow.connectionDraft = null;
     flow.loaded = true;
@@ -382,6 +420,7 @@ function selectBuilding(owner, kind) {
   flow.selectedGraphId = graph.id;
   flow.selectedNodeId = "";
   flow.selectedEdgeId = "";
+  flow.selectedDoorAnchor = null;
   flow.selectedDungeonEntrance = null;
   flow.connectionDraft = null;
   if (created) flow.dirty = true;
@@ -399,6 +438,7 @@ function addNode(structure, position = null) {
   graph.nodes.push(node);
   flow.selectedNodeId = id;
   flow.selectedEdgeId = "";
+  flow.selectedDoorAnchor = null;
   flow.selectedDungeonEntrance = null;
   markDirty();
   renderAll();
@@ -426,6 +466,7 @@ function connectTo(nodeId, anchor) {
   flow.connectionDraft = null;
   flow.selectedNodeId = "";
   flow.selectedEdgeId = id;
+  flow.selectedDoorAnchor = null;
   flow.selectedDungeonEntrance = null;
   markDirty();
   renderAll();
@@ -439,7 +480,11 @@ async function saveFlow() {
   let result;
   try {
     result = await api("/api/space-connections", {
-      method: "PUT", body: JSON.stringify({ schema_version: 1, graphs: flow.graphs }),
+      method: "PUT", body: JSON.stringify({
+        schema_version: 1,
+        graphs: flow.graphs,
+        dungeon_entrance_assignments: flow.dungeonEntranceAssignments,
+      }),
     });
   } catch (error) {
     const message = error.message || "저장 서버에 연결하지 못했습니다.";
@@ -559,6 +604,15 @@ $("#space-flow-nodes").addEventListener("click", (event) => {
     event.stopPropagation();
     if (port.dataset.portType === "door" && flow.connectionDraft) {
       connectTo(port.dataset.nodeId, port.dataset.anchor);
+    } else if (port.dataset.portType === "door") {
+      flow.selectedNodeId = port.dataset.nodeId;
+      flow.selectedEdgeId = "";
+      flow.selectedDoorAnchor = {
+        node: port.dataset.nodeId,
+        label: port.dataset.anchor,
+      };
+      flow.selectedDungeonEntrance = null;
+      renderAll();
     }
     return;
   }
@@ -567,6 +621,7 @@ $("#space-flow-nodes").addEventListener("click", (event) => {
     event.stopPropagation();
     flow.selectedNodeId = dungeonEntrance.dataset.nodeId;
     flow.selectedEdgeId = "";
+    flow.selectedDoorAnchor = null;
     flow.selectedDungeonEntrance = {
       node: dungeonEntrance.dataset.nodeId,
       label: dungeonEntrance.dataset.dungeonEntrance,
@@ -578,6 +633,7 @@ $("#space-flow-nodes").addEventListener("click", (event) => {
   if (!node) return;
   flow.selectedNodeId = node.dataset.spaceNode;
   flow.selectedEdgeId = "";
+  flow.selectedDoorAnchor = null;
   flow.selectedDungeonEntrance = null;
   renderAll();
 });
@@ -593,6 +649,7 @@ $("#space-flow-nodes").addEventListener("pointerdown", (event) => {
     };
     flow.selectedNodeId = "";
     flow.selectedEdgeId = "";
+    flow.selectedDoorAnchor = null;
     flow.selectedDungeonEntrance = null;
     port.setPointerCapture(event.pointerId);
     $("#space-flow-viewport").classList.add("is-connecting");
@@ -647,7 +704,19 @@ function finishConnection(event, cancelled = false) {
   if (!flow.connectionDraft || flow.connectionDraft.pointerId !== event.pointerId) return;
   const destination = document.elementFromPoint(event.clientX, event.clientY)?.closest('.space-node-port[data-port-type="door"]');
   $("#space-flow-viewport").classList.remove("is-connecting");
-  if (!cancelled && destination) connectTo(destination.dataset.nodeId, destination.dataset.anchor);
+  const sameDoor = destination
+    && destination.dataset.nodeId === flow.connectionDraft.node
+    && destination.dataset.anchor === flow.connectionDraft.anchor;
+  if (!cancelled && sameDoor) {
+    flow.selectedNodeId = flow.connectionDraft.node;
+    flow.selectedEdgeId = "";
+    flow.selectedDoorAnchor = {
+      node: flow.connectionDraft.node,
+      label: flow.connectionDraft.anchor,
+    };
+    flow.selectedDungeonEntrance = null;
+    flow.connectionDraft = null;
+  } else if (!cancelled && destination) connectTo(destination.dataset.nodeId, destination.dataset.anchor);
   else if (cancelled) {
     flow.connectionDraft = null;
     renderAll();
@@ -666,8 +735,73 @@ $("#space-flow-edges").addEventListener("click", (event) => {
   if (!path) return;
   flow.selectedEdgeId = path.dataset.edgeId;
   flow.selectedNodeId = "";
+  flow.selectedDoorAnchor = null;
   flow.selectedDungeonEntrance = null;
   flow.connectionDraft = null;
+  renderAll();
+});
+
+$("#space-flow-inspector").addEventListener("change", (event) => {
+  const selector = event.target.closest("[data-dungeon-assignment]");
+  if (!selector) return;
+  const structure = selector.dataset.structure;
+  const anchorLabel = selector.dataset.anchor;
+  const entranceId = selector.value;
+  const metadata = flow.structures[structure];
+  if (!metadata) return;
+  const existing = dungeonAssignment(structure, anchorLabel);
+  flow.dungeonEntranceAssignments = flow.dungeonEntranceAssignments.filter((item) =>
+    !(item.structure === structure && item.anchor === anchorLabel)
+  );
+  const doorIndex = (metadata.door_anchors || []).findIndex((anchor) => anchor.label === anchorLabel);
+  const dungeonIndex = (metadata.dungeon_entrance_anchors || []).findIndex((anchor) => anchor.label === anchorLabel);
+  if (entranceId) {
+    if (flow.dungeonEntranceAssignments.some((item) => item.entrance_id === entranceId)) {
+      selector.value = existing?.entrance_id || "";
+      setStatus("이미 다른 문에 연결된 던전 입구입니다.", true);
+      return;
+    }
+    let anchor = dungeonIndex >= 0
+      ? metadata.dungeon_entrance_anchors[dungeonIndex]
+      : doorIndex >= 0 ? metadata.door_anchors.splice(doorIndex, 1)[0] : null;
+    if (!anchor) {
+      selector.value = existing?.entrance_id || "";
+      setStatus("선택한 문 앵커를 구조물에서 찾을 수 없습니다.", true);
+      return;
+    }
+    flow.dungeonEntranceAssignments.push({ structure, anchor: anchorLabel, entrance_id: entranceId });
+    anchor = { ...anchor, entrance_id: entranceId, facing: anchor.facing || anchor.door_facing || "north" };
+    metadata.dungeon_entrance_anchors ||= [];
+    if (dungeonIndex >= 0) metadata.dungeon_entrance_anchors[dungeonIndex] = anchor;
+    else metadata.dungeon_entrance_anchors.push(anchor);
+    for (const graph of flow.graphs) {
+      const nodeIds = new Set((graph.nodes || [])
+        .filter((node) => node.structure === structure)
+        .map((node) => node.id));
+      graph.connections = (graph.connections || []).filter((edge) => !(
+        (nodeIds.has(edge.from.node) && edge.from.anchor === anchorLabel)
+        || (nodeIds.has(edge.to.node) && edge.to.anchor === anchorLabel)
+      ));
+    }
+    flow.selectedDoorAnchor = null;
+    flow.selectedDungeonEntrance = { node: flow.selectedNodeId, label: anchorLabel };
+  } else {
+    const anchor = dungeonIndex >= 0
+      ? metadata.dungeon_entrance_anchors.splice(dungeonIndex, 1)[0]
+      : null;
+    if (anchor) {
+      delete anchor.entrance_id;
+      metadata.door_anchors ||= [];
+      metadata.door_anchors.push({
+        ...anchor,
+        door_facing: anchor.door_facing || anchor.facing || "north",
+        safe_side: anchor.safe_side || "south",
+      });
+    }
+    flow.selectedDungeonEntrance = null;
+    flow.selectedDoorAnchor = { node: flow.selectedNodeId, label: anchorLabel };
+  }
+  markDirty();
   renderAll();
 });
 

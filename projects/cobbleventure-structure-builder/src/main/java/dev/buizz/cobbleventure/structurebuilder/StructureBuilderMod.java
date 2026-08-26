@@ -792,7 +792,7 @@ public final class StructureBuilderMod {
             builderData.removePointAnchorsAt(edit.key(), clicked.above().subtract(edit.origin()));
             builderData.putPointAnchor(edit.key(), new PointAnchor(
                 label, "arrival", clicked.above().subtract(edit.origin()),
-                null, player.getDirection().getName()
+                null, player.getDirection().getName(), null
             ));
         } else if (type.equals("transition")) {
             if (!player.serverLevel().getBlockState(clicked).is(Blocks.BARRIER)) {
@@ -809,7 +809,7 @@ public final class StructureBuilderMod {
             builderData.putPointAnchor(edit.key(), new PointAnchor(
                 label, "transition", clicked.subtract(edit.origin()),
                 player.blockPosition().subtract(edit.origin()),
-                player.getDirection().getName()
+                player.getDirection().getName(), null
             ));
             player.sendSystemMessage(Component.literal(
                 "[Structure Builder] 연결된 베리어 " + region.size()
@@ -1373,7 +1373,7 @@ public final class StructureBuilderMod {
         }
         PointAnchor anchor = new PointAnchor(
             id, type, position.subtract(edit.origin()), null,
-            player.getDirection().getName()
+            player.getDirection().getName(), null
         );
         data.putPointAnchor(edit.key(), anchor);
         player.sendSystemMessage(Component.literal(
@@ -2720,6 +2720,9 @@ public final class StructureBuilderMod {
                     value.add("safe_spawn", vector(anchor.safeSpawn()));
                 }
                 value.addProperty("facing", anchor.facing());
+                if (anchor.entranceId() != null) {
+                    value.addProperty("entrance_id", anchor.entranceId());
+                }
                 values.add(value);
             }
             root.add("anchors", values);
@@ -2942,7 +2945,9 @@ public final class StructureBuilderMod {
                                 parsePosition(anchor.getAsJsonArray("position")),
                                 anchor.has("safe_spawn")
                                     ? parsePosition(anchor.getAsJsonArray("safe_spawn")) : null,
-                                anchor.get("facing").getAsString()
+                                anchor.get("facing").getAsString(),
+                                anchor.has("entrance_id")
+                                    ? anchor.get("entrance_id").getAsString() : null
                             ));
                         }
                     }
@@ -3064,7 +3069,8 @@ public final class StructureBuilderMod {
     }
 
     private record PointAnchor(
-        String id, String type, BlockPos position, BlockPos safeSpawn, String facing
+        String id, String type, BlockPos position, BlockPos safeSpawn, String facing,
+        String entranceId
     ) {
     }
 
@@ -3252,7 +3258,8 @@ public final class StructureBuilderMod {
                         readPosition(value, "position"),
                         value.contains("safeSpawn")
                             ? readPosition(value, "safeSpawn") : null,
-                        value.getString("facing")
+                        value.getString("facing"),
+                        value.contains("entranceId") ? value.getString("entranceId") : null
                     ));
                 }
                 data.pointAnchors.put(structureId, anchors);
@@ -3513,6 +3520,9 @@ public final class StructureBuilderMod {
                         writePosition(value, "safeSpawn", anchor.safeSpawn());
                     }
                     value.putString("facing", anchor.facing());
+                    if (anchor.entranceId() != null) {
+                        value.putString("entranceId", anchor.entranceId());
+                    }
                     ids.put(anchor.id(), value);
                 }
                 pointStructures.put(structure.getKey(), ids);

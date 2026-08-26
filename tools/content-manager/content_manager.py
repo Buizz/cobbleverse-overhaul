@@ -11978,6 +11978,40 @@ def _space_graph_position(
     return fallback
 
 
+def dungeon_entrance_catalog(root: Path) -> list[dict[str, str]]:
+    """List dungeon entrances that can be assigned to a structure door."""
+    result: list[dict[str, str]] = []
+    seen: set[str] = set()
+    dungeon_root = root / "content" / "dungeons"
+    if not dungeon_root.is_dir():
+        return result
+    for path in sorted(dungeon_root.rglob("*.json")):
+        try:
+            document = load_json(path)
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+        if not isinstance(document, dict):
+            continue
+        dungeon_id = document.get("dungeon_id")
+        display = document.get("display_name", {})
+        display_name = (
+            display.get("ko_kr", display.get("en_us", dungeon_id))
+            if isinstance(display, dict) else dungeon_id
+        )
+        for entrance in document.get("entrances", []):
+            entrance_id = entrance.get("entrance_id") if isinstance(entrance, dict) else None
+            if not isinstance(entrance_id, str) or entrance_id in seen:
+                continue
+            seen.add(entrance_id)
+            result.append({
+                "entrance_id": entrance_id,
+                "dungeon_id": dungeon_id if isinstance(dungeon_id, str) else "",
+                "display_name": display_name if isinstance(display_name, str) else entrance_id,
+                "path": path.relative_to(root).as_posix(),
+            })
+    return result
+
+
 def space_connections_payload(
     root: Path, structure_payload: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -12109,8 +12143,20 @@ def space_connections_payload(
             "id": graph_id, "kind": "gym", "owner": gym["id"],
             "display_name": name, "nodes": nodes, "connections": connections,
         })
+    dungeon_assignments = [
+        {
+            "structure": resource_id,
+            "anchor": anchor["label"],
+            "entrance_id": anchor.get("entrance_id", ""),
+        }
+        for resource_id, metadata in structures.items()
+        for anchor in metadata.get("dungeon_entrance_anchors", [])
+        if isinstance(anchor.get("entrance_id"), str)
+    ]
     return {
         "schema_version": 1, "graphs": graphs, "structures": structures,
+        "available_dungeon_entrances": dungeon_entrance_catalog(root),
+        "dungeon_entrance_assignments": dungeon_assignments,
         "path": SPACE_CONNECTIONS_PATH.as_posix(),
     }
 
@@ -12123,6 +12169,13 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     graphs = data.get("graphs")
     if not isinstance(graphs, list):
         return [Issue("error", path.as_posix(), "$.graphs", "공간 연결 그래프 배열이 필요합니다.")]
+    assignment_field_provided = "dungeon_entrance_assignments" in data
+    dungeon_assignments = data.get("dungeon_entrance_assignments", [])
+    if not isinstance(dungeon_assignments, list):
+        return [Issue(
+            "error", path.as_posix(), "$.dungeon_entrance_assignments",
+            "던전 입구 지정 배열이 필요합니다.",
+        )]
 
     building_document = load_building_settings(root)
     building_settings = building_document["buildings"]
@@ -12133,6 +12186,17 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         if isinstance(gym, dict) and isinstance(gym.get("id"), str)
     }
     structure_paths = managed_structure_files(root)
+    if not assignment_field_provided:
+        dungeon_assignments = [
+            {
+                "structure": resource_id,
+                "anchor": anchor["label"],
+                "entrance_id": anchor.get("entrance_id", ""),
+            }
+            for resource_id, structure_path in structure_paths.items()
+            for anchor in _structure_named_anchors(structure_path, {"dungeon_entrance"})
+            if isinstance(anchor.get("entrance_id"), str)
+        ]
     structure_categories = {
         resource_id: _configured_structure_category(
             path.relative_to(root / "content" / "structures"),
@@ -12156,6 +12220,95 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         }
         for resource_id, structure_path in structure_paths.items()
     }
+    available_entrance_ids = {
+        entry["entrance_id"] for entry in dungeon_entrance_catalog(root)
+    }
+    normalized_dungeon_assignments: dict[tuple[str, str], str] = {}
+    assigned_entrance_ids: set[str] = set()
+    for assignment_index, assignment in enumerate(dungeon_assignments):
+        assignment_path = f"$.dungeon_entrance_assignments[{assignment_index}]"
+        if not isinstance(assignment, dict):
+            _issue(issues, "error", path, assignment_path, "던전 입구 지정은 객체여야 합니다.")
+            continue
+        structure = assignment.get("structure")
+        anchor_label = assignment.get("anchor")
+        entrance_id = assignment.get("entrance_id")
+        if not isinstance(structure, str) or structure not in structure_paths:
+            _issue(issues, "error", path, f"{assignment_path}.structure", "관리 중인 NBT 구조물이 필요합니다.")
+            continue
+        if not isinstance(anchor_label, str) or not DOCUMENT_SLUG.fullmatch(anchor_label):
+            _issue(issues, "error", path, f"{assignment_path}.anchor", "실제 문 앵커 이름이 필요합니다.")
+            continue
+        if entrance_id not in available_entrance_ids:
+            _issue(issues, "error", path, f"{assignment_path}.entrance_id", "존재하는 던전 입구 ID가 필요합니다.")
+            continue
+        key = (structure, anchor_label)
+        if key in normalized_dungeon_assignments:
+            _issue(issues, "error", path, assignment_path, "같은 문을 두 던전에 지정할 수 없습니다.")
+            continue
+        if entrance_id in assigned_entrance_ids:
+            _issue(issues, "error", path, f"{assignment_path}.entrance_id", "같은 던전 입구를 두 문에 지정할 수 없습니다.")
+            continue
+        normalized_dungeon_assignments[key] = entrance_id
+        assigned_entrance_ids.add(entrance_id)
+
+    metadata_updates: dict[Path, dict[str, Any]] = {}
+    for structure, structure_path in structure_paths.items():
+        sidecar = structure_path.with_suffix(".structure.json")
+        if not sidecar.is_file():
+            continue
+        document = load_json(sidecar)
+        anchors = document.get("anchors", []) if isinstance(document, dict) else []
+        if not isinstance(anchors, list):
+            continue
+        changed = False
+        seen_assignment_keys: set[tuple[str, str]] = set()
+        for anchor in anchors:
+            if not isinstance(anchor, dict) or anchor.get("type") not in {"door", "dungeon_entrance"}:
+                continue
+            anchor_label = anchor.get("label", anchor.get("id"))
+            if not isinstance(anchor_label, str):
+                continue
+            key = (structure, anchor_label)
+            entrance_id = normalized_dungeon_assignments.get(key)
+            if entrance_id is not None:
+                seen_assignment_keys.add(key)
+                if anchor.get("type") != "dungeon_entrance" or anchor.get("entrance_id") != entrance_id:
+                    anchor["type"] = "dungeon_entrance"
+                    anchor["entrance_id"] = entrance_id
+                    if anchor.get("facing") not in {"north", "east", "south", "west"}:
+                        anchor["facing"] = anchor.get("door_facing", "north")
+                    changed = True
+            elif anchor.get("type") == "dungeon_entrance":
+                anchor["type"] = "door"
+                anchor.pop("entrance_id", None)
+                if anchor.get("door_facing") not in {"north", "east", "south", "west"}:
+                    anchor["door_facing"] = anchor.get("facing", "north")
+                if anchor.get("safe_side") not in {"north", "east", "south", "west"}:
+                    position = anchor.get("position", [0, 0, 0])
+                    safe_spawn = anchor.get("safe_spawn", position)
+                    delta = (
+                        safe_spawn[0] - position[0], safe_spawn[2] - position[2]
+                    ) if (
+                        isinstance(position, list) and len(position) == 3
+                        and isinstance(safe_spawn, list) and len(safe_spawn) == 3
+                    ) else (0, 0)
+                    anchor["safe_side"] = {
+                        (0, -1): "north", (1, 0): "east",
+                        (0, 1): "south", (-1, 0): "west",
+                    }.get(delta, "south")
+                changed = True
+        missing = {
+            key for key in normalized_dungeon_assignments
+            if key[0] == structure and key not in seen_assignment_keys
+        }
+        for key in sorted(missing):
+            _issue(
+                issues, "error", path, "$.dungeon_entrance_assignments",
+                f"구조물에 존재하지 않는 문 앵커입니다: {key[0]}#{key[1]}",
+            )
+        if changed and isinstance(document, dict):
+            metadata_updates[sidecar] = document
     layouts: dict[str, Any] = {}
     annotations: dict[str, Any] = {}
     seen_graphs: set[str] = set()
@@ -12232,6 +12385,11 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
             if source.get("node") == target.get("node") and source.get("anchor") == target.get("anchor"):
                 _issue(issues, "error", path, edge_path, "같은 문을 자기 자신에게 연결할 수 없습니다.")
                 continue
+            source_key = (node_structures.get(source.get("node"), ""), source.get("anchor"))
+            target_key = (node_structures.get(target.get("node"), ""), target.get("anchor"))
+            if source_key in normalized_dungeon_assignments or target_key in normalized_dungeon_assignments:
+                _issue(issues, "error", path, edge_path, "던전 입구로 지정한 문은 일반 공간 연결선에 사용할 수 없습니다.")
+                continue
             anchor_catalog = connection_labels_by_structure if kind == "building" else door_labels_by_structure
             source_doors = anchor_catalog.get(node_structures.get(source.get("node"), ""), set())
             target_doors = anchor_catalog.get(node_structures.get(target.get("node"), ""), set())
@@ -12299,6 +12457,8 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     issues.extend(gym_issues)
     if any(issue.level == "error" for issue in issues):
         return issues
+    for metadata_path, metadata_document in metadata_updates.items():
+        _atomic_write_json(metadata_path, metadata_document)
     document = {
         "$schema": "../schemas/space-connections.schema.json", "schema_version": 1,
         "layouts": layouts, "annotations": annotations,

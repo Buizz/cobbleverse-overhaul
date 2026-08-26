@@ -1607,7 +1607,7 @@ body { font-size: 14px; line-height: 1.45; }
 .space-flow-edge:hover, .space-flow-edge.is-selected { stroke: #ffd166; stroke-width: 6; }
 .space-flow-edges marker path { fill: #68c7bd; }
 .space-flow-edge.is-preview { stroke: #ffb45f; stroke-width: 3; stroke-dasharray: 9 7; pointer-events: none; }
-.space-flow-nodes { z-index: 2; pointer-events: none; }
+.space-flow-nodes { z-index: 4; pointer-events: none; }
 .space-node { position: absolute; top: 0; left: 0; width: 300px; border: 1px solid #4f6872; border-radius: 7px; background: #f7faf9; box-shadow: 0 12px 30px rgba(0,0,0,.28); pointer-events: auto; user-select: none; }
 .space-node.is-selected { border-color: #ffd166; box-shadow: 0 0 0 2px rgba(255,209,102,.25), 0 14px 34px rgba(0,0,0,.34); }
 .space-node.is-dragging { z-index: 5; opacity: .93; cursor: grabbing; }
