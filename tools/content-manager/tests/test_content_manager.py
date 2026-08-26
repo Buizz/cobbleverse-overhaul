@@ -120,6 +120,35 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("영역이 겹칩니다" in message for message in messages))
         self.assertTrue(any("없는 커넥터" in message for message in messages))
 
+    def test_dungeon_piece_validates_boundary_connectors_and_role_markers(self) -> None:
+        piece = {
+            "$schema": "../../schemas/dungeon-piece.schema.json", "schema_version": 1,
+            "piece_id": "cobbleventure:dungeon_piece/test_start", "structure": "cobbleventure:test/start",
+            "role": "start", "size": [8, 6, 8], "weight": 1, "allow_rotation": True,
+            "tags": ["cobbleventure:dungeon/test"],
+            "connectors": [{
+                "id": "east", "position": [7, 1, 4], "facing": "east",
+                "socket": "cobbleventure:socket/door", "tags": [],
+            }],
+            "markers": [{"id": "entry", "kind": "entry", "position": [2, 1, 2]}],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            relative = "content/dungeon_pieces/generation_1/test_start.json"
+            target, issues = content_manager._save_document(root, "dungeon-pieces", relative, piece)
+            self.assertIsNotNone(target)
+            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+            self.assertTrue((root / relative).is_file())
+
+            piece["connectors"][0]["position"] = [3, 1, 4]
+            piece["markers"] = []
+            _, invalid_issues = content_manager._save_document(
+                root, "dungeon-pieces", "content/dungeon_pieces/generation_1/invalid.json", piece,
+            )
+        messages = [issue.message for issue in invalid_issues]
+        self.assertTrue(any("조각 경계" in message for message in messages))
+        self.assertTrue(any("entry 마커" in message for message in messages))
+
     def test_dungeon_workspace_loads_definitions_plans_and_piece_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -162,6 +191,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("function authoredDungeonPlan(document, planId)", script)
         self.assertIn("function runtimeDungeonPlan(document, seed)", script)
         self.assertIn("실제 NBT 배치는 서버 검증 결과에 따라 달라질 수 있습니다.", script)
+
+    def test_dungeon_piece_editor_exposes_complete_nbt_authoring_flow(self) -> None:
+        html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="dungeon-piece-form"', html)
+        self.assertIn('id="dungeon-piece-canvas"', html)
+        self.assertIn('id="add-dungeon-connector"', html)
+        self.assertIn('id="add-dungeon-marker"', html)
+        self.assertIn("async function saveDungeonPiece()", script)
+        self.assertIn("function dungeonPlanPlacementProblems(plan)", script)
 
     def test_player_world_map_selection_keeps_a_one_step_outline_margin(self) -> None:
         source = (

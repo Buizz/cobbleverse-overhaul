@@ -8321,12 +8321,128 @@ def _managed_directory(root: Path, category: str) -> Path:
         "caves": root / "content" / "caves",
         "dungeons": root / "content" / "dungeons",
         "dungeon-plans": root / "content" / "dungeon_plans",
+        "dungeon-pieces": root / "content" / "dungeon_pieces",
         "underground-roads": root / "content" / "underground_roads",
         "forests": root / "content" / "forests",
     }
     if category not in directories:
         raise ValueError("지원하지 않는 문서 종류입니다.")
     return directories[category].resolve()
+
+
+def validate_dungeon_piece_file(path: Path) -> tuple[str | None, list[Issue]]:
+    """Validate an NBT-backed reusable dungeon piece."""
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        return None, [Issue("error", path.as_posix(), "$", str(error))]
+    if not isinstance(data, dict):
+        return None, [Issue("error", path.as_posix(), "$", "던전 조각 문서는 객체여야 합니다.")]
+    piece_id = data.get("piece_id")
+    _resource_id(piece_id, issues, path, "$.piece_id")
+    _resource_id(data.get("structure"), issues, path, "$.structure")
+    if data.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "던전 조각 스키마 버전은 1이어야 합니다.")
+    role = data.get("role")
+    roles = {"start", "room", "corridor", "junction", "dead_end", "support", "treasure", "boss", "exit"}
+    if role not in roles:
+        _issue(issues, "error", path, "$.role", "지원하지 않는 조각 역할입니다.")
+    size = data.get("size")
+    size_valid = isinstance(size, list) and len(size) == 3 and all(
+        isinstance(axis, int) and not isinstance(axis, bool) and 1 <= axis <= 128 for axis in size
+    )
+    if not size_valid:
+        _issue(issues, "error", path, "$.size", "크기는 1~128인 X, Y, Z 정수 3개여야 합니다.")
+    weight = data.get("weight")
+    if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 1000:
+        _issue(issues, "error", path, "$.weight", "가중치는 1~1000 정수여야 합니다.")
+    if not isinstance(data.get("allow_rotation"), bool):
+        _issue(issues, "error", path, "$.allow_rotation", "true 또는 false여야 합니다.")
+    tags = data.get("tags")
+    if not isinstance(tags, list):
+        _issue(issues, "error", path, "$.tags", "태그는 리소스 ID 배열이어야 합니다.")
+    else:
+        for index, tag in enumerate(tags):
+            _resource_id(tag, issues, path, f"$.tags[{index}]")
+        if len(tags) != len(set(tag for tag in tags if isinstance(tag, str))):
+            _issue(issues, "error", path, "$.tags", "태그가 중복되었습니다.")
+
+    def local_position(value: Any, field: str) -> bool:
+        valid = size_valid and isinstance(value, list) and len(value) == 3 and all(
+            isinstance(axis, int) and not isinstance(axis, bool) and 0 <= axis < size[index]
+            for index, axis in enumerate(value)
+        )
+        if not valid:
+            _issue(issues, "error", path, field, "조각 크기 안의 X, Y, Z 정수 좌표가 필요합니다.")
+        return valid
+
+    connectors = data.get("connectors")
+    seen_connectors: set[str] = set()
+    if not isinstance(connectors, list) or not connectors:
+        _issue(issues, "error", path, "$.connectors", "커넥터가 하나 이상 필요합니다.")
+        connectors = connectors if isinstance(connectors, list) else []
+    for index, connector in enumerate(connectors):
+        base = f"$.connectors[{index}]"
+        if not isinstance(connector, dict):
+            _issue(issues, "error", path, base, "커넥터는 객체여야 합니다.")
+            continue
+        connector_id = connector.get("id")
+        if not isinstance(connector_id, str) or not CHOICE_ID.fullmatch(connector_id):
+            _issue(issues, "error", path, f"{base}.id", "소문자 커넥터 ID가 필요합니다.")
+        elif connector_id in seen_connectors:
+            _issue(issues, "error", path, f"{base}.id", "커넥터 ID가 중복되었습니다.")
+        else:
+            seen_connectors.add(connector_id)
+        position_valid = local_position(connector.get("position"), f"{base}.position")
+        facing = connector.get("facing")
+        if facing not in {"north", "south", "east", "west"}:
+            _issue(issues, "error", path, f"{base}.facing", "north, south, east, west 중 하나여야 합니다.")
+        elif position_valid:
+            x, _, z = connector["position"]
+            on_boundary = {"north": z == 0, "south": z == size[2] - 1, "west": x == 0, "east": x == size[0] - 1}[facing]
+            if not on_boundary:
+                _issue(issues, "error", path, f"{base}.position", "커넥터는 바라보는 방향의 조각 경계에 있어야 합니다.")
+        _resource_id(connector.get("socket"), issues, path, f"{base}.socket")
+        connector_tags = connector.get("tags", [])
+        if not isinstance(connector_tags, list):
+            _issue(issues, "error", path, f"{base}.tags", "커넥터 태그는 리소스 ID 배열이어야 합니다.")
+        else:
+            for tag_index, tag in enumerate(connector_tags):
+                _resource_id(tag, issues, path, f"{base}.tags[{tag_index}]")
+
+    markers = data.get("markers")
+    seen_markers: set[str] = set()
+    marker_counts: dict[str, int] = {}
+    marker_kinds = {"entry", "exit", "encounter", "boss", "loot", "healing_station", "gate", "checkpoint", "wild_spawn", "objective", "trace"}
+    if not isinstance(markers, list):
+        _issue(issues, "error", path, "$.markers", "마커 목록은 배열이어야 합니다.")
+        markers = []
+    for index, marker in enumerate(markers):
+        base = f"$.markers[{index}]"
+        if not isinstance(marker, dict):
+            _issue(issues, "error", path, base, "마커는 객체여야 합니다.")
+            continue
+        marker_id = marker.get("id")
+        if not isinstance(marker_id, str) or not CHOICE_ID.fullmatch(marker_id):
+            _issue(issues, "error", path, f"{base}.id", "소문자 마커 ID가 필요합니다.")
+        elif marker_id in seen_markers:
+            _issue(issues, "error", path, f"{base}.id", "마커 ID가 중복되었습니다.")
+        else:
+            seen_markers.add(marker_id)
+        kind = marker.get("kind")
+        if kind not in marker_kinds:
+            _issue(issues, "error", path, f"{base}.kind", "지원하지 않는 마커 종류입니다.")
+        else:
+            marker_counts[kind] = marker_counts.get(kind, 0) + 1
+        local_position(marker.get("position"), f"{base}.position")
+        reference = marker.get("reference")
+        if reference is not None and (not isinstance(reference, str) or not reference.strip()):
+            _issue(issues, "error", path, f"{base}.reference", "참조 값은 비어 있지 않은 문자열이어야 합니다.")
+    required_marker = {"start": "entry", "boss": "boss", "exit": "exit"}.get(role)
+    if required_marker and marker_counts.get(required_marker, 0) != 1:
+        _issue(issues, "error", path, "$.markers", f"{role} 역할은 {required_marker} 마커가 정확히 하나 필요합니다.")
+    return piece_id if isinstance(piece_id, str) else None, issues
 
 
 def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
@@ -9018,6 +9134,7 @@ def _save_document(
         "caves": validate_cave_file,
         "dungeons": validate_dungeon_file,
         "dungeon-plans": validate_dungeon_plan_file,
+        "dungeon-pieces": validate_dungeon_piece_file,
         "underground-roads": validate_underground_road_file,
         "forests": validate_forest_file,
     }[category]
@@ -13825,7 +13942,7 @@ def create_handler(
                 return
             if request.path == "/api/document-validation":
                 category = parse_qs(request.query).get("category", [""])[0]
-                if category not in {"trainers", "battles", "routes", "settlements", "caves", "dungeons", "dungeon-plans", "underground-roads", "forests"}:
+                if category not in {"trainers", "battles", "routes", "settlements", "caves", "dungeons", "dungeon-plans", "dungeon-pieces", "underground-roads", "forests"}:
                     self._json(400, {"error": "지원하지 않는 문서 종류입니다."})
                     return
                 validator = {
@@ -13836,6 +13953,7 @@ def create_handler(
                     "caves": validate_cave_file,
                     "dungeons": validate_dungeon_file,
                     "dungeon-plans": validate_dungeon_plan_file,
+                    "dungeon-pieces": validate_dungeon_piece_file,
                     "underground-roads": validate_underground_road_file,
                     "forests": validate_forest_file,
                 }[category]
@@ -14488,6 +14606,7 @@ def create_handler(
                 "/api/caves": "caves",
                 "/api/dungeons": "dungeons",
                 "/api/dungeon-plans": "dungeon-plans",
+                "/api/dungeon-pieces": "dungeon-pieces",
                 "/api/underground-roads": "underground-roads",
                 "/api/forests": "forests",
             }
