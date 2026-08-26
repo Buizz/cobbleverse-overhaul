@@ -31,19 +31,26 @@ final class DungeonLootLedger {
     }
 
     void record(String onFailure, UUID playerId, List<ItemStack> rewards) {
-        if (onFailure.equals("keep_collected")) return;
-        Map<UUID, List<ItemStack>> target = onFailure.equals("grant_on_clear_only")
-            ? pending : onFailure.equals("remove_run_loot") ? removable : null;
-        if (target == null) {
-            throw new IllegalArgumentException(
-                "Unknown dungeon loot failure policy: " + onFailure
-            );
-        }
+        LootDisposition disposition = disposition(onFailure);
+        if (disposition == LootDisposition.KEEP_COLLECTED) return;
+        Map<UUID, List<ItemStack>> target = disposition == LootDisposition.GRANT_ON_CLEAR
+            ? pending : removable;
         List<ItemStack> stored = target.computeIfAbsent(
             playerId, ignored -> new ArrayList<>()
         );
         rewards.stream().filter(stack -> !stack.isEmpty())
             .map(ItemStack::copy).forEach(stored::add);
+    }
+
+    static LootDisposition disposition(String onFailure) {
+        return switch (onFailure) {
+            case "keep_collected" -> LootDisposition.KEEP_COLLECTED;
+            case "grant_on_clear_only" -> LootDisposition.GRANT_ON_CLEAR;
+            case "remove_run_loot" -> LootDisposition.REMOVE_ON_FAILURE;
+            default -> throw new IllegalArgumentException(
+                "Unknown dungeon loot failure policy: " + onFailure
+            );
+        };
     }
 
     List<ItemStack> pending(UUID playerId) {
@@ -72,5 +79,11 @@ final class DungeonLootLedger {
         Map<UUID, List<ItemStack>> target
     ) {
         source.forEach((player, stacks) -> target.put(player, copies(stacks)));
+    }
+
+    enum LootDisposition {
+        KEEP_COLLECTED,
+        GRANT_ON_CLEAR,
+        REMOVE_ON_FAILURE
     }
 }

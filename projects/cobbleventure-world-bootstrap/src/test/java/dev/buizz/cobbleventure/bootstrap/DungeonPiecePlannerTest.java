@@ -2,11 +2,14 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +18,31 @@ import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 final class DungeonPiecePlannerTest {
+    @Test
+    void soloGeneratedDungeonPassesMultiSeedTopologyAndMarkerStress() throws Exception {
+        List<DungeonPieceDefinition> pieces = packagedRocketPieces();
+        assertTimeout(Duration.ofSeconds(20), () -> {
+            for (String name : List.of("rocket_pokemon_tower")) {
+                DungeonDefinition dungeon = packagedDungeon(name);
+                for (long seed = 0; seed < 32; seed++) {
+                    DungeonPieceLayout generated;
+                    try {
+                        generated = DungeonPieceLayout.generate(dungeon, pieces, seed);
+                    } catch (IllegalStateException failure) {
+                        throw new IllegalStateException(name + " seed=" + seed, failure);
+                    }
+                    assertNoOverlap(generated.plan());
+                    assertConnected(generated.plan());
+                    assertRequiredFeatures(dungeon, generated, seed);
+                }
+                assertEquals(
+                    DungeonPieceLayout.generate(dungeon, pieces, 17L),
+                    DungeonPieceLayout.generate(dungeon, pieces, 17L)
+                );
+            }
+        });
+    }
+
     @Test
     void generatesDistinctVerticalProfilesForRuntimeRocketDungeons() throws Exception {
         List<DungeonPieceDefinition> pieces = packagedRocketPieces();
@@ -64,7 +92,8 @@ final class DungeonPiecePlannerTest {
         assertEquals(3, generated.plan().placements().stream()
             .filter(DungeonPiecePlan.Placement::criticalPath).count());
         assertEquals("start", generated.plan().placements().getFirst().role());
-        assertEquals("exit", generated.plan().placements().getLast().role());
+        assertEquals("exit", generated.plan().placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath).toList().getLast().role());
     }
 
     @Test
@@ -303,6 +332,59 @@ final class DungeonPiecePlannerTest {
                 assertTrue(!overlaps, "Pieces overlap: " + first + " and " + second);
             }
         }
+    }
+
+    private static void assertConnected(DungeonPiecePlan plan) {
+        Map<Integer, List<Integer>> graph = new java.util.HashMap<>();
+        for (DungeonPiecePlan.Link link : plan.links()) {
+            graph.computeIfAbsent(link.fromIndex(), ignored -> new ArrayList<>())
+                .add(link.toIndex());
+            graph.computeIfAbsent(link.toIndex(), ignored -> new ArrayList<>())
+                .add(link.fromIndex());
+        }
+        Set<Integer> visited = new java.util.HashSet<>();
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+        queue.add(0);
+        while (!queue.isEmpty()) {
+            int current = queue.removeFirst();
+            if (!visited.add(current)) continue;
+            graph.getOrDefault(current, List.of()).forEach(queue::addLast);
+        }
+        assertEquals(plan.placements().size(), visited.size());
+    }
+
+    private static void assertRequiredFeatures(
+        DungeonDefinition dungeon, DungeonPieceLayout layout, long seed
+    ) {
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> features =
+            layout.featureMarkers(dungeon, seed);
+        dungeon.encounters().forEach(encounter -> assertTrue(features.containsKey(
+            new DungeonPieceLayout.MarkerKey(
+                encounter.boss() ? "boss" : "encounter", encounter.id()
+            )
+        )));
+        dungeon.loot().containers().forEach(container -> assertTrue(features.containsKey(
+            new DungeonPieceLayout.MarkerKey("loot", container.id())
+        )));
+        dungeon.support().healingStations().forEach(station -> assertTrue(
+            features.containsKey(new DungeonPieceLayout.MarkerKey(
+                "healing_station", station.id()
+            ))
+        ));
+        dungeon.objectives().forEach(objective -> assertTrue(features.containsKey(
+            new DungeonPieceLayout.MarkerKey("objective", objective.id())
+        )));
+        dungeon.gates().stream().filter(gate -> gate.placement().equals("marker"))
+            .forEach(gate -> assertTrue(features.containsKey(
+                new DungeonPieceLayout.MarkerKey("gate", gate.id())
+            )));
+        if (dungeon.completion().returnTrigger().equals("clear_exit")) {
+            assertTrue(features.containsKey(
+                new DungeonPieceLayout.MarkerKey("objective", "clear_exit")
+            ));
+        }
+        layout.requiredMarker("entry", null);
+        layout.requiredMarker("exit", null);
     }
 
     private static List<DungeonPieceDefinition> testPieces() {

@@ -48,6 +48,7 @@ record DungeonPieceLayout(
         if (pieces.isEmpty()) {
             throw new IllegalStateException("Dungeon piece pool is empty: " + pool);
         }
+        DungeonPiecePoolValidator.validate(definition, pieces);
         DungeonDefinition.Layout layout = definition.layout();
         if (definition.plan().mode().equals("runtime")
             && layout.mode().equals("fixed")) {
@@ -130,19 +131,30 @@ record DungeonPieceLayout(
             if (cached != null) return cached;
         }
         if (definition.plan().fallback().equals("use_fallback_plan")) {
-            try {
-                DungeonPiecePlan fallback = DungeonPiecePlanner.generate(
-                    pieces, plannerSettings(definition, true), seed
-                );
-                DungeonPiecePlanValidator.validate(
-                    fallback, byId, definition.terrain().piecePool(),
-                    definition.terrain().bounds()
-                );
-                return resolveMarkers(definition, fallback, byId, seed);
-            } catch (IllegalStateException fallbackFailure) {
-                if (lastFailure != null) fallbackFailure.addSuppressed(lastFailure);
-                throw fallbackFailure;
+            IllegalStateException fallbackFailure = null;
+            DungeonPiecePlanner.Settings fallbackSettings = singleAttempt(
+                plannerSettings(definition, true)
+            );
+            for (int attempt = 0; attempt < definition.plan().maxAttempts(); attempt++) {
+                try {
+                    long fallbackSeed = attempt == 0 ? seed
+                        : markerSeed(seed + attempt, "fallback_layout_attempt");
+                    DungeonPiecePlan fallback = DungeonPiecePlanner.generate(
+                        pieces, fallbackSettings, fallbackSeed
+                    );
+                    DungeonPiecePlanValidator.validate(
+                        fallback, byId, definition.terrain().piecePool(),
+                        definition.terrain().bounds()
+                    );
+                    return resolveMarkers(definition, fallback, byId, seed);
+                } catch (IllegalStateException failure) {
+                    fallbackFailure = failure;
+                }
             }
+            if (fallbackFailure != null && lastFailure != null) {
+                fallbackFailure.addSuppressed(lastFailure);
+            }
+            if (fallbackFailure != null) throw fallbackFailure;
         }
         if (lastFailure != null) throw lastFailure;
         throw new IllegalStateException("Dungeon runtime planning produced no attempts");
@@ -229,12 +241,17 @@ record DungeonPieceLayout(
         DungeonDefinition definition, boolean safeFallback
     ) {
         DungeonDefinition.Layout layout = definition.layout();
+        int safeCriticalRooms = Math.min(
+            layout.criticalPathRooms().maximum(),
+            Math.max(6, layout.criticalPathRooms().minimum() / 2)
+        );
+        int safeBranches = layout.branchCount().maximum() > 0 ? 1 : 0;
         return new DungeonPiecePlanner.Settings(
             definition.terrain().bounds(),
-            safeFallback ? 3 : layout.criticalPathRooms().minimum(),
-            safeFallback ? 3 : layout.criticalPathRooms().maximum(),
-            safeFallback ? 0 : layout.branchCount().minimum(),
-            safeFallback ? 0 : layout.branchCount().maximum(),
+            safeFallback ? safeCriticalRooms : layout.criticalPathRooms().minimum(),
+            safeFallback ? safeCriticalRooms : layout.criticalPathRooms().maximum(),
+            safeFallback ? safeBranches : layout.branchCount().minimum(),
+            safeFallback ? safeBranches : layout.branchCount().maximum(),
             safeFallback ? 1 : layout.branchDepth().minimum(),
             safeFallback ? 1 : layout.branchDepth().maximum(),
             safeFallback ? 0.0D : layout.loopChance(),

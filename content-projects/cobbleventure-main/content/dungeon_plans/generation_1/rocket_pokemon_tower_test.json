@@ -3,7 +3,7 @@
   "schema_version": 1,
   "plan_id": "cobbleventure:dungeon_plan/rocket_pokemon_tower_test",
   "seed": 421,
-  "bounds": [112, 24, 48],
+  "bounds": [128, 24, 80],
   "placements": [
     { "piece_id": "cobbleventure:dungeon_piece/rocket/start", "origin": [1, 1, 1], "rotation": "none", "critical_path": true },
     { "piece_id": "cobbleventure:dungeon_piece/rocket/encounter_room", "origin": [17, 1, 1], "rotation": "none", "critical_path": true },

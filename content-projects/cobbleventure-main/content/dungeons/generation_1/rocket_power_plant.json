@@ -209,6 +209,7 @@
     "on_wipe": "reset_run",
     "wipe_return": "source_entrance",
     "heal_on_wipe": true,
+    "resume_mode": "full_reset",
     "reconnect_grace_seconds": 120
   },
   "completion": {

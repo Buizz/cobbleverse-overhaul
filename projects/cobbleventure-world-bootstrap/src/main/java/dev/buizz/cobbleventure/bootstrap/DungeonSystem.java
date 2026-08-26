@@ -1036,16 +1036,23 @@ final class DungeonSystem {
         RandomSource random = RandomSource.create(seed);
         int rooms = randomRange(random, layout.criticalPathRooms());
         int branches = randomRange(random, layout.branchCount());
+        int branchDepth = randomRange(random, layout.branchDepth());
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
-            layout.mode(), rooms, branches, layout.loopChance()
+            layout.mode(), rooms, branches, branchDepth, layout.loopChance()
         );
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        if (elapsedMs > definition.plan().generationTimeoutMs()) {
+            throw new IllegalStateException(
+                "Procedural cave planning exceeded generation_timeout_ms: "
+                    + elapsedMs + "ms > " + definition.plan().generationTimeoutMs() + "ms"
+            );
+        }
         LOGGER.info(
             "Prepared procedural cave dungeon: dungeon={}, seed={}, layout={}, rooms={}, "
-                + "branches={}, elapsed={}ms",
-            definition.id(), seed, layout.mode(), rooms, branches, elapsedMs
+                + "branches={}, branchDepth={}, elapsed={}ms",
+            definition.id(), seed, layout.mode(), rooms, branches, branchDepth, elapsedMs
         );
         Map<DungeonPieceLayout.MarkerKey, BlockPos> featurePositions =
             DungeonCaveFeatureLayout.assign(

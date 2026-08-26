@@ -66,6 +66,21 @@ final class NaturalCaveGeneratorTest {
             < rooms.settings().manualLayout().anchors().getFirst().radiusX());
     }
 
+    @Test
+    void branchDepthCreatesConnectedMultiRoomSidePaths() {
+        BlockPos origin = new BlockPos(32768, 80, 0);
+        BlockPos bounds = new BlockPos(160, 48, 160);
+
+        NaturalCaveGenerator.InstancePlan plan = NaturalCaveGenerator.planInstance(
+            "cobbleventure:dungeon/test_cave", 7351L, origin, bounds,
+            "critical_path_branches", 7, 2, 3, 0.0D
+        );
+
+        assertEquals(6, plan.branchRoomPositions().size());
+        assertEquals(11, plan.settings().manualLayout().anchors().size());
+        assertEquals(12, plan.settings().manualLayout().connections().size());
+    }
+
     private static void assertInside(BlockPos position, BlockPos bounds) {
         assertTrue(position.getX() >= 0 && position.getX() < bounds.getX());
         assertTrue(position.getY() >= 0 && position.getY() < bounds.getY());

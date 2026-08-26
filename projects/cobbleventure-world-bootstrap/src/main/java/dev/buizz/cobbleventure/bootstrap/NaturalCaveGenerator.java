@@ -56,7 +56,7 @@ final class NaturalCaveGenerator {
     ) {
         return generateInstance(
             level, caveId, seed, origin, bounds, "critical_path_branches",
-            mainRooms, branchCount, loopChance
+            mainRooms, branchCount, 1, loopChance
         );
     }
 
@@ -71,9 +71,27 @@ final class NaturalCaveGenerator {
         int branchCount,
         double loopChance
     ) {
+        return generateInstance(
+            level, caveId, seed, origin, bounds, layoutMode,
+            mainRooms, branchCount, 1, loopChance
+        );
+    }
+
+    static InstanceResult generateInstance(
+        ServerLevel level,
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        String layoutMode,
+        int mainRooms,
+        int branchCount,
+        int branchDepth,
+        double loopChance
+    ) {
         InstancePlan plan = planInstance(
             caveId, seed, origin, bounds, layoutMode,
-            mainRooms, branchCount, loopChance
+            mainRooms, branchCount, branchDepth, loopChance
         );
         generateCave(level, caveId, seed, plan.entrances(), plan.settings());
         return new InstanceResult(
@@ -93,7 +111,7 @@ final class NaturalCaveGenerator {
     ) {
         return planInstance(
             caveId, seed, origin, bounds, "critical_path_branches",
-            mainRooms, branchCount, loopChance
+            mainRooms, branchCount, 1, loopChance
         );
     }
 
@@ -107,6 +125,23 @@ final class NaturalCaveGenerator {
         int branchCount,
         double loopChance
     ) {
+        return planInstance(
+            caveId, seed, origin, bounds, layoutMode,
+            mainRooms, branchCount, 1, loopChance
+        );
+    }
+
+    static InstancePlan planInstance(
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        String layoutMode,
+        int mainRooms,
+        int branchCount,
+        int branchDepth,
+        double loopChance
+    ) {
         if (bounds.getX() < 112 || bounds.getY() < 32 || bounds.getZ() < 112) {
             throw new IllegalArgumentException(
                 "Procedural cave dungeon bounds must be at least 112x32x112"
@@ -116,6 +151,7 @@ final class NaturalCaveGenerator {
                 "critical_path_branches", "maze", "rooms_and_corridors"
             ).contains(layoutMode)
             || mainRooms < 3 || mainRooms > 64 || branchCount < 0 || branchCount > 32
+            || branchDepth < 1 || branchDepth > 8
             || loopChance < 0.0D || loopChance > 1.0D) {
             throw new IllegalArgumentException("Invalid procedural cave dungeon layout");
         }
@@ -178,23 +214,29 @@ final class NaturalCaveGenerator {
             int side = index % 2 == 0 ? -1 : 1;
             int branchReach = layoutMode.equals("rooms_and_corridors")
                 ? bounds.getZ() / 3 : bounds.getZ() / 2 - margin;
-            int z = centerZ + side * branchReach;
-            int x = Math.max(
-                origin.getX() + margin,
-                Math.min(origin.getX() + bounds.getX() - margin - 1,
-                    root.x() + random.nextInt(-10, 11))
-            );
-            String id = "branch_" + index;
-            anchors.add(new ManualAnchor(
-                id, "branch", x, root.y(), z,
-                layoutMode.equals("maze") ? 5.5D : 7.0D,
-                layoutMode.equals("maze") ? 5.5D : 7.0D,
-                layoutMode.equals("maze") ? 7.0D : 8.0D, "rock"
-            ));
-            connections.add(new ManualConnection(
-                "branch_path_" + index, root.id(), id, "branch",
-                layoutMode.equals("maze") ? 3 : 4, "rugged"
-            ));
+            String previousBranch = root.id();
+            for (int depth = 0; depth < branchDepth; depth++) {
+                double progress = (depth + 1.0D) / branchDepth;
+                int z = centerZ + side * (int) Math.round(branchReach * progress);
+                int x = Math.max(
+                    origin.getX() + margin,
+                    Math.min(origin.getX() + bounds.getX() - margin - 1,
+                        root.x() + random.nextInt(-10, 11))
+                );
+                String id = "branch_" + index + "_" + depth;
+                anchors.add(new ManualAnchor(
+                    id, "branch", x, root.y(), z,
+                    layoutMode.equals("maze") ? 5.5D : 7.0D,
+                    layoutMode.equals("maze") ? 5.5D : 7.0D,
+                    layoutMode.equals("maze") ? 7.0D : 8.0D, "rock"
+                ));
+                connections.add(new ManualConnection(
+                    "branch_path_" + index + "_" + depth,
+                    previousBranch, id, "branch",
+                    layoutMode.equals("maze") ? 3 : 4, "rugged"
+                ));
+                previousBranch = id;
+            }
         }
 
         if (mainRooms >= 5 && loopChance > 0.0D && random.nextDouble() <= loopChance) {

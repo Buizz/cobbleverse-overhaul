@@ -10,7 +10,7 @@
     16
   ],
   "weight": 4,
-  "min_per_plan": 0,
+  "min_per_plan": 1,
   "max_per_plan": 1,
   "placement_scope": "branch",
   "forbid_adjacent_tags": [
