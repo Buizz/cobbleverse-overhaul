@@ -46,6 +46,7 @@ final class DungeonPiecePlannerTest {
         assertTrue(!layout.requiredMarker("entry", null).equals(
             layout.requiredMarker("exit", null)
         ));
+        assertTrue(layout.requiredMarker("boss", "boss").getX() >= 0);
     }
 
     @Test
@@ -117,7 +118,7 @@ final class DungeonPiecePlannerTest {
             piece("room", "room", fourConnectors(), "[]"),
             piece("corridor", "corridor", northSouthConnectors(), "[]"),
             piece("junction", "junction", fourConnectors(), "[]"),
-            piece("boss", "boss", fourConnectors(), marker("boss")),
+            piece("boss", "boss", fourConnectors(), marker("boss", "boss")),
             piece("exit", "exit", terminalConnector(), marker("exit")),
             piece("dead_end", "dead_end", terminalConnector(), "[]"),
             piece("treasure", "treasure", terminalConnector(), "[]"),
@@ -148,6 +149,12 @@ final class DungeonPiecePlannerTest {
         return """
             [{"id":"%s","kind":"%s","position":[2,1,2]}]
             """.formatted(kind, kind);
+    }
+
+    private static String marker(String kind, String reference) {
+        return """
+            [{"id":"%s","kind":"%s","position":[2,1,2],"reference":"%s"}]
+            """.formatted(kind, kind, reference);
     }
 
     private static String terminalConnector() {

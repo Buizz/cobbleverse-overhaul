@@ -723,17 +723,23 @@ final class DungeonSystem {
         BlockPos clearExit = null;
         PursuitEncounterSystem.Config randomEncounters;
         Map<UUID, EncounterEntityRef> encounterByEntity;
+        Map<String, BlockPos> lootPositions;
+        Map<String, BlockPos> healingPositions;
         try {
             terrain = prepareTerrain(
                 dungeonLevel, definition, origin, first.player().getUUID()
             );
             size = terrain.size();
             placeGates(dungeonLevel, definition, origin, size);
-            clearExit = placeClearExit(dungeonLevel, definition, origin, size);
-            placeHealingStations(dungeonLevel, definition, origin, size);
-            placeLootContainers(dungeonLevel, definition, origin);
+            clearExit = placeClearExit(dungeonLevel, definition, origin, terrain);
+            healingPositions = placeHealingStations(
+                dungeonLevel, definition, origin, terrain
+            );
+            lootPositions = placeLootContainers(
+                dungeonLevel, definition, origin, terrain
+            );
             encounterByEntity = spawnEncounters(
-                dungeonLevel, definition, origin
+                dungeonLevel, definition, origin, terrain
             );
             randomEncounters = createRandomEncounterConfig(
                 definition, origin, size, slot
@@ -766,7 +772,8 @@ final class DungeonSystem {
             clearExit, cooldown, randomEncounters, new HashMap<>(), participantIds,
             new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
-            new DungeonLootClaims(), new DungeonLootLedger(), new HashMap<>(),
+            new DungeonLootClaims(), new DungeonLootLedger(), lootPositions,
+            healingPositions, new HashMap<>(),
             new HashSet<>(), new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
@@ -972,12 +979,29 @@ final class DungeonSystem {
         };
     }
 
+    private static BlockPos featurePosition(
+        PreparedTerrain terrain,
+        String kind,
+        String reference,
+        BlockPos fallback
+    ) {
+        return terrain.markers().getOrDefault(
+            new DungeonPieceLayout.MarkerKey(kind, reference), fallback
+        );
+    }
+
     private static Map<UUID, EncounterEntityRef> spawnEncounters(
-        ServerLevel level, DungeonDefinition definition, BlockPos origin
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        PreparedTerrain terrain
     ) {
         Map<UUID, EncounterEntityRef> spawned = new HashMap<>();
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
-            BlockPos authoredPosition = origin.offset(encounter.position());
+            String markerKind = encounter.boss() ? "boss" : "encounter";
+            BlockPos authoredPosition = origin.offset(featurePosition(
+                terrain, markerKind, encounter.id(), encounter.position()
+            ));
             if (encounter.kind().equals("wild_pokemon")) {
                 Entity pokemon = DungeonWildEncounterSupport.spawn(
                     level, encounter.pokemon(), authoredPosition, encounter.yaw()
@@ -1053,9 +1077,13 @@ final class DungeonSystem {
         return type != null && type.getNamespace().equals("easy_npc");
     }
 
-    private static void placeLootContainers(
-        ServerLevel level, DungeonDefinition definition, BlockPos origin
+    private static Map<String, BlockPos> placeLootContainers(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        PreparedTerrain terrain
     ) {
+        Map<String, BlockPos> positions = new HashMap<>();
         long runSeed = level.getRandom().nextLong() ^ origin.asLong();
         for (DungeonDefinition.LootContainer container : definition.loot().containers()) {
             String lootTableId = container.lootTable() == null
@@ -1070,7 +1098,10 @@ final class DungeonSystem {
                         + " (" + definition.id() + " -> " + container.id() + ")"
                 );
             }
-            BlockPos position = origin.offset(container.position());
+            BlockPos position = origin.offset(featurePosition(
+                terrain, "loot", container.id(), container.position()
+            ));
+            positions.put(container.id(), position);
             Direction facing = Direction.byName(container.facing());
             var blockState = container.block().equals("barrel")
                 ? Blocks.BARREL.defaultBlockState().setValue(BarrelBlock.FACING, facing)
@@ -1092,17 +1123,22 @@ final class DungeonSystem {
             }
             blockEntity.setChanged();
         }
+        return Map.copyOf(positions);
     }
 
-    private static void placeHealingStations(
+    private static Map<String, BlockPos> placeHealingStations(
         ServerLevel level,
         DungeonDefinition definition,
         BlockPos origin,
-        BlockPos size
+        PreparedTerrain terrain
     ) {
+        Map<String, BlockPos> positions = new HashMap<>();
         for (DungeonDefinition.HealingStation station
             : definition.support().healingStations()) {
-            BlockPos relative = station.position();
+            BlockPos relative = featurePosition(
+                terrain, "healing_station", station.id(), station.position()
+            );
+            BlockPos size = terrain.size();
             if (relative.getX() < 0 || relative.getY() < 0 || relative.getZ() < 0
                 || relative.getX() >= size.getX() || relative.getY() >= size.getY()
                 || relative.getZ() >= size.getZ()) {
@@ -1116,26 +1152,32 @@ final class DungeonSystem {
                     "Dungeon healing station block is missing: " + blockId
                 )
             );
+            BlockPos position = origin.offset(relative);
             if (block == Blocks.AIR
-                || !level.setBlock(origin.offset(relative), block.defaultBlockState(), 3)) {
+                || !level.setBlock(position, block.defaultBlockState(), 3)) {
                 throw new IllegalStateException(
                     "Dungeon healing station placement failed: " + station.id()
                 );
             }
+            positions.put(station.id(), position);
         }
+        return Map.copyOf(positions);
     }
 
     private static BlockPos placeClearExit(
         ServerLevel level,
         DungeonDefinition definition,
         BlockPos origin,
-        BlockPos size
+        PreparedTerrain terrain
     ) {
         DungeonDefinition.Completion completion = definition.completion();
         if (!completion.returnTrigger().equals("clear_exit")) {
             return null;
         }
-        BlockPos relative = completion.clearExitPosition();
+        BlockPos relative = featurePosition(
+            terrain, "objective", "clear_exit", completion.clearExitPosition()
+        );
+        BlockPos size = terrain.size();
         if (relative.getX() >= size.getX() || relative.getY() >= size.getY()
             || relative.getZ() >= size.getZ()) {
             throw new IllegalStateException(
@@ -1212,7 +1254,7 @@ final class DungeonSystem {
         }
         DungeonDefinition.LootContainer container = definition.loot().containers()
             .stream()
-            .filter(candidate -> run.origin().offset(candidate.position()).equals(position))
+            .filter(candidate -> position.equals(run.lootPositions().get(candidate.id())))
             .findFirst().orElse(null);
         if (container == null) return false;
         deferObjectiveTracker(run, player, 60L);
@@ -1866,7 +1908,7 @@ final class DungeonSystem {
         if (definition == null) return false;
         DungeonDefinition.HealingStation station = definition.support().healingStations()
             .stream()
-            .filter(candidate -> run.origin().offset(candidate.position()).equals(position))
+            .filter(candidate -> position.equals(run.healingPositions().get(candidate.id())))
             .findFirst().orElse(null);
         if (station == null) return false;
         deferObjectiveTracker(run, player, 60L);
@@ -2655,6 +2697,8 @@ final class DungeonSystem {
         EncounterRuntime encounters,
         DungeonLootClaims lootClaims,
         DungeonLootLedger lootLedger,
+        Map<String, BlockPos> lootPositions,
+        Map<String, BlockPos> healingPositions,
         Map<UUID, ReconnectState> reconnecting,
         Set<String> openedGates,
         Map<UUID, Long> objectiveMessageAfter
