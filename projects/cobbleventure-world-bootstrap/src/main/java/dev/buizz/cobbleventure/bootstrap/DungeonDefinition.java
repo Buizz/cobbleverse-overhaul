@@ -35,6 +35,7 @@ record DungeonDefinition(
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
     Support support,
+    List<Objective> objectives,
     List<Gate> gates,
     Loot loot,
     Rewards rewards,
@@ -613,6 +614,48 @@ record DungeonDefinition(
             ));
         }
         List<Gate> gates = new ArrayList<>();
+        List<Objective> objectives = new ArrayList<>();
+        Set<String> objectiveIds = new HashSet<>();
+        JsonArray objectiveValues = root.has("objectives")
+            ? requiredArray(root, "objectives") : new JsonArray();
+        for (JsonElement element : objectiveValues) {
+            JsonObject objective = element.getAsJsonObject();
+            String objectiveId = requiredString(objective, "id");
+            if (!objectiveIds.add(objectiveId)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon objective ID: " + id + " -> " + objectiveId
+                );
+            }
+            String objectivePlacement = enumValue(
+                objective, "placement", List.of("fixed", "marker")
+            );
+            if (objectivePlacement.equals("marker")
+                && !Set.of("nbt_pieces", "hybrid").contains(terrainMode)) {
+                throw new IllegalStateException(
+                    "Marker-relative dungeon objective requires NBT pieces: "
+                        + id + " -> " + objectiveId
+                );
+            }
+            BlockPos objectivePosition = objective.has("position")
+                ? blockPosition(objective, "position") : null;
+            if (objectivePlacement.equals("fixed") && objectivePosition == null) {
+                throw new IllegalStateException(
+                    "Fixed dungeon objective requires a position: " + id
+                );
+            }
+            int activationRadius = requiredInt(objective, "activation_radius");
+            if (activationRadius < 1 || activationRadius > 8) {
+                throw new IllegalStateException(
+                    "Invalid dungeon objective activation radius: " + id
+                );
+            }
+            objectives.add(new Objective(
+                objectiveId,
+                enumValue(objective, "kind", List.of("switch", "investigate")),
+                objectivePlacement, objectivePosition,
+                resourceId(objective, "block"), activationRadius
+            ));
+        }
         Set<String> gateIds = new HashSet<>();
         for (JsonElement element : requiredArray(root, "gates")) {
             JsonObject gate = element.getAsJsonObject();
@@ -646,26 +689,73 @@ record DungeonDefinition(
                     "Invalid dungeon gate bounds: " + id + " -> " + gateId
                 );
             }
-            List<String> requirements = new ArrayList<>();
-            for (JsonElement requirement : requiredArray(gate, "requires")) {
+            List<String> legacyRequirements = new ArrayList<>();
+            JsonArray legacyValues = gate.has("requires")
+                ? requiredArray(gate, "requires") : new JsonArray();
+            List<GateRequirement> requirements = new ArrayList<>();
+            for (JsonElement requirement : legacyValues) {
                 String requiredEncounter = requirement.getAsString();
                 if (!encounterIds.contains(requiredEncounter)
-                    || !requirements.add(requiredEncounter)) {
+                    || !legacyRequirements.add(requiredEncounter)) {
                     throw new IllegalStateException(
                         "Invalid dungeon gate requirement: " + id + " -> "
                             + gateId + " -> " + requiredEncounter
                     );
                 }
+                requirements.add(new GateRequirement(
+                    "encounter", requiredEncounter, null, 1, false
+                ));
+            }
+            JsonArray typedValues = gate.has("requirements")
+                ? requiredArray(gate, "requirements") : new JsonArray();
+            Set<String> requirementKeys = requirements.stream().map(
+                GateRequirement::key
+            ).collect(java.util.stream.Collectors.toCollection(HashSet::new));
+            for (JsonElement requirement : typedValues) {
+                JsonObject value = requirement.getAsJsonObject();
+                String type = enumValue(
+                    value, "type", List.of("encounter", "objective", "item")
+                );
+                GateRequirement parsed;
+                if (type.equals("item")) {
+                    int count = requiredInt(value, "count");
+                    if (count < 1 || count > 64) {
+                        throw new IllegalStateException(
+                            "Invalid dungeon gate item count: " + gateId
+                        );
+                    }
+                    parsed = new GateRequirement(
+                        type, null, resourceId(value, "item"), count,
+                        requiredBoolean(value, "consume")
+                    );
+                } else {
+                    String reference = requiredString(value, "id");
+                    Set<String> known = type.equals("encounter")
+                        ? encounterIds : objectiveIds;
+                    if (!known.contains(reference)) {
+                        throw new IllegalStateException(
+                            "Unknown dungeon gate " + type + " requirement: "
+                                + gateId + " -> " + reference
+                        );
+                    }
+                    parsed = new GateRequirement(type, reference, null, 1, false);
+                }
+                if (!requirementKeys.add(parsed.key())) {
+                    throw new IllegalStateException(
+                        "Duplicate dungeon gate requirement: " + gateId
+                    );
+                }
+                requirements.add(parsed);
             }
             if (requirements.isEmpty()) {
                 throw new IllegalStateException(
-                    "Dungeon gate requires at least one encounter: " + id
+                    "Dungeon gate requires at least one condition: " + id
                         + " -> " + gateId
                 );
             }
             gates.add(new Gate(
                 gateId, placement, minimum, maximum, resourceId(gate, "block"),
-                List.copyOf(requirements)
+                List.copyOf(legacyRequirements), List.copyOf(requirements)
             ));
         }
         JsonObject loot = requiredObject(root, "loot");
@@ -870,7 +960,7 @@ record DungeonDefinition(
                 List.copyOf(wildSpecies)
             ),
             new Support(List.copyOf(healingStations), List.copyOf(checkpoints)),
-            List.copyOf(gates),
+            List.copyOf(objectives), List.copyOf(gates),
             new Loot(
                 resourceId(loot, "loot_table"), lootOwnership, lootOnFailure,
                 List.copyOf(lootContainers)
@@ -1146,7 +1236,23 @@ record DungeonDefinition(
         BlockPos minimum,
         BlockPos maximum,
         String block,
-        List<String> requires
+        List<String> requires,
+        List<GateRequirement> requirements
+    ) {}
+    record GateRequirement(
+        String type, String reference, String item, int count, boolean consume
+    ) {
+        String key() {
+            return type + ":" + (item == null ? reference : item);
+        }
+    }
+    record Objective(
+        String id,
+        String kind,
+        String placement,
+        BlockPos position,
+        String block,
+        int activationRadius
     ) {}
     record HealingStation(
         String id,

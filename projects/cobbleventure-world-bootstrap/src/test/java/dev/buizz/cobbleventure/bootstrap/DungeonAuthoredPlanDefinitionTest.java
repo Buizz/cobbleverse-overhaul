@@ -32,6 +32,7 @@ final class DungeonAuthoredPlanDefinitionTest {
             new DungeonPieceLayout.ResolvedMarker("encounter", null, new BlockPos(8, 1, 8)),
             new DungeonPieceLayout.ResolvedMarker("boss", null, new BlockPos(12, 1, 12)),
             new DungeonPieceLayout.ResolvedMarker("loot", null, new BlockPos(4, 1, 12)),
+            new DungeonPieceLayout.ResolvedMarker("objective", "security_switch", new BlockPos(5, 1, 12)),
             new DungeonPieceLayout.ResolvedMarker("gate", null, new BlockPos(6, 1, 12))
         ));
 
@@ -88,6 +89,12 @@ final class DungeonAuthoredPlanDefinitionTest {
         assertEquals(
             new BlockPos(73, 6, 9),
             features.get(new DungeonPieceLayout.MarkerKey("boss", "boss_1"))
+        );
+        assertEquals(
+            new BlockPos(57, 6, 27),
+            features.get(new DungeonPieceLayout.MarkerKey(
+                "objective", "security_switch"
+            ))
         );
         assertTrue(java.util.Set.of(
             new BlockPos(57, 6, 25), new BlockPos(54, 6, 6)

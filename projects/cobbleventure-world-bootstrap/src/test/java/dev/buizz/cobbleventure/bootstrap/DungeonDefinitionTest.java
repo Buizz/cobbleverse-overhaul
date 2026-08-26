@@ -201,6 +201,20 @@ final class DungeonDefinitionTest {
         assertEquals(-2, gate.minimum().getZ());
         assertEquals(2, gate.maximum().getZ());
         assertEquals(List.of("encounter_1"), gate.requires());
+        assertEquals(1, tower.objectives().size());
+        assertEquals("security_switch", tower.objectives().getFirst().id());
+        assertEquals("objective", gate.requirements().get(1).type());
+        assertEquals("security_switch", gate.requirements().get(1).reference());
+    }
+
+    @Test
+    void rejectsGateWithUnknownObjectiveRequirement() throws Exception {
+        JsonObject root = resourceObject("rocket_pokemon_tower");
+        root.getAsJsonArray("gates").get(0).getAsJsonObject()
+            .getAsJsonArray("requirements").get(0).getAsJsonObject()
+            .addProperty("id", "missing_switch");
+
+        assertThrows(IllegalStateException.class, () -> DungeonDefinition.parse(root));
     }
 
     @Test

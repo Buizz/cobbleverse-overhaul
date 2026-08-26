@@ -8616,11 +8616,11 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
         else:
             seen.add(value)
 
+    seen_encounters: set[str] = set()
     encounters = data.get("encounters")
     if not isinstance(encounters, list) or not encounters:
         _issue(issues, "error", path, "$.encounters", "고정 조우가 하나 이상 필요합니다.")
     else:
-        seen_encounters: set[str] = set()
         for index, encounter in enumerate(encounters):
             base = f"$.encounters[{index}]"
             if not isinstance(encounter, dict):
@@ -8736,6 +8736,30 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             if isinstance(pokemon.get("min_level"), int) and isinstance(pokemon.get("max_level"), int) and pokemon["min_level"] > pokemon["max_level"]:
                 _issue(issues, "error", path, base, "최소 레벨은 최대 레벨보다 클 수 없습니다.")
 
+    objective_ids: set[str] = set()
+    objectives = data.get("objectives", [])
+    if not isinstance(objectives, list):
+        _issue(issues, "error", path, "$.objectives", "던전 목표 목록은 배열이어야 합니다.")
+        objectives = []
+    for index, objective in enumerate(objectives):
+        base = f"$.objectives[{index}]"
+        if not isinstance(objective, dict):
+            _issue(issues, "error", path, base, "던전 목표는 객체여야 합니다.")
+            continue
+        local_id(objective.get("id"), f"{base}.id", objective_ids)
+        if objective.get("kind") not in {"switch", "investigate"}:
+            _issue(issues, "error", path, f"{base}.kind", "목표 종류는 switch 또는 investigate여야 합니다.")
+        placement = objective.get("placement", "fixed")
+        if placement not in {"fixed", "marker"}:
+            _issue(issues, "error", path, f"{base}.placement", "목표 배치는 fixed 또는 marker여야 합니다.")
+        if placement == "marker":
+            if terrain_mode not in {"nbt_pieces", "hybrid"}:
+                _issue(issues, "error", path, f"{base}.placement", "NBT 마커 목표는 NBT 조각 또는 혼합 던전에서만 사용할 수 있습니다.")
+        else:
+            position(objective.get("position"), f"{base}.position")
+        _resource_id(objective.get("block"), issues, path, f"{base}.block")
+        integer(objective.get("activation_radius"), 1, 8, f"{base}.activation_radius")
+
     content_groups = (
         ("healing_stations", data.get("support", {}).get("healing_stations", []) if isinstance(data.get("support"), dict) else []),
         ("checkpoints", data.get("support", {}).get("checkpoints", []) if isinstance(data.get("support"), dict) else []),
@@ -8771,9 +8795,49 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                         _issue(issues, "error", path, base, "관문 영역은 256블록을 초과할 수 없습니다.")
                     if placement == "fixed" and any(value < 0 for value in minimum):
                         _issue(issues, "error", path, f"{base}.min", "고정 관문 좌표는 음수일 수 없습니다.")
-                requirements = entry.get("requires")
-                if not isinstance(requirements, list) or not requirements:
-                    _issue(issues, "error", path, f"{base}.requires", "관문 해제 조건이 하나 이상 필요합니다.")
+                legacy_requirements = entry.get("requires", [])
+                typed_requirements = entry.get("requirements", [])
+                if not isinstance(legacy_requirements, list):
+                    _issue(issues, "error", path, f"{base}.requires", "필수 조우 ID 배열이어야 합니다.")
+                    legacy_requirements = []
+                if not isinstance(typed_requirements, list):
+                    _issue(issues, "error", path, f"{base}.requirements", "관문 조건 배열이어야 합니다.")
+                    typed_requirements = []
+                if not legacy_requirements and not typed_requirements:
+                    _issue(issues, "error", path, base, "관문 해제 조건이 하나 이상 필요합니다.")
+                requirement_keys: set[str] = set()
+                for requirement_index, encounter_id in enumerate(legacy_requirements):
+                    requirement_path = f"{base}.requires[{requirement_index}]"
+                    if encounter_id not in seen_encounters:
+                        _issue(issues, "error", path, requirement_path, "존재하는 조우 ID가 필요합니다.")
+                    key = f"encounter:{encounter_id}"
+                    if key in requirement_keys:
+                        _issue(issues, "error", path, requirement_path, "같은 관문 조건이 중복되었습니다.")
+                    requirement_keys.add(key)
+                for requirement_index, requirement in enumerate(typed_requirements):
+                    requirement_path = f"{base}.requirements[{requirement_index}]"
+                    if not isinstance(requirement, dict):
+                        _issue(issues, "error", path, requirement_path, "관문 조건은 객체여야 합니다.")
+                        continue
+                    requirement_type = requirement.get("type")
+                    if requirement_type not in {"encounter", "objective", "item"}:
+                        _issue(issues, "error", path, f"{requirement_path}.type", "조건 종류는 encounter, objective, item 중 하나여야 합니다.")
+                        continue
+                    if requirement_type == "item":
+                        _resource_id(requirement.get("item"), issues, path, f"{requirement_path}.item")
+                        integer(requirement.get("count"), 1, 64, f"{requirement_path}.count")
+                        if not isinstance(requirement.get("consume"), bool):
+                            _issue(issues, "error", path, f"{requirement_path}.consume", "아이템 소비 여부는 true 또는 false여야 합니다.")
+                        key = f"item:{requirement.get('item')}"
+                    else:
+                        reference = requirement.get("id")
+                        known_ids = seen_encounters if requirement_type == "encounter" else objective_ids
+                        if reference not in known_ids:
+                            _issue(issues, "error", path, f"{requirement_path}.id", "존재하는 조우 또는 목표 ID가 필요합니다.")
+                        key = f"{requirement_type}:{reference}"
+                    if key in requirement_keys:
+                        _issue(issues, "error", path, requirement_path, "같은 관문 조건이 중복되었습니다.")
+                    requirement_keys.add(key)
             else:
                 if group_name != "containers" or "position" in entry:
                     position(entry.get("position"), f"{base}.position")

@@ -303,6 +303,12 @@ record DungeonPieceLayout(
                 checkpoint.position(), definition.id()
             );
         }
+        for (DungeonDefinition.Objective objective : definition.objectives()) {
+            assignFeature(
+                assigned, candidates, "objective", objective.id(),
+                objective.position(), definition.id()
+            );
+        }
         for (DungeonDefinition.Gate gate : definition.gates()) {
             if (!gate.placement().equals("marker")) continue;
             assignFeature(
@@ -367,15 +373,23 @@ record DungeonPieceLayout(
             if (fromReachable == toReachable) {
                 throw invalidGate(gate, "blocked link does not separate locked progression");
             }
-            for (String requirement : gate.requires()) {
-                DungeonDefinition.Encounter encounter = definition.encounters().stream()
-                    .filter(value -> value.id().equals(requirement)).findFirst().orElseThrow();
-                String kind = encounter.boss() ? "boss" : "encounter";
-                ResolvedMarker required = assigned.get(new MarkerKey(kind, requirement));
+            for (DungeonDefinition.GateRequirement requirement : gate.requirements()) {
+                if (requirement.type().equals("item")) continue;
+                String kind = requirement.type();
+                if (kind.equals("encounter")) {
+                    DungeonDefinition.Encounter encounter = definition.encounters().stream()
+                        .filter(value -> value.id().equals(requirement.reference()))
+                        .findFirst().orElseThrow();
+                    kind = encounter.boss() ? "boss" : "encounter";
+                }
+                ResolvedMarker required = assigned.get(new MarkerKey(
+                    kind, requirement.reference()
+                ));
                 if (required == null || required.placementIndex() < 0) continue;
                 if (!reachable.contains(required.placementIndex())) {
                     throw invalidGate(
-                        gate, "required encounter is behind the gate: " + requirement
+                        gate, "required " + requirement.type()
+                            + " is behind the gate: " + requirement.reference()
                     );
                 }
             }

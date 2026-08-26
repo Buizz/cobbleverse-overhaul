@@ -55,6 +55,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BarrelBlock;
@@ -63,6 +64,7 @@ import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
@@ -740,6 +742,7 @@ final class DungeonSystem {
         SpawnedEncounters spawnedEncounters;
         Map<String, BlockPos> lootPositions;
         Map<String, BlockPos> healingPositions;
+        Map<String, BlockPos> objectivePositions;
         Map<String, CheckpointPosition> checkpointPositions;
         Map<String, GateBounds> gateBounds;
         try {
@@ -751,6 +754,9 @@ final class DungeonSystem {
             placeGates(dungeonLevel, definition, gateBounds);
             clearExit = placeClearExit(dungeonLevel, definition, origin, terrain);
             healingPositions = placeHealingStations(
+                dungeonLevel, definition, origin, terrain
+            );
+            objectivePositions = placeObjectives(
                 dungeonLevel, definition, origin, terrain
             );
             lootPositions = placeLootContainers(
@@ -798,7 +804,8 @@ final class DungeonSystem {
                 spawnedEncounters.positions()
             ),
             new DungeonLootClaims(), new DungeonLootLedger(), lootPositions,
-            healingPositions, checkpointPositions, new HashMap<>(), new HashMap<>(),
+            healingPositions, objectivePositions, new HashSet<>(),
+            checkpointPositions, new HashMap<>(), new HashMap<>(),
             gateBounds, new HashSet<>(), new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
@@ -1289,6 +1296,41 @@ final class DungeonSystem {
         return Map.copyOf(positions);
     }
 
+    private static Map<String, BlockPos> placeObjectives(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        PreparedTerrain terrain
+    ) {
+        Map<String, BlockPos> positions = new HashMap<>();
+        for (DungeonDefinition.Objective objective : definition.objectives()) {
+            BlockPos relative = featurePosition(
+                terrain, "objective", objective.id(), objective.position()
+            );
+            if (relative == null || relative.getX() < 0 || relative.getY() < 0
+                || relative.getZ() < 0 || relative.getX() >= terrain.size().getX()
+                || relative.getY() >= terrain.size().getY()
+                || relative.getZ() >= terrain.size().getZ()) {
+                throw new IllegalStateException(
+                    "Dungeon objective exceeds the terrain: " + objective.id()
+                );
+            }
+            ResourceLocation blockId = ResourceLocation.parse(objective.block());
+            var block = BuiltInRegistries.BLOCK.getOptional(blockId).orElseThrow(() ->
+                new IllegalStateException("Dungeon objective block is missing: " + blockId)
+            );
+            BlockPos position = origin.offset(relative);
+            if (block == Blocks.AIR
+                || !level.setBlock(position, block.defaultBlockState(), 3)) {
+                throw new IllegalStateException(
+                    "Dungeon objective placement failed: " + objective.id()
+                );
+            }
+            positions.put(objective.id(), position);
+        }
+        return Map.copyOf(positions);
+    }
+
     private static BlockPos placeClearExit(
         ServerLevel level,
         DungeonDefinition definition,
@@ -1383,11 +1425,60 @@ final class DungeonSystem {
             || event.getHand() != InteractionHand.MAIN_HAND
             || !(event.getEntity() instanceof ServerPlayer player)
             || (!claimDungeonLoot(player, event.getPos())
-                && !useHealingStation(player, event.getPos()))) {
+                && !useHealingStation(player, event.getPos())
+                && !activateObjective(player, event.getPos()))) {
             return;
         }
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
+    }
+
+    private static synchronized boolean activateObjective(
+        ServerPlayer player, BlockPos position
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+            return false;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null) return false;
+        DungeonDefinition.Objective objective = definition.objectives().stream()
+            .filter(value -> position.equals(run.objectivePositions().get(value.id())))
+            .findFirst().orElse(null);
+        if (objective == null) return false;
+        deferObjectiveTracker(run, player, 60L);
+        if (run.completedObjectives().contains(objective.id())) {
+            player.displayClientMessage(Component.literal(
+                "[던전] 이미 작동한 장치입니다."
+            ), true);
+            return true;
+        }
+        run.completedObjectives().add(objective.id());
+        var objectiveState = player.serverLevel().getBlockState(position);
+        if (objective.kind().equals("switch")
+            && objectiveState.hasProperty(BlockStateProperties.POWERED)) {
+            player.serverLevel().setBlock(
+                position,
+                objectiveState.setValue(BlockStateProperties.POWERED, true),
+                3
+            );
+        }
+        player.serverLevel().playSound(
+            null, position,
+            objective.kind().equals("switch")
+                ? SoundEvents.LEVER_CLICK : SoundEvents.EXPERIENCE_ORB_PICKUP,
+            SoundSource.BLOCKS, 0.8F, 1.0F
+        );
+        player.serverLevel().sendParticles(
+            ParticleTypes.HAPPY_VILLAGER,
+            position.getX() + 0.5D, position.getY() + 1.0D, position.getZ() + 0.5D,
+            12, 0.3D, 0.4D, 0.3D, 0.02D
+        );
+        notifyEncounterResult(run, objective.kind().equals("switch")
+            ? "[던전] 장치를 작동했습니다."
+            : "[던전] 중요한 흔적을 조사했습니다.");
+        unlockSatisfiedGates(run, definition);
+        return true;
     }
 
     private static synchronized boolean claimDungeonLoot(
@@ -2091,19 +2182,17 @@ final class DungeonSystem {
         if (level == null) return;
         for (DungeonDefinition.Gate gate : definition.gates()) {
             if (run.openedGates().contains(gate.id())
-                || !gate.requires().stream().allMatch(required ->
-                    run.encounters().statusById.get(required)
-                        == EncounterStatus.DEFEATED
-                )) {
+                || !gateRequirementsSatisfied(run, gate)) {
                 continue;
             }
-            run.openedGates().add(gate.id());
             GateBounds bounds = run.gateBounds().get(gate.id());
             if (bounds == null) {
                 throw new IllegalStateException(
                     "Active dungeon gate bounds are missing: " + gate.id()
                 );
             }
+            consumeGateItems(run, gate);
+            run.openedGates().add(gate.id());
             BlockPos minimum = bounds.minimum();
             BlockPos maximum = bounds.maximum();
             BlockPos.betweenClosedStream(minimum, maximum).forEach(position ->
@@ -2124,6 +2213,74 @@ final class DungeonSystem {
                 12, 1.0D, 1.0D, 0.2D, 0.02D
             );
             notifyEncounterResult(run, "[던전] 잠금 게이트가 해제되었습니다.");
+        }
+    }
+
+    private static boolean gateRequirementsSatisfied(
+        ActiveRun run, DungeonDefinition.Gate gate
+    ) {
+        for (DungeonDefinition.GateRequirement requirement : gate.requirements()) {
+            switch (requirement.type()) {
+                case "encounter" -> {
+                    if (run.encounters().statusById.get(requirement.reference())
+                        != EncounterStatus.DEFEATED) return false;
+                }
+                case "objective" -> {
+                    if (!run.completedObjectives().contains(requirement.reference())) return false;
+                }
+                case "item" -> {
+                    Item item = BuiltInRegistries.ITEM.getOptional(
+                        ResourceLocation.parse(requirement.item())
+                    ).orElse(null);
+                    if (item == null
+                        || participantItemCount(run, item) < requirement.count()) {
+                        return false;
+                    }
+                }
+                default -> throw new IllegalStateException(
+                    "Unknown dungeon gate requirement type: " + requirement.type()
+                );
+            }
+        }
+        return true;
+    }
+
+    private static int participantItemCount(ActiveRun run, Item item) {
+        int count = 0;
+        for (UUID participantId : run.participantIds()) {
+            ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
+            if (player == null) continue;
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                ItemStack stack = player.getInventory().getItem(slot);
+                if (stack.is(item)) count += stack.getCount();
+            }
+        }
+        return count;
+    }
+
+    private static void consumeGateItems(
+        ActiveRun run, DungeonDefinition.Gate gate
+    ) {
+        for (DungeonDefinition.GateRequirement requirement : gate.requirements()) {
+            if (!requirement.type().equals("item") || !requirement.consume()) continue;
+            Item item = BuiltInRegistries.ITEM.getOptional(
+                ResourceLocation.parse(requirement.item())
+            ).orElseThrow();
+            int remaining = requirement.count();
+            for (UUID participantId : run.participantIds()) {
+                ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
+                if (player == null) continue;
+                for (int slot = 0;
+                     slot < player.getInventory().getContainerSize() && remaining > 0;
+                     slot++) {
+                    ItemStack stack = player.getInventory().getItem(slot);
+                    if (!stack.is(item)) continue;
+                    int removed = Math.min(remaining, stack.getCount());
+                    stack.shrink(removed);
+                    remaining -= removed;
+                }
+                if (remaining == 0) break;
+            }
         }
     }
 
@@ -2756,9 +2913,38 @@ final class DungeonSystem {
                     false
                 );
             }
+            if (gameTime % 10L == 0L) {
+                DungeonDefinition definition = definitions.get(run.dungeonId());
+                if (definition != null) {
+                    activateNearbyInvestigations(run, definition);
+                    unlockSatisfiedGates(run, definition);
+                }
+            }
         }
         if (gameTime % 20L == 0L) {
             persistActiveRuns(event.getServer());
+        }
+    }
+
+    private static void activateNearbyInvestigations(
+        ActiveRun run, DungeonDefinition definition
+    ) {
+        for (DungeonDefinition.Objective objective : definition.objectives()) {
+            if (!objective.kind().equals("investigate")
+                || run.completedObjectives().contains(objective.id())) continue;
+            BlockPos position = run.objectivePositions().get(objective.id());
+            if (position == null) continue;
+            double radiusSquared = objective.activationRadius()
+                * objective.activationRadius();
+            for (UUID participantId : run.participantIds()) {
+                ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
+                if (player != null && player.serverLevel().dimension().equals(DUNGEONS)
+                    && player.distanceToSqr(Vec3.atCenterOf(position))
+                        <= radiusSquared) {
+                    activateObjective(player, position);
+                    break;
+                }
+            }
         }
     }
 
@@ -2784,6 +2970,8 @@ final class DungeonSystem {
         putUuidSet(tag, "participants", run.participantIds());
         putBlockPositionMap(tag, "lootPositions", run.lootPositions());
         putBlockPositionMap(tag, "healingPositions", run.healingPositions());
+        putBlockPositionMap(tag, "objectivePositions", run.objectivePositions());
+        putStringSet(tag, "completedObjectives", run.completedObjectives());
         putCheckpointPositions(tag, run.checkpointPositions());
         putGateBounds(tag, run.gateBounds());
         putUuidPositionMap(tag, "activeCheckpoints", run.activeCheckpoints());
@@ -2885,6 +3073,8 @@ final class DungeonSystem {
                     ),
                     getBlockPositionMap(tag, "lootPositions"),
                     getBlockPositionMap(tag, "healingPositions"),
+                    getBlockPositionMap(tag, "objectivePositions"),
+                    new HashSet<>(getStringSet(tag, "completedObjectives")),
                     getCheckpointPositions(tag), activeCheckpoints, reconnecting,
                     getGateBounds(tag, definition, origin),
                     new HashSet<>(getStringSet(tag, "openedGates")), new HashMap<>()
@@ -3532,6 +3722,8 @@ final class DungeonSystem {
         DungeonLootLedger lootLedger,
         Map<String, BlockPos> lootPositions,
         Map<String, BlockPos> healingPositions,
+        Map<String, BlockPos> objectivePositions,
+        Set<String> completedObjectives,
         Map<String, CheckpointPosition> checkpointPositions,
         Map<UUID, BlockPos> activeCheckpoints,
         Map<UUID, ReconnectState> reconnecting,

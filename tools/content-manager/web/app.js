@@ -4699,6 +4699,7 @@ const dungeonContentKinds = {
   healing: { label: "치료소", icon: "+" },
   checkpoint: { label: "체크포인트", icon: "C" },
   loot: { label: "전리품", icon: "◆" },
+  objective: { label: "장치·조사 목표", icon: "◎" },
   gate: { label: "관문", icon: "▥" },
 };
 
@@ -4712,11 +4713,13 @@ function dungeonContentGroups() {
   document.random_encounters ||= { additions: [] };
   document.random_encounters.additions ||= [];
   document.encounters ||= [];
+  document.objectives ||= [];
   document.gates ||= [];
   return [
     ["encounter", document.encounters], ["wild_species", document.random_encounters.additions],
     ["healing", document.support.healing_stations], ["checkpoint", document.support.checkpoints],
-    ["loot", document.loot.containers], ["gate", document.gates],
+    ["loot", document.loot.containers], ["objective", document.objectives],
+    ["gate", document.gates],
   ];
 }
 
@@ -4738,6 +4741,7 @@ function dungeonContentSubtitle(kind, entry) {
   if (kind === "encounter") return `${entry.kind === "wild_pokemon" ? "야생 포켓몬" : entry.boss ? "보스 트레이너" : "트레이너"} · ${Array.isArray(entry.position) ? entry.position.join(", ") : "NBT 마커 자동"}`;
   if (kind === "wild_species") return `Lv.${entry.min_level || 1}~${entry.max_level || 1} · 가중치 ${entry.weight || 1}`;
   if (kind === "gate") return `${entry.placement === "marker" ? "NBT 마커 기준" : "고정 좌표"} · ${(entry.min || []).join(", ")} → ${(entry.max || []).join(", ")}`;
+  if (kind === "objective") return `${entry.kind === "investigate" ? "조사" : "스위치"} · ${entry.placement === "marker" ? "NBT 마커 자동" : (entry.position || []).join(", ")}`;
   if (kind === "loot" && !Array.isArray(entry.position)) return "NBT 마커 자동";
   return (entry.position || []).join(", ") || "좌표 미지정";
 }
@@ -4834,13 +4838,25 @@ function renderDungeonContentProperties() {
     fields += contentField("방향", "facing", entry.facing || "north", { select: [["north", "북"], ["south", "남"], ["west", "서"], ["east", "동"]] });
     fields += contentField("클리어 후 개방", "requiresCompletion", entry.requires_completion, { toggle: true });
     fields += contentField("개별 전리품 테이블", "lootTable", entry.loot_table || "", { wide: true });
+  } else if (kind === "objective") {
+    fields += contentField("목표 ID", "id", entry.id, { double: true, required: true });
+    fields += contentField("종류", "objectiveKind", entry.kind || "switch", { select: [["switch", "스위치 조작"], ["investigate", "흔적 조사"]] });
+    fields += contentField("표시 블록", "block", entry.block || "minecraft:lever", { required: true });
+    fields += dungeonPlacementFields(entry);
+    fields += contentField("활성화 반경", "activationRadius", entry.activation_radius ?? 2, { type: "number", min: 1, max: 8, required: true });
   } else if (kind === "gate") {
     fields += contentField("관문 ID", "id", entry.id, { double: true, required: true });
     fields += contentField("관문 블록", "block", entry.block || "minecraft:iron_bars", { required: true });
     fields += contentField("배치 방식", "gatePlacement", entry.placement || "fixed", { wide: true, select: dungeonSupportsMarkerPlacement() ? [["fixed", "던전 원점 기준 고정 좌표"], ["marker", "같은 ID의 NBT gate 마커 기준"]] : [["fixed", "던전 원점 기준 고정 좌표"]] });
     fields += dungeonPositionFields(entry.min, "min") + dungeonPositionFields(entry.max, "max");
     fields += `<p class="command-help wide">마커 배치는 min/max를 gate 마커로부터의 상대 좌표로 사용합니다. 예: [-1, 0, 0] → [1, 2, 0]</p>`;
-    fields += contentField("해제 조건 ID — 쉼표 구분", "requires", (entry.requires || []).join(", "), { wide: true, required: true });
+    const typedRequirements = entry.requirements || [];
+    const encounterRequirements = [...new Set([...(entry.requires || []), ...typedRequirements.filter((value) => value.type === "encounter").map((value) => value.id)])];
+    const objectiveRequirements = typedRequirements.filter((value) => value.type === "objective").map((value) => value.id);
+    const itemRequirements = typedRequirements.filter((value) => value.type === "item").map((value) => `${value.item} | ${value.count ?? 1} | ${value.consume ? "consume" : "keep"}`).join("\n");
+    fields += contentField("필수 조우 ID — 쉼표 구분", "requires", encounterRequirements.join(", "), { wide: true });
+    fields += contentField("필수 목표 ID — 쉼표 구분", "objectiveRequirements", objectiveRequirements.join(", "), { wide: true });
+    fields += contentField("필수 아이템 — 한 줄에 ID | 수량 | consume/keep", "itemRequirements", itemRequirements, { wide: true, multiline: true, rows: 4 });
   }
   root.innerHTML = `<header class="dungeon-content-property-head"><div><strong>${escapeHtml(dungeonContentLabel(kind, entry))}</strong><small>${escapeHtml(dungeonContentKinds[kind].label)} 속성</small></div><span>${escapeHtml(dungeonContentSubtitle(kind, entry))}</span></header><div class="dungeon-content-fields">${fields}</div>`;
 }
@@ -4852,7 +4868,7 @@ function renderDungeonContentEditor() {
   if (state.dungeonContentSelection && !selection) state.dungeonContentSelection = null;
   $("#dungeon-content-list").innerHTML = groups.filter(([, entries]) => entries.length).map(([kind, entries]) => `<section class="dungeon-content-group"><strong>${escapeHtml(dungeonContentKinds[kind].label)} · ${entries.length}</strong>${entries.map((entry, index) => `<button type="button" class="${state.dungeonContentSelection?.kind === kind && state.dungeonContentSelection?.index === index ? "is-active" : ""}" data-dungeon-content-kind="${kind}" data-dungeon-content-index="${index}"><i>${dungeonContentKinds[kind].icon}</i><span><b>${escapeHtml(dungeonContentLabel(kind, entry))}</b><small>${escapeHtml(dungeonContentSubtitle(kind, entry))}</small></span></button>`).join("")}</section>`).join("") || '<div class="dungeon-content-empty"><p>배치된 콘텐츠가 없습니다.</p></div>';
   const counts = Object.fromEntries(groups.map(([kind, entries]) => [kind, entries.length]));
-  $("#dungeon-content-summary").textContent = `고정 조우 ${counts.encounter} · 랜덤 포켓몬 ${counts.wild_species} · 치료소 ${counts.healing} · 체크포인트 ${counts.checkpoint} · 상자 ${counts.loot} · 관문 ${counts.gate}`;
+  $("#dungeon-content-summary").textContent = `고정 조우 ${counts.encounter} · 랜덤 포켓몬 ${counts.wild_species} · 치료소 ${counts.healing} · 체크포인트 ${counts.checkpoint} · 상자 ${counts.loot} · 목표 ${counts.objective} · 관문 ${counts.gate}`;
   renderDungeonContentProperties();
 }
 
@@ -4909,8 +4925,21 @@ function updateDungeonContentFromEditor() {
     Object.assign(entry, { id: textValue("id"), block: textValue("containerBlock"), facing: textValue("facing"), requires_completion: checked("requiresCompletion") });
     updatePlacement();
     const lootTable = textValue("lootTable"); if (lootTable) entry.loot_table = lootTable; else delete entry.loot_table;
+  } else if (kind === "objective") {
+    Object.assign(entry, { id: textValue("id"), kind: textValue("objectiveKind"), block: textValue("block"), activation_radius: numberValue("activationRadius", 2) });
+    updatePlacement();
+    entry.placement = textValue("placementMode") === "marker" ? "marker" : "fixed";
   } else if (kind === "gate") {
-    Object.assign(entry, { id: textValue("id"), placement: textValue("gatePlacement") || "fixed", block: textValue("block"), min: position("min"), max: position("max"), requires: csvValues(textValue("requires")) });
+    const itemRequirements = (control("itemRequirements")?.value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+      const [item = "", count = "1", behavior = "keep"] = line.split("|").map((value) => value.trim());
+      return { type: "item", item, count: Math.max(1, Math.round(Number(count) || 1)), consume: behavior.toLowerCase() === "consume" };
+    });
+    const requirements = [
+      ...csvValues(textValue("objectiveRequirements")).map((id) => ({ type: "objective", id })),
+      ...itemRequirements,
+    ];
+    Object.assign(entry, { id: textValue("id"), placement: textValue("gatePlacement") || "fixed", block: textValue("block"), min: position("min"), max: position("max"), requires: csvValues(textValue("requires")), requirements });
+    if (!requirements.length) delete entry.requirements;
   }
 }
 
@@ -4936,6 +4965,7 @@ function addDungeonContent() {
   else if (kind === "healing") entry = { id, position: [0, 1, 0], block: "minecraft:lodestone", uses_per_run: 1, restore_hp: true, restore_status: true, restore_pp: true };
   else if (kind === "checkpoint") entry = { id, position: [0, 1, 0], activation_radius: 2 };
   else if (kind === "loot") entry = { id, ...fixedPosition, block: "chest", facing: "north", requires_completion: false };
+  else if (kind === "objective") entry = { id, kind: "switch", placement: dungeonSupportsMarkerPlacement() ? "marker" : "fixed", ...fixedPosition, block: "minecraft:lever", activation_radius: 2 };
   else {
     const markerPlacement = dungeonSupportsMarkerPlacement();
     entry = { id, placement: markerPlacement ? "marker" : "fixed", min: markerPlacement ? [-1, 0, 0] : [0, 1, 0], max: markerPlacement ? [1, 2, 0] : [2, 3, 0], block: "minecraft:iron_bars", requires: [state.dungeon.encounters?.[0]?.id || "encounter_1"] };

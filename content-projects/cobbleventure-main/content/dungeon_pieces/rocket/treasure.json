@@ -47,6 +47,16 @@
         1,
         8
       ]
+    },
+    {
+      "id": "security_switch",
+      "kind": "objective",
+      "position": [
+        8,
+        1,
+        10
+      ],
+      "reference": "security_switch"
     }
   ]
 }

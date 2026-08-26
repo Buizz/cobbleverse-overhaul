@@ -67,6 +67,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("포켓몬 풀에서 즉석 생성", script)
         self.assertIn("battle_start_lines", script)
         self.assertIn("battle_end_lines", script)
+        self.assertIn("장치·조사 목표", markup)
+        self.assertIn('objectiveRequirements', script)
+        self.assertIn('itemRequirements', script)
 
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -175,6 +178,25 @@ class ContentManagerTests(unittest.TestCase):
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         self.assertIn("같은 ID의 NBT gate 마커 기준", script)
         self.assertIn('placement: textValue("gatePlacement")', script)
+
+    def test_dungeon_gate_validates_objective_and_item_requirements(self) -> None:
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
+        gate = document["gates"][0]
+        gate["requirements"].append({
+            "type": "item", "item": "minecraft:tripwire_hook",
+            "count": 1, "consume": True,
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+
+            gate["requirements"][0]["id"] = "missing_switch"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, invalid_issues = content_manager.validate_dungeon_file(path)
+
+        self.assertTrue(any("존재하는 조우 또는 목표 ID" in issue.message for issue in invalid_issues))
 
     def test_authored_dungeon_plan_validates_piece_bounds_and_connectors(self) -> None:
         piece = {
