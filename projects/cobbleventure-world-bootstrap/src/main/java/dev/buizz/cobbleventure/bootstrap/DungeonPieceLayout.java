@@ -44,7 +44,7 @@ record DungeonPieceLayout(
         }
         DungeonDefinition.Layout layout = definition.layout();
         if (definition.plan().mode().equals("runtime")
-            && !layout.mode().equals("critical_path_branches")) {
+            && layout.mode().equals("fixed")) {
             throw new IllegalStateException(
                 "Dungeon piece layout mode is not implemented yet: " + layout.mode()
             );
@@ -188,7 +188,8 @@ record DungeonPieceLayout(
             safeFallback ? 1 : layout.branchDepth().maximum(),
             safeFallback ? 0.0D : layout.loopChance(),
             safeFallback ? Math.max(64, definition.plan().maxAttempts())
-                : definition.plan().maxAttempts()
+                : definition.plan().maxAttempts(),
+            safeFallback ? "critical_path_branches" : layout.mode()
         );
     }
 

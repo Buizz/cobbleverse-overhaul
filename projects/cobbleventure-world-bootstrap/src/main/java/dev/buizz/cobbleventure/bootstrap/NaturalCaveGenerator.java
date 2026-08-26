@@ -54,8 +54,26 @@ final class NaturalCaveGenerator {
         int branchCount,
         double loopChance
     ) {
+        return generateInstance(
+            level, caveId, seed, origin, bounds, "critical_path_branches",
+            mainRooms, branchCount, loopChance
+        );
+    }
+
+    static InstanceResult generateInstance(
+        ServerLevel level,
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        String layoutMode,
+        int mainRooms,
+        int branchCount,
+        double loopChance
+    ) {
         InstancePlan plan = planInstance(
-            caveId, seed, origin, bounds, mainRooms, branchCount, loopChance
+            caveId, seed, origin, bounds, layoutMode,
+            mainRooms, branchCount, loopChance
         );
         generateCave(level, caveId, seed, plan.entrances(), plan.settings());
         return new InstanceResult(plan.entryPosition(), plan.exitPosition());
@@ -70,12 +88,31 @@ final class NaturalCaveGenerator {
         int branchCount,
         double loopChance
     ) {
+        return planInstance(
+            caveId, seed, origin, bounds, "critical_path_branches",
+            mainRooms, branchCount, loopChance
+        );
+    }
+
+    static InstancePlan planInstance(
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        String layoutMode,
+        int mainRooms,
+        int branchCount,
+        double loopChance
+    ) {
         if (bounds.getX() < 112 || bounds.getY() < 32 || bounds.getZ() < 112) {
             throw new IllegalArgumentException(
                 "Procedural cave dungeon bounds must be at least 112x32x112"
             );
         }
-        if (mainRooms < 3 || mainRooms > 64 || branchCount < 0 || branchCount > 32
+        if (!List.of(
+                "critical_path_branches", "maze", "rooms_and_corridors"
+            ).contains(layoutMode)
+            || mainRooms < 3 || mainRooms > 64 || branchCount < 0 || branchCount > 32
             || loopChance < 0.0D || loopChance > 1.0D) {
             throw new IllegalArgumentException("Invalid procedural cave dungeon layout");
         }
@@ -95,34 +132,50 @@ final class NaturalCaveGenerator {
         for (int index = 0; index < authoredRooms; index++) {
             double progress = (index + 1.0D) / (authoredRooms + 1.0D);
             int x = (int) Math.round(lerp(entry.x(), exit.x(), progress));
-            int z = centerZ + (int) Math.round(
-                Math.sin((index + 1) * 1.43D) * Math.min(18, bounds.getZ() / 5)
-            ) + random.nextInt(-4, 5);
+            int lateral = Math.min(18, bounds.getZ() / 5);
+            int z = switch (layoutMode) {
+                case "maze" -> centerZ + ((index / 2) % 2 == 0 ? -lateral : lateral)
+                    + random.nextInt(-2, 3);
+                case "rooms_and_corridors" -> centerZ + random.nextInt(-3, 4);
+                default -> centerZ + (int) Math.round(
+                    Math.sin((index + 1) * 1.43D) * lateral
+                ) + random.nextInt(-4, 5);
+            };
             int y = floorY + random.nextInt(
                 -Math.max(2, bounds.getY() / 10),
                 Math.max(3, bounds.getY() / 10 + 1)
             );
             String id = "main_" + index;
-            double radius = index == authoredRooms / 2 ? 11.0D : 8.0D;
+            double radius = switch (layoutMode) {
+                case "maze" -> index == authoredRooms / 2 ? 8.0D : 6.0D;
+                case "rooms_and_corridors" -> index == authoredRooms / 2 ? 14.0D : 10.0D;
+                default -> index == authoredRooms / 2 ? 11.0D : 8.0D;
+            };
             anchors.add(new ManualAnchor(
                 id, index == authoredRooms / 2 ? "grand" : "room",
                 x, y, z, radius, radius, index == authoredRooms / 2 ? 11.0D : 9.0D,
                 "rock"
             ));
             connections.add(new ManualConnection(
-                "main_path_" + index, previous, id, "main", 5, "natural"
+                "main_path_" + index, previous, id, "main",
+                layoutMode.equals("maze") ? 3 : 5,
+                layoutMode.equals("maze") ? "rugged" : "natural"
             ));
             previous = id;
         }
         connections.add(new ManualConnection(
-            "main_path_exit", previous, "exit", "main", 5, "natural"
+            "main_path_exit", previous, "exit", "main",
+            layoutMode.equals("maze") ? 3 : 5,
+            layoutMode.equals("maze") ? "rugged" : "natural"
         ));
 
         for (int index = 0; index < branchCount; index++) {
             int rootIndex = Math.floorMod(index * 2 + 1, authoredRooms);
             ManualAnchor root = anchors.get(rootIndex);
             int side = index % 2 == 0 ? -1 : 1;
-            int z = centerZ + side * (bounds.getZ() / 2 - margin);
+            int branchReach = layoutMode.equals("rooms_and_corridors")
+                ? bounds.getZ() / 3 : bounds.getZ() / 2 - margin;
+            int z = centerZ + side * branchReach;
             int x = Math.max(
                 origin.getX() + margin,
                 Math.min(origin.getX() + bounds.getX() - margin - 1,
@@ -130,10 +183,14 @@ final class NaturalCaveGenerator {
             );
             String id = "branch_" + index;
             anchors.add(new ManualAnchor(
-                id, "branch", x, root.y(), z, 7.0D, 7.0D, 8.0D, "rock"
+                id, "branch", x, root.y(), z,
+                layoutMode.equals("maze") ? 5.5D : 7.0D,
+                layoutMode.equals("maze") ? 5.5D : 7.0D,
+                layoutMode.equals("maze") ? 7.0D : 8.0D, "rock"
             ));
             connections.add(new ManualConnection(
-                "branch_path_" + index, root.id(), id, "branch", 4, "rugged"
+                "branch_path_" + index, root.id(), id, "branch",
+                layoutMode.equals("maze") ? 3 : 4, "rugged"
             ));
         }
 
@@ -151,7 +208,11 @@ final class NaturalCaveGenerator {
         Settings settings = new Settings(
             seed, "rock", mainRooms, branchCount, loopChance,
             Math.max(8, bounds.getY() / 3),
-            7.0D, 11.0D, 3.0D, 5.0D, defaults.surfaceRoughness(),
+            layoutMode.equals("maze") ? 5.5D : 7.0D,
+            layoutMode.equals("rooms_and_corridors") ? 14.0D : 11.0D,
+            layoutMode.equals("maze") ? 2.5D : 3.0D,
+            layoutMode.equals("maze") ? 4.0D : 5.0D,
+            defaults.surfaceRoughness(),
             origin.getY() - 16, 0, 1.25D, false,
             defaults.bridgeClearance(), false,
             new ManualLayout(true, List.copyOf(anchors), List.copyOf(connections)),

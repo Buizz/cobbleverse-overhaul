@@ -41,7 +41,7 @@ final class DungeonPiecePlanner {
                 random, settings.criticalPathMin(), settings.criticalPathMax()
             );
             if (!extendCritical(
-                state, pieces, settings.bounds(), random, targetRooms, 1
+                state, pieces, settings, random, targetRooms, 1
             )) continue;
             int targetBranches = randomRange(
                 random, settings.branchCountMin(), settings.branchCountMax()
@@ -92,7 +92,7 @@ final class DungeonPiecePlanner {
     private static boolean extendCritical(
         State state,
         List<DungeonPieceDefinition> pieces,
-        BlockPos bounds,
+        Settings settings,
         Random random,
         int targetRooms,
         int depth
@@ -100,7 +100,7 @@ final class DungeonPiecePlanner {
         if (depth >= targetRooms) return true;
         String requiredRole = depth == targetRooms - 2 ? "boss"
             : depth == targetRooms - 1 ? "exit" : null;
-        Set<String> flexibleRoles = Set.of("room", "corridor", "junction", "support");
+        Set<String> flexibleRoles = criticalRoles(settings.layoutMode(), depth);
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> requiredRole == null
                 ? flexibleRoles.contains(piece.role())
@@ -114,13 +114,14 @@ final class DungeonPiecePlanner {
                     for (DungeonPieceDefinition.Connector to
                         : shuffled(piece.connectors(), random)) {
                         Attachment attachment = attachment(current, from, piece, to, rotation, true);
-                        if (attachment == null || !inside(attachment.placed().box(), bounds)
+                        if (attachment == null
+                            || !inside(attachment.placed().box(), settings.bounds())
                             || overlapsAny(attachment.placed().box(), state.placements)) {
                             continue;
                         }
                         state.add(attachment);
                         if (extendCritical(
-                            state, pieces, bounds, random, targetRooms, depth + 1
+                            state, pieces, settings, random, targetRooms, depth + 1
                         )) return true;
                         state.removeLast(attachment);
                     }
@@ -145,7 +146,7 @@ final class DungeonPiecePlanner {
             if (completed >= targetBranches) break;
             int depth = randomRange(random, settings.branchDepthMin(), settings.branchDepthMax());
             State snapshot = state.copy();
-            if (extendBranch(state, pieces, settings.bounds(), random, host, depth)) {
+            if (extendBranch(state, pieces, settings, random, host, depth, 0)) {
                 completed++;
             } else {
                 state.restore(snapshot);
@@ -157,15 +158,16 @@ final class DungeonPiecePlanner {
     private static boolean extendBranch(
         State state,
         List<DungeonPieceDefinition> pieces,
-        BlockPos bounds,
+        Settings settings,
         Random random,
         int currentIndex,
-        int remaining
+        int remaining,
+        int branchDepth
     ) {
         if (remaining == 0) return true;
-        Set<String> roles = remaining == 1
-            ? Set.of("dead_end", "treasure", "support")
-            : Set.of("room", "corridor", "junction");
+        Set<String> roles = branchRoles(
+            settings.layoutMode(), remaining, branchDepth
+        );
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> roles.contains(piece.role())).toList(), random
         );
@@ -178,14 +180,16 @@ final class DungeonPiecePlanner {
                         Attachment attachment = attachment(
                             current, from, piece, to, rotation, false
                         );
-                        if (attachment == null || !inside(attachment.placed().box(), bounds)
+                        if (attachment == null
+                            || !inside(attachment.placed().box(), settings.bounds())
                             || overlapsAny(attachment.placed().box(), state.placements)) {
                             continue;
                         }
                         state.add(attachment);
                         int nextIndex = state.placements.size() - 1;
                         if (extendBranch(
-                            state, pieces, bounds, random, nextIndex, remaining - 1
+                            state, pieces, settings, random, nextIndex,
+                            remaining - 1, branchDepth + 1
                         )) return true;
                         state.removeLast(attachment);
                     }
@@ -307,6 +311,27 @@ final class DungeonPiecePlanner {
         return minimum + random.nextInt(maximum - minimum + 1);
     }
 
+    private static Set<String> criticalRoles(String layoutMode, int depth) {
+        return switch (layoutMode) {
+            case "maze" -> Set.of("corridor", "junction");
+            case "rooms_and_corridors" -> depth % 2 == 1
+                ? Set.of("corridor") : Set.of("room", "junction", "support");
+            default -> Set.of("room", "corridor", "junction", "support");
+        };
+    }
+
+    private static Set<String> branchRoles(
+        String layoutMode, int remaining, int depth
+    ) {
+        if (remaining == 1) return Set.of("dead_end", "treasure", "support");
+        return switch (layoutMode) {
+            case "maze" -> Set.of("corridor", "junction");
+            case "rooms_and_corridors" -> depth % 2 == 0
+                ? Set.of("corridor") : Set.of("room", "junction");
+            default -> Set.of("room", "corridor", "junction");
+        };
+    }
+
     private static long mixSeed(long seed, int attempt) {
         long value = seed + 0x9E3779B97F4A7C15L * attempt;
         value = (value ^ (value >>> 30)) * 0xBF58476D1CE4E5B9L;
@@ -331,15 +356,32 @@ final class DungeonPiecePlanner {
         int branchDepthMin,
         int branchDepthMax,
         double loopChance,
-        int maxAttempts
+        int maxAttempts,
+        String layoutMode
     ) {
+        Settings(
+            BlockPos bounds, int criticalPathMin, int criticalPathMax,
+            int branchCountMin, int branchCountMax,
+            int branchDepthMin, int branchDepthMax,
+            double loopChance, int maxAttempts
+        ) {
+            this(
+                bounds, criticalPathMin, criticalPathMax,
+                branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
+                loopChance, maxAttempts, "critical_path_branches"
+            );
+        }
+
         private void validate() {
             if (bounds.getX() < 1 || bounds.getY() < 1 || bounds.getZ() < 1
                 || criticalPathMin < 3 || criticalPathMin > criticalPathMax
                 || branchCountMin < 0 || branchCountMin > branchCountMax
                 || branchDepthMin < 1 || branchDepthMin > branchDepthMax
                 || loopChance < 0.0D || loopChance > 1.0D
-                || maxAttempts < 1 || maxAttempts > 1000) {
+                || maxAttempts < 1 || maxAttempts > 1000
+                || !Set.of(
+                    "critical_path_branches", "maze", "rooms_and_corridors"
+                ).contains(layoutMode)) {
                 throw new IllegalArgumentException("Invalid dungeon piece planner settings");
             }
         }

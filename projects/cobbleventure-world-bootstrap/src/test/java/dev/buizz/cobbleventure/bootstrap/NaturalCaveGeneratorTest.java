@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,6 +41,29 @@ final class NaturalCaveGeneratorTest {
                 5, 1, 0.0D
             )
         );
+    }
+
+    @Test
+    void mazeAndRoomCorridorModesProduceDistinctCavePlans() {
+        BlockPos origin = new BlockPos(32768, 80, 0);
+        BlockPos bounds = new BlockPos(160, 48, 160);
+
+        NaturalCaveGenerator.InstancePlan maze = NaturalCaveGenerator.planInstance(
+            "cobbleventure:dungeon/test_cave", 7351L, origin, bounds,
+            "maze", 7, 3, 0.35D
+        );
+        NaturalCaveGenerator.InstancePlan rooms = NaturalCaveGenerator.planInstance(
+            "cobbleventure:dungeon/test_cave", 7351L, origin, bounds,
+            "rooms_and_corridors", 7, 3, 0.35D
+        );
+
+        assertNotEquals(
+            maze.settings().manualLayout(), rooms.settings().manualLayout()
+        );
+        assertEquals(3, maze.settings().manualLayout().connections().getFirst().width());
+        assertEquals(5, rooms.settings().manualLayout().connections().getFirst().width());
+        assertTrue(maze.settings().manualLayout().anchors().getFirst().radiusX()
+            < rooms.settings().manualLayout().anchors().getFirst().radiusX());
     }
 
     private static void assertInside(BlockPos position, BlockPos bounds) {

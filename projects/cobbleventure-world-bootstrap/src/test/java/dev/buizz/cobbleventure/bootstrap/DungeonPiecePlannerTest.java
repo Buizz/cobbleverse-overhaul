@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
@@ -114,6 +115,70 @@ final class DungeonPiecePlannerTest {
     }
 
     @Test
+    void mazeLayoutUsesCorridorsAndJunctionsForItsInteriorPath() {
+        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
+            new BlockPos(80, 16, 80), 7, 7, 2, 2, 2, 2,
+            0.25D, 100, "maze"
+        );
+
+        DungeonPiecePlan plan = DungeonPiecePlanner.generate(
+            testPieces(), settings, 8128L
+        );
+
+        plan.placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath)
+            .filter(placement -> !Set.of("start", "boss", "exit")
+                .contains(placement.role()))
+            .forEach(placement -> assertTrue(
+                Set.of("corridor", "junction").contains(placement.role())
+            ));
+        assertNoOverlap(plan);
+    }
+
+    @Test
+    void roomsAndCorridorsLayoutAlternatesInteriorPieceRoles() {
+        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
+            new BlockPos(80, 16, 80), 8, 8, 0, 0, 1, 1,
+            0.0D, 100, "rooms_and_corridors"
+        );
+
+        DungeonPiecePlan plan = DungeonPiecePlanner.generate(
+            testPieces(), settings, 9921L
+        );
+
+        assertEquals("corridor", plan.placements().get(1).role());
+        assertTrue(Set.of("room", "junction", "support")
+            .contains(plan.placements().get(2).role()));
+        assertEquals("corridor", plan.placements().get(3).role());
+        assertNoOverlap(plan);
+    }
+
+    @Test
+    void runtimeLayoutPassesConfiguredGenerationModeToPlanner() throws Exception {
+        DungeonPieceLayout maze = DungeonPieceLayout.generate(
+            pieceDungeon("reject_entry", 7, 7, 0, 100, 80, "maze"),
+            testPieces(), 8128L
+        );
+        DungeonPieceLayout rooms = DungeonPieceLayout.generate(
+            pieceDungeon(
+                "reject_entry", 8, 8, 0, 100, 80,
+                "rooms_and_corridors"
+            ),
+            testPieces(), 9921L
+        );
+
+        assertTrue(maze.plan().placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath)
+            .filter(placement -> !Set.of("start", "boss", "exit")
+                .contains(placement.role()))
+            .allMatch(placement -> Set.of("corridor", "junction")
+                .contains(placement.role())));
+        assertEquals("corridor", rooms.plan().placements().get(1).role());
+        assertTrue(Set.of("room", "junction", "support")
+            .contains(rooms.plan().placements().get(2).role()));
+    }
+
+    @Test
     void rejectsPoolThatCannotFitInsideBounds() {
         DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
             new BlockPos(4, 4, 4), 3, 3, 0, 0, 1, 1, 0.0D, 3
@@ -161,6 +226,17 @@ final class DungeonPiecePlannerTest {
         String fallback, int minimumRooms, int maximumRooms,
         int branchCount, int maxAttempts, int horizontalBounds
     ) throws Exception {
+        return pieceDungeon(
+            fallback, minimumRooms, maximumRooms, branchCount,
+            maxAttempts, horizontalBounds, "critical_path_branches"
+        );
+    }
+
+    private DungeonDefinition pieceDungeon(
+        String fallback, int minimumRooms, int maximumRooms,
+        int branchCount, int maxAttempts, int horizontalBounds,
+        String layoutMode
+    ) throws Exception {
         var stream = getClass().getClassLoader().getResourceAsStream(
             "data/cobbleventure/dungeons/generation_1/rocket_power_plant.json"
         );
@@ -176,10 +252,10 @@ final class DungeonPiecePlannerTest {
                  "bounds":[%d,16,%d]}
                 """.formatted(horizontalBounds, horizontalBounds)).getAsJsonObject());
             root.add("layout", JsonParser.parseString("""
-                {"mode":"critical_path_branches","critical_path_rooms":[%d,%d],
+                {"mode":"%s","critical_path_rooms":[%d,%d],
                  "branch_count":[%d,%d],"branch_depth":[1,1],"loop_chance":0}
                 """.formatted(
-                    minimumRooms, maximumRooms, branchCount, branchCount
+                    layoutMode, minimumRooms, maximumRooms, branchCount, branchCount
                 )).getAsJsonObject());
             return DungeonDefinition.parse(root);
         }

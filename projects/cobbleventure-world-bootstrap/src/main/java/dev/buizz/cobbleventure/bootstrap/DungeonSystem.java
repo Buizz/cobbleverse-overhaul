@@ -995,7 +995,7 @@ final class DungeonSystem {
         UUID playerId
     ) {
         DungeonDefinition.Layout layout = definition.layout();
-        if (!layout.mode().equals("critical_path_branches")) {
+        if (layout.mode().equals("fixed")) {
             throw new IllegalStateException(
                 "Procedural cave layout mode is not implemented yet: " + layout.mode()
             );
@@ -1007,13 +1007,13 @@ final class DungeonSystem {
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
-            rooms, branches, layout.loopChance()
+            layout.mode(), rooms, branches, layout.loopChance()
         );
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
         LOGGER.info(
-            "Prepared procedural cave dungeon: dungeon={}, seed={}, rooms={}, "
+            "Prepared procedural cave dungeon: dungeon={}, seed={}, layout={}, rooms={}, "
                 + "branches={}, elapsed={}ms",
-            definition.id(), seed, rooms, branches, elapsedMs
+            definition.id(), seed, layout.mode(), rooms, branches, elapsedMs
         );
         return new PreparedTerrain(
             definition.terrain().bounds(),
