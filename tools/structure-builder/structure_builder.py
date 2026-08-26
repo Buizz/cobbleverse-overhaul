@@ -157,13 +157,16 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
         if anchor_type not in {
             "door", "npc_position", "easy_npc_spawn",
             "arrival", "transition", "interior_spawn", "exterior_spawn", "interaction_point", "patrol_point",
+            "dungeon_entrance",
         }:
             raise StructureBuilderError(f"알 수 없는 출입구 앵커입니다: {path} #{index}")
         is_door = anchor_type == "door"
         is_npc = anchor_type in {"npc_position", "easy_npc_spawn"}
+        is_dungeon_entrance = anchor_type == "dungeon_entrance"
         position_fields = (
             ("position", "safe_spawn")
-            if is_door or anchor_type == "transition" else ("position",)
+            if is_door or is_dungeon_entrance or anchor_type == "transition"
+            else ("position",)
         )
         for field in position_fields:
             value = anchor.get(field)
@@ -189,12 +192,21 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
                 raise StructureBuilderError(
                     f"NPC 위치 라벨이 올바르지 않습니다: {path} #{index}"
                 )
-        if anchor_type in {"door", "arrival", "transition"}:
+        if anchor_type in {"door", "arrival", "transition", "dungeon_entrance"}:
             label = anchor.get("id", anchor.get("label"))
             if not isinstance(label, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_]*", label):
                 raise StructureBuilderError(
                     f"문·도착·전환 지점 이름이 올바르지 않습니다: {path} #{index}"
                 )
+        if is_dungeon_entrance and (
+            not isinstance(anchor.get("entrance_id"), str)
+            or not re.fullmatch(
+                r"[a-z0-9_.-]+:[a-z0-9_./-]+", str(anchor.get("entrance_id"))
+            )
+        ):
+            raise StructureBuilderError(
+                f"던전 입구 리소스 ID가 올바르지 않습니다: {path} #{index}"
+            )
     interior = document.get("interior")
     if interior is not None:
         if not isinstance(interior, dict):
@@ -219,6 +231,25 @@ def _validate_structure_metadata(document: object, path: Path) -> dict[str, obje
             f"interior_structure 리소스 ID가 올바르지 않습니다: {path}"
         )
     return document
+
+
+def _merge_exported_structure_metadata(
+    target: Path, exported: dict[str, object]
+) -> dict[str, object]:
+    """Keep authored descriptive metadata while replacing editor-owned fields."""
+    editor_owned = {
+        "schema_version", "structure", "anchors", "interior", "interior_structure",
+    }
+    preserved: dict[str, object] = {}
+    if target.is_file():
+        existing = _validate_structure_metadata(
+            json.loads(target.read_text(encoding="utf-8")), target
+        )
+        preserved = {
+            key: value for key, value in existing.items()
+            if key not in editor_owned
+        }
+    return {**preserved, **exported}
 
 
 def _metadata_reader(root: Path):
@@ -461,7 +492,15 @@ def import_exports(root: Path, world: Path) -> int:
     for exported, target in pending_metadata:
         if exported is None:
             continue
-        payload = exported.read_bytes()
+        exported_document = _validate_structure_metadata(
+            json.loads(exported.read_text(encoding="utf-8")), exported
+        )
+        merged_document = _merge_exported_structure_metadata(
+            target, exported_document
+        )
+        payload = (
+            json.dumps(merged_document, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
         if target.is_file() and target.read_bytes() == payload:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)

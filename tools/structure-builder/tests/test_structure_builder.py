@@ -197,6 +197,25 @@ class StructureBuilderTests(unittest.TestCase):
 
         self.assertEqual("transition", document["anchors"][0]["type"])
 
+    def test_structure_metadata_accepts_dungeon_entrance_anchor(self) -> None:
+        document = structure_builder._validate_structure_metadata({
+            "schema_version": 1,
+            "anchors": [{
+                "id": "rocket_entry",
+                "label": "rocket_entry",
+                "type": "dungeon_entrance",
+                "position": [8, 1, 1],
+                "safe_spawn": [8, 1, 3],
+                "facing": "north",
+                "entrance_id": "cobbleventure:entrance/rocket_test",
+            }],
+        }, Path("rocket_entry.structure.json"))
+
+        self.assertEqual(
+            "cobbleventure:entrance/rocket_test",
+            document["anchors"][0]["entrance_id"],
+        )
+
     def test_structure_metadata_rejects_total_interior_height_over_limit(self) -> None:
         with self.assertRaisesRegex(
             structure_builder.StructureBuilderError, "전체 높이는 80 이하"
@@ -300,6 +319,16 @@ class StructureBuilderTests(unittest.TestCase):
             source = root / "content/structures/interiors/player_house.nbt"
             source.parent.mkdir(parents=True)
             shutil.copy2(sample, source)
+            source.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/interiors/player_house.nbt",
+                "display_name": {"ko_kr": "플레이어의 집", "en_us": "Player House"},
+                "provenance": {"license": "CC0-1.0"},
+                "anchors": [{
+                    "label": "old_npc", "type": "npc_position",
+                    "position": [1, 1, 1],
+                }],
+            }), encoding="utf-8")
             module = root / "tools/content-manager/content_manager.py"
             module.parent.mkdir(parents=True)
             shutil.copy2(CONTENT_MANAGER_PATH, module)
@@ -336,6 +365,12 @@ class StructureBuilderTests(unittest.TestCase):
                 new_size,
                 content_manager.read_minecraft_structure_size(source.read_bytes()),
             )
+            imported_metadata = json.loads(
+                source.with_suffix(".structure.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("플레이어의 집", imported_metadata["display_name"]["ko_kr"])
+            self.assertEqual("CC0-1.0", imported_metadata["provenance"]["license"])
+            self.assertEqual([], imported_metadata["anchors"])
 
     def test_import_adds_new_variable_size_interior_with_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

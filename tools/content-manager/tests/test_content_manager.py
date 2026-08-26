@@ -834,6 +834,7 @@ class ContentManagerTests(unittest.TestCase):
             "label": "counter",
             "type": "npc_position",
             "position": [7, 2, 17],
+            "facing": "north",
         }], metadata["anchors"])
         self.assertEqual("CC0-1.0", metadata["provenance"]["license"])
         self.assertEqual(
@@ -7291,6 +7292,13 @@ class ContentManagerTests(unittest.TestCase):
             source.parent.mkdir(parents=True)
             original = self._structure_nbt((9, 7, 11))
             source.write_bytes(original)
+            source.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/houses/test_house.nbt",
+                "display_name": {"ko_kr": "시험 주택", "en_us": "Test House"},
+                "provenance": {"license": "CC0-1.0"},
+                "anchors": [],
+            }), encoding="utf-8")
             world.mkdir()
 
             command = content_manager._queue_structure_builder_live_open(
@@ -7304,6 +7312,14 @@ class ContentManagerTests(unittest.TestCase):
             saved = self._structure_nbt((12, 8, 14))
             (live / "outbox").mkdir(parents=True)
             (live / "outbox/active.nbt").write_bytes(saved)
+            (live / "outbox/active.structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/houses/test_house.nbt",
+                "anchors": [{
+                    "label": "resident", "type": "npc_position",
+                    "position": [4, 1, 4], "facing": "south",
+                }],
+            }), encoding="utf-8")
             (live / "outbox/result.json").write_text(json.dumps({
                 "status": "saved",
                 "revision": "game-save-1",
@@ -7315,6 +7331,12 @@ class ContentManagerTests(unittest.TestCase):
 
             self.assertTrue(receipt["imported"])
             self.assertEqual((12, 8, 14), content_manager.read_minecraft_structure_size(source.read_bytes()))
+            imported_metadata = json.loads(
+                source.with_suffix(".structure.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual("시험 주택", imported_metadata["display_name"]["ko_kr"])
+            self.assertEqual("CC0-1.0", imported_metadata["provenance"]["license"])
+            self.assertEqual("resident", imported_metadata["anchors"][0]["label"])
             self.assertFalse((live / "outbox/result.json").exists())
 
     def test_external_nbt_can_be_added_to_managed_structures(self) -> None:

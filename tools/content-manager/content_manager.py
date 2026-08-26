@@ -10841,6 +10841,24 @@ def _queue_structure_builder_live_open(
     return command
 
 
+def _merge_live_structure_metadata(
+    target: Path, exported: dict[str, Any]
+) -> dict[str, Any]:
+    editor_owned = {
+        "schema_version", "structure", "anchors", "interior", "interior_structure",
+    }
+    preserved: dict[str, Any] = {}
+    if target.is_file():
+        existing = load_json(target)
+        if not isinstance(existing, dict):
+            raise ValueError(f"구조물 메타데이터는 JSON 객체여야 합니다: {target}")
+        preserved = {
+            key: value for key, value in existing.items()
+            if key not in editor_owned
+        }
+    return {**preserved, **exported}
+
+
 def _import_structure_builder_live_output(project_root: Path, world_path: Path) -> dict[str, Any] | None:
     live_root = _structure_builder_live_root(world_path)
     result_path = live_root / "outbox" / "result.json"
@@ -10862,7 +10880,14 @@ def _import_structure_builder_live_output(project_root: Path, world_path: Path) 
     _atomic_write_bytes(destination, data)
     metadata_source = live_root / "outbox" / "active.structure.json"
     if metadata_source.is_file():
-        _atomic_write_bytes(destination.with_suffix(".structure.json"), metadata_source.read_bytes())
+        exported_metadata = load_json(metadata_source)
+        if not isinstance(exported_metadata, dict):
+            raise ValueError("에딧월드 구조물 메타데이터는 JSON 객체여야 합니다.")
+        metadata_target = destination.with_suffix(".structure.json")
+        _atomic_write_json(
+            metadata_target,
+            _merge_live_structure_metadata(metadata_target, exported_metadata),
+        )
     receipt = {**result, "imported": True, "imported_at": time.time()}
     _atomic_write_json(live_root / "outbox" / "receipt.json", receipt)
     result_path.unlink(missing_ok=True)
