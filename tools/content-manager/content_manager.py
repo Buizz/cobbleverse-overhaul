@@ -24,7 +24,7 @@ import time
 import zipfile
 import uuid
 from dataclasses import asdict, dataclass
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as _ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib import error as urllib_error
@@ -61,6 +61,20 @@ from cves import (
     write_project,
 )
 from loot_table_validation import validate_loot_table_document
+
+
+class ThreadingHTTPServer(_ThreadingHTTPServer):
+    """HTTP server that drains handler-owned background work before closing."""
+
+    def server_close(self) -> None:
+        close_background_tasks = getattr(
+            self.RequestHandlerClass, "close_background_tasks", None
+        )
+        try:
+            if callable(close_background_tasks):
+                close_background_tasks()
+        finally:
+            super().server_close()
 
 
 RESOURCE_ID = re.compile(r"^[a-z0-9_.-]+:[a-z0-9_./-]+$")
@@ -13321,7 +13335,10 @@ def create_handler(
     structure_cache_error: str | None = None
     structure_viewer_catalog_lock = threading.Lock()
     structure_cache_refresh_lock = threading.Lock()
+    structure_cache_thread_lock = threading.Lock()
     structure_cache_refresh_scheduled = threading.Event()
+    structure_cache_shutdown = threading.Event()
+    structure_cache_refresh_thread: threading.Thread | None = None
     structure_model_cache: dict[str, dict[str, Any]] = {}
     remote_image_cache: dict[str, bytes] = {}
     remote_image_cache_lock = threading.Lock()
@@ -13406,9 +13423,14 @@ def create_handler(
                 structure_model_cache.clear()
 
     def schedule_structure_cache_refresh() -> None:
-        if structure_cache_refresh_scheduled.is_set():
-            return
-        structure_cache_refresh_scheduled.set()
+        nonlocal structure_cache_refresh_thread
+        with structure_cache_thread_lock:
+            if (
+                structure_cache_shutdown.is_set()
+                or structure_cache_refresh_scheduled.is_set()
+            ):
+                return
+            structure_cache_refresh_scheduled.set()
 
         def run_refresh() -> None:
             try:
@@ -13416,11 +13438,28 @@ def create_handler(
             finally:
                 structure_cache_refresh_scheduled.clear()
 
-        threading.Thread(
+        refresh_thread = threading.Thread(
             target=run_refresh,
             name="cobbleventure-nbt-cache-refresh",
             daemon=True,
-        ).start()
+        )
+        with structure_cache_thread_lock:
+            if structure_cache_shutdown.is_set():
+                structure_cache_refresh_scheduled.clear()
+                return
+            structure_cache_refresh_thread = refresh_thread
+            refresh_thread.start()
+
+    def close_background_tasks() -> None:
+        structure_cache_shutdown.set()
+        with structure_cache_thread_lock:
+            refresh_thread = structure_cache_refresh_thread
+        if (
+            refresh_thread is not None
+            and refresh_thread is not threading.current_thread()
+            and refresh_thread.is_alive()
+        ):
+            refresh_thread.join()
 
     def ensure_structure_cache(validate_signature: bool = False) -> None:
         if structure_size_catalog is None or building_settings_catalog is None:
@@ -14944,6 +14983,7 @@ def create_handler(
         and cached_signature != structure_catalog_signature(root, core_root)
     ):
         schedule_structure_cache_refresh()
+    Handler.close_background_tasks = staticmethod(close_background_tasks)
     return Handler
 
 

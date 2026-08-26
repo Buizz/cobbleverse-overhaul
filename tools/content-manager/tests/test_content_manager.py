@@ -6582,6 +6582,61 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(24, payload["structures"]["cobbleventure:cached"]["width"])
             self.assertEqual(456, payload["cache"]["generated_at"])
 
+    def test_server_close_waits_for_background_structure_cache_refresh(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            refresh_started = threading.Event()
+            release_refresh = threading.Event()
+            close_finished = threading.Event()
+            refreshed = {
+                "version": content_manager.STRUCTURE_WEB_CACHE_VERSION,
+                "generated_at": 456,
+                "signature": [],
+                "size_catalog": {"structures": {}, "warnings": []},
+                "viewer_catalog": {},
+                "building_settings": {
+                    "schema_version": 1, "structures": {}, "npcs": [],
+                    "path": "content/catalogs/building-settings.json",
+                },
+            }
+
+            def delayed_refresh(*_arguments: object) -> dict[str, object]:
+                refresh_started.set()
+                self.assertTrue(release_refresh.wait(timeout=2))
+                return refreshed
+
+            with mock.patch.object(
+                content_manager, "build_structure_web_cache",
+                side_effect=delayed_refresh,
+            ):
+                handler = content_manager.create_handler(root)
+                server = content_manager.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+                server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+                server_thread.start()
+                try:
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{server.server_port}/api/structure-sizes"
+                    ) as response:
+                        json.load(response)
+                    self.assertTrue(refresh_started.wait(timeout=2))
+                    server.shutdown()
+
+                    def close_server() -> None:
+                        server.server_close()
+                        close_finished.set()
+
+                    close_thread = threading.Thread(target=close_server)
+                    close_thread.start()
+                    self.assertFalse(close_finished.wait(timeout=0.05))
+                    release_refresh.set()
+                    close_thread.join(timeout=2)
+                    self.assertTrue(close_finished.is_set())
+                finally:
+                    release_refresh.set()
+                    server.shutdown()
+                    server.server_close()
+                    server_thread.join(timeout=2)
+
     def test_building_settings_api_serves_cache_without_rescanning_nbt(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
