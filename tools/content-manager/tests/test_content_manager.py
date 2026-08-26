@@ -65,6 +65,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('delete entry.position', script)
         self.assertIn("NPC와 보상은 후보 마커에 자동 배치", markup)
 
+    def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="dungeon-floor-choice"', markup)
+        self.assertIn("function dungeonPreviewFloors(plan)", script)
+        self.assertIn("connectorLevels = [...new Set", script)
+        self.assertIn("verticalTransition: connectorLevels.length > 1", script)
+        self.assertIn("plan.markers.filter(onSelectedFloor)", script)
+        self.assertIn("수직 연결 조각은 연결되는 양쪽 층", script)
+
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
         document["difficulty"]["recommended_min"] = 20

@@ -24,7 +24,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonPieceId: "", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", selected: -1, hitTargets: [], plan: null, transform: null },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonPieceId: "", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -4546,6 +4546,7 @@ function renderDungeonList() {
     state.dungeonPlanEditor.selectedPlacement = -1;
     state.dungeonPreview.selected = -1;
     state.dungeonPreview.planId = "";
+    state.dungeonPreview.floor = "all";
     renderDungeonList();
     renderDungeon();
   }));
@@ -5029,14 +5030,23 @@ function authoredDungeonPlacement(placement, index) {
   if (rotation === "clockwise_90") { minimum[0] -= size[2] - 1; rotated = [size[2], size[1], size[0]]; }
   else if (rotation === "clockwise_180") { minimum[0] -= size[0] - 1; minimum[2] -= size[2] - 1; }
   else if (rotation === "counterclockwise_90") { minimum[2] -= size[0] - 1; rotated = [size[2], size[1], size[0]]; }
-  return { index, pieceId: placement.piece_id, role: piece.role || "room", minimum, size: rotated, rotation, critical: placement.critical_path !== false };
+  const connectorLevels = [...new Set((piece.connectors || []).map((connector) => Number(connector.position?.[1] || 0)))];
+  return { index, pieceId: placement.piece_id, role: piece.role || "room", minimum, size: rotated, rotation, critical: placement.critical_path !== false, floorYs: [minimum[1]], verticalTransition: connectorLevels.length > 1 };
 }
 
 function authoredDungeonPlan(document, planId) {
   const source = state.dungeonPlans.get(planId);
   if (!source) return null;
+  const placements = (source.placements || []).map(authoredDungeonPlacement);
+  const links = (source.links || []).map((link) => ({ from: Number(link.from_index), to: Number(link.to_index), critical: link.critical_path !== false }));
+  links.forEach((link) => {
+    const from = placements[link.from]; const to = placements[link.to];
+    if (!from || !to || from.minimum[1] === to.minimum[1]) return;
+    if (from.verticalTransition) from.floorYs = [...new Set([...from.floorYs, to.minimum[1]])].sort((a, b) => a - b);
+    if (to.verticalTransition) to.floorYs = [...new Set([...to.floorYs, from.minimum[1]])].sort((a, b) => a - b);
+  });
   const markers = [];
-  (source.placements || []).forEach((placement) => {
+  (source.placements || []).forEach((placement, placementIndex) => {
     const piece = state.dungeonPieces.get(placement.piece_id);
     const origin = (placement.origin || [0, 0, 0]).map(Number);
     const rotation = placement.rotation || "none";
@@ -5049,14 +5059,15 @@ function authoredDungeonPlan(document, planId) {
         kind: marker.kind,
         position: transformed.map((axis, index) => axis + origin[index]),
         label: marker.reference || `${dungeonMarkerKinds[marker.kind] || marker.kind} 후보`,
+        floorYs: placements[placementIndex]?.floorYs || [origin[1]],
       });
     });
   });
   return {
     kind: "authored", exact: true, seed: Number(source.seed || 0),
     bounds: source.bounds || document.terrain?.bounds || [64, 16, 64],
-    placements: (source.placements || []).map(authoredDungeonPlacement),
-    links: (source.links || []).map((link) => ({ from: Number(link.from_index), to: Number(link.to_index), critical: link.critical_path !== false })),
+    placements,
+    links,
     markers, planId
   };
 }
@@ -5309,6 +5320,20 @@ function selectedDungeonPlan() {
   return authoredDungeonPlan(state.dungeon, state.dungeonPreview.planId);
 }
 
+function dungeonPreviewFloors(plan) {
+  return [...new Set((plan?.placements || []).flatMap((placement) => placement.floorYs || [Number(placement.minimum?.[1] || 0)]).map(Number))].sort((a, b) => a - b);
+}
+
+function syncDungeonFloorChoice(plan) {
+  const select = $("#dungeon-floor-choice");
+  const floors = dungeonPreviewFloors(plan);
+  const available = new Set(floors.map(String));
+  if (state.dungeonPreview.floor !== "all" && !available.has(String(state.dungeonPreview.floor))) state.dungeonPreview.floor = "all";
+  select.innerHTML = `<option value="all"${state.dungeonPreview.floor === "all" ? " selected" : ""}>전체 층 · ${floors.length || 1}개</option>` + floors.map((value, index) => `<option value="${value}"${String(state.dungeonPreview.floor) === String(value) ? " selected" : ""}>${index + 1}층 · Y ${value}</option>`).join("");
+  select.disabled = floors.length <= 1;
+  return floors;
+}
+
 function renderDungeon() {
   const document = state.dungeon;
   if (!document) return;
@@ -5333,6 +5358,12 @@ function renderDungeonPreview() {
   const plan = selectedDungeonPlan();
   state.dungeonPreview.plan = plan;
   if (!plan) return;
+  const floors = syncDungeonFloorChoice(plan);
+  const selectedFloor = state.dungeonPreview.floor === "all" ? null : Number(state.dungeonPreview.floor);
+  const onSelectedFloor = (value) => selectedFloor === null || (value.floorYs || [Number(value.minimum?.[1] || value.position?.[1] || 0)]).map(Number).includes(selectedFloor);
+  const visiblePlacements = plan.placements.filter(onSelectedFloor);
+  const visiblePlacementIds = new Set(visiblePlacements.map((placement) => placement.index));
+  if (!visiblePlacementIds.has(state.dungeonPreview.selected)) state.dungeonPreview.selected = -1;
   const width = Math.max(480, canvas.clientWidth || 720);
   const height = 600;
   const ratio = window.devicePixelRatio || 1;
@@ -5345,11 +5376,11 @@ function renderDungeonPreview() {
   const point = (position) => ({ x: offsetX + Number(position[0]) * scale, y: offsetY + Number(position[2]) * scale });
   const placementProblems = dungeonPlanPlacementProblems(plan);
   context.strokeStyle = "#395057"; context.lineWidth = 1; context.strokeRect(offsetX, offsetY, boundsX * scale, boundsZ * scale);
-  const centers = new Map(plan.placements.map((placement) => [placement.index, point([placement.minimum[0] + placement.size[0] / 2, 0, placement.minimum[2] + placement.size[2] / 2])]));
+  const centers = new Map(visiblePlacements.map((placement) => [placement.index, point([placement.minimum[0] + placement.size[0] / 2, 0, placement.minimum[2] + placement.size[2] / 2])]));
   plan.links.forEach((link) => { const from = centers.get(link.from); const to = centers.get(link.to); if (!from || !to) return; context.strokeStyle = link.critical ? "#5fa8ff" : "#6f7f83"; context.lineWidth = link.critical ? 4 : 2; context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke(); });
   const colors = { start: "#64d98a", boss: "#ef5a67", exit: "#f1c75b" };
   state.dungeonPreview.hitTargets = [];
-  plan.placements.forEach((placement) => {
+  visiblePlacements.forEach((placement) => {
     const top = point(placement.minimum); const boxWidth = Math.max(8, placement.size[0] * scale); const boxHeight = Math.max(8, placement.size[2] * scale);
     const problem = placementProblems.get(placement.index);
     context.fillStyle = problem ? "#a93e49" : colors[placement.role] || (placement.critical ? "#4d86b8" : "#65757a"); context.globalAlpha = state.dungeonPreview.selected === placement.index ? 1 : .86; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1;
@@ -5358,7 +5389,7 @@ function renderDungeonPreview() {
     state.dungeonPreview.hitTargets.push({ type: "placement", index: placement.index, x: top.x, y: top.y, width: boxWidth, height: boxHeight });
   });
   const markerColors = { boss: "#ff5968", encounter: "#ff9c54", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", gate: "#b6c1c8" };
-  plan.markers.forEach((marker) => {
+  plan.markers.filter(onSelectedFloor).forEach((marker) => {
     const target = point(marker.position);
     const selectedMarker = marker.content && state.dungeonContentSelection?.kind === marker.content.kind && state.dungeonContentSelection?.index === marker.content.index;
     context.fillStyle = markerColors[marker.kind] || "#f3f6f5"; context.beginPath(); context.arc(target.x, target.y, selectedMarker ? 8 : 5, 0, Math.PI * 2); context.fill();
@@ -5369,9 +5400,10 @@ function renderDungeonPreview() {
   const criticalCount = plan.placements.filter((value) => value.critical).length;
   const selected = plan.placements.find((value) => value.index === state.dungeonPreview.selected);
   $("#dungeon-preview-empty").hidden = true; $("#dungeon-preview-details").hidden = false;
-  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(state.dungeon.layout?.mode || "fixed")}</dd><dt>전체 구획</dt><dd>${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd><dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
+  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(state.dungeon.layout?.mode || "fixed")}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd><dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
-  $("#dungeon-preview-status").textContent = placementProblems.size ? `배치 오류가 있는 조각 ${placementProblems.size}개를 빨간색으로 표시했습니다.` : plan.exact ? "게시형 계획 또는 고정 템플릿의 실제 좌표입니다." : "런타임 모드의 방 그래프 예상 배치입니다. 실제 NBT 배치는 서버 검증 결과에 따라 달라질 수 있습니다.";
+  const floorStatus = selectedFloor === null ? "모든 층을 표시합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
+  $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 게시형 계획의 실제 좌표입니다.` : `${floorStatus} 런타임 방 그래프는 실제 생성 결과와 달라질 수 있습니다.`;
 }
 
 function dungeonPlanPlacementProblems(plan) {
@@ -15578,7 +15610,8 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
     button.textContent = "NBT 목록 갱신";
   }
 });
-$("#dungeon-plan-choice").addEventListener("change", (event) => { state.dungeonPreview.planId = event.target.value; state.dungeonPreview.selected = -1; state.dungeonPlanEditor.selectedPlacement = -1; renderDungeonPlanEditor(); renderDungeonPreview(); });
+$("#dungeon-plan-choice").addEventListener("change", (event) => { state.dungeonPreview.planId = event.target.value; state.dungeonPreview.floor = "all"; state.dungeonPreview.selected = -1; state.dungeonPlanEditor.selectedPlacement = -1; renderDungeonPlanEditor(); renderDungeonPreview(); });
+$("#dungeon-floor-choice").addEventListener("change", (event) => { state.dungeonPreview.floor = event.target.value; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
 $("#dungeon-form").addEventListener("input", () => {
   if (!state.dungeon) return;
   updateDungeonFromForm();
