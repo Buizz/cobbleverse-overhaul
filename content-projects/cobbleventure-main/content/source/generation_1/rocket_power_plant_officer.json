@@ -66,6 +66,10 @@
       "loss_text": {
         "ko_kr": "이 발전소는 계속 로켓단이 사용하겠다."
       },
+      "required_state_keys": [
+        "cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated",
+        "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated"
+      ],
       "victory_state_key": "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated"
     }
   },

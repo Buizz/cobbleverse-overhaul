@@ -1,6 +1,6 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
   page when !flag("cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated") {
-    encounter_warning "encounter.trainer_boy"
+    encounter_warning "encounter.trainer_bad_guys"
   }
 }
 

@@ -503,6 +503,12 @@
           "uniqueItems": true,
           "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
         },
+        "run_state_keys": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resource_id" },
+          "default": []
+        },
         "position": { "$ref": "#/$defs/block_position" },
         "yaw": { "type": "number", "minimum": -180, "maximum": 180 },
         "boss": { "type": "boolean" }

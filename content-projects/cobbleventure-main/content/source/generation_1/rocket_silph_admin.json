@@ -61,6 +61,9 @@
       "loss_text": {
         "ko_kr": "이제 회사 전체가 로켓단의 연구소다."
       },
+      "required_state_keys": [
+        "cobbleventure:flag/trainer/rocket_silph_guard/defeated"
+      ],
       "victory_state_key": "cobbleventure:flag/trainer/rocket_silph_admin/defeated"
     }
   },

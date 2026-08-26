@@ -221,6 +221,22 @@ class CvesBehaviorPresetTests(unittest.TestCase):
         self.assertNotIn("\n    label ", source)
         self.assertNotIn("\n    jump ", source)
 
+    def test_villain_battle_requires_flags_and_uses_villain_warning_music(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/source/generation_1/rocket_power_plant_officer.json"
+        ).read_text(encoding="utf-8"))
+        source = format_program(preset_program(document))
+        self.assertIn('encounter_warning "encounter.trainer_bad_guys"', source)
+        self.assertIn(
+            'flag("cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated") && '
+            'flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated")',
+            source,
+        )
+        self.assertIn(
+            '!flag("cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated") &&',
+            source,
+        )
+
     def test_preset_managed_script_refuses_to_overwrite_manual_edits(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

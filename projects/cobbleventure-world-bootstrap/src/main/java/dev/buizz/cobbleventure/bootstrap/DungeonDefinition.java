@@ -456,6 +456,18 @@ record DungeonDefinition(
                     );
                 }
             }
+            List<String> runStateKeys = new ArrayList<>();
+            if (encounter.has("run_state_keys")) {
+                for (JsonElement stateKey : requiredArray(encounter, "run_state_keys")) {
+                    String key = stateKey.getAsString();
+                    if (ResourceLocation.tryParse(key) == null || !runStateKeys.add(key)) {
+                        throw new IllegalStateException(
+                            "Invalid dungeon encounter run state key: " + id + " -> "
+                                + encounterId + " -> " + key
+                        );
+                    }
+                }
+            }
             encounters.add(new Encounter(
                 encounterId,
                 localized(requiredObject(encounter, "display_name"), "ko_kr", "en_us"),
@@ -465,6 +477,7 @@ record DungeonDefinition(
                 generatedTrainer,
                 wildPokemon,
                 List.copyOf(requirements),
+                List.copyOf(runStateKeys),
                 encounter.has("position") ? blockPosition(encounter, "position") : null,
                 encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
                 requiredBoolean(encounter, "boss")
@@ -1193,6 +1206,7 @@ record DungeonDefinition(
         GeneratedTrainer generatedTrainer,
         WildPokemon pokemon,
         List<String> requires,
+        List<String> runStateKeys,
         BlockPos position,
         float yaw,
         boolean boss

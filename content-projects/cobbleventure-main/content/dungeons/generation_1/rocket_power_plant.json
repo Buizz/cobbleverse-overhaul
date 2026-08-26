@@ -73,6 +73,9 @@
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
       "requires": [],
+      "run_state_keys": [
+        "cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"
+      ],
       "yaw": 90,
       "boss": false
     },
@@ -89,6 +92,9 @@
         "cobbleventure:battle/rocket_power_plant_grunt"
       ],
       "requires": [],
+      "run_state_keys": [
+        "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated"
+      ],
       "yaw": -90,
       "boss": false
     },
@@ -105,6 +111,9 @@
         "cobbleventure:battle/rocket_power_plant_officer"
       ],
       "requires": ["west_grunt", "east_grunt"],
+      "run_state_keys": [
+        "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated"
+      ],
       "yaw": 180,
       "boss": true
     }

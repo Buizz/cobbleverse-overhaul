@@ -783,10 +783,13 @@ final class DungeonSystem {
         }
         for (MatchedEntry entry : entries) {
             pushReturnFrame(entry.player(), entry.pending().placement().safeReturn());
+            ServerPlayerEventState state = new ServerPlayerEventState(entry.player());
+            definition.encounters().stream()
+                .flatMap(encounter -> encounter.runStateKeys().stream())
+                .distinct()
+                .forEach(key -> state.setFlag(key, false));
             if (definition.completion().repeatable()) {
-                new ServerPlayerEventState(entry.player()).setFlag(
-                    definition.completion().victoryFlag(), false
-                );
+                state.setFlag(definition.completion().victoryFlag(), false);
             }
         }
         BlockPos entry = origin.offset(terrain.entryPosition());
@@ -1660,12 +1663,6 @@ final class DungeonSystem {
             ));
             return true;
         }
-        if (!definition.multiplayer().mode().equals("cooperative")
-            && encounter.generatedTrainer() == null) {
-            // CVES V5 owns dialogue and battle launch for solo/independent trainers.
-            // Wild Pokemon use Cobblemon's normal battle interaction.
-            return false;
-        }
         EncounterStatus status = run.encounters().statusById.get(encounterId);
         if (status == EncounterStatus.DEFEATED) {
             initiator.displayClientMessage(Component.literal(
@@ -1683,6 +1680,12 @@ final class DungeonSystem {
                     + String.join(", ", missingRequirements)
             ), true);
             return true;
+        }
+        if (!definition.multiplayer().mode().equals("cooperative")
+            && encounter.generatedTrainer() == null) {
+            // CVES V5 owns dialogue and battle launch after dungeon guards pass.
+            // Wild Pokemon use Cobblemon's normal battle interaction.
+            return false;
         }
         if (status != EncounterStatus.AVAILABLE
             || run.encounters().pendingEncounterId != null
@@ -2120,7 +2123,9 @@ final class DungeonSystem {
         if (encounter == null
             || !encounter.opponents().contains(context.battleId())
             || run.encounters().statusById.get(encounter.id())
-                != EncounterStatus.AVAILABLE) {
+                != EncounterStatus.AVAILABLE
+            || encounter.requires().stream().anyMatch(required ->
+                run.encounters().statusById.get(required) != EncounterStatus.DEFEATED)) {
             return;
         }
         run.encounters().statusById.put(encounter.id(), EncounterStatus.ACTIVE);

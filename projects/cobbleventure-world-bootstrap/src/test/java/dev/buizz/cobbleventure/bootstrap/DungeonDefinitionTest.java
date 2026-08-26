@@ -17,6 +17,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
     @Test
+    void parsesRunScopedV5StateKeys() throws Exception {
+        DungeonDefinition definition = DungeonDefinition.parse(
+            resourceObject("rocket_power_plant")
+        );
+
+        assertEquals(
+            List.of("cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"),
+            definition.encounters().getFirst().runStateKeys()
+        );
+    }
+
+    @Test
     void parsesPoolGeneratedTrainerWithoutBattlePreset() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
         JsonObject encounter = root.getAsJsonArray("encounters")

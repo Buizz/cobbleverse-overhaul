@@ -61,6 +61,9 @@
       "loss_text": {
         "ko_kr": "탑에서 본 건 모두 잊어라."
       },
+      "required_state_keys": [
+        "cobbleventure:flag/trainer/rocket_tower_guard/defeated"
+      ],
       "victory_state_key": "cobbleventure:flag/trainer/rocket_tower_admin/defeated"
     }
   },

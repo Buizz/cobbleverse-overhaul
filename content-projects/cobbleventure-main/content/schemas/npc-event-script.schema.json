@@ -175,6 +175,11 @@
         "auto_state_key": { "type": "boolean", "default": true },
         "state_key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
         "victory_state_key": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
+        "required_state_keys": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "content-bundle.schema.json#/$defs/resource_id" }
+        },
         "item": { "$ref": "content-bundle.schema.json#/$defs/resource_id" },
         "item_count": { "type": "integer", "minimum": 1 },
         "after_item_text": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },

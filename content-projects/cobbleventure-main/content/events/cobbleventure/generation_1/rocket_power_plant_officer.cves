@@ -1,11 +1,11 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated") {
-    encounter_warning "encounter.trainer_boy"
+  page when !flag("cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated") && (flag("cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated") && flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated")) {
+    encounter_warning "encounter.trainer_bad_guys"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated") {
+  page when !flag("cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated") && (flag("cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated") && flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated")) {
     say npc {
       ko_kr: "발전소의 전력은 이제 로켓단의 것이다. 방해자는 제거한다!"
     }
@@ -30,7 +30,7 @@ event interact(range: 4) {
     }
   }
 
-  page default {
+  page when flag("cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated") && flag("cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated") {
     say npc {
       ko_kr: "발전소의 전력은 이제 로켓단의 것이다. 방해자는 제거한다!"
     }

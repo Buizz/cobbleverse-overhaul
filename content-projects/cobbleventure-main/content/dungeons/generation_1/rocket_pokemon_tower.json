@@ -19,12 +19,16 @@
     {
       "id": "encounter_1", "display_name": { "ko_kr": "추모층 로켓단", "en_us": "Memorial Floor Guard" },
       "npcs": ["cobbleventure:npc/rocket_tower_guard"], "opponents": ["cobbleventure:battle/rocket_power_plant_grunt"],
-      "requires": [], "yaw": 180, "boss": false
+      "requires": [],
+      "run_state_keys": ["cobbleventure:flag/trainer/rocket_tower_guard/defeated"],
+      "yaw": 180, "boss": false
     },
     {
       "id": "boss_1", "display_name": { "ko_kr": "상층 로켓단 간부", "en_us": "Tower Admin" },
       "npcs": ["cobbleventure:npc/rocket_tower_admin"], "opponents": ["cobbleventure:battle/rocket_power_plant_officer"],
-      "requires": ["encounter_1"], "yaw": 180, "boss": true
+      "requires": ["encounter_1"],
+      "run_state_keys": ["cobbleventure:flag/trainer/rocket_tower_admin/defeated"],
+      "yaw": 180, "boss": true
     }
   ],
   "random_encounters": { "enabled": false, "minimum_distance": 6, "maximum_distance": 12, "max_active": 1, "spawn_interval_ticks": 100, "spawn_bounds": { "min": [2, 1, 2], "max": [109, 22, 45] }, "additions": [] },

@@ -12,6 +12,25 @@ from . import ast
 BATTLE_PRESETS = frozenset({"battle", "gym", "elite", "champion"})
 
 
+def _required_state_condition(preset: Mapping[str, Any]) -> ast.Expression | None:
+    keys = tuple(dict.fromkeys(str(key) for key in preset.get("required_state_keys", ())))
+    condition: ast.Expression | None = None
+    for key in keys:
+        flag = _call("flag", _string(key))
+        condition = flag if condition is None else ast.BinaryExpression(condition, "&&", flag)
+    return condition
+
+
+def _encounter_warning_track(document: Mapping[str, Any]) -> str:
+    npc = document.get("npc")
+    trainer_class = str(npc.get("trainer_class", "")) if isinstance(npc, Mapping) else ""
+    tags = {str(tag).lower() for tag in document.get("tags", ())}
+    identity = trainer_class.lower()
+    if "team_rocket" in tags or "villain" in identity or "rocket" in identity:
+        return "encounter.trainer_bad_guys"
+    return "encounter.trainer_boy"
+
+
 def preset_program(document: Mapping[str, Any]) -> ast.Program:
     """Build the canonical V5 tree for one schema-v4 normalized behavior preset."""
     design = document.get("event_design")
@@ -146,9 +165,10 @@ def _battle_pages(
         ),
         None,
     )
+    required = _required_state_condition(preset)
     return (
         _page(_call("flag", _string(state_key)), *_says(preset.get("win_text"), "좋은 승부였어!")),
-        _page(None, *_says(preset.get("first_text"), "안녕하세요!"), choice),
+        _page(required, *_says(preset.get("first_text"), "안녕하세요!"), choice),
     )
 
 
@@ -169,13 +189,18 @@ def _battle_proximity_events(
 
     group = str(proximity.get("group", "trainer_battle"))
     warning_stage = str(proximity.get("warning_stage", "warning"))
-    track = str(proximity.get("warning_track", "encounter.trainer_boy"))
+    track = str(proximity.get("warning_track", _encounter_warning_track(document)))
     state_key = str(
         preset.get("victory_state_key")
         or preset.get("clear_key")
         or automatic_state_key(document.get("id"), "defeated")
     )
-    undefeated = ast.UnaryExpression("!", _call("flag", _string(state_key)))
+    undefeated: ast.Expression = ast.UnaryExpression(
+        "!", _call("flag", _string(state_key))
+    )
+    required = _required_state_condition(preset)
+    if required is not None:
+        undefeated = ast.BinaryExpression(undefeated, "&&", required)
 
     pages = _battle_pages(document, preset)
     challenge = pages[1].block.statements[-1]
