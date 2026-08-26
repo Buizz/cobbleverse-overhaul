@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,6 +15,41 @@ import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
 final class DungeonPiecePlannerTest {
+    @Test
+    void generatesDistinctVerticalProfilesForRuntimeRocketDungeons() throws Exception {
+        List<DungeonPieceDefinition> pieces = packagedRocketPieces();
+        for (String name : List.of(
+            "rocket_casino_hideout", "rocket_silph_company", "rocket_pokemon_tower"
+        )) {
+            DungeonDefinition dungeon = packagedDungeon(name);
+            for (long seed = 1; seed <= 4; seed++) {
+                DungeonPieceLayout generated;
+                try {
+                    generated = DungeonPieceLayout.generate(dungeon, pieces, seed);
+                } catch (IllegalStateException failure) {
+                    throw new IllegalStateException(name + " seed=" + seed, failure);
+                }
+                List<Integer> elevations = generated.plan().placements().stream()
+                    .filter(DungeonPiecePlan.Placement::criticalPath)
+                    .map(placement -> placement.minimum().getY())
+                    .toList();
+                int changes = 0;
+                for (int index = 1; index < elevations.size(); index++) {
+                    int previous = elevations.get(index - 1);
+                    int current = elevations.get(index);
+                    if (previous != current) changes++;
+                    if (dungeon.layout().verticalDirection().equals("ascending")) {
+                        assertTrue(current >= previous, name + " descended");
+                    } else if (dungeon.layout().verticalDirection().equals("descending")) {
+                        assertTrue(current <= previous, name + " ascended");
+                    }
+                }
+                assertTrue(changes >= dungeon.layout().floorChanges().minimum(), name);
+                assertTrue(changes <= dungeon.layout().floorChanges().maximum(), name);
+            }
+        }
+    }
+
     @Test
     void usesMinimalSafePlanWhenConfiguredGenerationCannotFit() throws Exception {
         DungeonPieceLayout.clearCache();
@@ -279,6 +315,34 @@ final class DungeonPiecePlannerTest {
             piece("treasure", "treasure", terminalConnector(), "[]"),
             piece("support", "support", terminalConnector(), marker("gate"))
         );
+    }
+
+    private List<DungeonPieceDefinition> packagedRocketPieces() throws Exception {
+        List<DungeonPieceDefinition> pieces = new ArrayList<>();
+        for (String id : List.of(
+            "boss", "corner", "corridor", "dead_end", "encounter_room", "exit",
+            "junction", "room", "stairs_down", "stairs_up", "start", "support",
+            "treasure"
+        )) {
+            pieces.add(DungeonPieceDefinition.parse(resourceJson(
+                "data/cobbleventure/dungeon_pieces/rocket/" + id + ".json"
+            )));
+        }
+        return pieces;
+    }
+
+    private DungeonDefinition packagedDungeon(String name) throws Exception {
+        return DungeonDefinition.parse(resourceJson(
+            "data/cobbleventure/dungeons/generation_1/" + name + ".json"
+        ));
+    }
+
+    private com.google.gson.JsonObject resourceJson(String path) throws Exception {
+        var stream = getClass().getClassLoader().getResourceAsStream(path);
+        assertTrue(stream != null, "Missing test resource: " + path);
+        try (stream; var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+            return JsonParser.parseReader(reader).getAsJsonObject();
+        }
     }
 
     private DungeonDefinition pieceDungeon(

@@ -291,11 +291,19 @@ record DungeonDefinition(
             if (loopChance < 0.0D || loopChance > 1.0D) {
                 throw new IllegalStateException("Invalid dungeon layout loop_chance: " + id);
             }
+            String verticalDirection = configuredLayout.has("vertical_direction")
+                ? enumValue(configuredLayout, "vertical_direction", List.of(
+                    "flat", "ascending", "descending", "mixed"
+                )) : "mixed";
+            IntRange floorChanges = configuredLayout.has("floor_changes")
+                ? integerRange(configuredLayout, "floor_changes", 0, 256)
+                : new IntRange(0, 256);
             layout = new Layout(
                 enumValue(configuredLayout, "mode", List.of(
                     "fixed", "critical_path_branches", "maze", "rooms_and_corridors"
                 )),
-                criticalPath, branchCount, branchDepth, loopChance
+                criticalPath, branchCount, branchDepth, loopChance,
+                verticalDirection, floorChanges
             );
         }
         if ((terrainMode.equals("nbt_pieces") || terrainMode.equals("procedural_cave"))
@@ -555,13 +563,14 @@ record DungeonDefinition(
         for (JsonElement element : requiredArray(support, "healing_stations")) {
             JsonObject station = element.getAsJsonObject();
             String stationId = requiredString(station, "id");
-            BlockPos position = blockPosition(station, "position");
+            BlockPos position = station.has("position")
+                ? blockPosition(station, "position") : null;
             if (!healingStationIds.add(stationId)) {
                 throw new IllegalStateException(
                     "Duplicate dungeon healing station ID: " + id + " -> " + stationId
                 );
             }
-            if (!healingStationPositions.add(position)) {
+            if (position != null && !healingStationPositions.add(position)) {
                 throw new IllegalStateException(
                     "Duplicate dungeon healing station position: " + id + " -> " + position
                 );
@@ -811,7 +820,8 @@ record DungeonDefinition(
         encounters.stream().map(Encounter::position).filter(java.util.Objects::nonNull)
             .forEach(reservedPositions::add);
         for (HealingStation station : healingStations) {
-            if (!reservedPositions.add(station.position())) {
+            if (station.position() != null
+                && !reservedPositions.add(station.position())) {
                 throw new IllegalStateException(
                     "Dungeon healing station overlaps a reserved position: "
                         + id + " -> " + station.id()
@@ -884,10 +894,15 @@ record DungeonDefinition(
             ? blockPosition(completion, "clear_exit_position") : null;
         String clearExitBlock = completion.has("clear_exit_block")
             ? resourceId(completion, "clear_exit_block") : null;
-        if (returnTrigger.equals("clear_exit")
-            && (clearExitPosition == null || clearExitBlock == null)) {
+        if (returnTrigger.equals("clear_exit") && clearExitBlock == null) {
             throw new IllegalStateException(
-                "clear_exit completion requires a position and block: " + id
+                "clear_exit completion requires a block: " + id
+            );
+        }
+        if (returnTrigger.equals("clear_exit") && terrainMode.equals("fixed_template")
+            && clearExitPosition == null) {
+            throw new IllegalStateException(
+                "fixed_template clear_exit completion requires a position: " + id
             );
         }
         if (clearExitPosition != null
@@ -1186,7 +1201,9 @@ record DungeonDefinition(
         IntRange criticalPathRooms,
         IntRange branchCount,
         IntRange branchDepth,
-        double loopChance
+        double loopChance,
+        String verticalDirection,
+        IntRange floorChanges
     ) {}
     record IntRange(int minimum, int maximum) {}
     record Encounter(

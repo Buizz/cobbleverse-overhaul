@@ -155,7 +155,9 @@ record DungeonPieceLayout(
             settings.bounds(), settings.criticalPathMin(), settings.criticalPathMax(),
             settings.branchCountMin(), settings.branchCountMax(),
             settings.branchDepthMin(), settings.branchDepthMax(),
-            settings.loopChance(), 1, settings.layoutMode()
+            settings.loopChance(), 1, settings.layoutMode(),
+            settings.verticalDirection(), settings.floorChangesMin(),
+            settings.floorChangesMax()
         );
     }
 
@@ -238,7 +240,10 @@ record DungeonPieceLayout(
             safeFallback ? 0.0D : layout.loopChance(),
             safeFallback ? Math.max(64, definition.plan().maxAttempts())
                 : definition.plan().maxAttempts(),
-            safeFallback ? "critical_path_branches" : layout.mode()
+            safeFallback ? "critical_path_branches" : layout.mode(),
+            safeFallback ? "mixed" : layout.verticalDirection(),
+            safeFallback ? 0 : layout.floorChanges().minimum(),
+            safeFallback ? 256 : layout.floorChanges().maximum()
         );
     }
 

@@ -24,22 +24,33 @@
   },
   "match": { "required_players": 2, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "keep_waiting", "stay_radius": 8 },
   "battle": { "allow_flee": false, "allow_capture": true, "allow_items": true, "allow_escape_actions": false },
+  "plan": {
+    "mode": "runtime", "seed_policy": "random_per_run",
+    "fallback": "use_fallback_plan", "generation_timeout_ms": 1500,
+    "max_attempts": 128
+  },
   "terrain": {
-    "mode": "fixed_template", "template": "cobbleventure:dungeon/casino_hideout",
-    "entry_position": [24, 17, 4], "exit_position": [24, 17, 2]
+    "mode": "nbt_pieces",
+    "piece_pool": "cobbleventure:dungeon_pool/rocket_test",
+    "bounds": [128, 48, 128]
+  },
+  "layout": {
+    "mode": "rooms_and_corridors", "critical_path_rooms": [12, 16],
+    "branch_count": [4, 7], "branch_depth": [2, 4], "loop_chance": 0.1,
+    "vertical_direction": "descending", "floor_changes": [2, 5]
   },
   "encounters": [
     {
       "id": "basement_guard", "display_name": { "ko_kr": "지하 창고 경비", "en_us": "Basement Guard" },
       "npcs": ["cobbleventure:npc/rocket_casino_guard", "cobbleventure:npc/rocket_casino_admin"],
       "opponents": ["cobbleventure:battle/rocket_power_plant_grunt", "cobbleventure:battle/rocket_power_plant_officer"],
-      "requires": [], "position": [34, 9, 24], "yaw": -90, "boss": false
+      "requires": [], "yaw": -90, "boss": false
     },
     {
       "id": "hideout_admin", "display_name": { "ko_kr": "지하기지 관리자", "en_us": "Hideout Administrator" },
       "npcs": ["cobbleventure:npc/rocket_casino_admin", "cobbleventure:npc/rocket_casino_guard"],
       "opponents": ["cobbleventure:battle/rocket_power_plant_officer", "cobbleventure:battle/rocket_power_plant_grunt"],
-      "requires": ["basement_guard"], "position": [24, 1, 38], "yaw": 180, "boss": true
+      "requires": ["basement_guard"], "yaw": 180, "boss": true
     }
   ],
   "random_encounters": {
@@ -52,7 +63,7 @@
   "loot": {
     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
     "ownership": "per_player", "on_failure": "grant_on_clear_only",
-    "containers": [{ "id": "hideout_vault", "position": [38, 1, 38], "block": "chest", "facing": "west", "requires_completion": true }]
+    "containers": [{ "id": "hideout_vault", "block": "chest", "facing": "west", "requires_completion": true }]
   },
   "rewards": {
     "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
@@ -62,6 +73,6 @@
   "completion": {
     "victory_flag": "cobbleventure:flag/dungeon/rocket_casino_hideout/boss_defeated",
     "repeatable": true, "return_trigger": "clear_exit",
-    "clear_exit_position": [24, 1, 42], "clear_exit_block": "minecraft:lodestone"
+    "clear_exit_block": "minecraft:lodestone"
   }
 }

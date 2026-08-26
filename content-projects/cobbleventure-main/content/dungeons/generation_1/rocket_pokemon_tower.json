@@ -12,9 +12,9 @@
   "multiplayer": { "mode": "solo", "min_size": 1, "max_size": 1 },
   "match": { "required_players": 1, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "cancel", "stay_radius": 8 },
   "battle": { "allow_flee": false, "allow_capture": true, "allow_items": false, "allow_escape_actions": false },
-  "plan": { "mode": "authored", "plan_ids": ["cobbleventure:dungeon_plan/rocket_pokemon_tower_test"], "seed_policy": "fixed", "fallback": "reject_entry", "generation_timeout_ms": 1000, "max_attempts": 32 },
+  "plan": { "mode": "runtime", "seed_policy": "random_per_run", "fallback": "use_fallback_plan", "generation_timeout_ms": 1250, "max_attempts": 128 },
   "terrain": { "mode": "nbt_pieces", "piece_pool": "cobbleventure:dungeon_pool/rocket_test", "bounds": [112, 24, 48] },
-  "layout": { "mode": "fixed", "critical_path_rooms": [6, 6], "branch_count": [1, 1], "branch_depth": [1, 1], "loop_chance": 0.0 },
+  "layout": { "mode": "critical_path_branches", "critical_path_rooms": [8, 11], "branch_count": [2, 4], "branch_depth": [1, 2], "loop_chance": 0.08, "vertical_direction": "ascending", "floor_changes": [1, 2] },
   "encounters": [
     {
       "id": "encounter_1", "display_name": { "ko_kr": "추모층 로켓단", "en_us": "Memorial Floor Guard" },
@@ -52,5 +52,5 @@
   "loot": { "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies", "ownership": "per_player", "on_failure": "keep_collected", "containers": [{ "id": "loot_1", "block": "barrel", "facing": "north", "requires_completion": false }] },
   "rewards": { "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear", "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear", "first_clear_field_moves": [] },
   "lifecycle": { "on_wipe": "reset_run", "wipe_return": "pokemon_center", "heal_on_wipe": true, "reconnect_grace_seconds": 120 },
-  "completion": { "victory_flag": "cobbleventure:flag/dungeon/rocket_pokemon_tower/boss_defeated", "repeatable": true, "return_trigger": "clear_exit", "clear_exit_position": [89, 6, 9], "clear_exit_block": "minecraft:lodestone" }
+  "completion": { "victory_flag": "cobbleventure:flag/dungeon/rocket_pokemon_tower/boss_defeated", "repeatable": true, "return_trigger": "clear_exit", "clear_exit_block": "minecraft:lodestone" }
 }

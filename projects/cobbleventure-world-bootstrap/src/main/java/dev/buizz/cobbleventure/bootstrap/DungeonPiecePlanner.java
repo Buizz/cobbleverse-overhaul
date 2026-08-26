@@ -43,6 +43,7 @@ final class DungeonPiecePlanner {
             if (!extendCritical(
                 state, pieces, settings, random, targetRooms, 1
             )) continue;
+            if (!verticalProfileSatisfied(state, settings)) continue;
             int targetBranches = randomRange(
                 random, settings.branchCountMin(), settings.branchCountMax()
             );
@@ -119,6 +120,9 @@ final class DungeonPiecePlanner {
                         : shuffled(piece.connectors(), random)) {
                         Attachment attachment = attachment(current, from, piece, to, rotation, true);
                         if (attachment == null
+                            || !verticalDirectionAllows(
+                                current, attachment.placed(), settings.verticalDirection()
+                            )
                             || !inside(attachment.placed().box(), settings.bounds())
                             || overlapsAny(attachment.placed().box(), state.placements)) {
                             continue;
@@ -368,6 +372,32 @@ final class DungeonPiecePlanner {
         return value ^ (value >>> 31);
     }
 
+    private static boolean verticalDirectionAllows(
+        Placed current, Placed next, String direction
+    ) {
+        int delta = next.origin().getY() - current.origin().getY();
+        return switch (direction) {
+            case "flat" -> delta == 0;
+            case "ascending" -> delta >= 0;
+            case "descending" -> delta <= 0;
+            default -> true;
+        };
+    }
+
+    private static boolean verticalProfileSatisfied(State state, Settings settings) {
+        int changes = 0;
+        Placed previous = null;
+        for (Placed placed : state.placements) {
+            if (!placed.critical()) continue;
+            if (previous != null && previous.origin().getY() != placed.origin().getY()) {
+                changes++;
+            }
+            previous = placed;
+        }
+        return changes >= settings.floorChangesMin()
+            && changes <= settings.floorChangesMax();
+    }
+
     private static void requireRoles(List<DungeonPieceDefinition> pieces) {
         for (String role : List.of("start", "boss", "exit")) {
             if (pieces.stream().noneMatch(piece -> piece.role().equals(role))) {
@@ -386,7 +416,10 @@ final class DungeonPiecePlanner {
         int branchDepthMax,
         double loopChance,
         int maxAttempts,
-        String layoutMode
+        String layoutMode,
+        String verticalDirection,
+        int floorChangesMin,
+        int floorChangesMax
     ) {
         Settings(
             BlockPos bounds, int criticalPathMin, int criticalPathMax,
@@ -397,7 +430,20 @@ final class DungeonPiecePlanner {
             this(
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
-                loopChance, maxAttempts, "critical_path_branches"
+                loopChance, maxAttempts, "critical_path_branches", "mixed", 0, 256
+            );
+        }
+
+        Settings(
+            BlockPos bounds, int criticalPathMin, int criticalPathMax,
+            int branchCountMin, int branchCountMax,
+            int branchDepthMin, int branchDepthMax,
+            double loopChance, int maxAttempts, String layoutMode
+        ) {
+            this(
+                bounds, criticalPathMin, criticalPathMax,
+                branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
+                loopChance, maxAttempts, layoutMode, "mixed", 0, 256
             );
         }
 
@@ -408,6 +454,10 @@ final class DungeonPiecePlanner {
                 || branchDepthMin < 1 || branchDepthMin > branchDepthMax
                 || loopChance < 0.0D || loopChance > 1.0D
                 || maxAttempts < 1 || maxAttempts > 1000
+                || !Set.of("flat", "ascending", "descending", "mixed")
+                    .contains(verticalDirection)
+                || floorChangesMin < 0 || floorChangesMin > floorChangesMax
+                || floorChangesMax > 256
                 || !Set.of(
                     "critical_path_branches", "maze", "rooms_and_corridors"
                 ).contains(layoutMode)) {

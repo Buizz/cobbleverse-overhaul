@@ -70,9 +70,11 @@ final class DungeonAuthoredPlanDefinitionTest {
         var authored = DungeonAuthoredPlanDefinition.parse(resourceJson(
             "data/cobbleventure/dungeon_plans/generation_1/rocket_pokemon_tower_test.json"
         ));
-        var dungeon = DungeonDefinition.parse(resourceJson(
+        var authoredRoot = resourceJson(
             "data/cobbleventure/dungeons/generation_1/rocket_pokemon_tower.json"
-        ));
+        );
+        useAuthoredTowerPlan(authoredRoot);
+        var dungeon = DungeonDefinition.parse(authoredRoot);
 
         DungeonPieceLayout layout = DungeonPieceLayout.generate(
             dungeon, pieces.values(), Map.of(authored.id(), authored), 421L
@@ -115,6 +117,7 @@ final class DungeonAuthoredPlanDefinitionTest {
         var root = resourceJson(
             "data/cobbleventure/dungeons/generation_1/rocket_pokemon_tower.json"
         );
+        useAuthoredTowerPlan(root);
         root.getAsJsonArray("gates").get(0).getAsJsonObject()
             .add("requires", JsonParser.parseString("[\"boss_1\"]"));
         DungeonDefinition dungeon = DungeonDefinition.parse(root);
@@ -126,6 +129,19 @@ final class DungeonAuthoredPlanDefinitionTest {
         );
 
         assertTrue(error.getMessage().contains("behind the gate"));
+    }
+
+    private static void useAuthoredTowerPlan(com.google.gson.JsonObject root) {
+        root.add("plan", JsonParser.parseString("""
+            {"mode":"authored",
+             "plan_ids":["cobbleventure:dungeon_plan/rocket_pokemon_tower_test"],
+             "seed_policy":"fixed","fallback":"reject_entry",
+             "generation_timeout_ms":1000,"max_attempts":32}
+            """).getAsJsonObject());
+        root.add("layout", JsonParser.parseString("""
+            {"mode":"fixed","critical_path_rooms":[6,6],
+             "branch_count":[1,1],"branch_depth":[1,1],"loop_chance":0}
+            """).getAsJsonObject());
     }
 
     @Test

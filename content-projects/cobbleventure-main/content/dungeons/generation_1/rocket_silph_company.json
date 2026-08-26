@@ -16,24 +16,26 @@
   "multiplayer": { "mode": "independent", "min_size": 2, "max_size": 2, "battle_join": "initiator_only" },
   "match": { "required_players": 2, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "keep_waiting", "stay_radius": 8 },
   "battle": { "allow_flee": false, "allow_capture": true, "allow_items": true, "allow_escape_actions": false },
-  "terrain": { "mode": "fixed_template", "template": "cobbleventure:dungeon/silph_company", "entry_position": [12, 1, 3], "exit_position": [12, 1, 1] },
+  "plan": { "mode": "runtime", "seed_policy": "random_per_run", "fallback": "use_fallback_plan", "generation_timeout_ms": 1500, "max_attempts": 160 },
+  "terrain": { "mode": "nbt_pieces", "piece_pool": "cobbleventure:dungeon_pool/rocket_test", "bounds": [80, 72, 80] },
+  "layout": { "mode": "rooms_and_corridors", "critical_path_rooms": [12, 15], "branch_count": [2, 4], "branch_depth": [1, 2], "loop_chance": 0.05, "vertical_direction": "ascending", "floor_changes": [4, 7] },
   "encounters": [
     {
       "id": "office_guard", "display_name": { "ko_kr": "중층 사무실 경비", "en_us": "Office Guard" },
       "npcs": ["cobbleventure:npc/rocket_silph_guard"], "opponents": ["cobbleventure:battle/rocket_power_plant_grunt"],
-      "requires": [], "position": [12, 15, 12], "yaw": 180, "boss": false
+      "requires": [], "yaw": 180, "boss": false
     },
     {
       "id": "executive_floor_admin", "display_name": { "ko_kr": "최상층 로켓단 간부", "en_us": "Executive Floor Admin" },
       "npcs": ["cobbleventure:npc/rocket_silph_admin"], "opponents": ["cobbleventure:battle/rocket_power_plant_officer"],
-      "requires": ["office_guard"], "position": [12, 36, 18], "yaw": 180, "boss": true
+      "requires": ["office_guard"], "yaw": 180, "boss": true
     }
   ],
   "random_encounters": { "enabled": false, "minimum_distance": 6, "maximum_distance": 12, "max_active": 1, "spawn_interval_ticks": 100, "spawn_bounds": { "min": [2, 1, 2], "max": [21, 36, 21] }, "additions": [] },
-  "support": { "healing_stations": [{ "id": "mid_floor_station", "position": [4, 22, 4], "block": "minecraft:lodestone", "uses_per_run": 1, "restore_hp": true, "restore_status": true, "restore_pp": true }] },
+  "support": { "healing_stations": [{ "id": "mid_floor_station", "block": "minecraft:lodestone", "uses_per_run": 1, "restore_hp": true, "restore_status": true, "restore_pp": true }] },
   "gates": [],
-  "loot": { "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies", "ownership": "per_player", "on_failure": "grant_on_clear_only", "containers": [{ "id": "executive_safe", "position": [18, 36, 18], "block": "chest", "facing": "west", "requires_completion": true }] },
+  "loot": { "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies", "ownership": "per_player", "on_failure": "grant_on_clear_only", "containers": [{ "id": "executive_safe", "block": "chest", "facing": "west", "requires_completion": true }] },
   "rewards": { "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear", "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear", "first_clear_field_moves": [] },
   "lifecycle": { "on_wipe": "reset_run", "wipe_return": "source_entrance", "heal_on_wipe": true, "reconnect_grace_seconds": 120 },
-  "completion": { "victory_flag": "cobbleventure:flag/dungeon/rocket_silph_company/boss_defeated", "repeatable": true, "return_trigger": "clear_exit", "clear_exit_position": [12, 36, 20], "clear_exit_block": "minecraft:lodestone" }
+  "completion": { "victory_flag": "cobbleventure:flag/dungeon/rocket_silph_company/boss_defeated", "repeatable": true, "return_trigger": "clear_exit", "clear_exit_block": "minecraft:lodestone" }
 }

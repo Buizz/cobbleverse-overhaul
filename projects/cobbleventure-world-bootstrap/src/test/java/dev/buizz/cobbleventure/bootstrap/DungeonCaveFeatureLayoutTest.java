@@ -49,6 +49,9 @@ final class DungeonCaveFeatureLayoutTest {
         assertTrue(cave.branchRoomPositions().stream().anyMatch(
             room -> horizontalDistance(room, trace) <= 3
         ));
+        assertTrue(first.containsKey(new DungeonPieceLayout.MarkerKey(
+            "objective", "clear_exit"
+        )));
         assertEquals(first.size(), new HashSet<>(first.values()).size());
     }
 
@@ -82,6 +85,7 @@ final class DungeonCaveFeatureLayoutTest {
         root.getAsJsonObject("loot").getAsJsonArray("containers").forEach(
             element -> element.getAsJsonObject().remove("position")
         );
+        root.getAsJsonObject("completion").remove("clear_exit_position");
         root.add("objectives", JsonParser.parseString("""
             [{"id":"legendary_trace","kind":"investigate","placement":"marker",
               "block":"minecraft:lodestone","activation_radius":3}]

@@ -199,6 +199,11 @@
         "critical_path_rooms": { "$ref": "#/$defs/room_range" },
         "branch_count": { "$ref": "#/$defs/nonnegative_range" },
         "branch_depth": { "$ref": "#/$defs/positive_range" },
+        "vertical_direction": {
+          "enum": ["flat", "ascending", "descending", "mixed"],
+          "default": "mixed"
+        },
+        "floor_changes": { "$ref": "#/$defs/nonnegative_range" },
         "loop_chance": {
           "type": "number", "minimum": 0, "maximum": 1, "default": 0
         }
@@ -332,7 +337,7 @@
           "required": ["return_trigger"]
         },
         "then": {
-          "required": ["clear_exit_position", "clear_exit_block"]
+          "required": ["clear_exit_block"]
         }
       }]
     }
@@ -599,7 +604,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "id", "position", "block", "uses_per_run",
+        "id", "block", "uses_per_run",
         "restore_hp", "restore_status", "restore_pp"
       ],
       "properties": {

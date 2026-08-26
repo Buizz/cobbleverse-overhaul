@@ -127,7 +127,7 @@ final class DungeonDefinitionTest {
     @Test
     void allowsAuthoredNbtPlansAtEntryButKeepsCavesRuntimeOnly() throws Exception {
         DungeonDefinition tower = resource("rocket_pokemon_tower");
-        assertEquals("authored", tower.plan().mode());
+        assertEquals("runtime", tower.plan().mode());
         assertEquals(null, DungeonSystem.terrainEntryProblem(tower));
 
         JsonObject caveRoot = resourceObject("rocket_power_plant");
@@ -173,10 +173,10 @@ final class DungeonDefinitionTest {
     void parsesEveryLevelOneTestDungeonResource() throws Exception {
         Map<String, String> resources = Map.of(
             "rocket_power_plant", "fixed_template",
-            "rocket_casino_hideout", "fixed_template",
-            "rocket_silph_company", "fixed_template",
+            "rocket_casino_hideout", "nbt_pieces",
+            "rocket_silph_company", "nbt_pieces",
             "rocket_pokemon_tower", "nbt_pieces",
-            "zapdos_storm_chamber", "fixed_template"
+            "zapdos_storm_chamber", "procedural_cave"
         );
         for (Map.Entry<String, String> resource : resources.entrySet()) {
             String name = resource.getKey();
@@ -210,6 +210,9 @@ final class DungeonDefinitionTest {
         assertEquals("independent", silph.multiplayer().mode());
         assertEquals(2, silph.match().requiredPlayers());
         assertEquals("initiator_only", silph.multiplayer().battleJoin());
+        assertEquals("descending", casino.layout().verticalDirection());
+        assertEquals("ascending", silph.layout().verticalDirection());
+        assertEquals("procedural_cave", zapdos.terrain().mode());
         assertEquals("wild_pokemon", zapdos.encounters().getFirst().kind());
         assertEquals("cobblemon:zapdos", zapdos.encounters().getFirst().pokemon().species());
         assertEquals(1, zapdos.encounters().getFirst().pokemon().level());

@@ -73,6 +73,25 @@ final class DungeonCaveFeatureLayout {
                 mainSlots, definition.id()
             );
         }
+        for (DungeonDefinition.HealingStation station
+            : definition.support().healingStations()) {
+            if (station.position() != null) continue;
+            put(
+                assigned, used, "healing_station", station.id(), branchSlots,
+                mainSlots, definition.id()
+            );
+        }
+        if (definition.completion().returnTrigger().equals("clear_exit")
+            && definition.completion().clearExitPosition() == null) {
+            List<BlockPos> exitSlots = new ArrayList<>();
+            for (int index = mainRooms.size() - 1; index >= 0; index--) {
+                exitSlots.addAll(slots(List.of(mainRooms.get(index))));
+            }
+            put(
+                assigned, used, "objective", "clear_exit", exitSlots,
+                mainSlots, definition.id()
+            );
+        }
         return Map.copyOf(assigned);
     }
 
