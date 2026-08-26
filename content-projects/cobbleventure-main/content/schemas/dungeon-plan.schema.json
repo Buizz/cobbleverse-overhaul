@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.dev/schemas/dungeon-plan.schema.json",
+  "title": "Cobbleventure Authored Dungeon Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_id", "bounds", "placements", "links"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "plan_id": { "$ref": "#/$defs/resource_id" },
+    "seed": { "type": "integer", "default": 0 },
+    "bounds": { "$ref": "#/$defs/positive_position" },
+    "placements": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "$ref": "#/$defs/placement" }
+    },
+    "links": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/link" }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$"
+    },
+    "position": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer" }, { "type": "integer" }, { "type": "integer" }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "positive_position": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "integer", "minimum": 1 },
+        { "type": "integer", "minimum": 1 }
+      ],
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["piece_id", "origin", "rotation", "critical_path"],
+      "properties": {
+        "piece_id": { "$ref": "#/$defs/resource_id" },
+        "origin": { "$ref": "#/$defs/position" },
+        "rotation": {
+          "enum": [
+            "none", "clockwise_90", "clockwise_180", "counterclockwise_90"
+          ]
+        },
+        "critical_path": { "type": "boolean" }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_index", "from_connector", "to_index", "to_connector", "critical_path"
+      ],
+      "properties": {
+        "from_index": { "type": "integer", "minimum": 0 },
+        "from_connector": { "$ref": "#/$defs/identifier" },
+        "to_index": { "type": "integer", "minimum": 0 },
+        "to_connector": { "$ref": "#/$defs/identifier" },
+        "critical_path": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -37,7 +37,7 @@ final class DungeonPiecePlannerTest {
         );
 
         DungeonPieceLayout recovered = DungeonPieceLayout.generate(
-            pieceDungeon("use_last_valid", 3, 3, 128, 1, 20), testPieces(), 92L
+            pieceDungeon("use_last_valid", 3, 3, 128, 1, 80), testPieces(), 92L
         );
 
         assertEquals(valid, recovered);

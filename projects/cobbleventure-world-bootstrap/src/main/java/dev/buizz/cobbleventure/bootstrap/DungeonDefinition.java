@@ -256,9 +256,19 @@ record DungeonDefinition(
                 generationTimeoutMs,
                 maxAttempts
             );
+            if (plan.mode().equals("authored") && plan.planIds().size() != 1) {
+                throw new IllegalStateException(
+                    "authored dungeon requires exactly one plan.plan_ids entry: " + id
+                );
+            }
             if (plan.mode().equals("authored_pool") && plan.planIds().isEmpty()) {
                 throw new IllegalStateException(
                     "authored_pool dungeon requires plan.plan_ids: " + id
+                );
+            }
+            if (plan.mode().equals("runtime") && !plan.planIds().isEmpty()) {
+                throw new IllegalStateException(
+                    "runtime dungeon cannot declare plan.plan_ids: " + id
                 );
             }
         }

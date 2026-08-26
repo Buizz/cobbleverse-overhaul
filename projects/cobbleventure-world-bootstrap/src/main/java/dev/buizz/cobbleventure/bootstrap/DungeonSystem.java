@@ -97,6 +97,7 @@ final class DungeonSystem {
     private static final double EXIT_RADIUS_SQUARED = 2.25D;
     private static volatile Map<String, DungeonDefinition> definitions = Map.of();
     private static volatile Map<String, DungeonPieceDefinition> pieceDefinitions = Map.of();
+    private static volatile Map<String, DungeonAuthoredPlanDefinition> authoredPlans = Map.of();
     private static volatile Map<String, DungeonEntranceRef> entrances = Map.of();
     private static volatile Map<String, StructureAnchor> structureAnchors = Map.of();
     private static final Map<String, PlacedEntrance> ACTIVE_ENTRANCES = new HashMap<>();
@@ -143,6 +144,11 @@ final class DungeonSystem {
         );
         Map<String, DungeonPieceDefinition> loadedPieces = DungeonPieceDefinition.loadAll(
             server.getResourceManager()
+        );
+        Map<String, DungeonAuthoredPlanDefinition> loadedPlans =
+            DungeonAuthoredPlanDefinition.loadAll(server.getResourceManager());
+        DungeonPieceLayout.validateAuthoredDefinitions(
+            loaded.values(), loadedPieces.values(), loadedPlans
         );
         Map<String, DungeonEntranceRef> byEntrance = new LinkedHashMap<>();
         for (DungeonDefinition definition : loaded.values()) {
@@ -195,6 +201,7 @@ final class DungeonSystem {
         }
         definitions = loaded;
         pieceDefinitions = loadedPieces;
+        authoredPlans = loadedPlans;
         DungeonPieceLayout.clearCache();
         entrances = Map.copyOf(byEntrance);
         structureAnchors = Map.copyOf(anchors);
@@ -926,7 +933,7 @@ final class DungeonSystem {
         long seed = dungeonPlanSeed(level, definition, origin, playerId);
         long startedAt = System.nanoTime();
         DungeonPieceLayout layout = DungeonPieceLayout.generate(
-            definition, pieceDefinitions.values(), seed
+            definition, pieceDefinitions.values(), authoredPlans, seed
         );
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
         if (elapsedMs > definition.plan().generationTimeoutMs()) {

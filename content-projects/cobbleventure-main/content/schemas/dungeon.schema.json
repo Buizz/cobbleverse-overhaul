@@ -138,13 +138,25 @@
           "type": "integer", "minimum": 1, "maximum": 1000, "default": 32
         }
       },
-      "allOf": [{
-        "if": {
-          "properties": { "mode": { "const": "authored_pool" } },
-          "required": ["mode"]
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "const": "authored" } },
+            "required": ["mode"]
+          },
+          "then": {
+            "required": ["plan_ids"],
+            "properties": { "plan_ids": { "minItems": 1, "maxItems": 1 } }
+          }
         },
-        "then": { "required": ["plan_ids"] }
-      }]
+        {
+          "if": {
+            "properties": { "mode": { "const": "authored_pool" } },
+            "required": ["mode"]
+          },
+          "then": { "required": ["plan_ids"] }
+        }
+      ]
     },
     "terrain": {
       "type": "object",
