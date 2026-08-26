@@ -528,6 +528,28 @@ record DungeonDefinition(
                 restorePp
             ));
         }
+        List<Checkpoint> checkpoints = new ArrayList<>();
+        Set<String> checkpointIds = new HashSet<>();
+        for (JsonElement element : support.has("checkpoints")
+            ? support.getAsJsonArray("checkpoints") : List.<JsonElement>of()) {
+            JsonObject checkpoint = element.getAsJsonObject();
+            String checkpointId = requiredString(checkpoint, "id");
+            if (!checkpointIds.add(checkpointId)) {
+                throw new IllegalStateException(
+                    "Duplicate dungeon checkpoint ID: " + id + " -> " + checkpointId
+                );
+            }
+            int activationRadius = checkpoint.has("activation_radius")
+                ? requiredInt(checkpoint, "activation_radius") : 2;
+            if (activationRadius < 1 || activationRadius > 8) {
+                throw new IllegalStateException(
+                    "Invalid dungeon checkpoint activation_radius: " + id
+                );
+            }
+            checkpoints.add(new Checkpoint(
+                checkpointId, blockPosition(checkpoint, "position"), activationRadius
+            ));
+        }
         List<Gate> gates = new ArrayList<>();
         Set<String> gateIds = new HashSet<>();
         for (JsonElement element : requiredArray(root, "gates")) {
@@ -651,10 +673,20 @@ record DungeonDefinition(
         String repeatTable = rewards.has("repeat_table")
             ? resourceId(rewards, "repeat_table") : null;
         JsonObject lifecycle = requiredObject(root, "lifecycle");
+        String resumeMode = lifecycle.has("resume_mode")
+            ? enumValue(lifecycle, "resume_mode", List.of(
+                "full_reset", "checkpoint", "keep_until_timeout"
+            ))
+            : "keep_until_timeout";
         int reconnectGraceSeconds = requiredInt(lifecycle, "reconnect_grace_seconds");
         if (reconnectGraceSeconds < 0 || reconnectGraceSeconds > 3600) {
             throw new IllegalStateException(
                 "Invalid dungeon reconnect_grace_seconds: " + reconnectGraceSeconds
+            );
+        }
+        if (resumeMode.equals("checkpoint") && checkpoints.isEmpty()) {
+            throw new IllegalStateException(
+                "checkpoint resume mode requires support.checkpoints: " + id
             );
         }
         JsonObject completion = requiredObject(root, "completion");
@@ -743,7 +775,7 @@ record DungeonDefinition(
                 maximumPosition,
                 List.copyOf(wildSpecies)
             ),
-            new Support(List.copyOf(healingStations)),
+            new Support(List.copyOf(healingStations), List.copyOf(checkpoints)),
             List.copyOf(gates),
             new Loot(
                 resourceId(loot, "loot_table"), lootOwnership, lootOnFailure,
@@ -760,6 +792,7 @@ record DungeonDefinition(
                     "source_entrance", "pokemon_center"
                 )),
                 requiredBoolean(lifecycle, "heal_on_wipe"),
+                resumeMode,
                 reconnectGraceSeconds
             ),
             new Completion(
@@ -982,7 +1015,10 @@ record DungeonDefinition(
         int weight,
         boolean spawnAsEvolved
     ) {}
-    record Support(List<HealingStation> healingStations) {}
+    record Support(
+        List<HealingStation> healingStations,
+        List<Checkpoint> checkpoints
+    ) {}
     record Gate(
         String id,
         BlockPos minimum,
@@ -999,6 +1035,7 @@ record DungeonDefinition(
         boolean restoreStatus,
         boolean restorePp
     ) {}
+    record Checkpoint(String id, BlockPos position, int activationRadius) {}
     record Loot(
         String lootTable,
         String ownership,
@@ -1022,6 +1059,7 @@ record DungeonDefinition(
         String onWipe,
         String wipeReturn,
         boolean healOnWipe,
+        String resumeMode,
         int reconnectGraceSeconds
     ) {}
     record Completion(

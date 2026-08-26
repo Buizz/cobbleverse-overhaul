@@ -283,6 +283,9 @@ final class DungeonSystem {
             if (run != null && expirePendingEncounter(run, gameTime)) {
                 return;
             }
+            if (run != null) {
+                activateCheckpoint(player, run);
+            }
             boolean completed = run != null && completionReached(player, run);
             if (completed) {
                 DungeonDefinition definition = definitions.get(run.dungeonId());
@@ -727,6 +730,7 @@ final class DungeonSystem {
         Map<UUID, EncounterEntityRef> encounterByEntity;
         Map<String, BlockPos> lootPositions;
         Map<String, BlockPos> healingPositions;
+        Map<String, CheckpointPosition> checkpointPositions;
         try {
             terrain = prepareTerrain(
                 dungeonLevel, definition, origin, first.player().getUUID()
@@ -739,6 +743,9 @@ final class DungeonSystem {
             );
             lootPositions = placeLootContainers(
                 dungeonLevel, definition, origin, terrain
+            );
+            checkpointPositions = resolveCheckpointPositions(
+                definition, origin, terrain
             );
             encounterByEntity = spawnEncounters(
                 dungeonLevel, definition, origin, terrain
@@ -775,7 +782,7 @@ final class DungeonSystem {
             new HashMap<>(),
             new EncounterRuntime(encounterByEntity, definition.encounters()),
             new DungeonLootClaims(), new DungeonLootLedger(), lootPositions,
-            healingPositions, new HashMap<>(),
+            healingPositions, checkpointPositions, new HashMap<>(), new HashMap<>(),
             new HashSet<>(), new HashMap<>()
         );
         entries.forEach(matched -> ACTIVE_RUNS.put(matched.player().getUUID(), run));
@@ -1039,6 +1046,54 @@ final class DungeonSystem {
         return terrain.markers().getOrDefault(
             new DungeonPieceLayout.MarkerKey(kind, reference), fallback
         );
+    }
+
+    private static Map<String, CheckpointPosition> resolveCheckpointPositions(
+        DungeonDefinition definition,
+        BlockPos origin,
+        PreparedTerrain terrain
+    ) {
+        Map<String, CheckpointPosition> positions = new HashMap<>();
+        for (DungeonDefinition.Checkpoint checkpoint : definition.support().checkpoints()) {
+            BlockPos relative = featurePosition(
+                terrain, "checkpoint", checkpoint.id(), checkpoint.position()
+            );
+            if (relative.getX() < 0 || relative.getY() < 0 || relative.getZ() < 0
+                || relative.getX() >= terrain.size().getX()
+                || relative.getY() >= terrain.size().getY()
+                || relative.getZ() >= terrain.size().getZ()) {
+                throw new IllegalStateException(
+                    "Dungeon checkpoint exceeds the terrain: " + checkpoint.id()
+                );
+            }
+            positions.put(
+                checkpoint.id(),
+                new CheckpointPosition(
+                    origin.offset(relative), checkpoint.activationRadius()
+                )
+            );
+        }
+        return Map.copyOf(positions);
+    }
+
+    private static void activateCheckpoint(ServerPlayer player, ActiveRun run) {
+        for (Map.Entry<String, CheckpointPosition> entry
+            : run.checkpointPositions().entrySet()) {
+            CheckpointPosition checkpoint = entry.getValue();
+            if (distanceSquared(player.position(), checkpoint.position())
+                > checkpoint.activationRadius() * checkpoint.activationRadius()) {
+                continue;
+            }
+            BlockPos previous = run.activeCheckpoints().put(
+                player.getUUID(), checkpoint.position()
+            );
+            if (!checkpoint.position().equals(previous)) {
+                player.sendSystemMessage(Component.literal(
+                    "[던전] 체크포인트를 활성화했습니다: " + entry.getKey()
+                ));
+            }
+            return;
+        }
     }
 
     private static Map<UUID, EncounterEntityRef> spawnEncounters(
@@ -2412,16 +2467,23 @@ final class DungeonSystem {
         ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
         if (run != null) {
             DungeonDefinition definition = definitions.get(run.dungeonId());
+            String resumeMode = definition == null
+                ? "full_reset" : definition.lifecycle().resumeMode();
             int graceSeconds = definition == null
                 ? 0 : definition.lifecycle().reconnectGraceSeconds();
-            if (graceSeconds <= 0
+            if (resumeMode.equals("full_reset") || graceSeconds <= 0
                 || BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
                 failRun(run, "참가자의 연결이 끊겨 던전 도전이 종료되었습니다.", false);
             } else {
                 long deadline = player.getServer().overworld().getGameTime()
                     + graceSeconds * 20L;
+                Vec3 resumePosition = resumeMode.equals("checkpoint")
+                    ? Vec3.atBottomCenterOf(run.activeCheckpoints().getOrDefault(
+                        player.getUUID(), run.entry()
+                    ))
+                    : player.position();
                 run.reconnecting().put(player.getUUID(), new ReconnectState(
-                    player.position(), player.getYRot(), player.getXRot(), deadline
+                    resumePosition, player.getYRot(), player.getXRot(), deadline
                 ));
                 for (UUID participantId : run.participantIds()) {
                     if (participantId.equals(player.getUUID())) continue;
@@ -2731,6 +2793,8 @@ final class DungeonSystem {
         Map<DungeonPieceLayout.MarkerKey, BlockPos> markers
     ) {}
 
+    private record CheckpointPosition(BlockPos position, int activationRadius) {}
+
     private record ActiveRun(
         MinecraftServer server,
         String dungeonId,
@@ -2750,6 +2814,8 @@ final class DungeonSystem {
         DungeonLootLedger lootLedger,
         Map<String, BlockPos> lootPositions,
         Map<String, BlockPos> healingPositions,
+        Map<String, CheckpointPosition> checkpointPositions,
+        Map<UUID, BlockPos> activeCheckpoints,
         Map<UUID, ReconnectState> reconnecting,
         Set<String> openedGates,
         Map<UUID, Long> objectiveMessageAfter

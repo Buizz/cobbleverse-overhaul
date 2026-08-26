@@ -95,6 +95,25 @@ final class DungeonDefinitionTest {
     }
 
     @Test
+    void parsesCheckpointResumePolicyAndRejectsMissingCheckpoint() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        root.getAsJsonObject("support").add("checkpoints", JsonParser.parseString("""
+            [{"id":"control_room","position":[24,1,32],"activation_radius":3}]
+            """));
+        root.getAsJsonObject("lifecycle").addProperty("resume_mode", "checkpoint");
+
+        DungeonDefinition definition = DungeonDefinition.parse(root);
+
+        assertEquals("checkpoint", definition.lifecycle().resumeMode());
+        assertEquals("control_room", definition.support().checkpoints().getFirst().id());
+        assertEquals(3, definition.support().checkpoints().getFirst().activationRadius());
+
+        JsonObject invalid = resourceObject("rocket_power_plant");
+        invalid.getAsJsonObject("lifecycle").addProperty("resume_mode", "checkpoint");
+        assertThrows(IllegalStateException.class, () -> DungeonDefinition.parse(invalid));
+    }
+
+    @Test
     void parsesEveryLevelOneTestDungeonResource() throws Exception {
         List<String> resources = List.of(
             "rocket_power_plant",

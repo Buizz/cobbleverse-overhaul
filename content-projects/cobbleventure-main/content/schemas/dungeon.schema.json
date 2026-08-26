@@ -233,6 +233,11 @@
         "healing_stations": {
           "type": "array",
           "items": { "$ref": "#/$defs/healing_station" }
+        },
+        "checkpoints": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/checkpoint" }
         }
       }
     },
@@ -281,6 +286,10 @@
         "on_wipe": { "const": "reset_run" },
         "wipe_return": { "enum": ["source_entrance", "pokemon_center"] },
         "heal_on_wipe": { "type": "boolean" },
+        "resume_mode": {
+          "enum": ["full_reset", "checkpoint", "keep_until_timeout"],
+          "default": "keep_until_timeout"
+        },
         "reconnect_grace_seconds": {
           "type": "integer",
           "minimum": 0,
@@ -507,6 +516,18 @@
         "restore_hp": { "type": "boolean" },
         "restore_status": { "type": "boolean" },
         "restore_pp": { "type": "boolean" }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "position"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "position": { "$ref": "#/$defs/block_position" },
+        "activation_radius": {
+          "type": "integer", "minimum": 1, "maximum": 8, "default": 2
+        }
       }
     },
     "gate": {
