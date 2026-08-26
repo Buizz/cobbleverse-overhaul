@@ -4724,6 +4724,18 @@ class ContentManagerTests(unittest.TestCase):
             "gmax": True,
         }, rct["team"][0]["gimmicks"])
 
+    def test_rct_export_compacts_snake_case_move_ids(self) -> None:
+        source = content_manager.load_json(
+            PROJECT_ROOT / "content" / "battles" / "generation_1"
+            / "rocket_power_plant_officer.json"
+        )
+
+        rct = content_manager.export_rct_trainer(source)
+
+        self.assertIn("thunderwave", rct["team"][0]["moveset"])
+        self.assertIn("lightscreen", rct["team"][0]["moveset"])
+        self.assertNotIn("thunder_wave", rct["team"][0]["moveset"])
+
     def test_create_document_writes_valid_template_and_rejects_duplicate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

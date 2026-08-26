@@ -3515,31 +3515,6 @@
       ]
     },
     {
-      "id": "test",
-      "type": "gate",
-      "anchor": {
-        "q": -6,
-        "r": 4
-      },
-      "rotation": 1,
-      "properties": {
-        "facing": "east",
-        "center_placement": "gate",
-        "surrounding_type": "wall",
-        "wall_block": "minecraft:stone_bricks",
-        "tree_log": "minecraft:oak_log",
-        "tree_leaves": "minecraft:oak_leaves",
-        "wall_thickness": 5,
-        "wall_height": 7,
-        "passage_width": 7,
-        "barrier_height": 24,
-        "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "아직 이 관문을 통과할 수 없습니다."
-      },
-      "resource": "cobbleventure_builder:source/gate/default_gate"
-    },
-    {
       "id": "starter_town_north_gate",
       "type": "gate",
       "anchor": {

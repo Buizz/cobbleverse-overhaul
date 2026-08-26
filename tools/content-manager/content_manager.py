@@ -11108,6 +11108,11 @@ def _rct_stats(stats: Any) -> dict[str, int]:
     }
 
 
+def _rct_move_id(value: Any) -> str | None:
+    move_id = _short_resource_id(value)
+    return move_id.replace("_", "") if move_id else None
+
+
 def _rct_team_member(
     member: dict[str, Any], mechanics: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -11115,7 +11120,7 @@ def _rct_team_member(
     result: dict[str, Any] = {
         "species": _short_resource_id(member.get("species")),
         "level": member.get("level"),
-        "moveset": [_short_resource_id(move) for move in member.get("moves", [])],
+        "moveset": [_rct_move_id(move) for move in member.get("moves", [])],
     }
     optional_values = {
         "nature": _short_resource_id(member.get("nature")),
