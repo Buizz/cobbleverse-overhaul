@@ -203,12 +203,21 @@ record DungeonDefinition(
             ? blockPosition(terrain, "exit_position") : null;
         String piecePool = terrain.has("piece_pool")
             ? resourceId(terrain, "piece_pool") : null;
+        String caveGenerator = terrain.has("cave_generator")
+            ? enumValue(terrain, "cave_generator", List.of("minecraft_worldgen")) : null;
         BlockPos terrainBounds = terrain.has("bounds")
             ? positiveBlockPosition(terrain, "bounds") : null;
         if (terrainMode.equals("nbt_pieces")
             && (piecePool == null || terrainBounds == null)) {
             throw new IllegalStateException(
                 "nbt_pieces dungeon requires terrain.piece_pool and terrain.bounds: " + id
+            );
+        }
+        if (terrainMode.equals("procedural_cave")
+            && (caveGenerator == null || terrainBounds == null)) {
+            throw new IllegalStateException(
+                "procedural_cave dungeon requires terrain.cave_generator and terrain.bounds: "
+                    + id
             );
         }
 
@@ -278,9 +287,10 @@ record DungeonDefinition(
                 criticalPath, branchCount, branchDepth, loopChance
             );
         }
-        if (terrainMode.equals("nbt_pieces") && layout == null) {
+        if ((terrainMode.equals("nbt_pieces") || terrainMode.equals("procedural_cave"))
+            && layout == null) {
             throw new IllegalStateException(
-                "nbt_pieces dungeon requires layout settings: " + id
+                terrainMode + " dungeon requires layout settings: " + id
             );
         }
         List<Encounter> encounters = new ArrayList<>();
@@ -719,7 +729,7 @@ record DungeonDefinition(
             plan,
             new Terrain(
                 terrainMode, template, entryPosition, exitPosition,
-                piecePool, terrainBounds
+                piecePool, caveGenerator, terrainBounds
             ),
             layout,
             List.copyOf(encounters),
@@ -931,6 +941,7 @@ record DungeonDefinition(
         BlockPos entryPosition,
         BlockPos exitPosition,
         String piecePool,
+        String caveGenerator,
         BlockPos bounds
     ) {}
     record Layout(

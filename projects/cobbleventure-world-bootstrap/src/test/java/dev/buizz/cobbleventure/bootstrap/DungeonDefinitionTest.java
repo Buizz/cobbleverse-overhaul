@@ -72,6 +72,29 @@ final class DungeonDefinitionTest {
     }
 
     @Test
+    void parsesProceduralCaveTerrainUsingCurrentCaveGenerator() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        root.add("plan", JsonParser.parseString("""
+            {"mode":"runtime","seed_policy":"match","fallback":"reject_entry"}
+            """).getAsJsonObject());
+        root.add("terrain", JsonParser.parseString("""
+            {"mode":"procedural_cave","cave_generator":"minecraft_worldgen",
+             "bounds":[160,48,160]}
+            """).getAsJsonObject());
+        root.add("layout", JsonParser.parseString("""
+            {"mode":"critical_path_branches","critical_path_rooms":[6,8],
+             "branch_count":[1,3],"branch_depth":[1,2],"loop_chance":0.2}
+            """).getAsJsonObject());
+
+        DungeonDefinition definition = DungeonDefinition.parse(root);
+
+        assertEquals("procedural_cave", definition.terrain().mode());
+        assertEquals("minecraft_worldgen", definition.terrain().caveGenerator());
+        assertEquals(160, definition.terrain().bounds().getZ());
+        assertEquals("critical_path_branches", definition.layout().mode());
+    }
+
+    @Test
     void parsesEveryLevelOneTestDungeonResource() throws Exception {
         List<String> resources = List.of(
             "rocket_power_plant",

@@ -156,6 +156,7 @@
         "entry_position": { "$ref": "#/$defs/block_position" },
         "exit_position": { "$ref": "#/$defs/block_position" },
         "piece_pool": { "$ref": "#/$defs/resource_id" },
+        "cave_generator": { "const": "minecraft_worldgen" },
         "bounds": { "$ref": "#/$defs/positive_block_position" }
       },
       "allOf": [
@@ -166,6 +167,10 @@
         {
           "if": { "properties": { "mode": { "const": "nbt_pieces" } }, "required": ["mode"] },
           "then": { "required": ["piece_pool", "bounds"] }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "procedural_cave" } }, "required": ["mode"] },
+          "then": { "required": ["cave_generator", "bounds"] }
         }
       ]
     },
@@ -310,7 +315,7 @@
       "if": {
         "properties": {
           "terrain": {
-            "properties": { "mode": { "const": "nbt_pieces" } },
+            "properties": { "mode": { "enum": ["nbt_pieces", "procedural_cave"] } },
             "required": ["mode"]
           }
         },

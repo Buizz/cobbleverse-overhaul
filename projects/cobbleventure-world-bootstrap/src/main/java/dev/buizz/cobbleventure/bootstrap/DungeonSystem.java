@@ -668,12 +668,14 @@ final class DungeonSystem {
     private static String entryProblem(ServerPlayer player, PendingEntry pending) {
         DungeonDefinition definition = pending.ref().definition();
         if (!definition.terrain().mode().equals("fixed_template")
-            && !definition.terrain().mode().equals("nbt_pieces")) {
+            && !definition.terrain().mode().equals("nbt_pieces")
+            && !definition.terrain().mode().equals("procedural_cave")) {
             return "아직 지원하지 않는 던전 지형 방식입니다.";
         }
-        if (definition.terrain().mode().equals("nbt_pieces")
+        if ((definition.terrain().mode().equals("nbt_pieces")
+            || definition.terrain().mode().equals("procedural_cave"))
             && !definition.plan().mode().equals("runtime")) {
-            return "현재는 런타임 조각 생성 던전만 입장할 수 있습니다.";
+            return "현재는 런타임 생성 던전만 입장할 수 있습니다.";
         }
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             return "배틀 중에는 던전에 입장할 수 없습니다.";
@@ -891,7 +893,17 @@ final class DungeonSystem {
                 Map.of()
             );
         }
-        return prepareNbtPieces(level, definition, origin, playerId);
+        return switch (definition.terrain().mode()) {
+            case "nbt_pieces" -> prepareNbtPieces(
+                level, definition, origin, playerId
+            );
+            case "procedural_cave" -> prepareProceduralCave(
+                level, definition, origin, playerId
+            );
+            default -> throw new IllegalStateException(
+                "Unsupported dungeon terrain mode: " + definition.terrain().mode()
+            );
+        };
     }
 
     private static PreparedTerrain prepareNbtPieces(
@@ -956,6 +968,45 @@ final class DungeonSystem {
             layout.requiredMarker("exit", null),
             layout.markers()
         );
+    }
+
+    private static PreparedTerrain prepareProceduralCave(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        UUID playerId
+    ) {
+        DungeonDefinition.Layout layout = definition.layout();
+        if (!layout.mode().equals("critical_path_branches")) {
+            throw new IllegalStateException(
+                "Procedural cave layout mode is not implemented yet: " + layout.mode()
+            );
+        }
+        long seed = dungeonPlanSeed(level, definition, origin, playerId);
+        RandomSource random = RandomSource.create(seed);
+        int rooms = randomRange(random, layout.criticalPathRooms());
+        int branches = randomRange(random, layout.branchCount());
+        long startedAt = System.nanoTime();
+        NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
+            level, definition.id(), seed, origin, definition.terrain().bounds(),
+            rooms, branches, layout.loopChance()
+        );
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        LOGGER.info(
+            "Prepared procedural cave dungeon: dungeon={}, seed={}, rooms={}, "
+                + "branches={}, elapsed={}ms",
+            definition.id(), seed, rooms, branches, elapsedMs
+        );
+        return new PreparedTerrain(
+            definition.terrain().bounds(),
+            generated.entryPosition(), generated.exitPosition(), Map.of()
+        );
+    }
+
+    private static int randomRange(
+        RandomSource random, DungeonDefinition.IntRange range
+    ) {
+        return range.minimum() + random.nextInt(range.maximum() - range.minimum() + 1);
     }
 
     private static long dungeonPlanSeed(

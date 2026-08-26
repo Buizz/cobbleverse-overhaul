@@ -44,6 +44,131 @@ final class NaturalCaveGenerator {
         }
     }
 
+    static InstanceResult generateInstance(
+        ServerLevel level,
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        int mainRooms,
+        int branchCount,
+        double loopChance
+    ) {
+        InstancePlan plan = planInstance(
+            caveId, seed, origin, bounds, mainRooms, branchCount, loopChance
+        );
+        generateCave(level, caveId, seed, plan.entrances(), plan.settings());
+        return new InstanceResult(plan.entryPosition(), plan.exitPosition());
+    }
+
+    static InstancePlan planInstance(
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        int mainRooms,
+        int branchCount,
+        double loopChance
+    ) {
+        if (bounds.getX() < 112 || bounds.getY() < 32 || bounds.getZ() < 112) {
+            throw new IllegalArgumentException(
+                "Procedural cave dungeon bounds must be at least 112x32x112"
+            );
+        }
+        if (mainRooms < 3 || mainRooms > 64 || branchCount < 0 || branchCount > 32
+            || loopChance < 0.0D || loopChance > 1.0D) {
+            throw new IllegalArgumentException("Invalid procedural cave dungeon layout");
+        }
+        Random random = new Random(seed);
+        int margin = 14;
+        int floorY = origin.getY() + Math.max(8, bounds.getY() / 3);
+        int centerZ = origin.getZ() + bounds.getZ() / 2;
+        BlockPoint entry = new BlockPoint(origin.getX() + margin, floorY, centerZ);
+        BlockPoint exit = new BlockPoint(
+            origin.getX() + bounds.getX() - margin - 1, floorY, centerZ
+        );
+
+        List<ManualAnchor> anchors = new ArrayList<>();
+        List<ManualConnection> connections = new ArrayList<>();
+        String previous = "entry";
+        int authoredRooms = Math.max(1, mainRooms - 2);
+        for (int index = 0; index < authoredRooms; index++) {
+            double progress = (index + 1.0D) / (authoredRooms + 1.0D);
+            int x = (int) Math.round(lerp(entry.x(), exit.x(), progress));
+            int z = centerZ + (int) Math.round(
+                Math.sin((index + 1) * 1.43D) * Math.min(18, bounds.getZ() / 5)
+            ) + random.nextInt(-4, 5);
+            int y = floorY + random.nextInt(
+                -Math.max(2, bounds.getY() / 10),
+                Math.max(3, bounds.getY() / 10 + 1)
+            );
+            String id = "main_" + index;
+            double radius = index == authoredRooms / 2 ? 11.0D : 8.0D;
+            anchors.add(new ManualAnchor(
+                id, index == authoredRooms / 2 ? "grand" : "room",
+                x, y, z, radius, radius, index == authoredRooms / 2 ? 11.0D : 9.0D,
+                "rock"
+            ));
+            connections.add(new ManualConnection(
+                "main_path_" + index, previous, id, "main", 5, "natural"
+            ));
+            previous = id;
+        }
+        connections.add(new ManualConnection(
+            "main_path_exit", previous, "exit", "main", 5, "natural"
+        ));
+
+        for (int index = 0; index < branchCount; index++) {
+            int rootIndex = Math.floorMod(index * 2 + 1, authoredRooms);
+            ManualAnchor root = anchors.get(rootIndex);
+            int side = index % 2 == 0 ? -1 : 1;
+            int z = centerZ + side * (bounds.getZ() / 2 - margin);
+            int x = Math.max(
+                origin.getX() + margin,
+                Math.min(origin.getX() + bounds.getX() - margin - 1,
+                    root.x() + random.nextInt(-10, 11))
+            );
+            String id = "branch_" + index;
+            anchors.add(new ManualAnchor(
+                id, "branch", x, root.y(), z, 7.0D, 7.0D, 8.0D, "rock"
+            ));
+            connections.add(new ManualConnection(
+                "branch_path_" + index, root.id(), id, "branch", 4, "rugged"
+            ));
+        }
+
+        if (mainRooms >= 5 && loopChance > 0.0D && random.nextDouble() <= loopChance) {
+            String from = anchors.get(Math.max(0, authoredRooms / 3)).id();
+            String to = anchors.get(Math.min(authoredRooms - 1, authoredRooms * 2 / 3)).id();
+            if (!from.equals(to)) {
+                connections.add(new ManualConnection(
+                    "main_loop", from, to, "loop", 4, "rugged"
+                ));
+            }
+        }
+
+        Settings defaults = Settings.defaults(false);
+        Settings settings = new Settings(
+            seed, "rock", mainRooms, branchCount, loopChance,
+            Math.max(8, bounds.getY() / 3),
+            7.0D, 11.0D, 3.0D, 5.0D, defaults.surfaceRoughness(),
+            origin.getY() - 16, 0, 1.25D, false,
+            defaults.bridgeClearance(), false,
+            new ManualLayout(true, List.copyOf(anchors), List.copyOf(connections)),
+            defaults.internalBiomes(), defaults.roomTypes(), defaults.pathTypes(),
+            defaults.decorations()
+        );
+        List<Entrance> entrances = List.of(
+            new Entrance("entry", caveId, entry, entry, settings),
+            new Entrance("exit", caveId, exit, exit, settings)
+        );
+        return new InstancePlan(
+            entrances, settings,
+            entry.toBlockPos().subtract(origin).above(),
+            exit.toBlockPos().subtract(origin).above()
+        );
+    }
+
     private static void generateCave(
         ServerLevel level, String caveId, long seed, List<Entrance> entrances, Settings settings
     ) {
@@ -1278,6 +1403,15 @@ final class NaturalCaveGenerator {
         BlockPoint destination,
         BlockPoint portalAnchor,
         Settings settings
+    ) {}
+
+    record InstanceResult(BlockPos entryPosition, BlockPos exitPosition) {}
+
+    record InstancePlan(
+        List<Entrance> entrances,
+        Settings settings,
+        BlockPos entryPosition,
+        BlockPos exitPosition
     ) {}
 
     record Settings(
