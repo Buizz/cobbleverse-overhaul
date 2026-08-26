@@ -75,6 +75,7 @@ NPC_SOURCE_DIR = CONTENT_ROOT / "source"
 NPC_PLACEMENT_PROFILE_ENTRY = Path("data/cobbleventure/catalogs/npc-placement-profiles.json")
 BATTLE_PRESET_ENTRY_DIR = Path("data/cobbleventure/battles")
 BUILDING_SETTINGS_SOURCE = CONTENT_ROOT / "catalogs/building-settings.json"
+SPACE_CONNECTIONS_SOURCE = CONTENT_ROOT / "catalogs/space-connections.json"
 BUILDING_SETTINGS_ENTRY = Path("data/cobbleventure/building_settings.json")
 STRUCTURE_METADATA_ENTRY_DIR = Path("data/cobbleventure/structure_metadata")
 REQUIRED_ENTRIES = {
@@ -2853,6 +2854,61 @@ def _write_village_structure_override(
     )
 
 
+def _dungeon_entrance_assignments(root: Path) -> dict[tuple[str, str], str]:
+    source = _inside(root, root / SPACE_CONNECTIONS_SOURCE, "공간 연결 카탈로그")
+    if not source.is_file():
+        return {}
+    document = json.loads(source.read_text(encoding="utf-8"))
+    assignments = document.get("dungeon_entrance_assignments", [])
+    if not isinstance(assignments, list):
+        raise ModBuildError("던전 입구 연결 목록은 배열이어야 합니다.")
+    result: dict[tuple[str, str], str] = {}
+    for index, assignment in enumerate(assignments):
+        if not isinstance(assignment, dict):
+            raise ModBuildError(f"던전 입구 연결 {index}이 객체가 아닙니다.")
+        structure = assignment.get("structure")
+        anchor = assignment.get("anchor")
+        entrance_id = assignment.get("entrance_id")
+        if not all(isinstance(value, str) and value for value in (structure, anchor, entrance_id)):
+            raise ModBuildError(f"던전 입구 연결 {index}의 structure/anchor/entrance_id가 올바르지 않습니다.")
+        key = (structure, anchor)
+        if key in result:
+            raise ModBuildError(f"한 문에 던전 입구가 중복 지정됐습니다: {structure}#{anchor}")
+        result[key] = entrance_id
+    return result
+
+
+def _runtime_structure_metadata(
+    source: Path,
+    structure_id: str,
+    assignments: dict[tuple[str, str], str],
+    matched: set[tuple[str, str]],
+) -> bytes:
+    document = json.loads(source.read_text(encoding="utf-8"))
+    anchors = document.get("anchors", []) if isinstance(document, dict) else []
+    if not isinstance(anchors, list):
+        raise ModBuildError(f"구조물 앵커 목록이 배열이 아닙니다: {structure_id}")
+    for index, anchor in enumerate(anchors):
+        if not isinstance(anchor, dict):
+            continue
+        label = anchor.get("label", anchor.get("id"))
+        key = (structure_id, label) if isinstance(label, str) else None
+        entrance_id = assignments.get(key) if key is not None else None
+        if entrance_id is None:
+            continue
+        if anchor.get("type") != "door":
+            raise ModBuildError(
+                "에딧월드에서 실제 문으로 지정된 door 앵커만 던전 입구가 될 수 있습니다: "
+                f"{structure_id}#{label} (anchors[{index}].type={anchor.get('type')!r})"
+            )
+        anchor["type"] = "dungeon_entrance"
+        anchor["entrance_id"] = entrance_id
+        if anchor.get("facing") not in {"north", "east", "south", "west"}:
+            anchor["facing"] = anchor.get("door_facing", "north")
+        matched.add(key)
+    return (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+
 def _package_building_runtime_data(root: Path, output: Path) -> None:
     settings = _inside(root, root / BUILDING_SETTINGS_SOURCE, "건물 설정")
     if settings.is_file():
@@ -2876,14 +2932,35 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(_read_authored_structure_nbt(source, "관리 NBT"))
 
+    dungeon_assignments = _dungeon_entrance_assignments(root)
+    matched_dungeon_assignments: set[tuple[str, str]] = set()
     metadata_root = _inside(
         root, output / STRUCTURE_METADATA_ENTRY_DIR, "생성 구조물 메타데이터"
     )
     if managed_root.is_dir():
         for source in sorted(managed_root.rglob("*.structure.json")):
-            target = metadata_root / source.relative_to(managed_root)
+            relative = source.relative_to(managed_root)
+            target = metadata_root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(source.read_bytes())
+            structure_path = relative.as_posix().removesuffix(".structure.json")
+            structure_id = f"cobbleventure:{structure_path}"
+            has_dungeon_assignment = any(
+                assigned_structure == structure_id
+                for assigned_structure, _ in dungeon_assignments
+            )
+            target.write_bytes(
+                _runtime_structure_metadata(
+                    source, structure_id, dungeon_assignments, matched_dungeon_assignments
+                )
+                if has_dungeon_assignment else source.read_bytes()
+            )
+
+    missing_assignments = set(dungeon_assignments) - matched_dungeon_assignments
+    if missing_assignments:
+        missing = ", ".join(f"{structure}#{anchor}" for structure, anchor in sorted(missing_assignments))
+        raise ModBuildError(
+            "에딧월드에서 문으로 지정된 door 앵커를 찾을 수 없는 던전 입구 연결입니다: " + missing
+        )
 
     house_source = _inside(root, root / HOUSE_STRUCTURE_SOURCE_DIR, "주택 메타데이터 원본")
     if house_source.is_dir():

@@ -115,15 +115,6 @@
         12
       ],
       "facing": "north"
-    },
-    {
-      "id": "rocket_dungeon_entry",
-      "label": "rocket_dungeon_entry",
-      "type": "dungeon_entrance",
-      "position": [34, 1, 16],
-      "safe_spawn": [33, 1, 16],
-      "facing": "east",
-      "entrance_id": "cobbleventure:entrance/casino_hideout"
     }
   ]
 }

@@ -387,6 +387,7 @@
       }
     }
   },
+  "dungeon_entrance_assignments": [],
   "annotations": {
     "building:cobbleventure:facilities/department_store": {
       "route_1": {

@@ -12143,16 +12143,31 @@ def space_connections_payload(
             "id": graph_id, "kind": "gym", "owner": gym["id"],
             "display_name": name, "nodes": nodes, "connections": connections,
         })
-    dungeon_assignments = [
-        {
-            "structure": resource_id,
-            "anchor": anchor["label"],
-            "entrance_id": anchor.get("entrance_id", ""),
+    available_entrance_ids = {
+        entry["entrance_id"] for entry in dungeon_entrance_catalog(root)
+    }
+    saved_assignments = saved.get("dungeon_entrance_assignments", [])
+    dungeon_assignments = []
+    for assignment in saved_assignments if isinstance(saved_assignments, list) else []:
+        if not isinstance(assignment, dict):
+            continue
+        structure = assignment.get("structure")
+        anchor = assignment.get("anchor")
+        entrance_id = assignment.get("entrance_id")
+        door_labels = {
+            item.get("label")
+            for item in structures.get(structure, {}).get("door_anchors", [])
+            if isinstance(item, dict)
         }
-        for resource_id, metadata in structures.items()
-        for anchor in metadata.get("dungeon_entrance_anchors", [])
-        if isinstance(anchor.get("entrance_id"), str)
-    ]
+        if (
+            isinstance(structure, str) and isinstance(anchor, str)
+            and anchor in door_labels and entrance_id in available_entrance_ids
+        ):
+            dungeon_assignments.append({
+                "structure": structure,
+                "anchor": anchor,
+                "entrance_id": entrance_id,
+            })
     return {
         "schema_version": 1, "graphs": graphs, "structures": structures,
         "available_dungeon_entrances": dungeon_entrance_catalog(root),
@@ -12187,16 +12202,11 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     }
     structure_paths = managed_structure_files(root)
     if not assignment_field_provided:
-        dungeon_assignments = [
-            {
-                "structure": resource_id,
-                "anchor": anchor["label"],
-                "entrance_id": anchor.get("entrance_id", ""),
-            }
-            for resource_id, structure_path in structure_paths.items()
-            for anchor in _structure_named_anchors(structure_path, {"dungeon_entrance"})
-            if isinstance(anchor.get("entrance_id"), str)
-        ]
+        saved = load_json(path) if path.is_file() else {}
+        dungeon_assignments = (
+            saved.get("dungeon_entrance_assignments", [])
+            if isinstance(saved, dict) else []
+        )
     structure_categories = {
         resource_id: _configured_structure_category(
             path.relative_to(root / "content" / "structures"),
@@ -12239,6 +12249,12 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         if not isinstance(anchor_label, str) or not DOCUMENT_SLUG.fullmatch(anchor_label):
             _issue(issues, "error", path, f"{assignment_path}.anchor", "실제 문 앵커 이름이 필요합니다.")
             continue
+        if anchor_label not in door_labels_by_structure.get(structure, set()):
+            _issue(
+                issues, "error", path, f"{assignment_path}.anchor",
+                "에딧월드에서 문으로 지정된 door 앵커가 필요합니다.",
+            )
+            continue
         if entrance_id not in available_entrance_ids:
             _issue(issues, "error", path, f"{assignment_path}.entrance_id", "존재하는 던전 입구 ID가 필요합니다.")
             continue
@@ -12252,63 +12268,6 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         normalized_dungeon_assignments[key] = entrance_id
         assigned_entrance_ids.add(entrance_id)
 
-    metadata_updates: dict[Path, dict[str, Any]] = {}
-    for structure, structure_path in structure_paths.items():
-        sidecar = structure_path.with_suffix(".structure.json")
-        if not sidecar.is_file():
-            continue
-        document = load_json(sidecar)
-        anchors = document.get("anchors", []) if isinstance(document, dict) else []
-        if not isinstance(anchors, list):
-            continue
-        changed = False
-        seen_assignment_keys: set[tuple[str, str]] = set()
-        for anchor in anchors:
-            if not isinstance(anchor, dict) or anchor.get("type") not in {"door", "dungeon_entrance"}:
-                continue
-            anchor_label = anchor.get("label", anchor.get("id"))
-            if not isinstance(anchor_label, str):
-                continue
-            key = (structure, anchor_label)
-            entrance_id = normalized_dungeon_assignments.get(key)
-            if entrance_id is not None:
-                seen_assignment_keys.add(key)
-                if anchor.get("type") != "dungeon_entrance" or anchor.get("entrance_id") != entrance_id:
-                    anchor["type"] = "dungeon_entrance"
-                    anchor["entrance_id"] = entrance_id
-                    if anchor.get("facing") not in {"north", "east", "south", "west"}:
-                        anchor["facing"] = anchor.get("door_facing", "north")
-                    changed = True
-            elif anchor.get("type") == "dungeon_entrance":
-                anchor["type"] = "door"
-                anchor.pop("entrance_id", None)
-                if anchor.get("door_facing") not in {"north", "east", "south", "west"}:
-                    anchor["door_facing"] = anchor.get("facing", "north")
-                if anchor.get("safe_side") not in {"north", "east", "south", "west"}:
-                    position = anchor.get("position", [0, 0, 0])
-                    safe_spawn = anchor.get("safe_spawn", position)
-                    delta = (
-                        safe_spawn[0] - position[0], safe_spawn[2] - position[2]
-                    ) if (
-                        isinstance(position, list) and len(position) == 3
-                        and isinstance(safe_spawn, list) and len(safe_spawn) == 3
-                    ) else (0, 0)
-                    anchor["safe_side"] = {
-                        (0, -1): "north", (1, 0): "east",
-                        (0, 1): "south", (-1, 0): "west",
-                    }.get(delta, "south")
-                changed = True
-        missing = {
-            key for key in normalized_dungeon_assignments
-            if key[0] == structure and key not in seen_assignment_keys
-        }
-        for key in sorted(missing):
-            _issue(
-                issues, "error", path, "$.dungeon_entrance_assignments",
-                f"구조물에 존재하지 않는 문 앵커입니다: {key[0]}#{key[1]}",
-            )
-        if changed and isinstance(document, dict):
-            metadata_updates[sidecar] = document
     layouts: dict[str, Any] = {}
     annotations: dict[str, Any] = {}
     seen_graphs: set[str] = set()
@@ -12457,11 +12416,18 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     issues.extend(gym_issues)
     if any(issue.level == "error" for issue in issues):
         return issues
-    for metadata_path, metadata_document in metadata_updates.items():
-        _atomic_write_json(metadata_path, metadata_document)
     document = {
         "$schema": "../schemas/space-connections.schema.json", "schema_version": 1,
         "layouts": layouts, "annotations": annotations,
+        "dungeon_entrance_assignments": [
+            {
+                "structure": structure,
+                "anchor": anchor,
+                "entrance_id": entrance_id,
+            }
+            for (structure, anchor), entrance_id
+            in sorted(normalized_dungeon_assignments.items())
+        ],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".json.tmp")

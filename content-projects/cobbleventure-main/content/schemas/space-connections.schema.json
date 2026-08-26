@@ -42,6 +42,19 @@
           "additionalProperties": false
         }
       }
+    },
+    "dungeon_entrance_assignments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["structure", "anchor", "entrance_id"],
+        "properties": {
+          "structure": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" },
+          "anchor": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_]*$" },
+          "entrance_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$" }
+        }
+      }
     }
   }
 }

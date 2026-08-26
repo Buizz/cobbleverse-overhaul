@@ -1766,6 +1766,77 @@ class DataModBuilderTests(unittest.TestCase):
                 (output / "data/cobbleventure/structure/interiors/hotel.nbt").read_bytes(),
             )
 
+    def test_dungeon_assignment_converts_only_generated_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "output"
+            metadata = (
+                root / build_data_mod.CONTENT_ROOT
+                / "structures/interiors/casino.structure.json"
+            )
+            metadata.parent.mkdir(parents=True, exist_ok=True)
+            source_document = {
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "door", "label": "secret_door",
+                    "position": [4, 1, 5], "safe_spawn": [3, 1, 5],
+                    "door_facing": "east", "safe_side": "west",
+                }],
+            }
+            metadata.write_text(json.dumps(source_document), encoding="utf-8")
+            catalog = root / build_data_mod.SPACE_CONNECTIONS_SOURCE
+            catalog.parent.mkdir(parents=True, exist_ok=True)
+            catalog.write_text(json.dumps({
+                "schema_version": 1, "layouts": {}, "annotations": {},
+                "dungeon_entrance_assignments": [{
+                    "structure": "cobbleventure:interiors/casino",
+                    "anchor": "secret_door",
+                    "entrance_id": "cobbleventure:entrance/casino_hideout",
+                }],
+            }), encoding="utf-8")
+
+            build_data_mod._package_building_runtime_data(root, output)
+
+            self.assertEqual("door", json.loads(metadata.read_text(encoding="utf-8"))["anchors"][0]["type"])
+            generated = json.loads((
+                output / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR
+                / "interiors/casino.structure.json"
+            ).read_text(encoding="utf-8"))
+            self.assertEqual("dungeon_entrance", generated["anchors"][0]["type"])
+            self.assertEqual(
+                "cobbleventure:entrance/casino_hideout",
+                generated["anchors"][0]["entrance_id"],
+            )
+
+    def test_dungeon_assignment_rejects_non_door_anchor(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = (
+                root / build_data_mod.CONTENT_ROOT
+                / "structures/interiors/casino.structure.json"
+            )
+            metadata.parent.mkdir(parents=True, exist_ok=True)
+            metadata.write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [{
+                    "type": "dungeon_entrance", "label": "fake_anchor",
+                    "position": [4, 1, 5],
+                }],
+            }), encoding="utf-8")
+            catalog = root / build_data_mod.SPACE_CONNECTIONS_SOURCE
+            catalog.parent.mkdir(parents=True, exist_ok=True)
+            catalog.write_text(json.dumps({
+                "schema_version": 1, "layouts": {}, "annotations": {},
+                "dungeon_entrance_assignments": [{
+                    "structure": "cobbleventure:interiors/casino",
+                    "anchor": "fake_anchor",
+                    "entrance_id": "cobbleventure:entrance/casino_hideout",
+                }],
+            }), encoding="utf-8")
+
+            with self.assertRaisesRegex(build_data_mod.ModBuildError, "실제 문으로 지정된 door"):
+                build_data_mod._package_building_runtime_data(root, root / "output")
+
     def test_packages_gym_exterior_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
