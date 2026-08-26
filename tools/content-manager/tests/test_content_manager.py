@@ -59,6 +59,23 @@ class ContentManagerTests(unittest.TestCase):
             saved = json.loads((root / relative).read_text(encoding="utf-8"))
             self.assertEqual("mystery", saved["entry_ui"]["info_mode"])
 
+    def test_dungeon_validator_checks_internal_content_entries(self) -> None:
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
+        document["encounters"][1]["id"] = document["encounters"][0]["id"]
+        document["random_encounters"]["additions"][0]["min_level"] = 20
+        document["random_encounters"]["additions"][0]["max_level"] = 10
+        document["support"]["checkpoints"] = [{"id": "bad checkpoint", "position": [1, 2]}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        messages = [issue.message for issue in issues]
+        self.assertTrue(any("ID가 중복" in message for message in messages))
+        self.assertTrue(any("최소 레벨" in message for message in messages))
+        self.assertTrue(any("정수 좌표 3개" in message for message in messages))
+
     def test_dungeon_workspace_loads_definitions_plans_and_piece_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

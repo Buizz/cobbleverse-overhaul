@@ -8460,9 +8460,110 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
     if lifecycle.get("resume_mode", "keep_until_timeout") not in {"full_reset", "checkpoint", "keep_until_timeout"}:
         _issue(issues, "error", path, "$.lifecycle.resume_mode", "지원하지 않는 재개 방식입니다.")
 
+    def position(value: Any, field: str) -> None:
+        if not isinstance(value, list) or len(value) != 3 or any(
+            not isinstance(axis, int) or isinstance(axis, bool) for axis in value
+        ):
+            _issue(issues, "error", path, field, "X, Y, Z 정수 좌표 3개가 필요합니다.")
+
+    def local_id(value: Any, field: str, seen: set[str]) -> None:
+        if not isinstance(value, str) or not CHOICE_ID.fullmatch(value):
+            _issue(issues, "error", path, field, "소문자 ID가 필요합니다.")
+        elif value in seen:
+            _issue(issues, "error", path, field, "같은 종류 안에서 ID가 중복되었습니다.")
+        else:
+            seen.add(value)
+
     encounters = data.get("encounters")
     if not isinstance(encounters, list) or not encounters:
         _issue(issues, "error", path, "$.encounters", "고정 조우가 하나 이상 필요합니다.")
+    else:
+        seen_encounters: set[str] = set()
+        for index, encounter in enumerate(encounters):
+            base = f"$.encounters[{index}]"
+            if not isinstance(encounter, dict):
+                _issue(issues, "error", path, base, "고정 조우는 객체여야 합니다.")
+                continue
+            local_id(encounter.get("id"), f"{base}.id", seen_encounters)
+            position(encounter.get("position"), f"{base}.position")
+            if not isinstance(encounter.get("boss"), bool):
+                _issue(issues, "error", path, f"{base}.boss", "true 또는 false여야 합니다.")
+            requirements = encounter.get("requires")
+            if not isinstance(requirements, list) or any(not isinstance(value, str) or not CHOICE_ID.fullmatch(value) for value in requirements):
+                _issue(issues, "error", path, f"{base}.requires", "선행 조우 ID 배열이어야 합니다.")
+            if encounter.get("kind", "trainer") == "wild_pokemon":
+                pokemon = encounter.get("pokemon")
+                if not isinstance(pokemon, dict):
+                    _issue(issues, "error", path, f"{base}.pokemon", "야생 포켓몬 설정이 필요합니다.")
+                else:
+                    _resource_id(pokemon.get("species"), issues, path, f"{base}.pokemon.species")
+                    integer(pokemon.get("level"), 1, 100, f"{base}.pokemon.level")
+                    if not isinstance(pokemon.get("catchable"), bool):
+                        _issue(issues, "error", path, f"{base}.pokemon.catchable", "true 또는 false여야 합니다.")
+            else:
+                for field in ("npcs", "opponents"):
+                    values = encounter.get(field)
+                    if not isinstance(values, list) or not 1 <= len(values) <= 2:
+                        _issue(issues, "error", path, f"{base}.{field}", "리소스 ID가 1~2개 필요합니다.")
+                    else:
+                        for value_index, value in enumerate(values):
+                            _resource_id(value, issues, path, f"{base}.{field}[{value_index}]")
+
+    random_encounters = object_at("random_encounters")
+    for key, minimum, maximum in (
+        ("minimum_distance", 1, 128), ("maximum_distance", 1, 128),
+        ("max_active", 1, 16), ("spawn_interval_ticks", 20, 12000),
+    ):
+        integer(random_encounters.get(key), minimum, maximum, f"$.random_encounters.{key}")
+    if isinstance(random_encounters.get("minimum_distance"), int) and isinstance(random_encounters.get("maximum_distance"), int) and random_encounters["minimum_distance"] > random_encounters["maximum_distance"]:
+        _issue(issues, "error", path, "$.random_encounters", "최소 스폰 거리는 최대 스폰 거리보다 클 수 없습니다.")
+    spawn_bounds = random_encounters.get("spawn_bounds")
+    if not isinstance(spawn_bounds, dict):
+        _issue(issues, "error", path, "$.random_encounters.spawn_bounds", "스폰 범위가 필요합니다.")
+    else:
+        position(spawn_bounds.get("min"), "$.random_encounters.spawn_bounds.min")
+        position(spawn_bounds.get("max"), "$.random_encounters.spawn_bounds.max")
+    additions = random_encounters.get("additions")
+    if not isinstance(additions, list):
+        _issue(issues, "error", path, "$.random_encounters.additions", "랜덤 출현 목록은 배열이어야 합니다.")
+    else:
+        for index, pokemon in enumerate(additions):
+            base = f"$.random_encounters.additions[{index}]"
+            if not isinstance(pokemon, dict):
+                _issue(issues, "error", path, base, "출현 포켓몬은 객체여야 합니다.")
+                continue
+            _resource_id(pokemon.get("species"), issues, path, f"{base}.species")
+            integer(pokemon.get("min_level"), 1, 100, f"{base}.min_level")
+            integer(pokemon.get("max_level"), 1, 100, f"{base}.max_level")
+            integer(pokemon.get("weight"), 1, 1000, f"{base}.weight")
+            if isinstance(pokemon.get("min_level"), int) and isinstance(pokemon.get("max_level"), int) and pokemon["min_level"] > pokemon["max_level"]:
+                _issue(issues, "error", path, base, "최소 레벨은 최대 레벨보다 클 수 없습니다.")
+
+    content_groups = (
+        ("healing_stations", data.get("support", {}).get("healing_stations", []) if isinstance(data.get("support"), dict) else []),
+        ("checkpoints", data.get("support", {}).get("checkpoints", []) if isinstance(data.get("support"), dict) else []),
+        ("containers", data.get("loot", {}).get("containers", []) if isinstance(data.get("loot"), dict) else []),
+        ("gates", data.get("gates")),
+    )
+    for group_name, entries in content_groups:
+        if not isinstance(entries, list):
+            _issue(issues, "error", path, f"$.{group_name}", "배치 목록은 배열이어야 합니다.")
+            continue
+        seen_ids: set[str] = set()
+        for index, entry in enumerate(entries):
+            base = f"$.{group_name}[{index}]"
+            if not isinstance(entry, dict):
+                _issue(issues, "error", path, base, "배치 항목은 객체여야 합니다.")
+                continue
+            local_id(entry.get("id"), f"{base}.id", seen_ids)
+            if group_name == "gates":
+                position(entry.get("min"), f"{base}.min")
+                position(entry.get("max"), f"{base}.max")
+                requirements = entry.get("requires")
+                if not isinstance(requirements, list) or not requirements:
+                    _issue(issues, "error", path, f"{base}.requires", "관문 해제 조건이 하나 이상 필요합니다.")
+            else:
+                position(entry.get("position"), f"{base}.position")
     return dungeon_id if isinstance(dungeon_id, str) else None, issues
 
 

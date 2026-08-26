@@ -24,7 +24,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPieces: new Map(), dungeonDirty: false, dungeonPreview: { seed: 1, planId: "", selected: -1, hitTargets: [], plan: null },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPieces: new Map(), dungeonDirty: false, dungeonContentSelection: null, dungeonPreview: { seed: 1, planId: "", selected: -1, hitTargets: [], plan: null },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -4538,6 +4538,7 @@ function renderDungeonList() {
     state.dungeon = item.document;
     state.dungeonPath = item.path;
     state.dungeonDirty = false;
+    state.dungeonContentSelection = null;
     state.dungeonPreview.selected = -1;
     state.dungeonPreview.planId = "";
     renderDungeonList();
@@ -4600,10 +4601,17 @@ function renderDungeonForm() {
     lootOnFailure: document.loot?.on_failure || "grant_on_clear_only", repeatable: document.completion?.repeatable,
     returnTrigger: document.completion?.return_trigger || "clear_exit", firstClearTable: document.rewards?.first_clear_table || "",
     repeatTable: document.rewards?.repeat_table || "",
+    randomEnabled: document.random_encounters?.enabled, randomMinDistance: document.random_encounters?.minimum_distance ?? 8,
+    randomMaxDistance: document.random_encounters?.maximum_distance ?? 16, randomMaxActive: document.random_encounters?.max_active ?? 1,
+    randomInterval: document.random_encounters?.spawn_interval_ticks ?? 100,
+    randomMinX: document.random_encounters?.spawn_bounds?.min?.[0] ?? 0, randomMinY: document.random_encounters?.spawn_bounds?.min?.[1] ?? 1,
+    randomMinZ: document.random_encounters?.spawn_bounds?.min?.[2] ?? 0, randomMaxX: document.random_encounters?.spawn_bounds?.max?.[0] ?? 32,
+    randomMaxY: document.random_encounters?.spawn_bounds?.max?.[1] ?? 1, randomMaxZ: document.random_encounters?.spawn_bounds?.max?.[2] ?? 32,
   };
   Object.entries(values).forEach(([name, value]) => setFormValue(form, name, value));
   renderDungeonOptionVisibility();
   renderDungeonSummary();
+  renderDungeonContentEditor();
   $("#validate-dungeon").disabled = false;
   $("#save-dungeon").disabled = false;
   $("#dungeon-save-state").textContent = state.dungeonDirty ? "저장하지 않은 변경" : "저장됨";
@@ -4664,8 +4672,223 @@ function updateDungeonFromForm() {
   const repeatTable = form.elements.repeatTable.value.trim(); if (repeatTable) document.rewards.repeat_table = repeatTable; else delete document.rewards.repeat_table;
   document.completion ||= { victory_flag: `${document.dungeon_id}/cleared` };
   Object.assign(document.completion, { repeatable: form.elements.repeatable.checked, return_trigger: form.elements.returnTrigger.value });
+  document.random_encounters ||= { additions: [] };
+  Object.assign(document.random_encounters, {
+    enabled: form.elements.randomEnabled.checked,
+    minimum_distance: integer("randomMinDistance", 8), maximum_distance: integer("randomMaxDistance", 16),
+    max_active: integer("randomMaxActive", 1), spawn_interval_ticks: integer("randomInterval", 100),
+    spawn_bounds: {
+      min: [integer("randomMinX", 0), integer("randomMinY", 1), integer("randomMinZ", 0)],
+      max: [integer("randomMaxX", 32), integer("randomMaxY", 1), integer("randomMaxZ", 32)],
+    },
+  });
+  document.random_encounters.additions ||= [];
   renderDungeonSummary();
   return true;
+}
+
+const dungeonContentKinds = {
+  encounter: { label: "고정 조우", icon: "!" },
+  wild_species: { label: "랜덤 출현", icon: "P" },
+  healing: { label: "치료소", icon: "+" },
+  checkpoint: { label: "체크포인트", icon: "C" },
+  loot: { label: "전리품", icon: "◆" },
+  gate: { label: "관문", icon: "▥" },
+};
+
+function dungeonContentGroups() {
+  const document = state.dungeon || {};
+  document.support ||= { healing_stations: [] };
+  document.support.healing_stations ||= [];
+  document.support.checkpoints ||= [];
+  document.loot ||= { containers: [] };
+  document.loot.containers ||= [];
+  document.random_encounters ||= { additions: [] };
+  document.random_encounters.additions ||= [];
+  document.encounters ||= [];
+  document.gates ||= [];
+  return [
+    ["encounter", document.encounters], ["wild_species", document.random_encounters.additions],
+    ["healing", document.support.healing_stations], ["checkpoint", document.support.checkpoints],
+    ["loot", document.loot.containers], ["gate", document.gates],
+  ];
+}
+
+function selectedDungeonContent() {
+  const selection = state.dungeonContentSelection;
+  if (!selection) return null;
+  const group = dungeonContentGroups().find(([kind]) => kind === selection.kind);
+  const entry = group?.[1]?.[selection.index];
+  return entry ? { kind: selection.kind, index: selection.index, entry } : null;
+}
+
+function dungeonContentLabel(kind, entry) {
+  if (kind === "encounter") return entry.display_name?.ko_kr || entry.id || "이름 없는 조우";
+  if (kind === "wild_species") return entry.species || "포켓몬 미지정";
+  return entry.id || dungeonContentKinds[kind]?.label || "콘텐츠";
+}
+
+function dungeonContentSubtitle(kind, entry) {
+  if (kind === "encounter") return `${entry.kind === "wild_pokemon" ? "야생 포켓몬" : entry.boss ? "보스 트레이너" : "트레이너"} · ${(entry.position || []).join(", ")}`;
+  if (kind === "wild_species") return `Lv.${entry.min_level || 1}~${entry.max_level || 1} · 가중치 ${entry.weight || 1}`;
+  if (kind === "gate") return `${(entry.min || []).join(", ")} → ${(entry.max || []).join(", ")}`;
+  return (entry.position || []).join(", ") || "좌표 미지정";
+}
+
+function contentField(label, name, value, options = {}) {
+  const classes = options.wide ? "wide" : options.double ? "double" : options.toggle ? "toggle" : "";
+  if (options.toggle) return `<label class="${classes}"><input data-dungeon-content-field name="${name}" type="checkbox"${value ? " checked" : ""}><span>${label}</span></label>`;
+  if (options.select) return `<label class="${classes}"><span>${label}</span><select data-dungeon-content-field name="${name}">${options.select.map(([id, text]) => `<option value="${escapeHtml(id)}"${id === value ? " selected" : ""}>${escapeHtml(text)}</option>`).join("")}</select></label>`;
+  const attributes = [options.type ? `type="${options.type}"` : "", options.min !== undefined ? `min="${options.min}"` : "", options.max !== undefined ? `max="${options.max}"` : "", options.step !== undefined ? `step="${options.step}"` : "", options.required ? "required" : ""].filter(Boolean).join(" ");
+  return `<label class="${classes}"><span>${label}</span><input data-dungeon-content-field name="${name}" value="${escapeHtml(value ?? "")}" ${attributes}></label>`;
+}
+
+function dungeonPositionFields(position, prefix = "position") {
+  const value = Array.isArray(position) ? position : [0, 1, 0];
+  return contentField("X", `${prefix}X`, value[0], { type: "number", required: true }) + contentField("Y", `${prefix}Y`, value[1], { type: "number", required: true }) + contentField("Z", `${prefix}Z`, value[2], { type: "number", required: true });
+}
+
+function renderDungeonContentProperties() {
+  const selected = selectedDungeonContent();
+  const root = $("#dungeon-content-properties");
+  $("#delete-dungeon-content").disabled = !selected;
+  if (!selected) {
+    root.innerHTML = '<div class="dungeon-content-empty"><span>◇</span><p>편집할 콘텐츠를 선택하세요.</p></div>';
+    return;
+  }
+  const { kind, entry } = selected;
+  let fields = "";
+  if (kind === "encounter") {
+    fields += contentField("조우 ID", "id", entry.id, { double: true, required: true });
+    fields += contentField("종류", "encounterKind", entry.kind || "trainer", { select: [["trainer", "트레이너"], ["wild_pokemon", "고정 야생 포켓몬"]] });
+    fields += contentField("한국어 표시 이름", "displayName", entry.display_name?.ko_kr || "", { wide: true, required: true });
+    fields += contentField("선행 조우 ID — 쉼표 구분", "requires", (entry.requires || []).join(", "));
+    fields += dungeonPositionFields(entry.position);
+    fields += contentField("바라보는 각도", "yaw", entry.yaw ?? 0, { type: "number", min: -180, max: 180 });
+    fields += contentField("보스 조우", "boss", entry.boss, { toggle: true });
+    if ((entry.kind || "trainer") === "wild_pokemon") {
+      fields += contentField("포켓몬 종", "species", entry.pokemon?.species || "", { double: true, required: true });
+      fields += contentField("레벨", "level", entry.pokemon?.level ?? 1, { type: "number", min: 1, max: 100, required: true });
+      fields += contentField("포획 가능", "catchable", entry.pokemon?.catchable !== false, { toggle: true });
+    } else {
+      fields += contentField("NPC ID — 쉼표 구분", "npcs", (entry.npcs || []).join(", "), { wide: true, required: true });
+      fields += contentField("배틀 프리셋 ID — 쉼표 구분", "opponents", (entry.opponents || []).join(", "), { wide: true, required: true });
+    }
+  } else if (kind === "wild_species") {
+    fields += contentField("포켓몬 종", "species", entry.species || "", { wide: true, required: true });
+    fields += contentField("최소 레벨", "minLevel", entry.min_level ?? 1, { type: "number", min: 1, max: 100, required: true });
+    fields += contentField("최대 레벨", "maxLevel", entry.max_level ?? 1, { type: "number", min: 1, max: 100, required: true });
+    fields += contentField("출현 가중치", "weight", entry.weight ?? 10, { type: "number", min: 1, max: 1000, required: true });
+    fields += contentField("진화체 상태로 출현", "spawnAsEvolved", entry.spawn_as_evolved, { toggle: true });
+  } else if (kind === "healing") {
+    fields += contentField("치료소 ID", "id", entry.id, { double: true, required: true });
+    fields += contentField("블록", "block", entry.block || "minecraft:lodestone", { required: true });
+    fields += dungeonPositionFields(entry.position);
+    fields += contentField("실행당 사용 횟수", "usesPerRun", entry.uses_per_run ?? 1, { type: "number", min: 1, max: 64, required: true });
+    fields += contentField("HP 회복", "restoreHp", entry.restore_hp, { toggle: true }) + contentField("상태이상 회복", "restoreStatus", entry.restore_status, { toggle: true }) + contentField("PP 회복", "restorePp", entry.restore_pp, { toggle: true });
+  } else if (kind === "checkpoint") {
+    fields += contentField("체크포인트 ID", "id", entry.id, { wide: true, required: true });
+    fields += dungeonPositionFields(entry.position);
+    fields += contentField("활성화 반경", "activationRadius", entry.activation_radius ?? 2, { type: "number", min: 1, max: 8, required: true });
+  } else if (kind === "loot") {
+    fields += contentField("상자 ID", "id", entry.id, { double: true, required: true });
+    fields += contentField("블록", "containerBlock", entry.block || "chest", { select: [["chest", "상자"], ["barrel", "통"]] });
+    fields += dungeonPositionFields(entry.position);
+    fields += contentField("방향", "facing", entry.facing || "north", { select: [["north", "북"], ["south", "남"], ["west", "서"], ["east", "동"]] });
+    fields += contentField("클리어 후 개방", "requiresCompletion", entry.requires_completion, { toggle: true });
+    fields += contentField("개별 전리품 테이블", "lootTable", entry.loot_table || "", { wide: true });
+  } else if (kind === "gate") {
+    fields += contentField("관문 ID", "id", entry.id, { double: true, required: true });
+    fields += contentField("관문 블록", "block", entry.block || "minecraft:iron_bars", { required: true });
+    fields += dungeonPositionFields(entry.min, "min") + dungeonPositionFields(entry.max, "max");
+    fields += contentField("해제 조건 ID — 쉼표 구분", "requires", (entry.requires || []).join(", "), { wide: true, required: true });
+  }
+  root.innerHTML = `<header class="dungeon-content-property-head"><div><strong>${escapeHtml(dungeonContentLabel(kind, entry))}</strong><small>${escapeHtml(dungeonContentKinds[kind].label)} 속성</small></div><span>${escapeHtml(dungeonContentSubtitle(kind, entry))}</span></header><div class="dungeon-content-fields">${fields}</div>`;
+}
+
+function renderDungeonContentEditor() {
+  if (!state.dungeon) return;
+  const groups = dungeonContentGroups();
+  const selection = selectedDungeonContent();
+  if (state.dungeonContentSelection && !selection) state.dungeonContentSelection = null;
+  $("#dungeon-content-list").innerHTML = groups.filter(([, entries]) => entries.length).map(([kind, entries]) => `<section class="dungeon-content-group"><strong>${escapeHtml(dungeonContentKinds[kind].label)} · ${entries.length}</strong>${entries.map((entry, index) => `<button type="button" class="${state.dungeonContentSelection?.kind === kind && state.dungeonContentSelection?.index === index ? "is-active" : ""}" data-dungeon-content-kind="${kind}" data-dungeon-content-index="${index}"><i>${dungeonContentKinds[kind].icon}</i><span><b>${escapeHtml(dungeonContentLabel(kind, entry))}</b><small>${escapeHtml(dungeonContentSubtitle(kind, entry))}</small></span></button>`).join("")}</section>`).join("") || '<div class="dungeon-content-empty"><p>배치된 콘텐츠가 없습니다.</p></div>';
+  const counts = Object.fromEntries(groups.map(([kind, entries]) => [kind, entries.length]));
+  $("#dungeon-content-summary").textContent = `고정 조우 ${counts.encounter} · 랜덤 포켓몬 ${counts.wild_species} · 치료소 ${counts.healing} · 체크포인트 ${counts.checkpoint} · 상자 ${counts.loot} · 관문 ${counts.gate}`;
+  renderDungeonContentProperties();
+}
+
+function updateDungeonContentFromEditor() {
+  const selected = selectedDungeonContent();
+  if (!selected) return;
+  const { kind, entry } = selected;
+  const root = $("#dungeon-content-properties");
+  const control = (name) => root.querySelector(`[name="${name}"]`);
+  const textValue = (name) => control(name)?.value.trim() || "";
+  const numberValue = (name, fallback = 0) => Math.round(Number(control(name)?.value || fallback));
+  const checked = (name) => Boolean(control(name)?.checked);
+  const position = (prefix = "position") => [numberValue(`${prefix}X`), numberValue(`${prefix}Y`, 1), numberValue(`${prefix}Z`)];
+  if (kind === "encounter") {
+    entry.id = textValue("id"); entry.display_name = { ...(entry.display_name || {}), ko_kr: textValue("displayName") };
+    entry.kind = textValue("encounterKind"); entry.requires = csvValues(textValue("requires")); entry.position = position(); entry.yaw = numberValue("yaw"); entry.boss = checked("boss");
+    if (entry.kind === "wild_pokemon") {
+      entry.pokemon = { species: textValue("species") || entry.pokemon?.species || "cobblemon:pikachu", level: control("level") ? numberValue("level", 1) : entry.pokemon?.level || 1, catchable: control("catchable") ? checked("catchable") : entry.pokemon?.catchable !== false };
+      delete entry.npcs; delete entry.opponents;
+    } else {
+      entry.npcs = control("npcs") ? csvValues(textValue("npcs")) : entry.npcs || ["cobbleventure:npc/new_encounter"];
+      entry.opponents = control("opponents") ? csvValues(textValue("opponents")) : entry.opponents || ["cobbleventure:battle/new_encounter"];
+      delete entry.pokemon;
+      if (entry.kind === "trainer") delete entry.kind;
+    }
+  } else if (kind === "wild_species") {
+    Object.assign(entry, { species: textValue("species"), min_level: numberValue("minLevel", 1), max_level: numberValue("maxLevel", 1), weight: numberValue("weight", 10), spawn_as_evolved: checked("spawnAsEvolved") });
+  } else if (kind === "healing") {
+    Object.assign(entry, { id: textValue("id"), block: textValue("block"), position: position(), uses_per_run: numberValue("usesPerRun", 1), restore_hp: checked("restoreHp"), restore_status: checked("restoreStatus"), restore_pp: checked("restorePp") });
+  } else if (kind === "checkpoint") {
+    Object.assign(entry, { id: textValue("id"), position: position(), activation_radius: numberValue("activationRadius", 2) });
+  } else if (kind === "loot") {
+    Object.assign(entry, { id: textValue("id"), block: textValue("containerBlock"), position: position(), facing: textValue("facing"), requires_completion: checked("requiresCompletion") });
+    const lootTable = textValue("lootTable"); if (lootTable) entry.loot_table = lootTable; else delete entry.loot_table;
+  } else if (kind === "gate") {
+    Object.assign(entry, { id: textValue("id"), block: textValue("block"), min: position("min"), max: position("max"), requires: csvValues(textValue("requires")) });
+  }
+}
+
+function nextDungeonContentId(kind) {
+  const entries = dungeonContentGroups().find(([candidate]) => candidate === kind)?.[1] || [];
+  const prefix = kind === "encounter" ? "encounter" : kind;
+  let index = entries.length + 1;
+  while (entries.some((entry) => entry.id === `${prefix}_${index}`)) index += 1;
+  return `${prefix}_${index}`;
+}
+
+function addDungeonContent() {
+  if (!state.dungeon) return;
+  const requested = $("#dungeon-content-kind").value;
+  const kind = requested.endsWith("_encounter") ? "encounter" : requested;
+  const entries = dungeonContentGroups().find(([candidate]) => candidate === kind)[1];
+  const id = nextDungeonContentId(kind);
+  let entry;
+  if (requested === "trainer_encounter") entry = { id, display_name: { ko_kr: "새 트레이너 조우" }, npcs: ["cobbleventure:npc/new_encounter"], opponents: ["cobbleventure:battle/new_encounter"], requires: [], position: [0, 1, 0], yaw: 0, boss: false };
+  else if (requested === "wild_encounter") entry = { id, kind: "wild_pokemon", display_name: { ko_kr: "새 야생 포켓몬" }, pokemon: { species: "cobblemon:pikachu", level: 1, catchable: true }, requires: [], position: [0, 1, 0], yaw: 0, boss: false };
+  else if (kind === "wild_species") entry = { species: "cobblemon:pikachu", min_level: 1, max_level: 1, weight: 10, spawn_as_evolved: false };
+  else if (kind === "healing") entry = { id, position: [0, 1, 0], block: "minecraft:lodestone", uses_per_run: 1, restore_hp: true, restore_status: true, restore_pp: true };
+  else if (kind === "checkpoint") entry = { id, position: [0, 1, 0], activation_radius: 2 };
+  else if (kind === "loot") entry = { id, position: [0, 1, 0], block: "chest", facing: "north", requires_completion: false };
+  else entry = { id, min: [0, 1, 0], max: [2, 3, 0], block: "minecraft:iron_bars", requires: [state.dungeon.encounters?.[0]?.id || "encounter_1"] };
+  entries.push(entry);
+  state.dungeonContentSelection = { kind, index: entries.length - 1 };
+  state.dungeonDirty = true;
+  renderDungeonContentEditor(); renderDungeonPreview(); renderDungeonForm();
+}
+
+function deleteDungeonContent() {
+  const selected = selectedDungeonContent();
+  if (!selected) return;
+  const entries = dungeonContentGroups().find(([kind]) => kind === selected.kind)[1];
+  if (["encounter", "loot"].includes(selected.kind) && entries.length === 1) { toast(`${dungeonContentKinds[selected.kind].label} 항목은 하나 이상 필요합니다.`); return; }
+  entries.splice(selected.index, 1);
+  state.dungeonContentSelection = null; state.dungeonDirty = true;
+  renderDungeonContentEditor(); renderDungeonPreview(); renderDungeonForm();
 }
 
 function dungeonRange(value, fallback) {
@@ -4711,13 +4934,17 @@ function authoredDungeonPlan(document, planId) {
 
 function fixedDungeonPlan(document) {
   const markers = [];
-  const add = (kind, position, label) => { if (Array.isArray(position)) markers.push({ kind, position: position.map(Number), label }); };
+  const add = (kind, position, label, content = null) => { if (Array.isArray(position)) markers.push({ kind, position: position.map(Number), label, content }); };
   add("entry", document.terrain?.entry_position, "시작");
   add("exit", document.terrain?.exit_position, "귀환");
-  (document.encounters || []).forEach((value) => add(value.boss ? "boss" : "encounter", value.position, value.display_name?.ko_kr || value.id));
-  (document.support?.healing_stations || []).forEach((value) => add("healing", value.position, value.id));
-  (document.support?.checkpoints || []).forEach((value) => add("checkpoint", value.position, value.id));
-  (document.loot?.containers || []).forEach((value) => add("loot", value.position, value.id));
+  (document.encounters || []).forEach((value, index) => add(value.boss ? "boss" : "encounter", value.position, value.display_name?.ko_kr || value.id, { kind: "encounter", index }));
+  (document.support?.healing_stations || []).forEach((value, index) => add("healing", value.position, value.id, { kind: "healing", index }));
+  (document.support?.checkpoints || []).forEach((value, index) => add("checkpoint", value.position, value.id, { kind: "checkpoint", index }));
+  (document.loot?.containers || []).forEach((value, index) => add("loot", value.position, value.id, { kind: "loot", index }));
+  (document.gates || []).forEach((value, index) => {
+    if (!Array.isArray(value.min) || !Array.isArray(value.max)) return;
+    add("gate", value.min.map((axis, coordinate) => (Number(axis) + Number(value.max[coordinate])) / 2), value.id, { kind: "gate", index });
+  });
   add("exit", document.completion?.clear_exit_position, "클리어 출구");
   const positions = markers.map((marker) => marker.position);
   (document.gates || []).forEach((gate) => positions.push(gate.min || [], gate.max || []));
@@ -4814,9 +5041,17 @@ function renderDungeonPreview() {
     context.fillStyle = colors[placement.role] || (placement.critical ? "#4d86b8" : "#65757a"); context.globalAlpha = state.dungeonPreview.selected === placement.index ? 1 : .86; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1;
     context.strokeStyle = state.dungeonPreview.selected === placement.index ? "#fff" : "#b8d0d1"; context.lineWidth = state.dungeonPreview.selected === placement.index ? 3 : 1; context.strokeRect(top.x, top.y, boxWidth, boxHeight);
     context.fillStyle = "#fff"; context.font = "700 10px sans-serif"; context.fillText(placement.role, top.x + 4, top.y + 13);
-    state.dungeonPreview.hitTargets.push({ index: placement.index, x: top.x, y: top.y, width: boxWidth, height: boxHeight });
+    state.dungeonPreview.hitTargets.push({ type: "placement", index: placement.index, x: top.x, y: top.y, width: boxWidth, height: boxHeight });
   });
-  plan.markers.forEach((marker) => { const target = point(marker.position); context.fillStyle = marker.kind === "boss" ? "#ff5968" : marker.kind === "entry" ? "#68e194" : marker.kind === "exit" ? "#ffd76d" : "#f3f6f5"; context.beginPath(); context.arc(target.x, target.y, 5, 0, Math.PI * 2); context.fill(); context.fillStyle = "#fff"; context.font = "9px sans-serif"; context.fillText(marker.label || marker.kind, target.x + 8, target.y + 3); });
+  const markerColors = { boss: "#ff5968", encounter: "#ff9c54", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", gate: "#b6c1c8" };
+  plan.markers.forEach((marker) => {
+    const target = point(marker.position);
+    const selectedMarker = marker.content && state.dungeonContentSelection?.kind === marker.content.kind && state.dungeonContentSelection?.index === marker.content.index;
+    context.fillStyle = markerColors[marker.kind] || "#f3f6f5"; context.beginPath(); context.arc(target.x, target.y, selectedMarker ? 8 : 5, 0, Math.PI * 2); context.fill();
+    if (selectedMarker) { context.strokeStyle = "#fff"; context.lineWidth = 2; context.stroke(); }
+    context.fillStyle = "#fff"; context.font = `${selectedMarker ? "700 " : ""}9px sans-serif`; context.fillText(marker.label || marker.kind, target.x + 9, target.y + 3);
+    if (marker.content) state.dungeonPreview.hitTargets.push({ type: "marker", content: marker.content, x: target.x - 10, y: target.y - 10, width: 20, height: 20 });
+  });
   const criticalCount = plan.placements.filter((value) => value.critical).length;
   const selected = plan.placements.find((value) => value.index === state.dungeonPreview.selected);
   $("#dungeon-preview-empty").hidden = true; $("#dungeon-preview-details").hidden = false;
@@ -15036,12 +15271,32 @@ $("#dungeon-form").addEventListener("change", (event) => {
   renderDungeonOptionVisibility();
   renderDungeon();
 });
+$("#dungeon-content-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-dungeon-content-kind]");
+  if (!button) return;
+  state.dungeonContentSelection = { kind: button.dataset.dungeonContentKind, index: Number(button.dataset.dungeonContentIndex) };
+  state.dungeonPreview.selected = -1;
+  renderDungeonContentEditor(); renderDungeonPreview();
+});
+$("#dungeon-content-properties").addEventListener("input", () => {
+  updateDungeonContentFromEditor();
+  state.dungeonDirty = true;
+  $("#dungeon-save-state").textContent = "저장하지 않은 변경";
+  $("#dungeon-save-state").classList.add("is-dirty");
+  renderDungeonPreview();
+});
+$("#dungeon-content-properties").addEventListener("change", (event) => {
+  updateDungeonContentFromEditor();
+  renderDungeonContentEditor(); renderDungeonPreview();
+});
+$("#add-dungeon-content").addEventListener("click", addDungeonContent);
+$("#delete-dungeon-content").addEventListener("click", deleteDungeonContent);
 $("#validate-dungeon").addEventListener("click", () => validateDocument("dungeons"));
 $("#save-dungeon").addEventListener("click", () => saveDocument("dungeons"));
 $("#dungeon-preview-seed").addEventListener("change", (event) => { state.dungeonPreview.seed = Number(event.target.value) || 1; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
 $("#dungeon-repeat-seed").addEventListener("click", renderDungeonPreview);
 $("#dungeon-random-seed").addEventListener("click", () => { state.dungeonPreview.seed = Math.floor(Math.random() * 2147483647) + 1; $("#dungeon-preview-seed").value = state.dungeonPreview.seed; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
-$("#dungeon-plan-canvas").addEventListener("click", (event) => { const bounds = event.currentTarget.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const target = [...state.dungeonPreview.hitTargets].reverse().find((value) => x >= value.x && x <= value.x + value.width && y >= value.y && y <= value.y + value.height); state.dungeonPreview.selected = target?.index ?? -1; renderDungeonPreview(); });
+$("#dungeon-plan-canvas").addEventListener("click", (event) => { const bounds = event.currentTarget.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const target = [...state.dungeonPreview.hitTargets].reverse().find((value) => x >= value.x && x <= value.x + value.width && y >= value.y && y <= value.y + value.height); if (target?.type === "marker") { state.dungeonContentSelection = { ...target.content }; state.dungeonPreview.selected = -1; renderDungeonContentEditor(); } else { state.dungeonPreview.selected = target?.index ?? -1; } renderDungeonPreview(); });
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#open-project").addEventListener("click", openProjectDialog);
 $("#project-form").addEventListener("submit", loadProject);
