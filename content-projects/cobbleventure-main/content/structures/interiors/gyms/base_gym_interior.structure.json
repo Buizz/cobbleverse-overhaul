@@ -35,6 +35,17 @@
         25
       ],
       "facing": "north"
+    },
+    {
+      "id": "interior_spawn",
+      "label": "interior_spawn",
+      "type": "interior_spawn",
+      "position": [
+        16,
+        1,
+        3
+      ],
+      "facing": "south"
     }
   ]
 }

@@ -7001,6 +7001,7 @@ def create_gym(root: Path, slug: str, name: str, source_structure: str) -> tuple
 
 
 def gym_interior_modules_payload(root: Path) -> dict[str, Any]:
+    root = resolve_content_project(root).root
     module_root = root / "content" / "structures" / "interiors" / "gyms"
     catalog_path = root / "content" / "catalogs" / "gyms.json"
     catalog = load_json(catalog_path) if catalog_path.is_file() else {"gyms": []}
@@ -7045,6 +7046,7 @@ def gym_interior_modules_payload(root: Path) -> dict[str, Any]:
 
 
 def interior_spaces_payload(root: Path) -> dict[str, Any]:
+    root = resolve_content_project(root).root
     module_root = root / "content" / "structures" / "interiors"
     settings = load_building_settings(root)
     usage: dict[str, list[str]] = {}
@@ -12852,9 +12854,18 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             normalized_interiors.append({"key": key, "structure": interior_resource})
 
         space_files = {"exterior": structure, **interior_spaces}
-        connection_labels = {
+        source_connection_labels = {
             space: {item["label"] for item in _structure_named_anchors(
                 space_file, {"door", "transition"}
+            )}
+            for space, space_file in space_files.items()
+        }
+        target_connection_labels = {
+            space: {item["label"] for item in _structure_named_anchors(
+                space_file, {
+                    "door", "transition", "arrival", "interior_spawn",
+                    "exterior_spawn",
+                }
             )}
             for space, space_file in space_files.items()
         }
@@ -12869,7 +12880,10 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 _issue(issues, "error", path, route_path, "출입구 키는 공간:앵커이름 형식이어야 합니다.")
                 continue
             source_space, source_door = source_key.split(":", 1)
-            if source_space not in connection_labels or source_door not in connection_labels[source_space]:
+            if (
+                source_space not in source_connection_labels
+                or source_door not in source_connection_labels[source_space]
+            ):
                 _issue(issues, "error", path, route_path, "NBT에 없는 문 또는 접촉 전환 영역입니다.")
                 continue
             if not isinstance(destination, dict):
@@ -12877,8 +12891,11 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 continue
             target_space = destination.get("space")
             target_door = destination.get("door", destination.get("arrival"))
-            if target_space not in connection_labels or target_door not in connection_labels[target_space]:
-                _issue(issues, "error", path, route_path, "존재하는 공간의 문 또는 접촉 전환 영역을 선택해야 합니다.")
+            if (
+                target_space not in target_connection_labels
+                or target_door not in target_connection_labels[target_space]
+            ):
+                _issue(issues, "error", path, route_path, "존재하는 공간의 문, 접촉 전환 영역 또는 도착점을 선택해야 합니다.")
                 continue
             normalized_route: dict[str, Any] = {"space": target_space, "door": target_door}
             condition_mode = destination.get("condition_mode", "all")
