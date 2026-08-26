@@ -1,13 +1,11 @@
 package dev.buizz.cobbleventure.playermenu.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.cobblemon.mod.common.client.CobblemonClient;
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.client.gui.components.toasts.Toast;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import com.cobblemon.mod.common.client.gui.startselection.StarterSelectionScreen;
@@ -18,25 +16,16 @@ import net.neoforged.bus.api.IEventBus;
 
 public final class PlayerMenuClient {
     private static final String IRIS_RELOAD_KEY = "iris.keybind.reload";
-    private static boolean allowNextInventoryScreen;
+    private static final String COBBLEMON_SUMMARY_KEY = "key.cobblemon.summary";
     private static boolean irisReloadKeyChecked;
+    private static boolean cobblemonSummaryKeyChecked;
 
     private PlayerMenuClient() {}
 
     public static void register(IEventBus modBus) {
         PlayerMenuKeyMappings.register(modBus);
         NeoForge.EVENT_BUS.addListener(PlayerMenuClient::onScreenOpening);
-        NeoForge.EVENT_BUS.addListener(PlayerMenuClient::suppressCobblemonStarterPrompt);
-    }
-
-    public static void openVanillaInventory() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) {
-            return;
-        }
-
-        allowNextInventoryScreen = true;
-        minecraft.setScreen(new InventoryScreen(minecraft.player));
+        NeoForge.EVENT_BUS.addListener(PlayerMenuClient::onClientTick);
     }
 
     public static void openWorldMap() {
@@ -127,23 +116,15 @@ public final class PlayerMenuClient {
             return;
         }
 
-        if (allowNextInventoryScreen) {
-            allowNextInventoryScreen = false;
-            return;
-        }
-
         if (event.getCurrentScreen() == null) {
             event.setNewScreen(new PlayerMenuScreen());
         }
     }
 
-    private static void suppressCobblemonStarterPrompt(ClientTickEvent.Post event) {
+    private static void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         disableLegacyIrisReloadKey(minecraft);
-        if (minecraft.player == null) return;
-        CobblemonClient.INSTANCE.setCheckedStarterScreen(true);
-        CobblemonClient.INSTANCE.getOverlay().getStarterToast()
-            .setNextVisibility$common(Toast.Visibility.HIDE);
+        disableLegacyCobblemonSummaryKey(minecraft);
     }
 
     /** Migrates existing pack instances whose Iris reload key predates options.txt overrides. */
@@ -157,6 +138,26 @@ public final class PlayerMenuClient {
             }
             irisReloadKeyChecked = true;
             if (!"key.keyboard.r".equals(mapping.saveString())) {
+                return;
+            }
+            mapping.setKey(InputConstants.UNKNOWN);
+            KeyMapping.resetMapping();
+            minecraft.options.save();
+            return;
+        }
+    }
+
+    /** Frees M for the world map while preserving any custom Cobblemon summary key. */
+    private static void disableLegacyCobblemonSummaryKey(Minecraft minecraft) {
+        if (cobblemonSummaryKeyChecked || minecraft.options == null) {
+            return;
+        }
+        for (KeyMapping mapping : minecraft.options.keyMappings) {
+            if (!COBBLEMON_SUMMARY_KEY.equals(mapping.getName())) {
+                continue;
+            }
+            cobblemonSummaryKeyChecked = true;
+            if (!"key.keyboard.m".equals(mapping.saveString())) {
                 return;
             }
             mapping.setKey(InputConstants.UNKNOWN);

@@ -1,0 +1,14 @@
+{
+  "key.categories.cobbleventure_pokefinder": "Cobbleventure PokéNav",
+  "key.cobbleventure_pokefinder.toggle_hud": "Toggle Pokefinder HUD",
+  "message.cobbleventure_pokefinder.hud.on": "Pokefinder HUD enabled.",
+  "message.cobbleventure_pokefinder.hud.off": "Pokefinder HUD disabled.",
+  "message.cobbleventure_pokefinder.hud.missing_pokenav": "Configure the Pokefinder from your PokéNav first.",
+  "screen.cobbleventure_pokefinder.pokenav.hud": "Pokefinder HUD: %s",
+  "screen.cobbleventure_pokefinder.pokenav.position": "Position: %s",
+  "screen.cobbleventure_pokefinder.state.on": "ON",
+  "screen.cobbleventure_pokefinder.state.off": "OFF",
+  "screen.cobbleventure_pokefinder.position.left": "Left",
+  "screen.cobbleventure_pokefinder.position.right": "Right",
+  "screen.cobbleventure_pokefinder.exploration_settings": "Exploration Info"
+}

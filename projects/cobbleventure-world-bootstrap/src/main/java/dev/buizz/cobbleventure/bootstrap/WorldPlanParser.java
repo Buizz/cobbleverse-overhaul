@@ -269,14 +269,23 @@ final class WorldPlanParser {
                 required(value, "facing"), required(value, "structure"),
                 Map.copyOf(structureVariants),
                 pokemonCenterEnabled,
-                pokemonCenter == null ? "bca:default/one_off/pokecenter"
-                    : required(pokemonCenter, "structure"),
+                pokemonCenterStructure(pokemonCenter),
                 pokemonCenter == null ? new HexCoord(0, 1)
                     : coordinate(pokemonCenter.getAsJsonObject("offset")), null, null,
                 NaturalCaveGenerator.Settings.defaults()
             ));
         }
         return List.copyOf(result);
+    }
+
+    private static String pokemonCenterStructure(JsonObject pokemonCenter) {
+        String configured = pokemonCenter == null
+            ? "cobbleventure:facilities/pokemon_center"
+            : required(pokemonCenter, "structure");
+        return configured.equals("bca:default/one_off/pokecenter")
+            || configured.equals("cobbleventure:facility/pokemon_center_small")
+            ? "cobbleventure:facilities/pokemon_center"
+            : configured;
     }
 
     static EmptyTerrain emptyTerrain(JsonObject root) {

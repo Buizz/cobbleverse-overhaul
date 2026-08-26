@@ -27,7 +27,6 @@ final class PlayerMenuKeyMappings {
     static {
         bind(PlayerMenuEntry.POKEMON, GLFW.GLFW_KEY_U);
         bind(PlayerMenuEntry.BAG, GLFW.GLFW_KEY_B);
-        bind(PlayerMenuEntry.EQUIPMENT, GLFW.GLFW_KEY_G);
         bind(PlayerMenuEntry.PC, GLFW.GLFW_KEY_P);
         bind(PlayerMenuEntry.TRAINER_CARD, GLFW.GLFW_KEY_C);
         bind(PlayerMenuEntry.QUESTS, GLFW.GLFW_KEY_J);

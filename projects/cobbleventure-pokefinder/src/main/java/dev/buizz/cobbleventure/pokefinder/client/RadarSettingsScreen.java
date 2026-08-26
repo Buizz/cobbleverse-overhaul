@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
 /** Pokefinder-styled exploration marker settings. */
 public final class RadarSettingsScreen extends Screen {
     private static final int WIDTH = 288;
-    private static final int HEIGHT = 192;
+    private static final int HEIGHT = 216;
     private final Screen parent;
     private int left;
     private int top;
@@ -24,7 +24,7 @@ public final class RadarSettingsScreen extends Screen {
         left = (width - WIDTH) / 2;
         top = (height - HEIGHT) / 2;
         Option[] categories = {
-            Option.TRAINERS, Option.IMPORTANT_NPCS, Option.FACILITIES,
+            Option.PLAYERS, Option.TRAINERS, Option.IMPORTANT_NPCS, Option.FACILITIES,
             Option.ENTRANCES, Option.OBJECTIVES
         };
         for (int index = 0; index < categories.length; index++) {
@@ -38,7 +38,7 @@ public final class RadarSettingsScreen extends Screen {
         }
         addRenderableWidget(Button.builder(
             Component.literal("완료"), button -> onClose()
-        ).bounds(left + 190, top + 162, 86, 18).build());
+        ).bounds(left + 190, top + 186, 86, 18).build());
     }
 
     private void addToggle(Option option, int x, int y) {

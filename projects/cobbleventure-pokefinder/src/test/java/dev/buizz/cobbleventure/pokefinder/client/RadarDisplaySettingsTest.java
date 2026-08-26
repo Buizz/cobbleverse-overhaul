@@ -20,10 +20,14 @@ final class RadarDisplaySettingsTest {
         assertTrue(values.get(Option.FACILITIES));
         assertFalse(values.get(Option.NAMES));
         assertTrue(values.get(Option.DEFEATED_TRAINERS));
+        assertTrue(values.get(Option.PLAYERS));
     }
 
     @Test
     void keepsGymEntrancesInFacilitiesAndLeadersInTrainers() {
+        assertEquals(Option.PLAYERS, RadarDisplaySettings.category(
+            RadarMarkerType.PLAYER, "player/test"
+        ));
         assertEquals(Option.FACILITIES, RadarDisplaySettings.category(
             RadarMarkerType.GYM_LEADER, "building/cobbleventure_gyms/base_gym"
         ));

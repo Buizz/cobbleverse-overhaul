@@ -24,8 +24,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -53,6 +55,17 @@ public final class StarterRouletteNetwork {
         modBus.addListener(StarterRouletteNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(StarterRouletteCommands::register);
         NeoForge.EVENT_BUS.addListener(StarterRouletteNetwork::onServerTick);
+        NeoForge.EVENT_BUS.addListener(
+            EventPriority.LOWEST, StarterRouletteNetwork::onPlayerLoggedIn
+        );
+    }
+
+    /** Marks Cobblemon's own starter prompt as already shown without claiming a starter. */
+    private static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        GeneralPlayerData data = Cobblemon.INSTANCE.getPlayerDataManager().getGenericData(player);
+        data.setStarterPrompted(true);
+        data.sendToPlayer(player);
     }
 
     static int queueOpen(ServerPlayer player) {

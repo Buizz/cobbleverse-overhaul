@@ -25,7 +25,7 @@ abstract class PokefinderScreenMixin extends Screen {
     @Inject(method = "init", at = @At("TAIL"))
     private void cobbleventure$addExplorationSettings(CallbackInfo callback) {
         addRenderableWidget(Button.builder(
-            Component.literal("탐색 정보"),
+            Component.translatable("screen.cobbleventure_pokefinder.exploration_settings"),
             button -> Minecraft.getInstance().setScreen(
                 new RadarSettingsScreen((Screen) (Object) this)
             )

@@ -9,7 +9,9 @@ import dev.buizz.cobbleventure.playermenu.MapContent;
 import dev.buizz.cobbleventure.playermenu.MapNetwork;
 import dev.buizz.cobbleventure.playermenu.ProgressionNetwork;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -33,6 +35,8 @@ public final class WorldMapScreen extends Screen {
     private static final int FOREST_OPENING = 0xFF17331E;
     private static final int SELECTED_BORDER = 0xFFFFFFFF;
     private static final int PLAYER_MARKER = 0xFFFFD34E;
+    private static final int OTHER_PLAYER_MARKER = 0xFF53E1D4;
+    private static final int PLAYER_POSITION_REFRESH_TICKS = 20;
     private static final int MAP_LABEL_BACKGROUND = 0xF5FFF4D6;
     private static final int MAP_LABEL_HOVER = 0xFFFFD87A;
     private static final int WARNING_TEXT = 0xFFF0A43B;
@@ -72,6 +76,7 @@ public final class WorldMapScreen extends Screen {
     private AbstractButton zoomInButton;
     private AbstractButton resetViewButton;
     private long stateRevision = -1L;
+    private int playerPositionRefreshTicks = PLAYER_POSITION_REFRESH_TICKS;
     private long selectionRevision = -1L;
     private boolean selectionCompleted;
     private boolean selectionCancelled;
@@ -155,6 +160,7 @@ public final class WorldMapScreen extends Screen {
             width - MARGIN - 72, height - FOOTER_HEIGHT + 5, 72, 20, this::onClose));
         initPokemonModels(layout);
         MapNetwork.requestSnapshot();
+        playerPositionRefreshTicks = PLAYER_POSITION_REFRESH_TICKS;
         updateNavigationButtons();
         updateTeleportButton();
     }
@@ -162,6 +168,10 @@ public final class WorldMapScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        if (--playerPositionRefreshTicks <= 0) {
+            playerPositionRefreshTicks = PLAYER_POSITION_REFRESH_TICKS;
+            MapNetwork.requestSnapshot();
+        }
         MapNetwork.ClientSnapshot snapshot = MapNetwork.clientSnapshot();
         if (snapshot.revision() != stateRevision) {
             stateRevision = snapshot.revision();
@@ -406,6 +416,7 @@ public final class WorldMapScreen extends Screen {
         drawCellOutline(
             graphics, mapCellBounds(center, size, selected.q(), selected.r()), SELECTED_BORDER
         );
+        drawOtherPlayers(graphics, center, size);
         MapContent.Hex playerHex = currentPlayerHex();
         if (playerHex != null) {
             ScreenPoint player = hexCenter(center, size, playerHex.q(), playerHex.r());
@@ -432,6 +443,34 @@ public final class WorldMapScreen extends Screen {
             }
         }
         endRoundedMapClip(graphics, roundedClip);
+    }
+
+    private void drawOtherPlayers(GuiGraphics graphics, ScreenPoint center, int size) {
+        if (!playerOnMappedDimension()) return;
+        Map<String, Integer> playersPerHex = new HashMap<>();
+        for (MapNetwork.MapPlayer other : MapNetwork.clientSnapshot().players()) {
+            MapContent.Hex hex = content.worldToHex(other.x(), other.z());
+            if (!content.contains(hex.q(), hex.r())) continue;
+
+            String hexKey = hex.q() + ":" + hex.r();
+            int slot = playersPerHex.getOrDefault(hexKey, 0);
+            playersPerHex.put(hexKey, slot + 1);
+            ScreenPoint point = hexCenter(center, size, hex.q(), hex.r());
+            int markerX = point.x() + ((slot % 3) - 1) * 5;
+            int markerY = point.y() + (slot / 3) * 5;
+
+            graphics.fill(markerX - 3, markerY - 3, markerX + 4, markerY + 4, 0xFF161A18);
+            graphics.fill(markerX - 2, markerY - 2, markerX + 3, markerY + 3, OTHER_PLAYER_MARKER);
+
+            String name = font.plainSubstrByWidth(other.name(), 64);
+            int labelX = markerX + 5;
+            int labelY = markerY - 4;
+            graphics.fill(
+                labelX - 2, labelY - 1, labelX + font.width(name) + 2, labelY + 9,
+                0xE51C5359
+            );
+            graphics.drawString(font, name, labelX, labelY, 0xFFFFFFFF, false);
+        }
     }
 
     private boolean beginRoundedMapClip(GuiGraphics graphics, Layout layout) {
@@ -943,10 +982,9 @@ public final class WorldMapScreen extends Screen {
 
     private int hexSize(Layout layout) {
         MapBounds bounds = mapBounds();
-        double horizontal = (layout.mapWidth() - 12.0D) / bounds.width();
-        double vertical = (layout.height() - 12.0D - MAP_CONTENT_TOP_INSET) / bounds.height();
-        int fitted = Math.max(3, Math.min(12, (int) Math.floor(Math.min(horizontal, vertical))));
-        return Math.min(32, fitted + zoomLevel * 2);
+        return WorldMapSizing.responsiveHexSize(
+            layout.mapWidth(), layout.height(), bounds.width(), bounds.height(), zoomLevel
+        );
     }
 
     private ScreenPoint mapCenter(Layout layout) {

@@ -15,7 +15,6 @@ import net.neoforged.fml.ModList;
 enum PlayerMenuEntry {
     POKEMON("pokemon", false, "poke_ball"),
     BAG("bag", true, "relic_coin_pouch"),
-    EQUIPMENT("equipment", true, "assault_vest"),
     PC("pc", false, "pc"),
     TRAINER_CARD("trainer_card", true, "red_card"),
     QUESTS("quests", false, "scroll_of_darkness"),
@@ -49,7 +48,6 @@ enum PlayerMenuEntry {
         ItemStack fallback = new ItemStack(switch (this) {
             case POKEMON -> Items.EGG;
             case BAG -> Items.BUNDLE;
-            case EQUIPMENT -> Items.LEATHER_CHESTPLATE;
             case PC -> Items.COMPARATOR;
             case TRAINER_CARD -> Items.NAME_TAG;
             case QUESTS -> Items.WRITABLE_BOOK;
@@ -101,10 +99,6 @@ enum PlayerMenuEntry {
         if (this == POKENAV && !hasPokenav()) return OpenResult.MISSING_POKENAV;
         if (this == BAG) {
             PlayerMenuClient.openBag();
-            return OpenResult.OPENED;
-        }
-        if (this == EQUIPMENT) {
-            PlayerMenuClient.openVanillaInventory();
             return OpenResult.OPENED;
         }
         if (this == MAP) {

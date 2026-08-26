@@ -25,6 +25,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -67,6 +68,8 @@ final class StructurePlacementFixes {
     private static final Map<Class<?>, Method> COPYCAT_MULTI_SET_MATERIAL_METHODS =
         new LinkedHashMap<>();
     private static final Map<Class<?>, Method> COPYCAT_SINGLE_SET_MATERIAL_METHODS =
+        new LinkedHashMap<>();
+    private static final Map<Class<?>, Method> COPYCAT_SINGLE_SET_ITEM_METHODS =
         new LinkedHashMap<>();
     private static final Map<ResourceLocation, ResourceLocation> FRIDGE_LOWER_BY_UPPER = Map.of(
         id("cobblefurnies", "light_freezer"), id("cobblefurnies", "light_fridge"),
@@ -785,6 +788,18 @@ final class StructurePlacementFixes {
             new Object[] {material},
             "single-state"
         );
+        // Copycats validates Material against Item whenever the chunk is loaded. A material-only
+        // repair can therefore look correct until the chunk unloads and then revert to the X
+        // textured copycat base. Persist the matching consumed item together with the material.
+        Method setConsumedItem = COPYCAT_SINGLE_SET_ITEM_METHODS.computeIfAbsent(
+            blockEntity.getClass(), StructurePlacementFixes::findSingleStateSetItemMethod
+        );
+        invokeCopycatMaterialSetter(
+            setConsumedItem,
+            blockEntity,
+            new Object[] {new ItemStack(material.getBlock())},
+            "single-state consumed-item"
+        );
     }
 
     /**
@@ -831,6 +846,18 @@ final class StructurePlacementFixes {
         } catch (NoSuchMethodException error) {
             throw new IllegalStateException(
                 "Block entity contains Material but has no single-state material setter: "
+                    + blockEntityClass.getName(),
+                error
+            );
+        }
+    }
+
+    private static Method findSingleStateSetItemMethod(Class<?> blockEntityClass) {
+        try {
+            return blockEntityClass.getMethod("setConsumedItem", ItemStack.class);
+        } catch (NoSuchMethodException error) {
+            throw new IllegalStateException(
+                "Block entity contains Material but has no single-state consumed-item setter: "
                     + blockEntityClass.getName(),
                 error
             );

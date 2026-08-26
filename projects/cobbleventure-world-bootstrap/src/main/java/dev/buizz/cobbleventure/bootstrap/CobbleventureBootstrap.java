@@ -2093,9 +2093,7 @@ public final class CobbleventureBootstrap {
         double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
         int centerX = entranceCenter.x() + (int) Math.round(deltaX / length * 28.0D);
         int centerZ = entranceCenter.z() + (int) Math.round(deltaZ / length * 28.0D);
-        String structure = entrance.pokemonCenterStructure().equals(
-            "cobbleventure:facility/pokemon_center_small"
-        ) ? "bca:default/one_off/pokecenter" : entrance.pokemonCenterStructure();
+        String structure = entrance.pokemonCenterStructure();
         ResourceLocation structureId = ResourceLocation.tryParse(structure);
         if (structureId == null || level.getStructureManager().get(structureId).isEmpty()) {
             LOGGER.error(
@@ -2133,6 +2131,12 @@ public final class CobbleventureBootstrap {
             );
             return;
         }
+        BlockPoint placedOrigin = facilityPlacementOrigin(
+            level, facility, origin, rotation
+        );
+        BuildingRuntimeSystem.onStructurePlaced(
+            level, structure, placedOrigin, rotation
+        );
         if (!placeFacilityJigsawDecorations(level, facility, origin, rotation)) {
             LOGGER.warn("Cave Pokemon Center berry decorations were not completed: {}", entrance.id());
         }
@@ -5841,9 +5845,7 @@ public final class CobbleventureBootstrap {
             double dx = player.getX() - centerX;
             double dz = player.getZ() - centerZ;
             if (dx * dx + dz * dz <= 144.0D) {
-                String structure = entrance.pokemonCenterStructure().equals(
-                    "cobbleventure:facility/pokemon_center_small"
-                ) ? "bca:default/one_off/pokecenter" : entrance.pokemonCenterStructure();
+                String structure = entrance.pokemonCenterStructure();
                 ResourceLocation structureId = ResourceLocation.tryParse(structure);
                 if (structureId == null || level.getStructureManager().get(structureId).isEmpty()) {
                     continue;
@@ -7706,7 +7708,8 @@ public final class CobbleventureBootstrap {
                 );
             }
             entrances.add(new CaveEntrancePlan(
-                entrance.id(), entrance.cave(), entrance.entrance(), null, null, null,
+                entrance.id(), entrance.cave(), entrance.entrance(),
+                entrance.surfaceTransition(), null, null,
                 entrance.anchor(),
                 entrance.facing(), entrance.structure(), entrance.structureVariants(),
                 entrance.pokemonCenterEnabled(),

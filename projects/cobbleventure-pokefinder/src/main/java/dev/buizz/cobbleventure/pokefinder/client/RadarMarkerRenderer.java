@@ -1,12 +1,15 @@
 package dev.buizz.cobbleventure.pokefinder.client;
 
+import dev.buizz.cobbleventure.pokefinder.CobbleventurePokefinder;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarker;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerType;
+import dev.buizz.cobbleventure.pokefinder.marker.RadarRanges;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
@@ -29,6 +32,10 @@ public final class RadarMarkerRenderer {
 
         Cobblenav233LayoutAdapter.radarLayout(minecraft).ifPresent(layout -> {
             List<RadarMarker> markers = new ArrayList<>(RadarMarkerSnapshot.markers());
+            for (AbstractClientPlayer other : player.clientLevel.players()) {
+                if (other == player || other.isSpectator() || other.isInvisible()) continue;
+                markers.add(playerMarker(other));
+            }
             if (DEBUG_MARKER) markers.add(DebugMarker.create(player));
             if (VISUAL_REGRESSION) {
                 markers.addAll(RadarVisualRegressionScenario.create(
@@ -73,12 +80,35 @@ public final class RadarMarkerRenderer {
         });
     }
 
+    private static RadarMarker playerMarker(AbstractClientPlayer player) {
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(
+            CobbleventurePokefinder.MOD_ID,
+            "player/" + player.getUUID().toString().toLowerCase(java.util.Locale.ROOT)
+        );
+        return new RadarMarker(
+            id,
+            RadarMarkerType.PLAYER,
+            player.level().dimension().location(),
+            player.position(),
+            player.getGameProfile().getName(),
+            ResourceLocation.fromNamespaceAndPath(
+                CobbleventurePokefinder.MOD_ID, "radar/player"
+            ),
+            1_000,
+            RadarMarkerState.AVAILABLE,
+            "",
+            RadarRanges.DEFAULT_LOCAL,
+            false
+        );
+    }
+
     private static void drawMarkerDetails(
         GuiGraphics graphics, Minecraft minecraft,
         Cobblenav233LayoutAdapter.Layout layout, RadarMarker marker,
         Cobblenav233LayoutAdapter.RadarPoint point, Vec3 playerPosition
     ) {
-        boolean names = RadarDisplaySettings.value(RadarDisplaySettings.Option.NAMES);
+        boolean names = marker.type() == RadarMarkerType.PLAYER
+            || RadarDisplaySettings.value(RadarDisplaySettings.Option.NAMES);
         boolean distances = RadarDisplaySettings.value(
             RadarDisplaySettings.Option.DISTANCES
         );
@@ -133,6 +163,13 @@ public final class RadarMarkerRenderer {
             graphics.fill(x, y - 3, x + 1, y + 4, 0xFFFFC44D);
         }
         switch (marker.type()) {
+            case PLAYER -> {
+                graphics.fill(x - 3, y - 3, x + 4, y + 4, 0xFF101820);
+                graphics.fill(x - 2, y - 2, x + 3, y + 1, color);
+                graphics.fill(x - 1, y + 1, x + 2, y + 3, color);
+                graphics.fill(x - 1, y - 1, x, y, 0xFF101820);
+                graphics.fill(x + 1, y - 1, x + 2, y, 0xFF101820);
+            }
             case TRAINER -> {
                 graphics.fill(x - 2, y - 2, x - 1, y + 3, color);
                 graphics.fill(x + 2, y - 2, x + 3, y + 3, color);
@@ -206,6 +243,7 @@ public final class RadarMarkerRenderer {
         if (marker.state() == RadarMarkerState.DEFEATED) return 0xFF68717D;
         if (marker.state() == RadarMarkerState.COMPLETED) return 0xFF668276;
         return switch (marker.type()) {
+            case PLAYER -> 0xFF53E1D4;
             case TRAINER -> 0xFFFF8A65;
             case GYM_LEADER -> 0xFFFFD35A;
             case IMPORTANT_NPC -> 0xFFB89CFF;

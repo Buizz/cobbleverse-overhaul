@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.pokefinder.marker;
 
 public enum RadarMarkerType {
+    PLAYER,
     TRAINER,
     GYM_LEADER,
     IMPORTANT_NPC,

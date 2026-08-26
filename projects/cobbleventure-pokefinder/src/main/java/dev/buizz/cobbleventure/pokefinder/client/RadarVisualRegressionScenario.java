@@ -18,6 +18,8 @@ final class RadarVisualRegressionScenario {
 
     static List<RadarMarker> create(ResourceLocation dimension, Vec3 origin) {
         List<RadarMarker> markers = new ArrayList<>();
+        markers.add(marker(dimension, origin, "player", RadarMarkerType.PLAYER,
+            -46.0D, -8.0D, 1_000, RadarMarkerState.AVAILABLE, 64.0D, false));
         markers.add(marker(dimension, origin, "trainer", RadarMarkerType.TRAINER,
             -42.0D, -30.0D, 100, RadarMarkerState.DEFEATED, 64.0D, false));
         markers.add(marker(dimension, origin, "gym", RadarMarkerType.GYM_LEADER,

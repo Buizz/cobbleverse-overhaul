@@ -39,7 +39,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative map discovery and teleport networking. */
 public final class MapNetwork {
-    private static final String VERSION = "4";
+    private static final String VERSION = "5";
     private static final String VISITED_PREFIX = "cobbleventure_player_menu.visited.";
     private static final int FADE_OUT_TICKS = 25;
     private static final int FADE_IN_DELAY_TICKS = 20;
@@ -47,7 +47,9 @@ public final class MapNetwork {
     private static final long SELECTION_LIFETIME_MILLIS = 5L * 60L * 1000L;
     private static final Map<UUID, PendingTeleport> PENDING_TELEPORTS = new HashMap<>();
     private static final Map<UUID, PendingSelection> PENDING_SELECTIONS = new HashMap<>();
-    private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(false, false, Set.of(), "", false, 0L);
+    private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(
+        false, false, Set.of(), List.of(), "", false, 0L
+    );
     private static volatile SelectionSnapshot selectionSnapshot =
         new SelectionSnapshot("", false, "", 0L);
 
@@ -70,7 +72,8 @@ public final class MapNetwork {
     public static void requestSnapshot() {
         ClientSnapshot previous = clientSnapshot;
         clientSnapshot = new ClientSnapshot(
-            false, false, Set.of(), "", false, previous.revision() + 1L
+            previous.administrator(), previous.creative(), previous.visited(), previous.players(),
+            "", false, previous.revision() + 1L
         );
         PacketDistributor.sendToServer(new MapStateRequestPayload());
     }
@@ -210,7 +213,7 @@ public final class MapNetwork {
         ClientSnapshot previous = clientSnapshot;
         clientSnapshot = new ClientSnapshot(
             previous.administrator(), previous.creative(), previous.visited(),
-            payload.message(), false, previous.revision() + 1L
+            previous.players(), payload.message(), false, previous.revision() + 1L
         );
     }
 
@@ -228,13 +231,16 @@ public final class MapNetwork {
     private static void handleStateRequest(MapStateRequestPayload payload, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
         updateVisit(player);
-        context.reply(new MapStatePayload(isAdministrator(player), player.isCreative(), visitedSettlements(player)));
+        context.reply(new MapStatePayload(
+            isAdministrator(player), player.isCreative(), visitedSettlements(player), visiblePlayers(player)
+        ));
     }
 
     private static void handleState(MapStatePayload payload, IPayloadContext context) {
         ClientSnapshot previous = clientSnapshot;
         clientSnapshot = new ClientSnapshot(
-            payload.administrator(), payload.creative(), Set.copyOf(payload.visited()), "", false, previous.revision() + 1L
+            payload.administrator(), payload.creative(), Set.copyOf(payload.visited()),
+            payload.players(), "", false, previous.revision() + 1L
         );
     }
 
@@ -304,7 +310,8 @@ public final class MapNetwork {
     private static void handleTeleportResult(MapTeleportResultPayload payload, IPayloadContext context) {
         ClientSnapshot previous = clientSnapshot;
         clientSnapshot = new ClientSnapshot(
-            previous.administrator(), previous.creative(), previous.visited(), payload.message(), payload.success(), previous.revision() + 1L
+            previous.administrator(), previous.creative(), previous.visited(), previous.players(),
+            payload.message(), payload.success(), previous.revision() + 1L
         );
     }
 
@@ -485,6 +492,17 @@ public final class MapNetwork {
         return result;
     }
 
+    private static List<MapPlayer> visiblePlayers(ServerPlayer viewer) {
+        if (viewer.getServer() == null) return List.of();
+        List<MapPlayer> result = new ArrayList<>();
+        for (ServerPlayer player : viewer.getServer().getPlayerList().getPlayers()) {
+            if (player == viewer || player.isSpectator() || player.isInvisible()
+                || player.level() != viewer.level()) continue;
+            result.add(new MapPlayer(player.getGameProfile().getName(), player.getX(), player.getZ()));
+        }
+        return List.copyOf(result);
+    }
+
     private static boolean isAdministrator(ServerPlayer player) {
         return player.getServer() != null
             && player.getServer().getPlayerList().isOp(player.getGameProfile());
@@ -494,10 +512,13 @@ public final class MapNetwork {
         boolean administrator,
         boolean creative,
         Set<String> visited,
+        List<MapPlayer> players,
         String message,
         boolean teleportSucceeded,
         long revision
     ) {}
+
+    public record MapPlayer(String name, double x, double z) {}
 
     public record SelectionSnapshot(
         String token,
@@ -513,7 +534,12 @@ public final class MapNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record MapStatePayload(boolean administrator, boolean creative, List<String> visited) implements CustomPacketPayload {
+    public record MapStatePayload(
+        boolean administrator,
+        boolean creative,
+        List<String> visited,
+        List<MapPlayer> players
+    ) implements CustomPacketPayload {
         public static final Type<MapStatePayload> TYPE = new Type<>(id("map_state"));
         public static final StreamCodec<RegistryFriendlyByteBuf, MapStatePayload> STREAM_CODEC =
             StreamCodec.ofMember(MapStatePayload::write, MapStatePayload::read);
@@ -522,6 +548,12 @@ public final class MapNetwork {
             buffer.writeBoolean(creative);
             buffer.writeVarInt(visited.size());
             for (String value : visited) buffer.writeUtf(value);
+            buffer.writeVarInt(players.size());
+            for (MapPlayer player : players) {
+                buffer.writeUtf(player.name(), 16);
+                buffer.writeDouble(player.x());
+                buffer.writeDouble(player.z());
+            }
         }
         private static MapStatePayload read(RegistryFriendlyByteBuf buffer) {
             boolean administrator = buffer.readBoolean();
@@ -529,7 +561,14 @@ public final class MapNetwork {
             int size = Math.max(0, Math.min(256, buffer.readVarInt()));
             List<String> visited = new ArrayList<>(size);
             for (int index = 0; index < size; index++) visited.add(buffer.readUtf());
-            return new MapStatePayload(administrator, creative, List.copyOf(visited));
+            int playerCount = Math.max(0, Math.min(128, buffer.readVarInt()));
+            List<MapPlayer> players = new ArrayList<>(playerCount);
+            for (int index = 0; index < playerCount; index++) {
+                players.add(new MapPlayer(buffer.readUtf(16), buffer.readDouble(), buffer.readDouble()));
+            }
+            return new MapStatePayload(
+                administrator, creative, List.copyOf(visited), List.copyOf(players)
+            );
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

@@ -1,0 +1,14 @@
+{
+  "key.categories.cobbleventure_pokefinder": "Cobbleventure 포켓내비",
+  "key.cobbleventure_pokefinder.toggle_hud": "포켓파인더 HUD 켜기/끄기",
+  "message.cobbleventure_pokefinder.hud.on": "포켓파인더 HUD를 켰습니다.",
+  "message.cobbleventure_pokefinder.hud.off": "포켓파인더 HUD를 껐습니다.",
+  "message.cobbleventure_pokefinder.hud.missing_pokenav": "포켓내비에서 포켓파인더를 먼저 설정하세요.",
+  "screen.cobbleventure_pokefinder.pokenav.hud": "포켓파인더 HUD: %s",
+  "screen.cobbleventure_pokefinder.pokenav.position": "표시 위치: %s",
+  "screen.cobbleventure_pokefinder.state.on": "ON",
+  "screen.cobbleventure_pokefinder.state.off": "OFF",
+  "screen.cobbleventure_pokefinder.position.left": "왼쪽",
+  "screen.cobbleventure_pokefinder.position.right": "오른쪽",
+  "screen.cobbleventure_pokefinder.exploration_settings": "탐색 정보"
+}

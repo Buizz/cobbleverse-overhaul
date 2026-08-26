@@ -3,6 +3,12 @@
   "minVersion": "0.8",
   "package": "dev.buizz.cobbleventure.pokefinder.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["GuiMixin", "PokefinderScreenMixin"],
+  "client": [
+    "GuiMixin",
+    "MainScreenMixin",
+    "PokenavScreenAccessor",
+    "PokefinderOverlayMixin",
+    "PokefinderScreenMixin"
+  ],
   "injectors": {"defaultRequire": 1}
 }

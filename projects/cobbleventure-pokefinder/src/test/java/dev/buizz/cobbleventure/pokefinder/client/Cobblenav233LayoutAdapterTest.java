@@ -75,4 +75,31 @@ class Cobblenav233LayoutAdapterTest {
         assertEquals(half.x(), doubleScale.x(), 0.0001D);
         assertEquals(half.y(), doubleScale.y(), 0.0001D);
     }
+
+    @Test
+    void placesPinnedHudOnEitherBottomCorner() {
+        assertEquals(8, Cobblenav233LayoutAdapter.layoutLeft(500, 8, false));
+        assertEquals(
+            347,
+            Cobblenav233LayoutAdapter.layoutLeft(500, 8, true)
+        );
+    }
+
+    @Test
+    void switchesPinnedHudBetweenBothSides() {
+        assertEquals(PokefinderHudPosition.RIGHT, PokefinderHudPosition.LEFT.opposite());
+        assertEquals(PokefinderHudPosition.LEFT, PokefinderHudPosition.RIGHT.opposite());
+    }
+
+    @Test
+    void migratesLegacyThreeStateHudSetting() {
+        assertEquals(
+            new PinnedPokefinderHud.State(false, PokefinderHudPosition.LEFT),
+            PinnedPokefinderHud.parseState("off")
+        );
+        assertEquals(
+            new PinnedPokefinderHud.State(true, PokefinderHudPosition.RIGHT),
+            PinnedPokefinderHud.parseState("right")
+        );
+    }
 }

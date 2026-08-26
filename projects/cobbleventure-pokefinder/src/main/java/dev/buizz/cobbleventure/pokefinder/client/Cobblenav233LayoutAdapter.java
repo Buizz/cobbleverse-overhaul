@@ -2,12 +2,10 @@ package dev.buizz.cobbleventure.pokefinder.client;
 
 import com.metacontent.cobblenav.client.CobblenavClient;
 import com.metacontent.cobblenav.config.ClientCobblenavConfig;
-import com.metacontent.cobblenav.item.Pokefinder;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarRanges;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.world.item.ItemStack;
 
 /** All direct CobbleNav 2.3.3 layout and item assumptions live in this adapter. */
 public final class Cobblenav233LayoutAdapter {
@@ -24,8 +22,7 @@ public final class Cobblenav233LayoutAdapter {
         if (player == null || CobblenavClient.INSTANCE.getPokefinderSettings() == null) {
             return Optional.empty();
         }
-        boolean mainHand = isPokefinder(player.getMainHandItem());
-        if (!mainHand && !isPokefinder(player.getOffhandItem())) {
+        if (!PinnedPokefinderHud.shouldRenderPinned(minecraft)) {
             return Optional.empty();
         }
 
@@ -33,11 +30,12 @@ public final class Cobblenav233LayoutAdapter {
         float scale = config.getPokefinderOverlayScale();
         int scaledWidth = (int) (minecraft.getWindow().getGuiScaledWidth() / scale);
         int scaledHeight = (int) (minecraft.getWindow().getGuiScaledHeight() / scale);
-        int left = mainHand
-            ? scaledWidth - WIDTH - config.getPokefinderOverlayOffsetX()
-            : config.getPokefinderOverlayOffsetX();
+        boolean right = PinnedPokefinderHud.position() == PokefinderHudPosition.RIGHT;
+        int left = layoutLeft(
+            scaledWidth, config.getPokefinderOverlayOffsetX(), right
+        );
         int top = scaledHeight - HEIGHT - config.getPokefinderOverlayOffsetY();
-        return Optional.of(new Layout(left, top, scale, mainHand));
+        return Optional.of(new Layout(left, top, scale, right));
     }
 
     public static RadarPoint worldToRadar(
@@ -88,8 +86,8 @@ public final class Cobblenav233LayoutAdapter {
         );
     }
 
-    private static boolean isPokefinder(ItemStack stack) {
-        return stack.getItem() instanceof Pokefinder;
+    static int layoutLeft(int scaledWidth, int offsetX, boolean right) {
+        return right ? scaledWidth - WIDTH - offsetX : offsetX;
     }
 
     public record Layout(int left, int top, float scale, boolean mainHand) {}

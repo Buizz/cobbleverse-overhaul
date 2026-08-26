@@ -44,6 +44,7 @@ public final class RadarDisplaySettings {
 
     static Option category(RadarMarkerType type, String idPath) {
         return switch (type) {
+            case PLAYER -> Option.PLAYERS;
             case TRAINER -> Option.TRAINERS;
             case GYM_LEADER -> idPath.startsWith("npc/")
                 ? Option.TRAINERS : Option.FACILITIES;
@@ -115,6 +116,7 @@ public final class RadarDisplaySettings {
     }
 
     public enum Option {
+        PLAYERS("show_players", true, "다른 플레이어"),
         TRAINERS("show_trainers", true, "트레이너"),
         IMPORTANT_NPCS("show_important_npcs", true, "중요 NPC"),
         FACILITIES("show_facilities", true, "시설"),
