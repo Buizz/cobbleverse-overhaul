@@ -457,6 +457,7 @@
           "maxItems": 2,
           "items": { "$ref": "#/$defs/resource_id" }
         },
+        "trainer_generation": { "$ref": "#/$defs/trainer_generation" },
         "pokemon": {
           "type": "object",
           "additionalProperties": false,
@@ -485,8 +486,64 @@
           "required": ["pokemon"],
           "not": { "anyOf": [{ "required": ["npcs"] }, { "required": ["opponents"] }] }
         },
-        "else": { "required": ["npcs", "opponents"] }
+        "else": {
+          "required": ["npcs"],
+          "oneOf": [
+            {
+              "required": ["opponents"],
+              "not": { "required": ["trainer_generation"] }
+            },
+            {
+              "required": ["trainer_generation"],
+              "not": { "required": ["opponents"] }
+            }
+          ]
+        }
       }]
+    },
+    "trainer_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pokemon_pool", "team_size", "allow_duplicates",
+        "battle_start_lines", "battle_end_lines"
+      ],
+      "properties": {
+        "pokemon_pool": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["species", "weight"],
+            "properties": {
+              "species": { "$ref": "#/$defs/resource_id" },
+              "weight": { "type": "integer", "minimum": 1, "maximum": 1000 }
+            }
+          }
+        },
+        "team_size": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            { "type": "integer", "minimum": 1, "maximum": 6 },
+            { "type": "integer", "minimum": 1, "maximum": 6 }
+          ],
+          "items": false
+        },
+        "allow_duplicates": { "type": "boolean" },
+        "battle_start_lines": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "battle_end_lines": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
     },
     "loot_container": {
       "type": "object",

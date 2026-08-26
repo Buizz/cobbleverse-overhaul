@@ -346,7 +346,58 @@ record DungeonDefinition(
                 }
                 opponents.add(battleId);
             }
-            if (encounterKind.equals("trainer") && opponents.size() != expectedActors) {
+            GeneratedTrainer generatedTrainer = null;
+            if (encounterKind.equals("trainer") && encounter.has("trainer_generation")) {
+                if (!opponents.isEmpty()) {
+                    throw new IllegalStateException(
+                        "Generated dungeon trainer cannot define battle presets: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                JsonObject generation = requiredObject(encounter, "trainer_generation");
+                List<WeightedSpecies> pokemonPool = new ArrayList<>();
+                Set<String> poolSpecies = new HashSet<>();
+                for (JsonElement poolElement : requiredArray(generation, "pokemon_pool")) {
+                    JsonObject poolEntry = poolElement.getAsJsonObject();
+                    int weight = requiredInt(poolEntry, "weight");
+                    if (weight < 1 || weight > 1000) {
+                        throw new IllegalStateException(
+                            "Generated dungeon Pokemon weight must be 1..1000: "
+                                + id + " -> " + encounterId
+                        );
+                    }
+                    String species = resourceId(poolEntry, "species");
+                    if (!poolSpecies.add(species)) {
+                        throw new IllegalStateException(
+                            "Generated dungeon Pokemon pool contains duplicate species: "
+                                + id + " -> " + encounterId + " -> " + species
+                        );
+                    }
+                    pokemonPool.add(new WeightedSpecies(species, weight));
+                }
+                if (pokemonPool.isEmpty()) {
+                    throw new IllegalStateException(
+                        "Generated dungeon trainer Pokemon pool is empty: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                IntRange teamSize = integerRange(generation, "team_size", 1, 6);
+                if (!requiredBoolean(generation, "allow_duplicates")
+                    && teamSize.maximum() > pokemonPool.size()) {
+                    throw new IllegalStateException(
+                        "Generated dungeon trainer team exceeds its unique Pokemon pool: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                generatedTrainer = new GeneratedTrainer(
+                    List.copyOf(pokemonPool), teamSize,
+                    requiredBoolean(generation, "allow_duplicates"),
+                    nonEmptyStrings(generation, "battle_start_lines"),
+                    nonEmptyStrings(generation, "battle_end_lines")
+                );
+            }
+            if (encounterKind.equals("trainer") && generatedTrainer == null
+                && opponents.size() != expectedActors) {
                 throw new IllegalStateException(
                     "Dungeon " + multiplayerMode + " encounter requires exactly "
                         + expectedActors + " opponent(s): "
@@ -402,6 +453,7 @@ record DungeonDefinition(
                 encounterKind,
                 List.copyOf(npcs),
                 List.copyOf(opponents),
+                generatedTrainer,
                 wildPokemon,
                 List.copyOf(requirements),
                 encounter.has("position") ? blockPosition(encounter, "position") : null,
@@ -941,6 +993,24 @@ record DungeonDefinition(
         return value.getAsJsonArray(key);
     }
 
+    private static List<String> nonEmptyStrings(JsonObject value, String key) {
+        List<String> result = new ArrayList<>();
+        for (JsonElement element : requiredArray(value, key)) {
+            if (!element.isJsonPrimitive()
+                || !element.getAsJsonPrimitive().isString()
+                || element.getAsString().isBlank()) {
+                throw new IllegalStateException(
+                    "Dungeon text list contains an empty value: " + key
+                );
+            }
+            result.add(element.getAsString());
+        }
+        if (result.isEmpty()) {
+            throw new IllegalStateException("Dungeon text list is empty: " + key);
+        }
+        return List.copyOf(result);
+    }
+
     private static BlockPos blockPosition(JsonObject value, String key) {
         JsonArray position = requiredArray(value, key);
         if (position.size() != 3) {
@@ -1022,12 +1092,21 @@ record DungeonDefinition(
         String kind,
         List<String> npcs,
         List<String> opponents,
+        GeneratedTrainer generatedTrainer,
         WildPokemon pokemon,
         List<String> requires,
         BlockPos position,
         float yaw,
         boolean boss
     ) {}
+    record GeneratedTrainer(
+        List<WeightedSpecies> pokemonPool,
+        IntRange teamSize,
+        boolean allowDuplicates,
+        List<String> battleStartLines,
+        List<String> battleEndLines
+    ) {}
+    record WeightedSpecies(String species, int weight) {}
     record WildPokemon(String species, int level, boolean catchable) {}
     record RandomEncounters(
         boolean enabled,

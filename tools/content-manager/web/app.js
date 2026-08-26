@@ -4762,6 +4762,7 @@ function contentField(label, name, value, options = {}) {
   const classes = options.wide ? "wide" : options.double ? "double" : options.toggle ? "toggle" : "";
   if (options.toggle) return `<label class="${classes}"><input data-dungeon-content-field name="${name}" type="checkbox"${value ? " checked" : ""}><span>${label}</span></label>`;
   if (options.select) return `<label class="${classes}"><span>${label}</span><select data-dungeon-content-field name="${name}">${options.select.map(([id, text]) => `<option value="${escapeHtml(id)}"${id === value ? " selected" : ""}>${escapeHtml(text)}</option>`).join("")}</select></label>`;
+  if (options.multiline) return `<label class="${classes}"><span>${label}</span><textarea data-dungeon-content-field name="${name}" rows="${options.rows || 4}" ${options.required ? "required" : ""}>${escapeHtml(value ?? "")}</textarea></label>`;
   const attributes = [options.type ? `type="${options.type}"` : "", options.min !== undefined ? `min="${options.min}"` : "", options.max !== undefined ? `max="${options.max}"` : "", options.step !== undefined ? `step="${options.step}"` : "", options.required ? "required" : ""].filter(Boolean).join(" ");
   return `<label class="${classes}"><span>${label}</span><input data-dungeon-content-field name="${name}" value="${escapeHtml(value ?? "")}" ${attributes}></label>`;
 }
@@ -4794,8 +4795,21 @@ function renderDungeonContentProperties() {
       fields += contentField("레벨", "level", entry.pokemon?.level ?? 1, { type: "number", min: 1, max: 100, required: true });
       fields += contentField("포획 가능", "catchable", entry.pokemon?.catchable !== false, { toggle: true });
     } else {
+      const trainerMode = entry.trainer_generation ? "generated" : "preset";
+      fields += contentField("전투 구성", "trainerMode", trainerMode, { wide: true, select: [["preset", "고정 배틀 프리셋"], ["generated", "포켓몬 풀에서 즉석 생성"]] });
       fields += contentField("NPC ID — 쉼표 구분", "npcs", (entry.npcs || []).join(", "), { wide: true, required: true });
-      fields += contentField("배틀 프리셋 ID — 쉼표 구분", "opponents", (entry.opponents || []).join(", "), { wide: true, required: true });
+      if (trainerMode === "preset") {
+        fields += contentField("배틀 프리셋 ID — 쉼표 구분", "opponents", (entry.opponents || []).join(", "), { wide: true, required: true });
+      } else {
+        const generation = entry.trainer_generation || {};
+        const poolText = (generation.pokemon_pool || []).map((candidate) => `${candidate.species} | ${candidate.weight ?? 1}`).join("\n");
+        fields += contentField("포켓몬 풀 — 한 줄에 종 ID | 가중치", "pokemonPool", poolText, { wide: true, multiline: true, rows: 5, required: true });
+        fields += contentField("최소 팀 크기", "teamSizeMin", generation.team_size?.[0] ?? 1, { type: "number", min: 1, max: 6, required: true });
+        fields += contentField("최대 팀 크기", "teamSizeMax", generation.team_size?.[1] ?? 3, { type: "number", min: 1, max: 6, required: true });
+        fields += contentField("같은 포켓몬 중복 허용", "allowDuplicates", generation.allow_duplicates, { toggle: true });
+        fields += contentField("배틀 시작 대사 — 한 줄에 하나", "battleStartLines", (generation.battle_start_lines || []).join("\n"), { wide: true, multiline: true, rows: 4, required: true });
+        fields += contentField("배틀 종료 대사 — 한 줄에 하나", "battleEndLines", (generation.battle_end_lines || []).join("\n"), { wide: true, multiline: true, rows: 4, required: true });
+      }
     }
   } else if (kind === "wild_species") {
     fields += contentField("포켓몬 종", "species", entry.species || "", { wide: true, required: true });
@@ -4862,7 +4876,24 @@ function updateDungeonContentFromEditor() {
       delete entry.npcs; delete entry.opponents;
     } else {
       entry.npcs = control("npcs") ? csvValues(textValue("npcs")) : entry.npcs || ["cobbleventure:npc/new_encounter"];
-      entry.opponents = control("opponents") ? csvValues(textValue("opponents")) : entry.opponents || ["cobbleventure:battle/new_encounter"];
+      if (textValue("trainerMode") === "generated") {
+        const lines = (name) => (control(name)?.value || "").split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+        const pokemonPool = lines("pokemonPool").map((line) => {
+          const separator = line.lastIndexOf("|");
+          return { species: (separator < 0 ? line : line.slice(0, separator)).trim(), weight: Math.max(1, Math.round(Number(separator < 0 ? 1 : line.slice(separator + 1).trim()) || 1)) };
+        });
+        entry.trainer_generation = {
+          pokemon_pool: pokemonPool,
+          team_size: [numberValue("teamSizeMin", 1), numberValue("teamSizeMax", 3)],
+          allow_duplicates: checked("allowDuplicates"),
+          battle_start_lines: lines("battleStartLines"),
+          battle_end_lines: lines("battleEndLines"),
+        };
+        delete entry.opponents;
+      } else {
+        entry.opponents = control("opponents") ? csvValues(textValue("opponents")) : entry.opponents || ["cobbleventure:battle/new_encounter"];
+        delete entry.trainer_generation;
+      }
       delete entry.pokemon;
       if (entry.kind === "trainer") delete entry.kind;
     }

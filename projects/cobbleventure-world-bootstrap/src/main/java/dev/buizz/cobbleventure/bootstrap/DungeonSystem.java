@@ -72,6 +72,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.neoforge.common.NeoForge;
@@ -1511,7 +1512,8 @@ final class DungeonSystem {
             ));
             return true;
         }
-        if (!definition.multiplayer().mode().equals("cooperative")) {
+        if (!definition.multiplayer().mode().equals("cooperative")
+            && encounter.generatedTrainer() == null) {
             // CVES V5 owns dialogue and battle launch for solo/independent trainers.
             // Wild Pokemon use Cobblemon's normal battle interaction.
             return false;
@@ -1541,6 +1543,11 @@ final class DungeonSystem {
                 "[던전] 다른 조우가 시작 중이거나 진행 중입니다."
             ), true);
             return true;
+        }
+        if (encounter.generatedTrainer() != null) {
+            return startGeneratedEncounter(
+                run, definition, encounter, entityRef, initiator, opponent
+            );
         }
         if (!definition.multiplayer().mode().equals("cooperative")
             || !definition.multiplayer().battleJoin().equals("summon_all")
@@ -1590,6 +1597,9 @@ final class DungeonSystem {
         runtime.statusById.put(encounterId, EncounterStatus.STARTING);
         runtime.pendingEncounterId = encounterId;
         runtime.pendingExpiresAt = initiator.serverLevel().getGameTime() + 200L;
+        runtime.pendingPlayers = Set.copyOf(
+            players.stream().map(ServerPlayer::getUUID).toList()
+        );
         gatherEncounterPlayers(players, opponent.position(), run);
         String command = DungeonCooperativeBattleCommand.build(
             players.get(0).getGameProfile().getName(),
@@ -1608,6 +1618,7 @@ final class DungeonSystem {
         } catch (CommandSyntaxException | RuntimeException error) {
             runtime.statusById.put(encounterId, EncounterStatus.AVAILABLE);
             runtime.pendingEncounterId = null;
+            runtime.pendingPlayers = Set.of();
             LOGGER.error(
                 "Dungeon cooperative battle launch failed: {} -> {}",
                 definition.id(), encounter.id(), error
@@ -1621,6 +1632,155 @@ final class DungeonSystem {
             "[던전] " + encounter.id() + " 협력 전투를 시작합니다."
         )));
         return true;
+    }
+
+    private static boolean startGeneratedEncounter(
+        ActiveRun run,
+        DungeonDefinition definition,
+        DungeonDefinition.Encounter encounter,
+        EncounterEntityRef interactedRef,
+        ServerPlayer initiator,
+        Entity interactedEntity
+    ) {
+        List<ServerPlayer> players = definition.multiplayer().mode().equals("cooperative")
+            ? encounterPlayers(run, initiator) : List.of(initiator);
+        if (definition.multiplayer().mode().equals("cooperative")
+            && players.size() != 2) {
+            initiator.sendSystemMessage(Component.literal(
+                "동료가 던전에 없어 전투를 시작할 수 없습니다."
+            ));
+            return true;
+        }
+        if (players.stream().anyMatch(player ->
+            BattleRegistry.getBattleByParticipatingPlayer(player) != null)) {
+            initiator.displayClientMessage(Component.literal(
+                "[던전] 참가자 중 전투 중인 사람이 있습니다."
+            ), true);
+            return true;
+        }
+
+        EncounterRuntime runtime = run.encounters();
+        List<String> trainerIds = new ArrayList<>();
+        DungeonGeneratedTrainer.Result firstGenerated = null;
+        try {
+            for (int index = 0; index < encounter.npcs().size(); index++) {
+                Entity entity = index == interactedRef.opponentIndex()
+                    ? interactedEntity : generatedEncounterEntity(run, encounter, index);
+                if (!(entity instanceof LivingEntity living)) {
+                    throw new IllegalStateException(
+                        "Generated dungeon trainer entity is missing: "
+                            + encounter.id() + "[" + index + "]"
+                    );
+                }
+                DungeonGeneratedTrainer.Result generated = DungeonGeneratedTrainer.generate(
+                    encounter.generatedTrainer(), definition.difficulty(),
+                    run.seed() ^ ((long) encounter.id().hashCode() << 32) ^ index
+                );
+                if (firstGenerated == null) firstGenerated = generated;
+                trainerIds.add(DungeonGeneratedTrainerRuntime.register(
+                    run.runId(), encounter.id(), index, encounter.displayName(),
+                    generated, living
+                ));
+            }
+        } catch (RuntimeException error) {
+            trainerIds.forEach(DungeonGeneratedTrainerRuntime::unregister);
+            LOGGER.error(
+                "Generated dungeon trainer registration failed: {} -> {}",
+                definition.id(), encounter.id(), error
+            );
+            initiator.sendSystemMessage(Component.literal(
+                "즉석 트레이너를 준비하지 못했습니다. 서버 로그를 확인하세요."
+            ));
+            return true;
+        }
+
+        runtime.generatedTrainerIds.put(encounter.id(), List.copyOf(trainerIds));
+        runtime.generatedEndLines.put(encounter.id(), firstGenerated.battleEndLine());
+        runtime.statusById.put(encounter.id(), EncounterStatus.STARTING);
+        runtime.pendingEncounterId = encounter.id();
+        runtime.pendingExpiresAt = initiator.serverLevel().getGameTime() + 200L;
+        runtime.pendingPlayers = Set.copyOf(
+            players.stream().map(ServerPlayer::getUUID).toList()
+        );
+        notifyEncounterResult(run, encounter.displayName() + ": "
+            + firstGenerated.battleStartLine());
+        if (players.size() == 2) gatherEncounterPlayers(
+            players, interactedEntity.position(), run
+        );
+
+        String command = players.size() == 2
+            ? DungeonCooperativeBattleCommand.build(
+                players.get(0).getGameProfile().getName(),
+                players.get(1).getGameProfile().getName(), trainerIds,
+                definition.battleRules().allowItems()
+            )
+            : "tbcs battle GEN_9_SINGLES "
+                + initiator.getGameProfile().getName() + " vs @s as "
+                + trainerIds.getFirst()
+                + (definition.battleRules().allowItems()
+                    ? "" : " rules {maxItemUses:0}");
+        try {
+            int result = initiator.getServer().getCommands().getDispatcher().execute(
+                command,
+                interactedEntity.createCommandSourceStack()
+                    .withPermission(4).withSuppressedOutput()
+            );
+            if (result <= 0) throw new IllegalStateException(
+                "TBCS rejected the generated trainer battle"
+            );
+        } catch (CommandSyntaxException | RuntimeException error) {
+            cleanupGeneratedEncounter(runtime, encounter.id());
+            runtime.statusById.put(encounter.id(), EncounterStatus.AVAILABLE);
+            runtime.pendingEncounterId = null;
+            runtime.pendingPlayers = Set.of();
+            LOGGER.error(
+                "Generated dungeon trainer battle launch failed: {} -> {}",
+                definition.id(), encounter.id(), error
+            );
+            players.forEach(player -> player.sendSystemMessage(Component.literal(
+                "즉석 트레이너 전투를 시작하지 못했습니다. 서버 로그를 확인하세요."
+            )));
+        }
+        return true;
+    }
+
+    private static Entity generatedEncounterEntity(
+        ActiveRun run, DungeonDefinition.Encounter encounter, int opponentIndex
+    ) {
+        ServerLevel level = run.server().getLevel(DUNGEONS);
+        if (level == null) return null;
+        EncounterEntityRef expected = new EncounterEntityRef(encounter.id(), opponentIndex);
+        for (Map.Entry<UUID, EncounterEntityRef> entry
+            : run.encounters().encounterByEntity.entrySet()) {
+            if (!entry.getValue().equals(expected)) continue;
+            Entity entity = level.getEntity(entry.getKey());
+            if (entity != null) return entity;
+        }
+        BlockPos anchor = run.encounters().positionsById.get(encounter.id());
+        if (anchor == null) return null;
+        BlockPos expectedPosition = encounterNpcPosition(
+            level, anchor, encounter.yaw(), opponentIndex
+        );
+        Entity entity = level.getEntitiesOfClass(
+            Entity.class, new AABB(expectedPosition).inflate(6.0D, 10.0D, 6.0D),
+            DungeonSystem::isEasyNpc
+        ).stream().min(java.util.Comparator.comparingDouble(
+            candidate -> candidate.distanceToSqr(Vec3.atCenterOf(expectedPosition))
+        )).orElse(null);
+        if (entity != null) {
+            run.encounters().encounterByEntity.put(entity.getUUID(), expected);
+        }
+        return entity;
+    }
+
+    private static void cleanupGeneratedEncounter(
+        EncounterRuntime runtime, String encounterId
+    ) {
+        List<String> trainerIds = runtime.generatedTrainerIds.remove(encounterId);
+        if (trainerIds != null) {
+            trainerIds.forEach(DungeonGeneratedTrainerRuntime::unregister);
+        }
+        runtime.generatedEndLines.remove(encounterId);
     }
 
     private static EncounterEntityRef encounterEntityRef(
@@ -1734,7 +1894,10 @@ final class DungeonSystem {
         }
         ActiveRun run = ACTIVE_RUNS.values().stream()
             .filter(candidate -> candidate.encounters().pendingEncounterId != null)
-            .filter(candidate -> players.containsAll(candidate.participantIds()))
+            .filter(candidate -> !candidate.encounters().pendingPlayers.isEmpty())
+            .filter(candidate -> players.containsAll(
+                candidate.encounters().pendingPlayers
+            ))
             .findFirst().orElse(null);
         if (run == null) {
             if (!attachWildBattle(event, players)) {
@@ -1745,6 +1908,7 @@ final class DungeonSystem {
         EncounterRuntime runtime = run.encounters();
         String encounterId = runtime.pendingEncounterId;
         runtime.pendingEncounterId = null;
+        runtime.pendingPlayers = Set.of();
         runtime.statusById.put(encounterId, EncounterStatus.ACTIVE);
         runtime.battleToEncounter.put(event.getBattle().getBattleId(), encounterId);
     }
@@ -1844,6 +2008,8 @@ final class DungeonSystem {
             : definition.encounters().stream()
                 .filter(candidate -> candidate.id().equals(encounterId))
                 .findFirst().orElse(null);
+        String generatedEndLine = run.encounters().generatedEndLines.get(encounterId);
+        cleanupGeneratedEncounter(run.encounters(), encounterId);
         if (won && definition != null) {
             unlockSatisfiedGates(run, definition);
         }
@@ -1861,6 +2027,9 @@ final class DungeonSystem {
         notifyEncounterResult(run, won
             ? "[던전] 전투에서 승리했습니다."
             : "[던전] 전투에서 패배했습니다.");
+        if (generatedEndLine != null && encounter != null) {
+            notifyEncounterResult(run, encounter.displayName() + ": " + generatedEndLine);
+        }
     }
 
     private static void activateClearExit(
@@ -1932,8 +2101,18 @@ final class DungeonSystem {
         String encounterId = run.encounters().battleToEncounter.remove(
             event.getBattle().getBattleId()
         );
+        String generatedEndLine = run.encounters().generatedEndLines.get(encounterId);
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        DungeonDefinition.Encounter encounter = definition == null ? null
+            : definition.encounters().stream()
+                .filter(candidate -> candidate.id().equals(encounterId))
+                .findFirst().orElse(null);
+        cleanupGeneratedEncounter(run.encounters(), encounterId);
         run.encounters().statusById.put(encounterId, EncounterStatus.AVAILABLE);
         notifyEncounterResult(run, "[던전] 전투가 중단되었습니다.");
+        if (generatedEndLine != null && encounter != null) {
+            notifyEncounterResult(run, encounter.displayName() + ": " + generatedEndLine);
+        }
     }
 
     private static ActiveRun runForBattle(UUID battleId) {
@@ -2014,8 +2193,11 @@ final class DungeonSystem {
         EncounterRuntime runtime = run.encounters();
         if (runtime.pendingEncounterId == null
             || gameTime < runtime.pendingExpiresAt) return false;
-        runtime.statusById.put(runtime.pendingEncounterId, EncounterStatus.AVAILABLE);
+        String encounterId = runtime.pendingEncounterId;
+        runtime.statusById.put(encounterId, EncounterStatus.AVAILABLE);
+        cleanupGeneratedEncounter(runtime, encounterId);
         runtime.pendingEncounterId = null;
+        runtime.pendingPlayers = Set.of();
         notifyEncounterResult(run, "[던전] 협력 전투 시작 시간이 초과되었습니다.");
         return true;
     }
@@ -2363,6 +2545,11 @@ final class DungeonSystem {
     private static void cleanupRun(MinecraftServer server, ActiveRun run) {
         if (run == null) return;
         if (ACTIVE_RUNS.values().stream().anyMatch(active -> active == run)) return;
+        run.encounters().generatedTrainerIds.values().stream()
+            .flatMap(List::stream)
+            .forEach(DungeonGeneratedTrainerRuntime::unregister);
+        run.encounters().generatedTrainerIds.clear();
+        run.encounters().generatedEndLines.clear();
         ServerLevel level = server.getLevel(DUNGEONS);
         if (level != null) {
             clearSlot(level, run.origin(), run.size());
@@ -3289,8 +3476,11 @@ final class DungeonSystem {
         private final Map<String, BlockPos> positionsById;
         private final Map<String, EncounterStatus> statusById = new HashMap<>();
         private final Map<UUID, String> battleToEncounter = new HashMap<>();
+        private final Map<String, List<String>> generatedTrainerIds = new HashMap<>();
+        private final Map<String, String> generatedEndLines = new HashMap<>();
         private String pendingEncounterId;
         private long pendingExpiresAt;
+        private Set<UUID> pendingPlayers = Set.of();
 
         private EncounterRuntime(
             Map<UUID, EncounterEntityRef> encounterByEntity,

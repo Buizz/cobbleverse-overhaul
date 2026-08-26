@@ -64,6 +64,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("NBT 후보 마커에 자동 배치", script)
         self.assertIn('delete entry.position', script)
         self.assertIn("NPC와 보상은 후보 마커에 자동 배치", markup)
+        self.assertIn("포켓몬 풀에서 즉석 생성", script)
+        self.assertIn("battle_start_lines", script)
+        self.assertIn("battle_end_lines", script)
 
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -122,6 +125,40 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("ID가 중복" in message for message in messages))
         self.assertTrue(any("최소 레벨" in message for message in messages))
         self.assertTrue(any("정수 좌표 3개" in message for message in messages))
+
+    def test_dungeon_accepts_pool_generated_trainer_and_rejects_conflicts(self) -> None:
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
+        encounter = document["encounters"][0]
+        encounter.pop("opponents")
+        encounter["trainer_generation"] = {
+            "pokemon_pool": [
+                {"species": "cobblemon:rattata", "weight": 4},
+                {"species": "cobblemon:zubat", "weight": 2},
+            ],
+            "team_size": [1, 2],
+            "allow_duplicates": False,
+            "battle_start_lines": ["침입자다!"],
+            "battle_end_lines": ["후퇴한다!"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
+
+            encounter["opponents"] = ["cobbleventure:battle/test"]
+            encounter["trainer_generation"]["pokemon_pool"].append(
+                {"species": "cobblemon:rattata", "weight": 1}
+            )
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, conflict_issues = content_manager.validate_dungeon_file(path)
+
+            encounter.pop("opponents")
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, duplicate_issues = content_manager.validate_dungeon_file(path)
+
+        self.assertTrue(any("동시에 사용할 수 없습니다" in issue.message for issue in conflict_issues))
+        self.assertTrue(any("같은 종을 중복 선언" in issue.message for issue in duplicate_issues))
 
     def test_authored_dungeon_plan_validates_piece_bounds_and_connectors(self) -> None:
         piece = {

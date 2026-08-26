@@ -8621,13 +8621,65 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                     if not isinstance(pokemon.get("catchable"), bool):
                         _issue(issues, "error", path, f"{base}.pokemon.catchable", "true 또는 false여야 합니다.")
             else:
-                for field in ("npcs", "opponents"):
+                for field in ("npcs",):
                     values = encounter.get(field)
                     if not isinstance(values, list) or not 1 <= len(values) <= 2:
                         _issue(issues, "error", path, f"{base}.{field}", "리소스 ID가 1~2개 필요합니다.")
                     else:
                         for value_index, value in enumerate(values):
                             _resource_id(value, issues, path, f"{base}.{field}[{value_index}]")
+                opponents = encounter.get("opponents")
+                generated = encounter.get("trainer_generation")
+                if opponents is not None and generated is not None:
+                    _issue(issues, "error", path, base, "배틀 프리셋과 즉석 트레이너 생성은 동시에 사용할 수 없습니다.")
+                elif opponents is None and generated is None:
+                    _issue(issues, "error", path, base, "배틀 프리셋 또는 즉석 트레이너 생성 설정이 필요합니다.")
+                elif opponents is not None:
+                    if not isinstance(opponents, list) or not 1 <= len(opponents) <= 2:
+                        _issue(issues, "error", path, f"{base}.opponents", "배틀 프리셋 ID가 1~2개 필요합니다.")
+                    else:
+                        for value_index, value in enumerate(opponents):
+                            _resource_id(value, issues, path, f"{base}.opponents[{value_index}]")
+                elif not isinstance(generated, dict):
+                    _issue(issues, "error", path, f"{base}.trainer_generation", "즉석 트레이너 생성 설정은 객체여야 합니다.")
+                else:
+                    pool = generated.get("pokemon_pool")
+                    if not isinstance(pool, list) or not pool:
+                        _issue(issues, "error", path, f"{base}.trainer_generation.pokemon_pool", "포켓몬 풀이 하나 이상 필요합니다.")
+                    else:
+                        seen_species: set[str] = set()
+                        for pool_index, candidate in enumerate(pool):
+                            candidate_path = f"{base}.trainer_generation.pokemon_pool[{pool_index}]"
+                            if not isinstance(candidate, dict):
+                                _issue(issues, "error", path, candidate_path, "포켓몬 풀 항목은 객체여야 합니다.")
+                                continue
+                            _resource_id(candidate.get("species"), issues, path, f"{candidate_path}.species")
+                            if isinstance(candidate.get("species"), str):
+                                if candidate["species"] in seen_species:
+                                    _issue(issues, "error", path, f"{candidate_path}.species", "포켓몬 풀에서 같은 종을 중복 선언할 수 없습니다. 가중치를 조절하세요.")
+                                seen_species.add(candidate["species"])
+                            integer(candidate.get("weight"), 1, 1000, f"{candidate_path}.weight")
+                    team_size = generated.get("team_size")
+                    if not isinstance(team_size, list) or len(team_size) != 2:
+                        _issue(issues, "error", path, f"{base}.trainer_generation.team_size", "최소·최대 팀 크기 두 값이 필요합니다.")
+                    else:
+                        integer(team_size[0], 1, 6, f"{base}.trainer_generation.team_size[0]")
+                        integer(team_size[1], 1, 6, f"{base}.trainer_generation.team_size[1]")
+                        if all(isinstance(value, int) and not isinstance(value, bool) for value in team_size) and team_size[0] > team_size[1]:
+                            _issue(issues, "error", path, f"{base}.trainer_generation.team_size", "최소 팀 크기는 최대보다 클 수 없습니다.")
+                    if not isinstance(generated.get("allow_duplicates"), bool):
+                        _issue(issues, "error", path, f"{base}.trainer_generation.allow_duplicates", "중복 허용 여부가 필요합니다.")
+                    elif generated.get("allow_duplicates") is False and isinstance(pool, list) and isinstance(team_size, list) and len(team_size) == 2 and isinstance(team_size[1], int):
+                        unique_species = {
+                            candidate.get("species") for candidate in pool
+                            if isinstance(candidate, dict) and isinstance(candidate.get("species"), str)
+                        }
+                        if len(unique_species) < team_size[1]:
+                            _issue(issues, "error", path, f"{base}.trainer_generation.team_size", "중복을 금지하면 포켓몬 풀의 고유 종 수가 최대 팀 크기 이상이어야 합니다.")
+                    for field in ("battle_start_lines", "battle_end_lines"):
+                        lines = generated.get(field)
+                        if not isinstance(lines, list) or not lines or any(not isinstance(line, str) or not line.strip() for line in lines):
+                            _issue(issues, "error", path, f"{base}.trainer_generation.{field}", "비어 있지 않은 대사 목록이 필요합니다.")
 
     random_encounters = object_at("random_encounters")
     for key, minimum, maximum in (

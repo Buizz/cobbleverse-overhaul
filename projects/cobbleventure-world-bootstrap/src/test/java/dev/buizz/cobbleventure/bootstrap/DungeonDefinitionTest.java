@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,35 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
+    @Test
+    void parsesPoolGeneratedTrainerWithoutBattlePreset() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        JsonObject encounter = root.getAsJsonArray("encounters")
+            .get(0).getAsJsonObject();
+        encounter.remove("opponents");
+        encounter.add("trainer_generation", JsonParser.parseString("""
+            {
+              "pokemon_pool": [
+                {"species":"cobblemon:rattata","weight":10},
+                {"species":"cobblemon:koffing","weight":5}
+              ],
+              "team_size":[1,2],
+              "allow_duplicates":false,
+              "battle_start_lines":["침입자다!", "여기서 멈춰라!"],
+              "battle_end_lines":["후퇴한다!", "이럴 수가…"]
+            }
+            """).getAsJsonObject());
+
+        DungeonDefinition definition = DungeonDefinition.parse(root);
+        DungeonDefinition.GeneratedTrainer generated = definition.encounters()
+            .getFirst().generatedTrainer();
+
+        assertEquals(2, generated.pokemonPool().size());
+        assertEquals(1, generated.teamSize().minimum());
+        assertEquals(2, generated.teamSize().maximum());
+        assertTrue(definition.encounters().getFirst().opponents().isEmpty());
+    }
+
     @Test
     void parsesRuntimeNbtPiecePlanningSettings() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
@@ -115,14 +145,15 @@ final class DungeonDefinitionTest {
 
     @Test
     void parsesEveryLevelOneTestDungeonResource() throws Exception {
-        List<String> resources = List.of(
-            "rocket_power_plant",
-            "rocket_casino_hideout",
-            "rocket_silph_company",
-            "rocket_pokemon_tower",
-            "zapdos_storm_chamber"
+        Map<String, String> resources = Map.of(
+            "rocket_power_plant", "fixed_template",
+            "rocket_casino_hideout", "fixed_template",
+            "rocket_silph_company", "fixed_template",
+            "rocket_pokemon_tower", "nbt_pieces",
+            "zapdos_storm_chamber", "fixed_template"
         );
-        for (String name : resources) {
+        for (Map.Entry<String, String> resource : resources.entrySet()) {
+            String name = resource.getKey();
             var stream = getClass().getClassLoader().getResourceAsStream(
                 "data/cobbleventure/dungeons/generation_1/" + name + ".json"
             );
@@ -131,7 +162,7 @@ final class DungeonDefinitionTest {
                 DungeonDefinition definition = DungeonDefinition.parse(
                     JsonParser.parseReader(reader).getAsJsonObject()
                 );
-                assertEquals("fixed_template", definition.terrain().mode(), name);
+                assertEquals(resource.getValue(), definition.terrain().mode(), name);
                 assertEquals(1, definition.difficulty().recommendedMin(), name);
                 assertEquals(1, definition.difficulty().recommendedMax(), name);
                 assertEquals(1, definition.difficulty().internalMin(), name);
