@@ -101,7 +101,12 @@
         "mode": "direct_template",
         "structure": "cobbleventure:placeholder/silph_company",
         "anchor": "facility_silph_company_1",
-        "label": "실프주식회사"
+        "label": "실프주식회사",
+        "footprint": {
+          "width": 32,
+          "depth": 32,
+          "height": 48
+        }
       },
       {
         "id": "gym_building",
