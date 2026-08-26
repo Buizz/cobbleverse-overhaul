@@ -29,6 +29,49 @@ SPEC.loader.exec_module(content_manager)
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_dungeon_workspace_loads_definitions_plans_and_piece_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dungeon = root / "content/dungeons/generation_1/test.json"
+            plan = root / "content/dungeon_plans/test.json"
+            piece = root / "content/dungeon_pieces/test.json"
+            for path in (dungeon, plan, piece):
+                path.parent.mkdir(parents=True, exist_ok=True)
+            dungeon.write_text(json.dumps({
+                "dungeon_id": "cobbleventure:dungeon/test",
+                "display_name": {"ko_kr": "테스트 던전"},
+                "terrain": {"mode": "nbt_pieces"},
+                "layout": {"mode": "maze"},
+                "plan": {"mode": "authored"},
+            }), encoding="utf-8")
+            plan.write_text(json.dumps({
+                "plan_id": "cobbleventure:dungeon_plan/test",
+                "placements": [], "links": [],
+            }), encoding="utf-8")
+            piece.write_text(json.dumps({
+                "piece_id": "cobbleventure:dungeon_piece/test",
+                "role": "start", "size": [8, 6, 8],
+            }), encoding="utf-8")
+
+            payload = content_manager.dungeon_workspace_payload(root)
+
+            self.assertEqual("cobbleventure:dungeon/test", payload["items"][0]["id"])
+            self.assertEqual("테스트 던전", payload["items"][0]["name"])
+            self.assertEqual("maze", payload["items"][0]["layout_mode"])
+            self.assertEqual("cobbleventure:dungeon_plan/test", payload["plans"][0]["id"])
+            self.assertEqual("cobbleventure:dungeon_piece/test", payload["pieces"][0]["id"])
+            self.assertEqual([], payload["errors"])
+
+    def test_dungeon_preview_exposes_plan_controls_and_runtime_warning(self) -> None:
+        html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="dungeon-plan-canvas"', html)
+        self.assertIn('id="dungeon-preview-seed"', html)
+        self.assertIn("function authoredDungeonPlan(document, planId)", script)
+        self.assertIn("function runtimeDungeonPlan(document, seed)", script)
+        self.assertIn("실제 NBT 배치는 서버 검증 결과에 따라 달라질 수 있습니다.", script)
+
     def test_player_world_map_selection_keeps_a_one_step_outline_margin(self) -> None:
         source = (
             CORE_ROOT

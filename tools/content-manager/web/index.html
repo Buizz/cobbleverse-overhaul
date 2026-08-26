@@ -47,6 +47,7 @@
             <button class="nav-item" data-section="settlements">마을 관리</button>
             <button class="nav-item" data-section="routes">길 관리</button>
             <button class="nav-item" data-section="caves">동굴 관리</button>
+            <button class="nav-item" data-section="dungeons">던전 관리</button>
             <button class="nav-item" data-section="underground-roads">지하통로 관리</button>
             <button class="nav-item" data-section="forests">숲 관리</button>
             <button class="nav-item" data-section="biomes">바이옴 관리</button>
@@ -636,6 +637,20 @@
               </form>
             </dialog>
             <div id="cave-issues" class="issues empty">동굴을 선택하세요.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="dungeons">
+        <div class="workspace-grid spatial-document-grid">
+          <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">DUNGEON DEFINITIONS</p><h2>던전 관리</h2></div><span class="count-pill" id="dungeon-list-count">…</span></div><div id="dungeon-list" class="list-body"><div class="issues empty">프로젝트의 던전을 불러오는 중입니다.</div></div></aside>
+          <div class="editor panel dungeon-preview-editor">
+            <div class="panel-heading"><div><p class="eyebrow">GENERATED DUNGEON PLAN</p><h2 id="dungeon-editor-title">던전을 선택하세요</h2><small id="dungeon-path">생성된 계획의 방 그래프와 2D 평면도를 확인합니다.</small></div><div class="dungeon-preview-controls"><label><span>계획</span><select id="dungeon-plan-choice" disabled></select></label><label><span>미리보기 시드</span><input id="dungeon-preview-seed" type="number" value="1" disabled></label><button class="button secondary" id="dungeon-repeat-seed" type="button" disabled>같은 시드</button><button class="button primary" id="dungeon-random-seed" type="button" disabled>새 시드</button></div></div>
+            <section class="dungeon-plan-preview spatial-editor">
+              <div class="dungeon-preview-stage spatial-editor-stage"><canvas id="dungeon-plan-canvas" width="960" height="600" role="img" aria-label="던전 방, 통로, 시작점, 보스와 출구의 2D 평면도"></canvas><aside class="dungeon-preview-inspector spatial-editor-inspector"><div id="dungeon-preview-empty" class="forest-selection-empty"><span>◆</span><p>던전을 선택하면 생성 계획의<br>방과 연결 관계를 표시합니다.</p></div><section id="dungeon-preview-details" hidden><strong>계획 정보</strong><dl id="dungeon-preview-metrics"></dl><div id="dungeon-preview-selection" class="dungeon-preview-selection">평면도의 방을 선택하면 조각 정보를 표시합니다.</div></section></aside></div>
+              <footer class="spatial-editor-status"><div class="dungeon-preview-legend"><span data-role="start">시작</span><span data-role="critical">주 경로</span><span data-role="branch">곁가지</span><span data-role="boss">보스</span><span data-role="exit">출구</span></div><small id="dungeon-preview-status">던전을 선택하세요.</small></footer>
+            </section>
+            <div id="dungeon-issues" class="issues empty">던전 목록을 불러오는 중입니다.</div>
           </div>
         </div>
       </section>

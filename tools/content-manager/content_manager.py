@@ -8327,6 +8327,45 @@ def _managed_directory(root: Path, category: str) -> Path:
     return directories[category].resolve()
 
 
+def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
+    """Load read-only dungeon authoring data for the browser plan preview."""
+    content = root / "content"
+
+    def documents(directory: Path, id_key: str) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+        loaded: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
+        for path in sorted(directory.rglob("*.json")) if directory.is_dir() else []:
+            relative = path.relative_to(root).as_posix()
+            try:
+                document = load_json(path)
+                if not isinstance(document, dict):
+                    raise ValueError("JSON 최상위 값은 객체여야 합니다.")
+                loaded.append({
+                    "path": relative,
+                    "id": document.get(id_key, ""),
+                    "document": document,
+                })
+            except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                errors.append({"path": relative, "error": str(error)})
+        return loaded, errors
+
+    dungeons, dungeon_errors = documents(content / "dungeons", "dungeon_id")
+    plans, plan_errors = documents(content / "dungeon_plans", "plan_id")
+    pieces, piece_errors = documents(content / "dungeon_pieces", "piece_id")
+    for item in dungeons:
+        document = item["document"]
+        item["name"] = _localized_value(document.get("display_name")) or item["id"]
+        item["terrain_mode"] = document.get("terrain", {}).get("mode", "")
+        item["layout_mode"] = document.get("layout", {}).get("mode", "fixed")
+        item["plan_mode"] = document.get("plan", {}).get("mode", "authored")
+    return {
+        "items": dungeons,
+        "plans": plans,
+        "pieces": pieces,
+        "errors": dungeon_errors + plan_errors + piece_errors,
+    }
+
+
 def _managed_path(root: Path, category: str, relative_path: str) -> Path:
     if not relative_path or Path(relative_path).is_absolute():
         raise ValueError("저장소 기준 상대 경로가 필요합니다.")
@@ -13247,6 +13286,12 @@ def create_handler(
                 except ValueError as error:
                     self._json(400, {"error": str(error)})
                 except (OSError, EOFError, struct.error, zipfile.BadZipFile) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/dungeons":
+                try:
+                    self._json(200, dungeon_workspace_payload(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/trainers":
