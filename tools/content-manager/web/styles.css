@@ -2055,6 +2055,9 @@ body { font-size: 14px; line-height: 1.45; }
 @media (max-width:1100px) { .dungeon-trainer-assignments article{grid-template-columns:1fr 1fr}.dungeon-trainer-assignments article>strong{grid-column:1/-1}.dungeon-generated-npcs{grid-template-columns:1fr}.dungeon-pokemon-pool-head{grid-template-columns:1fr} }
 .dungeon-content-editor > footer { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 13px; border-top:1px solid #d6e0db; background:#f7faf8; color:#708279; font-size:8px; }
 .dungeon-piece-editor,.dungeon-authored-plan-editor { margin:0 16px 16px; overflow:hidden; border:1px solid #9fb6af; border-radius:5px; background:#fff; }
+.dungeon-piece-catalog-page { margin:16px; overflow:hidden; }
+.dungeon-piece-catalog-page .dungeon-piece-editor { margin:0; border:0; border-radius:0; }
+.dungeon-piece-catalog-page .dungeon-piece-editor > header { padding:16px 18px; }
 .dungeon-piece-editor > header,.dungeon-authored-plan-editor > header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid #d4dfda; background:#eaf2ee; }
 .dungeon-piece-editor > header > div:first-child,.dungeon-authored-plan-editor > header > div:first-child { display:grid; gap:3px; }
 .dungeon-piece-editor > header strong,.dungeon-authored-plan-editor > header strong { color:#2d453a; font-size:11px; }

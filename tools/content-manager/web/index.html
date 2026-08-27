@@ -48,6 +48,7 @@
             <button class="nav-item" data-section="routes">길 관리</button>
             <button class="nav-item" data-section="caves">동굴 관리</button>
             <button class="nav-item" data-section="dungeons">던전 관리</button>
+            <button class="nav-item" data-section="dungeon-pieces">던전 조각 관리</button>
             <button class="nav-item" data-section="underground-roads">지하통로 관리</button>
             <button class="nav-item" data-section="forests">숲 관리</button>
             <button class="nav-item" data-section="biomes">바이옴 관리</button>
@@ -678,20 +679,6 @@
                 <footer><span id="dungeon-content-summary">배치된 콘텐츠를 계산하는 중입니다.</span><button class="button danger" id="delete-dungeon-content" type="button" disabled>선택 삭제</button></footer>
               </section>
             </form>
-            <section id="dungeon-piece-editor" class="dungeon-piece-editor">
-              <header><div><strong>NBT 조각 라이브러리</strong><small id="dungeon-piece-path">구조물에 연결점과 콘텐츠 마커를 지정해 재사용 가능한 방으로 등록합니다.</small></div><div><button class="button secondary" id="new-dungeon-piece" type="button">새 조각</button><button class="button secondary" id="validate-dungeon-piece" type="button" disabled>조각 검증</button><button class="button primary" id="save-dungeon-piece" type="button" disabled>조각 저장</button></div></header>
-              <div class="dungeon-piece-workspace">
-                <aside><div class="dungeon-piece-search"><input id="dungeon-piece-search" type="search" placeholder="조각 ID·역할 검색"></div><div id="dungeon-piece-list" class="dungeon-piece-list"><div class="issues empty">등록된 조각이 없습니다.</div></div></aside>
-                <form id="dungeon-piece-form" hidden>
-                  <div class="dungeon-piece-definition">
-                    <div class="dungeon-piece-fields"><label class="wide"><span>조각 ID</span><input name="pieceId" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label class="wide"><span>NBT 구조물</span><select name="structure" required></select></label><label><span>역할</span><select name="role"><option value="start">시작</option><option value="room">방</option><option value="corridor">통로</option><option value="junction">교차로</option><option value="dead_end">막다른 방</option><option value="support">지원실</option><option value="treasure">보물방</option><option value="boss">보스방</option><option value="exit">출구</option></select></label><label><span>배치 경로</span><select name="placementScope"><option value="any">어디든</option><option value="critical_path">주 경로만</option><option value="branch">곁가지만</option></select></label><label><span>가중치</span><input name="weight" type="number" min="1" max="1000" required></label><label><span>계획당 최소 사용</span><input name="minPerPlan" type="number" min="0" max="256" required></label><label><span>계획당 최대 사용</span><input name="maxPerPlan" type="number" min="1" max="256" required></label><label class="toggle"><input name="allowRotation" type="checkbox"><span>회전 허용</span></label><label class="wide"><span>태그 — 쉼표 구분</span><input name="tags" placeholder="cobbleventure:dungeon/rocket"></label><label class="wide"><span>인접 금지 태그 — 쉼표 구분</span><input name="forbidAdjacentTags" placeholder="cobbleventure:dungeon_shape/boss"><small>해당 태그를 가진 조각과 출입구가 바로 이어지지 않습니다.</small></label><div class="dungeon-piece-size"><span>자동 크기</span><strong id="dungeon-piece-size">—</strong></div></div>
-                    <section class="dungeon-piece-map"><header><div><strong>NBT 절단면 미리보기</strong><small>실제 NBT를 내부가 가장 잘 보이는 중간 단면으로 잘라 연결점·마커와 함께 표시합니다.</small></div><span id="dungeon-piece-preview-label">NBT 미선택</span></header><canvas id="dungeon-piece-canvas" width="640" height="420" aria-label="NBT 던전 조각 절단면 미리보기"></canvas><footer><span class="piece-legend connector">연결점</span><span class="piece-legend marker">마커</span><small>항목을 선택한 뒤 절단면을 클릭하면 X·Z가 이동합니다.</small></footer></section>
-                  </div>
-                  <div class="dungeon-piece-items"><section><header><div><strong>연결점</strong><small>조각끼리 맞닿는 출입구입니다. 방향을 바꾸면 해당 경계로 자동 정렬됩니다.</small></div><button class="button secondary" id="add-dungeon-connector" type="button">＋ 연결점</button></header><div id="dungeon-connector-list"></div></section><section><header><div><strong>콘텐츠 마커</strong><small>입구·보스·전리품 등 런타임 배치 기준점입니다.</small></div><button class="button secondary" id="add-dungeon-marker" type="button">＋ 마커</button></header><div id="dungeon-marker-list"></div></section></div>
-                </form>
-              </div>
-              <div id="dungeon-piece-issues" class="issues empty">조각을 선택하거나 새로 만드세요.</div>
-            </section>
             <section id="dungeon-authored-plan-editor" class="dungeon-authored-plan-editor" hidden>
               <header><div><strong>게시형 계획 편집</strong><small id="dungeon-authored-plan-path">웹에서 확정한 NBT 조각 배치를 관리합니다.</small></div><div><button class="button secondary" id="new-dungeon-plan" type="button">새 계획</button><button class="button secondary" id="validate-dungeon-plan" type="button" disabled>계획 검증</button><button class="button primary" id="save-dungeon-plan" type="button" disabled>계획 저장</button></div></header>
               <form id="dungeon-plan-form" class="dungeon-plan-form" hidden><div class="dungeon-plan-meta"><label class="wide"><span>계획 ID</span><input name="planId" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label><span>고정 시드</span><input name="seed" type="number"></label><input name="boundsX" type="hidden"><input name="boundsY" type="hidden"><input name="boundsZ" type="hidden"><div class="dungeon-grid-notice wide"><b>16×16 격자 자동 정렬</b><small>조각을 추가하거나 끌면 가장 가까운 격자 칸에 배치되며 계획 영역은 자동 계산됩니다.</small></div></div>
@@ -707,6 +694,25 @@
             </section></div>
             <div id="dungeon-issues" class="issues empty">던전 목록을 불러오는 중입니다.</div>
           </div>
+        </div>
+      </section>
+
+      <section class="page" id="dungeon-pieces">
+        <div class="panel dungeon-piece-catalog-page">
+          <section id="dungeon-piece-editor" class="dungeon-piece-editor">
+            <header><div><p class="eyebrow">SHARED DUNGEON PIECES</p><strong>NBT 조각 라이브러리</strong><small id="dungeon-piece-path">모든 던전이 공유하는 구조물 조각과 연결점·콘텐츠 마커를 관리합니다.</small></div><div><button class="button secondary" id="new-dungeon-piece" type="button">새 조각</button><button class="button secondary" id="validate-dungeon-piece" type="button" disabled>조각 검증</button><button class="button primary" id="save-dungeon-piece" type="button" disabled>조각 저장</button></div></header>
+            <div class="dungeon-piece-workspace">
+              <aside><div class="dungeon-piece-search"><input id="dungeon-piece-search" type="search" placeholder="조각 ID·역할·태그 검색"></div><div id="dungeon-piece-list" class="dungeon-piece-list"><div class="issues empty">등록된 조각이 없습니다.</div></div></aside>
+              <form id="dungeon-piece-form" hidden>
+                <div class="dungeon-piece-definition">
+                  <div class="dungeon-piece-fields"><label class="wide"><span>조각 ID</span><input name="pieceId" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label class="wide"><span>NBT 구조물</span><select name="structure" required></select></label><label><span>역할</span><select name="role"><option value="start">시작</option><option value="room">방</option><option value="corridor">통로</option><option value="junction">교차로</option><option value="dead_end">막다른 방</option><option value="support">지원실</option><option value="treasure">보물방</option><option value="boss">보스방</option><option value="exit">출구</option></select></label><label><span>배치 경로</span><select name="placementScope"><option value="any">어디든</option><option value="critical_path">주 경로만</option><option value="branch">곁가지만</option></select></label><label><span>가중치</span><input name="weight" type="number" min="1" max="1000" required></label><label><span>계획당 최소 사용</span><input name="minPerPlan" type="number" min="0" max="256" required></label><label><span>계획당 최대 사용</span><input name="maxPerPlan" type="number" min="1" max="256" required></label><label class="toggle"><input name="allowRotation" type="checkbox"><span>회전 허용</span></label><label class="wide"><span>태그 — 쉼표 구분</span><input name="tags" placeholder="cobbleventure:dungeon/rocket"></label><label class="wide"><span>인접 금지 태그 — 쉼표 구분</span><input name="forbidAdjacentTags" placeholder="cobbleventure:dungeon_shape/boss"><small>해당 태그를 가진 조각과 출입구가 바로 이어지지 않습니다.</small></label><div class="dungeon-piece-size"><span>자동 크기</span><strong id="dungeon-piece-size">—</strong></div></div>
+                  <section class="dungeon-piece-map"><header><div><strong>NBT 절단면 미리보기</strong><small>실제 NBT를 내부가 가장 잘 보이는 중간 단면으로 잘라 연결점·마커와 함께 표시합니다.</small></div><span id="dungeon-piece-preview-label">NBT 미선택</span></header><canvas id="dungeon-piece-canvas" width="640" height="420" aria-label="NBT 던전 조각 절단면 미리보기"></canvas><footer><span class="piece-legend connector">연결점</span><span class="piece-legend marker">마커</span><small>항목을 선택한 뒤 절단면을 클릭하면 X·Z가 이동합니다.</small></footer></section>
+                </div>
+                <div class="dungeon-piece-items"><section><header><div><strong>연결점</strong><small>조각끼리 맞닿는 출입구입니다. 방향을 바꾸면 해당 경계로 자동 정렬됩니다.</small></div><button class="button secondary" id="add-dungeon-connector" type="button">＋ 연결점</button></header><div id="dungeon-connector-list"></div></section><section><header><div><strong>콘텐츠 마커</strong><small>입구·보스·전리품 등 런타임 배치 기준점입니다.</small></div><button class="button secondary" id="add-dungeon-marker" type="button">＋ 마커</button></header><div id="dungeon-marker-list"></div></section></div>
+              </form>
+            </div>
+            <div id="dungeon-piece-issues" class="issues empty">조각을 선택하거나 새로 만드세요.</div>
+          </section>
         </div>
       </section>
 

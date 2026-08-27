@@ -127,6 +127,19 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('if (workspace) workspace.hidden = true', script)
         self.assertIn('3D 자연동굴 배치 편집기', script)
 
+    def test_shared_dungeon_piece_catalog_has_its_own_management_page(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+
+        dungeon_page = markup[markup.index('id="dungeons"'):markup.index('id="dungeon-pieces"')]
+        piece_page = markup[markup.index('id="dungeon-pieces"'):markup.index('id="underground-roads"')]
+        self.assertNotIn('id="dungeon-piece-editor"', dungeon_page)
+        self.assertIn('id="dungeon-piece-editor"', piece_page)
+        self.assertEqual(1, markup.count('id="dungeon-piece-editor"'))
+        self.assertIn('data-section="dungeon-pieces"', markup)
+        self.assertIn('if (section === "dungeon-pieces")', script)
+        self.assertNotIn('$("#dungeon-piece-editor").hidden = pureCave', script)
+
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")

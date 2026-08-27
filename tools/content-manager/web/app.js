@@ -901,7 +901,7 @@ function switchPage(section) {
   const activeNavigationItem = $(`.nav-item[data-section="${navigationSection}"]`);
   if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "dungeon-pieces": "던전 조각 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -1894,7 +1894,8 @@ function loadSectionData(section, force = false) {
   if (section === "biomes") return loadBiomeData(force);
   if (section === "caves" || section === "forests") return loadBiomeData(force);
   if (section === "underground-roads") return loadStructureData(force).then(renderUndergroundRoad);
-  if (section === "dungeons") return Promise.all([loadStructureData(force), loadTrainerData(force)]).then(() => { renderDungeonPieceEditor(); renderDungeonContentEditor(); });
+  if (section === "dungeons") return Promise.all([loadStructureData(force), loadTrainerData(force)]).then(renderDungeonContentEditor);
+  if (section === "dungeon-pieces") return loadStructureData(force).then(renderDungeonPieceEditor);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
   if (section === "gyms") return loadGymStructureData(force).then(renderGymEditor);
@@ -4732,7 +4733,6 @@ function renderDungeonOptionVisibility() {
   const anchor = $("#dungeon-preview-anchor");
   const naturalCave = ["procedural_cave", "hybrid"].includes(terrainMode);
   const pureCave = terrainMode === "procedural_cave";
-  $("#dungeon-piece-editor").hidden = pureCave;
   if (pureCave) $("#dungeon-authored-plan-editor").hidden = true;
   if (naturalCave) {
     mountCaveLayoutEditor("dungeon");
@@ -5788,7 +5788,6 @@ function renderDungeon() {
   $("#dungeon-repeat-seed").disabled = document.plan?.mode !== "runtime";
   $("#dungeon-random-seed").disabled = document.plan?.mode !== "runtime";
   renderDungeonPlanEditor();
-  renderDungeonPieceEditor();
   if (["procedural_cave", "hybrid"].includes(document.terrain?.mode)) renderCaveLayoutPreview();
   else renderDungeonPreview();
 }
