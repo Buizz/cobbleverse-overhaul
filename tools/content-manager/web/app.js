@@ -4566,7 +4566,13 @@ async function loadDocument(category, path) {
 function renderDungeonList() {
   $("#dungeon-list-count").textContent = state.dungeons.length;
   $("#dungeon-list").innerHTML = state.dungeons.length
-    ? state.dungeons.map((item) => `<button class="document-button ${state.dungeonPath === item.path ? "is-active" : ""}" data-dungeon-path="${escapeHtml(item.path)}"><strong>${escapeHtml(item.name || item.id || "이름 없음")}</strong><small>${escapeHtml(item.id || item.path)} · ${escapeHtml(item.layout_mode || "fixed")}</small></button>`).join("")
+    ? state.dungeons.map((item) => {
+      const terrain = item.document?.terrain || {};
+      const layoutMode = ["procedural_cave", "hybrid"].includes(terrain.mode)
+        ? terrain.generator?.layout || "natural_network"
+        : item.layout_mode || "fixed";
+      return `<button class="document-button ${state.dungeonPath === item.path ? "is-active" : ""}" data-dungeon-path="${escapeHtml(item.path)}"><strong>${escapeHtml(item.name || item.id || "이름 없음")}</strong><small>${escapeHtml(item.id || item.path)} · ${escapeHtml(layoutMode)}</small></button>`;
+    }).join("")
     : '<div class="issues empty">등록된 던전이 없습니다.</div>';
   $$("#dungeon-list [data-dungeon-path]").forEach((button) => button.addEventListener("click", () => {
     const item = state.dungeons.find((entry) => entry.path === button.dataset.dungeonPath);
@@ -4704,6 +4710,11 @@ function renderDungeonOptionVisibility() {
   $$('[data-dungeon-fixed-field]').forEach((element) => element.hidden = terrainMode !== "fixed_template");
   $$('[data-dungeon-piece-field]').forEach((element) => element.hidden = !["nbt_pieces", "hybrid"].includes(terrainMode));
   $$('[data-dungeon-bounds-field], [data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
+  $$('[data-dungeon-cave-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
+  ["layoutMode", "criticalRooms", "branchCount", "branchDepth", "loopChance"].forEach((name) => {
+    const field = form.elements[name]?.closest("label");
+    if (field) field.hidden = ["procedural_cave", "hybrid"].includes(terrainMode);
+  });
   $$('[data-dungeon-party-field]').forEach((element) => element.hidden = multiplayerMode === "solo");
   $$('[data-dungeon-tether-field]').forEach((element) => element.hidden = multiplayerMode !== "cooperative");
   $$('[data-dungeon-repeat-field]').forEach((element) => element.hidden = !form.elements.repeatable.checked);
@@ -4730,6 +4741,10 @@ function renderDungeonForm() {
     maxDistance: document.multiplayer?.tether?.max_distance ?? 40, terrainMode: document.terrain?.mode || "fixed_template",
     terrainTemplate: document.terrain?.template || "", piecePool: document.terrain?.piece_pool || "",
     boundsX: document.terrain?.bounds?.[0] ?? 64, boundsY: document.terrain?.bounds?.[1] ?? 16, boundsZ: document.terrain?.bounds?.[2] ?? 64,
+    dungeonCaveStyle: document.terrain?.style || "rock",
+    dungeonCaveFluidLevel: document.terrain?.generator?.water_level ?? 38,
+    dungeonCaveFluidDepth: document.terrain?.generator?.water_depth ?? 8,
+    dungeonCaveRequiresFlash: Boolean(document.terrain?.requires_flash),
     planMode: document.plan?.mode || "runtime", seedPolicy: document.plan?.seed_policy || "random_per_run",
     planFallback: document.plan?.fallback || "reject_entry", generationTimeout: document.plan?.generation_timeout_ms ?? 1000,
     maxAttempts: document.plan?.max_attempts ?? 32, planIds: (document.plan?.plan_ids || []).join(", "),
@@ -4752,6 +4767,7 @@ function renderDungeonForm() {
   form.elements.terrainTemplate.defaultValue = values.terrainTemplate;
   renderDungeonOptionVisibility();
   renderDungeonTemplateSelection();
+  renderDungeonCaveGeneratorSummary();
   renderDungeonSummary();
   renderDungeonContentEditor();
   $("#validate-dungeon").disabled = false;
@@ -4801,10 +4817,17 @@ function updateDungeonFromForm() {
   } else {
     document.terrain.bounds = [integer("boundsX", 64), integer("boundsY", 16), integer("boundsZ", 64)];
     if (["nbt_pieces", "hybrid"].includes(terrainMode)) document.terrain.piece_pool = form.elements.piecePool.value.trim();
-    if (terrainMode === "procedural_cave") document.terrain.cave_generator = "minecraft_worldgen";
+    if (["procedural_cave", "hybrid"].includes(terrainMode)) {
+      document.terrain.cave_generator = "minecraft_worldgen";
+      document.terrain.style = form.elements.dungeonCaveStyle.value;
+      document.terrain.requires_flash = form.elements.dungeonCaveRequiresFlash.checked;
+      document.terrain.generator = normalizeNaturalCaveGenerator(document.terrain.generator);
+      document.terrain.generator.water_level = integer("dungeonCaveFluidLevel", 38);
+      document.terrain.generator.water_depth = integer("dungeonCaveFluidDepth", 8);
+    }
     document.plan = { ...(document.plan || {}), mode: form.elements.planMode.value, seed_policy: form.elements.seedPolicy.value, fallback: form.elements.planFallback.value, generation_timeout_ms: integer("generationTimeout", 1000), max_attempts: integer("maxAttempts", 32) };
     const planIds = csvValues(form.elements.planIds.value); if (planIds.length) document.plan.plan_ids = planIds; else delete document.plan.plan_ids;
-    document.layout = { mode: form.elements.layoutMode.value, critical_path_rooms: parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3), branch_count: parseDungeonRange(form.elements.branchCount.value, [1, 2], 0), branch_depth: parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1), loop_chance: Number(form.elements.loopChance.value || 0) };
+    if (!["procedural_cave", "hybrid"].includes(terrainMode)) document.layout = { mode: form.elements.layoutMode.value, critical_path_rooms: parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3), branch_count: parseDungeonRange(form.elements.branchCount.value, [1, 2], 0), branch_depth: parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1), loop_chance: Number(form.elements.loopChance.value || 0) };
   }
   document.lifecycle ||= { on_wipe: "reset_run" };
   Object.assign(document.lifecycle, { on_wipe: "reset_run", wipe_return: form.elements.wipeReturn.value, heal_on_wipe: form.elements.healOnWipe.checked, resume_mode: form.elements.resumeMode.value, reconnect_grace_seconds: integer("reconnectGrace", 120) });
@@ -4827,6 +4850,7 @@ function updateDungeonFromForm() {
   });
   document.random_encounters.additions ||= [];
   renderDungeonSummary();
+  renderDungeonCaveGeneratorSummary();
   return true;
 }
 
@@ -5486,11 +5510,13 @@ function fixedDungeonPlan(document) {
 
 function runtimeDungeonPlan(document, seed) {
   const random = seededDungeonRandom(seed);
-  const layout = document.layout || {};
-  const mode = layout.mode || "critical_path_branches";
-  const roomsRange = dungeonRange(layout.critical_path_rooms, [5, 7]);
-  const branchesRange = dungeonRange(layout.branch_count, [1, 2]);
-  const depthRange = dungeonRange(layout.branch_depth, [1, 2]);
+  const caveTerrain = ["procedural_cave", "hybrid"].includes(document.terrain?.mode);
+  const caveGenerator = normalizeNaturalCaveGenerator(document.terrain?.generator);
+  const layout = caveTerrain ? {} : document.layout || {};
+  const mode = caveTerrain ? "natural_network" : layout.mode || "critical_path_branches";
+  const roomsRange = caveTerrain ? [caveGenerator.main_rooms, caveGenerator.main_rooms] : dungeonRange(layout.critical_path_rooms, [5, 7]);
+  const branchesRange = caveTerrain ? [caveGenerator.branch_count, caveGenerator.branch_count] : dungeonRange(layout.branch_count, [1, 2]);
+  const depthRange = caveTerrain ? [1, 1] : dungeonRange(layout.branch_depth, [1, 2]);
   const count = Math.max(3, Math.round(roomsRange[0] + random() * (roomsRange[1] - roomsRange[0])));
   const branchCount = Math.max(0, Math.round(branchesRange[0] + random() * (branchesRange[1] - branchesRange[0])));
   const placements = [];
@@ -5645,7 +5671,10 @@ function renderDungeonPreview() {
   const criticalCount = plan.placements.filter((value) => value.critical).length;
   const selected = plan.placements.find((value) => value.index === state.dungeonPreview.selected);
   $("#dungeon-preview-empty").hidden = true; $("#dungeon-preview-details").hidden = false;
-  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(state.dungeon.layout?.mode || "fixed")}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd><dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
+  const layoutMode = ["procedural_cave", "hybrid"].includes(state.dungeon.terrain?.mode)
+    ? state.dungeon.terrain?.generator?.layout || "natural_network"
+    : state.dungeon.layout?.mode || "fixed";
+  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd><dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
   const floorStatus = selectedFloor === null ? "모든 층을 표시합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
   $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 게시형 계획의 실제 좌표입니다.` : `${floorStatus} 런타임 방 그래프는 실제 생성 결과와 달라질 수 있습니다.`;
@@ -6285,10 +6314,45 @@ function updateCaveFromForm() {
   return true;
 }
 
+function normalizeNaturalCaveGenerator(generator = {}) {
+  return {
+    ...generator,
+    layout: generator.layout || "natural_network",
+    seed_salt: generator.seed_salt ?? 0,
+    main_rooms: generator.main_rooms ?? 7,
+    branch_count: generator.branch_count ?? 4,
+    loop_chance: generator.loop_chance ?? .35,
+    vertical_range: generator.vertical_range ?? 28,
+    room_radius: generator.room_radius || { min: 10, max: 28 },
+    tunnel_radius: generator.tunnel_radius || { min: 4, max: 7 },
+    surface_roughness: generator.surface_roughness ?? .18,
+    water_level: generator.water_level ?? 38,
+    water_depth: generator.water_depth ?? 8,
+    grand_room_scale: generator.grand_room_scale ?? 1.65,
+    elevated_crossing: Boolean(generator.elevated_crossing),
+    bridge_clearance: generator.bridge_clearance ?? 13,
+    manual_layout: generator.manual_layout || { enabled: false, anchors: [], connections: [] },
+  };
+}
+
+let caveGeneratorDialogTarget = "cave";
+
+function caveGeneratorDialogDocument() {
+  return caveGeneratorDialogTarget === "dungeon" ? state.dungeon?.terrain : state.cave;
+}
+
+function renderDungeonCaveGeneratorSummary() {
+  const target = $("#dungeon-cave-generator-summary");
+  if (!target || !state.dungeon) return;
+  const generator = normalizeNaturalCaveGenerator(state.dungeon.terrain?.generator);
+  target.innerHTML = `<strong>${generator.main_rooms}개 주요 공동 · ${generator.branch_count}개 가지</strong><small>수직 ${generator.vertical_range} · 공동 반경 ${generator.room_radius.min}~${generator.room_radius.max} · 통로 반경 ${generator.tunnel_radius.min}~${generator.tunnel_radius.max} · 순환로 ${Math.round(generator.loop_chance * 100)}%</small>`;
+}
+
 function renderCaveGeneratorDialogForm() {
-  if (!state.cave) return;
+  const document = caveGeneratorDialogDocument();
+  if (!document) return;
   const form = $("#cave-generator-dialog-form");
-  const generator = state.cave.generator || {};
+  const generator = normalizeNaturalCaveGenerator(document.generator);
   setFormValue(form, "generatorLayout", generator.layout || "natural_network");
   setFormValue(form, "seedSalt", generator.seed_salt ?? 0);
   setFormValue(form, "mainRooms", generator.main_rooms ?? 7);
@@ -6305,24 +6369,33 @@ function renderCaveGeneratorDialogForm() {
   setFormValue(form, "bridgeClearance", generator.bridge_clearance ?? 13);
 }
 
-function openCaveGeneratorDialog() {
-  if (!state.cave) { toast("먼저 동굴을 선택해 주세요."); return; }
-  updateCaveFromForm();
+function openCaveGeneratorDialog(target = "cave") {
+  caveGeneratorDialogTarget = target;
+  if (target === "dungeon") {
+    if (!state.dungeon) { toast("먼저 던전을 선택해 주세요."); return; }
+    updateDungeonFromForm();
+  } else {
+    if (!state.cave) { toast("먼저 동굴을 선택해 주세요."); return; }
+    updateCaveFromForm();
+  }
   renderCaveGeneratorDialogForm();
-  $("#cave-generator-dialog").showModal();
+  const dialog = $("#cave-generator-dialog");
+  if (dialog.parentElement !== document.body) document.body.append(dialog);
+  dialog.showModal();
 }
 
 function applyCaveGeneratorDialog() {
-  if (!state.cave) return;
+  const document = caveGeneratorDialogDocument();
+  if (!document) return;
   const form = $("#cave-generator-dialog-form");
   if (!form.reportValidity()) return;
-  const current = state.cave.generator || {};
+  const current = normalizeNaturalCaveGenerator(document.generator);
   const manual = current.manual_layout || { anchors: [], connections: [] };
   const roomMinimum = Math.max(2, Math.min(64, forestNumber(form, "roomRadiusMin", 10)));
   const roomMaximum = Math.max(roomMinimum, Math.min(96, forestNumber(form, "roomRadiusMax", 28)));
   const tunnelMinimum = Math.max(2, Math.min(32, forestNumber(form, "tunnelRadiusMin", 4)));
   const tunnelMaximum = Math.max(tunnelMinimum, Math.min(48, forestNumber(form, "tunnelRadiusMax", 7)));
-  state.cave.generator = {
+  document.generator = {
     ...current,
     layout: form.elements.generatorLayout.value,
     seed_salt: Math.trunc(forestNumber(form, "seedSalt", 0)),
@@ -6338,11 +6411,20 @@ function applyCaveGeneratorDialog() {
     bridge_clearance: Math.max(7, Math.min(32, Math.round(forestNumber(form, "bridgeClearance", 13)))),
     manual_layout: { ...manual, enabled: false, anchors: manual.anchors || [], connections: manual.connections || [] }
   };
-  state.cavePreview.selected = null;
-  setCavePreviewTool("select");
   $("#cave-generator-dialog").close();
-  renderCaveLayoutPreview();
-  toast("자동 동굴 배치를 생성했습니다. 동굴 저장 시 파일에 반영됩니다.");
+  if (caveGeneratorDialogTarget === "dungeon") {
+    state.dungeonDirty = true;
+    $("#dungeon-save-state").textContent = "저장하지 않은 변경";
+    $("#dungeon-save-state").classList.add("is-dirty");
+    renderDungeonCaveGeneratorSummary();
+    renderDungeonPreview();
+    toast("일반 동굴과 같은 생성 설정을 던전에 반영했습니다.");
+  } else {
+    state.cavePreview.selected = null;
+    setCavePreviewTool("select");
+    renderCaveLayoutPreview();
+    toast("자동 동굴 배치를 생성했습니다. 동굴 저장 시 파일에 반영됩니다.");
+  }
 }
 
 function renderCaveArrayEditors() {
@@ -16295,7 +16377,8 @@ $("#regenerate-cave-preview").addEventListener("click", () => {
   state.cave.generator.seed_salt = (Number(state.cave.generator.seed_salt) || 0) + 1;
   renderCaveLayoutPreview();
 });
-$("#open-cave-generator-dialog").addEventListener("click", openCaveGeneratorDialog);
+$("#open-cave-generator-dialog").addEventListener("click", () => openCaveGeneratorDialog("cave"));
+$("#open-dungeon-cave-generator-dialog").addEventListener("click", () => openCaveGeneratorDialog("dungeon"));
 $("#generate-cave-layout").addEventListener("click", applyCaveGeneratorDialog);
 $$('[data-cave-view]').forEach((button) => button.addEventListener("click", () => { state.cavePreview.view = button.dataset.caveView; state.cavePreview.drag = null; renderCaveLayoutPreview(); }));
 $("[data-clear-cave-selection]").addEventListener("click", () => { state.cavePreview.selected = null; renderCaveLayoutPreview(); });

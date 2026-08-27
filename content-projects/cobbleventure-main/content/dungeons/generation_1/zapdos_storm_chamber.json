@@ -29,14 +29,27 @@
     "allow_flee": true, "allow_capture": true,
     "allow_items": true, "allow_escape_actions": false
   },
+  "plan": {
+    "mode": "runtime", "seed_policy": "random_per_run",
+    "fallback": "reject_entry", "generation_timeout_ms": 1000,
+    "max_attempts": 32
+  },
   "terrain": {
     "mode": "procedural_cave", "cave_generator": "minecraft_worldgen",
+    "style": "rock", "requires_flash": true,
+    "generator": {
+      "layout": "natural_network", "seed_salt": 2718,
+      "main_rooms": 12, "branch_count": 5, "loop_chance": 0.15,
+      "vertical_range": 32,
+      "room_radius": { "min": 9, "max": 24 },
+      "tunnel_radius": { "min": 3, "max": 6 },
+      "surface_roughness": 0.24,
+      "water_level": 38, "water_depth": 5,
+      "grand_room_scale": 1.8,
+      "elevated_crossing": true, "bridge_clearance": 13,
+      "manual_layout": { "enabled": false, "anchors": [], "connections": [] }
+    },
     "bounds": [128, 48, 128]
-  },
-  "layout": {
-    "mode": "critical_path_branches", "critical_path_rooms": [10, 14],
-    "branch_count": [3, 6], "branch_depth": [1, 3], "loop_chance": 0.15,
-    "vertical_direction": "mixed", "floor_changes": [0, 8]
   },
   "encounters": [{
     "id": "zapdos", "kind": "wild_pokemon",

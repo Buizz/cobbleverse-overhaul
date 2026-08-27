@@ -28,6 +28,22 @@ sys.modules[SPEC.name] = content_manager
 SPEC.loader.exec_module(content_manager)
 
 
+def dungeon_cave_terrain(bounds: list[int]) -> dict[str, object]:
+    return {
+        "mode": "procedural_cave", "cave_generator": "minecraft_worldgen",
+        "style": "rock", "requires_flash": False, "bounds": bounds,
+        "generator": {
+            "layout": "natural_network", "seed_salt": 0,
+            "main_rooms": 7, "branch_count": 2, "loop_chance": 0.2,
+            "vertical_range": 24,
+            "room_radius": {"min": 8, "max": 18},
+            "tunnel_radius": {"min": 3, "max": 6},
+            "surface_roughness": 0.18,
+            "water_level": 38, "water_depth": 8,
+        },
+    }
+
+
 class ContentManagerTests(unittest.TestCase):
     def test_piece_dungeon_allows_marker_placed_encounters_and_loot(self) -> None:
         document = json.loads((
@@ -72,6 +88,25 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('itemRequirements', script)
         self.assertIn('terrainMode === "procedural_cave" && option.value !== "runtime"', script)
         self.assertIn("function runtimeDungeonContentMarkers", script)
+        self.assertIn('openCaveGeneratorDialog("dungeon")', script)
+        self.assertIn('document.terrain.generator = normalizeNaturalCaveGenerator', script)
+        self.assertIn('data-dungeon-cave-field', markup)
+        self.assertIn('일반 동굴 편집기와 같은 생성 데이터', markup)
+
+    def test_dungeon_cave_requires_the_shared_cave_generator_document(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/dungeons/generation_1/zapdos_storm_chamber.json"
+        ).read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, valid_issues = content_manager.validate_dungeon_file(path)
+            document["terrain"].pop("generator")
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, invalid_issues = content_manager.validate_dungeon_file(path)
+
+        self.assertFalse(any(issue.level == "error" for issue in valid_issues), valid_issues)
+        self.assertTrue(any("일반 동굴 생성 설정" in issue.message for issue in invalid_issues))
 
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -103,9 +138,10 @@ class ContentManagerTests(unittest.TestCase):
     def test_dungeon_validator_allows_authored_pieces_but_rejects_authored_caves(self) -> None:
         authored = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
         cave = copy.deepcopy(authored)
-        cave["terrain"] = {
-            "mode": "procedural_cave", "cave_generator": "minecraft_worldgen",
-            "bounds": [112, 24, 48],
+        cave["terrain"] = dungeon_cave_terrain([112, 24, 48])
+        cave["plan"] = {
+            "mode": "authored", "plan_ids": ["cobbleventure:dungeon_plan/test"],
+            "seed_policy": "fixed", "fallback": "reject_entry",
         }
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dungeon.json"
@@ -118,17 +154,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("입장 시 자동 생성" in issue.message for issue in cave_issues))
 
     def test_procedural_cave_allows_automatic_encounters_loot_and_objectives(self) -> None:
-        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
-        document["terrain"] = {
-            "mode": "procedural_cave", "cave_generator": "minecraft_worldgen",
-            "bounds": [160, 48, 160],
-        }
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/zapdos_storm_chamber.json").read_text(encoding="utf-8"))
+        document["terrain"] = dungeon_cave_terrain([160, 48, 160])
         document["plan"] = {
             "mode": "runtime", "seed_policy": "match", "fallback": "reject_entry",
-        }
-        document["layout"] = {
-            "mode": "critical_path_branches", "critical_path_rooms": [7, 7],
-            "branch_count": [2, 2], "branch_depth": [1, 2], "loop_chance": 0.2,
         }
         for encounter in document["encounters"]:
             encounter.pop("position", None)

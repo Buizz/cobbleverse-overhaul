@@ -208,6 +208,9 @@ record DungeonDefinition(
             ? enumValue(terrain, "cave_generator", List.of("minecraft_worldgen")) : null;
         BlockPos terrainBounds = terrain.has("bounds")
             ? positiveBlockPosition(terrain, "bounds") : null;
+        NaturalCaveGenerator.Settings caveSettings =
+            (terrainMode.equals("procedural_cave") || terrainMode.equals("hybrid"))
+                ? NaturalCaveGenerator.settings(terrain) : null;
         if (terrainMode.equals("nbt_pieces")
             && (piecePool == null || terrainBounds == null)) {
             throw new IllegalStateException(
@@ -311,9 +314,7 @@ record DungeonDefinition(
                 verticalDirection, floorChanges
             );
         }
-        if ((terrainMode.equals("nbt_pieces") || terrainMode.equals("procedural_cave")
-            || terrainMode.equals("hybrid"))
-            && layout == null) {
+        if (terrainMode.equals("nbt_pieces") && layout == null) {
             throw new IllegalStateException(
                 terrainMode + " dungeon requires layout settings: " + id
             );
@@ -959,7 +960,7 @@ record DungeonDefinition(
             plan,
             new Terrain(
                 terrainMode, template, entryPosition, exitPosition,
-                piecePool, caveGenerator, terrainBounds
+                piecePool, caveGenerator, terrainBounds, caveSettings
             ),
             layout,
             List.copyOf(encounters),
@@ -1191,7 +1192,8 @@ record DungeonDefinition(
         BlockPos exitPosition,
         String piecePool,
         String caveGenerator,
-        BlockPos bounds
+        BlockPos bounds,
+        NaturalCaveGenerator.Settings caveSettings
     ) {}
     record Layout(
         String mode,

@@ -8668,8 +8668,30 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             _issue(issues, "error", path, "$.terrain.bounds", "양수인 X, Y, Z 크기 3개가 필요합니다.")
     if terrain_mode == "hybrid":
         _resource_id(terrain.get("piece_pool"), issues, path, "$.terrain.piece_pool")
+    if terrain_mode in {"procedural_cave", "hybrid"}:
         if terrain.get("cave_generator") != "minecraft_worldgen":
-            _issue(issues, "error", path, "$.terrain.cave_generator", "혼합형 던전은 minecraft_worldgen 동굴 생성기가 필요합니다.")
+            _issue(issues, "error", path, "$.terrain.cave_generator", "동굴형 던전은 minecraft_worldgen 동굴 생성기가 필요합니다.")
+        if terrain.get("style") not in {"rock", "dripstone", "crystal", "lush", "ice", "lava"}:
+            _issue(issues, "error", path, "$.terrain.style", "일반 동굴과 같은 동굴 스타일이 필요합니다.")
+        if not isinstance(terrain.get("requires_flash"), bool):
+            _issue(issues, "error", path, "$.terrain.requires_flash", "플래시 필요 여부가 필요합니다.")
+        generator = terrain.get("generator")
+        if not isinstance(generator, dict):
+            _issue(issues, "error", path, "$.terrain.generator", "일반 동굴 생성 설정이 필요합니다.")
+        else:
+            if generator.get("layout") != "natural_network":
+                _issue(issues, "error", path, "$.terrain.generator.layout", "일반 동굴의 natural_network 생성 방식을 사용해야 합니다.")
+            for key in ("seed_salt", "main_rooms", "branch_count", "vertical_range", "water_level", "water_depth"):
+                if not isinstance(generator.get(key), int) or isinstance(generator.get(key), bool):
+                    _issue(issues, "error", path, f"$.terrain.generator.{key}", "일반 동굴과 같은 정수 생성값이 필요합니다.")
+            for key in ("loop_chance", "surface_roughness"):
+                value = generator.get(key)
+                if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
+                    _issue(issues, "error", path, f"$.terrain.generator.{key}", "0~1 생성값이 필요합니다.")
+            for key in ("room_radius", "tunnel_radius"):
+                radius = generator.get(key)
+                if not isinstance(radius, dict) or not all(isinstance(radius.get(edge), (int, float)) and not isinstance(radius.get(edge), bool) for edge in ("min", "max")):
+                    _issue(issues, "error", path, f"$.terrain.generator.{key}", "일반 동굴과 같은 최소·최대 반경이 필요합니다.")
 
     if terrain_mode != "fixed_template":
         plan = object_at("plan")
@@ -8683,9 +8705,10 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             _issue(issues, "error", path, "$.plan.plan_ids", "게시형 계획 ID가 하나 이상 필요합니다.")
         if terrain_mode in {"procedural_cave", "hybrid"} and plan.get("mode") != "runtime":
             _issue(issues, "error", path, "$.plan.mode", "절차 동굴과 혼합형은 현재 입장 시 자동 생성 계획만 지원합니다.")
-        layout = object_at("layout")
-        if layout.get("mode") not in {"fixed", "critical_path_branches", "maze", "rooms_and_corridors"}:
-            _issue(issues, "error", path, "$.layout.mode", "지원하지 않는 경로 형태입니다.")
+        if terrain_mode == "nbt_pieces":
+            layout = object_at("layout")
+            if layout.get("mode") not in {"fixed", "critical_path_branches", "maze", "rooms_and_corridors"}:
+                _issue(issues, "error", path, "$.layout.mode", "지원하지 않는 경로 형태입니다.")
 
     completion = object_at("completion")
     if not isinstance(completion.get("repeatable"), bool):
@@ -9196,7 +9219,12 @@ def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
         document = item["document"]
         item["name"] = _localized_value(document.get("display_name")) or item["id"]
         item["terrain_mode"] = document.get("terrain", {}).get("mode", "")
-        item["layout_mode"] = document.get("layout", {}).get("mode", "fixed")
+        terrain = document.get("terrain", {})
+        item["layout_mode"] = (
+            terrain.get("generator", {}).get("layout", "natural_network")
+            if terrain.get("mode") in {"procedural_cave", "hybrid"}
+            else document.get("layout", {}).get("mode", "fixed")
+        )
         item["plan_mode"] = document.get("plan", {}).get("mode", "authored")
     return {
         "items": dungeons,

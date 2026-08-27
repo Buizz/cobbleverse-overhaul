@@ -1038,21 +1038,11 @@ final class DungeonSystem {
         BlockPos origin,
         UUID playerId
     ) {
-        DungeonDefinition.Layout layout = definition.layout();
-        if (layout.mode().equals("fixed")) {
-            throw new IllegalStateException(
-                "Procedural cave layout mode is not implemented yet: " + layout.mode()
-            );
-        }
         long seed = dungeonPlanSeed(level, definition, origin, playerId);
-        RandomSource random = RandomSource.create(seed);
-        int rooms = randomRange(random, layout.criticalPathRooms());
-        int branches = randomRange(random, layout.branchCount());
-        int branchDepth = randomRange(random, layout.branchDepth());
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
-            layout.mode(), rooms, branches, branchDepth, layout.loopChance()
+            definition.terrain().caveSettings()
         );
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
         if (elapsedMs > definition.plan().generationTimeoutMs()) {
@@ -1062,9 +1052,10 @@ final class DungeonSystem {
             );
         }
         LOGGER.info(
-            "Prepared procedural cave dungeon: dungeon={}, seed={}, layout={}, rooms={}, "
-                + "branches={}, branchDepth={}, elapsed={}ms",
-            definition.id(), seed, layout.mode(), rooms, branches, branchDepth, elapsedMs
+            "Prepared procedural cave dungeon with shared cave generator: "
+                + "dungeon={}, seed={}, rooms={}, branches={}, elapsed={}ms",
+            definition.id(), seed, definition.terrain().caveSettings().mainRooms(),
+            definition.terrain().caveSettings().branchCount(), elapsedMs
         );
         Map<DungeonPieceLayout.MarkerKey, BlockPos> featurePositions =
             DungeonCaveFeatureLayout.assign(
@@ -1083,21 +1074,11 @@ final class DungeonSystem {
         BlockPos origin,
         UUID playerId
     ) {
-        DungeonDefinition.Layout layout = definition.layout();
-        if (layout.mode().equals("fixed")) {
-            throw new IllegalStateException(
-                "Hybrid dungeon layout mode is not implemented yet: " + layout.mode()
-            );
-        }
         long seed = dungeonPlanSeed(level, definition, origin, playerId);
-        RandomSource random = RandomSource.create(seed);
-        int rooms = randomRange(random, layout.criticalPathRooms());
-        int branches = randomRange(random, layout.branchCount());
-        int branchDepth = randomRange(random, layout.branchDepth());
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
-            layout.mode(), rooms, branches, branchDepth, layout.loopChance()
+            definition.terrain().caveSettings()
         );
         DungeonHybridLandmarkLayout.Result landmarks = DungeonHybridLandmarkLayout.plan(
             definition, pieceDefinitions.values(), generated.mainRoomPositions(),
@@ -1146,9 +1127,10 @@ final class DungeonSystem {
             ));
         featurePositions.putAll(landmarks.featureMarkers());
         LOGGER.info(
-            "Prepared hybrid dungeon: dungeon={}, seed={}, layout={}, rooms={}, "
-                + "branches={}, landmarks={}, elapsed={}ms",
-            definition.id(), seed, layout.mode(), rooms, branches,
+            "Prepared hybrid dungeon with shared cave generator: dungeon={}, seed={}, "
+                + "rooms={}, branches={}, landmarks={}, elapsed={}ms",
+            definition.id(), seed, definition.terrain().caveSettings().mainRooms(),
+            definition.terrain().caveSettings().branchCount(),
             landmarks.placements().size(), elapsedMs
         );
         return new PreparedTerrain(

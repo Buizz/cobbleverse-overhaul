@@ -8349,7 +8349,12 @@ public final class CobbleventureBootstrap {
         return biomeScore + levelScore;
     }
 
-    private static NaturalCaveGenerator.Settings caveGenerationSettings(JsonObject cave) {
+    static NaturalCaveGenerator.Settings caveGenerationSettings(JsonObject cave) {
+        return NaturalCaveGenerator.settings(cave);
+    }
+
+    @SuppressWarnings("unused")
+    private static NaturalCaveGenerator.Settings legacyCaveGenerationSettings(JsonObject cave) {
         boolean requiresFlash = cave.has("requires_flash")
             && cave.get("requires_flash").getAsBoolean();
         if (!cave.has("generator")) {

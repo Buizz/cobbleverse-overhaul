@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.bootstrap.CobbleventureBootstrap.BlockPoint;
@@ -25,6 +27,102 @@ final class NaturalCaveGenerator {
     private static final int SHELL_THICKNESS = 4;
 
     private NaturalCaveGenerator() {}
+
+    static Settings settings(JsonObject cave) {
+        boolean requiresFlash = cave.has("requires_flash")
+            && cave.get("requires_flash").getAsBoolean();
+        if (!cave.has("generator")) {
+            return Settings.defaults(requiresFlash);
+        }
+        JsonObject generator = cave.getAsJsonObject("generator");
+        JsonObject roomRadius = generator.getAsJsonObject("room_radius");
+        JsonObject tunnelRadius = generator.getAsJsonObject("tunnel_radius");
+        Settings defaults = Settings.defaults(requiresFlash);
+        String style = cave.has("style") ? cave.get("style").getAsString() : "rock";
+        String internalBiome = switch (style) {
+            case "lush" -> "minecraft:lush_caves";
+            case "ice" -> "minecraft:deep_frozen_ocean";
+            case "lava" -> "minecraft:basalt_deltas";
+            default -> "minecraft:dripstone_caves";
+        };
+        String decoration = switch (style) {
+            case "dripstone", "crystal", "lush", "ice", "lava" -> style;
+            default -> "rock";
+        };
+        ManualLayout manualLayout = ManualLayout.disabled();
+        if (generator.has("manual_layout")) {
+            JsonObject manual = generator.getAsJsonObject("manual_layout");
+            List<ManualAnchor> anchors = new ArrayList<>();
+            for (JsonElement element : manual.getAsJsonArray("anchors")) {
+                JsonObject anchor = element.getAsJsonObject();
+                JsonObject position = anchor.getAsJsonObject("position");
+                anchors.add(new ManualAnchor(
+                    text(anchor, "id"), text(anchor, "kind"),
+                    position.get("x").getAsInt(), position.get("y").getAsInt(),
+                    position.get("z").getAsInt(), anchor.get("radius_x").getAsDouble(),
+                    anchor.get("radius_z").getAsDouble(), anchor.get("height").getAsDouble(),
+                    anchor.has("room_type") ? anchor.get("room_type").getAsString() : ""
+                ));
+            }
+            List<ManualConnection> connections = new ArrayList<>();
+            for (JsonElement element : manual.getAsJsonArray("connections")) {
+                JsonObject connection = element.getAsJsonObject();
+                connections.add(new ManualConnection(
+                    text(connection, "id"), text(connection, "from"),
+                    text(connection, "to"), text(connection, "kind"),
+                    connection.get("width").getAsInt(),
+                    connection.has("path_type") ? connection.get("path_type").getAsString() : ""
+                ));
+            }
+            manualLayout = new ManualLayout(
+                manual.get("enabled").getAsBoolean(), List.copyOf(anchors),
+                List.copyOf(connections)
+            );
+        }
+        List<PathType> pathTypes = defaults.pathTypes();
+        if (generator.has("path_types")) {
+            List<PathType> configured = new ArrayList<>();
+            for (JsonElement element : generator.getAsJsonArray("path_types")) {
+                JsonObject type = element.getAsJsonObject();
+                configured.add(new PathType(
+                    text(type, "id"), type.get("weight").getAsInt(),
+                    type.get("width").getAsInt(), text(type, "floor")
+                ));
+            }
+            pathTypes = List.copyOf(configured);
+        }
+        DecorationSettings decorations = defaults.decorations();
+        if (generator.has("decorations")) {
+            JsonObject configured = generator.getAsJsonObject("decorations");
+            decorations = new DecorationSettings(
+                configured.get("cluster_density").getAsDouble(),
+                configured.getAsJsonObject("patch_radius").get("min").getAsInt(),
+                configured.getAsJsonObject("patch_radius").get("max").getAsInt(),
+                configured.getAsJsonObject("dripstone_length").get("min").getAsInt(),
+                configured.getAsJsonObject("dripstone_length").get("max").getAsInt(),
+                configured.get("route_clearance").getAsInt()
+            );
+        }
+        return new Settings(
+            generator.get("seed_salt").getAsLong(), style,
+            generator.get("main_rooms").getAsInt(), generator.get("branch_count").getAsInt(),
+            generator.get("loop_chance").getAsDouble(), generator.get("vertical_range").getAsInt(),
+            roomRadius.get("min").getAsDouble(), roomRadius.get("max").getAsDouble(),
+            tunnelRadius.get("min").getAsDouble(), tunnelRadius.get("max").getAsDouble(),
+            generator.get("surface_roughness").getAsDouble(), generator.get("water_level").getAsInt(),
+            generator.has("water_depth") ? generator.get("water_depth").getAsInt() : 8,
+            generator.has("grand_room_scale") ? generator.get("grand_room_scale").getAsDouble() : 1.65D,
+            generator.has("elevated_crossing") && generator.get("elevated_crossing").getAsBoolean(),
+            generator.has("bridge_clearance") ? generator.get("bridge_clearance").getAsInt() : 13,
+            requiresFlash, manualLayout, List.of(internalBiome),
+            List.of(new RoomType(style, 100, decoration, 1.0D, 1.0D)),
+            pathTypes, decorations
+        );
+    }
+
+    private static String text(JsonObject value, String key) {
+        return value.get(key).getAsString();
+    }
 
     static void generate(ServerLevel level, long worldSeed, List<Entrance> configuredEntrances) {
         Map<String, List<Entrance>> byCave = new LinkedHashMap<>();
@@ -97,6 +195,44 @@ final class NaturalCaveGenerator {
         return new InstanceResult(
             plan.entryPosition(), plan.exitPosition(),
             plan.mainRoomPositions(), plan.branchRoomPositions()
+        );
+    }
+
+    /** Builds a dungeon instance from the exact generator settings used by normal caves. */
+    static InstanceResult generateInstance(
+        ServerLevel level,
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        Settings configured
+    ) {
+        long effectiveSeed = seed ^ configured.seedSalt();
+        InstancePlan planned = planInstance(
+            caveId, effectiveSeed, origin, bounds, "critical_path_branches",
+            configured.mainRooms(), configured.branchCount(), 1, configured.loopChance()
+        );
+        Settings effective = new Settings(
+            configured.seedSalt(), configured.style(), configured.mainRooms(),
+            configured.branchCount(), configured.loopChance(), configured.verticalRange(),
+            configured.minimumRoomRadius(), configured.maximumRoomRadius(),
+            configured.minimumTunnelRadius(), configured.maximumTunnelRadius(),
+            configured.surfaceRoughness(), configured.waterLevel(), configured.waterDepth(),
+            configured.grandRoomScale(), configured.elevatedCrossing(),
+            configured.bridgeClearance(), configured.requiresFlash(),
+            planned.settings().manualLayout(), configured.internalBiomes(),
+            configured.roomTypes(), configured.pathTypes(), configured.decorations()
+        );
+        List<Entrance> entrances = planned.entrances().stream()
+            .map(entrance -> new Entrance(
+                entrance.id(), entrance.cave(), entrance.destination(),
+                entrance.portalAnchor(), effective
+            ))
+            .toList();
+        generateCave(level, caveId, effectiveSeed, entrances, effective);
+        return new InstanceResult(
+            planned.entryPosition(), planned.exitPosition(),
+            planned.mainRoomPositions(), planned.branchRoomPositions()
         );
     }
 

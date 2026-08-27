@@ -169,6 +169,9 @@
         "exit_position": { "$ref": "#/$defs/block_position" },
         "piece_pool": { "$ref": "#/$defs/resource_id" },
         "cave_generator": { "const": "minecraft_worldgen" },
+        "style": { "$ref": "cave.schema.json#/properties/style" },
+        "requires_flash": { "$ref": "cave.schema.json#/properties/requires_flash" },
+        "generator": { "$ref": "cave.schema.json#/properties/generator" },
         "bounds": { "$ref": "#/$defs/positive_block_position" }
       },
       "allOf": [
@@ -182,11 +185,11 @@
         },
         {
           "if": { "properties": { "mode": { "const": "procedural_cave" } }, "required": ["mode"] },
-          "then": { "required": ["cave_generator", "bounds"] }
+          "then": { "required": ["cave_generator", "style", "requires_flash", "generator", "bounds"] }
         },
         {
           "if": { "properties": { "mode": { "const": "hybrid" } }, "required": ["mode"] },
-          "then": { "required": ["piece_pool", "cave_generator", "bounds"] }
+          "then": { "required": ["piece_pool", "cave_generator", "style", "requires_flash", "generator", "bounds"] }
         }
       ]
     },
@@ -351,13 +354,25 @@
       "if": {
         "properties": {
           "terrain": {
-            "properties": { "mode": { "enum": ["nbt_pieces", "procedural_cave"] } },
+            "properties": { "mode": { "const": "nbt_pieces" } },
             "required": ["mode"]
           }
         },
         "required": ["terrain"]
       },
       "then": { "required": ["plan", "layout"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "terrain": {
+            "properties": { "mode": { "enum": ["procedural_cave", "hybrid"] } },
+            "required": ["mode"]
+          }
+        },
+        "required": ["terrain"]
+      },
+      "then": { "required": ["plan"] }
     },
     {
       "if": {
