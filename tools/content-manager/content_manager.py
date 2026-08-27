@@ -11753,9 +11753,9 @@ def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
         "minecraft:rose_bush", "minecraft:peony",
     }
     occupied: list[tuple[int, int, int]] = []
+    preview_blocks: list[tuple[int, int, int, str]] = []
     top_columns: dict[tuple[int, int], tuple[int, str]] = {}
     cutaway_columns: dict[tuple[int, int], tuple[int, str]] = {}
-    cutaway_y = max(1, (size[1] + 1) // 2)
     invisible_blocks = {
         "minecraft:air", "minecraft:cave_air", "minecraft:void_air",
         "minecraft:structure_void", "minecraft:jigsaw",
@@ -11774,15 +11774,28 @@ def read_minecraft_structure_metadata(data: bytes) -> dict[str, Any]:
                 x, y, z = position
                 block_name = palette_names[state]
                 if block_name not in ignored_blocks:
+                    preview_blocks.append((x, y, z, block_name))
                     current = top_columns.get((x, z))
                     if current is None or y > current[0]:
                         top_columns[(x, z)] = (y, block_name)
-                    if y < cutaway_y:
-                        cutaway_current = cutaway_columns.get((x, z))
-                        if cutaway_current is None or y > cutaway_current[0]:
-                            cutaway_columns[(x, z)] = (y, block_name)
                 if block_name not in ignored_blocks:
                     occupied.append((x, y, z))
+    midpoint_y = max(1, (size[1] + 1) // 2)
+    layer_counts: dict[int, int] = {}
+    for _, y, _, _ in preview_blocks:
+        layer_counts[y] = layer_counts.get(y, 0) + 1
+    dense_layers = [
+        y for y, count in layer_counts.items()
+        if 0 < y <= midpoint_y and count >= max(1, size[0] * size[2] * 0.75)
+    ]
+    cutaway_y = max(dense_layers) if dense_layers else midpoint_y
+    cutaway_columns = {}
+    for x, y, z, block_name in preview_blocks:
+        if y >= cutaway_y:
+            continue
+        current = cutaway_columns.get((x, z))
+        if current is None or y > current[0]:
+            cutaway_columns[(x, z)] = (y, block_name)
     occupied_columns = {(x, z) for x, _, z in occupied}
     # Collision and preview bounds must cover every block that survives the
     # terrain-preservation processor, including one-layer paving and foliage.
@@ -11877,6 +11890,31 @@ def read_minecraft_structure_model(data: bytes) -> dict[str, Any]:
     palette_indexes = {
         block_name: index for index, block_name in enumerate(surface_palette)
     }
+    midpoint_y = max(1, (size[1] + 1) // 2)
+    layer_counts: dict[int, int] = {}
+    for _, y, _ in occupied:
+        layer_counts[y] = layer_counts.get(y, 0) + 1
+    dense_layers = [
+        y for y, count in layer_counts.items()
+        if 0 < y <= midpoint_y and count >= max(1, size[0] * size[2] * 0.75)
+    ]
+    # A complete intermediate slab hides the rooms below when the structure is
+    # cut at its mathematical midpoint. Cut immediately below the closest slab
+    # instead, which produces the architectural dollhouse view users expect.
+    cutaway_y = max(dense_layers) if dense_layers else midpoint_y
+    cutaway_columns: dict[tuple[int, int], tuple[int, str]] = {}
+    for (x, y, z), block_name in occupied.items():
+        if y >= cutaway_y:
+            continue
+        current = cutaway_columns.get((x, z))
+        if current is None or y > current[0]:
+            cutaway_columns[(x, z)] = (y, block_name)
+    cutaway_palette = sorted({
+        block_name for _, block_name in cutaway_columns.values()
+    })
+    cutaway_palette_indexes = {
+        block_name: index for index, block_name in enumerate(cutaway_palette)
+    }
     return {
         "width": size[0], "height": size[1], "depth": size[2],
         "palette": surface_palette,
@@ -11886,6 +11924,17 @@ def read_minecraft_structure_model(data: bytes) -> dict[str, Any]:
         ],
         "total_blocks": len(occupied),
         "surface_blocks": len(visible),
+        "cutaway_view": {
+            "cutoff_y": cutaway_y,
+            "palette": cutaway_palette,
+            "blocks": [
+                [x, z, y, cutaway_palette_indexes[block_name]]
+                for (x, z), (y, block_name) in sorted(
+                    cutaway_columns.items(),
+                    key=lambda item: (item[0][1], item[0][0]),
+                )
+            ],
+        },
     }
 def read_minecraft_structure_size(data: bytes) -> tuple[int, int, int]:
     """Read only the top-level size tag without materializing every block."""
@@ -13580,7 +13629,7 @@ def structure_catalog_signature(
     return tuple(signature)
 
 
-STRUCTURE_WEB_CACHE_VERSION = 5
+STRUCTURE_WEB_CACHE_VERSION = 6
 STRUCTURE_WEB_CACHE_PATH = Path("tools/content-manager/.cache/structure-web-catalog.json")
 
 

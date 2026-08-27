@@ -423,7 +423,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="dungeon-preview-seed"', html)
         self.assertIn("function authoredDungeonPlan(document, planId)", script)
         self.assertIn("function runtimeDungeonPlan(document, seed)", script)
-        self.assertIn("런타임 방 그래프는 실제 생성 결과와 달라질 수 있습니다.", script)
+        self.assertIn("function dungeonRuntimePreviewPiece(document, role, random)", script)
+        self.assertIn("function drawDungeonPlacementCutaway", script)
+        self.assertIn("metadata?.cutaway_view", script)
+        self.assertIn("piece?.structure", script)
 
     def test_dungeon_piece_editor_exposes_complete_nbt_authoring_flow(self) -> None:
         html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
@@ -443,6 +446,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("piece.forbid_adjacent_tags", script)
         self.assertIn('name="connector"', script)
         self.assertIn("marker.connector", script)
+        self.assertIn("?.cutaway_view", script)
         self.assertIn("async function saveDungeonPiece()", script)
         self.assertIn("function dungeonPlanPlacementProblems(plan)", script)
 
@@ -1741,6 +1745,8 @@ class ContentManagerTests(unittest.TestCase):
             model["palette"],
         )
         self.assertEqual([61, 62, 63, 63], [block[4] for block in model["blocks"]])
+        self.assertEqual(2, model["cutaway_view"]["cutoff_y"])
+        self.assertEqual(3, len(model["cutaway_view"]["blocks"]))
 
     def test_structure_size_reader_skips_full_nbt_materialization(self) -> None:
         data = self._structure_nbt_with_blocks()

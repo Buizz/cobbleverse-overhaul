@@ -5299,7 +5299,7 @@ async function renderDungeonPieceEditor() {
   $("#dungeon-connector-list").innerHTML = (piece.connectors || []).map((entry, index) => dungeonPieceRow("connector", entry, index, state.dungeonPieceEditor.selectedKind === "connector" && state.dungeonPieceEditor.selectedIndex === index)).join("") || '<div class="issues empty">연결점을 추가하세요.</div>';
   $("#dungeon-marker-list").innerHTML = (piece.markers || []).map((entry, index) => dungeonPieceRow("marker", entry, index, state.dungeonPieceEditor.selectedKind === "marker" && state.dungeonPieceEditor.selectedIndex === index)).join("") || '<div class="issues empty">필요한 콘텐츠 마커를 추가하세요.</div>';
   renderDungeonPieceCanvas();
-  if (piece.structure && !state.structureSizes[piece.structure]?.top_view) { await ensureStructureTopView(piece.structure); if (piece === currentDungeonPiece()) renderDungeonPieceCanvas(); }
+  if (piece.structure && (!state.structureSizes[piece.structure]?.top_view || !state.structureSizes[piece.structure]?.cutaway_view)) { await ensureStructureTopView(piece.structure); if (piece === currentDungeonPiece()) renderDungeonPieceCanvas(); }
 }
 function updateDungeonPieceFromForm() {
   const piece = currentDungeonPiece(); if (!piece) return;
@@ -5324,7 +5324,7 @@ function renderDungeonPieceCanvas() {
   const canvas = $("#dungeon-piece-canvas"); if (!canvas) return; const width = Math.max(360, canvas.clientWidth || 520), height = 300, ratio = window.devicePixelRatio || 1; canvas.width = width * ratio; canvas.height = height * ratio; const context = canvas.getContext("2d"); context.setTransform(ratio,0,0,ratio,0,0); context.clearRect(0,0,width,height);
   const piece = currentDungeonPiece(); if (!piece) { context.fillStyle="#9ab0a8"; context.font="12px sans-serif"; context.textAlign="center"; context.fillText("조각을 선택하면 NBT 평면도가 표시됩니다.",width/2,height/2); return; }
   const sx=Math.max(1,piece.size[0]),sz=Math.max(1,piece.size[2]),scale=Math.min((width-48)/sx,(height-48)/sz),ox=(width-sx*scale)/2,oy=(height-sz*scale)/2; state.dungeonPieceEditor.transform={scale,ox,oy}; context.fillStyle="#28383a";context.fillRect(ox,oy,sx*scale,sz*scale);
-  const top=state.structureSizes?.[piece.structure]?.top_view; if(top){ for(const block of top.blocks||[]){const [x,z,y,p]=block;const palette=top.palette?.[p];const name=typeof palette==="string"?palette:palette?.Name||palette?.name;context.fillStyle=shadeMinecraftTopColor(minecraftTopBlockColor(name),.72+Math.min(.35,Number(y||0)/Math.max(1,piece.size[1])*.35));context.fillRect(ox+x*scale,oy+z*scale,Math.max(1,scale+.25),Math.max(1,scale+.25));} }
+  drawDungeonPlacementCutaway(context,{structure:piece.structure,pieceId:piece.piece_id,minimum:[0,0,0],size:piece.size,rotation:"none"},(position)=>({x:ox+Number(position[0])*scale,y:oy+Number(position[2])*scale}),scale);
   context.strokeStyle="#90aaa1";context.lineWidth=2;context.strokeRect(ox,oy,sx*scale,sz*scale);
   (piece.connectors||[]).forEach((entry,index)=>{const x=ox+(entry.position[0]+.5)*scale,y=oy+(entry.position[2]+.5)*scale,selected=state.dungeonPieceEditor.selectedKind==="connector"&&state.dungeonPieceEditor.selectedIndex===index;context.fillStyle=selected?"#fff":"#5fa8ff";context.beginPath();context.arc(x,y,selected?7:5,0,Math.PI*2);context.fill();context.fillStyle="#d9ebff";context.font="8px sans-serif";context.fillText(entry.id,x+8,y-6);});
   (piece.markers||[]).forEach((entry,index)=>{const x=ox+(entry.position[0]+.5)*scale,y=oy+(entry.position[2]+.5)*scale,selected=state.dungeonPieceEditor.selectedKind==="marker"&&state.dungeonPieceEditor.selectedIndex===index;context.fillStyle=selected?"#fff":"#f1c75b";context.beginPath();context.moveTo(x,y-(selected?8:6));context.lineTo(x+(selected?8:6),y);context.lineTo(x,y+(selected?8:6));context.lineTo(x-(selected?8:6),y);context.closePath();context.fill();context.fillStyle="#fff1bd";context.font="8px sans-serif";context.fillText(entry.id,x+8,y-6);});
@@ -5600,8 +5600,31 @@ function fixedDungeonPlan(document) {
   const positions = markers.map((marker) => marker.position);
   (document.gates || []).forEach((gate) => positions.push(gate.min || [], gate.max || []));
   const maximum = (axis) => Math.max(16, ...positions.map((position) => Number(position[axis] || 0) + 8));
-  const bounds = document.terrain?.bounds || [maximum(0), maximum(1), maximum(2)];
-  return { kind: "fixed", exact: true, seed: 0, bounds, placements: [{ index: 0, pieceId: document.terrain?.template || "fixed_template", role: "room", minimum: [0, 0, 0], size: bounds, rotation: "none", critical: true }], links: [], markers, planId: "fixed" };
+  const template = document.terrain?.template || "fixed_template";
+  const metadata = state.structureSizes?.[template] || {};
+  const structureSize = [Number(metadata.width || 0), Number(metadata.height || 0), Number(metadata.depth || 0)];
+  const requestedBounds = document.terrain?.bounds || [maximum(0), maximum(1), maximum(2)];
+  const size = structureSize.every((axis) => axis > 0) ? structureSize : requestedBounds;
+  const bounds = requestedBounds.map((axis, index) => Math.max(Number(axis || 0), Number(size[index] || 0)));
+  return { kind: "fixed", exact: true, seed: 0, bounds, placements: [{ index: 0, pieceId: template, structure: template, role: "room", minimum: [0, 0, 0], size, rotation: "none", critical: true }], links: [], markers, planId: "fixed" };
+}
+
+function dungeonRuntimePreviewPiece(document, role, random) {
+  const pool = document.terrain?.piece_pool;
+  const candidates = [...state.dungeonPieces.values()].filter((piece) => (!pool || (piece.tags || []).includes(pool)) && piece.role === role);
+  const fallbacks = role === "corridor" ? ["junction", "room"] : ["room", "corridor"];
+  for (const fallback of fallbacks) {
+    if (candidates.length) break;
+    candidates.push(...[...state.dungeonPieces.values()].filter((piece) => (!pool || (piece.tags || []).includes(pool)) && piece.role === fallback));
+  }
+  if (!candidates.length) return null;
+  const total = candidates.reduce((sum, piece) => sum + Math.max(1, Number(piece.weight || 1)), 0);
+  let roll = random() * total;
+  for (const piece of candidates) {
+    roll -= Math.max(1, Number(piece.weight || 1));
+    if (roll <= 0) return piece;
+  }
+  return candidates.at(-1);
 }
 
 function runtimeDungeonPlan(document, seed) {
@@ -5665,11 +5688,14 @@ function runtimeDungeonPlan(document, seed) {
     }
   }
   const minX = Math.min(...grid.map((value) => value.gx)); const minY = Math.min(...grid.map((value) => value.gy)); const minZ = Math.min(...grid.map((value) => value.gz));
-  const placements = grid.map((value) => ({
-    index: value.index, pieceId: `preview:${value.role}`, role: value.role,
-    minimum: [(value.gx - minX) * cell, (value.gy - minY) * layerHeight, (value.gz - minZ) * cell],
-    size: [cell, layerHeight, cell], rotation: "none", critical: value.critical,
-  }));
+  const placements = grid.map((value) => {
+    const piece = caveTerrain ? null : dungeonRuntimePreviewPiece(document, value.role, random);
+    return {
+      index: value.index, pieceId: piece?.piece_id || `preview:${value.role}`, structure: piece?.structure || "", role: value.role,
+      minimum: [(value.gx - minX) * cell, (value.gy - minY) * layerHeight, (value.gz - minZ) * cell],
+      size: piece?.size?.map(Number) || [cell, layerHeight, cell], rotation: "none", critical: value.critical,
+    };
+  });
   const bounds = [
     Math.max(...placements.map((value) => value.minimum[0] + value.size[0])),
     Math.max(16, ...placements.map((value) => value.minimum[1] + value.size[1])),
@@ -5755,6 +5781,45 @@ function renderDungeon() {
   renderDungeonPreview();
 }
 
+function dungeonPlacementStructureId(placement) {
+  if (placement.structure) return placement.structure;
+  return state.dungeonPieces.get(placement.pieceId)?.structure || (placement.pieceId?.includes(":") && !placement.pieceId.startsWith("preview:") ? placement.pieceId : "");
+}
+
+function drawDungeonPlacementCutaway(context, placement, point, scale, opacity = 1) {
+  const structure = dungeonPlacementStructureId(placement);
+  const metadata = state.structureSizes?.[structure];
+  const cutaway = metadata?.cutaway_view;
+  if (!cutaway?.blocks?.length) return false;
+  const width = Number(metadata.width || placement.size[0]);
+  const depth = Number(metadata.depth || placement.size[2]);
+  const heights = cutaway.blocks.map((block) => Number(block[2]));
+  const floorY = Math.min(...heights);
+  const heightRange = Math.max(1, Math.max(...heights) - floorY);
+  const blocks = [...cutaway.blocks].sort((left, right) => Number(left[2]) - Number(right[2]));
+  for (const block of blocks) {
+    const [localX, localZ, y, paletteIndex] = block.map(Number);
+    const blockName = cutaway.palette?.[paletteIndex] || "minecraft:unknown";
+    const rotated = rotateMinecraftTopBlock(localX, localZ, width, depth, placement.rotation || "none");
+    const worldX = Number(placement.minimum[0]) + rotated.x;
+    const worldZ = Number(placement.minimum[2]) + rotated.z;
+    const start = point([worldX, 0, worldZ]);
+    const end = point([worldX + 1, 0, worldZ + 1]);
+    const isFloor = y === floorY;
+    const heightShade = isFloor ? .52 : .92 + ((y - floorY) / heightRange) * .24;
+    context.globalAlpha = opacity * (isFloor ? .42 : /glass|water/.test(blockName) ? .7 : 1);
+    context.fillStyle = shadeMinecraftTopColor(minecraftTopBlockColor(blockName), heightShade);
+    context.fillRect(start.x, start.y, Math.max(.7, end.x - start.x + .15), Math.max(.7, end.y - start.y + .15));
+    if (!isFloor && scale >= 3) {
+      context.strokeStyle = "rgba(232,245,239,.28)";
+      context.lineWidth = Math.min(1, scale * .08);
+      context.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
+    }
+  }
+  context.globalAlpha = 1;
+  return true;
+}
+
 function renderDungeonPreview() {
   const canvas = $("#dungeon-plan-canvas");
   const plan = selectedDungeonPlan();
@@ -5772,6 +5837,8 @@ function renderDungeonPreview() {
     return false;
   };
   const visiblePlacements = plan.placements.filter(onSelectedFloor);
+  const missingCutaways = [...new Set(visiblePlacements.map(dungeonPlacementStructureId).filter((structure) => structure && !state.structureSizes?.[structure]?.cutaway_view))];
+  if (missingCutaways.length) Promise.all(missingCutaways.map(ensureStructureTopView)).then(() => { if (state.dungeonPreview.plan === plan) renderDungeonPreview(); });
   const visiblePlacementIds = new Set(visiblePlacements.map((placement) => placement.index));
   if (!visiblePlacementIds.has(state.dungeonPreview.selected)) state.dungeonPreview.selected = -1;
   const width = Math.max(480, canvas.clientWidth || 720);
@@ -5798,9 +5865,14 @@ function renderDungeonPreview() {
   visiblePlacements.forEach((placement) => {
     const top = point(placement.minimum); const boxWidth = Math.max(8, placement.size[0] * scale); const boxHeight = Math.max(8, placement.size[2] * scale);
     const problem = placementProblems.get(placement.index);
-    context.fillStyle = problem ? "#a93e49" : colors[placement.role] || (placement.critical ? "#4d86b8" : "#65757a"); context.globalAlpha = state.dungeonPreview.selected === placement.index ? 1 : .86; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1;
+    context.fillStyle = "#182629"; context.globalAlpha = .72; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1;
+    const renderedNbt = drawDungeonPlacementCutaway(context, placement, point, scale, state.dungeonPreview.selected === placement.index ? 1 : .9);
+    if (!renderedNbt) { context.fillStyle = problem ? "#a93e49" : colors[placement.role] || (placement.critical ? "#4d86b8" : "#65757a"); context.globalAlpha = state.dungeonPreview.selected === placement.index ? 1 : .86; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1; }
     context.strokeStyle = state.dungeonPreview.selected === placement.index ? "#fff" : problem ? "#ff8791" : "#b8d0d1"; context.lineWidth = state.dungeonPreview.selected === placement.index || problem ? 3 : 1; context.strokeRect(top.x, top.y, boxWidth, boxHeight);
-    context.fillStyle = "#fff"; context.font = "700 10px sans-serif"; context.fillText(placement.role, top.x + 4, top.y + 13);
+    if (scale >= 2.5 || state.dungeonPreview.selected === placement.index) {
+      context.font = "700 10px sans-serif"; context.fillStyle = "rgba(12,22,24,.82)"; context.fillRect(top.x + 3, top.y + 3, Math.max(36, context.measureText(placement.role).width + 9), 14);
+      context.fillStyle = "#fff"; context.fillText(placement.role, top.x + 7, top.y + 14);
+    }
     state.dungeonPreview.hitTargets.push({ type: "placement", index: placement.index, x: top.x, y: top.y, width: boxWidth, height: boxHeight });
   });
   const markerColors = { boss: "#ff5968", encounter: "#ff9c54", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", objective: "#df7cff", gate: "#b6c1c8" };
@@ -5809,7 +5881,7 @@ function renderDungeonPreview() {
     const selectedMarker = marker.content && state.dungeonContentSelection?.kind === marker.content.kind && state.dungeonContentSelection?.index === marker.content.index;
     context.fillStyle = markerColors[marker.kind] || "#f3f6f5"; context.beginPath(); context.arc(target.x, target.y, selectedMarker ? 8 : 5, 0, Math.PI * 2); context.fill();
     if (selectedMarker) { context.strokeStyle = "#fff"; context.lineWidth = 2; context.stroke(); }
-    context.fillStyle = "#fff"; context.font = `${selectedMarker ? "700 " : ""}9px sans-serif`; context.fillText(marker.label || marker.kind, target.x + 9, target.y + 3);
+    if (scale >= 2.2 || selectedMarker) { context.fillStyle = "#fff"; context.font = `${selectedMarker ? "700 " : ""}9px sans-serif`; context.fillText(marker.label || marker.kind, target.x + 9, target.y + 3); }
     if (marker.content) state.dungeonPreview.hitTargets.push({ type: "marker", content: marker.content, x: target.x - 10, y: target.y - 10, width: 20, height: 20 });
   });
   const criticalCount = plan.placements.filter((value) => value.critical).length;
@@ -5826,7 +5898,7 @@ function renderDungeonPreview() {
     : "";
   $("#dungeon-preview-marker-summary").innerHTML = enemyMarkers.map((marker, index) => `<button type="button" class="dungeon-enemy-marker" data-preview-enemy="${index}"><i>${marker.kind === "boss" ? "B" : index + 1}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></button>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 적이 없습니다.</small>';
   const floorStatus = selectedFloor === null ? "모든 층을 표시합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
-  $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 게시형 계획의 실제 좌표입니다.` : `${floorStatus} 런타임 방 그래프는 실제 생성 결과와 달라질 수 있습니다.`;
+  $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.` : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`;
 }
 
 function dungeonPlanPlacementProblems(plan) {
@@ -10878,7 +10950,7 @@ function renderStructureBrowser() {
 }
 
 async function ensureStructureTopView(structureId) {
-  if (!structureId || state.structureSizes[structureId]?.top_view) return;
+  if (!structureId || (state.structureSizes[structureId]?.top_view && state.structureSizes[structureId]?.cutaway_view)) return;
   if (state.structurePreviewPromises.has(structureId)) {
     await state.structurePreviewPromises.get(structureId);
     return;
@@ -10897,7 +10969,8 @@ async function ensureStructureTopView(structureId) {
     state.structureSizes[structureId] = {
       ...(state.structureSizes[structureId] || {}),
       width: model.width, height: model.height, depth: model.depth,
-      top_view: { palette: model.palette || [], blocks: [...columns.values()] }
+      top_view: { palette: model.palette || [], blocks: [...columns.values()] },
+      cutaway_view: model.cutaway_view || null,
     };
   })();
   state.structurePreviewPromises.set(structureId, pending);
