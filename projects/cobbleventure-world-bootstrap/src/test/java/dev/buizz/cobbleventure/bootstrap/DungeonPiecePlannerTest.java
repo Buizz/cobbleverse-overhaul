@@ -78,7 +78,24 @@ final class DungeonPiecePlannerTest {
                     name + " did not align floors to the regular NBT piece height");
                 assertTrue(hasStackedFloorFootprint(generated.plan()),
                     name + " expanded every floor sideways instead of stacking it");
+                if (dungeon.layout().mode().equals("rooms_and_corridors")) {
+                    assertSparseRoomCadence(generated.plan(), name);
+                }
             }
+        }
+    }
+
+    private static void assertSparseRoomCadence(DungeonPiecePlan plan, String name) {
+        List<String> roles = plan.placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath)
+            .map(DungeonPiecePlan.Placement::role)
+            .toList();
+        Set<String> roomRoles = Set.of("room", "support");
+        for (int index = 1; index < roles.size(); index++) {
+            if (!roomRoles.contains(roles.get(index))) continue;
+            assertTrue(index < 2 || (!roomRoles.contains(roles.get(index - 1))
+                && !roomRoles.contains(roles.get(index - 2))),
+                name + " placed rooms too densely on the critical route");
         }
     }
 
@@ -227,7 +244,7 @@ final class DungeonPiecePlannerTest {
     }
 
     @Test
-    void roomsAndCorridorsLayoutAlternatesInteriorPieceRoles() {
+    void roomsAndCorridorsLayoutUsesTwoRoutePiecesBetweenRooms() {
         DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
             new BlockPos(80, 16, 80), 8, 8, 0, 0, 1, 1,
             0.0D, 100, "rooms_and_corridors"
@@ -237,10 +254,10 @@ final class DungeonPiecePlannerTest {
             testPieces(), settings, 9921L
         );
 
-        assertEquals("corridor", plan.placements().get(1).role());
+        assertTrue(Set.of("corridor", "junction").contains(plan.placements().get(1).role()));
+        assertEquals("corridor", plan.placements().get(2).role());
         assertTrue(Set.of("room", "junction", "support")
-            .contains(plan.placements().get(2).role()));
-        assertEquals("corridor", plan.placements().get(3).role());
+            .contains(plan.placements().get(3).role()));
         assertNoOverlap(plan);
     }
 
@@ -264,9 +281,11 @@ final class DungeonPiecePlannerTest {
                 .contains(placement.role()))
             .allMatch(placement -> Set.of("corridor", "junction")
                 .contains(placement.role())));
-        assertEquals("corridor", rooms.plan().placements().get(1).role());
+        assertTrue(Set.of("corridor", "junction")
+            .contains(rooms.plan().placements().get(1).role()));
+        assertEquals("corridor", rooms.plan().placements().get(2).role());
         assertTrue(Set.of("room", "junction", "support")
-            .contains(rooms.plan().placements().get(2).role()));
+            .contains(rooms.plan().placements().get(3).role()));
     }
 
     @Test

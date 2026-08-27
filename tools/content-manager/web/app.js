@@ -5679,7 +5679,14 @@ function fixedDungeonPlan(document) {
   return { kind: "fixed", exact: true, seed: 0, bounds, placements: [{ index: 0, pieceId: template, structure: template, role: "room", minimum: [0, 0, 0], size, rotation: "none", critical: true }], links: [], markers, planId: "fixed" };
 }
 
-function dungeonRuntimePreviewPiece(document, role, random, shape = "") {
+function dungeonPreviewRotateFacing(facing, rotation) {
+  const facings = ["north", "east", "south", "west"];
+  const turns = { none: 0, clockwise_90: 1, clockwise_180: 2, counterclockwise_90: 3 }[rotation] ?? 0;
+  const index = facings.indexOf(facing);
+  return index < 0 ? facing : facings[(index + turns) % facings.length];
+}
+
+function dungeonRuntimePreviewPiece(document, role, random, shape = "", requiredFacings = [], preferredRotation = "") {
   const pool = document.terrain?.piece_pool;
   const shapeTag = shape ? `cobbleventure:dungeon_shape/${shape}` : "";
   const candidates = [...state.dungeonPieces.values()].filter((piece) => (!pool || (piece.tags || []).includes(pool)) && (shapeTag ? (piece.tags || []).includes(shapeTag) : piece.role === role));
@@ -5689,13 +5696,25 @@ function dungeonRuntimePreviewPiece(document, role, random, shape = "") {
     candidates.push(...[...state.dungeonPieces.values()].filter((piece) => (!pool || (piece.tags || []).includes(pool)) && piece.role === fallback));
   }
   if (!candidates.length) return null;
-  const total = candidates.reduce((sum, piece) => sum + Math.max(1, Number(piece.weight || 1)), 0);
+  const rotations = ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"];
+  const required = [...new Set(requiredFacings)];
+  const options = candidates.flatMap((piece) => (piece.allow_rotation === false ? ["none"] : rotations).map((rotation) => {
+    const connectorFacings = new Set((piece.connectors || []).map((connector) => dungeonPreviewRotateFacing(connector.facing, rotation)));
+    const matches = required.every((facing) => connectorFacings.has(facing));
+    const excess = Math.max(0, connectorFacings.size - required.length);
+    const rotationPenalty = preferredRotation && rotation !== preferredRotation ? 100 : 0;
+    return { piece, rotation, matches, score: rotationPenalty + excess };
+  })).filter((option) => option.matches);
+  const available = options.length ? options : candidates.map((piece) => ({ piece, rotation: preferredRotation || "none", score: 0 }));
+  const bestScore = Math.min(...available.map((option) => option.score));
+  const best = available.filter((option) => option.score === bestScore);
+  const total = best.reduce((sum, option) => sum + Math.max(1, Number(option.piece.weight || 1)), 0);
   let roll = random() * total;
-  for (const piece of candidates) {
-    roll -= Math.max(1, Number(piece.weight || 1));
-    if (roll <= 0) return piece;
+  for (const option of best) {
+    roll -= Math.max(1, Number(option.piece.weight || 1));
+    if (roll <= 0) return option;
   }
-  return candidates.at(-1);
+  return best.at(-1);
 }
 
 function runtimeDungeonPlan(document, seed) {
@@ -5710,6 +5729,9 @@ function runtimeDungeonPlan(document, seed) {
   const count = Math.max(3, Math.round(roomsRange[0] + random() * (roomsRange[1] - roomsRange[0])));
   const branchCount = Math.max(0, Math.round(branchesRange[0] + random() * (branchesRange[1] - branchesRange[0])));
   const cell = caveTerrain ? 12 : 16;
+  const previewBounds = document.terrain?.bounds || [128, 48, 128];
+  const maxGridX = Math.max(1, Math.floor(Number(previewBounds[0] || 128) / cell));
+  const maxGridZ = Math.max(1, Math.floor(Number(previewBounds[2] || 128) / cell));
   const piecePool = document.terrain?.piece_pool;
   const ordinaryPieces = [...state.dungeonPieces.values()].filter((piece) => (!piecePool || (piece.tags || []).includes(piecePool)) && !(piece.tags || []).some((tag) => tag.endsWith("/stairs_up") || tag.endsWith("/stairs_down")));
   const layerHeight = caveTerrain ? 6 : Math.max(1, ...ordinaryPieces.map((piece) => Number(piece.size?.[1] || 0)), 8);
@@ -5728,21 +5750,26 @@ function runtimeDungeonPlan(document, seed) {
   const floorCount = floorChangeCount + 1;
   const ordinaryCount = count - floorChangeCount;
   const roomsByFloor = Array.from({ length: floorCount }, (_, floor) => Math.floor(ordinaryCount / floorCount) + (floor < ordinaryCount % floorCount ? 1 : 0));
-  const floorWidth = Math.max(2, ...roomsByFloor);
   let gy = 0; let floor = 0; let roomOnFloor = 0; let ordinaryIndex = 0;
+  let floorStartX = 0; let floorStartZ = 0; let travelX = 1; let travelZ = 0;
   for (let index = 0; index < count; index += 1) {
     const needsStairs = floor < floorChangeCount && roomOnFloor >= roomsByFloor[floor];
     if (needsStairs) {
       const direction = layout.vertical_direction === "descending" ? -1 : layout.vertical_direction === "mixed" && floor % 2 === 1 ? -1 : 1;
-      const gx = floor % 2 === 0 ? floorWidth : -1;
-      const placed = addGrid(gx, gy, 0, "corridor", true, { shape: direction > 0 ? "stairs_up" : "stairs_down", verticalTransition: true, floorLevels: [gy, gy + direction] });
+      const gx = floorStartX + travelX * roomsByFloor[floor];
+      const gz = floorStartZ + travelZ * roomsByFloor[floor];
+      const placed = addGrid(gx, gy, gz, "corridor", true, { shape: direction > 0 ? "stairs_up" : "stairs_down", verticalTransition: true, floorLevels: [gy, gy + direction], pathDirection: [travelX, travelZ] });
       if (index) links.push({ from: placed - 1, to: placed, critical: true });
+      floorStartX = gx + travelX;
+      floorStartZ = gz + travelZ;
+      [travelX, travelZ] = [-travelZ, travelX];
       gy += direction; floor += 1; roomOnFloor = 0;
       continue;
     }
-    const gx = floor % 2 === 0 ? roomOnFloor : floorWidth - 1 - roomOnFloor;
-    const gz = mode === "maze" ? Math.floor(roomOnFloor / Math.max(2, floorWidth)) : 0;
-    const role = ordinaryIndex === 0 ? "start" : ordinaryIndex === ordinaryCount - 2 ? "boss" : ordinaryIndex === ordinaryCount - 1 ? "exit" : mode === "maze" ? (ordinaryIndex % 3 === 0 ? "junction" : "corridor") : mode === "rooms_and_corridors" ? (ordinaryIndex % 2 ? "corridor" : "room") : "room";
+    const gx = floorStartX + travelX * roomOnFloor;
+    const gz = floorStartZ + travelZ * roomOnFloor;
+    const floorLanding = floor > 0 && roomOnFloor === 0;
+    const role = ordinaryIndex === 0 ? "start" : ordinaryIndex === ordinaryCount - 2 ? "boss" : ordinaryIndex === ordinaryCount - 1 ? "exit" : floorLanding ? "corridor" : mode === "maze" ? (ordinaryIndex % 3 === 0 ? "junction" : "corridor") : mode === "rooms_and_corridors" ? (ordinaryIndex % 3 === 0 ? "room" : "corridor") : "room";
     const placed = addGrid(gx, gy, gz, role, true);
     if (index) links.push({ from: placed - 1, to: placed, critical: true });
     roomOnFloor += 1; ordinaryIndex += 1;
@@ -5753,16 +5780,20 @@ function runtimeDungeonPlan(document, seed) {
     const depth = Math.max(1, Math.round(depthRange[0] + random() * (depthRange[1] - depthRange[0])));
     const base = grid[root];
     const directions = branch % 2 ? [[0, -1], [0, 1], [1, 0], [-1, 0]] : [[0, 1], [0, -1], [1, 0], [-1, 0]];
-    let [dx, dz] = directions.find(([x, z]) => !occupied.has(key(base.gx + x, base.gy, base.gz + z))) || [0, branch % 2 ? -1 : 1];
+    const insidePreviewBounds = (x, z) => x >= 0 && z >= 0 && x < maxGridX && z < maxGridZ;
+    const initial = directions.find(([x, z]) => insidePreviewBounds(base.gx + x, base.gz + z) && !occupied.has(key(base.gx + x, base.gy, base.gz + z)));
+    if (!initial) continue;
+    let [dx, dz] = initial;
     let previous = root;
     for (let step = 1; step <= depth; step += 1) {
       let bx = base.gx + dx * step; let bz = base.gz + dz * step;
       if (occupied.has(key(bx, base.gy, bz))) {
-        const alternative = directions.find(([x, z]) => !occupied.has(key(base.gx + x * step, base.gy, base.gz + z * step)));
+        const alternative = directions.find(([x, z]) => insidePreviewBounds(base.gx + x * step, base.gz + z * step) && !occupied.has(key(base.gx + x * step, base.gy, base.gz + z * step)));
         if (!alternative) break;
         [dx, dz] = alternative; bx = base.gx + dx * step; bz = base.gz + dz * step;
       }
-      const role = step === depth ? "dead_end" : mode === "maze" ? "corridor" : step % 2 ? "corridor" : "room";
+      if (!insidePreviewBounds(bx, bz)) break;
+      const role = step === depth ? "dead_end" : mode === "maze" ? "corridor" : step % 3 === 0 ? "room" : "corridor";
       const placed = addGrid(bx, base.gy, bz, role, false);
       links.push({ from: previous, to: placed, critical: false });
       previous = placed;
@@ -5770,13 +5801,22 @@ function runtimeDungeonPlan(document, seed) {
   }
   const minX = Math.min(...grid.map((value) => value.gx)); const minY = Math.min(...grid.map((value) => value.gy)); const minZ = Math.min(...grid.map((value) => value.gz));
   const placements = grid.map((value) => {
-    const piece = caveTerrain ? null : dungeonRuntimePreviewPiece(document, value.role, random, value.shape);
+    const requiredFacings = links.filter((link) => link.from === value.index || link.to === value.index).map((link) => {
+      const neighbor = grid[link.from === value.index ? link.to : link.from];
+      const dx = neighbor.gx - value.gx; const dz = neighbor.gz - value.gz;
+      if (dx > 0) return "east"; if (dx < 0) return "west";
+      if (dz > 0) return "south"; if (dz < 0) return "north";
+      return "";
+    }).filter(Boolean);
+    const preferredRotation = value.verticalTransition ? ({ "1,0": "none", "0,1": "clockwise_90", "-1,0": "clockwise_180", "0,-1": "counterclockwise_90" }[value.pathDirection.join(",")] || "none") : "";
+    const selection = caveTerrain ? null : dungeonRuntimePreviewPiece(document, value.role, random, value.shape, requiredFacings, preferredRotation);
+    const piece = selection?.piece;
     const minimumY = (value.gy - minY) * layerHeight;
     const floorYs = value.verticalTransition ? value.floorLevels.map((level) => (level - minY) * layerHeight) : [minimumY];
     return {
       index: value.index, pieceId: piece?.piece_id || `preview:${value.role}`, structure: piece?.structure || "", role: value.role,
       minimum: [(value.gx - minX) * cell, minimumY, (value.gz - minZ) * cell],
-      size: piece?.size?.map(Number) || [cell, layerHeight, cell], rotation: "none", critical: value.critical,
+      size: piece?.size?.map(Number) || [cell, layerHeight, cell], rotation: selection?.rotation || "none", critical: value.critical,
       floorYs, verticalTransition: Boolean(value.verticalTransition),
     };
   });

@@ -382,8 +382,9 @@ final class DungeonPiecePlanner {
     private static Set<String> criticalRoles(String layoutMode, int depth) {
         return switch (layoutMode) {
             case "maze" -> Set.of("corridor", "junction");
-            case "rooms_and_corridors" -> depth % 2 == 1
-                ? Set.of("corridor") : Set.of("room", "junction", "support");
+            case "rooms_and_corridors" -> depth % 3 == 0
+                ? Set.of("room", "junction", "support")
+                : depth % 3 == 1 ? Set.of("corridor", "junction") : Set.of("corridor");
             default -> Set.of("room", "corridor", "junction", "support");
         };
     }
@@ -394,8 +395,8 @@ final class DungeonPiecePlanner {
         if (remaining == 1) return Set.of("dead_end", "treasure", "support");
         return switch (layoutMode) {
             case "maze" -> Set.of("corridor", "junction");
-            case "rooms_and_corridors" -> depth % 2 == 0
-                ? Set.of("corridor") : Set.of("room", "junction");
+            case "rooms_and_corridors" -> depth % 3 == 2
+                ? Set.of("room", "junction") : Set.of("corridor", "junction");
             default -> Set.of("room", "corridor", "junction");
         };
     }
