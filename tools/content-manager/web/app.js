@@ -4739,6 +4739,7 @@ function renderDungeonOptionVisibility() {
     if (workspace) workspace.hidden = true;
     renderCaveLayoutPreview();
   } else {
+    mountCaveLayoutEditor("cave");
     if (workspace) workspace.hidden = false;
     if (workspace && anchor && workspace.parentElement !== anchor) anchor.append(workspace);
   }

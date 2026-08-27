@@ -125,6 +125,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('activeCaveLayoutDocument()', script)
         self.assertIn('terrain.generator = normalizeNaturalCaveGenerator', script)
         self.assertIn('if (workspace) workspace.hidden = true', script)
+        self.assertIn('else {\n    mountCaveLayoutEditor("cave");', script)
         self.assertIn('3D 자연동굴 배치 편집기', script)
 
     def test_shared_dungeon_piece_catalog_has_its_own_management_page(self) -> None:
