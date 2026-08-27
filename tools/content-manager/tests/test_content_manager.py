@@ -138,7 +138,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="dungeon-piece-editor"', piece_page)
         self.assertEqual(1, markup.count('id="dungeon-piece-editor"'))
         self.assertIn('data-section="dungeon-pieces"', markup)
+        self.assertIn('id="dungeon-piece-theme"', markup)
+        self.assertIn('id="dungeon-piece-theme-summary"', markup)
         self.assertIn('if (section === "dungeon-pieces")', script)
+        self.assertIn('function dungeonPieceTheme(piece)', script)
+        self.assertIn('function changeDungeonPieceTheme(theme)', script)
+        self.assertIn('const shape = dungeonPieceShape(currentDungeonPiece())', script)
+        self.assertIn('const pieces = dungeonPiecesForTheme()', script)
         self.assertNotIn('$("#dungeon-piece-editor").hidden = pureCave', script)
 
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:

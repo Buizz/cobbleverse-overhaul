@@ -2063,6 +2063,11 @@ body { font-size: 14px; line-height: 1.45; }
 .dungeon-piece-editor > header strong,.dungeon-authored-plan-editor > header strong { color:#2d453a; font-size:11px; }
 .dungeon-piece-editor > header small,.dungeon-authored-plan-editor > header small { color:#71837a; font-size:8px; }
 .dungeon-piece-editor > header > div:last-child,.dungeon-authored-plan-editor > header > div:last-child { display:flex; gap:7px; }
+.dungeon-piece-editor > header .dungeon-piece-header-actions { align-items:flex-end; gap:14px; }
+.dungeon-piece-header-actions > div { display:flex; gap:7px; }
+.dungeon-piece-theme-picker { display:grid; grid-template-columns:auto minmax(170px,230px); align-items:center; gap:3px 8px; color:#60736a; font-size:8px; }
+.dungeon-piece-theme-picker select { min-width:190px; padding:7px 9px; border:1px solid #9fb6af; border-radius:3px; background:#fff; color:#2d443a; }
+.dungeon-piece-theme-picker small { grid-column:2; color:#71837a; white-space:nowrap; }
 .dungeon-piece-editor > header .button { white-space:nowrap; }
 .dungeon-piece-workspace { display:grid; grid-template-columns:245px minmax(0,1fr); min-height:430px; }
 .dungeon-piece-workspace > aside { border-right:1px solid #d7e1dc; background:#f4f8f6; }

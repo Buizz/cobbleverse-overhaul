@@ -24,7 +24,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonPieceId: "", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonPieceId: "", dungeonPieceTheme: "", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -5260,8 +5260,60 @@ function seededDungeonRandom(seed) {
 
 const dungeonPieceRoles = { start: "시작", room: "방", corridor: "통로", junction: "교차로", dead_end: "막다른 방", support: "지원실", treasure: "보물방", boss: "보스방", exit: "출구" };
 const dungeonMarkerKinds = { entry: "입구", exit: "출구", encounter: "조우", boss: "보스", loot: "전리품", healing_station: "치료소", gate: "관문", checkpoint: "체크포인트", wild_spawn: "야생 스폰", objective: "목표", trace: "전설의 흔적" };
+const dungeonPieceThemeNames = { rocket: "로켓단", aqua: "아쿠아단", magma: "마그마단", galactic: "갤럭시단", plasma: "플라스마단", flare: "플레어단", aether: "에테르재단", skull: "스컬단", yell: "옐단", star: "스타단", cave: "자연동굴" };
 
 function currentDungeonPiece() { return state.dungeonPieces.get(state.dungeonPieceId) || null; }
+function dungeonPieceTagValue(piece, category) {
+  const prefix = `cobbleventure:dungeon_${category}/`;
+  return (piece?.tags || []).find((tag) => tag.startsWith(prefix))?.slice(prefix.length) || "";
+}
+function dungeonPieceTheme(piece) {
+  const tagged = dungeonPieceTagValue(piece, "theme");
+  if (tagged) return tagged;
+  const path = String(piece?.piece_id || "").split(":", 2).at(-1).split("/");
+  return path.length >= 3 ? path.at(-2) : "unclassified";
+}
+function dungeonPieceShape(piece) { return dungeonPieceTagValue(piece, "shape") || piece?.role || "room"; }
+function dungeonPieceThemeLabel(theme) {
+  return dungeonPieceThemeNames[theme] || theme.split(/[_.-]+/).filter(Boolean).map((part) => part[0]?.toUpperCase() + part.slice(1)).join(" ") || "미분류";
+}
+function dungeonPieceThemes() {
+  return [...new Set([...state.dungeonPieces.values()].map(dungeonPieceTheme))].sort((left, right) => dungeonPieceThemeLabel(left).localeCompare(dungeonPieceThemeLabel(right), "ko"));
+}
+function dungeonPiecesForTheme(theme = state.dungeonPieceTheme) {
+  return [...state.dungeonPieces.values()].filter((piece) => dungeonPieceTheme(piece) === theme);
+}
+function renderDungeonPieceThemePicker() {
+  const select = $("#dungeon-piece-theme");
+  if (!select) return;
+  const themes = dungeonPieceThemes();
+  const currentTheme = dungeonPieceTheme(currentDungeonPiece());
+  if (!themes.includes(state.dungeonPieceTheme)) state.dungeonPieceTheme = themes.includes(currentTheme) ? currentTheme : themes[0] || "";
+  const pieces = dungeonPiecesForTheme();
+  if (pieces.length && !pieces.some((piece) => piece.piece_id === state.dungeonPieceId)) {
+    const shape = dungeonPieceShape(currentDungeonPiece());
+    state.dungeonPieceId = (pieces.find((piece) => dungeonPieceShape(piece) === shape) || pieces[0]).piece_id;
+  }
+  select.innerHTML = themes.length ? themes.map((theme) => `<option value="${escapeHtml(theme)}"${theme === state.dungeonPieceTheme ? " selected" : ""}>${escapeHtml(dungeonPieceThemeLabel(theme))} · ${escapeHtml(theme)}</option>`).join("") : '<option value="">등록된 스킨 없음</option>';
+  select.disabled = themes.length === 0;
+  const shapes = new Set(pieces.map(dungeonPieceShape));
+  const kit = dungeonPieceTagValue(pieces[0], "kit");
+  $("#dungeon-piece-theme-summary").textContent = pieces.length ? `${pieces.length}개 조각 · ${shapes.size}개 형태${kit ? ` · ${kit}` : ""}` : "이 스킨에 등록된 조각이 없습니다.";
+}
+function changeDungeonPieceTheme(theme) {
+  if (theme === state.dungeonPieceTheme) return;
+  if (state.dungeonPieceDirty) {
+    $("#dungeon-piece-theme").value = state.dungeonPieceTheme;
+    toast("현재 조각을 저장한 뒤 스킨을 바꿔 주세요.");
+    return;
+  }
+  const shape = dungeonPieceShape(currentDungeonPiece());
+  state.dungeonPieceTheme = theme;
+  const pieces = dungeonPiecesForTheme(theme);
+  state.dungeonPieceId = (pieces.find((piece) => dungeonPieceShape(piece) === shape) || pieces[0])?.piece_id || "";
+  state.dungeonPieceEditor = { selectedKind: "", selectedIndex: -1, transform: null };
+  renderDungeonPieceEditor();
+}
 function dungeonStructureOptions(selected = "") {
   const entries = Object.entries(state.structureSizes || {}).filter(([id]) => id.startsWith("cobbleventure:") || id === selected).sort(([left], [right]) => left.localeCompare(right));
   return ['<option value="">NBT 구조물을 선택하세요</option>', ...entries.map(([id, metadata]) => `<option value="${escapeHtml(id)}"${id === selected ? " selected" : ""}>${escapeHtml(id)} · ${Number(metadata.width || 0)}×${Number(metadata.height || 0)}×${Number(metadata.depth || 0)}</option>`)].join("");
@@ -5287,8 +5339,9 @@ function syncDungeonPieceSize(piece) {
   (piece.markers || []).forEach((marker) => marker.position = (marker.position || [0, 0, 0]).map((axis, index) => Math.max(0, Math.min(piece.size[index] - 1, Math.round(Number(axis || 0))))));
 }
 function renderDungeonPieceList() {
+  renderDungeonPieceThemePicker();
   const query = ($("#dungeon-piece-search")?.value || "").trim().toLowerCase();
-  const pieces = [...state.dungeonPieces.values()].filter((piece) => !query || `${piece.piece_id} ${piece.role} ${(piece.tags || []).join(" ")}`.toLowerCase().includes(query));
+  const pieces = dungeonPiecesForTheme().filter((piece) => !query || `${piece.piece_id} ${piece.role} ${(piece.tags || []).join(" ")}`.toLowerCase().includes(query));
   $("#dungeon-piece-list").innerHTML = pieces.length ? pieces.map((piece) => `<button type="button" data-dungeon-piece-id="${escapeHtml(piece.piece_id)}" class="${piece.piece_id === state.dungeonPieceId ? "is-active" : ""}"><strong>${escapeHtml(dungeonPieceRoles[piece.role] || piece.role)} · ${escapeHtml(piece.piece_id.split("/").at(-1))}</strong><small>${escapeHtml(piece.structure)} · ${(piece.size || []).join("×")} · 연결 ${(piece.connectors || []).length}</small></button>`).join("") : '<div class="issues empty">검색 조건에 맞는 조각이 없습니다.</div>';
 }
 function dungeonPieceRow(kind, entry, index, selected) {
@@ -5325,11 +5378,16 @@ function updateDungeonPieceRows(container, kind) {
   container.querySelectorAll("[data-piece-index]").forEach((row) => { const entry = target[Number(row.dataset.pieceIndex)]; if (!entry) return; entry.id = row.querySelector("[name=id]").value.trim(); entry.position = [0,1,2].map((axis) => Math.round(Number(row.querySelector(`[name=position${axis}]`).value || 0))); if (kind === "connector") { entry.facing = row.querySelector("[name=facing]").value; entry.socket = row.querySelector("[name=socket]").value.trim(); entry.tags = csvValues(row.querySelector("[name=tags]").value); snapDungeonConnector(entry, piece.size); } else { entry.kind = row.querySelector("[name=kind]").value; const reference = row.querySelector("[name=reference]").value.trim(); if (reference) entry.reference = reference; else delete entry.reference; const connector = row.querySelector("[name=connector]").value; if (entry.kind === "gate" && connector) entry.connector = connector; else delete entry.connector; entry.position = entry.position.map((axis,index) => Math.max(0, Math.min(piece.size[index] - 1, axis))); } });
 }
 function createDungeonPiece() {
-  const structures = Object.keys(state.structureSizes || {}).filter((id) => id.startsWith("cobbleventure:")).sort(); const preferred = state.dungeon?.terrain?.template; const structure = preferred && state.structureSizes[preferred] ? preferred : structures[0] || ""; const metadata = state.structureSizes[structure] || {};
-  let suffix = state.dungeonPieces.size + 1, pieceId; do { pieceId = `cobbleventure:dungeon_piece/new_room_${suffix++}`; } while (state.dungeonPieces.has(pieceId));
-  const generation = state.dungeonPath.match(/generation_\d+/)?.[0] || "generation_1";
-  const piece = { "$schema": "../../schemas/dungeon-piece.schema.json", schema_version: 1, piece_id: pieceId, structure, role: "room", size: [Number(metadata.width || 1), Number(metadata.height || 1), Number(metadata.depth || 1)], weight: 1, min_per_plan: 0, max_per_plan: 256, placement_scope: "any", forbid_adjacent_tags: [], allow_rotation: true, tags: [], connectors: [{ id: "north", position: [0, 0, 0], facing: "north", socket: "cobbleventure:dungeon/door", tags: [] }], markers: [] }; snapDungeonConnector(piece.connectors[0], piece.size);
-  state.dungeonPieces.set(pieceId, piece); state.dungeonPiecePaths.set(pieceId, `content/dungeon_pieces/${generation}/new_room_${suffix - 1}.json`); state.dungeonPieceId = pieceId; state.dungeonPieceDirty = true; state.dungeonPieceEditor = { selectedKind: "connector", selectedIndex: 0, transform: null }; renderDungeonPieceEditor(); renderDungeonPlanEditor();
+  const theme = state.dungeonPieceTheme || dungeonPieceThemes()[0] || "new_skin";
+  const themePieces = dungeonPiecesForTheme(theme);
+  const structures = Object.keys(state.structureSizes || {}).filter((id) => id.startsWith(`cobbleventure:dungeon_pieces/${theme}/`)).sort(); const structure = structures[0] || ""; const metadata = state.structureSizes[structure] || {};
+  let suffix = themePieces.length + 1, pieceId; do { pieceId = `cobbleventure:dungeon_piece/${theme}/new_room_${suffix++}`; } while (state.dungeonPieces.has(pieceId));
+  const pool = themePieces.flatMap((entry) => entry.tags || []).find((tag) => tag.startsWith("cobbleventure:dungeon_pool/"));
+  const kit = dungeonPieceTagValue(themePieces[0], "kit") || "standard_16";
+  const socket = themePieces.flatMap((entry) => entry.connectors || []).find(Boolean)?.socket || "cobbleventure:dungeon_socket/standard_5";
+  const tags = [`cobbleventure:dungeon_kit/${kit}`, `cobbleventure:dungeon_theme/${theme}`, "cobbleventure:dungeon_shape/room", ...(pool ? [pool] : [])];
+  const piece = { "$schema": "../../schemas/dungeon-piece.schema.json", schema_version: 1, piece_id: pieceId, structure, role: "room", size: [Number(metadata.width || 1), Number(metadata.height || 1), Number(metadata.depth || 1)], weight: 1, min_per_plan: 0, max_per_plan: 256, placement_scope: "any", forbid_adjacent_tags: [], allow_rotation: true, tags, connectors: [{ id: "north", position: [0, 0, 0], facing: "north", socket, tags: [`cobbleventure:dungeon_kit/${kit}`] }], markers: [] }; snapDungeonConnector(piece.connectors[0], piece.size);
+  state.dungeonPieces.set(pieceId, piece); state.dungeonPiecePaths.set(pieceId, `content/dungeon_pieces/${theme}/new_room_${suffix - 1}.json`); state.dungeonPieceId = pieceId; state.dungeonPieceDirty = true; state.dungeonPieceEditor = { selectedKind: "connector", selectedIndex: 0, transform: null }; renderDungeonPieceEditor(); renderDungeonPlanEditor();
 }
 function addDungeonPieceItem(kind) { const piece = currentDungeonPiece(); if (!piece) return; const list = kind === "connector" ? piece.connectors : piece.markers; const index = list.length; if (kind === "connector") { const facing = ["north","east","south","west"][index % 4]; const entry = { id: `connector_${index + 1}`, position: [Math.floor(piece.size[0] / 2), 0, Math.floor(piece.size[2] / 2)], facing, socket: "cobbleventure:dungeon/door", tags: [] }; snapDungeonConnector(entry, piece.size); list.push(entry); } else list.push({ id: `marker_${index + 1}`, kind: "encounter", position: [Math.floor(piece.size[0] / 2), 0, Math.floor(piece.size[2] / 2)] }); state.dungeonPieceEditor.selectedKind = kind; state.dungeonPieceEditor.selectedIndex = index; markDungeonPieceDirty(); renderDungeonPieceEditor(); }
 function renderDungeonPieceCanvas() {
@@ -16377,8 +16435,9 @@ $("#dungeon-content-properties").addEventListener("click", (event) => {
 });
 $("#add-dungeon-content").addEventListener("click", addDungeonContent);
 $("#delete-dungeon-content").addEventListener("click", deleteDungeonContent);
+$("#dungeon-piece-theme").addEventListener("change", (event) => changeDungeonPieceTheme(event.target.value));
 $("#dungeon-piece-search").addEventListener("input", renderDungeonPieceList);
-$("#dungeon-piece-list").addEventListener("click", (event) => { const button=event.target.closest("[data-dungeon-piece-id]"); if(!button)return; state.dungeonPieceId=button.dataset.dungeonPieceId; state.dungeonPieceDirty=false; state.dungeonPieceEditor.selectedKind=""; state.dungeonPieceEditor.selectedIndex=-1; renderDungeonPieceEditor(); });
+$("#dungeon-piece-list").addEventListener("click", (event) => { const button=event.target.closest("[data-dungeon-piece-id]"); if(!button)return; state.dungeonPieceId=button.dataset.dungeonPieceId; state.dungeonPieceTheme=dungeonPieceTheme(currentDungeonPiece()); state.dungeonPieceDirty=false; state.dungeonPieceEditor.selectedKind=""; state.dungeonPieceEditor.selectedIndex=-1; renderDungeonPieceEditor(); });
 $("#new-dungeon-piece").addEventListener("click", async () => { await loadStructureData(); createDungeonPiece(); });
 $("#validate-dungeon-piece").addEventListener("click", validateDungeonPiece);
 $("#save-dungeon-piece").addEventListener("click", saveDungeonPiece);
