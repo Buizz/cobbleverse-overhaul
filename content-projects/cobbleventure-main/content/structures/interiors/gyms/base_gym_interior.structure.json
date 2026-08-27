@@ -37,6 +37,54 @@
       "facing": "north"
     },
     {
+      "label": "trainer_1",
+      "type": "npc_position",
+      "position": [6, 1, 8],
+      "facing": "south"
+    },
+    {
+      "label": "trainer_2",
+      "type": "npc_position",
+      "position": [25, 1, 8],
+      "facing": "south"
+    },
+    {
+      "label": "trainer_3",
+      "type": "npc_position",
+      "position": [9, 1, 12],
+      "facing": "south"
+    },
+    {
+      "label": "trainer_4",
+      "type": "npc_position",
+      "position": [22, 1, 12],
+      "facing": "south"
+    },
+    {
+      "label": "trainer_5",
+      "type": "npc_position",
+      "position": [6, 1, 17],
+      "facing": "south"
+    },
+    {
+      "label": "trainer_6",
+      "type": "npc_position",
+      "position": [25, 1, 17],
+      "facing": "south"
+    },
+    {
+      "label": "trainer_7",
+      "type": "npc_position",
+      "position": [10, 1, 21],
+      "facing": "south"
+    },
+    {
+      "label": "trainer_8",
+      "type": "npc_position",
+      "position": [21, 1, 21],
+      "facing": "south"
+    },
+    {
       "id": "interior_spawn",
       "label": "interior_spawn",
       "type": "interior_spawn",

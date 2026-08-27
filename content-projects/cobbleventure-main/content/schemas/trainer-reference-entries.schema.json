@@ -29,7 +29,7 @@
         "required": ["id", "source", "source_label", "category", "name", "entry_number", "trainer_type", "team_size", "min_level", "max_level", "battle"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
-          "source": { "enum": ["another_red", "rct_default"] },
+          "source": { "enum": ["another_red", "firered", "rct_default"] },
           "source_label": { "type": "string", "minLength": 1 },
           "category": { "type": "string", "minLength": 1 },
           "name": { "type": "string", "minLength": 1 },

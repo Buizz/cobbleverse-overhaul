@@ -7,15 +7,15 @@
   "battle": {
     "format": "GEN_9_SINGLES",
     "battle_type": "singles",
-    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "balanced", "options": {} },
     "level_mode": "fixed",
-    "rules": { "can_forfeit": true },
-    "bag": [],
+    "rules": { "can_forfeit": true, "max_item_uses": 2 },
+    "bag": [{ "item": "cobblemon:super_potion", "quantity": 1 }, { "item": "cobblemon:full_heal", "quantity": 1 }],
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      { "species": "cobblemon:voltorb", "level": 21, "gender": "genderless", "moves": ["tackle", "screech", "sonicboom"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:pikachu", "level": 18, "gender": "random", "moves": ["thundershock", "growl", "quickattack", "thunderwave"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:raichu", "level": 24, "gender": "random", "moves": ["thundershock", "growl", "thunderbolt"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+      { "species": "cobblemon:voltorb", "level": 21, "gender": "genderless", "moves": ["sonicboom", "tackle", "screech", "shockwave"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:pikachu", "level": 18, "gender": "random", "moves": ["quickattack", "thunderwave", "doubleteam", "shockwave"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:raichu", "level": 24, "gender": "random", "moves": ["quickattack", "thunderwave", "doubleteam", "shockwave"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
     ],
     "trainer_id": "cobbleventure:npc/gym_leader/lt_surge"
   }

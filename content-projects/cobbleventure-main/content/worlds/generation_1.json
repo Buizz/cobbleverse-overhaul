@@ -2744,7 +2744,57 @@
         "additions": [],
         "level_overrides": []
       },
-      "display_name": "상록시티 - 석영고원 길"
+      "display_name": "챔피언로드"
+    },
+    {
+      "id": "route_custom_19",
+      "route_preset": "cobbleventure:route/route_custom_19",
+      "from": "cobbleventure:settlement/cerulean_city",
+      "anchors": [
+        {
+          "q": 7,
+          "r": -2
+        },
+        {
+          "q": 10,
+          "r": -8
+        }
+      ],
+      "cells": [
+        {
+          "q": 7,
+          "r": -2
+        },
+        {
+          "q": 7,
+          "r": -3
+        },
+        {
+          "q": 7,
+          "r": -4
+        },
+        {
+          "q": 7,
+          "r": -5
+        },
+        {
+          "q": 8,
+          "r": -6
+        },
+        {
+          "q": 9,
+          "r": -7
+        },
+        {
+          "q": 10,
+          "r": -8
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "블루시티 북쪽길 (24·25번도로)"
     },
     {
       "id": "route_custom_06",

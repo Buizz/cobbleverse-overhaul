@@ -285,6 +285,8 @@ public final class CobbleventureBootstrap {
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
     private static final Map<UUID, Vec3> safeWhirlpoolPositions = new HashMap<>();
     private static final Map<Long, Long> scheduledTownDebrisCleanup = new HashMap<>();
+    private static final Map<GenerationDebrisChunk, Long> scheduledGenerationDebrisCleanup =
+        new HashMap<>();
     static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
             Registries.DIMENSION,
@@ -769,6 +771,7 @@ public final class CobbleventureBootstrap {
         pendingInitializationTicks = -1;
         activeInitialization = null;
         scheduledTownDebrisCleanup.clear();
+        scheduledGenerationDebrisCleanup.clear();
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
         activeDimensionAnchors = null;
@@ -1497,6 +1500,9 @@ public final class CobbleventureBootstrap {
                 LOGGER.error("Cave entrance template placement failed: {} at {}", structure, blockPos);
                 return null;
             }
+            scheduleGenerationDebrisCleanup(
+                level, structure, blockPos, template, rotation
+            );
             List<StructureTemplate.StructureBlockInfo> placedRoadAnchors = template.filterBlocks(
                 blockPos, settings, Blocks.JIGSAW
             ).stream().filter(CobbleventureBootstrap::isCaveRoadAnchor).toList();
@@ -4549,8 +4555,10 @@ public final class CobbleventureBootstrap {
             );
             int removed = 0;
             for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, bounds)) {
-                item.discard();
-                removed++;
+                if (isNaturalGenerationDebris(item)) {
+                    item.discard();
+                    removed++;
+                }
             }
             data.markTownDebrisCleanupComplete(chunkKey);
             if (removed > 0) {
@@ -4577,6 +4585,99 @@ public final class CobbleventureBootstrap {
             || state.is(Blocks.BROWN_MUSHROOM)
             || state.is(Blocks.RED_MUSHROOM);
     }
+
+    static void scheduleGenerationDebrisCleanup(
+        ServerLevel level, String structure, BlockPos origin,
+        StructureTemplate template, Rotation rotation
+    ) {
+        var size = template.getSize();
+        int minX = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (int localX : new int[] {0, Math.max(0, size.getX() - 1)}) {
+            for (int localZ : new int[] {0, Math.max(0, size.getZ() - 1)}) {
+                BlockPos corner = origin.offset(StructureTemplate.transform(
+                    new BlockPos(localX, 0, localZ), Mirror.NONE, rotation, BlockPos.ZERO
+                ));
+                minX = Math.min(minX, corner.getX());
+                minZ = Math.min(minZ, corner.getZ());
+                maxX = Math.max(maxX, corner.getX());
+                maxZ = Math.max(maxZ, corner.getZ());
+            }
+        }
+        AABB bounds = new AABB(
+            minX - 1, origin.getY() - 1, minZ - 1,
+            maxX + 2, origin.getY() + Math.max(1, size.getY()) + 1, maxZ + 2
+        );
+        cleanupNaturalGenerationDebris(level, bounds, structure);
+        long dueAt = level.getGameTime() + 2L;
+        for (int chunkX = (minX - 1) >> 4; chunkX <= (maxX + 1) >> 4; chunkX++) {
+            for (int chunkZ = (minZ - 1) >> 4; chunkZ <= (maxZ + 1) >> 4; chunkZ++) {
+                GenerationDebrisChunk key = new GenerationDebrisChunk(
+                    level.dimension(), ChunkPos.asLong(chunkX, chunkZ)
+                );
+                scheduledGenerationDebrisCleanup.merge(key, dueAt, Math::max);
+            }
+        }
+    }
+
+    private static void runScheduledGenerationDebrisCleanup(MinecraftServer server) {
+        if (scheduledGenerationDebrisCleanup.isEmpty()) {
+            return;
+        }
+        List<GenerationDebrisChunk> dueChunks = scheduledGenerationDebrisCleanup.entrySet()
+            .stream()
+            .filter(entry -> {
+                ServerLevel level = server.getLevel(entry.getKey().dimension());
+                return level != null && entry.getValue() <= level.getGameTime();
+            })
+            .map(Map.Entry::getKey)
+            .toList();
+        for (GenerationDebrisChunk pending : dueChunks) {
+            ServerLevel level = server.getLevel(pending.dimension());
+            if (level == null) {
+                scheduledGenerationDebrisCleanup.remove(pending);
+                continue;
+            }
+            int chunkX = ChunkPos.getX(pending.chunkKey());
+            int chunkZ = ChunkPos.getZ(pending.chunkKey());
+            if (level.getChunkSource().getChunkNow(chunkX, chunkZ) == null) {
+                scheduledGenerationDebrisCleanup.put(pending, level.getGameTime() + 20L);
+                continue;
+            }
+            scheduledGenerationDebrisCleanup.remove(pending);
+            AABB bounds = new AABB(
+                chunkX << 4, level.getMinBuildHeight(), chunkZ << 4,
+                (chunkX + 1) << 4, level.getMaxBuildHeight(), (chunkZ + 1) << 4
+            );
+            cleanupNaturalGenerationDebris(
+                level, bounds, "chunk " + chunkX + "," + chunkZ
+            );
+        }
+    }
+
+    private static void cleanupNaturalGenerationDebris(
+        ServerLevel level, AABB bounds, String source
+    ) {
+        int removed = 0;
+        for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, bounds)) {
+            if (isNaturalGenerationDebris(item)) {
+                item.discard();
+                removed++;
+            }
+        }
+        if (removed > 0) {
+            LOGGER.info(
+                "Structure generation debris cleaned: source={}, dimension={}, itemEntities={}",
+                source, level.dimension().location(), removed
+            );
+        }
+    }
+
+    private record GenerationDebrisChunk(
+        ResourceKey<Level> dimension, long chunkKey
+    ) {}
 
     private static void prepareSpecialDistrict(
         ServerLevel level,
@@ -5268,6 +5369,9 @@ public final class CobbleventureBootstrap {
                 StructurePlacementFixes.afterPlacement(
                     level, blockPos, template.get(), settings
                 );
+                scheduleGenerationDebrisCleanup(
+                    level, structure, blockPos, template.get(), rotation
+                );
             }
             return placed;
         } finally {
@@ -5326,6 +5430,9 @@ public final class CobbleventureBootstrap {
             StructurePlacementFixes.afterPlacement(
                 level, blockPos, template.orElseThrow(), settings
             );
+            scheduleGenerationDebrisCleanup(
+                level, structure, blockPos, template.orElseThrow(), Rotation.NONE
+            );
         }
         return placed;
     }
@@ -5354,6 +5461,9 @@ public final class CobbleventureBootstrap {
         if (placed) {
             StructurePlacementFixes.afterPlacement(
                 level, blockPos, template.get(), settings
+            );
+            scheduleGenerationDebrisCleanup(
+                level, structure, blockPos, template.get(), rotation
             );
         }
         return placed;
@@ -5485,6 +5595,7 @@ public final class CobbleventureBootstrap {
         }
         runPendingWorldInitialization(event);
         runActiveWorldInitialization();
+        runScheduledGenerationDebrisCleanup(event.getServer());
         tickCompletedTownGenerationDisplay();
         BattleMovementBoundary.tick(event.getServer());
         try {

@@ -17,6 +17,49 @@
 - [`entries/custom`](entries/custom): DBingsu 등 프로젝트에서 직접 관리하는 엔트리
 - [`catalogs/cobblemon-items.csv`](catalogs/cobblemon-items.csv): 현재 활성화된
   Cobblemon·연동 모드 JAR에서 생성한 전체 아이템 검토표
+
+## Pokémon FireRed/LeafGreen 원본
+
+콘텐츠 관리 화면의 트레이너 참고 카탈로그에는
+[`pret/pokefirered`](https://github.com/pret/pokefirered) 역컴파일 프로젝트의
+FRLG 트레이너 슬롯 89~742를 포함한다. 가져오기 기준 커밋은
+`c75f352304d529f6ba92d4f74b9cf8b5c3810788`이며, RS 호환용 더미 슬롯 0~88은
+제외한다. 이 범위의 총 654개 엔트리를 모두 보존하며, 내부 미사용 더미 파티
+15개는 관리 화면에서 `미사용 슬롯`으로 구분한다.
+
+- 트레이너 클래스와 이름, 원본 엔트리 번호
+- 싱글·더블 배틀 여부와 AI 플래그에 대응하는 난이도
+- 가방 아이템과 사용 가능 횟수
+- 포켓몬 종, 레벨, 고정 IV, 소지품과 커스텀 기술
+- 커스텀 기술이 없는 포켓몬의 FRLG 레벨업 기술 4개
+
+필드·체육관 좌표와 대사는 이번 가져오기 범위에 포함하지 않는다. 배치 작업에서는
+`source = firered`인 참고 엔트리를 선택해 실제 NPC 번들을 생성한다.
+
+### 1세대 테스트 월드 배치 범위
+
+테스트 월드는 본편 전체 지형을 재현하지 않는다. 현재는 8개 체육관의 일반
+트레이너, 기존 상록시티~석영고원 연결로를 재사용한 챔피언로드, 블루시티 북쪽의
+24·25번도로만 파이어레드 팀으로 실체화한다. 일곱섬, 상트앙느호, 포켓몬저택과
+격투도장은 배치 대상에서 제외한다. 라이벌의 블루시티 전투는 테스트 편의를 위해
+플레이어가 이상해씨를 골랐을 때의 파티 하나로 고정한다.
+
+선택된 참고 엔트리로 NPC·전투 파일을 다시 만들고 체육관 스태프를 동기화하려면
+다음 명령을 사용한다.
+
+```powershell
+python tools/content-manager/materialize_firered_test_trainers.py
+```
+
+원본 저장소를 위 커밋으로 체크아웃한 뒤 기존 카탈로그의 다른 출처를 보존하면서
+갱신하려면 다음 명령을 사용한다.
+
+```powershell
+python tools/content-manager/import_trainer_references.py `
+  --existing-catalog content-projects/cobbleventure-main/content/catalogs/trainer-reference-entries.json `
+  --pokefirered-root <pokefirered 저장소> `
+  --output content-projects/cobbleventure-main/content/catalogs/trainer-reference-entries.json
+```
 - [`catalogs/cobblemon-items.json`](catalogs/cobblemon-items.json): 변환기와 웹
   전투 실험실이 사용하는 아이템·태그·출처 카탈로그
 

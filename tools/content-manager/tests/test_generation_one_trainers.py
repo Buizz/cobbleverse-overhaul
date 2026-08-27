@@ -69,7 +69,11 @@ class GenerationOneTrainerTests(unittest.TestCase):
 
     def test_every_generation_one_route_has_a_bounded_trainer_pool(self) -> None:
         route_paths = sorted((CONTENT / "routes" / "generation_1").glob("*.json"))
-        self.assertEqual(19, len(route_paths))
+        self.assertEqual(20, len(route_paths))
+        expanded_test_routes = {
+            "route_custom_05": 12,
+            "route_custom_19": 17,
+        }
 
         for route_path in route_paths:
             with self.subTest(route=route_path.stem):
@@ -80,12 +84,28 @@ class GenerationOneTrainerTests(unittest.TestCase):
                 self.assertTrue(population["enabled"])
                 self.assertEqual("proximity", population["trigger_override"])
                 self.assertGreaterEqual(population["count"], 2)
-                self.assertLessEqual(population["count"], 4)
+                if route_path.stem in expanded_test_routes:
+                    self.assertEqual(expanded_test_routes[route_path.stem], population["count"])
+                else:
+                    self.assertLessEqual(population["count"], 4)
                 self.assertEqual(population["count"], len(trainers))
                 self.assertEqual(len(trainers), len(set(trainers)))
                 self.assertTrue(
                     all(trainer.startswith("cobbleventure:npc/") for trainer in trainers)
                 )
+
+    def test_firered_test_trainers_are_materialized_and_gym_slots_are_filled(self) -> None:
+        trainers = sorted((CONTENT / "source" / "generation_1" / "firered").glob("*.json"))
+        battles = sorted((CONTENT / "battles" / "generation_1" / "firered").glob("*.json"))
+        self.assertEqual(70, len(trainers))
+        self.assertEqual(70, len(battles))
+
+        catalog = load(CONTENT / "catalogs" / "gyms.json")
+        expected_counts = [1, 2, 3, 7, 6, 7, 7, 8]
+        self.assertEqual(expected_counts, [len(gym["staff"]["trainers"]) for gym in catalog["gyms"]])
+        for gym in catalog["gyms"]:
+            for index, trainer in enumerate(gym["staff"]["trainers"], start=1):
+                self.assertEqual(f"trainer_{index}", trainer["anchor"])
 
 
 if __name__ == "__main__":

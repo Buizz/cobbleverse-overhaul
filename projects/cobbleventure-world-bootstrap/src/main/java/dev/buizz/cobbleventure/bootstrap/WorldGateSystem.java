@@ -852,6 +852,9 @@ final class WorldGateSystem {
             LOGGER.error("Gate structure placement failed: gate={}, origin={}", gate.id(), origin);
             return null;
         }
+        CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
+            level, gate.structure(), origin, structure, rotation
+        );
         StructureFootprint footprint = new StructureFootprint(
             minX, minZ,
             minX + size.getX() - 1,
@@ -885,6 +888,10 @@ final class WorldGateSystem {
             );
             return false;
         }
+        CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
+            level, gate.structure(), placement.origin(), placement.template(),
+            placement.rotation()
+        );
         CobbleventureBootstrap.Point roadEndpoint = alignedGateCenter(world, gate);
         layWorldForestEntranceRoad(
             level, world, entry, roadEndpoint, placement.footprint()
@@ -930,6 +937,10 @@ final class WorldGateSystem {
                     "Forest dimension gate placement failed: " + gate.id()
                 );
             }
+            CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
+                level, gate.structure(), placement.origin(), placement.template(),
+                placement.rotation()
+            );
             ForestEntryMarker exit = placedForestEntryMarker(gate, placement);
             if (exit == null) {
                 throw new IllegalStateException(
@@ -1092,7 +1103,7 @@ final class WorldGateSystem {
             ? template.getSize(rotation).getX()
             : template.getSize(rotation).getZ()) + 1;
         return new ForestTemplatePlacement(
-            template, settings, origin,
+            template, settings, rotation, origin,
             new BlockPos(
                 geometry.x(), floorY + rotatedAnchor.getY(), geometry.z()
             ),
@@ -1845,6 +1856,7 @@ final class WorldGateSystem {
     private record ForestTemplatePlacement(
         StructureTemplate template,
         StructurePlaceSettings settings,
+        Rotation rotation,
         BlockPos origin,
         BlockPos expectedEntry,
         Direction inward,

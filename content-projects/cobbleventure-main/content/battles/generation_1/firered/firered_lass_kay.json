@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/firered_lass_kay",
+  "enabled": true,
+  "name": {
+    "ko_kr": "Lass Kay 배틀",
+    "en_us": "Lass Kay Battle"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 0
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:bellsprout",
+        "level": 23,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "sleeppowder",
+          "poisonpowder",
+          "stunspore",
+          "acid"
+        ],
+        "ivs": {
+          "hp": 0,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 0,
+          "speed": 0
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:weepinbell",
+        "level": 23,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "wrap",
+          "sleeppowder",
+          "poisonpowder",
+          "stunspore"
+        ],
+        "ivs": {
+          "hp": 0,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 0,
+          "speed": 0
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:trainer/firered_lass_kay"
+  }
+}

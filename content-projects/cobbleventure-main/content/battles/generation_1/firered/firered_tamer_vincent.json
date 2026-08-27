@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/firered_tamer_vincent",
+  "enabled": true,
+  "name": {
+    "ko_kr": "Tamer Vincent 배틀",
+    "en_us": "Tamer Vincent Battle"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 0
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:persian",
+        "level": 44,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "payday",
+          "feintattack",
+          "screech",
+          "furyswipes"
+        ],
+        "ivs": {
+          "hp": 4,
+          "attack": 4,
+          "defense": 4,
+          "special_attack": 4,
+          "special_defense": 4,
+          "speed": 4
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:golduck",
+        "level": 44,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "confusion",
+          "screech",
+          "psychup",
+          "furyswipes"
+        ],
+        "ivs": {
+          "hp": 4,
+          "attack": 4,
+          "defense": 4,
+          "special_attack": 4,
+          "special_defense": 4,
+          "speed": 4
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:trainer/firered_tamer_vincent"
+  }
+}

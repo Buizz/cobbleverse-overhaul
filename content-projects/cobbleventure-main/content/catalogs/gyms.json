@@ -54,7 +54,13 @@
           "league_entry_id": "cobbleventure:league/kanto/boulder",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_camper_liam",
+            "anchor": "trainer_1"
+          }
+        ]
       }
     },
     {
@@ -110,7 +116,18 @@
           "league_entry_id": "cobbleventure:league/kanto/cascade",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_picnicker_diana",
+            "anchor": "trainer_1"
+          },
+          {
+            "id": "trainer_2",
+            "trainer_id": "cobbleventure:npc/firered_swimmer_male_luis",
+            "anchor": "trainer_2"
+          }
+        ]
       }
     },
     {
@@ -166,7 +183,23 @@
           "league_entry_id": "cobbleventure:league/kanto/thunder",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_sailor_dwayne",
+            "anchor": "trainer_1"
+          },
+          {
+            "id": "trainer_2",
+            "trainer_id": "cobbleventure:npc/firered_engineer_baily",
+            "anchor": "trainer_2"
+          },
+          {
+            "id": "trainer_3",
+            "trainer_id": "cobbleventure:npc/firered_gentleman_tucker",
+            "anchor": "trainer_3"
+          }
+        ]
       }
     },
     {
@@ -222,7 +255,43 @@
           "league_entry_id": "cobbleventure:league/kanto/rainbow",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_lass_kay",
+            "anchor": "trainer_1"
+          },
+          {
+            "id": "trainer_2",
+            "trainer_id": "cobbleventure:npc/firered_lass_lisa",
+            "anchor": "trainer_2"
+          },
+          {
+            "id": "trainer_3",
+            "trainer_id": "cobbleventure:npc/firered_picnicker_tina",
+            "anchor": "trainer_3"
+          },
+          {
+            "id": "trainer_4",
+            "trainer_id": "cobbleventure:npc/firered_beauty_bridget",
+            "anchor": "trainer_4"
+          },
+          {
+            "id": "trainer_5",
+            "trainer_id": "cobbleventure:npc/firered_beauty_tamia",
+            "anchor": "trainer_5"
+          },
+          {
+            "id": "trainer_6",
+            "trainer_id": "cobbleventure:npc/firered_beauty_lori",
+            "anchor": "trainer_6"
+          },
+          {
+            "id": "trainer_7",
+            "trainer_id": "cobbleventure:npc/firered_cooltrainer_mary",
+            "anchor": "trainer_7"
+          }
+        ]
       }
     },
     {
@@ -278,7 +347,38 @@
           "league_entry_id": "cobbleventure:league/kanto/soul",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_juggler_kirk",
+            "anchor": "trainer_1"
+          },
+          {
+            "id": "trainer_2",
+            "trainer_id": "cobbleventure:npc/firered_juggler_shawn",
+            "anchor": "trainer_2"
+          },
+          {
+            "id": "trainer_3",
+            "trainer_id": "cobbleventure:npc/firered_juggler_kayden",
+            "anchor": "trainer_3"
+          },
+          {
+            "id": "trainer_4",
+            "trainer_id": "cobbleventure:npc/firered_juggler_nate",
+            "anchor": "trainer_4"
+          },
+          {
+            "id": "trainer_5",
+            "trainer_id": "cobbleventure:npc/firered_tamer_phil",
+            "anchor": "trainer_5"
+          },
+          {
+            "id": "trainer_6",
+            "trainer_id": "cobbleventure:npc/firered_tamer_edgar",
+            "anchor": "trainer_6"
+          }
+        ]
       }
     },
     {
@@ -334,7 +434,43 @@
           "league_entry_id": "cobbleventure:league/kanto/marsh",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_psychic_johan",
+            "anchor": "trainer_1"
+          },
+          {
+            "id": "trainer_2",
+            "trainer_id": "cobbleventure:npc/firered_psychic_tyron",
+            "anchor": "trainer_2"
+          },
+          {
+            "id": "trainer_3",
+            "trainer_id": "cobbleventure:npc/firered_psychic_cameron",
+            "anchor": "trainer_3"
+          },
+          {
+            "id": "trainer_4",
+            "trainer_id": "cobbleventure:npc/firered_psychic_preston",
+            "anchor": "trainer_4"
+          },
+          {
+            "id": "trainer_5",
+            "trainer_id": "cobbleventure:npc/firered_channeler_amanda",
+            "anchor": "trainer_5"
+          },
+          {
+            "id": "trainer_6",
+            "trainer_id": "cobbleventure:npc/firered_channeler_stacy",
+            "anchor": "trainer_6"
+          },
+          {
+            "id": "trainer_7",
+            "trainer_id": "cobbleventure:npc/firered_channeler_tasha",
+            "anchor": "trainer_7"
+          }
+        ]
       }
     },
     {
@@ -390,7 +526,43 @@
           "league_entry_id": "cobbleventure:league/kanto/volcano",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_super_nerd_erik",
+            "anchor": "trainer_1"
+          },
+          {
+            "id": "trainer_2",
+            "trainer_id": "cobbleventure:npc/firered_super_nerd_avery",
+            "anchor": "trainer_2"
+          },
+          {
+            "id": "trainer_3",
+            "trainer_id": "cobbleventure:npc/firered_super_nerd_derek",
+            "anchor": "trainer_3"
+          },
+          {
+            "id": "trainer_4",
+            "trainer_id": "cobbleventure:npc/firered_super_nerd_zac",
+            "anchor": "trainer_4"
+          },
+          {
+            "id": "trainer_5",
+            "trainer_id": "cobbleventure:npc/firered_burglar_quinn",
+            "anchor": "trainer_5"
+          },
+          {
+            "id": "trainer_6",
+            "trainer_id": "cobbleventure:npc/firered_burglar_ramon",
+            "anchor": "trainer_6"
+          },
+          {
+            "id": "trainer_7",
+            "trainer_id": "cobbleventure:npc/firered_burglar_dusty",
+            "anchor": "trainer_7"
+          }
+        ]
       }
     },
     {
@@ -446,7 +618,48 @@
           "league_entry_id": "cobbleventure:league/kanto/earth",
           "anchor": "leader"
         },
-        "trainers": []
+        "trainers": [
+          {
+            "id": "trainer_1",
+            "trainer_id": "cobbleventure:npc/firered_tamer_jason",
+            "anchor": "trainer_1"
+          },
+          {
+            "id": "trainer_2",
+            "trainer_id": "cobbleventure:npc/firered_tamer_cole",
+            "anchor": "trainer_2"
+          },
+          {
+            "id": "trainer_3",
+            "trainer_id": "cobbleventure:npc/firered_black_belt_atsushi",
+            "anchor": "trainer_3"
+          },
+          {
+            "id": "trainer_4",
+            "trainer_id": "cobbleventure:npc/firered_black_belt_kiyo",
+            "anchor": "trainer_4"
+          },
+          {
+            "id": "trainer_5",
+            "trainer_id": "cobbleventure:npc/firered_black_belt_takashi",
+            "anchor": "trainer_5"
+          },
+          {
+            "id": "trainer_6",
+            "trainer_id": "cobbleventure:npc/firered_cooltrainer_samuel",
+            "anchor": "trainer_6"
+          },
+          {
+            "id": "trainer_7",
+            "trainer_id": "cobbleventure:npc/firered_cooltrainer_yuji",
+            "anchor": "trainer_7"
+          },
+          {
+            "id": "trainer_8",
+            "trainer_id": "cobbleventure:npc/firered_cooltrainer_warren",
+            "anchor": "trainer_8"
+          }
+        ]
       }
     }
   ],

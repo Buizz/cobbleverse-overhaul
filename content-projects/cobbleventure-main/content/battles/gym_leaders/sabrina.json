@@ -7,16 +7,16 @@
   "battle": {
     "format": "GEN_9_SINGLES",
     "battle_type": "singles",
-    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "balanced", "options": {} },
     "level_mode": "fixed",
-    "rules": { "can_forfeit": true },
-    "bag": [],
+    "rules": { "can_forfeit": true, "max_item_uses": 3 },
+    "bag": [{ "item": "cobblemon:hyper_potion", "quantity": 2 }, { "item": "cobblemon:full_heal", "quantity": 1 }],
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      { "species": "cobblemon:kadabra", "level": 38, "gender": "random", "moves": ["disable", "psybeam", "recover", "psychic"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:mrmime", "level": 37, "gender": "random", "moves": ["confusion", "barrier", "lightscreen", "doubleslap"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:venomoth", "level": 38, "gender": "random", "moves": ["poisonpowder", "leechlife", "stunspore", "psybeam"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:alakazam", "level": 43, "gender": "random", "moves": ["psybeam", "recover", "psywave", "reflect"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+      { "species": "cobblemon:kadabra", "level": 38, "gender": "random", "moves": ["psybeam", "reflect", "futuresight", "calmmind"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:mrmime", "level": 37, "gender": "random", "moves": ["barrier", "psybeam", "batonpass", "calmmind"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:venomoth", "level": 38, "gender": "random", "moves": ["psybeam", "gust", "leechlife", "supersonic"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:alakazam", "level": 43, "gender": "random", "moves": ["psychic", "recover", "futuresight", "calmmind"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
     ],
     "trainer_id": "cobbleventure:npc/gym_leader/sabrina"
   }

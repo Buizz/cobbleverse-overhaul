@@ -1,0 +1,151 @@
+{
+  "$schema": "../../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/firered_juggler_kirk",
+  "enabled": true,
+  "name": {
+    "ko_kr": "Juggler Kirk 배틀",
+    "en_us": "Juggler Kirk Battle"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 0
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:drowzee",
+        "level": 31,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "headbutt",
+          "poisongas",
+          "meditate",
+          "psychic"
+        ],
+        "ivs": {
+          "hp": 0,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 0,
+          "speed": 0
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:drowzee",
+        "level": 31,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "headbutt",
+          "poisongas",
+          "meditate",
+          "psychic"
+        ],
+        "ivs": {
+          "hp": 0,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 0,
+          "speed": 0
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:kadabra",
+        "level": 31,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "psybeam",
+          "reflect",
+          "recover",
+          "futuresight"
+        ],
+        "ivs": {
+          "hp": 0,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 0,
+          "speed": 0
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:drowzee",
+        "level": 31,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "headbutt",
+          "poisongas",
+          "meditate",
+          "psychic"
+        ],
+        "ivs": {
+          "hp": 0,
+          "attack": 0,
+          "defense": 0,
+          "special_attack": 0,
+          "special_defense": 0,
+          "speed": 0
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:trainer/firered_juggler_kirk"
+  }
+}

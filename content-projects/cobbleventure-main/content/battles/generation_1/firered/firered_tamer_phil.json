@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/firered_tamer_phil",
+  "enabled": true,
+  "name": {
+    "ko_kr": "Tamer Phil 배틀",
+    "en_us": "Tamer Phil Battle"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 0
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:sandslash",
+        "level": 34,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "sandattack",
+          "poisonsting",
+          "slash",
+          "swift"
+        ],
+        "ivs": {
+          "hp": 4,
+          "attack": 4,
+          "defense": 4,
+          "special_attack": 4,
+          "special_defense": 4,
+          "speed": 4
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:arbok",
+        "level": 34,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "poisonsting",
+          "bite",
+          "glare",
+          "screech"
+        ],
+        "ivs": {
+          "hp": 4,
+          "attack": 4,
+          "defense": 4,
+          "special_attack": 4,
+          "special_defense": 4,
+          "speed": 4
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:trainer/firered_tamer_phil"
+  }
+}

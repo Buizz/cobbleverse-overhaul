@@ -3,10 +3,10 @@
   "schema_version": 1,
   "id": "cobbleventure:route/route_custom_05",
   "display_name": {
-    "ko_kr": "상록시티 - 석영고원 길",
-    "en_us": "상록시티 - 석영고원 길"
+    "ko_kr": "챔피언로드",
+    "en_us": "Victory Road"
   },
-  "auto_name": true,
+  "auto_name": false,
   "enabled": true,
   "route_type": "road",
   "corridor": {
@@ -128,13 +128,21 @@
   "npc_placements": [],
   "automatic_npc_placement": {
     "enabled": true,
-    "count": 4,
+    "count": 12,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/kanto_black_belt_hyuk",
-      "cobbleventure:npc/sample_ace_jiwon",
-      "cobbleventure:npc/sample_veteran_taeho",
-      "cobbleventure:npc/sample_hiker_seok"
+      "cobbleventure:npc/firered_pokemaniac_dawson",
+      "cobbleventure:npc/firered_juggler_nelson",
+      "cobbleventure:npc/firered_juggler_gregory",
+      "cobbleventure:npc/firered_tamer_vincent",
+      "cobbleventure:npc/firered_black_belt_daisuke",
+      "cobbleventure:npc/firered_cooltrainer_george",
+      "cobbleventure:npc/firered_cooltrainer_colby",
+      "cobbleventure:npc/firered_cooltrainer_rolando",
+      "cobbleventure:npc/firered_cooltrainer_caroline",
+      "cobbleventure:npc/firered_cooltrainer_alexa",
+      "cobbleventure:npc/firered_cooltrainer_naomi",
+      "cobbleventure:npc/firered_cool_couple_ray_tyra"
     ],
     "trigger_override": "proximity"
   }

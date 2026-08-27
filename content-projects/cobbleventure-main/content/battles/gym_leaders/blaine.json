@@ -7,16 +7,16 @@
   "battle": {
     "format": "GEN_9_SINGLES",
     "battle_type": "singles",
-    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "balanced", "options": {} },
     "level_mode": "fixed",
-    "rules": { "can_forfeit": true },
-    "bag": [],
+    "rules": { "can_forfeit": true, "max_item_uses": 3 },
+    "bag": [{ "item": "cobblemon:hyper_potion", "quantity": 2 }, { "item": "cobblemon:full_heal", "quantity": 1 }],
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      { "species": "cobblemon:growlithe", "level": 42, "gender": "random", "moves": ["ember", "leer", "takedown", "agility"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:ponyta", "level": 40, "gender": "random", "moves": ["tailwhip", "growl", "stomp", "firespin"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:rapidash", "level": 42, "gender": "random", "moves": ["tailwhip", "stomp", "growl", "firespin"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:arcanine", "level": 47, "gender": "random", "moves": ["roar", "ember", "fireblast", "takedown"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+      { "species": "cobblemon:growlithe", "level": 42, "gender": "random", "moves": ["bite", "roar", "takedown", "fireblast"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:ponyta", "level": 40, "gender": "random", "moves": ["stomp", "bounce", "firespin", "fireblast"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:rapidash", "level": 42, "gender": "random", "moves": ["stomp", "bounce", "firespin", "fireblast"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:arcanine", "level": 47, "gender": "random", "moves": ["bite", "roar", "takedown", "fireblast"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
     ],
     "trainer_id": "cobbleventure:npc/gym_leader/blaine"
   }

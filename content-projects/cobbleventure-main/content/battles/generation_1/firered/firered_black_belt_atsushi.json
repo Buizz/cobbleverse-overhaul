@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/firered_black_belt_atsushi",
+  "enabled": true,
+  "name": {
+    "ko_kr": "Black Belt Atsushi 배틀",
+    "en_us": "Black Belt Atsushi Battle"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 0
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:machop",
+        "level": 40,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": "cobblemon:black_belt",
+        "gimmick": null,
+        "moves": [
+          "revenge",
+          "vitalthrow",
+          "submission",
+          "crosschop"
+        ],
+        "ivs": {
+          "hp": 12,
+          "attack": 12,
+          "defense": 12,
+          "special_attack": 12,
+          "special_defense": 12,
+          "speed": 12
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:machoke",
+        "level": 40,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": "cobblemon:black_belt",
+        "gimmick": null,
+        "moves": [
+          "seismictoss",
+          "foresight",
+          "revenge",
+          "vitalthrow"
+        ],
+        "ivs": {
+          "hp": 12,
+          "attack": 12,
+          "defense": 12,
+          "special_attack": 12,
+          "special_defense": 12,
+          "speed": 12
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:trainer/firered_black_belt_atsushi"
+  }
+}

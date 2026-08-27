@@ -7,17 +7,17 @@
   "battle": {
     "format": "GEN_9_SINGLES",
     "battle_type": "singles",
-    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "balanced", "options": {} },
     "level_mode": "fixed",
-    "rules": { "can_forfeit": true },
-    "bag": [],
+    "rules": { "can_forfeit": true, "max_item_uses": 3 },
+    "bag": [{ "item": "cobblemon:hyper_potion", "quantity": 2 }, { "item": "cobblemon:full_heal", "quantity": 1 }],
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      { "species": "cobblemon:rhyhorn", "level": 45, "gender": "random", "moves": ["stomp", "tailwhip", "furyattack", "horndrill"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:dugtrio", "level": 42, "gender": "random", "moves": ["growl", "dig", "sandattack", "slash"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:nidoqueen", "level": 44, "gender": "female", "moves": ["scratch", "tailwhip", "bodyslam", "poisonsting"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:nidoking", "level": 45, "gender": "male", "moves": ["tackle", "hornattack", "poisonsting", "thrash"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
-      { "species": "cobblemon:rhydon", "level": 50, "gender": "random", "moves": ["stomp", "tailwhip", "fissure", "horndrill"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
+      { "species": "cobblemon:rhyhorn", "level": 45, "gender": "random", "moves": ["takedown", "rockblast", "scaryface", "earthquake"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:dugtrio", "level": 42, "gender": "random", "moves": ["slash", "sandtomb", "mudslap", "earthquake"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:nidoqueen", "level": 44, "gender": "female", "moves": ["bodyslam", "doublekick", "poisonsting", "earthquake"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:nidoking", "level": 45, "gender": "male", "moves": ["thrash", "doublekick", "poisonsting", "earthquake"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false },
+      { "species": "cobblemon:rhyhorn", "level": 50, "gender": "random", "moves": ["takedown", "rockblast", "scaryface", "earthquake"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false }
     ],
     "trainer_id": "cobbleventure:npc/gym_leader/giovanni_gym"
   }

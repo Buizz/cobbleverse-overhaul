@@ -120,6 +120,9 @@ final class WorldStructureSystem {
                     "World structure placement failed: " + configured.id()
                 );
             }
+            CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
+                level, configured.structure(), origin, template, rotation
+            );
             level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
             LOGGER.info(
                 "World structure generated: id={}, type={}, anchor={}, origin={}",

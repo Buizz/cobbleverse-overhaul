@@ -80,34 +80,76 @@ class KantoGymLeaderTests(unittest.TestCase):
                     (texture_root / f"{slug}.png").read_bytes(),
                     (skin_root / f"{skin_uuid}.png").read_bytes(),
                 )
-    def test_red_blue_gym_lineups_and_challenge_caps_match_generation_one(self) -> None:
+    def test_fire_red_gym_lineups_moves_items_and_challenge_caps(self) -> None:
         expected = {
-            "brock": (["geodude", "onix"], [12, 14], 14),
-            "misty": (["staryu", "starmie"], [18, 21], 21),
-            "lt_surge": (["voltorb", "pikachu", "raichu"], [21, 18, 24], 24),
-            "erika": (["victreebel", "tangela", "vileplume"], [29, 24, 29], 29),
-            "koga": (["koffing", "koffing", "muk", "weezing"], [37, 37, 39, 43], 43),
-            "sabrina": (["kadabra", "mrmime", "venomoth", "alakazam"], [38, 37, 38, 43], 43),
-            "blaine": (["growlithe", "ponyta", "rapidash", "arcanine"], [42, 40, 42, 47], 47),
+            "brock": (["geodude", "onix"], [12, 14], [["tackle", "defensecurl"], ["tackle", "bind", "rocktomb"]], [], 14),
+            "misty": (["staryu", "starmie"], [18, 21], [["tackle", "harden", "recover", "waterpulse"], ["swift", "recover", "rapidspin", "waterpulse"]], [("super_potion", 1)], 21),
+            "lt_surge": (["voltorb", "pikachu", "raichu"], [21, 18, 24], [["sonicboom", "tackle", "screech", "shockwave"], ["quickattack", "thunderwave", "doubleteam", "shockwave"], ["quickattack", "thunderwave", "doubleteam", "shockwave"]], [("super_potion", 1), ("full_heal", 1)], 24),
+            "erika": (["victreebel", "tangela", "vileplume"], [29, 24, 29], [["stunspore", "acid", "poisonpowder", "gigadrain"], ["poisonpowder", "constrict", "ingrain", "gigadrain"], ["sleeppowder", "acid", "stunspore", "gigadrain"]], [("hyper_potion", 1), ("full_heal", 1)], 29),
+            "koga": (["koffing", "muk", "koffing", "weezing"], [37, 39, 37, 43], [["selfdestruct", "sludge", "smokescreen", "toxic"], ["minimize", "sludge", "acidarmor", "toxic"], ["selfdestruct", "sludge", "smokescreen", "toxic"], ["tackle", "sludge", "smokescreen", "toxic"]], [("hyper_potion", 2), ("full_heal", 1)], 43),
+            "sabrina": (["kadabra", "mrmime", "venomoth", "alakazam"], [38, 37, 38, 43], [["psybeam", "reflect", "futuresight", "calmmind"], ["barrier", "psybeam", "batonpass", "calmmind"], ["psybeam", "gust", "leechlife", "supersonic"], ["psychic", "recover", "futuresight", "calmmind"]], [("hyper_potion", 2), ("full_heal", 1)], 43),
+            "blaine": (["growlithe", "ponyta", "rapidash", "arcanine"], [42, 40, 42, 47], [["bite", "roar", "takedown", "fireblast"], ["stomp", "bounce", "firespin", "fireblast"], ["stomp", "bounce", "firespin", "fireblast"], ["bite", "roar", "takedown", "fireblast"]], [("hyper_potion", 2), ("full_heal", 1)], 47),
             "giovanni_gym": (
-                ["rhyhorn", "dugtrio", "nidoqueen", "nidoking", "rhydon"],
+                ["rhyhorn", "dugtrio", "nidoqueen", "nidoking", "rhyhorn"],
                 [45, 42, 44, 45, 50],
+                [["takedown", "rockblast", "scaryface", "earthquake"], ["slash", "sandtomb", "mudslap", "earthquake"], ["bodyslam", "doublekick", "poisonsting", "earthquake"], ["thrash", "doublekick", "poisonsting", "earthquake"], ["takedown", "rockblast", "scaryface", "earthquake"]],
+                [("hyper_potion", 2), ("full_heal", 1)],
                 50,
             ),
         }
         league = content_manager.load_json(PROJECT_ROOT / "content/catalogs/league-progression.json")
         leaders = [entry for entry in league["entries"] if entry["role"] == "gym_leader"]
 
-        for entry, (slug, (species, levels, level_cap)) in zip(leaders, expected.items(), strict=True):
+        for entry, (slug, (species, levels, moves, bag, level_cap)) in zip(leaders, expected.items(), strict=True):
             battle = content_manager.load_json(
                 PROJECT_ROOT / f"content/battles/gym_leaders/{slug}.json"
             )["battle"]
             self.assertEqual(species, [member["species"].split(":", 1)[1] for member in battle["team"]])
             self.assertEqual(levels, [member["level"] for member in battle["team"]])
+            self.assertEqual(moves, [member["moves"] for member in battle["team"]])
+            self.assertEqual(
+                bag,
+                [(item["item"].split(":", 1)[1], item["quantity"]) for item in battle["bag"]],
+            )
             self.assertEqual(level_cap, entry["level_cap"])
             self.assertEqual(level_cap * 100, entry["encounter"]["rewards"]["money"])
-            self.assertEqual([], battle["bag"])
+            self.assertEqual(sum(quantity for _, quantity in bag), battle["rules"]["max_item_uses"])
+            self.assertEqual("advanced", battle["ai"]["difficulty"])
             self.assertFalse(any(battle["mechanics"].values()))
+
+    def test_fire_red_reference_catalog_contains_every_real_trainer_slot(self) -> None:
+        catalog = content_manager.load_json(
+            PROJECT_ROOT / "content/catalogs/trainer-reference-entries.json"
+        )
+        entries = [entry for entry in catalog["entries"] if entry["source"] == "firered"]
+        self.assertEqual(654, len(entries))
+        self.assertEqual(set(range(89, 743)), {entry["entry_number"] for entry in entries})
+        self.assertEqual(15, sum(entry["category"] == "미사용 슬롯" for entry in entries))
+        by_id = {entry["id"]: entry for entry in entries}
+        self.assertEqual(
+            ["rhyhorn", "dugtrio", "nidoqueen", "nidoking", "rhyhorn"],
+            [member["species"].split(":", 1)[1] for member in by_id["firered_leader_giovanni"]["battle"]["team"]],
+        )
+        self.assertEqual(
+            {"firered_champion_first_squirtle", "firered_champion_first_bulbasaur", "firered_champion_first_charmander"},
+            {entry_id for entry_id in by_id if entry_id.startswith("firered_champion_first_")},
+        )
+        localization = content_manager.load_json(
+            ROOT / "projects/cobbleventure-battle-ai/web-lab/public/data/cobblemon-ko-kr.json"
+        )
+        species = {
+            member["species"].split(":", 1)[1]
+            for entry in entries
+            for member in entry["battle"]["team"]
+        }
+        moves = {
+            move
+            for entry in entries
+            for member in entry["battle"]["team"]
+            for move in member["moves"]
+        }
+        self.assertFalse(species - set(localization["species"]))
+        self.assertFalse(moves - set(localization["moves"]))
 
     def test_generation_one_trainers_prepare_regional_money_rewards(self) -> None:
         source_root = PROJECT_ROOT / "content/source/generation_1"

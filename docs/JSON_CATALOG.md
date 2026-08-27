@@ -198,6 +198,7 @@
 | 경로 | 역할 |
 |------|------|
 | `content/catalogs/trainer-classes.json` | 본가식 트레이너 직업명, 이름 패턴, 태그와 RCT·자체 기본 외형 연결 |
+| `content/catalogs/trainer-reference-entries.json` | Another Red·FireRed/LeafGreen·RCT 원본에서 가져온 배치 전 트레이너 팀 참고 카탈로그 |
 | `content/catalogs/league-progression.json` | 관장·사천왕·챔피언의 트레이너풀 NPC, 레벨캡, 순서와 배지·트레이너카드 표시 설정 |
 | `content/catalogs/pokemon-habitats.json` | 도감 번호별 최초 등장 세대, 시리즈 지역도감 출현 여부, 전설·환상 분류, 주·보조 서식지와 출현 성향 |
 | `content/catalogs/biome-profiles.json` | 월드 바이옴을 서식지와 출현 필터에 연결하고, 번호당 최대 후보 수와 자동 분할을 정의하는 프로필 |

@@ -1,0 +1,185 @@
+{
+  "$schema": "../../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/firered_cooltrainer_caroline",
+  "enabled": true,
+  "name": {
+    "ko_kr": "Cooltrainer Caroline 배틀",
+    "en_us": "Cooltrainer Caroline Battle"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "advanced",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 1
+    },
+    "bag": [
+      {
+        "item": "cobblemon:hyper_potion",
+        "quantity": 1
+      }
+    ],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:bellsprout",
+        "level": 42,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "razorleaf",
+          "acid",
+          "stunspore",
+          "poisonpowder"
+        ],
+        "ivs": {
+          "hp": 12,
+          "attack": 12,
+          "defense": 12,
+          "special_attack": 12,
+          "special_defense": 12,
+          "speed": 12
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:weepinbell",
+        "level": 42,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "razorleaf",
+          "acid",
+          "sleeppowder",
+          "poisonpowder"
+        ],
+        "ivs": {
+          "hp": 12,
+          "attack": 12,
+          "defense": 12,
+          "special_attack": 12,
+          "special_defense": 12,
+          "speed": 12
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:victreebel",
+        "level": 42,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "razorleaf",
+          "acid",
+          "stunspore",
+          "sleeppowder"
+        ],
+        "ivs": {
+          "hp": 12,
+          "attack": 12,
+          "defense": 12,
+          "special_attack": 12,
+          "special_defense": 12,
+          "speed": 12
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:paras",
+        "level": 42,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "growth",
+          "slash",
+          "leechlife",
+          "stunspore"
+        ],
+        "ivs": {
+          "hp": 12,
+          "attack": 12,
+          "defense": 12,
+          "special_attack": 12,
+          "special_defense": 12,
+          "speed": 12
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:parasect",
+        "level": 42,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "spore",
+          "slash",
+          "leechlife",
+          "poisonpowder"
+        ],
+        "ivs": {
+          "hp": 12,
+          "attack": 12,
+          "defense": 12,
+          "special_attack": 12,
+          "special_defense": 12,
+          "speed": 12
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:trainer/firered_cooltrainer_caroline"
+  }
+}

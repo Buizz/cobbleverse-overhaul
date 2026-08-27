@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/firered_tamer_cole",
+  "enabled": true,
+  "name": {
+    "ko_kr": "Tamer Cole 배틀",
+    "en_us": "Tamer Cole Battle"
+  },
+  "battle": {
+    "format": "GEN_9_SINGLES",
+    "battle_type": "singles",
+    "ai": {
+      "controller": "cobbleventure",
+      "difficulty": "standard",
+      "strategy": "balanced",
+      "options": {}
+    },
+    "level_mode": "fixed",
+    "rules": {
+      "can_forfeit": true,
+      "max_item_uses": 0
+    },
+    "bag": [],
+    "mechanics": {
+      "mega_evolution": false,
+      "z_move": false,
+      "dynamax": false,
+      "terastallization": false
+    },
+    "team": [
+      {
+        "species": "cobblemon:arbok",
+        "level": 39,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "bite",
+          "glare",
+          "screech",
+          "acid"
+        ],
+        "ivs": {
+          "hp": 4,
+          "attack": 4,
+          "defense": 4,
+          "special_attack": 4,
+          "special_defense": 4,
+          "speed": 4
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      },
+      {
+        "species": "cobblemon:tauros",
+        "level": 39,
+        "form": null,
+        "aspects": [],
+        "gender": "random",
+        "nature": "hardy",
+        "ability": null,
+        "held_item": null,
+        "gimmick": null,
+        "moves": [
+          "scaryface",
+          "pursuit",
+          "swagger",
+          "rest"
+        ],
+        "ivs": {
+          "hp": 4,
+          "attack": 4,
+          "defense": 4,
+          "special_attack": 4,
+          "special_defense": 4,
+          "speed": 4
+        },
+        "evs": {},
+        "tera_type": "auto",
+        "shiny": false,
+        "gigantamax_factor": false
+      }
+    ],
+    "trainer_id": "cobbleventure:trainer/firered_tamer_cole"
+  }
+}
