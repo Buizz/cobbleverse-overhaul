@@ -63,7 +63,7 @@ function dungeonEntranceOptions(current = "") {
   const assignedElsewhere = new Map(flow.dungeonEntranceAssignments
     .filter((item) => item.entrance_id !== current)
     .map((item) => [item.entrance_id, `${item.structure}#${item.anchor}`]));
-  return `<option value="">일반 공간 연결 문</option>${flow.availableDungeonEntrances.map((entry) => {
+  return `<option value="">일반 공간 연결 앵커</option>${flow.availableDungeonEntrances.map((entry) => {
     const owner = assignedElsewhere.get(entry.entrance_id);
     const label = `${entry.display_name} · ${entry.entrance_id}${owner ? ` · 사용 중: ${owner}` : ""}`;
     return `<option value="${escapeHtml(entry.entrance_id)}"${entry.entrance_id === current ? " selected" : ""}${owner ? " disabled" : ""}>${escapeHtml(label)}</option>`;
@@ -223,7 +223,7 @@ function renderNodes() {
     const mapHeight = Math.max(145, Math.min(230, Math.round(270 * depth / width)));
     const cutoff = Number(metadata.cutaway_view?.cutoff_y || Math.ceil((Number(metadata.height) || 1) / 2));
     const doorPins = nodePorts(node);
-    const dungeonCount = (metadata.door_anchors || []).filter((anchor) =>
+    const dungeonCount = nodeAnchorEntries(node).filter((anchor) =>
       dungeonAssignment(node.structure, anchor.label)
     ).length;
     return `<article class="space-node${selected ? " is-selected" : ""}" data-space-node="${escapeHtml(node.id)}" style="transform:translate(${Number(node.position?.[0] || 0)}px,${Number(node.position?.[1] || 0)}px)">
@@ -295,13 +295,14 @@ function renderInspector() {
     const assignment = dungeonAssignment(node.structure, doorAnchor.label);
     const position = doorAnchor.position || [];
     const safeSpawn = doorAnchor.safe_spawn || [];
-    inspector.innerHTML = `<header><p class="eyebrow">${assignment ? "DUNGEON ENTRANCE" : "DOOR ANCHOR"}</p><h3>${escapeHtml(doorAnchor.label)}</h3><small>${escapeHtml(node.structure)}</small></header>
+    const isTransition = doorAnchor.connectionType === "접촉 영역";
+    inspector.innerHTML = `<header><p class="eyebrow">${assignment ? "DUNGEON ENTRANCE" : isTransition ? "TRANSITION ANCHOR" : "DOOR ANCHOR"}</p><h3>${escapeHtml(doorAnchor.label)}</h3><small>${escapeHtml(node.structure)}</small></header>
       <div class="space-inspector-fields">
         <label><span>연결 방식</span><select data-dungeon-assignment data-structure="${escapeHtml(node.structure)}" data-anchor="${escapeHtml(doorAnchor.label)}">${dungeonEntranceOptions(assignment?.entrance_id || "")}</select></label>
-        <label><span>문 좌표</span><input value="X ${position[0] ?? "?"} / Y ${position[1] ?? "?"} / Z ${position[2] ?? "?"}" readonly></label>
+        <label><span>앵커 좌표</span><input value="X ${position[0] ?? "?"} / Y ${position[1] ?? "?"} / Z ${position[2] ?? "?"}" readonly></label>
         <label><span>안전 이동 좌표</span><input value="X ${safeSpawn[0] ?? "?"} / Y ${safeSpawn[1] ?? "?"} / Z ${safeSpawn[2] ?? "?"}" readonly></label>
-        <label><span>문 방향</span><input value="${escapeHtml(doorAnchor.door_facing || doorAnchor.facing || "미지정")}" readonly></label>
-        <p class="space-route-note">이 앵커는 에딧월드에서 실제 문을 막대기로 지정한 <b>door</b>입니다. 던전 선택은 별도 연결 정보로만 저장되며 원본 문 타입은 바뀌지 않습니다.</p>
+        <label><span>진행 방향</span><input value="${escapeHtml(doorAnchor.door_facing || doorAnchor.facing || "미지정")}" readonly></label>
+        <p class="space-route-note">${isTransition ? "이 앵커는 에딧월드에서 지정한 배리어 접촉 영역 <b>transition</b>입니다." : "이 앵커는 에딧월드에서 실제 문을 막대기로 지정한 <b>door</b>입니다."} 던전 선택은 별도 연결 정보로만 저장되며 원본 앵커 타입은 바뀌지 않습니다.</p>
       </div>`;
   } else if (node) {
     const world = Array.isArray(node.world_position) ? node.world_position : [0, 0, 0];
@@ -705,10 +706,13 @@ $("#space-flow-inspector").addEventListener("change", (event) => {
   flow.dungeonEntranceAssignments = flow.dungeonEntranceAssignments.filter((item) =>
     !(item.structure === structure && item.anchor === anchorLabel)
   );
-  const doorExists = (metadata.door_anchors || []).some((anchor) => anchor.label === anchorLabel);
-  if (!doorExists) {
+  const entranceAnchorExists = [
+    ...(metadata.door_anchors || []),
+    ...(metadata.transition_anchors || []),
+  ].some((anchor) => anchor.label === anchorLabel);
+  if (!entranceAnchorExists) {
     selector.value = existing?.entrance_id || "";
-    setStatus("에딧월드에서 문으로 지정된 door 앵커가 아닙니다.", true);
+    setStatus("에딧월드에서 지정된 door 또는 transition 앵커가 아닙니다.", true);
     return;
   }
   if (entranceId) {

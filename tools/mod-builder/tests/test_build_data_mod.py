@@ -1800,9 +1800,9 @@ class DataModBuilderTests(unittest.TestCase):
             source_document = {
                 "schema_version": 1,
                 "anchors": [{
-                    "type": "door", "label": "secret_door",
+                    "type": "transition", "label": "secret_door",
                     "position": [4, 1, 5], "safe_spawn": [3, 1, 5],
-                    "door_facing": "east", "safe_side": "west",
+                    "facing": "east",
                 }],
             }
             metadata.write_text(json.dumps(source_document), encoding="utf-8")
@@ -1819,7 +1819,7 @@ class DataModBuilderTests(unittest.TestCase):
 
             build_data_mod._package_building_runtime_data(root, output)
 
-            self.assertEqual("door", json.loads(metadata.read_text(encoding="utf-8"))["anchors"][0]["type"])
+            self.assertEqual("transition", json.loads(metadata.read_text(encoding="utf-8"))["anchors"][0]["type"])
             generated = json.loads((
                 output / build_data_mod.STRUCTURE_METADATA_ENTRY_DIR
                 / "interiors/casino.structure.json"
@@ -1829,8 +1829,9 @@ class DataModBuilderTests(unittest.TestCase):
                 "cobbleventure:entrance/casino_hideout",
                 generated["anchors"][0]["entrance_id"],
             )
+            self.assertEqual("east", generated["anchors"][0]["facing"])
 
-    def test_dungeon_assignment_rejects_non_door_anchor(self) -> None:
+    def test_dungeon_assignment_rejects_unsupported_anchor(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             metadata = (
@@ -1856,7 +1857,7 @@ class DataModBuilderTests(unittest.TestCase):
                 }],
             }), encoding="utf-8")
 
-            with self.assertRaisesRegex(build_data_mod.ModBuildError, "실제 문으로 지정된 door"):
+            with self.assertRaisesRegex(build_data_mod.ModBuildError, "door 또는 transition"):
                 build_data_mod._package_building_runtime_data(root, root / "output")
 
     def test_packages_gym_exterior_metadata(self) -> None:

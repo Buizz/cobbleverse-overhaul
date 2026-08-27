@@ -12388,14 +12388,16 @@ def space_connections_payload(
         structure = assignment.get("structure")
         anchor = assignment.get("anchor")
         entrance_id = assignment.get("entrance_id")
-        door_labels = {
+        structure_metadata = structures.get(structure, {})
+        entrance_labels = {
             item.get("label")
-            for item in structures.get(structure, {}).get("door_anchors", [])
+            for field in ("door_anchors", "transition_anchors")
+            for item in structure_metadata.get(field, [])
             if isinstance(item, dict)
         }
         if (
             isinstance(structure, str) and isinstance(anchor, str)
-            and anchor in door_labels and entrance_id in available_entrance_ids
+            and anchor in entrance_labels and entrance_id in available_entrance_ids
         ):
             dungeon_assignments.append({
                 "structure": structure,
@@ -12456,6 +12458,14 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         }
         for resource_id, structure_path in structure_paths.items()
     }
+    dungeon_anchor_labels_by_structure = {
+        resource_id: {
+            anchor["label"] for anchor in _structure_named_anchors(
+                structure_path, {"door", "transition"}
+            )
+        }
+        for resource_id, structure_path in structure_paths.items()
+    }
     connection_labels_by_structure = {
         resource_id: {
             anchor["label"] for anchor in _structure_named_anchors(
@@ -12481,12 +12491,12 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
             _issue(issues, "error", path, f"{assignment_path}.structure", "관리 중인 NBT 구조물이 필요합니다.")
             continue
         if not isinstance(anchor_label, str) or not DOCUMENT_SLUG.fullmatch(anchor_label):
-            _issue(issues, "error", path, f"{assignment_path}.anchor", "실제 문 앵커 이름이 필요합니다.")
+            _issue(issues, "error", path, f"{assignment_path}.anchor", "출입 앵커 이름이 필요합니다.")
             continue
-        if anchor_label not in door_labels_by_structure.get(structure, set()):
+        if anchor_label not in dungeon_anchor_labels_by_structure.get(structure, set()):
             _issue(
                 issues, "error", path, f"{assignment_path}.anchor",
-                "에딧월드에서 문으로 지정된 door 앵커가 필요합니다.",
+                "에딧월드에서 지정된 door 또는 transition 앵커가 필요합니다.",
             )
             continue
         if entrance_id not in available_entrance_ids:
@@ -12494,10 +12504,10 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
             continue
         key = (structure, anchor_label)
         if key in normalized_dungeon_assignments:
-            _issue(issues, "error", path, assignment_path, "같은 문을 두 던전에 지정할 수 없습니다.")
+            _issue(issues, "error", path, assignment_path, "같은 출입 앵커를 두 던전에 지정할 수 없습니다.")
             continue
         if entrance_id in assigned_entrance_ids:
-            _issue(issues, "error", path, f"{assignment_path}.entrance_id", "같은 던전 입구를 두 문에 지정할 수 없습니다.")
+            _issue(issues, "error", path, f"{assignment_path}.entrance_id", "같은 던전 입구를 두 출입 앵커에 지정할 수 없습니다.")
             continue
         normalized_dungeon_assignments[key] = entrance_id
         assigned_entrance_ids.add(entrance_id)
@@ -12581,7 +12591,7 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
             source_key = (node_structures.get(source.get("node"), ""), source.get("anchor"))
             target_key = (node_structures.get(target.get("node"), ""), target.get("anchor"))
             if source_key in normalized_dungeon_assignments or target_key in normalized_dungeon_assignments:
-                _issue(issues, "error", path, edge_path, "던전 입구로 지정한 문은 일반 공간 연결선에 사용할 수 없습니다.")
+                _issue(issues, "error", path, edge_path, "던전 입구로 지정한 앵커는 일반 공간 연결선에 사용할 수 없습니다.")
                 continue
             anchor_catalog = connection_labels_by_structure if kind == "building" else door_labels_by_structure
             source_doors = anchor_catalog.get(node_structures.get(source.get("node"), ""), set())

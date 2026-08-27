@@ -399,7 +399,13 @@
       }
     }
   },
-  "dungeon_entrance_assignments": [],
+  "dungeon_entrance_assignments": [
+    {
+      "structure": "cobbleventure:interiors/casino",
+      "anchor": "transition",
+      "entrance_id": "cobbleventure:entrance/casino_hideout"
+    }
+  ],
   "annotations": {
     "building:cobbleventure:facilities/department_store": {
       "route_1": {

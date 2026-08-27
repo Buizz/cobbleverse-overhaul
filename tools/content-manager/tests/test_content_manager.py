@@ -7275,7 +7275,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-dungeon-assignment', script)
         self.assertIn('const assignment = dungeonAssignment(node.structure, anchor.label);', script)
         self.assertNotIn('metadata.dungeon_entrance_anchors', script)
-        self.assertIn('원본 문 타입은 바뀌지 않습니다.', script)
+        self.assertIn('원본 앵커 타입은 바뀌지 않습니다.', script)
+        self.assertIn('metadata.transition_anchors', script)
         self.assertIn('DUNGEON ENTRANCE', script)
         self.assertIn('DOOR ANCHOR', script)
         self.assertNotIn('nodePorts(node, "input")', script)
@@ -7337,6 +7338,11 @@ class ContentManagerTests(unittest.TestCase):
                         "position": [9, 1, 9], "safe_spawn": [8, 1, 9],
                         "door_facing": "east", "safe_side": "west",
                     },
+                    {
+                        "type": "transition", "label": "warp",
+                        "position": [4, 1, 9], "safe_spawn": [5, 1, 9],
+                        "facing": "east",
+                    },
                 ],
                 "interior": {"id": "test_room", "width": 12, "depth": 12, "floor_height": 6, "floors": 1},
             }), encoding="utf-8")
@@ -7348,7 +7354,7 @@ class ContentManagerTests(unittest.TestCase):
                 "annotations": {},
                 "dungeon_entrance_assignments": [{
                     "structure": "cobbleventure:interiors/test_room",
-                    "anchor": "basement",
+                    "anchor": "warp",
                     "entrance_id": "test:entrance/basement",
                 }],
             }), encoding="utf-8")
@@ -7430,13 +7436,20 @@ class ContentManagerTests(unittest.TestCase):
                 payload["structures"]["cobbleventure:interiors/test_room"]["door_anchors"],
             )
             self.assertEqual(
+                [{
+                    "label": "warp", "position": [4, 1, 9],
+                    "safe_spawn": [5, 1, 9], "facing": "east",
+                }],
+                payload["structures"]["cobbleventure:interiors/test_room"]["transition_anchors"],
+            )
+            self.assertEqual(
                 "test:entrance/basement",
                 payload["available_dungeon_entrances"][0]["entrance_id"],
             )
             self.assertEqual(
                 [{
                     "structure": "cobbleventure:interiors/test_room",
-                    "anchor": "basement",
+                    "anchor": "warp",
                     "entrance_id": "test:entrance/basement",
                 }],
                 payload["dungeon_entrance_assignments"],
@@ -7453,6 +7466,8 @@ class ContentManagerTests(unittest.TestCase):
             preserved_metadata = json.loads(interior.with_suffix(".structure.json").read_text(encoding="utf-8"))
             preserved_basement = next(anchor for anchor in preserved_metadata["anchors"] if anchor["label"] == "basement")
             self.assertEqual("door", preserved_basement["type"])
+            preserved_warp = next(anchor for anchor in preserved_metadata["anchors"] if anchor["label"] == "warp")
+            self.assertEqual("transition", preserved_warp["type"])
             blocked_issues = content_manager.save_space_connections(root, {
                 "schema_version": 1,
                 "graphs": [{

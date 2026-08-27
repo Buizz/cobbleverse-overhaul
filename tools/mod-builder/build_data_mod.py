@@ -2873,7 +2873,7 @@ def _dungeon_entrance_assignments(root: Path) -> dict[tuple[str, str], str]:
             raise ModBuildError(f"던전 입구 연결 {index}의 structure/anchor/entrance_id가 올바르지 않습니다.")
         key = (structure, anchor)
         if key in result:
-            raise ModBuildError(f"한 문에 던전 입구가 중복 지정됐습니다: {structure}#{anchor}")
+            raise ModBuildError(f"한 출입 앵커에 던전 입구가 중복 지정됐습니다: {structure}#{anchor}")
         result[key] = entrance_id
     return result
 
@@ -2896,9 +2896,9 @@ def _runtime_structure_metadata(
         entrance_id = assignments.get(key) if key is not None else None
         if entrance_id is None:
             continue
-        if anchor.get("type") != "door":
+        if anchor.get("type") not in {"door", "transition"}:
             raise ModBuildError(
-                "에딧월드에서 실제 문으로 지정된 door 앵커만 던전 입구가 될 수 있습니다: "
+                "에딧월드에서 지정된 door 또는 transition 앵커만 던전 입구가 될 수 있습니다: "
                 f"{structure_id}#{label} (anchors[{index}].type={anchor.get('type')!r})"
             )
         anchor["type"] = "dungeon_entrance"
@@ -2959,7 +2959,7 @@ def _package_building_runtime_data(root: Path, output: Path) -> None:
     if missing_assignments:
         missing = ", ".join(f"{structure}#{anchor}" for structure, anchor in sorted(missing_assignments))
         raise ModBuildError(
-            "에딧월드에서 문으로 지정된 door 앵커를 찾을 수 없는 던전 입구 연결입니다: " + missing
+            "에딧월드에서 지정된 door 또는 transition 앵커를 찾을 수 없는 던전 입구 연결입니다: " + missing
         )
 
     house_source = _inside(root, root / HOUSE_STRUCTURE_SOURCE_DIR, "주택 메타데이터 원본")
