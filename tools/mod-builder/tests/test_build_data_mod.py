@@ -1612,9 +1612,31 @@ class DataModBuilderTests(unittest.TestCase):
         size, layout = build_data_mod.power_plant_dungeon_layout()
         self.assertEqual((48, 24, 48), size)
         blocks = {position: state[0] for position, state in layout.items()}
-        for position in ((24, 1, 4), (14, 1, 16), (34, 1, 27), (24, 1, 40)):
+        event_positions = (
+            (24, 1, 4), (14, 1, 16), (34, 1, 27), (24, 1, 40),
+            (18, 1, 35), (6, 1, 17), (43, 1, 25), (35, 1, 43),
+            (23, 1, 33), (24, 1, 43),
+        )
+        for position in event_positions:
             self.assertEqual("minecraft:air", blocks[position])
             self.assertNotEqual("minecraft:air", blocks[(position[0], 0, position[2])])
+        walkable = {
+            (x, z)
+            for x in range(size[0]) for z in range(size[2])
+            if blocks[(x, 0, z)] != "minecraft:air"
+            and blocks[(x, 1, z)] == "minecraft:air"
+            and blocks[(x, 2, z)] == "minecraft:air"
+        }
+        reachable = {(24, 4)}
+        pending = [(24, 4)]
+        while pending:
+            x, z = pending.pop()
+            for neighbor in ((x - 1, z), (x + 1, z), (x, z - 1), (x, z + 1)):
+                if neighbor in walkable and neighbor not in reachable:
+                    reachable.add(neighbor)
+                    pending.append(neighbor)
+        self.assertEqual(walkable, reachable)
+        self.assertTrue(all((x, z) in reachable for x, _, z in event_positions))
         self.assertEqual("minecraft:air", blocks[(24, 2, 10)])
         self.assertEqual("minecraft:air", blocks[(35, 2, 24)])
         self.assertEqual("minecraft:air", blocks[(24, 2, 33)])

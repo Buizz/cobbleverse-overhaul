@@ -5999,10 +5999,22 @@ function drawDungeonPlacementCutaway(context, placement, point, scale, opacity =
     const start = point([worldX, Number(placement.minimum[1] || 0), worldZ]);
     const end = point([worldX + 1, Number(placement.minimum[1] || 0), worldZ + 1]);
     const isFloor = y === floorY;
+    const isRouteFloor = isFloor && /(?:yellow|lime|cyan)_concrete$/.test(blockName);
     const heightShade = isFloor ? .52 : .92 + ((y - floorY) / heightRange) * .24;
-    context.globalAlpha = opacity * (isFloor ? .42 : /glass|water/.test(blockName) ? .7 : 1);
+    context.globalAlpha = opacity * (isRouteFloor ? .95 : isFloor ? .62 : /glass|water/.test(blockName) ? .7 : 1);
     context.fillStyle = shadeMinecraftTopColor(minecraftTopBlockColor(blockName), heightShade);
     context.fillRect(start.x, start.y, Math.max(.7, end.x - start.x + .15), Math.max(.7, end.y - start.y + .15));
+    if (isFloor && !isRouteFloor) {
+      context.globalAlpha = opacity * .12;
+      context.fillStyle = "#62c7dc";
+      context.fillRect(start.x, start.y, Math.max(.7, end.x - start.x + .15), Math.max(.7, end.y - start.y + .15));
+    }
+    if (isRouteFloor) {
+      context.globalAlpha = opacity;
+      context.strokeStyle = "rgba(255,235,132,.92)";
+      context.lineWidth = Math.max(1, Math.min(2, scale * .18));
+      context.strokeRect(start.x, start.y, Math.max(.7, end.x - start.x), Math.max(.7, end.y - start.y));
+    }
     if (!isFloor && scale >= 3) {
       context.strokeStyle = "rgba(232,245,239,.28)";
       context.lineWidth = Math.min(1, scale * .08);
