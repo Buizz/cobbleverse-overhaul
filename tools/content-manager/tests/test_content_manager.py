@@ -118,6 +118,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("verticalTransition: connectorLevels.length > 1", script)
         self.assertIn("plan.markers.filter(onSelectedFloor)", script)
         self.assertIn("수직 연결 조각은 연결되는 양쪽 층", script)
+        self.assertIn('name="verticalDirection"', markup)
+        self.assertIn('name="floorChanges"', markup)
+        self.assertIn('id="dungeon-preview-anchor"', markup)
+        self.assertIn('id="dungeon-preview-marker-summary"', markup)
+        self.assertIn("function snapDungeonGrid", script)
+        self.assertIn("x += 16", script)
+        self.assertIn('event.target.closest("#dungeon-preview-workspace")', script)
 
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))

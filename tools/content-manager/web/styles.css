@@ -2088,6 +2088,11 @@ body { font-size: 14px; line-height: 1.45; }
 .dungeon-link-row button { min-width:31px; height:31px; border:1px solid #d6a9aa; background:#fff; color:#a23e43; cursor:pointer; }
 .dungeon-authored-plan-editor > .issues { margin:0; border-width:1px 0 0; }
 .dungeon-preview-heading { display:flex; align-items:end; justify-content:space-between; gap:16px; padding:16px 16px 10px; border-top:1px solid #d3ded8; }
+#dungeon-preview-workspace { min-width:0; overflow:hidden; border:1px solid #bdccc5; border-radius:6px; background:#fff; }
+#dungeon-preview-anchor { min-width:0; }
+#dungeon-preview-anchor:empty { display:none; }
+.dungeon-grid-notice { display:grid; gap:3px; padding:10px 12px; border-left:3px solid #5fa8ff; background:#eef6fb; color:#315268; }
+.dungeon-grid-notice small { color:#67808e; }
 .dungeon-preview-heading > div:first-child { display:grid; gap:4px; }
 .dungeon-preview-heading strong { color:#2e473c; font-size:12px; }
 .dungeon-preview-heading small { color:#71837a; }
@@ -2103,6 +2108,16 @@ body { font-size: 14px; line-height: 1.45; }
 .dungeon-preview-inspector dt { color:#71837a; }
 .dungeon-preview-inspector dd { margin:0; color:#294035; font-weight:700; text-align:right; }
 .dungeon-preview-selection { padding:11px; border-left:3px solid #78951c; background:#fff; color:#52675d; font-size:9px; line-height:1.55; }
+.dungeon-preview-marker-panel { display:grid; gap:8px; padding-top:4px; border-top:1px solid #d8e2dd; }
+#dungeon-preview-marker-summary { display:grid; gap:5px; }
+.dungeon-enemy-marker { display:flex; align-items:center; gap:8px; width:100%; padding:7px; border:1px solid #dfc7b4; border-radius:4px; background:#fff8f2; color:#4f3b30; text-align:left; }
+.dungeon-enemy-marker i { display:grid; place-items:center; flex:0 0 22px; height:22px; border-radius:50%; background:#ff9c54; color:#fff; font-size:9px; font-style:normal; font-weight:900; }
+.dungeon-enemy-marker span { display:grid; min-width:0; gap:2px; }
+.dungeon-enemy-marker b { overflow:hidden; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.dungeon-enemy-marker small { color:#8a6c59; font-size:8px; }
+.dungeon-enemy-marker.is-random { border-color:#d4c7e7; background:#f7f2ff; }
+.dungeon-enemy-marker.is-random i { background:#9b72cf; }
+.dungeon-preview-no-markers { color:#82928b; line-height:1.5; }
 .dungeon-inline-error { color:#b53440; }
 .dungeon-preview-legend { display:flex; flex-wrap:wrap; gap:12px; }
 .dungeon-preview-legend span { display:flex; align-items:center; gap:5px; color:#52665d; }

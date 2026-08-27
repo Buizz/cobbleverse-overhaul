@@ -4602,6 +4602,15 @@ function parseDungeonRange(value, fallback, minimum = 0) {
   return normalized[0] <= normalized[1] ? normalized : [normalized[1], normalized[0]];
 }
 
+function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
+  const critical = parseDungeonRange(form?.elements?.criticalRooms?.value || dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]), [5, 7], 3);
+  const branchDepth = parseDungeonRange(form?.elements?.branchDepth?.value || dungeonRangeText(document.layout?.branch_depth, [1, 2]), [1, 2], 1);
+  const floorChanges = parseDungeonRange(form?.elements?.floorChanges?.value || dungeonRangeText(document.layout?.floor_changes, [0, 0]), [0, 0], 0);
+  const horizontalCells = Math.max(6, critical[1] + branchDepth[1] + 2);
+  const verticalLayers = Math.max(2, floorChanges[1] + 2);
+  return [horizontalCells * 16, verticalLayers * 8, horizontalCells * 16];
+}
+
 const dungeonTemplateSlotLabels = {
   encounter: "일반 조우", boss: "보스", loot: "전리품", healing_station: "치료소",
   gate: "관문", objective: "목표", checkpoint: "체크포인트",
@@ -4709,15 +4718,19 @@ function renderDungeonOptionVisibility() {
   });
   $$('[data-dungeon-fixed-field]').forEach((element) => element.hidden = terrainMode !== "fixed_template");
   $$('[data-dungeon-piece-field]').forEach((element) => element.hidden = !["nbt_pieces", "hybrid"].includes(terrainMode));
-  $$('[data-dungeon-bounds-field], [data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
+  $$('[data-dungeon-bounds-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
+  $$('[data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
   $$('[data-dungeon-cave-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
-  ["layoutMode", "criticalRooms", "branchCount", "branchDepth", "loopChance"].forEach((name) => {
+  ["layoutMode", "criticalRooms", "branchCount", "branchDepth", "loopChance", "verticalDirection", "floorChanges"].forEach((name) => {
     const field = form.elements[name]?.closest("label");
     if (field) field.hidden = ["procedural_cave", "hybrid"].includes(terrainMode);
   });
   $$('[data-dungeon-party-field]').forEach((element) => element.hidden = multiplayerMode === "solo");
   $$('[data-dungeon-tether-field]').forEach((element) => element.hidden = multiplayerMode !== "cooperative");
   $$('[data-dungeon-repeat-field]').forEach((element) => element.hidden = !form.elements.repeatable.checked);
+  const workspace = $("#dungeon-preview-workspace");
+  const anchor = $("#dungeon-preview-anchor");
+  if (workspace && anchor && workspace.parentElement !== anchor) anchor.append(workspace);
 }
 
 function renderDungeonForm() {
@@ -4750,7 +4763,8 @@ function renderDungeonForm() {
     maxAttempts: document.plan?.max_attempts ?? 32, planIds: (document.plan?.plan_ids || []).join(", "),
     layoutMode: document.layout?.mode || "critical_path_branches", criticalRooms: dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]),
     branchCount: dungeonRangeText(document.layout?.branch_count, [1, 2]), branchDepth: dungeonRangeText(document.layout?.branch_depth, [1, 2]),
-    loopChance: document.layout?.loop_chance ?? 0, resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
+    loopChance: document.layout?.loop_chance ?? 0, verticalDirection: document.layout?.vertical_direction || "flat",
+    floorChanges: dungeonRangeText(document.layout?.floor_changes, [0, 0]), resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
     reconnectGrace: document.lifecycle?.reconnect_grace_seconds ?? 120, wipeReturn: document.lifecycle?.wipe_return || "source_entrance",
     healOnWipe: document.lifecycle?.heal_on_wipe, lootOwnership: document.loot?.ownership || "per_player",
     lootOnFailure: document.loot?.on_failure || "grant_on_clear_only", repeatable: document.completion?.repeatable,
@@ -4815,7 +4829,9 @@ function updateDungeonFromForm() {
     if (selectedTemplate) document.terrain.template = selectedTemplate;
     document.terrain.entry_position ||= [0, 1, 0]; document.terrain.exit_position ||= [0, 1, 2];
   } else {
-    document.terrain.bounds = [integer("boundsX", 64), integer("boundsY", 16), integer("boundsZ", 64)];
+    document.terrain.bounds = terrainMode === "nbt_pieces"
+      ? derivedDungeonGridBounds(document, form)
+      : [integer("boundsX", 64), integer("boundsY", 16), integer("boundsZ", 64)];
     if (["nbt_pieces", "hybrid"].includes(terrainMode)) document.terrain.piece_pool = form.elements.piecePool.value.trim();
     if (["procedural_cave", "hybrid"].includes(terrainMode)) {
       document.terrain.cave_generator = "minecraft_worldgen";
@@ -4827,7 +4843,7 @@ function updateDungeonFromForm() {
     }
     document.plan = { ...(document.plan || {}), mode: form.elements.planMode.value, seed_policy: form.elements.seedPolicy.value, fallback: form.elements.planFallback.value, generation_timeout_ms: integer("generationTimeout", 1000), max_attempts: integer("maxAttempts", 32) };
     const planIds = csvValues(form.elements.planIds.value); if (planIds.length) document.plan.plan_ids = planIds; else delete document.plan.plan_ids;
-    if (!["procedural_cave", "hybrid"].includes(terrainMode)) document.layout = { mode: form.elements.layoutMode.value, critical_path_rooms: parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3), branch_count: parseDungeonRange(form.elements.branchCount.value, [1, 2], 0), branch_depth: parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1), loop_chance: Number(form.elements.loopChance.value || 0) };
+    if (!["procedural_cave", "hybrid"].includes(terrainMode)) document.layout = { mode: form.elements.layoutMode.value, critical_path_rooms: parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3), branch_count: parseDungeonRange(form.elements.branchCount.value, [1, 2], 0), branch_depth: parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1), loop_chance: Number(form.elements.loopChance.value || 0), vertical_direction: form.elements.verticalDirection.value, floor_changes: parseDungeonRange(form.elements.floorChanges.value, [0, 0], 0) };
   }
   document.lifecycle ||= { on_wipe: "reset_run" };
   Object.assign(document.lifecycle, { on_wipe: "reset_run", wipe_return: form.elements.wipeReturn.value, heal_on_wipe: form.elements.healOnWipe.checked, resume_mode: form.elements.resumeMode.value, reconnect_grace_seconds: integer("reconnectGrace", 120) });
@@ -5311,6 +5327,20 @@ function currentDungeonAuthoredPlan() {
   return state.dungeonPlans.get(state.dungeonPreview.planId) || null;
 }
 
+function snapDungeonGrid(value, axis = 0) {
+  const step = axis === 1 ? 8 : 16;
+  return Math.round(Number(value || 0) / step) * step;
+}
+
+function syncAuthoredDungeonBounds(plan) {
+  const placements = (plan?.placements || []).map(authoredDungeonPlacement);
+  plan.bounds = placements.length ? [0, 1, 2].map((axis) => {
+    const step = axis === 1 ? 8 : 16;
+    const maximum = Math.max(step * 2, ...placements.map((placement) => Number(placement.minimum[axis]) + Number(placement.size[axis])));
+    return Math.ceil(maximum / step) * step;
+  }) : [32, 16, 32];
+}
+
 function dungeonPieceOptions(selected = "") {
   const pieces = [...state.dungeonPieces.values()];
   if (!pieces.length) return '<option value="">등록된 던전 조각이 없습니다</option>';
@@ -5377,7 +5407,7 @@ function updateDungeonPlanMeta() {
   const oldId = plan.plan_id;
   const nextId = form.elements.planId.value.trim();
   plan.plan_id = nextId; plan.seed = Math.round(Number(form.elements.seed.value || 0));
-  plan.bounds = [Math.round(Number(form.elements.boundsX.value || 1)), Math.round(Number(form.elements.boundsY.value || 1)), Math.round(Number(form.elements.boundsZ.value || 1))];
+  syncAuthoredDungeonBounds(plan);
   if (nextId && nextId !== oldId) {
     const path = state.dungeonPlanPaths.get(oldId);
     state.dungeonPlans.delete(oldId); state.dungeonPlanPaths.delete(oldId);
@@ -5413,9 +5443,9 @@ function addDungeonPlanPiece() {
   const piece = state.dungeonPieces.get(pieceId);
   if (!plan || !piece) return;
   const previous = plan.placements.at(-1);
-  const previousPiece = state.dungeonPieces.get(previous?.piece_id);
-  const originX = previous ? Number(previous.origin[0]) + Number(previousPiece?.size?.[0] || 12) + 2 : 1;
-  plan.placements.push({ piece_id: pieceId, origin: [originX, 1, 1], rotation: "none", critical_path: true });
+  const originX = previous ? snapDungeonGrid(Number(previous.origin[0]) + 16) : 0;
+  plan.placements.push({ piece_id: pieceId, origin: [originX, 0, 0], rotation: "none", critical_path: true });
+  syncAuthoredDungeonBounds(plan);
   state.dungeonPlanEditor.selectedPlacement = plan.placements.length - 1;
   markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview();
 }
@@ -5426,9 +5456,10 @@ function updateSelectedDungeonPlacement() {
   if (!placement) return;
   const root = $("#dungeon-placement-properties");
   placement.piece_id = root.querySelector("[name=pieceId]").value;
-  placement.origin = ["originX", "originY", "originZ"].map((name) => Math.round(Number(root.querySelector(`[name=${name}]`).value || 0)));
+  placement.origin = ["originX", "originY", "originZ"].map((name, axis) => snapDungeonGrid(root.querySelector(`[name=${name}]`).value, axis));
   placement.rotation = root.querySelector("[name=rotation]").value;
   placement.critical_path = root.querySelector("[name=criticalPath]").checked;
+  syncAuthoredDungeonBounds(plan);
 }
 
 function rotateSelectedDungeonPiece() {
@@ -5439,6 +5470,7 @@ function rotateSelectedDungeonPiece() {
   if (piece?.allow_rotation === false) { toast("이 조각은 회전할 수 없습니다."); return; }
   const rotations = ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"];
   placement.rotation = rotations[(rotations.indexOf(placement.rotation) + 1) % rotations.length];
+  syncAuthoredDungeonBounds(plan);
   markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview();
 }
 
@@ -5449,6 +5481,7 @@ function removeSelectedDungeonPiece() {
   plan.placements.splice(index, 1);
   plan.links = plan.links.filter((link) => link.from_index !== index && link.to_index !== index).map((link) => ({ ...link, from_index: link.from_index > index ? link.from_index - 1 : link.from_index, to_index: link.to_index > index ? link.to_index - 1 : link.to_index }));
   state.dungeonPlanEditor.selectedPlacement = -1;
+  syncAuthoredDungeonBounds(plan);
   markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview();
 }
 
@@ -5519,36 +5552,68 @@ function runtimeDungeonPlan(document, seed) {
   const depthRange = caveTerrain ? [1, 1] : dungeonRange(layout.branch_depth, [1, 2]);
   const count = Math.max(3, Math.round(roomsRange[0] + random() * (roomsRange[1] - roomsRange[0])));
   const branchCount = Math.max(0, Math.round(branchesRange[0] + random() * (branchesRange[1] - branchesRange[0])));
-  const placements = [];
+  const cell = caveTerrain ? 12 : 16;
+  const layerHeight = caveTerrain ? 6 : 8;
+  const floorRange = caveTerrain ? [0, 0] : dungeonRange(layout.floor_changes, [0, 0]);
+  const floorChangeCount = layout.vertical_direction === "flat" ? 0 : Math.min(count - 2, Math.round(floorRange[0] + random() * (floorRange[1] - floorRange[0])));
+  const changeAfter = new Set(Array.from({ length: floorChangeCount }, (_, index) => Math.max(1, Math.round((index + 1) * (count - 2) / (floorChangeCount + 1)))));
+  const grid = [];
   const links = [];
+  const occupied = new Set();
+  const key = (x, y, z) => `${x},${y},${z}`;
+  const addGrid = (x, y, z, role, critical) => {
+    const index = grid.length;
+    grid.push({ index, gx: x, gy: y, gz: z, role, critical });
+    occupied.add(key(x, y, z));
+    return index;
+  };
+  let gx = 0; let gy = 0; let gz = 0;
   for (let index = 0; index < count; index += 1) {
-    let x = index * (mode === "rooms_and_corridors" ? 18 : 14);
-    let z = mode === "maze" ? (Math.floor(index / 2) % 2 ? 28 : 0) : mode === "rooms_and_corridors" ? Math.round((random() - .5) * 4) : Math.round(Math.sin(index * 1.45) * 18);
+    if (index > 0) {
+      if (mode === "maze" && index % 3 === 0) gz += 1;
+      else gx += mode === "maze" && Math.floor(index / 3) % 2 ? -1 : 1;
+      if (changeAfter.has(index)) {
+        const direction = layout.vertical_direction === "descending" ? -1 : layout.vertical_direction === "mixed" && index % 2 === 0 ? -1 : 1;
+        gy += direction;
+      }
+    }
     const role = index === 0 ? "start" : index === count - 2 ? "boss" : index === count - 1 ? "exit" : mode === "maze" ? (index % 3 === 0 ? "junction" : "corridor") : mode === "rooms_and_corridors" ? (index % 2 ? "corridor" : "room") : "room";
-    const size = role === "corridor" ? [8, 6, 8] : [12, 7, 12];
-    placements.push({ index, pieceId: `preview:${role}`, role, minimum: [x, 0, z], size, rotation: "none", critical: true });
-    if (index) links.push({ from: index - 1, to: index, critical: true });
+    const placed = addGrid(gx, gy, gz, role, true);
+    if (index) links.push({ from: placed - 1, to: placed, critical: true });
   }
   for (let branch = 0; branch < branchCount; branch += 1) {
     const root = 1 + Math.floor((branch + 1) * Math.max(1, count - 3) / (branchCount + 1));
     const depth = Math.max(1, Math.round(depthRange[0] + random() * (depthRange[1] - depthRange[0])));
+    const base = grid[root];
+    const directions = branch % 2 ? [[0, -1], [0, 1], [1, 0], [-1, 0]] : [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    let [dx, dz] = directions.find(([x, z]) => !occupied.has(key(base.gx + x, base.gy, base.gz + z))) || [0, branch % 2 ? -1 : 1];
     let previous = root;
-    for (let step = 0; step < depth; step += 1) {
-      const index = placements.length;
-      const base = placements[root];
-      const direction = branch % 2 ? -1 : 1;
-      const role = step === depth - 1 ? "dead_end" : mode === "maze" ? "corridor" : step % 2 ? "room" : "corridor";
-      placements.push({ index, pieceId: `preview:${role}`, role, minimum: [base.minimum[0] + step * 10, 0, base.minimum[2] + direction * (18 + step * 12)], size: role === "corridor" ? [8, 6, 8] : [11, 7, 11], rotation: "none", critical: false });
-      links.push({ from: previous, to: index, critical: false });
-      previous = index;
+    for (let step = 1; step <= depth; step += 1) {
+      let bx = base.gx + dx * step; let bz = base.gz + dz * step;
+      if (occupied.has(key(bx, base.gy, bz))) {
+        const alternative = directions.find(([x, z]) => !occupied.has(key(base.gx + x * step, base.gy, base.gz + z * step)));
+        if (!alternative) break;
+        [dx, dz] = alternative; bx = base.gx + dx * step; bz = base.gz + dz * step;
+      }
+      const role = step === depth ? "dead_end" : mode === "maze" ? "corridor" : step % 2 ? "corridor" : "room";
+      const placed = addGrid(bx, base.gy, bz, role, false);
+      links.push({ from: previous, to: placed, critical: false });
+      previous = placed;
     }
   }
-  const minX = Math.min(...placements.map((value) => value.minimum[0]));
-  const minZ = Math.min(...placements.map((value) => value.minimum[2]));
-  placements.forEach((value) => { value.minimum[0] -= minX; value.minimum[2] -= minZ; });
-  const bounds = document.terrain?.bounds || [Math.max(...placements.map((value) => value.minimum[0] + value.size[0])) + 6, 16, Math.max(...placements.map((value) => value.minimum[2] + value.size[2])) + 6];
+  const minX = Math.min(...grid.map((value) => value.gx)); const minY = Math.min(...grid.map((value) => value.gy)); const minZ = Math.min(...grid.map((value) => value.gz));
+  const placements = grid.map((value) => ({
+    index: value.index, pieceId: `preview:${value.role}`, role: value.role,
+    minimum: [(value.gx - minX) * cell, (value.gy - minY) * layerHeight, (value.gz - minZ) * cell],
+    size: [cell, layerHeight, cell], rotation: "none", critical: value.critical,
+  }));
+  const bounds = [
+    Math.max(...placements.map((value) => value.minimum[0] + value.size[0])),
+    Math.max(16, ...placements.map((value) => value.minimum[1] + value.size[1])),
+    Math.max(...placements.map((value) => value.minimum[2] + value.size[2])),
+  ];
   const markers = runtimeDungeonContentMarkers(document, placements);
-  return { kind: "runtime", exact: false, seed, bounds, placements, links, markers, planId: "runtime" };
+  return { kind: caveTerrain ? "cave-preview" : "grid-runtime", exact: false, seed, bounds, placements, links, markers, planId: "runtime" };
 }
 
 function runtimeDungeonContentMarkers(document, placements) {
@@ -5587,7 +5652,10 @@ function runtimeDungeonContentMarkers(document, placements) {
 function selectedDungeonPlan() {
   if (!state.dungeon) return null;
   if (state.dungeon.terrain?.mode === "fixed_template") return fixedDungeonPlan(state.dungeon);
-  if (state.dungeon.plan?.mode === "runtime") return runtimeDungeonPlan(state.dungeon, state.dungeonPreview.seed);
+  if (state.dungeon.plan?.mode === "runtime") {
+    const example = Number(String(state.dungeonPreview.planId || "runtime:0").split(":").at(-1)) || 0;
+    return runtimeDungeonPlan(state.dungeon, state.dungeonPreview.seed + example * 104729);
+  }
   return authoredDungeonPlan(state.dungeon, state.dungeonPreview.planId);
 }
 
@@ -5601,7 +5669,7 @@ function syncDungeonFloorChoice(plan) {
   const available = new Set(floors.map(String));
   if (state.dungeonPreview.floor !== "all" && !available.has(String(state.dungeonPreview.floor))) state.dungeonPreview.floor = "all";
   select.innerHTML = `<option value="all"${state.dungeonPreview.floor === "all" ? " selected" : ""}>전체 층 · ${floors.length || 1}개</option>` + floors.map((value, index) => `<option value="${value}"${String(state.dungeonPreview.floor) === String(value) ? " selected" : ""}>${index + 1}층 · Y ${value}</option>`).join("");
-  select.disabled = floors.length <= 1;
+  select.disabled = false;
   return floors;
 }
 
@@ -5611,11 +5679,11 @@ function renderDungeon() {
   $("#dungeon-editor-title").textContent = document.display_name?.ko_kr || document.dungeon_id;
   $("#dungeon-path").textContent = state.dungeonPath;
   renderDungeonForm();
-  const ids = document.terrain?.mode === "fixed_template" ? ["fixed"] : document.plan?.mode === "runtime" ? ["runtime"] : document.plan?.plan_ids || [];
+  const ids = document.terrain?.mode === "fixed_template" ? ["fixed"] : document.plan?.mode === "runtime" ? ["runtime:0", "runtime:1", "runtime:2"] : document.plan?.plan_ids || [];
   if (!ids.includes(state.dungeonPreview.planId)) state.dungeonPreview.planId = ids[0] || "";
   const select = $("#dungeon-plan-choice");
-  select.innerHTML = ids.map((id) => `<option value="${escapeHtml(id)}"${id === state.dungeonPreview.planId ? " selected" : ""}>${id === "fixed" ? "고정 템플릿" : id === "runtime" ? "시드 생성 계획" : escapeHtml(id)}</option>`).join("");
-  select.disabled = ids.length < 2;
+  select.innerHTML = ids.map((id, index) => `<option value="${escapeHtml(id)}"${id === state.dungeonPreview.planId ? " selected" : ""}>${id === "fixed" ? "고정 템플릿" : id.startsWith("runtime:") ? `시드 계획 ${index + 1}` : escapeHtml(id)}</option>`).join("");
+  select.disabled = false;
   $("#dungeon-preview-seed").disabled = document.plan?.mode !== "runtime";
   $("#dungeon-repeat-seed").disabled = document.plan?.mode !== "runtime";
   $("#dungeon-random-seed").disabled = document.plan?.mode !== "runtime";
@@ -5631,7 +5699,15 @@ function renderDungeonPreview() {
   if (!plan) return;
   const floors = syncDungeonFloorChoice(plan);
   const selectedFloor = state.dungeonPreview.floor === "all" ? null : Number(state.dungeonPreview.floor);
-  const onSelectedFloor = (value) => selectedFloor === null || (value.floorYs || [Number(value.minimum?.[1] || value.position?.[1] || 0)]).map(Number).includes(selectedFloor);
+  const onSelectedFloor = (value) => {
+    if (selectedFloor === null) return true;
+    if (value.floorYs) return value.floorYs.map(Number).includes(selectedFloor);
+    if (value.minimum) return Number(value.minimum[1] || 0) === selectedFloor;
+    if (value.position) return plan.placements.some((placement) => Number(placement.minimum[1] || 0) === selectedFloor
+      && Number(value.position[0]) >= Number(placement.minimum[0]) && Number(value.position[0]) < Number(placement.minimum[0]) + Number(placement.size[0])
+      && Number(value.position[2]) >= Number(placement.minimum[2]) && Number(value.position[2]) < Number(placement.minimum[2]) + Number(placement.size[2]));
+    return false;
+  };
   const visiblePlacements = plan.placements.filter(onSelectedFloor);
   const visiblePlacementIds = new Set(visiblePlacements.map((placement) => placement.index));
   if (!visiblePlacementIds.has(state.dungeonPreview.selected)) state.dungeonPreview.selected = -1;
@@ -5646,7 +5722,12 @@ function renderDungeonPreview() {
   state.dungeonPreview.transform = { scale, offsetX, offsetY };
   const point = (position) => ({ x: offsetX + Number(position[0]) * scale, y: offsetY + Number(position[2]) * scale });
   const placementProblems = dungeonPlanPlacementProblems(plan);
-  context.strokeStyle = "#395057"; context.lineWidth = 1; context.strokeRect(offsetX, offsetY, boundsX * scale, boundsZ * scale);
+  context.strokeStyle = "#294047"; context.lineWidth = 1;
+  if (state.dungeon.terrain?.mode === "nbt_pieces") {
+    for (let x = 0; x <= boundsX; x += 16) { const px = offsetX + x * scale; context.beginPath(); context.moveTo(px, offsetY); context.lineTo(px, offsetY + boundsZ * scale); context.stroke(); }
+    for (let z = 0; z <= boundsZ; z += 16) { const py = offsetY + z * scale; context.beginPath(); context.moveTo(offsetX, py); context.lineTo(offsetX + boundsX * scale, py); context.stroke(); }
+  }
+  context.strokeStyle = "#527078"; context.lineWidth = 1.5; context.strokeRect(offsetX, offsetY, boundsX * scale, boundsZ * scale);
   const centers = new Map(visiblePlacements.map((placement) => [placement.index, point([placement.minimum[0] + placement.size[0] / 2, 0, placement.minimum[2] + placement.size[2] / 2])]));
   plan.links.forEach((link) => { const from = centers.get(link.from); const to = centers.get(link.to); if (!from || !to) return; context.strokeStyle = link.critical ? "#5fa8ff" : "#6f7f83"; context.lineWidth = link.critical ? 4 : 2; context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke(); });
   const colors = { start: "#64d98a", boss: "#ef5a67", exit: "#f1c75b" };
@@ -5676,6 +5757,11 @@ function renderDungeonPreview() {
     : state.dungeon.layout?.mode || "fixed";
   $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd><dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
+  const enemyMarkers = plan.markers.filter((marker) => ["encounter", "boss"].includes(marker.kind) && onSelectedFloor(marker));
+  const randomEncounterText = state.dungeon.random_encounters?.enabled
+    ? `<div class="dungeon-enemy-marker is-random"><i>?</i><span><b>랜덤 야생 조우</b><small>간격 ${Number(state.dungeon.random_encounters.minimum_distance || 0)}~${Number(state.dungeon.random_encounters.maximum_distance || 0)} · 최대 ${Number(state.dungeon.random_encounters.max_active || 0)}마리</small></span></div>`
+    : "";
+  $("#dungeon-preview-marker-summary").innerHTML = enemyMarkers.map((marker, index) => `<button type="button" class="dungeon-enemy-marker" data-preview-enemy="${index}"><i>${marker.kind === "boss" ? "B" : index + 1}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></button>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 적이 없습니다.</small>';
   const floorStatus = selectedFloor === null ? "모든 층을 표시합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
   $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 게시형 계획의 실제 좌표입니다.` : `${floorStatus} 런타임 방 그래프는 실제 생성 결과와 달라질 수 있습니다.`;
 }
@@ -16005,7 +16091,8 @@ $("#refresh-nbt-catalog").addEventListener("click", async (event) => {
 });
 $("#dungeon-plan-choice").addEventListener("change", (event) => { state.dungeonPreview.planId = event.target.value; state.dungeonPreview.floor = "all"; state.dungeonPreview.selected = -1; state.dungeonPlanEditor.selectedPlacement = -1; renderDungeonPlanEditor(); renderDungeonPreview(); });
 $("#dungeon-floor-choice").addEventListener("change", (event) => { state.dungeonPreview.floor = event.target.value; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
-$("#dungeon-form").addEventListener("input", () => {
+$("#dungeon-form").addEventListener("input", (event) => {
+  if (event.target.closest("#dungeon-preview-workspace")) return;
   if (!state.dungeon) return;
   updateDungeonFromForm();
   state.dungeonDirty = true;
@@ -16015,6 +16102,7 @@ $("#dungeon-form").addEventListener("input", () => {
   renderDungeonPreview();
 });
 $("#dungeon-form").addEventListener("change", (event) => {
+  if (event.target.closest("#dungeon-preview-workspace")) return;
   const form = event.currentTarget;
   if (event.target.name === "terrainMode" && event.target.value === "procedural_cave") {
     form.elements.planMode.value = "runtime";
@@ -16102,7 +16190,7 @@ $("#dungeon-repeat-seed").addEventListener("click", renderDungeonPreview);
 $("#dungeon-random-seed").addEventListener("click", () => { state.dungeonPreview.seed = Math.floor(Math.random() * 2147483647) + 1; $("#dungeon-preview-seed").value = state.dungeonPreview.seed; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
 $("#dungeon-plan-canvas").addEventListener("click", (event) => { const bounds = event.currentTarget.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const target = [...state.dungeonPreview.hitTargets].reverse().find((value) => x >= value.x && x <= value.x + value.width && y >= value.y && y <= value.y + value.height); if (target?.type === "marker") { state.dungeonContentSelection = { ...target.content }; state.dungeonPreview.selected = -1; renderDungeonContentEditor(); } else { state.dungeonPreview.selected = target?.index ?? -1; if (currentDungeonAuthoredPlan()) { state.dungeonPlanEditor.selectedPlacement = state.dungeonPreview.selected; renderDungeonPlanEditor(); } } renderDungeonPreview(); });
 $("#dungeon-plan-canvas").addEventListener("mousedown", (event) => { const plan = currentDungeonAuthoredPlan(); const transform = state.dungeonPreview.transform; if (!plan || !transform) return; const bounds = event.currentTarget.getBoundingClientRect(); const x = event.clientX - bounds.left; const y = event.clientY - bounds.top; const target = [...state.dungeonPreview.hitTargets].reverse().find((value) => value.type === "placement" && x >= value.x && x <= value.x + value.width && y >= value.y && y <= value.y + value.height); const placement = plan.placements?.[target?.index]; if (!placement) return; state.dungeonPlanEditor.selectedPlacement = target.index; state.dungeonPlanEditor.drag = { startX: event.clientX, startY: event.clientY, origin: [...placement.origin], index: target.index }; });
-window.addEventListener("mousemove", (event) => { const drag = state.dungeonPlanEditor.drag; const plan = currentDungeonAuthoredPlan(); const scale = state.dungeonPreview.transform?.scale; const placement = plan?.placements?.[drag?.index]; if (!drag || !placement || !scale) return; placement.origin[0] = drag.origin[0] + Math.round((event.clientX - drag.startX) / scale); placement.origin[2] = drag.origin[2] + Math.round((event.clientY - drag.startY) / scale); state.dungeonPreview.selected = drag.index; markDungeonPlanDirty(); renderDungeonPreview(); });
+window.addEventListener("mousemove", (event) => { const drag = state.dungeonPlanEditor.drag; const plan = currentDungeonAuthoredPlan(); const scale = state.dungeonPreview.transform?.scale; const placement = plan?.placements?.[drag?.index]; if (!drag || !placement || !scale) return; placement.origin[0] = snapDungeonGrid(drag.origin[0] + (event.clientX - drag.startX) / scale); placement.origin[2] = snapDungeonGrid(drag.origin[2] + (event.clientY - drag.startY) / scale); syncAuthoredDungeonBounds(plan); state.dungeonPreview.selected = drag.index; markDungeonPlanDirty(); renderDungeonPreview(); });
 window.addEventListener("mouseup", () => { if (!state.dungeonPlanEditor.drag) return; state.dungeonPlanEditor.drag = null; renderDungeonPlanEditor(); renderDungeonPreview(); });
 $("#refresh-button").addEventListener("click", () => refreshAll());
 $("#open-project").addEventListener("click", openProjectDialog);
