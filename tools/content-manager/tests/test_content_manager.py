@@ -6524,6 +6524,47 @@ class ContentManagerTests(unittest.TestCase):
                 for issue in issues
             ))
 
+    def test_building_settings_payload_summarizes_fixed_dungeon_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/placeholder/test_dungeon.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((24, 8, 32)))
+            structure.with_suffix(".structure.json").write_text(json.dumps({
+                "schema_version": 1,
+                "anchors": [
+                    {"type": "dungeon_marker", "kind": "entry", "position": [1, 1, 1]},
+                    {"type": "dungeon_marker", "kind": "exit", "position": [1, 1, 30]},
+                    {"type": "dungeon_marker", "kind": "encounter", "reference": "grunt", "position": [8, 1, 8]},
+                    {"type": "dungeon_marker", "kind": "boss", "reference": "leader", "position": [16, 1, 24]},
+                    {"type": "dungeon_marker", "kind": "loot", "reference": "reward", "position": [18, 1, 26]},
+                ],
+            }), encoding="utf-8")
+
+            summary = content_manager.building_settings_payload(root)["structures"][
+                "cobbleventure:placeholder/test_dungeon"
+            ]["dungeon_markers"]
+
+            self.assertTrue(summary["available"])
+            self.assertTrue(summary["has_entry"])
+            self.assertTrue(summary["has_exit"])
+            self.assertTrue(summary["has_boss"])
+            self.assertEqual(3, summary["slot_count"])
+            self.assertEqual(1, summary["kinds"]["encounter"])
+            self.assertEqual(1, summary["kinds"]["boss"])
+            self.assertEqual(1, summary["kinds"]["loot"])
+
+    def test_dungeon_editor_uses_searchable_fixed_template_picker(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        self.assertIn('name="terrainTemplate" type="hidden"', page)
+        self.assertIn('id="dungeon-template-dialog"', page)
+        self.assertIn('id="dungeon-template-marker-filter"', page)
+        self.assertIn('id="dungeon-template-boss-filter"', page)
+        self.assertIn('id="dungeon-template-min-slots"', page)
+        self.assertIn("function renderDungeonTemplateDialog()", script)
+        self.assertIn("metadata.dungeon_markers", script)
+
     def test_copy_managed_exterior_structure_copies_type_metadata_and_settings(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

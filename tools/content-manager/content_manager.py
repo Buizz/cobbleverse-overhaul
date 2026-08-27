@@ -12032,6 +12032,51 @@ def _structure_named_anchors(path: Path, anchor_types: set[str]) -> list[dict[st
     return result
 
 
+def _structure_dungeon_marker_summary(path: Path) -> dict[str, Any]:
+    """Return lightweight fixed-dungeon capabilities authored in the sidecar."""
+    kinds = {
+        "entry": 0,
+        "exit": 0,
+        "encounter": 0,
+        "boss": 0,
+        "loot": 0,
+        "healing_station": 0,
+        "gate": 0,
+        "objective": 0,
+        "checkpoint": 0,
+    }
+    metadata_path = path.with_suffix(".structure.json")
+    if not metadata_path.is_file():
+        return {
+            "available": False,
+            "marker_count": 0,
+            "slot_count": 0,
+            "kinds": kinds,
+            "has_entry": False,
+            "has_exit": False,
+            "has_boss": False,
+        }
+    document = load_json(metadata_path)
+    anchors = document.get("anchors", []) if isinstance(document, dict) else []
+    for anchor in anchors if isinstance(anchors, list) else []:
+        if not isinstance(anchor, dict) or anchor.get("type") != "dungeon_marker":
+            continue
+        kind = anchor.get("kind")
+        if kind in kinds:
+            kinds[kind] += 1
+    marker_count = sum(kinds.values())
+    slot_count = marker_count - kinds["entry"] - kinds["exit"]
+    return {
+        "available": marker_count > 0,
+        "marker_count": marker_count,
+        "slot_count": slot_count,
+        "kinds": kinds,
+        "has_entry": kinds["entry"] > 0,
+        "has_exit": kinds["exit"] > 0,
+        "has_boss": kinds["boss"] > 0,
+    }
+
+
 def _default_building_settings() -> dict[str, Any]:
     return {
         "schema_version": 1,
@@ -12570,6 +12615,7 @@ def building_settings_payload(
             "dungeon_entrance_anchors": _structure_named_anchors(
                 path, {"dungeon_entrance"}
             ),
+            "dungeon_markers": _structure_dungeon_marker_summary(path),
             "residential": residential,
             "settings": {
                 "placement_y_offset": entry.get("placement_y_offset", 0)

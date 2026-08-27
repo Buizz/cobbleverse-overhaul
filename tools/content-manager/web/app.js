@@ -1180,6 +1180,10 @@ async function loadStructureData(force = false) {
     }
     lazyDataLoaded.structures = true;
     renderStructureBrowser();
+    if (state.dungeon) {
+      renderDungeonTemplateSelection();
+      if ($("#dungeon-template-dialog")?.open) renderDungeonTemplateDialog();
+    }
     if (state.settlement) renderVillageGenerationTest();
   })();
   try { await lazyDataPromises.structures; }
@@ -4592,6 +4596,104 @@ function parseDungeonRange(value, fallback, minimum = 0) {
   return normalized[0] <= normalized[1] ? normalized : [normalized[1], normalized[0]];
 }
 
+const dungeonTemplateSlotLabels = {
+  encounter: "일반 조우", boss: "보스", loot: "전리품", healing_station: "치료소",
+  gate: "관문", objective: "목표", checkpoint: "체크포인트",
+};
+
+function dungeonTemplateMarkerSummary(metadata = {}) {
+  const source = metadata.dungeon_markers || {};
+  const kinds = { entry: 0, exit: 0, encounter: 0, boss: 0, loot: 0, healing_station: 0, gate: 0, objective: 0, checkpoint: 0, ...(source.kinds || {}) };
+  const markerCount = Number(source.marker_count ?? Object.values(kinds).reduce((sum, value) => sum + Number(value || 0), 0));
+  return {
+    available: source.available === true || markerCount > 0,
+    markerCount,
+    slotCount: Number(source.slot_count ?? Math.max(0, markerCount - Number(kinds.entry || 0) - Number(kinds.exit || 0))),
+    hasEntry: source.has_entry === true || Number(kinds.entry || 0) > 0,
+    hasExit: source.has_exit === true || Number(kinds.exit || 0) > 0,
+    hasBoss: source.has_boss === true || Number(kinds.boss || 0) > 0,
+    kinds,
+  };
+}
+
+function renderDungeonTemplateSelection() {
+  const container = $("#dungeon-template-selection");
+  const form = $("#dungeon-form");
+  if (!container || !form) return;
+  const resourceId = state.dungeon?.terrain?.template || form.elements.terrainTemplate.value.trim();
+  if (!resourceId) {
+    container.className = "dungeon-template-selection is-empty";
+    container.innerHTML = "<span>선택된 전체 세트 NBT가 없습니다.</span>";
+    $("#clear-dungeon-template").disabled = true;
+    return;
+  }
+  const metadata = state.structureSizes?.[resourceId] || {};
+  const summary = dungeonTemplateMarkerSummary(metadata);
+  const size = metadata.width ? `${Number(metadata.width)}×${Number(metadata.height)}×${Number(metadata.depth)}` : "크기 정보 없음";
+  const markerState = summary.available ? `콘텐츠 슬롯 ${summary.slotCount}` : "던전 마커 정보 없음";
+  container.className = "dungeon-template-selection";
+  container.innerHTML = `<strong>${escapeHtml(resourceId)}</strong><small>${escapeHtml(size)} · ${escapeHtml(markerState)}</small><div class="dungeon-template-selection-meta"><span class="${summary.hasEntry ? "is-ready" : "is-missing"}">입구 ${summary.hasEntry ? "있음" : "없음"}</span><span class="${summary.hasExit ? "is-ready" : "is-missing"}">출구 ${summary.hasExit ? "있음" : "없음"}</span><span class="${summary.hasBoss ? "is-ready" : ""}">보스 ${Number(summary.kinds.boss || 0)}개</span></div>`;
+  $("#clear-dungeon-template").disabled = false;
+}
+
+function renderDungeonTemplateDialog() {
+  const query = ($("#dungeon-template-search")?.value || "").trim().toLocaleLowerCase();
+  const markerFilter = $("#dungeon-template-marker-filter")?.value || "all";
+  const bossFilter = $("#dungeon-template-boss-filter")?.value || "all";
+  const minimumSlots = Math.max(0, Number($("#dungeon-template-min-slots")?.value || 0));
+  const selected = state.dungeon?.terrain?.template || $("#dungeon-form").elements.terrainTemplate.value.trim();
+  const entries = Object.entries(state.structureSizes || {}).map(([id, metadata]) => ({ id, metadata, summary: dungeonTemplateMarkerSummary(metadata) })).filter(({ id, metadata, summary }) => {
+    const size = `${Number(metadata.width || 0)}x${Number(metadata.height || 0)}x${Number(metadata.depth || 0)}`;
+    const searchable = `${id} ${metadata.source || ""} ${metadata.category_label || metadata.category || ""} ${size}`.toLocaleLowerCase();
+    if (query && !searchable.includes(query)) return false;
+    if (markerFilter === "ready" && !(summary.hasEntry && summary.hasExit)) return false;
+    if (markerFilter === "marked" && !summary.available) return false;
+    if (markerFilter === "unmarked" && summary.available) return false;
+    if (bossFilter === "yes" && !summary.hasBoss) return false;
+    if (bossFilter === "no" && summary.hasBoss) return false;
+    return summary.slotCount >= minimumSlots;
+  }).sort((left, right) => Number(right.summary.available) - Number(left.summary.available) || left.id.localeCompare(right.id));
+  const visible = entries.slice(0, 250);
+  $("#dungeon-template-count").textContent = `${entries.length.toLocaleString()}개${entries.length > visible.length ? " · 처음 250개 표시" : ""}`;
+  $("#dungeon-template-list").innerHTML = visible.length ? visible.map(({ id, metadata, summary }) => {
+    const size = `${Number(metadata.width || 0)}×${Number(metadata.height || 0)}×${Number(metadata.depth || 0)}`;
+    const slots = Object.entries(dungeonTemplateSlotLabels).map(([kind, label]) => {
+      const count = Number(summary.kinds[kind] || 0);
+      return `<span class="${count ? kind === "boss" ? "is-boss" : "is-present" : ""}">${label} ${count}</span>`;
+    }).join("");
+    const dungeonState = summary.available
+      ? `입구 ${summary.hasEntry ? "있음" : "없음"} · 출구 ${summary.hasExit ? "있음" : "없음"} · 콘텐츠 슬롯 ${summary.slotCount}`
+      : "사이드카에 던전 마커 정보가 없습니다.";
+    return `<button type="button" class="dungeon-template-item${id === selected ? " is-selected" : ""}" data-dungeon-template-id="${escapeHtml(id)}"><span class="dungeon-template-item-head"><strong>${escapeHtml(id)}</strong><b>${escapeHtml(size)}</b></span><span class="dungeon-template-item-slots">${slots}</span><small>${escapeHtml(dungeonState)} · ${escapeHtml(metadata.category_label || metadata.source || "외부 NBT")}</small></button>`;
+  }).join("") : "<p>검색·필터 조건에 맞는 NBT가 없습니다.</p>";
+}
+
+async function openDungeonTemplateDialog() {
+  await loadStructureData();
+  $("#dungeon-template-search").value = "";
+  $("#dungeon-template-marker-filter").value = "ready";
+  $("#dungeon-template-boss-filter").value = "all";
+  $("#dungeon-template-min-slots").value = "0";
+  renderDungeonTemplateDialog();
+  $("#dungeon-template-dialog").showModal();
+  requestAnimationFrame(() => $("#dungeon-template-search").focus());
+}
+
+function selectDungeonTemplate(resourceId) {
+  const form = $("#dungeon-form");
+  state.dungeon.terrain ||= {};
+  state.dungeon.terrain.template = resourceId;
+  form.elements.terrainTemplate.value = resourceId;
+  form.elements.terrainTemplate.defaultValue = resourceId;
+  updateDungeonFromForm();
+  state.dungeonDirty = true;
+  $("#dungeon-save-state").textContent = "저장하지 않은 변경";
+  $("#dungeon-save-state").classList.add("is-dirty");
+  $("#dungeon-template-dialog").close();
+  renderDungeonTemplateSelection();
+  renderDungeonPreview();
+}
+
 function renderDungeonOptionVisibility() {
   const form = $("#dungeon-form");
   const terrainMode = form.elements.terrainMode.value;
@@ -4647,7 +4749,9 @@ function renderDungeonForm() {
     randomMaxY: document.random_encounters?.spawn_bounds?.max?.[1] ?? 1, randomMaxZ: document.random_encounters?.spawn_bounds?.max?.[2] ?? 32,
   };
   Object.entries(values).forEach(([name, value]) => setFormValue(form, name, value));
+  form.elements.terrainTemplate.defaultValue = values.terrainTemplate;
   renderDungeonOptionVisibility();
+  renderDungeonTemplateSelection();
   renderDungeonSummary();
   renderDungeonContentEditor();
   $("#validate-dungeon").disabled = false;
@@ -4691,7 +4795,8 @@ function updateDungeonFromForm() {
   document.terrain ||= {};
   document.terrain.mode = terrainMode;
   if (terrainMode === "fixed_template") {
-    document.terrain.template = form.elements.terrainTemplate.value.trim();
+    const selectedTemplate = form.elements.terrainTemplate.value.trim();
+    if (selectedTemplate) document.terrain.template = selectedTemplate;
     document.terrain.entry_position ||= [0, 1, 0]; document.terrain.exit_position ||= [0, 1, 2];
   } else {
     document.terrain.bounds = [integer("boundsX", 64), integer("boundsY", 16), integer("boundsZ", 64)];
@@ -15899,6 +16004,17 @@ $("#dungeon-link-list").addEventListener("change", () => { updateDungeonPlanLink
 $("#dungeon-link-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-dungeon-link]"); if (!button) return; const plan = currentDungeonAuthoredPlan(); plan.links.splice(Number(button.dataset.removeDungeonLink), 1); markDungeonPlanDirty(); renderDungeonPlanEditor(); renderDungeonPreview(); });
 $("#validate-dungeon").addEventListener("click", () => validateDocument("dungeons"));
 $("#save-dungeon").addEventListener("click", () => saveDocument("dungeons"));
+$("#choose-dungeon-template").addEventListener("click", () => openDungeonTemplateDialog().catch((error) => toast(error.message)));
+$("#clear-dungeon-template").addEventListener("click", () => selectDungeonTemplate(""));
+$("#close-dungeon-template").addEventListener("click", () => $("#dungeon-template-dialog").close());
+for (const selector of ["#dungeon-template-search", "#dungeon-template-marker-filter", "#dungeon-template-boss-filter", "#dungeon-template-min-slots"]) {
+  $(selector).addEventListener("input", renderDungeonTemplateDialog);
+  $(selector).addEventListener("change", renderDungeonTemplateDialog);
+}
+$("#dungeon-template-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-dungeon-template-id]");
+  if (button) selectDungeonTemplate(button.dataset.dungeonTemplateId);
+});
 $("#dungeon-preview-seed").addEventListener("change", (event) => { state.dungeonPreview.seed = Number(event.target.value) || 1; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
 $("#dungeon-repeat-seed").addEventListener("click", renderDungeonPreview);
 $("#dungeon-random-seed").addEventListener("click", () => { state.dungeonPreview.seed = Math.floor(Math.random() * 2147483647) + 1; $("#dungeon-preview-seed").value = state.dungeonPreview.seed; state.dungeonPreview.selected = -1; renderDungeonPreview(); });
