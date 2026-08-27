@@ -116,6 +116,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertFalse(any(issue.level == "error" for issue in valid_issues), valid_issues)
         self.assertTrue(any("일반 동굴 생성 설정" in issue.message for issue in invalid_issues))
 
+    def test_natural_cave_dungeon_reuses_the_cave_layout_editor(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+
+        self.assertEqual(1, markup.count('id="cave-layout-canvas"'))
+        self.assertIn('mountCaveLayoutEditor("dungeon")', script)
+        self.assertIn('activeCaveLayoutDocument()', script)
+        self.assertIn('terrain.generator = normalizeNaturalCaveGenerator', script)
+        self.assertIn('if (workspace) workspace.hidden = true', script)
+        self.assertIn('3D 자연동굴 배치 편집기', script)
+
     def test_dungeon_preview_supports_floor_filtering_and_vertical_transitions(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")

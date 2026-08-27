@@ -212,6 +212,20 @@ final class NaturalCaveGenerator {
             caveId, effectiveSeed, origin, bounds, "critical_path_branches",
             configured.mainRooms(), configured.branchCount(), 1, configured.loopChance()
         );
+        ManualLayout instanceLayout = configured.manualLayout().enabled()
+            ? new ManualLayout(
+                true,
+                configured.manualLayout().anchors().stream().map(anchor ->
+                    new ManualAnchor(
+                        anchor.id(), anchor.kind(),
+                        origin.getX() + anchor.x(), origin.getY() + anchor.y(),
+                        origin.getZ() + anchor.z(), anchor.radiusX(), anchor.radiusZ(),
+                        anchor.height(), anchor.roomType()
+                    )
+                ).toList(),
+                configured.manualLayout().connections()
+            )
+            : planned.settings().manualLayout();
         Settings effective = new Settings(
             configured.seedSalt(), configured.style(), configured.mainRooms(),
             configured.branchCount(), configured.loopChance(), configured.verticalRange(),
@@ -220,7 +234,7 @@ final class NaturalCaveGenerator {
             configured.surfaceRoughness(), configured.waterLevel(), configured.waterDepth(),
             configured.grandRoomScale(), configured.elevatedCrossing(),
             configured.bridgeClearance(), configured.requiresFlash(),
-            planned.settings().manualLayout(), configured.internalBiomes(),
+            instanceLayout, configured.internalBiomes(),
             configured.roomTypes(), configured.pathTypes(), configured.decorations()
         );
         List<Entrance> entrances = planned.entrances().stream()
@@ -230,9 +244,18 @@ final class NaturalCaveGenerator {
             ))
             .toList();
         generateCave(level, caveId, effectiveSeed, entrances, effective);
+        List<BlockPos> mainRooms = instanceLayout.anchors().stream()
+            .filter(anchor -> !anchor.kind().equals("branch"))
+            .map(anchor -> new BlockPos(anchor.x(), anchor.y() + 1, anchor.z())
+                .subtract(origin))
+            .toList();
+        List<BlockPos> branchRooms = instanceLayout.anchors().stream()
+            .filter(anchor -> anchor.kind().equals("branch"))
+            .map(anchor -> new BlockPos(anchor.x(), anchor.y() + 1, anchor.z())
+                .subtract(origin))
+            .toList();
         return new InstanceResult(
-            planned.entryPosition(), planned.exitPosition(),
-            planned.mainRoomPositions(), planned.branchRoomPositions()
+            planned.entryPosition(), planned.exitPosition(), mainRooms, branchRooms
         );
     }
 

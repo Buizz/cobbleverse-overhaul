@@ -4730,7 +4730,18 @@ function renderDungeonOptionVisibility() {
   $$('[data-dungeon-repeat-field]').forEach((element) => element.hidden = !form.elements.repeatable.checked);
   const workspace = $("#dungeon-preview-workspace");
   const anchor = $("#dungeon-preview-anchor");
-  if (workspace && anchor && workspace.parentElement !== anchor) anchor.append(workspace);
+  const naturalCave = ["procedural_cave", "hybrid"].includes(terrainMode);
+  const pureCave = terrainMode === "procedural_cave";
+  $("#dungeon-piece-editor").hidden = pureCave;
+  if (pureCave) $("#dungeon-authored-plan-editor").hidden = true;
+  if (naturalCave) {
+    mountCaveLayoutEditor("dungeon");
+    if (workspace) workspace.hidden = true;
+    renderCaveLayoutPreview();
+  } else {
+    if (workspace) workspace.hidden = false;
+    if (workspace && anchor && workspace.parentElement !== anchor) anchor.append(workspace);
+  }
 }
 
 function renderDungeonForm() {
@@ -5778,7 +5789,8 @@ function renderDungeon() {
   $("#dungeon-random-seed").disabled = document.plan?.mode !== "runtime";
   renderDungeonPlanEditor();
   renderDungeonPieceEditor();
-  renderDungeonPreview();
+  if (["procedural_cave", "hybrid"].includes(document.terrain?.mode)) renderCaveLayoutPreview();
+  else renderDungeonPreview();
 }
 
 function dungeonPlacementStructureId(placement) {
@@ -6475,6 +6487,7 @@ function updateUndergroundRoadFromForm() {
 function renderCave() {
   const document = state.cave; const form = $("#cave-form");
   if (!document) return;
+  mountCaveLayoutEditor("cave");
   delete document.generation;
   const generation = generationFromDocumentPath(state.cavePath);
   const generator = { layout: "natural_network", seed_salt: 0, main_rooms: 7, branch_count: 4, loop_chance: .35, vertical_range: 28, room_radius: { min: 10, max: 28 }, tunnel_radius: { min: 4, max: 7 }, surface_roughness: .18, water_level: 38, water_depth: 8, grand_room_scale: 1.65, elevated_crossing: false, bridge_clearance: 13, ...(document.generator || {}) };
@@ -6638,7 +6651,7 @@ function applyCaveGeneratorDialog() {
     $("#dungeon-save-state").textContent = "저장하지 않은 변경";
     $("#dungeon-save-state").classList.add("is-dirty");
     renderDungeonCaveGeneratorSummary();
-    renderDungeonPreview();
+    renderCaveLayoutPreview();
     toast("일반 동굴과 같은 생성 설정을 던전에 반영했습니다.");
   } else {
     state.cavePreview.selected = null;
@@ -7042,16 +7055,64 @@ function caveStyleShapeProfile(style) {
   })[style] || { radiusX: 1, radiusZ: 1, height: 1, wander: 1, vertical: 1, branch: 1, tunnel: 1 };
 }
 
+function activeCaveLayoutDocument() {
+  if (state.cavePreview.context !== "dungeon") return state.cave;
+  const dungeon = state.dungeon;
+  if (!dungeon || !["procedural_cave", "hybrid"].includes(dungeon.terrain?.mode)) return null;
+  const terrain = dungeon.terrain;
+  terrain.generator = normalizeNaturalCaveGenerator(terrain.generator);
+  const bounds = (terrain.bounds || [128, 48, 128]).map(Number);
+  const floorY = Math.max(8, Math.floor(bounds[1] / 3));
+  const entrance = (id, x, label) => ({ id, display_name: label, destination_anchor: { x, y: floorY, z: Math.floor(bounds[2] / 2) }, fallback_anchor: { x, y: floorY, z: Math.floor(bounds[2] / 2) } });
+  return {
+    id: dungeon.dungeon_id,
+    style: terrain.style || "rock",
+    requires_flash: Boolean(terrain.requires_flash),
+    generator: terrain.generator,
+    entrances: [entrance("entry", 14, "던전 입구"), entrance("exit", bounds[0] - 15, "던전 출구")],
+    dimension: { origin: { x: 0, y: floorY, z: 0 }, bounds: { min_x: 0, min_z: 0, max_x: bounds[0], max_z: bounds[2] } },
+  };
+}
+
+function mountCaveLayoutEditor(context) {
+  const preview = $(".cave-layout-preview");
+  if (!preview) return;
+  state.cavePreview.context = context;
+  if (context === "dungeon") {
+    $("#dungeon-preview-anchor")?.append(preview);
+    $("#cave-layout-preview-title").textContent = "3D 자연동굴 배치 편집기";
+    const addEntrance = preview.querySelector('[data-cave-preview-tool="add-entrance"]');
+    addEntrance.hidden = true; addEntrance.style.display = "none";
+  } else {
+    const form = $("#cave-form");
+    const before = form?.querySelector(".cave-settings-group");
+    if (form && before) form.insertBefore(preview, before);
+    $("#cave-layout-preview-title").textContent = "3D 동굴 배치 편집기";
+    const addEntrance = preview.querySelector('[data-cave-preview-tool="add-entrance"]');
+    addEntrance.hidden = false; addEntrance.style.removeProperty("display");
+  }
+  state.cavePreview.selected = null;
+  setCavePreviewTool("select");
+}
+
+function markActiveCaveLayoutDirty() {
+  if (state.cavePreview.context !== "dungeon") return;
+  state.dungeonDirty = true;
+  $("#dungeon-save-state").textContent = "저장하지 않은 변경";
+  $("#dungeon-save-state").classList.add("is-dirty");
+}
+
 function buildCavePreviewLayout() {
-  if (!state.cave) return null;
-  const generator = state.cave.generator || {};
-  const style = state.cave.style || "rock"; const shape = caveStyleShapeProfile(style);
-  const entrances = (state.cave.entrances || []).map((entry, index) => ({
+  const document = activeCaveLayoutDocument();
+  if (!document) return null;
+  const generator = document.generator || {};
+  const style = document.style || "rock"; const shape = caveStyleShapeProfile(style);
+  const entrances = (document.entrances || []).map((entry, index) => ({
     x: Number(entry.destination_anchor?.x ?? 0), y: Number(entry.destination_anchor?.y ?? 48), z: Number(entry.destination_anchor?.z ?? 0),
     id: entry.id, source: "entrance", sourceIndex: index, kind: "entrance", label: entry.display_name || entry.id || "입출구"
   })).sort((a, b) => a.x - b.x);
-  const bounds = state.cave.dimension?.bounds || {};
-  const origin = state.cave.dimension?.origin || { x: 0, y: 48, z: 0 };
+  const bounds = document.dimension?.bounds || {};
+  const origin = document.dimension?.origin || { x: 0, y: 48, z: 0 };
   const fallbackStart = { x: Number(bounds.min_x ?? -256) + 48, y: Number(origin.y ?? 48), z: Number(origin.z ?? 0), kind: "entrance", label: "입구" };
   const fallbackEnd = { x: Number(bounds.max_x ?? 256) - 48, y: Number(origin.y ?? 48), z: Number(origin.z ?? 0), kind: "entrance", label: "출구" };
   if (!entrances.length) entrances.push(fallbackStart, fallbackEnd);
@@ -7061,7 +7122,7 @@ function buildCavePreviewLayout() {
   const manual = generator.manual_layout || {};
   if (manual.enabled) {
     const nodes = new Map();
-    for (const entry of state.cave.entrances || []) nodes.set(entry.id, { id: entry.id, x: Number(entry.destination_anchor?.x ?? 0), y: Number(entry.destination_anchor?.y ?? 48), z: Number(entry.destination_anchor?.z ?? 0) });
+    for (const entry of document.entrances || []) nodes.set(entry.id, { id: entry.id, x: Number(entry.destination_anchor?.x ?? 0), y: Number(entry.destination_anchor?.y ?? 48), z: Number(entry.destination_anchor?.z ?? 0) });
     const rooms = (manual.anchors || []).map((anchor, index) => {
       const room = { id: anchor.id, source: "anchor", sourceIndex: index, x: Number(anchor.position?.x ?? 0), y: Number(anchor.position?.y ?? 48), z: Number(anchor.position?.z ?? 0), radiusX: Number(anchor.radius_x ?? 12), radiusZ: Number(anchor.radius_z ?? 12), height: Number(anchor.height ?? 12), kind: anchor.kind === "landmark" ? "moon" : anchor.kind === "room" || anchor.kind === "lake" ? "wild" : anchor.kind };
       nodes.set(anchor.id, room); return room;
@@ -7075,9 +7136,9 @@ function buildCavePreviewLayout() {
   const roomMin = Number(generator.room_radius?.min ?? 10);
   const roomMax = Math.max(roomMin, Number(generator.room_radius?.max ?? 28));
   const grandScale = Math.max(1, Number(generator.grand_room_scale ?? 1.65));
-  const caveGeneration = generationFromDocumentPath(state.cavePath);
+  const caveGeneration = state.cavePreview.context === "dungeon" ? generationFromDocumentPath(state.dungeonPath) : generationFromDocumentPath(state.cavePath);
   const worldSeed = BigInt(state.worldLayout?.seed_salt ?? (caveGeneration === 1 ? 19960227 : 1700 + caveGeneration));
-  const caveSeed = BigInt.asIntN(64, worldSeed ^ BigInt.asIntN(64, BigInt(cavePreviewHash(state.cave.id)) * 341873128712n) ^ BigInt(Number(generator.seed_salt) || 0));
+  const caveSeed = BigInt.asIntN(64, worldSeed ^ BigInt.asIntN(64, BigInt(cavePreviewHash(document.id)) * 341873128712n) ^ BigInt(Number(generator.seed_salt) || 0));
   const random = cavePreviewRandom(caveSeed);
   const between = (minimum, maximum) => minimum + random.nextDouble() * Math.max(0, maximum - minimum);
   const rooms = []; const mainRooms = [];
@@ -7133,21 +7194,23 @@ function buildCavePreviewLayout() {
 
 function selectedCavePreviewNode() {
   const selected = state.cavePreview.selected;
-  if (!selected || !state.cave) return null;
+  const document = activeCaveLayoutDocument();
+  if (!selected || !document) return null;
   if (selected.source === "anchor") {
-    const node = state.cave.generator?.manual_layout?.anchors?.find((entry) => entry.id === selected.id);
+    const node = document.generator?.manual_layout?.anchors?.find((entry) => entry.id === selected.id);
     return node ? { selected, node, label: node.id, position: node.position, anchor: true } : null;
   }
   if (selected.source === "connection") {
-    const node = state.cave.generator?.manual_layout?.connections?.find((entry) => entry.id === selected.id);
+    const node = document.generator?.manual_layout?.connections?.find((entry) => entry.id === selected.id);
     return node ? { selected, node, label: node.id, path: true, anchor: false } : null;
   }
-  const node = state.cave.entrances?.find((entry) => entry.id === selected.id);
+  const node = document.entrances?.find((entry) => entry.id === selected.id);
   return node ? { selected, node, label: node.display_name || node.id, position: node.destination_anchor, entrance: true, anchor: false } : null;
 }
 
 function mutateSelectedCaveNode(values) {
   const selected = selectedCavePreviewNode();
+  const document = activeCaveLayoutDocument();
   if (!selected) return false;
   if (selected.path) {
     for (const [field, rawValue] of Object.entries(values)) {
@@ -7178,11 +7241,12 @@ function mutateSelectedCaveNode(values) {
         if (progress) selected.node.required_progress = progress; else delete selected.node.required_progress;
       } else if (field === "entranceId") {
         const nextId = String(rawValue).trim();
-        const conflict = [...(state.cave.entrances || []), ...(state.cave.generator?.manual_layout?.anchors || [])].some((entry) => entry !== selected.node && entry.id === nextId);
+        if (state.cavePreview.context === "dungeon") continue;
+        const conflict = [...(document.entrances || []), ...(document.generator?.manual_layout?.anchors || [])].some((entry) => entry !== selected.node && entry.id === nextId);
         if (!/^[a-z0-9_.-]+$/.test(nextId) || conflict) continue;
         const previousId = selected.node.id;
         selected.node.id = nextId; selected.selected.id = nextId;
-        for (const connection of state.cave.generator?.manual_layout?.connections || []) {
+        for (const connection of document.generator?.manual_layout?.connections || []) {
           if (connection.from === previousId) connection.from = nextId;
           if (connection.to === previousId) connection.to = nextId;
         }
@@ -7190,6 +7254,7 @@ function mutateSelectedCaveNode(values) {
       }
     }
   }
+  markActiveCaveLayoutDirty();
   return true;
 }
 
@@ -7198,13 +7263,14 @@ function renderCaveNodeInspector() {
   if (!inspector) return;
   if (!selected) { inspector.hidden = true; state.cavePreview.selected = null; return; }
   inspector.hidden = false;
+  inspector.querySelectorAll("input, select").forEach((control) => { control.disabled = false; });
   $("#cave-node-inspector-title").textContent = `${selected.path ? "통로" : selected.anchor ? "앵커" : "입출구"} · ${selected.label}`;
   inspector.querySelectorAll('[data-cave-size-field], [data-cave-anchor-field]').forEach((element) => { element.hidden = !selected.anchor; });
   inspector.querySelectorAll('[data-cave-entrance-field]').forEach((element) => { element.hidden = !selected.entrance; });
   inspector.querySelectorAll('[data-cave-position-field]').forEach((element) => { element.hidden = selected.path; });
   inspector.querySelectorAll('[data-cave-path-field]').forEach((element) => { element.hidden = !selected.path; });
   inspector.querySelector('[data-delete-selected-cave-anchor]').hidden = !selected.anchor;
-  inspector.querySelector('[data-delete-selected-cave-entrance]').hidden = !selected.entrance;
+  inspector.querySelector('[data-delete-selected-cave-entrance]').hidden = !selected.entrance || state.cavePreview.context === "dungeon";
   inspector.querySelector('[data-delete-selected-cave-path]').hidden = !selected.path;
   if (selected.path) {
     inspector.querySelector('[data-cave-selected-field="pathId"]').value = selected.node.id;
@@ -7230,6 +7296,7 @@ function renderCaveNodeInspector() {
     inspector.querySelector('[data-cave-selected-field="displayName"]').value = selected.node.display_name || "";
     inspector.querySelector('[data-cave-selected-field="requiredProgress"]').value = selected.node.required_progress || "";
     for (const field of ["x", "y", "z"]) inspector.querySelector(`[data-cave-selected-field="fallback${field.toUpperCase()}"]`).value = selected.node.fallback_anchor[field];
+    inspector.querySelectorAll('[data-cave-entrance-field] input, [data-cave-position-field] input').forEach((input) => { input.disabled = state.cavePreview.context === "dungeon"; });
   }
   $(".cave-layout-preview")?.setAttribute("data-editing-node", "true");
 }
@@ -7265,7 +7332,7 @@ function cavePreviewWorldPosition(pointer) {
   const projection = state.cavePreview.projection;
   if (!projection) return null;
   const { center, scale, view } = projection;
-  const defaultY = Number(state.cave.dimension?.origin?.y ?? 48);
+  const defaultY = Number(activeCaveLayoutDocument()?.dimension?.origin?.y ?? 48);
   if (view === "xy") return { x: center.x + (pointer.x - projection.canvasWidth / 2) / scale, y: center.y - (pointer.y - projection.canvasHeight / 2) / scale, z: center.z };
   if (view === "xz") return { x: center.x + (pointer.x - projection.canvasWidth / 2) / scale, y: defaultY, z: center.z + (pointer.y - projection.canvasHeight / 2) / scale };
   if (view === "zy") return { x: center.x, y: center.y - (pointer.y - projection.canvasHeight / 2) / scale, z: center.z + (pointer.x - projection.canvasWidth / 2) / scale };
@@ -7281,32 +7348,36 @@ function cavePreviewWorldPosition(pointer) {
 }
 
 function addCaveAnchorAt(pointer) {
-  const position = cavePreviewWorldPosition(pointer); if (!position || !state.cave) return;
-  const manual = state.cave.generator.manual_layout;
+  const document = activeCaveLayoutDocument();
+  const position = cavePreviewWorldPosition(pointer); if (!position || !document) return;
+  const manual = document.generator.manual_layout;
   const settings = state.cavePreview.placement.anchor;
   const prefix = String(settings.idPrefix || "anchor").trim().replace(/[^a-z0-9_.-]+/g, "_") || "anchor";
   let index = manual.anchors.length + 1;
-  const used = new Set([...(state.cave.entrances || []).map((entry) => entry.id), ...manual.anchors.map((entry) => entry.id)]);
+  const used = new Set([...(document.entrances || []).map((entry) => entry.id), ...manual.anchors.map((entry) => entry.id)]);
   while (used.has(`${prefix}_${index}`)) index++;
   const anchor = { id: `${prefix}_${index}`, kind: settings.kind, position: { x: Math.round(position.x), y: Math.round(position.y), z: Math.round(position.z) }, radius_x: Math.max(3, Math.min(96, Number(settings.radiusX) || 12)), radius_z: Math.max(3, Math.min(96, Number(settings.radiusZ) || 12)), height: Math.max(5, Math.min(96, Number(settings.height) || 12)) };
   manual.anchors.push(anchor); manual.enabled = true;
+  markActiveCaveLayoutDirty();
   state.cavePreview.selected = { source: "anchor", id: anchor.id };
   renderCaveManualLayoutEditors(); renderCaveLayoutPreview();
   toast(`공동 ${anchor.id}을(를) 추가했습니다. 계속 배치할 수 있습니다.`);
 }
 
 function addCaveEntranceAt(pointer) {
-  const position = cavePreviewWorldPosition(pointer); if (!position || !state.cave) return;
-  state.cave.entrances ||= [];
+  if (state.cavePreview.context === "dungeon") return;
+  const document = activeCaveLayoutDocument();
+  const position = cavePreviewWorldPosition(pointer); if (!position || !document) return;
+  document.entrances ||= [];
   const settings = state.cavePreview.placement.entrance;
   const prefix = String(settings.idPrefix || "entrance").trim().replace(/[^a-z0-9_.-]+/g, "_") || "entrance";
-  let index = state.cave.entrances.length + 1;
-  const used = new Set([...(state.cave.entrances || []).map((entry) => entry.id), ...(state.cave.generator?.manual_layout?.anchors || []).map((entry) => entry.id)]);
+  let index = document.entrances.length + 1;
+  const used = new Set([...(document.entrances || []).map((entry) => entry.id), ...(document.generator?.manual_layout?.anchors || []).map((entry) => entry.id)]);
   while (used.has(`${prefix}_${index}`)) index++;
   const destination = { x: Math.round(position.x), y: Math.round(position.y), z: Math.round(position.z) };
   const entrance = { id: `${prefix}_${index}`, display_name: `${String(settings.displayName || "입출구").trim()} ${index}`.trim(), destination_anchor: destination, fallback_anchor: { x: destination.x + Number(settings.fallbackX), y: destination.y + Number(settings.fallbackY), z: destination.z + Number(settings.fallbackZ) } };
   if (String(settings.requiredProgress || "").trim()) entrance.required_progress = String(settings.requiredProgress).trim();
-  state.cave.entrances.push(entrance);
+  document.entrances.push(entrance);
   state.cavePreview.selected = { source: "entrance", id: entrance.id };
   renderCaveLayoutPreview();
   toast(`${entrance.display_name}을(를) 추가했습니다. 계속 배치할 수 있습니다.`);
@@ -7314,17 +7385,20 @@ function addCaveEntranceAt(pointer) {
 
 function deleteSelectedCaveAnchor() {
   const selected = selectedCavePreviewNode(); if (!selected?.anchor) return;
-  const manual = state.cave.generator.manual_layout;
+  const manual = activeCaveLayoutDocument().generator.manual_layout;
   manual.anchors = manual.anchors.filter((anchor) => anchor !== selected.node);
   manual.connections = manual.connections.filter((connection) => connection.from !== selected.node.id && connection.to !== selected.node.id);
+  markActiveCaveLayoutDirty();
   state.cavePreview.selected = null;
   renderCaveManualLayoutEditors(); renderCaveLayoutPreview();
 }
 
 function deleteSelectedCaveEntrance() {
+  if (state.cavePreview.context === "dungeon") return;
   const selected = selectedCavePreviewNode(); if (!selected?.entrance) return;
-  state.cave.entrances = state.cave.entrances.filter((entrance) => entrance !== selected.node);
-  const manual = state.cave.generator.manual_layout;
+  const document = activeCaveLayoutDocument();
+  document.entrances = document.entrances.filter((entrance) => entrance !== selected.node);
+  const manual = document.generator.manual_layout;
   manual.connections = manual.connections.filter((connection) => connection.from !== selected.node.id && connection.to !== selected.node.id);
   state.cavePreview.selected = null;
   renderCaveLayoutPreview();
@@ -7332,8 +7406,9 @@ function deleteSelectedCaveEntrance() {
 
 function deleteSelectedCavePath() {
   const selected = selectedCavePreviewNode(); if (!selected?.path) return;
-  const manual = state.cave.generator.manual_layout;
+  const manual = activeCaveLayoutDocument().generator.manual_layout;
   manual.connections = manual.connections.filter((connection) => connection !== selected.node);
+  markActiveCaveLayoutDirty();
   state.cavePreview.selected = null;
   renderCaveLayoutPreview();
 }
@@ -7353,7 +7428,7 @@ function chooseCavePathEndpoint(target) {
     toast("서로 다른 두 앵커를 선택해 주세요.");
     return;
   }
-  const manual = state.cave.generator.manual_layout;
+  const manual = activeCaveLayoutDocument().generator.manual_layout;
   const existing = manual.connections.find((connection) => (connection.from === state.cavePreview.pathDraft.id && connection.to === target.id) || (connection.from === target.id && connection.to === state.cavePreview.pathDraft.id));
   if (existing) {
     state.cavePreview.selected = { source: "connection", id: existing.id };
@@ -7368,6 +7443,7 @@ function chooseCavePathEndpoint(target) {
   while (used.has(`${prefix}_${index}`)) index++;
   const connection = { id: `${prefix}_${index}`, from: state.cavePreview.pathDraft.id, to: target.id, kind: settings.kind, width: Math.max(3, Math.min(15, Number(settings.width) || 5)) };
   manual.connections.push(connection); manual.enabled = true;
+  markActiveCaveLayoutDirty();
   state.cavePreview.selected = { source: "connection", id: connection.id };
   state.cavePreview.pathDraft = { source: target.source, id: target.id };
   setCavePreviewTool("connect"); renderCaveLayoutPreview();
@@ -7404,13 +7480,14 @@ function setCavePreviewTool(tool) {
 function renderCaveLayoutPreview() {
   const canvas = $("#cave-layout-canvas"); const summary = $("#cave-preview-summary");
   if (!canvas || !summary) return;
-  syncCaveBuildBounds(); renderCaveDimensionSummary();
+  const document = activeCaveLayoutDocument();
+  if (state.cavePreview.context !== "dungeon") { syncCaveBuildBounds(); renderCaveDimensionSummary(); }
   const layout = buildCavePreviewLayout(); const context = canvas.getContext("2d");
   context.clearRect(0, 0, canvas.width, canvas.height);
   state.cavePreview.hitTargets = [];
   if (!layout) { summary.textContent = "동굴을 선택하면 배치를 계산합니다."; return; }
   const entranceQuickList = $("#cave-entrance-quick-list");
-  if (entranceQuickList) entranceQuickList.innerHTML = (state.cave.entrances || []).map((entrance) => `<button type="button" data-select-cave-entrance="${escapeHtml(entrance.id)}" class="${state.cavePreview.selected?.source === "entrance" && state.cavePreview.selected.id === entrance.id ? "is-active" : ""}">${escapeHtml(entrance.display_name || entrance.id)}</button>`).join("") || "<small>등록된 입구가 없습니다.</small>";
+  if (entranceQuickList) entranceQuickList.innerHTML = (document?.entrances || []).map((entrance) => `<button type="button" data-select-cave-entrance="${escapeHtml(entrance.id)}" class="${state.cavePreview.selected?.source === "entrance" && state.cavePreview.selected.id === entrance.id ? "is-active" : ""}">${escapeHtml(entrance.display_name || entrance.id)}</button>`).join("") || "<small>등록된 입구가 없습니다.</small>";
   const projection = cavePreviewProjection(layout, canvas); const { project, scale, center, view } = projection;
   state.cavePreview.projection = projection;
   $$("[data-cave-view]").forEach((button) => button.classList.toggle("is-active", button.dataset.caveView === view));
@@ -7425,7 +7502,7 @@ function renderCaveLayoutPreview() {
     }
   }
 
-  const bounds = state.cave.dimension?.bounds || {}; const waterY = layout.waterLevel;
+  const bounds = document?.dimension?.bounds || {}; const waterY = layout.waterLevel;
   const waterDepth = Math.max(1, layout.waterDepth); const waterBottomY = waterY - waterDepth;
   const lava = layout.fluidType === "lava"; const fluidName = lava ? "용암" : "물";
   const fluidStrong = lava ? "rgba(242, 92, 28, .9)" : "rgba(67, 184, 232, .9)";
@@ -7491,7 +7568,7 @@ function renderCaveLayoutPreview() {
   for (const entrance of layout.entrances) {
     const p = project(entrance); const submerged = isSubmergedAt(entrance.y); const isSelected = selected?.source === "entrance" && selected.id === entrance.id; const isDraft = state.cavePreview.pathDraft?.id === entrance.id;
     context.fillStyle = submerged ? (lava ? "#f25c1c" : "#43b8e8") : "#ffce67"; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isDraft || isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected || isDraft ? 10 : 8, 0, Math.PI * 2); context.fill(); context.stroke();
-    if (entrance.id) state.cavePreview.hitTargets.push({ mode: "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 22 });
+    if (entrance.id && state.cavePreview.context !== "dungeon") state.cavePreview.hitTargets.push({ mode: "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 22 });
   }
 
   const selectedRoom = selected?.source === "anchor" ? layout.rooms.find((room) => room.id === selected.id) : null;
@@ -7514,7 +7591,7 @@ function renderCaveLayoutPreview() {
   renderCaveNodeInspector();
   if (!selectedCavePreviewNode()) $(".cave-layout-preview")?.removeAttribute("data-editing-node");
   const submergedRooms = layout.rooms.filter((room) => isSubmergedAt(room.y)).length;
-  summary.textContent = `${layout.manual ? "수동 배치" : "자동 배치"} · 입구 ${state.cave.entrances?.length || 0}개 · 공동 ${layout.rooms.length}개 · 연결 ${layout.paths.length}개 · ${fluidName} 수위 Y ${waterY} · 최대 깊이 ${waterDepth} · 침수 공동 ${submergedRooms}개 · 돌다리 ${layout.paths.filter((path) => path.kind === "bridge").length}개`;
+  summary.textContent = `${layout.manual ? "수동 배치" : "자동 배치"} · 입구 ${document?.entrances?.length || 0}개 · 공동 ${layout.rooms.length}개 · 연결 ${layout.paths.length}개 · ${fluidName} 수위 Y ${waterY} · 최대 깊이 ${waterDepth} · 침수 공동 ${submergedRooms}개 · 돌다리 ${layout.paths.filter((path) => path.kind === "bridge").length}개`;
 }
 
 function cavePreviewPointer(event) {
@@ -16623,16 +16700,26 @@ $("#cave-layout-canvas").addEventListener("pointercancel", endCavePreviewDrag);
 $("#cave-layout-canvas").addEventListener("wheel", (event) => { event.preventDefault(); state.cavePreview.zoom = Math.max(.55, Math.min(2.2, state.cavePreview.zoom * (event.deltaY > 0 ? .9 : 1.1))); renderCaveLayoutPreview(); }, { passive: false });
 $("#reset-cave-preview-view").addEventListener("click", () => { state.cavePreview.yaw = -.72; state.cavePreview.pitch = -.52; state.cavePreview.zoom = 1; state.cavePreview.view = "perspective"; state.cavePreview.drag = null; renderCaveLayoutPreview(); });
 $("#regenerate-cave-preview").addEventListener("click", () => {
-  if (!state.cave) return;
-  if (state.cave.generator?.manual_layout?.enabled) { openCaveGeneratorDialog(); return; }
-  state.cave.generator.seed_salt = (Number(state.cave.generator.seed_salt) || 0) + 1;
+  const document = activeCaveLayoutDocument();
+  if (!document) return;
+  if (document.generator?.manual_layout?.enabled) { openCaveGeneratorDialog(state.cavePreview.context === "dungeon" ? "dungeon" : "cave"); return; }
+  document.generator.seed_salt = (Number(document.generator.seed_salt) || 0) + 1;
+  markActiveCaveLayoutDirty();
   renderCaveLayoutPreview();
 });
-$("#open-cave-generator-dialog").addEventListener("click", () => openCaveGeneratorDialog("cave"));
+$("#open-cave-generator-dialog").addEventListener("click", () => openCaveGeneratorDialog(state.cavePreview.context === "dungeon" ? "dungeon" : "cave"));
 $("#open-dungeon-cave-generator-dialog").addEventListener("click", () => openCaveGeneratorDialog("dungeon"));
 $("#generate-cave-layout").addEventListener("click", applyCaveGeneratorDialog);
 $$('[data-cave-view]').forEach((button) => button.addEventListener("click", () => { state.cavePreview.view = button.dataset.caveView; state.cavePreview.drag = null; renderCaveLayoutPreview(); }));
 $("[data-clear-cave-selection]").addEventListener("click", () => { state.cavePreview.selected = null; renderCaveLayoutPreview(); });
+$(".cave-layout-preview").addEventListener("input", (event) => {
+  if (state.cavePreview.context !== "dungeon") return;
+  if (handleCavePlacementInput(event) || handleCavePreviewInspectorInput(event)) markActiveCaveLayoutDirty();
+});
+$(".cave-layout-preview").addEventListener("change", (event) => {
+  if (state.cavePreview.context !== "dungeon") return;
+  if (handleCavePlacementInput(event) || handleCavePreviewInspectorInput(event)) markActiveCaveLayoutDirty();
+});
 function prepareUnifiedSpatialEditors() {
   const caveForm = $("#cave-form");
   const forestForm = $("#forest-form");
