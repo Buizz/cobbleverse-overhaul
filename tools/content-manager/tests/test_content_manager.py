@@ -491,6 +491,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('if (!options.length) return { piece: null, rotation: "none", missingFacings: required };', script)
         self.assertIn("Math.min(Math.floor((count - 3) / 2), requestedFloorChanges)", script)
         self.assertIn("while (roomsByFloor.at(-1) < 3)", script)
+        self.assertIn("function alignRuntimeDungeonPlacements(placements, links)", script)
+        self.assertIn("link.fromPosition =", script)
         self.assertIn("function drawDungeonPlacementCutaway", script)
         self.assertIn("metadata?.cutaway_view", script)
         self.assertIn("piece?.structure", script)

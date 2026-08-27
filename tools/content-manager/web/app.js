@@ -5800,6 +5800,65 @@ function dungeonPreviewRotateFacing(facing, rotation) {
   return index < 0 ? facing : facings[(index + turns) % facings.length];
 }
 
+const dungeonPreviewFacingVectors = { north: [0, 0, -1], south: [0, 0, 1], west: [-1, 0, 0], east: [1, 0, 0] };
+const dungeonPreviewOppositeFacing = { north: "south", south: "north", west: "east", east: "west" };
+
+function dungeonPreviewRotatedConnector(piece, rotation, facing) {
+  const connector = (piece?.connectors || []).find((entry) => dungeonPreviewRotateFacing(entry.facing, rotation) === facing);
+  if (!connector) return null;
+  const size = (piece.size || [16, 8, 16]).map(Number);
+  const position = (connector.position || [0, 0, 0]).map(Number);
+  const rotated = rotateMinecraftTopBlock(position[0], position[2], size[0], size[2], rotation);
+  return { position: [rotated.x, position[1], rotated.z], facing };
+}
+
+function alignRuntimeDungeonPlacements(placements, links) {
+  const byIndex = new Map(placements.map((placement) => [placement.index, placement]));
+  const aligned = new Set();
+  const queue = [];
+  const start = placements.find((placement) => placement.role === "start") || placements[0];
+  if (start) { aligned.add(start.index); queue.push(start.index); }
+  while (queue.length) {
+    const currentIndex = queue.shift();
+    const current = byIndex.get(currentIndex);
+    for (const link of links.filter((entry) => entry.from === currentIndex || entry.to === currentIndex)) {
+      const nextIndex = link.from === currentIndex ? link.to : link.from;
+      if (aligned.has(nextIndex)) continue;
+      const next = byIndex.get(nextIndex);
+      if (!current || !next) continue;
+      const dx = next.grid[0] - current.grid[0]; const dz = next.grid[2] - current.grid[2];
+      const facing = Math.abs(dx) >= Math.abs(dz) ? (dx >= 0 ? "east" : "west") : (dz >= 0 ? "south" : "north");
+      const fromConnector = dungeonPreviewRotatedConnector(current.piece, current.rotation, facing);
+      const toConnector = dungeonPreviewRotatedConnector(next.piece, next.rotation, dungeonPreviewOppositeFacing[facing]);
+      if (!fromConnector || !toConnector) {
+        current.connectorMismatch = [...new Set([...(current.connectorMismatch || []), facing])];
+        next.connectorMismatch = [...new Set([...(next.connectorMismatch || []), dungeonPreviewOppositeFacing[facing]])];
+        continue;
+      }
+      const vector = dungeonPreviewFacingVectors[facing];
+      next.minimum = [0, 1, 2].map((axis) => current.minimum[axis] + fromConnector.position[axis] + vector[axis] - toConnector.position[axis]);
+      aligned.add(nextIndex); queue.push(nextIndex);
+    }
+  }
+  const minima = [0, 1, 2].map((axis) => Math.min(0, ...placements.map((placement) => Number(placement.minimum[axis] || 0))));
+  placements.forEach((placement) => {
+    placement.minimum = placement.minimum.map((axis, index) => Number(axis) - minima[index]);
+    placement.floorYs = placement.floorOffsets.map((offset) => placement.minimum[1] + offset);
+  });
+  for (const link of links) {
+    const from = byIndex.get(link.from); const to = byIndex.get(link.to);
+    if (!from || !to) continue;
+    const dx = to.grid[0] - from.grid[0]; const dz = to.grid[2] - from.grid[2];
+    const facing = Math.abs(dx) >= Math.abs(dz) ? (dx >= 0 ? "east" : "west") : (dz >= 0 ? "south" : "north");
+    const fromConnector = dungeonPreviewRotatedConnector(from.piece, from.rotation, facing);
+    const toConnector = dungeonPreviewRotatedConnector(to.piece, to.rotation, dungeonPreviewOppositeFacing[facing]);
+    if (!fromConnector || !toConnector) continue;
+    link.fromPosition = from.minimum.map((axis, index) => axis + fromConnector.position[index]);
+    link.toPosition = to.minimum.map((axis, index) => axis + toConnector.position[index]);
+  }
+  placements.forEach((placement) => { delete placement.piece; delete placement.grid; delete placement.floorOffsets; });
+}
+
 function dungeonRuntimePreviewPiece(document, role, random, shape = "", requiredFacings = [], preferredRotation = "") {
   const pool = document.terrain?.piece_pool;
   const shapeTag = shape ? `cobbleventure:dungeon_shape/${shape}` : "";
@@ -5934,13 +5993,17 @@ function runtimeDungeonPlan(document, seed) {
     const piece = selection?.piece;
     const minimumY = (value.gy - minY) * layerHeight;
     const floorYs = value.verticalTransition ? value.floorLevels.map((level) => (level - minY) * layerHeight) : [minimumY];
+    const rotatedSize = piece?.size?.map(Number) || [cell, layerHeight, cell];
+    if (["clockwise_90", "counterclockwise_90"].includes(selection?.rotation)) [rotatedSize[0], rotatedSize[2]] = [rotatedSize[2], rotatedSize[0]];
     return {
       index: value.index, pieceId: piece?.piece_id || `preview:${value.role}`, structure: piece?.structure || "", role: value.role,
       minimum: [(value.gx - minX) * cell, minimumY, (value.gz - minZ) * cell],
-      size: piece?.size?.map(Number) || [cell, layerHeight, cell], rotation: selection?.rotation || "none", critical: value.critical,
-      floorYs, verticalTransition: Boolean(value.verticalTransition), connectorMismatch: selection?.missingFacings || [],
+      size: rotatedSize, rotation: selection?.rotation || "none", critical: value.critical,
+      floorYs, floorOffsets: floorYs.map((floorY) => floorY - minimumY), verticalTransition: Boolean(value.verticalTransition), connectorMismatch: selection?.missingFacings || [], piece, grid: [value.gx, value.gy, value.gz],
     };
   });
+  if (!caveTerrain) alignRuntimeDungeonPlacements(placements, links);
+  else placements.forEach((placement) => { delete placement.piece; delete placement.grid; delete placement.floorOffsets; });
   const bounds = [
     Math.max(...placements.map((value) => value.minimum[0] + value.size[0])),
     Math.max(16, ...placements.map((value) => value.minimum[1] + value.size[1])),
@@ -6124,7 +6187,12 @@ function renderDungeonPreview() {
   });
   else { context.strokeStyle = "#527078"; context.lineWidth = 1.5; context.strokeRect(offsetX, offsetY, boundsX * scale, boundsZ * scale); }
   const centers = new Map(visiblePlacements.map((placement) => [placement.index, point([placement.minimum[0] + placement.size[0] / 2, placement.minimum[1], placement.minimum[2] + placement.size[2] / 2])]));
-  plan.links.forEach((link) => { const from = centers.get(link.from); const to = centers.get(link.to); if (!from || !to) return; context.strokeStyle = link.critical ? "#5fa8ff" : "#6f7f83"; context.lineWidth = link.critical ? 4 : 2; context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke(); });
+  plan.links.forEach((link) => {
+    const from = centers.get(link.from); const to = centers.get(link.to); if (!from || !to) return;
+    const fromPort = link.fromPosition ? point(link.fromPosition) : from; const toPort = link.toPosition ? point(link.toPosition) : to;
+    context.strokeStyle = link.critical ? "#5fa8ff" : "#6f7f83"; context.lineWidth = link.critical ? 4 : 2; context.beginPath();
+    context.moveTo(from.x, from.y); context.lineTo(fromPort.x, fromPort.y); context.lineTo(toPort.x, toPort.y); context.lineTo(to.x, to.y); context.stroke();
+  });
   const colors = { start: "#64d98a", boss: "#ef5a67", exit: "#f1c75b" };
   state.dungeonPreview.hitTargets = [];
   visiblePlacements.forEach((placement) => {
@@ -6171,7 +6239,7 @@ function renderDungeonPreview() {
     ? `<div class="dungeon-enemy-marker is-random"><i>?</i><span><b>랜덤 야생 조우</b><small>간격 ${Number(state.dungeon.random_encounters.minimum_distance || 0)}~${Number(state.dungeon.random_encounters.maximum_distance || 0)} · 최대 ${Number(state.dungeon.random_encounters.max_active || 0)}마리</small></span></div>`
     : "";
   $("#dungeon-preview-marker-summary").innerHTML = visibleMarkers.map((marker) => `<div class="dungeon-enemy-marker is-${escapeHtml(marker.kind)}"><i>${markerIcons[marker.kind] || "•"}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>${escapeHtml(dungeonMarkerKinds[marker.kind === "healing" ? "healing_station" : marker.kind] || marker.kind)} · X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></div>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 이벤트가 없습니다.</small>';
-  const floorStatus = selectedFloor === null ? "모든 층을 실제 높이에 따라 겹쳐 표시합니다. 계단 화살표가 아래층과 위층을 연결합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
+  const floorStatus = selectedFloor === null ? "모든 층은 같은 X/Z 격자를 사용하며, 높이 구분을 위해 실제 Y값만큼 대각선 원근 이동해 겹쳐 표시합니다. 계단 화살표가 아래층과 위층을 연결합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 원근 이동 없이 정확한 격자에 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
   $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.` : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`;
 }
 
