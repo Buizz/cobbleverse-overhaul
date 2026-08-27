@@ -214,11 +214,16 @@ record DungeonDefinition(
                 "nbt_pieces dungeon requires terrain.piece_pool and terrain.bounds: " + id
             );
         }
-        if (terrainMode.equals("procedural_cave")
+        if ((terrainMode.equals("procedural_cave") || terrainMode.equals("hybrid"))
             && (caveGenerator == null || terrainBounds == null)) {
             throw new IllegalStateException(
-                "procedural_cave dungeon requires terrain.cave_generator and terrain.bounds: "
+                terrainMode + " dungeon requires terrain.cave_generator and terrain.bounds: "
                     + id
+            );
+        }
+        if (terrainMode.equals("hybrid") && piecePool == null) {
+            throw new IllegalStateException(
+                "hybrid dungeon requires terrain.piece_pool: " + id
             );
         }
 
@@ -306,7 +311,8 @@ record DungeonDefinition(
                 verticalDirection, floorChanges
             );
         }
-        if ((terrainMode.equals("nbt_pieces") || terrainMode.equals("procedural_cave"))
+        if ((terrainMode.equals("nbt_pieces") || terrainMode.equals("procedural_cave")
+            || terrainMode.equals("hybrid"))
             && layout == null) {
             throw new IllegalStateException(
                 terrainMode + " dungeon requires layout settings: " + id

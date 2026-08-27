@@ -129,6 +129,10 @@
         }
       }
     },
+    "embedded_sites": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/embedded_site" }
+    },
     "entrances": {
       "type": "array",
       "minItems": 1,
@@ -275,6 +279,33 @@
           }
         }
       }
+    },
+    "embedded_site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "entrance_id", "placement"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "entrance_id": { "$ref": "#/$defs/resource_id" },
+        "placement": { "enum": ["fixed", "anchor", "rule"] },
+        "position": { "$ref": "#/$defs/block_position", "description": "차원 내부 절대 좌표" },
+        "anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "candidate": { "enum": ["any", "main_path", "landmark"] },
+        "offset": { "$ref": "#/$defs/block_position" },
+        "safe_spawn": { "$ref": "#/$defs/block_position", "description": "차원 내부 절대 좌표" },
+        "structure": { "$ref": "#/$defs/resource_id" },
+        "door_anchor": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "rotation": { "enum": ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"] }
+      },
+      "dependentRequired": {
+        "structure": ["door_anchor"],
+        "door_anchor": ["structure"]
+      },
+      "allOf": [
+        { "if": { "properties": { "placement": { "const": "fixed" } } }, "then": { "required": ["position"] } },
+        { "if": { "properties": { "placement": { "const": "anchor" } } }, "then": { "required": ["anchor"] } },
+        { "if": { "properties": { "placement": { "const": "rule" } } }, "then": { "required": ["candidate"] } }
+      ]
     }
   }
 }

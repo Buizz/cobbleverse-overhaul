@@ -7560,6 +7560,11 @@ def derive_cave_build_bounds(data: dict[str, Any]) -> dict[str, int]:
         x, z = float(point.get("x", 0)), float(point.get("z", 0))
         radius_x, radius_z = max(1, float(anchor.get("radius_x", 12))), max(1, float(anchor.get("radius_z", 12)))
         extents.append((x - radius_x, z - radius_z, x + radius_x, z + radius_z))
+    for site in data.get("embedded_sites", []) if isinstance(data.get("embedded_sites"), list) else []:
+        point = site.get("position") if isinstance(site, dict) and site.get("placement") == "fixed" else None
+        if isinstance(point, dict) and isinstance(point.get("x"), (int, float)) and isinstance(point.get("z"), (int, float)):
+            x, z = float(point["x"]), float(point["z"])
+            extents.append((x - 8, z - 8, x + 8, z + 8))
     tunnel = generator.get("tunnel_radius") if isinstance(generator.get("tunnel_radius"), dict) else {}
     padding = max(16, math.ceil(float(tunnel.get("max", 7)) * 2))
     minimum_size = 64 if manual.get("enabled") else max(128, int(generator.get("main_rooms", 7)) * 24)
@@ -7583,6 +7588,11 @@ def derive_forest_build_bounds(data: dict[str, Any]) -> dict[str, int]:
         point = entrance.get("position") if isinstance(entrance, dict) else None
         if isinstance(point, dict) and isinstance(point.get("x"), (int, float)) and isinstance(point.get("z"), (int, float)):
             x, z = float(point["x"]), float(point["z"])
+            extents.append((x - 8, z - 8, x + 8, z + 8))
+    for site in data.get("embedded_sites", []) if isinstance(data.get("embedded_sites"), list) else []:
+        point = site.get("position") if isinstance(site, dict) and site.get("placement") == "fixed" else None
+        if isinstance(point, dict) and isinstance(point.get("x"), (int, float)) and isinstance(point.get("z"), (int, float)):
+            x, z = float(point["x"]) - origin_x, float(point["z"]) - origin_z
             extents.append((x - 8, z - 8, x + 8, z + 8))
     generator = data.get("generator") if isinstance(data.get("generator"), dict) else {}
     cell = max(4, min(64, int(generator.get("cell_size", 16))))
@@ -7701,6 +7711,62 @@ def _validate_pursuit_encounters(encounters: Any, issues: list[Issue], path: Pat
     _validate_pokemon_level_overrides(encounters.get("level_overrides", []), issues, path, f"{base}.level_overrides")
 
 
+def _validate_embedded_sites(
+    data: dict[str, Any], region_kind: str, anchor_ids: set[str],
+    issues: list[Issue], path: Path,
+) -> None:
+    sites = data.get("embedded_sites", [])
+    if not isinstance(sites, list):
+        _issue(issues, "error", path, "$.embedded_sites", "던전 입구 지점 목록은 배열이어야 합니다.")
+        return
+    seen_ids: set[str] = set()
+    rotations = {"none", "clockwise_90", "clockwise_180", "counterclockwise_90"}
+    candidates = ({"any", "main_path", "landmark"} if region_kind == "cave"
+                  else {"any", "main_path", "branch"})
+    for index, site in enumerate(sites):
+        base = f"$.embedded_sites[{index}]"
+        if not isinstance(site, dict):
+            _issue(issues, "error", path, base, "던전 입구 지점은 객체여야 합니다.")
+            continue
+        site_id = site.get("id")
+        if not isinstance(site_id, str) or not CHOICE_ID.fullmatch(site_id) or site_id in seen_ids:
+            _issue(issues, "error", path, f"{base}.id", "유일한 소문자 지점 ID가 필요합니다.")
+        else:
+            seen_ids.add(site_id)
+        _resource_id(site.get("entrance_id"), issues, path, f"{base}.entrance_id")
+        placement = site.get("placement")
+        if placement not in {"fixed", "anchor", "rule"}:
+            _issue(issues, "error", path, f"{base}.placement", "fixed, anchor 또는 rule 배치 방식이 필요합니다.")
+        if placement == "fixed":
+            position = site.get("position")
+            if not isinstance(position, dict) or any(
+                not isinstance(position.get(axis), int) or isinstance(position.get(axis), bool)
+                for axis in ("x", "y", "z")
+            ):
+                _issue(issues, "error", path, f"{base}.position", "고정 배치에는 절대 블록 좌표 x, y, z가 필요합니다.")
+        if placement == "anchor" and site.get("anchor") not in anchor_ids:
+            _issue(issues, "error", path, f"{base}.anchor", "존재하는 동굴 앵커 또는 숲 길 ID가 필요합니다.")
+        if placement == "rule" and site.get("candidate") not in candidates:
+            _issue(issues, "error", path, f"{base}.candidate", "이 지역에서 지원하는 자동 배치 후보가 필요합니다.")
+        for field in ("offset", "safe_spawn"):
+            position = site.get(field)
+            if position is not None and (not isinstance(position, dict) or any(
+                not isinstance(position.get(axis), int) or isinstance(position.get(axis), bool)
+                for axis in ("x", "y", "z")
+            )):
+                _issue(issues, "error", path, f"{base}.{field}", "정수 블록 좌표 x, y, z가 필요합니다.")
+        structure = site.get("structure")
+        door_anchor = site.get("door_anchor")
+        if structure is not None:
+            _resource_id(structure, issues, path, f"{base}.structure")
+        if (structure is None) != (door_anchor is None):
+            _issue(issues, "error", path, base, "NBT structure와 EditWorld door_anchor는 함께 지정해야 합니다.")
+        elif door_anchor is not None and (not isinstance(door_anchor, str) or not CHOICE_ID.fullmatch(door_anchor)):
+            _issue(issues, "error", path, f"{base}.door_anchor", "유효한 EditWorld 문 앵커 ID가 필요합니다.")
+        if site.get("rotation", "none") not in rotations:
+            _issue(issues, "error", path, f"{base}.rotation", "지원되는 90도 단위 회전이 필요합니다.")
+
+
 def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
     issues: list[Issue] = []
     try:
@@ -7777,6 +7843,11 @@ def validate_cave_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, f"$.generator.manual_layout.connections[{index}]", "같은 앵커끼리는 연결할 수 없습니다.")
         if not connections:
             _issue(issues, "warning", path, "$.generator.manual_layout.connections", "수동 배치가 켜져 있지만 연결된 통로가 없습니다.")
+    cave_anchor_ids = {
+        anchor.get("id") for anchor in (manual.get("anchors", []) if isinstance(manual, dict) else [])
+        if isinstance(anchor, dict) and isinstance(anchor.get("id"), str)
+    }
+    _validate_embedded_sites(data, "cave", cave_anchor_ids, issues, path)
     return cave_id, issues
 
 
@@ -8124,6 +8195,7 @@ def validate_forest_file(path: Path) -> tuple[str | None, list[Issue]]:
             point = entrance.get("position") if isinstance(entrance, dict) else None
             if not isinstance(point, dict) or not all(isinstance(point.get(axis), int) and not isinstance(point.get(axis), bool) for axis in ("x", "z")):
                 _issue(issues, "error", path, f"{entrance_path}.position", "정수 좌표 x, z가 필요합니다.")
+    _validate_embedded_sites(data, "forest", seen_paths, issues, path)
     return forest_id, issues
 
 
@@ -8594,6 +8666,10 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
         bounds = terrain.get("bounds")
         if not isinstance(bounds, list) or len(bounds) != 3 or any(not isinstance(axis, int) or isinstance(axis, bool) or axis < 1 for axis in bounds):
             _issue(issues, "error", path, "$.terrain.bounds", "양수인 X, Y, Z 크기 3개가 필요합니다.")
+    if terrain_mode == "hybrid":
+        _resource_id(terrain.get("piece_pool"), issues, path, "$.terrain.piece_pool")
+        if terrain.get("cave_generator") != "minecraft_worldgen":
+            _issue(issues, "error", path, "$.terrain.cave_generator", "혼합형 던전은 minecraft_worldgen 동굴 생성기가 필요합니다.")
 
     if terrain_mode != "fixed_template":
         plan = object_at("plan")
@@ -8605,8 +8681,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             _issue(issues, "error", path, "$.plan.fallback", "지원하지 않는 실패 대체 방식입니다.")
         if plan.get("mode") in {"authored", "authored_pool"} and not isinstance(plan.get("plan_ids"), list):
             _issue(issues, "error", path, "$.plan.plan_ids", "게시형 계획 ID가 하나 이상 필요합니다.")
-        if terrain_mode == "procedural_cave" and plan.get("mode") != "runtime":
-            _issue(issues, "error", path, "$.plan.mode", "절차 동굴은 현재 입장 시 자동 생성 계획만 지원합니다.")
+        if terrain_mode in {"procedural_cave", "hybrid"} and plan.get("mode") != "runtime":
+            _issue(issues, "error", path, "$.plan.mode", "절차 동굴과 혼합형은 현재 입장 시 자동 생성 계획만 지원합니다.")
         layout = object_at("layout")
         if layout.get("mode") not in {"fixed", "critical_path_branches", "maze", "rooms_and_corridors"}:
             _issue(issues, "error", path, "$.layout.mode", "지원하지 않는 경로 형태입니다.")

@@ -195,6 +195,9 @@ final class DungeonSystem {
         List<CaveDungeonPlacement> cavePlacements = discoverCavePlacements(
             server.getResourceManager(), byEntrance, placements
         );
+        List<EmbeddedDungeonPlacement> embeddedPlacements = discoverEmbeddedPlacements(
+            server, byEntrance, placements
+        );
         for (String entranceId : byEntrance.keySet()) {
             if (!placements.containsKey(entranceId)) {
                 throw new IllegalStateException(
@@ -210,6 +213,7 @@ final class DungeonSystem {
         structureAnchors = Map.copyOf(anchors);
         ACTIVE_ENTRANCES.clear();
         activateCavePlacements(server, cavePlacements);
+        activateEmbeddedPlacements(server, embeddedPlacements);
         INSIDE_ENTRANCES.clear();
         PENDING_ENTRIES.clear();
         for (Map.Entry<UUID, QueuedEntry> queued : QUEUED_ENTRIES.entrySet()) {
@@ -716,6 +720,8 @@ final class DungeonSystem {
             case "fixed_template", "nbt_pieces" -> null;
             case "procedural_cave" -> definition.plan().mode().equals("runtime")
                 ? null : "절차 동굴은 현재 런타임 계획만 입장할 수 있습니다.";
+            case "hybrid" -> definition.plan().mode().equals("runtime")
+                ? null : "혼합형은 현재 런타임 계획만 입장할 수 있습니다.";
             default -> "아직 지원하지 않는 던전 지형 방식입니다.";
         };
     }
@@ -953,6 +959,9 @@ final class DungeonSystem {
             case "procedural_cave" -> prepareProceduralCave(
                 level, definition, origin, playerId
             );
+            case "hybrid" -> prepareHybrid(
+                level, definition, origin, playerId
+            );
             default -> throw new IllegalStateException(
                 "Unsupported dungeon terrain mode: " + definition.terrain().mode()
             );
@@ -1065,6 +1074,86 @@ final class DungeonSystem {
         return new PreparedTerrain(
             definition.terrain().bounds(),
             generated.entryPosition(), generated.exitPosition(), featurePositions, seed
+        );
+    }
+
+    private static PreparedTerrain prepareHybrid(
+        ServerLevel level,
+        DungeonDefinition definition,
+        BlockPos origin,
+        UUID playerId
+    ) {
+        DungeonDefinition.Layout layout = definition.layout();
+        if (layout.mode().equals("fixed")) {
+            throw new IllegalStateException(
+                "Hybrid dungeon layout mode is not implemented yet: " + layout.mode()
+            );
+        }
+        long seed = dungeonPlanSeed(level, definition, origin, playerId);
+        RandomSource random = RandomSource.create(seed);
+        int rooms = randomRange(random, layout.criticalPathRooms());
+        int branches = randomRange(random, layout.branchCount());
+        int branchDepth = randomRange(random, layout.branchDepth());
+        long startedAt = System.nanoTime();
+        NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
+            level, definition.id(), seed, origin, definition.terrain().bounds(),
+            layout.mode(), rooms, branches, branchDepth, layout.loopChance()
+        );
+        DungeonHybridLandmarkLayout.Result landmarks = DungeonHybridLandmarkLayout.plan(
+            definition, pieceDefinitions.values(), generated.mainRoomPositions(),
+            generated.branchRoomPositions(), seed
+        );
+        for (DungeonHybridLandmarkLayout.Placement placement : landmarks.placements()) {
+            DungeonPieceDefinition piece = placement.piece();
+            ResourceLocation templateId = ResourceLocation.parse(piece.structure());
+            StructureTemplate template = level.getStructureManager().get(templateId)
+                .orElseThrow(() -> new IllegalStateException(
+                    "Hybrid dungeon landmark template is missing: " + templateId
+                ));
+            BlockPos actualSize = new BlockPos(template.getSize());
+            if (!actualSize.equals(piece.size())) {
+                throw new IllegalStateException(
+                    "Hybrid dungeon landmark metadata size differs from its template: "
+                        + piece.id() + " (metadata=" + piece.size()
+                        + ", template=" + actualSize + ")"
+                );
+            }
+            StructurePlaceSettings settings = new StructurePlaceSettings()
+                .setRotation(Rotation.NONE)
+                .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
+            ExplicitAirPlacementProcessor.configure(template, settings);
+            BlockPos placementOrigin = origin.offset(placement.templateOrigin());
+            if (!template.placeInWorld(
+                level, placementOrigin, placementOrigin, settings,
+                RandomSource.create(seed ^ placement.index()), 2
+            )) {
+                throw new IllegalStateException(
+                    "Hybrid dungeon landmark placement failed: " + piece.id()
+                );
+            }
+        }
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        if (elapsedMs > definition.plan().generationTimeoutMs()) {
+            throw new IllegalStateException(
+                "Hybrid dungeon preparation exceeded generation_timeout_ms: "
+                    + elapsedMs + "ms > " + definition.plan().generationTimeoutMs() + "ms"
+            );
+        }
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> featurePositions =
+            new LinkedHashMap<>(DungeonCaveFeatureLayout.assign(
+                definition, generated.mainRoomPositions(),
+                generated.branchRoomPositions(), seed
+            ));
+        featurePositions.putAll(landmarks.featureMarkers());
+        LOGGER.info(
+            "Prepared hybrid dungeon: dungeon={}, seed={}, layout={}, rooms={}, "
+                + "branches={}, landmarks={}, elapsed={}ms",
+            definition.id(), seed, layout.mode(), rooms, branches,
+            landmarks.placements().size(), elapsedMs
+        );
+        return new PreparedTerrain(
+            definition.terrain().bounds(), generated.entryPosition(),
+            generated.exitPosition(), Map.copyOf(featurePositions), seed
         );
     }
 
@@ -3615,6 +3704,301 @@ final class DungeonSystem {
         }
     }
 
+    private static List<EmbeddedDungeonPlacement> discoverEmbeddedPlacements(
+        MinecraftServer server,
+        Map<String, DungeonEntranceRef> configuredEntrances,
+        Map<String, String> placements
+    ) {
+        List<EmbeddedDungeonPlacement> result = new ArrayList<>();
+        discoverEmbeddedPlacements(
+            server, "caves", "cave", configuredEntrances, placements, result
+        );
+        discoverEmbeddedPlacements(
+            server, "forests", "forest", configuredEntrances, placements, result
+        );
+        return List.copyOf(result);
+    }
+
+    private static void discoverEmbeddedPlacements(
+        MinecraftServer server,
+        String resourceFolder,
+        String regionKind,
+        Map<String, DungeonEntranceRef> configuredEntrances,
+        Map<String, String> placements,
+        List<EmbeddedDungeonPlacement> result
+    ) {
+        ResourceManager resources = server.getResourceManager();
+        Map<ResourceLocation, Resource> documents = resources.listResources(
+            resourceFolder, location -> location.getNamespace().equals("cobbleventure")
+                && location.getPath().endsWith(".json")
+        );
+        for (Map.Entry<ResourceLocation, Resource> entry : documents.entrySet()) {
+            try (Reader reader = entry.getValue().openAsReader()) {
+                JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+                if (root.has("enabled") && !root.get("enabled").getAsBoolean()) continue;
+                if (!root.has("embedded_sites")) continue;
+                JsonObject dimension = root.getAsJsonObject("dimension");
+                String dimensionId = dimension.get("id").getAsString();
+                BlockPos origin = jsonBlockPosition(dimension.getAsJsonObject("origin"));
+                for (JsonElement element : root.getAsJsonArray("embedded_sites")) {
+                    JsonObject site = element.getAsJsonObject();
+                    String entranceId = site.get("entrance_id").getAsString();
+                    if (!configuredEntrances.containsKey(entranceId)) {
+                        throw new IllegalStateException(
+                            "Embedded site references missing dungeon entrance: "
+                                + entry.getKey() + " -> " + entranceId
+                        );
+                    }
+                    String previous = placements.putIfAbsent(
+                        entranceId, entry.getKey().toString()
+                    );
+                    if (previous != null) {
+                        throw new IllegalStateException(
+                            "Dungeon entrance is placed more than once: " + entranceId
+                                + " (" + previous + " / " + entry.getKey() + ")"
+                        );
+                    }
+                    BlockPos trigger = resolveEmbeddedSite(
+                        root, site, regionKind, origin,
+                        server.getWorldData().worldGenOptions().seed()
+                    );
+                    if (site.has("offset")) {
+                        trigger = trigger.offset(jsonBlockPosition(
+                            site.getAsJsonObject("offset")
+                        ));
+                    }
+                    result.add(new EmbeddedDungeonPlacement(
+                        entranceId, dimensionId, trigger,
+                        site.has("safe_spawn")
+                            ? jsonBlockPosition(site.getAsJsonObject("safe_spawn")) : null,
+                        site.has("structure") ? site.get("structure").getAsString() : null,
+                        site.has("door_anchor") ? site.get("door_anchor").getAsString() : null,
+                        site.has("rotation") ? site.get("rotation").getAsString() : "none"
+                    ));
+                }
+            } catch (IOException | RuntimeException error) {
+                if (error instanceof IllegalStateException state) throw state;
+                throw new IllegalStateException(
+                    "Invalid embedded dungeon site: " + entry.getKey(), error
+                );
+            }
+        }
+    }
+
+    private static BlockPos resolveEmbeddedSite(
+        JsonObject region,
+        JsonObject site,
+        String regionKind,
+        BlockPos origin,
+        long worldSeed
+    ) {
+        String placement = site.get("placement").getAsString();
+        if (placement.equals("fixed")) {
+            return jsonBlockPosition(site.getAsJsonObject("position"));
+        }
+        List<EmbeddedCandidate> candidates = regionKind.equals("cave")
+            ? caveEmbeddedCandidates(region, site)
+            : forestEmbeddedCandidates(region, site, origin);
+        if (placement.equals("anchor")) {
+            String anchor = site.get("anchor").getAsString();
+            return candidates.stream()
+                .filter(candidate -> candidate.id().equals(anchor))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                    "Embedded dungeon site anchor is missing: " + anchor
+                )).position();
+        }
+        if (!placement.equals("rule") || candidates.isEmpty()) {
+            throw new IllegalStateException(
+                "Embedded dungeon site has no placement candidate: "
+                    + site.get("id").getAsString()
+            );
+        }
+        String candidateKind = site.has("candidate")
+            ? site.get("candidate").getAsString() : "any";
+        List<EmbeddedCandidate> filtered = candidates.stream()
+            .filter(candidate -> candidateKind.equals("any")
+                || candidate.kind().equals(candidateKind))
+            .toList();
+        if (filtered.isEmpty()) {
+            throw new IllegalStateException(
+                "Embedded dungeon site candidate rule matched nothing: "
+                    + site.get("id").getAsString() + " -> " + candidateKind
+            );
+        }
+        long seed = worldSeed ^ (long) region.get("id").getAsString().hashCode()
+            * 0x9E3779B97F4A7C15L ^ site.get("id").getAsString().hashCode();
+        return filtered.get(Math.floorMod(seed, filtered.size())).position();
+    }
+
+    private static List<EmbeddedCandidate> caveEmbeddedCandidates(
+        JsonObject cave, JsonObject site
+    ) {
+        List<EmbeddedCandidate> result = new ArrayList<>();
+        JsonObject generator = cave.getAsJsonObject("generator");
+        if (!generator.has("manual_layout")) return result;
+        JsonObject manual = generator.getAsJsonObject("manual_layout");
+        for (JsonElement element : manual.getAsJsonArray("anchors")) {
+            JsonObject anchor = element.getAsJsonObject();
+            String kind = anchor.get("kind").getAsString().equals("landmark")
+                ? "landmark" : "main_path";
+            result.add(new EmbeddedCandidate(
+                anchor.get("id").getAsString(), kind,
+                jsonBlockPosition(anchor.getAsJsonObject("position"))
+            ));
+        }
+        return result;
+    }
+
+    private static List<EmbeddedCandidate> forestEmbeddedCandidates(
+        JsonObject forest, JsonObject site, BlockPos origin
+    ) {
+        List<EmbeddedCandidate> result = new ArrayList<>();
+        for (JsonElement pathElement : forest.getAsJsonArray("paths")) {
+            JsonObject path = pathElement.getAsJsonObject();
+            List<JsonElement> points = path.getAsJsonArray("points").asList();
+            int middle = points.size() / 2;
+            JsonObject point = points.get(middle).getAsJsonObject();
+            String kind = path.has("kind") && path.get("kind").getAsString().equals("main")
+                ? "main_path" : "branch";
+            result.add(new EmbeddedCandidate(
+                path.get("id").getAsString(), kind,
+                new BlockPos(
+                    origin.getX() + point.get("x").getAsInt(), origin.getY(),
+                    origin.getZ() + point.get("z").getAsInt()
+                )
+            ));
+        }
+        return result;
+    }
+
+    private static void activateEmbeddedPlacements(
+        MinecraftServer server, List<EmbeddedDungeonPlacement> placements
+    ) {
+        for (EmbeddedDungeonPlacement placement : placements) {
+            ResourceLocation dimensionId = ResourceLocation.tryParse(placement.dimension());
+            ServerLevel level = dimensionId == null ? null : server.getLevel(
+                ResourceKey.create(Registries.DIMENSION, dimensionId)
+            );
+            if (level == null) {
+                throw new IllegalStateException(
+                    "Embedded dungeon entrance dimension is unavailable: "
+                        + placement.dimension()
+                );
+            }
+            BlockPos safeReturn = placement.safeReturn();
+            if (placement.structure() == null) {
+                placeCaveEntranceMarker(level, placement.trigger());
+                if (safeReturn == null) safeReturn = placement.trigger().south();
+            } else {
+                Rotation rotation = embeddedRotation(placement.rotation());
+                StructureAnchor anchor = readEmbeddedStructureAnchor(
+                    server.getResourceManager(), placement.structure(),
+                    placement.doorAnchor()
+                );
+                BlockPos rotatedAnchor = StructureTemplate.transform(
+                    anchor.position(), Mirror.NONE, rotation, BlockPos.ZERO
+                );
+                BlockPos templateOrigin = placement.trigger().subtract(rotatedAnchor);
+                StructureTemplate template = level.getStructureManager().get(
+                    ResourceLocation.parse(placement.structure())
+                ).orElseThrow(() -> new IllegalStateException(
+                    "Embedded dungeon entrance template is missing: "
+                        + placement.structure()
+                ));
+                StructurePlaceSettings settings = new StructurePlaceSettings()
+                    .setRotation(rotation)
+                    .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
+                ExplicitAirPlacementProcessor.configure(template, settings);
+                if (!template.placeInWorld(
+                    level, templateOrigin, templateOrigin, settings,
+                    RandomSource.create(level.getSeed() ^ placement.trigger().asLong()), 2
+                )) {
+                    throw new IllegalStateException(
+                        "Embedded dungeon entrance template placement failed: "
+                            + placement.structure()
+                    );
+                }
+                if (safeReturn == null) {
+                    safeReturn = placement.trigger().relative(rotation.rotate(anchor.facing()));
+                }
+            }
+            ACTIVE_ENTRANCES.put(
+                placement.entranceId(),
+                new PlacedEntrance(
+                    placement.entranceId(), level.dimension(),
+                    placement.trigger(), safeReturn
+                )
+            );
+        }
+    }
+
+    private static Rotation embeddedRotation(String value) {
+        return switch (value) {
+            case "none" -> Rotation.NONE;
+            case "clockwise_90" -> Rotation.CLOCKWISE_90;
+            case "clockwise_180" -> Rotation.CLOCKWISE_180;
+            case "counterclockwise_90" -> Rotation.COUNTERCLOCKWISE_90;
+            default -> throw new IllegalStateException(
+                "Unsupported embedded dungeon site rotation: " + value
+            );
+        };
+    }
+
+    private static StructureAnchor readEmbeddedStructureAnchor(
+        ResourceManager resources, String structure, String anchorId
+    ) {
+        ResourceLocation structureId = ResourceLocation.parse(structure);
+        ResourceLocation metadataId = ResourceLocation.fromNamespaceAndPath(
+            structureId.getNamespace(),
+            "structure_metadata/" + structureId.getPath() + ".structure.json"
+        );
+        Resource resource = resources.getResource(metadataId).orElseThrow(() ->
+            new IllegalStateException(
+                "Embedded dungeon entrance metadata is missing: " + metadataId
+            )
+        );
+        try (Reader reader = resource.openAsReader()) {
+            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+            for (JsonElement element : root.getAsJsonArray("anchors")) {
+                JsonObject anchor = element.getAsJsonObject();
+                if (!anchor.has("id") || !anchor.get("id").getAsString().equals(anchorId)) {
+                    continue;
+                }
+                if (anchor.has("type")
+                    && !anchor.get("type").getAsString().equals("door")) {
+                    throw new IllegalStateException(
+                        "Embedded dungeon entrance anchor must be an EditWorld door: "
+                            + structure + "#" + anchorId
+                    );
+                }
+                var position = anchor.getAsJsonArray("position");
+                Direction facing = Direction.byName(anchor.get("facing").getAsString());
+                if (facing == null) {
+                    throw new IllegalStateException(
+                        "Embedded dungeon entrance anchor has invalid facing: "
+                            + structure + "#" + anchorId
+                    );
+                }
+                return new StructureAnchor(
+                    new BlockPos(
+                        position.get(0).getAsInt(), position.get(1).getAsInt(),
+                        position.get(2).getAsInt()
+                    ), facing
+                );
+            }
+        } catch (IOException error) {
+            throw new IllegalStateException(
+                "Embedded dungeon entrance metadata could not be read: " + metadataId,
+                error
+            );
+        }
+        throw new IllegalStateException(
+            "Embedded dungeon entrance door anchor is missing: "
+                + structure + "#" + anchorId
+        );
+    }
+
     private static void placeCaveEntranceMarker(ServerLevel level, BlockPos trigger) {
         BlockPos floor = trigger.below();
         for (int x = -2; x <= 2; x++) {
@@ -3821,6 +4205,18 @@ final class DungeonSystem {
         BlockPos trigger,
         BlockPos safeReturn
     ) {}
+
+    private record EmbeddedDungeonPlacement(
+        String entranceId,
+        String dimension,
+        BlockPos trigger,
+        BlockPos safeReturn,
+        String structure,
+        String doorAnchor,
+        String rotation
+    ) {}
+
+    private record EmbeddedCandidate(String id, String kind, BlockPos position) {}
 
     private record ReturnFrame(
         String dimension,

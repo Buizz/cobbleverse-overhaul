@@ -2518,7 +2518,54 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(2, content_manager.synchronize_spatial_build_files(root))
             self.assertEqual(content_manager.derive_cave_build_bounds(cave), content_manager.load_json(cave_path)["dimension"]["bounds"])
             self.assertEqual(content_manager.derive_forest_build_bounds(forest), content_manager.load_json(forest_path)["dimension"]["bounds"])
-            self.assertEqual(0, content_manager.synchronize_spatial_build_files(root))
+        self.assertEqual(0, content_manager.synchronize_spatial_build_files(root))
+
+    def test_cave_and_forest_validate_embedded_dungeon_sites(self) -> None:
+        cave = content_manager.load_json(
+            PROJECT_ROOT / "content/caves/generation_1/rock_tunnel.json"
+        )
+        cave["embedded_sites"] = [{
+            "id": "hidden_door",
+            "entrance_id": "cobbleventure:entrance/test_hidden_door",
+            "placement": "anchor",
+            "anchor": "hidden_chamber",
+            "structure": "cobbleventure:dungeon_entrances/stone_door",
+            "door_anchor": "entrance",
+            "rotation": "clockwise_90",
+        }]
+        forest = content_manager.load_json(
+            PROJECT_ROOT / "content/forests/generation_1/viridian_forest.json"
+        )
+        forest["embedded_sites"] = [{
+            "id": "branch_ruin",
+            "entrance_id": "cobbleventure:entrance/test_branch_ruin",
+            "placement": "rule",
+            "candidate": "branch",
+            "offset": {"x": 2, "y": 0, "z": 0},
+        }]
+
+        with tempfile.TemporaryDirectory() as directory:
+            cave_path = Path(directory) / "cave.json"
+            forest_path = Path(directory) / "forest.json"
+            cave_path.write_text(json.dumps(cave), encoding="utf-8")
+            forest_path.write_text(json.dumps(forest), encoding="utf-8")
+            _, cave_issues = content_manager.validate_cave_file(cave_path)
+            _, forest_issues = content_manager.validate_forest_file(forest_path)
+
+        self.assertFalse(any(issue.level == "error" for issue in cave_issues), cave_issues)
+        self.assertFalse(any(issue.level == "error" for issue in forest_issues), forest_issues)
+
+        cave["embedded_sites"][0].pop("door_anchor")
+        forest["embedded_sites"][0]["candidate"] = "landmark"
+        with tempfile.TemporaryDirectory() as directory:
+            cave_path = Path(directory) / "cave.json"
+            forest_path = Path(directory) / "forest.json"
+            cave_path.write_text(json.dumps(cave), encoding="utf-8")
+            forest_path.write_text(json.dumps(forest), encoding="utf-8")
+            _, cave_issues = content_manager.validate_cave_file(cave_path)
+            _, forest_issues = content_manager.validate_forest_file(forest_path)
+        self.assertTrue(any("함께 지정" in issue.message for issue in cave_issues))
+        self.assertTrue(any("자동 배치 후보" in issue.message for issue in forest_issues))
 
     def test_forest_template_models_tiled_paths_and_height_tiles(self) -> None:
         document = content_manager._forest_template("viridian", "상록숲", "generation_1")
@@ -5616,9 +5663,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertGreaterEqual(len(trainer_classes["classes"]), 50)
         self.assertGreaterEqual(len(trainer_roster["organizations"]), 10)
         self.assertGreaterEqual(len(trainer_roster["league_characters"]), 50)
-        self.assertEqual(535, len(trainer_references["entries"]))
+        self.assertEqual(1189, len(trainer_references["entries"]))
         self.assertEqual(
-            {"another_red", "rct_default"},
+            {"another_red", "firered", "rct_default"},
             {entry["source"] for entry in trainer_references["entries"]},
         )
         reference_by_id = {entry["id"]: entry for entry in trainer_references["entries"]}

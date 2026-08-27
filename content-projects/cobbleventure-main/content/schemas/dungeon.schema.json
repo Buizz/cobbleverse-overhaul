@@ -183,6 +183,10 @@
         {
           "if": { "properties": { "mode": { "const": "procedural_cave" } }, "required": ["mode"] },
           "then": { "required": ["cave_generator", "bounds"] }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "hybrid" } }, "required": ["mode"] },
+          "then": { "required": ["piece_pool", "cave_generator", "bounds"] }
         }
       ]
     },
