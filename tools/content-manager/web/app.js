@@ -5774,7 +5774,8 @@ function dungeonRuntimePreviewPiece(document, role, random, shape = "", required
     const rotationPenalty = preferredRotation && rotation !== preferredRotation ? 100 : 0;
     return { piece, rotation, matches, score: rotationPenalty + excess };
   })).filter((option) => option.matches);
-  const available = options.length ? options : candidates.map((piece) => ({ piece, rotation: preferredRotation || "none", score: 0 }));
+  if (!options.length) return { piece: null, rotation: "none", missingFacings: required };
+  const available = options;
   const bestScore = Math.min(...available.map((option) => option.score));
   const best = available.filter((option) => option.score === bestScore);
   const total = best.reduce((sum, option) => sum + Math.max(1, Number(option.piece.weight || 1)), 0);
@@ -5805,7 +5806,8 @@ function runtimeDungeonPlan(document, seed) {
   const ordinaryPieces = [...state.dungeonPieces.values()].filter((piece) => (!piecePool || (piece.tags || []).includes(piecePool)) && !(piece.tags || []).some((tag) => tag.endsWith("/stairs_up") || tag.endsWith("/stairs_down")));
   const layerHeight = caveTerrain ? 6 : Math.max(1, ...ordinaryPieces.map((piece) => Number(piece.size?.[1] || 0)), 8);
   const floorRange = caveTerrain ? [0, 0] : dungeonRange(layout.floor_changes, [0, 0]);
-  const floorChangeCount = layout.vertical_direction === "flat" ? 0 : Math.min(count - 3, Math.round(floorRange[0] + random() * (floorRange[1] - floorRange[0])));
+  const requestedFloorChanges = Math.round(floorRange[0] + random() * (floorRange[1] - floorRange[0]));
+  const floorChangeCount = layout.vertical_direction === "flat" ? 0 : Math.min(Math.floor((count - 3) / 2), requestedFloorChanges);
   const grid = [];
   const links = [];
   const occupied = new Set();
@@ -5819,6 +5821,11 @@ function runtimeDungeonPlan(document, seed) {
   const floorCount = floorChangeCount + 1;
   const ordinaryCount = count - floorChangeCount;
   const roomsByFloor = Array.from({ length: floorCount }, (_, floor) => Math.floor(ordinaryCount / floorCount) + (floor < ordinaryCount % floorCount ? 1 : 0));
+  while (roomsByFloor.at(-1) < 3) {
+    const donor = roomsByFloor.slice(0, -1).reduce((best, value, index) => value > roomsByFloor[best] ? index : best, 0);
+    roomsByFloor[donor] -= 1;
+    roomsByFloor[roomsByFloor.length - 1] += 1;
+  }
   let gy = 0; let floor = 0; let roomOnFloor = 0; let ordinaryIndex = 0;
   let floorStartX = 0; let floorStartZ = 0; let travelX = 1; let travelZ = 0;
   for (let index = 0; index < count; index += 1) {
@@ -5886,7 +5893,7 @@ function runtimeDungeonPlan(document, seed) {
       index: value.index, pieceId: piece?.piece_id || `preview:${value.role}`, structure: piece?.structure || "", role: value.role,
       minimum: [(value.gx - minX) * cell, minimumY, (value.gz - minZ) * cell],
       size: piece?.size?.map(Number) || [cell, layerHeight, cell], rotation: selection?.rotation || "none", critical: value.critical,
-      floorYs, verticalTransition: Boolean(value.verticalTransition),
+      floorYs, verticalTransition: Boolean(value.verticalTransition), connectorMismatch: selection?.missingFacings || [],
     };
   });
   const bounds = [
@@ -6124,8 +6131,12 @@ function renderDungeonPreview() {
 }
 
 function dungeonPlanPlacementProblems(plan) {
-  const problems = new Map(); if (!plan?.exact || plan.kind !== "authored") return problems;
+  const problems = new Map();
   const add = (index, message) => { if (!problems.has(index)) problems.set(index, []); problems.get(index).push(message); };
+  for (const placement of plan?.placements || []) {
+    if (placement.connectorMismatch?.length) add(placement.index, `연결 가능한 조각 없음: ${placement.connectorMismatch.join(", ")}`);
+  }
+  if (!plan?.exact || plan.kind !== "authored") return problems;
   for (const placement of plan.placements || []) {
     const maximum = placement.minimum.map((axis, index) => Number(axis) + Number(placement.size[index]));
     if (placement.minimum.some((axis, index) => Number(axis) < 0 || maximum[index] > Number(plan.bounds[index]))) add(placement.index, "계획 영역 밖");
