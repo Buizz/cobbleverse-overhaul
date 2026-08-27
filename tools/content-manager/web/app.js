@@ -7137,6 +7137,9 @@ function mountCaveLayoutEditor(context) {
   if (!preview) return;
   const kindSelect = preview.querySelector('[data-cave-selected-field="kind"]');
   if (kindSelect && !kindSelect.querySelector('option[value="branch"]')) kindSelect.querySelector('option[value="grand"]')?.insertAdjacentHTML("beforebegin", '<option value="branch">곁가지 공동</option>');
+  const legend = preview.querySelector(".cave-preview-legend");
+  if (legend && !legend.querySelector('[data-kind="boss-event"]')) legend.insertAdjacentHTML("beforeend", '<span data-kind="boss-event">보스 이벤트</span><span data-kind="encounter-event">일반 조우</span><span data-kind="support-event">보상·목표·치료</span>');
+  legend?.classList.toggle("shows-dungeon-events", context === "dungeon");
   state.cavePreview.context = context;
   if (context === "dungeon") {
     $("#dungeon-preview-anchor")?.append(preview);
@@ -7184,7 +7187,7 @@ function buildCavePreviewLayout() {
     const nodes = new Map();
     for (const entry of document.entrances || []) nodes.set(entry.id, { id: entry.id, x: Number(entry.destination_anchor?.x ?? 0), y: Number(entry.destination_anchor?.y ?? 48), z: Number(entry.destination_anchor?.z ?? 0) });
     const rooms = (manual.anchors || []).map((anchor, index) => {
-      const room = { id: anchor.id, source: "anchor", sourceIndex: index, x: Number(anchor.position?.x ?? 0), y: Number(anchor.position?.y ?? 48), z: Number(anchor.position?.z ?? 0), radiusX: Number(anchor.radius_x ?? 12), radiusZ: Number(anchor.radius_z ?? 12), height: Number(anchor.height ?? 12), kind: anchor.kind === "landmark" ? "moon" : anchor.kind === "branch" || anchor.kind === "room" || anchor.kind === "lake" ? "wild" : anchor.kind };
+      const room = { id: anchor.id, source: "anchor", sourceIndex: index, branch: anchor.kind === "branch", x: Number(anchor.position?.x ?? 0), y: Number(anchor.position?.y ?? 48), z: Number(anchor.position?.z ?? 0), radiusX: Number(anchor.radius_x ?? 12), radiusZ: Number(anchor.radius_z ?? 12), height: Number(anchor.height ?? 12), kind: anchor.kind === "landmark" ? "moon" : anchor.kind === "branch" || anchor.kind === "room" || anchor.kind === "lake" ? "wild" : anchor.kind };
       nodes.set(anchor.id, room); return room;
     });
     const paths = (manual.connections || []).map((connection) => ({ id: connection.id, source: "connection", kind: connection.kind, points: [nodes.get(connection.from), nodes.get(connection.to)].filter(Boolean), width: Number(connection.width || 5) })).filter((path) => path.points.length === 2);
@@ -7222,7 +7225,7 @@ function buildCavePreviewLayout() {
     const kind = index === Math.floor(roomCount / 2) ? "grand" : "main";
     if (kind === "grand") { radiusX = Math.max(radiusX, roomMax * grandScale); radiusZ = Math.max(radiusZ, roomMax * grandScale * .82); height = Math.max(height, roomMax * grandScale * .78); }
     radiusX *= shape.radiusX; radiusZ *= shape.radiusZ; height *= shape.height;
-    const room = { id: `main_${index + 1}`, source: "generated", x, y, z, radiusX, radiusZ, height, kind };
+    const room = { id: `main_${index + 1}`, source: "generated", branch: false, x, y, z, radiusX, radiusZ, height, kind };
     rooms.push(room); mainRooms.push(room);
   }
   const point = (room) => ({ id: room.id, x: room.x, y: room.y, z: room.z });
@@ -7235,7 +7238,7 @@ function buildCavePreviewLayout() {
     let y = Math.max(30, Math.min(76, root.y + random.nextInt(-Math.floor(verticalRange / 2), Math.floor(verticalRange / 2) + 1) * shape.vertical));
     const radiusX = between(roomMin, roomMax) * shape.radiusX;
     const radiusZ = between(roomMin, roomMax) * shape.radiusZ;
-    const room = { id: `${kind}_${index + 1}`, source: "generated", x, y, z, radiusX, radiusZ, height: between(Math.max(9, roomMin * .7), Math.max(11, roomMax * .72)) * shape.height, kind };
+    const room = { id: `${kind}_${index + 1}`, source: "generated", branch: true, x, y, z, radiusX, radiusZ, height: between(Math.max(9, roomMin * .7), Math.max(11, roomMax * .72)) * shape.height, kind };
     rooms.push(room);
     paths.push({ id: `branch_path_${index + 1}`, kind: "branch", points: [point(root), { x: (root.x + x) / 2 + random.nextInt(-10, 11), y: Math.trunc((root.y + y) / 2), z: (root.z + z) / 2 }, point(room)] });
   }
@@ -7294,6 +7297,54 @@ function materializeCavePreviewLayout(selectedId = "") {
   renderCaveLayoutPreview();
   toast("자동 생성 결과를 수동 배치로 전환했습니다. 이제 공동과 통로를 직접 이동할 수 있습니다.");
   return true;
+}
+
+function caveDungeonEventMarkers(layout) {
+  if (state.cavePreview.context !== "dungeon" || !state.dungeon) return [];
+  const offsets = [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]];
+  const slots = (rooms) => rooms.flatMap((room) => offsets.map(([x, z]) => ({ x: Math.round(room.x) + x, y: Math.round(room.y) + 1, z: Math.round(room.z) + z, roomId: room.id })));
+  const random = seededDungeonRandom(Number(state.dungeonPreview.seed || 1) ^ Number(state.dungeon.terrain?.generator?.seed_salt || 0));
+  const shuffle = (values) => {
+    const result = [...values];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(random() * (index + 1));
+      [result[index], result[target]] = [result[target], result[index]];
+    }
+    return result;
+  };
+  const mainRooms = layout.rooms.filter((room) => !room.branch);
+  const branchRooms = layout.rooms.filter((room) => room.branch);
+  const mainSlots = shuffle(slots(mainRooms)); const branchSlots = shuffle(slots(branchRooms));
+  const bossSlots = [...mainRooms].reverse().map((room) => ({ x: Math.round(room.x), y: Math.round(room.y) + 1, z: Math.round(room.z), roomId: room.id }));
+  const used = new Set();
+  const take = (...pools) => {
+    for (const pool of pools) for (const position of pool) {
+      const key = `${position.x},${position.y},${position.z}`;
+      if (!used.has(key)) { used.add(key); return position; }
+    }
+    return null;
+  };
+  const fixed = (position) => Array.isArray(position) ? { x: Number(position[0]), y: Number(position[1]), z: Number(position[2]), roomId: "fixed" } : null;
+  const gateCenter = (entry) => Array.isArray(entry.min) && Array.isArray(entry.max) ? {
+    x: (Number(entry.min[0]) + Number(entry.max[0])) / 2,
+    y: (Number(entry.min[1]) + Number(entry.max[1])) / 2,
+    z: (Number(entry.min[2]) + Number(entry.max[2])) / 2,
+    roomId: "fixed",
+  } : null;
+  const markers = [];
+  const add = (kind, entry, index, position, contentKind) => {
+    if (!position) return;
+    markers.push({ ...position, kind, label: entry.display_name?.ko_kr || entry.id, content: { kind: contentKind, index } });
+  };
+  const encounters = state.dungeon.encounters || [];
+  encounters.forEach((entry, index) => { if (entry.boss) add("boss", entry, index, fixed(entry.position) || take(bossSlots, mainSlots), "encounter"); });
+  encounters.forEach((entry, index) => { if (!entry.boss) add("encounter", entry, index, fixed(entry.position) || take(mainSlots, branchSlots), "encounter"); });
+  (state.dungeon.objectives || []).forEach((entry, index) => add("objective", entry, index, fixed(entry.position) || take(branchSlots, mainSlots), "objective"));
+  (state.dungeon.loot?.containers || []).forEach((entry, index) => add("loot", entry, index, fixed(entry.position) || take(branchSlots, mainSlots), "loot"));
+  (state.dungeon.support?.healing_stations || []).forEach((entry, index) => add("healing", entry, index, fixed(entry.position) || take(branchSlots, mainSlots), "healing"));
+  (state.dungeon.support?.checkpoints || []).forEach((entry, index) => add("checkpoint", entry, index, fixed(entry.position) || take(mainSlots, branchSlots), "checkpoint"));
+  (state.dungeon.gates || []).forEach((entry, index) => add("gate", entry, index, gateCenter(entry) || take(mainSlots, branchSlots), "gate"));
+  return markers;
 }
 
 function selectedCavePreviewNode() {
@@ -7671,6 +7722,19 @@ function renderCaveLayoutPreview() {
     if (room.kind === "grand" || submerged || isSelected) { context.fillStyle = "#e6f1f1"; context.font = "700 11px sans-serif"; context.textAlign = "center"; context.fillText(submerged ? `${room.id} · ${fluidName} 깊이 ${waterY - room.y}` : room.kind === "grand" ? "대공동" : room.id, projected.x, projected.y - radiusY - 8); }
     if (["anchor", "generated"].includes(room.source)) state.cavePreview.hitTargets.push({ mode: "move", source: room.source, id: room.id, x: projected.x, y: projected.y, radius: Math.max(10, Math.min(26, radiusX * .35)) });
   }
+  const eventColors = { boss: "#ff5f73", encounter: "#ff9d57", loot: "#f1c453", objective: "#c17cff", healing: "#52d8c7", checkpoint: "#56b8ff", gate: "#d7e5ed" };
+  const eventIcons = { boss: "B", encounter: "!", loot: "◆", objective: "★", healing: "+", checkpoint: "C", gate: "▥" };
+  const eventMarkers = caveDungeonEventMarkers(layout);
+  for (const marker of eventMarkers) {
+    const projected = project(marker);
+    const selectedEvent = state.dungeonContentSelection?.kind === marker.content.kind && state.dungeonContentSelection?.index === marker.content.index;
+    context.beginPath(); context.arc(projected.x, projected.y, selectedEvent ? 11 : 8, 0, Math.PI * 2);
+    context.fillStyle = "rgba(8,14,18,.9)"; context.fill();
+    context.strokeStyle = eventColors[marker.kind] || "#ffffff"; context.lineWidth = selectedEvent ? 4 : 3; context.stroke();
+    context.fillStyle = eventColors[marker.kind] || "#ffffff"; context.font = "800 9px sans-serif"; context.textAlign = "center"; context.fillText(eventIcons[marker.kind] || "•", projected.x, projected.y + 3);
+    context.font = `${selectedEvent ? "800" : "700"} 10px sans-serif`; context.textAlign = "left"; context.lineWidth = 4; context.strokeStyle = "rgba(5,10,13,.92)"; context.strokeText(marker.label, projected.x + 12, projected.y - 8); context.fillStyle = "#f4f8f7"; context.fillText(marker.label, projected.x + 12, projected.y - 8);
+    state.cavePreview.hitTargets.push({ mode: "select-event", source: "dungeon-event", id: `${marker.content.kind}:${marker.content.index}`, content: marker.content, x: projected.x, y: projected.y, radius: 13 });
+  }
   for (const entrance of layout.entrances) {
     const p = project(entrance); const submerged = isSubmergedAt(entrance.y); const isSelected = selected?.source === "entrance" && selected.id === entrance.id; const isDraft = state.cavePreview.pathDraft?.id === entrance.id;
     context.fillStyle = submerged ? (lava ? "#f25c1c" : "#43b8e8") : "#ffce67"; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isDraft || isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected || isDraft ? 10 : 8, 0, Math.PI * 2); context.fill(); context.stroke();
@@ -7698,7 +7762,7 @@ function renderCaveLayoutPreview() {
   if (!selectedCavePreviewNode()) $(".cave-layout-preview")?.removeAttribute("data-editing-node");
   const submergedRooms = layout.rooms.filter((room) => isSubmergedAt(room.y)).length;
   const editHint = layout.manual ? "" : " · 공동을 선택하면 직접 편집으로 전환";
-  const eventHint = state.cavePreview.context === "dungeon" ? " · 이벤트: 보스는 주 경로 끝, 조우는 주 경로, 보상·목표는 곁가지 우선" : "";
+  const eventHint = state.cavePreview.context === "dungeon" ? ` · 예상 이벤트 ${eventMarkers.length}개: 보스는 주 경로 끝, 조우는 주 경로, 보상·목표는 곁가지 우선` : "";
   summary.textContent = `${layout.manual ? "수동 배치" : "자동 배치"} · 입구 ${document?.entrances?.length || 0}개 · 공동 ${layout.rooms.length}개 · 연결 ${layout.paths.length}개 · ${fluidName} 수위 Y ${waterY} · 최대 깊이 ${waterDepth} · 침수 공동 ${submergedRooms}개 · 돌다리 ${layout.paths.filter((path) => path.kind === "bridge").length}개${editHint}${eventHint}`;
 }
 
@@ -7716,10 +7780,11 @@ function cavePreviewHitDistance(target, pointer) {
 }
 
 function cavePreviewTargetPriority(target) {
-  if (target.mode === "resize") return 0;
-  if (target.source === "entrance") return 1;
-  if (target.mode === "move") return 2;
-  return 3;
+  if (target.source === "dungeon-event") return 0;
+  if (target.mode === "resize") return 1;
+  if (target.source === "entrance") return 2;
+  if (target.mode === "move") return 3;
+  return 4;
 }
 
 function beginCavePreviewDrag(event) {
@@ -7738,6 +7803,14 @@ function beginCavePreviewDrag(event) {
   }
   if (state.cavePreview.tool === "connect") {
     chooseCavePathEndpoint(target);
+    return;
+  }
+  if (target?.source === "dungeon-event") {
+    state.dungeonContentSelection = { ...target.content };
+    state.cavePreview.selected = null;
+    renderDungeonContentEditor();
+    renderCaveLayoutPreview();
+    $("#dungeon-content-properties")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;
   }
   if (target?.source === "generated") {
