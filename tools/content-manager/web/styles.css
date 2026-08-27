@@ -2030,6 +2030,29 @@ body { font-size: 14px; line-height: 1.45; }
 .dungeon-content-fields input,.dungeon-content-fields select { width:100%; min-width:0; padding:8px; border:1px solid #b4c4bc; border-radius:3px; background:#f9fbfa; color:#2b4238; }
 .dungeon-content-fields label.toggle { display:flex; align-items:center; align-self:end; min-height:34px; padding:8px; border:1px solid #d2dcd7; background:#f5f8f6; }
 .dungeon-content-fields label.toggle input { width:auto; }
+.dungeon-trainer-mode { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:10px; border:1px solid #c6d3cd; background:#f4f8f6; }
+.dungeon-trainer-mode legend { padding:0 5px; color:#405b50; font-size:9px; font-weight:800; }
+.dungeon-content-fields .dungeon-trainer-mode-option { display:grid; gap:3px; min-height:58px; padding:10px; border:1px solid #c8d5cf; border-radius:5px; background:#fff; cursor:pointer; text-align:left; }
+.dungeon-trainer-mode-option b { color:#355047; font-size:10px; }
+.dungeon-trainer-mode-option small { color:#75877f; line-height:1.45; }
+.dungeon-trainer-mode-option.is-active { border-color:#78951c; box-shadow:inset 3px 0 #9fc32a; background:#f7fbe9; }
+.dungeon-trainer-assignments,.dungeon-generated-trainer { display:grid; gap:9px; padding:11px; border:1px solid #c9d6d0; border-radius:5px; background:#f7faf8; }
+.dungeon-trainer-assignments>header,.dungeon-generated-trainer>header,.dungeon-pokemon-pool-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.dungeon-trainer-assignments header div,.dungeon-generated-trainer header div,.dungeon-pokemon-pool-head { display:grid; gap:2px; }
+.dungeon-trainer-assignments header small,.dungeon-generated-trainer header small,.dungeon-pokemon-pool-head small { color:#788a82; font-size:8px; }
+.dungeon-trainer-assignments article { display:grid; grid-template-columns:70px minmax(0,1fr) minmax(0,1fr); align-items:end; gap:8px; padding:9px; border:1px solid #d8e1dd; background:#fff; }
+.dungeon-trainer-assignments article>strong { align-self:center; color:#526a60; font-size:9px; }
+.dungeon-content-fields .dungeon-trainer-select { position:relative; }
+.dungeon-trainer-select .trainer-party-strip { margin-top:2px; }
+.dungeon-generated-npcs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.dungeon-pokemon-pool { display:grid; gap:7px; padding-top:8px; border-top:1px solid #d8e1dd; }
+.dungeon-pokemon-pool-head { grid-template-columns:minmax(0,1fr) minmax(260px,.8fr); align-items:end; }
+.dungeon-content-fields .dungeon-pool-add { display:grid; gap:4px; }
+.dungeon-pool-add .music-combobox { min-width:250px; }
+.dungeon-pokemon-pool article { display:grid; grid-template-columns:minmax(0,1fr) 100px auto; align-items:end; gap:7px; padding:8px; border:1px solid #d8e1dd; background:#fff; }
+.dungeon-pokemon-pool article button { height:34px; padding:0 11px; border:1px solid #d9a9aa; background:#fff5f5; color:#a33d43; cursor:pointer; }
+.dungeon-pokemon-pool article button:disabled { opacity:.4; cursor:not-allowed; }
+@media (max-width:1100px) { .dungeon-trainer-assignments article{grid-template-columns:1fr 1fr}.dungeon-trainer-assignments article>strong{grid-column:1/-1}.dungeon-generated-npcs{grid-template-columns:1fr}.dungeon-pokemon-pool-head{grid-template-columns:1fr} }
 .dungeon-content-editor > footer { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 13px; border-top:1px solid #d6e0db; background:#f7faf8; color:#708279; font-size:8px; }
 .dungeon-piece-editor,.dungeon-authored-plan-editor { margin:0 16px 16px; overflow:hidden; border:1px solid #9fb6af; border-radius:5px; background:#fff; }
 .dungeon-piece-editor > header,.dungeon-authored-plan-editor > header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid #d4dfda; background:#eaf2ee; }

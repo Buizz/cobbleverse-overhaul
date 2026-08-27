@@ -312,11 +312,11 @@ function enhanceMusicSelect(select) {
   input.type = "search";
   input.className = "music-combobox-input";
   input.autocomplete = "off";
-  input.placeholder = "음원 파일명 검색…";
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("aria-expanded", "false");
   const label = select.closest("label")?.querySelector(":scope > span")?.textContent?.trim() || "음원";
+  input.placeholder = `${label} 검색…`;
   input.setAttribute("aria-label", `${label} 검색`);
 
   const toggle = document.createElement("button");
@@ -1894,7 +1894,7 @@ function loadSectionData(section, force = false) {
   if (section === "biomes") return loadBiomeData(force);
   if (section === "caves" || section === "forests") return loadBiomeData(force);
   if (section === "underground-roads") return loadStructureData(force).then(renderUndergroundRoad);
-  if (section === "dungeons") return loadStructureData(force).then(renderDungeonPieceEditor);
+  if (section === "dungeons") return Promise.all([loadStructureData(force), loadTrainerData(force)]).then(() => { renderDungeonPieceEditor(); renderDungeonContentEditor(); });
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
   if (section === "gyms") return loadGymStructureData(force).then(renderGymEditor);
@@ -4957,6 +4957,66 @@ function dungeonPositionFields(position, prefix = "position") {
   return contentField("X", `${prefix}X`, value[0], { type: "number", required: true }) + contentField("Y", `${prefix}Y`, value[1], { type: "number", required: true }) + contentField("Z", `${prefix}Z`, value[2], { type: "number", required: true });
 }
 
+function dungeonTrainerModeFields(mode) {
+  const option = (value, title, description) => `<button type="button" data-dungeon-trainer-mode="${value}" class="dungeon-trainer-mode-option${mode === value ? " is-active" : ""}"><b>${title}</b><small>${description}</small></button>`;
+  return `<fieldset class="wide dungeon-trainer-mode"><legend>트레이너 구성 방식</legend><input data-dungeon-content-field type="hidden" name="trainerMode" value="${mode}">${option("preset", "고정 트레이너", "NPC와 배틀 프리셋을 직접 짝지어 배치합니다.")}${option("generated", "포켓몬 풀 자동 생성", "외형 NPC만 정하고 포켓몬과 대사를 실행할 때 무작위로 만듭니다.")}</fieldset>`;
+}
+
+function dungeonTrainerNpcSelect(name, selected, label, required = false) {
+  return `<label class="dungeon-trainer-select"><span>${label}</span><select data-dungeon-content-field data-dungeon-search-select data-dungeon-trainer-npc name="${name}"${required ? " required" : ""}>${routeNpcOptions(selected)}</select>${trainerPartyStrip(selected)}</label>`;
+}
+
+function dungeonBattleSelect(name, selected, label, required = false) {
+  return `<label class="dungeon-trainer-select"><span>${label}</span><select data-dungeon-content-field data-dungeon-search-select data-dungeon-trainer-battle name="${name}"${required ? " required" : ""}>${battlePresetOptions(selected)}</select></label>`;
+}
+
+function dungeonPresetTrainerFields(entry) {
+  const npcs = entry.npcs || [];
+  const opponents = entry.opponents || [];
+  return `<section class="wide dungeon-trainer-assignments"><header><div><b>등장 트레이너</b><small>NPC 외형·대화와 실제 배틀 팀을 같은 번호끼리 연결합니다.</small></div></header>${[0, 1].map((index) => `<article data-dungeon-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${dungeonTrainerNpcSelect(`trainerNpc${index}`, npcs[index] || "", "NPC 프리셋", index === 0)}${dungeonBattleSelect(`trainerBattle${index}`, opponents[index] || "", "배틀 프리셋", index === 0)}</article>`).join("")}</section>`;
+}
+
+function dungeonGeneratedTrainerFields(entry) {
+  const generation = entry.trainer_generation || {};
+  const npcs = entry.npcs || [];
+  const pool = generation.pokemon_pool || [];
+  return `<section class="wide dungeon-generated-trainer"><header><div><b>즉석 트레이너 생성</b><small>아래 풀에서 팀을 뽑고 시작·종료 대사도 목록 중 하나를 무작위 선택합니다.</small></div></header><div class="dungeon-generated-npcs">${dungeonTrainerNpcSelect("trainerNpc0", npcs[0] || "", "기본 NPC 외형·대화", true)}${dungeonTrainerNpcSelect("trainerNpc1", npcs[1] || "", "두 번째 NPC · 선택")}</div><div class="dungeon-pokemon-pool"><div class="dungeon-pokemon-pool-head"><div><b>포켓몬 후보 풀</b><small>가중치가 높을수록 팀에 선택될 가능성이 커집니다.</small></div><label class="dungeon-pool-add"><span>포켓몬 검색 추가</span><select name="poolAddSpecies" data-dungeon-search-select>${dungeonPokemonPoolOptions(pool)}</select></label></div>${pool.map((candidate, index) => `<article data-dungeon-pokemon-pool-row><label><span>포켓몬 종</span><input data-dungeon-content-field name="poolSpecies" value="${escapeHtml(candidate.species || "")}" required></label><label><span>가중치</span><input data-dungeon-content-field name="poolWeight" type="number" min="1" max="1000" value="${Number(candidate.weight || 1)}" required></label><button type="button" data-remove-dungeon-pool-pokemon="${index}"${pool.length <= 1 ? " disabled" : ""}>삭제</button></article>`).join("") || '<p class="issues">포켓몬 검색 추가로 후보를 한 마리 이상 넣으세요.</p>'}</div></section>`;
+}
+
+function dungeonPokemonPoolOptions(pool) {
+  const used = new Set((pool || []).map((candidate) => candidate.species));
+  const entries = state.editorCatalog?.species || [];
+  const options = entries.map((entry) => ({ id: speciesResourceId(entry), label: pokemonCatalogDisplayName(entry), number: Number(entry.number || 99999) })).filter((entry, index, values) => !used.has(entry.id) && values.findIndex((candidate) => candidate.id === entry.id) === index).sort((left, right) => left.number - right.number);
+  return '<option value="">이름·ID로 포켓몬 검색</option>' + options.map((entry) => `<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.label)} · ${escapeHtml(entry.id)}</option>`).join("");
+}
+
+function markDungeonContentDirty() {
+  state.dungeonDirty = true;
+  $("#dungeon-save-state").textContent = "저장하지 않은 변경";
+  $("#dungeon-save-state").classList.add("is-dirty");
+}
+
+function switchDungeonTrainerMode(mode) {
+  const selected = selectedDungeonContent();
+  if (!selected || selected.kind !== "encounter" || (selected.entry.kind || "trainer") !== "trainer") return;
+  const entry = selected.entry;
+  if (mode === "generated") {
+    entry.trainer_generation ||= {
+      pokemon_pool: [{ species: "cobblemon:pikachu", weight: 1 }],
+      team_size: [1, 3], allow_duplicates: false,
+      battle_start_lines: ["여기서부터는 내가 상대하지!"],
+      battle_end_lines: ["이럴 수가… 다음에는 지지 않겠다!"],
+    };
+    delete entry.opponents;
+  } else {
+    entry.opponents ||= [state.battles[0]?.id || "cobbleventure:battle/new_encounter"];
+    delete entry.trainer_generation;
+  }
+  entry.npcs ||= [state.trainers[0]?.id || "cobbleventure:npc/new_encounter"];
+  markDungeonContentDirty();
+  renderDungeonContentEditor(); renderDungeonPreview();
+}
+
 function renderDungeonContentProperties() {
   const selected = selectedDungeonContent();
   const root = $("#dungeon-content-properties");
@@ -4981,14 +5041,12 @@ function renderDungeonContentProperties() {
       fields += contentField("포획 가능", "catchable", entry.pokemon?.catchable !== false, { toggle: true });
     } else {
       const trainerMode = entry.trainer_generation ? "generated" : "preset";
-      fields += contentField("전투 구성", "trainerMode", trainerMode, { wide: true, select: [["preset", "고정 배틀 프리셋"], ["generated", "포켓몬 풀에서 즉석 생성"]] });
-      fields += contentField("NPC ID — 쉼표 구분", "npcs", (entry.npcs || []).join(", "), { wide: true, required: true });
+      fields += dungeonTrainerModeFields(trainerMode);
       if (trainerMode === "preset") {
-        fields += contentField("배틀 프리셋 ID — 쉼표 구분", "opponents", (entry.opponents || []).join(", "), { wide: true, required: true });
+        fields += dungeonPresetTrainerFields(entry);
       } else {
         const generation = entry.trainer_generation || {};
-        const poolText = (generation.pokemon_pool || []).map((candidate) => `${candidate.species} | ${candidate.weight ?? 1}`).join("\n");
-        fields += contentField("포켓몬 풀 — 한 줄에 종 ID | 가중치", "pokemonPool", poolText, { wide: true, multiline: true, rows: 5, required: true });
+        fields += dungeonGeneratedTrainerFields(entry);
         fields += contentField("최소 팀 크기", "teamSizeMin", generation.team_size?.[0] ?? 1, { type: "number", min: 1, max: 6, required: true });
         fields += contentField("최대 팀 크기", "teamSizeMax", generation.team_size?.[1] ?? 3, { type: "number", min: 1, max: 6, required: true });
         fields += contentField("같은 포켓몬 중복 허용", "allowDuplicates", generation.allow_duplicates, { toggle: true });
@@ -5040,6 +5098,7 @@ function renderDungeonContentProperties() {
     fields += contentField("필수 아이템 — 한 줄에 ID | 수량 | consume/keep", "itemRequirements", itemRequirements, { wide: true, multiline: true, rows: 4 });
   }
   root.innerHTML = `<header class="dungeon-content-property-head"><div><strong>${escapeHtml(dungeonContentLabel(kind, entry))}</strong><small>${escapeHtml(dungeonContentKinds[kind].label)} 속성</small></div><span>${escapeHtml(dungeonContentSubtitle(kind, entry))}</span></header><div class="dungeon-content-fields">${fields}</div>`;
+  root.querySelectorAll("[data-dungeon-search-select]").forEach(enhanceMusicSelect);
 }
 
 function renderDungeonContentEditor() {
@@ -5059,7 +5118,11 @@ function updateDungeonContentFromEditor() {
   const { kind, entry } = selected;
   const root = $("#dungeon-content-properties");
   const control = (name) => root.querySelector(`[name="${name}"]`);
-  const textValue = (name) => control(name)?.value.trim() || "";
+  const textValue = (name) => {
+    const field = control(name);
+    if (field?.type === "radio") return root.querySelector(`[name="${name}"]:checked`)?.value || "";
+    return field?.value.trim() || "";
+  };
   const numberValue = (name, fallback = 0) => Math.round(Number(control(name)?.value || fallback));
   const checked = (name) => Boolean(control(name)?.checked);
   const position = (prefix = "position") => [numberValue(`${prefix}X`), numberValue(`${prefix}Y`, 1), numberValue(`${prefix}Z`)];
@@ -5074,13 +5137,11 @@ function updateDungeonContentFromEditor() {
       entry.pokemon = { species: textValue("species") || entry.pokemon?.species || "cobblemon:pikachu", level: control("level") ? numberValue("level", 1) : entry.pokemon?.level || 1, catchable: control("catchable") ? checked("catchable") : entry.pokemon?.catchable !== false };
       delete entry.npcs; delete entry.opponents;
     } else {
-      entry.npcs = control("npcs") ? csvValues(textValue("npcs")) : entry.npcs || ["cobbleventure:npc/new_encounter"];
+      const npcValues = [...root.querySelectorAll("[data-dungeon-trainer-npc]")].map((field) => field.value).filter(Boolean);
+      entry.npcs = npcValues.length ? npcValues : entry.npcs || ["cobbleventure:npc/new_encounter"];
       if (textValue("trainerMode") === "generated") {
         const lines = (name) => (control(name)?.value || "").split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-        const pokemonPool = lines("pokemonPool").map((line) => {
-          const separator = line.lastIndexOf("|");
-          return { species: (separator < 0 ? line : line.slice(0, separator)).trim(), weight: Math.max(1, Math.round(Number(separator < 0 ? 1 : line.slice(separator + 1).trim()) || 1)) };
-        });
+        const pokemonPool = [...root.querySelectorAll("[data-dungeon-pokemon-pool-row]")].map((row) => ({ species: row.querySelector('[name="poolSpecies"]').value.trim(), weight: Math.max(1, Math.round(Number(row.querySelector('[name="poolWeight"]').value) || 1)) })).filter((candidate) => candidate.species);
         entry.trainer_generation = {
           pokemon_pool: pokemonPool,
           team_size: [numberValue("teamSizeMin", 1), numberValue("teamSizeMax", 3)],
@@ -5090,7 +5151,9 @@ function updateDungeonContentFromEditor() {
         };
         delete entry.opponents;
       } else {
-        entry.opponents = control("opponents") ? csvValues(textValue("opponents")) : entry.opponents || ["cobbleventure:battle/new_encounter"];
+        const slots = [...root.querySelectorAll("[data-dungeon-trainer-slot]")].map((row) => ({ npc: row.querySelector("[data-dungeon-trainer-npc]")?.value || "", battle: row.querySelector("[data-dungeon-trainer-battle]")?.value || "" })).filter((slot) => slot.npc && slot.battle);
+        if (slots.length) { entry.npcs = slots.map((slot) => slot.npc); entry.opponents = slots.map((slot) => slot.battle); }
+        else entry.opponents ||= ["cobbleventure:battle/new_encounter"];
         delete entry.trainer_generation;
       }
       delete entry.pokemon;
@@ -16124,15 +16187,42 @@ $("#dungeon-content-list").addEventListener("click", (event) => {
   state.dungeonPreview.selected = -1;
   renderDungeonContentEditor(); renderDungeonPreview();
 });
-$("#dungeon-content-properties").addEventListener("input", () => {
+$("#dungeon-content-properties").addEventListener("input", (event) => {
+  if (event.target.name === "trainerMode" || event.target.classList.contains("music-combobox-input")) return;
   updateDungeonContentFromEditor();
-  state.dungeonDirty = true;
-  $("#dungeon-save-state").textContent = "저장하지 않은 변경";
-  $("#dungeon-save-state").classList.add("is-dirty");
+  markDungeonContentDirty();
   renderDungeonPreview();
 });
 $("#dungeon-content-properties").addEventListener("change", (event) => {
+  if (event.target.name === "poolAddSpecies" && event.target.value) {
+    const selected = selectedDungeonContent();
+    const pool = selected?.entry?.trainer_generation?.pokemon_pool;
+    if (pool && !pool.some((candidate) => candidate.species === event.target.value)) pool.push({ species: event.target.value, weight: 1 });
+    markDungeonContentDirty();
+    renderDungeonContentEditor(); renderDungeonPreview();
+    return;
+  }
+  if (event.target.name === "trainerMode") {
+    switchDungeonTrainerMode(event.target.value);
+    return;
+  }
   updateDungeonContentFromEditor();
+  markDungeonContentDirty();
+  const trainerSlot = event.target.closest("[data-dungeon-trainer-slot]");
+  const slotComplete = trainerSlot && trainerSlot.querySelector("[data-dungeon-trainer-npc]")?.value && trainerSlot.querySelector("[data-dungeon-trainer-battle]")?.value;
+  if (!trainerSlot || slotComplete) renderDungeonContentEditor();
+  renderDungeonPreview();
+});
+$("#dungeon-content-properties").addEventListener("click", (event) => {
+  const mode = event.target.closest("[data-dungeon-trainer-mode]");
+  const remove = event.target.closest("[data-remove-dungeon-pool-pokemon]");
+  if (mode) { switchDungeonTrainerMode(mode.dataset.dungeonTrainerMode); return; }
+  if (!remove) return;
+  const selected = selectedDungeonContent();
+  if (!selected?.entry?.trainer_generation) return;
+  updateDungeonContentFromEditor();
+  selected.entry.trainer_generation.pokemon_pool.splice(Number(remove.dataset.removeDungeonPoolPokemon), 1);
+  markDungeonContentDirty();
   renderDungeonContentEditor(); renderDungeonPreview();
 });
 $("#add-dungeon-content").addEventListener("click", addDungeonContent);
