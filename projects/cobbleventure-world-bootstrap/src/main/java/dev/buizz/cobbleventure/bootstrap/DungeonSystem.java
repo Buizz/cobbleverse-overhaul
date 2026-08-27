@@ -97,6 +97,7 @@ final class DungeonSystem {
     private static final int SLOT_START_X = 32768;
     private static final int SLOT_Y = 80;
     private static final double ENTRANCE_RADIUS_SQUARED = 9.0D;
+    private static final double ENTRANCE_VERTICAL_TOLERANCE = 1.25D;
     private static final double EXIT_RADIUS_SQUARED = 2.25D;
     private static volatile Map<String, DungeonDefinition> definitions = Map.of();
     private static volatile Map<String, DungeonPieceDefinition> pieceDefinitions = Map.of();
@@ -281,6 +282,17 @@ final class DungeonSystem {
         ServerLevel level, String entranceId, BlockPos trigger,
         Set<BlockPos> triggerBlocks, BlockPos safeReturn
     ) {
+        registerBuildingPlacement(
+            level, entranceId, trigger, triggerBlocks, safeReturn,
+            ENTRANCE_RADIUS_SQUARED
+        );
+    }
+
+    static synchronized void registerBuildingPlacement(
+        ServerLevel level, String entranceId, BlockPos trigger,
+        Set<BlockPos> triggerBlocks, BlockPos safeReturn,
+        double activationRadiusSquared
+    ) {
         if (!entrances.containsKey(entranceId)) {
             return;
         }
@@ -291,7 +303,8 @@ final class DungeonSystem {
         ACTIVE_ENTRANCES.put(
             entranceId,
             new PlacedEntrance(
-                entranceId, level.dimension(), trigger, immutableTriggers, safeReturn
+                entranceId, level.dimension(), trigger, immutableTriggers,
+                safeReturn, activationRadiusSquared
             )
         );
     }
@@ -379,7 +392,7 @@ final class DungeonSystem {
         PlacedEntrance touching = ACTIVE_ENTRANCES.values().stream()
             .filter(placed -> placed.dimension().equals(player.serverLevel().dimension()))
             .filter(placed -> touchesEntrance(
-                player.position(), placed, ENTRANCE_RADIUS_SQUARED
+                player.position(), placed, placed.activationRadiusSquared()
             ))
             .findFirst().orElse(null);
         String previous = INSIDE_ENTRANCES.get(player.getUUID());
@@ -620,7 +633,8 @@ final class DungeonSystem {
             || !pending.ref().entrance().entranceId().equals(entranceId)
             || !pending.placement().dimension().equals(player.serverLevel().dimension())
             || !touchesEntrance(
-                player.position(), pending.placement(), ENTRANCE_RADIUS_SQUARED
+                player.position(), pending.placement(),
+                pending.placement().activationRadiusSquared()
             )) {
             player.sendSystemMessage(Component.literal(
                 "입구에서 멀어졌거나 입장 요청이 만료되었습니다."
@@ -4085,8 +4099,16 @@ final class DungeonSystem {
         Vec3 position, Set<BlockPos> triggerBlocks, double radiusSquared
     ) {
         return triggerBlocks.stream().anyMatch(
-            trigger -> distanceSquared(position, trigger) <= radiusSquared
+            trigger -> Math.abs(position.y - (trigger.getY() + 0.5D))
+                <= ENTRANCE_VERTICAL_TOLERANCE
+                && horizontalDistanceSquared(position, trigger) <= radiusSquared
         );
+    }
+
+    private static double horizontalDistanceSquared(Vec3 position, BlockPos target) {
+        double dx = position.x - (target.getX() + 0.5D);
+        double dz = position.z - (target.getZ() + 0.5D);
+        return dx * dx + dz * dz;
     }
 
     record DungeonEntranceRef(
@@ -4107,13 +4129,17 @@ final class DungeonSystem {
         ResourceKey<Level> dimension,
         BlockPos trigger,
         Set<BlockPos> triggerBlocks,
-        BlockPos safeReturn
+        BlockPos safeReturn,
+        double activationRadiusSquared
     ) {
         private PlacedEntrance(
             String entranceId, ResourceKey<Level> dimension,
             BlockPos trigger, BlockPos safeReturn
         ) {
-            this(entranceId, dimension, trigger, Set.of(trigger.immutable()), safeReturn);
+            this(
+                entranceId, dimension, trigger, Set.of(trigger.immutable()),
+                safeReturn, ENTRANCE_RADIUS_SQUARED
+            );
         }
     }
 

@@ -861,7 +861,7 @@ final class BuildingRuntimeSystem {
             DungeonSystem.registerBuildingPlacement(
                 level, anchor.dungeonEntrance, trigger,
                 triggerBlocks.isEmpty() ? Set.of(trigger) : triggerBlocks,
-                safeReturn
+                safeReturn, triggerBlocks.isEmpty() ? 9.0D : 2.25D
             );
         }
     }
@@ -1835,25 +1835,31 @@ final class BuildingRuntimeSystem {
     }
 
     private static BlockPos findSafeDoorDestination(ServerLevel level, BlockPos authored) {
-        if (hasSafeStandingRoom(level, authored)) return authored;
-        for (int vertical = 1; vertical <= 12; vertical++) {
-            BlockPos above = authored.above(vertical);
-            if (hasSafeStandingRoom(level, above)) return above;
-            BlockPos below = authored.below(vertical);
-            if (hasSafeStandingRoom(level, below)) return below;
+        BlockPos sameFloor = findSafeDoorDestinationAtY(level, authored, 0);
+        if (sameFloor != null) return sameFloor;
+        // Authored building portals must stay on their authored floor. Only tolerate a
+        // two-block metadata/placement mismatch; a wider scan can select a roof or another
+        // storey that merely happens to have standing room.
+        for (int vertical = 1; vertical <= 2; vertical++) {
+            BlockPos below = findSafeDoorDestinationAtY(level, authored, -vertical);
+            if (below != null) return below;
+            BlockPos above = findSafeDoorDestinationAtY(level, authored, vertical);
+            if (above != null) return above;
         }
-        for (int radius = 1; radius <= 4; radius++) {
+        return null;
+    }
+
+    private static BlockPos findSafeDoorDestinationAtY(
+        ServerLevel level, BlockPos authored, int verticalOffset
+    ) {
+        BlockPos center = authored.offset(0, verticalOffset, 0);
+        if (hasSafeStandingRoom(level, center)) return center;
+        for (int radius = 1; radius <= 3; radius++) {
             for (int x = -radius; x <= radius; x++) {
                 for (int z = -radius; z <= radius; z++) {
                     if (Math.max(Math.abs(x), Math.abs(z)) != radius) continue;
-                    BlockPos column = authored.offset(x, 0, z);
+                    BlockPos column = center.offset(x, 0, z);
                     if (hasSafeStandingRoom(level, column)) return column;
-                    for (int vertical = 1; vertical <= 12; vertical++) {
-                        BlockPos above = column.above(vertical);
-                        if (hasSafeStandingRoom(level, above)) return above;
-                        BlockPos below = column.below(vertical);
-                        if (hasSafeStandingRoom(level, below)) return below;
-                    }
                 }
             }
         }

@@ -22,4 +22,25 @@ final class DungeonEntranceTriggerTest {
             9.0D
         ));
     }
+
+    @Test
+    void rejectsTheSameHorizontalPositionOnAnotherFloor() {
+        assertFalse(DungeonSystem.isNearAnyEntranceTrigger(
+            new Vec3(12.5D, 8.0D, 15.5D),
+            Set.of(new BlockPos(12, 3, 15)),
+            100.0D
+        ));
+    }
+
+    @Test
+    void transitionRadiusRequiresThePlayerToStandNextToTheBarrier() {
+        BlockPos barrier = new BlockPos(12, 3, 15);
+
+        assertTrue(DungeonSystem.isNearAnyEntranceTrigger(
+            new Vec3(13.5D, 3.0D, 15.5D), Set.of(barrier), 2.25D
+        ));
+        assertFalse(DungeonSystem.isNearAnyEntranceTrigger(
+            new Vec3(14.5D, 3.0D, 15.5D), Set.of(barrier), 2.25D
+        ));
+    }
 }
