@@ -183,6 +183,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("모든 층을 실제 높이에 따라 겹쳐 표시합니다", script)
         self.assertIn('event.target.closest("#dungeon-preview-workspace")', script)
 
+    def test_dungeon_layout_uses_simple_complexity_presets_and_advanced_details(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('name="layoutComplexity"', markup)
+        self.assertIn("상세 생성 옵션", markup)
+        self.assertIn("data-dungeon-layout-advanced", markup)
+        self.assertIn("const dungeonComplexityPresets", script)
+        self.assertIn("function inferDungeonLayoutComplexity", script)
+        self.assertIn("function applyDungeonComplexityPreset", script)
+        self.assertIn('form.elements.layoutComplexity.value = "custom"', script)
+        self.assertIn(".dungeon-complexity-control", styles)
+        self.assertIn(".dungeon-layout-advanced", styles)
+
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
         document["difficulty"]["recommended_min"] = 20

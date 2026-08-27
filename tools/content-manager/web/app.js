@@ -4603,6 +4603,54 @@ function parseDungeonRange(value, fallback, minimum = 0) {
   return normalized[0] <= normalized[1] ? normalized : [normalized[1], normalized[0]];
 }
 
+const dungeonComplexityPresets = {
+  simple: { criticalRooms: "6, 8", branchCount: "0, 1", branchDepth: "1, 1", loopChance: 0, floors: "1, 2" },
+  standard: { criticalRooms: "9, 12", branchCount: "1, 3", branchDepth: "1, 2", loopChance: .05, floors: "2, 4" },
+  complex: { criticalRooms: "13, 18", branchCount: "3, 5", branchDepth: "2, 3", loopChance: .15, floors: "4, 7" },
+};
+
+const dungeonComplexityDescriptions = {
+  simple: "짧은 주 경로 · 곁가지 최대 1개 · 적은 층 이동",
+  standard: "적당한 주 경로 · 곁가지 1~3개 · 보통 층 이동",
+  complex: "긴 주 경로 · 곁가지 3~5개 · 많은 층 이동",
+  custom: "상세 생성 옵션에서 직접 지정한 값",
+};
+
+function inferDungeonLayoutComplexity(layout = {}) {
+  const critical = dungeonRange(layout.critical_path_rooms, [5, 7])[1];
+  const branches = dungeonRange(layout.branch_count, [1, 2])[1];
+  const branchDepth = dungeonRange(layout.branch_depth, [1, 2])[1];
+  const floors = layout.vertical_direction === "flat" ? 0 : dungeonRange(layout.floor_changes, [0, 0])[1];
+  const loopChance = Number(layout.loop_chance || 0);
+  const score = Math.max(
+    critical <= 8 ? 0 : critical <= 12 ? 1 : 2,
+    branches <= 1 ? 0 : branches <= 3 ? 1 : 2,
+    branchDepth <= 1 ? 0 : branchDepth <= 2 ? 1 : 2,
+    floors <= 2 ? 0 : floors <= 4 ? 1 : 2,
+    loopChance <= .01 ? 0 : loopChance <= .08 ? 1 : 2,
+  );
+  return ["simple", "standard", "complex"][score];
+}
+
+function updateDungeonComplexitySummary() {
+  const form = $("#dungeon-form");
+  const summary = $("#dungeon-complexity-summary");
+  if (form?.elements?.layoutComplexity && summary) summary.textContent = dungeonComplexityDescriptions[form.elements.layoutComplexity.value] || dungeonComplexityDescriptions.custom;
+}
+
+function applyDungeonComplexityPreset(level) {
+  const form = $("#dungeon-form");
+  const preset = dungeonComplexityPresets[level];
+  if (!form || !preset) return;
+  for (const [name, value] of Object.entries(preset)) {
+    if (name === "floors") continue;
+    form.elements[name].value = value;
+  }
+  form.elements.floorChanges.value = form.elements.verticalDirection.value === "flat" ? "0, 0" : preset.floors;
+  form.elements.layoutComplexity.value = level;
+  updateDungeonComplexitySummary();
+}
+
 function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
   const critical = parseDungeonRange(form?.elements?.criticalRooms?.value || dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]), [5, 7], 3);
   const branchDepth = parseDungeonRange(form?.elements?.branchDepth?.value || dungeonRangeText(document.layout?.branch_depth, [1, 2]), [1, 2], 1);
@@ -4773,7 +4821,7 @@ function renderDungeonForm() {
     planMode: document.plan?.mode || "runtime", seedPolicy: document.plan?.seed_policy || "random_per_run",
     planFallback: document.plan?.fallback || "reject_entry", generationTimeout: document.plan?.generation_timeout_ms ?? 1000,
     maxAttempts: document.plan?.max_attempts ?? 32, planIds: (document.plan?.plan_ids || []).join(", "),
-    layoutMode: document.layout?.mode || "critical_path_branches", criticalRooms: dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]),
+    layoutMode: document.layout?.mode || "critical_path_branches", layoutComplexity: inferDungeonLayoutComplexity(document.layout), criticalRooms: dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]),
     branchCount: dungeonRangeText(document.layout?.branch_count, [1, 2]), branchDepth: dungeonRangeText(document.layout?.branch_depth, [1, 2]),
     loopChance: document.layout?.loop_chance ?? 0, verticalDirection: document.layout?.vertical_direction || "flat",
     floorChanges: dungeonRangeText(document.layout?.floor_changes, [0, 0]), resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
@@ -4790,6 +4838,7 @@ function renderDungeonForm() {
     randomMaxY: document.random_encounters?.spawn_bounds?.max?.[1] ?? 1, randomMaxZ: document.random_encounters?.spawn_bounds?.max?.[2] ?? 32,
   };
   Object.entries(values).forEach(([name, value]) => setFormValue(form, name, value));
+  updateDungeonComplexitySummary();
   form.elements.terrainTemplate.defaultValue = values.terrainTemplate;
   renderDungeonOptionVisibility();
   renderDungeonTemplateSelection();
@@ -16563,6 +16612,11 @@ $("#dungeon-floor-choice").addEventListener("change", (event) => { state.dungeon
 $("#dungeon-form").addEventListener("input", (event) => {
   if (event.target.closest("#dungeon-preview-workspace")) return;
   if (!state.dungeon) return;
+  const form = event.currentTarget;
+  if (event.target.closest("[data-dungeon-layout-advanced]")) {
+    form.elements.layoutComplexity.value = "custom";
+    updateDungeonComplexitySummary();
+  }
   updateDungeonFromForm();
   state.dungeonDirty = true;
   $("#dungeon-save-state").textContent = "저장하지 않은 변경";
@@ -16573,6 +16627,16 @@ $("#dungeon-form").addEventListener("input", (event) => {
 $("#dungeon-form").addEventListener("change", (event) => {
   if (event.target.closest("#dungeon-preview-workspace")) return;
   const form = event.currentTarget;
+  if (event.target.name === "layoutComplexity" && event.target.value !== "custom") {
+    applyDungeonComplexityPreset(event.target.value);
+    updateDungeonFromForm();
+    state.dungeonDirty = true;
+  }
+  if (event.target.name === "verticalDirection" && form.elements.layoutComplexity.value !== "custom") {
+    applyDungeonComplexityPreset(form.elements.layoutComplexity.value);
+    updateDungeonFromForm();
+    state.dungeonDirty = true;
+  }
   if (event.target.name === "terrainMode" && event.target.value === "procedural_cave") {
     form.elements.planMode.value = "runtime";
     updateDungeonFromForm();
