@@ -14,7 +14,7 @@
     "visibility": "discovered", "return_policy": "source_safe_anchor"
   }],
   "entry_ui": { "info_mode": "mystery", "confirm_required": true },
-  "difficulty": { "recommended_min": 1, "recommended_max": 1, "internal_min": 1, "internal_max": 1 },
+  "difficulty": { "recommended_min": 22, "recommended_max": 30, "internal_min": 18, "internal_max": 30 },
   "eligibility": {
     "minimum_party_size": 1, "maximum_party_size": 6,
     "require_usable_pokemon": true, "level_measure": "highest",
@@ -41,13 +41,23 @@
   "encounters": [{
     "id": "zapdos", "kind": "wild_pokemon",
     "display_name": { "ko_kr": "폭뢰의 주인", "en_us": "Lord of the Thunderstorm" },
-    "pokemon": { "species": "cobblemon:zapdos", "level": 1, "catchable": true },
+    "pokemon": { "species": "cobblemon:zapdos", "level": 30, "catchable": true },
     "requires": [], "yaw": 180, "boss": true
   }],
   "random_encounters": {
-    "enabled": false, "minimum_distance": 8, "maximum_distance": 16,
-    "max_active": 1, "spawn_interval_ticks": 100,
-    "spawn_bounds": { "min": [2, 1, 2], "max": [37, 8, 37] }, "additions": []
+    "enabled": true, "minimum_distance": 10, "maximum_distance": 22,
+    "max_active": 2, "spawn_interval_ticks": 160,
+    "spawn_bounds": { "min": [4, 1, 4], "max": [123, 44, 123] },
+    "additions": [
+      { "species": "cobblemon:zubat", "min_level": 18, "max_level": 22, "weight": 28 },
+      { "species": "cobblemon:geodude", "min_level": 18, "max_level": 22, "weight": 24 },
+      { "species": "cobblemon:machop", "min_level": 19, "max_level": 23, "weight": 15 },
+      { "species": "cobblemon:magnemite", "min_level": 20, "max_level": 24, "weight": 15 },
+      { "species": "cobblemon:voltorb", "min_level": 20, "max_level": 24, "weight": 10 },
+      { "species": "cobblemon:onix", "min_level": 22, "max_level": 25, "weight": 5 },
+      { "species": "cobblemon:electabuzz", "min_level": 24, "max_level": 28, "weight": 2 },
+      { "species": "cobblemon:raichu", "min_level": 26, "max_level": 29, "weight": 1, "spawn_as_evolved": true }
+    ]
   },
   "support": { "healing_stations": [] },
   "gates": [],

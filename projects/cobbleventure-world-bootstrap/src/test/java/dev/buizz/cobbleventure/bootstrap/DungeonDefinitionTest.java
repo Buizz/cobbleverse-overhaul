@@ -182,7 +182,7 @@ final class DungeonDefinitionTest {
     }
 
     @Test
-    void parsesEveryLevelOneTestDungeonResource() throws Exception {
+    void parsesEveryConfiguredDungeonResourceAtItsExpectedLevelRange() throws Exception {
         Map<String, String> resources = Map.of(
             "rocket_power_plant", "fixed_template",
             "rocket_casino_hideout", "nbt_pieces",
@@ -201,10 +201,14 @@ final class DungeonDefinitionTest {
                     JsonParser.parseReader(reader).getAsJsonObject()
                 );
                 assertEquals(resource.getValue(), definition.terrain().mode(), name);
-                assertEquals(1, definition.difficulty().recommendedMin(), name);
-                assertEquals(1, definition.difficulty().recommendedMax(), name);
-                assertEquals(1, definition.difficulty().internalMin(), name);
-                assertEquals(1, definition.difficulty().internalMax(), name);
+                int recommendedMinimum = name.equals("zapdos_storm_chamber") ? 22 : 1;
+                int recommendedMaximum = name.equals("zapdos_storm_chamber") ? 30 : 1;
+                int internalMinimum = name.equals("zapdos_storm_chamber") ? 18 : 1;
+                int internalMaximum = name.equals("zapdos_storm_chamber") ? 30 : 1;
+                assertEquals(recommendedMinimum, definition.difficulty().recommendedMin(), name);
+                assertEquals(recommendedMaximum, definition.difficulty().recommendedMax(), name);
+                assertEquals(internalMinimum, definition.difficulty().internalMin(), name);
+                assertEquals(internalMaximum, definition.difficulty().internalMax(), name);
             }
         }
     }
@@ -227,9 +231,15 @@ final class DungeonDefinitionTest {
         assertEquals("procedural_cave", zapdos.terrain().mode());
         assertEquals("wild_pokemon", zapdos.encounters().getFirst().kind());
         assertEquals("cobblemon:zapdos", zapdos.encounters().getFirst().pokemon().species());
-        assertEquals(1, zapdos.encounters().getFirst().pokemon().level());
+        assertEquals(30, zapdos.encounters().getFirst().pokemon().level());
         assertTrue(zapdos.encounters().getFirst().pokemon().catchable());
         assertFalse(zapdos.completion().repeatable());
+        assertTrue(zapdos.randomEncounters().enabled());
+        assertEquals(8, zapdos.randomEncounters().additions().size());
+        assertEquals("cobblemon:electabuzz", zapdos.randomEncounters().additions().get(6).species());
+        assertEquals(2, zapdos.randomEncounters().additions().get(6).weight());
+        assertEquals("cobblemon:raichu", zapdos.randomEncounters().additions().getLast().species());
+        assertEquals(1, zapdos.randomEncounters().additions().getLast().weight());
     }
 
     @Test
