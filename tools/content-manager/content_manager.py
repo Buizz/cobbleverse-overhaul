@@ -12110,7 +12110,7 @@ def _structure_named_anchors(path: Path, anchor_types: set[str]) -> list[dict[st
 
 
 def _structure_dungeon_marker_summary(path: Path) -> dict[str, Any]:
-    """Return lightweight fixed-dungeon capabilities authored in the sidecar."""
+    """Return fixed-dungeon capabilities and preview markers from the sidecar."""
     kinds = {
         "entry": 0,
         "exit": 0,
@@ -12129,18 +12129,31 @@ def _structure_dungeon_marker_summary(path: Path) -> dict[str, Any]:
             "marker_count": 0,
             "slot_count": 0,
             "kinds": kinds,
+            "markers": [],
             "has_entry": False,
             "has_exit": False,
             "has_boss": False,
         }
     document = load_json(metadata_path)
     anchors = document.get("anchors", []) if isinstance(document, dict) else []
+    markers: list[dict[str, Any]] = []
     for anchor in anchors if isinstance(anchors, list) else []:
         if not isinstance(anchor, dict) or anchor.get("type") != "dungeon_marker":
             continue
         kind = anchor.get("kind")
-        if kind in kinds:
-            kinds[kind] += 1
+        position = anchor.get("position")
+        if (
+            kind not in kinds
+            or not isinstance(position, list) or len(position) != 3
+            or any(not isinstance(value, int) or isinstance(value, bool) for value in position)
+        ):
+            continue
+        kinds[kind] += 1
+        marker = {"kind": kind, "position": position}
+        for key in ("id", "reference"):
+            if isinstance(anchor.get(key), str) and DOCUMENT_SLUG.fullmatch(anchor[key]):
+                marker[key] = anchor[key]
+        markers.append(marker)
     marker_count = sum(kinds.values())
     slot_count = marker_count - kinds["entry"] - kinds["exit"]
     return {
@@ -12148,6 +12161,7 @@ def _structure_dungeon_marker_summary(path: Path) -> dict[str, Any]:
         "marker_count": marker_count,
         "slot_count": slot_count,
         "kinds": kinds,
+        "markers": markers,
         "has_entry": kinds["entry"] > 0,
         "has_exit": kinds["exit"] > 0,
         "has_boss": kinds["boss"] > 0,
@@ -13629,7 +13643,7 @@ def structure_catalog_signature(
     return tuple(signature)
 
 
-STRUCTURE_WEB_CACHE_VERSION = 6
+STRUCTURE_WEB_CACHE_VERSION = 7
 STRUCTURE_WEB_CACHE_PATH = Path("tools/content-manager/.cache/structure-web-catalog.json")
 
 

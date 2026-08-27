@@ -6671,6 +6671,11 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(1, summary["kinds"]["encounter"])
             self.assertEqual(1, summary["kinds"]["boss"])
             self.assertEqual(1, summary["kinds"]["loot"])
+            self.assertEqual(
+                {"kind": "encounter", "reference": "grunt", "position": [8, 1, 8]},
+                summary["markers"][2],
+            )
+            self.assertEqual([16, 1, 24], summary["markers"][3]["position"])
 
     def test_dungeon_editor_uses_searchable_fixed_template_picker(self) -> None:
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
@@ -6682,6 +6687,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="dungeon-template-min-slots"', page)
         self.assertIn("function renderDungeonTemplateDialog()", script)
         self.assertIn("metadata.dungeon_markers", script)
+        self.assertIn("metadata.dungeon_markers?.markers", script)
+        self.assertIn("예상 이벤트 배치", page)
 
     def test_copy_managed_exterior_structure_copies_type_metadata_and_settings(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

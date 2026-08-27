@@ -5703,24 +5703,44 @@ async function saveDungeonPlan() {
 }
 
 function fixedDungeonPlan(document) {
-  const markers = [];
-  const add = (kind, position, label, content = null) => { if (Array.isArray(position)) markers.push({ kind, position: position.map(Number), label, content }); };
-  add("entry", document.terrain?.entry_position, "시작");
-  add("exit", document.terrain?.exit_position, "귀환");
-  (document.encounters || []).forEach((value, index) => add(value.boss ? "boss" : "encounter", value.position, value.display_name?.ko_kr || value.id, { kind: "encounter", index }));
-  (document.support?.healing_stations || []).forEach((value, index) => add("healing", value.position, value.id, { kind: "healing", index }));
-  (document.support?.checkpoints || []).forEach((value, index) => add("checkpoint", value.position, value.id, { kind: "checkpoint", index }));
-  (document.loot?.containers || []).forEach((value, index) => add("loot", value.position, value.id, { kind: "loot", index }));
-  (document.gates || []).forEach((value, index) => {
-    if (!Array.isArray(value.min) || !Array.isArray(value.max)) return;
-    add("gate", value.min.map((axis, coordinate) => (Number(axis) + Number(value.max[coordinate])) / 2), value.id, { kind: "gate", index });
-  });
-  add("exit", document.completion?.clear_exit_position, "클리어 출구");
-  const positions = markers.map((marker) => marker.position);
-  (document.gates || []).forEach((gate) => positions.push(gate.min || [], gate.max || []));
-  const maximum = (axis) => Math.max(16, ...positions.map((position) => Number(position[axis] || 0) + 8));
   const template = document.terrain?.template || "fixed_template";
   const metadata = state.structureSizes?.[template] || {};
+  const markerKind = (kind) => kind === "healing_station" ? "healing" : kind;
+  const markers = (metadata.dungeon_markers?.markers || []).map((marker) => ({
+    kind: markerKind(marker.kind),
+    position: marker.position.map(Number),
+    label: marker.reference || marker.id || dungeonMarkerKinds[marker.kind] || marker.kind,
+    markerId: marker.id || "",
+    reference: marker.reference || "",
+    content: null,
+  }));
+  const claimed = new Set();
+  const bind = (kind, value, label, content, explicitPosition = value?.position) => {
+    const normalizedKind = markerKind(kind);
+    const reference = value?.marker || value?.marker_id || value?.reference || value?.id || "";
+    let index = markers.findIndex((marker, candidate) => !claimed.has(candidate) && marker.kind === normalizedKind
+      && reference && [marker.reference, marker.markerId].includes(reference));
+    if (index < 0 && !Array.isArray(explicitPosition)) index = markers.findIndex((marker, candidate) => !claimed.has(candidate) && marker.kind === normalizedKind);
+    if (index >= 0) {
+      claimed.add(index); markers[index].label = label; markers[index].content = content;
+      return;
+    }
+    if (Array.isArray(explicitPosition)) markers.push({ kind: normalizedKind, position: explicitPosition.map(Number), label, content });
+  };
+  bind("entry", { id: "run_entry" }, "시작", null, document.terrain?.entry_position);
+  bind("exit", { id: "run_exit" }, "귀환", null, document.terrain?.exit_position);
+  (document.encounters || []).forEach((value, index) => bind(value.boss ? "boss" : "encounter", value, value.display_name?.ko_kr || value.id, { kind: "encounter", index }));
+  (document.support?.healing_stations || []).forEach((value, index) => bind("healing", value, value.id, { kind: "healing", index }));
+  (document.support?.checkpoints || []).forEach((value, index) => bind("checkpoint", value, value.id, { kind: "checkpoint", index }));
+  (document.loot?.containers || []).forEach((value, index) => bind("loot", value, value.id, { kind: "loot", index }));
+  (document.gates || []).forEach((value, index) => {
+    const midpoint = value.placement === "marker" || !Array.isArray(value.min) || !Array.isArray(value.max)
+      ? null : value.min.map((axis, coordinate) => (Number(axis) + Number(value.max[coordinate])) / 2);
+    bind("gate", value, value.id, { kind: "gate", index }, midpoint);
+  });
+  bind("exit", { id: "clear_exit" }, "클리어 출구", null, document.completion?.clear_exit_position);
+  const positions = markers.map((marker) => marker.position);
+  const maximum = (axis) => Math.max(16, ...positions.map((position) => Number(position[axis] || 0) + 8));
   const structureSize = [Number(metadata.width || 0), Number(metadata.height || 0), Number(metadata.depth || 0)];
   const requestedBounds = document.terrain?.bounds || [maximum(0), maximum(1), maximum(2)];
   const size = structureSize.every((axis) => axis > 0) ? structureSize : requestedBounds;
@@ -6081,11 +6101,12 @@ function renderDungeonPreview() {
     : state.dungeon.layout?.mode || "fixed";
   $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd><dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
-  const enemyMarkers = plan.markers.filter((marker) => ["encounter", "boss"].includes(marker.kind) && onSelectedFloor(marker));
+  const visibleMarkers = plan.markers.filter(onSelectedFloor);
+  const markerIcons = { entry: "S", exit: "E", encounter: "N", boss: "B", healing: "+", checkpoint: "C", loot: "L", objective: "!", gate: "G" };
   const randomEncounterText = state.dungeon.random_encounters?.enabled
     ? `<div class="dungeon-enemy-marker is-random"><i>?</i><span><b>랜덤 야생 조우</b><small>간격 ${Number(state.dungeon.random_encounters.minimum_distance || 0)}~${Number(state.dungeon.random_encounters.maximum_distance || 0)} · 최대 ${Number(state.dungeon.random_encounters.max_active || 0)}마리</small></span></div>`
     : "";
-  $("#dungeon-preview-marker-summary").innerHTML = enemyMarkers.map((marker, index) => `<button type="button" class="dungeon-enemy-marker" data-preview-enemy="${index}"><i>${marker.kind === "boss" ? "B" : index + 1}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></button>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 적이 없습니다.</small>';
+  $("#dungeon-preview-marker-summary").innerHTML = visibleMarkers.map((marker) => `<div class="dungeon-enemy-marker is-${escapeHtml(marker.kind)}"><i>${markerIcons[marker.kind] || "•"}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>${escapeHtml(dungeonMarkerKinds[marker.kind === "healing" ? "healing_station" : marker.kind] || marker.kind)} · X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></div>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 이벤트가 없습니다.</small>';
   const floorStatus = selectedFloor === null ? "모든 층을 실제 높이에 따라 겹쳐 표시합니다. 계단 화살표가 아래층과 위층을 연결합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
   $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.` : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`;
 }
