@@ -5666,6 +5666,7 @@ public final class CobbleventureBootstrap {
                     .filter(region -> region.dimension().equals(player.serverLevel().dimension()))
                     .findFirst().orElse(null));
             if (forestRegion != null) {
+                DungeonSystem.tick(player, gameTime);
                 PursuitEncounterSystem.tick(
                     player, pursuitEncounterAt(player.serverLevel(), player.getX(), player.getZ()), gameTime
                 );
@@ -5686,6 +5687,7 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             if (player.serverLevel() != level) {
+                DungeonSystem.tick(player, gameTime);
                 PursuitEncounterSystem.tick(player, null, gameTime);
                 LocalWeatherSystem.clear(player);
                 LocationAnnouncement.clear(player);
