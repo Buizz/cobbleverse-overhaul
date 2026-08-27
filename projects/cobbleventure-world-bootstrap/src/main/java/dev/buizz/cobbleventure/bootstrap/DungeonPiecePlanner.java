@@ -35,7 +35,7 @@ final class DungeonPiecePlanner {
         requireRoles(pieces);
         for (int attempt = 0; attempt < settings.maxAttempts(); attempt++) {
             Random random = new Random(mixSeed(seed, attempt));
-            State state = startState(pieces, settings.bounds(), random);
+            State state = startState(pieces, settings, random);
             if (state == null) continue;
             int targetRooms = randomRange(
                 random, settings.criticalPathMin(), settings.criticalPathMax()
@@ -44,6 +44,7 @@ final class DungeonPiecePlanner {
                 state, pieces, settings, random, targetRooms, 1
             )) continue;
             if (!verticalProfileSatisfied(state, settings)) continue;
+            if (!stackedFootprintSatisfied(state, settings)) continue;
             int targetBranches = randomRange(
                 random, settings.branchCountMin(), settings.branchCountMax()
             );
@@ -67,8 +68,9 @@ final class DungeonPiecePlanner {
     }
 
     private static State startState(
-        List<DungeonPieceDefinition> pieces, BlockPos bounds, Random random
+        List<DungeonPieceDefinition> pieces, Settings settings, Random random
     ) {
+        BlockPos bounds = settings.bounds();
         List<DungeonPieceDefinition> starts = weightedOrder(
             pieces.stream().filter(piece -> piece.role().equals("start")
                 && piece.maximumPerPlan() >= 1 && piece.allowsPlacement(true)).toList(), random
@@ -76,9 +78,14 @@ final class DungeonPiecePlanner {
         for (DungeonPieceDefinition piece : starts) {
             for (Rotation rotation : rotationOrder(piece, random)) {
                 LocalBounds local = localBounds(piece.size(), rotation);
+                int minimumY = switch (settings.verticalDirection()) {
+                    case "ascending" -> 0;
+                    case "descending" -> bounds.getY() - local.size().getY();
+                    default -> (bounds.getY() - local.size().getY()) / 2;
+                };
                 BlockPos minimum = new BlockPos(
                     (bounds.getX() - local.size().getX()) / 2,
-                    (bounds.getY() - local.size().getY()) / 2,
+                    minimumY,
                     (bounds.getZ() - local.size().getZ()) / 2
                 );
                 BlockPos origin = minimum.subtract(local.minimum());
@@ -113,6 +120,7 @@ final class DungeonPiecePlanner {
             random
         );
         Placed current = state.placements.getLast();
+        List<Attachment> attachments = new ArrayList<>();
         for (DungeonPieceDefinition.Connector from : connectorOrder(current, state, random)) {
             for (DungeonPieceDefinition piece : candidates) {
                 for (Rotation rotation : rotationOrder(piece, random)) {
@@ -127,16 +135,43 @@ final class DungeonPiecePlanner {
                             || overlapsAny(attachment.placed().box(), state.placements)) {
                             continue;
                         }
-                        state.add(attachment);
-                        if (extendCritical(
-                            state, pieces, settings, random, targetRooms, depth + 1
-                        )) return true;
-                        state.removeLast(attachment);
+                        attachments.add(attachment);
                     }
                 }
             }
         }
+        attachments.sort(Comparator.comparingInt(attachment ->
+            compactnessScore(state, attachment.placed())
+        ));
+        for (Attachment attachment : attachments) {
+            state.add(attachment);
+            if (extendCritical(
+                state, pieces, settings, random, targetRooms, depth + 1
+            )) return true;
+            state.removeLast(attachment);
+        }
         return false;
+    }
+
+    private static int compactnessScore(State state, Placed candidate) {
+        boolean stacked = state.placements.stream()
+            .filter(Placed::critical)
+            .filter(placed -> placed.box().minimum().getY()
+                != candidate.box().minimum().getY())
+            .anyMatch(placed -> overlapsHorizontally(
+                placed.box(), candidate.box()
+            ));
+        int minX = candidate.box().minimum().getX();
+        int minZ = candidate.box().minimum().getZ();
+        int maxX = candidate.box().maximumExclusive().getX();
+        int maxZ = candidate.box().maximumExclusive().getZ();
+        for (Placed placed : state.placements) {
+            minX = Math.min(minX, placed.box().minimum().getX());
+            minZ = Math.min(minZ, placed.box().minimum().getZ());
+            maxX = Math.max(maxX, placed.box().maximumExclusive().getX());
+            maxZ = Math.max(maxZ, placed.box().maximumExclusive().getZ());
+        }
+        return (stacked ? -1_000_000 : 0) + (maxX - minX) * (maxZ - minZ);
     }
 
     private static boolean attachBranches(
@@ -396,6 +431,36 @@ final class DungeonPiecePlanner {
         }
         return changes >= settings.floorChangesMin()
             && changes <= settings.floorChangesMax();
+    }
+
+    private static boolean stackedFootprintSatisfied(State state, Settings settings) {
+        if (settings.floorChangesMin() == 0
+            || settings.verticalDirection().equals("flat")) return true;
+        List<Placed> rooms = state.placements.stream()
+            .filter(Placed::critical)
+            .filter(placed -> !isVerticalTransition(placed.definition()))
+            .toList();
+        for (int first = 0; first < rooms.size(); first++) {
+            Placed a = rooms.get(first);
+            for (int second = first + 1; second < rooms.size(); second++) {
+                Placed b = rooms.get(second);
+                if (a.box().minimum().getY() == b.box().minimum().getY()) continue;
+                if (overlapsHorizontally(a.box(), b.box())) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isVerticalTransition(DungeonPieceDefinition piece) {
+        return piece.connectors().stream().map(connector -> connector.position().getY())
+            .distinct().count() > 1;
+    }
+
+    private static boolean overlapsHorizontally(Box first, Box second) {
+        return first.minimum().getX() < second.maximumExclusive().getX()
+            && first.maximumExclusive().getX() > second.minimum().getX()
+            && first.minimum().getZ() < second.maximumExclusive().getZ()
+            && first.maximumExclusive().getZ() > second.minimum().getZ();
     }
 
     private static void requireRoles(List<DungeonPieceDefinition> pieces) {

@@ -6,7 +6,7 @@
   "role": "corridor",
   "size": [
     16,
-    8,
+    12,
     16
   ],
   "weight": 5,
@@ -35,7 +35,7 @@
       "id": "east",
       "position": [
         15,
-        5,
+        9,
         7
       ],
       "facing": "east",

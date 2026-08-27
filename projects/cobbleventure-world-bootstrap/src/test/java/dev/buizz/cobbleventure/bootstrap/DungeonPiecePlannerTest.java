@@ -74,8 +74,32 @@ final class DungeonPiecePlannerTest {
                 }
                 assertTrue(changes >= dungeon.layout().floorChanges().minimum(), name);
                 assertTrue(changes <= dungeon.layout().floorChanges().maximum(), name);
+                assertTrue(elevations.stream().allMatch(y -> y % 8 == 0),
+                    name + " did not align floors to the regular NBT piece height");
+                assertTrue(hasStackedFloorFootprint(generated.plan()),
+                    name + " expanded every floor sideways instead of stacking it");
             }
         }
+    }
+
+    private static boolean hasStackedFloorFootprint(DungeonPiecePlan plan) {
+        List<DungeonPiecePlan.Placement> rooms = plan.placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath)
+            .filter(placement -> !placement.pieceId().contains("/stairs_"))
+            .toList();
+        for (int first = 0; first < rooms.size(); first++) {
+            DungeonPiecePlan.Placement a = rooms.get(first);
+            for (int second = first + 1; second < rooms.size(); second++) {
+                DungeonPiecePlan.Placement b = rooms.get(second);
+                if (a.minimum().getY() == b.minimum().getY()) continue;
+                boolean overlapsX = a.minimum().getX() < b.minimum().getX() + b.size().getX()
+                    && a.minimum().getX() + a.size().getX() > b.minimum().getX();
+                boolean overlapsZ = a.minimum().getZ() < b.minimum().getZ() + b.size().getZ()
+                    && a.minimum().getZ() + a.size().getZ() > b.minimum().getZ();
+                if (overlapsX && overlapsZ) return true;
+            }
+        }
+        return false;
     }
 
     @Test

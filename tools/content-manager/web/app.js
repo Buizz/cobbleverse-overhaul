@@ -5679,9 +5679,10 @@ function fixedDungeonPlan(document) {
   return { kind: "fixed", exact: true, seed: 0, bounds, placements: [{ index: 0, pieceId: template, structure: template, role: "room", minimum: [0, 0, 0], size, rotation: "none", critical: true }], links: [], markers, planId: "fixed" };
 }
 
-function dungeonRuntimePreviewPiece(document, role, random) {
+function dungeonRuntimePreviewPiece(document, role, random, shape = "") {
   const pool = document.terrain?.piece_pool;
-  const candidates = [...state.dungeonPieces.values()].filter((piece) => (!pool || (piece.tags || []).includes(pool)) && piece.role === role);
+  const shapeTag = shape ? `cobbleventure:dungeon_shape/${shape}` : "";
+  const candidates = [...state.dungeonPieces.values()].filter((piece) => (!pool || (piece.tags || []).includes(pool)) && (shapeTag ? (piece.tags || []).includes(shapeTag) : piece.role === role));
   const fallbacks = role === "corridor" ? ["junction", "room"] : ["room", "corridor"];
   for (const fallback of fallbacks) {
     if (candidates.length) break;
@@ -5709,36 +5710,46 @@ function runtimeDungeonPlan(document, seed) {
   const count = Math.max(3, Math.round(roomsRange[0] + random() * (roomsRange[1] - roomsRange[0])));
   const branchCount = Math.max(0, Math.round(branchesRange[0] + random() * (branchesRange[1] - branchesRange[0])));
   const cell = caveTerrain ? 12 : 16;
-  const layerHeight = caveTerrain ? 6 : 8;
+  const piecePool = document.terrain?.piece_pool;
+  const ordinaryPieces = [...state.dungeonPieces.values()].filter((piece) => (!piecePool || (piece.tags || []).includes(piecePool)) && !(piece.tags || []).some((tag) => tag.endsWith("/stairs_up") || tag.endsWith("/stairs_down")));
+  const layerHeight = caveTerrain ? 6 : Math.max(1, ...ordinaryPieces.map((piece) => Number(piece.size?.[1] || 0)), 8);
   const floorRange = caveTerrain ? [0, 0] : dungeonRange(layout.floor_changes, [0, 0]);
-  const floorChangeCount = layout.vertical_direction === "flat" ? 0 : Math.min(count - 2, Math.round(floorRange[0] + random() * (floorRange[1] - floorRange[0])));
-  const changeAfter = new Set(Array.from({ length: floorChangeCount }, (_, index) => Math.max(1, Math.round((index + 1) * (count - 2) / (floorChangeCount + 1)))));
+  const floorChangeCount = layout.vertical_direction === "flat" ? 0 : Math.min(count - 3, Math.round(floorRange[0] + random() * (floorRange[1] - floorRange[0])));
   const grid = [];
   const links = [];
   const occupied = new Set();
   const key = (x, y, z) => `${x},${y},${z}`;
-  const addGrid = (x, y, z, role, critical) => {
+  const addGrid = (x, y, z, role, critical, extra = {}) => {
     const index = grid.length;
-    grid.push({ index, gx: x, gy: y, gz: z, role, critical });
+    grid.push({ index, gx: x, gy: y, gz: z, role, critical, ...extra });
     occupied.add(key(x, y, z));
     return index;
   };
-  let gx = 0; let gy = 0; let gz = 0;
+  const floorCount = floorChangeCount + 1;
+  const ordinaryCount = count - floorChangeCount;
+  const roomsByFloor = Array.from({ length: floorCount }, (_, floor) => Math.floor(ordinaryCount / floorCount) + (floor < ordinaryCount % floorCount ? 1 : 0));
+  const floorWidth = Math.max(2, ...roomsByFloor);
+  let gy = 0; let floor = 0; let roomOnFloor = 0; let ordinaryIndex = 0;
   for (let index = 0; index < count; index += 1) {
-    if (index > 0) {
-      if (mode === "maze" && index % 3 === 0) gz += 1;
-      else gx += mode === "maze" && Math.floor(index / 3) % 2 ? -1 : 1;
-      if (changeAfter.has(index)) {
-        const direction = layout.vertical_direction === "descending" ? -1 : layout.vertical_direction === "mixed" && index % 2 === 0 ? -1 : 1;
-        gy += direction;
-      }
+    const needsStairs = floor < floorChangeCount && roomOnFloor >= roomsByFloor[floor];
+    if (needsStairs) {
+      const direction = layout.vertical_direction === "descending" ? -1 : layout.vertical_direction === "mixed" && floor % 2 === 1 ? -1 : 1;
+      const gx = floor % 2 === 0 ? floorWidth : -1;
+      const placed = addGrid(gx, gy, 0, "corridor", true, { shape: direction > 0 ? "stairs_up" : "stairs_down", verticalTransition: true, floorLevels: [gy, gy + direction] });
+      if (index) links.push({ from: placed - 1, to: placed, critical: true });
+      gy += direction; floor += 1; roomOnFloor = 0;
+      continue;
     }
-    const role = index === 0 ? "start" : index === count - 2 ? "boss" : index === count - 1 ? "exit" : mode === "maze" ? (index % 3 === 0 ? "junction" : "corridor") : mode === "rooms_and_corridors" ? (index % 2 ? "corridor" : "room") : "room";
+    const gx = floor % 2 === 0 ? roomOnFloor : floorWidth - 1 - roomOnFloor;
+    const gz = mode === "maze" ? Math.floor(roomOnFloor / Math.max(2, floorWidth)) : 0;
+    const role = ordinaryIndex === 0 ? "start" : ordinaryIndex === ordinaryCount - 2 ? "boss" : ordinaryIndex === ordinaryCount - 1 ? "exit" : mode === "maze" ? (ordinaryIndex % 3 === 0 ? "junction" : "corridor") : mode === "rooms_and_corridors" ? (ordinaryIndex % 2 ? "corridor" : "room") : "room";
     const placed = addGrid(gx, gy, gz, role, true);
     if (index) links.push({ from: placed - 1, to: placed, critical: true });
+    roomOnFloor += 1; ordinaryIndex += 1;
   }
-  for (let branch = 0; branch < branchCount; branch += 1) {
-    const root = 1 + Math.floor((branch + 1) * Math.max(1, count - 3) / (branchCount + 1));
+  const branchHosts = grid.filter((value) => value.critical && !value.verticalTransition && !["start", "boss", "exit"].includes(value.role)).map((value) => value.index);
+  for (let branch = 0; branch < branchCount && branchHosts.length; branch += 1) {
+    const root = branchHosts[Math.min(branchHosts.length - 1, Math.floor((branch + 1) * branchHosts.length / (branchCount + 1)))];
     const depth = Math.max(1, Math.round(depthRange[0] + random() * (depthRange[1] - depthRange[0])));
     const base = grid[root];
     const directions = branch % 2 ? [[0, -1], [0, 1], [1, 0], [-1, 0]] : [[0, 1], [0, -1], [1, 0], [-1, 0]];
@@ -5759,11 +5770,14 @@ function runtimeDungeonPlan(document, seed) {
   }
   const minX = Math.min(...grid.map((value) => value.gx)); const minY = Math.min(...grid.map((value) => value.gy)); const minZ = Math.min(...grid.map((value) => value.gz));
   const placements = grid.map((value) => {
-    const piece = caveTerrain ? null : dungeonRuntimePreviewPiece(document, value.role, random);
+    const piece = caveTerrain ? null : dungeonRuntimePreviewPiece(document, value.role, random, value.shape);
+    const minimumY = (value.gy - minY) * layerHeight;
+    const floorYs = value.verticalTransition ? value.floorLevels.map((level) => (level - minY) * layerHeight) : [minimumY];
     return {
       index: value.index, pieceId: piece?.piece_id || `preview:${value.role}`, structure: piece?.structure || "", role: value.role,
-      minimum: [(value.gx - minX) * cell, (value.gy - minY) * layerHeight, (value.gz - minZ) * cell],
+      minimum: [(value.gx - minX) * cell, minimumY, (value.gz - minZ) * cell],
       size: piece?.size?.map(Number) || [cell, layerHeight, cell], rotation: "none", critical: value.critical,
+      floorYs, verticalTransition: Boolean(value.verticalTransition),
     };
   });
   const bounds = [
@@ -5873,8 +5887,8 @@ function drawDungeonPlacementCutaway(context, placement, point, scale, opacity =
     const rotated = rotateMinecraftTopBlock(localX, localZ, width, depth, placement.rotation || "none");
     const worldX = Number(placement.minimum[0]) + rotated.x;
     const worldZ = Number(placement.minimum[2]) + rotated.z;
-    const start = point([worldX, 0, worldZ]);
-    const end = point([worldX + 1, 0, worldZ + 1]);
+    const start = point([worldX, Number(placement.minimum[1] || 0), worldZ]);
+    const end = point([worldX + 1, Number(placement.minimum[1] || 0), worldZ + 1]);
     const isFloor = y === floorY;
     const heightShade = isFloor ? .52 : .92 + ((y - floorY) / heightRange) * .24;
     context.globalAlpha = opacity * (isFloor ? .42 : /glass|water/.test(blockName) ? .7 : 1);
@@ -5916,19 +5930,27 @@ function renderDungeonPreview() {
   const ratio = window.devicePixelRatio || 1;
   canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
   const context = canvas.getContext("2d"); context.setTransform(ratio, 0, 0, ratio, 0, 0); context.clearRect(0, 0, width, height);
-  const boundsX = Math.max(1, Number(plan.bounds[0])); const boundsZ = Math.max(1, Number(plan.bounds[2]));
-  const scale = Math.min((width - 64) / boundsX, (height - 64) / boundsZ);
-  const offsetX = (width - boundsX * scale) / 2; const offsetY = (height - boundsZ * scale) / 2;
+  const boundsX = Math.max(1, Number(plan.bounds[0])); const boundsY = Math.max(1, Number(plan.bounds[1])); const boundsZ = Math.max(1, Number(plan.bounds[2]));
+  const stackedView = selectedFloor === null && floors.length > 1;
+  const floorShiftX = stackedView ? .28 : 0; const floorShiftY = stackedView ? .55 : 0;
+  const projectedWidth = boundsX + boundsY * floorShiftX; const projectedHeight = boundsZ + boundsY * floorShiftY;
+  const scale = Math.min((width - 64) / projectedWidth, (height - 64) / projectedHeight);
+  const offsetX = (width - projectedWidth * scale) / 2; const offsetY = (height - projectedHeight * scale) / 2 + boundsY * floorShiftY * scale;
   state.dungeonPreview.transform = { scale, offsetX, offsetY };
-  const point = (position) => ({ x: offsetX + Number(position[0]) * scale, y: offsetY + Number(position[2]) * scale });
+  const point = (position) => { const elevation = stackedView ? Number(position[1] || 0) : 0; return { x: offsetX + (Number(position[0]) + elevation * floorShiftX) * scale, y: offsetY + (Number(position[2]) - elevation * floorShiftY) * scale }; };
   const placementProblems = dungeonPlanPlacementProblems(plan);
   context.strokeStyle = "#294047"; context.lineWidth = 1;
   if (state.dungeon.terrain?.mode === "nbt_pieces") {
     for (let x = 0; x <= boundsX; x += 16) { const px = offsetX + x * scale; context.beginPath(); context.moveTo(px, offsetY); context.lineTo(px, offsetY + boundsZ * scale); context.stroke(); }
     for (let z = 0; z <= boundsZ; z += 16) { const py = offsetY + z * scale; context.beginPath(); context.moveTo(offsetX, py); context.lineTo(offsetX + boundsX * scale, py); context.stroke(); }
   }
-  context.strokeStyle = "#527078"; context.lineWidth = 1.5; context.strokeRect(offsetX, offsetY, boundsX * scale, boundsZ * scale);
-  const centers = new Map(visiblePlacements.map((placement) => [placement.index, point([placement.minimum[0] + placement.size[0] / 2, 0, placement.minimum[2] + placement.size[2] / 2])]));
+  if (stackedView) floors.forEach((floorY, index) => {
+    const corner = point([0, floorY, 0]);
+    context.strokeStyle = index === floors.length - 1 ? "rgba(183,217,224,.72)" : "rgba(82,112,120,.42)"; context.lineWidth = index === floors.length - 1 ? 1.5 : 1; context.setLineDash([5, 4]); context.strokeRect(corner.x, corner.y, boundsX * scale, boundsZ * scale); context.setLineDash([]);
+    context.fillStyle = "rgba(225,240,241,.82)"; context.font = "700 9px sans-serif"; context.fillText(`${index + 1}층 · Y ${floorY}`, corner.x + 5, corner.y + 13);
+  });
+  else { context.strokeStyle = "#527078"; context.lineWidth = 1.5; context.strokeRect(offsetX, offsetY, boundsX * scale, boundsZ * scale); }
+  const centers = new Map(visiblePlacements.map((placement) => [placement.index, point([placement.minimum[0] + placement.size[0] / 2, placement.minimum[1], placement.minimum[2] + placement.size[2] / 2])]));
   plan.links.forEach((link) => { const from = centers.get(link.from); const to = centers.get(link.to); if (!from || !to) return; context.strokeStyle = link.critical ? "#5fa8ff" : "#6f7f83"; context.lineWidth = link.critical ? 4 : 2; context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke(); });
   const colors = { start: "#64d98a", boss: "#ef5a67", exit: "#f1c75b" };
   state.dungeonPreview.hitTargets = [];
@@ -5944,6 +5966,14 @@ function renderDungeonPreview() {
       context.fillStyle = "#fff"; context.fillText(placement.role, top.x + 7, top.y + 14);
     }
     state.dungeonPreview.hitTargets.push({ type: "placement", index: placement.index, x: top.x, y: top.y, width: boxWidth, height: boxHeight });
+  });
+  if (stackedView) visiblePlacements.filter((placement) => placement.verticalTransition && placement.floorYs?.length > 1).forEach((placement) => {
+    const centerX = placement.minimum[0] + placement.size[0] / 2; const centerZ = placement.minimum[2] + placement.size[2] / 2;
+    const from = point([centerX, placement.floorYs[0], centerZ]); const to = point([centerX, placement.floorYs.at(-1), centerZ]);
+    context.strokeStyle = "rgba(184,232,107,.42)"; context.lineWidth = 11; context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke();
+    context.strokeStyle = "#b8e86b"; context.lineWidth = 3; context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke();
+    const angle = Math.atan2(to.y - from.y, to.x - from.x); context.fillStyle = "#e4ffb7"; context.beginPath(); context.moveTo(to.x, to.y); context.lineTo(to.x - Math.cos(angle - .55) * 9, to.y - Math.sin(angle - .55) * 9); context.lineTo(to.x - Math.cos(angle + .55) * 9, to.y - Math.sin(angle + .55) * 9); context.closePath(); context.fill();
+    context.fillStyle = "#eaffc5"; context.font = "800 9px sans-serif"; context.fillText("계단", to.x + 7, to.y - 6);
   });
   const markerColors = { boss: "#ff5968", encounter: "#ff9c54", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", objective: "#df7cff", gate: "#b6c1c8" };
   plan.markers.filter(onSelectedFloor).forEach((marker) => {
@@ -5967,7 +5997,7 @@ function renderDungeonPreview() {
     ? `<div class="dungeon-enemy-marker is-random"><i>?</i><span><b>랜덤 야생 조우</b><small>간격 ${Number(state.dungeon.random_encounters.minimum_distance || 0)}~${Number(state.dungeon.random_encounters.maximum_distance || 0)} · 최대 ${Number(state.dungeon.random_encounters.max_active || 0)}마리</small></span></div>`
     : "";
   $("#dungeon-preview-marker-summary").innerHTML = enemyMarkers.map((marker, index) => `<button type="button" class="dungeon-enemy-marker" data-preview-enemy="${index}"><i>${marker.kind === "boss" ? "B" : index + 1}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></button>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 적이 없습니다.</small>';
-  const floorStatus = selectedFloor === null ? "모든 층을 표시합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
+  const floorStatus = selectedFloor === null ? "모든 층을 실제 높이에 따라 겹쳐 표시합니다. 계단 화살표가 아래층과 위층을 연결합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
   $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.` : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`;
 }
 

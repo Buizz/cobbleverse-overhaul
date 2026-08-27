@@ -25,6 +25,11 @@ class Shape:
     connector_heights: tuple[tuple[str, int], ...] = ()
     markers: tuple[tuple[str, str, tuple[int, int, int], str | None], ...] = ()
     weight: int = 10
+    size: tuple[int, int, int] = SIZE
+    placement_scope: str = "any"
+    min_per_plan: int = 0
+    max_per_plan: int = 256
+    forbid_adjacent_tags: tuple[str, ...] = ()
 
 
 SHAPES = {
@@ -40,6 +45,7 @@ SHAPES = {
         markers=(
             ("encounter_slot", "encounter", (8, 1, 8), None),
             ("loot_slot", "loot", (5, 1, 5), None),
+            ("gate_slot", "gate", (15, 1, 7), None),
         ),
         weight=14,
     ),
@@ -49,22 +55,32 @@ SHAPES = {
         weight=5,
     ),
     "stairs_up": Shape(
-        "corridor", ("west", "east"), connector_heights=(("west", 1), ("east", 5)),
-        weight=5,
+        "corridor", ("west", "east"), connector_heights=(("west", 1), ("east", 9)),
+        weight=5, size=(16, 12, 16),
     ),
     "stairs_down": Shape(
-        "corridor", ("west", "east"), connector_heights=(("west", 5), ("east", 1)),
-        weight=5,
+        "corridor", ("west", "east"), connector_heights=(("west", 9), ("east", 1)),
+        weight=5, size=(16, 12, 16),
     ),
     "dead_end": Shape("dead_end", ("west",), 4, weight=8),
-    "support": Shape("support", ("west", "east"), 3, weight=5),
+    "support": Shape(
+        "support", ("west", "east"), 3,
+        markers=(("healing_station_slot", "healing_station", (8, 1, 8), None),),
+        weight=5,
+    ),
     "treasure": Shape(
         "treasure", ("north",), 3,
-        markers=(("loot_slot", "loot", (8, 1, 8), None),), weight=4,
+        markers=(
+            ("loot_slot", "loot", (8, 1, 8), None),
+            ("security_switch", "objective", (8, 1, 10), "security_switch"),
+        ),
+        weight=4, placement_scope="branch", min_per_plan=1, max_per_plan=1,
+        forbid_adjacent_tags=("cobbleventure:dungeon_shape/boss",),
     ),
     "boss": Shape(
         "boss", ("west", "east"), 2,
-        markers=(("boss_slot", "boss", (8, 1, 8), None),), weight=1,
+        markers=(("boss_slot", "boss", (8, 1, 8), None),),
+        weight=1, placement_scope="critical_path",
     ),
     "exit": Shape(
         "exit", ("west",), 3,
@@ -90,8 +106,8 @@ SKINS = {
 }
 
 
-def _arms(directions: tuple[str, ...], half_width: int = 2) -> set[tuple[int, int]]:
-    width, _, depth = SIZE
+def _arms(directions: tuple[str, ...], half_width: int = 2, size: tuple[int, int, int] = SIZE) -> set[tuple[int, int]]:
+    width, _, depth = size
     cx, cz = (width - 1) // 2, (depth - 1) // 2
     cells = {
         (x, z)
@@ -111,18 +127,18 @@ def _arms(directions: tuple[str, ...], half_width: int = 2) -> set[tuple[int, in
 
 def _footprint(shape: Shape) -> set[tuple[int, int]]:
     if shape.room_margin is None:
-        return _arms(shape.directions)
-    width, _, depth = SIZE
+        return _arms(shape.directions, size=shape.size)
+    width, _, depth = shape.size
     room = {
         (x, z)
         for x in range(shape.room_margin, width - shape.room_margin)
         for z in range(shape.room_margin, depth - shape.room_margin)
     }
-    return room | _arms(shape.directions)
+    return room | _arms(shape.directions, size=shape.size)
 
 
-def _connector_position(direction: str, y: int) -> tuple[int, int, int]:
-    width, _, depth = SIZE
+def _connector_position(direction: str, y: int, size: tuple[int, int, int] = SIZE) -> tuple[int, int, int]:
+    width, _, depth = size
     cx, cz = (width - 1) // 2, (depth - 1) // 2
     return {
         "west": (0, y, cz), "east": (width - 1, y, cz),
@@ -135,7 +151,7 @@ def _block(name: str):
 
 
 def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
-    width, height, depth = SIZE
+    width, height, depth = shape.size
     footprint = _footprint(shape)
     blocks = {}
     air = _block("minecraft:air")
@@ -156,7 +172,7 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
     heights = dict(shape.connector_heights)
     for direction in shape.directions:
         y = heights.get(direction, 1)
-        x, _, z = _connector_position(direction, y)
+        x, _, z = _connector_position(direction, y, shape.size)
         # Keep a five-wide, three-high doorway clear at the shared contract port.
         for offset in range(-2, 3):
             for door_y in range(y, min(height - 1, y + 3)):
@@ -168,10 +184,11 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
     if shape_name in {"stairs_up", "stairs_down"}:
         cz = (depth - 1) // 2
         ascending = shape_name == "stairs_up"
+        rise = abs(heights["east"] - heights["west"])
         for x in range(width):
-            level = round(4 * x / (width - 1))
+            level = round(rise * x / (width - 1))
             if not ascending:
-                level = 4 - level
+                level = rise - level
             for z in range(cz - 2, cz + 3):
                 for y in range(1, level + 1):
                     blocks[(x, y, z)] = _block(skin["floor"])
@@ -184,7 +201,7 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
     if shape.room_margin is not None:
         for x, z in ((7, 7), (8, 7), (7, 8), (8, 8)):
             blocks[(x, 0, z)] = _block(skin["accent"])
-    return serialize_structure(SIZE, blocks)
+    return serialize_structure(shape.size, blocks)
 
 
 def _definition(shape_name: str, shape: Shape, skin_name: str) -> dict[str, object]:
@@ -196,8 +213,12 @@ def _definition(shape_name: str, shape: Shape, skin_name: str) -> dict[str, obje
         "piece_id": f"cobbleventure:dungeon_piece/{skin_name}/{shape_name}",
         "structure": f"cobbleventure:dungeon_pieces/{skin_name}/{shape_name}",
         "role": shape.role,
-        "size": list(SIZE),
+        "size": list(shape.size),
         "weight": shape.weight,
+        **({"min_per_plan": shape.min_per_plan} if shape.min_per_plan else {}),
+        **({"max_per_plan": shape.max_per_plan} if shape.max_per_plan != 256 else {}),
+        **({"placement_scope": shape.placement_scope} if shape.placement_scope != "any" else {}),
+        **({"forbid_adjacent_tags": list(shape.forbid_adjacent_tags)} if shape.forbid_adjacent_tags else {}),
         "allow_rotation": True,
         "tags": [
             KIT_TAG,
@@ -208,7 +229,7 @@ def _definition(shape_name: str, shape: Shape, skin_name: str) -> dict[str, obje
         "connectors": [
             {
                 "id": direction,
-                "position": list(_connector_position(direction, heights.get(direction, 1))),
+                "position": list(_connector_position(direction, heights.get(direction, 1), shape.size)),
                 "facing": direction,
                 "socket": SOCKET,
                 "tags": [KIT_TAG],
@@ -219,6 +240,7 @@ def _definition(shape_name: str, shape: Shape, skin_name: str) -> dict[str, obje
             {
                 **{"id": marker_id, "kind": kind, "position": list(position)},
                 **({"reference": reference} if reference is not None else {}),
+                **({"connector": "east"} if marker_id == "gate_slot" else {}),
             }
             for marker_id, kind, position, reference in shape.markers
         ],

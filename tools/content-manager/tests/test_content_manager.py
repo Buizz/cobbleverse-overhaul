@@ -169,6 +169,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="dungeon-preview-marker-summary"', markup)
         self.assertIn("function snapDungeonGrid", script)
         self.assertIn("x += 16", script)
+        self.assertIn("const roomsByFloor = Array.from", script)
+        self.assertIn('shape: direction > 0 ? "stairs_up" : "stairs_down"', script)
+        self.assertIn("floorYs, verticalTransition: Boolean(value.verticalTransition)", script)
+        self.assertIn("const stackedView = selectedFloor === null && floors.length > 1", script)
+        self.assertIn("placement.verticalTransition && placement.floorYs?.length > 1", script)
+        self.assertIn("모든 층을 실제 높이에 따라 겹쳐 표시합니다", script)
         self.assertIn('event.target.closest("#dungeon-preview-workspace")', script)
 
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:

@@ -100,7 +100,15 @@ class StructureBuilderTests(unittest.TestCase):
                     size = content_manager.read_minecraft_structure_size(
                         (structure_root / skin_name / f"{shape_name}.nbt").read_bytes()
                     )
-                    self.assertEqual(dungeon_piece_skin_generator.SIZE, size)
+                    self.assertEqual(
+                        dungeon_piece_skin_generator.SHAPES[shape_name].size,
+                        size,
+                    )
+            stairs = json.loads(
+                (definition_root / "rocket" / "stairs_up.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual([16, 12, 16], stairs["size"])
+            self.assertEqual({1, 9}, {connector["position"][1] for connector in stairs["connectors"]})
 
     def test_generated_underground_entrance_has_road_anchor_and_transition_barriers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
