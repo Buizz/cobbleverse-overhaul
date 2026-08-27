@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_juggler_kirk",
   "enabled": true,
   "name": {
-    "ko_kr": "Juggler Kirk",
+    "ko_kr": "저글러 커크",
     "en_us": "Juggler Kirk"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Juggler Kirk",
+      "ko_kr": "저글러 커크",
       "en_us": "Juggler Kirk"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "예전엔 마술사였지만 닌자가 되고 싶어 이 체육관에 들어왔지."
       },
       "battle": "cobbleventure:battle/firered_juggler_kirk",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "이젠 끝장이야! 져도 닌자 스승 독수의 가르침에 따라 계속 수련하겠어."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_juggler_kirk/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_juggler_kirk"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_juggler_kirk"
   }
 }

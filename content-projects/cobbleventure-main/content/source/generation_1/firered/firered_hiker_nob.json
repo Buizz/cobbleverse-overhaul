@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_hiker_nob",
   "enabled": true,
   "name": {
-    "ko_kr": "Hiker Nob",
+    "ko_kr": "등산가 노브",
     "en_us": "Hiker Nob"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Hiker Nob",
+      "ko_kr": "등산가 노브",
       "en_us": "Hiker Nob"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "곶에 사는 포켓몬 매니아의 수집품을 보러 가는 길이야."
       },
       "battle": "cobbleventure:battle/firered_hiker_nob",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "제대로 당했군! 그 포켓몬 매니아는 이름값을 해. 희귀한 포켓몬도 많이 모았대."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_hiker_nob/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_hiker_nob"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_hiker_nob"
   }
 }

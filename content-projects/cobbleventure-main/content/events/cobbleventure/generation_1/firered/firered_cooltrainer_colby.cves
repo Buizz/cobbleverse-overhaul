@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_colby/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_colby/defeated") {
+    say npc {
+      ko_kr: "선택받은 자만 이곳을 통과할 수 있다!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_colby" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_colby/defeated" true
+      say npc {
+        ko_kr: "믿을 수 없어! 여기 있는 트레이너는 모두 포켓몬리그를 향하고 있어. 방심하지 마."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_cooltrainer_colby/defeated") {
+    say npc {
+      ko_kr: "믿을 수 없어! 여기 있는 트레이너는 모두 포켓몬리그를 향하고 있어. 방심하지 마."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "선택받은 자만 이곳을 통과할 수 있다!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_colby" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_colby/defeated" true
+          say npc {
+            ko_kr: "믿을 수 없어! 여기 있는 트레이너는 모두 포켓몬리그를 향하고 있어. 방심하지 마."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

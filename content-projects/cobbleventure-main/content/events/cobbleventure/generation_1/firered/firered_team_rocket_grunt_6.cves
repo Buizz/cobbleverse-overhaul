@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated") {
+    encounter_warning "encounter.trainer_bad_guys"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated") {
+    say npc {
+      ko_kr: "우리 로켓단에 들어오지 않겠어? 싫다고? 그렇다면 억지로라도 설득해 주지!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_team_rocket_grunt_6" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated" true
+      say npc {
+        ko_kr: "으악! 제법이군! 네 실력이라면 로켓단의 간부도 될 수 있을 텐데. 기회를 놓치지 마!"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated") {
+    say npc {
+      ko_kr: "으악! 제법이군! 네 실력이라면 로켓단의 간부도 될 수 있을 텐데. 기회를 놓치지 마!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "우리 로켓단에 들어오지 않겠어? 싫다고? 그렇다면 억지로라도 설득해 주지!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_team_rocket_grunt_6" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated" true
+          say npc {
+            ko_kr: "으악! 제법이군! 네 실력이라면 로켓단의 간부도 될 수 있을 텐데. 기회를 놓치지 마!"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

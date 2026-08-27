@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_burglar_ramon",
   "enabled": true,
   "name": {
-    "ko_kr": "Burglar Ramon 배틀",
+    "ko_kr": "도둑 라몬 배틀",
     "en_us": "Burglar Ramon Battle"
   },
   "battle": {

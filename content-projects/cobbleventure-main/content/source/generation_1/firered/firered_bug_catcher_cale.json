@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_bug_catcher_cale",
   "enabled": true,
   "name": {
-    "ko_kr": "Bug Catcher Cale",
+    "ko_kr": "곤충채집소년 케일",
     "en_us": "Bug Catcher Cale"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Bug Catcher Cale",
+      "ko_kr": "곤충채집소년 케일",
       "en_us": "Bug Catcher Cale"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "여기는 금구슬다리! 우리 다섯을 이기면 멋진 상품을 받지. 해낼 수 있겠어?"
       },
       "battle": "cobbleventure:battle/firered_bug_catcher_cale",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "우와! 훌륭해! 최선을 다했으니 후회 없어!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_bug_catcher_cale/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_bug_catcher_cale"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_bug_catcher_cale"
   }
 }

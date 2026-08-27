@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_cooltrainer_alexa",
   "enabled": true,
   "name": {
-    "ko_kr": "Cooltrainer Alexa",
+    "ko_kr": "엘리트 트레이너 알렉사",
     "en_us": "Cooltrainer Alexa"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Cooltrainer Alexa",
+      "ko_kr": "엘리트 트레이너 알렉사",
       "en_us": "Cooltrainer Alexa"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "트레이너는 더 강한 상대를 찾아 살아가는 법이지."
       },
       "battle": "cobbleventure:battle/firered_cooltrainer_alexa",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "아! 정말 강하군! 힘든 승부를 거치며 더욱 강해지는 거야."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_cooltrainer_alexa/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_cooltrainer_alexa"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_cooltrainer_alexa"
   }
 }

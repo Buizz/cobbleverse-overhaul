@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_engineer_baily/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_engineer_baily/defeated") {
+    say npc {
+      ko_kr: "몸은 약해도 전기에는 자신 있어! 그래서 이 체육관에 들어왔지."
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_engineer_baily" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_engineer_baily/defeated" true
+      say npc {
+        ko_kr: "감전됐다! 말해 주지! 마티스 관장님은 문 스위치를 무언가 안에 숨겼어."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_engineer_baily/defeated") {
+    say npc {
+      ko_kr: "감전됐다! 말해 주지! 마티스 관장님은 문 스위치를 무언가 안에 숨겼어."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "몸은 약해도 전기에는 자신 있어! 그래서 이 체육관에 들어왔지."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_engineer_baily" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_engineer_baily/defeated" true
+          say npc {
+            ko_kr: "감전됐다! 말해 주지! 마티스 관장님은 문 스위치를 무언가 안에 숨겼어."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

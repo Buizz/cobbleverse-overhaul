@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_tamer_phil",
   "enabled": true,
   "name": {
-    "ko_kr": "Tamer Phil 배틀",
+    "ko_kr": "포켓몬 조련사 필 배틀",
     "en_us": "Tamer Phil Battle"
   },
   "battle": {

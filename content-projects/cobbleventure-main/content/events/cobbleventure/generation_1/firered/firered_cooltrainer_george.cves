@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_george/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_george/defeated") {
+    say npc {
+      ko_kr: "천재 꼬마가 나타났다는 소문을 들었지."
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_george" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_george/defeated" true
+      say npc {
+        ko_kr: "소문이 사실이었군! 로켓단의 비주기를 쓰러뜨린 게 너였나?"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_cooltrainer_george/defeated") {
+    say npc {
+      ko_kr: "소문이 사실이었군! 로켓단의 비주기를 쓰러뜨린 게 너였나?"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "천재 꼬마가 나타났다는 소문을 들었지."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_george" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_george/defeated" true
+          say npc {
+            ko_kr: "소문이 사실이었군! 로켓단의 비주기를 쓰러뜨린 게 너였나?"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

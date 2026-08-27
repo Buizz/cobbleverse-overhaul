@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_youngster_joey",
   "enabled": true,
   "name": {
-    "ko_kr": "Youngster Joey",
+    "ko_kr": "반바지 꼬마 조이",
     "en_us": "Youngster Joey"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Youngster Joey",
+      "ko_kr": "반바지 꼬마 조이",
       "en_us": "Youngster Joey"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "이 근처 트레이너들은 여기서 연습해."
       },
       "battle": "cobbleventure:battle/firered_youngster_joey",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "제법인데. 강한 포켓몬에게도 약점은 있어. 여러 타입을 함께 키우는 게 좋아."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_youngster_joey/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_youngster_joey"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_youngster_joey"
   }
 }

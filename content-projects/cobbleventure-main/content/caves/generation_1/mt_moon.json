@@ -41,7 +41,7 @@
       "max": 7
     },
     "surface_roughness": 0.18,
-    "water_level": 38,
+    "water_level": 31,
     "water_depth": 8,
     "grand_room_scale": 1.75,
     "elevated_crossing": false,
@@ -239,16 +239,52 @@
     "inherit_biome": false,
     "excluded_species": [],
     "additions": [
-      { "species": "cobblemon:clefairy", "min_level": 8, "max_level": 12 },
-      { "species": "cobblemon:geodude", "min_level": 7, "max_level": 10 },
-      { "species": "cobblemon:paras", "min_level": 8, "max_level": 12 },
-      { "species": "cobblemon:zubat", "min_level": 6, "max_level": 12 }
+      {
+        "species": "cobblemon:clefairy",
+        "min_level": 8,
+        "max_level": 12,
+        "spawn_as_evolved": false
+      },
+      {
+        "species": "cobblemon:geodude",
+        "min_level": 7,
+        "max_level": 10,
+        "spawn_as_evolved": false
+      },
+      {
+        "species": "cobblemon:paras",
+        "min_level": 8,
+        "max_level": 12,
+        "spawn_as_evolved": false
+      },
+      {
+        "species": "cobblemon:zubat",
+        "min_level": 6,
+        "max_level": 12,
+        "spawn_as_evolved": false
+      }
     ],
     "level_overrides": [
-      { "species": "cobblemon:clefairy", "min_level": 8, "max_level": 12 },
-      { "species": "cobblemon:geodude", "min_level": 7, "max_level": 10 },
-      { "species": "cobblemon:paras", "min_level": 8, "max_level": 12 },
-      { "species": "cobblemon:zubat", "min_level": 6, "max_level": 12 }
+      {
+        "species": "cobblemon:clefairy",
+        "min_level": 8,
+        "max_level": 12
+      },
+      {
+        "species": "cobblemon:geodude",
+        "min_level": 7,
+        "max_level": 10
+      },
+      {
+        "species": "cobblemon:paras",
+        "min_level": 8,
+        "max_level": 12
+      },
+      {
+        "species": "cobblemon:zubat",
+        "min_level": 6,
+        "max_level": 12
+      }
     ]
   },
   "trainer_settings": {
@@ -264,7 +300,8 @@
       "cobbleventure:trainer_class/hiker",
       "cobbleventure:trainer_class/rocket_grunt"
     ],
-    "placements": []
+    "placements": [],
+    "trainer_trigger_overrides": {}
   },
   "entrances": [
     {

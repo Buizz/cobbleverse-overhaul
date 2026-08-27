@@ -27,9 +27,12 @@ public final class LiveEditorNetwork {
     }
 
     static void openAnchorEditor(
-        ServerPlayer player, BlockPos position, boolean door, boolean transition
+        ServerPlayer player, BlockPos position, boolean door, boolean transition,
+        String currentType, String currentKind, String currentLabel
     ) {
-        PacketDistributor.sendToPlayer(player, new OpenAnchorPayload(position, door, transition));
+        PacketDistributor.sendToPlayer(player, new OpenAnchorPayload(
+            position, door, transition, currentType, currentKind, currentLabel
+        ));
     }
 
     static void sendSnapshot(ServerPlayer player) {
@@ -67,16 +70,17 @@ public final class LiveEditorNetwork {
                 : anchor.has("id") ? anchor.get("id").getAsString() : "unnamed";
             String facing = anchor.has("facing") ? anchor.get("facing").getAsString()
                 : anchor.has("door_facing") ? anchor.get("door_facing").getAsString() : "";
+            String kind = anchor.has("kind") ? anchor.get("kind").getAsString() : "";
             BlockPos position = LiveNbtEditorMod.ORIGIN.offset(relative);
             BlockPos pairedPosition = type.equals("door") && editLevel != null
                 ? LiveEditorTools.pairedDoor(editLevel, position) : null;
-            result.add(new Marker(label, type, position, pairedPosition, facing));
+            result.add(new Marker(label, type, kind, position, pairedPosition, facing));
         }
         return List.copyOf(result);
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("2");
+        PayloadRegistrar registrar = event.registrar("3");
         registrar.playToClient(
             OpenAnchorPayload.TYPE, OpenAnchorPayload.CODEC, LiveEditorNetwork::handleOpen
         );
@@ -105,14 +109,18 @@ public final class LiveEditorNetwork {
     }
 
     private static void handleOpen(OpenAnchorPayload payload, IPayloadContext context) {
-        LiveEditorClient.openAnchorEditor(payload.position(), payload.door(), payload.transition());
+        LiveEditorClient.openAnchorEditor(
+            payload.position(), payload.door(), payload.transition(), payload.currentType(),
+            payload.currentKind(), payload.currentLabel()
+        );
     }
 
     private static void handleApply(ApplyAnchorPayload payload, IPayloadContext context) {
         if (!(context.player() instanceof ServerPlayer player)) return;
         try {
             LiveEditorTools.applyAnchor(
-                player, payload.position(), payload.anchorType(), payload.label()
+                player, payload.position(), payload.anchorType(), payload.markerKind(),
+                payload.label()
             );
         } catch (RuntimeException error) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
@@ -160,7 +168,8 @@ public final class LiveEditorNetwork {
     }
 
     record OpenAnchorPayload(
-        BlockPos position, boolean door, boolean transition
+        BlockPos position, boolean door, boolean transition,
+        String currentType, String currentKind, String currentLabel
     ) implements CustomPacketPayload {
         private static final Type<OpenAnchorPayload> TYPE = new Type<>(id("open_anchor"));
         private static final StreamCodec<RegistryFriendlyByteBuf, OpenAnchorPayload> CODEC =
@@ -170,11 +179,15 @@ public final class LiveEditorNetwork {
             buffer.writeBlockPos(position);
             buffer.writeBoolean(door);
             buffer.writeBoolean(transition);
+            buffer.writeUtf(currentType);
+            buffer.writeUtf(currentKind);
+            buffer.writeUtf(currentLabel);
         }
 
         private static OpenAnchorPayload read(RegistryFriendlyByteBuf buffer) {
             return new OpenAnchorPayload(
-                buffer.readBlockPos(), buffer.readBoolean(), buffer.readBoolean()
+                buffer.readBlockPos(), buffer.readBoolean(), buffer.readBoolean(),
+                buffer.readUtf(), buffer.readUtf(), buffer.readUtf()
             );
         }
 
@@ -185,7 +198,7 @@ public final class LiveEditorNetwork {
     }
 
     public record ApplyAnchorPayload(
-        BlockPos position, String anchorType, String label
+        BlockPos position, String anchorType, String markerKind, String label
     ) implements CustomPacketPayload {
         private static final Type<ApplyAnchorPayload> TYPE = new Type<>(id("apply_anchor"));
         private static final StreamCodec<RegistryFriendlyByteBuf, ApplyAnchorPayload> CODEC =
@@ -194,12 +207,13 @@ public final class LiveEditorNetwork {
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeBlockPos(position);
             buffer.writeUtf(anchorType);
+            buffer.writeUtf(markerKind);
             buffer.writeUtf(label);
         }
 
         private static ApplyAnchorPayload read(RegistryFriendlyByteBuf buffer) {
             return new ApplyAnchorPayload(
-                buffer.readBlockPos(), buffer.readUtf(), buffer.readUtf()
+                buffer.readBlockPos(), buffer.readUtf(), buffer.readUtf(), buffer.readUtf()
             );
         }
 
@@ -227,6 +241,7 @@ public final class LiveEditorNetwork {
             for (Marker marker : markers) {
                 buffer.writeUtf(marker.label());
                 buffer.writeUtf(marker.type());
+                buffer.writeUtf(marker.kind());
                 buffer.writeBlockPos(marker.position());
                 buffer.writeBoolean(marker.pairedPosition() != null);
                 if (marker.pairedPosition() != null) {
@@ -246,10 +261,11 @@ public final class LiveEditorNetwork {
             for (int index = 0; index < count; index++) {
                 String label = buffer.readUtf();
                 String type = buffer.readUtf();
+                String kind = buffer.readUtf();
                 BlockPos position = buffer.readBlockPos();
                 BlockPos pairedPosition = buffer.readBoolean() ? buffer.readBlockPos() : null;
                 markers.add(new Marker(
-                    label, type, position, pairedPosition, buffer.readUtf()
+                    label, type, kind, position, pairedPosition, buffer.readUtf()
                 ));
             }
             return new SnapshotPayload(
@@ -264,7 +280,8 @@ public final class LiveEditorNetwork {
     }
 
     public record Marker(
-        String label, String type, BlockPos position, BlockPos pairedPosition, String facing
+        String label, String type, String kind, BlockPos position, BlockPos pairedPosition,
+        String facing
     ) {}
 
     public record SelectWorldEditPayload() implements CustomPacketPayload {

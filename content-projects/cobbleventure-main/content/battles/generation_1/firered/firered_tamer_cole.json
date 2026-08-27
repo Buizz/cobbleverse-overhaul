@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_tamer_cole",
   "enabled": true,
   "name": {
-    "ko_kr": "Tamer Cole 배틀",
+    "ko_kr": "포켓몬 조련사 콜 배틀",
     "en_us": "Tamer Cole Battle"
   },
   "battle": {

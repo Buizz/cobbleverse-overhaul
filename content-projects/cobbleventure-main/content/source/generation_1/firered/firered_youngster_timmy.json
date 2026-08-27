@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_youngster_timmy",
   "enabled": true,
   "name": {
-    "ko_kr": "Youngster Timmy",
+    "ko_kr": "반바지 꼬마 티미",
     "en_us": "Youngster Timmy"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Youngster Timmy",
+      "ko_kr": "반바지 꼬마 티미",
       "en_us": "Youngster Timmy"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "3번 선수 나간다! 만만하게 보지 마!"
       },
       "battle": "cobbleventure:battle/firered_youngster_timmy",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "으악! 납작하게 졌어! 최선을 다했으니 후회 없어!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_youngster_timmy/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_youngster_timmy"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_youngster_timmy"
   }
 }

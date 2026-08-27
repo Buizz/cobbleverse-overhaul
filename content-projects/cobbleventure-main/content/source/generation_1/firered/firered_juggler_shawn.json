@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_juggler_shawn",
   "enabled": true,
   "name": {
-    "ko_kr": "Juggler Shawn",
+    "ko_kr": "저글러 숀",
     "en_us": "Juggler Shawn"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Juggler Shawn",
+      "ko_kr": "저글러 숀",
       "en_us": "Juggler Shawn"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "독수 관장님은 대대로 닌자인 가문 출신이지. 넌 무엇의 후예냐?"
       },
       "battle": "cobbleventure:battle/firered_juggler_shawn",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "생각보다 훨씬 뛰어나군! 빛이 있는 곳에는 그림자가 있다! 넌 어느 쪽을 택하지?"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_juggler_shawn/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_juggler_shawn"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_juggler_shawn"
   }
 }

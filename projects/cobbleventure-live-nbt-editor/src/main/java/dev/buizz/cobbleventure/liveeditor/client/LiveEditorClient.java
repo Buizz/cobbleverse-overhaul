@@ -179,6 +179,7 @@ public final class LiveEditorClient {
                 pose, lines, new AABB(0.02, 0.02, 0.02, 0.98, 0.98, 0.98),
                 0.75F, 0.3F, 1.0F
             );
+            case "dungeon_marker" -> renderDungeonMarker(pose, lines, marker.kind());
             default -> renderBox(
                 pose, lines, new AABB(0.15, 0.02, 0.15, 0.85, 0.18, 0.85),
                 0.35F, 1.0F, 0.45F
@@ -191,6 +192,21 @@ public final class LiveEditorClient {
         PoseStack pose, VertexConsumer lines, AABB box, float red, float green, float blue
     ) {
         LevelRenderer.renderLineBox(pose, lines, box, red, green, blue, 0.95F);
+    }
+
+    private static void renderDungeonMarker(
+        PoseStack pose, VertexConsumer lines, String kind
+    ) {
+        float red = kind.equals("boss") ? 1.0F : kind.equals("encounter") ? 1.0F
+            : kind.equals("loot") ? 1.0F : 0.45F;
+        float green = kind.equals("boss") ? 0.2F : kind.equals("encounter") ? 0.42F
+            : kind.equals("loot") ? 0.82F : 0.85F;
+        float blue = kind.equals("boss") ? 0.72F : kind.equals("encounter") ? 0.2F
+            : kind.equals("loot") ? 0.15F : 1.0F;
+        renderBox(pose, lines, new AABB(0.12D, 0.02D, 0.12D, 0.88D, 1.15D, 0.88D),
+            red, green, blue);
+        renderBox(pose, lines, new AABB(0.35D, 1.15D, 0.35D, 0.65D, 1.45D, 0.65D),
+            red, green, blue);
     }
 
     private static void renderFacing(PoseStack pose, VertexConsumer lines, String facingName) {
@@ -219,6 +235,7 @@ public final class LiveEditorClient {
             case "door" -> marker.pairedPosition() == null
                 ? "DOOR · " : "DOUBLE DOOR · ";
             case "transition" -> "TOUCH TRANSITION · ";
+            case "dungeon_marker" -> "DUNGEON " + dungeonKindLabel(marker.kind()) + " · ";
             default -> marker.type().toUpperCase(java.util.Locale.ROOT) + " · ";
         };
         String text = prefix + marker.label();
@@ -252,9 +269,27 @@ public final class LiveEditorClient {
     }
 
     public static void openAnchorEditor(
-        BlockPos position, boolean door, boolean transition
+        BlockPos position, boolean door, boolean transition, String currentType,
+        String currentKind, String currentLabel
     ) {
-        Minecraft.getInstance().setScreen(new AnchorEditorScreen(position, door, transition));
+        Minecraft.getInstance().setScreen(new AnchorEditorScreen(
+            position, door, transition, currentType, currentKind, currentLabel
+        ));
+    }
+
+    private static String dungeonKindLabel(String kind) {
+        return switch (kind) {
+            case "entry" -> "입구";
+            case "exit" -> "출구";
+            case "encounter" -> "일반 적";
+            case "boss" -> "보스";
+            case "loot" -> "전리품";
+            case "healing_station" -> "회복";
+            case "gate" -> "게이트";
+            case "objective" -> "목표";
+            case "checkpoint" -> "체크포인트";
+            default -> kind.toUpperCase(java.util.Locale.ROOT);
+        };
     }
 
     public static void openSaveConfirmation(
@@ -379,43 +414,76 @@ public final class LiveEditorClient {
     private static final class AnchorEditorScreen extends Screen {
         private static final int PANEL = 0xF01C222B;
         private static final int BORDER = 0xFF61D7FF;
+        private static final List<AnchorChoice> CHOICES = List.of(
+            new AnchorChoice("NPC 위치", "npc_position", "", "npc"),
+            new AnchorChoice("일반 적", "dungeon_marker", "encounter", "encounter"),
+            new AnchorChoice("보스", "dungeon_marker", "boss", "boss"),
+            new AnchorChoice("전리품", "dungeon_marker", "loot", "loot"),
+            new AnchorChoice("입구", "dungeon_marker", "entry", "entry"),
+            new AnchorChoice("출구", "dungeon_marker", "exit", "exit"),
+            new AnchorChoice("회복", "dungeon_marker", "healing_station", "healing"),
+            new AnchorChoice("게이트", "dungeon_marker", "gate", "gate"),
+            new AnchorChoice("목표", "dungeon_marker", "objective", "objective"),
+            new AnchorChoice("체크포인트", "dungeon_marker", "checkpoint", "checkpoint")
+        );
         private final BlockPos position;
         private final boolean door;
         private final boolean transition;
+        private final java.util.ArrayList<Button> choiceButtons = new java.util.ArrayList<>();
         private EditBox label;
-        private final String type;
+        private String type;
+        private String kind;
+        private final String initialLabel;
 
-        private AnchorEditorScreen(BlockPos position, boolean door, boolean transition) {
+        private AnchorEditorScreen(
+            BlockPos position, boolean door, boolean transition, String currentType,
+            String currentKind, String currentLabel
+        ) {
             super(Component.literal(
-                door ? "연결 문 설정" : transition ? "접촉 전환 영역 설정" : "NPC 위치 설정"
+                door ? "연결 문 설정" : transition ? "접촉 전환 영역 설정" : "배치 플래그 설정"
             ));
             this.position = position;
             this.door = door;
             this.transition = transition;
-            this.type = door ? "door" : transition ? "transition" : "npc_position";
+            this.type = currentType == null || currentType.isBlank()
+                ? door ? "door" : transition ? "transition" : "npc_position"
+                : currentType;
+            this.kind = currentKind == null ? "" : currentKind;
+            this.initialLabel = currentLabel == null || currentLabel.isBlank()
+                ? door ? "door" : transition ? "transition" : "npc"
+                : currentLabel;
         }
 
         @Override
         protected void init() {
             int x = width / 2 - 150;
-            int y = height / 2 - 90;
+            int y = height / 2 - (door || transition ? 90 : 125);
             label = new EditBox(font, x + 14, y + 47, 272, 20, Component.literal("이름"));
             label.setMaxLength(64);
             label.setFilter(value -> value.isEmpty() || value.matches("[a-z0-9_]+"));
-            label.setValue(door ? "door" : transition ? "transition" : "npc");
+            label.setValue(initialLabel);
             addRenderableWidget(label);
 
             if (!door && !transition) {
-                addRenderableWidget(Button.builder(Component.literal("관장 NPC"), button ->
-                    label.setValue("leader")
-                ).bounds(x + 14, y + 76, 272, 20).build());
+                choiceButtons.clear();
+                for (int index = 0; index < CHOICES.size(); index++) {
+                    AnchorChoice choice = CHOICES.get(index);
+                    int column = index % 4;
+                    int row = index / 4;
+                    Button button = Button.builder(Component.literal(choice.label()), selected ->
+                        selectChoice(choice)
+                    ).bounds(x + 14 + column * 69, y + 94 + row * 24, 65, 20).build();
+                    choiceButtons.add(button);
+                    addRenderableWidget(button);
+                }
+                updateChoiceButtons();
             }
 
-            int actionsY = y + 134;
+            int actionsY = y + (door || transition ? 134 : 202);
             addRenderableWidget(Button.builder(Component.literal("저장"), button -> save())
                 .bounds(x + 14, actionsY, 84, 20).build());
             addRenderableWidget(Button.builder(Component.literal("위치 삭제"), button -> {
-                send("delete", "anchor");
+                send("delete", "", "anchor");
                 onClose();
             }).bounds(x + 108, actionsY, 84, 20).build());
             addRenderableWidget(Button.builder(Component.literal("취소"), button -> onClose())
@@ -423,16 +491,34 @@ public final class LiveEditorClient {
             setInitialFocus(label);
         }
 
+        private void selectChoice(AnchorChoice choice) {
+            type = choice.type();
+            kind = choice.kind();
+            label.setValue(choice.defaultLabel());
+            updateChoiceButtons();
+            setFocused(label);
+        }
+
+        private void updateChoiceButtons() {
+            for (int index = 0; index < choiceButtons.size(); index++) {
+                AnchorChoice choice = CHOICES.get(index);
+                choiceButtons.get(index).active = !(choice.type().equals(type)
+                    && choice.kind().equals(kind));
+            }
+        }
+
         private void save() {
             String value = label.getValue().trim();
             if (value.isEmpty()) return;
-            send(type, value);
+            send(type, kind, value);
             onClose();
         }
 
-        private void send(String selectedType, String value) {
+        private void send(String selectedType, String selectedKind, String value) {
             PacketDistributor.sendToServer(
-                new LiveEditorNetwork.ApplyAnchorPayload(position, selectedType, value)
+                new LiveEditorNetwork.ApplyAnchorPayload(
+                    position, selectedType, selectedKind, value
+                )
             );
         }
 
@@ -447,9 +533,10 @@ public final class LiveEditorClient {
         @Override
         public void render(GuiGraphics graphics, int mouseX, int mouseY, float tick) {
             int x = width / 2 - 150;
-            int y = height / 2 - 90;
-            graphics.fill(x + 3, y + 3, x + 303, y + 173, 0x80000000);
-            graphics.fill(x, y, x + 300, y + 170, PANEL);
+            int y = height / 2 - (door || transition ? 90 : 125);
+            int panelHeight = door || transition ? 170 : 238;
+            graphics.fill(x + 3, y + 3, x + 303, y + panelHeight + 3, 0x80000000);
+            graphics.fill(x, y, x + 300, y + panelHeight, PANEL);
             graphics.fill(x, y, x + 300, y + 2, BORDER);
             graphics.drawString(font, title, x + 14, y + 13, 0xFFFFFFFF, false);
             String target = door ? "실제 문 → 연결 문"
@@ -460,10 +547,24 @@ public final class LiveEditorClient {
                 x + 14, y + 29, 0xFFB9C5D2, false
             );
             if (!door && !transition) graphics.drawString(
-                font, "저장 시 바라보는 방향 = NPC 방향",
-                x + 14, y + 110, 0xFF8797A8, false
+                font, "NPC 플래그",
+                x + 14, y + 76, 0xFF61D7FF, false
+            );
+            if (!door && !transition) graphics.drawString(
+                font, "던전 플래그 · 일반 적 / 보스 / 전리품 / 진행 지점",
+                x + 83, y + 76, 0xFFFFB74D, false
+            );
+            if (!door && !transition) graphics.drawString(
+                font, type.equals("npc_position")
+                    ? "저장 시 바라보는 방향 = NPC 방향"
+                    : "선택: 던전 " + dungeonKindLabel(kind) + " 플래그",
+                x + 14, y + 174, 0xFF8797A8, false
             );
             super.render(graphics, mouseX, mouseY, tick);
         }
+
+        private record AnchorChoice(
+            String label, String type, String kind, String defaultLabel
+        ) {}
     }
 }

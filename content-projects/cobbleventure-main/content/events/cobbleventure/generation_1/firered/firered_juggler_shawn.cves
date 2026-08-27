@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_juggler_shawn/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_juggler_shawn/defeated") {
+    say npc {
+      ko_kr: "독수 관장님은 대대로 닌자인 가문 출신이지. 넌 무엇의 후예냐?"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_juggler_shawn" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_juggler_shawn/defeated" true
+      say npc {
+        ko_kr: "생각보다 훨씬 뛰어나군! 빛이 있는 곳에는 그림자가 있다! 넌 어느 쪽을 택하지?"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_juggler_shawn/defeated") {
+    say npc {
+      ko_kr: "생각보다 훨씬 뛰어나군! 빛이 있는 곳에는 그림자가 있다! 넌 어느 쪽을 택하지?"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "독수 관장님은 대대로 닌자인 가문 출신이지. 넌 무엇의 후예냐?"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_juggler_shawn" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_juggler_shawn/defeated" true
+          say npc {
+            ko_kr: "생각보다 훨씬 뛰어나군! 빛이 있는 곳에는 그림자가 있다! 넌 어느 쪽을 택하지?"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

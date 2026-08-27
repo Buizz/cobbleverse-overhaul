@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_cooltrainer_rolando",
   "enabled": true,
   "name": {
-    "ko_kr": "Cooltrainer Rolando",
+    "ko_kr": "엘리트 트레이너 롤란도",
     "en_us": "Cooltrainer Rolando"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Cooltrainer Rolando",
+      "ko_kr": "엘리트 트레이너 롤란도",
       "en_us": "Cooltrainer Rolando"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "실력이 좋아 보이는군. 얼마나 좋은지 직접 확인해 보지!"
       },
       "battle": "cobbleventure:battle/firered_cooltrainer_rolando",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "이길 기회가 있었는데… 인정하지. 네가 나보다 강하다!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_cooltrainer_rolando/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_cooltrainer_rolando"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_cooltrainer_rolando"
   }
 }

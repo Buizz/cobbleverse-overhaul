@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_hiker_wayne",
   "enabled": true,
   "name": {
-    "ko_kr": "Hiker Wayne",
+    "ko_kr": "등산가 웨인",
     "en_us": "Hiker Wayne"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Hiker Wayne",
+      "ko_kr": "등산가 웨인",
       "en_us": "Hiker Wayne"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "이수재를 만나러 간다고? 그 전에 나와 승부다!"
       },
       "battle": "cobbleventure:battle/firered_hiker_wayne",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "보통이 아니군. 아래쪽 길은 블루시티로 가는 지름길이야."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_hiker_wayne/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_hiker_wayne"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_hiker_wayne"
   }
 }

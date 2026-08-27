@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_lass_lisa/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_lass_lisa/defeated") {
+    say npc {
+      ko_kr: "여기서는 벌레나 불꽃타입 포켓몬을 좋아하지 않아!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_lass_lisa" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_lass_lisa/defeated" true
+      say npc {
+        ko_kr: "뭐야, 너! 관장 민화는 조용하지만 이 근처에서는 아주 유명해."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_lass_lisa/defeated") {
+    say npc {
+      ko_kr: "뭐야, 너! 관장 민화는 조용하지만 이 근처에서는 아주 유명해."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "여기서는 벌레나 불꽃타입 포켓몬을 좋아하지 않아!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_lass_lisa" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_lass_lisa/defeated" true
+          say npc {
+            ko_kr: "뭐야, 너! 관장 민화는 조용하지만 이 근처에서는 아주 유명해."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_tamer_phil",
   "enabled": true,
   "name": {
-    "ko_kr": "Tamer Phil",
+    "ko_kr": "포켓몬 조련사 필",
     "en_us": "Tamer Phil"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Tamer Phil",
+      "ko_kr": "포켓몬 조련사 필",
       "en_us": "Tamer Phil"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "거기 멈춰! 연분홍체육관의 유명한 보이지 않는 벽 때문에 답답하지?"
       },
       "battle": "cobbleventure:battle/firered_tamer_phil",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "오! 알아냈구나! 힌트를 주지. 보이지 않는 벽의 틈을 자세히 살펴봐!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_tamer_phil/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_tamer_phil"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_tamer_phil"
   }
 }

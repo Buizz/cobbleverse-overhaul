@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_lass_kay",
   "enabled": true,
   "name": {
-    "ko_kr": "Lass Kay",
+    "ko_kr": "짧은치마 케이",
     "en_us": "Lass Kay"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Lass Kay",
+      "ko_kr": "짧은치마 케이",
       "en_us": "Lass Kay"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "이 체육관에는 진정한 숙녀만 들어올 수 있어!"
       },
       "battle": "cobbleventure:battle/firered_lass_kay",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "너무 거칠잖아! 흥! 민화가 널 혼내 줄 거야!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_lass_kay/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_lass_kay"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_lass_kay"
   }
 }

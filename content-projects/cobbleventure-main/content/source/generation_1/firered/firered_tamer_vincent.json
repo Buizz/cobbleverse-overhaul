@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_tamer_vincent",
   "enabled": true,
   "name": {
-    "ko_kr": "Tamer Vincent",
+    "ko_kr": "포켓몬 조련사 빈센트",
     "en_us": "Tamer Vincent"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Tamer Vincent",
+      "ko_kr": "포켓몬 조련사 빈센트",
       "en_us": "Tamer Vincent"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "덤벼! 호되게 다뤄 주지!"
       },
       "battle": "cobbleventure:battle/firered_tamer_vincent",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "내가 당해 버렸군! 챔피언로드에 설 자격이 있구나…"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_tamer_vincent/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_tamer_vincent"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_tamer_vincent"
   }
 }

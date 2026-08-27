@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_black_belt_takashi",
   "enabled": true,
   "name": {
-    "ko_kr": "Black Belt Takashi",
+    "ko_kr": "태권왕 타카시",
     "en_us": "Black Belt Takashi"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Black Belt Takashi",
+      "ko_kr": "태권왕 타카시",
       "en_us": "Black Belt Takashi"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "내가 가라테의 왕이다! 네 운명은 내 손에 달렸다!"
       },
       "battle": "cobbleventure:battle/firered_black_belt_takashi",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "으아앗! 포켓몬리그라고? 건방떨지 마!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_black_belt_takashi/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_black_belt_takashi"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_black_belt_takashi"
   }
 }

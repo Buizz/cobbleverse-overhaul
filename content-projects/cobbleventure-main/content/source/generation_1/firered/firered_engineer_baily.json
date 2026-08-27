@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_engineer_baily",
   "enabled": true,
   "name": {
-    "ko_kr": "Engineer Baily",
+    "ko_kr": "기술자 베일리",
     "en_us": "Engineer Baily"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Engineer Baily",
+      "ko_kr": "기술자 베일리",
       "en_us": "Engineer Baily"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "몸은 약해도 전기에는 자신 있어! 그래서 이 체육관에 들어왔지."
       },
       "battle": "cobbleventure:battle/firered_engineer_baily",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "감전됐다! 말해 주지! 마티스 관장님은 문 스위치를 무언가 안에 숨겼어."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_engineer_baily/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_engineer_baily"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_engineer_baily"
   }
 }

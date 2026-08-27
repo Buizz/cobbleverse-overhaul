@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_channeler_amanda",
   "enabled": true,
   "name": {
-    "ko_kr": "Channeler Amanda",
+    "ko_kr": "주술사 아만다",
     "en_us": "Channeler Amanda"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Channeler Amanda",
+      "ko_kr": "주술사 아만다",
       "en_us": "Channeler Amanda"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "초련은 나보다 훨씬 어리지만 존경할 만한 실력자야."
       },
       "battle": "cobbleventure:battle/firered_channeler_amanda",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "아직 부족했군! 대등한 승부에서는 의지가 강한 쪽이 이겨. 초련을 이기려면 정신을 집중해."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_channeler_amanda/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_channeler_amanda"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_channeler_amanda"
   }
 }

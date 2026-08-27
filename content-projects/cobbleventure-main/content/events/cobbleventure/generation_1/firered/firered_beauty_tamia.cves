@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_beauty_tamia/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_beauty_tamia/defeated") {
+    say npc {
+      ko_kr: "내 포켓몬 좀 봐! 키우기 쉬운 풀타입이 정말 좋아."
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_beauty_tamia" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_beauty_tamia/defeated" true
+      say npc {
+        ko_kr: "안 돼! 우리 체육관은 꽃꽂이에도 쓰려고 풀타입 포켓몬만 키워."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_beauty_tamia/defeated") {
+    say npc {
+      ko_kr: "안 돼! 우리 체육관은 꽃꽂이에도 쓰려고 풀타입 포켓몬만 키워."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "내 포켓몬 좀 봐! 키우기 쉬운 풀타입이 정말 좋아."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_beauty_tamia" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_beauty_tamia/defeated" true
+          say npc {
+            ko_kr: "안 돼! 우리 체육관은 꽃꽂이에도 쓰려고 풀타입 포켓몬만 키워."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

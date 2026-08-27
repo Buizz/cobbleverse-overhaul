@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_yuji/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_yuji/defeated") {
+    say npc {
+      ko_kr: "흥! 이제 슬슬 기운이 다 빠졌겠지!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_yuji" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_yuji/defeated" true
+      say npc {
+        ko_kr: "내 기운이 먼저 빠졌군! 우리 관장님을 상대하려면 힘이 더 필요할 거다."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_cooltrainer_yuji/defeated") {
+    say npc {
+      ko_kr: "내 기운이 먼저 빠졌군! 우리 관장님을 상대하려면 힘이 더 필요할 거다."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "흥! 이제 슬슬 기운이 다 빠졌겠지!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_yuji" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_yuji/defeated" true
+          say npc {
+            ko_kr: "내 기운이 먼저 빠졌군! 우리 관장님을 상대하려면 힘이 더 필요할 거다."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

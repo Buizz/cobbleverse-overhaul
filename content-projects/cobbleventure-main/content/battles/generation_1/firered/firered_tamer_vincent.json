@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_tamer_vincent",
   "enabled": true,
   "name": {
-    "ko_kr": "Tamer Vincent 배틀",
+    "ko_kr": "포켓몬 조련사 빈센트 배틀",
     "en_us": "Tamer Vincent Battle"
   },
   "battle": {

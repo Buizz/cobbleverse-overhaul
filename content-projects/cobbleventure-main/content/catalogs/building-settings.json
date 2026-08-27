@@ -198,6 +198,32 @@
         }
       }
     },
+    "cobbleventure:houses/bill_house": {
+      "placement_y_offset": 0,
+      "structure_category": "residential",
+      "no_interior_space": false,
+      "fixed_npcs": {
+        "room_1:npc1": "cobbleventure:npc/rewards/feature_pc_technician"
+      },
+      "fixed_pokemon": {},
+      "citizen_placement_allowed": false,
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/npc_house1"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
+    },
     "cobbleventure:houses/one_story_gable": {
       "placement_y_offset": 0,
       "structure_category": "residential",

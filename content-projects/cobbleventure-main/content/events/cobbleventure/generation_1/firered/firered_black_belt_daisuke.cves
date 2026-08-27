@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_black_belt_daisuke/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_black_belt_daisuke/defeated") {
+    say npc {
+      ko_kr: "여기가 챔피언로드다. 트레이너에게 주어지는 마지막 시험이지!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_black_belt_daisuke" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_black_belt_daisuke/defeated" true
+      say npc {
+        ko_kr: "에취! 막히면 바위를 이리저리 밀어 봐."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_black_belt_daisuke/defeated") {
+    say npc {
+      ko_kr: "에취! 막히면 바위를 이리저리 밀어 봐."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "여기가 챔피언로드다. 트레이너에게 주어지는 마지막 시험이지!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_black_belt_daisuke" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_black_belt_daisuke/defeated" true
+          say npc {
+            ko_kr: "에취! 막히면 바위를 이리저리 밀어 봐."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

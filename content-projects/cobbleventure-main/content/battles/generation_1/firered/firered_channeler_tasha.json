@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_channeler_tasha",
   "enabled": true,
   "name": {
-    "ko_kr": "Channeler Tasha 배틀",
+    "ko_kr": "주술사 타샤 배틀",
     "en_us": "Channeler Tasha Battle"
   },
   "battle": {

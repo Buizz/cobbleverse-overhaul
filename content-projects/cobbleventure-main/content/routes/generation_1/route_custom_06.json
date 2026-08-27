@@ -3,8 +3,8 @@
   "schema_version": 1,
   "id": "cobbleventure:route/route_custom_06",
   "display_name": {
-    "ko_kr": "무지개시티 - 노랑시티 길",
-    "en_us": "무지개시티 - 노랑시티 길"
+    "ko_kr": "무지개시티 - 보라마을–무지개시티 지하통로 길",
+    "en_us": "무지개시티 - 보라마을–무지개시티 지하통로 길"
   },
   "auto_name": true,
   "enabled": true,

@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_psychic_preston/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_psychic_preston/defeated") {
+    say npc {
+      ko_kr: "노랑체육관은 초능력 수련으로 유명해. 초련을 만나고 싶다는 생각이 다 보여!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_psychic_preston" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_psychic_preston/defeated" true
+      say npc {
+        ko_kr: "으아악! 그래! 텔레파시로 네 마음을 읽었어!"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_psychic_preston/defeated") {
+    say npc {
+      ko_kr: "으아악! 그래! 텔레파시로 네 마음을 읽었어!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "노랑체육관은 초능력 수련으로 유명해. 초련을 만나고 싶다는 생각이 다 보여!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_psychic_preston" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_psychic_preston/defeated" true
+          say npc {
+            ko_kr: "으아악! 그래! 텔레파시로 네 마음을 읽었어!"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

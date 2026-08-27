@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_hiker_franklin/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_hiker_franklin/defeated") {
+    say npc {
+      ko_kr: "달맞이산에서 막 내려왔지만 아직 힘이 넘친다고!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_hiker_franklin" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_hiker_franklin/defeated" true
+      say npc {
+        ko_kr: "정말 열심히 하는구나! 젠장! 동굴에서 주뱃에게 물렸어."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_hiker_franklin/defeated") {
+    say npc {
+      ko_kr: "정말 열심히 하는구나! 젠장! 동굴에서 주뱃에게 물렸어."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "달맞이산에서 막 내려왔지만 아직 힘이 넘친다고!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_hiker_franklin" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_hiker_franklin/defeated" true
+          say npc {
+            ko_kr: "정말 열심히 하는구나! 젠장! 동굴에서 주뱃에게 물렸어."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

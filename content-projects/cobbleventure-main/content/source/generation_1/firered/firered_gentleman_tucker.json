@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_gentleman_tucker",
   "enabled": true,
   "name": {
-    "ko_kr": "Gentleman Tucker",
+    "ko_kr": "신사 터커",
     "en_us": "Gentleman Tucker"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Gentleman Tucker",
+      "ko_kr": "신사 터커",
       "en_us": "Gentleman Tucker"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "군대에 있을 때 마티스는 엄격한 상관이었지. 아주 혹독했어."
       },
       "battle": "cobbleventure:battle/firered_gentleman_tucker",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "그만! 정말 훌륭하군! 문을 여는 건 쉽지 않아. 마티스는 군대에서도 늘 신중하기로 유명했지."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_gentleman_tucker/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_gentleman_tucker"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_gentleman_tucker"
   }
 }

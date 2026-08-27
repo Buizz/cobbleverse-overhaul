@@ -28,13 +28,14 @@ const state = {
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
+  trainerAssignmentPicker: { scope: null, query: "", biome: "all", levelMode: "all" },
   npcFilter: "all",
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
   worldPokemonMap: { locations: [], area_locations: [], available_pokemon: [], unavailable_pokemon: [], summary: {} },
   pokemonMapTab: "available", pokemonMapQuery: "",
-  selectedHex: null, selectedEntrance: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
+  selectedHex: null, selectedEntrance: null, selectedObjectId: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, entranceDrag: null, routeDraft: null, worldDirty: false,
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null, routePokemonQuery: "",
   routePokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
@@ -1933,12 +1934,20 @@ async function openSelectedManagement() {
 }
 function caveEntranceAt(q, r) { return (state.worldLayout?.cave_entrances || []).find((entry) => entry.anchor?.q === q && entry.anchor?.r === r); }
 function forestEntranceAt(q, r) { return (state.worldLayout?.forest_entrances || []).find((entry) => entry.anchor?.q === q && entry.anchor?.r === r); }
+function entrancesAt(q, r) {
+  return [
+    ...(state.worldLayout?.cave_entrances || []).map((entrance) => ({ kind: "cave", entrance })),
+    ...(state.worldLayout?.forest_entrances || []).map((entrance) => ({ kind: "forest", entrance }))
+  ].filter(({ entrance }) => entrance.anchor?.q === q && entrance.anchor?.r === r);
+}
 function selectedEntrance() {
   if (!state.selectedEntrance) return null;
   const list = state.selectedEntrance.kind === "cave" ? state.worldLayout?.cave_entrances : state.worldLayout?.forest_entrances;
   const entrance = (list || []).find((entry) => entry.id === state.selectedEntrance.id);
   return entrance ? { kind: state.selectedEntrance.kind, entrance } : null;
 }
+function objectsAt(q, r) { return (state.worldLayout?.objects || []).filter((node) => node.anchor?.q === q && node.anchor?.r === r); }
+function selectedWorldObject() { return (state.worldLayout?.objects || []).find((node) => node.id === state.selectedObjectId) || null; }
 function normalizeTownCellCount(value) { const count = Number(value); return count === 3 || count === 5 || count === 7 || count === 19 ? count : 1; }
 function settlementPresetRadius(settlementId) { return normalizeTownCellCount(settlementSummary(settlementId)?.town_radius_cells); }
 function normalizeTownFootprintShape(value) { return ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"].includes(value) ? value : "line_q"; }
@@ -2063,6 +2072,7 @@ async function loadWorldGeneration(generation) {
   if (pokemonMap.ok) state.worldPokemonMap = pokemonMap.data;
   state.selectedHex = null;
   state.selectedEntrance = null;
+  state.selectedObjectId = null;
   state.selectedRouteId = null;
   state.worldDirty = false;
   state.mapViewInitialized = false;
@@ -2459,7 +2469,7 @@ function renderHexMap() {
   })();
   const towns = (state.worldLayout.settlements || []).map((node) => {
     const { x, y } = hexPoint(node.anchor.q, node.anchor.r); const name = settlementSummary(node.settlement)?.name || node.settlement.split("/").pop();
-    const selected = !state.selectedEntrance && state.selectedHex?.q === node.anchor.q && state.selectedHex?.r === node.anchor.r;
+    const selected = !state.selectedEntrance && !state.selectedObjectId && state.selectedHex?.q === node.anchor.q && state.selectedHex?.r === node.anchor.r;
     return `<g class="hex-settlement${selected ? " is-selected" : ""}${state.routeDraft?.from === node.settlement ? " is-route-origin" : ""}${state.draggedSettlement?.id === node.settlement ? " is-drag-source" : ""}" data-drag-settlement="${escapeHtml(node.settlement)}" tabindex="0" transform="translate(${x} ${y})" role="button" aria-label="${escapeHtml(name)} 선택 및 이동"><circle r="18"></circle><path d="M-7 5V-4L0-10L7-4V5H2V0H-2V5Z"></path><text y="31">${escapeHtml(name)}</text></g>`;
   }).join("");
   const objects = (state.worldLayout.objects || []).map((node) => {
@@ -2467,19 +2477,19 @@ function renderHexMap() {
       ? gateMapPoint(node)
       : hexPoint(node.anchor.q, node.anchor.r);
     if (node.type === "villain_base") {
-      return `<g class="hex-custom-object villain-base-object" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><path d="M-12 8V-8H12V8ZM-7-8V-14H7V-8ZM-6 8V1H0V8ZM3-3H8V2H3Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
+      return `<g class="hex-custom-object villain-base-object${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><path d="M-12 8V-8H12V8ZM-7-8V-14H7V-8ZM-6 8V1H0V8ZM3-3H8V2H3Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
     }
     if (node.type === "legendary_site") {
-      return `<g class="hex-custom-object legendary-site-object" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><path d="M0-15L4-5L14-4L6 3L9 13L0 7L-9 13L-6 3L-14-4L-4-5Z"></path><circle r="4"></circle><text y="27">${escapeHtml(node.id)}</text></g>`;
+      return `<g class="hex-custom-object legendary-site-object${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><path d="M0-15L4-5L14-4L6 3L9 13L0 7L-9 13L-6 3L-14-4L-4-5Z"></path><circle r="4"></circle><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
     const centerPlacement = gateCenterPlacement(node.properties);
     if (centerPlacement === "npc") {
-      return `<g class="hex-custom-object gate-object npc-only" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})"><circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
+      return `<g class="hex-custom-object gate-object npc-only${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})"><circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
     const horizontal = ["north", "south"].includes(node.properties?.facing || "north");
     const wall = horizontal ? `<rect x="-${mapHexSize() - 7}" y="-4" width="${(mapHexSize() - 7) * 2}" height="8" rx="2"></rect>` : `<rect x="-4" y="-${mapHexSize() - 7}" width="8" height="${(mapHexSize() - 7) * 2}" rx="2"></rect>`;
     const npcBadge = centerPlacement === "gate_npc" ? `<circle class="gate-npc-badge" cx="10" cy="-10" r="4"></circle>` : "";
-    return `<g class="hex-custom-object gate-object${centerPlacement === "gate_npc" ? " gate-with-npc" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})">${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path>${npcBadge}<text y="25">${escapeHtml(node.id)}</text></g>`;
+    return `<g class="hex-custom-object gate-object${centerPlacement === "gate_npc" ? " gate-with-npc" : ""}${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})">${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path>${npcBadge}<text y="25">${escapeHtml(node.id)}</text></g>`;
   }).join("");
   const entranceUnderlays = [...(state.worldLayout.cave_entrances || []), ...(state.worldLayout.forest_entrances || [])]
     .filter((node, index, entries) => entries.findIndex((entry) => entry.anchor.q === node.anchor.q && entry.anchor.r === node.anchor.r) === index)
@@ -2532,7 +2542,7 @@ function renderHexMap() {
       if (state.activeMapTool !== "select" || state.suppressMapClick) return;
       const node = (state.worldLayout.objects || []).find((entry) => entry.id === marker.dataset.selectObject);
       if (!node?.anchor) return;
-      event.preventDefault(); event.stopPropagation(); selectHex(node.anchor.q, node.anchor.r);
+      event.preventDefault(); event.stopPropagation(); selectWorldObject(node.id);
     };
     marker.addEventListener("click", select);
     marker.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") select(event); });
@@ -2621,11 +2631,16 @@ async function saveWorldLayout(options = {}) {
   return true;
 }
 
-function selectHex(q, r) { state.selectedRouteId = null; state.selectedEntrance = null; state.selectedHex = { q, r }; renderHexMap(); renderTileInspector(); }
+function selectHex(q, r) { state.selectedRouteId = null; state.selectedEntrance = null; state.selectedObjectId = null; state.selectedHex = { q, r }; renderHexMap(); renderTileInspector(); }
+function selectWorldObject(id) {
+  const object = (state.worldLayout?.objects || []).find((entry) => entry.id === id); if (!object?.anchor) return;
+  state.selectedRouteId = null; state.selectedEntrance = null; state.selectedObjectId = id; state.selectedHex = { ...object.anchor };
+  renderHexMap(); renderTileInspector();
+}
 function selectWorldEntrance(kind, id) {
   const list = kind === "cave" ? state.worldLayout.cave_entrances : state.worldLayout.forest_entrances;
   const entrance = (list || []).find((entry) => entry.id === id); if (!entrance) return;
-  state.selectedRouteId = null; state.selectedHex = { ...entrance.anchor }; state.selectedEntrance = { kind, id };
+  state.selectedRouteId = null; state.selectedObjectId = null; state.selectedHex = { ...entrance.anchor }; state.selectedEntrance = { kind, id };
   renderHexMap(); renderTileInspector();
 }
 function handleHexSelection(q, r) {
@@ -2767,7 +2782,7 @@ function placeCaveEntranceWithTool(q, r) {
     structure_variants: { ...defaultWorldEntranceStructures.caveVariants },
     pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true"
   });
-  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id: `cobbleventure:cave_entrance/${slug}_${entranceId}` }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
+  state.selectedHex = { q, r }; state.selectedObjectId = null; state.selectedEntrance = { kind: "cave", id: `cobbleventure:cave_entrance/${slug}_${entranceId}` }; markWorldDirty(); refreshCaveToolEntrances(); renderWorldLayout(); toast("동굴 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
 }
 function placeUndergroundRoadEntranceWithTool(q, r) {
   const roadId = $("#underground-road-tool-road").value; const endpoint = $("#underground-road-tool-endpoint").value; const transition = $("#underground-road-tool-transition").value;
@@ -2779,7 +2794,7 @@ function placeUndergroundRoadEntranceWithTool(q, r) {
   state.worldLayout.cave_entrances.push({ id, underground_road: roadId, transition, underground_module: undergroundModule, underground_connector: undergroundConnector, anchor: { q, r }, facing: $("#underground-road-tool-facing").value,
     structure: defaultWorldEntranceStructures.undergroundRoad, structure_variants: {},
     pokemon_center_enabled: $("#world-entrance-pokemon-center").value === "true" });
-  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "cave", id }; markWorldDirty(); refreshUndergroundRoadToolConnections(); renderWorldLayout(); toast("지하통로 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
+  state.selectedHex = { q, r }; state.selectedObjectId = null; state.selectedEntrance = { kind: "cave", id }; markWorldDirty(); refreshUndergroundRoadToolConnections(); renderWorldLayout(); toast("지하통로 출입구를 배치했습니다. 길 도구로 출입구까지 연결해 주세요.");
 }
 function forestToolEntranceOptions() {
   const forestId = $("#forest-tool-forest").value;
@@ -2794,7 +2809,7 @@ function placeForestEntranceWithTool(q, r) {
   const forestId = $("#forest-tool-forest").value; const entranceId = $("#forest-tool-entrance").value;
   const direction = $("#forest-tool-facing").value;
   if (!forestId || !entranceId) { toast("배치할 숲과 미배치 내부 입구를 선택해 주세요."); return; }
-  if (settlementAt(q, r) || caveEntranceAt(q, r) || forestEntranceAt(q, r) || (state.worldLayout.objects || []).some((node) => node.anchor?.q === q && node.anchor?.r === r)) { toast("이미 마을, 입구 또는 오브젝트가 배치된 타일입니다."); return; }
+  if (settlementAt(q, r) || caveEntranceAt(q, r) || forestEntranceAt(q, r)) { toast("이미 마을 또는 다른 입구가 배치된 타일입니다."); return; }
   if ((state.worldLayout.forest_entrances || []).some((entry) => entry.forest === forestId && entry.entrance === entranceId)) { toast("같은 숲 내부 입구가 이미 배치되어 있습니다."); return; }
   const slug = `${forestId.split("/").pop()}_${entranceId}`.replace(/[^a-z0-9_.-]+/g, "_");
   const entrance = { id: `forest_entrance_${slug}`, forest: forestId, entrance: entranceId, anchor: { q, r }, facing: direction,
@@ -2807,7 +2822,7 @@ function placeForestEntranceWithTool(q, r) {
     state.worldLayout.tiles = state.worldLayout.tiles.filter((tile) => tile.q !== dense.q || tile.r !== dense.r);
     setEmptyTerrainTile(dense.q, dense.r, "dense_forest");
   }
-  state.selectedHex = { q, r }; state.selectedEntrance = { kind: "forest", id: entrance.id }; markWorldDirty(); refreshForestToolEntrances(); renderWorldLayout(); toast("독립 숲 입구와 입구 뒤 우거진 숲을 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
+  state.selectedHex = { q, r }; state.selectedObjectId = null; state.selectedEntrance = { kind: "forest", id: entrance.id }; markWorldDirty(); refreshForestToolEntrances(); renderWorldLayout(); toast("독립 숲 입구와 입구 뒤 우거진 숲을 배치했습니다. 길 도구로 입구까지 연결해 주세요.");
 }
 const gateResourceIdPattern = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
 function defaultPlayerCondition(type = "item") {
@@ -2946,11 +2961,11 @@ function placeGateWithTool(q, r) {
   const buildingEnabled = gateMode === "gate" || gateMode === "gate_npc";
   if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
-  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
+  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);
   let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, gateMode, surroundingType: $("#object-tool-surrounding-type").value, wallBlock: $("#object-tool-wall-block").value, treeLog: $("#object-tool-tree-log").value, treeLeaves: $("#object-tool-tree-leaves").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: gateConditionsFromEditor("#object-tool-condition-builder"), denyDialog: $("#object-tool-deny-dialog").value, denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value }); } catch (error) { toast(error.message); return; }
   const object = { id, type, anchor: { q, r }, rotation: Number($("#object-tool-rotation").value), properties };
   if (buildingEnabled) object.resource = resource;
-  state.worldLayout.objects.push(object); state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+  state.worldLayout.objects.push(object); state.selectedEntrance = null; state.selectedObjectId = id; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function placeObjectWithTool(q, r) {
   const id = $("#generic-object-tool-id").value.trim();
@@ -2959,9 +2974,9 @@ function placeObjectWithTool(q, r) {
   if (!/^[a-z0-9_.-]+$/.test(id) || !reservedWorldObjectTypes.has(type)) { toast("오브젝트 ID와 타입을 확인해 주세요."); return; }
   if (!gateResourceIdPattern.test(resource)) { toast(`${reservedWorldObjectTypes.get(type)} NBT 리소스를 선택해 주세요.`); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
-  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
+  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);
   state.worldLayout.objects.push({ id, type, anchor: { q, r }, resource, rotation: Number($("#generic-object-tool-rotation").value) });
-  state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
+  state.selectedEntrance = null; state.selectedObjectId = id; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
 function updateWorldSaveState() { $("#world-save-state").textContent = state.worldDirty ? "저장하지 않은 변경" : "저장된 상태"; $("#world-save-state").classList.toggle("is-dirty", state.worldDirty); }
@@ -3471,6 +3486,28 @@ function renderEntranceInspector(selection) {
   $("#entrance-underlay-summary").innerHTML = `<b>입구 아래 바이옴</b><span>${escapeHtml(underlying)}</span><small>마커 바깥의 육각 타일을 누르면 바이옴 속성을 선택합니다.</small>`;
 }
 
+function renderTilePlacementPanel(q, r) {
+  const panel = $("#tile-placement-panel");
+  const objects = objectsAt(q, r);
+  const entrances = entrancesAt(q, r);
+  panel.hidden = !objects.length && !entrances.length;
+  if (panel.hidden) { $("#tile-placement-list").innerHTML = ""; return; }
+  const objectItems = objects.map((object) => {
+    const label = object.type === "gate" ? "관문" : reservedWorldObjectTypes.get(object.type) || object.type;
+    return `<button type="button" class="${state.selectedObjectId === object.id ? "is-selected" : ""}" data-tile-object-id="${escapeHtml(object.id)}"><b>${object.type === "gate" ? "▥" : "◆"}</b><span>${escapeHtml(object.id)}</span><small>${escapeHtml(label)} · 별도 배치 오브젝트</small></button>`;
+  }).join("");
+  const entranceItems = entrances.map(({ kind, entrance }) => {
+    const underground = kind === "cave" && Boolean(entrance.underground_road);
+    const label = underground ? "지하통로 입구" : kind === "cave" ? "동굴 입구" : "숲 입구";
+    const selected = state.selectedEntrance?.kind === kind && state.selectedEntrance.id === entrance.id;
+    return `<button type="button" class="${selected ? "is-selected" : ""}" data-tile-entrance-kind="${kind}" data-tile-entrance-id="${escapeHtml(entrance.id)}"><b>◇</b><span>${escapeHtml(entrance.id)}</span><small>${label} · 별도 배치 출입구</small></button>`;
+  }).join("");
+  $("#tile-placement-list").innerHTML = `<button type="button" class="${!state.selectedObjectId && !state.selectedEntrance ? "is-selected" : ""}" data-tile-base-q="${q}" data-tile-base-r="${r}"><b>⬡</b><span>기본 지형</span><small>바이옴·지형 레이어 편집</small></button>${objectItems}${entranceItems}`;
+  $$('[data-tile-object-id]').forEach((button) => button.addEventListener("click", () => selectWorldObject(button.dataset.tileObjectId)));
+  $$('[data-tile-entrance-id]').forEach((button) => button.addEventListener("click", () => selectWorldEntrance(button.dataset.tileEntranceKind, button.dataset.tileEntranceId)));
+  $('[data-tile-base-q]')?.addEventListener("click", (event) => selectHex(Number(event.currentTarget.dataset.tileBaseQ), Number(event.currentTarget.dataset.tileBaseR)));
+}
+
 function renderTileInspector() {
   ensureWorldObjectTypeOptions();
   const selected = state.selectedHex; const route = selectedRoute(); const entrance = selectedEntrance(); const form = $("#tile-inspector-form"); const routeForm = $("#route-inspector-form"); const entranceForm = $("#entrance-inspector-form");
@@ -3479,13 +3516,14 @@ function renderTileInspector() {
   if (entrance) { renderEntranceInspector(entrance); renderWorldPokemonPanel(); return; }
   $("#selection-inspector-kind").textContent = "SELECTED TILE";
   if (!selected) { setWorldManagementTarget(); $("#selected-tile-title").textContent = "타일을 선택하세요"; $("#selected-tile-coord").textContent = "Q — · R —"; renderWorldPokemonPanel(); return; }
-  const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = objectAt(selected.q, selected.r); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r); const leveling = levelOverrideAt(selected.q, selected.r);
+  const tile = tileAt(selected.q, selected.r); const town = settlementAt(selected.q, selected.r); const customObject = selectedWorldObject(); const townArea = settlementFootprintAt(selected.q, selected.r); const environment = environmentOverrideAt(selected.q, selected.r); const leveling = levelOverrideAt(selected.q, selected.r);
   const routes = routesAt(selected.q, selected.r);
   const musicOverride = musicOverrideAt(selected.q, selected.r);
   const musicContext = town || townArea ? "settlement" : routes.length ? "road" : "tile";
   const kind = customObject ? (customObject.type === "gate" ? "gate" : "object") : town ? "settlement" : tile ? "biome" : "empty";
   const selectedSettlement = town?.settlement || townArea?.settlement;
   setWorldManagementTarget(selectedSettlement ? "settlements" : "", selectedSettlement || "");
+  $("#selection-inspector-kind").textContent = customObject ? "PLACED OBJECT" : "SELECTED TILE";
   $("#selected-tile-title").textContent = customObject ? customObject.id : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
   $("#selected-tile-coord").textContent = `Q ${selected.q} · R ${selected.r}`;
   form.elements.kind.value = kind;
@@ -3530,11 +3568,13 @@ function renderTileInspector() {
   form.elements.genericObjectConnectionAnchor.value = dungeonConnection?.from || "";
   form.elements.genericObjectDungeonEntrance.value = dungeonConnection?.target?.entrance_id || "";
   updateGateOptionVisibility();
+  $("#tile-base-layer-switch").hidden = Boolean(customObject);
   $$('[data-tile-field]').forEach((field) => field.hidden = field.dataset.tileField !== kind);
   const routePanel = $("#route-overlay-panel");
   routePanel.hidden = !routes.length;
   $("#route-overlay-list").innerHTML = routes.map((route) => `<div class="route-overlay-item"><span>${escapeHtml(route.id)} · ${escapeHtml(route.surface_style)}</span><button type="button" data-remove-route="${escapeHtml(route.id)}">연결 삭제</button></div>`).join("");
   $$('[data-remove-route]').forEach((button) => button.addEventListener("click", () => removeRouteConnection(button.dataset.removeRoute)));
+  renderTilePlacementPanel(selected.q, selected.r);
   const routeNote = routes.length ? `<small>길 오버레이: ${routes.map((route) => escapeHtml(route.id)).join(", ")} · 기본 바이옴은 별도로 유지됩니다.</small>` : "";
   const climateNote = environment ? `<small class="climate-override-note">기후 덮어쓰기 · 온도 ${escapeHtml(environment.temperature || "기본")} · 습도 ${escapeHtml(environment.humidity || "기본")} · 날씨 ${escapeHtml(environment.weather || "기본")}</small>` : "";
   const levelNote = leveling ? `<small class="level-override-note">레벨링 오버레이 · 지역 평균 Lv.${leveling.average_level} · 야생 스폰은 평균 ±2 적용</small>` : "";
@@ -3543,6 +3583,7 @@ function renderTileInspector() {
     ? `<b>${escapeHtml(customObject.id)}</b><span>${escapeHtml(reservedWorldObjectTypes.get(customObject.type))} · NBT 배치 예약</span><small>${escapeHtml(customObject.resource || "NBT 미지정")} · 전용 동작은 추후 설계</small>`
     : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>관문 · ${{ gate: "관문", gate_npc: "관문 + NPC", npc: "NPC" }[gateCenterPlacement(customObject.properties)]}</span><small>${gateSurroundingType(customObject.properties) === "wall" ? "벽" : "주변 지형형 자연지물"} · 가운데 통로 ${gatePassageWidth(customObject.properties)}블록</small>` : "";
   $("#tile-summary").innerHTML = (["gate", "object"].includes(kind) ? objectSummary : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
+  $("#clear-tile").textContent = customObject ? "선택한 오브젝트 삭제" : "기본 지형 비우기";
   renderWorldPokemonPanel();
 }
 
@@ -4054,6 +4095,7 @@ function focusRoute(routeId, center = true) {
   state.selectedRouteId = routeId;
   state.selectedHex = null;
   state.selectedEntrance = null;
+  state.selectedObjectId = null;
   if (center) {
     const points = cells.map((cell) => hexPoint(cell.q, cell.r));
     state.mapCenter = { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length };
@@ -4071,14 +4113,15 @@ function settlementRangeConflict(node, q, r, cellCount) {
 function applyTilePlacement() {
   const { q, r } = state.selectedHex || {}; if (q === undefined) return;
   const form = $("#tile-inspector-form");
-  const kind = form.elements.kind.value;
+  const selectedObject = selectedWorldObject();
+  const kind = selectedObject ? (selectedObject.type === "gate" ? "gate" : "object") : form.elements.kind.value;
   if (kind === "object") {
     const id = form.elements.genericObjectId.value.trim();
     const type = form.elements.genericObjectType.value.trim();
     const resource = form.elements.genericObjectResource.value.trim();
     if (!/^[a-z0-9_.-]+$/.test(id) || !reservedWorldObjectTypes.has(type)) { toast("오브젝트 ID와 타입을 확인해 주세요."); return; }
     if (!gateResourceIdPattern.test(resource)) { toast(`${reservedWorldObjectTypes.get(type)} NBT 리소스를 선택해 주세요.`); return; }
-    const duplicate = state.worldLayout.objects.find((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r));
+    const duplicate = state.worldLayout.objects.find((entry) => entry !== selectedObject && entry.id === id);
     if (duplicate) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
     let properties;
     const propertySource = form.elements.genericObjectProperties.value.trim();
@@ -4095,15 +4138,15 @@ function applyTilePlacement() {
     const object = { id, type, anchor: { q, r }, resource, rotation: Number(form.elements.genericObjectRotation.value) };
     if (properties && Object.keys(properties).length) object.properties = properties;
     if (connectionAnchor) object.connections = [{ from: connectionAnchor, target: { type: "dungeon", entrance_id: dungeonEntrance } }];
-    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
-    state.worldLayout.objects.push(object); markWorldDirty(); renderWorldLayout(); return;
+    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry !== selectedObject && entry.id !== id);
+    state.worldLayout.objects.push(object); state.selectedObjectId = id; markWorldDirty(); renderWorldLayout(); return;
   }
   if (kind === "gate") {
     const id = form.elements.objectId.value.trim(); const type = "gate";
     if (!/^[a-z0-9_.-]+$/.test(id) || !/^[a-z0-9_.-]+$/.test(type)) { toast("오브젝트 ID와 타입은 영문 소문자, 숫자, ., _, -만 사용할 수 있습니다."); return; }
-    const duplicate = state.worldLayout.objects.find((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r));
+    const duplicate = state.worldLayout.objects.find((entry) => entry !== selectedObject && entry.id === id);
     if (duplicate) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
-    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
+    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry !== selectedObject && entry.id !== id);
     const resource = form.elements.objectResource.value.trim();
     const gateMode = form.elements.objectGateMode.value;
     const buildingEnabled = gateMode === "gate" || gateMode === "gate_npc";
@@ -4111,7 +4154,7 @@ function applyTilePlacement() {
     let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, gateMode, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: gateConditionsFromEditor("#inspector-gate-condition-builder"), denyDialog: form.elements.objectDenyDialog.value, denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
     const object = { id, type, anchor: { q, r }, rotation: Number(form.elements.objectRotation.value), properties };
     if (buildingEnabled) object.resource = resource;
-    state.worldLayout.objects.push(object); markWorldDirty(); renderWorldLayout(); return;
+    state.worldLayout.objects.push(object); state.selectedObjectId = id; markWorldDirty(); renderWorldLayout(); return;
   }
   const previousTile = tileAt(q, r);
   const connectionHeight = Math.max(-8, Math.min(8, Math.round(Number(form.elements.connectionHeight.value) || 0)));
@@ -4159,8 +4202,10 @@ function applyTilePlacement() {
 
 function clearSelectedTile() {
   const { q, r } = state.selectedHex || {}; if (q === undefined) return;
-  if (objectAt(q, r)) {
-    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.anchor.q !== q || entry.anchor.r !== r);
+  const selectedObject = selectedWorldObject();
+  if (selectedObject) {
+    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry !== selectedObject);
+    state.selectedObjectId = null;
     markWorldDirty(); renderWorldLayout(); return;
   }
   const form = $("#tile-inspector-form"); form.elements.kind.value = "empty";
@@ -4191,7 +4236,7 @@ function handleEntranceInspectorChange(event) {
   if (event.target.name === "q" || event.target.name === "r") {
     const target = { q: Math.round(Number(form.elements.q.value) || 0), r: Math.round(Number(form.elements.r.value) || 0) };
     const occupied = caveEntranceAt(target.q, target.r) || forestEntranceAt(target.q, target.r);
-    if ((occupied && occupied !== entrance) || settlementAt(target.q, target.r) || objectAt(target.q, target.r)) { toast("해당 타일에는 다른 배치가 있습니다."); renderTileInspector(); return; }
+    if ((occupied && occupied !== entrance) || settlementAt(target.q, target.r)) { toast("해당 타일에는 마을 또는 다른 입구가 있습니다."); renderTileInspector(); return; }
     entrance.anchor = target; state.selectedHex = { ...target }; syncRoutesForEndpoint(entrance.id);
   } else if (event.target.name === "facing") {
     entrance.facing = event.target.value;
@@ -4312,7 +4357,7 @@ function moveWorldPlacementDrag(event) {
     const entrance = (list || []).find((entry) => entry.id === entranceDrag.id); const target = nearestHexFromPointer(event);
     const occupied = caveEntranceAt(target.q, target.r) || forestEntranceAt(target.q, target.r);
     entranceDrag.target = target; entranceDrag.moved ||= Math.hypot(event.clientX - entranceDrag.startX, event.clientY - entranceDrag.startY) >= 4;
-    entranceDrag.valid = Boolean(entrance) && (!occupied || occupied === entrance) && !settlementAt(target.q, target.r) && !objectAt(target.q, target.r);
+    entranceDrag.valid = Boolean(entrance) && (!occupied || occupied === entrance) && !settlementAt(target.q, target.r);
     renderHexMap(); return true;
   }
   return false;
@@ -4324,7 +4369,7 @@ function finishEntranceDrag(event) {
   const list = drag.kind === "cave" ? state.worldLayout.cave_entrances : state.worldLayout.forest_entrances;
   const entrance = (list || []).find((entry) => entry.id === drag.id); const target = drag.target;
   if (!entrance || !target || !drag.valid) {
-    toast("이미 마을, 오브젝트 또는 다른 입구가 배치된 타일입니다."); renderHexMap(); return;
+    toast("이미 마을 또는 다른 입구가 배치된 타일입니다."); renderHexMap(); return;
   }
   entrance.anchor = target; syncRoutesForEndpoint(entrance.id); state.selectedHex = { ...target }; state.selectedEntrance = { kind: drag.kind, id: entrance.id };
   state.suppressMapClick = true; setTimeout(() => { state.suppressMapClick = false; }, 0);
@@ -4410,7 +4455,7 @@ async function addGeneration() {
   const payload = { "$schema": "../schemas/hex-world.schema.json", schema_version: 2, id: `cobbleventure:world/generation_${generation}`, display_name: defaultWorldDisplayName(generation), dimension: `cobbleventure:generation_${generation}`, pokemon_generations: [generation], seed_salt: 1700 + generation, grid: { orientation: "pointy_top", tile_radius_blocks: 64, map_radius_cells: 6, origin: { x: 0, y: 69, z: 0 } }, empty_terrain: { default_type: "high_forest", tiles: [] }, tiles: [], environment_overrides: [], level_overrides: [], music_overrides: [], settlements: [], cave_entrances: [], forest_entrances: [], connections: [], objects: [] };
   const result = await request(`/api/world-layout?generation=${generation}`, { method: "PUT", body: JSON.stringify(payload) });
   if (!result.ok) { toast(result.data.error || "세대를 추가하지 못했습니다."); return; }
-  state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.worldDirty = false; state.mapViewInitialized = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
+  state.worldGenerations.push(generation); state.worldGenerations.sort((a, b) => a - b); state.selectedGeneration = generation; state.worldLayout = payload; state.selectedHex = null; state.selectedEntrance = null; state.selectedObjectId = null; state.worldDirty = false; state.mapViewInitialized = false; renderWorldLayout(); toast(`${generation}세대 월드를 추가했습니다.`);
 }
 
 function documentSingular(category) {
@@ -4459,7 +4504,7 @@ function renderList(category) {
     <button class="document-button ${state[`${singular}Path`] === item.path ? "is-active" : ""}" data-path="${escapeHtml(item.path)}">
       <strong>${escapeHtml(item.name || item.id || "이름 없음")}${category === "trainers" ? `<span class="npc-kind-badge is-${item.classification || (item.battle_type ? "trainer" : "ambient")}">${(item.classification || (item.battle_type ? "trainer" : "ambient")) === "trainer" ? "트레이너" : "단순 NPC"}</span>` : ""}</strong><small>${escapeHtml(item.id || item.path)}${category === "trainers" && item.expected_level ? ` · 예상 Lv.${item.expected_level}` : ""}</small>
     </button>`).join("");
-  $$( `#${singular}-list .document-button`).forEach((button) => button.addEventListener("click", () => loadDocument(category, button.dataset.path)));
+  $$(`#${listPrefix}-list .document-button`).forEach((button) => button.addEventListener("click", () => loadDocument(category, button.dataset.path)));
 }
 
 async function moveSettlementPreset(path, delta) {
@@ -6237,6 +6282,26 @@ function trainerPopulationConfig(scope) {
   return { value: state.settlement.npc_placement.trainer_population, countKey: "max_active" };
 }
 
+function trainerLevelLabel(trainer) {
+  if (trainer?.level_mode === "map_scaling") {
+    const offset = Number(trainer.level_offset || 0);
+    return `맵 ${offset >= 0 ? "+" : ""}${offset}`;
+  }
+  return trainer?.expected_level ? `고정 Lv.${trainer.expected_level}` : "레벨 미지정";
+}
+
+function directTrainerPolicyMarkup(scope, trainerId, trainerName) {
+  if (scope === "settlement") return "";
+  return `<label class="trainer-pool-policy"><span>조우 정책</span><select data-direct-trainer-policy="${escapeHtml(trainerId)}" aria-label="${escapeHtml(trainerName || trainerId)} 조우 정책"><option value="inherit">지역 기본값</option><option value="preset">NPC 행동 프리셋</option><option value="interact">항상 말 걸기</option><option value="proximity">승리 전 자동 도전</option></select></label>`;
+}
+
+function assignedTrainerMarkup(scope, trainerId) {
+  const trainer = state.trainers.find((entry) => entry.id === trainerId);
+  const name = trainer?.name || trainer?.npc_name || trainerId;
+  const detail = trainer ? trainerLevelLabel(trainer) : "NPC 데이터를 찾을 수 없음";
+  return `<article class="trainer-pool-choice${trainer ? "" : " is-missing"}" data-assigned-trainer="${escapeHtml(trainerId)}"><input type="checkbox" data-direct-trainer="${escapeHtml(trainerId)}" checked hidden><header><span class="trainer-pool-heading"><b>${escapeHtml(name)}</b><small>${escapeHtml(detail)}</small></span><button type="button" data-remove-direct-trainer="${escapeHtml(trainerId)}" aria-label="${escapeHtml(name)} 지정 해제">×</button></header>${directTrainerPolicyMarkup(scope, trainerId, name)}${trainer ? trainerPartyStrip(trainer) : ""}</article>`;
+}
+
 function renderSharedTrainerPopulation(scope) {
   const container = $(`[data-trainer-population="${scope}"]`);
   if (!container) return;
@@ -6247,14 +6312,79 @@ function renderSharedTrainerPopulation(scope) {
     value.trigger_override ||= "proximity";
     value.trainer_trigger_overrides = value.trainer_trigger_overrides && typeof value.trainer_trigger_overrides === "object" ? value.trainer_trigger_overrides : {};
   }
-  const trainerRows = state.trainers.filter((entry) => (entry.classification || (entry.battle_type ? "trainer" : "ambient")) === "trainer");
   const triggerControl = scope === "settlement" ? "" : `<label><span>지역 기본 조우 정책</span><select data-trainer-population-field="trigger_override"><option value="proximity">승리 전 자동 도전 → 승리 후 말 걸기 (기본)</option><option value="interact">항상 플레이어가 말 걸기</option><option value="preset">NPC 행동 프리셋 사용</option></select></label>`;
-  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="${scope === "route" ? 32 : 128}" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label>${triggerControl}</div><div class="shared-trainer-direct"><strong>직접 지정</strong><small>체크한 트레이너는 바이옴 기본 후보와 함께 항상 포함됩니다. 필요하면 NPC별로 지역 정책의 예외를 지정할 수 있습니다.</small><div>${trainerRows.length ? trainerRows.map((trainer) => { const levelLabel = trainer.level_mode === "map_scaling" ? `맵 ${Number(trainer.level_offset || 0) >= 0 ? "+" : ""}${Number(trainer.level_offset || 0)}` : trainer.expected_level ? `고정 Lv.${trainer.expected_level}` : "고정"; const policy = scope === "settlement" ? "" : `<select data-direct-trainer-policy="${escapeHtml(trainer.id)}" aria-label="${escapeHtml(trainer.name || trainer.id)} 조우 정책"><option value="inherit">지역 기본값</option><option value="preset">NPC 행동 프리셋</option><option value="interact">항상 말 걸기</option><option value="proximity">승리 전 자동 도전</option></select>`; return `<label class="trainer-pool-choice"><input type="checkbox" data-direct-trainer="${escapeHtml(trainer.id)}" ${value.direct_trainers.includes(trainer.id) ? "checked" : ""}><span class="trainer-pool-heading"><b>${escapeHtml(trainer.name || trainer.id)}</b><small>${levelLabel}</small></span>${policy}${trainerPartyStrip(trainer)}</label>`; }).join("") : '<span class="trainer-pool-empty">등록된 트레이너가 없습니다.</span>'}</div></div>`;
+  const assignedMarkup = value.direct_trainers.map((trainerId) => assignedTrainerMarkup(scope, trainerId)).join("");
+  container.innerHTML = `<div class="shared-trainer-controls"><label class="toggle"><input type="checkbox" data-trainer-population-field="enabled" ${value.enabled ? "checked" : ""}><span>트레이너 배치 사용</span></label><label class="toggle"><input type="checkbox" data-trainer-population-field="use_biome_defaults" ${value.use_biome_defaults ? "checked" : ""}><span>바이옴 기본 트레이너 사용</span></label><label><span>최대 배치 수</span><input type="number" min="0" max="${scope === "route" ? 32 : 128}" data-trainer-population-field="${countKey}" value="${Number(value[countKey] || 0)}"></label>${triggerControl}</div><div class="shared-trainer-direct"><header><div><strong>직접 지정</strong><small>지정한 트레이너만 표시됩니다. 검색 창에서 여러 명을 추가할 수 있습니다.</small></div><button type="button" class="button secondary" data-open-trainer-assignment="${scope}">＋ 트레이너 추가</button></header><div class="trainer-pool-assigned">${assignedMarkup || '<span class="trainer-pool-empty">직접 지정된 트레이너가 없습니다.</span>'}</div></div>`;
   const triggerSelect = container.querySelector('[data-trainer-population-field="trigger_override"]');
   if (triggerSelect) triggerSelect.value = value.trigger_override;
   container.querySelectorAll("[data-direct-trainer-policy]").forEach((select) => {
     select.value = value.trainer_trigger_overrides[select.dataset.directTrainerPolicy] || "inherit";
   });
+}
+
+function trainerAssignmentScopeLabel(scope) {
+  return { route: "길", cave: "동굴", forest: "숲", settlement: "마을" }[scope] || "지역";
+}
+
+function trainerAssignmentBiomes(trainers) {
+  return [...new Set(trainers.flatMap((trainer) => trainer.preferred_biomes || []).filter(Boolean))].sort((left, right) => left.localeCompare(right));
+}
+
+function renderTrainerAssignmentDialog() {
+  const picker = state.trainerAssignmentPicker;
+  if (!picker.scope) return;
+  const trainers = state.trainers.filter((entry) => (entry.classification || (entry.battle_type ? "trainer" : "ambient")) === "trainer");
+  const assigned = new Set(trainerPopulationConfig(picker.scope).value.direct_trainers || []);
+  const query = picker.query.trim().toLocaleLowerCase();
+  const filtered = trainers.filter((trainer) => {
+    const biomes = trainer.preferred_biomes || [];
+    const searchable = [trainer.name, trainer.npc_name, trainer.id, ...biomes, ...(trainer.team || []).map((member) => member.species)].filter(Boolean).join(" ").toLocaleLowerCase();
+    if (query && !searchable.includes(query)) return false;
+    if (picker.biome !== "all" && !biomes.includes(picker.biome)) return false;
+    if (picker.levelMode === "fixed" && (trainer.level_mode === "map_scaling" || !trainer.expected_level)) return false;
+    if (picker.levelMode === "scaled" && trainer.level_mode !== "map_scaling") return false;
+    if (picker.levelMode === "unset" && trainer.expected_level) return false;
+    return true;
+  });
+  $("#trainer-assignment-count").textContent = `${filtered.length}명 · ${assigned.size}명 지정됨`;
+  $("#trainer-assignment-list").innerHTML = filtered.length ? filtered.map((trainer) => {
+    const isAssigned = assigned.has(trainer.id);
+    const biomes = (trainer.preferred_biomes || []).join(" · ") || "선호 바이옴 없음";
+    return `<article class="trainer-assignment-result${isAssigned ? " is-assigned" : ""}"><header><div><strong>${escapeHtml(trainer.name || trainer.npc_name || trainer.id)}</strong><small>${escapeHtml(trainer.id)}</small></div><span>${escapeHtml(trainerLevelLabel(trainer))}</span></header><p>${escapeHtml(biomes)}</p>${trainerPartyStrip(trainer)}<button type="button" data-assign-direct-trainer="${escapeHtml(trainer.id)}" ${isAssigned ? "disabled" : ""}>${isAssigned ? "지정됨" : "추가"}</button></article>`;
+  }).join("") : '<p class="trainer-assignment-empty">검색 조건에 맞는 트레이너가 없습니다.</p>';
+}
+
+function openTrainerAssignmentDialog(scope) {
+  updateSharedTrainerPopulation(scope);
+  state.trainerAssignmentPicker = { scope, query: "", biome: "all", levelMode: "all" };
+  const trainers = state.trainers.filter((entry) => (entry.classification || (entry.battle_type ? "trainer" : "ambient")) === "trainer");
+  $("#trainer-assignment-title").textContent = `${trainerAssignmentScopeLabel(scope)} 트레이너 추가`;
+  $("#trainer-assignment-search").value = "";
+  $("#trainer-assignment-biome").innerHTML = '<option value="all">모든 바이옴</option>' + trainerAssignmentBiomes(trainers).map((biome) => `<option value="${escapeHtml(biome)}">${escapeHtml(biome)}</option>`).join("");
+  $("#trainer-assignment-biome").value = "all";
+  $("#trainer-assignment-level").value = "all";
+  renderTrainerAssignmentDialog();
+  $("#trainer-assignment-dialog").showModal();
+  $("#trainer-assignment-search").focus();
+}
+
+function addDirectTrainerFromDialog(trainerId) {
+  const scope = state.trainerAssignmentPicker.scope;
+  if (!scope) return;
+  const { value } = trainerPopulationConfig(scope);
+  value.direct_trainers = [...new Set([...(value.direct_trainers || []), trainerId])];
+  renderSharedTrainerPopulation(scope);
+  renderTrainerPopulationPreview(scope);
+  renderTrainerAssignmentDialog();
+}
+
+function removeDirectTrainer(scope, trainerId) {
+  updateSharedTrainerPopulation(scope);
+  const { value } = trainerPopulationConfig(scope);
+  value.direct_trainers = value.direct_trainers.filter((id) => id !== trainerId);
+  if (value.trainer_trigger_overrides) delete value.trainer_trigger_overrides[trainerId];
+  renderSharedTrainerPopulation(scope);
+  renderTrainerPopulationPreview(scope);
 }
 
 function updateSharedTrainerPopulation(scope) {
@@ -15233,6 +15363,8 @@ async function deleteWorldLayout() {
   state.worldLayout = null;
   state.worldDirty = false;
   state.selectedHex = null;
+  state.selectedEntrance = null;
+  state.selectedObjectId = null;
   if (nextGeneration) {
     const [world, pokemonMap] = await Promise.all([request(`/api/world-layout?generation=${nextGeneration}`), request(`/api/world-pokemon-map?generation=${nextGeneration}`)]);
     state.selectedGeneration = nextGeneration;
@@ -16858,6 +16990,33 @@ $("#route-preset-form").addEventListener("change", (event) => {
 });
 $("#edit-route-preset-pokemon").addEventListener("click", openRoutePresetPokemonDialog);
 document.body.append($("#route-pokemon-dialog"));
+document.addEventListener("click", (event) => {
+  const openButton = event.target.closest("[data-open-trainer-assignment]");
+  const removeButton = event.target.closest("[data-remove-direct-trainer]");
+  if (openButton) openTrainerAssignmentDialog(openButton.dataset.openTrainerAssignment);
+  if (removeButton) {
+    const scope = removeButton.closest("[data-trainer-population]")?.dataset.trainerPopulation;
+    if (scope) removeDirectTrainer(scope, removeButton.dataset.removeDirectTrainer);
+  }
+});
+$("#trainer-assignment-close").addEventListener("click", () => $("#trainer-assignment-dialog").close());
+$("#trainer-assignment-done").addEventListener("click", () => $("#trainer-assignment-dialog").close());
+$("#trainer-assignment-search").addEventListener("input", (event) => { state.trainerAssignmentPicker.query = event.target.value; renderTrainerAssignmentDialog(); });
+$("#trainer-assignment-biome").addEventListener("change", (event) => { state.trainerAssignmentPicker.biome = event.target.value; renderTrainerAssignmentDialog(); });
+$("#trainer-assignment-level").addEventListener("change", (event) => { state.trainerAssignmentPicker.levelMode = event.target.value; renderTrainerAssignmentDialog(); });
+$("#trainer-assignment-reset").addEventListener("click", () => {
+  state.trainerAssignmentPicker.query = "";
+  state.trainerAssignmentPicker.biome = "all";
+  state.trainerAssignmentPicker.levelMode = "all";
+  $("#trainer-assignment-search").value = "";
+  $("#trainer-assignment-biome").value = "all";
+  $("#trainer-assignment-level").value = "all";
+  renderTrainerAssignmentDialog();
+});
+$("#trainer-assignment-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-assign-direct-trainer]");
+  if (button && !button.disabled) addDirectTrainerFromDialog(button.dataset.assignDirectTrainer);
+});
 $("#add-route-npc").addEventListener("click", addRouteNpcPlacement);
 $("#route-npc-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-route-npc]"); if (button) removeRouteNpcPlacement(Number(button.dataset.removeRouteNpc)); });
 $("#add-league-entry").addEventListener("click", addLeagueEntry);

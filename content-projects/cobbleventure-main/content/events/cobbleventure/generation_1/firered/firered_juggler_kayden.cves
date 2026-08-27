@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_juggler_kayden/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_juggler_kayden/defeated") {
+    say npc {
+      ko_kr: "포켓몬은 힘만으로 싸우는 게 아니야. 전략이 완력을 이긴다는 걸 보여 주지!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_juggler_kayden" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_juggler_kayden/defeated" true
+      say npc {
+        ko_kr: "뭐라고? 대단하군! 힘과 지혜를 섞는군. 어린 트레이너치고 훌륭한 전략이야!"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_juggler_kayden/defeated") {
+    say npc {
+      ko_kr: "뭐라고? 대단하군! 힘과 지혜를 섞는군. 어린 트레이너치고 훌륭한 전략이야!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "포켓몬은 힘만으로 싸우는 게 아니야. 전략이 완력을 이긴다는 걸 보여 주지!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_juggler_kayden" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_juggler_kayden/defeated" true
+          say npc {
+            ko_kr: "뭐라고? 대단하군! 힘과 지혜를 섞는군. 어린 트레이너치고 훌륭한 전략이야!"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

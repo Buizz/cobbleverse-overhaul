@@ -2,97 +2,226 @@
   "$schema": "../../schemas/dungeon.schema.json",
   "schema_version": 1,
   "dungeon_id": "cobbleventure:dungeon/zapdos_storm_chamber",
-  "display_name": { "ko_kr": "폭뢰의 심장", "en_us": "Heart of the Thunderstorm" },
+  "display_name": {
+    "ko_kr": "폭뢰의 심장",
+    "en_us": "Heart of the Thunderstorm"
+  },
   "description": {
     "ko_kr": "돌산터널 깊은 곳에서 강한 전류와 정체불명의 울음소리가 느껴집니다.",
     "en_us": "Powerful currents and an unknown cry echo beyond Rock Tunnel."
   },
   "preset": "cobbleventure:legendary_encounter",
-  "entrances": [{
-    "entrance_id": "cobbleventure:entrance/zapdos_storm_chamber",
-    "destination_entry": "main", "activation": "proximity",
-    "visibility": "discovered", "return_policy": "source_safe_anchor"
-  }],
-  "entry_ui": { "info_mode": "mystery", "confirm_required": true },
-  "difficulty": { "recommended_min": 22, "recommended_max": 30, "internal_min": 18, "internal_max": 30 },
+  "entrances": [
+    {
+      "entrance_id": "cobbleventure:entrance/zapdos_storm_chamber",
+      "destination_entry": "main",
+      "activation": "proximity",
+      "visibility": "discovered",
+      "return_policy": "source_safe_anchor"
+    }
+  ],
+  "entry_ui": {
+    "info_mode": "mystery",
+    "confirm_required": true
+  },
+  "difficulty": {
+    "recommended_min": 22,
+    "recommended_max": 30,
+    "internal_min": 18,
+    "internal_max": 30
+  },
   "eligibility": {
-    "minimum_party_size": 1, "maximum_party_size": 6,
-    "require_usable_pokemon": true, "level_measure": "highest",
+    "minimum_party_size": 1,
+    "maximum_party_size": 6,
+    "require_usable_pokemon": true,
+    "level_measure": "highest",
     "recommended_level_policy": "warn"
   },
-  "multiplayer": { "mode": "solo", "min_size": 1, "max_size": 1 },
+  "multiplayer": {
+    "mode": "solo",
+    "min_size": 1,
+    "max_size": 1
+  },
   "match": {
-    "required_players": 1, "scope": "same_entrance",
-    "timeout_seconds": 300, "on_timeout": "cancel", "stay_radius": 8
+    "required_players": 1,
+    "scope": "same_entrance",
+    "timeout_seconds": 300,
+    "on_timeout": "cancel",
+    "stay_radius": 8
   },
   "battle": {
-    "allow_flee": true, "allow_capture": true,
-    "allow_items": true, "allow_escape_actions": false
+    "allow_flee": true,
+    "allow_capture": true,
+    "allow_items": true,
+    "allow_escape_actions": false
   },
   "plan": {
-    "mode": "runtime", "seed_policy": "random_per_run",
-    "fallback": "reject_entry", "generation_timeout_ms": 1000,
+    "mode": "runtime",
+    "seed_policy": "random_per_run",
+    "fallback": "reject_entry",
+    "generation_timeout_ms": 1000,
     "max_attempts": 32
   },
   "terrain": {
-    "mode": "procedural_cave", "cave_generator": "minecraft_worldgen",
-    "style": "rock", "requires_flash": true,
+    "mode": "procedural_cave",
+    "cave_generator": "minecraft_worldgen",
+    "style": "rock",
+    "requires_flash": true,
     "generator": {
-      "layout": "natural_network", "seed_salt": 2718,
-      "main_rooms": 12, "branch_count": 5, "loop_chance": 0.15,
+      "layout": "natural_network",
+      "seed_salt": 2721,
+      "main_rooms": 4,
+      "branch_count": 5,
+      "loop_chance": 0.15,
       "vertical_range": 32,
-      "room_radius": { "min": 9, "max": 24 },
-      "tunnel_radius": { "min": 3, "max": 6 },
+      "room_radius": {
+        "min": 9,
+        "max": 24
+      },
+      "tunnel_radius": {
+        "min": 3,
+        "max": 6
+      },
       "surface_roughness": 0.24,
-      "water_level": 38, "water_depth": 5,
+      "water_level": 28,
+      "water_depth": 5,
       "grand_room_scale": 1.8,
-      "elevated_crossing": true, "bridge_clearance": 13,
-      "manual_layout": { "enabled": false, "anchors": [], "connections": [] }
+      "elevated_crossing": true,
+      "bridge_clearance": 13,
+      "manual_layout": {
+        "enabled": false,
+        "anchors": [],
+        "connections": []
+      }
     },
-    "bounds": [128, 48, 128]
-  },
-  "encounters": [{
-    "id": "zapdos", "kind": "wild_pokemon",
-    "display_name": { "ko_kr": "폭뢰의 주인", "en_us": "Lord of the Thunderstorm" },
-    "pokemon": { "species": "cobblemon:zapdos", "level": 30, "catchable": true },
-    "requires": [], "yaw": 180, "boss": true
-  }],
-  "random_encounters": {
-    "enabled": true, "minimum_distance": 10, "maximum_distance": 22,
-    "max_active": 2, "spawn_interval_ticks": 160,
-    "spawn_bounds": { "min": [4, 1, 4], "max": [123, 44, 123] },
-    "additions": [
-      { "species": "cobblemon:zubat", "min_level": 18, "max_level": 22, "weight": 28 },
-      { "species": "cobblemon:geodude", "min_level": 18, "max_level": 22, "weight": 24 },
-      { "species": "cobblemon:machop", "min_level": 19, "max_level": 23, "weight": 15 },
-      { "species": "cobblemon:magnemite", "min_level": 20, "max_level": 24, "weight": 15 },
-      { "species": "cobblemon:voltorb", "min_level": 20, "max_level": 24, "weight": 10 },
-      { "species": "cobblemon:onix", "min_level": 22, "max_level": 25, "weight": 5 },
-      { "species": "cobblemon:electabuzz", "min_level": 24, "max_level": 28, "weight": 2 },
-      { "species": "cobblemon:raichu", "min_level": 26, "max_level": 29, "weight": 1, "spawn_as_evolved": true }
+    "bounds": [
+      128,
+      48,
+      128
     ]
   },
-  "support": { "healing_stations": [] },
+  "encounters": [
+    {
+      "id": "zapdos",
+      "kind": "wild_pokemon",
+      "display_name": {
+        "ko_kr": "폭뢰의 주인",
+        "en_us": "Lord of the Thunderstorm"
+      },
+      "pokemon": {
+        "species": "cobblemon:zapdos",
+        "level": 30,
+        "catchable": true
+      },
+      "requires": [],
+      "yaw": 180,
+      "boss": true
+    }
+  ],
+  "random_encounters": {
+    "enabled": true,
+    "minimum_distance": 10,
+    "maximum_distance": 22,
+    "max_active": 2,
+    "spawn_interval_ticks": 160,
+    "spawn_bounds": {
+      "min": [
+        4,
+        1,
+        4
+      ],
+      "max": [
+        123,
+        44,
+        123
+      ]
+    },
+    "additions": [
+      {
+        "species": "cobblemon:zubat",
+        "min_level": 18,
+        "max_level": 22,
+        "weight": 28
+      },
+      {
+        "species": "cobblemon:geodude",
+        "min_level": 18,
+        "max_level": 22,
+        "weight": 24
+      },
+      {
+        "species": "cobblemon:machop",
+        "min_level": 19,
+        "max_level": 23,
+        "weight": 15
+      },
+      {
+        "species": "cobblemon:magnemite",
+        "min_level": 20,
+        "max_level": 24,
+        "weight": 15
+      },
+      {
+        "species": "cobblemon:voltorb",
+        "min_level": 20,
+        "max_level": 24,
+        "weight": 10
+      },
+      {
+        "species": "cobblemon:onix",
+        "min_level": 22,
+        "max_level": 25,
+        "weight": 5
+      },
+      {
+        "species": "cobblemon:electabuzz",
+        "min_level": 24,
+        "max_level": 28,
+        "weight": 2
+      },
+      {
+        "species": "cobblemon:raichu",
+        "min_level": 26,
+        "max_level": 29,
+        "weight": 1,
+        "spawn_as_evolved": true
+      }
+    ]
+  },
+  "support": {
+    "healing_stations": [],
+    "checkpoints": []
+  },
   "gates": [],
   "loot": {
     "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies",
-    "ownership": "per_player", "on_failure": "keep_collected",
-    "containers": [{
-      "id": "storm_cache",
-      "block": "chest", "facing": "east", "requires_completion": false
-    }]
+    "ownership": "per_player",
+    "on_failure": "keep_collected",
+    "containers": [
+      {
+        "id": "storm_cache",
+        "block": "chest",
+        "facing": "east",
+        "requires_completion": false
+      }
+    ]
   },
   "rewards": {
     "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
     "first_clear_field_moves": []
   },
   "lifecycle": {
-    "on_wipe": "reset_run", "wipe_return": "source_entrance",
-    "heal_on_wipe": true, "reconnect_grace_seconds": 120
+    "on_wipe": "reset_run",
+    "wipe_return": "source_entrance",
+    "heal_on_wipe": true,
+    "reconnect_grace_seconds": 120,
+    "resume_mode": "keep_until_timeout"
   },
   "completion": {
     "victory_flag": "cobbleventure:flag/dungeon/zapdos_storm_chamber/captured_or_defeated",
-    "repeatable": false, "return_trigger": "clear_exit",
+    "repeatable": false,
+    "return_trigger": "clear_exit",
     "clear_exit_block": "minecraft:lodestone"
-  }
+  },
+  "objectives": []
 }

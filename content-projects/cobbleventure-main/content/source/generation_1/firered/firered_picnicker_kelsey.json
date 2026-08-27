@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_picnicker_kelsey",
   "enabled": true,
   "name": {
-    "ko_kr": "Picnicker Kelsey",
+    "ko_kr": "피크닉걸 켈시",
     "en_us": "Picnicker Kelsey"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Picnicker Kelsey",
+      "ko_kr": "피크닉걸 켈시",
       "en_us": "Picnicker Kelsey"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "안녕! 내 남자친구는 정말 멋져!"
       },
       "battle": "cobbleventure:battle/firered_picnicker_kelsey",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "내 컨디션이 별로였나 봐… 내 남자친구도 너만큼 강했으면 좋겠다."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_picnicker_kelsey/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_picnicker_kelsey"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_picnicker_kelsey"
   }
 }

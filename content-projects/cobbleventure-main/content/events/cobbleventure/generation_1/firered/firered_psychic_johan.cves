@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_psychic_johan/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_psychic_johan/defeated") {
+    say npc {
+      ko_kr: "보이지 않는 우리의 힘이 무섭지 않아?"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_psychic_johan" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_psychic_johan/defeated" true
+      say npc {
+        ko_kr: "이건 예견하지 못했어! 에스퍼 포켓몬이 두려워하는 건 고스트와 벌레뿐이야!"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_psychic_johan/defeated") {
+    say npc {
+      ko_kr: "이건 예견하지 못했어! 에스퍼 포켓몬이 두려워하는 건 고스트와 벌레뿐이야!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "보이지 않는 우리의 힘이 무섭지 않아?"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_psychic_johan" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_psychic_johan/defeated" true
+          say npc {
+            ko_kr: "이건 예견하지 못했어! 에스퍼 포켓몬이 두려워하는 건 고스트와 벌레뿐이야!"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

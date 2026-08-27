@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_hiker_franklin",
   "enabled": true,
   "name": {
-    "ko_kr": "Hiker Franklin",
+    "ko_kr": "등산가 프랭클린",
     "en_us": "Hiker Franklin"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Hiker Franklin",
+      "ko_kr": "등산가 프랭클린",
       "en_us": "Hiker Franklin"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "달맞이산에서 막 내려왔지만 아직 힘이 넘친다고!"
       },
       "battle": "cobbleventure:battle/firered_hiker_franklin",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "정말 열심히 하는구나! 젠장! 동굴에서 주뱃에게 물렸어."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_hiker_franklin/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_hiker_franklin"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_hiker_franklin"
   }
 }

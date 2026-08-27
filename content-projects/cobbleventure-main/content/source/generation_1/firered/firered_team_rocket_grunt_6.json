@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_team_rocket_grunt_6",
   "enabled": true,
   "name": {
-    "ko_kr": "Team Rocket Grunt",
+    "ko_kr": "로켓단 조무래기",
     "en_us": "Team Rocket Grunt"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Team Rocket Grunt",
+      "ko_kr": "로켓단 조무래기",
       "en_us": "Team Rocket Grunt"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "우리 로켓단에 들어오지 않겠어? 싫다고? 그렇다면 억지로라도 설득해 주지!"
       },
       "battle": "cobbleventure:battle/firered_team_rocket_grunt_6",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "으악! 제법이군! 네 실력이라면 로켓단의 간부도 될 수 있을 텐데. 기회를 놓치지 마!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_team_rocket_grunt_6"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_team_rocket_grunt_6"
   }
 }

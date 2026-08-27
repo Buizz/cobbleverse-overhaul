@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_camper_flint",
   "enabled": true,
   "name": {
-    "ko_kr": "Camper Flint 배틀",
+    "ko_kr": "캠프보이 플린트 배틀",
     "en_us": "Camper Flint Battle"
   },
   "battle": {

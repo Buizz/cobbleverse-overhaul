@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_channeler_tasha/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_channeler_tasha/defeated") {
+    say npc {
+      ko_kr: "너와 나, 그리고 우리 포켓몬들이 승부한다!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_channeler_tasha" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_channeler_tasha/defeated" true
+      say npc {
+        ko_kr: "결국 져 버렸군! 이런 일이 일어날 줄 알고 있었어."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_channeler_tasha/defeated") {
+    say npc {
+      ko_kr: "결국 져 버렸군! 이런 일이 일어날 줄 알고 있었어."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "너와 나, 그리고 우리 포켓몬들이 승부한다!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_channeler_tasha" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_channeler_tasha/defeated" true
+          say npc {
+            ko_kr: "결국 져 버렸군! 이런 일이 일어날 줄 알고 있었어."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

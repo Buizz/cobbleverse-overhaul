@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_camper_ethan",
   "enabled": true,
   "name": {
-    "ko_kr": "Camper Ethan",
+    "ko_kr": "캠프보이 이선",
     "en_us": "Camper Ethan"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Camper Ethan",
+      "ko_kr": "캠프보이 이선",
       "en_us": "Camper Ethan"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "좋아! 내가 5번이다! 짓밟아 주지!"
       },
       "battle": "cobbleventure:battle/firered_camper_ethan",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "우와! 너무 강해! 최선을 다했으니 후회 없어!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_camper_ethan/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_camper_ethan"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_camper_ethan"
   }
 }

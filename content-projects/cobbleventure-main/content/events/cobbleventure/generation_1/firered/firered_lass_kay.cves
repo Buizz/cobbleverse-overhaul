@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_lass_kay/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_lass_kay/defeated") {
+    say npc {
+      ko_kr: "이 체육관에는 진정한 숙녀만 들어올 수 있어!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_lass_kay" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_lass_kay/defeated" true
+      say npc {
+        ko_kr: "너무 거칠잖아! 흥! 민화가 널 혼내 줄 거야!"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_lass_kay/defeated") {
+    say npc {
+      ko_kr: "너무 거칠잖아! 흥! 민화가 널 혼내 줄 거야!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "이 체육관에는 진정한 숙녀만 들어올 수 있어!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_lass_kay" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_lass_kay/defeated" true
+          say npc {
+            ko_kr: "너무 거칠잖아! 흥! 민화가 널 혼내 줄 거야!"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

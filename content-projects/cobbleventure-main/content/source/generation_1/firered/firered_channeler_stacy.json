@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_channeler_stacy",
   "enabled": true,
   "name": {
-    "ko_kr": "Channeler Stacy",
+    "ko_kr": "주술사 스테이시",
     "en_us": "Channeler Stacy"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Channeler Stacy",
+      "ko_kr": "주술사 스테이시",
       "en_us": "Channeler Stacy"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "포켓몬은 트레이너를 닮는대. 그렇다면 네 포켓몬은 강하겠구나!"
       },
       "battle": "cobbleventure:battle/firered_channeler_stacy",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "역시 그랬군! 아직 배울 게 많아… 사이코키네시스를 익혀 포켓몬에게 가르쳐야 해…"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_channeler_stacy/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_channeler_stacy"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_channeler_stacy"
   }
 }

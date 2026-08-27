@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_burglar_dusty",
   "enabled": true,
   "name": {
-    "ko_kr": "Burglar Dusty 배틀",
+    "ko_kr": "도둑 더스티 배틀",
     "en_us": "Burglar Dusty Battle"
   },
   "battle": {

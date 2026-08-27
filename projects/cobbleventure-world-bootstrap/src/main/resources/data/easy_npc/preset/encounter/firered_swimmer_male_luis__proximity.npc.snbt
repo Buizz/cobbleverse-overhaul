@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"수영팬 루이스 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"수영팬 루이스 [V5 근접전투]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"수영팬 루이스\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.940f,0.940f,0.940f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;1437297671,1230462572,-1659049925,1347020959],
+    SkinData:{Type:"CUSTOM",UUID:[I;-634684325,1421301951,-1412058673,-185397906] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/generation_1/firered/firered_swimmer_male_luis","cves_trigger/proximity"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

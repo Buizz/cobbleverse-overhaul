@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_psychic_johan",
   "enabled": true,
   "name": {
-    "ko_kr": "Psychic Johan",
+    "ko_kr": "초능력자 요한",
     "en_us": "Psychic Johan"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Psychic Johan",
+      "ko_kr": "초능력자 요한",
       "en_us": "Psychic Johan"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "보이지 않는 우리의 힘이 무섭지 않아?"
       },
       "battle": "cobbleventure:battle/firered_psychic_johan",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "이건 예견하지 못했어! 에스퍼 포켓몬이 두려워하는 건 고스트와 벌레뿐이야!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_psychic_johan/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_psychic_johan"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_psychic_johan"
   }
 }

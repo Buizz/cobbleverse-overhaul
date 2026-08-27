@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_juggler_nate",
   "enabled": true,
   "name": {
-    "ko_kr": "Juggler Nate",
+    "ko_kr": "저글러 네이트",
     "en_us": "Juggler Nate"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Juggler Nate",
+      "ko_kr": "저글러 네이트",
       "en_us": "Juggler Nate"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "내 특수 기술을 이겨 낼 수 있는지 보자!"
       },
       "battle": "cobbleventure:battle/firered_juggler_nate",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "완전히 속았군! 독과 잠처럼 승부 뒤에도 남는 기술이 좋아!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_juggler_nate/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_juggler_nate"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_juggler_nate"
   }
 }

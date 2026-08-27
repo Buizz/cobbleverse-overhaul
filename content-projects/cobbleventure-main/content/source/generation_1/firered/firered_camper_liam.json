@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_camper_liam",
   "enabled": true,
   "name": {
-    "ko_kr": "Camper Liam",
+    "ko_kr": "캠프보이 리암",
     "en_us": "Camper Liam"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Camper Liam",
+      "ko_kr": "캠프보이 리암",
       "en_us": "Camper Liam"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "거기서 멈춰! 웅이를 만나려면 아직 1만 광년은 멀었어!"
       },
       "battle": "cobbleventure:battle/firered_camper_liam",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "이런! 광년은 시간이 아니라 거리였지! 제법 뜨겁군. 그래도 웅이만큼은 아니야!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_camper_liam/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_camper_liam"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_camper_liam"
   }
 }

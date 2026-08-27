@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"이과계의 남자 잭 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"이과계의 남자 잭 [V5 근접전투]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"이과계의 남자 잭\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[0.980f,0.980f,0.980f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-917033697,1026970941,-1646169769,2128907493],
+    SkinData:{Type:"CUSTOM",UUID:[I;75038409,-1413261725,-1889606069,385498686] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/generation_1/firered/firered_super_nerd_zac","cves_trigger/proximity"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

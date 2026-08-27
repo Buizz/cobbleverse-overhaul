@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_hiker_franklin",
   "enabled": true,
   "name": {
-    "ko_kr": "Hiker Franklin 배틀",
+    "ko_kr": "등산가 프랭클린 배틀",
     "en_us": "Hiker Franklin Battle"
   },
   "battle": {

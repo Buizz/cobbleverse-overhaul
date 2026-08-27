@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_sailor_dwayne",
   "enabled": true,
   "name": {
-    "ko_kr": "Sailor Dwayne",
+    "ko_kr": "선원 드웨인",
     "en_us": "Sailor Dwayne"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Sailor Dwayne",
+      "ko_kr": "선원 드웨인",
       "en_us": "Sailor Dwayne"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "여긴 꼬마가 올 곳이 아니야! 실력이 좋아도 마찬가지지!"
       },
       "battle": "cobbleventure:battle/firered_sailor_dwayne",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "이런! 놀랐잖아! 마티스 관장님이 직접 이중 잠금장치를 설치했어. 첫 스위치 바로 옆을 찾아봐."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_sailor_dwayne/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_sailor_dwayne"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_sailor_dwayne"
   }
 }

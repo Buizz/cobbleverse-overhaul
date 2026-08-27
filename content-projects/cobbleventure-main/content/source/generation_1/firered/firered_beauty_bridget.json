@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_beauty_bridget",
   "enabled": true,
   "name": {
-    "ko_kr": "Beauty Bridget",
+    "ko_kr": "아가씨 브리짓",
     "en_us": "Beauty Bridget"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Beauty Bridget",
+      "ko_kr": "아가씨 브리짓",
       "en_us": "Beauty Bridget"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "어서 와. 마침 지루하던 참이야."
       },
       "battle": "cobbleventure:battle/firered_beauty_bridget",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "내 화장이! 풀타입은 물과 바위, 땅타입에 유리해."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_beauty_bridget/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_beauty_bridget"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_beauty_bridget"
   }
 }

@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_cool_couple_ray_tyra",
   "enabled": true,
   "name": {
-    "ko_kr": "Cool Couple Ray & Tyra",
+    "ko_kr": "엘리트 커플 레이와 타이라",
     "en_us": "Cool Couple Ray & Tyra"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Cool Couple Ray & Tyra",
+      "ko_kr": "엘리트 커플 레이와 타이라",
       "en_us": "Cool Couple Ray & Tyra"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "레이: 우리 둘이 함께라면 위대한 트레이너가 될 운명이야!"
       },
       "battle": "cobbleventure:battle/firered_cool_couple_ray_tyra",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "레이: 말도 안 돼! 이럴 수가! 레이: 우리를 이겼군. 위대함은 아직 멀었나 봐…"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_cool_couple_ray_tyra/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_cool_couple_ray_tyra"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_cool_couple_ray_tyra"
   }
 }

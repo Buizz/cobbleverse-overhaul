@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_sailor_dwayne/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_sailor_dwayne/defeated") {
+    say npc {
+      ko_kr: "여긴 꼬마가 올 곳이 아니야! 실력이 좋아도 마찬가지지!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_sailor_dwayne" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_sailor_dwayne/defeated" true
+      say npc {
+        ko_kr: "이런! 놀랐잖아! 마티스 관장님이 직접 이중 잠금장치를 설치했어. 첫 스위치 바로 옆을 찾아봐."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_sailor_dwayne/defeated") {
+    say npc {
+      ko_kr: "이런! 놀랐잖아! 마티스 관장님이 직접 이중 잠금장치를 설치했어. 첫 스위치 바로 옆을 찾아봐."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "여긴 꼬마가 올 곳이 아니야! 실력이 좋아도 마찬가지지!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_sailor_dwayne" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_sailor_dwayne/defeated" true
+          say npc {
+            ko_kr: "이런! 놀랐잖아! 마티스 관장님이 직접 이중 잠금장치를 설치했어. 첫 스위치 바로 옆을 찾아봐."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

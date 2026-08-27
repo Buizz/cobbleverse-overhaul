@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_psychic_cameron",
   "enabled": true,
   "name": {
-    "ko_kr": "Psychic Cameron",
+    "ko_kr": "초능력자 캐머런",
     "en_us": "Psychic Cameron"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Psychic Cameron",
+      "ko_kr": "초능력자 캐머런",
       "en_us": "Psychic Cameron"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "초련은 어리지만 뛰어난 관장이야. 쉽게 만나지는 못할걸!"
       },
       "battle": "cobbleventure:battle/firered_psychic_cameron",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "으윽! 완전히 졌어! 예전 노랑시티에는 체육관이 둘이었지만 격투도장이 우리에게 져서 자격을 잃었지."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_psychic_cameron/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_psychic_cameron"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_psychic_cameron"
   }
 }

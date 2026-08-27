@@ -35,6 +35,10 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 @EventBusSubscriber(modid = LiveNbtEditorMod.MOD_ID)
 final class LiveEditorTools {
+    private static final Set<String> DUNGEON_MARKER_KINDS = Set.of(
+        "entry", "exit", "encounter", "boss", "loot", "healing_station",
+        "gate", "objective", "checkpoint"
+    );
     private static final String MODE_TAG = "cobbleventureLiveToolMode";
     private static final String NPC_LABEL_TAG = "cobbleventureLiveNpcLabel";
     private static final String DOOR_LABEL_TAG = "cobbleventureLiveDoorLabel";
@@ -137,9 +141,11 @@ final class LiveEditorTools {
         try {
             ServerLevel level = player.serverLevel();
             BlockPos door = lowerDoor(level, event.getPos());
+            AnchorSelection selection = selectionAt(level, event.getPos(), door);
             LiveEditorNetwork.openAnchorEditor(
                 player, event.getPos(), door != null,
-                level.getBlockState(event.getPos()).is(Blocks.BARRIER)
+                level.getBlockState(event.getPos()).is(Blocks.BARRIER),
+                selection.type(), selection.kind(), selection.label()
             );
         } catch (RuntimeException error) {
             player.sendSystemMessage(Component.literal(
@@ -205,7 +211,8 @@ final class LiveEditorTools {
     }
 
     static void applyAnchor(
-        ServerPlayer player, BlockPos clicked, String type, String requestedLabel
+        ServerPlayer player, BlockPos clicked, String type, String kind,
+        String requestedLabel
     ) {
         if (!editable(player, clicked)) return;
         String label = requestedLabel.trim().toLowerCase(Locale.ROOT);
@@ -234,6 +241,7 @@ final class LiveEditorTools {
                 setTransition(player, clicked);
             }
             case "npc_position" -> setPoint(player, clicked, ToolMode.NPC, label);
+            case "dungeon_marker" -> setDungeonMarker(player, clicked, kind, label);
             case "arrival" -> setPoint(player, clicked, ToolMode.ARRIVAL, label);
             case "interaction_point" -> setPoint(player, clicked, ToolMode.INTERACTION, label);
             case "patrol_point" -> setPoint(player, clicked, ToolMode.PATROL, label);
@@ -241,6 +249,75 @@ final class LiveEditorTools {
             default -> throw new IllegalStateException("지원하지 않는 앵커 종류입니다: " + type);
         }
         LiveNbtEditorMod.editorMetadataChanged(player.getServer());
+    }
+
+    private static void setDungeonMarker(
+        ServerPlayer player, BlockPos clicked, String kind, String label
+    ) {
+        if (!DUNGEON_MARKER_KINDS.contains(kind)) {
+            throw new IllegalStateException("지원하지 않는 던전 플래그 종류입니다: " + kind);
+        }
+        BlockPos position = relative(clicked.above());
+        if (!inside(position)) throw new IllegalStateException("던전 플래그 위치가 편집 범위 밖입니다.");
+        JsonObject anchor = baseAnchor(label, "dungeon_marker", position);
+        anchor.addProperty("kind", kind);
+        if (!kind.equals("entry") && !kind.equals("exit")) {
+            anchor.addProperty("reference", label);
+        }
+        replaceAnchor(anchor, "dungeon_marker", label, position);
+        player.sendSystemMessage(Component.literal(
+            "[Live NBT Editor] 던전 " + dungeonKindLabel(kind) + " 플래그 저장: "
+                + label + "=" + format(position)
+        ));
+    }
+
+    private static AnchorSelection selectionAt(
+        ServerLevel level, BlockPos clicked, BlockPos lowerDoor
+    ) {
+        BlockPos preferred;
+        if (lowerDoor != null) {
+            preferred = relative(canonicalDoor(level, lowerDoor));
+        } else if (level.getBlockState(clicked).is(Blocks.BARRIER)) {
+            preferred = relative(clicked);
+        } else {
+            preferred = relative(clicked.above());
+        }
+        AnchorSelection exact = selectionAt(preferred);
+        if (exact != null) return exact;
+        AnchorSelection clickedSelection = selectionAt(relative(clicked));
+        if (clickedSelection != null) return clickedSelection;
+        return new AnchorSelection(
+            lowerDoor != null ? "door" : level.getBlockState(clicked).is(Blocks.BARRIER)
+                ? "transition" : "npc_position",
+            "", lowerDoor != null ? "door"
+                : level.getBlockState(clicked).is(Blocks.BARRIER) ? "transition" : "npc"
+        );
+    }
+
+    private static AnchorSelection selectionAt(BlockPos position) {
+        for (JsonElement element : anchors()) {
+            if (!element.isJsonObject()) continue;
+            JsonObject anchor = element.getAsJsonObject();
+            if (!position.equals(anchorPosition(anchor))) continue;
+            String kind = anchor.has("kind") ? anchor.get("kind").getAsString() : "";
+            return new AnchorSelection(anchorType(anchor), kind, anchorLabel(anchor));
+        }
+        return null;
+    }
+
+    private static String dungeonKindLabel(String kind) {
+        return switch (kind) {
+            case "entry" -> "입구";
+            case "exit" -> "출구";
+            case "encounter" -> "일반 적";
+            case "boss" -> "보스";
+            case "loot" -> "전리품";
+            case "healing_station" -> "회복";
+            case "gate" -> "게이트";
+            case "objective" -> "목표";
+            case "checkpoint" -> "체크포인트";
+            default -> kind;
+        };
     }
 
     private static void setDoor(ServerPlayer player, BlockPos door) {
@@ -335,8 +412,8 @@ final class LiveEditorTools {
             JsonElement element = anchors.get(index);
             if (!element.isJsonObject()) continue;
             JsonObject anchor = element.getAsJsonObject();
-            if (label.equals(anchorLabel(anchor))
-                || (type.equals(anchorType(anchor)) && position.equals(anchorPosition(anchor)))) {
+            if (type.equals(anchorType(anchor))
+                && (label.equals(anchorLabel(anchor)) || position.equals(anchorPosition(anchor)))) {
                 anchors.remove(index);
             }
         }
@@ -590,4 +667,6 @@ final class LiveEditorTools {
             return null;
         }
     }
+
+    record AnchorSelection(String type, String kind, String label) {}
 }

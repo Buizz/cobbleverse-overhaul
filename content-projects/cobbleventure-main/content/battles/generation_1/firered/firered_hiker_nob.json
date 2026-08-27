@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_hiker_nob",
   "enabled": true,
   "name": {
-    "ko_kr": "Hiker Nob 배틀",
+    "ko_kr": "등산가 노브 배틀",
     "en_us": "Hiker Nob Battle"
   },
   "battle": {

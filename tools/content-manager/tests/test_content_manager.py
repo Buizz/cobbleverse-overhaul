@@ -2892,8 +2892,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('className = "spatial-tool-rail"', script)
         self.assertIn('className = "spatial-tool-options"', script)
         self.assertIn('.spatial-editor-toolbar.world-aligned-toolbar', styles)
-        self.assertIn('#selected-cave-editor,#selected-forest-editor,#selected-routePreset-editor,#selected-settlement-editor { overflow: visible; }', styles)
-        self.assertIn('#selected-cave-editor > .panel-heading,#selected-forest-editor > .panel-heading,#selected-routePreset-editor > .panel-heading,#selected-settlement-editor > .panel-heading { position: sticky;', styles)
+        self.assertIn('#selected-cave-editor,#selected-forest-editor,#selected-routePreset-editor,#selected-settlement-editor,#selected-dungeon-editor,#selected-underground-road-editor { overflow: visible; }', styles)
+        self.assertIn('#selected-cave-editor > .panel-heading,#selected-forest-editor > .panel-heading,#selected-routePreset-editor > .panel-heading,#selected-settlement-editor > .panel-heading,#selected-dungeon-editor > .panel-heading,#selected-underground-road-editor > .panel-heading { position: sticky;', styles)
         self.assertIn('--spatial-tool-rail-width: 62px', styles)
         self.assertIn('grid-template-rows: minmax(0,1fr); align-content: stretch', styles)
         self.assertIn('.spatial-tool-rail { display: flex; min-height: 100%; align-self: stretch', styles)
@@ -2921,10 +2921,15 @@ class ContentManagerTests(unittest.TestCase):
             "selected-settlement-editor",
             "selected-cave-editor",
             "selected-forest-editor",
+            "selected-dungeon-editor",
+            "selected-underground-road-editor",
         ):
             self.assertIn(f'id="{editor_id}"', page)
             self.assertIn(f"#{editor_id}", styles)
         self.assertIn("position: sticky; z-index: 30; top: 0", styles)
+        self.assertIn(".dungeon-piece-catalog-page { margin:16px; overflow:visible; }", styles)
+        self.assertIn(".dungeon-piece-catalog-page .dungeon-piece-editor { margin:0; overflow:visible;", styles)
+        self.assertIn(".dungeon-piece-catalog-page .dungeon-piece-editor > header { position:sticky; z-index:30; top:0;", styles)
 
     def test_settlement_selection_shows_loading_until_preview_is_ready(self) -> None:
         web_root = CORE_ROOT / "tools/content-manager/web"
@@ -3262,6 +3267,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('state.activeMapTool === "select" && !state.suppressMapClick', script)
         self.assertIn(".world-drag-preview", (CORE_ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8"))
 
+    def test_world_base_tiles_and_placed_objects_are_independent_layers(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="tile-base-layer-switch"', page)
+        self.assertIn('id="tile-placement-panel"', page)
+        self.assertNotIn('type="radio" name="kind" value="gate"', page)
+        self.assertNotIn('type="radio" name="kind" value="object"', page)
+        self.assertIn("function objectsAt(q, r)", script)
+        self.assertIn("function entrancesAt(q, r)", script)
+        self.assertIn("function selectWorldObject(id)", script)
+        self.assertIn("state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);", script)
+        self.assertIn("entranceDrag.valid = Boolean(entrance) && (!occupied || occupied === entrance) && !settlementAt(target.q, target.r);", script)
+        self.assertNotIn("entranceDrag.valid = Boolean(entrance) && (!occupied || occupied === entrance) && !settlementAt(target.q, target.r) && !objectAt(target.q, target.r);", script)
+
     def test_world_gate_objects_are_saved_and_validated(self) -> None:
         root = PROJECT_ROOT
         with tempfile.TemporaryDirectory() as directory:
@@ -3384,7 +3404,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-map-tool="gate"', page)
         self.assertIn('data-tool-options="gate"', page)
         self.assertIn('id="generic-object-tool-type"', page)
-        self.assertIn('name="kind" value="gate"', page)
+        self.assertNotIn('type="radio" name="kind" value="gate"', page)
+        self.assertIn('data-tile-field="gate"', page)
         self.assertIn('g: "gate", o: "object"', script)
         self.assertIn('else if (tool === "gate") placeGateWithTool(q, r)', script)
         self.assertIn('customObject.type === "gate" ? "gate" : "object"', script)
@@ -4624,9 +4645,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("지역 기본 조우 정책", script)
         self.assertIn("data-direct-trainer-policy", script)
         self.assertIn("trainer_trigger_overrides", script)
+        self.assertIn('id="trainer-assignment-dialog"', page)
+        self.assertIn('id="trainer-assignment-search"', page)
+        self.assertIn('id="trainer-assignment-biome"', page)
+        self.assertIn('id="trainer-assignment-level"', page)
+        self.assertIn('data-open-trainer-assignment="${scope}"', script)
+        self.assertIn("function renderTrainerAssignmentDialog()", script)
+        self.assertIn("function addDirectTrainerFromDialog(trainerId)", script)
+        self.assertIn("function removeDirectTrainer(scope, trainerId)", script)
+        self.assertIn('data-direct-trainer="${escapeHtml(trainerId)}" checked hidden', script)
+        self.assertNotIn("trainerRows.map((trainer)", script)
         styles = (CORE_ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8")
         self.assertIn("grid-template-columns:repeat(6,minmax(52px,1fr))", styles)
-        self.assertIn(".trainer-pool-choice > .trainer-party-strip { grid-column:1/-1; grid-row:2; }", styles)
+        self.assertIn(".trainer-pool-choice > .trainer-party-strip { grid-column:1/-1; margin-top:0; }", styles)
+        self.assertIn(".trainer-assignment-dialog {", styles)
+        self.assertIn(".trainer-assignment-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr));", styles)
         trainer_summaries = content_manager._list_documents(PROJECT_ROOT, "trainers")
         battle_trainer = next(entry for entry in trainer_summaries if entry.get("battle_type"))
         self.assertEqual(battle_trainer["team_size"], len(battle_trainer["team"]))
@@ -7127,6 +7160,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("citizen_placement_allowed", script)
         self.assertIn(
             'category === "underground-roads" ? "underground-road" : documentSingular(category)',
+            script,
+        )
+        self.assertIn(
+            '$$(`#${listPrefix}-list .document-button`).forEach',
             script,
         )
         self.assertIn("gym_exterior", script)

@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"엘리트 트레이너 캐럴라인 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"엘리트 트레이너 캐럴라인 [V5 근접전투]",
+    variantType:"ALEX",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"엘리트 트레이너 캐럴라인\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;1244343893,41374792,-1573526783,-2077464164],
+    SkinData:{Type:"CUSTOM",UUID:[I;1254962677,1163677846,-1593150005,-1624651263] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/generation_1/firered/firered_cooltrainer_caroline","cves_trigger/proximity"],
+    VariantType:"ALEX",
+    id:"easy_npc:humanoid"
+  }
+}

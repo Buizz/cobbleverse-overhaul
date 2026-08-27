@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_tamer_cole",
   "enabled": true,
   "name": {
-    "ko_kr": "Tamer Cole",
+    "ko_kr": "포켓몬 조련사 콜",
     "en_us": "Tamer Cole"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Tamer Cole",
+      "ko_kr": "포켓몬 조련사 콜",
       "en_us": "Tamer Cole"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "내 채찍 소리에 네 포켓몬은 벌벌 떨 거다!"
       },
       "battle": "cobbleventure:battle/firered_tamer_cole",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "아야! 채찍에 맞은 기분이군! 잠깐! 방심했을 뿐이야!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_tamer_cole/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_tamer_cole"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_tamer_cole"
   }
 }

@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_psychic_preston",
   "enabled": true,
   "name": {
-    "ko_kr": "Psychic Preston 배틀",
+    "ko_kr": "초능력자 프레스턴 배틀",
     "en_us": "Psychic Preston Battle"
   },
   "battle": {

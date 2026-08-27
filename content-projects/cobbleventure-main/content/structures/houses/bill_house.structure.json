@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "structure": "content/structures/houses/bill_house.nbt",
+  "anchors": [
+    {
+      "id": "door",
+      "label": "door",
+      "type": "door",
+      "position": [
+        14,
+        1,
+        3
+      ],
+      "safe_spawn": [
+        14,
+        1,
+        2
+      ],
+      "door_facing": "south",
+      "safe_side": "north"
+    }
+  ]
+}

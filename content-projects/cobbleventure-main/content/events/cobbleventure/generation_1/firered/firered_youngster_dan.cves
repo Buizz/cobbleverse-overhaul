@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_youngster_dan/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_youngster_dan/defeated") {
+    say npc {
+      ko_kr: "아빠가 갈색시티의 상트앙느호 파티에 데려가 줬어."
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_youngster_dan" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_youngster_dan/defeated" true
+      say npc {
+        ko_kr: "화난 거 아니야! 상트앙느호에서 세계 각지의 트레이너를 봤어."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_youngster_dan/defeated") {
+    say npc {
+      ko_kr: "화난 거 아니야! 상트앙느호에서 세계 각지의 트레이너를 봤어."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "아빠가 갈색시티의 상트앙느호 파티에 데려가 줬어."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_youngster_dan" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_youngster_dan/defeated" true
+          say npc {
+            ko_kr: "화난 거 아니야! 상트앙느호에서 세계 각지의 트레이너를 봤어."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

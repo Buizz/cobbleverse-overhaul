@@ -201,7 +201,7 @@ NPC 원본과 권한 구현은 다른 세대 월드에서 재사용할 수 있�
 | `item_potion_supplier` | 첫 길목 프렌들리숍 직원·상처약 ×1 |
 | `item_antidote_supplier` | 포켓몬 학교 상태이상 교육 트레이너 |
 | `feature_map_guide` | 상록시티에서 지도와 포켓파인더를 함께 주는 여행 안내 NPC |
-| `feature_pc_technician` | 포켓몬 전송 시스템 연구원 |
+| `feature_pc_technician` | 25번도로 끝의 집에 있는 이수재. PC와 박스를 설명한 뒤 원격 PC 기능 해금 |
 | `feature_teleport_guide` | 블루시티 첫 도착 후 순간이동 지급 NPC로 각색 |
 | `field_move_flash_instructor` | 발전소 던전 완료 보상으로 편입 |
 | `field_move_surf_instructor` | 연분홍시티 관장 격파 보상으로 편입 |

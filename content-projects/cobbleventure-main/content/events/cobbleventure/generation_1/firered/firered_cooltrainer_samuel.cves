@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_samuel/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_cooltrainer_samuel/defeated") {
+    say npc {
+      ko_kr: "상록체육관은 오래 닫혀 있었지만 관장님이 돌아오셨다!"
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_samuel" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_samuel/defeated" true
+      say npc {
+        ko_kr: "내가 졌다고? 관장님을 쓰러뜨려야만 포켓몬리그로 갈 수 있어!"
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_cooltrainer_samuel/defeated") {
+    say npc {
+      ko_kr: "내가 졌다고? 관장님을 쓰러뜨려야만 포켓몬리그로 갈 수 있어!"
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "상록체육관은 오래 닫혀 있었지만 관장님이 돌아오셨다!"
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_cooltrainer_samuel" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_cooltrainer_samuel/defeated" true
+          say npc {
+            ko_kr: "내가 졌다고? 관장님을 쓰러뜨려야만 포켓몬리그로 갈 수 있어!"
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

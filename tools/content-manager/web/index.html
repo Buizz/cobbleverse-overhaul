@@ -450,7 +450,7 @@
               <div class="tile-inspector-head"><div><p class="eyebrow" id="selection-inspector-kind">SELECTED TILE</p><h3 id="selected-tile-title">타일을 선택하세요</h3></div><div class="tile-inspector-head-actions"><span id="selected-tile-coord">Q — · R —</span><button class="button secondary" id="open-selected-management" type="button" hidden>관리 페이지로 이동</button></div></div>
               <div id="tile-inspector-empty" class="tile-inspector-empty"><b>⌁</b><p>지도에서 육각형 타일을 누르면<br>배치 정보를 편집할 수 있습니다.</p></div>
               <form id="tile-inspector-form" class="tile-inspector-form" hidden>
-                <fieldset><legend>이 타일의 기본 지형·배치 요소</legend><div class="placement-switch"><label><input type="radio" name="kind" value="empty"><span>빈 타일</span></label><label><input type="radio" name="kind" value="biome"><span>바이옴</span></label><label><input type="radio" name="kind" value="settlement"><span>마을</span></label><label><input type="radio" name="kind" value="gate"><span>관문</span></label><label><input type="radio" name="kind" value="object"><span>오브젝트</span></label></div></fieldset>
+                <fieldset id="tile-base-layer-switch"><legend>이 타일의 기본 지형</legend><div class="placement-switch"><label><input type="radio" name="kind" value="empty"><span>빈 지형</span></label><label><input type="radio" name="kind" value="biome"><span>바이옴</span></label><label><input type="radio" name="kind" value="settlement"><span>마을 지형</span></label></div><small>관문·출입구·오브젝트는 기본 지형을 바꾸지 않고 별도 배치됩니다.</small></fieldset>
                 <label><span>이 타일의 BGM</span><select name="musicTrack"></select><small id="tile-music-resolution">비워 두면 종류별 기본값을 상속합니다.</small></label>
                 <label data-tile-field="biome"><span>바이옴</span><select name="biome"></select></label>
                 <label data-tile-field="biome"><span>바다회오리 경계</span><select name="whirlpoolBoundary"><option value="false">사용 안 함</option><option value="true">이 바다 외곽에 생성</option></select><small>해양 타일에 사용하면 같은 설정의 타일 군집 외곽에만 회오리가 나타납니다.</small></label>
@@ -492,8 +492,9 @@
                   </fieldset>
                 </section>
                 <section class="route-overlay-panel" id="route-overlay-panel" hidden><div><b>길 오버레이</b><small>기본 바이옴 위에 겹쳐진 연결입니다.</small></div><div id="route-overlay-list"></div></section>
+                <section class="tile-placement-panel" id="tile-placement-panel" hidden><div><b>이 타일의 배치 요소</b><small>기본 지형과 독립적으로 여러 요소를 겹쳐 배치할 수 있습니다.</small></div><div id="tile-placement-list"></div></section>
                 <div class="tile-summary" id="tile-summary"></div>
-                <button class="button secondary tile-clear" id="clear-tile" type="button">타일 비우기</button>
+                <button class="button secondary tile-clear" id="clear-tile" type="button">기본 지형 비우기</button>
               </form>
               <form id="entrance-inspector-form" class="tile-inspector-form entrance-inspector-form" hidden>
                 <div class="route-inspector-badge"><span id="entrance-inspector-label">입구 속성</span><b id="entrance-inspector-id">entrance</b></div>
@@ -649,7 +650,7 @@
       <section class="page" id="dungeons">
         <div class="workspace-grid spatial-document-grid">
           <aside class="document-list panel"><div class="panel-heading"><div><p class="eyebrow">DUNGEON DEFINITIONS</p><h2>던전 관리</h2></div><span class="count-pill" id="dungeon-list-count">…</span></div><div id="dungeon-list" class="list-body"><div class="issues empty">프로젝트의 던전을 불러오는 중입니다.</div></div></aside>
-          <div class="editor panel dungeon-preview-editor">
+          <div class="editor panel dungeon-preview-editor" id="selected-dungeon-editor">
             <div class="panel-heading"><div><p class="eyebrow">DUNGEON AUTHORING</p><h2 id="dungeon-editor-title">던전을 선택하세요</h2><small id="dungeon-path">던전 전역 옵션과 생성 계획을 함께 편집합니다.</small></div><div class="editor-heading-actions"><span class="dungeon-save-state" id="dungeon-save-state">선택 안 됨</span><div><button class="button secondary" id="validate-dungeon" type="button" disabled>문서 검증</button><button class="button primary" id="save-dungeon" type="button" disabled>던전 저장</button></div></div></div>
             <form id="dungeon-form" class="dungeon-settings" hidden>
               <section class="dungeon-overview-card"><div><span>던전 유형</span><strong id="dungeon-type-summary">—</strong></div><div><span>입장 인원</span><strong id="dungeon-party-summary">—</strong></div><div><span>권장 레벨</span><strong id="dungeon-level-summary">—</strong></div><div><span>재도전</span><strong id="dungeon-repeat-summary">—</strong></div></section>
@@ -1413,6 +1414,19 @@
         </div>
         <footer><span>변경 사항은 동굴 또는 숲 저장 버튼을 눌러야 파일에 반영됩니다.</span><button type="button" id="close-encounter-pokemon" class="button primary">완료</button></footer>
       </form>
+    </dialog>
+    <dialog id="trainer-assignment-dialog" class="trainer-assignment-dialog">
+      <div class="trainer-assignment-shell">
+        <header><div><p class="eyebrow">TRAINER ASSIGNMENT</p><h2 id="trainer-assignment-title">트레이너 추가</h2><small>이름·ID·포켓몬·선호 바이옴으로 찾아 현재 지역에 직접 지정합니다.</small></div><button id="trainer-assignment-close" type="button" aria-label="닫기">×</button></header>
+        <div class="trainer-assignment-filters">
+          <label class="wide"><span>검색</span><input id="trainer-assignment-search" type="search" placeholder="트레이너 이름, ID, 포켓몬 이름" autocomplete="off"></label>
+          <label><span>선호 바이옴</span><select id="trainer-assignment-biome"><option value="all">모든 바이옴</option></select></label>
+          <label><span>레벨 방식</span><select id="trainer-assignment-level"><option value="all">모든 레벨 방식</option><option value="fixed">고정 레벨</option><option value="scaled">맵 레벨 보정</option><option value="unset">레벨 미지정</option></select></label>
+        </div>
+        <div class="trainer-assignment-meta"><strong id="trainer-assignment-count">0명</strong><button id="trainer-assignment-reset" type="button">필터 초기화</button></div>
+        <div id="trainer-assignment-list" class="trainer-assignment-list"></div>
+        <footer><span>추가한 트레이너는 바깥의 직접 지정 목록에 바로 표시됩니다.</span><button id="trainer-assignment-done" class="button primary" type="button">완료</button></footer>
+      </div>
     </dialog>
     <dialog id="choice-dialog" class="choice-dialog">
       <div class="choice-dialog-shell">

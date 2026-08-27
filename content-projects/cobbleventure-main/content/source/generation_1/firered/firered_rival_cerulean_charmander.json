@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_rival_cerulean_charmander",
   "enabled": true,
   "name": {
-    "ko_kr": "Rival Terry",
+    "ko_kr": "라이벌 테리",
     "en_us": "Rival Terry"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Rival Terry",
+      "ko_kr": "라이벌 테리",
       "en_us": "Rival Terry"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "어이! 잘 지냈냐? 네 실력이 늘었는지 확인하러 왔어!"
       },
       "battle": "cobbleventure:battle/firered_rival_cerulean_charmander",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "흥! 너무 힘을 뺐나? 이수재에게 가는 길이라면 아직 멀었어. 냄새나 맡고 있어!"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_rival_cerulean_charmander/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_rival_cerulean_charmander"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_rival_cerulean_charmander"
   }
 }

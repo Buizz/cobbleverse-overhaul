@@ -5,6 +5,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 CONTENT = ROOT / "content-projects" / "cobbleventure-main" / "content"
+EASY_NPC_PRESETS = (
+    ROOT / "projects" / "cobbleventure-world-bootstrap" / "src" / "main"
+    / "resources" / "data" / "easy_npc" / "preset" / "encounter"
+)
 TRAINER_SLUGS = {
     "kanto_sailor_junho": "sailor",
     "kanto_swimmer_taejin": "swimmer_male",
@@ -97,8 +101,29 @@ class GenerationOneTrainerTests(unittest.TestCase):
     def test_firered_test_trainers_are_materialized_and_gym_slots_are_filled(self) -> None:
         trainers = sorted((CONTENT / "source" / "generation_1" / "firered").glob("*.json"))
         battles = sorted((CONTENT / "battles" / "generation_1" / "firered").glob("*.json"))
+        events = sorted((CONTENT / "events" / "cobbleventure" / "generation_1" / "firered").glob("*.cves"))
+        bindings = sorted((CONTENT / "event-bindings" / "cobbleventure" / "generation_1" / "firered").glob("*.json"))
         self.assertEqual(70, len(trainers))
         self.assertEqual(70, len(battles))
+        self.assertEqual(70, len(events))
+        self.assertEqual(70, len(bindings))
+
+        first_texts = set()
+        for trainer_path in trainers:
+            trainer = load(trainer_path)
+            korean_name = trainer["npc"]["display_name"]["ko_kr"]
+            english_name = trainer["npc"]["display_name"]["en_us"]
+            preset = trainer["event_design"]["preset"]
+            first_texts.add(preset["first_text"]["ko_kr"])
+
+            self.assertNotEqual(english_name, korean_name)
+            self.assertNotEqual("승부하자!", preset["first_text"]["ko_kr"])
+            self.assertNotEqual("좋은 승부였어!", preset["win_text"]["ko_kr"])
+            self.assertIn("/firered/", trainer["event_runtime"]["script_id"])
+            slug = trainer["id"].rsplit("/", 1)[-1]
+            self.assertTrue((EASY_NPC_PRESETS / f"{slug}__v5.npc.snbt").is_file())
+            self.assertTrue((EASY_NPC_PRESETS / f"{slug}__v5_proximity.npc.snbt").is_file())
+        self.assertGreaterEqual(len(first_texts), 65)
 
         catalog = load(CONTENT / "catalogs" / "gyms.json")
         expected_counts = [1, 2, 3, 7, 6, 7, 7, 8]

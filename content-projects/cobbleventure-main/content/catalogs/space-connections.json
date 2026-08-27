@@ -62,6 +62,18 @@
         ]
       }
     },
+    "building:cobbleventure:houses/bill_house": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "room_1": [
+          466,
+          137
+        ]
+      }
+    },
     "building:cobbleventure:houses/one_story_flat": {
       "nodes": {
         "exterior": [
@@ -403,6 +415,14 @@
     "building:cobbleventure:houses/five_story_gable": {},
     "building:cobbleventure:houses/five_story_gambrel": {},
     "building:cobbleventure:houses/five_story_shed": {},
+    "building:cobbleventure:houses/bill_house": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:houses/one_story_flat": {
       "route_1": {
         "condition_mode": "all",

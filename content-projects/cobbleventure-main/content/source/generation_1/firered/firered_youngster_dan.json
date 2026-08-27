@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_youngster_dan",
   "enabled": true,
   "name": {
-    "ko_kr": "Youngster Dan",
+    "ko_kr": "반바지 꼬마 댄",
     "en_us": "Youngster Dan"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Youngster Dan",
+      "ko_kr": "반바지 꼬마 댄",
       "en_us": "Youngster Dan"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "아빠가 갈색시티의 상트앙느호 파티에 데려가 줬어."
       },
       "battle": "cobbleventure:battle/firered_youngster_dan",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "화난 거 아니야! 상트앙느호에서 세계 각지의 트레이너를 봤어."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_youngster_dan/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_youngster_dan"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_youngster_dan"
   }
 }

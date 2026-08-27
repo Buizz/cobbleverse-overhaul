@@ -1,0 +1,56 @@
+event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_hiker_nob/defeated") {
+    encounter_warning "encounter.trainer_boy"
+  }
+}
+
+event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
+  page when !flag("cobbleventure:flag/trainer/firered_hiker_nob/defeated") {
+    say npc {
+      ko_kr: "곶에 사는 포켓몬 매니아의 수집품을 보러 가는 길이야."
+    }
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_hiker_nob" -> battle_result
+    if battle_result.outcome == "win" {
+      id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_hiker_nob/defeated" true
+      say npc {
+        ko_kr: "제대로 당했군! 그 포켓몬 매니아는 이름값을 해. 희귀한 포켓몬도 많이 모았대."
+      }
+    } else {
+      say npc {
+        ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+      }
+    }
+  }
+}
+
+event interact(range: 4) {
+  page when flag("cobbleventure:flag/trainer/firered_hiker_nob/defeated") {
+    say npc {
+      ko_kr: "제대로 당했군! 그 포켓몬 매니아는 이름값을 해. 희귀한 포켓몬도 많이 모았대."
+    }
+  }
+
+  page default {
+    say npc {
+      ko_kr: "곶에 사는 포켓몬 매니아의 수집품을 보러 가는 길이야."
+    }
+    choice { ko_kr: "도전하시겠습니까?" } {
+      { ko_kr: "승부한다" } {
+        id "challenge/battle" await battle "cobbleventure:battle/firered_hiker_nob" -> battle_result
+        if battle_result.outcome == "win" {
+          id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_hiker_nob/defeated" true
+          say npc {
+            ko_kr: "제대로 당했군! 그 포켓몬 매니아는 이름값을 해. 희귀한 포켓몬도 많이 모았대."
+          }
+        } else {
+          say npc {
+            ko_kr: "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
+          }
+        }
+      }
+      { ko_kr: "다음에 도전한다" } {
+        stop
+      }
+    }
+  }
+}

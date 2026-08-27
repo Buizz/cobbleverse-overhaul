@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_burglar_dusty",
   "enabled": true,
   "name": {
-    "ko_kr": "Burglar Dusty",
+    "ko_kr": "도둑 더스티",
     "en_us": "Burglar Dusty"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Burglar Dusty",
+      "ko_kr": "도둑 더스티",
       "en_us": "Burglar Dusty"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "여러 체육관에 가 봤지만 여기가 내 방식에 가장 잘 맞아."
       },
       "battle": "cobbleventure:battle/firered_burglar_dusty",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "으악! 너무 뜨거워! 포니타와 나인테일은 인기 있는 불꽃 포켓몬이지."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_burglar_dusty/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_burglar_dusty"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_burglar_dusty"
   }
 }

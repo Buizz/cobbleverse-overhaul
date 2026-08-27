@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_burglar_quinn",
   "enabled": true,
   "name": {
-    "ko_kr": "Burglar Quinn",
+    "ko_kr": "도둑 퀸",
     "en_us": "Burglar Quinn"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Burglar Quinn",
+      "ko_kr": "도둑 퀸",
       "en_us": "Burglar Quinn"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "예전엔 도둑이었지만 지금은 정직한 트레이너야."
       },
       "battle": "cobbleventure:battle/firered_burglar_quinn",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "항복이다! 아직도 남의 포켓몬을 훔치고 싶은 충동이 들 때가 있어."
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_burglar_quinn/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_burglar_quinn"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_burglar_quinn"
   }
 }

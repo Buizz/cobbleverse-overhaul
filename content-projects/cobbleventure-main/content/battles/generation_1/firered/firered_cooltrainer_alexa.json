@@ -4,7 +4,7 @@
   "id": "cobbleventure:battle/firered_cooltrainer_alexa",
   "enabled": true,
   "name": {
-    "ko_kr": "Cooltrainer Alexa 배틀",
+    "ko_kr": "엘리트 트레이너 알렉사 배틀",
     "en_us": "Cooltrainer Alexa Battle"
   },
   "battle": {

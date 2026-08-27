@@ -4,7 +4,7 @@
   "id": "cobbleventure:npc/firered_cooltrainer_caroline",
   "enabled": true,
   "name": {
-    "ko_kr": "Cooltrainer Caroline",
+    "ko_kr": "엘리트 트레이너 캐럴라인",
     "en_us": "Cooltrainer Caroline"
   },
   "description": {
@@ -26,7 +26,7 @@
   },
   "npc": {
     "display_name": {
-      "ko_kr": "Cooltrainer Caroline",
+      "ko_kr": "엘리트 트레이너 캐럴라인",
       "en_us": "Cooltrainer Caroline"
     },
     "role": "default",
@@ -53,7 +53,7 @@
         "range": 4
       },
       "first_text": {
-        "ko_kr": "승부하자!"
+        "ko_kr": "네 실력이 얼마나 대단한지 보여 주지. 대단하지 않다는 걸!"
       },
       "battle": "cobbleventure:battle/firered_cooltrainer_caroline",
       "after_victory_trigger": {
@@ -61,10 +61,10 @@
         "range": 4
       },
       "win_text": {
-        "ko_kr": "좋은 승부였어!"
+        "ko_kr": "정말 화나! 오히려 네가 내 실력이 어느 정도인지 보여 줬네…"
       },
       "loss_text": {
-        "ko_kr": "다시 준비해서 도전해!"
+        "ko_kr": "이번 승부는 내가 이겼어. 다시 준비해서 도전해!"
       },
       "victory_state_key": "cobbleventure:flag/trainer/firered_cooltrainer_caroline/defeated"
     }
@@ -72,6 +72,6 @@
   "event_runtime": {
     "engine": "cves_v5",
     "authoring": "preset",
-    "script_id": "cobbleventure:event_script/generation_1/firered_cooltrainer_caroline"
+    "script_id": "cobbleventure:event_script/generation_1/firered/firered_cooltrainer_caroline"
   }
 }
