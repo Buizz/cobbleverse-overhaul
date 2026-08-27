@@ -272,12 +272,27 @@ final class DungeonSystem {
     static synchronized void registerBuildingPlacement(
         ServerLevel level, String entranceId, BlockPos trigger, BlockPos safeReturn
     ) {
+        registerBuildingPlacement(
+            level, entranceId, trigger, Set.of(trigger), safeReturn
+        );
+    }
+
+    static synchronized void registerBuildingPlacement(
+        ServerLevel level, String entranceId, BlockPos trigger,
+        Set<BlockPos> triggerBlocks, BlockPos safeReturn
+    ) {
         if (!entrances.containsKey(entranceId)) {
             return;
         }
+        Set<BlockPos> immutableTriggers = triggerBlocks == null || triggerBlocks.isEmpty()
+            ? Set.of(trigger.immutable())
+            : triggerBlocks.stream().map(BlockPos::immutable)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
         ACTIVE_ENTRANCES.put(
             entranceId,
-            new PlacedEntrance(entranceId, level.dimension(), trigger, safeReturn)
+            new PlacedEntrance(
+                entranceId, level.dimension(), trigger, immutableTriggers, safeReturn
+            )
         );
     }
 
@@ -345,9 +360,10 @@ final class DungeonSystem {
         if (queued != null) {
             if (!queued.pending().placement().dimension().equals(
                     player.serverLevel().dimension())
-                || distanceSquared(
-                    player.position(), queued.pending().placement().trigger()
-                ) > queued.stayRadiusSquared()
+                || !touchesEntrance(
+                    player.position(), queued.pending().placement(),
+                    queued.stayRadiusSquared()
+                )
                 || BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
                 cancelQueuedEntry(
                     player,
@@ -362,8 +378,9 @@ final class DungeonSystem {
         }
         PlacedEntrance touching = ACTIVE_ENTRANCES.values().stream()
             .filter(placed -> placed.dimension().equals(player.serverLevel().dimension()))
-            .filter(placed -> distanceSquared(player.position(), placed.trigger())
-                <= ENTRANCE_RADIUS_SQUARED)
+            .filter(placed -> touchesEntrance(
+                player.position(), placed, ENTRANCE_RADIUS_SQUARED
+            ))
             .findFirst().orElse(null);
         String previous = INSIDE_ENTRANCES.get(player.getUUID());
         if (touching == null) {
@@ -602,8 +619,9 @@ final class DungeonSystem {
         if (pending == null
             || !pending.ref().entrance().entranceId().equals(entranceId)
             || !pending.placement().dimension().equals(player.serverLevel().dimension())
-            || distanceSquared(player.position(), pending.placement().trigger())
-                > ENTRANCE_RADIUS_SQUARED) {
+            || !touchesEntrance(
+                player.position(), pending.placement(), ENTRANCE_RADIUS_SQUARED
+            )) {
             player.sendSystemMessage(Component.literal(
                 "입구에서 멀어졌거나 입장 요청이 만료되었습니다."
             ));
@@ -4055,6 +4073,22 @@ final class DungeonSystem {
         return target.distToCenterSqr(position.x, position.y, position.z);
     }
 
+    private static boolean touchesEntrance(
+        Vec3 position, PlacedEntrance entrance, double radiusSquared
+    ) {
+        return isNearAnyEntranceTrigger(
+            position, entrance.triggerBlocks(), radiusSquared
+        );
+    }
+
+    static boolean isNearAnyEntranceTrigger(
+        Vec3 position, Set<BlockPos> triggerBlocks, double radiusSquared
+    ) {
+        return triggerBlocks.stream().anyMatch(
+            trigger -> distanceSquared(position, trigger) <= radiusSquared
+        );
+    }
+
     record DungeonEntranceRef(
         DungeonDefinition definition,
         DungeonDefinition.Entrance entrance
@@ -4072,8 +4106,16 @@ final class DungeonSystem {
         String entranceId,
         ResourceKey<Level> dimension,
         BlockPos trigger,
+        Set<BlockPos> triggerBlocks,
         BlockPos safeReturn
-    ) {}
+    ) {
+        private PlacedEntrance(
+            String entranceId, ResourceKey<Level> dimension,
+            BlockPos trigger, BlockPos safeReturn
+        ) {
+            this(entranceId, dimension, trigger, Set.of(trigger.immutable()), safeReturn);
+        }
+    }
 
     private record PendingEntry(DungeonEntranceRef ref, PlacedEntrance placement) {}
 

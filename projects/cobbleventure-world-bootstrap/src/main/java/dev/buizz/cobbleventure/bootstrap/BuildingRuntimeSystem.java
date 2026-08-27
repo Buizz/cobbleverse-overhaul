@@ -167,7 +167,7 @@ final class BuildingRuntimeSystem {
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedGachaMachines, "exterior"
         );
-        registerDungeonEntrances(level, metadata, origin.toBlockPos(), rotation);
+        registerDungeonEntrances(level, structure, metadata, origin.toBlockPos(), rotation);
         if (settings != null && settings.noInteriorSpace) {
             return;
         }
@@ -843,7 +843,8 @@ final class BuildingRuntimeSystem {
     }
 
     private static void registerDungeonEntrances(
-        ServerLevel level, StructureMetadata metadata, BlockPos origin, Rotation rotation
+        ServerLevel level, String structure, StructureMetadata metadata,
+        BlockPos origin, Rotation rotation
     ) {
         for (Anchor anchor : metadata.anchors) {
             if (!anchor.type.equals("dungeon_entrance")
@@ -854,8 +855,13 @@ final class BuildingRuntimeSystem {
             BlockPos safeReturn = anchor.safeSpawn == null
                 ? trigger.relative(rotation.rotate(anchor.facing).getOpposite())
                 : transform(origin, anchor.safeSpawn, rotation);
+            Set<BlockPos> triggerBlocks = connectedBarrierBlocks(
+                level, structure, origin, rotation, anchor
+            );
             DungeonSystem.registerBuildingPlacement(
-                level, anchor.dungeonEntrance, trigger, safeReturn
+                level, anchor.dungeonEntrance, trigger,
+                triggerBlocks.isEmpty() ? Set.of(trigger) : triggerBlocks,
+                safeReturn
             );
         }
     }
@@ -1153,7 +1159,9 @@ final class BuildingRuntimeSystem {
                 interiorsLevel, metadata, origin, Rotation.NONE,
                 instanceKey + "|" + interior.key, settings.fixedGachaMachines, interior.key
             );
-            registerDungeonEntrances(interiorsLevel, metadata, origin, Rotation.NONE);
+            registerDungeonEntrances(
+                interiorsLevel, interior.structure, metadata, origin, Rotation.NONE
+            );
             index++;
         }
 
@@ -1493,10 +1501,19 @@ final class BuildingRuntimeSystem {
     private static Set<BlockPos> transitionBlocks(
         SpaceInstance space, Anchor anchor
     ) {
-        ResourceLocation structureId = ResourceLocation.tryParse(space.structure);
+        return connectedBarrierBlocks(
+            space.level, space.structure, space.origin, space.rotation, anchor
+        );
+    }
+
+    private static Set<BlockPos> connectedBarrierBlocks(
+        ServerLevel level, String structure, BlockPos origin,
+        Rotation rotation, Anchor anchor
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
         var template = structureId == null
             ? java.util.Optional.<StructureTemplate>empty()
-            : space.level.getStructureManager().get(structureId);
+            : level.getStructureManager().get(structureId);
         if (template.isEmpty()) return Set.of();
         Set<BlockPos> barriers = template.orElseThrow().filterBlocks(
             BlockPos.ZERO, new StructurePlaceSettings(), Blocks.BARRIER
@@ -1512,7 +1529,7 @@ final class BuildingRuntimeSystem {
             if (connected.size() > 4096) {
                 LOGGER.error(
                     "Building transition barrier region is too large: structure={}, anchor={}",
-                    space.structure, anchor.id
+                    structure, anchor.id
                 );
                 return Set.of();
             }
@@ -1522,7 +1539,7 @@ final class BuildingRuntimeSystem {
             }
         }
         return connected.stream().map(local -> transform(
-            space.origin, local, space.rotation
+            origin, local, rotation
         )).collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
