@@ -1992,8 +1992,17 @@ final class DungeonSystem {
                     + encounter.id()
             );
         }
-        if (entityRef.opponentIndex() == 1) {
-            Collections.swap(trainerIds, 0, 1);
+        List<UUID> opponentEntityIds = new ArrayList<>(2);
+        for (int index = 0; index < 2; index++) {
+            Entity trainerEntity = index == entityRef.opponentIndex()
+                ? opponent : generatedEncounterEntity(run, encounter, index);
+            if (!(trainerEntity instanceof LivingEntity) || !trainerEntity.isAlive()) {
+                throw new IllegalStateException(
+                    "Dungeon cooperative trainer entity is missing: "
+                        + encounter.id() + "[" + index + "]"
+                );
+            }
+            opponentEntityIds.add(trainerEntity.getUUID());
         }
 
         runtime.statusById.put(encounter.id(), EncounterStatus.STARTING);
@@ -2005,7 +2014,7 @@ final class DungeonSystem {
         gatherEncounterPlayers(players, opponent.position(), run);
         String command = DungeonCooperativeBattleCommand.build(
             players.get(0).getGameProfile().getName(),
-            players.get(1).getGameProfile().getName(), trainerIds,
+            players.get(1).getGameProfile().getName(), opponentEntityIds, trainerIds,
             definition.battleRules().allowItems()
         );
         try {
@@ -2080,6 +2089,7 @@ final class DungeonSystem {
 
         EncounterRuntime runtime = run.encounters();
         List<String> trainerIds = new ArrayList<>();
+        List<UUID> opponentEntityIds = new ArrayList<>();
         DungeonGeneratedTrainer.Result firstGenerated = null;
         try {
             for (int index = 0; index < encounter.actorCount(); index++) {
@@ -2091,6 +2101,7 @@ final class DungeonSystem {
                             + encounter.id() + "[" + index + "]"
                     );
                 }
+                opponentEntityIds.add(entity.getUUID());
                 DungeonGeneratedTrainer.Result generated = DungeonGeneratedTrainer.generate(
                     encounter.generatedTrainer(), definition.difficulty(),
                     run.seed() ^ ((long) encounter.id().hashCode() << 32) ^ index
@@ -2130,7 +2141,7 @@ final class DungeonSystem {
         String command = players.size() == 2
             ? DungeonCooperativeBattleCommand.build(
                 players.get(0).getGameProfile().getName(),
-                players.get(1).getGameProfile().getName(), trainerIds,
+                players.get(1).getGameProfile().getName(), opponentEntityIds, trainerIds,
                 definition.battleRules().allowItems()
             )
             : "tbcs battle GEN_9_SINGLES "
