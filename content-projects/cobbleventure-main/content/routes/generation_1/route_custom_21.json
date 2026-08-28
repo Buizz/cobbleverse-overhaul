@@ -1,0 +1,33 @@
+{
+  "$schema": "../../schemas/route.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:route/route_custom_21",
+  "display_name": { "ko_kr": "포켓몬리그 관문길 (23번도로)", "en_us": "Pokemon League Gate Road (Route 23)" },
+  "auto_name": false,
+  "enabled": true,
+  "route_type": "road",
+  "corridor": { "width_blocks": 12, "edge_noise": 0 },
+  "level_scaling": { "mode": "world", "offset": 0 },
+  "pokemon_spawns": {
+    "inherit_biome": false,
+    "excluded_species": [],
+    "additions": [
+      { "species": "cobblemon:mankey", "min_level": 32, "max_level": 34, "weight": 30 },
+      { "species": "cobblemon:fearow", "min_level": 40, "max_level": 44, "weight": 25, "spawn_as_evolved": true },
+      { "species": "cobblemon:ekans", "min_level": 32, "max_level": 34, "weight": 20 },
+      { "species": "cobblemon:spearow", "min_level": 32, "max_level": 34, "weight": 15 },
+      { "species": "cobblemon:primeape", "min_level": 42, "max_level": 42, "weight": 5, "spawn_as_evolved": true },
+      { "species": "cobblemon:arbok", "min_level": 44, "max_level": 44, "weight": 5, "spawn_as_evolved": true }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:mankey", "min_level": 32, "max_level": 34 },
+      { "species": "cobblemon:fearow", "min_level": 40, "max_level": 44 },
+      { "species": "cobblemon:ekans", "min_level": 32, "max_level": 34 },
+      { "species": "cobblemon:spearow", "min_level": 32, "max_level": 34 },
+      { "species": "cobblemon:primeape", "min_level": 42, "max_level": 42 },
+      { "species": "cobblemon:arbok", "min_level": 44, "max_level": 44 }
+    ]
+  },
+  "npc_placements": [],
+  "automatic_npc_placement": { "enabled": false, "count": 0, "use_biome_defaults": false }
+}

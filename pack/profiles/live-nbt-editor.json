@@ -31,6 +31,13 @@
     { "projectID": 1581357, "fileID": 8283427, "required": true },
     { "projectID": 302113, "fileID": 8515718, "required": true }
   ],
+  "local_resourcepacks": [
+    {
+      "source": "local-assets/Cobbleventure-Pokemon-Paintings.zip",
+      "target": "Cobbleventure-Pokemon-Paintings.zip",
+      "pack_format": 34
+    }
+  ],
   "overrides_directory": "pack/overrides/live-nbt-editor",
   "output": "dist/cobbleventure-live-nbt-editor-0.1.0-curseforge.zip"
 }

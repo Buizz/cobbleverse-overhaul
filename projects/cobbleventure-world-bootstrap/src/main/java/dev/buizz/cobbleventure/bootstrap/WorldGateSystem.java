@@ -208,7 +208,8 @@ final class WorldGateSystem {
         int halfOpening = gate.openingWidth() / 2;
         boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
         int halfLength = gateBoundaryHalfLength(world, gate, halfOpening);
-        int halfThickness = gate.wallThickness() / 2;
+        int halfThickness = gate.wallThickness() / 2
+            + (gate.buildingEnabled() ? 4 : 0);
         int centerY = groundY(level, center.x(), center.z());
         Map<Long, Integer> wallGroundHeights = new HashMap<>();
         if (forestGate) {
@@ -325,10 +326,68 @@ final class WorldGateSystem {
         if (gate.destinationForest() != null) {
             return world.grid().worldCenter(gate.anchor());
         }
-        return gateEdgeCenter(
+        CobbleventureBootstrap.Point edge = gateEdgeCenter(
             world.grid(), gate.anchor(), gate.facing(),
             offset -> gateFaceIsOpen(world, gate.anchor(), offset)
         );
+        CobbleventureBootstrap.Point tile = world.grid().worldCenter(gate.anchor());
+        double towardCenterX = tile.x() - edge.x();
+        double towardCenterZ = tile.z() - edge.z();
+        double distance = Math.hypot(towardCenterX, towardCenterZ);
+        int inset = gate.buildingEnabled() ? 10 : 5;
+        CobbleventureBootstrap.Point insetCenter = distance < 1.0D
+            ? edge
+            : new CobbleventureBootstrap.Point(
+                roundGateCoordinate(edge.x() + towardCenterX / distance * inset),
+                roundGateCoordinate(edge.z() + towardCenterZ / distance * inset)
+            );
+        if ((gate.facing().equals("north") || gate.facing().equals("south"))
+            && gateFaceOffsets(gate.facing()).stream()
+                .filter(offset -> gateFaceIsOpen(world, gate.anchor(), offset))
+                .count() != 1L) {
+            return insetCenter;
+        }
+        return snapGateToRouteCenterline(world, gate, insetCenter);
+    }
+
+    private static CobbleventureBootstrap.Point snapGateToRouteCenterline(
+        HexWorldPlan world, Gate gate, CobbleventureBootstrap.Point candidate
+    ) {
+        Direction normal = facingDirection(gate.facing());
+        double maximumDistance = world.grid().radius() * 0.8D;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        double bestX = candidate.x();
+        double bestZ = candidate.z();
+        for (WorldPlanModels.ConnectionPath path : world.paths()) {
+            if (!path.cells().contains(gate.anchor())) continue;
+            List<CobbleventureBootstrap.Point> points = path.centerline();
+            for (int index = 1; index < points.size(); index++) {
+                CobbleventureBootstrap.Point start = points.get(index - 1);
+                CobbleventureBootstrap.Point end = points.get(index);
+                double dx = end.x() - start.x();
+                double dz = end.z() - start.z();
+                double lengthSquared = dx * dx + dz * dz;
+                if (lengthSquared < 1.0D) continue;
+                double projection = ((candidate.x() - start.x()) * dx
+                    + (candidate.z() - start.z()) * dz) / lengthSquared;
+                projection = Math.max(0.0D, Math.min(1.0D, projection));
+                double projectedX = start.x() + dx * projection;
+                double projectedZ = start.z() + dz * projection;
+                double projectedDistance = Math.hypot(
+                    projectedX - candidate.x(), projectedZ - candidate.z()
+                );
+                if (projectedDistance <= maximumDistance
+                    && projectedDistance < bestDistance) {
+                    bestDistance = projectedDistance;
+                    bestX = projectedX;
+                    bestZ = projectedZ;
+                }
+            }
+        }
+        if (!Double.isFinite(bestDistance)) return candidate;
+        return normal.getAxis() == Direction.Axis.X
+            ? new CobbleventureBootstrap.Point(candidate.x(), roundGateCoordinate(bestZ))
+            : new CobbleventureBootstrap.Point(roundGateCoordinate(bestX), candidate.z());
     }
 
     static CobbleventureBootstrap.Point gateEdgeCenter(
@@ -393,6 +452,10 @@ final class WorldGateSystem {
         int openFaces = (int) gateFaceOffsets(gate.facing()).stream()
             .filter(offset -> gateFaceIsOpen(world, gate.anchor(), offset))
             .count();
+        if (gate.buildingEnabled()
+            && (gate.facing().equals("north") || gate.facing().equals("south"))) {
+            openFaces = 2;
+        }
         return gateBoundaryHalfLength(
             world.grid().radius(), gate.facing(), openFaces, halfOpening
         );
@@ -606,7 +669,8 @@ final class WorldGateSystem {
         CobbleventureBootstrap.Point center, Direction normal, Direction sideways,
         int halfLength, int halfThickness, int halfOpening
     ) {
-        if (gate.facing().equals("north") || gate.facing().equals("south")) {
+        if (!gate.buildingEnabled()
+            && (gate.facing().equals("north") || gate.facing().equals("south"))) {
             placeNorthSouthNaturalGateEdges(
                 level, world, gate, center, halfThickness, halfOpening
             );
@@ -914,6 +978,8 @@ final class WorldGateSystem {
     ) {
         Direction normal = facingDirection(gate.facing());
         Direction sideways = normal.getClockWise();
+        StructureFootprint protectedFootprint = footprint == null
+            ? null : footprint.expanded(5);
         for (int sign : new int[] {-1, 1}) {
             int outwardX = normal.getStepX() * sign;
             int outwardZ = normal.getStepZ() * sign;
@@ -933,7 +999,7 @@ final class WorldGateSystem {
                 for (int lateral = -1; lateral <= 1; lateral++) {
                     int x = roadX + sideways.getStepX() * lateral;
                     int z = roadZ + sideways.getStepZ() * lateral;
-                    if (footprint != null && footprint.contains(x, z)) {
+                    if (protectedFootprint != null && protectedFootprint.contains(x, z)) {
                         continue;
                     }
                     int groundY = CobbleventureBootstrap.prepareWorldRoadColumn(
@@ -1996,6 +2062,13 @@ final class WorldGateSystem {
         private boolean containsInterior(int x, int z, int margin) {
             return x >= minX + margin && x <= maxX - margin
                 && z >= minZ + margin && z <= maxZ - margin;
+        }
+
+        private StructureFootprint expanded(int margin) {
+            return new StructureFootprint(
+                minX - margin, minZ - margin,
+                maxX + margin, maxZ + margin
+            );
         }
     }
 

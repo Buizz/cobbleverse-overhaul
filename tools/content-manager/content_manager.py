@@ -10692,6 +10692,29 @@ def _create_document(
     return _save_document(root, category, relative_path, document)
 
 
+def _decode_build_output(value: bytes | str | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    decoded: list[str] = []
+    for line in value.splitlines(keepends=True):
+        try:
+            decoded.append(line.decode("utf-8"))
+        except UnicodeDecodeError:
+            decoded.append(line.decode("cp949", errors="replace"))
+    return "".join(decoded)
+
+
+def _build_process_environment(project_root: Path) -> dict[str, str]:
+    return {
+        **os.environ,
+        "COBBLEVENTURE_PROJECT_PATH": str(project_root),
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+    }
+
+
 def _run_build(
     core_root: Path, project_root: Path, command: str, language: str = "ko_kr",
     cobblemon_target: str = "1.7.3",
@@ -10726,20 +10749,19 @@ def _run_build(
             ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), command, language],
             cwd=core_root,
             env={
-                **os.environ,
-                "COBBLEVENTURE_PROJECT_PATH": str(project_root),
+                **_build_process_environment(project_root),
                 "COBBLEVENTURE_EXPORT_LANGUAGE": language,
                 "COBBLEVENTURE_COBBLEMON_TARGET": cobblemon_target,
             },
             capture_output=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=300,
             check=False,
         )
+        stdout = _decode_build_output(completed.stdout)
+        stderr = _decode_build_output(completed.stderr)
         output = "\n".join(
             part.strip()
-            for part in (music_status, completed.stdout, completed.stderr)
+            for part in (music_status, stdout, stderr)
             if part.strip()
         )
         return {
@@ -10752,7 +10774,14 @@ def _run_build(
             "output": output or "출력 없음",
         }
     except subprocess.TimeoutExpired as error:
-        output = (error.stdout or b"") if isinstance(error.stdout, bytes) else (error.stdout or "")
+        output = "\n".join(
+            part.strip()
+            for part in (
+                _decode_build_output(error.stdout),
+                _decode_build_output(error.stderr),
+            )
+            if part.strip()
+        )
         return {
             "command": command,
             "language": language,
@@ -11291,17 +11320,24 @@ def _run_structure_builder_import(
         completed = subprocess.run(
             ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), "builder-import", str(world_path)],
             cwd=core_root,
-            env={**os.environ, "COBBLEVENTURE_PROJECT_PATH": str(project_root)},
+            env=_build_process_environment(project_root),
             capture_output=True,
-            encoding="cp949",
-            errors="replace",
             timeout=120,
             check=False,
         )
     except subprocess.TimeoutExpired as error:
-        output = (error.stdout or b"") if isinstance(error.stdout, bytes) else (error.stdout or "")
+        output = "\n".join(
+            part.strip()
+            for part in (
+                _decode_build_output(error.stdout),
+                _decode_build_output(error.stderr),
+            )
+            if part.strip()
+        )
         return {"success": False, "return_code": None, "output": f"2분 제한 시간을 초과했습니다.\n{output}"}
-    output = "\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part.strip())
+    stdout = _decode_build_output(completed.stdout)
+    stderr = _decode_build_output(completed.stderr)
+    output = "\n".join(part.strip() for part in (stdout, stderr) if part.strip())
     return {
         "success": completed.returncode == 0,
         "return_code": completed.returncode,
@@ -11328,23 +11364,28 @@ def _run_structure_builder_sync(
                 "builder-sync", str(instance),
             ],
             cwd=core_root,
-            env={**os.environ, "COBBLEVENTURE_PROJECT_PATH": str(project_root)},
+            env=_build_process_environment(project_root),
             capture_output=True,
-            encoding="cp949",
-            errors="replace",
             timeout=600,
             check=False,
         )
     except subprocess.TimeoutExpired as error:
-        output = (error.stdout or b"") if isinstance(error.stdout, bytes) else (error.stdout or "")
+        output = "\n".join(
+            part.strip()
+            for part in (
+                _decode_build_output(error.stdout),
+                _decode_build_output(error.stderr),
+            )
+            if part.strip()
+        )
         return {
             "success": False,
             "return_code": None,
             "output": f"10분 제한 시간을 초과했습니다.\n{output}",
         }
-    output = "\n".join(
-        part.strip() for part in (completed.stdout, completed.stderr) if part.strip()
-    )
+    stdout = _decode_build_output(completed.stdout)
+    stderr = _decode_build_output(completed.stderr)
+    output = "\n".join(part.strip() for part in (stdout, stderr) if part.strip())
     return {
         "success": completed.returncode == 0,
         "return_code": completed.returncode,

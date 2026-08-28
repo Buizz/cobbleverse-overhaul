@@ -267,6 +267,8 @@ call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" syncBuilderWorld --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%STRUCTURE_BUILDER_PROFILE%"
 exit /b %errorlevel%
 
@@ -285,6 +287,8 @@ if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" syncBuilderWorld --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." deploy "%~2"
+if errorlevel 1 exit /b %errorlevel%
+call :sync_painting_pack "%~2"
 exit /b %errorlevel%
 
 :live_editor_world
@@ -293,6 +297,8 @@ if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" syncLiveEditorWorld --no-configuration-cache
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%LIVE_NBT_EDITOR_PROFILE%"
 exit /b %errorlevel%
@@ -314,6 +320,17 @@ if errorlevel 1 exit /b %errorlevel%
 xcopy /E /I /Y "%REPO_ROOT%pack\overrides\live-nbt-editor\config" "%~2\config" >nul
 if errorlevel 1 exit /b %errorlevel%
 xcopy /E /I /Y "%REPO_ROOT%pack\overrides\live-nbt-editor\saves\Cobbleventure Live NBT Editor" "%~2\saves\Cobbleventure Live NBT Editor" >nul
+if errorlevel 1 exit /b %errorlevel%
+call :sync_painting_pack "%~2"
+exit /b %errorlevel%
+
+:sync_painting_pack
+%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
+if errorlevel 1 exit /b %errorlevel%
+set "PAINTING_PACK_TARGET=%~1\config\paxi\resourcepacks"
+if not exist "%PAINTING_PACK_TARGET%" mkdir "%PAINTING_PACK_TARGET%"
+if errorlevel 1 exit /b %errorlevel%
+copy /Y "%REPO_ROOT%local-assets\Cobbleventure-Pokemon-Paintings.zip" "%PAINTING_PACK_TARGET%\Cobbleventure-Pokemon-Paintings.zip" >nul
 exit /b %errorlevel%
 
 :help_error

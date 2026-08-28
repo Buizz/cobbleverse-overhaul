@@ -35,12 +35,6 @@
         "south": {
           "texture": "#white",
           "cullface": "south"
-        },
-        "west": {
-          "texture": "#white"
-        },
-        "east": {
-          "texture": "#white"
         }
       }
     },
@@ -187,72 +181,6 @@
         16,
         14,
         16
-      ],
-      "faces": {
-        "down": {
-          "texture": "#white"
-        },
-        "up": {
-          "texture": "#white"
-        },
-        "north": {
-          "texture": "#white"
-        },
-        "south": {
-          "texture": "#white"
-        },
-        "west": {
-          "texture": "#white"
-        },
-        "east": {
-          "texture": "#white"
-        }
-      }
-    },
-    {
-      "name": "left_rim",
-      "from": [
-        0,
-        10,
-        3
-      ],
-      "to": [
-        2,
-        13,
-        14
-      ],
-      "faces": {
-        "down": {
-          "texture": "#white"
-        },
-        "up": {
-          "texture": "#white"
-        },
-        "north": {
-          "texture": "#white"
-        },
-        "south": {
-          "texture": "#white"
-        },
-        "west": {
-          "texture": "#white"
-        },
-        "east": {
-          "texture": "#white"
-        }
-      }
-    },
-    {
-      "name": "right_rim",
-      "from": [
-        14,
-        10,
-        3
-      ],
-      "to": [
-        16,
-        13,
-        14
       ],
       "faces": {
         "down": {

@@ -82,6 +82,13 @@
       "required": true
     }
   ],
+  "local_resourcepacks": [
+    {
+      "source": "local-assets/Cobbleventure-Pokemon-Paintings.zip",
+      "target": "Cobbleventure-Pokemon-Paintings.zip",
+      "pack_format": 34
+    }
+  ],
   "overrides_directory": "pack/overrides/structure-builder",
   "output": "dist/cobbleventure-structure-builder-0.1.0-curseforge.zip"
 }

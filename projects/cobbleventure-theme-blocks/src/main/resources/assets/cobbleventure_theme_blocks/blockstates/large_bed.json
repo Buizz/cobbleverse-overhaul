@@ -13,13 +13,13 @@
     { "when":{"facing":"south","length":"2"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_head","uvlock":true,"y":180} },
     { "when":{"facing":"west","length":"2"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_head","uvlock":true,"y":270} },
 
-    { "when":{"facing":"north","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true} },
-    { "when":{"facing":"east","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true,"y":90} },
-    { "when":{"facing":"south","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true,"y":180} },
-    { "when":{"facing":"west","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true,"y":270} },
-    { "when":{"facing":"north","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true} },
-    { "when":{"facing":"east","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true,"y":90} },
-    { "when":{"facing":"south","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true,"y":180} },
-    { "when":{"facing":"west","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true,"y":270} }
+    { "when":{"facing":"north","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true} },
+    { "when":{"facing":"east","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true,"y":90} },
+    { "when":{"facing":"south","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true,"y":180} },
+    { "when":{"facing":"west","width":"0"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_right_side","uvlock":true,"y":270} },
+    { "when":{"facing":"north","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true} },
+    { "when":{"facing":"east","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true,"y":90} },
+    { "when":{"facing":"south","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true,"y":180} },
+    { "when":{"facing":"west","width":"1"}, "apply":{"model":"cobbleventure_theme_blocks:block/large_bed_left_side","uvlock":true,"y":270} }
   ]
 }

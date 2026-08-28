@@ -456,6 +456,26 @@ class DataModBuilderTests(unittest.TestCase):
         for cell_count in (1, 3, 5, 7, 19):
             self.assertEqual((0, 0), build_data_mod._town_layout_hub(cell_count))
 
+    def test_grid_layout_has_both_center_axis_roads(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/saffron_city.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        layout = build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
+        hub_x, hub_z = layout["hub"]["x"], layout["hub"]["z"]
+
+        self.assertTrue(any(
+            road["x1"] == road["x2"] == hub_x
+            and min(road["z1"], road["z2"]) < hub_z < max(road["z1"], road["z2"])
+            for road in layout["roads"]
+        ))
+        self.assertTrue(any(
+            road["z1"] == road["z2"] == hub_z
+            and min(road["x1"], road["x2"]) < hub_x < max(road["x1"], road["x2"])
+            for road in layout["roads"]
+        ))
+
     def test_multi_tile_towns_extend_an_internal_street_through_each_outer_cell(self) -> None:
         source = json.loads(
             (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(

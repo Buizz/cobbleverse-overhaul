@@ -16,7 +16,6 @@ class GenerationOneWildEncounterTests(unittest.TestCase):
         "route_custom_03": {"pidgey": (2, 5), "rattata": (2, 4)},
         "route_custom_04": {"caterpie": (3, 5), "pidgey": (3, 5), "rattata": (2, 5), "weedle": (3, 5)},
         "route_viridian_forest_north": {"caterpie": (3, 5), "pidgey": (3, 5), "rattata": (2, 5), "weedle": (3, 5)},
-        "route_custom_05": {"arbok": (41, 41), "ditto": (33, 43), "ekans": (26, 26), "fearow": (38, 43), "nidoranf": (2, 4), "nidoranm": (2, 4), "rattata": (2, 4), "sandshrew": (26, 26), "sandslash": (41, 41), "spearow": (3, 26)},
         "route_custom_06": {"bellsprout": (19, 22), "growlithe": (18, 20), "mankey": (17, 20), "meowth": (17, 20), "oddish": (19, 22), "pidgey": (19, 22), "vulpix": (18, 20)},
         "route_custom_07": {"doduo": (18, 28), "fearow": (25, 29), "raticate": (23, 29), "rattata": (18, 22), "spearow": (20, 22)},
         "route_custom_08": {"tentacool": (5, 40)},

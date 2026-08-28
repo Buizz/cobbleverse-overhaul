@@ -3458,6 +3458,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('<span>배치 가장자리</span>', page)
         self.assertIn('북·남은 양쪽 이동 가능 면이 열리면 중앙', page)
         self.assertIn('function gateMapPoint(gate)', script)
+        self.assertIn('function alignGateMapPoint(gate, edge)', script)
         self.assertIn('function gateMapBoundaryHalfSpan(gate)', script)
         self.assertIn('function gateMapBoundaryMarkup(gate)', script)
         self.assertIn('class="gate-boundary-segment"', script)
@@ -3504,6 +3505,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("function undergroundEntranceMapLabel(entrance)", script)
         self.assertIn("settlement?.name ? `${settlement.name} 지하입구`", script)
         self.assertIn('teleport_to_gate: "관문으로 이동"', script)
+        self.assertIn("cell.q === gate.anchor.q && cell.r === gate.anchor.r", script)
 
     def test_world_object_inspector_is_separate_from_gate_properties(self) -> None:
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
@@ -3539,6 +3541,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("placeNaturalGateWedges", runtime)
         self.assertIn("placeNorthSouthNaturalGateEdges", runtime)
         self.assertIn("addNaturalGateEdgeBand", runtime)
+        self.assertIn("snapGateToRouteCenterline", runtime)
+        self.assertIn(".count() != 1L", runtime)
+        self.assertIn("path.cells().contains(gate.anchor())", runtime)
+        self.assertIn("gate.buildingEnabled() ? 10 : 5", runtime)
+        self.assertIn("footprint.expanded(5)", runtime)
         self.assertIn("clearLegacyNaturalBarrierLine", runtime)
         self.assertIn("gateBoundaryHalfLength", runtime)
         self.assertIn("naturalGateBoundaryDepth", runtime)
@@ -6197,8 +6204,24 @@ class ContentManagerTests(unittest.TestCase):
             "1.7.3",
             runner.call_args.kwargs["env"]["COBBLEVENTURE_COBBLEMON_TARGET"],
         )
+        self.assertEqual("1", runner.call_args.kwargs["env"]["PYTHONUTF8"])
+        self.assertEqual("utf-8", runner.call_args.kwargs["env"]["PYTHONIOENCODING"])
         self.assertEqual("1.7.3", result["cobblemon_target"])
         self.assertIn("로컬 음원 자동 갱신", result["output"])
+
+    def test_build_log_decoder_supports_mixed_utf8_and_cp949_lines(self) -> None:
+        output = (
+            "[INFO] UTF-8 빌드 시작\n".encode("utf-8")
+            + "[ERROR] CP949 검사 오류\n".encode("cp949")
+            + b"plain ascii\n"
+        )
+
+        decoded = content_manager._decode_build_output(output)
+
+        self.assertIn("UTF-8 빌드 시작", decoded)
+        self.assertIn("CP949 검사 오류", decoded)
+        self.assertIn("plain ascii", decoded)
+        self.assertNotIn("�", decoded)
 
     def test_build_runner_stops_when_automatic_music_refresh_fails(self) -> None:
         with (

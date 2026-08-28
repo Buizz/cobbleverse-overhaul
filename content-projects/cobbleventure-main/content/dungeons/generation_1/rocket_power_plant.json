@@ -131,33 +131,33 @@
     },
     "additions": [
       {
-        "species": "cobblemon:magnemite",
-        "min_level": 1,
-        "max_level": 1,
-        "weight": 35
-      },
-      {
         "species": "cobblemon:voltorb",
-        "min_level": 1,
-        "max_level": 1,
+        "min_level": 22,
+        "max_level": 25,
         "weight": 30
       },
       {
-        "species": "cobblemon:grimer",
-        "min_level": 1,
-        "max_level": 1,
-        "weight": 20
+        "species": "cobblemon:magnemite",
+        "min_level": 22,
+        "max_level": 25,
+        "weight": 30
       },
       {
-        "species": "cobblemon:koffing",
-        "min_level": 1,
-        "max_level": 1,
+        "species": "cobblemon:pikachu",
+        "min_level": 22,
+        "max_level": 26,
+        "weight": 25
+      },
+      {
+        "species": "cobblemon:magneton",
+        "min_level": 31,
+        "max_level": 34,
         "weight": 10
       },
       {
         "species": "cobblemon:electabuzz",
-        "min_level": 1,
-        "max_level": 1,
+        "min_level": 32,
+        "max_level": 35,
         "weight": 5
       }
     ]

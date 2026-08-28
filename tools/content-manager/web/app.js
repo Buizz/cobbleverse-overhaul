@@ -2151,16 +2151,60 @@ function gateMapPoint(gate) {
     const tile = hexPoint(anchor.q, anchor.r); const neighbor = hexPoint(anchor.q + offset.q, anchor.r + offset.r);
     return { x: (tile.x + neighbor.x) / 2, y: (tile.y + neighbor.y) / 2 };
   };
-  if (faceOffsets.length === 1) return faceCenter(faceOffsets[0]);
-  const firstOpen = gateFaceIsOpen(gate, faceOffsets[0]);
-  const secondOpen = gateFaceIsOpen(gate, faceOffsets[1]);
-  if (firstOpen !== secondOpen) return faceCenter(firstOpen ? faceOffsets[0] : faceOffsets[1]);
-  const tile = hexPoint(anchor.q, anchor.r);
-  return { x: tile.x, y: tile.y + (facing === "north" ? -mapHexSize() : mapHexSize()) };
+  let edge;
+  if (faceOffsets.length === 1) edge = faceCenter(faceOffsets[0]);
+  else {
+    const firstOpen = gateFaceIsOpen(gate, faceOffsets[0]);
+    const secondOpen = gateFaceIsOpen(gate, faceOffsets[1]);
+    if (firstOpen !== secondOpen) edge = faceCenter(firstOpen ? faceOffsets[0] : faceOffsets[1]);
+    else {
+      const tile = hexPoint(anchor.q, anchor.r);
+      edge = { x: tile.x, y: tile.y + (facing === "north" ? -mapHexSize() : mapHexSize()) };
+    }
+  }
+  return alignGateMapPoint(gate, edge);
+}
+function alignGateMapPoint(gate, edge) {
+  const tile = hexPoint(gate.anchor.q, gate.anchor.r);
+  const dx = tile.x - edge.x; const dy = tile.y - edge.y; const distance = Math.hypot(dx, dy);
+  const buildingEnabled = ["gate", "gate_npc"].includes(gateCenterPlacement(gate.properties));
+  const worldRadius = Number(state.worldLayout?.grid?.tile_radius_blocks) || 64;
+  const inset = (buildingEnabled ? 10 : 5) * mapHexSize() / worldRadius;
+  const candidate = distance < 1
+    ? edge
+    : { x: edge.x + dx / distance * inset, y: edge.y + dy / distance * inset };
+  const facing = gate.properties?.facing || "north";
+  if (["north", "south"].includes(facing)
+    && gateFaceOffsets(facing).filter((offset) => gateFaceIsOpen(gate, offset)).length !== 1) {
+    return candidate;
+  }
+  let nearest = null; let nearestDistance = mapHexSize() * .8;
+  for (const connection of state.worldLayout?.connections || []) {
+    const cells = connectionPath(connection);
+    if (!cells.some((cell) => cell.q === gate.anchor.q && cell.r === gate.anchor.r)) continue;
+    const points = cells.map((cell) => hexPoint(cell.q, cell.r));
+    for (let index = 1; index < points.length; index++) {
+      const start = points[index - 1]; const end = points[index];
+      const segmentX = end.x - start.x; const segmentY = end.y - start.y;
+      const lengthSquared = segmentX * segmentX + segmentY * segmentY;
+      if (lengthSquared < 1) continue;
+      const projection = Math.max(0, Math.min(1, ((candidate.x - start.x) * segmentX + (candidate.y - start.y) * segmentY) / lengthSquared));
+      const projected = { x: start.x + segmentX * projection, y: start.y + segmentY * projection };
+      const projectedDistance = Math.hypot(projected.x - candidate.x, projected.y - candidate.y);
+      if (projectedDistance < nearestDistance) { nearestDistance = projectedDistance; nearest = projected; }
+    }
+  }
+  if (!nearest) return candidate;
+  return ["north", "south"].includes(facing)
+    ? { x: nearest.x, y: candidate.y }
+    : { x: candidate.x, y: nearest.y };
 }
 function gateMapBoundaryHalfSpan(gate) {
   const facing = gate.properties?.facing || "north";
   if (["east", "west"].includes(facing)) return mapHexSize() * .5;
+  if (["gate", "gate_npc"].includes(gateCenterPlacement(gate.properties))) {
+    return mapHexSize() * Math.sqrt(3) * .5;
+  }
   const openFaces = gateFaceOffsets(facing).filter((offset) => gateFaceIsOpen(gate, offset)).length;
   return mapHexSize() * Math.sqrt(3) * (openFaces === 1 ? .25 : .5);
 }
@@ -2175,8 +2219,9 @@ function gateMapFaceTangent(facing, face) {
 }
 function gateMapBoundaryMarkup(gate) {
   const facing = gate.properties?.facing || "north";
+  const buildingEnabled = ["gate", "gate_npc"].includes(gateCenterPlacement(gate.properties));
   const naturalDiagonal = gateSurroundingType(gate.properties) === "natural"
-    && ["north", "south"].includes(facing);
+    && !buildingEnabled && ["north", "south"].includes(facing);
   if (!naturalDiagonal) {
     const horizontal = ["north", "south"].includes(facing);
     const halfSpan = gateMapBoundaryHalfSpan(gate);

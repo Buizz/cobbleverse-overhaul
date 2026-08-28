@@ -18,10 +18,91 @@
     "offset": 0
   },
   "pokemon_spawns": {
-    "inherit_biome": true,
+    "inherit_biome": false,
     "excluded_species": [],
-    "additions": [],
-    "level_overrides": []
+    "additions": [
+      {
+        "species": "cobblemon:weedle",
+        "min_level": 7,
+        "max_level": 8,
+        "weight": 20
+      },
+      {
+        "species": "cobblemon:caterpie",
+        "min_level": 7,
+        "max_level": 8,
+        "weight": 20
+      },
+      {
+        "species": "cobblemon:pidgey",
+        "min_level": 11,
+        "max_level": 13,
+        "weight": 15
+      },
+      {
+        "species": "cobblemon:oddish",
+        "min_level": 12,
+        "max_level": 14,
+        "weight": 25
+      },
+      {
+        "species": "cobblemon:abra",
+        "min_level": 8,
+        "max_level": 13,
+        "weight": 15
+      },
+      {
+        "species": "cobblemon:kakuna",
+        "min_level": 8,
+        "max_level": 9,
+        "weight": 4,
+        "spawn_as_evolved": true
+      },
+      {
+        "species": "cobblemon:metapod",
+        "min_level": 8,
+        "max_level": 9,
+        "weight": 1,
+        "spawn_as_evolved": true
+      }
+    ],
+    "level_overrides": [
+      {
+        "species": "cobblemon:weedle",
+        "min_level": 7,
+        "max_level": 8
+      },
+      {
+        "species": "cobblemon:caterpie",
+        "min_level": 7,
+        "max_level": 8
+      },
+      {
+        "species": "cobblemon:pidgey",
+        "min_level": 11,
+        "max_level": 13
+      },
+      {
+        "species": "cobblemon:oddish",
+        "min_level": 12,
+        "max_level": 14
+      },
+      {
+        "species": "cobblemon:abra",
+        "min_level": 8,
+        "max_level": 13
+      },
+      {
+        "species": "cobblemon:kakuna",
+        "min_level": 8,
+        "max_level": 9
+      },
+      {
+        "species": "cobblemon:metapod",
+        "min_level": 8,
+        "max_level": 9
+      }
+    ]
   },
   "npc_placements": [],
   "automatic_npc_placement": {

@@ -19,51 +19,13 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
     private static final MapCodec<RocketBaseMachineThreeBlock> CODEC =
         simpleCodec(RocketBaseMachineThreeBlock::new);
     static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
-    static final IntegerProperty PART = IntegerProperty.create("part", 0, 1);
-
-    private static final VoxelShape LEFT_NORTH = Shapes.or(
-        box(1.0D, 0.0D, 2.0D, 15.0D, 3.0D, 15.0D),
-        box(2.0D, 3.0D, 3.0D, 14.0D, 11.0D, 14.0D),
-        box(4.0D, 11.0D, 5.0D, 12.0D, 16.0D, 13.0D)
-    );
-    private static final VoxelShape LEFT_EAST = Shapes.or(
-        box(1.0D, 0.0D, 1.0D, 14.0D, 3.0D, 15.0D),
-        box(2.0D, 3.0D, 2.0D, 13.0D, 11.0D, 14.0D),
-        box(3.0D, 11.0D, 4.0D, 11.0D, 16.0D, 12.0D)
-    );
-    private static final VoxelShape LEFT_SOUTH = Shapes.or(
-        box(1.0D, 0.0D, 1.0D, 15.0D, 3.0D, 14.0D),
-        box(2.0D, 3.0D, 2.0D, 14.0D, 11.0D, 13.0D),
-        box(4.0D, 11.0D, 3.0D, 12.0D, 16.0D, 11.0D)
-    );
-    private static final VoxelShape LEFT_WEST = Shapes.or(
-        box(2.0D, 0.0D, 1.0D, 15.0D, 3.0D, 15.0D),
-        box(3.0D, 3.0D, 2.0D, 14.0D, 11.0D, 14.0D),
-        box(5.0D, 11.0D, 4.0D, 13.0D, 16.0D, 12.0D)
-    );
-    private static final VoxelShape RIGHT_NORTH = Shapes.or(
-        box(0.0D, 0.0D, 2.0D, 15.0D, 9.0D, 16.0D),
-        box(1.0D, 9.0D, 10.0D, 14.0D, 14.0D, 16.0D)
-    );
-    private static final VoxelShape RIGHT_EAST = Shapes.or(
-        box(0.0D, 0.0D, 0.0D, 14.0D, 9.0D, 15.0D),
-        box(0.0D, 9.0D, 1.0D, 6.0D, 14.0D, 14.0D)
-    );
-    private static final VoxelShape RIGHT_SOUTH = Shapes.or(
-        box(1.0D, 0.0D, 0.0D, 16.0D, 9.0D, 14.0D),
-        box(2.0D, 9.0D, 0.0D, 15.0D, 14.0D, 6.0D)
-    );
-    private static final VoxelShape RIGHT_WEST = Shapes.or(
-        box(2.0D, 0.0D, 1.0D, 16.0D, 9.0D, 16.0D),
-        box(10.0D, 9.0D, 2.0D, 16.0D, 14.0D, 15.0D)
-    );
+    static final IntegerProperty PART = IntegerProperty.create("part", 0, 5);
 
     RocketBaseMachineThreeBlock(Properties properties) {
         super(properties);
@@ -82,7 +44,8 @@ final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
         Direction facing = context.getHorizontalDirection().getOpposite();
         BlockPos core = context.getClickedPos();
         for (BlockPos position : positions(core, facing)) {
-            if (!context.getLevel().getBlockState(position).canBeReplaced()) {
+            if (context.getLevel().isOutsideBuildHeight(position)
+                || !context.getLevel().getBlockState(position).canBeReplaced()) {
                 return null;
             }
         }
@@ -129,7 +92,7 @@ final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
     protected BlockState mirror(BlockState state, Mirror mirror) {
         return state
             .rotate(mirror.getRotation(state.getValue(FACING)))
-            .setValue(PART, state.getValue(PART) ^ 1);
+            .setValue(PART, mirroredPart(state.getValue(PART)));
     }
 
     @Override
@@ -141,22 +104,30 @@ final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
     protected VoxelShape getShape(
         BlockState state, BlockGetter level, BlockPos position, CollisionContext context
     ) {
-        boolean left = state.getValue(PART) == 0;
-        return switch (state.getValue(FACING)) {
-            case EAST -> left ? LEFT_EAST : RIGHT_EAST;
-            case SOUTH -> left ? LEFT_SOUTH : RIGHT_SOUTH;
-            case WEST -> left ? LEFT_WEST : RIGHT_WEST;
-            default -> left ? LEFT_NORTH : RIGHT_NORTH;
-        };
+        return box(0.0D, 0.0D, 0.0D, 16.0D, 16.0D, 16.0D);
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
-        return List.of(core, core.relative(facing.getCounterClockWise()));
+        Direction right = facing.getCounterClockWise();
+        return List.of(
+            core,
+            core.relative(right),
+            core.above(),
+            core.relative(right).above(),
+            core.above(2),
+            core.relative(right).above(2)
+        );
     }
 
     private static BlockPos corePosition(BlockPos position, BlockState state) {
-        return state.getValue(PART) == 1
-            ? position.relative(state.getValue(FACING).getClockWise())
-            : position;
+        int part = state.getValue(PART);
+        BlockPos lowerPosition = position.below(part / 2);
+        return part % 2 == 1
+            ? lowerPosition.relative(state.getValue(FACING).getClockWise())
+            : lowerPosition;
+    }
+
+    private static int mirroredPart(int part) {
+        return (part / 2) * 2 + (1 - part % 2);
     }
 }

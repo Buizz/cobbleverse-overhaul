@@ -2572,8 +2572,10 @@ public final class CobbleventureBootstrap {
         switch (settlement.roadLayoutTemplate()) {
             case "grid" -> {
                 roads.add(new TownRoad(-32, -templateSpan, -32, templateSpan));
+                roads.add(new TownRoad(0, -templateSpan, 0, templateSpan));
                 roads.add(new TownRoad(32, -templateSpan, 32, templateSpan));
                 roads.add(new TownRoad(-templateSpan, -32, templateSpan, -32));
+                roads.add(new TownRoad(-templateSpan, 0, templateSpan, 0));
                 roads.add(new TownRoad(-templateSpan, 32, templateSpan, 32));
             }
             case "spine" -> {

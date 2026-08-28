@@ -1,0 +1,11 @@
+{
+  "parent":"minecraft:block/block","ambientocclusion":true,
+  "textures":{"particle":"cobbleventure_theme_blocks:block/rocket_machine_gray","gray":"cobbleventure_theme_blocks:block/rocket_machine_gray","dark":"cobbleventure_theme_blocks:block/rocket_machine_dark"},
+  "elements":[
+    {"name":"plinth","from":[1,0,2],"to":[15,3,15],"faces":{"down":{"texture":"#dark"},"up":{"texture":"#dark"},"north":{"texture":"#dark"},"south":{"texture":"#dark"},"west":{"texture":"#dark"},"east":{"texture":"#dark"}}},
+    {"name":"lower_body","from":[2,3,3],"to":[14,16,14],"faces":{"down":{"texture":"#gray"},"up":{"texture":"#gray"},"north":{"texture":"#gray"},"south":{"texture":"#gray"},"west":{"texture":"#gray"},"east":{"texture":"#gray"}}},
+    {"name":"lower_cross","from":[1,5,5],"to":[15,11,12],"faces":{"down":{"texture":"#gray"},"up":{"texture":"#gray"},"north":{"texture":"#gray"},"south":{"texture":"#gray"},"west":{"texture":"#gray"},"east":{"texture":"#gray"}}},
+    {"name":"access_panel","from":[4,5,1.75],"to":[12,13,3.25],"faces":{"down":{"texture":"#dark"},"up":{"texture":"#gray"},"north":{"texture":"#gray"},"south":{"texture":"#gray"},"west":{"texture":"#gray"},"east":{"texture":"#gray"}}},
+    {"name":"lower_connector","from":[0,6,6],"to":[4,11,11],"faces":{"down":{"texture":"#dark"},"up":{"texture":"#gray"},"north":{"texture":"#dark"},"south":{"texture":"#dark"},"west":{"texture":"#gray"},"east":{"texture":"#gray"}}}
+  ]
+}

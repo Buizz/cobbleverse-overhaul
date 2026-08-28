@@ -1,0 +1,27 @@
+{
+  "$schema": "../../schemas/route.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:route/route_custom_20",
+  "display_name": { "ko_kr": "22번도로", "en_us": "Route 22" },
+  "auto_name": false,
+  "enabled": true,
+  "route_type": "road",
+  "corridor": { "width_blocks": 12, "edge_noise": 0 },
+  "level_scaling": { "mode": "world", "offset": 0 },
+  "pokemon_spawns": {
+    "inherit_biome": false,
+    "excluded_species": [],
+    "additions": [
+      { "species": "cobblemon:rattata", "min_level": 2, "max_level": 5, "weight": 45 },
+      { "species": "cobblemon:mankey", "min_level": 2, "max_level": 5, "weight": 45 },
+      { "species": "cobblemon:spearow", "min_level": 3, "max_level": 5, "weight": 10 }
+    ],
+    "level_overrides": [
+      { "species": "cobblemon:rattata", "min_level": 2, "max_level": 5 },
+      { "species": "cobblemon:mankey", "min_level": 2, "max_level": 5 },
+      { "species": "cobblemon:spearow", "min_level": 3, "max_level": 5 }
+    ]
+  },
+  "npc_placements": [],
+  "automatic_npc_placement": { "enabled": false, "count": 0, "use_biome_defaults": false }
+}

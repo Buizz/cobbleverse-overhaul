@@ -10,7 +10,7 @@
 projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blocks build
 ```
 
-완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.17.0.jar`에 생성됩니다. Minecraft
+완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.20.0.jar`에 생성됩니다. Minecraft
 1.21.1과 NeoForge 21.1.248 이상을 사용하는 모드팩의 `mods` 폴더에 JAR를 넣어
 활성화하고, 빼서 비활성화할 수 있습니다. 다른 Cobbleventure 모드를 요구하지 않습니다.
 
@@ -31,14 +31,15 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blo
 포함하지 않습니다. 설계 참고본은
 `docs/concepts/double_glass_display_counter_reference.png`에 보관합니다.
 
-`로켓단 기지 기계 1`은 세로형 제어 캐비닛, `로켓단 기지 기계 2`는 낮은 조작대와
-후면 모니터가 결합된 콘솔입니다. 둘 다 1블록 안에 들어가는 회전형 장식이며 실제
-기능이나 GUI는 없습니다. 설계 참고본은 `docs/concepts/rocket_base_machine_1_reference.png`와
+`로켓단 기지 기계 1`은 세로형 제어 캐비닛, `로켓단 기지 기계 2`는 높은 하부 본체와
+조작대·후면 모니터가 결합된 콘솔입니다. 둘 다 1×1 바닥과 2블록 공간을 사용하는
+회전형 장식이며 아이템 하나로 위·아래 파트가 함께 설치됩니다. 실제 기능이나 GUI는
+없습니다. 설계 참고본은 `docs/concepts/rocket_base_machine_1_reference.png`와
 `docs/concepts/rocket_base_machine_2_reference.png`에 보관합니다.
 
 `로켓단 기지 기계 3`은 빨간 표시등이 있는 계단식 원통 장치와 청록색 화면이 있는
-조작 콘솔이 연결된 가로 2블록 × 세로 1블록 장식입니다. 아이템 하나로 두 파트가 함께
-설치되며 어느 쪽을 철거해도 다른 쪽이 함께 제거됩니다. 기능이나 GUI는 없고 설계
+조작 콘솔이 연결된 가로 2블록 × 높이 3블록 장식입니다. 아이템 하나로 여섯 파트가 함께
+설치되며 어느 부분을 철거해도 나머지가 함께 제거됩니다. 기능이나 GUI는 없고 설계
 참고본은 `docs/concepts/rocket_base_machine_3_reference.png`에 보관합니다.
 
 `박사 연구소 연구 장치 1`은 2×2 바닥 면적과 2블록 높이에 흰 원통형 받침, 지름이

@@ -1660,8 +1660,10 @@ def _compile_town_layout_attempt(
         flush()
 
     if road_template == "grid":
-        # 井자형: 평행한 세로·가로 도로 두 쌍.
-        for offset in (-32, 32):
+        # 3x3 격자형: 외곽 두 쌍과 중앙 X/Z축을 같이 연결한다.
+        # 중앙축이 빠지면 가운데 64x64 구역은 건물 출입구의
+        # 짧은 접근로만 남고 본선이 전혀 생성되지 않는다.
+        for offset in (-32, 0, 32):
             append_clipped_template_line("z", hub_x + offset)
             append_clipped_template_line("x", hub_z + offset)
     elif road_template == "spine":
