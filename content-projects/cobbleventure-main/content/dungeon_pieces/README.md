@@ -4,6 +4,11 @@
 `16×8×16` 크기, 커넥터 ID·좌표·방향, 마커 슬롯을 동일하게 유지한다. 따라서 같은
 배치 계획에서 스킨별 `piece_id`만 대응하는 형태로 교체할 수 있다.
 
+`standard_16`의 수평 통로와 문 개구부는 짝수 크기 조각의 중앙축(7번과 8번 블록
+사이)에 맞춘 6블록 폭의 `standard_6` 소켓을 사용한다. 바닥·벽·천장과 장식은 이
+중앙축을 기준으로 대칭이어야 하며, 이벤트 마커 위치만 콘텐츠 용도에 따라 비대칭일
+수 있다.
+
 - `cobbleventure:dungeon_kit/standard_16`: 공통 크기와 연결 규격
 - `cobbleventure:dungeon_shape/<shape>`: 시작방·통로·계단·보스방 등의 논리 형태
 - `cobbleventure:dungeon_theme/<theme>`: 로켓단·아쿠아단·자연동굴 등의 외형

@@ -32,7 +32,7 @@
         0
       ],
       "facing": "north",
-      "socket": "cobbleventure:dungeon_socket/standard_5",
+      "socket": "cobbleventure:dungeon_socket/standard_6",
       "tags": [
         "cobbleventure:dungeon_kit/standard_16"
       ]

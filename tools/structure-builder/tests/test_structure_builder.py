@@ -50,6 +50,48 @@ DUNGEON_SKIN_GENERATOR_SPEC.loader.exec_module(dungeon_piece_skin_generator)
 
 
 class StructureBuilderTests(unittest.TestCase):
+    def test_standard_dungeon_structures_are_symmetric_on_their_shape_axes(self) -> None:
+        symmetry_axes = {
+            "start": ("x", "z"), "corridor": ("x", "z"),
+            "junction": ("x", "z"), "room": ("x", "z"),
+            "encounter_room": ("x", "z"), "support": ("x", "z"),
+            "boss": ("x", "z"), "stairs_up": ("z",),
+            "stairs_down": ("z",), "dead_end": ("z",),
+            "treasure": ("x",), "exit": ("z",), "corner": ("diagonal",),
+        }
+        for shape_name, axes in symmetry_axes.items():
+            payload = dungeon_piece_skin_generator._build_nbt(
+                shape_name,
+                dungeon_piece_skin_generator.SHAPES[shape_name],
+                dungeon_piece_skin_generator.SKINS["rocket"],
+            )
+            size, palette, blocks = content_manager._minecraft_structure_parts(payload)
+            states = {tuple(block["pos"]): palette[block["state"]] for block in blocks}
+            width, height, depth = size
+            for axis in axes:
+                with self.subTest(shape=shape_name, axis=axis):
+                    for x in range(width):
+                        for y in range(height):
+                            for z in range(depth):
+                                mirrored = {
+                                    "x": (width - 1 - x, y, z),
+                                    "z": (x, y, depth - 1 - z),
+                                    "diagonal": (width - 1 - z, y, depth - 1 - x),
+                                }[axis]
+                                self.assertEqual(states.get((x, y, z)), states.get(mirrored))
+
+    def test_standard_dungeon_openings_use_symmetric_even_width(self) -> None:
+        room = dungeon_piece_skin_generator.SHAPES["room"]
+        footprint = dungeon_piece_skin_generator._footprint(room)
+
+        self.assertEqual(set(range(5, 11)), {z for x, z in footprint if x == 0})
+        self.assertEqual(set(range(5, 11)), {x for x, z in footprint if z == 0})
+        definition = dungeon_piece_skin_generator._definition("room", room, "rocket")
+        self.assertEqual(
+            {"cobbleventure:dungeon_socket/standard_6"},
+            {connector["socket"] for connector in definition["connectors"]},
+        )
+
     def test_dungeon_piece_skins_share_the_same_shape_contract(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

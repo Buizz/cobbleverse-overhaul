@@ -26,7 +26,7 @@
         7
       ],
       "facing": "west",
-      "socket": "cobbleventure:dungeon_socket/standard_5",
+      "socket": "cobbleventure:dungeon_socket/standard_6",
       "tags": [
         "cobbleventure:dungeon_kit/standard_16"
       ]
@@ -39,7 +39,7 @@
         7
       ],
       "facing": "east",
-      "socket": "cobbleventure:dungeon_socket/standard_5",
+      "socket": "cobbleventure:dungeon_socket/standard_6",
       "tags": [
         "cobbleventure:dungeon_kit/standard_16"
       ]
@@ -52,7 +52,7 @@
         0
       ],
       "facing": "north",
-      "socket": "cobbleventure:dungeon_socket/standard_5",
+      "socket": "cobbleventure:dungeon_socket/standard_6",
       "tags": [
         "cobbleventure:dungeon_kit/standard_16"
       ]
@@ -65,7 +65,7 @@
         15
       ],
       "facing": "south",
-      "socket": "cobbleventure:dungeon_socket/standard_5",
+      "socket": "cobbleventure:dungeon_socket/standard_6",
       "tags": [
         "cobbleventure:dungeon_kit/standard_16"
       ]

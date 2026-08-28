@@ -13,7 +13,8 @@ from generate_underground_road_modules import serialize_structure
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = Path("content-projects/cobbleventure-main")
 SIZE = (16, 8, 16)
-SOCKET = "cobbleventure:dungeon_socket/standard_5"
+CORRIDOR_WIDTH = 6
+SOCKET = "cobbleventure:dungeon_socket/standard_6"
 KIT_TAG = "cobbleventure:dungeon_kit/standard_16"
 
 
@@ -106,22 +107,31 @@ SKINS = {
 }
 
 
-def _arms(directions: tuple[str, ...], half_width: int = 2, size: tuple[int, int, int] = SIZE) -> set[tuple[int, int]]:
+def _center_span(length: int, width: int = CORRIDOR_WIDTH) -> range:
+    """Return a block span centred on the half-block axis of an even-sized piece."""
+    if width <= 0 or width > length or (length - width) % 2:
+        raise ValueError(f"Cannot centre width {width} in length {length}")
+    start = (length - width) // 2
+    return range(start, start + width)
+
+
+def _arms(directions: tuple[str, ...], size: tuple[int, int, int] = SIZE) -> set[tuple[int, int]]:
     width, _, depth = size
-    cx, cz = (width - 1) // 2, (depth - 1) // 2
+    center_x = _center_span(width)
+    center_z = _center_span(depth)
     cells = {
         (x, z)
-        for x in range(cx - half_width, cx + half_width + 1)
-        for z in range(cz - half_width, cz + half_width + 1)
+        for x in center_x
+        for z in center_z
     }
     if "west" in directions:
-        cells.update((x, z) for x in range(0, cx + 1) for z in range(cz - half_width, cz + half_width + 1))
+        cells.update((x, z) for x in range(0, center_x.stop) for z in center_z)
     if "east" in directions:
-        cells.update((x, z) for x in range(cx, width) for z in range(cz - half_width, cz + half_width + 1))
+        cells.update((x, z) for x in range(center_x.start, width) for z in center_z)
     if "north" in directions:
-        cells.update((x, z) for x in range(cx - half_width, cx + half_width + 1) for z in range(0, cz + 1))
+        cells.update((x, z) for x in center_x for z in range(0, center_z.stop))
     if "south" in directions:
-        cells.update((x, z) for x in range(cx - half_width, cx + half_width + 1) for z in range(cz, depth))
+        cells.update((x, z) for x in center_x for z in range(center_z.start, depth))
     return cells
 
 
@@ -156,7 +166,10 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
     blocks = {}
     air = _block("minecraft:air")
     for x, z in footprint:
-        floor = skin["floor_alt"] if (x * 13 + z * 7) % 17 == 0 else skin["floor"]
+        symmetric_x = min(x, width - 1 - x)
+        symmetric_z = min(z, depth - 1 - z)
+        floor_pattern = (symmetric_x + symmetric_z) * 7 + symmetric_x * symmetric_z * 3
+        floor = skin["floor_alt"] if floor_pattern % 17 == 0 else skin["floor"]
         blocks[(x, 0, z)] = _block(floor)
         blocks[(x, height - 1, z)] = _block(skin["ceiling"])
         for y in range(1, height - 1):
@@ -166,30 +179,32 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
             if wall in footprint or not (0 <= wall[0] < width and 0 <= wall[1] < depth):
                 continue
             for y in range(height):
-                material = skin["accent"] if y == 3 else skin["wall_alt"] if (wall[0] + wall[1]) % 9 == 0 else skin["wall"]
+                wall_x = min(wall[0], width - 1 - wall[0])
+                wall_z = min(wall[1], depth - 1 - wall[1])
+                material = skin["accent"] if y == 3 else skin["wall_alt"] if (wall_x + wall_z) % 9 == 0 else skin["wall"]
                 blocks[(wall[0], y, wall[1])] = _block(material)
 
     heights = dict(shape.connector_heights)
     for direction in shape.directions:
         y = heights.get(direction, 1)
         x, _, z = _connector_position(direction, y, shape.size)
-        # Keep a five-wide, three-high doorway clear at the shared contract port.
-        for offset in range(-2, 3):
+        # The even-width opening is centred on the 7.5 block axis of standard_16.
+        lateral_span = _center_span(depth if direction in {"west", "east"} else width)
+        for lateral in lateral_span:
             for door_y in range(y, min(height - 1, y + 3)):
-                door_x = x if direction in {"west", "east"} else x + offset
-                door_z = z + offset if direction in {"west", "east"} else z
+                door_x = x if direction in {"west", "east"} else lateral
+                door_z = lateral if direction in {"west", "east"} else z
                 if 0 <= door_x < width and 0 <= door_z < depth:
                     blocks[(door_x, door_y, door_z)] = air
 
     if shape_name in {"stairs_up", "stairs_down"}:
-        cz = (depth - 1) // 2
         ascending = shape_name == "stairs_up"
         rise = abs(heights["east"] - heights["west"])
         for x in range(width):
             level = round(rise * x / (width - 1))
             if not ascending:
                 level = rise - level
-            for z in range(cz - 2, cz + 3):
+            for z in _center_span(depth):
                 for y in range(1, level + 1):
                     blocks[(x, y, z)] = _block(skin["floor"])
 
