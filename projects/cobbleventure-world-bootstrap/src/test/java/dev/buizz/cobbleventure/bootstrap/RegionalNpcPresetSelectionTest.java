@@ -43,9 +43,12 @@ final class RegionalNpcPresetSelectionTest {
             "cves_binding/cobbleventure/examples/ai_test", "cves_trigger/proximity"
         );
 
-        assertTrue(RegionalNpcPresetSelection.matches(true, "interact", interaction));
-        assertFalse(RegionalNpcPresetSelection.matches(true, "proximity", interaction));
-        assertTrue(RegionalNpcPresetSelection.matches(true, "proximity", proximity));
-        assertFalse(RegionalNpcPresetSelection.matches(true, "interact", proximity));
+        assertTrue(RegionalNpcPresetSelection.matches(true, "interact", "ai_test", interaction));
+        assertFalse(RegionalNpcPresetSelection.matches(true, "proximity", "ai_test", interaction));
+        assertTrue(RegionalNpcPresetSelection.matches(true, "proximity", "ai_test", proximity));
+        assertFalse(RegionalNpcPresetSelection.matches(true, "interact", "ai_test", proximity));
+        assertFalse(RegionalNpcPresetSelection.matches(
+            true, "proximity", "another_trainer", proximity
+        ));
     }
 }

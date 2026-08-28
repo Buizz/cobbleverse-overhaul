@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/rocket_casino_admin_guard",
+  "enabled": true,
+  "name": { "ko_kr": "카지노 관리자 호위 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/rocket_casino_admin_guard",
+    "format": "GEN_9_SINGLES", "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "aggressive", "options": {} },
+    "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:drowzee", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["confusion", "disable", "headbutt", "poison_gas"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:koffing", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["smog", "sludge", "smokescreen", "assurance"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+    ]
+  }
+}

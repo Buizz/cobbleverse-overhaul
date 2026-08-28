@@ -54,7 +54,7 @@
       "first_text": {
         "ko_kr": "손님은 여기까지다. 아래층은 로켓단 전용이야!"
       },
-      "battle": "cobbleventure:battle/rocket_power_plant_grunt",
+      "battle": "cobbleventure:battle/rocket_casino_guard",
       "after_victory_trigger": {
         "type": "interact",
         "range": 4

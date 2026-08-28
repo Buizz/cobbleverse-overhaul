@@ -24,11 +24,17 @@ public final class EventNpcProximityHandler {
         new EventProximityTracker<>();
     private static final EventProximityEncounterTracker<EncounterGroupKey> ENCOUNTERS =
         new EventProximityEncounterTracker<>();
+    private static volatile ProximityTriggerGuard TRIGGER_GUARD = (player, npc) -> true;
 
     private EventNpcProximityHandler() {}
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(EventNpcProximityHandler::onServerTick);
+    }
+
+    /** Allows an owning system to reject a proximity event before its warning or dialogue starts. */
+    public static void setTriggerGuard(ProximityTriggerGuard triggerGuard) {
+        TRIGGER_GUARD = triggerGuard == null ? (player, npc) -> true : triggerGuard;
     }
 
     private static void onServerTick(ServerTickEvent.Post tick) {
@@ -117,6 +123,7 @@ public final class EventNpcProximityHandler {
             );
             observed.add(key);
             try {
+                if (!TRIGGER_GUARD.canTrigger(player, npc)) continue;
                 EventTriggerContract.Options options = EventTriggerContract.proximity(
                     event, environment
                 );
@@ -168,6 +175,11 @@ public final class EventNpcProximityHandler {
                 reportFailure(player, npc, "NPC proximity 이벤트를 시작하지 못했습니다.", error);
             }
         }
+    }
+
+    @FunctionalInterface
+    public interface ProximityTriggerGuard {
+        boolean canTrigger(ServerPlayer player, Entity npc);
     }
 
     private static void observeIndexed(

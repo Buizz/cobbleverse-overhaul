@@ -21,13 +21,23 @@ final class RegionalNpcPresetSelection {
     }
 
     static boolean matches(
-        boolean cvesV5, String triggerOverride, Set<String> entityTags
+        boolean cvesV5, String triggerOverride, String npcSlug, Set<String> entityTags
     ) {
         if (!cvesV5) {
             return entityTags.contains("cobbleventure_npc_preset_v4");
         }
-        boolean bound = entityTags.stream().anyMatch(tag -> tag.startsWith("cves_binding/"));
         boolean proximity = entityTags.contains("cves_trigger/proximity");
-        return bound && proximity == triggerOverride.equals("proximity");
+        return sameNpc(true, npcSlug, entityTags)
+            && proximity == triggerOverride.equals("proximity");
+    }
+
+    static boolean sameNpc(boolean cvesV5, String npcSlug, Set<String> entityTags) {
+        if (!cvesV5) {
+            return entityTags.contains("cobbleventure_npc_preset_v4");
+        }
+        String suffix = "/" + npcSlug;
+        return entityTags.stream().anyMatch(tag ->
+            tag.startsWith("cves_binding/") && tag.endsWith(suffix)
+        );
     }
 }

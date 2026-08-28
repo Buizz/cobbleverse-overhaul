@@ -12,6 +12,7 @@ import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
 import dev.buizz.cobbleventure.adventure.event.EventBattlePreset;
 import dev.buizz.cobbleventure.adventure.event.EventBattlePresetRepository;
+import dev.buizz.cobbleventure.adventure.event.EventNpcProximityHandler;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import dev.buizz.cobbleventure.playermenu.BagApi;
@@ -125,6 +126,9 @@ final class DungeonSystem {
         );
         EventBattleBridge.setBattleLaunchOverride(
             DungeonSystem::launchCooperativeCvesBattle
+        );
+        EventNpcProximityHandler.setTriggerGuard(
+            DungeonSystem::canTriggerDungeonNpc
         );
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(
@@ -1822,6 +1826,35 @@ final class DungeonSystem {
         return startGeneratedEncounter(
             run, definition, encounter, entityRef, initiator, opponent
         );
+    }
+
+    /** Keeps locked, defeated, and already-active dungeon encounters out of CVES dialogue. */
+    private static synchronized boolean canTriggerDungeonNpc(
+        ServerPlayer player, Entity npc
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+            return true;
+        }
+        EncounterEntityRef entityRef = encounterEntityRef(run, npc);
+        if (entityRef == null) return true;
+        // A paired trainer group has one encounter owner. The partner remains
+        // visible and joins the multi battle, but must not open a second CVES
+        // dialogue while the owner is already challenging the party.
+        if (entityRef.opponentIndex() != 0) return false;
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        DungeonDefinition.Encounter encounter = definition == null ? null
+            : definition.encounters().stream()
+                .filter(candidate -> candidate.id().equals(entityRef.encounterId()))
+                .findFirst().orElse(null);
+        if (encounter == null) return false;
+        EncounterRuntime runtime = run.encounters();
+        return runtime.statusById.get(encounter.id()) == EncounterStatus.AVAILABLE
+            && runtime.pendingEncounterId == null
+            && !runtime.statusById.containsValue(EncounterStatus.ACTIVE)
+            && encounter.requires().stream().allMatch(required ->
+                runtime.statusById.get(required) == EncounterStatus.DEFEATED
+            );
     }
 
     /**

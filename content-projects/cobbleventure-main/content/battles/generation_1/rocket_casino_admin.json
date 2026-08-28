@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:battle/rocket_casino_admin",
+  "enabled": true,
+  "name": { "ko_kr": "카지노 기지 관리자 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/rocket_casino_admin",
+    "format": "GEN_9_SINGLES", "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "aggressive", "options": {} },
+    "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:magnemite", "level": 1, "form": null, "aspects": [], "gender": "genderless", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "thunder_wave", "light_screen", "sonic_boom"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:muk", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["sludge", "mud_shot", "disable", "minimize"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:raichu", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "quick_attack", "electro_ball", "double_team"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+    ]
+  }
+}

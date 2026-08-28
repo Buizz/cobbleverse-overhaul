@@ -46,15 +46,25 @@
   "encounters": [
     {
       "id": "basement_guard", "display_name": { "ko_kr": "지하 창고 경비", "en_us": "Basement Guard" },
-      "npcs": ["cobbleventure:npc/rocket_casino_guard", "cobbleventure:npc/rocket_casino_admin"],
-      "opponents": ["cobbleventure:battle/rocket_power_plant_grunt", "cobbleventure:battle/rocket_power_plant_officer"],
-      "requires": [], "yaw": -90, "boss": false
+      "npcs": ["cobbleventure:npc/rocket_casino_guard", "cobbleventure:npc/rocket_casino_guard_partner"],
+      "opponents": ["cobbleventure:battle/rocket_casino_guard", "cobbleventure:battle/rocket_casino_guard_partner"],
+      "requires": [],
+      "run_state_keys": [
+        "cobbleventure:flag/trainer/rocket_casino_guard/defeated",
+        "cobbleventure:flag/trainer/rocket_casino_guard_partner/defeated"
+      ],
+      "yaw": -90, "boss": false
     },
     {
       "id": "hideout_admin", "display_name": { "ko_kr": "지하기지 관리자", "en_us": "Hideout Administrator" },
-      "npcs": ["cobbleventure:npc/rocket_casino_admin", "cobbleventure:npc/rocket_casino_guard"],
-      "opponents": ["cobbleventure:battle/rocket_power_plant_officer", "cobbleventure:battle/rocket_power_plant_grunt"],
-      "requires": ["basement_guard"], "yaw": 180, "boss": true
+      "npcs": ["cobbleventure:npc/rocket_casino_admin", "cobbleventure:npc/rocket_casino_admin_guard"],
+      "opponents": ["cobbleventure:battle/rocket_casino_admin", "cobbleventure:battle/rocket_casino_admin_guard"],
+      "requires": ["basement_guard"],
+      "run_state_keys": [
+        "cobbleventure:flag/trainer/rocket_casino_admin/defeated",
+        "cobbleventure:flag/trainer/rocket_casino_admin_guard/defeated"
+      ],
+      "yaw": 180, "boss": true
     }
   ],
   "random_encounters": {

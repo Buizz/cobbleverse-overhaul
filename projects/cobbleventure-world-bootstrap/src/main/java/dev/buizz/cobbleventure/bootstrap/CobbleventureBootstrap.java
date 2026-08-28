@@ -13238,9 +13238,10 @@ public final class CobbleventureBootstrap {
         boolean cvesV5 = npcPresetSuffix(level, npcId).equals("__v5");
         String suffix = RegionalNpcPresetSelection.suffix(cvesV5, triggerOverride);
         boolean useCvesV5 = suffix.startsWith("__v5");
+        String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         Entity currentNpc = existingNpcs.stream()
             .filter(entity -> RegionalNpcPresetSelection.matches(
-                useCvesV5, triggerOverride, entity.getTags()
+                useCvesV5, triggerOverride, slug, entity.getTags()
             ))
             .findFirst()
             .orElse(null);
@@ -13250,7 +13251,9 @@ public final class CobbleventureBootstrap {
             );
             currentNpc.setYRot(yaw);
             for (Entity duplicate : existingNpcs) {
-                if (duplicate != currentNpc) duplicate.discard();
+                if (duplicate != currentNpc && RegionalNpcPresetSelection.sameNpc(
+                    useCvesV5, slug, duplicate.getTags()
+                )) duplicate.discard();
             }
             return true;
         }
@@ -13259,7 +13262,9 @@ public final class CobbleventureBootstrap {
         // kept across restarts so their UUID-based per-player battle state is
         // stable.
         for (Entity existingNpc : existingNpcs) {
-            existingNpc.discard();
+            if (RegionalNpcPresetSelection.sameNpc(
+                useCvesV5, slug, existingNpc.getTags()
+            )) existingNpc.discard();
         }
         if (!existingNpcs.isEmpty()) {
             LOGGER.info(
@@ -13267,7 +13272,6 @@ public final class CobbleventureBootstrap {
                 npcId, safePosition, existingNpcs.size()
             );
         }
-        String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         String command = "easy_npc preset import_new data easy_npc:preset/encounter/"
             + slug + suffix + ".npc.snbt " + safePosition.getX() + " "
             + safePosition.getY() + " " + safePosition.getZ();

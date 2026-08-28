@@ -9,7 +9,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
     say npc {
       ko_kr: "이 넓은 기지를 여기까지 내려오다니 제법이군."
     }
-    id "proximity/challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_officer" -> battle_result
+    id "proximity/challenge/battle" await battle "cobbleventure:battle/rocket_casino_admin" -> battle_result
     if battle_result.outcome == "win" {
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_casino_admin/defeated" true
       say npc {
@@ -36,7 +36,7 @@ event interact(range: 4) {
     }
     choice { ko_kr: "도전하시겠습니까?" } {
       { ko_kr: "승부한다" } {
-        id "challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_officer" -> battle_result
+        id "challenge/battle" await battle "cobbleventure:battle/rocket_casino_admin" -> battle_result
         if battle_result.outcome == "win" {
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_casino_admin/defeated" true
           say npc {

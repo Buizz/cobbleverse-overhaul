@@ -244,7 +244,14 @@ final class DungeonDefinitionTest {
         assertEquals("cooperative", casino.multiplayer().mode());
         assertEquals(2, casino.match().requiredPlayers());
         assertEquals("summon_all", casino.multiplayer().battleJoin());
+        assertEquals(2, casino.encounters().size());
         assertEquals(2, casino.encounters().getFirst().npcs().size());
+        assertEquals(2, casino.encounters().getLast().npcs().size());
+        assertEquals(4, casino.encounters().stream()
+            .flatMap(encounter -> encounter.npcs().stream()).distinct().count());
+        assertEquals(2, casino.encounters().getFirst().runStateKeys().size());
+        assertEquals(2, casino.encounters().getLast().runStateKeys().size());
+        assertEquals(List.of("basement_guard"), casino.encounters().getLast().requires());
         assertEquals("independent", silph.multiplayer().mode());
         assertEquals(2, silph.match().requiredPlayers());
         assertEquals("initiator_only", silph.multiplayer().battleJoin());
