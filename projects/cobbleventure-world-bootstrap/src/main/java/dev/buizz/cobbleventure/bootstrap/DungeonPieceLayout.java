@@ -121,6 +121,7 @@ record DungeonPieceLayout(
                     plan, byId, definition.terrain().piecePool(),
                     definition.terrain().bounds()
                 );
+                DungeonPiecePlanValidator.validateNoOpenConnectors(plan, byId);
                 return resolveMarkers(definition, plan, byId, seed);
             } catch (IllegalStateException failure) {
                 lastFailure = failure;
@@ -145,6 +146,9 @@ record DungeonPieceLayout(
                     DungeonPiecePlanValidator.validate(
                         fallback, byId, definition.terrain().piecePool(),
                         definition.terrain().bounds()
+                    );
+                    DungeonPiecePlanValidator.validateNoOpenConnectors(
+                        fallback, byId
                     );
                     return resolveMarkers(definition, fallback, byId, seed);
                 } catch (IllegalStateException failure) {
@@ -243,9 +247,13 @@ record DungeonPieceLayout(
         DungeonDefinition.Layout layout = definition.layout();
         int safeCriticalRooms = Math.min(
             layout.criticalPathRooms().maximum(),
-            Math.max(6, layout.criticalPathRooms().minimum() / 2)
+            Math.max(
+                Math.max(6, layout.criticalPathRooms().minimum()),
+                layout.floorChanges().minimum() + 3
+            )
         );
-        int safeBranches = layout.branchCount().maximum() > 0 ? 1 : 0;
+        int safeBranches = layout.branchCount().maximum() > 0
+            && safeCriticalRooms >= 4 ? 1 : 0;
         return new DungeonPiecePlanner.Settings(
             definition.terrain().bounds(),
             safeFallback ? safeCriticalRooms : layout.criticalPathRooms().minimum(),
@@ -258,9 +266,9 @@ record DungeonPieceLayout(
             safeFallback ? Math.max(64, definition.plan().maxAttempts())
                 : definition.plan().maxAttempts(),
             safeFallback ? "critical_path_branches" : layout.mode(),
-            safeFallback ? "mixed" : layout.verticalDirection(),
-            safeFallback ? 0 : layout.floorChanges().minimum(),
-            safeFallback ? 256 : layout.floorChanges().maximum()
+            layout.verticalDirection(),
+            layout.floorChanges().minimum(),
+            layout.floorChanges().maximum()
         );
     }
 

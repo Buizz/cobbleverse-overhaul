@@ -42,6 +42,7 @@ SHAPES = {
     "corridor": Shape("corridor", ("west", "east"), weight=18),
     "corner": Shape("corridor", ("west", "south"), weight=10),
     "junction": Shape("junction", ("west", "east", "north", "south"), weight=7),
+    "t_junction": Shape("junction", ("west", "east", "south"), weight=12),
     "room": Shape(
         "room", ("west", "east", "north", "south"), 3,
         markers=(
@@ -50,6 +51,15 @@ SHAPES = {
             ("gate_slot", "gate", (15, 1, 7), None),
         ),
         weight=14,
+    ),
+    "route_room": Shape(
+        "room", ("west", "east"), 3,
+        markers=(
+            ("encounter_slot", "encounter", (8, 1, 8), None),
+            ("loot_slot", "loot", (5, 1, 5), None),
+            ("gate_slot", "gate", (15, 1, 7), None),
+        ),
+        weight=18,
     ),
     "encounter_room": Shape(
         "room", ("west", "east", "north", "south"), 3,

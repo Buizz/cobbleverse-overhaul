@@ -6139,10 +6139,9 @@ function dungeonRuntimePreviewPiece(document, role, random, shape = "", required
   const required = [...new Set(requiredFacings)];
   const options = candidates.flatMap((piece) => (piece.allow_rotation === false ? ["none"] : rotations).map((rotation) => {
     const connectorFacings = new Set((piece.connectors || []).map((connector) => dungeonPreviewRotateFacing(connector.facing, rotation)));
-    const matches = required.every((facing) => connectorFacings.has(facing));
-    const excess = Math.max(0, connectorFacings.size - required.length);
+    const matches = connectorFacings.size === required.length && required.every((facing) => connectorFacings.has(facing));
     const rotationPenalty = preferredRotation && rotation !== preferredRotation ? 100 : 0;
-    return { piece, rotation, matches, score: rotationPenalty + excess };
+    return { piece, rotation, matches, score: rotationPenalty };
   })).filter((option) => option.matches);
   if (!options.length) return { piece: null, rotation: "none", missingFacings: required };
   const available = options;

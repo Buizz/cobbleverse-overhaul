@@ -33,6 +33,11 @@ final class DungeonPiecePlanner {
         settings.validate();
         List<DungeonPieceDefinition> pieces = List.copyOf(definitions);
         requireRoles(pieces);
+        Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
+            java.util.stream.Collectors.toUnmodifiableMap(
+                DungeonPieceDefinition::id, piece -> piece
+            )
+        );
         for (int attempt = 0; attempt < settings.maxAttempts(); attempt++) {
             Random random = new Random(mixSeed(seed, attempt));
             State state = startState(pieces, settings, random);
@@ -40,27 +45,25 @@ final class DungeonPiecePlanner {
             int targetRooms = randomRange(
                 random, settings.criticalPathMin(), settings.criticalPathMax()
             );
-            if (!extendCritical(
-                state, pieces, settings, random, targetRooms, 1
-            )) continue;
-            if (!verticalProfileSatisfied(state, settings)) continue;
-            if (!stackedFootprintSatisfied(state, settings)) continue;
             int targetBranches = randomRange(
                 random, settings.branchCountMin(), settings.branchCountMax()
             );
+            if (!extendCritical(
+                state, pieces, settings, random, targetRooms, targetBranches, 1
+            )) continue;
+            if (!verticalProfileSatisfied(state, settings)) continue;
+            if (!stackedFootprintSatisfied(state, settings)) continue;
             if (!attachBranches(
                 state, pieces, settings, random, targetBranches
             )) continue;
+            DungeonPiecePlan looped = DungeonPieceLoops.add(
+                state.toPlan(seed, settings.bounds()), byId,
+                settings.loopChance(), mixSeed(seed, attempt + 10_000)
+            );
+            state.absorbAdditionalLinks(looped.links());
+            if (!completeOpenConnectors(state, pieces, settings, random)) continue;
             if (!usageSatisfied(state, pieces)) continue;
-            DungeonPiecePlan plan = state.toPlan(seed, settings.bounds());
-            Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
-                java.util.stream.Collectors.toUnmodifiableMap(
-                    DungeonPieceDefinition::id, piece -> piece
-                )
-            );
-            return DungeonPieceLoops.add(
-                plan, byId, settings.loopChance(), mixSeed(seed, attempt + 10_000)
-            );
+            return state.toPlan(seed, settings.bounds());
         }
         throw new IllegalStateException(
             "Dungeon piece planning failed after " + settings.maxAttempts() + " attempts"
@@ -105,16 +108,45 @@ final class DungeonPiecePlanner {
         Settings settings,
         Random random,
         int targetRooms,
+        int targetBranches,
         int depth
     ) {
         if (depth >= targetRooms) return true;
         String requiredRole = depth == targetRooms - 2 ? "boss"
             : depth == targetRooms - 1 ? "exit" : null;
         Set<String> flexibleRoles = criticalRoles(settings.layoutMode(), depth);
+        int branchCapacity = state.branchHostCount();
+        boolean needsBranchConnector = requiredRole == null
+            && branchCapacity < targetBranches;
+        int neededFloorChanges = Math.max(
+            0, settings.floorChangesMin() - state.criticalFloorChanges()
+        );
+        int remainingInteriorSlots = Math.max(0, targetRooms - 2 - depth);
+        int neededBranchHosts = Math.max(0, targetBranches - branchCapacity);
+        boolean shouldAddVerticalTransition = requiredRole == null
+            && neededFloorChanges > 0
+            && neededFloorChanges >= remainingInteriorSlots - neededBranchHosts;
+        boolean canAddVerticalTransition = requiredRole == null && pieces.stream()
+            .anyMatch(piece -> flexibleRoles.contains(piece.role())
+                && isVerticalTransition(piece)
+                && piece.allowsPlacement(true)
+                && canUse(state, piece));
+        boolean canAddBranchConnector = requiredRole == null && pieces.stream()
+            .anyMatch(piece -> flexibleRoles.contains(piece.role())
+                && piece.connectors().size() >= 3
+                && piece.allowsPlacement(true)
+                && canUse(state, piece));
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> requiredRole == null
                 ? flexibleRoles.contains(piece.role())
                 : piece.role().equals(requiredRole))
+                .filter(piece -> requiredRole != null || (
+                    shouldAddVerticalTransition && canAddVerticalTransition
+                        ? isVerticalTransition(piece)
+                        : needsBranchConnector && canAddBranchConnector
+                            ? piece.connectors().size() == 3
+                            : piece.connectors().size() < 3
+                ))
                 .filter(piece -> piece.allowsPlacement(true))
                 .filter(piece -> canUse(state, piece)).toList(),
             random
@@ -146,7 +178,8 @@ final class DungeonPiecePlanner {
         for (Attachment attachment : attachments) {
             state.add(attachment);
             if (extendCritical(
-                state, pieces, settings, random, targetRooms, depth + 1
+                state, pieces, settings, random, targetRooms,
+                targetBranches, depth + 1
             )) return true;
             state.removeLast(attachment);
         }
@@ -213,6 +246,9 @@ final class DungeonPiecePlanner {
         );
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> roles.contains(piece.role()))
+                .filter(piece -> remaining == 1
+                    ? piece.connectors().size() == 1
+                    : piece.connectors().size() == 2)
                 .filter(piece -> piece.allowsPlacement(false))
                 .filter(piece -> canUse(state, piece)).toList(), random
         );
@@ -239,6 +275,48 @@ final class DungeonPiecePlanner {
                         state.removeLast(attachment);
                     }
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Every connector describes a real opening in the NBT. Complete all openings
+     * with a one-connector terminal piece so a partially used room can never expose
+     * a doorway directly to empty instance space.
+     */
+    private static boolean completeOpenConnectors(
+        State state,
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        Random random
+    ) {
+        OpenConnector open = state.firstOpenConnector();
+        if (open == null) return true;
+        List<DungeonPieceDefinition> terminalPool = pieces.stream()
+                .filter(piece -> piece.connectors().size() == 1)
+                .filter(piece -> !Set.of("start", "boss", "exit").contains(piece.role()))
+                .filter(piece -> piece.allowsPlacement(false))
+                .filter(piece -> canUse(state, piece))
+                .toList();
+        List<DungeonPieceDefinition> deadEnds = terminalPool.stream()
+            .filter(piece -> piece.role().equals("dead_end")).toList();
+        List<DungeonPieceDefinition> terminals = weightedOrder(
+            deadEnds.isEmpty() ? terminalPool : deadEnds, random
+        );
+        for (DungeonPieceDefinition piece : terminals) {
+            DungeonPieceDefinition.Connector terminal = piece.connectors().getFirst();
+            for (Rotation rotation : rotationOrder(piece, random)) {
+                Attachment attachment = attachment(
+                    open.piece(), open.connector(), piece, terminal, rotation, false
+                );
+                if (attachment == null
+                    || !inside(attachment.placed().box(), settings.bounds())
+                    || overlapsAny(attachment.placed().box(), state.placements)) {
+                    continue;
+                }
+                state.add(attachment);
+                return completeOpenConnectors(state, pieces, settings, random);
             }
         }
         return false;
@@ -574,6 +652,63 @@ final class DungeonPiecePlanner {
             usedConnectors.clear(); usedConnectors.addAll(snapshot.usedConnectors);
         }
 
+        private void absorbAdditionalLinks(List<DungeonPiecePlan.Link> additional) {
+            for (int index = links.size(); index < additional.size(); index++) {
+                DungeonPiecePlan.Link link = additional.get(index);
+                Placed from = placements.get(link.fromIndex());
+                Placed to = placements.get(link.toIndex());
+                links.add(new PlanLink(
+                    link.fromIndex(), link.fromConnector(), link.toIndex(),
+                    link.toConnector(), link.criticalPath()
+                ));
+                usedConnectors.add(new ConnectorKey(from, link.fromConnector()));
+                usedConnectors.add(new ConnectorKey(to, link.toConnector()));
+            }
+        }
+
+        private OpenConnector firstOpenConnector() {
+            for (Placed placed : placements) {
+                for (DungeonPieceDefinition.Connector connector
+                    : placed.definition().connectors()) {
+                    if (!usedConnectors.contains(new ConnectorKey(placed, connector.id()))) {
+                        return new OpenConnector(placed, connector);
+                    }
+                }
+            }
+            return null;
+        }
+
+        private int branchHostCount() {
+            int hosts = 0;
+            for (int index = 0; index < placements.size(); index++) {
+                Placed placed = placements.get(index);
+                int open = 0;
+                for (DungeonPieceDefinition.Connector connector
+                    : placed.definition().connectors()) {
+                    if (!usedConnectors.contains(new ConnectorKey(placed, connector.id()))) {
+                        open++;
+                    }
+                }
+                int reservedForCriticalPath = index == placements.size() - 1 ? 1 : 0;
+                if (open > reservedForCriticalPath) hosts++;
+            }
+            return hosts;
+        }
+
+        private int criticalFloorChanges() {
+            int changes = 0;
+            Placed previous = null;
+            for (Placed placed : placements) {
+                if (!placed.critical()) continue;
+                if (previous != null
+                    && previous.origin().getY() != placed.origin().getY()) {
+                    changes++;
+                }
+                previous = placed;
+            }
+            return changes;
+        }
+
         private DungeonPiecePlan toPlan(long seed, BlockPos bounds) {
             List<DungeonPiecePlan.Placement> planned = new ArrayList<>();
             for (int index = 0; index < placements.size(); index++) {
@@ -619,6 +754,9 @@ final class DungeonPiecePlanner {
         boolean critical
     ) {}
     private record ConnectorKey(Placed piece, String connector) {}
+    private record OpenConnector(
+        Placed piece, DungeonPieceDefinition.Connector connector
+    ) {}
     private record LocalBounds(BlockPos minimum, BlockPos size) {}
     private record Box(BlockPos minimum, BlockPos maximumExclusive) {
         private boolean overlaps(Box other) {

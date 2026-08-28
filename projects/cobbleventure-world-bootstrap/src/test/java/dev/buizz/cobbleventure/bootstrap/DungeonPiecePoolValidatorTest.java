@@ -40,7 +40,8 @@ final class DungeonPiecePoolValidatorTest {
         List<DungeonPieceDefinition> pieces = new ArrayList<>();
         for (String id : List.of(
             "boss", "corner", "corridor", "dead_end", "encounter_room", "exit",
-            "junction", "room", "stairs_down", "stairs_up", "start", "support",
+            "junction", "room", "route_room", "stairs_down", "stairs_up", "start", "support",
+            "t_junction",
             "treasure"
         )) {
             pieces.add(DungeonPieceDefinition.parse(resource(

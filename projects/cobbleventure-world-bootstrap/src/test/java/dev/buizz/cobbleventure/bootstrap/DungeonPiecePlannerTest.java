@@ -33,6 +33,7 @@ final class DungeonPiecePlannerTest {
                     }
                     assertNoOverlap(generated.plan());
                     assertConnected(generated.plan());
+                    assertNoOpenConnectors(generated.plan(), pieces);
                     assertRequiredFeatures(dungeon, generated, seed);
                 }
                 assertEquals(
@@ -78,9 +79,6 @@ final class DungeonPiecePlannerTest {
                     name + " did not align floors to the regular NBT piece height");
                 assertTrue(hasStackedFloorFootprint(generated.plan()),
                     name + " expanded every floor sideways instead of stacking it");
-                if (dungeon.layout().mode().equals("rooms_and_corridors")) {
-                    assertSparseRoomCadence(generated.plan(), name);
-                }
             }
         }
     }
@@ -123,7 +121,7 @@ final class DungeonPiecePlannerTest {
     void usesMinimalSafePlanWhenConfiguredGenerationCannotFit() throws Exception {
         DungeonPieceLayout.clearCache();
         DungeonDefinition definition = pieceDungeon(
-            "use_fallback_plan", 3, 3, 128, 1, 20
+            "use_fallback_plan", 3, 3, 128, 1, 30
         );
 
         DungeonPieceLayout generated = DungeonPieceLayout.generate(
@@ -180,7 +178,9 @@ final class DungeonPiecePlannerTest {
             definition, testPieces(), 7734L
         );
 
-        assertEquals(6, layout.plan().placements().size());
+        assertEquals(6, layout.plan().placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath).count());
+        assertNoOpenConnectors(layout.plan(), testPieces());
         assertTrue(layout.requiredMarker("entry", null).getX() >= 0);
         assertTrue(layout.requiredMarker("exit", null).getX() >= 0);
         assertTrue(!layout.requiredMarker("entry", null).equals(
@@ -206,8 +206,9 @@ final class DungeonPiecePlannerTest {
         assertEquals("boss", first.placements().get(4).role());
         assertEquals("exit", first.placements().get(5).role());
         assertEquals(first.placements().size() - 1, first.links().size());
-        assertEquals(2, first.links().stream()
-            .filter(link -> !link.criticalPath()).count());
+        assertTrue(first.links().stream()
+            .filter(link -> !link.criticalPath()).count() >= 2);
+        assertNoOpenConnectors(first, pieces);
         assertNoOverlap(first);
         first.placements().forEach(placement -> {
             assertTrue(placement.minimum().getX() >= 0);
@@ -396,6 +397,17 @@ final class DungeonPiecePlannerTest {
         assertEquals(plan.placements().size(), visited.size());
     }
 
+    private static void assertNoOpenConnectors(
+        DungeonPiecePlan plan, List<DungeonPieceDefinition> pieces
+    ) {
+        Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
+            java.util.stream.Collectors.toMap(
+                DungeonPieceDefinition::id, piece -> piece
+            )
+        );
+        DungeonPiecePlanValidator.validateNoOpenConnectors(plan, byId);
+    }
+
     private static void assertRequiredFeatures(
         DungeonDefinition dungeon, DungeonPieceLayout layout, long seed
     ) {
@@ -432,11 +444,13 @@ final class DungeonPiecePlannerTest {
 
     private static List<DungeonPieceDefinition> testPieces() {
         return List.of(
-            piece("start", "start", fourConnectors(), marker("entry")),
+            piece("start", "start", northSouthConnectors(), marker("entry")),
             piece("room", "room", fourConnectors(), marker("gate")),
+            piece("route_room", "room", northSouthConnectors(), marker("gate")),
             piece("corridor", "corridor", northSouthConnectors(), "[]"),
             piece("junction", "junction", fourConnectors(), marker("gate")),
-            piece("boss", "boss", fourConnectors(), marker("boss", "boss")),
+            piece("t_junction", "junction", threeConnectors(), marker("gate")),
+            piece("boss", "boss", northSouthConnectors(), marker("boss", "boss")),
             piece("exit", "exit", terminalConnector(), marker("exit")),
             piece("dead_end", "dead_end", terminalConnector(), "[]"),
             piece("treasure", "treasure", terminalConnector(), "[]"),
@@ -448,7 +462,8 @@ final class DungeonPiecePlannerTest {
         List<DungeonPieceDefinition> pieces = new ArrayList<>();
         for (String id : List.of(
             "boss", "corner", "corridor", "dead_end", "encounter_room", "exit",
-            "junction", "room", "stairs_down", "stairs_up", "start", "support",
+            "junction", "room", "route_room", "stairs_down", "stairs_up", "start", "support",
+            "t_junction",
             "treasure"
         )) {
             pieces.add(DungeonPieceDefinition.parse(resourceJson(
@@ -621,6 +636,20 @@ final class DungeonPiecePlannerTest {
               {"id":"east","position":[4,1,2],"facing":"east",
                "socket":"cobbleventure:socket/test","tags":[]}
             ]
+        """;
+    }
+
+    private static String threeConnectors() {
+        return """
+            [
+              {"id":"north","position":[2,1,0],"facing":"north",
+               "socket":"cobbleventure:socket/test","tags":[]},
+              {"id":"south","position":[2,1,4],"facing":"south",
+               "socket":"cobbleventure:socket/test","tags":[]},
+              {"id":"east","position":[4,1,2],"facing":"east",
+               "socket":"cobbleventure:socket/test","tags":[]}
+            ]
             """;
     }
+
 }

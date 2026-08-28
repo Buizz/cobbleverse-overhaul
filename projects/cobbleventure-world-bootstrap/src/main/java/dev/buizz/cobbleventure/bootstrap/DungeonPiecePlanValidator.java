@@ -138,6 +138,29 @@ final class DungeonPiecePlanValidator {
         }
     }
 
+    static void validateNoOpenConnectors(
+        DungeonPiecePlan plan,
+        Map<String, DungeonPieceDefinition> pieces
+    ) {
+        Set<ConnectorKey> used = new HashSet<>();
+        for (DungeonPiecePlan.Link link : plan.links()) {
+            used.add(new ConnectorKey(link.fromIndex(), link.fromConnector()));
+            used.add(new ConnectorKey(link.toIndex(), link.toConnector()));
+        }
+        for (DungeonPiecePlan.Placement placement : plan.placements()) {
+            DungeonPieceDefinition piece = pieces.get(placement.pieceId());
+            if (piece == null) continue;
+            for (DungeonPieceDefinition.Connector connector : piece.connectors()) {
+                if (!used.contains(new ConnectorKey(placement.index(), connector.id()))) {
+                    throw invalid(
+                        "placement leaves an NBT opening unconnected: "
+                            + placement.index() + "/" + connector.id()
+                    );
+                }
+            }
+        }
+    }
+
     private static void requireConnected(
         String name, Set<Integer> expected, Map<Integer, Set<Integer>> graph
     ) {
