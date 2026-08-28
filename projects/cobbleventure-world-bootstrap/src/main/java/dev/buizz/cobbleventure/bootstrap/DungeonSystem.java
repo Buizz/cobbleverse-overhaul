@@ -123,6 +123,9 @@ final class DungeonSystem {
         PokemonCenterDefeatReturn.setDefeatRecoveryOverride(
             DungeonSystem::handlePartyWipe
         );
+        EventBattleBridge.setBattleLaunchOverride(
+            DungeonSystem::launchCooperativeCvesBattle
+        );
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(
             EventPriority.HIGHEST, DungeonSystem::onEntityInteract
@@ -1907,6 +1910,122 @@ final class DungeonSystem {
         return true;
     }
 
+    /**
+     * Keeps CVES V5 proximity dialogue/await handling, but replaces its singles
+     * command with the dungeon's two-player, two-trainer battle.
+     */
+    private static synchronized boolean launchCooperativeCvesBattle(
+        ServerPlayer initiator, EventBattlePreset triggeredPreset, Entity opponent
+    ) {
+        ActiveRun run = ACTIVE_RUNS.get(initiator.getUUID());
+        if (run == null || !initiator.serverLevel().dimension().equals(DUNGEONS)) {
+            return false;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null
+            || !definition.multiplayer().mode().equals("cooperative")) {
+            return false;
+        }
+        EncounterEntityRef entityRef = encounterEntityRef(run, opponent);
+        if (entityRef == null) return false;
+        DungeonDefinition.Encounter encounter = definition.encounters().stream()
+            .filter(candidate -> candidate.id().equals(entityRef.encounterId()))
+            .findFirst().orElse(null);
+        if (encounter == null || encounter.generatedTrainer() != null
+            || entityRef.opponentIndex() >= encounter.opponents().size()
+            || !encounter.opponents().get(entityRef.opponentIndex())
+                .equals(triggeredPreset.battleId())) {
+            return false;
+        }
+        EncounterRuntime runtime = run.encounters();
+        if (runtime.statusById.get(encounter.id()) != EncounterStatus.AVAILABLE
+            || runtime.pendingEncounterId != null
+            || runtime.statusById.containsValue(EncounterStatus.ACTIVE)) {
+            throw new IllegalStateException(
+                "Dungeon cooperative encounter is already active: " + encounter.id()
+            );
+        }
+        if (encounter.requires().stream().anyMatch(required ->
+            runtime.statusById.get(required) != EncounterStatus.DEFEATED)) {
+            throw new IllegalStateException(
+                "Dungeon cooperative encounter requirements are not met: "
+                    + encounter.id()
+            );
+        }
+        if (!definition.multiplayer().battleJoin().equals("summon_all")
+            || run.participantIds().size() != 2) {
+            throw new IllegalStateException(
+                "Dungeon cooperative encounter requires summon_all and two players"
+            );
+        }
+        List<ServerPlayer> players = encounterPlayers(run, initiator);
+        if (players.size() != 2) {
+            throw new IllegalStateException(
+                "Both dungeon participants must be online for cooperative battle"
+            );
+        }
+        if (players.stream().anyMatch(player ->
+            BattleRegistry.getBattleByParticipatingPlayer(player) != null)) {
+            throw new IllegalStateException(
+                "A dungeon participant is already in battle"
+            );
+        }
+
+        List<String> trainerIds = encounter.opponents().stream().map(battleId ->
+            EventBattlePresetRepository.instance().find(battleId)
+                .orElseThrow(() -> new IllegalStateException(
+                    "Dungeon battle preset is missing: " + battleId
+                )).rctTrainerId()
+        ).collect(Collectors.toCollection(ArrayList::new));
+        if (trainerIds.size() != 2) {
+            throw new IllegalStateException(
+                "Cooperative dungeon encounter requires exactly two opponents: "
+                    + encounter.id()
+            );
+        }
+        if (entityRef.opponentIndex() == 1) {
+            Collections.swap(trainerIds, 0, 1);
+        }
+
+        runtime.statusById.put(encounter.id(), EncounterStatus.STARTING);
+        runtime.pendingEncounterId = encounter.id();
+        runtime.pendingExpiresAt = initiator.serverLevel().getGameTime() + 200L;
+        runtime.pendingPlayers = Set.copyOf(
+            players.stream().map(ServerPlayer::getUUID).toList()
+        );
+        gatherEncounterPlayers(players, opponent.position(), run);
+        String command = DungeonCooperativeBattleCommand.build(
+            players.get(0).getGameProfile().getName(),
+            players.get(1).getGameProfile().getName(), trainerIds,
+            definition.battleRules().allowItems()
+        );
+        try {
+            int result = initiator.getServer().getCommands().getDispatcher().execute(
+                command,
+                opponent.createCommandSourceStack()
+                    .withPermission(4).withSuppressedOutput()
+            );
+            if (result <= 0) {
+                throw new IllegalStateException("TBCS rejected the battle command");
+            }
+        } catch (CommandSyntaxException | RuntimeException error) {
+            runtime.statusById.put(encounter.id(), EncounterStatus.AVAILABLE);
+            runtime.pendingEncounterId = null;
+            runtime.pendingPlayers = Set.of();
+            LOGGER.error(
+                "Dungeon CVES cooperative battle launch failed: {} -> {}",
+                definition.id(), encounter.id(), error
+            );
+            throw new IllegalStateException(
+                "Dungeon cooperative battle launch failed: " + encounter.id(), error
+            );
+        }
+        players.forEach(player -> player.sendSystemMessage(Component.literal(
+            "[던전] " + encounter.displayName() + " 협력 전투를 시작합니다."
+        )));
+        return true;
+    }
+
     private static boolean startGeneratedEncounter(
         ActiveRun run,
         DungeonDefinition definition,
@@ -2283,6 +2402,7 @@ final class DungeonSystem {
             : definition.encounters().stream()
                 .filter(candidate -> candidate.id().equals(encounterId))
                 .findFirst().orElse(null);
+        updateEncounterRunState(run, encounter, won);
         String generatedEndLine = run.encounters().generatedEndLines.get(encounterId);
         cleanupGeneratedEncounter(run.encounters(), encounterId);
         if (won && definition != null) {
@@ -2454,11 +2574,24 @@ final class DungeonSystem {
             : definition.encounters().stream()
                 .filter(candidate -> candidate.id().equals(encounterId))
                 .findFirst().orElse(null);
+        updateEncounterRunState(run, encounter, false);
         cleanupGeneratedEncounter(run.encounters(), encounterId);
         run.encounters().statusById.put(encounterId, EncounterStatus.AVAILABLE);
         notifyEncounterResult(run, "[던전] 전투가 중단되었습니다.");
         if (generatedEndLine != null && encounter != null) {
             notifyEncounterResult(run, encounter.displayName() + ": " + generatedEndLine);
+        }
+    }
+
+    private static void updateEncounterRunState(
+        ActiveRun run, DungeonDefinition.Encounter encounter, boolean defeated
+    ) {
+        if (encounter == null || encounter.runStateKeys().isEmpty()) return;
+        for (UUID participantId : run.participantIds()) {
+            ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
+            if (player == null) continue;
+            ServerPlayerEventState state = new ServerPlayerEventState(player);
+            encounter.runStateKeys().forEach(key -> state.setFlag(key, defeated));
         }
     }
 

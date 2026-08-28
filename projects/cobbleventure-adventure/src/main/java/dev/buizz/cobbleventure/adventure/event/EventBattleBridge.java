@@ -31,6 +31,7 @@ public final class EventBattleBridge {
     private static final long START_TIMEOUT_TICKS = 20L * 20L;
     private static final int MAX_RESUME_STEPS = 10_000;
     private static final Map<UUID, PendingBattle> PENDING = new HashMap<>();
+    private static volatile BattleLaunchOverride battleLaunchOverride;
     private static boolean registered;
 
     private EventBattleBridge() {}
@@ -53,6 +54,19 @@ public final class EventBattleBridge {
     public static EventBattleGateway gateway(ServerPlayer player) {
         Objects.requireNonNull(player, "player");
         return request -> open(player, request);
+    }
+
+    /** Allows a containing gameplay system to replace the physical battle launch. */
+    public static void setBattleLaunchOverride(BattleLaunchOverride override) {
+        battleLaunchOverride = override;
+    }
+
+    @FunctionalInterface
+    public interface BattleLaunchOverride {
+        /** Returns true after launching a replacement battle, or false to use the preset command. */
+        boolean launch(
+            ServerPlayer player, EventBattlePreset preset, Entity opponent
+        );
     }
 
     /** Exposes the active CVES opponent to dungeon progression listeners. */
@@ -110,10 +124,18 @@ public final class EventBattleBridge {
                     }
                 }
             }
-            result = player.getServer().getCommands().getDispatcher().execute(
-                preset.launchCommand(player.getGameProfile().getName(), opponent.getUUID()),
-                opponent.createCommandSourceStack().withPermission(4).withSuppressedOutput()
-            );
+            BattleLaunchOverride override = battleLaunchOverride;
+            if (override != null && override.launch(player, preset, opponent)) {
+                result = 1;
+            } else {
+                result = player.getServer().getCommands().getDispatcher().execute(
+                    preset.launchCommand(
+                        player.getGameProfile().getName(), opponent.getUUID()
+                    ),
+                    opponent.createCommandSourceStack()
+                        .withPermission(4).withSuppressedOutput()
+                );
+            }
         } catch (CommandSyntaxException | RuntimeException error) {
             PENDING.remove(player.getUUID(), pending);
             throw new EventRuntimeException("battle 시작 명령 실행에 실패했습니다.", error);
