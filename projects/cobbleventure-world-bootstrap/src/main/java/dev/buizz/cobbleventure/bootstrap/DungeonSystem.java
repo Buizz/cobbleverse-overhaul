@@ -643,11 +643,13 @@ final class DungeonSystem {
             player.sendSystemMessage(Component.literal(
                 "입구에서 멀어졌거나 입장 요청이 만료되었습니다."
             ));
+            DungeonGuideNetwork.cancelTransition(player);
             return;
         }
         String problem = entryProblem(player, pending);
         if (problem != null) {
             player.sendSystemMessage(Component.literal(problem));
+            DungeonGuideNetwork.cancelTransition(player);
             return;
         }
         DungeonDefinition definition = pending.ref().definition();
@@ -662,6 +664,7 @@ final class DungeonSystem {
             player.sendSystemMessage(Component.literal(
                 "이미 다른 던전 입장을 기다리고 있습니다."
             ));
+            DungeonGuideNetwork.cancelTransition(player);
             return;
         }
         double stayRadius = definition.match().stayRadius();
@@ -767,6 +770,11 @@ final class DungeonSystem {
         ServerPlayer player = first.player();
         PendingEntry pending = first.pending();
         DungeonDefinition definition = pending.ref().definition();
+        entries.forEach(entry -> DungeonGuideNetwork.beginTransition(
+            entry.player(),
+            definition.displayName(),
+            definition.entryUi().backgroundTexture()
+        ));
         ServerLevel dungeonLevel = player.getServer().getLevel(DUNGEONS);
         if (dungeonLevel == null) {
             cancelMatch(entries, "던전 차원을 찾을 수 없습니다.");
@@ -865,6 +873,9 @@ final class DungeonSystem {
                 member.getYRot(), member.getXRot()
             );
             if (member.serverLevel() != dungeonLevel) {
+                entries.forEach(matched ->
+                    DungeonGuideNetwork.cancelTransition(matched.player())
+                );
                 failRun(
                     run,
                     "참가자 이동에 실패해 준비된 던전이 초기화되었습니다.",
@@ -873,6 +884,9 @@ final class DungeonSystem {
                 return;
             }
         }
+        entries.forEach(matched ->
+            DungeonGuideNetwork.finishTransition(matched.player())
+        );
         for (MatchedEntry matched : entries) {
             DungeonGuideNetwork.closeQueue(
                 matched.player(), matched.pending().ref().entrance().entranceId()
@@ -886,6 +900,7 @@ final class DungeonSystem {
 
     private static void cancelMatch(List<MatchedEntry> entries, String message) {
         for (MatchedEntry entry : entries) {
+            DungeonGuideNetwork.cancelTransition(entry.player());
             DungeonGuideNetwork.closeQueue(
                 entry.player(), entry.pending().ref().entrance().entranceId()
             );

@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.bootstrap;
 import dev.buizz.cobbleventure.bootstrap.client.DungeonGuideScreen;
 import dev.buizz.cobbleventure.bootstrap.client.DungeonQueueScreen;
 import dev.buizz.cobbleventure.bootstrap.client.DungeonRewardScreen;
+import dev.buizz.cobbleventure.bootstrap.client.DungeonTransitionOverlay;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -19,7 +20,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Synchronizes dungeon guide and matchmaking screens with server-owned entry state. */
 public final class DungeonGuideNetwork {
-    private static final String VERSION = "6";
+    private static final String VERSION = "7";
     private static final int MAX_REWARD_ENTRIES = 128;
 
     private DungeonGuideNetwork() {}
@@ -45,6 +46,26 @@ public final class DungeonGuideNetwork {
     static void closeQueue(ServerPlayer player, String entranceId) {
         PacketDistributor.sendToPlayer(
             player, new QueueStatePayload(entranceId, "closed")
+        );
+    }
+
+    static void beginTransition(
+        ServerPlayer player, String dungeonName, String backgroundTexture
+    ) {
+        PacketDistributor.sendToPlayer(
+            player, new TransitionPayload("begin", dungeonName, backgroundTexture)
+        );
+    }
+
+    static void finishTransition(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(
+            player, new TransitionPayload("finish", "", "")
+        );
+    }
+
+    static void cancelTransition(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(
+            player, new TransitionPayload("cancel", "", "")
         );
     }
 
@@ -130,6 +151,11 @@ public final class DungeonGuideNetwork {
             OpenRewardsPayload.STREAM_CODEC,
             DungeonGuideNetwork::handleOpenRewards
         );
+        registrar.playToClient(
+            TransitionPayload.TYPE,
+            TransitionPayload.STREAM_CODEC,
+            DungeonGuideNetwork::handleTransition
+        );
     }
 
     private static void handleOpen(OpenGuidePayload payload, IPayloadContext context) {
@@ -145,6 +171,7 @@ public final class DungeonGuideNetwork {
     }
 
     private static void handleOpenQueue(OpenQueuePayload payload, IPayloadContext context) {
+        DungeonTransitionOverlay.clear();
         DungeonQueueScreen.open(payload.data());
     }
 
@@ -168,6 +195,21 @@ public final class DungeonGuideNetwork {
         OpenRewardsPayload payload, IPayloadContext context
     ) {
         DungeonRewardScreen.open(payload.data());
+    }
+
+    private static void handleTransition(
+        TransitionPayload payload, IPayloadContext context
+    ) {
+        switch (payload.action()) {
+            case "begin" -> DungeonTransitionOverlay.start(
+                payload.dungeonName(), payload.backgroundTexture()
+            );
+            case "finish" -> DungeonTransitionOverlay.finish();
+            case "cancel" -> DungeonTransitionOverlay.cancel();
+            default -> throw new IllegalArgumentException(
+                "Unknown dungeon transition action: " + payload.action()
+            );
+        }
     }
 
     public record GuideData(
@@ -415,6 +457,34 @@ public final class DungeonGuideNetwork {
             StreamCodec.of(
                 (buffer, payload) -> payload.data.write(buffer),
                 buffer -> new OpenRewardsPayload(RewardData.read(buffer))
+            );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    private record TransitionPayload(
+        String action,
+        String dungeonName,
+        String backgroundTexture
+    ) implements CustomPacketPayload {
+        private static final Type<TransitionPayload> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(
+                CobbleventureBootstrap.MOD_ID, "dungeon_transition"
+            )
+        );
+        private static final StreamCodec<RegistryFriendlyByteBuf, TransitionPayload> STREAM_CODEC =
+            StreamCodec.of(
+                (buffer, payload) -> {
+                    buffer.writeUtf(payload.action);
+                    buffer.writeUtf(payload.dungeonName);
+                    buffer.writeUtf(payload.backgroundTexture);
+                },
+                buffer -> new TransitionPayload(
+                    buffer.readUtf(), buffer.readUtf(), buffer.readUtf()
+                )
             );
 
         @Override

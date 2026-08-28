@@ -55,6 +55,9 @@ public final class DungeonGuideScreen extends Screen {
     private void answer(boolean accepted) {
         if (answered) return;
         answered = true;
+        if (accepted) {
+            DungeonTransitionOverlay.start(data.title(), data.backgroundTexture());
+        }
         DungeonGuideNetwork.respond(data.entranceId(), accepted);
         Minecraft.getInstance().setScreen(null);
     }
