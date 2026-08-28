@@ -20,9 +20,9 @@
   "multiplayer": { "mode": "independent", "min_size": 2, "max_size": 2, "battle_join": "initiator_only" },
   "match": { "required_players": 2, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "keep_waiting", "stay_radius": 8 },
   "battle": { "allow_flee": false, "allow_capture": true, "allow_items": true, "allow_escape_actions": false },
-  "plan": { "mode": "runtime", "seed_policy": "random_per_run", "fallback": "use_fallback_plan", "generation_timeout_ms": 1500, "max_attempts": 160 },
+  "plan": { "mode": "runtime", "seed_policy": "random_per_run", "fallback": "use_fallback_plan", "generation_timeout_ms": 1000, "max_attempts": 48 },
   "terrain": { "mode": "nbt_pieces", "piece_pool": "cobbleventure:dungeon_pool/rocket_test", "bounds": [80, 72, 80] },
-  "layout": { "mode": "rooms_and_corridors", "critical_path_rooms": [12, 15], "branch_count": [2, 4], "branch_depth": [1, 2], "loop_chance": 0.05, "vertical_direction": "ascending", "floor_changes": [4, 7] },
+  "layout": { "mode": "rooms_and_corridors", "critical_path_rooms": [12, 12], "branch_count": [1, 1], "branch_depth": [1, 1], "loop_chance": 0.0, "vertical_direction": "ascending", "floor_changes": [2, 2] },
   "encounters": [
     {
       "id": "office_guard", "display_name": { "ko_kr": "중층 사무실 경비", "en_us": "Office Guard" },

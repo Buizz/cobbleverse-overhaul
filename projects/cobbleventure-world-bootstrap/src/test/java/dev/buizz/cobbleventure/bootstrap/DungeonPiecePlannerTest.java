@@ -83,6 +83,26 @@ final class DungeonPiecePlannerTest {
         }
     }
 
+    @Test
+    void silphRuntimePlanningCompletesAcrossMultipleEntrySeeds() throws Exception {
+        List<DungeonPieceDefinition> pieces = packagedRocketPieces();
+        DungeonDefinition dungeon = packagedDungeon("rocket_silph_company");
+
+        assertTimeout(Duration.ofSeconds(12), () -> {
+            for (long seed = 0; seed < 24; seed++) {
+                DungeonPieceLayout generated;
+                try {
+                    generated = DungeonPieceLayout.generate(dungeon, pieces, seed);
+                } catch (IllegalStateException failure) {
+                    throw new IllegalStateException("silph seed=" + seed, failure);
+                }
+                assertNoOverlap(generated.plan());
+                assertConnected(generated.plan());
+                assertNoOpenConnectors(generated.plan(), pieces);
+            }
+        });
+    }
+
     private static void assertSparseRoomCadence(DungeonPiecePlan plan, String name) {
         List<String> roles = plan.placements().stream()
             .filter(DungeonPiecePlan.Placement::criticalPath)

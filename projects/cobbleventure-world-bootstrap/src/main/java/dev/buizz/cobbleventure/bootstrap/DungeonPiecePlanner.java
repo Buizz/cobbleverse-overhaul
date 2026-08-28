@@ -16,6 +16,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 
 /** Builds a bounded critical path with optional side branches from authored NBT pieces. */
 final class DungeonPiecePlanner {
+    private static final int MAX_SEARCH_NODES_PER_ATTEMPT = 20_000;
     private static final List<Rotation> ROTATIONS = List.of(
         Rotation.NONE,
         Rotation.CLOCKWISE_90,
@@ -30,6 +31,15 @@ final class DungeonPiecePlanner {
         Settings settings,
         long seed
     ) {
+        return generate(definitions, settings, seed, Long.MAX_VALUE);
+    }
+
+    static DungeonPiecePlan generate(
+        Collection<DungeonPieceDefinition> definitions,
+        Settings settings,
+        long seed,
+        long deadlineNanos
+    ) {
         settings.validate();
         List<DungeonPieceDefinition> pieces = List.copyOf(definitions);
         requireRoles(pieces);
@@ -39,6 +49,8 @@ final class DungeonPiecePlanner {
             )
         );
         for (int attempt = 0; attempt < settings.maxAttempts(); attempt++) {
+            if (System.nanoTime() >= deadlineNanos) break;
+            SearchBudget budget = new SearchBudget(deadlineNanos);
             Random random = new Random(mixSeed(seed, attempt));
             State state = startState(pieces, settings, random);
             if (state == null) continue;
@@ -49,19 +61,20 @@ final class DungeonPiecePlanner {
                 random, settings.branchCountMin(), settings.branchCountMax()
             );
             if (!extendCritical(
-                state, pieces, settings, random, targetRooms, targetBranches, 1
+                state, pieces, settings, random, targetRooms, targetBranches, 1,
+                budget
             )) continue;
-            if (!verticalProfileSatisfied(state, settings)) continue;
-            if (!stackedFootprintSatisfied(state, settings)) continue;
             if (!attachBranches(
-                state, pieces, settings, random, targetBranches
+                state, pieces, settings, random, targetBranches, budget
             )) continue;
             DungeonPiecePlan looped = DungeonPieceLoops.add(
                 state.toPlan(seed, settings.bounds()), byId,
                 settings.loopChance(), mixSeed(seed, attempt + 10_000)
             );
             state.absorbAdditionalLinks(looped.links());
-            if (!completeOpenConnectors(state, pieces, settings, random)) continue;
+            if (!completeOpenConnectors(
+                state, pieces, settings, random, budget
+            )) continue;
             if (!usageSatisfied(state, pieces)) continue;
             return state.toPlan(seed, settings.bounds());
         }
@@ -109,9 +122,21 @@ final class DungeonPiecePlanner {
         Random random,
         int targetRooms,
         int targetBranches,
-        int depth
+        int depth,
+        SearchBudget budget
     ) {
-        if (depth >= targetRooms) return true;
+        if (!budget.tryVisit()) return false;
+        if (depth >= targetRooms) {
+            return verticalProfileSatisfied(state, settings)
+                && stackedFootprintSatisfied(state, settings);
+        }
+        int remainingPlacements = targetRooms - depth;
+        int floorChanges = state.criticalFloorChanges();
+        if (floorChanges > settings.floorChangesMax()
+            || floorChanges + remainingPlacements < settings.floorChangesMin()
+            || state.branchHostCount() + remainingPlacements < targetBranches) {
+            return false;
+        }
         String requiredRole = depth == targetRooms - 2 ? "boss"
             : depth == targetRooms - 1 ? "exit" : null;
         Set<String> flexibleRoles = criticalRoles(settings.layoutMode(), depth);
@@ -121,11 +146,17 @@ final class DungeonPiecePlanner {
         int neededFloorChanges = Math.max(
             0, settings.floorChangesMin() - state.criticalFloorChanges()
         );
-        int remainingInteriorSlots = Math.max(0, targetRooms - 2 - depth);
-        int neededBranchHosts = Math.max(0, targetBranches - branchCapacity);
+        int remainingVerticalSlots = 0;
+        for (int candidateDepth = depth;
+            candidateDepth < targetRooms - 2; candidateDepth++) {
+            if (criticalRoles(settings.layoutMode(), candidateDepth)
+                .contains("corridor")) {
+                remainingVerticalSlots++;
+            }
+        }
         boolean shouldAddVerticalTransition = requiredRole == null
             && neededFloorChanges > 0
-            && neededFloorChanges >= remainingInteriorSlots - neededBranchHosts;
+            && neededFloorChanges >= remainingVerticalSlots;
         boolean canAddVerticalTransition = requiredRole == null && pieces.stream()
             .anyMatch(piece -> flexibleRoles.contains(piece.role())
                 && isVerticalTransition(piece)
@@ -147,6 +178,8 @@ final class DungeonPiecePlanner {
                             ? piece.connectors().size() == 3
                             : piece.connectors().size() < 3
                 ))
+                .filter(piece -> floorChanges < settings.floorChangesMax()
+                    || !isVerticalTransition(piece))
                 .filter(piece -> piece.allowsPlacement(true))
                 .filter(piece -> canUse(state, piece)).toList(),
             random
@@ -175,11 +208,13 @@ final class DungeonPiecePlanner {
         attachments.sort(Comparator.comparingInt(attachment ->
             compactnessScore(state, attachment.placed())
         ));
+        int explored = 0;
         for (Attachment attachment : attachments) {
+            if (explored++ >= 8) break;
             state.add(attachment);
             if (extendCritical(
                 state, pieces, settings, random, targetRooms,
-                targetBranches, depth + 1
+                targetBranches, depth + 1, budget
             )) return true;
             state.removeLast(attachment);
         }
@@ -212,7 +247,8 @@ final class DungeonPiecePlanner {
         List<DungeonPieceDefinition> pieces,
         Settings settings,
         Random random,
-        int targetBranches
+        int targetBranches,
+        SearchBudget budget
     ) {
         int completed = 0;
         List<Integer> hosts = new ArrayList<>();
@@ -222,7 +258,9 @@ final class DungeonPiecePlanner {
             if (completed >= targetBranches) break;
             int depth = randomRange(random, settings.branchDepthMin(), settings.branchDepthMax());
             State snapshot = state.copy();
-            if (extendBranch(state, pieces, settings, random, host, depth, 0)) {
+            if (extendBranch(
+                state, pieces, settings, random, host, depth, 0, budget
+            )) {
                 completed++;
             } else {
                 state.restore(snapshot);
@@ -238,8 +276,10 @@ final class DungeonPiecePlanner {
         Random random,
         int currentIndex,
         int remaining,
-        int branchDepth
+        int branchDepth,
+        SearchBudget budget
     ) {
+        if (!budget.tryVisit()) return false;
         if (remaining == 0) return true;
         Set<String> roles = branchRoles(
             settings.layoutMode(), remaining, branchDepth
@@ -270,7 +310,7 @@ final class DungeonPiecePlanner {
                         int nextIndex = state.placements.size() - 1;
                         if (extendBranch(
                             state, pieces, settings, random, nextIndex,
-                            remaining - 1, branchDepth + 1
+                            remaining - 1, branchDepth + 1, budget
                         )) return true;
                         state.removeLast(attachment);
                     }
@@ -289,8 +329,10 @@ final class DungeonPiecePlanner {
         State state,
         List<DungeonPieceDefinition> pieces,
         Settings settings,
-        Random random
+        Random random,
+        SearchBudget budget
     ) {
+        if (!budget.tryVisit()) return false;
         OpenConnector open = state.firstOpenConnector();
         if (open == null) return true;
         List<DungeonPieceDefinition> terminalPool = pieces.stream()
@@ -316,7 +358,10 @@ final class DungeonPiecePlanner {
                     continue;
                 }
                 state.add(attachment);
-                return completeOpenConnectors(state, pieces, settings, random);
+                if (completeOpenConnectors(
+                    state, pieces, settings, random, budget
+                )) return true;
+                state.removeLast(attachment);
             }
         }
         return false;
@@ -757,6 +802,18 @@ final class DungeonPiecePlanner {
     private record OpenConnector(
         Placed piece, DungeonPieceDefinition.Connector connector
     ) {}
+    private static final class SearchBudget {
+        private final long deadlineNanos;
+        private int remainingNodes = MAX_SEARCH_NODES_PER_ATTEMPT;
+
+        private SearchBudget(long deadlineNanos) {
+            this.deadlineNanos = deadlineNanos;
+        }
+
+        private boolean tryVisit() {
+            return remainingNodes-- > 0 && System.nanoTime() < deadlineNanos;
+        }
+    }
     private record LocalBounds(BlockPos minimum, BlockPos size) {}
     private record Box(BlockPos minimum, BlockPos maximumExclusive) {
         private boolean overlaps(Box other) {

@@ -106,16 +106,26 @@ record DungeonPieceLayout(
         Map<String, DungeonPieceDefinition> byId,
         long seed
     ) {
+        long timeoutNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(
+            definition.plan().generationTimeoutMs()
+        );
+        long startedAt = System.nanoTime();
+        long deadline = saturatedDeadline(startedAt, timeoutNanos);
+        boolean hasFallback = definition.plan().fallback().equals("use_fallback_plan");
+        long primaryDeadline = hasFallback
+            ? saturatedDeadline(startedAt, timeoutNanos / 3L * 2L)
+            : deadline;
         IllegalStateException lastFailure = null;
         DungeonPiecePlanner.Settings settings = singleAttempt(
             plannerSettings(definition, false)
         );
         for (int attempt = 0; attempt < definition.plan().maxAttempts(); attempt++) {
+            if (System.nanoTime() >= primaryDeadline) break;
             try {
                 long attemptSeed = attempt == 0 ? seed
                     : markerSeed(seed + attempt, "layout_attempt");
                 DungeonPiecePlan plan = DungeonPiecePlanner.generate(
-                    pieces, settings, attemptSeed
+                    pieces, settings, attemptSeed, primaryDeadline
                 );
                 DungeonPiecePlanValidator.validate(
                     plan, byId, definition.terrain().piecePool(),
@@ -137,11 +147,12 @@ record DungeonPieceLayout(
                 plannerSettings(definition, true)
             );
             for (int attempt = 0; attempt < definition.plan().maxAttempts(); attempt++) {
+                if (System.nanoTime() >= deadline) break;
                 try {
                     long fallbackSeed = attempt == 0 ? seed
                         : markerSeed(seed + attempt, "fallback_layout_attempt");
                     DungeonPiecePlan fallback = DungeonPiecePlanner.generate(
-                        pieces, fallbackSettings, fallbackSeed
+                        pieces, fallbackSettings, fallbackSeed, deadline
                     );
                     DungeonPiecePlanValidator.validate(
                         fallback, byId, definition.terrain().piecePool(),
@@ -162,6 +173,11 @@ record DungeonPieceLayout(
         }
         if (lastFailure != null) throw lastFailure;
         throw new IllegalStateException("Dungeon runtime planning produced no attempts");
+    }
+
+    private static long saturatedDeadline(long startedAt, long timeoutNanos) {
+        if (timeoutNanos >= Long.MAX_VALUE - startedAt) return Long.MAX_VALUE;
+        return startedAt + timeoutNanos;
     }
 
     private static DungeonPiecePlanner.Settings singleAttempt(
