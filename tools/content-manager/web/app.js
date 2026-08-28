@@ -16560,7 +16560,7 @@ function renderBuildCommands() {
     languageSelect.value = state.exportLanguages.some((language) => language.id === selectedLanguage)
       ? selectedLanguage : "ko_kr";
   }
-  $("#build-command-list").innerHTML = state.buildCommands.filter((command) => !["builder-world", "live-editor-world"].includes(command.id)).map((command) => `
+  $("#build-command-list").innerHTML = state.buildCommands.filter((command) => !["builder-world", "live-editor-world", "builder-install", "live-editor-install"].includes(command.id)).map((command) => `
     <article class="build-command"><div><strong>${escapeHtml(command.id)}</strong><small>${escapeHtml(descriptions[command.id] || command.description)}</small></div><button class="button ${command.id.startsWith("pack") ? "primary" : "secondary"}" data-command="${escapeHtml(command.id)}">실행</button></article>`).join("");
   $$("[data-command]").forEach((button) => button.addEventListener("click", () => runBuild(button.dataset.command)));
 }
@@ -16574,8 +16574,10 @@ function renderStructureBuilder() {
   if (document.activeElement !== liveInstanceInput) liveInstanceInput.value = data.live_instance_path || "";
   $("#structure-builder-candidates").innerHTML = (data.candidates || []).map((path) => `<option value="${escapeHtml(path)}"></option>`).join("");
   $("#structure-builder-package").textContent = data.package_exists ? "생성됨" : "없음";
+  $("#structure-builder-instance-status").textContent = data.instance_exists ? "설정됨" : "찾지 못함";
   $("#structure-builder-world").textContent = data.world_exists ? "연결됨" : "찾지 못함";
   $("#structure-builder-live-package").textContent = data.live_package_exists ? "생성됨" : "없음";
+  $("#structure-builder-live-instance-status").textContent = data.live_instance_exists ? "설정됨" : "찾지 못함";
   $("#structure-builder-live-world").textContent = data.live_world_exists ? "연결됨" : "찾지 못함";
   $("#structure-builder-exports").textContent = `${data.export_count || 0}개`;
   $("#structure-builder-sources").textContent = `${data.source_count || 0}개`;
@@ -17437,6 +17439,8 @@ $("#refresh-structure-builder").addEventListener("click", () => loadStructureBui
 $("#refresh-live-editor").addEventListener("click", () => loadStructureBuilder().catch((error) => toast(error.message)));
 $("#build-structure-builder").addEventListener("click", async () => { await runBuild("builder-world"); await loadStructureBuilder().catch((error) => toast(error.message)); });
 $("#build-live-nbt-editor").addEventListener("click", async () => { await runBuild("live-editor-world", { state: "#live-editor-build-state", output: "#live-editor-build-output" }); await loadStructureBuilder().catch((error) => toast(error.message)); });
+$("#install-structure-builder").addEventListener("click", async () => { await runBuild("builder-install"); await loadStructureBuilder().catch((error) => toast(error.message)); });
+$("#install-live-nbt-editor").addEventListener("click", async () => { await runBuild("live-editor-install", { state: "#live-editor-build-state", output: "#live-editor-build-output" }); await loadStructureBuilder().catch((error) => toast(error.message)); });
 $("#sync-structure-builder").addEventListener("click", syncStructureBuilder);
 $("#import-structure-builder").addEventListener("click", importStructureBuilder);
 $("#choose-structure-builder-live-source").addEventListener("click", () => openStructureBuilderSourceDialog("live"));

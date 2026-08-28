@@ -25,7 +25,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 final class LargeBedBlock extends HorizontalDirectionalBlock {
     private static final MapCodec<LargeBedBlock> CODEC = simpleCodec(LargeBedBlock::new);
     static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
-    static final IntegerProperty LENGTH = IntegerProperty.create("length", 0, 2);
+    static final IntegerProperty LENGTH = IntegerProperty.create("length", 0, 1);
     static final IntegerProperty WIDTH = IntegerProperty.create("width", 0, 1);
     private static final VoxelShape BED_SHAPE = box(0.0D, 2.0D, 0.0D, 16.0D, 10.0D, 16.0D);
     private static final VoxelShape HEAD_SHAPE = box(0.0D, 2.0D, 0.0D, 16.0D, 14.0D, 16.0D);
@@ -69,7 +69,7 @@ final class LargeBedBlock extends HorizontalDirectionalBlock {
         }
         Direction facing = state.getValue(FACING);
         List<BlockPos> positions = positions(position, facing);
-        for (int length = 0; length < 3; length++) {
+        for (int length = 0; length < 2; length++) {
             for (int width = 0; width < 2; width++) {
                 int index = length * 2 + width;
                 level.setBlock(
@@ -118,13 +118,13 @@ final class LargeBedBlock extends HorizontalDirectionalBlock {
     protected VoxelShape getShape(
         BlockState state, BlockGetter level, BlockPos position, CollisionContext context
     ) {
-        return state.getValue(LENGTH) == 2 ? HEAD_SHAPE : BED_SHAPE;
+        return state.getValue(LENGTH) == 1 ? HEAD_SHAPE : BED_SHAPE;
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
         Direction side = facing.getCounterClockWise();
-        List<BlockPos> positions = new ArrayList<>(6);
-        for (int length = 0; length < 3; length++) {
+        List<BlockPos> positions = new ArrayList<>(4);
+        for (int length = 0; length < 2; length++) {
             for (int width = 0; width < 2; width++) {
                 positions.add(core.relative(facing, length).relative(side, width));
             }

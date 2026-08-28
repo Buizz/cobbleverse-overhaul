@@ -6,7 +6,7 @@
   "author": "Buizz",
   "purpose": "standalone-structure-authoring-world",
   "production_ready": false,
-  "notice": "독립 평지 월드에서 Cobbleventure 건축 NBT를 편집하고 다시 내보내는 경량 제작 팩입니다. Create 6.0.10, Create: Copycats+ 3.0.4와 Copycat WE Fix 1.0.0, Playing Cards & Chips 2.0.1 블록을 원형 그대로 보존합니다.",
+  "notice": "독립 평지 월드에서 Cobbleventure 건축 NBT를 편집하고 다시 내보내는 경량 제작 팩입니다. Create 6.0.10, Create: Copycats+ 3.0.4, Night Lights 1.4.0과 Copycat WE Fix 1.0.0, Playing Cards & Chips 2.0.1 블록을 원형 그대로 보존합니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
@@ -72,6 +72,11 @@
       "required": true
     },
     {
+      "projectID": 1199355,
+      "fileID": 8555615,
+      "required": true
+    },
+    {
       "projectID": 1581357,
       "fileID": 8283427,
       "required": true
@@ -83,11 +88,11 @@
     }
   ],
   "local_resourcepacks": [
-    {
-      "source": "local-assets/Cobbleventure-Pokemon-Paintings.zip",
-      "target": "Cobbleventure-Pokemon-Paintings.zip",
-      "pack_format": 34
-    }
+      {
+        "source": "local-assets/Cobbleventure-Pokemon-Paintings.zip",
+        "target": "Cobbleventure-Pokemon-Paintings.zip",
+        "pack_format": 34
+      }
   ],
   "overrides_directory": "pack/overrides/structure-builder",
   "output": "dist/cobbleventure-structure-builder-0.1.0-curseforge.zip"

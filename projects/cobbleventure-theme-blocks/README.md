@@ -10,7 +10,7 @@
 projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blocks build
 ```
 
-완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.21.0.jar`에 생성됩니다. Minecraft
+완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.41.0.jar`에 생성됩니다. Minecraft
 1.21.1과 NeoForge 21.1.248 이상을 사용하는 모드팩의 `mods` 폴더에 JAR를 넣어
 활성화하고, 빼서 비활성화할 수 있습니다. 다른 Cobbleventure 모드를 요구하지 않습니다.
 
@@ -53,11 +53,15 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blo
 두 칸뿐 아니라 세 칸 이상도 이어지며 설계 참고본은
 `docs/concepts/professor_lab_connecting_bookshelf_reference.png`에 보관합니다.
 
-`2×3 1인용 철제 침대`는 Minecraft 축척상 가로 2블록 × 길이 3블록을 차지하지만
+`2×2 1인용 철제 침대`는 Minecraft 축척상 가로 2블록 × 길이 2블록을 차지하며
 베개 하나를 사용하는 1인용 침대입니다. 회색 철제 프레임, 흰 테두리가 있는 하늘색
-이불과 연두색 머리맡 띠를 사용하며 여섯 파트가 함께 설치·철거됩니다. 현재 수면·리스폰
+이불과 연두색 머리맡 띠를 사용하며 네 파트가 함께 설치·철거됩니다. 현재 수면·리스폰
 기능은 없습니다. 설계 참고본은
 `docs/concepts/large_bed_reference.png`에 보관합니다.
+
+`하늘 풍경 발광 창문`은 실제 외부를 투과하지 않는 불투명 장식 창문입니다. 입체 창틀은
+일반 조명을 받고 안쪽 풍경 패널만 자체 발광하며, 블록 광량 8로 주변 공간을 은은하게 밝힙니다.
+설치 방향에 따라 네 방향으로 회전합니다.
 
 `build.bat mod-theme-blocks`로 빌드하면 완성된 JAR가 다음 환경에 함께 설치됩니다.
 
@@ -68,3 +72,7 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blo
 `build.bat pack`, `builder-world`, `builder-sync`, `live-editor-world`,
 `live-editor-sync`, `mod-bootstrap`도 테마 블록을 먼저 빌드하도록 연결되어 있습니다.
 따라서 편집 월드에서 저장한 블록 ID를 플레이 월드에서도 동일하게 불러올 수 있습니다.
+
+침대와 완성된 하늘 풍경 창문의 `.bbmodel` 및 편집용 PNG는 빌드 직전에 자동으로 게임용
+JSON·PNG로 변환됩니다. 따라서 Blockbench나 외부 이미지 편집기에서 작업본을 저장한 뒤
+`apply-object-workshop.bat` 또는 `build.bat mod-theme-blocks`를 실행하면 됩니다.

@@ -1,0 +1,18 @@
+{
+  "source_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\11_bright_double_glow_window\\bright_double_glow_window.bbmodel",
+  "output_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\11_bright_double_glow_window\\bright_double_glow_window_packed.bbmodel",
+  "output_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\bright_double_glow_window_texture.png",
+  "output_java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\11_bright_double_glow_window\\bright_double_glow_window.json",
+  "source_size": [
+    32,
+    32
+  ],
+  "packed_size": [
+    64,
+    64
+  ],
+  "faces": 66,
+  "source_regions": 19,
+  "packed_regions": 8,
+  "padding": 1
+}

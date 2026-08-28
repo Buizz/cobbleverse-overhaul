@@ -1,5 +1,19 @@
 {
   "variants": {
-    "": { "model": "cobbleventure_theme_blocks:block/underground_blue_band" }
+    "facing=north": {
+      "model": "cobbleventure_theme_blocks:block/underground_blue_band"
+    },
+    "facing=east": {
+      "model": "cobbleventure_theme_blocks:block/underground_blue_band",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "cobbleventure_theme_blocks:block/underground_blue_band",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "cobbleventure_theme_blocks:block/underground_blue_band",
+      "y": 270
+    }
   }
 }

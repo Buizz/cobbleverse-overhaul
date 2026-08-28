@@ -1,9 +1,0 @@
-{
-  "parent":"minecraft:block/block",
-  "ambientocclusion":true,
-  "textures":{"particle":"cobbleventure_theme_blocks:block/professor_machine_white","metal":"cobbleventure_theme_blocks:block/professor_machine_white","metal_dark":"cobbleventure_theme_blocks:block/professor_machine_dark","sheet":"cobbleventure_theme_blocks:block/bed_linen_white"},
-  "elements":[
-    {"name":"left_iron_rail","from":[0,1,0],"to":[1,5,16],"faces":{"down":{"texture":"#metal_dark"},"up":{"texture":"#metal"},"north":{"texture":"#metal"},"south":{"texture":"#metal"},"west":{"texture":"#metal"},"east":{"texture":"#metal"}}},
-    {"name":"left_white_blanket_border","from":[0,8.9,0],"to":[1.25,9.25,16],"faces":{"down":{"texture":"#sheet"},"up":{"texture":"#sheet"},"north":{"texture":"#sheet"},"south":{"texture":"#sheet"},"west":{"texture":"#sheet"},"east":{"texture":"#sheet"}}}
-  ]
-}

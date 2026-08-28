@@ -29,5 +29,9 @@
   "block.cobbleventure_theme_blocks.rocket_base_machine_3": "Team Rocket Base Machine 3",
   "block.cobbleventure_theme_blocks.professor_lab_research_device_1": "Professor's Lab Research Device 1",
   "block.cobbleventure_theme_blocks.professor_lab_connecting_bookshelf": "Professor's Lab Connecting Bookshelf",
-  "block.cobbleventure_theme_blocks.large_bed": "2x3 Single Iron Bed"
+  "block.cobbleventure_theme_blocks.large_bed": "2x2 Single Iron Bed",
+  "block.cobbleventure_theme_blocks.soft_cream_block": "Soft Cream Block",
+  "block.cobbleventure_theme_blocks.sky_view_glow_window": "Sky View Glow Window",
+  "block.cobbleventure_theme_blocks.bright_double_glow_window": "Bright Double Glow Window",
+  "block.cobbleventure_theme_blocks.blue_panel_glow_window": "Blue Panel Glow Window"
 }

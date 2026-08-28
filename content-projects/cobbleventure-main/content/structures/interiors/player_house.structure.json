@@ -27,16 +27,7 @@
       "safe_side": "south"
     },
     {
-      "label": "start",
-      "type": "npc_position",
-      "position": [
-        15,
-        7,
-        6
-      ],
-      "facing": "north"
-    },
-    {
+      "id": "mom",
       "label": "mom",
       "type": "npc_position",
       "position": [
@@ -44,7 +35,18 @@
         1,
         6
       ],
-      "facing": "north"
+      "facing": "west"
+    },
+    {
+      "id": "start",
+      "label": "start",
+      "type": "npc_position",
+      "position": [
+        16,
+        7,
+        3
+      ],
+      "facing": "south"
     }
   ]
 }

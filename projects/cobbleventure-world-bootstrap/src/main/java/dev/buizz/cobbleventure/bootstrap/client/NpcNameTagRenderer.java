@@ -98,13 +98,13 @@ public final class NpcNameTagRenderer {
         fillPanel(background, pose, left + 1, PANEL_TOP + 2, right + 1, PANEL_BOTTOM + 2,
             withOpacity(menuTheme.shadow(), 0.72F), 0.000F, packedLight);
         fillPanel(background, pose, left, PANEL_TOP, right, PANEL_BOTTOM,
-            withOpacity(menuTheme.border(), 0.96F), 0.001F, packedLight);
+            opaque(menuTheme.border()), 0.001F, packedLight);
         fillPanel(background, pose, left + 1, PANEL_TOP + 1, right - 1, PANEL_BOTTOM - 1,
-            withOpacity(menuTheme.innerBorder(), 0.96F), 0.002F, packedLight);
+            opaque(menuTheme.innerBorder()), 0.002F, packedLight);
         fillPanel(background, pose, left + 2, PANEL_TOP + 2, right - 2, PANEL_BOTTOM - 2,
-            withOpacity(menuTheme.background(), 0.92F), 0.003F, packedLight);
+            opaque(menuTheme.background()), 0.003F, packedLight);
         fillPanel(background, pose, left + 5, PANEL_TOP + 1, right - 5, PANEL_TOP + 3,
-            withOpacity(menuTheme.accent(), 0.96F), 0.004F, packedLight);
+            opaque(menuTheme.accent()), 0.004F, packedLight);
 
         font.drawInBatch(
             themedName, textX, 1.0F, 0xFFFFFFFF, false, pose, buffers,
@@ -137,6 +137,10 @@ public final class NpcNameTagRenderer {
     private static int withOpacity(int color, float opacity) {
         int alpha = Math.round((color >>> 24) * Math.clamp(opacity, 0.0F, 1.0F));
         return alpha << 24 | color & 0x00FFFFFF;
+    }
+
+    private static int opaque(int color) {
+        return 0xFF000000 | color & 0x00FFFFFF;
     }
 
     private static MenuTheme theme() {

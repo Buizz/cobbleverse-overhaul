@@ -194,10 +194,8 @@ final class WorldGateSystem {
         if (markerState.is(Blocks.RESPAWN_ANCHOR)) {
             if (forestGate) {
                 cacheForestEntryMarker(level, world, gate);
-            } else if (gate.surroundingType().equals("natural")
-                && !gate.buildingEnabled()
-                && markerState.getValue(RespawnAnchorBlock.CHARGE) < 3) {
-                refreshNpcNaturalGate(level, world, gate, center);
+            } else if (gate.surroundingType().equals("natural")) {
+                refreshNaturalGateSurroundings(level, world, gate, center);
                 level.setBlock(
                     marker,
                     markerState.setValue(RespawnAnchorBlock.CHARGE, 3), 2
@@ -277,19 +275,34 @@ final class WorldGateSystem {
         );
     }
 
-    /** Refreshes the old solid leaf wall once when an existing NPC-only gate is loaded. */
-    private static void refreshNpcNaturalGate(
+    /** Restores natural gate shoulders after later road or town generation passes. */
+    private static void refreshNaturalGateSurroundings(
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center
     ) {
         int halfOpening = gate.openingWidth() / 2;
         int halfLength = gateBoundaryHalfLength(world, gate, halfOpening);
-        int halfThickness = gate.wallThickness() / 2;
+        int halfThickness = gate.wallThickness() / 2
+            + (gate.buildingEnabled() ? 4 : 0);
         placeNaturalSurroundings(
             level, world, gate, center,
             halfLength, halfThickness, halfOpening
         );
-        LOGGER.info("NPC natural gate visuals refreshed: gate={}", gate.id());
+        LOGGER.info("Natural gate surroundings restored: gate={}", gate.id());
+    }
+
+    static void refreshNaturalSurroundingsAfterTown(
+        ServerLevel level, HexWorldPlan world
+    ) {
+        for (Gate gate : world.gates()) {
+            if (gate.destinationForest() != null
+                || !gate.surroundingType().equals("natural")) {
+                continue;
+            }
+            refreshNaturalGateSurroundings(
+                level, world, gate, alignedGateCenter(world, gate)
+            );
+        }
     }
 
     private static void placeWallSurroundings(
@@ -575,6 +588,7 @@ final class WorldGateSystem {
 
     private static void decorateNaturalShoulderColumn(
         ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
+        CobbleventureBootstrap.Point center,
         int x, int z, int distance, int offset
     ) {
         int groundY = naturalBarrierGroundY(level, x, z);
@@ -586,18 +600,37 @@ final class WorldGateSystem {
             // Forest wedges deliberately use a denser candidate grid than the
             // surrounding terrain. Vanilla placement still rejects crowns that
             // would overlap too tightly, avoiding a handmade leaf wall.
-            if (Math.abs(offset) >= 2
-                && Math.floorMod(distance + Math.abs(offset) * 3, 6) == 0
-                && Math.floorMod((int) hash, 2) == 0
-            ) {
+            int absoluteOffset = Math.abs(offset);
+            boolean treeCandidate = Math.floorMod(
+                distance + absoluteOffset * 2, 4
+            ) == 0 && Math.floorMod((int) hash, 3) != 0;
+            if (treeCandidate) {
+                // The collision wedge can be only one block deep near the
+                // passage. Plant those trees just beyond its center columns so
+                // trunks and crowns read as a dense forest instead of exposing
+                // a thin invisible barrier line.
+                if (absoluteOffset <= 1) {
+                    int fringeShift = 1 + Math.floorMod((int) (hash >>> 18), 2);
+                    int fringeX = x + Integer.signum(x - center.x()) * fringeShift;
+                    int fringeZ = z + Integer.signum(z - center.z()) * fringeShift;
+                    BlockPos fringeGround = new BlockPos(
+                        fringeX, naturalBarrierGroundY(level, fringeX, fringeZ), fringeZ
+                    );
+                    if (CobbleventureBootstrap.placeNaturalGateTree(
+                        level,
+                        naturalGateTreeLog(terrainType),
+                        naturalGateTreeLeaves(terrainType),
+                        fringeGround, hash ^ 0x6A09E667F3BCC909L
+                    )) {
+                        return;
+                    }
+                }
                 if (CobbleventureBootstrap.placeNaturalGateTree(
                     level,
                     naturalGateTreeLog(terrainType),
                     naturalGateTreeLeaves(terrainType),
                     ground, hash
-                )) {
-                    return;
-                }
+                )) return;
             }
             if (Math.floorMod((int) (hash >>> 24), 4) != 0) {
                 BlockPos position = ground.above();
@@ -725,7 +758,9 @@ final class WorldGateSystem {
                 }
             }
         }
-        finishNaturalGateColumns(level, world, gate, columns, maximumDepth, halfOpening);
+        finishNaturalGateColumns(
+            level, world, gate, center, columns, maximumDepth, halfOpening
+        );
     }
 
     private static void placeNorthSouthNaturalGateEdges(
@@ -764,7 +799,9 @@ final class WorldGateSystem {
             }
         }
         List<NaturalGateColumn> columns = List.copyOf(uniqueColumns.values());
-        finishNaturalGateColumns(level, world, gate, columns, maximumDepth, halfOpening);
+        finishNaturalGateColumns(
+            level, world, gate, center, columns, maximumDepth, halfOpening
+        );
     }
 
     private static GateEdgeVector gateFaceTangent(String facing, HexCoord face) {
@@ -828,6 +865,7 @@ final class WorldGateSystem {
 
     private static void finishNaturalGateColumns(
         ServerLevel level, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center,
         List<NaturalGateColumn> columns, int maximumDepth, int halfOpening
     ) {
         // A previous gate revision may already occupy this footprint. Remove
@@ -842,6 +880,7 @@ final class WorldGateSystem {
         for (NaturalGateColumn column : columns) {
             decorateNaturalShoulderColumn(
                 level, world, gate, column.terrainType(),
+                center,
                 column.x(), column.z(), column.distance(), column.offset()
             );
         }

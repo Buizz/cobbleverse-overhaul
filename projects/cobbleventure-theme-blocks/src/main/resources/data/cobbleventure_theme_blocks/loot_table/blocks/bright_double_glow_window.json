@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "cobbleventure_theme_blocks:bright_double_glow_window"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "cobbleventure_theme_blocks:blocks/bright_double_glow_window"
+}

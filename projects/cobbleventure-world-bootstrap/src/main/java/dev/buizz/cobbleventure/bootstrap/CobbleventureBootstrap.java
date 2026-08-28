@@ -1307,6 +1307,9 @@ public final class CobbleventureBootstrap {
                 placedSettlements++;
             }
         }
+        WorldGateSystem.refreshNaturalSurroundingsAfterTown(
+            level, runtime.hexWorld()
+        );
 
         activeFacilityPortals = facilityPortals(settlements);
         activeFacilityMusicZones = facilityMusicZones(level, settlements);
@@ -4262,7 +4265,11 @@ public final class CobbleventureBootstrap {
         HexWorldPlan world = activeHexWorld;
         TerrainSample sample = world == null ? null : terrainAt(world, x + 0.5D, z + 0.5D);
         if (sample != null && isAquatic(sample)) return false;
-        if (world != null && isCaveMountainProtectedColumn(world, x, z)
+        // The circular cave-mountain envelope belongs to sealed outer terrain only.
+        // Applying it to authored town/route samples cuts circular holes out of roads
+        // whenever a settlement happens to overlap the midpoint of two cave entrances.
+        if (world != null && sample == null
+            && isCaveMountainProtectedColumn(world, x, z)
             && !isCaveEntrancePassage(world, x, z)) {
             return false;
         }
@@ -6401,6 +6408,9 @@ public final class CobbleventureBootstrap {
                     decorateTownLandscape(job.level, job.runtime.hexWorld(), settlement);
                 }
                 cleanupTownGenerationDebris(job.level, settlement);
+                WorldGateSystem.refreshNaturalSurroundingsAfterTown(
+                    job.level, job.runtime.hexWorld()
+                );
                 placeAutomaticTownNpcs(job.level, settlement, job.data);
                 job.data.markTownDebrisCleanupPending(townPreparationChunkKeys(settlement));
                 long completedAt = System.nanoTime();

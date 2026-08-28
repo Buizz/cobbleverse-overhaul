@@ -41,6 +41,41 @@ processResources {
     filesMatching('META-INF/neoforge.mods.toml') {
         expand properties
     }
+
+    // Blockbench 작업장은 JAR 소스 트리 밖에 둔다. 빌드할 때 게임에서 실제로
+    // 사용하는 모델 JSON과 텍스처 PNG만 최종 리소스에 합친다.
+    from('object-workspace') {
+        include 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.json'
+        include 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.obj'
+        include 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.mtl'
+        include 'assets/cobbleventure_theme_blocks/textures/block/**/*.png'
+        exclude 'assets/cobbleventure_theme_blocks/textures/block/windows/**/*.png'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*_complete.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.pack-report.json'
+        // These JSON fragments remain in the external workspace only as OBJ
+        // regeneration sources. The game renders one OBJ wrapper per machine.
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/04_rocket_base_machine_1/*_lower.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/04_rocket_base_machine_1/*_upper.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/05_rocket_base_machine_2/*_lower.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/05_rocket_base_machine_2/*_upper.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/06_rocket_base_machine_3/*_left*.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/06_rocket_base_machine_3/*_right*.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/07_professor_lab_research_device/*_connector.json'
+        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/07_professor_lab_research_device/*_quadrant.json'
+    }
+}
+
+def pythonExecutable = providers.environmentVariable('PYTHON').orElse(
+    System.getProperty('os.name').toLowerCase().contains('windows') ? 'python' : 'python3'
+)
+
+tasks.register('syncEditableBbModels', Exec) {
+    workingDir projectDir
+    commandLine pythonExecutable.get(), 'object-workspace/sync-editable-bbmodels.py'
+}
+
+tasks.named('processResources') {
+    dependsOn 'syncEditableBbModels'
 }
 
 tasks.register('cleanInstalledThemeBlockJars', Delete) {

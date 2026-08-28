@@ -1,0 +1,6 @@
+# Blockbench OBJ material
+newmtl machine_texture
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+d 1.0
+map_Kd ../../../../textures/block/professor_lab_research_device_1_texture.png

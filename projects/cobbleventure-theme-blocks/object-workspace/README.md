@@ -1,0 +1,161 @@
+# Cobbleventure 오브젝트 모델 작업장
+
+이 폴더는 `src/main/resources` 밖에 있는 외부 오브젝트 작업장입니다. JSON과 텍스처는
+참고용 복사본이 아니라 빌드 시 모드 JAR로 복사되는 실제 게임 리소스입니다. 원본
+스프라이트와 생성형 컨셉 이미지는 모델 폴더에 함께 보관하지만 JAR에는 넣지 않습니다.
+
+Blockbench 뷰포트에 직접 띄울 참고 이미지는 `reference-images` 폴더에 별도로 정리합니다.
+이 폴더 역시 JAR에는 포함되지 않습니다.
+
+`assets/cobbleventure_theme_blocks` 아래를 표준 Minecraft 리소스 구조로 구성했으므로,
+Blockbench가 모델 JSON의 네임스페이스 텍스처를 같은 작업장 안에서 찾을 수 있습니다.
+
+## 참고 우선순위
+
+1. `original_*` 원본 스프라이트
+2. `in_world_reference.png` 또는 `shape_reference_photo_*`
+3. `generated_concept.png` 생성형 보조 초안
+
+생성형 컨셉은 원본을 임의로 해석한 부분이 있으므로 최종 형태의 기준으로 사용하지 않습니다.
+
+## Blockbench에서 수정하기
+
+1. `assets/cobbleventure_theme_blocks/models/block/workshop` 아래에서 수정할 모델을 엽니다.
+   로켓단 기계 1~3과 연구소 기계는 `.obj`, 침대는 `large_single_iron_bed.bbmodel`, 그 외
+   오브젝트는 이름이 `*_complete.json`인 완성형 모델을 사용합니다.
+2. Java Block/Item 모델로 불러옵니다.
+3. 각 멀티블록 파트의 좌표는 원칙적으로 `0..16` 범위 안에서 편집합니다.
+4. 파일 이름과 폴더 위치를 바꾸지 않고 같은 `.bbmodel`에 저장합니다.
+5. 저장소 루트의 `apply-object-workshop.bat`을 실행합니다.
+6. 게임을 완전히 종료한 뒤 갱신된 JAR가 설치된 모드팩으로 다시 실행합니다.
+
+현재 `large_single_iron_bed.bbmodel`, `sky_view_glow_window.bbmodel`,
+`bright_double_glow_window.bbmodel`, `blue_panel_glow_window.bbmodel`은 빌드 직전에
+자동 변환됩니다. Blockbench 안에서 모델 또는 내장 텍스처를 수정하고 저장한 뒤 바로 빌드하면
+게임용 JSON과 PNG가 갱신됩니다. 외부 이미지 편집기를 사용할 때는 다음 PNG를 수정합니다.
+
+- 침대: `textures/block/bed_single_texture.png`
+- 하늘 창문: `textures/block/windows/sky_view_glow_window_texture.png`
+- 밝은 이중 창문: `textures/block/windows/bright_double_glow_window_texture.png`
+- 파란 패널 창문: `textures/block/windows/blue_panel_glow_window_texture.png`
+
+`.bbmodel`과 외부 PNG를 모두 수정한 경우 마지막으로 저장한 쪽을 텍스처 원본으로
+사용합니다. 모델 형상과 UV는 항상 `.bbmodel`에서 가져옵니다.
+창문 크기를 바꾸는 도중 BBModel UV 크기와 외부 PNG 크기가 일시적으로 다르면 해당
+창문만 자동 변환을 건너뛰고 마지막 정상 게임 리소스를 유지합니다.
+현재 세 창문은 2블록 높이 재설계가 끝났다는 확인을 받기 전까지 자동 변환을 일시
+정지한 상태입니다. 편집 중인 BBModel과 외부 PNG는 빌드가 덮어쓰지 않습니다.
+
+Gradle은 자동 동기화를 먼저 실행한 다음 게임용 모델 `.json`과 텍스처 경로의 `.png`만
+JAR로 복사합니다. 모델
+폴더에 있는 `*_complete.json`, `original_*`, `generated_concept.png`, 실사 참고 이미지는
+아직 게임에서 사용하지 않으므로 빌드 결과에서 제외됩니다.
+
+`*_complete.json`은 여러 칸에 나뉜 기존 모델을 실제 크기로 펼쳐 놓은 Blockbench 편집
+기준본입니다. 현재 게임 배치는 기존 분할 모델을 계속 사용하므로, 완성형 모델을 충분히
+다듬은 다음 기준 블록 하나가 전체 모델을 렌더링하도록 전환할 수 있습니다.
+
+기존 분할 모델을 다시 기준으로 완성형 모델을 생성하려면 작업장 루트에서
+`./build-complete-models.ps1`을 실행합니다. 이 명령은 기존 `*_complete.json`을 덮어쓰므로,
+완성형 모델을 직접 수정한 뒤에는 실행하지 않습니다.
+
+기계 OBJ를 기존 완성형 JSON으로부터 다시 생성하려면 `./build-machine-obj-models.ps1`을
+실행합니다. 이 명령은 OBJ, MTL, 기계별 단일 텍스처 아틀라스를 덮어쓰므로 OBJ를 직접
+수정한 뒤에는 실행하지 않습니다. 일반 `.mtl`은 Blockbench용 상대 PNG 경로를 사용하고,
+`.neoforge.mtl`은 게임 빌드 전용입니다.
+
+자동 동기화 대상이 아닌 완성형 단일 텍스처 `.bbmodel`의 빈 공간을 수동으로 줄이려면
+`pack-bbmodel-texture.py <모델.bbmodel> --output-java-model <게임모델.json>`을 사용합니다.
+원본은 수정하지 않고 `*_packed.bbmodel`, 2의 거듭제곱 크기 PNG와 게임 JSON을 생성하며,
+겹치는 UV 영역과 면 회전은 유지합니다. 생성된 패킹본을 Blockbench에서 먼저 확인한 뒤
+게임에 적용합니다.
+
+검수가 끝난 패킹본을 최종 편집본과 게임 리소스로 확정할 때는
+`finalize-bbmodel.py`를 사용합니다. 최종 `.bbmodel`의 내장 PNG를 외부 텍스처로 추출하고,
+Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
+
+## 실제 모델 파일
+
+| 폴더 | 실제 사용 모델 |
+| --- | --- |
+| `01_pokemon_tower_grave` | `pokemon_tower_grave.json` |
+| `02_double_display_case` | `double_display_case_lower*.json`, `double_display_case_upper*.json` |
+| `03_double_glass_display_counter` | `double_glass_display_counter_*.json` |
+| `04_rocket_base_machine_1` | `rocket_base_machine_1.obj` 단일 OBJ |
+| `05_rocket_base_machine_2` | `rocket_base_machine_2.obj` 단일 OBJ |
+| `06_rocket_base_machine_3` | `rocket_base_machine_3.obj` 단일 OBJ |
+| `07_professor_lab_research_device` | `professor_lab_research_device_1.obj` 단일 OBJ |
+| `08_professor_lab_connecting_bookshelf` | `*_core.json`, `*_left_end.json`, `*_right_end.json` |
+| `09_large_single_iron_bed` | 편집: `large_single_iron_bed.bbmodel`, 게임: `large_single_iron_bed.json` |
+| `10_sky_view_glow_window` | 편집 원본: `sky_view_glow_window.bbmodel`, 게임: `sky_view_glow_window.json` |
+| `11_bright_double_glow_window` | 편집 원본: `bright_double_glow_window.bbmodel`, 게임: 2칸 자동 설치용 `bright_double_glow_window.json` |
+| `12_blue_panel_glow_window` | 편집 원본: `blue_panel_glow_window.bbmodel`, 게임: `blue_panel_glow_window.json` |
+
+## 돌출 벽 타일 작업 목록
+
+다음 블록은 정육면체 텍스처의 일부를 전면으로 돌출시키는 방향성 벽 타일 대상입니다.
+
+- `underground_blue_band` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
+- `underground_cracked_wall` — 적용 완료: 녹색 꺾임 몰딩을 전면으로 1픽셀 돌출
+- `underground_olive_band` — 적용 완료: 어두운 나무결 2줄을 1픽셀 안쪽으로 홈 처리
+- `house_blue_band_wall` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
+- `house_beige_panel_wall` — 적용 완료: 어두운 나무결 4줄을 1픽셀 안쪽으로 홈 처리
+- `casino_coral_band` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
+- `casino_sky_chevron_wall` — 적용 완료: 밝은 V자 몰딩을 전면으로 1픽셀 돌출
+
+## 입체 설비 타일
+
+- `rocket_base_olive_vent` — 어두운 벤트 슬롯 3개를 1픽셀 안쪽으로 홈 처리
+- `rocket_base_yellow_light_panel` — 밝은 15×15 보호판을 전면으로 1픽셀 돌출
+
+## 발광 창문 초안
+
+창문은 하나의 `.bbmodel` 파일 안에서 창틀 요소를 `window_body`, 발광판을
+`luminous_panel`로 구분합니다. 세 창문 모두 편집 원본과 게임 리소스 변환 대상으로
+확정되어 있습니다. 커튼은
+모델과 텍스처에서 제외했고 패널에는 Blockbench 확인용 `light_emission: 15`가 설정되어
+있습니다. `pack-bbmodel-texture.py`와
+`finalize-bbmodel.py`는 발광값이 있는 큐브에만 Minecraft 1.21.1용 NeoForge
+`neoforge_data`를 자동으로 추가합니다. 따라서 `light_emission: 0`인 프레임은 자체
+발광하지 않습니다. 실제로 주변 블록을 밝히는 광량은 최종 게임 블록을 등록할 때 블록
+속성으로 별도 설정해야 합니다.
+
+`create-window-drafts.ps1`은 최초 초안을 다시 만드는 용도입니다. 직접 수정한 `.bbmodel`과
+창문 텍스처를 덮어쓰므로 수작업을 시작한 뒤에는 실행하지 않습니다.
+
+## 기본 블록의 미세 질감
+
+`apply-subtle-block-noise.py`는 단색 벽 블록의 기준색에만 ±2~4 RGB 단계의 타일형 미세
+노이즈를 적용합니다. 띠, 균열과 셰브론 등 다른 색으로 그려진 무늬는 수정하지 않으며,
+같은 기준색을 공유하는 블록에는 같은 노이즈 패턴을 사용합니다. 최초 실행 당시 원본은
+`recovery/block-textures/pre-subtle-noise-20260829`에 보관됩니다. 스크립트는 항상 이
+백업에서 결과를 다시 만들기 때문에 반복 실행해도 노이즈가 누적되지 않습니다.
+
+기계의 `*_complete.json`은 OBJ 재생성용 원본이며, 게임은 기준 블록 하나에서 OBJ를
+직접 렌더링합니다. 침대도 기준 블록 하나에서 단일 모델을 직접 렌더링합니다.
+
+침대 재질은 `textures/block/bed_single_texture.png` 한 장만 사용합니다. `64×32` 이미지의
+16×16 슬롯은 왼쪽 위부터 흰 금속, 어두운 금속, 흰 천, 파란 이불 순서이며, 왼쪽 아래
+첫 슬롯은 초록색 강조 띠입니다. 모델의 각 면은 이 이미지 안의 해당 UV 영역을 봅니다.
+
+## 목표 규격
+
+| 오브젝트 | 목표 크기/동작 |
+| --- | --- |
+| 포켓몬타워 묘비 | 1블록 장식 |
+| 2칸 진열대 | 가로 2 × 높이 2 |
+| 2칸 유리 진열 판매대 | 가로 2 × 깊이 1, 일반 상품용 |
+| 로켓단 기계 1 | 가로 1 × 높이 2 |
+| 로켓단 기계 2 | 가로 1 × 높이 2 |
+| 로켓단 기계 3 | 가로 2 × 높이 3 |
+| 오박사 연구소 기계 | 바닥 2 × 2 × 높이 2, 중앙은 곧은 원통 |
+| 연결형 책장 | 1칸 단독 및 가로 자동 연결 |
+| 1인용 철제 침대 | 바닥 2 × 2 |
+
+## 주의 사항
+
+- 유리 진열 판매대의 실사 사진은 낮은 유리 상판 구조만 참고합니다. 아이스크림 냉동고를 만드는 것이 아닙니다.
+- 좌우 멀티블록의 중앙에는 외곽 프레임이나 옆면을 중복 배치하지 않습니다.
+- 모델에서 사용하는 텍스처는 이 작업장 안의
+  `assets/cobbleventure_theme_blocks/textures/block`에 있습니다.
+- 모델 파일을 새 이름으로 분리하면 대응하는 `blockstates/*.json` 경로도 수정해야 합니다.

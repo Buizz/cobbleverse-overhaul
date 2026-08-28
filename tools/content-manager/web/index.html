@@ -1351,15 +1351,17 @@
             </section>
             <div class="structure-builder-summary live-editor-summary">
               <article><span>에디터 팩</span><strong id="structure-builder-live-package">—</strong></article>
+              <article><span>에디터 인스턴스</span><strong id="structure-builder-live-instance-status">—</strong></article>
               <article><span>저장소 NBT</span><strong id="structure-builder-sources">—</strong></article>
             </div>
             <div class="structure-builder-actions">
               <button class="button primary" id="build-live-nbt-editor" type="button">라이브 에디터 팩 빌드</button>
+              <button class="button secondary" id="install-live-nbt-editor" type="button">인스턴스에 설치</button>
               <button class="button secondary" id="refresh-live-editor" type="button">상태 새로고침</button>
             </div>
           </section>
-          <div class="terminal-heading"><span>전용 팩 빌드 결과</span><span id="live-editor-build-state">대기 중</span></div>
-          <pre class="terminal" id="live-editor-build-output">라이브 에디터 팩 빌드 버튼을 누르면 결과가 여기에 표시됩니다.</pre>
+          <div class="terminal-heading"><span>팩 빌드 · 모드 설치 결과</span><span id="live-editor-build-state">대기 중</span></div>
+          <pre class="terminal" id="live-editor-build-output">빌드한 라이브 에디터 JAR를 지정 인스턴스에 자동으로 교체합니다.</pre>
         </div>
       </section>
 
@@ -1368,7 +1370,7 @@
           <div class="panel-heading"><div><p class="eyebrow">SAFE COMMAND RUNNER</p><h2>빌드 및 검사</h2></div><span class="path-label">허용된 명령만 실행</span></div>
           <section class="structure-builder-workflow">
             <header>
-              <div><p class="eyebrow">STRUCTURE AUTHORING</p><h3>독립 건축 월드</h3><small>CurseForge 인스턴스를 한 번 지정하면 건축 팩 빌드와 게임에서 내보낸 NBT 가져오기를 웹에서 실행할 수 있습니다.</small></div>
+              <div><p class="eyebrow">STRUCTURE AUTHORING</p><h3>독립 건축 월드</h3><small>CurseForge 인스턴스를 한 번 지정하면 건축 모드 설치와 게임에서 내보낸 NBT 가져오기를 웹에서 실행할 수 있습니다.</small></div>
               <span class="path-label" id="structure-builder-status">설정 확인 중</span>
             </header>
             <div class="structure-builder-settings">
@@ -1377,16 +1379,18 @@
             </div>
             <div class="structure-builder-summary">
               <article><span>건축 팩</span><strong id="structure-builder-package">—</strong></article>
+              <article><span>건축 인스턴스</span><strong id="structure-builder-instance-status">—</strong></article>
               <article><span>건축 월드</span><strong id="structure-builder-world">—</strong></article>
               <article><span>내보낸 NBT</span><strong id="structure-builder-exports">—</strong></article>
             </div>
             <div class="structure-builder-actions">
               <button class="button primary" id="build-structure-builder" type="button">건축 팩 빌드</button>
+              <button class="button secondary" id="install-structure-builder" type="button">인스턴스에 설치</button>
               <button class="button primary" id="sync-structure-builder" type="button">건축 월드 갱신</button>
               <button class="button primary" id="import-structure-builder" type="button">게임 NBT 자동 가져오기</button>
               <button class="button secondary" id="refresh-structure-builder" type="button">상태 새로고침</button>
             </div>
-            <small>Minecraft를 종료한 뒤 건축 월드를 갱신하면 프로필을 재설치하지 않고 저장된 인스턴스의 월드와 자체 건축 모드만 교체합니다.</small>
+            <small>팩 빌드는 배포 ZIP을 생성합니다. 인스턴스에 설치는 같은 모드 ID의 JAR만 자동 교체합니다. 건축 월드까지 초기 상태로 교체하려면 Minecraft 종료 후 건축 월드 갱신을 사용하세요.</small>
             <small class="structure-builder-path" id="structure-builder-world-path">인스턴스 경로를 저장해 주세요.</small>
           </section>
           <div class="build-export-options">

@@ -1,0 +1,951 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": true,
+  "textures": {
+    "particle": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "left_lower_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "left_lower_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "right_lower_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "right_lower_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "left_middle_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "left_middle_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "right_middle_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "right_middle_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "right_middle_keypad": "cobbleventure_theme_blocks:block/rocket_machine_keypad",
+    "left_upper_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "left_upper_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "left_upper_red": "cobbleventure_theme_blocks:block/rocket_machine_red",
+    "right_upper_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "right_upper_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "right_upper_screen": "cobbleventure_theme_blocks:block/rocket_machine_screen_2",
+    "right_upper_red": "cobbleventure_theme_blocks:block/rocket_machine_red",
+    "right_upper_yellow": "cobbleventure_theme_blocks:block/rocket_machine_yellow",
+    "right_upper_green": "cobbleventure_theme_blocks:block/rocket_machine_green"
+  },
+  "elements": [
+    {
+      "name": "left_lower_plinth",
+      "from": [
+        1.0,
+        0.0,
+        2.0
+      ],
+      "to": [
+        15.0,
+        3.0,
+        15.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_lower_dark"
+        },
+        "up": {
+          "texture": "#left_lower_dark"
+        },
+        "north": {
+          "texture": "#left_lower_dark"
+        },
+        "south": {
+          "texture": "#left_lower_dark"
+        },
+        "west": {
+          "texture": "#left_lower_dark"
+        },
+        "east": {
+          "texture": "#left_lower_dark"
+        }
+      }
+    },
+    {
+      "name": "left_lower_lower_body",
+      "from": [
+        2.0,
+        3.0,
+        3.0
+      ],
+      "to": [
+        14.0,
+        16.0,
+        14.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_lower_gray"
+        },
+        "up": {
+          "texture": "#left_lower_gray"
+        },
+        "north": {
+          "texture": "#left_lower_gray"
+        },
+        "south": {
+          "texture": "#left_lower_gray"
+        },
+        "west": {
+          "texture": "#left_lower_gray"
+        },
+        "east": {
+          "texture": "#left_lower_gray"
+        }
+      }
+    },
+    {
+      "name": "left_lower_lower_cross",
+      "from": [
+        1.0,
+        5.0,
+        5.0
+      ],
+      "to": [
+        15.0,
+        11.0,
+        12.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_lower_gray"
+        },
+        "up": {
+          "texture": "#left_lower_gray"
+        },
+        "north": {
+          "texture": "#left_lower_gray"
+        },
+        "south": {
+          "texture": "#left_lower_gray"
+        },
+        "west": {
+          "texture": "#left_lower_gray"
+        },
+        "east": {
+          "texture": "#left_lower_gray"
+        }
+      }
+    },
+    {
+      "name": "left_lower_access_panel",
+      "from": [
+        4.0,
+        5.0,
+        1.75
+      ],
+      "to": [
+        12.0,
+        13.0,
+        3.25
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_lower_dark"
+        },
+        "up": {
+          "texture": "#left_lower_gray"
+        },
+        "north": {
+          "texture": "#left_lower_gray"
+        },
+        "south": {
+          "texture": "#left_lower_gray"
+        },
+        "west": {
+          "texture": "#left_lower_gray"
+        },
+        "east": {
+          "texture": "#left_lower_gray"
+        }
+      }
+    },
+    {
+      "name": "left_lower_lower_connector",
+      "from": [
+        0.0,
+        6.0,
+        6.0
+      ],
+      "to": [
+        4.0,
+        11.0,
+        11.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_lower_dark"
+        },
+        "up": {
+          "texture": "#left_lower_gray"
+        },
+        "north": {
+          "texture": "#left_lower_dark"
+        },
+        "south": {
+          "texture": "#left_lower_dark"
+        },
+        "west": {
+          "texture": "#left_lower_gray"
+        },
+        "east": {
+          "texture": "#left_lower_gray"
+        }
+      }
+    },
+    {
+      "name": "right_lower_plinth",
+      "from": [
+        -16.0,
+        0.0,
+        2.0
+      ],
+      "to": [
+        -1.0,
+        3.0,
+        16.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_lower_dark"
+        },
+        "up": {
+          "texture": "#right_lower_dark"
+        },
+        "north": {
+          "texture": "#right_lower_dark"
+        },
+        "south": {
+          "texture": "#right_lower_dark"
+        },
+        "west": {
+          "texture": "#right_lower_dark"
+        },
+        "east": {
+          "texture": "#right_lower_dark"
+        }
+      }
+    },
+    {
+      "name": "right_lower_lower_cabinet",
+      "from": [
+        -15.0,
+        3.0,
+        3.0
+      ],
+      "to": [
+        -2.0,
+        16.0,
+        15.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_lower_gray"
+        },
+        "up": {
+          "texture": "#right_lower_gray"
+        },
+        "north": {
+          "texture": "#right_lower_gray"
+        },
+        "south": {
+          "texture": "#right_lower_gray"
+        },
+        "west": {
+          "texture": "#right_lower_gray"
+        },
+        "east": {
+          "texture": "#right_lower_gray"
+        }
+      }
+    },
+    {
+      "name": "right_lower_front_vent_frame",
+      "from": [
+        -13.0,
+        5.0,
+        2.5
+      ],
+      "to": [
+        -5.0,
+        11.0,
+        3.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_lower_dark"
+        },
+        "up": {
+          "texture": "#right_lower_dark"
+        },
+        "north": {
+          "texture": "#right_lower_dark"
+        },
+        "south": {
+          "texture": "#right_lower_dark"
+        },
+        "west": {
+          "texture": "#right_lower_dark"
+        },
+        "east": {
+          "texture": "#right_lower_dark"
+        }
+      }
+    },
+    {
+      "name": "right_lower_cylinder_connector",
+      "from": [
+        -4.0,
+        6.0,
+        6.0
+      ],
+      "to": [
+        0.0,
+        11.0,
+        11.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_lower_dark"
+        },
+        "up": {
+          "texture": "#right_lower_gray"
+        },
+        "north": {
+          "texture": "#right_lower_dark"
+        },
+        "south": {
+          "texture": "#right_lower_dark"
+        },
+        "west": {
+          "texture": "#right_lower_gray"
+        },
+        "east": {
+          "texture": "#right_lower_gray"
+        }
+      }
+    },
+    {
+      "name": "left_middle_main_chamber",
+      "from": [
+        2.0,
+        16.0,
+        3.0
+      ],
+      "to": [
+        14.0,
+        32.0,
+        14.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_middle_gray"
+        },
+        "up": {
+          "texture": "#left_middle_gray"
+        },
+        "north": {
+          "texture": "#left_middle_gray"
+        },
+        "south": {
+          "texture": "#left_middle_gray"
+        },
+        "west": {
+          "texture": "#left_middle_gray"
+        },
+        "east": {
+          "texture": "#left_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "left_middle_lower_band",
+      "from": [
+        1.0,
+        17.0,
+        4.0
+      ],
+      "to": [
+        15.0,
+        20.0,
+        13.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_middle_gray"
+        },
+        "up": {
+          "texture": "#left_middle_gray"
+        },
+        "north": {
+          "texture": "#left_middle_gray"
+        },
+        "south": {
+          "texture": "#left_middle_gray"
+        },
+        "west": {
+          "texture": "#left_middle_gray"
+        },
+        "east": {
+          "texture": "#left_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "left_middle_upper_band",
+      "from": [
+        1.0,
+        28.0,
+        4.0
+      ],
+      "to": [
+        15.0,
+        31.0,
+        13.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_middle_gray"
+        },
+        "up": {
+          "texture": "#left_middle_gray"
+        },
+        "north": {
+          "texture": "#left_middle_gray"
+        },
+        "south": {
+          "texture": "#left_middle_gray"
+        },
+        "west": {
+          "texture": "#left_middle_gray"
+        },
+        "east": {
+          "texture": "#left_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "left_middle_front_service_panel",
+      "from": [
+        4.0,
+        20.0,
+        2.25
+      ],
+      "to": [
+        12.0,
+        28.0,
+        3.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_middle_dark"
+        },
+        "up": {
+          "texture": "#left_middle_gray"
+        },
+        "north": {
+          "texture": "#left_middle_gray"
+        },
+        "south": {
+          "texture": "#left_middle_gray"
+        },
+        "west": {
+          "texture": "#left_middle_gray"
+        },
+        "east": {
+          "texture": "#left_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "left_middle_middle_connector",
+      "from": [
+        0.0,
+        21.0,
+        6.0
+      ],
+      "to": [
+        4.0,
+        27.0,
+        11.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_middle_dark"
+        },
+        "up": {
+          "texture": "#left_middle_gray"
+        },
+        "north": {
+          "texture": "#left_middle_dark"
+        },
+        "south": {
+          "texture": "#left_middle_dark"
+        },
+        "west": {
+          "texture": "#left_middle_gray"
+        },
+        "east": {
+          "texture": "#left_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "right_middle_middle_cabinet",
+      "from": [
+        -15.0,
+        16.0,
+        3.0
+      ],
+      "to": [
+        -2.0,
+        28.0,
+        15.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_middle_gray"
+        },
+        "up": {
+          "texture": "#right_middle_gray"
+        },
+        "north": {
+          "texture": "#right_middle_gray"
+        },
+        "south": {
+          "texture": "#right_middle_gray"
+        },
+        "west": {
+          "texture": "#right_middle_gray"
+        },
+        "east": {
+          "texture": "#right_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "right_middle_control_deck",
+      "from": [
+        -15.0,
+        26.0,
+        2.0
+      ],
+      "to": [
+        -2.0,
+        30.0,
+        11.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_middle_gray"
+        },
+        "up": {
+          "texture": "#right_middle_keypad"
+        },
+        "north": {
+          "texture": "#right_middle_gray"
+        },
+        "south": {
+          "texture": "#right_middle_gray"
+        },
+        "west": {
+          "texture": "#right_middle_gray"
+        },
+        "east": {
+          "texture": "#right_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "right_middle_front_access_frame",
+      "from": [
+        -13.0,
+        18.0,
+        2.5
+      ],
+      "to": [
+        -5.0,
+        24.0,
+        3.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_middle_dark"
+        },
+        "up": {
+          "texture": "#right_middle_dark"
+        },
+        "north": {
+          "texture": "#right_middle_dark"
+        },
+        "south": {
+          "texture": "#right_middle_dark"
+        },
+        "west": {
+          "texture": "#right_middle_dark"
+        },
+        "east": {
+          "texture": "#right_middle_dark"
+        }
+      }
+    },
+    {
+      "name": "right_middle_cylinder_connector",
+      "from": [
+        -4.0,
+        20.0,
+        6.0
+      ],
+      "to": [
+        0.0,
+        26.0,
+        11.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_middle_dark"
+        },
+        "up": {
+          "texture": "#right_middle_gray"
+        },
+        "north": {
+          "texture": "#right_middle_dark"
+        },
+        "south": {
+          "texture": "#right_middle_dark"
+        },
+        "west": {
+          "texture": "#right_middle_gray"
+        },
+        "east": {
+          "texture": "#right_middle_gray"
+        }
+      }
+    },
+    {
+      "name": "left_upper_upper_chamber",
+      "from": [
+        3.0,
+        32.0,
+        4.0
+      ],
+      "to": [
+        13.0,
+        42.0,
+        13.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_upper_gray"
+        },
+        "up": {
+          "texture": "#left_upper_gray"
+        },
+        "north": {
+          "texture": "#left_upper_gray"
+        },
+        "south": {
+          "texture": "#left_upper_gray"
+        },
+        "west": {
+          "texture": "#left_upper_gray"
+        },
+        "east": {
+          "texture": "#left_upper_gray"
+        }
+      }
+    },
+    {
+      "name": "left_upper_neck",
+      "from": [
+        4.0,
+        42.0,
+        5.0
+      ],
+      "to": [
+        12.0,
+        44.0,
+        12.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_upper_gray"
+        },
+        "up": {
+          "texture": "#left_upper_gray"
+        },
+        "north": {
+          "texture": "#left_upper_gray"
+        },
+        "south": {
+          "texture": "#left_upper_gray"
+        },
+        "west": {
+          "texture": "#left_upper_gray"
+        },
+        "east": {
+          "texture": "#left_upper_gray"
+        }
+      }
+    },
+    {
+      "name": "left_upper_lamp_base",
+      "from": [
+        4.5,
+        44.0,
+        5.5
+      ],
+      "to": [
+        11.5,
+        46.0,
+        11.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_upper_dark"
+        },
+        "up": {
+          "texture": "#left_upper_dark"
+        },
+        "north": {
+          "texture": "#left_upper_dark"
+        },
+        "south": {
+          "texture": "#left_upper_dark"
+        },
+        "west": {
+          "texture": "#left_upper_dark"
+        },
+        "east": {
+          "texture": "#left_upper_dark"
+        }
+      }
+    },
+    {
+      "name": "left_upper_red_status_cap",
+      "from": [
+        5.5,
+        46.0,
+        6.5
+      ],
+      "to": [
+        10.5,
+        48.0,
+        10.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#left_upper_red"
+        },
+        "up": {
+          "texture": "#left_upper_red"
+        },
+        "north": {
+          "texture": "#left_upper_red"
+        },
+        "south": {
+          "texture": "#left_upper_red"
+        },
+        "west": {
+          "texture": "#left_upper_red"
+        },
+        "east": {
+          "texture": "#left_upper_red"
+        }
+      }
+    },
+    {
+      "name": "right_upper_display_housing",
+      "from": [
+        -15.0,
+        32.0,
+        8.0
+      ],
+      "to": [
+        -2.0,
+        45.0,
+        16.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_upper_gray"
+        },
+        "up": {
+          "texture": "#right_upper_gray"
+        },
+        "north": {
+          "texture": "#right_upper_dark"
+        },
+        "south": {
+          "texture": "#right_upper_gray"
+        },
+        "west": {
+          "texture": "#right_upper_dark"
+        },
+        "east": {
+          "texture": "#right_upper_dark"
+        }
+      }
+    },
+    {
+      "name": "right_upper_top_cap",
+      "from": [
+        -15.5,
+        44.0,
+        7.5
+      ],
+      "to": [
+        -1.5,
+        46.0,
+        16.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_upper_dark"
+        },
+        "up": {
+          "texture": "#right_upper_screen"
+        },
+        "north": {
+          "texture": "#right_upper_dark"
+        },
+        "south": {
+          "texture": "#right_upper_dark"
+        },
+        "west": {
+          "texture": "#right_upper_dark"
+        },
+        "east": {
+          "texture": "#right_upper_dark"
+        }
+      }
+    },
+    {
+      "name": "right_upper_cyan_display",
+      "from": [
+        -14.0,
+        35.0,
+        7.5
+      ],
+      "to": [
+        -5.5,
+        43.0,
+        8.25
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_upper_screen"
+        },
+        "up": {
+          "texture": "#right_upper_screen"
+        },
+        "north": {
+          "texture": "#right_upper_screen"
+        },
+        "south": {
+          "texture": "#right_upper_screen"
+        },
+        "west": {
+          "texture": "#right_upper_screen"
+        },
+        "east": {
+          "texture": "#right_upper_screen"
+        }
+      }
+    },
+    {
+      "name": "right_upper_red_button",
+      "from": [
+        -4.5,
+        41.0,
+        7.25
+      ],
+      "to": [
+        -3.0,
+        42.5,
+        8.25
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_upper_red"
+        },
+        "up": {
+          "texture": "#right_upper_red"
+        },
+        "north": {
+          "texture": "#right_upper_red"
+        },
+        "south": {
+          "texture": "#right_upper_red"
+        },
+        "west": {
+          "texture": "#right_upper_red"
+        },
+        "east": {
+          "texture": "#right_upper_red"
+        }
+      }
+    },
+    {
+      "name": "right_upper_yellow_button",
+      "from": [
+        -4.5,
+        38.5,
+        7.25
+      ],
+      "to": [
+        -3.0,
+        40.0,
+        8.25
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_upper_yellow"
+        },
+        "up": {
+          "texture": "#right_upper_yellow"
+        },
+        "north": {
+          "texture": "#right_upper_yellow"
+        },
+        "south": {
+          "texture": "#right_upper_yellow"
+        },
+        "west": {
+          "texture": "#right_upper_yellow"
+        },
+        "east": {
+          "texture": "#right_upper_yellow"
+        }
+      }
+    },
+    {
+      "name": "right_upper_green_button",
+      "from": [
+        -4.5,
+        36.0,
+        7.25
+      ],
+      "to": [
+        -3.0,
+        37.5,
+        8.25
+      ],
+      "faces": {
+        "down": {
+          "texture": "#right_upper_green"
+        },
+        "up": {
+          "texture": "#right_upper_green"
+        },
+        "north": {
+          "texture": "#right_upper_green"
+        },
+        "south": {
+          "texture": "#right_upper_green"
+        },
+        "west": {
+          "texture": "#right_upper_green"
+        },
+        "east": {
+          "texture": "#right_upper_green"
+        }
+      }
+    }
+  ]
+}

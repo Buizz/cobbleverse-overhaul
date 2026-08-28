@@ -27,10 +27,10 @@ public final class CobbleventureThemeBlocks {
 
     static {
         registerStoneBlock("underground_light_tiles", MapColor.SAND);
-        registerStoneBlock("underground_blue_band", MapColor.COLOR_LIGHT_BLUE);
+        registerDirectionalStoneBlock("underground_blue_band", MapColor.COLOR_LIGHT_BLUE);
         registerStoneBlock("underground_pale_wall", MapColor.COLOR_LIGHT_GREEN);
-        registerStoneBlock("underground_cracked_wall", MapColor.COLOR_LIGHT_GREEN);
-        registerStoneBlock("underground_olive_band", MapColor.TERRACOTTA_YELLOW);
+        registerDirectionalStoneBlock("underground_cracked_wall", MapColor.COLOR_LIGHT_GREEN);
+        registerDirectionalStoneBlock("underground_olive_band", MapColor.TERRACOTTA_YELLOW);
 
         registerStoneBlock("pokemon_tower_green_mosaic", MapColor.COLOR_GREEN);
         registerStoneBlock("pokemon_tower_purple_plinth", MapColor.COLOR_PURPLE);
@@ -38,27 +38,29 @@ public final class CobbleventureThemeBlocks {
         registerStoneBlock("pokemon_tower_purple_cornice", MapColor.COLOR_PURPLE);
         registerPokemonTowerGrave();
 
-        registerStoneBlock("rocket_base_olive_vent", MapColor.COLOR_LIGHT_GREEN);
-        registerStoneBlock("rocket_base_yellow_light_panel", MapColor.COLOR_YELLOW);
+        registerDirectionalStoneBlock("rocket_base_olive_vent", MapColor.COLOR_LIGHT_GREEN);
+        registerDirectionalStoneBlock("rocket_base_yellow_light_panel", MapColor.COLOR_YELLOW);
         registerStoneBlock("rocket_base_cyan_conduit", MapColor.COLOR_LIGHT_BLUE);
         registerStoneBlock("rocket_base_blue_wall", MapColor.COLOR_LIGHT_BLUE);
         registerStoneBlock("rocket_base_blue_band", MapColor.COLOR_LIGHT_BLUE);
 
         registerStoneBlock("casino_gold_diamond_tiles", MapColor.GOLD);
-        registerStoneBlock("casino_coral_band", MapColor.COLOR_ORANGE);
+        registerDirectionalStoneBlock("casino_coral_band", MapColor.COLOR_ORANGE);
         registerStoneBlock("casino_sky_wall", MapColor.COLOR_LIGHT_BLUE);
-        registerStoneBlock("casino_sky_chevron_wall", MapColor.COLOR_LIGHT_BLUE);
+        registerDirectionalStoneBlock("casino_sky_chevron_wall", MapColor.COLOR_LIGHT_BLUE);
 
-        registerStoneBlock("house_beige_panel_wall", MapColor.SAND);
+        registerDirectionalStoneBlock("house_beige_panel_wall", MapColor.SAND);
         registerStoneBlock("house_mint_band_wall", MapColor.COLOR_LIGHT_GREEN);
-        registerStoneBlock("house_blue_band_wall", MapColor.COLOR_LIGHT_BLUE);
+        registerDirectionalStoneBlock("house_blue_band_wall", MapColor.COLOR_LIGHT_BLUE);
         registerStoneBlock("house_cream_base_wall", MapColor.SAND);
+        registerStoneBlock("soft_cream_block", MapColor.SAND);
         registerDoubleDisplayCase();
         registerDoubleGlassDisplayCounter();
         registerRocketBaseMachines();
         registerProfessorLabResearchDevices();
         registerProfessorLabConnectingBookshelf();
         registerLargeBed();
+        registerGlowWindows();
     }
 
     public CobbleventureThemeBlocks(IEventBus modBus) {
@@ -71,6 +73,21 @@ public final class CobbleventureThemeBlocks {
         DeferredBlock<Block> block = BLOCKS.register(
             name,
             () -> new Block(BlockBehaviour.Properties.of()
+                .mapColor(mapColor)
+                .strength(1.5F, 6.0F)
+                .sound(SoundType.STONE)
+                .requiresCorrectToolForDrops())
+        );
+        CREATIVE_ITEMS.add(ITEMS.register(
+            name,
+            () -> new BlockItem(block.get(), new Item.Properties())
+        ));
+    }
+
+    private static void registerDirectionalStoneBlock(String name, MapColor mapColor) {
+        DeferredBlock<DirectionalStoneBlock> block = BLOCKS.register(
+            name,
+            () -> new DirectionalStoneBlock(BlockBehaviour.Properties.of()
                 .mapColor(mapColor)
                 .strength(1.5F, 6.0F)
                 .sound(SoundType.STONE)
@@ -211,6 +228,52 @@ public final class CobbleventureThemeBlocks {
         CREATIVE_ITEMS.add(ITEMS.register(
             "large_bed",
             () -> new BlockItem(bed.get(), new Item.Properties())
+        ));
+    }
+
+    private static void registerGlowWindows() {
+        registerGlowWindow(
+            "sky_view_glow_window",
+            MapColor.COLOR_LIGHT_BLUE
+        );
+        registerGlowWindow(
+            "blue_panel_glow_window",
+            MapColor.COLOR_BLUE
+        );
+        registerDoubleGlowWindow();
+    }
+
+    private static void registerGlowWindow(String name, MapColor mapColor) {
+        DeferredBlock<GlowWindowBlock> window = BLOCKS.register(
+            name,
+            () -> new GlowWindowBlock(BlockBehaviour.Properties.of()
+                .mapColor(mapColor)
+                .strength(1.5F, 6.0F)
+                .sound(SoundType.GLASS)
+                .requiresCorrectToolForDrops()
+                .lightLevel(state -> 8)
+                .noOcclusion())
+        );
+        CREATIVE_ITEMS.add(ITEMS.register(
+            name,
+            () -> new BlockItem(window.get(), new Item.Properties())
+        ));
+    }
+
+    private static void registerDoubleGlowWindow() {
+        DeferredBlock<DoubleGlowWindowBlock> window = BLOCKS.register(
+            "bright_double_glow_window",
+            () -> new DoubleGlowWindowBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.COLOR_LIGHT_GRAY)
+                .strength(1.5F, 6.0F)
+                .sound(SoundType.GLASS)
+                .requiresCorrectToolForDrops()
+                .lightLevel(state -> 8)
+                .noOcclusion())
+        );
+        CREATIVE_ITEMS.add(ITEMS.register(
+            "bright_double_glow_window",
+            () -> new BlockItem(window.get(), new Item.Properties())
         ));
     }
 

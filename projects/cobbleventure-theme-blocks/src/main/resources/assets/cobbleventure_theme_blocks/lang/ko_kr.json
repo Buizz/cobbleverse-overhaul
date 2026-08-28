@@ -29,5 +29,9 @@
   "block.cobbleventure_theme_blocks.rocket_base_machine_3": "로켓단 기지 기계 3",
   "block.cobbleventure_theme_blocks.professor_lab_research_device_1": "박사 연구소 연구 장치 1",
   "block.cobbleventure_theme_blocks.professor_lab_connecting_bookshelf": "박사 연구소 연결형 책장",
-  "block.cobbleventure_theme_blocks.large_bed": "2×3 1인용 철제 침대"
+  "block.cobbleventure_theme_blocks.large_bed": "2×2 1인용 철제 침대",
+  "block.cobbleventure_theme_blocks.soft_cream_block": "부드러운 크림 블록",
+  "block.cobbleventure_theme_blocks.sky_view_glow_window": "하늘 풍경 발광 창문",
+  "block.cobbleventure_theme_blocks.bright_double_glow_window": "밝은 이중 발광 창문",
+  "block.cobbleventure_theme_blocks.blue_panel_glow_window": "파란 패널 발광 창문"
 }

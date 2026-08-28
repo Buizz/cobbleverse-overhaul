@@ -1,0 +1,20 @@
+{
+  "multipart": [
+    {
+      "when": {"facing": "north", "part": "0"},
+      "apply": {"model": "cobbleventure_theme_blocks:block/workshop/11_bright_double_glow_window/bright_double_glow_window"}
+    },
+    {
+      "when": {"facing": "east", "part": "0"},
+      "apply": {"model": "cobbleventure_theme_blocks:block/workshop/11_bright_double_glow_window/bright_double_glow_window", "y": 90}
+    },
+    {
+      "when": {"facing": "south", "part": "0"},
+      "apply": {"model": "cobbleventure_theme_blocks:block/workshop/11_bright_double_glow_window/bright_double_glow_window", "y": 180}
+    },
+    {
+      "when": {"facing": "west", "part": "0"},
+      "apply": {"model": "cobbleventure_theme_blocks:block/workshop/11_bright_double_glow_window/bright_double_glow_window", "y": 270}
+    }
+  ]
+}

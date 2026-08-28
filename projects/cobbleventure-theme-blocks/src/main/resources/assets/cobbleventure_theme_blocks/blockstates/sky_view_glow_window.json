@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "cobbleventure_theme_blocks:block/workshop/10_sky_view_glow_window/sky_view_glow_window"
+    },
+    "facing=east": {
+      "model": "cobbleventure_theme_blocks:block/workshop/10_sky_view_glow_window/sky_view_glow_window",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "cobbleventure_theme_blocks:block/workshop/10_sky_view_glow_window/sky_view_glow_window",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "cobbleventure_theme_blocks:block/workshop/10_sky_view_glow_window/sky_view_glow_window",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "loader": "neoforge:obj",
+  "model": "cobbleventure_theme_blocks:models/block/workshop/07_professor_lab_research_device/professor_lab_research_device_1.obj",
+  "mtl_override": "cobbleventure_theme_blocks:models/block/workshop/07_professor_lab_research_device/professor_lab_research_device_1.neoforge.mtl",
+  "textures": {
+    "texture0": "cobbleventure_theme_blocks:block/professor_lab_research_device_1_texture",
+    "particle": "cobbleventure_theme_blocks:block/professor_lab_research_device_1_texture"
+  },
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": true,
+  "emissive_ambient": false
+}

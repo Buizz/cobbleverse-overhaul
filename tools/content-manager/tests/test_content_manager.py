@@ -3540,6 +3540,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("if (gate.npc() == null || !openGateNpcDialog", runtime)
         self.assertIn("placeNaturalBarrierColumn", runtime)
         self.assertIn("placeNaturalGateWedges", runtime)
+        self.assertIn("refreshNaturalSurroundingsAfterTown", runtime)
+        self.assertIn("refreshNaturalGateSurroundings", runtime)
         self.assertIn("placeNorthSouthNaturalGateEdges", runtime)
         self.assertIn("addNaturalGateEdgeBand", runtime)
         self.assertIn("snapGateToRouteCenterline", runtime)
@@ -3549,7 +3551,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("footprint.expanded(5)", runtime)
         place_method = runtime[
             runtime.index("    private static void place(\n"):
-            runtime.index("    /** Refreshes the old solid leaf wall")
+            runtime.index("    /** Restores natural gate shoulders")
         ]
         self.assertLess(
             place_method.index("layGateApproachRoads("),
@@ -3565,9 +3567,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("clearNaturalFeaturePocket", runtime)
         self.assertIn('"minecraft:dark_oak_log"', runtime)
         self.assertIn('"minecraft:spruce_log"', runtime)
-        self.assertIn("Math.floorMod(distance + Math.abs(offset) * 3, 6)", runtime)
+        self.assertIn("distance + absoluteOffset * 2, 4", runtime)
+        self.assertIn("absoluteOffset <= 1", runtime)
+        self.assertIn("fringeGround", runtime)
         self.assertIn("clearNaturalWedgeColumn", runtime)
         self.assertIn('featureIds = List.of("dark_oak_checked")', bootstrap)
+        self.assertIn("WorldGateSystem.refreshNaturalSurroundingsAfterTown(", bootstrap)
         self.assertIn("alignedGateCenter", runtime)
         self.assertIn('case "north" -> List.of(new HexCoord(0, -1), new HexCoord(1, -1))', runtime)
         self.assertIn('case "east" -> List.of(new HexCoord(1, 0))', runtime)
@@ -3578,7 +3583,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("handlePendingDenial", runtime)
         self.assertIn("pending.finished = true", runtime)
         self.assertIn("gate_dialogue_state", dialogue_network)
-        self.assertIn("refreshNpcNaturalGate", runtime)
+        self.assertIn("refreshNaturalGateSurroundings", runtime)
         self.assertIn("RespawnAnchorBlock.CHARGE", runtime)
 
     def test_player_conditions_share_schema_runtime_ui_and_documentation(self) -> None:
@@ -5749,7 +5754,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('"key.keyboard.o".equals(mapping.saveString())', key_migration)
         self.assertIn("GLFW.GLFW_KEY_LEFT_BRACKET", key_migration)
 
-    def test_create_and_copycats_are_pinned_in_authoring_packs(self) -> None:
+    def test_create_copycats_and_night_lights_are_pinned_in_authoring_packs(self) -> None:
         dependency_lock = content_manager.load_json(
             CORE_ROOT / "pack" / "dependencies.lock.json"
         )
@@ -5770,6 +5775,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(968398, copycats["curseforge"]["project_id"])
         self.assertEqual(7251823, copycats["curseforge"]["file_id"])
 
+        night_lights = mods["night-lights"]
+        self.assertTrue(night_lights["enabled"])
+        self.assertEqual("required", night_lights["classification"])
+        self.assertEqual("both", night_lights["side"])
+        self.assertEqual("1.4.0", night_lights["version"])
+        self.assertEqual(1199355, night_lights["curseforge"]["project_id"])
+        self.assertEqual(8555615, night_lights["curseforge"]["file_id"])
+
         copycat_we_fix = mods["copycat-we-fix"]
         self.assertTrue(copycat_we_fix["enabled"])
         self.assertEqual("development", copycat_we_fix["classification"])
@@ -5786,8 +5799,20 @@ class ContentManagerTests(unittest.TestCase):
         }
         self.assertIn((328085, 7963363), profile_files)
         self.assertIn((968398, 7251823), profile_files)
+        self.assertIn((1199355, 8555615), profile_files)
         self.assertIn("Create 6.0.10", profile["notice"])
         self.assertIn("Create: Copycats+ 3.0.4", profile["notice"])
+        self.assertIn("Night Lights 1.4.0", profile["notice"])
+
+        for profile_name in ("structure-builder.json", "live-nbt-editor.json"):
+            authoring_profile = content_manager.load_json(
+                CORE_ROOT / "pack" / "profiles" / profile_name
+            )
+            authoring_files = {
+                (entry["projectID"], entry["fileID"])
+                for entry in authoring_profile["files"]
+            }
+            self.assertIn((1199355, 8555615), authoring_files)
 
         builder_profile = content_manager.load_json(
             CORE_ROOT / "pack" / "profiles" / "structure-builder.json"
@@ -6250,6 +6275,135 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("빌드 전 로컬 음원", result["output"])
         self.assertIn("음원 폴더 오류", result["output"])
 
+    def test_special_pack_build_installs_jars_after_successful_build(self) -> None:
+        completed = mock.Mock(returncode=0, stdout=b"build complete", stderr=b"")
+        installation = {
+            "success": True,
+            "label": "건축 팩",
+            "instance_path": "C:/Instances/Builder",
+            "installed": ["builder.jar", "theme.jar"],
+        }
+        with (
+            mock.patch.object(
+                content_manager,
+                "sync_local_music_catalog",
+                return_value=({"local_library": {}}, 0),
+            ),
+            mock.patch.object(
+                content_manager.subprocess, "run", return_value=completed
+            ) as runner,
+            mock.patch.object(
+                content_manager,
+                "_resolve_special_pack_instance",
+                return_value=(CORE_ROOT.resolve(), False),
+            ),
+            mock.patch.object(
+                content_manager, "_install_special_pack_jars", return_value=installation
+            ) as installer,
+        ):
+            result = content_manager._run_build(
+                CORE_ROOT.resolve(), PROJECT_ROOT.resolve(), "builder-install"
+            )
+
+        installer.assert_called_once_with(
+            CORE_ROOT.resolve(), "builder-install", (CORE_ROOT.resolve(), False)
+        )
+        self.assertEqual("builder-jar", runner.call_args.args[0][-2])
+        self.assertTrue(result["success"])
+        self.assertEqual(installation, result["installation"])
+        self.assertIn("인스턴스 자동 설치 완료", result["output"])
+
+    def test_pack_build_remains_separate_from_instance_install(self) -> None:
+        completed = mock.Mock(returncode=0, stdout=b"pack complete", stderr=b"")
+        with (
+            mock.patch.object(
+                content_manager,
+                "sync_local_music_catalog",
+                return_value=({"local_library": {}}, 0),
+            ),
+            mock.patch.object(
+                content_manager.subprocess, "run", return_value=completed
+            ) as runner,
+            mock.patch.object(content_manager, "_install_special_pack_jars") as installer,
+        ):
+            result = content_manager._run_build(
+                CORE_ROOT.resolve(), PROJECT_ROOT.resolve(), "builder-world"
+            )
+
+        self.assertEqual("builder-world", runner.call_args.args[0][-2])
+        installer.assert_not_called()
+        self.assertTrue(result["success"])
+        self.assertNotIn("installation", result)
+
+    def test_mod_jar_install_replaces_only_matching_mod_ids(self) -> None:
+        def write_jar(path: Path, mod_id: str) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr(
+                    "META-INF/neoforge.mods.toml",
+                    f'modLoader="javafml"\n[[mods]]\nmodId="{mod_id}"\nversion="1"\n',
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "pack" / "mods"
+            instance = root / "instance"
+            mods = instance / "mods"
+            write_jar(source / "builder-2.0.jar", "cobbleventure_builder")
+            write_jar(source / "theme-2.0.jar", "cobbleventure_theme")
+            write_jar(mods / "builder-1.0.jar", "cobbleventure_builder")
+            write_jar(mods / "unrelated.jar", "another_mod")
+
+            result = content_manager._install_mod_jars(source, instance)
+
+            self.assertEqual(["builder-2.0.jar", "theme-2.0.jar"], result["installed"])
+            self.assertFalse((mods / "builder-1.0.jar").exists())
+            self.assertTrue((mods / "builder-1.0.jar.before-web-install").is_file())
+            self.assertTrue((mods / "builder-2.0.jar").is_file())
+            self.assertTrue((mods / "theme-2.0.jar").is_file())
+            self.assertTrue((mods / "unrelated.jar").is_file())
+
+    def test_special_pack_build_stops_before_build_when_instance_is_missing(self) -> None:
+        with (
+            mock.patch.object(
+                content_manager,
+                "_resolve_special_pack_instance",
+                side_effect=ValueError("인스턴스 경로를 저장해 주세요."),
+            ),
+            mock.patch.object(content_manager, "sync_local_music_catalog") as music_sync,
+            mock.patch.object(content_manager.subprocess, "run") as runner,
+        ):
+            result = content_manager._run_build(
+                CORE_ROOT.resolve(), PROJECT_ROOT.resolve(), "live-editor-install"
+            )
+
+        music_sync.assert_not_called()
+        runner.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertIn("설치 준비 실패", result["output"])
+
+    def test_special_pack_instance_is_discovered_from_its_world(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instance = root / "Live Editor"
+            (instance / "saves" / content_manager.LIVE_NBT_EDITOR_WORLD_NAME).mkdir(
+                parents=True
+            )
+            content_manager._save_structure_builder_settings(
+                root, "", str(root / "missing-live-instance")
+            )
+            with mock.patch.object(
+                content_manager,
+                "_structure_builder_instance_candidates",
+                return_value=[str(instance)],
+            ):
+                resolved, discovered = content_manager._resolve_special_pack_instance(
+                    root, "live-editor-install"
+                )
+
+            self.assertEqual(instance, resolved)
+            self.assertTrue(discovered)
+
     def test_structure_builder_settings_resolve_instance_world(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -6384,6 +6538,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="structure-builder-instance"', markup)
         self.assertIn('id="build-structure-builder"', markup)
         self.assertIn('id="build-live-nbt-editor"', markup)
+        self.assertIn('id="install-structure-builder"', markup)
+        self.assertIn('id="install-live-nbt-editor"', markup)
         self.assertIn('data-section="live-nbt-editor"', markup)
         self.assertIn('class="page" id="live-nbt-editor"', markup)
         self.assertIn('id="structure-builder-live-instance"', markup)
@@ -6414,7 +6570,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertLess(markup.index('id="build-live-nbt-editor"'), builds_page)
         self.assertLess(live_page, markup.index('id="open-structure-builder-live"'))
         self.assertLess(markup.index('id="open-structure-builder-live"'), builds_page)
-        self.assertIn('!["builder-world", "live-editor-world"].includes(command.id)', script)
+        self.assertIn('"builder-install", "live-editor-install"', script)
+        self.assertIn('runBuild("builder-install")', script)
+        self.assertIn('runBuild("live-editor-install"', script)
         self.assertIn('state: "#live-editor-build-state"', script)
         self.assertIn("/api/structure-builder/settings", script)
         self.assertIn("/api/structure-builder/import", script)

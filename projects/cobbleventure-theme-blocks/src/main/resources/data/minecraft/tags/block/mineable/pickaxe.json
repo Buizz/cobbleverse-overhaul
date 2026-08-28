@@ -30,6 +30,10 @@
     "cobbleventure_theme_blocks:rocket_base_machine_2",
     "cobbleventure_theme_blocks:rocket_base_machine_3",
     "cobbleventure_theme_blocks:professor_lab_research_device_1",
-    "cobbleventure_theme_blocks:professor_lab_connecting_bookshelf"
+    "cobbleventure_theme_blocks:professor_lab_connecting_bookshelf",
+    "cobbleventure_theme_blocks:soft_cream_block",
+    "cobbleventure_theme_blocks:sky_view_glow_window",
+    "cobbleventure_theme_blocks:bright_double_glow_window",
+    "cobbleventure_theme_blocks:blue_panel_glow_window"
   ]
 }

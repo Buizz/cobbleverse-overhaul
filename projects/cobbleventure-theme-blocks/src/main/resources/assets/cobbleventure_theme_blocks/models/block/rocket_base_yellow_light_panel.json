@@ -1,6 +1,143 @@
 {
-  "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "cobbleventure_theme_blocks:block/rocket_base_yellow_light_panel"
-  }
+    "wall": "cobbleventure_theme_blocks:block/rocket_base_yellow_light_panel",
+    "particle": "cobbleventure_theme_blocks:block/rocket_base_yellow_light_panel"
+  },
+  "elements": [
+    {
+      "name": "wall_body",
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "north"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#wall",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "name": "raised_protective_panel",
+      "from": [
+        0,
+        1,
+        -1
+      ],
+      "to": [
+        15,
+        16,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            15,
+            15
+          ],
+          "texture": "#wall"
+        },
+        "east": {
+          "uv": [
+            14,
+            0,
+            15,
+            15
+          ],
+          "texture": "#wall"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            1,
+            15
+          ],
+          "texture": "#wall"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            15,
+            1
+          ],
+          "texture": "#wall"
+        },
+        "down": {
+          "uv": [
+            0,
+            14,
+            15,
+            15
+          ],
+          "texture": "#wall"
+        }
+      }
+    }
+  ]
 }

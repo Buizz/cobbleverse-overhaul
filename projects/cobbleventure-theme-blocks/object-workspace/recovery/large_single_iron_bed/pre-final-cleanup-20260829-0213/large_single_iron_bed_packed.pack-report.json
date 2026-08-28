@@ -1,0 +1,18 @@
+{
+  "source_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\09_large_single_iron_bed\\large_single_iron_bed.bbmodel",
+  "output_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\09_large_single_iron_bed\\large_single_iron_bed_packed.bbmodel",
+  "output_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\bed_single_texture_packed.png",
+  "output_java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\09_large_single_iron_bed\\large_single_iron_bed.json",
+  "source_size": [
+    128,
+    128
+  ],
+  "packed_size": [
+    64,
+    64
+  ],
+  "faces": 114,
+  "source_regions": 33,
+  "packed_regions": 8,
+  "padding": 1
+}

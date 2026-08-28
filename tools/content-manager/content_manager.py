@@ -296,6 +296,8 @@ BUILD_COMMANDS = {
     "validate-pack": "실제 모드팩 빌드 준비 상태 검사",
     "builder-world": "독립 건축 월드 CurseForge ZIP 생성",
     "live-editor-world": "단일 NBT 라이브 에디터 CurseForge ZIP 생성",
+    "builder-install": "건축 모드 빌드 후 지정 인스턴스에 설치",
+    "live-editor-install": "라이브 에디터 모드 빌드 후 지정 인스턴스에 설치",
 }
 EXPORT_LANGUAGES = {
     "ko_kr": "한국어",
@@ -308,6 +310,20 @@ COBBLEMON_BUILD_TARGETS = {
 STRUCTURE_BUILDER_WORLD_NAME = "Cobbleventure Structure Builder"
 LIVE_NBT_EDITOR_WORLD_NAME = "Cobbleventure Live NBT Editor"
 CONTENT_MANAGER_SETTINGS = "tools/content-manager/settings.local.json"
+SPECIAL_PACK_INSTALLS = {
+    "builder-install": {
+        "settings_key": "instance_path",
+        "world_name": STRUCTURE_BUILDER_WORLD_NAME,
+        "mods_path": Path("pack/overrides/structure-builder/mods"),
+        "label": "건축 팩",
+    },
+    "live-editor-install": {
+        "settings_key": "live_instance_path",
+        "world_name": LIVE_NBT_EDITOR_WORLD_NAME,
+        "mods_path": Path("pack/overrides/live-nbt-editor/mods"),
+        "label": "라이브 에디터 팩",
+    },
+}
 STATIC_CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".html": "text/html; charset=utf-8",
@@ -10750,6 +10766,23 @@ def _run_build(
         raise ValueError("지원하지 않는 내보내기 언어입니다.")
     if cobblemon_target not in COBBLEMON_BUILD_TARGETS:
         raise ValueError("지원하지 않는 Cobblemon 빌드 대상입니다.")
+    special_target: tuple[Path, bool] | None = None
+    if command in SPECIAL_PACK_INSTALLS:
+        try:
+            special_target = _resolve_special_pack_instance(core_root, command)
+            if not special_target[0].is_dir():
+                raise ValueError(f"CurseForge 인스턴스를 찾을 수 없습니다: {special_target[0]}")
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+            return {
+                "command": command,
+                "language": language,
+                "cobblemon_target": cobblemon_target,
+                "description": BUILD_COMMANDS[command],
+                "success": False,
+                "return_code": None,
+                "installation": {"success": False, "error": str(error)},
+                "output": f"[ERROR] 인스턴스 자동 설치 준비 실패: {error}",
+            }
     try:
         music_catalog, _ = sync_local_music_catalog(project_root, core_root)
         music_library = music_catalog.get("local_library", {})
@@ -10770,8 +10803,12 @@ def _run_build(
             "output": f"[ERROR] 빌드 전 로컬 음원을 자동으로 불러오지 못했습니다.\n{error}",
         }
     try:
+        batch_command = {
+            "builder-install": "builder-jar",
+            "live-editor-install": "live-editor-jar",
+        }.get(command, command)
         completed = subprocess.run(
-            ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), command, language],
+            ["cmd.exe", "/d", "/c", str(core_root / "build.bat"), batch_command, language],
             cwd=core_root,
             env={
                 **_build_process_environment(project_root),
@@ -10789,7 +10826,7 @@ def _run_build(
             for part in (music_status, stdout, stderr)
             if part.strip()
         )
-        return {
+        result = {
             "command": command,
             "language": language,
             "cobblemon_target": cobblemon_target,
@@ -10798,6 +10835,22 @@ def _run_build(
             "return_code": completed.returncode,
             "output": output or "출력 없음",
         }
+        if completed.returncode == 0 and command in SPECIAL_PACK_INSTALLS:
+            try:
+                installation = _install_special_pack_jars(core_root, command, special_target)
+            except (OSError, ValueError, zipfile.BadZipFile, json.JSONDecodeError) as error:
+                result["success"] = False
+                result["installation"] = {"success": False, "error": str(error)}
+                result["output"] += f"\n[ERROR] 인스턴스 자동 설치 실패: {error}"
+            else:
+                result["installation"] = installation
+                installed = ", ".join(installation["installed"])
+                result["output"] += (
+                    f"\n[OK] {installation['label']} 인스턴스 자동 설치 완료"
+                    f"\n  경로: {installation['instance_path']}"
+                    f"\n  JAR: {installed}"
+                )
+        return result
     except subprocess.TimeoutExpired as error:
         output = "\n".join(
             part.strip()
@@ -10867,6 +10920,152 @@ def _save_structure_builder_settings(
     finally:
         temporary.unlink(missing_ok=True)
     return {"instance_path": value, "live_instance_path": live_value}
+
+
+def _jar_mod_ids(path: Path) -> set[str]:
+    """Read only the mod IDs declared by a JAR, excluding dependency IDs."""
+    with zipfile.ZipFile(path) as archive:
+        names = set(archive.namelist())
+        if "fabric.mod.json" in names:
+            document = json.loads(archive.read("fabric.mod.json").decode("utf-8"))
+            mod_id = document.get("id") if isinstance(document, dict) else None
+            return {mod_id} if isinstance(mod_id, str) and MOD_ID.fullmatch(mod_id) else set()
+        metadata_name = next(
+            (name for name in ("META-INF/neoforge.mods.toml", "META-INF/mods.toml") if name in names),
+            None,
+        )
+        if metadata_name is None:
+            return set()
+        metadata = archive.read(metadata_name).decode("utf-8")
+    ids: set[str] = set()
+    for section in re.findall(
+        r"(?ms)^\s*\[\[mods\]\]\s*(.*?)(?=^\s*\[\[|\Z)", metadata
+    ):
+        match = re.search(r'(?m)^\s*modId\s*=\s*["\']([^"\']+)["\']', section)
+        if match and MOD_ID.fullmatch(match.group(1)):
+            ids.add(match.group(1))
+    return ids
+
+
+def _available_web_install_backup(target: Path) -> Path:
+    base = target.with_name(f"{target.name}.before-web-install")
+    if not base.exists():
+        return base
+    index = 2
+    while True:
+        candidate = target.with_name(f"{base.name}-{index}")
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+def _install_mod_jars(source_directory: Path, instance: Path) -> dict[str, Any]:
+    if not instance.is_dir():
+        raise ValueError(f"CurseForge 인스턴스를 찾을 수 없습니다: {instance}")
+    source_jars = sorted(path for path in source_directory.glob("*.jar") if path.is_file())
+    if not source_jars:
+        raise ValueError(f"설치할 JAR가 없습니다: {source_directory}")
+    source_ids: dict[Path, set[str]] = {}
+    claimed_ids: set[str] = set()
+    for source in source_jars:
+        mod_ids = _jar_mod_ids(source)
+        if not mod_ids:
+            raise ValueError(f"모드 ID를 확인할 수 없는 JAR입니다: {source.name}")
+        duplicates = claimed_ids & mod_ids
+        if duplicates:
+            raise ValueError(f"빌드 결과의 모드 ID가 중복됩니다: {', '.join(sorted(duplicates))}")
+        source_ids[source] = mod_ids
+        claimed_ids.update(mod_ids)
+
+    mods = instance / "mods"
+    mods.mkdir(parents=True, exist_ok=True)
+    conflicts: list[Path] = []
+    source_names = {path.name for path in source_jars}
+    for target in sorted(mods.glob("*.jar")):
+        if target.name in source_names:
+            conflicts.append(target)
+            continue
+        try:
+            if _jar_mod_ids(target) & claimed_ids:
+                conflicts.append(target)
+        except (OSError, zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+
+    temporary_files: list[tuple[Path, Path]] = []
+    backups: list[tuple[Path, Path]] = []
+    installed: list[Path] = []
+    try:
+        for source in source_jars:
+            temporary = mods / f".{source.name}.{uuid.uuid4().hex}.web-install.tmp"
+            shutil.copy2(source, temporary)
+            temporary_files.append((source, temporary))
+        for old_jar in conflicts:
+            backup = _available_web_install_backup(old_jar)
+            os.replace(old_jar, backup)
+            backups.append((old_jar, backup))
+        for source, temporary in temporary_files:
+            target = mods / source.name
+            os.replace(temporary, target)
+            installed.append(target)
+    except OSError:
+        for target in reversed(installed):
+            target.unlink(missing_ok=True)
+        for original, backup in reversed(backups):
+            if backup.exists():
+                os.replace(backup, original)
+        raise
+    finally:
+        for _, temporary in temporary_files:
+            temporary.unlink(missing_ok=True)
+    return {
+        "installed": [path.name for path in installed],
+        "replaced": [path.name for path, _ in backups],
+        "backups": [path.name for _, path in backups],
+        "mod_ids": sorted(claimed_ids),
+    }
+
+
+def _resolve_special_pack_instance(core_root: Path, command: str) -> tuple[Path, bool]:
+    config = SPECIAL_PACK_INSTALLS[command]
+    settings = _load_structure_builder_settings(core_root)
+    configured = settings[config["settings_key"]]
+    configured_path = Path(configured) if configured else None
+    if configured_path and configured_path.is_dir():
+        return configured_path, False
+    matching = [
+        Path(candidate) for candidate in _structure_builder_instance_candidates()
+        if (Path(candidate) / "saves" / config["world_name"]).is_dir()
+    ]
+    if len(matching) != 1:
+        label = config["label"]
+        if configured_path and not matching:
+            raise ValueError(f"저장된 {label} 인스턴스를 찾을 수 없습니다: {configured_path}")
+        if not matching:
+            raise ValueError(f"{label} 인스턴스 경로를 저장하거나 전용 월드를 한 번 실행해 주세요.")
+        raise ValueError(f"{label} 인스턴스가 여러 개입니다. 사용할 인스턴스 경로를 저장해 주세요.")
+    return matching[0], True
+
+
+def _install_special_pack_jars(
+    core_root: Path, command: str,
+    resolved: tuple[Path, bool] | None = None,
+) -> dict[str, Any]:
+    config = SPECIAL_PACK_INSTALLS[command]
+    instance, discovered = resolved or _resolve_special_pack_instance(core_root, command)
+    result = _install_mod_jars(core_root / config["mods_path"], instance)
+    if discovered:
+        settings = _load_structure_builder_settings(core_root)
+        settings[config["settings_key"]] = str(instance.resolve())
+        _save_structure_builder_settings(
+            core_root, settings["instance_path"], settings["live_instance_path"]
+        )
+    return {
+        **result,
+        "success": True,
+        "label": config["label"],
+        "instance_path": str(instance.resolve()),
+        "auto_discovered": discovered,
+    }
 
 
 def _structure_builder_world_path(instance_path: str) -> Path | None:

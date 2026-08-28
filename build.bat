@@ -81,7 +81,9 @@ if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
 if /I "%~1"=="pack-release" goto pack_release
 if /I "%~1"=="builder-world" goto builder_world
+if /I "%~1"=="builder-jar" goto builder_jar
 if /I "%~1"=="live-editor-world" goto live_editor_world
+if /I "%~1"=="live-editor-jar" goto live_editor_jar
 if /I "%~1"=="live-editor-sync" goto live_editor_sync
 if /I "%~1"=="builder-sync" goto builder_sync
 if /I "%~1"=="builder-import" (
@@ -259,6 +261,14 @@ echo [ERROR] Release manifest export is not implemented yet.
 exit /b 1
 
 :builder_world
+call :builder_jar
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%STRUCTURE_BUILDER_PROFILE%"
+exit /b %errorlevel%
+
+:builder_jar
 %PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." generate
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
@@ -267,10 +277,7 @@ call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" syncBuilderWorld --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
-if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%STRUCTURE_BUILDER_PROFILE%"
-exit /b %errorlevel%
+exit /b 0
 
 :builder_sync
 if "%~2"=="" (
@@ -292,16 +299,21 @@ call :sync_painting_pack "%~2"
 exit /b %errorlevel%
 
 :live_editor_world
+call :live_editor_jar
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%LIVE_NBT_EDITOR_PROFILE%"
+exit /b %errorlevel%
+
+:live_editor_jar
 call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" syncLiveEditorWorld --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
-if errorlevel 1 exit /b %errorlevel%
-%PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%LIVE_NBT_EDITOR_PROFILE%"
-exit /b %errorlevel%
+exit /b 0
 
 :live_editor_sync
 if "%~2"=="" (

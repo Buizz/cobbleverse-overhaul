@@ -427,6 +427,19 @@
       "reason": "Create 건축물에 재질을 입힐 수 있는 카피캣 블록과 문·패널·계단 확장"
     },
     {
+      "id": "night-lights",
+      "display_name": "Night Lights",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "1.4.0",
+      "curseforge": {
+        "project_id": 1199355,
+        "file_id": 8555615
+      },
+      "reason": "포켓몬센터·체육관·상점·도시에서 사용할 현대식 천장등·벽등·가로등과 스마트 조명 제공"
+    },
+    {
       "id": "copycat-we-fix",
       "display_name": "Copycat WE Fix",
       "classification": "development",

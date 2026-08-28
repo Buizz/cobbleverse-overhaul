@@ -1,5 +1,19 @@
 {
   "variants": {
-    "": { "model": "cobbleventure_theme_blocks:block/rocket_base_olive_vent" }
+    "facing=north": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_olive_vent"
+    },
+    "facing=east": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_olive_vent",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_olive_vent",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_olive_vent",
+      "y": 270
+    }
   }
 }

@@ -6,7 +6,7 @@
   "author": "Buizz",
   "purpose": "single-slot-live-nbt-authoring-world",
   "production_ready": false,
-  "notice": "기존 Structure Builder와 분리된 단일 NBT 라이브 편집 팩입니다. Content Studio와 연결해 게임을 끄지 않고 NBT를 교체, 저장, 크기 변경 및 외부 NBT 추가할 수 있으며 Copycat WE Fix 1.0.0으로 WorldEdit 변환 시 Copycats+ 재질을 보존합니다.",
+  "notice": "기존 Structure Builder와 분리된 단일 NBT 라이브 편집 팩입니다. Content Studio와 연결해 게임을 끄지 않고 NBT를 교체, 저장, 크기 변경 및 외부 NBT 추가할 수 있으며 Night Lights 1.4.0 조명과 Copycat WE Fix 1.0.0의 Copycats+ 재질을 보존합니다.",
   "icon": "pack/assets/cobbleventure-import-test-icon.png",
   "minecraft": {
     "version": "1.21.1",
@@ -28,15 +28,16 @@
     { "projectID": 915902, "fileID": 5876050, "required": true },
     { "projectID": 328085, "fileID": 7963363, "required": true },
     { "projectID": 968398, "fileID": 7251823, "required": true },
+    { "projectID": 1199355, "fileID": 8555615, "required": true },
     { "projectID": 1581357, "fileID": 8283427, "required": true },
     { "projectID": 302113, "fileID": 8515718, "required": true }
   ],
   "local_resourcepacks": [
-    {
-      "source": "local-assets/Cobbleventure-Pokemon-Paintings.zip",
-      "target": "Cobbleventure-Pokemon-Paintings.zip",
-      "pack_format": 34
-    }
+      {
+        "source": "local-assets/Cobbleventure-Pokemon-Paintings.zip",
+        "target": "Cobbleventure-Pokemon-Paintings.zip",
+        "pack_format": 34
+      }
   ],
   "overrides_directory": "pack/overrides/live-nbt-editor",
   "output": "dist/cobbleventure-live-nbt-editor-0.1.0-curseforge.zip"

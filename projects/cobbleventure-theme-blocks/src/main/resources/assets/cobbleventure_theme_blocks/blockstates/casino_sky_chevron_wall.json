@@ -1,5 +1,19 @@
 {
   "variants": {
-    "": { "model": "cobbleventure_theme_blocks:block/casino_sky_chevron_wall" }
+    "facing=north": {
+      "model": "cobbleventure_theme_blocks:block/casino_sky_chevron_wall"
+    },
+    "facing=east": {
+      "model": "cobbleventure_theme_blocks:block/casino_sky_chevron_wall",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "cobbleventure_theme_blocks:block/casino_sky_chevron_wall",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "cobbleventure_theme_blocks:block/casino_sky_chevron_wall",
+      "y": 270
+    }
   }
 }
