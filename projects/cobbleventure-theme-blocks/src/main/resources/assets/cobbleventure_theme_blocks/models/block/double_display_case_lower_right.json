@@ -1,4 +1,0 @@
-{
-  "parent": "cobbleventure_theme_blocks:block/double_display_case_lower",
-  "textures": { "front": "cobbleventure_theme_blocks:block/double_display_case_lower_right" }
-}

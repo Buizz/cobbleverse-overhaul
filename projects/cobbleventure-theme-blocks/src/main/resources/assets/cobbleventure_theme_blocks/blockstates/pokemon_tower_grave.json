@@ -1,8 +1,8 @@
 {
   "variants": {
-    "facing=north": { "model": "cobbleventure_theme_blocks:block/pokemon_tower_grave" },
-    "facing=east": { "model": "cobbleventure_theme_blocks:block/pokemon_tower_grave", "y": 90 },
-    "facing=south": { "model": "cobbleventure_theme_blocks:block/pokemon_tower_grave", "y": 180 },
-    "facing=west": { "model": "cobbleventure_theme_blocks:block/pokemon_tower_grave", "y": 270 }
+    "facing=north": { "model": "cobbleventure_theme_blocks:block/workshop/01_pokemon_tower_grave/pokemon_tower_grave" },
+    "facing=east": { "model": "cobbleventure_theme_blocks:block/workshop/01_pokemon_tower_grave/pokemon_tower_grave", "y": 90 },
+    "facing=south": { "model": "cobbleventure_theme_blocks:block/workshop/01_pokemon_tower_grave/pokemon_tower_grave", "y": 180 },
+    "facing=west": { "model": "cobbleventure_theme_blocks:block/workshop/01_pokemon_tower_grave/pokemon_tower_grave", "y": 270 }
   }
 }

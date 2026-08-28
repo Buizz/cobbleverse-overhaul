@@ -10,7 +10,7 @@
 projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blocks build
 ```
 
-완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.20.0.jar`에 생성됩니다. Minecraft
+완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.21.0.jar`에 생성됩니다. Minecraft
 1.21.1과 NeoForge 21.1.248 이상을 사용하는 모드팩의 `mods` 폴더에 JAR를 넣어
 활성화하고, 빼서 비활성화할 수 있습니다. 다른 Cobbleventure 모드를 요구하지 않습니다.
 

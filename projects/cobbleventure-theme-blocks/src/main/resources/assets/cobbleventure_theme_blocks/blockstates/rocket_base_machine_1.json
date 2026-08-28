@@ -1,12 +1,12 @@
 {
   "variants": {
-    "facing=north,height=0": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_lower","uvlock":true},
-    "facing=east,height=0": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_lower","uvlock":true,"y":90},
-    "facing=south,height=0": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_lower","uvlock":true,"y":180},
-    "facing=west,height=0": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_lower","uvlock":true,"y":270},
-    "facing=north,height=1": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_upper","uvlock":true},
-    "facing=east,height=1": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_upper","uvlock":true,"y":90},
-    "facing=south,height=1": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_upper","uvlock":true,"y":180},
-    "facing=west,height=1": {"model":"cobbleventure_theme_blocks:block/rocket_base_machine_1_upper","uvlock":true,"y":270}
+    "facing=north,height=0": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_lower","uvlock":true},
+    "facing=east,height=0": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_lower","uvlock":true,"y":90},
+    "facing=south,height=0": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_lower","uvlock":true,"y":180},
+    "facing=west,height=0": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_lower","uvlock":true,"y":270},
+    "facing=north,height=1": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_upper","uvlock":true},
+    "facing=east,height=1": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_upper","uvlock":true,"y":90},
+    "facing=south,height=1": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_upper","uvlock":true,"y":180},
+    "facing=west,height=1": {"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1_upper","uvlock":true,"y":270}
   }
 }
