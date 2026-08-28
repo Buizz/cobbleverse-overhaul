@@ -2821,6 +2821,13 @@ final class DungeonSystem {
                         + clearCount + "회차)"
                 );
                 grantItems(participant, reward.items());
+                DungeonGuideNetwork.openRewards(
+                    participant,
+                    definition.displayName(),
+                    reward.firstClear(),
+                    clearCount,
+                    reward.items()
+                );
             }
         } catch (RuntimeException error) {
             COMPLETING_RUNS.removeAll(run.participantIds());

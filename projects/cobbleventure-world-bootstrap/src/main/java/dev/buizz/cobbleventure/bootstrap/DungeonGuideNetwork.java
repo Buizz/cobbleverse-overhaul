@@ -2,11 +2,15 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import dev.buizz.cobbleventure.bootstrap.client.DungeonGuideScreen;
 import dev.buizz.cobbleventure.bootstrap.client.DungeonQueueScreen;
+import dev.buizz.cobbleventure.bootstrap.client.DungeonRewardScreen;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -15,7 +19,8 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Synchronizes dungeon guide and matchmaking screens with server-owned entry state. */
 public final class DungeonGuideNetwork {
-    private static final String VERSION = "4";
+    private static final String VERSION = "5";
+    private static final int MAX_REWARD_ENTRIES = 128;
 
     private DungeonGuideNetwork() {}
 
@@ -41,6 +46,48 @@ public final class DungeonGuideNetwork {
         PacketDistributor.sendToPlayer(
             player, new QueueStatePayload(entranceId, "closed")
         );
+    }
+
+    static void openRewards(
+        ServerPlayer player,
+        String dungeonName,
+        boolean firstClear,
+        int clearCount,
+        List<ItemStack> rewards
+    ) {
+        PacketDistributor.sendToPlayer(
+            player,
+            new OpenRewardsPayload(new RewardData(
+                dungeonName, firstClear, clearCount, summarizeRewards(rewards)
+            ))
+        );
+    }
+
+    static List<RewardEntry> summarizeRewards(List<ItemStack> rewards) {
+        List<RewardEntry> entries = new ArrayList<>();
+        for (ItemStack reward : rewards) {
+            if (reward.isEmpty()) continue;
+            int matchingIndex = -1;
+            for (int index = 0; index < entries.size(); index++) {
+                if (ItemStack.isSameItemSameComponents(
+                    entries.get(index).stack(), reward
+                )) {
+                    matchingIndex = index;
+                    break;
+                }
+            }
+            if (matchingIndex < 0) {
+                ItemStack icon = reward.copy();
+                icon.setCount(1);
+                entries.add(new RewardEntry(icon, reward.getCount()));
+            } else {
+                RewardEntry entry = entries.get(matchingIndex);
+                entries.set(matchingIndex, new RewardEntry(
+                    entry.stack(), entry.count() + reward.getCount()
+                ));
+            }
+        }
+        return List.copyOf(entries);
     }
 
     public static void respond(String entranceId, boolean accepted) {
@@ -78,6 +125,11 @@ public final class DungeonGuideNetwork {
             QueueCancelPayload.STREAM_CODEC,
             DungeonGuideNetwork::handleQueueCancel
         );
+        registrar.playToClient(
+            OpenRewardsPayload.TYPE,
+            OpenRewardsPayload.STREAM_CODEC,
+            DungeonGuideNetwork::handleOpenRewards
+        );
     }
 
     private static void handleOpen(OpenGuidePayload payload, IPayloadContext context) {
@@ -110,6 +162,12 @@ public final class DungeonGuideNetwork {
         if (context.player() instanceof ServerPlayer player) {
             DungeonSystem.cancelWaiting(player, payload.entranceId());
         }
+    }
+
+    private static void handleOpenRewards(
+        OpenRewardsPayload payload, IPayloadContext context
+    ) {
+        DungeonRewardScreen.open(payload.data());
     }
 
     public record GuideData(
@@ -182,6 +240,56 @@ public final class DungeonGuideNetwork {
             return new QueueData(
                 buffer.readUtf(), buffer.readUtf(), buffer.readVarInt(),
                 buffer.readVarInt(), buffer.readVarInt()
+            );
+        }
+    }
+
+    public record RewardEntry(ItemStack stack, int count) {
+        private void write(RegistryFriendlyByteBuf buffer) {
+            ItemStack.STREAM_CODEC.encode(buffer, stack);
+            buffer.writeVarInt(count);
+        }
+
+        private static RewardEntry read(RegistryFriendlyByteBuf buffer) {
+            ItemStack stack = ItemStack.STREAM_CODEC.decode(buffer);
+            int count = buffer.readVarInt();
+            if (count < 1) {
+                throw new IllegalArgumentException("Dungeon reward count must be positive");
+            }
+            return new RewardEntry(stack, count);
+        }
+    }
+
+    public record RewardData(
+        String dungeonName,
+        boolean firstClear,
+        int clearCount,
+        List<RewardEntry> rewards
+    ) {
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(dungeonName);
+            buffer.writeBoolean(firstClear);
+            buffer.writeVarInt(clearCount);
+            buffer.writeVarInt(rewards.size());
+            rewards.forEach(reward -> reward.write(buffer));
+        }
+
+        private static RewardData read(RegistryFriendlyByteBuf buffer) {
+            String dungeonName = buffer.readUtf();
+            boolean firstClear = buffer.readBoolean();
+            int clearCount = buffer.readVarInt();
+            int rewardCount = buffer.readVarInt();
+            if (rewardCount < 0 || rewardCount > MAX_REWARD_ENTRIES) {
+                throw new IllegalArgumentException(
+                    "Invalid dungeon reward entry count: " + rewardCount
+                );
+            }
+            List<RewardEntry> rewards = new ArrayList<>(rewardCount);
+            for (int index = 0; index < rewardCount; index++) {
+                rewards.add(RewardEntry.read(buffer));
+            }
+            return new RewardData(
+                dungeonName, firstClear, clearCount, List.copyOf(rewards)
             );
         }
     }
@@ -280,6 +388,24 @@ public final class DungeonGuideNetwork {
             StreamCodec.of(
                 (buffer, payload) -> buffer.writeUtf(payload.entranceId),
                 buffer -> new QueueCancelPayload(buffer.readUtf())
+            );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    private record OpenRewardsPayload(RewardData data) implements CustomPacketPayload {
+        private static final Type<OpenRewardsPayload> TYPE = new Type<>(
+            ResourceLocation.fromNamespaceAndPath(
+                CobbleventureBootstrap.MOD_ID, "open_dungeon_rewards"
+            )
+        );
+        private static final StreamCodec<RegistryFriendlyByteBuf, OpenRewardsPayload> STREAM_CODEC =
+            StreamCodec.of(
+                (buffer, payload) -> payload.data.write(buffer),
+                buffer -> new OpenRewardsPayload(RewardData.read(buffer))
             );
 
         @Override
