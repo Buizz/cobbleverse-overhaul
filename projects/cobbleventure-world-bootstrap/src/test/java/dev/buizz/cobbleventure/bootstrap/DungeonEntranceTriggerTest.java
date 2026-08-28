@@ -33,14 +33,26 @@ final class DungeonEntranceTriggerTest {
     }
 
     @Test
-    void transitionRadiusRequiresThePlayerToStandNextToTheBarrier() {
+    void transitionRadiusAllowsAComfortableDoorApproach() {
         BlockPos barrier = new BlockPos(12, 3, 15);
 
         assertTrue(DungeonSystem.isNearAnyEntranceTrigger(
-            new Vec3(13.5D, 3.0D, 15.5D), Set.of(barrier), 2.25D
+            new Vec3(14.5D, 3.0D, 15.5D), Set.of(barrier), 6.25D
         ));
         assertFalse(DungeonSystem.isNearAnyEntranceTrigger(
-            new Vec3(14.5D, 3.0D, 15.5D), Set.of(barrier), 2.25D
+            new Vec3(15.5D, 3.0D, 15.5D), Set.of(barrier), 6.25D
+        ));
+    }
+
+    @Test
+    void acceptsDoorStepsButStillRejectsAnotherFloor() {
+        BlockPos barrier = new BlockPos(12, 3, 15);
+
+        assertTrue(DungeonSystem.isNearAnyEntranceTrigger(
+            new Vec3(12.5D, 5.5D, 15.5D), Set.of(barrier), 9.0D, 2.0D
+        ));
+        assertFalse(DungeonSystem.isNearAnyEntranceTrigger(
+            new Vec3(12.5D, 7.5D, 15.5D), Set.of(barrier), 9.0D, 2.0D
         ));
     }
 }

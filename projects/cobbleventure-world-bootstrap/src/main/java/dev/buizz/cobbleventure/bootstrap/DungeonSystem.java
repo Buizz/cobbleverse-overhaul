@@ -102,7 +102,9 @@ final class DungeonSystem {
     private static final int SLOT_START_X = 32768;
     private static final int SLOT_Y = 80;
     private static final double ENTRANCE_RADIUS_SQUARED = 9.0D;
-    private static final double ENTRANCE_VERTICAL_TOLERANCE = 1.25D;
+    private static final double ENTRANCE_VERTICAL_TOLERANCE = 2.0D;
+    private static final double ENTRANCE_CONFIRM_RADIUS_SQUARED = 16.0D;
+    private static final double ENTRANCE_CONFIRM_VERTICAL_TOLERANCE = 2.5D;
     private static final double EXIT_RADIUS_SQUARED = 2.25D;
     private static volatile Map<String, DungeonDefinition> definitions = Map.of();
     private static volatile Map<String, DungeonPieceDefinition> pieceDefinitions = Map.of();
@@ -413,6 +415,16 @@ final class DungeonSystem {
             .findFirst().orElse(null);
         String previous = INSIDE_ENTRANCES.get(player.getUUID());
         if (touching == null) {
+            PendingEntry pending = PENDING_ENTRIES.get(player.getUUID());
+            if (pending != null
+                && pending.placement().dimension().equals(
+                    player.serverLevel().dimension()
+                )
+                && touchesEntranceForConfirmation(
+                    player.position(), pending.placement()
+                )) {
+                return;
+            }
             INSIDE_ENTRANCES.remove(player.getUUID());
             PENDING_ENTRIES.remove(player.getUUID());
             return;
@@ -652,9 +664,8 @@ final class DungeonSystem {
         if (pending == null
             || !pending.ref().entrance().entranceId().equals(entranceId)
             || !pending.placement().dimension().equals(player.serverLevel().dimension())
-            || !touchesEntrance(
-                player.position(), pending.placement(),
-                pending.placement().activationRadiusSquared()
+            || !touchesEntranceForConfirmation(
+                player.position(), pending.placement()
             )) {
             player.sendSystemMessage(Component.literal(
                 "입구에서 멀어졌거나 입장 요청이 만료되었습니다."
@@ -4393,16 +4404,40 @@ final class DungeonSystem {
         Vec3 position, PlacedEntrance entrance, double radiusSquared
     ) {
         return isNearAnyEntranceTrigger(
-            position, entrance.triggerBlocks(), radiusSquared
+            position, entrance.triggerBlocks(), radiusSquared,
+            ENTRANCE_VERTICAL_TOLERANCE
+        );
+    }
+
+    private static boolean touchesEntranceForConfirmation(
+        Vec3 position, PlacedEntrance entrance
+    ) {
+        return isNearAnyEntranceTrigger(
+            position, entrance.triggerBlocks(),
+            Math.max(
+                entrance.activationRadiusSquared(),
+                ENTRANCE_CONFIRM_RADIUS_SQUARED
+            ),
+            ENTRANCE_CONFIRM_VERTICAL_TOLERANCE
         );
     }
 
     static boolean isNearAnyEntranceTrigger(
         Vec3 position, Set<BlockPos> triggerBlocks, double radiusSquared
     ) {
+        return isNearAnyEntranceTrigger(
+            position, triggerBlocks, radiusSquared,
+            ENTRANCE_VERTICAL_TOLERANCE
+        );
+    }
+
+    static boolean isNearAnyEntranceTrigger(
+        Vec3 position, Set<BlockPos> triggerBlocks, double radiusSquared,
+        double verticalTolerance
+    ) {
         return triggerBlocks.stream().anyMatch(
             trigger -> Math.abs(position.y - (trigger.getY() + 0.5D))
-                <= ENTRANCE_VERTICAL_TOLERANCE
+                <= verticalTolerance
                 && horizontalDistanceSquared(position, trigger) <= radiusSquared
         );
     }

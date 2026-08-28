@@ -861,7 +861,7 @@ final class BuildingRuntimeSystem {
             DungeonSystem.registerBuildingPlacement(
                 level, anchor.dungeonEntrance, trigger,
                 triggerBlocks.isEmpty() ? Set.of(trigger) : triggerBlocks,
-                safeReturn, triggerBlocks.isEmpty() ? 9.0D : 2.25D
+                safeReturn, triggerBlocks.isEmpty() ? 9.0D : 6.25D
             );
         }
     }
