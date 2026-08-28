@@ -92,6 +92,32 @@ class StructureBuilderTests(unittest.TestCase):
             {connector["socket"] for connector in definition["connectors"]},
         )
 
+    def test_dungeon_stair_ceiling_follows_each_floor_step(self) -> None:
+        for shape_name in ("stairs_up", "stairs_down"):
+            shape = dungeon_piece_skin_generator.SHAPES[shape_name]
+            payload = dungeon_piece_skin_generator._build_nbt(
+                shape_name, shape, dungeon_piece_skin_generator.SKINS["rocket"]
+            )
+            size, palette, blocks = content_manager._minecraft_structure_parts(payload)
+            states = {tuple(block["pos"]): palette[block["state"]] for block in blocks}
+            heights = dict(shape.connector_heights)
+            for x in range(size[0]):
+                level = dungeon_piece_skin_generator._stair_level(
+                    shape_name, x, size[0], heights
+                )
+                ceiling_y = level + dungeon_piece_skin_generator.CEILING_OFFSET
+                with self.subTest(shape=shape_name, x=x):
+                    self.assertIn(
+                        states[(x, ceiling_y, 7)],
+                        {
+                            dungeon_piece_skin_generator.SKINS["rocket"]["ceiling"],
+                            dungeon_piece_skin_generator.SKINS["rocket"]["lamp"],
+                        },
+                    )
+                    for air_y in range(level + 1, ceiling_y):
+                        self.assertEqual("minecraft:air", states[(x, air_y, 7)])
+                    self.assertNotIn((x, ceiling_y + 1, 7), states)
+
     def test_dungeon_piece_skins_share_the_same_shape_contract(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -149,7 +175,7 @@ class StructureBuilderTests(unittest.TestCase):
             stairs = json.loads(
                 (definition_root / "rocket" / "stairs_up.json").read_text(encoding="utf-8")
             )
-            self.assertEqual([16, 12, 16], stairs["size"])
+            self.assertEqual([16, 16, 16], stairs["size"])
             self.assertEqual({1, 9}, {connector["position"][1] for connector in stairs["connectors"]})
 
     def test_generated_underground_entrance_has_road_anchor_and_transition_barriers(self) -> None:

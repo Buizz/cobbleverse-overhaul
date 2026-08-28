@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECT = Path("content-projects/cobbleventure-main")
 SIZE = (16, 8, 16)
 CORRIDOR_WIDTH = 6
+CEILING_OFFSET = 7
 SOCKET = "cobbleventure:dungeon_socket/standard_6"
 KIT_TAG = "cobbleventure:dungeon_kit/standard_16"
 
@@ -57,11 +58,11 @@ SHAPES = {
     ),
     "stairs_up": Shape(
         "corridor", ("west", "east"), connector_heights=(("west", 1), ("east", 9)),
-        weight=5, size=(16, 12, 16),
+        weight=5, size=(16, 16, 16),
     ),
     "stairs_down": Shape(
         "corridor", ("west", "east"), connector_heights=(("west", 9), ("east", 1)),
-        weight=5, size=(16, 12, 16),
+        weight=5, size=(16, 16, 16),
     ),
     "dead_end": Shape("dead_end", ("west",), 4, weight=8),
     "support": Shape(
@@ -160,9 +161,19 @@ def _block(name: str):
     return name, (), None
 
 
+def _stair_level(
+    shape_name: str, x: int, width: int, heights: dict[str, int]
+) -> int:
+    rise = abs(heights["east"] - heights["west"])
+    level = round(rise * x / (width - 1))
+    return level if shape_name == "stairs_up" else rise - level
+
+
 def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
     width, height, depth = shape.size
     footprint = _footprint(shape)
+    heights = dict(shape.connector_heights)
+    stairs = shape_name in {"stairs_up", "stairs_down"}
     blocks = {}
     air = _block("minecraft:air")
     for x, z in footprint:
@@ -171,20 +182,23 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
         floor_pattern = (symmetric_x + symmetric_z) * 7 + symmetric_x * symmetric_z * 3
         floor = skin["floor_alt"] if floor_pattern % 17 == 0 else skin["floor"]
         blocks[(x, 0, z)] = _block(floor)
-        blocks[(x, height - 1, z)] = _block(skin["ceiling"])
-        for y in range(1, height - 1):
+        ceiling_y = _stair_level(shape_name, x, width, heights) + CEILING_OFFSET \
+            if stairs else height - 1
+        blocks[(x, ceiling_y, z)] = _block(skin["ceiling"])
+        for y in range(1, ceiling_y):
             blocks[(x, y, z)] = air
         for dx, dz in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             wall = x + dx, z + dz
             if wall in footprint or not (0 <= wall[0] < width and 0 <= wall[1] < depth):
                 continue
-            for y in range(height):
+            wall_top = _stair_level(shape_name, wall[0], width, heights) + CEILING_OFFSET \
+                if stairs else height - 1
+            for y in range(wall_top + 1):
                 wall_x = min(wall[0], width - 1 - wall[0])
                 wall_z = min(wall[1], depth - 1 - wall[1])
                 material = skin["accent"] if y == 3 else skin["wall_alt"] if (wall_x + wall_z) % 9 == 0 else skin["wall"]
                 blocks[(wall[0], y, wall[1])] = _block(material)
 
-    heights = dict(shape.connector_heights)
     for direction in shape.directions:
         y = heights.get(direction, 1)
         x, _, z = _connector_position(direction, y, shape.size)
@@ -197,13 +211,9 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
                 if 0 <= door_x < width and 0 <= door_z < depth:
                     blocks[(door_x, door_y, door_z)] = air
 
-    if shape_name in {"stairs_up", "stairs_down"}:
-        ascending = shape_name == "stairs_up"
-        rise = abs(heights["east"] - heights["west"])
+    if stairs:
         for x in range(width):
-            level = round(rise * x / (width - 1))
-            if not ascending:
-                level = rise - level
+            level = _stair_level(shape_name, x, width, heights)
             for z in _center_span(depth):
                 for y in range(1, level + 1):
                     blocks[(x, y, z)] = _block(skin["floor"])
@@ -212,7 +222,9 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
     # while leaving all gameplay marker positions as walkable air.
     for x, z in ((5, 5), (10, 5), (5, 10), (10, 10)):
         if (x, z) in footprint:
-            blocks[(x, height - 1, z)] = _block(skin["lamp"])
+            ceiling_y = _stair_level(shape_name, x, width, heights) + CEILING_OFFSET \
+                if stairs else height - 1
+            blocks[(x, ceiling_y, z)] = _block(skin["lamp"])
     if shape.room_margin is not None:
         for x, z in ((7, 7), (8, 7), (7, 8), (8, 8)):
             blocks[(x, 0, z)] = _block(skin["accent"])
