@@ -19,7 +19,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Synchronizes dungeon guide and matchmaking screens with server-owned entry state. */
 public final class DungeonGuideNetwork {
-    private static final String VERSION = "5";
+    private static final String VERSION = "6";
     private static final int MAX_REWARD_ENTRIES = 128;
 
     private DungeonGuideNetwork() {}
@@ -174,6 +174,7 @@ public final class DungeonGuideNetwork {
         String entranceId,
         String title,
         String description,
+        String backgroundTexture,
         int recommendedMin,
         int recommendedMax,
         int internalMin,
@@ -182,6 +183,9 @@ public final class DungeonGuideNetwork {
         String wipeReturn,
         boolean healOnWipe,
         boolean repeatable,
+        boolean allowFlee,
+        boolean allowCapture,
+        boolean allowItems,
         String levelMeasure,
         int currentPartyLevel,
         String multiplayerMode,
@@ -193,6 +197,7 @@ public final class DungeonGuideNetwork {
             buffer.writeUtf(entranceId);
             buffer.writeUtf(title);
             buffer.writeUtf(description);
+            buffer.writeUtf(backgroundTexture);
             buffer.writeVarInt(recommendedMin);
             buffer.writeVarInt(recommendedMax);
             buffer.writeVarInt(internalMin);
@@ -201,6 +206,9 @@ public final class DungeonGuideNetwork {
             buffer.writeUtf(wipeReturn);
             buffer.writeBoolean(healOnWipe);
             buffer.writeBoolean(repeatable);
+            buffer.writeBoolean(allowFlee);
+            buffer.writeBoolean(allowCapture);
+            buffer.writeBoolean(allowItems);
             buffer.writeUtf(levelMeasure);
             buffer.writeVarInt(currentPartyLevel);
             buffer.writeUtf(multiplayerMode);
@@ -211,10 +219,11 @@ public final class DungeonGuideNetwork {
 
         private static GuideData read(RegistryFriendlyByteBuf buffer) {
             return new GuideData(
-                buffer.readUtf(), buffer.readUtf(), buffer.readUtf(),
+                buffer.readUtf(), buffer.readUtf(), buffer.readUtf(), buffer.readUtf(),
                 buffer.readVarInt(), buffer.readVarInt(),
                 buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(),
                 buffer.readUtf(), buffer.readBoolean(), buffer.readBoolean(),
+                buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
                 buffer.readUtf(), buffer.readVarInt(), buffer.readUtf(), buffer.readVarInt(),
                 buffer.readVarInt(), buffer.readVarInt()
             );

@@ -22,7 +22,8 @@
   ],
   "entry_ui": {
     "info_mode": "mystery",
-    "confirm_required": true
+    "confirm_required": true,
+    "background_texture": "cobbleventure_bootstrap:textures/gui/dungeons/storm_cavern.png"
   },
   "difficulty": {
     "recommended_min": 22,

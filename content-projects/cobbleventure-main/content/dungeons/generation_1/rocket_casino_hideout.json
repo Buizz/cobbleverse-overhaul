@@ -10,7 +10,11 @@
     "destination_entry": "main", "activation": "proximity",
     "visibility": "always", "return_policy": "source_safe_anchor"
   }],
-  "entry_ui": { "info_mode": "summary", "confirm_required": true },
+  "entry_ui": {
+    "info_mode": "summary",
+    "confirm_required": true,
+    "background_texture": "cobbleventure_bootstrap:textures/gui/dungeons/rocket_facility.png"
+  },
   "difficulty": { "recommended_min": 1, "recommended_max": 1, "internal_min": 1, "internal_max": 1 },
   "eligibility": {
     "minimum_party_size": 1, "maximum_party_size": 6,

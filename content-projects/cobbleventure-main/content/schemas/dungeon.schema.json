@@ -27,7 +27,8 @@
       "required": ["info_mode", "confirm_required"],
       "properties": {
         "info_mode": { "enum": ["exact", "summary", "mystery"] },
-        "confirm_required": { "type": "boolean" }
+        "confirm_required": { "type": "boolean" },
+        "background_texture": { "$ref": "#/$defs/resource_id" }
       }
     },
     "difficulty": {

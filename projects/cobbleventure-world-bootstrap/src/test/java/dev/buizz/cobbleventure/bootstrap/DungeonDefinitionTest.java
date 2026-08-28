@@ -209,6 +209,13 @@ final class DungeonDefinitionTest {
                 assertEquals(recommendedMaximum, definition.difficulty().recommendedMax(), name);
                 assertEquals(internalMinimum, definition.difficulty().internalMin(), name);
                 assertEquals(internalMaximum, definition.difficulty().internalMax(), name);
+                assertEquals(
+                    name.equals("zapdos_storm_chamber")
+                        ? "cobbleventure_bootstrap:textures/gui/dungeons/storm_cavern.png"
+                        : "cobbleventure_bootstrap:textures/gui/dungeons/rocket_facility.png",
+                    definition.entryUi().backgroundTexture(),
+                    name
+                );
             }
         }
     }

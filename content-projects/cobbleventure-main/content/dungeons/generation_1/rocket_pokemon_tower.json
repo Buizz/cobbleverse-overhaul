@@ -6,7 +6,11 @@
   "description": { "ko_kr": "낮은 중형 타워를 올라가는 로켓단 점거 테스트입니다.", "en_us": "A test occupation spanning a short, medium-width tower." },
   "preset": "cobbleventure:team_rocket_facility",
   "entrances": [{ "entrance_id": "cobbleventure:entrance/pokemon_tower", "destination_entry": "main", "activation": "proximity", "visibility": "always", "return_policy": "source_safe_anchor" }],
-  "entry_ui": { "info_mode": "mystery", "confirm_required": true },
+  "entry_ui": {
+    "info_mode": "mystery",
+    "confirm_required": true,
+    "background_texture": "cobbleventure_bootstrap:textures/gui/dungeons/rocket_facility.png"
+  },
   "difficulty": { "recommended_min": 1, "recommended_max": 1, "internal_min": 1, "internal_max": 1 },
   "eligibility": { "minimum_party_size": 1, "maximum_party_size": 6, "require_usable_pokemon": true, "level_measure": "average", "recommended_level_policy": "warn" },
   "multiplayer": { "mode": "solo", "min_size": 1, "max_size": 1 },

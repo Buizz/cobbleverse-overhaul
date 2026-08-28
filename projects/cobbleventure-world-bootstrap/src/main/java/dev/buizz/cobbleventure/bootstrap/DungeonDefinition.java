@@ -929,7 +929,10 @@ record DungeonDefinition(
             resourceId(root, "preset"),
             new EntryUi(
                 enumValue(entryUi, "info_mode", List.of("exact", "summary", "mystery")),
-                requiredBoolean(entryUi, "confirm_required")
+                requiredBoolean(entryUi, "confirm_required"),
+                entryUi.has("background_texture")
+                    ? resourceId(entryUi, "background_texture")
+                    : "cobbleventure_bootstrap:textures/gui/dungeons/rocket_facility.png"
             ),
             new Difficulty(recommendedMin, recommendedMax, internalMin, internalMax),
             new Eligibility(
@@ -1147,7 +1150,11 @@ record DungeonDefinition(
         return position;
     }
 
-    record EntryUi(String infoMode, boolean confirmRequired) {}
+    record EntryUi(
+        String infoMode,
+        boolean confirmRequired,
+        String backgroundTexture
+    ) {}
     record Difficulty(int recommendedMin, int recommendedMax, int internalMin, int internalMax) {}
     record Eligibility(
         int minimumPartySize,
