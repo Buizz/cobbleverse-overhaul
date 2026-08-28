@@ -3675,7 +3675,19 @@
       },
       "building_density": "normal"
     },
-    "facility_requirements": []
+    "facility_requirements": [
+      {
+        "id": "pokemon_tower",
+        "label": "포켓몬타워",
+        "count": 1,
+        "required": true,
+        "footprint": {
+          "width": 32,
+          "depth": 32,
+          "height": 28
+        }
+      }
+    ]
   },
   "npc_placement": {
     "auto_place_npcs": false,

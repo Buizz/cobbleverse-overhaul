@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "cobbleventure_theme_blocks:block/pokemon_tower_purple_pillar"
+  }
+}

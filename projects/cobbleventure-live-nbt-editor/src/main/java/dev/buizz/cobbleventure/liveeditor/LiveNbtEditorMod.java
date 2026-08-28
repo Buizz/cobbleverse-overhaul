@@ -392,6 +392,7 @@ public final class LiveNbtEditorMod {
         Path input = Filesystem.liveRoot(server).resolve("inbox/active.nbt");
         CompoundTag serialized = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
         PlayingCardsEntityLinks.repairStructure(serialized);
+        PaintingEntityPlacement.repairStructure(serialized);
         String requestedId = requiredString(command, "id");
         if (active != null && saveCurrent) {
             ListTag elevatorRecovery = active.id().equals(requestedId)
@@ -594,17 +595,23 @@ public final class LiveNbtEditorMod {
             }
 
             CompoundTag entityInfo = new CompoundTag();
-            ListTag position = new ListTag();
-            position.add(DoubleTag.valueOf(entity.getX() - origin.getX()));
-            position.add(DoubleTag.valueOf(entity.getY() - origin.getY()));
-            position.add(DoubleTag.valueOf(entity.getZ() - origin.getZ()));
-            entityInfo.put("pos", position);
             // Paintings are positioned from their wall attachment block, not from the
             // entity bounding box. This mirrors StructureTemplate#fillEntityList and
             // prevents their attachment point from moving up on every save/reload.
             BlockPos relative = entity instanceof Painting painting
                 ? painting.getPos().subtract(origin)
                 : entity.blockPosition().subtract(origin);
+            ListTag position = new ListTag();
+            if (entity instanceof Painting) {
+                position.add(DoubleTag.valueOf(relative.getX()));
+                position.add(DoubleTag.valueOf(relative.getY()));
+                position.add(DoubleTag.valueOf(relative.getZ()));
+            } else {
+                position.add(DoubleTag.valueOf(entity.getX() - origin.getX()));
+                position.add(DoubleTag.valueOf(entity.getY() - origin.getY()));
+                position.add(DoubleTag.valueOf(entity.getZ() - origin.getZ()));
+            }
+            entityInfo.put("pos", position);
             ListTag blockPosition = new ListTag();
             blockPosition.add(IntTag.valueOf(relative.getX()));
             blockPosition.add(IntTag.valueOf(relative.getY()));

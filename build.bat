@@ -26,6 +26,7 @@ set "CASINO_PROJECT=%REPO_ROOT%projects\cobbleventure-casino"
 set "POKEFINDER_PROJECT=%REPO_ROOT%projects\cobbleventure-pokefinder"
 set "STRUCTURE_BUILDER_PROJECT=%REPO_ROOT%projects\cobbleventure-structure-builder"
 set "LIVE_NBT_EDITOR_PROJECT=%REPO_ROOT%projects\cobbleventure-live-nbt-editor"
+set "THEME_BLOCKS_PROJECT=%REPO_ROOT%projects\cobbleventure-theme-blocks"
 set "STRUCTURE_BUILDER_TOOL=%REPO_ROOT%tools\structure-builder\structure_builder.py"
 set "MUSIC_PACK_BUILDER=%REPO_ROOT%tools\music-catalog\music_catalog.py"
 set "PAINTING_PACK_BUILDER=%REPO_ROOT%tools\painting-pack\build_painting_pack.py"
@@ -75,6 +76,7 @@ if /I "%~1"=="mod-bootstrap" goto mod_bootstrap
 if /I "%~1"=="mod-menu" goto mod_menu
 if /I "%~1"=="mod-casino" goto mod_casino
 if /I "%~1"=="mod-pokefinder" goto mod_pokefinder
+if /I "%~1"=="mod-theme-blocks" goto mod_theme_blocks
 if /I "%~1"=="pack-smoke" goto pack_smoke
 if /I "%~1"=="pack" goto pack
 if /I "%~1"=="pack-release" goto pack_release
@@ -133,6 +135,8 @@ call "%GRADLEW%" -p "%CASINO_PROJECT%" test
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%POKEFINDER_PROJECT%" test
 if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" test
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% -m unittest discover -s "%REPO_ROOT%tools\structure-builder\tests" -p "test_*.py"
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" test
@@ -169,6 +173,8 @@ call "%GRADLEW%" -p "%ADVENTURE_PROJECT%" build
 exit /b %errorlevel%
 
 :mod_bootstrap
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%TRAINER_SKIN_BUILDER%" "%YOUNGSTER_SKIN_MANIFEST%"
@@ -192,6 +198,10 @@ exit /b %errorlevel%
 
 :mod_pokefinder
 call "%GRADLEW%" -p "%POKEFINDER_PROJECT%" build
+exit /b %errorlevel%
+
+:mod_theme_blocks
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
 exit /b %errorlevel%
 
 :pack_smoke
@@ -231,6 +241,8 @@ call "%GRADLEW%" -p "%CASINO_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%POKEFINDER_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
@@ -249,6 +261,8 @@ exit /b 1
 :builder_world
 %PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." generate
 if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" syncBuilderWorld --no-configuration-cache
@@ -264,6 +278,8 @@ if "%~2"=="" (
 )
 %PYTHON_CMD% "%STRUCTURE_BUILDER_TOOL%" --root "%REPO_ROOT%." generate
 if errorlevel 1 exit /b %errorlevel%
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%STRUCTURE_BUILDER_PROJECT%" syncBuilderWorld --no-configuration-cache
@@ -272,6 +288,8 @@ if errorlevel 1 exit /b %errorlevel%
 exit /b %errorlevel%
 
 :live_editor_world
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" syncLiveEditorWorld --no-configuration-cache
@@ -285,6 +303,8 @@ if "%~2"=="" (
     echo Usage: build.bat live-editor-sync "^<CurseForge instance^>"
     exit /b 1
 )
+call "%GRADLEW%" -p "%THEME_BLOCKS_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" build --no-configuration-cache
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%LIVE_NBT_EDITOR_PROJECT%" syncLiveEditorWorld --no-configuration-cache
@@ -317,6 +337,7 @@ echo   mod-bootstrap  Build the starter-town NeoForge Java mod JAR
 echo   mod-menu       Build the radial player menu NeoForge Java mod JAR
 echo   mod-casino     Build the custom gacha machine NeoForge addon JAR
 echo   mod-pokefinder Build the CobbleNav Pokefinder radar extension JAR
+echo   mod-theme-blocks Build the standalone themed building blocks JAR
 echo   pack-smoke     Build a minimal CurseForge import test ZIP
 echo   pack           Build the temporary development CurseForge ZIP
 echo   pack-release   Validate release readiness; blocked until dependencies are locked

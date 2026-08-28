@@ -2410,8 +2410,8 @@
       "underground_module": "cerulean_stairs",
       "underground_connector": "surface",
       "anchor": {
-        "q": 7,
-        "r": -1
+        "q": 6,
+        "r": 0
       },
       "facing": "east",
       "structure": "cobbleventure:underground_entrance/underground_passage",
@@ -2426,7 +2426,7 @@
       "underground_connector": "surface",
       "anchor": {
         "q": 4,
-        "r": 5
+        "r": 4
       },
       "facing": "east",
       "structure": "cobbleventure:underground_entrance/underground_passage",
@@ -2443,7 +2443,7 @@
         "q": 3,
         "r": 2
       },
-      "facing": "east",
+      "facing": "north",
       "structure": "cobbleventure:underground_entrance/underground_passage",
       "structure_variants": {},
       "pokemon_center_enabled": false
@@ -2986,7 +2986,7 @@
         },
         {
           "q": 4,
-          "r": 5
+          "r": 4
         }
       ],
       "cells": [
@@ -3001,10 +3001,6 @@
         {
           "q": 4,
           "r": 4
-        },
-        {
-          "q": 4,
-          "r": 5
         }
       ],
       "corridor_width_blocks": 12,
@@ -3021,7 +3017,7 @@
       "anchors": [
         {
           "q": 4,
-          "r": 5
+          "r": 4
         },
         {
           "q": 3,
@@ -3029,6 +3025,10 @@
         }
       ],
       "cells": [
+        {
+          "q": 4,
+          "r": 4
+        },
         {
           "q": 4,
           "r": 5
@@ -3055,8 +3055,8 @@
           "r": 2
         },
         {
-          "q": 7,
-          "r": -1
+          "q": 6,
+          "r": 0
         }
       ],
       "cells": [
@@ -3071,10 +3071,6 @@
         {
           "q": 6,
           "r": 0
-        },
-        {
-          "q": 7,
-          "r": -1
         }
       ],
       "corridor_width_blocks": 12,
@@ -3090,8 +3086,8 @@
       "to": "cobbleventure:settlement/cerulean_city",
       "anchors": [
         {
-          "q": 7,
-          "r": -1
+          "q": 6,
+          "r": 0
         },
         {
           "q": 7,
@@ -3099,6 +3095,10 @@
         }
       ],
       "cells": [
+        {
+          "q": 6,
+          "r": 0
+        },
         {
           "q": 7,
           "r": -1
@@ -3620,6 +3620,136 @@
         "deny_dialog": "greeting",
         "npc": "easy_npc:preset/encounter/starter_town_gatekeeper_minho__v5.npc.snbt"
       }
+    },
+    {
+      "id": "saffron_gate_north",
+      "type": "gate",
+      "anchor": {
+        "q": 6,
+        "r": 0
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "south",
+        "center_placement": "gate",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
+        "deny_dialog": "greeting"
+      },
+      "resource": "cobbleventure:gate/default"
+    },
+    {
+      "id": "saffron_gate_south",
+      "type": "gate",
+      "anchor": {
+        "q": 4,
+        "r": 4
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "north",
+        "center_placement": "gate",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
+        "deny_dialog": "greeting"
+      },
+      "resource": "cobbleventure:gate/default"
+    },
+    {
+      "id": "saffron_gate_west",
+      "type": "gate",
+      "anchor": {
+        "q": 3,
+        "r": 2
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "east",
+        "center_placement": "gate",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
+        "deny_dialog": "greeting"
+      },
+      "resource": "cobbleventure:gate/default"
+    },
+    {
+      "id": "saffron_gate_east",
+      "type": "gate",
+      "anchor": {
+        "q": 7,
+        "r": 2
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "west",
+        "center_placement": "gate",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
+        "deny_dialog": "greeting"
+      },
+      "resource": "cobbleventure:gate/default"
+    },
+    {
+      "id": "viridian_gate",
+      "type": "gate",
+      "anchor": {
+        "q": -6,
+        "r": 4
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "east",
+        "center_placement": "gate",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
+        "deny_dialog": "greeting"
+      },
+      "resource": "cobbleventure:gate/default"
     }
   ],
   "environment_overrides": [],

@@ -7,16 +7,16 @@
       "label": "underground_entry",
       "type": "transition",
       "position": [
-        11,
-        1,
-        14
+        5,
+        3,
+        7
       ],
       "safe_spawn": [
-        11,
-        1,
-        13
+        8,
+        5,
+        9
       ],
-      "facing": "north"
+      "facing": "west"
     }
   ]
 }

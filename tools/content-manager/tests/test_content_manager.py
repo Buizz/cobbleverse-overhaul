@@ -116,6 +116,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertFalse(any(issue.level == "error" for issue in valid_issues), valid_issues)
         self.assertTrue(any("일반 동굴 생성 설정" in issue.message for issue in invalid_issues))
 
+    def test_dungeon_cave_settings_use_the_full_terrain_panel_width(self) -> None:
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('fieldset class="wide cave-settings-group" data-dungeon-cave-field', markup)
+        self.assertIn('.dungeon-option-grid > [data-dungeon-cave-field] { display:block; grid-column:1/-1;', styles)
+        self.assertIn('[data-dungeon-cave-field] .cave-field-grid { grid-template-columns:repeat(4,minmax(0,1fr));', styles)
+        self.assertIn('[data-dungeon-cave-field] .dungeon-template-field { grid-column:1/-1; grid-template-columns:minmax(0,1fr) auto;', styles)
+        self.assertIn('@media (max-width:950px)', styles)
+        self.assertIn('[data-dungeon-cave-field] .cave-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}', styles)
+        self.assertIn('[data-dungeon-cave-field] .cave-field-grid{grid-template-columns:1fr}', styles)
+
     def test_natural_cave_dungeon_reuses_the_cave_layout_editor(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
@@ -3269,6 +3281,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('state.activeMapTool === "select" && !state.suppressMapClick', script)
         self.assertIn(".world-drag-preview", (CORE_ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8"))
 
+    def test_world_region_names_are_edited_in_the_heading(self) -> None:
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        heading = page.split('<div class="world-map-heading">', 1)[1].split('<div class="world-map-workspace">', 1)[0]
+        settings = page.split('<div class="world-settings">', 1)[1].split('</aside>', 1)[0]
+        self.assertIn('id="world-display-name-ko"', heading)
+        self.assertIn('id="world-display-name-en"', heading)
+        self.assertNotIn('id="world-display-name-ko"', settings)
+        self.assertNotIn('id="world-display-name-en"', settings)
+        self.assertIn(".world-region-name-fields", styles)
+
     def test_world_base_tiles_and_placed_objects_are_independent_layers(self) -> None:
         page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -3280,9 +3304,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("function objectsAt(q, r)", script)
         self.assertIn("function entrancesAt(q, r)", script)
         self.assertIn("function selectWorldObject(id)", script)
+        self.assertIn('data-drag-object="${escapeHtml(node.id)}"', script)
+        self.assertIn("function beginObjectDrag(event, id)", script)
+        self.assertIn("function finishObjectDrag(event)", script)
+        self.assertIn('addEventListener("pointerup", finishObjectDrag)', script)
+        self.assertIn("function handleWorldLayerPlacement(event)", script)
+        self.assertIn('addEventListener("click", handleWorldLayerPlacement, true)', script)
+        self.assertIn('["gate", "object"].includes(state.activeMapTool)', script)
         self.assertIn("state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);", script)
         self.assertIn("entranceDrag.valid = Boolean(entrance) && (!occupied || occupied === entrance) && !settlementAt(target.q, target.r);", script)
         self.assertNotIn("entranceDrag.valid = Boolean(entrance) && (!occupied || occupied === entrance) && !settlementAt(target.q, target.r) && !objectAt(target.q, target.r);", script)
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+        self.assertIn(".hex-custom-object { pointer-events: auto; cursor: grab; }", styles)
 
     def test_world_gate_objects_are_saved_and_validated(self) -> None:
         root = PROJECT_ROOT
@@ -3400,9 +3433,10 @@ class ContentManagerTests(unittest.TestCase):
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="object-tool-facing"', page)
         self.assertIn('<span>배치 가장자리</span>', page)
-        self.assertIn('북·남은 연결된 길이 한쪽 면에만 있으면 열린 면 중앙으로', page)
+        self.assertIn('북·남은 양쪽 이동 가능 면이 열리면 중앙', page)
         self.assertIn('function gateMapPoint(gate)', script)
-        self.assertIn('const firstOpen = faceIsOpen(faceOffsets[0])', script)
+        self.assertIn('function gateMapBoundaryHalfSpan(gate)', script)
+        self.assertIn('const firstOpen = gateFaceIsOpen(gate, faceOffsets[0])', script)
         self.assertIn('data-map-tool="gate"', page)
         self.assertIn('data-tool-options="gate"', page)
         self.assertIn('id="generic-object-tool-type"', page)
@@ -3475,7 +3509,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("placeNaturalBarrierColumn", runtime)
         self.assertIn("placeNaturalGateWedges", runtime)
         self.assertIn("clearLegacyNaturalBarrierLine", runtime)
-        self.assertIn("halfLength * 0.52D", runtime)
+        self.assertIn("gateBoundaryHalfLength", runtime)
+        self.assertIn("naturalGateBoundaryDepth", runtime)
+        self.assertNotIn("halfLength * 0.52D", runtime)
         self.assertIn("placeNaturalGateTree", runtime)
         self.assertIn("Pass 1: place complete natural features", runtime)
         self.assertIn("Pass 2: fill every remaining replaceable space", runtime)
@@ -3490,7 +3526,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('case "east" -> List.of(new HexCoord(1, 0))', runtime)
         self.assertIn('case "south" -> List.of(new HexCoord(-1, 1), new HexCoord(0, 1))', runtime)
         self.assertIn('case "west" -> List.of(new HexCoord(-1, 0))', runtime)
-        self.assertIn("gateFaceIsOpen", runtime)
+        self.assertIn("world.cells().containsKey(anchor.plus(offset))", runtime)
         self.assertIn("gateFaceCenter", runtime)
         self.assertIn("handlePendingDenial", runtime)
         self.assertIn("pending.finished = true", runtime)
@@ -5687,6 +5723,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(968398, copycats["curseforge"]["project_id"])
         self.assertEqual(7251823, copycats["curseforge"]["file_id"])
 
+        copycat_we_fix = mods["copycat-we-fix"]
+        self.assertTrue(copycat_we_fix["enabled"])
+        self.assertEqual("development", copycat_we_fix["classification"])
+        self.assertEqual("server", copycat_we_fix["side"])
+        self.assertEqual("1.0.0", copycat_we_fix["version"])
+        self.assertEqual(1581357, copycat_we_fix["curseforge"]["project_id"])
+        self.assertEqual(8283427, copycat_we_fix["curseforge"]["file_id"])
+
         profile = content_manager.load_json(
             CORE_ROOT / "pack" / "profiles" / "development-placeholder.json"
         )
@@ -5707,8 +5751,20 @@ class ContentManagerTests(unittest.TestCase):
         }
         self.assertIn((328085, 7963363), builder_files)
         self.assertIn((968398, 7251823), builder_files)
+        self.assertIn((1581357, 8283427), builder_files)
         self.assertIn("Create 6.0.10", builder_profile["notice"])
         self.assertIn("Create: Copycats+ 3.0.4", builder_profile["notice"])
+        self.assertIn("Copycat WE Fix 1.0.0", builder_profile["notice"])
+
+        live_editor_profile = content_manager.load_json(
+            CORE_ROOT / "pack" / "profiles" / "live-nbt-editor.json"
+        )
+        live_editor_files = {
+            (entry["projectID"], entry["fileID"])
+            for entry in live_editor_profile["files"]
+        }
+        self.assertIn((1581357, 8283427), live_editor_files)
+        self.assertIn("Copycat WE Fix 1.0.0", live_editor_profile["notice"])
 
     def test_content_studio_serves_bundled_pretendard_webfont(self) -> None:
         server = content_manager.ThreadingHTTPServer(
@@ -6298,11 +6354,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("/api/structure-model", script)
         self.assertIn('switchPage("structures")', script)
         self.assertIn("await loadBuildingModel(standardGymExterior)", script)
-        self.assertIn('{ id: "player_house", label: "플레이어 집"', script)
-        self.assertIn("cobbleventure:placeholder/${facility.id}", script)
+        self.assertIn("metadata?.settings?.town_placement", script)
+        self.assertIn("structure,", script)
         self.assertIn('name="specialBuildingPreset"', markup)
         self.assertIn('value="cobbleventure:placeholder/player_house"', markup)
         self.assertIn("applySpecialBuildingPreset", script)
+        self.assertIn('id="building-town-placement-enabled"', markup)
+        self.assertIn('id="building-town-placement-note"', markup)
+        self.assertIn('id="building-town-placement-color"', markup)
+        self.assertIn("buildingTownPlacementDefaults", script)
+        self.assertIn("function settlementFacilityCatalog()", script)
+        self.assertNotIn('const settlementFacilityCatalog = [', script)
 
     def test_building_settings_read_npc_labels_and_save_assignments(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -6383,6 +6445,87 @@ class ContentManagerTests(unittest.TestCase):
             self.assertFalse(any(issue.level == "error" for issue in issues))
             self.assertEqual(defaults, content_manager.load_building_settings(root)["facility_defaults"])
             self.assertEqual(defaults, content_manager.building_settings_payload(root)["facility_defaults"])
+
+    def test_building_settings_save_town_placement_catalog_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/placeholder/landmark.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((32, 28, 32)))
+            settlement = root / "content/settlements/generation_1/test_town.json"
+            settlement.parent.mkdir(parents=True)
+            settlement.write_text(json.dumps({
+                "id": "cobbleventure:settlement/test_town",
+                "display_name": {"ko_kr": "테스트 마을"},
+                "enabled": True,
+            }), encoding="utf-8")
+            town_placement = {
+                "enabled": True,
+                "id": "landmark",
+                "label": "랜드마크",
+                "note": "마을 필수 시설 목록에 표시",
+                "color": "#64748b",
+            }
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:placeholder/landmark": {
+                        "fixed_npcs": {},
+                        "citizen_placement_allowed": False,
+                        "town_placement": town_placement,
+                    },
+                },
+            })
+
+            self.assertFalse(any(issue.level == "error" for issue in issues))
+            saved = content_manager.load_building_settings(root)["buildings"]
+            self.assertEqual(
+                town_placement,
+                saved["cobbleventure:placeholder/landmark"]["town_placement"],
+            )
+            payload = content_manager.building_settings_payload(root)
+            self.assertEqual(
+                town_placement,
+                payload["structures"]["cobbleventure:placeholder/landmark"]
+                    ["settings"]["town_placement"],
+            )
+
+    def test_building_settings_rejects_duplicate_town_placement_catalog_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure_root = root / "content/structures/placeholder"
+            structure_root.mkdir(parents=True)
+            (structure_root / "landmark_a.nbt").write_bytes(self._structure_nbt((16, 8, 16)))
+            (structure_root / "landmark_b.nbt").write_bytes(self._structure_nbt((16, 8, 16)))
+
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    structure_id: {
+                        "fixed_npcs": {},
+                        "citizen_placement_allowed": False,
+                        "town_placement": {
+                            "enabled": True,
+                            "id": "landmark",
+                            "label": "랜드마크",
+                            "note": "",
+                            "color": "#64748b",
+                        },
+                    }
+                    for structure_id in (
+                        "cobbleventure:placeholder/landmark_a",
+                        "cobbleventure:placeholder/landmark_b",
+                    )
+                },
+            })
+
+            self.assertTrue(any(
+                issue.level == "error"
+                and issue.path.endswith("town_placement.id")
+                and "중복" in issue.message
+                for issue in issues
+            ))
 
     def test_building_settings_connect_transition_anchors_like_doors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -7932,6 +8075,55 @@ class ContentManagerTests(unittest.TestCase):
             self.assertIsNone(receipt)
             self.assertEqual(original, source.read_bytes())
             self.assertTrue((outbox / "result.json").is_file())
+
+    def test_live_builder_save_import_does_not_queue_the_same_nbt_again(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/structures/interiors/casino.nbt"
+            source.parent.mkdir(parents=True)
+            original = self._structure_nbt((48, 12, 48))
+            saved = self._structure_nbt((48, 13, 48))
+            source.write_bytes(original)
+            live_instance = root / "live-instance"
+            live_world = (
+                live_instance / "saves" / content_manager.LIVE_NBT_EDITOR_WORLD_NAME
+            )
+            live_root = live_world / "generated/cobbleventure_builder/live"
+            outbox = live_root / "outbox"
+            outbox.mkdir(parents=True)
+            content_manager._save_structure_builder_settings(
+                root, "", str(live_instance)
+            )
+            (live_root / "state.json").write_text(json.dumps({
+                "id": "interiors/casino",
+                "source": "content/structures/interiors/casino.nbt",
+                "revision": "before-save",
+                "source_digest": hashlib.sha256(original).hexdigest(),
+                "size": [48, 13, 48],
+                "source_size": [48, 12, 48],
+            }), encoding="utf-8")
+            metadata = json.dumps({
+                "schema_version": 1,
+                "structure": "content/structures/interiors/casino.nbt",
+                "anchors": [],
+            }).encode("utf-8")
+            (outbox / "active.nbt").write_bytes(saved)
+            (outbox / "active.structure.json").write_bytes(metadata)
+            (outbox / "result.json").write_text(json.dumps({
+                "status": "saved",
+                "revision": "save-1",
+                "source": "content/structures/interiors/casino.nbt",
+                "size": [48, 13, 48],
+                "nbt_digest": hashlib.sha256(saved).hexdigest(),
+                "metadata_digest": hashlib.sha256(metadata).hexdigest(),
+            }), encoding="utf-8")
+
+            status = content_manager._structure_builder_status(root, root)
+
+            self.assertTrue(status["live_import"]["imported"])
+            self.assertFalse(status["live"]["pending"])
+            self.assertFalse((live_root / "command.json").exists())
+            self.assertEqual(saved, source.read_bytes())
 
     def test_live_builder_post_apis_read_request_body_once(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

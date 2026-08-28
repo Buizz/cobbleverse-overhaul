@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "cobbleventure_theme_blocks:item/rocket_base_machine_3"
+  }
+}

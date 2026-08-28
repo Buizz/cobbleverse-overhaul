@@ -2405,18 +2405,23 @@ public final class StructureBuilderMod {
             entityData.remove("UUID");
 
             CompoundTag entityInfo = new CompoundTag();
-            ListTag position = new ListTag();
-            position.add(DoubleTag.valueOf(entity.getX() - origin.getX()));
-            position.add(DoubleTag.valueOf(entity.getY() - origin.getY()));
-            position.add(DoubleTag.valueOf(entity.getZ() - origin.getZ()));
-            entityInfo.put("pos", position);
-
             // StructureTemplate stores paintings by their wall attachment block.
             // Using the entity bounding-box position makes the attachment climb by
             // one block whenever the exported NBT is loaded and saved again.
             BlockPos relativeBlockPosition = entity instanceof Painting painting
                 ? painting.getPos().subtract(origin)
                 : entity.blockPosition().subtract(origin);
+            ListTag position = new ListTag();
+            if (entity instanceof Painting) {
+                position.add(DoubleTag.valueOf(relativeBlockPosition.getX()));
+                position.add(DoubleTag.valueOf(relativeBlockPosition.getY()));
+                position.add(DoubleTag.valueOf(relativeBlockPosition.getZ()));
+            } else {
+                position.add(DoubleTag.valueOf(entity.getX() - origin.getX()));
+                position.add(DoubleTag.valueOf(entity.getY() - origin.getY()));
+                position.add(DoubleTag.valueOf(entity.getZ() - origin.getZ()));
+            }
+            entityInfo.put("pos", position);
             ListTag blockPosition = new ListTag();
             blockPosition.add(IntTag.valueOf(relativeBlockPosition.getX()));
             blockPosition.add(IntTag.valueOf(relativeBlockPosition.getY()));

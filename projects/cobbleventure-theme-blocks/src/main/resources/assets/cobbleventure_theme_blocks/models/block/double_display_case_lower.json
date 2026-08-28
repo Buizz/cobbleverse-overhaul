@@ -1,0 +1,74 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": true,
+  "textures": {
+    "particle": "cobbleventure_theme_blocks:block/double_display_case_blue",
+    "blue": "cobbleventure_theme_blocks:block/double_display_case_blue",
+    "frame": "cobbleventure_theme_blocks:block/double_display_case_frame",
+    "glass": "cobbleventure_theme_blocks:block/double_display_case_glass"
+  },
+  "elements": [
+    {
+      "name": "cabinet_body",
+      "from": [0, 0, 6],
+      "to": [16, 16, 16],
+      "faces": {
+        "down": { "uv": [0, 6, 16, 16], "texture": "#blue", "cullface": "down" },
+        "up": { "uv": [0, 6, 16, 16], "texture": "#blue", "cullface": "up" },
+        "north": { "uv": [0, 0, 16, 16], "texture": "#front" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#blue", "cullface": "south" },
+        "west": { "uv": [6, 0, 16, 16], "texture": "#blue" },
+        "east": { "uv": [0, 0, 10, 16], "texture": "#blue" }
+      }
+    },
+    {
+      "name": "left_frame",
+      "from": [0, 0, 4],
+      "to": [2, 16, 7],
+      "faces": {
+        "down": { "texture": "#frame" }, "up": { "texture": "#frame" },
+        "north": { "texture": "#frame" }, "south": { "texture": "#frame" },
+        "west": { "texture": "#frame" }, "east": { "texture": "#frame" }
+      }
+    },
+    {
+      "name": "right_frame",
+      "from": [14, 0, 4],
+      "to": [16, 16, 7],
+      "faces": {
+        "down": { "texture": "#frame" }, "up": { "texture": "#frame" },
+        "north": { "texture": "#frame" }, "south": { "texture": "#frame" },
+        "west": { "texture": "#frame" }, "east": { "texture": "#frame" }
+      }
+    },
+    {
+      "name": "lower_frame",
+      "from": [0, 0, 3.5],
+      "to": [16, 3, 7.5],
+      "faces": {
+        "down": { "texture": "#frame" }, "up": { "texture": "#frame" },
+        "north": { "texture": "#frame" }, "south": { "texture": "#frame" },
+        "west": { "texture": "#frame" }, "east": { "texture": "#frame" }
+      }
+    },
+    {
+      "name": "middle_shelf",
+      "from": [2, 8, 3.5],
+      "to": [14, 9, 7.5],
+      "faces": {
+        "down": { "texture": "#frame" }, "up": { "texture": "#frame" },
+        "north": { "texture": "#frame" }, "south": { "texture": "#frame" },
+        "west": { "texture": "#frame" }, "east": { "texture": "#frame" }
+      }
+    },
+    {
+      "name": "glass_highlight",
+      "from": [2.25, 9.5, 3.75],
+      "to": [3, 15, 4.25],
+      "faces": {
+        "north": { "texture": "#glass" }, "south": { "texture": "#glass" },
+        "west": { "texture": "#glass" }, "east": { "texture": "#glass" }
+      }
+    }
+  ]
+}

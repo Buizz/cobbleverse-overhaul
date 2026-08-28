@@ -16,6 +16,17 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    localRuntime fileTree('../cobbleventure-theme-blocks/build/libs') {
+        include 'cobbleventure-theme-blocks-*.jar'
+    }
+}
+
 sourceSets.main.resources.srcDir 'src/generated/resources'
 
 def builderRunDirectory = file('run-builder-world')

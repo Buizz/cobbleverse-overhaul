@@ -17,6 +17,17 @@ dependencies {
 
 test { useJUnitPlatform() }
 
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    localRuntime fileTree('../cobbleventure-theme-blocks/build/libs') {
+        include 'cobbleventure-theme-blocks-*.jar'
+    }
+}
+
 def editorRunDirectory = file('run-live-editor-world')
 def editorWorldDirectory = file('run-live-editor-world/Cobbleventure Live NBT Editor')
 def packagedWorldDirectory = rootProject.file('../../pack/overrides/live-nbt-editor/saves/Cobbleventure Live NBT Editor')

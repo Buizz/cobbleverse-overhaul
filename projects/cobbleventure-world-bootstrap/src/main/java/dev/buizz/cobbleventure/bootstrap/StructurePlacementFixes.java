@@ -44,6 +44,8 @@ import org.slf4j.Logger;
 final class StructurePlacementFixes {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String AUTHORED_STORAGE_MARKER = "cobbleventureAuthoredStorage";
+    private static final ResourceLocation COPYCAT_SLAB = id("copycats", "copycat_slab");
+    private static final ResourceLocation COPYCAT_BASE = id("create", "copycat_base");
     private static final ResourceLocation ELEVATOR_PULLEY = id("create", "elevator_pulley");
     private static final ResourceLocation ELEVATOR_CONTACT = id("create", "elevator_contact");
     private static final int ELEVATOR_ASSEMBLY_DELAY_TICKS = 2;
@@ -83,8 +85,87 @@ final class StructurePlacementFixes {
     ) {
         Vec3i size = template.getSize(settings.getRotation());
         repairFridges(level, origin, size);
+        repairCopycatSlabMaterialSlot(level, origin, template, settings);
         markAuthoredStorageBlocks(level, origin, size);
         scheduleElevatorAssemblies(level, origin, template, settings);
+    }
+
+    /**
+     * Copycats+ slabs use {@code top}/{@code bottom} as material slots even when their axis is
+     * horizontal. Rotating a structure can flip the slab state's visible slot while vanilla
+     * structure placement leaves {@code material_data} under its original slot. In that case
+     * the visible half renders as Create's bare copycat base. Move the complete authored entry
+     * (material, consumed item, and CT flag) to the slot selected by the rotated block state.
+     */
+    private static void repairCopycatSlabMaterialSlot(
+        ServerLevel level,
+        BlockPos origin,
+        StructureTemplate template,
+        StructurePlaceSettings settings
+    ) {
+        Block slabBlock = BuiltInRegistries.BLOCK.get(COPYCAT_SLAB);
+        if (!BuiltInRegistries.BLOCK.getKey(slabBlock).equals(COPYCAT_SLAB)) {
+            return;
+        }
+
+        int repaired = 0;
+        for (StructureTemplate.StructureBlockInfo info
+            : template.filterBlocks(origin, settings, slabBlock)) {
+            BlockState state = level.getBlockState(info.pos());
+            CompoundTag sourceData = info.nbt();
+            if (!state.is(slabBlock)
+                || !state.hasProperty(BlockStateProperties.SLAB_TYPE)
+                || sourceData == null
+                || !sourceData.contains("material_data", Tag.TAG_COMPOUND)) {
+                continue;
+            }
+
+            String visibleSlot = state.getValue(BlockStateProperties.SLAB_TYPE)
+                .getSerializedName();
+            if (!visibleSlot.equals("top") && !visibleSlot.equals("bottom")) {
+                continue;
+            }
+            String hiddenSlot = visibleSlot.equals("top") ? "bottom" : "top";
+            CompoundTag repairedData = sourceData.copy();
+            CompoundTag materialData = repairedData.getCompound("material_data");
+            if (!materialData.contains(visibleSlot, Tag.TAG_COMPOUND)
+                || !materialData.contains(hiddenSlot, Tag.TAG_COMPOUND)) {
+                continue;
+            }
+
+            CompoundTag visibleData = materialData.getCompound(visibleSlot);
+            CompoundTag hiddenData = materialData.getCompound(hiddenSlot);
+            if (hasAuthoredCopycatMaterial(visibleData)
+                || !hasAuthoredCopycatMaterial(hiddenData)) {
+                continue;
+            }
+
+            materialData.put(visibleSlot, hiddenData.copy());
+            materialData.put(hiddenSlot, visibleData.copy());
+            BlockEntity blockEntity = level.getBlockEntity(info.pos());
+            if (blockEntity == null) {
+                continue;
+            }
+            blockEntity.loadWithComponents(repairedData, level.registryAccess());
+            blockEntity.setChanged();
+            level.sendBlockUpdated(info.pos(), state, state, Block.UPDATE_CLIENTS);
+            level.getChunkSource().blockChanged(info.pos());
+            repaired++;
+        }
+        if (repaired > 0) {
+            LOGGER.debug(
+                "Realigned {} Copycats+ slab material slots at {}", repaired, origin
+            );
+        }
+    }
+
+    private static boolean hasAuthoredCopycatMaterial(CompoundTag partData) {
+        if (!partData.contains("material", Tag.TAG_COMPOUND)) {
+            return false;
+        }
+        String materialName = partData.getCompound("material").getString("Name");
+        return !materialName.isBlank()
+            && !materialName.equals(COPYCAT_BASE.toString());
     }
 
     /** Marks inventory blocks copied from an authored template, without affecting player placements. */
@@ -93,23 +174,11 @@ final class StructurePlacementFixes {
     ) {
         BlockPos end = origin.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
         int marked = 0;
-        int synchronizedCopycats = 0;
         for (BlockPos cursor : BlockPos.betweenClosed(origin, end)) {
             BlockPos position = cursor.immutable();
             BlockEntity blockEntity = level.getBlockEntity(position);
             if (blockEntity == null) {
                 continue;
-            }
-            ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(
-                blockEntity.getBlockState().getBlock()
-            );
-            if (isCopycatBlock(blockId)) {
-                // StructureTemplate already loaded the authored Material and Item. Copycats
-                // notifies while reading Item, before it reads Material, so send one native
-                // update only after the complete block entity has been loaded.
-                blockEntity.setChanged();
-                level.getChunkSource().blockChanged(position);
-                synchronizedCopycats++;
             }
             if (!hasItemStorage(level, position, blockEntity)) {
                 continue;
@@ -120,12 +189,6 @@ final class StructurePlacementFixes {
         }
         if (marked > 0) {
             LOGGER.debug("Locked {} authored storage blocks at {}", marked, origin);
-        }
-        if (synchronizedCopycats > 0) {
-            LOGGER.debug(
-                "Synchronized {} authored Copycat blocks at {}",
-                synchronizedCopycats, origin
-            );
         }
     }
 

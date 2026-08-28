@@ -36,7 +36,7 @@ const state = {
   worldPokemonMap: { locations: [], area_locations: [], available_pokemon: [], unavailable_pokemon: [], summary: {} },
   pokemonMapTab: "available", pokemonMapQuery: "",
   selectedHex: null, selectedEntrance: null, selectedObjectId: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
-  mapPan: null, suppressMapClick: false, draggedSettlement: null, entranceDrag: null, routeDraft: null, worldDirty: false,
+  mapPan: null, suppressMapClick: false, draggedSettlement: null, entranceDrag: null, objectDrag: null, routeDraft: null, worldDirty: false,
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null, routePokemonQuery: "",
   routePokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   routePokemonTarget: "world", routePokemonMethod: "land", routePokemonLevelSpecies: null, routePokemonEditingCard: null, routeFinalizing: false, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null, encounterPokemonEditingCard: null,
@@ -94,21 +94,24 @@ const biomeChoices = {
   weather: [["any", "무관"], ["clear", "맑음"], ["rain", "비"], ["thunder", "뇌우"], ["snow", "눈"], ["fog", "안개"]],
   time: [["any", "무관"], ["day", "낮"], ["night", "밤"], ["twilight", "황혼"]]
 };
-const settlementFacilityCatalog = [
-  { id: "player_house", label: "플레이어 집", note: "플레이어의 거점 주택", width: 16, depth: 16, height: 13, color: "#9a7248" },
-  { id: "laboratory", label: "연구소", note: "스타팅 포켓몬 지급", width: 32, depth: 32, height: 14, color: "#4cc9f0" },
-  { id: "fossil_laboratory", label: "화석연구소", note: "화석 포켓몬 복원", width: 32, depth: 32, height: 14, color: "#c9a66b" },
-  { id: "daycare", label: "키우미집", note: "건물과 야외 목장", width: 32, depth: 32, height: 10, color: "#80b918" },
-  { id: "tm_workshop", label: "기술머신 조합소", note: "기술머신 제작 시설", width: 32, depth: 16, height: 10, color: "#f48c06" },
-  { id: "hotel", label: "호텔", note: "중대형 숙박 시설", width: 32, depth: 32, height: 20, color: "#e85d75" },
-  { id: "casino", label: "카지노", note: "CasinoCraft 게임 시설 예정", width: 48, depth: 48, height: 20, color: "#d4a017" },
-  { id: "battle_tower", label: "배틀타워", note: "전투 랜드마크", width: 48, depth: 48, height: 32, color: "#9d4edd" },
-  { id: "radio_tower", label: "라디오 타워", note: "방송국과 송신탑", width: 48, depth: 48, height: 32, color: "#4361ee" },
-  { id: "train_station", label: "기차역", note: "역사와 선로 예약부지", width: 48, depth: 64, height: 14, color: "#495057" },
-  { id: "lighthouse", label: "등대", note: "해안과 항구의 항로 랜드마크", width: 32, depth: 32, height: 48, color: "#f1f3f5" },
-  { id: "power_plant", label: "파워플랜트", note: "발전 설비와 사건 진행 시설", width: 48, depth: 48, height: 24, color: "#adb5bd" },
-  { id: "mansion", label: "멘션", note: "대저택과 스토리 랜드마크", width: 48, depth: 48, height: 24, color: "#6f4e37" }
-];
+function settlementFacilityCatalog() {
+  return Object.entries(state.buildingSettings.structures || {}).flatMap(([structure, metadata]) => {
+    const placement = metadata?.settings?.town_placement;
+    if (placement?.enabled !== true) return [];
+    const id = String(placement.id || structure.split("/").at(-1) || "").trim();
+    if (!id) return [];
+    return [{
+      id,
+      label: placement.label || id,
+      note: placement.note || structure,
+      color: placement.color || "#64748b",
+      width: Number(metadata.width || 16),
+      depth: Number(metadata.depth || 16),
+      height: Number(metadata.height || 1),
+      structure,
+    }];
+  }).sort((left, right) => left.label.localeCompare(right.label, "ko"));
+}
 const legacyGymFacilityIds = new Set(["gym_site", "gym_lot"]);
 const houseBaseCatalog = [
   { id: "one_story", label: "1층 주택", width: 16, depth: 16, height: 13 },
@@ -1230,6 +1233,7 @@ async function loadBuildingSettingsData(force = false) {
     lazyDataLoaded.buildingSettings = true;
     renderFacilityStructureControls();
     renderBuildingList();
+    if (state.settlement) renderFacilityOptions();
     const entries = buildingEntries();
     if (!state.buildingSettings.selected && entries.length) await loadBuildingModel(entries[0][0]);
     else if (state.buildingSettings.selected) renderBuildingEditor();
@@ -2113,30 +2117,43 @@ function entranceMapPoint(entrance, anchor = entrance.anchor) {
   const direction = ({ north: { x: 0, y: -1 }, east: { x: 1, y: 0 }, south: { x: 0, y: 1 }, west: { x: -1, y: 0 } })[entrance.facing] || { x: 1, y: 0 };
   return { x: center.x + direction.x * distance, y: center.y + direction.y * distance };
 }
-function gateMapPoint(gate) {
-  const anchor = gate.anchor; const facing = gate.properties?.facing || "north";
-  const faceOffsets = {
+function gateFaceOffsets(facing = "north") {
+  return ({
     north: [{ q: 0, r: -1 }, { q: 1, r: -1 }],
     east: [{ q: 1, r: 0 }],
     south: [{ q: -1, r: 1 }, { q: 0, r: 1 }],
     west: [{ q: -1, r: 0 }],
-  }[facing] || [{ q: 0, r: -1 }, { q: 1, r: -1 }];
+  })[facing] || [{ q: 0, r: -1 }, { q: 1, r: -1 }];
+}
+function gateFaceIsOpen(gate, offset) {
+  const q = gate.anchor.q + offset.q; const r = gate.anchor.r + offset.r;
+  return Boolean(
+    tileAt(q, r)
+    || settlementFootprintAt(q, r)
+    || (state.worldLayout?.connections || []).some((connection) =>
+      connectionPath(connection).some((cell) => cell.q === q && cell.r === r)
+    )
+  );
+}
+function gateMapPoint(gate) {
+  const anchor = gate.anchor; const facing = gate.properties?.facing || "north";
+  const faceOffsets = gateFaceOffsets(facing);
   const faceCenter = (offset) => {
     const tile = hexPoint(anchor.q, anchor.r); const neighbor = hexPoint(anchor.q + offset.q, anchor.r + offset.r);
     return { x: (tile.x + neighbor.x) / 2, y: (tile.y + neighbor.y) / 2 };
   };
   if (faceOffsets.length === 1) return faceCenter(faceOffsets[0]);
-  const faceIsOpen = (offset) => {
-    const neighborKey = hexKey(anchor.q + offset.q, anchor.r + offset.r); const anchorKey = hexKey(anchor.q, anchor.r);
-    return (state.worldLayout?.connections || []).some((connection) => {
-      const keys = new Set(connectionPath(connection).map((cell) => hexKey(cell.q, cell.r)));
-      return keys.has(anchorKey) && keys.has(neighborKey);
-    });
-  };
-  const firstOpen = faceIsOpen(faceOffsets[0]); const secondOpen = faceIsOpen(faceOffsets[1]);
+  const firstOpen = gateFaceIsOpen(gate, faceOffsets[0]);
+  const secondOpen = gateFaceIsOpen(gate, faceOffsets[1]);
   if (firstOpen !== secondOpen) return faceCenter(firstOpen ? faceOffsets[0] : faceOffsets[1]);
   const first = faceCenter(faceOffsets[0]); const second = faceCenter(faceOffsets[1]);
   return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+}
+function gateMapBoundaryHalfSpan(gate) {
+  const facing = gate.properties?.facing || "north";
+  if (["east", "west"].includes(facing)) return mapHexSize() * .5;
+  const openFaces = gateFaceOffsets(facing).filter((offset) => gateFaceIsOpen(gate, offset)).length;
+  return mapHexSize() * Math.sqrt(3) * (openFaces === 1 ? .25 : .5);
 }
 function hexPolygon(x, y, radius = mapHexSize() - 2) { return Array.from({ length: 6 }, (_, i) => { const angle = Math.PI / 180 * (60 * i - 30); return `${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`; }).join(" "); }
 function pixelToHex(x, y) { const size = mapHexSize(); const r = (y - 330) / (size * 1.5); return roundHex((x - 490) / (Math.sqrt(3) * size) - r / 2, r); }
@@ -2405,6 +2422,18 @@ function renderWorldDragPreview() {
     const icon = forest ? `<path d="M-6 5V-3L0-8L6-3V5H3V0H-3V5Z"></path><path class="forest-crown" d="M-9-2L-6-9L-3-2M3-2L6-9L9-2"></path>` : `<path d="M-6 5Q-5-6 0-7Q5-6 6 5ZM-2 5V1Q0-2 2 1V5Z"></path>`;
     return `<g class="world-drag-preview entrance-preview${drag.valid ? " is-valid" : " is-invalid"}" transform="translate(${point.x} ${point.y})"><circle r="12"></circle>${icon}<text class="drag-preview-status" y="28">${drag.valid ? "여기에 놓기" : "배치 불가"}</text></g>`;
   }
+  if (state.objectDrag?.moved) {
+    const drag = state.objectDrag; const object = (state.worldLayout.objects || []).find((entry) => entry.id === drag.id);
+    if (!object || !drag.target) return "";
+    const previewObject = { ...object, anchor: drag.target };
+    const point = object.type === "gate" ? gateMapPoint(previewObject) : hexPoint(drag.target.q, drag.target.r);
+    const icon = object.type === "gate"
+      ? `<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path>`
+      : object.type === "legendary_site"
+        ? `<path d="M0-12L4-4L12-3L6 3L8 11L0 7L-8 11L-6 3L-12-3L-4-4Z"></path>`
+        : `<path d="M-11 8V-8H11V8ZM-6-8V-13H6V-8Z"></path>`;
+    return `<g class="world-drag-preview object-preview${drag.valid ? " is-valid" : " is-invalid"}" transform="translate(${point.x} ${point.y})"><circle class="drag-preview-marker" r="16"></circle>${icon}<text class="drag-preview-status" y="32">${drag.valid ? "여기에 놓기" : "배치 불가"}</text></g>`;
+  }
   if (state.routeAnchorDrag?.moved && state.routeAnchorDrag.previewAnchors) {
     const drag = state.routeAnchorDrag; const points = drag.previewAnchors.map((anchor) => { const point = hexPoint(anchor.q, anchor.r); return `${point.x},${point.y}`; }).join(" ");
     const anchor = drag.previewAnchors[drag.index]; const point = anchor ? hexPoint(anchor.q, anchor.r) : null;
@@ -2477,19 +2506,20 @@ function renderHexMap() {
       ? gateMapPoint(node)
       : hexPoint(node.anchor.q, node.anchor.r);
     if (node.type === "villain_base") {
-      return `<g class="hex-custom-object villain-base-object${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><path d="M-12 8V-8H12V8ZM-7-8V-14H7V-8ZM-6 8V1H0V8ZM3-3H8V2H3Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
+      return `<g class="hex-custom-object villain-base-object${state.selectedObjectId === node.id ? " is-selected" : ""}${state.objectDrag?.id === node.id ? " is-drag-source" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택 및 이동" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle><path d="M-12 8V-8H12V8ZM-7-8V-14H7V-8ZM-6 8V1H0V8ZM3-3H8V2H3Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
     }
     if (node.type === "legendary_site") {
-      return `<g class="hex-custom-object legendary-site-object${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택" transform="translate(${x} ${y})"><path d="M0-15L4-5L14-4L6 3L9 13L0 7L-9 13L-6 3L-14-4L-4-5Z"></path><circle r="4"></circle><text y="27">${escapeHtml(node.id)}</text></g>`;
+      return `<g class="hex-custom-object legendary-site-object${state.selectedObjectId === node.id ? " is-selected" : ""}${state.objectDrag?.id === node.id ? " is-drag-source" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 오브젝트 선택 및 이동" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle><path d="M0-15L4-5L14-4L6 3L9 13L0 7L-9 13L-6 3L-14-4L-4-5Z"></path><circle r="4"></circle><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
     const centerPlacement = gateCenterPlacement(node.properties);
     if (centerPlacement === "npc") {
-      return `<g class="hex-custom-object gate-object npc-only${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})"><circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
+      return `<g class="hex-custom-object gate-object npc-only${state.selectedObjectId === node.id ? " is-selected" : ""}${state.objectDrag?.id === node.id ? " is-drag-source" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택 및 이동" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle><circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
     const horizontal = ["north", "south"].includes(node.properties?.facing || "north");
-    const wall = horizontal ? `<rect x="-${mapHexSize() - 7}" y="-4" width="${(mapHexSize() - 7) * 2}" height="8" rx="2"></rect>` : `<rect x="-4" y="-${mapHexSize() - 7}" width="8" height="${(mapHexSize() - 7) * 2}" rx="2"></rect>`;
+    const boundaryHalfSpan = gateMapBoundaryHalfSpan(node);
+    const wall = horizontal ? `<rect x="-${boundaryHalfSpan}" y="-3" width="${boundaryHalfSpan * 2}" height="6" rx="2"></rect>` : `<rect x="-3" y="-${boundaryHalfSpan}" width="6" height="${boundaryHalfSpan * 2}" rx="2"></rect>`;
     const npcBadge = centerPlacement === "gate_npc" ? `<circle class="gate-npc-badge" cx="10" cy="-10" r="4"></circle>` : "";
-    return `<g class="hex-custom-object gate-object${centerPlacement === "gate_npc" ? " gate-with-npc" : ""}${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택" transform="translate(${x} ${y})">${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path>${npcBadge}<text y="25">${escapeHtml(node.id)}</text></g>`;
+    return `<g class="hex-custom-object gate-object${centerPlacement === "gate_npc" ? " gate-with-npc" : ""}${state.selectedObjectId === node.id ? " is-selected" : ""}${state.objectDrag?.id === node.id ? " is-drag-source" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택 및 이동" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle>${wall}<path d="M-7 7V-5L0-11L7-5V7H3V0H-3V7Z"></path>${npcBadge}<text y="25">${escapeHtml(node.id)}</text></g>`;
   }).join("");
   const entranceUnderlays = [...(state.worldLayout.cave_entrances || []), ...(state.worldLayout.forest_entrances || [])]
     .filter((node, index, entries) => entries.findIndex((entry) => entry.anchor.q === node.anchor.q && entry.anchor.r === node.anchor.r) === index)
@@ -2562,6 +2592,7 @@ function renderHexMap() {
     else if (state.activeMapTool === "select" && !state.suppressMapClick) selectWorldEntrance("forest", entrance.id);
   }));
   $$('[data-drag-entrance-id]').forEach((marker) => marker.addEventListener("pointerdown", (event) => beginEntranceDrag(event, marker.dataset.dragEntranceKind, marker.dataset.dragEntranceId)));
+  $$('[data-drag-object]').forEach((marker) => marker.addEventListener("pointerdown", (event) => beginObjectDrag(event, marker.dataset.dragObject)));
   $$('[data-drag-entrance-id]').forEach((marker) => marker.addEventListener("keydown", (event) => {
     if ((event.key !== "Enter" && event.key !== " ") || state.activeMapTool !== "select") return;
     event.preventDefault(); event.stopPropagation(); selectWorldEntrance(marker.dataset.dragEntranceKind, marker.dataset.dragEntranceId);
@@ -2660,6 +2691,12 @@ function handleHexSelection(q, r) {
   else if (tool === "object") placeObjectWithTool(q, r);
   else if (tool === "eraser") eraseMapArea(q, r);
   else selectHex(q, r);
+}
+function handleWorldLayerPlacement(event) {
+  if (!["gate", "object"].includes(state.activeMapTool) || state.suppressMapClick) return;
+  const target = nearestHexFromPointer(event);
+  event.preventDefault(); event.stopPropagation();
+  handleHexSelection(target.q, target.r);
 }
 function hexArea(center, radius) {
   const cells = [];
@@ -3927,7 +3964,7 @@ function setActiveMapTool(tool) {
   if (!mapToolCopy[tool] || tool === state.activeMapTool) return;
   if (state.routeDraft && tool !== "route") state.routeDraft = null;
   if (!new Set(["select", "route"]).has(tool)) state.selectedRouteId = null;
-  state.activeMapTool = tool; state.paintStroke = null; state.brushPreview = null; state.draggedSettlement = null; state.entranceDrag = null; state.routeAnchorDrag = null;
+  state.activeMapTool = tool; state.paintStroke = null; state.brushPreview = null; state.draggedSettlement = null; state.entranceDrag = null; state.objectDrag = null; state.routeAnchorDrag = null;
   renderMapToolOptions(); renderHexMap();
 }
 
@@ -4341,6 +4378,13 @@ function beginEntranceDrag(event, kind, id) {
   state.entranceDrag = { pointerId: event.pointerId, kind, id, startX: event.clientX, startY: event.clientY, target: { ...entrance.anchor }, moved: false, valid: true };
   $("#world-hex-map").setPointerCapture?.(event.pointerId); $("#world-hex-map").classList.add("is-dragging");
 }
+function beginObjectDrag(event, id) {
+  if (state.activeMapTool !== "select") return;
+  event.preventDefault(); event.stopPropagation();
+  const object = (state.worldLayout.objects || []).find((entry) => entry.id === id); if (!object?.anchor) return;
+  state.objectDrag = { pointerId: event.pointerId, id, startX: event.clientX, startY: event.clientY, target: { ...object.anchor }, moved: false, valid: true };
+  $("#world-hex-map").setPointerCapture?.(event.pointerId); $("#world-hex-map").classList.add("is-dragging");
+}
 function moveWorldPlacementDrag(event) {
   const settlementDrag = state.draggedSettlement;
   if (settlementDrag?.pointerId === event.pointerId) {
@@ -4360,6 +4404,13 @@ function moveWorldPlacementDrag(event) {
     entranceDrag.valid = Boolean(entrance) && (!occupied || occupied === entrance) && !settlementAt(target.q, target.r);
     renderHexMap(); return true;
   }
+  const objectDrag = state.objectDrag;
+  if (objectDrag?.pointerId === event.pointerId) {
+    const object = (state.worldLayout.objects || []).find((entry) => entry.id === objectDrag.id); const target = nearestHexFromPointer(event);
+    objectDrag.target = target; objectDrag.moved ||= Math.hypot(event.clientX - objectDrag.startX, event.clientY - objectDrag.startY) >= 4;
+    objectDrag.valid = Boolean(object);
+    renderHexMap(); return true;
+  }
   return false;
 }
 function finishEntranceDrag(event) {
@@ -4372,6 +4423,16 @@ function finishEntranceDrag(event) {
     toast("이미 마을 또는 다른 입구가 배치된 타일입니다."); renderHexMap(); return;
   }
   entrance.anchor = target; syncRoutesForEndpoint(entrance.id); state.selectedHex = { ...target }; state.selectedEntrance = { kind: drag.kind, id: entrance.id };
+  state.suppressMapClick = true; setTimeout(() => { state.suppressMapClick = false; }, 0);
+  markWorldDirty(); renderWorldLayout();
+}
+function finishObjectDrag(event) {
+  const drag = state.objectDrag; if (!drag || drag.pointerId !== event.pointerId) return;
+  state.objectDrag = null; $("#world-hex-map").classList.remove("is-dragging");
+  if (!drag.moved) { selectWorldObject(drag.id); return; }
+  const object = (state.worldLayout.objects || []).find((entry) => entry.id === drag.id); const target = drag.target;
+  if (!object || !target || !drag.valid) { toast("오브젝트를 이동할 수 없습니다."); renderHexMap(); return; }
+  object.anchor = { ...target }; state.selectedHex = { ...target }; state.selectedEntrance = null; state.selectedObjectId = object.id; state.selectedRouteId = null;
   state.suppressMapClick = true; setTimeout(() => { state.suppressMapClick = false; }, 0);
   markWorldDirty(); renderWorldLayout();
 }
@@ -4397,7 +4458,7 @@ function clearBrushPreview() {
 function beginMapPan(event) {
   updateBrushPreview(event);
   if (beginToolStroke(event)) return;
-  if (event.button !== 0 || event.target.closest?.("[data-drag-settlement], [data-drag-entrance-id], [data-select-route], [data-route-anchor-index], [data-delete-route-inline]") || (state.activeMapTool !== "select" && !state.spacePanActive)) return;
+  if (event.button !== 0 || event.target.closest?.("[data-drag-settlement], [data-drag-entrance-id], [data-drag-object], [data-select-route], [data-route-anchor-index], [data-delete-route-inline]") || (state.activeMapTool !== "select" && !state.spacePanActive)) return;
   const svg = $("#world-hex-map");
   state.mapPan = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, centerX: state.mapCenter.x, centerY: state.mapCenter.y, lastRenderX: state.mapCenter.x, lastRenderY: state.mapCenter.y, moved: false };
 }
@@ -11472,7 +11533,7 @@ function settlementFacilityRequirements() {
     ? state.settlement.structure_profile.facility_requirements
     : []).filter((item) => !legacyGymFacilityIds.has(item?.id));
   if (!isStarterSettlement() || requirements.some((item) => item.id === "laboratory")) return requirements;
-  const laboratory = settlementFacilityCatalog.find((item) => item.id === "laboratory");
+  const laboratory = settlementFacilityCatalog().find((item) => item.id === "laboratory");
   return laboratory ? [...requirements, {
     id: laboratory.id, label: laboratory.label, count: 1, required: true,
     footprint: { width: laboratory.width, depth: laboratory.depth, height: laboratory.height }
@@ -11485,7 +11546,7 @@ function isStarterSettlement(document = state.settlement) {
 
 function renderFacilityOptions() {
   const selected = new Map(settlementFacilityRequirements().map((item) => [item.id, item]));
-  $("#facility-option-list").innerHTML = settlementFacilityCatalog.map((facility) => {
+  $("#facility-option-list").innerHTML = settlementFacilityCatalog().map((facility) => {
     const requirement = selected.get(facility.id);
     const checked = Boolean(requirement?.required);
     const count = Math.max(1, Math.min(8, Number(requirement?.count || 1)));
@@ -11498,18 +11559,23 @@ function renderFacilityOptions() {
 }
 
 function selectedFacilityRequirements() {
-  return $$("#facility-option-list [data-facility-id]").flatMap((row) => {
+  const catalog = settlementFacilityCatalog();
+  const visibleIds = new Set(catalog.map((facility) => facility.id));
+  const hiddenExisting = (state.settlement?.structure_profile?.facility_requirements || [])
+    .filter((requirement) => requirement?.id && !visibleIds.has(requirement.id));
+  const selected = $$("#facility-option-list [data-facility-id]").flatMap((row) => {
     if (!row.querySelector(".facility-enabled")?.checked) return [];
-    const facility = settlementFacilityCatalog.find((item) => item.id === row.dataset.facilityId);
+    const facility = catalog.find((item) => item.id === row.dataset.facilityId);
     if (!facility) return [];
     const count = Math.max(1, Math.min(8, Number(row.querySelector(".facility-count input")?.value || 1)));
-    const structure = `cobbleventure:placeholder/${facility.id}`;
+    const structure = facility.structure;
     const footprint = structureFootprint(structure, facility);
     return [{
       id: facility.id, label: facility.label, count, required: true,
       structure, footprint
     }];
   });
+  return [...hiddenExisting, ...selected];
 }
 
 function structureFootprint(structure, fallback = {}) {
@@ -12293,6 +12359,17 @@ function renderBuildingModel() {
   }
 }
 
+function buildingTownPlacementDefaults(structureId) {
+  const slug = String(structureId || "").split("/").at(-1) || "landmark";
+  return {
+    enabled: false,
+    id: slug.replace(/[^a-z0-9_.-]+/g, "_"),
+    label: slug,
+    note: "",
+    color: "#64748b",
+  };
+}
+
 function renderBuildingEditor() {
   const view = state.buildingSettings, metadata = view.structures[view.selected];
   $("#building-editor-empty").hidden = Boolean(metadata);
@@ -12312,12 +12389,22 @@ function renderBuildingEditor() {
   const citizenPlacementAllowed = Boolean(metadata.settings?.citizen_placement_allowed);
   const league = metadata.category === "league";
   const interior = ["interior", "gym_interior"].includes(metadata.category);
+  const townPlacement = {
+    ...buildingTownPlacementDefaults(view.selected),
+    ...(metadata.settings?.town_placement || {}),
+  };
   $("#building-music-track").innerHTML = musicOptions(metadata.settings?.music_track || "", "building");
   $("#building-music-track").value = metadata.settings?.music_track || "";
   $("#building-placement-y-offset").value = Number(metadata.settings?.placement_y_offset || 0);
   $("#building-size-width").value = metadata.width;
   $("#building-size-height").value = metadata.height;
   $("#building-size-depth").value = metadata.depth;
+  $("#building-town-placement-enabled").checked = Boolean(townPlacement.enabled);
+  $("#building-town-placement-fields").hidden = !townPlacement.enabled;
+  $("#building-town-placement-id").value = townPlacement.id || "";
+  $("#building-town-placement-label").value = townPlacement.label || "";
+  $("#building-town-placement-note").value = townPlacement.note || "";
+  $("#building-town-placement-color").value = townPlacement.color || "#64748b";
   $("#building-size-width").max = league ? "512" : "64";
   $("#building-size-depth").max = league ? "512" : "64";
   $("#building-size-width").min = interior ? "5" : "1";
@@ -12407,6 +12494,11 @@ async function saveBuildingSettings() {
       structure_category: metadata.settings?.structure_category || metadata.category,
       ...(metadata.settings?.music_track ? { music_track: metadata.settings.music_track } : {}),
       no_interior_space: Boolean(metadata.settings?.no_interior_space),
+      town_placement: {
+        ...buildingTownPlacementDefaults(id),
+        ...(metadata.settings?.town_placement || {}),
+        enabled: Boolean(metadata.settings?.town_placement?.enabled),
+      },
       fixed_npcs: metadata.settings?.citizen_placement_allowed
         ? {} : { ...(metadata.settings?.fixed_npcs || {}) },
       fixed_pokemon: { ...(metadata.settings?.fixed_pokemon || {}) },
@@ -16819,6 +16911,31 @@ $("#building-no-interior").addEventListener("change", (event) => {
   }
   markBuildingSettingsDirty();
 });
+$("#building-town-placement-enabled").addEventListener("change", (event) => {
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+  if (!metadata) return;
+  metadata.settings ||= {};
+  metadata.settings.town_placement = {
+    ...buildingTownPlacementDefaults(state.buildingSettings.selected),
+    ...(metadata.settings.town_placement || {}),
+    enabled: event.target.checked,
+  };
+  markBuildingSettingsDirty();
+});
+for (const [selector, field] of [
+  ["#building-town-placement-id", "id"],
+  ["#building-town-placement-label", "label"],
+  ["#building-town-placement-note", "note"],
+  ["#building-town-placement-color", "color"],
+]) {
+  $(selector).addEventListener("change", (event) => {
+    const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+    if (!metadata) return;
+    metadata.settings.town_placement ||= buildingTownPlacementDefaults(state.buildingSettings.selected);
+    metadata.settings.town_placement[field] = event.target.value.trim();
+    markBuildingSettingsDirty();
+  });
+}
 $("#building-placement-y-offset").addEventListener("change", (event) => {
   const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
   if (!metadata) return;
@@ -17663,13 +17780,15 @@ $("#zoom-in").addEventListener("click", () => zoomWorldMap(state.mapZoom + .1));
 $("#zoom-out").addEventListener("click", () => zoomWorldMap(state.mapZoom - .1));
 $("#fit-map").addEventListener("click", () => { fitMapToContent(); renderHexMap(); });
 $("#world-hex-map").addEventListener("wheel", handleWorldMapWheel, { passive: false });
+$("#world-hex-map").addEventListener("click", handleWorldLayerPlacement, true);
 $("#world-hex-map").addEventListener("pointerdown", beginMapPan);
 $("#world-hex-map").addEventListener("pointermove", moveMapPan);
 $("#world-hex-map").addEventListener("pointerleave", () => { if (!state.paintStroke) clearBrushPreview(); });
 $("#world-hex-map").addEventListener("pointerup", finishSettlementDrag);
 $("#world-hex-map").addEventListener("pointerup", finishEntranceDrag);
+$("#world-hex-map").addEventListener("pointerup", finishObjectDrag);
 $("#world-hex-map").addEventListener("pointerup", finishMapPan);
-$("#world-hex-map").addEventListener("pointercancel", (event) => { state.draggedSettlement = null; state.entranceDrag = null; state.mapPan = null; state.paintStroke = null; state.routeAnchorDrag = null; state.brushPreview = null; $("#world-hex-map").classList.remove("is-dragging", "is-panning"); finishMapPan(event); renderHexMap(); });
+$("#world-hex-map").addEventListener("pointercancel", (event) => { state.draggedSettlement = null; state.entranceDrag = null; state.objectDrag = null; state.mapPan = null; state.paintStroke = null; state.routeAnchorDrag = null; state.brushPreview = null; $("#world-hex-map").classList.remove("is-dragging", "is-panning"); finishMapPan(event); renderHexMap(); });
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) { state.spacePanActive = true; state.brushPreview = null; $("#world-hex-map").classList.add("is-space-panning"); renderHexMap(); event.preventDefault(); return; }
   if (/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) || event.ctrlKey || event.metaKey || event.altKey) return;

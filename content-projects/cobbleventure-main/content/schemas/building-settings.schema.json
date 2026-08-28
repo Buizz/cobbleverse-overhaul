@@ -70,6 +70,18 @@
           "no_interior_space": {
             "type": "boolean"
           },
+          "town_placement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["enabled", "id", "label", "note", "color"],
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "id": { "pattern": "^[a-z0-9_.-]+$" },
+              "label": { "type": "string", "minLength": 1, "maxLength": 32 },
+              "note": { "type": "string", "maxLength": 96 },
+              "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+            }
+          },
           "fixed_npcs": {
             "type": "object",
             "propertyNames": {

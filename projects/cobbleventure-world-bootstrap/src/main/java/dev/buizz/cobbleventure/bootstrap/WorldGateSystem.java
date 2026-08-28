@@ -197,10 +197,10 @@ final class WorldGateSystem {
             }
             return;
         }
-        boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
-        int halfLength = Math.max(16, grid.radius() - 3);
-        int halfThickness = gate.wallThickness() / 2;
         int halfOpening = gate.openingWidth() / 2;
+        boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
+        int halfLength = gateBoundaryHalfLength(world, gate, halfOpening);
+        int halfThickness = gate.wallThickness() / 2;
         int centerY = groundY(level, center.x(), center.z());
         Map<Long, Integer> wallGroundHeights = new HashMap<>();
         if (forestGate) {
@@ -269,9 +269,9 @@ final class WorldGateSystem {
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center
     ) {
-        int halfLength = Math.max(16, world.grid().radius() - 3);
-        int halfThickness = gate.wallThickness() / 2;
         int halfOpening = gate.openingWidth() / 2;
+        int halfLength = gateBoundaryHalfLength(world, gate, halfOpening);
+        int halfThickness = gate.wallThickness() / 2;
         placeNaturalSurroundings(
             level, world, gate, center,
             halfLength, halfThickness, halfOpening
@@ -303,10 +303,10 @@ final class WorldGateSystem {
 
     /**
      * Resolves an ordinary gate's actual placement on the selected edge of its
-     * anchor hex. East and west each have one face. North and south meet two
-     * diagonal faces, so a route through only one of them selects that face's
-     * midpoint; when both (or neither) are open the gate stays centered between
-     * them. Forest entrances retain their tile-center ray origin because their
+     * anchor hex. East and west each use their single face center. North and
+     * south stay centered between two playable diagonal faces, but move to the
+     * only playable face when the other side is inaccessible. Forest entrances
+     * retain their tile-center ray origin because their
      * separate cave-style geometry already finds the outer collision boundary.
      * Every gate consumer uses this point, keeping the structure, NPC,
      * collision threshold, radar marker, and approach road together.
@@ -326,19 +326,10 @@ final class WorldGateSystem {
     static CobbleventureBootstrap.Point gateEdgeCenter(
         HexGrid grid, HexCoord anchor, String facing, Predicate<HexCoord> faceIsOpen
     ) {
-        List<HexCoord> faces = switch (facing) {
-            case "north" -> List.of(new HexCoord(0, -1), new HexCoord(1, -1));
-            case "east" -> List.of(new HexCoord(1, 0));
-            case "south" -> List.of(new HexCoord(-1, 1), new HexCoord(0, 1));
-            case "west" -> List.of(new HexCoord(-1, 0));
-            default -> throw new IllegalStateException(
-                "Unsupported gate facing: " + facing
-            );
-        };
+        List<HexCoord> faces = gateFaceOffsets(facing);
         if (faces.size() == 1) {
             return gateFaceCenter(grid, anchor, faces.getFirst());
         }
-
         boolean firstOpen = faceIsOpen.test(faces.get(0));
         boolean secondOpen = faceIsOpen.test(faces.get(1));
         if (firstOpen != secondOpen) {
@@ -355,6 +346,18 @@ final class WorldGateSystem {
             roundGateCoordinate(tile.z() * 0.5D
                 + (firstNeighbor.z() + secondNeighbor.z()) * 0.25D)
         );
+    }
+
+    private static List<HexCoord> gateFaceOffsets(String facing) {
+        return switch (facing) {
+            case "north" -> List.of(new HexCoord(0, -1), new HexCoord(1, -1));
+            case "east" -> List.of(new HexCoord(1, 0));
+            case "south" -> List.of(new HexCoord(-1, 1), new HexCoord(0, 1));
+            case "west" -> List.of(new HexCoord(-1, 0));
+            default -> throw new IllegalStateException(
+                "Unsupported gate facing: " + facing
+            );
+        };
     }
 
     private static CobbleventureBootstrap.Point gateFaceCenter(
@@ -377,10 +380,41 @@ final class WorldGateSystem {
     private static boolean gateFaceIsOpen(
         HexWorldPlan world, HexCoord anchor, HexCoord offset
     ) {
-        HexCoord neighbor = anchor.plus(offset);
-        return world.paths().stream().anyMatch(path ->
-            path.cells().contains(anchor) && path.cells().contains(neighbor)
+        return world.cells().containsKey(anchor.plus(offset));
+    }
+
+    private static int gateBoundaryHalfLength(
+        HexWorldPlan world, Gate gate, int halfOpening
+    ) {
+        int openFaces = (int) gateFaceOffsets(gate.facing()).stream()
+            .filter(offset -> gateFaceIsOpen(world, gate.anchor(), offset))
+            .count();
+        return gateBoundaryHalfLength(
+            world.grid().radius(), gate.facing(), openFaces, halfOpening
         );
+    }
+
+    /** Matches the generated strip to the selected pointy-top hex boundary. */
+    static int gateBoundaryHalfLength(
+        int radius, String facing, int openFaces, int halfOpening
+    ) {
+        double boundaryScale;
+        if (facing.equals("east") || facing.equals("west")) {
+            boundaryScale = 0.5D;
+        } else if (openFaces == 1) {
+            boundaryScale = Math.sqrt(3.0D) * 0.25D;
+        } else {
+            boundaryScale = Math.sqrt(3.0D) * 0.5D;
+        }
+        return Math.max(
+            halfOpening + 8,
+            (int) Math.round(radius * boundaryScale) - 2
+        );
+    }
+
+    static int naturalGateBoundaryDepth(int radius, int halfThickness) {
+        int terrainBand = Math.min(8, Math.max(3, (int) Math.round(radius * 0.1D)));
+        return Math.max(halfThickness + 2, terrainBand);
     }
 
     static List<RadarLocationCatalog.Location> radarLocations(
@@ -574,9 +608,8 @@ final class WorldGateSystem {
         int halfLength, int halfThickness, int halfOpening
     ) {
         int availableLength = Math.max(1, halfLength - halfOpening);
-        int maximumDepth = Math.max(
-            halfThickness + 4,
-            (int) Math.round(halfLength * 0.52D)
+        int maximumDepth = naturalGateBoundaryDepth(
+            world.grid().radius(), halfThickness
         );
         List<NaturalGateColumn> columns = new ArrayList<>();
         for (int shoulderSign : new int[] {-1, 1}) {

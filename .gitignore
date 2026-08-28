@@ -41,8 +41,11 @@ pack/overrides/development-placeholder/mods/cobbleventure-adventure-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-battle-ai-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-player-menu-*.jar
 pack/overrides/development-placeholder/mods/cobbleventure-pokefinder-*.jar
+pack/overrides/development-placeholder/mods/cobbleventure-theme-blocks-*.jar
 pack/overrides/structure-builder/mods/cobbleventure-structure-builder-*.jar
+pack/overrides/structure-builder/mods/cobbleventure-theme-blocks-*.jar
 pack/overrides/live-nbt-editor/mods/cobbleventure-live-nbt-editor-*.jar
+pack/overrides/live-nbt-editor/mods/cobbleventure-theme-blocks-*.jar
 *.mrpack
 *.zip
 !pack/overrides/development-placeholder/config/paxi/datapacks/CCCC-1.7.2.zip

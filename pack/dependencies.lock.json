@@ -427,6 +427,19 @@
       "reason": "Create 건축물에 재질을 입힐 수 있는 카피캣 블록과 문·패널·계단 확장"
     },
     {
+      "id": "copycat-we-fix",
+      "display_name": "Copycat WE Fix",
+      "classification": "development",
+      "side": "server",
+      "enabled": true,
+      "version": "1.0.0",
+      "curseforge": {
+        "project_id": 1581357,
+        "file_id": 8283427
+      },
+      "reason": "WorldEdit 회전·반전·붙여넣기에서 Copycats+ 재질과 멀티파트 방향을 보존하는 건축 제작용 보정"
+    },
+    {
       "id": "rctapi",
       "display_name": "Radical Cobblemon Trainers API",
       "classification": "required",

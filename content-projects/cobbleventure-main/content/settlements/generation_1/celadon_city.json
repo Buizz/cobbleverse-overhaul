@@ -34,9 +34,9 @@
       "z": 0
     },
     "gym_building": {
-      "x": 8,
+      "x": -94,
       "y": 69,
-      "z": 5
+      "z": -123
     },
     "facility_casino_1": {
       "x": -24,
@@ -5066,7 +5066,7 @@
       "material": "stone_bricks"
     },
     "generation_profile": {
-      "seed": 319050506,
+      "seed": 267467282,
       "depth": 4,
       "residential_buildings_enabled": true,
       "basic_buildings": [
@@ -5088,10 +5088,8 @@
           "flat"
         ],
         "roof_colors": [
-          "red",
           "green",
-          "blue",
-          "brown"
+          "blue"
         ]
       }
     },

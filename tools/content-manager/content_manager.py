@@ -11228,7 +11228,18 @@ def _structure_builder_status(
     if isinstance(active, dict) and not live.get("pending"):
         active_source = active.get("source")
         source_entry = next((item for item in sources if item["path"] == active_source), None)
-        if source_entry and source_entry["digest"] != active.get("source_digest"):
+        imported_active = bool(
+            isinstance(live_import, dict)
+            and live_import.get("imported")
+            and live_import.get("source") == active_source
+            and source_entry
+            and live_import.get("nbt_digest") == source_entry["digest"]
+        )
+        if (
+            source_entry
+            and not imported_active
+            and source_entry["digest"] != active.get("source_digest")
+        ):
             _queue_structure_builder_live_open(
                 project_root, live_world, active_source, active.get("size"), preserve_current=False
             )
@@ -12851,6 +12862,19 @@ def building_settings_payload(
                 "music_track": entry.get("music_track", "")
                 if isinstance(entry.get("music_track", ""), str) else "",
                 "no_interior_space": bool(entry.get("no_interior_space", False)),
+                "town_placement": entry.get("town_placement", {
+                    "enabled": False,
+                    "id": "",
+                    "label": "",
+                    "note": "",
+                    "color": "#64748b",
+                }) if isinstance(entry.get("town_placement", {}), dict) else {
+                    "enabled": False,
+                    "id": "",
+                    "label": "",
+                    "note": "",
+                    "color": "#64748b",
+                },
                 "fixed_npcs": entry.get("fixed_npcs", {})
                 if isinstance(entry.get("fixed_npcs", {}), dict) else {},
                 "fixed_pokemon": entry.get("fixed_pokemon", {})
@@ -13319,6 +13343,7 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             if isinstance(track, dict) and isinstance(track.get("id"), str)
         }
     normalized: dict[str, Any] = {}
+    town_placement_ids: set[str] = set()
     for resource_id, settings in sorted(buildings.items()):
         entry_path = f"$.buildings.{resource_id}"
         structure = structure_files.get(resource_id)
@@ -13337,6 +13362,37 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 "내부 공간 없음 값은 true 또는 false여야 합니다.",
             )
             continue
+        town_placement = settings.get("town_placement", {})
+        if not isinstance(town_placement, dict):
+            _issue(
+                issues, "error", path, f"{entry_path}.town_placement",
+                "마을 배치 설정은 객체여야 합니다.",
+            )
+            continue
+        town_enabled = town_placement.get("enabled", False)
+        town_id = town_placement.get("id", "")
+        town_label = town_placement.get("label", "")
+        town_note = town_placement.get("note", "")
+        town_color = town_placement.get("color", "#64748b")
+        if not isinstance(town_enabled, bool):
+            _issue(issues, "error", path, f"{entry_path}.town_placement.enabled", "참/거짓 값이어야 합니다.")
+            continue
+        if town_enabled and (
+            not isinstance(town_id, str) or not DOCUMENT_SLUG.fullmatch(town_id)
+        ):
+            _issue(issues, "error", path, f"{entry_path}.town_placement.id", "영문 소문자·숫자·밑줄 ID가 필요합니다.")
+        elif town_enabled and town_id in town_placement_ids:
+            _issue(issues, "error", path, f"{entry_path}.town_placement.id", f"마을 배치 목록 ID가 중복됩니다: {town_id}")
+        elif town_enabled:
+            town_placement_ids.add(town_id)
+        if town_enabled and (
+            not isinstance(town_label, str) or not 1 <= len(town_label) <= 32
+        ):
+            _issue(issues, "error", path, f"{entry_path}.town_placement.label", "1~32자의 표시 이름이 필요합니다.")
+        if not isinstance(town_note, str) or len(town_note) > 96:
+            _issue(issues, "error", path, f"{entry_path}.town_placement.note", "96자 이하의 설명이 필요합니다.")
+        if not isinstance(town_color, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", town_color):
+            _issue(issues, "error", path, f"{entry_path}.town_placement.color", "#RRGGBB 형식의 색상이 필요합니다.")
         interiors = settings.get("interiors", [])
         if not isinstance(interiors, list):
             _issue(issues, "error", path, f"{entry_path}.interiors", "내부공간 목록은 배열이어야 합니다.")
@@ -13524,6 +13580,19 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             "structure_category": _configured_structure_category(relative, settings),
             **({"music_track": music_track} if music_track else {}),
             "no_interior_space": no_interior_space,
+            **(
+                {
+                    "town_placement": {
+                        "enabled": True,
+                        "id": town_id if isinstance(town_id, str) else "",
+                        "label": town_label if isinstance(town_label, str) else "",
+                        "note": town_note if isinstance(town_note, str) else "",
+                        "color": town_color if isinstance(town_color, str) else "#64748b",
+                    }
+                }
+                if town_enabled
+                else {}
+            ),
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
             "fixed_pokemon": normalized_fixed_pokemon,
             "fixed_gacha_machines": normalized_fixed_gacha,

@@ -1,0 +1,23 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_machine_1",
+      "uvlock": true
+    },
+    "facing=east": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_machine_1",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=south": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_machine_1",
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=west": {
+      "model": "cobbleventure_theme_blocks:block/rocket_base_machine_1",
+      "uvlock": true,
+      "y": 270
+    }
+  }
+}

@@ -315,7 +315,17 @@
             <button class="generation-add" id="add-generation" type="button">＋ 세대 추가</button>
           </div>
           <div class="world-map-heading">
-            <div><p class="eyebrow">HEX WORLD EDITOR</p><h2 id="world-map-title">1세대 월드</h2><p>빈 지도를 드래그해 자유롭게 이동하고, 타일을 눌러 바이옴이나 마을을 배치하세요.</p></div>
+            <div class="world-map-title-block">
+              <p class="eyebrow">HEX WORLD EDITOR</p>
+              <div class="world-map-title-line">
+                <h2 id="world-map-title">1세대 월드</h2>
+                <div class="world-region-name-fields" aria-label="월드 지역명">
+                  <label><span>한국어 지역명</span><input id="world-display-name-ko" maxlength="64" placeholder="예: 관동지방"></label>
+                  <label><span>영문 지역명</span><input id="world-display-name-en" maxlength="64" placeholder="예: Kanto Region"></label>
+                </div>
+              </div>
+              <p>빈 지도를 드래그해 자유롭게 이동하고, 타일을 눌러 바이옴이나 마을을 배치하세요.</p>
+            </div>
             <div class="world-map-actions"><span id="world-save-state">저장된 상태</span><button class="button danger" id="delete-world-layout">월드 삭제</button><button class="button primary" id="save-world-layout">월드 저장</button></div>
           </div>
           <div class="world-map-workspace">
@@ -403,7 +413,7 @@
                   <label data-gate-mode><span>가운데 배치물</span><select id="object-tool-gate-mode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option></select><small>가운데에 놓을 건물과 관문지기 NPC 조합을 선택합니다.</small></label>
                   <label data-object-resource><span>관문 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default" placeholder="cobbleventure:gate/route_01"></label>
                   <datalist id="world-object-nbt-options"></datalist>
-                  <div class="inline-fields"><label><span>배치 가장자리</span><select id="object-tool-facing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 연결된 길이 한쪽 면에만 있으면 열린 면 중앙으로, 양쪽이면 두 면 사이 중앙으로 이동합니다.</small></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
+                  <div class="inline-fields"><label><span>배치 가장자리</span><select id="object-tool-facing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 양쪽 이동 가능 면이 열리면 중앙, 한쪽만 열리면 해당 면 중앙에 배치됩니다.</small></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
                   <label><span>주변 장애물 종류</span><select id="object-tool-surrounding-type"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
                   <label data-gate-wall><span>벽 블록</span><input id="object-tool-wall-block" value="minecraft:stone_bricks"></label>
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input id="object-tool-tree-log" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input id="object-tool-tree-leaves" value="minecraft:oak_leaves"></label></div>
@@ -463,7 +473,7 @@
                   <label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label>
                   <label><span>타입</span><select name="objectType"><option value="gate">관문</option></select></label>
                   <label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/default"></label>
-                  <div class="inline-fields"><label><span>배치 가장자리</span><select name="objectFacing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 연결된 길이 한쪽 면에만 있으면 열린 면 중앙으로, 양쪽이면 두 면 사이 중앙으로 이동합니다.</small></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
+                  <div class="inline-fields"><label><span>배치 가장자리</span><select name="objectFacing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 양쪽 이동 가능 면이 열리면 중앙, 한쪽만 열리면 해당 면 중앙에 배치됩니다.</small></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
                   <label><span>주변 장애물 종류</span><select name="objectSurroundingType"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
                   <label data-gate-wall><span>벽 블록</span><input name="objectWallBlock" value="minecraft:stone_bricks"></label>
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input name="objectTreeLog" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input name="objectTreeLeaves" value="minecraft:oak_leaves"></label></div>
@@ -524,8 +534,7 @@
                 <button class="button danger tile-clear" id="delete-selected-route" type="button">선택한 길 삭제</button>
               </form>
               <div class="world-settings">
-                <p class="eyebrow">MAP SETTINGS</p>
-                <div class="inline-fields"><label><span>한국어 지역명</span><input id="world-display-name-ko" maxlength="64" placeholder="예: 관동지방"></label><label><span>영문 지역명</span><input id="world-display-name-en" maxlength="64" placeholder="예: Kanto Region"></label></div>
+                <p class="eyebrow">GRID SETTINGS</p>
                 <label class="wide"><span>타일 크기 (블록)</span><input id="tile-radius-blocks" type="number" min="32" max="256" value="64"><small>지도 표시는 무한하며, 이 값은 실제 월드에서 타일 하나가 차지하는 크기입니다.</small></label>
               </div>
             </aside>
@@ -981,6 +990,17 @@
                     <button class="button secondary" id="resize-building-nbt" type="button">NBT 크기 적용</button>
                   </div>
                   <small>내부공간은 현재 층수를 유지하므로 새 높이가 층수로 나누어져야 합니다. 변경 후 건축 팩을 다시 빌드하세요.</small>
+                </section>
+                <section class="building-space-editor" id="building-town-placement-section">
+                  <header><div><strong>마을 배치 목록</strong><small>이 NBT를 마을 관리의 ‘필수 시설 옵션’ 목록에 노출합니다.</small></div></header>
+                  <label class="toggle building-citizen-toggle"><input type="checkbox" id="building-town-placement-enabled"><span>마을 배치에 추가</span></label>
+                  <div id="building-town-placement-fields" class="form-grid compact-grid">
+                    <label><span>목록 ID</span><input id="building-town-placement-id" pattern="[a-z0-9_.-]+" placeholder="landmark"></label>
+                    <label><span>표시 색상</span><input id="building-town-placement-color" type="color" value="#64748b"></label>
+                    <label class="wide"><span>표시 이름</span><input id="building-town-placement-label" maxlength="32" placeholder="랜드마크 이름"></label>
+                    <label class="wide"><span>설명</span><input id="building-town-placement-note" maxlength="96" placeholder="마을 배치 목록에 표시할 설명"></label>
+                  </div>
+                  <small>실제 배치할 마을과 수량은 마을 관리에서 선택합니다. 체크를 끄면 목록에서만 숨겨지며 기존 마을 데이터는 임의로 변경하지 않습니다.</small>
                 </section>
                 <section class="building-space-editor legacy-space-editor">
                   <header><div><strong>사용할 내부공간</strong><small>공용 내부 NBT를 공간 키로 연결합니다.</small></div><button class="button secondary" id="add-building-interior" type="button">내부공간 추가</button></header>

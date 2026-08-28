@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "cobbleventure_theme_blocks:block/rocket_base_blue_wall"
+  }
+}
