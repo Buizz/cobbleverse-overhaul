@@ -1806,8 +1806,7 @@ final class DungeonSystem {
             ), true);
             return true;
         }
-        if (!definition.multiplayer().mode().equals("cooperative")
-            && encounter.generatedTrainer() == null) {
+        if (encounter.generatedTrainer() == null) {
             // CVES V5 owns dialogue and battle launch after dungeon guards pass.
             // Wild Pokemon use Cobblemon's normal battle interaction.
             return false;
@@ -1820,94 +1819,9 @@ final class DungeonSystem {
             ), true);
             return true;
         }
-        if (encounter.generatedTrainer() != null) {
-            return startGeneratedEncounter(
-                run, definition, encounter, entityRef, initiator, opponent
-            );
-        }
-        if (!definition.multiplayer().mode().equals("cooperative")
-            || !definition.multiplayer().battleJoin().equals("summon_all")
-            || run.participantIds().size() != 2) {
-            initiator.sendSystemMessage(Component.literal(
-                "이 조우는 2인 협력 던전에서만 시작할 수 있습니다."
-            ));
-            return true;
-        }
-        List<ServerPlayer> players = encounterPlayers(run, initiator);
-        if (players.size() != 2) {
-            initiator.sendSystemMessage(Component.literal(
-                "동료가 던전에 없어 전투를 시작할 수 없습니다."
-            ));
-            return true;
-        }
-        if (players.stream().anyMatch(player ->
-            BattleRegistry.getBattleByParticipatingPlayer(player) != null)) {
-            initiator.displayClientMessage(Component.literal(
-                "[던전] 참가자 중 전투 중인 사람이 있습니다."
-            ), true);
-            return true;
-        }
-        List<String> trainerIds;
-        try {
-            trainerIds = encounter.opponents().stream().map(battleId ->
-                EventBattlePresetRepository.instance().find(battleId)
-                    .orElseThrow(() -> new IllegalStateException(
-                        "Dungeon battle preset is missing: " + battleId
-                    ))
-            ).map(EventBattlePreset::rctTrainerId).toList();
-            if (entityRef.opponentIndex() == 1) {
-                trainerIds = List.of(trainerIds.get(1), trainerIds.get(0));
-            }
-        } catch (RuntimeException error) {
-            LOGGER.error(
-                "Dungeon encounter battle preset resolution failed: {} -> {}",
-                definition.id(), encounter.id(), error
-            );
-            initiator.sendSystemMessage(Component.literal(
-                "조우 전투 설정을 불러오지 못했습니다. 서버 로그를 확인하세요."
-            ));
-            return true;
-        }
-
-        EncounterRuntime runtime = run.encounters();
-        runtime.statusById.put(encounterId, EncounterStatus.STARTING);
-        runtime.pendingEncounterId = encounterId;
-        runtime.pendingExpiresAt = initiator.serverLevel().getGameTime() + 200L;
-        runtime.pendingPlayers = Set.copyOf(
-            players.stream().map(ServerPlayer::getUUID).toList()
+        return startGeneratedEncounter(
+            run, definition, encounter, entityRef, initiator, opponent
         );
-        gatherEncounterPlayers(players, opponent.position(), run);
-        String command = DungeonCooperativeBattleCommand.build(
-            players.get(0).getGameProfile().getName(),
-            players.get(1).getGameProfile().getName(),
-            trainerIds,
-            definition.battleRules().allowItems()
-        );
-        try {
-            int result = initiator.getServer().getCommands().getDispatcher().execute(
-                command,
-                opponent.createCommandSourceStack().withPermission(4).withSuppressedOutput()
-            );
-            if (result <= 0) {
-                throw new IllegalStateException("TBCS rejected the battle command");
-            }
-        } catch (CommandSyntaxException | RuntimeException error) {
-            runtime.statusById.put(encounterId, EncounterStatus.AVAILABLE);
-            runtime.pendingEncounterId = null;
-            runtime.pendingPlayers = Set.of();
-            LOGGER.error(
-                "Dungeon cooperative battle launch failed: {} -> {}",
-                definition.id(), encounter.id(), error
-            );
-            players.forEach(player -> player.sendSystemMessage(Component.literal(
-                "협력 전투를 시작하지 못했습니다. 서버 로그를 확인하세요."
-            )));
-            return true;
-        }
-        players.forEach(player -> player.sendSystemMessage(Component.literal(
-            "[던전] " + encounter.id() + " 협력 전투를 시작합니다."
-        )));
-        return true;
     }
 
     /**
@@ -2000,21 +1914,24 @@ final class DungeonSystem {
             definition.battleRules().allowItems()
         );
         try {
-            int result = initiator.getServer().getCommands().getDispatcher().execute(
+            initiator.getServer().getCommands().getDispatcher().execute(
                 command,
                 opponent.createCommandSourceStack()
                     .withPermission(4).withSuppressedOutput()
             );
-            if (result <= 0) {
-                throw new IllegalStateException("TBCS rejected the battle command");
+            if (players.stream().anyMatch(player ->
+                BattleRegistry.getBattleByParticipatingPlayer(player) == null)) {
+                throw new IllegalStateException(
+                    "TBCS command completed without registering both players"
+                );
             }
         } catch (CommandSyntaxException | RuntimeException error) {
             runtime.statusById.put(encounter.id(), EncounterStatus.AVAILABLE);
             runtime.pendingEncounterId = null;
             runtime.pendingPlayers = Set.of();
             LOGGER.error(
-                "Dungeon CVES cooperative battle launch failed: {} -> {}",
-                definition.id(), encounter.id(), error
+                "Dungeon CVES cooperative battle launch failed: {} -> {}; command={}",
+                definition.id(), encounter.id(), command, error
             );
             throw new IllegalStateException(
                 "Dungeon cooperative battle launch failed: " + encounter.id(), error
@@ -2112,22 +2029,25 @@ final class DungeonSystem {
                 + (definition.battleRules().allowItems()
                     ? "" : " rules {maxItemUses:0}");
         try {
-            int result = initiator.getServer().getCommands().getDispatcher().execute(
+            initiator.getServer().getCommands().getDispatcher().execute(
                 command,
                 interactedEntity.createCommandSourceStack()
                     .withPermission(4).withSuppressedOutput()
             );
-            if (result <= 0) throw new IllegalStateException(
-                "TBCS rejected the generated trainer battle"
-            );
+            if (players.stream().anyMatch(player ->
+                BattleRegistry.getBattleByParticipatingPlayer(player) == null)) {
+                throw new IllegalStateException(
+                    "TBCS command completed without registering dungeon players"
+                );
+            }
         } catch (CommandSyntaxException | RuntimeException error) {
             cleanupGeneratedEncounter(runtime, encounter.id());
             runtime.statusById.put(encounter.id(), EncounterStatus.AVAILABLE);
             runtime.pendingEncounterId = null;
             runtime.pendingPlayers = Set.of();
             LOGGER.error(
-                "Generated dungeon trainer battle launch failed: {} -> {}",
-                definition.id(), encounter.id(), error
+                "Generated dungeon trainer battle launch failed: {} -> {}; command={}",
+                definition.id(), encounter.id(), command, error
             );
             players.forEach(player -> player.sendSystemMessage(Component.literal(
                 "즉석 트레이너 전투를 시작하지 못했습니다. 서버 로그를 확인하세요."

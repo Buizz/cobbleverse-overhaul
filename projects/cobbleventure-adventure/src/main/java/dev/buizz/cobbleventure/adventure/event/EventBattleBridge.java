@@ -107,7 +107,6 @@ public final class EventBattleBridge {
             player.getServer().overworld().getGameTime() + START_TIMEOUT_TICKS
         );
         PENDING.put(player.getUUID(), pending);
-        int result;
         try {
             cancelLegacyProximity(player);
             if (preset.moneyReward() != null) {
@@ -126,23 +125,25 @@ public final class EventBattleBridge {
             }
             BattleLaunchOverride override = battleLaunchOverride;
             if (override != null && override.launch(player, preset, opponent)) {
-                result = 1;
+                // The override owns launch validation.
             } else {
-                result = player.getServer().getCommands().getDispatcher().execute(
+                player.getServer().getCommands().getDispatcher().execute(
                     preset.launchCommand(
                         player.getGameProfile().getName(), opponent.getUUID()
                     ),
                     opponent.createCommandSourceStack()
                         .withPermission(4).withSuppressedOutput()
                 );
+                if (BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player)
+                    == null) {
+                    throw new EventRuntimeException(
+                        "battle 명령이 실행됐지만 플레이어가 배틀에 등록되지 않았습니다."
+                    );
+                }
             }
         } catch (CommandSyntaxException | RuntimeException error) {
             PENDING.remove(player.getUUID(), pending);
             throw new EventRuntimeException("battle 시작 명령 실행에 실패했습니다.", error);
-        }
-        if (result <= 0) {
-            PENDING.remove(player.getUUID(), pending);
-            throw new EventRuntimeException("battle 시작 명령이 거부됐습니다: " + preset.battleId());
         }
         return new EventBattleGateway.OpenResult(
             token, System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
