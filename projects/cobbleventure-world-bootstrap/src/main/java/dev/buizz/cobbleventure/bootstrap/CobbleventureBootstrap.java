@@ -4188,8 +4188,10 @@ public final class CobbleventureBootstrap {
      * must fall back to the terrain plan used when the facility was originally placed.
      */
     private static int runtimeRoadSurfaceY(ServerLevel level, int x, int z) {
-        return FacilityRuntimeGround.correctedRoadSurfaceY(
-            loadedRoadSurfaceY(level, x, z), plannedTerrainGroundY(level, x, z)
+        int plannedY = plannedTerrainGroundY(level, x, z);
+        return FacilityRuntimeGround.resolvedRoadSurfaceY(
+            level.hasChunk(x >> 4, z >> 4),
+            () -> loadedRoadSurfaceY(level, x, z), plannedY
         );
     }
 
