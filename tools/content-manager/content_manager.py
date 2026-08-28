@@ -10905,6 +10905,121 @@ def _structure_builder_live_state(world_path: Path | None) -> dict[str, Any]:
     }
 
 
+def _dungeon_piece_for_structure(
+    project_root: Path, structure: Path
+) -> tuple[Path, dict[str, Any]] | None:
+    structure_root = (project_root / "content" / "structures").resolve()
+    relative = structure.resolve().relative_to(structure_root).with_suffix("").as_posix()
+    piece_root = project_root / "content" / "dungeon_pieces"
+    if not piece_root.is_dir():
+        return None
+    for path in sorted(piece_root.rglob("*.json")):
+        try:
+            document = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if not isinstance(document, dict):
+            continue
+        resource = document.get("structure")
+        if isinstance(resource, str) and resource.split(":", 1)[-1] == relative:
+            return path, document
+    return None
+
+
+def _dungeon_piece_marker_anchor(marker: dict[str, Any]) -> dict[str, Any]:
+    marker_id = marker.get("id", "marker")
+    anchor = {
+        "id": marker_id,
+        "label": marker_id,
+        "type": "dungeon_marker",
+        "kind": marker.get("kind", "encounter"),
+        "position": marker.get("position", [0, 0, 0]),
+    }
+    for key in ("reference", "connector"):
+        if isinstance(marker.get(key), str):
+            anchor[key] = marker[key]
+    return anchor
+
+
+def _live_structure_metadata(
+    project_root: Path, managed: Path, source: str
+) -> dict[str, Any] | None:
+    metadata_path = managed.with_suffix(".structure.json")
+    metadata = load_json(metadata_path) if metadata_path.is_file() else None
+    if metadata is not None and not isinstance(metadata, dict):
+        raise ValueError(f"구조물 메타데이터는 JSON 객체여야 합니다: {metadata_path}")
+    piece = _dungeon_piece_for_structure(project_root, managed)
+    if piece is None:
+        return metadata
+    document = dict(metadata or {})
+    anchors = document.get("anchors", [])
+    if not isinstance(anchors, list):
+        anchors = []
+    document["schema_version"] = document.get("schema_version", 1)
+    document["structure"] = source
+    document["dungeon_piece_id"] = piece[1].get("piece_id", "")
+    document["anchors"] = [
+        anchor for anchor in anchors
+        if not isinstance(anchor, dict) or anchor.get("type") != "dungeon_marker"
+    ] + [
+        _dungeon_piece_marker_anchor(marker)
+        for marker in piece[1].get("markers", [])
+        if isinstance(marker, dict)
+    ]
+    return document
+
+
+def _sync_live_dungeon_piece_markers(
+    project_root: Path, managed: Path, exported: dict[str, Any]
+) -> tuple[dict[str, Any], bool]:
+    piece = _dungeon_piece_for_structure(project_root, managed)
+    if piece is None:
+        return exported, False
+    piece_path, document = piece
+    if exported.get("dungeon_piece_id") != document.get("piece_id"):
+        return exported, False
+    anchors = exported.get("anchors", [])
+    if not isinstance(anchors, list):
+        anchors = []
+    previous = {
+        marker.get("id"): marker
+        for marker in document.get("markers", [])
+        if isinstance(marker, dict) and isinstance(marker.get("id"), str)
+    }
+    markers: list[dict[str, Any]] = []
+    for anchor in anchors:
+        if not isinstance(anchor, dict) or anchor.get("type") != "dungeon_marker":
+            continue
+        marker_id = anchor.get("id", anchor.get("label"))
+        kind = anchor.get("kind")
+        position = anchor.get("position")
+        if not isinstance(marker_id, str) or not isinstance(kind, str):
+            continue
+        if not isinstance(position, list) or len(position) != 3:
+            continue
+        marker: dict[str, Any] = {
+            "id": marker_id,
+            "kind": kind,
+            "position": position,
+        }
+        old = previous.get(marker_id, {})
+        for key in ("reference", "connector"):
+            value = anchor.get(key, old.get(key))
+            if isinstance(value, str):
+                marker[key] = value
+        markers.append(marker)
+    updated = dict(document)
+    updated["markers"] = markers
+    _atomic_write_json(piece_path, updated)
+    cleaned = dict(exported)
+    cleaned.pop("dungeon_piece_id", None)
+    cleaned["anchors"] = [
+        anchor for anchor in anchors
+        if not isinstance(anchor, dict) or anchor.get("type") != "dungeon_marker"
+    ]
+    return cleaned, True
+
+
 def _queue_structure_builder_live_open(
     project_root: Path,
     world_path: Path,
@@ -10929,10 +11044,10 @@ def _queue_structure_builder_live_open(
     live_root = _structure_builder_live_root(world_path)
     revision = uuid.uuid4().hex
     _atomic_write_bytes(live_root / "inbox" / "active.nbt", data)
-    metadata = managed.with_suffix(".structure.json")
     metadata_target = live_root / "inbox" / "active.structure.json"
-    if metadata.is_file():
-        _atomic_write_bytes(metadata_target, metadata.read_bytes())
+    metadata = _live_structure_metadata(project_root, managed, relative)
+    if metadata is not None:
+        _atomic_write_json(metadata_target, metadata)
     else:
         metadata_target.unlink(missing_ok=True)
     command = {
@@ -11011,11 +11126,21 @@ def _import_structure_builder_live_output(project_root: Path, world_path: Path) 
             )
     _atomic_write_bytes(destination, data)
     if exported_metadata is not None:
-        metadata_target = destination.with_suffix(".structure.json")
-        _atomic_write_json(
-            metadata_target,
-            _merge_live_structure_metadata(metadata_target, exported_metadata),
+        exported_metadata, dungeon_piece = _sync_live_dungeon_piece_markers(
+            project_root, destination, exported_metadata
         )
+        metadata_target = destination.with_suffix(".structure.json")
+        regular_anchors = exported_metadata.get("anchors", [])
+        only_editor_shell = set(exported_metadata) <= {
+            "schema_version", "structure", "anchors",
+        } and isinstance(regular_anchors, list) and not regular_anchors
+        if dungeon_piece and only_editor_shell and not metadata_target.is_file():
+            metadata_target.unlink(missing_ok=True)
+        else:
+            _atomic_write_json(
+                metadata_target,
+                _merge_live_structure_metadata(metadata_target, exported_metadata),
+            )
     receipt = {**result, "imported": True, "imported_at": time.time()}
     _atomic_write_json(live_root / "outbox" / "receipt.json", receipt)
     result_path.unlink(missing_ok=True)

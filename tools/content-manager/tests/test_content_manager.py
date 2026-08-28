@@ -7819,6 +7819,86 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual("resident", imported_metadata["anchors"][0]["label"])
             self.assertFalse((live / "outbox/result.json").exists())
 
+    def test_live_builder_round_trips_dungeon_piece_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "project"
+            world = Path(directory) / "world"
+            source = root / "content/structures/dungeon_pieces/rocket/room.nbt"
+            source.parent.mkdir(parents=True)
+            source.write_bytes(self._structure_nbt((16, 8, 16)))
+            piece_path = root / "content/dungeon_pieces/rocket/room.json"
+            piece_path.parent.mkdir(parents=True)
+            piece_path.write_text(json.dumps({
+                "piece_id": "cobbleventure:dungeon_piece/rocket/room",
+                "structure": "cobbleventure:dungeon_pieces/rocket/room",
+                "markers": [{
+                    "id": "loot_slot",
+                    "kind": "loot",
+                    "position": [5, 1, 5],
+                    "reference": "rocket_cache",
+                }],
+            }), encoding="utf-8")
+            world.mkdir()
+
+            command = content_manager._queue_structure_builder_live_open(
+                root, world,
+                "content/structures/dungeon_pieces/rocket/room.nbt",
+            )
+
+            live = world / "generated/cobbleventure_builder/live"
+            opened_metadata = json.loads(
+                (live / "inbox/active.structure.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(command["source"], opened_metadata["structure"])
+            self.assertEqual(
+                "cobbleventure:dungeon_piece/rocket/room",
+                opened_metadata["dungeon_piece_id"],
+            )
+            self.assertEqual([{
+                "id": "loot_slot",
+                "label": "loot_slot",
+                "type": "dungeon_marker",
+                "kind": "loot",
+                "position": [5, 1, 5],
+                "reference": "rocket_cache",
+            }], opened_metadata["anchors"])
+
+            saved = self._structure_nbt((16, 8, 16))
+            saved_metadata = json.dumps({
+                "schema_version": 1,
+                "structure": command["source"],
+                "dungeon_piece_id": "cobbleventure:dungeon_piece/rocket/room",
+                "anchors": [{
+                    "label": "loot_slot",
+                    "type": "dungeon_marker",
+                    "kind": "loot",
+                    "position": [10, 1, 10],
+                }],
+            }).encode("utf-8")
+            (live / "outbox").mkdir(parents=True)
+            (live / "outbox/active.nbt").write_bytes(saved)
+            (live / "outbox/active.structure.json").write_bytes(saved_metadata)
+            (live / "outbox/result.json").write_text(json.dumps({
+                "status": "saved",
+                "revision": "dungeon-marker-save",
+                "source": command["source"],
+                "size": [16, 8, 16],
+                "nbt_digest": hashlib.sha256(saved).hexdigest(),
+                "metadata_digest": hashlib.sha256(saved_metadata).hexdigest(),
+            }), encoding="utf-8")
+
+            receipt = content_manager._import_structure_builder_live_output(root, world)
+
+            self.assertTrue(receipt["imported"])
+            updated = json.loads(piece_path.read_text(encoding="utf-8"))
+            self.assertEqual([{
+                "id": "loot_slot",
+                "kind": "loot",
+                "position": [10, 1, 10],
+                "reference": "rocket_cache",
+            }], updated["markers"])
+            self.assertFalse(source.with_suffix(".structure.json").exists())
+
     def test_live_builder_does_not_import_mixed_output_generations(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "project"

@@ -32,6 +32,11 @@ build.bat live-editor-world
 Transition은 보라 입체 윤곽선과 이름표로 계속 표시되며 활성 NBT의 `.structure.json`에
 저장되어 웹 저장 결과에도 반영된다.
 
+던전 조각 NBT를 열면 `content/dungeon_pieces` 정의의 조우·보스·전리품·입출구 등
+이벤트 마커도 종류별 색상의 입체 윤곽선과 이름표로 표시된다. 라이브 에디터에서
+위치를 바꾸거나 마커를 추가·삭제한 뒤 저장하면 별도 구조물 메타데이터가 아니라 원래
+던전 조각 JSON의 `markers` 목록에 반영된다.
+
 라벨과 모드는 `/cobbleventure_live tool npc <label>`, `tool door <label>`,
 `tool transition <label>`, `tool arrival <label>`, `tool mode <mode>`로 지정하고,
 `/cobbleventure_live anchor list|show`로 확인한다.
