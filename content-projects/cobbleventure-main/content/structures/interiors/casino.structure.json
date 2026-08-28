@@ -61,28 +61,6 @@
       "facing": "north"
     },
     {
-      "id": "gacha_default_tm",
-      "label": "gacha_default_tm",
-      "type": "npc_position",
-      "position": [
-        22,
-        6,
-        15
-      ],
-      "facing": "north"
-    },
-    {
-      "id": "gacha_default_item",
-      "label": "gacha_default_item",
-      "type": "npc_position",
-      "position": [
-        21,
-        6,
-        15
-      ],
-      "facing": "north"
-    },
-    {
       "id": "door",
       "label": "door",
       "type": "door",
@@ -114,6 +92,28 @@
         14
       ],
       "facing": "west"
+    },
+    {
+      "id": "gacha_default_tm",
+      "label": "gacha_default_tm",
+      "type": "npc_position",
+      "position": [
+        24,
+        6,
+        15
+      ],
+      "facing": "south"
+    },
+    {
+      "id": "gacha_default_item",
+      "label": "gacha_default_item",
+      "type": "npc_position",
+      "position": [
+        22,
+        6,
+        15
+      ],
+      "facing": "south"
     }
   ]
 }

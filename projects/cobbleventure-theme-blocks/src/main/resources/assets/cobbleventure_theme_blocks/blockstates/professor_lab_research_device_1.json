@@ -1,8 +1,40 @@
 {
-  "variants": {
-    "facing=north": { "model": "cobbleventure_theme_blocks:block/professor_lab_research_device_1", "uvlock": true },
-    "facing=east": { "model": "cobbleventure_theme_blocks:block/professor_lab_research_device_1", "uvlock": true, "y": 90 },
-    "facing=south": { "model": "cobbleventure_theme_blocks:block/professor_lab_research_device_1", "uvlock": true, "y": 180 },
-    "facing=west": { "model": "cobbleventure_theme_blocks:block/professor_lab_research_device_1", "uvlock": true, "y": 270 }
-  }
+  "multipart": [
+    {"when":{"facing":"north","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true}},
+    {"when":{"facing":"north","depth":"0","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true}},
+    {"when":{"facing":"north","depth":"0","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"north","depth":"0","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"north","depth":"1","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"north","depth":"1","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"north","depth":"1","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"north","depth":"1","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"east","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"east","depth":"0","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"east","depth":"0","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"east","depth":"0","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"east","depth":"1","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"east","depth":"1","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"east","depth":"1","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true}},
+    {"when":{"facing":"east","depth":"1","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true}},
+    {"when":{"facing":"south","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"south","depth":"0","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"south","depth":"0","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"south","depth":"0","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"south","depth":"1","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true}},
+    {"when":{"facing":"south","depth":"1","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true}},
+    {"when":{"facing":"south","depth":"1","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"south","depth":"1","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"west","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"west","depth":"0","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":270}},
+    {"when":{"facing":"west","depth":"0","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true}},
+    {"when":{"facing":"west","depth":"0","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true}},
+    {"when":{"facing":"west","depth":"1","width":"1","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"west","depth":"1","width":"1","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":90}},
+    {"when":{"facing":"west","depth":"1","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_lower_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"west","depth":"1","width":"0","height":"1"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_upper_quadrant","uvlock":true,"y":180}},
+    {"when":{"facing":"north","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_connector","uvlock":true}},
+    {"when":{"facing":"east","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_connector","uvlock":true,"y":90}},
+    {"when":{"facing":"south","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_connector","uvlock":true,"y":180}},
+    {"when":{"facing":"west","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/professor_lab_research_device_1_connector","uvlock":true,"y":270}}
+  ]
 }

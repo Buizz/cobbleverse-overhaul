@@ -1,0 +1,9 @@
+{
+  "parent":"minecraft:block/block",
+  "ambientocclusion":true,
+  "textures":{"particle":"minecraft:block/iron_block","metal":"minecraft:block/iron_block","metal_dark":"minecraft:block/smooth_stone","sheet":"minecraft:block/white_wool"},
+  "elements":[
+    {"name":"right_iron_rail","from":[15,1,0],"to":[16,5,16],"faces":{"down":{"texture":"#metal_dark"},"up":{"texture":"#metal"},"north":{"texture":"#metal"},"south":{"texture":"#metal"},"west":{"texture":"#metal"},"east":{"texture":"#metal"}}},
+    {"name":"right_white_blanket_border","from":[14.75,8.9,0],"to":[16,9.25,16],"faces":{"down":{"texture":"#sheet"},"up":{"texture":"#sheet"},"north":{"texture":"#sheet"},"south":{"texture":"#sheet"},"west":{"texture":"#sheet"},"east":{"texture":"#sheet"}}}
+  ]
+}

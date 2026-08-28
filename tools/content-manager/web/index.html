@@ -411,7 +411,7 @@
                 <section class="tool-option-panel gate-tool-panel" data-tool-options="gate" hidden>
                   <label><span>관문 ID</span><input id="object-tool-id" placeholder="route_01_gate"></label>
                   <label data-gate-mode><span>가운데 배치물</span><select id="object-tool-gate-mode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option></select><small>가운데에 놓을 건물과 관문지기 NPC 조합을 선택합니다.</small></label>
-                  <label data-object-resource><span>관문 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default" placeholder="cobbleventure:gate/route_01"></label>
+                  <label data-object-resource><span>관문 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default_gate" placeholder="cobbleventure:gate/default_gate"></label>
                   <datalist id="world-object-nbt-options"></datalist>
                   <div class="inline-fields"><label><span>배치 가장자리</span><select id="object-tool-facing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 양쪽 이동 가능 면이 열리면 중앙, 한쪽만 열리면 해당 면 중앙에 배치됩니다.</small></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
                   <label><span>주변 장애물 종류</span><select id="object-tool-surrounding-type"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
@@ -433,8 +433,8 @@
                 </section>
                 <section class="tool-option-panel" data-tool-options="object" hidden>
                   <label><span>오브젝트 ID</span><input id="generic-object-tool-id" placeholder="rocket_hideout"></label>
-                  <label><span>오브젝트 타입</span><select id="generic-object-tool-type"><option value="villain_base">빌런기지</option></select></label>
-                  <label><span>오브젝트 NBT</span><input id="generic-object-tool-resource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/rocket_hideout"></label>
+                  <label><span>배치 종류</span><input value="NBT 오브젝트" readonly></label>
+                  <label><span>오브젝트 NBT</span><span class="nbt-picker-control"><input id="generic-object-tool-resource" placeholder="NBT를 선택하세요" readonly><button class="button secondary" id="choose-generic-object-tool-resource" type="button">NBT 선택</button></span></label>
                   <label><span>NBT 회전</span><select id="generic-object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
                   <p class="tool-panel-note">랜드마크와 특수 건물처럼 NBT 배치만 필요한 요소를 배치합니다. 진행 조건과 지형 연결은 관문 도구에서 관리합니다.</p>
                 </section>
@@ -472,7 +472,7 @@
                 <section data-tile-field="gate" class="custom-object-fields">
                   <label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label>
                   <label><span>타입</span><select name="objectType"><option value="gate">관문</option></select></label>
-                  <label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:villain_base/default"></label>
+                  <label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:facilities/gate"></label>
                   <div class="inline-fields"><label><span>배치 가장자리</span><select name="objectFacing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 양쪽 이동 가능 면이 열리면 중앙, 한쪽만 열리면 해당 면 중앙에 배치됩니다.</small></label><label><span>NBT 회전</span><select name="objectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
                   <label><span>주변 장애물 종류</span><select name="objectSurroundingType"><option value="wall">벽</option><option value="natural">자연지물 · 주변 이동불가 지형과 연결</option></select></label>
                   <label data-gate-wall><span>벽 블록</span><input name="objectWallBlock" value="minecraft:stone_bricks"></label>
@@ -492,8 +492,8 @@
                 <section data-tile-field="object" class="custom-object-fields">
                   <div class="route-inspector-badge"><span>오브젝트 속성</span><b>WORLD OBJECT</b></div>
                   <label><span>오브젝트 ID</span><input name="genericObjectId" placeholder="rocket_power_plant"></label>
-                  <label><span>오브젝트 타입</span><select name="genericObjectType"><option value="villain_base">빌런기지</option><option value="legendary_site">전설 포켓몬 장소</option></select></label>
-                  <label><span>오브젝트 NBT</span><input name="genericObjectResource" list="world-object-nbt-options" placeholder="cobbleventure:placeholder/power_plant"></label>
+                  <label><span>배치 종류</span><input value="NBT 오브젝트" readonly></label>
+                  <label><span>오브젝트 NBT</span><span class="nbt-picker-control"><input name="genericObjectResource" placeholder="NBT를 선택하세요" readonly><button class="button secondary" id="choose-selected-object-resource" type="button">NBT 선택</button></span></label>
                   <label><span>NBT 회전</span><select name="genericObjectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
                   <label><span>내부 속성 (JSON)</span><textarea name="genericObjectProperties" rows="4" spellcheck="false" placeholder='{"terrain_fit":"foundation"}'></textarea><small>오브젝트 전용 배치 속성을 JSON 객체로 보존합니다.</small></label>
                   <fieldset><legend>던전 연결</legend>
@@ -529,6 +529,7 @@
                 <label><span>표시 이름</span><input name="displayName" maxlength="100" placeholder="예: 1번 도로"><small>자동 이름을 끄면 길 관리 페이지에서 직접 수정할 수 있습니다.</small></label>
                 <div class="inline-fields"><label><span>길 종류</span><select name="surfaceStyle"><option value="road">도로</option><option value="natural">자연 통로</option><option value="water">수로</option><option value="log_bridge">통나무다리</option></select></label><label><span>통로 폭</span><input name="corridorWidth" type="number" min="12" max="256"></label></div>
                 <label><span>도로 BGM</span><select name="musicTrack"></select><small id="route-music-resolution">비워 두면 도로 기본값을 상속합니다.</small></label>
+                <section class="route-anchor-editor"><div><span>경로 앵커</span><b id="route-anchor-count">0개</b></div><button class="button secondary" id="toggle-route-anchor-insert" type="button">＋ 앵커 추가</button><small id="route-anchor-insert-help">버튼을 누른 뒤 지도에서 길 선분이나 ＋ 표시를 누르면 중간 앵커가 추가됩니다.</small></section>
                 <section class="route-pokemon-summary"><div><span>서식 포켓몬</span><b id="route-pokemon-count">0종</b></div><p id="route-pokemon-description">기존 바이옴 출현 목록을 사용합니다.</p><button class="button primary" id="edit-route-pokemon" type="button">포켓몬 수정</button></section>
                 <div class="tile-summary" id="route-summary"></div>
                 <button class="button danger tile-clear" id="delete-selected-route" type="button">선택한 길 삭제</button>
@@ -1461,9 +1462,14 @@
     </dialog>
     <dialog id="structure-builder-source-dialog" class="structure-builder-source-dialog">
       <div class="structure-builder-source-shell">
-        <header><div><p class="eyebrow">LIVE NBT SOURCE</p><h2>편집할 NBT 선택</h2><small>NBT 이름, 폴더 경로 또는 크기로 검색할 수 있습니다.</small></div><button id="close-structure-builder-source" type="button" aria-label="닫기">×</button></header>
-        <label class="structure-builder-source-search"><span>검색</span><input id="structure-builder-source-search" type="search" placeholder="예: department_store, dungeon_pieces/rocket, 16×8×16" autocomplete="off"></label>
-        <div class="structure-builder-source-result"><span id="structure-builder-source-count">0개</span><small>항목을 누르면 편집 대상으로 지정됩니다.</small></div>
+        <header><div><p class="eyebrow" id="structure-builder-source-eyebrow">LIVE NBT SOURCE</p><h2 id="structure-builder-source-title">편집할 NBT 선택</h2><small id="structure-builder-source-subtitle">이름, 폴더 경로, 분류 또는 크기로 찾을 수 있습니다.</small></div><button id="close-structure-builder-source" type="button" aria-label="닫기">×</button></header>
+        <div class="structure-builder-source-filters">
+          <label class="structure-builder-source-search"><span>검색</span><input id="structure-builder-source-search" type="search" placeholder="예: department_store, dungeon_pieces/rocket, 16×8×16" autocomplete="off"></label>
+          <label><span>구조물 분류</span><select id="structure-builder-source-category"><option value="all">모든 분류</option><option value="building">건물·시설</option><option value="entrance">출입구</option><option value="dungeon">던전 조각</option><option value="interior">내부 공간</option><option value="underground">지하통로</option><option value="decoration">장식·자연물</option><option value="other">기타</option></select></label>
+          <label><span>바닥 크기</span><select id="structure-builder-source-size"><option value="all">모든 크기</option><option value="small">소형 · 16×16 이하</option><option value="medium">중형 · 17~32</option><option value="large">대형 · 33~64</option><option value="huge">초대형 · 64 초과</option></select></label>
+          <button class="button secondary" id="reset-structure-builder-source-filters" type="button">필터 초기화</button>
+        </div>
+        <div class="structure-builder-source-result"><span id="structure-builder-source-count">0개</span><small id="structure-builder-source-hint">항목을 누르면 편집 대상으로 지정됩니다.</small></div>
         <div class="structure-builder-source-list" id="structure-builder-source-list"><p>불러온 NBT가 없습니다.</p></div>
       </div>
     </dialog>

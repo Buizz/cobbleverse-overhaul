@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.gson.JsonParser;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexGrid;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,24 @@ final class WorldGateEdgePlacementTest {
         100, new CobbleventureBootstrap.BlockPoint(0, 64, 0)
     );
     private static final HexCoord ANCHOR = new HexCoord(0, 0);
+
+    @Test
+    void legacyDefaultGateResourceResolvesToThePackagedNbt() {
+        var objects = JsonParser.parseString("""
+            [{
+              "id": "legacy_gate",
+              "type": "gate",
+              "anchor": {"q": 0, "r": 0},
+              "resource": "cobbleventure:gate/default",
+              "properties": {}
+            }]
+            """).getAsJsonArray();
+
+        assertEquals(
+            "cobbleventure:gate/default_gate",
+            WorldGateSystem.parse(objects).getFirst().structure()
+        );
+    }
 
     @Test
     void eastAndWestUseTheirSingleFaceCenter() {
@@ -27,7 +46,7 @@ final class WorldGateEdgePlacementTest {
     @Test
     void northAlwaysStaysCenteredBetweenBothFaces() {
         assertEquals(
-            new CobbleventureBootstrap.Point(0, -75),
+            new CobbleventureBootstrap.Point(0, -100),
             WorldGateSystem.gateEdgeCenter(GRID, ANCHOR, "north", ignored -> true)
         );
     }
@@ -45,7 +64,7 @@ final class WorldGateEdgePlacementTest {
     @Test
     void southAlwaysStaysCenteredBetweenBothFaces() {
         assertEquals(
-            new CobbleventureBootstrap.Point(0, 75),
+            new CobbleventureBootstrap.Point(0, 100),
             WorldGateSystem.gateEdgeCenter(GRID, ANCHOR, "south", ignored -> true)
         );
     }

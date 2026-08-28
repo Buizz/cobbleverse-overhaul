@@ -1,0 +1,10 @@
+{
+  "parent":"minecraft:block/block",
+  "ambientocclusion":true,
+  "textures":{"particle":"minecraft:block/light_blue_wool","metal":"minecraft:block/iron_block","metal_dark":"minecraft:block/smooth_stone","blanket":"minecraft:block/light_blue_wool","sheet":"minecraft:block/white_wool"},
+  "elements":[
+    {"name":"iron_base","from":[0,2,0],"to":[16,4,16],"faces":{"down":{"texture":"#metal_dark"},"up":{"texture":"#metal"},"north":{"texture":"#metal"},"south":{"texture":"#metal"},"west":{"texture":"#metal"},"east":{"texture":"#metal"}}},
+    {"name":"white_mattress","from":[0,4,0],"to":[16,8,16],"faces":{"down":{"texture":"#sheet"},"up":{"texture":"#sheet"},"north":{"texture":"#sheet"},"south":{"texture":"#sheet"},"west":{"texture":"#sheet"},"east":{"texture":"#sheet"}}},
+    {"name":"blue_blanket","from":[0,8,0],"to":[16,9,16],"faces":{"down":{"texture":"#blanket"},"up":{"texture":"#blanket"},"north":{"texture":"#blanket"},"south":{"texture":"#blanket"},"west":{"texture":"#blanket"},"east":{"texture":"#blanket"}}}
+  ]
+}

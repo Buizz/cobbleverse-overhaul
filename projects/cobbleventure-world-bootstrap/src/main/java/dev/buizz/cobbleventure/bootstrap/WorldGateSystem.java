@@ -17,6 +17,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -94,7 +95,7 @@ final class WorldGateSystem {
                 new HexCoord(
                     anchor.get("q").getAsInt(), anchor.get("r").getAsInt()
                 ),
-                nullableString(value, "resource"),
+                gateStructure(value),
                 value.has("rotation") ? value.get("rotation").getAsInt() : 0,
                 optionalString(properties, "facing", "north"),
                 centerPlacement(properties),
@@ -120,6 +121,13 @@ final class WorldGateSystem {
             ));
         }
         return List.copyOf(gates);
+    }
+
+    private static String gateStructure(JsonObject value) {
+        String resource = nullableString(value, "resource");
+        return "cobbleventure:gate/default".equals(resource)
+            ? "cobbleventure:gate/default_gate"
+            : resource;
     }
 
     /** Loads forest entrances as unconditional ForestGate structures, independently from world gates. */
@@ -304,8 +312,8 @@ final class WorldGateSystem {
     /**
      * Resolves an ordinary gate's actual placement on the selected edge of its
      * anchor hex. East and west each use their single face center. North and
-     * south stay centered between two playable diagonal faces, but move to the
-     * only playable face when the other side is inaccessible. Forest entrances
+     * south use the vertex shared by two playable diagonal faces, but move to
+     * the only playable face when the other side is inaccessible. Forest entrances
      * retain their tile-center ray origin because their
      * separate cave-style geometry already finds the outer collision boundary.
      * Every gate consumer uses this point, keeping the structure, NPC,
@@ -338,13 +346,9 @@ final class WorldGateSystem {
             );
         }
         CobbleventureBootstrap.Point tile = grid.worldCenter(anchor);
-        CobbleventureBootstrap.Point firstNeighbor = grid.worldCenter(anchor.plus(faces.get(0)));
-        CobbleventureBootstrap.Point secondNeighbor = grid.worldCenter(anchor.plus(faces.get(1)));
         return new CobbleventureBootstrap.Point(
-            roundGateCoordinate(tile.x() * 0.5D
-                + (firstNeighbor.x() + secondNeighbor.x()) * 0.25D),
-            roundGateCoordinate(tile.z() * 0.5D
-                + (firstNeighbor.z() + secondNeighbor.z()) * 0.25D)
+            tile.x(),
+            tile.z() + (facing.equals("north") ? -grid.radius() : grid.radius())
         );
     }
 
@@ -580,12 +584,7 @@ final class WorldGateSystem {
         return value ^ value >>> 31;
     }
 
-    /**
-     * Builds the two filled wedges shown by the gate authoring model: the
-     * inaccessible terrain is broad at the left/right hex edges and converges
-     * toward two tips beside the central passage. Nothing radiates from the
-     * gate toward its front or back.
-     */
+    /** Builds shallow, sealed natural shoulders along the selected hex boundary. */
     private static void placeNaturalSurroundings(
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center,
@@ -607,6 +606,12 @@ final class WorldGateSystem {
         CobbleventureBootstrap.Point center, Direction normal, Direction sideways,
         int halfLength, int halfThickness, int halfOpening
     ) {
+        if (gate.facing().equals("north") || gate.facing().equals("south")) {
+            placeNorthSouthNaturalGateEdges(
+                level, world, gate, center, halfThickness, halfOpening
+            );
+            return;
+        }
         int availableLength = Math.max(1, halfLength - halfOpening);
         int maximumDepth = naturalGateBoundaryDepth(
             world.grid().radius(), halfThickness
@@ -648,6 +653,111 @@ final class WorldGateSystem {
                 }
             }
         }
+        finishNaturalGateColumns(level, world, gate, columns, maximumDepth, halfOpening);
+    }
+
+    private static void placeNorthSouthNaturalGateEdges(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center, int halfThickness, int halfOpening
+    ) {
+        List<HexCoord> faces = gateFaceOffsets(gate.facing());
+        boolean firstOpen = gateFaceIsOpen(world, gate.anchor(), faces.get(0));
+        boolean secondOpen = gateFaceIsOpen(world, gate.anchor(), faces.get(1));
+        int maximumDepth = naturalGateBoundaryDepth(
+            world.grid().radius(), halfThickness
+        );
+        Map<Long, NaturalGateColumn> uniqueColumns = new LinkedHashMap<>();
+        if (firstOpen != secondOpen) {
+            HexCoord openFace = firstOpen ? faces.get(0) : faces.get(1);
+            GateEdgeVector tangent = gateFaceTangent(gate.facing(), openFace);
+            int halfFaceLength = Math.max(
+                halfOpening + 8, world.grid().radius() / 2 - 2
+            );
+            for (int sign : new int[] {-1, 1}) {
+                addNaturalGateEdgeBand(
+                    world, center, tangent.x() * sign, tangent.z() * sign,
+                    halfOpening, halfFaceLength, maximumDepth, sign, uniqueColumns
+                );
+            }
+        } else {
+            double vertical = gate.facing().equals("north") ? 0.5D : -0.5D;
+            int faceLength = Math.max(
+                halfOpening + 8, world.grid().radius() - 2
+            );
+            for (int sign : new int[] {-1, 1}) {
+                addNaturalGateEdgeBand(
+                    world, center, sign * Math.sqrt(3.0D) * 0.5D, vertical,
+                    halfOpening, faceLength, maximumDepth, sign, uniqueColumns
+                );
+            }
+        }
+        List<NaturalGateColumn> columns = List.copyOf(uniqueColumns.values());
+        finishNaturalGateColumns(level, world, gate, columns, maximumDepth, halfOpening);
+    }
+
+    private static GateEdgeVector gateFaceTangent(String facing, HexCoord face) {
+        double diagonalX = Math.sqrt(3.0D) * 0.5D;
+        return switch (facing) {
+            case "north" -> face.equals(new HexCoord(0, -1))
+                ? new GateEdgeVector(diagonalX, -0.5D)
+                : new GateEdgeVector(diagonalX, 0.5D);
+            case "south" -> face.equals(new HexCoord(-1, 1))
+                ? new GateEdgeVector(diagonalX, 0.5D)
+                : new GateEdgeVector(diagonalX, -0.5D);
+            default -> throw new IllegalStateException(
+                "Diagonal gate edge requested for facing: " + facing
+            );
+        };
+    }
+
+    private static void addNaturalGateEdgeBand(
+        HexWorldPlan world, CobbleventureBootstrap.Point center,
+        double tangentX, double tangentZ, int halfOpening, int maximumLength,
+        int maximumDepth, int band, Map<Long, NaturalGateColumn> columns
+    ) {
+        int availableLength = Math.max(1, maximumLength - halfOpening);
+        String terrainType = CobbleventureBootstrap.emptyTerrainAt(
+            world,
+            center.x() + tangentX * (maximumLength + 12) + 0.5D,
+            center.z() + tangentZ * (maximumLength + 12) + 0.5D
+        );
+        double normalX = -tangentZ;
+        double normalZ = tangentX;
+        for (int distance = halfOpening + 1; distance <= maximumLength; distance++) {
+            double progress = (distance - halfOpening) / (double) availableLength;
+            double curvedProgress = progress * progress * (3.0D - 2.0D * progress);
+            long edgeHash = mixGateSeed(
+                world.seed(), center.x(), center.z(), distance, band
+            );
+            int edgeVariation = progress < 0.15D
+                ? 0 : Math.floorMod((int) edgeHash, 3) - 1;
+            int shoulderDepth = Math.max(
+                1,
+                Math.min(
+                    maximumDepth,
+                    1 + (int) Math.round((maximumDepth - 1) * curvedProgress)
+                        + edgeVariation
+                )
+            );
+            for (int offset = -shoulderDepth; offset <= shoulderDepth; offset++) {
+                int x = roundGateCoordinate(
+                    center.x() + tangentX * distance + normalX * offset
+                );
+                int z = roundGateCoordinate(
+                    center.z() + tangentZ * distance + normalZ * offset
+                );
+                NaturalGateColumn column = new NaturalGateColumn(
+                    x, z, terrainType, distance, offset
+                );
+                columns.putIfAbsent(new BlockPos(x, 0, z).asLong(), column);
+            }
+        }
+    }
+
+    private static void finishNaturalGateColumns(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        List<NaturalGateColumn> columns, int maximumDepth, int halfOpening
+    ) {
         // A previous gate revision may already occupy this footprint. Remove
         // its barriers and obsolete configured tree palette before rebuilding.
         for (NaturalGateColumn column : columns) {
@@ -671,8 +781,8 @@ final class WorldGateSystem {
             );
         }
         LOGGER.info(
-            "Natural gate wedges placed: gate={}, halfLength={}, maxDepth={}, opening={}",
-            gate.id(), halfLength, maximumDepth, halfOpening * 2 + 1
+            "Natural gate boundary placed: gate={}, columns={}, maxDepth={}, opening={}",
+            gate.id(), columns.size(), maximumDepth, halfOpening * 2 + 1
         );
     }
 
@@ -1894,6 +2004,8 @@ final class WorldGateSystem {
     private record NaturalGateColumn(
         int x, int z, String terrainType, int distance, int offset
     ) {}
+
+    private record GateEdgeVector(double x, double z) {}
 
     private static final class PendingGateDenial {
         private final Vec3 lockedPosition;

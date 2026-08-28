@@ -10,7 +10,7 @@
 projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blocks build
 ```
 
-완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.11.0.jar`에 생성됩니다. Minecraft
+완성된 JAR는 `build/libs/cobbleventure-theme-blocks-0.17.0.jar`에 생성됩니다. Minecraft
 1.21.1과 NeoForge 21.1.248 이상을 사용하는 모드팩의 `mods` 폴더에 JAR를 넣어
 활성화하고, 빼서 비활성화할 수 있습니다. 다른 Cobbleventure 모드를 요구하지 않습니다.
 
@@ -41,14 +41,22 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blo
 설치되며 어느 쪽을 철거해도 다른 쪽이 함께 제거됩니다. 기능이나 GUI는 없고 설계
 참고본은 `docs/concepts/rocket_base_machine_3_reference.png`에 보관합니다.
 
-`박사 연구소 연구 장치 1`은 빨간 유리 접시형 상판, 파란 발광 띠, 네 개의 짧은
-지지대가 결합된 1블록 회전형 장식입니다. 기능이나 GUI는 없으며 설계 참고본은
+`박사 연구소 연구 장치 1`은 2×2 바닥 면적과 2블록 높이에 흰 원통형 받침, 지름이
+일정한 파란 원통 챔버, 넓은 흰 상단 링과 빨간 원판이 차례로 쌓인 회전형 장식입니다.
+아이템 하나로 여덟 파트가 함께 설치·철거되며 짧은 측면 연결 포트가 있습니다. 기능이나 GUI는 없습니다.
+설계 참고본은
 `docs/concepts/professor_lab_research_device_1_reference.png`에 보관합니다.
 
 `박사 연구소 연결형 책장`은 한 칸만 설치하면 양쪽 끝판이 있는 독립 책장으로 보이고,
 같은 방향의 책장을 옆에 붙이면 맞닿는 끝판을 자동으로 숨겨 연속된 책장으로 합쳐집니다.
 두 칸뿐 아니라 세 칸 이상도 이어지며 설계 참고본은
 `docs/concepts/professor_lab_connecting_bookshelf_reference.png`에 보관합니다.
+
+`2×3 1인용 철제 침대`는 Minecraft 축척상 가로 2블록 × 길이 3블록을 차지하지만
+베개 하나를 사용하는 1인용 침대입니다. 회색 철제 프레임, 흰 테두리가 있는 하늘색
+이불과 연두색 머리맡 띠를 사용하며 여섯 파트가 함께 설치·철거됩니다. 현재 수면·리스폰
+기능은 없습니다. 설계 참고본은
+`docs/concepts/large_bed_reference.png`에 보관합니다.
 
 `build.bat mod-theme-blocks`로 빌드하면 완성된 JAR가 다음 환경에 함께 설치됩니다.
 

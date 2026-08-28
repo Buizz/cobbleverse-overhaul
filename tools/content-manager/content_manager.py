@@ -1204,6 +1204,7 @@ def validate_hex_worlds(
         if not isinstance(objects, list):
             _issue(issues, "error", path, "$.objects", "커스텀 오브젝트 목록은 배열이어야 합니다.")
             objects = []
+        available_structures = managed_structure_files(root)
         seen_objects: set[str] = set()
         for index, custom_object in enumerate(objects):
             object_path = f"$.objects[{index}]"
@@ -1225,6 +1226,7 @@ def validate_hex_worlds(
             if resource is not None and (not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource)):
                 _issue(issues, "error", path, f"{object_path}.resource", "올바른 오브젝트 리소스 ID가 필요합니다.")
             reserved_nbt_types = {
+                "structure": "NBT 오브젝트",
                 "villain_base": "빌런기지",
                 "legendary_site": "전설 포켓몬 장소",
             }
@@ -1256,6 +1258,11 @@ def validate_hex_worlds(
             building_enabled = center_placement in {"gate", "gate_npc"}
             if building_enabled and (not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource)):
                 _issue(issues, "error", path, f"{object_path}.resource", "관문 건물 NBT 리소스 ID가 필요합니다.")
+            elif building_enabled and available_structures and resource not in available_structures:
+                _issue(
+                    issues, "error", path, f"{object_path}.resource",
+                    f"등록되지 않은 관문 건물 NBT입니다: {resource}",
+                )
             rotation = custom_object.get("rotation")
             if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in range(4):
                 _issue(issues, "error", path, f"{object_path}.rotation", "관문 NBT 회전은 0~3이어야 합니다.")

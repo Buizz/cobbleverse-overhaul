@@ -58,6 +58,7 @@ public final class CobbleventureThemeBlocks {
         registerRocketBaseMachines();
         registerProfessorLabResearchDevices();
         registerProfessorLabConnectingBookshelf();
+        registerLargeBed();
     }
 
     public CobbleventureThemeBlocks(IEventBus modBus) {
@@ -194,6 +195,22 @@ public final class CobbleventureThemeBlocks {
         CREATIVE_ITEMS.add(ITEMS.register(
             "professor_lab_connecting_bookshelf",
             () -> new BlockItem(bookshelf.get(), new Item.Properties())
+        ));
+    }
+
+    private static void registerLargeBed() {
+        DeferredBlock<LargeBedBlock> bed = BLOCKS.register(
+            "large_bed",
+            () -> new LargeBedBlock(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.COLOR_LIGHT_BLUE)
+                .strength(1.0F, 3.0F)
+                .sound(SoundType.WOOD)
+                .pushReaction(PushReaction.BLOCK)
+                .noOcclusion())
+        );
+        CREATIVE_ITEMS.add(ITEMS.register(
+            "large_bed",
+            () -> new BlockItem(bed.get(), new Item.Properties())
         ));
     }
 

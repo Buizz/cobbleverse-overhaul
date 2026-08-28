@@ -1,0 +1,14 @@
+{
+  "parent":"minecraft:block/block",
+  "ambientocclusion":true,
+  "textures":{"particle":"minecraft:block/white_wool","metal":"minecraft:block/iron_block","metal_dark":"minecraft:block/smooth_stone","blanket":"minecraft:block/light_blue_wool","sheet":"minecraft:block/white_wool","pillow":"minecraft:block/smooth_quartz","accent":"minecraft:block/lime_wool"},
+  "elements":[
+    {"name":"iron_base","from":[0,2,0],"to":[16,4,16],"faces":{"down":{"texture":"#metal_dark"},"up":{"texture":"#metal"},"north":{"texture":"#metal"},"south":{"texture":"#metal"},"west":{"texture":"#metal"},"east":{"texture":"#metal"}}},
+    {"name":"white_mattress","from":[0,4,1.5],"to":[16,8,16],"faces":{"down":{"texture":"#sheet"},"up":{"texture":"#sheet"},"north":{"texture":"#sheet"},"south":{"texture":"#sheet"},"west":{"texture":"#sheet"},"east":{"texture":"#sheet"}}},
+    {"name":"single_continuous_pillow","from":[0,8,2.5],"to":[16,10.5,8],"faces":{"down":{"texture":"#pillow"},"up":{"texture":"#pillow"},"north":{"texture":"#pillow"},"south":{"texture":"#pillow"},"west":{"texture":"#pillow"},"east":{"texture":"#pillow"}}},
+    {"name":"lime_head_band","from":[0,8,9],"to":[16,9.2,11],"faces":{"down":{"texture":"#accent"},"up":{"texture":"#accent"},"north":{"texture":"#accent"},"south":{"texture":"#accent"},"west":{"texture":"#accent"},"east":{"texture":"#accent"}}},
+    {"name":"blue_blanket_start","from":[0,8,11],"to":[16,9,16],"faces":{"down":{"texture":"#blanket"},"up":{"texture":"#blanket"},"north":{"texture":"#blanket"},"south":{"texture":"#blanket"},"west":{"texture":"#blanket"},"east":{"texture":"#blanket"}}},
+    {"name":"headboard_lower_bar","from":[0,5,0],"to":[16,6.5,1.5],"faces":{"down":{"texture":"#metal_dark"},"up":{"texture":"#metal"},"north":{"texture":"#metal"},"south":{"texture":"#metal"},"west":{"texture":"#metal"},"east":{"texture":"#metal"}}},
+    {"name":"headboard_upper_bar","from":[0,11,0],"to":[16,12.5,1.5],"faces":{"down":{"texture":"#metal_dark"},"up":{"texture":"#metal"},"north":{"texture":"#metal"},"south":{"texture":"#metal"},"west":{"texture":"#metal"},"east":{"texture":"#metal"}}}
+  ]
+}

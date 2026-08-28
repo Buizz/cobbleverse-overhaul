@@ -162,6 +162,7 @@ public final class CobbleventureBootstrap {
     private static final int SHORE_SAND_HEIGHT_BLOCKS = 3;
     private static final int SHORE_SAND_WIDTH_BLOCKS = 6;
     private static final int OUTER_TERRAIN_TRANSITION_WIDTH = 32;
+    private static final double UNDERGROUND_ENTRANCE_TILE_RADIUS_RATIO = 7.0D / 16.0D;
     private static final int OUTER_TERRAIN_DISTANCE_SAMPLE_SPACING = 4;
     private static final double[][] OUTER_TERRAIN_SAMPLE_DIRECTIONS = {
         {1.0D, 0.0D}, {0.9239D, 0.3827D}, {0.7071D, 0.7071D},
@@ -1405,9 +1406,10 @@ public final class CobbleventureBootstrap {
     }
 
     /**
-     * Cave templates use an odd X/Z size. Their exact floor-center is placed on
-     * the collision boundary, and the authored +Z direction points into the
-     * inaccessible terrain. Barrier blocks inside the NBT are temporary void
+     * Cave templates use an odd X/Z size. Regular cave entrances are placed on
+     * the collision boundary; underground-passage entrances use an authored
+     * approach position inside the tile. The authored +Z direction points away
+     * from the tile center. Barrier blocks inside the NBT are temporary void
      * masks: they overwrite terrain during placement and only those transformed
      * positions are cleared afterwards.
      */
@@ -1808,7 +1810,9 @@ public final class CobbleventureBootstrap {
         double collisionDistance = actualCaveBoundaryDistance(
             world, center, forwardX, forwardZ, length
         );
-        double mouthDistance = Math.max(1.0D, collisionDistance - 2.0D);
+        double mouthDistance = caveEntrancePlacementDistance(
+            grid.radius(), collisionDistance, isUndergroundRoad(entrance)
+        );
         int mouthX = center.x() + (int) Math.round(forwardX * mouthDistance);
         int mouthZ = center.z() + (int) Math.round(forwardZ * mouthDistance);
         int mountainStartDepth = caveMountainStartDepth(
@@ -1830,6 +1834,15 @@ public final class CobbleventureBootstrap {
             collisionDistance, mouthDistance, mouthX, mouthZ,
             mountainTerrainType
         );
+    }
+
+    private static double caveEntrancePlacementDistance(
+        int tileRadius, double collisionDistance, boolean undergroundRoad
+    ) {
+        if (undergroundRoad) {
+            return Math.max(1.0D, tileRadius * UNDERGROUND_ENTRANCE_TILE_RADIUS_RATIO);
+        }
+        return Math.max(1.0D, collisionDistance - 2.0D);
     }
 
     private static int caveMountainStartDepth(
@@ -3054,7 +3067,88 @@ public final class CobbleventureBootstrap {
                 );
             }
         }
+        restoreTownRoadIntegrity(level, settlement);
         return true;
+    }
+
+    /**
+     * Structure templates are placed after the town road phase. Air and marker cleanup near
+     * densely packed buildings can therefore remove road-edge columns even though the compiled
+     * road graph itself is connected. Repaint only the authored road footprint outside every
+     * building rectangle so the repair cannot intrude into an NBT structure.
+     */
+    private static void restoreTownRoadIntegrity(
+        ServerLevel level, SettlementPlan settlement
+    ) {
+        TownLayout layout = generateTownLayout(settlement);
+        Point center = new Point(settlement.center().x(), settlement.center().z());
+        Set<Long> roadColumns = new HashSet<>();
+        for (TownRoad road : layout.roads()) {
+            collectConfiguredRoadColumns(
+                roadColumns,
+                center.translate(road.x1(), road.z1()),
+                center.translate(road.x2(), road.z2()),
+                settlement.roadProfile().width()
+            );
+        }
+        for (Map.Entry<String, List<TownRoad>> entry
+            : layout.buildingAccessRoads().entrySet()) {
+            List<TownRoad> buildingRoads = entry.getValue();
+            int width = layout.facilities().containsKey(entry.getKey())
+                ? facilityApproachRoadWidth(
+                    entry.getKey(), settlement.roadProfile().width()
+                )
+                : Math.min(3, settlement.roadProfile().width());
+            for (int index = 0; index < buildingRoads.size(); index++) {
+                TownRoad road = buildingRoads.get(index);
+                collectConfiguredRoadColumns(
+                    roadColumns,
+                    center.translate(road.x1(), road.z1()),
+                    center.translate(road.x2(), road.z2()),
+                    width,
+                    index == buildingRoads.size() - 1
+                );
+            }
+        }
+
+        Set<Long> buildingColumns = new HashSet<>();
+        for (TownPlot plot : layout.houses()) {
+            collectTownPlotColumns(buildingColumns, center, plot);
+        }
+        for (TownPlot plot : layout.facilities().values()) {
+            collectTownPlotColumns(buildingColumns, center, plot);
+        }
+        roadColumns.removeAll(buildingColumns);
+
+        Map<Long, Integer> elevations = loadedRoadElevations(level, roadColumns);
+        for (long key : roadColumns) {
+            paintConfiguredRoadColumn(
+                level, blockColumnX(key), blockColumnZ(key),
+                settlement.roadProfile().material(), elevations.get(key),
+                configuredRoadStairDirection(key, roadColumns, elevations),
+                true, true
+            );
+        }
+        LOGGER.info(
+            "Town road integrity restored after NBT placement: settlement={}, columns={}, protectedBuildingColumns={}",
+            settlement.id(), roadColumns.size(), buildingColumns.size()
+        );
+    }
+
+    private static void collectTownPlotColumns(
+        Set<Long> columns, Point center, TownPlot plot
+    ) {
+        boolean quarterTurn = plot.rotation().equals("clockwise_90")
+            || plot.rotation().equals("counterclockwise_90");
+        int width = quarterTurn ? plot.depth() : plot.width();
+        int depth = quarterTurn ? plot.width() : plot.depth();
+        int minX = center.x() + (int) Math.round(plot.x());
+        int minZ = center.z() + (int) Math.round(plot.z());
+        for (int x = minX; x < minX + width; x++) {
+            for (int z = minZ; z < minZ + depth; z++) {
+                columns.add(blockColumnKey(x, z));
+            }
+        }
     }
 
     private static String buildingEventSpaceId(
@@ -9791,41 +9885,45 @@ public final class CobbleventureBootstrap {
 
     private static WarpedPoint warpedCellPoint(HexWorldPlan world, double x, double z) {
         HexCoord unwarpedCell = world.grid().worldToHex(x, z);
-        CellPlan unwarpedPlan = world.cells().get(unwarpedCell);
         Point cellCenter = world.grid().worldCenter(unwarpedCell);
-        double configuredEdgeNoise = unwarpedPlan == null ? 0.18D : unwarpedPlan.edgeNoise();
-        // Anchoring every noise octave at the cell center keeps authored roads and
-        // facilities stable, but also reduces displacement at the actual cell edge.
-        // Restore the original boundary strength without moving those fixed centers.
+        double configuredEdgeNoise = blendedCellEdgeNoise(
+            world, x, z, unwarpedCell
+        );
+        // Multiplying a continuous world-space noise field by the distance from
+        // the nearest cell center keeps authored centers fixed without changing
+        // the noise origin at every hex edge. Subtracting each cell's center
+        // sample made the warp jump at that edge and could classify one physical
+        // boundary several times; the collision shell then followed the same
+        // broken outline.
         double warpGain = (0.82D + Math.min(0.72D, configuredEdgeNoise * 3.2D)) * 1.20D;
         double protection = settlementWarpFactor(world, x, z);
         double broadWarp = world.grid().radius() * 1.20D * warpGain * protection;
         double mediumWarp = world.grid().radius() * 0.74D * warpGain * protection;
         double detailWarp = world.grid().radius() * 0.39D * warpGain * protection;
         double microWarp = world.grid().radius() * 0.21D * warpGain * protection;
-        double offsetX = anchoredCellNoise(
+        double offsetX = centerProtectedWarpNoise(
             world, "world:cell-warp-x:broad", x, z, cellCenter,
             world.grid().radius() * 3.2D
-        ) * broadWarp + anchoredCellNoise(
+        ) * broadWarp + centerProtectedWarpNoise(
             world, "world:cell-warp-x:medium", x, z, cellCenter,
             world.grid().radius() * 1.15D
-        ) * mediumWarp + anchoredCellNoise(
+        ) * mediumWarp + centerProtectedWarpNoise(
             world, "world:cell-warp-x:detail", x, z, cellCenter,
             world.grid().radius() * 0.38D
-        ) * detailWarp + anchoredCellNoise(
+        ) * detailWarp + centerProtectedWarpNoise(
             world, "world:cell-warp-x:micro", x, z, cellCenter,
             world.grid().radius() * 0.14D
         ) * microWarp;
-        double offsetZ = anchoredCellNoise(
+        double offsetZ = centerProtectedWarpNoise(
             world, "world:cell-warp-z:broad", x, z, cellCenter,
             world.grid().radius() * 3.2D
-        ) * broadWarp + anchoredCellNoise(
+        ) * broadWarp + centerProtectedWarpNoise(
             world, "world:cell-warp-z:medium", x, z, cellCenter,
             world.grid().radius() * 1.15D
-        ) * mediumWarp + anchoredCellNoise(
+        ) * mediumWarp + centerProtectedWarpNoise(
             world, "world:cell-warp-z:detail", x, z, cellCenter,
             world.grid().radius() * 0.38D
-        ) * detailWarp + anchoredCellNoise(
+        ) * detailWarp + centerProtectedWarpNoise(
             world, "world:cell-warp-z:micro", x, z, cellCenter,
             world.grid().radius() * 0.14D
         ) * microWarp;
@@ -9839,7 +9937,33 @@ public final class CobbleventureBootstrap {
         return new WarpedPoint(x + offsetX, z + offsetZ);
     }
 
-    private static double anchoredCellNoise(
+    private static double blendedCellEdgeNoise(
+        HexWorldPlan world, double x, double z, HexCoord nearestCell
+    ) {
+        double supportRadius = world.grid().radius() * 1.1D;
+        double weightedNoise = 0.0D;
+        double totalWeight = 0.0D;
+        List<HexCoord> candidates = new ArrayList<>(nearestCell.neighbors());
+        candidates.add(nearestCell);
+        for (HexCoord candidate : candidates) {
+            Point center = world.grid().worldCenter(candidate);
+            double distance = Math.hypot(x - center.x(), z - center.z());
+            double normalizedWeight = Math.max(
+                0.0D, 1.0D - distance / supportRadius
+            );
+            if (normalizedWeight == 0.0D) {
+                continue;
+            }
+            double weight = normalizedWeight * normalizedWeight;
+            CellPlan plan = world.cells().get(candidate);
+            double edgeNoise = plan == null ? 0.18D : plan.edgeNoise();
+            weightedNoise += edgeNoise * weight;
+            totalWeight += weight;
+        }
+        return totalWeight == 0.0D ? 0.18D : weightedNoise / totalWeight;
+    }
+
+    private static double centerProtectedWarpNoise(
         HexWorldPlan world,
         String salt,
         double x,
@@ -9847,10 +9971,15 @@ public final class CobbleventureBootstrap {
         Point cellCenter,
         double scale
     ) {
-        return layeredNoise(world.seed(), salt, x, z, scale)
-            - layeredNoise(
-                world.seed(), salt, cellCenter.x(), cellCenter.z(), scale
-            );
+        double centerDistance = Math.hypot(
+            x - cellCenter.x(), z - cellCenter.z()
+        );
+        double normalizedDistance = Math.min(
+            1.0D, centerDistance / (world.grid().radius() * 0.72D)
+        );
+        double centerProtection = normalizedDistance * normalizedDistance
+            * (3.0D - 2.0D * normalizedDistance);
+        return layeredNoise(world.seed(), salt, x, z, scale) * centerProtection;
     }
 
     private static double settlementWarpFactor(HexWorldPlan world, double x, double z) {

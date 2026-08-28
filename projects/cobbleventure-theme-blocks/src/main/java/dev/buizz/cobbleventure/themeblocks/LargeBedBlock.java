@@ -22,23 +22,20 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBlock {
-    private static final MapCodec<ProfessorLabResearchDeviceOneBlock> CODEC =
-        simpleCodec(ProfessorLabResearchDeviceOneBlock::new);
+final class LargeBedBlock extends HorizontalDirectionalBlock {
+    private static final MapCodec<LargeBedBlock> CODEC = simpleCodec(LargeBedBlock::new);
     static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
-    static final IntegerProperty DEPTH = IntegerProperty.create("depth", 0, 1);
+    static final IntegerProperty LENGTH = IntegerProperty.create("length", 0, 2);
     static final IntegerProperty WIDTH = IntegerProperty.create("width", 0, 1);
-    static final IntegerProperty HEIGHT = IntegerProperty.create("height", 0, 1);
-    private static final VoxelShape LOWER_SHAPE = box(0.0D, 0.0D, 0.0D, 16.0D, 16.0D, 16.0D);
-    private static final VoxelShape UPPER_SHAPE = box(0.0D, 0.0D, 0.0D, 16.0D, 12.0D, 16.0D);
+    private static final VoxelShape BED_SHAPE = box(0.0D, 2.0D, 0.0D, 16.0D, 10.0D, 16.0D);
+    private static final VoxelShape HEAD_SHAPE = box(0.0D, 2.0D, 0.0D, 16.0D, 14.0D, 16.0D);
 
-    ProfessorLabResearchDeviceOneBlock(Properties properties) {
+    LargeBedBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any()
             .setValue(FACING, Direction.NORTH)
-            .setValue(DEPTH, 0)
-            .setValue(WIDTH, 0)
-            .setValue(HEIGHT, 0));
+            .setValue(LENGTH, 0)
+            .setValue(WIDTH, 0));
     }
 
     @Override
@@ -48,7 +45,7 @@ final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBloc
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        Direction facing = context.getHorizontalDirection().getOpposite();
+        Direction facing = context.getHorizontalDirection();
         BlockPos core = context.getClickedPos();
         for (BlockPos position : positions(core, facing)) {
             if (context.getLevel().isOutsideBuildHeight(position)
@@ -58,9 +55,8 @@ final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBloc
         }
         return defaultBlockState()
             .setValue(FACING, facing)
-            .setValue(DEPTH, 0)
-            .setValue(WIDTH, 0)
-            .setValue(HEIGHT, 0);
+            .setValue(LENGTH, 0)
+            .setValue(WIDTH, 0);
     }
 
     @Override
@@ -73,19 +69,17 @@ final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBloc
         }
         Direction facing = state.getValue(FACING);
         List<BlockPos> positions = positions(position, facing);
-        for (int height = 0; height < 2; height++) {
-            for (int depth = 0; depth < 2; depth++) {
-                for (int width = 0; width < 2; width++) {
-                    level.setBlock(
-                        positions.get(height * 4 + depth * 2 + width),
-                        defaultBlockState()
-                            .setValue(FACING, facing)
-                            .setValue(DEPTH, depth)
-                            .setValue(WIDTH, width)
-                            .setValue(HEIGHT, height),
-                        Block.UPDATE_ALL
-                    );
-                }
+        for (int length = 0; length < 3; length++) {
+            for (int width = 0; width < 2; width++) {
+                int index = length * 2 + width;
+                level.setBlock(
+                    positions.get(index),
+                    defaultBlockState()
+                        .setValue(FACING, facing)
+                        .setValue(LENGTH, length)
+                        .setValue(WIDTH, width),
+                    Block.UPDATE_ALL
+                );
             }
         }
     }
@@ -117,24 +111,22 @@ final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBloc
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, DEPTH, WIDTH, HEIGHT);
+        builder.add(FACING, LENGTH, WIDTH);
     }
 
     @Override
     protected VoxelShape getShape(
         BlockState state, BlockGetter level, BlockPos position, CollisionContext context
     ) {
-        return state.getValue(HEIGHT) == 0 ? LOWER_SHAPE : UPPER_SHAPE;
+        return state.getValue(LENGTH) == 2 ? HEAD_SHAPE : BED_SHAPE;
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
         Direction side = facing.getCounterClockWise();
-        List<BlockPos> positions = new ArrayList<>(8);
-        for (int height = 0; height < 2; height++) {
-            for (int depth = 0; depth < 2; depth++) {
-                for (int width = 0; width < 2; width++) {
-                    positions.add(core.relative(facing, depth).relative(side, width).above(height));
-                }
+        List<BlockPos> positions = new ArrayList<>(6);
+        for (int length = 0; length < 3; length++) {
+            for (int width = 0; width < 2; width++) {
+                positions.add(core.relative(facing, length).relative(side, width));
             }
         }
         return positions;
@@ -143,8 +135,7 @@ final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBloc
     private static BlockPos corePosition(BlockPos position, BlockState state) {
         Direction facing = state.getValue(FACING);
         return position
-            .below(state.getValue(HEIGHT))
-            .relative(facing.getOpposite(), state.getValue(DEPTH))
+            .relative(facing.getOpposite(), state.getValue(LENGTH))
             .relative(facing.getClockWise(), state.getValue(WIDTH));
     }
 }

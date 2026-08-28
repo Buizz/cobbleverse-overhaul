@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import struct
+from functools import lru_cache
 from pathlib import Path
 
 from starter_gym import (
@@ -709,6 +710,7 @@ class _LayoutRandom:
 VILLAGE_TILE_RADIUS = 64.0
 
 
+@lru_cache(maxsize=128)
 def _town_layout_cells(cell_count: int, shape: str = "line_q", custom_cells: tuple[tuple[int, int], ...] = ()) -> tuple[tuple[int, int], ...]:
     if shape == "custom":
         return custom_cells
@@ -745,6 +747,7 @@ def _town_layout_cell_center(q: int, r: int) -> tuple[float, float]:
     )
 
 
+@lru_cache(maxsize=128)
 def _town_layout_centroid(
     cell_count: int, shape: str = "line_q",
     custom_cells: tuple[tuple[int, int], ...] = (),
@@ -759,6 +762,7 @@ def _town_layout_centroid(
     )
 
 
+@lru_cache(maxsize=512)
 def _town_layout_centered_cell_center(
     q: int, r: int, cell_count: int, shape: str = "line_q",
     custom_cells: tuple[tuple[int, int], ...] = (),
@@ -904,6 +908,21 @@ DEFAULT_FACILITY_STRUCTURES = {
 }
 
 
+@lru_cache(maxsize=1024)
+def _json_document_cached(
+    path_key: str, modified_ns: int, file_size: int,
+) -> object:
+    del modified_ns, file_size
+    return json.loads(Path(path_key).read_text(encoding="utf-8"))
+
+
+def _read_cached_json(path: Path) -> object:
+    stat = path.stat()
+    return _json_document_cached(
+        str(path.resolve()), stat.st_mtime_ns, stat.st_size,
+    )
+
+
 def _facility_structure(
     data: dict[str, object], facility_type: str, root: Path | None = None,
 ) -> str:
@@ -915,7 +934,7 @@ def _facility_structure(
     if root is not None:
         settings_path = root / BUILDING_SETTINGS_SOURCE
         if settings_path.is_file():
-            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            settings = _read_cached_json(settings_path)
             defaults = settings.get("facility_defaults")
             if isinstance(defaults, dict) and isinstance(defaults.get(facility_type), str):
                 return str(defaults[facility_type])
@@ -941,10 +960,12 @@ def _managed_structure_path(root: Path | None, structure: str) -> Path | None:
     return None
 
 
-def _managed_structure_size(root: Path | None, structure: str) -> tuple[int, int] | None:
-    path = _managed_structure_path(root, structure)
-    if path is None:
-        return None
+@lru_cache(maxsize=512)
+def _managed_structure_size_cached(
+    path_key: str, modified_ns: int, file_size: int, structure: str,
+) -> tuple[int, int] | None:
+    del modified_ns, file_size
+    path = Path(path_key)
     raw = path.read_bytes()
     if raw.startswith(b"\x1f\x8b"):
         raw = gzip.decompress(raw)
@@ -1003,13 +1024,24 @@ def _managed_structure_size(root: Path | None, structure: str) -> tuple[int, int
         skip_payload(tag_type)
 
 
-def _managed_structure_occupied_bounds(
-    root: Path | None, structure: str, width: int, depth: int,
-) -> dict[str, int] | None:
-    """Return the same non-terrain top bounds used by the web preview."""
+def _managed_structure_size(root: Path | None, structure: str) -> tuple[int, int] | None:
     path = _managed_structure_path(root, structure)
     if path is None:
         return None
+    stat = path.stat()
+    return _managed_structure_size_cached(
+        str(path.resolve()), stat.st_mtime_ns, stat.st_size, structure,
+    )
+
+
+@lru_cache(maxsize=512)
+def _managed_structure_occupied_bounds_cached(
+    path_key: str, modified_ns: int, file_size: int,
+    structure: str, width: int, depth: int,
+) -> dict[str, int] | None:
+    """Return the same non-terrain top bounds used by the web preview."""
+    del modified_ns, file_size
+    path = Path(path_key)
     raw = path.read_bytes()
     if raw.startswith(b"\x1f\x8b"):
         raw = gzip.decompress(raw)
@@ -1123,6 +1155,20 @@ def _managed_structure_occupied_bounds(
         "min_x": min_x, "min_z": min_z, "max_x": max_x, "max_z": max_z,
         "width": max_x - min_x + 1, "depth": max_z - min_z + 1,
     }
+
+
+def _managed_structure_occupied_bounds(
+    root: Path | None, structure: str, width: int, depth: int,
+) -> dict[str, int] | None:
+    path = _managed_structure_path(root, structure)
+    if path is None:
+        return None
+    stat = path.stat()
+    bounds = _managed_structure_occupied_bounds_cached(
+        str(path.resolve()), stat.st_mtime_ns, stat.st_size,
+        structure, width, depth,
+    )
+    return dict(bounds) if bounds is not None else None
 
 
 def _compiled_facility_specs(
@@ -1273,7 +1319,7 @@ def _structure_authored_door_side(
     metadata_path = root / CONTENT_ROOT / "structures" / f"{path}.structure.json"
     if not metadata_path.is_file():
         return None
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata = _read_cached_json(metadata_path)
     anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
     door = next((
         anchor for anchor in anchors or []
@@ -1332,7 +1378,7 @@ def _house_door_point(
     configured: object = [width // 2, 1, -1] if safe else None
     metadata_path = (root or Path()) / HOUSE_STRUCTURE_SOURCE_DIR / f"{base}_{roof}.structure.json"
     if metadata_path.is_file():
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata = _read_cached_json(metadata_path)
         anchors = metadata.get("anchors")
         if isinstance(anchors, list):
             door = next((
@@ -1376,7 +1422,7 @@ def _structure_door_point(
     metadata_path = root / CONTENT_ROOT / "structures" / f"{relative}.structure.json"
     if not metadata_path.is_file():
         return None
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata = _read_cached_json(metadata_path)
     anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
     door = next((
         anchor for anchor in anchors or []

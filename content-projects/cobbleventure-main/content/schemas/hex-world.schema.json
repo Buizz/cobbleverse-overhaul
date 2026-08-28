@@ -428,6 +428,14 @@
           }]
         }
       }, {
+        "if": { "properties": { "type": { "const": "structure" } }, "required": ["type"] },
+        "then": {
+          "required": ["resource", "rotation"],
+          "properties": {
+            "rotation": { "type": "integer", "minimum": 0, "maximum": 3 }
+          }
+        }
+      }, {
         "if": { "properties": { "type": { "const": "villain_base" } }, "required": ["type"] },
         "then": {
           "required": ["resource", "rotation"],

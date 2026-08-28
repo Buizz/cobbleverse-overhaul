@@ -45,6 +45,17 @@ def dungeon_cave_terrain(bounds: list[int]) -> dict[str, object]:
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_world_route_anchor_insertion_controls_are_exposed(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('id="toggle-route-anchor-insert"', markup)
+        self.assertIn("function insertRouteAnchor", script)
+        self.assertIn("data-insert-route-anchor", script)
+        self.assertIn("routeAnchorInsertRouteId", script)
+        self.assertIn(".route-anchor-insert", styles)
+
     def test_piece_dungeon_allows_marker_placed_encounters_and_loot(self) -> None:
         document = json.loads((
             PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json"
@@ -3390,6 +3401,15 @@ class ContentManagerTests(unittest.TestCase):
             }
             layout["objects"].append(villain_base)
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
+            generic_structure = json.loads(json.dumps(layout))
+            generic_structure["objects"][-1] = {
+                "id": "power_plant", "type": "structure", "anchor": {"q": 3, "r": -1},
+                "resource": "cobbleventure:placeholder/power_plant", "rotation": 0,
+            }
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, generic_structure, 2))
+            generic_structure["objects"][-1].pop("resource")
+            issues = content_manager.save_world_layout(candidate_root, generic_structure, 2)
+            self.assertTrue(any("NBT 오브젝트 NBT" in issue.message for issue in issues))
             missing_base_nbt = json.loads(json.dumps(layout))
             missing_base_nbt["objects"][2].pop("resource")
             issues = content_manager.save_world_layout(candidate_root, missing_base_nbt, 2)
@@ -3432,14 +3452,19 @@ class ContentManagerTests(unittest.TestCase):
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
         self.assertIn('id="object-tool-facing"', page)
+        self.assertIn('value="cobbleventure:gate/default_gate"', page)
+        self.assertIn('function registeredWorldStructure(resource)', script)
+        self.assertIn('등록된 관문 건물 NBT를 선택해 주세요.', script)
         self.assertIn('<span>배치 가장자리</span>', page)
         self.assertIn('북·남은 양쪽 이동 가능 면이 열리면 중앙', page)
         self.assertIn('function gateMapPoint(gate)', script)
         self.assertIn('function gateMapBoundaryHalfSpan(gate)', script)
+        self.assertIn('function gateMapBoundaryMarkup(gate)', script)
+        self.assertIn('class="gate-boundary-segment"', script)
         self.assertIn('const firstOpen = gateFaceIsOpen(gate, faceOffsets[0])', script)
         self.assertIn('data-map-tool="gate"', page)
         self.assertIn('data-tool-options="gate"', page)
-        self.assertIn('id="generic-object-tool-type"', page)
+        self.assertIn('id="choose-generic-object-tool-resource"', page)
         self.assertNotIn('type="radio" name="kind" value="gate"', page)
         self.assertIn('data-tile-field="gate"', page)
         self.assertIn('g: "gate", o: "object"', script)
@@ -3460,8 +3485,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('<option value="trees">', page)
         self.assertIn('passage_width: normalizedOdd(values.openingWidth, 3, 31)', script)
         self.assertIn('name="objectGateMode"', page)
-        self.assertIn('<option value="villain_base">빌런기지</option>', page)
-        self.assertIn('["legendary_site", "전설 포켓몬 장소"]', script)
+        self.assertNotIn('<option value="villain_base">빌런기지</option>', page)
+        self.assertNotIn('<option value="legendary_site">전설 포켓몬 장소</option>', page)
+        self.assertIn('const genericWorldObjectType = "structure"', script)
+        self.assertIn('id="choose-selected-object-resource"', page)
         self.assertIn('id="world-object-nbt-options"', page)
         self.assertIn('name="objectNpc"', page)
         self.assertIn('id="edit-object-npc"', page)
@@ -3474,6 +3501,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("renderGateConditionEditor", script)
         self.assertIn("gateProperties", script)
         self.assertIn("renderWorldObjectNbtOptions", script)
+        self.assertIn("function undergroundEntranceMapLabel(entrance)", script)
+        self.assertIn("settlement?.name ? `${settlement.name} 지하입구`", script)
         self.assertIn('teleport_to_gate: "관문으로 이동"', script)
 
     def test_world_object_inspector_is_separate_from_gate_properties(self) -> None:
@@ -3508,6 +3537,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("if (gate.npc() == null || !openGateNpcDialog", runtime)
         self.assertIn("placeNaturalBarrierColumn", runtime)
         self.assertIn("placeNaturalGateWedges", runtime)
+        self.assertIn("placeNorthSouthNaturalGateEdges", runtime)
+        self.assertIn("addNaturalGateEdgeBand", runtime)
         self.assertIn("clearLegacyNaturalBarrierLine", runtime)
         self.assertIn("gateBoundaryHalfLength", runtime)
         self.assertIn("naturalGateBoundaryDepth", runtime)
@@ -6329,7 +6360,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="choose-structure-builder-live-source"', markup)
         self.assertIn('id="structure-builder-source-dialog"', markup)
         self.assertIn('id="structure-builder-source-search"', markup)
+        self.assertIn('id="structure-builder-source-category"', markup)
+        self.assertIn('id="structure-builder-source-size"', markup)
+        self.assertIn('id="reset-structure-builder-source-filters"', markup)
         self.assertIn('function renderStructureBuilderSourceDialog()', script)
+        self.assertIn('function structureSourceCategory(item)', script)
+        self.assertIn('openStructureBuilderSourceDialog("world-tool")', script)
         self.assertIn('data-structure-builder-source', script)
         self.assertIn('grid-template-columns:repeat(2,minmax(0,1fr))', (web_root / "styles.css").read_text(encoding="utf-8"))
         self.assertIn('.structure-builder-source-item strong{overflow-wrap:anywhere', (web_root / "styles.css").read_text(encoding="utf-8"))
