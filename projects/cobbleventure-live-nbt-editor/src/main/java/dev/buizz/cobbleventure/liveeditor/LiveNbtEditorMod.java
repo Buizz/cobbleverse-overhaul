@@ -18,6 +18,7 @@ import java.util.List;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -37,6 +38,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.Painting;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -221,6 +223,79 @@ public final class LiveNbtEditorMod {
         }
     }
 
+    static void moveBounds(ServerPlayer player, String directionName, int blocks) {
+        if (active == null) {
+            throw new IllegalStateException("먼저 웹에서 NBT를 여세요.");
+        }
+        if (!player.serverLevel().dimension().equals(EDIT_LEVEL)) {
+            throw new IllegalStateException("NBT 편집 차원에서만 영역을 이동할 수 있습니다.");
+        }
+        if (blocks < 1 || blocks > 64) {
+            throw new IllegalStateException("이동 칸 수는 1~64여야 합니다.");
+        }
+        Direction direction = Direction.byName(directionName);
+        if (direction == null) throw new IllegalStateException("알 수 없는 방향입니다.");
+        ServerLevel level = player.serverLevel();
+        int deltaX = direction.getStepX() * blocks;
+        int deltaY = direction.getStepY() * blocks;
+        int deltaZ = direction.getStepZ() * blocks;
+        BlockPos nextOrigin = activeStructureOrigin().offset(deltaX, deltaY, deltaZ);
+        if (nextOrigin.getY() < level.getMinBuildHeight()
+            || nextOrigin.getY() + active.size().getY() > level.getMaxBuildHeight()) {
+            throw new IllegalStateException("영역이 차원의 건축 높이를 벗어납니다.");
+        }
+        active = new LiveState(
+            active.id(), active.source(), active.revision(), active.sourceDigest(),
+            active.size(), active.sourceSize(), active.testPlacements(),
+            active.originOffsetX() + deltaX, active.originOffsetY() + deltaY,
+            active.originOffsetZ() + deltaZ
+        );
+        shiftAnchorCoordinates(-deltaX, -deltaY, -deltaZ);
+        writeState(player.getServer());
+        writeDraftMetadata(player.getServer());
+        for (ServerPlayer online : player.getServer().getPlayerList().getPlayers()) {
+            LiveEditorNetwork.sendSnapshot(online);
+        }
+        player.sendSystemMessage(Component.literal(
+            "[Live NBT Editor] 블록·엔티티는 유지하고 영역만 "
+                + directionLabel(direction) + " " + blocks + "칸 이동했습니다. 새 원점: "
+                + nextOrigin.toShortString()
+        ));
+    }
+
+    private static void shiftAnchorCoordinates(int deltaX, int deltaY, int deltaZ) {
+        if (activeMetadata == null || !activeMetadata.has("anchors")
+            || !activeMetadata.get("anchors").isJsonArray()) return;
+        for (var element : activeMetadata.getAsJsonArray("anchors")) {
+            if (!element.isJsonObject()) continue;
+            JsonObject anchor = element.getAsJsonObject();
+            shiftCoordinate(anchor, "position", deltaX, deltaY, deltaZ);
+            shiftCoordinate(anchor, "safe_spawn", deltaX, deltaY, deltaZ);
+        }
+    }
+
+    private static void shiftCoordinate(
+        JsonObject owner, String key, int deltaX, int deltaY, int deltaZ
+    ) {
+        if (!owner.has(key) || !owner.get(key).isJsonArray()) return;
+        JsonArray coordinate = owner.getAsJsonArray(key);
+        if (coordinate.size() != 3) return;
+        coordinate.set(0, new com.google.gson.JsonPrimitive(coordinate.get(0).getAsInt() + deltaX));
+        coordinate.set(1, new com.google.gson.JsonPrimitive(coordinate.get(1).getAsInt() + deltaY));
+        coordinate.set(2, new com.google.gson.JsonPrimitive(coordinate.get(2).getAsInt() + deltaZ));
+    }
+
+    private static String directionLabel(Direction direction) {
+        return switch (direction) {
+            case NORTH -> "북쪽";
+            case SOUTH -> "남쪽";
+            case EAST -> "동쪽";
+            case WEST -> "서쪽";
+            case UP -> "위";
+            case DOWN -> "아래";
+        };
+    }
+
     private static void processPending(MinecraftServer server) {
         Path commandPath = Filesystem.liveRoot(server).resolve("command.json");
         if (!Files.isRegularFile(commandPath)) {
@@ -234,7 +309,7 @@ public final class LiveNbtEditorMod {
             ).getAsJsonObject();
             String action = requiredString(command, "action");
             String revision = requiredString(command, "revision");
-            if ("open".equals(action) && active != null) {
+            if ("open".equals(action) && requiresOpenDecision(command, active != null)) {
                 if (!revision.equals(pendingOpenRevision)) {
                     pendingOpenCommand = command.deepCopy();
                     pendingOpenRevision = revision;
@@ -261,6 +336,12 @@ public final class LiveNbtEditorMod {
                     StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException ignored) {}
         }
+    }
+
+    static boolean requiresOpenDecision(JsonObject command, boolean hasActiveStructure) {
+        if (!hasActiveStructure) return false;
+        return !command.has("preserve_current")
+            || command.get("preserve_current").getAsBoolean();
     }
 
     static void resolveOpenDecision(
@@ -324,7 +405,8 @@ public final class LiveNbtEditorMod {
         LiveState nextState = new LiveState(
             requestedId, requiredString(command, "source"), revision,
             command.has("source_digest") ? command.get("source_digest").getAsString() : "",
-            requested, template.getSize(), active == null ? 0 : active.testPlacements()
+            requested, template.getSize(), active == null ? 0 : active.testPlacements(),
+            0, 0, 0
         );
         JsonObject nextMetadata = readMetadata(
             Filesystem.liveRoot(server).resolve("inbox/active.structure.json"), nextState
@@ -334,10 +416,12 @@ public final class LiveNbtEditorMod {
             editFloorPrepared = true;
         }
         if (active != null) {
-            clearBounds(level, active.size());
+            BlockPos previousOrigin = activeStructureOrigin();
+            clearBounds(level, previousOrigin, active.size());
+            clearSlot(level, previousOrigin, active.size());
         }
         prepareFloor(level, ORIGIN, requested);
-        clearSlot(level, active == null ? requested : max(active.size(), requested));
+        clearSlot(level, ORIGIN, requested);
         boolean placed = template.placeInWorld(
             level, ORIGIN, ORIGIN, placementSettings(),
             RandomSource.create(level.getSeed() ^ ORIGIN.asLong()), 2
@@ -360,11 +444,13 @@ public final class LiveNbtEditorMod {
     private static void resize(MinecraftServer server, Vec3i size, String revision) {
         if (active == null) throw new IllegalStateException("크기를 바꿀 NBT가 없습니다.");
         ServerLevel level = requireEditLevel(server);
-        clearBounds(level, active.size());
-        prepareFloor(level, ORIGIN, size);
+        BlockPos origin = activeStructureOrigin();
+        clearBounds(level, origin, active.size());
+        prepareFloor(level, origin, size);
         active = new LiveState(active.id(), active.source(), revision, active.sourceDigest(),
-            size, active.sourceSize(), active.testPlacements());
-        drawBounds(level, size);
+            size, active.sourceSize(), active.testPlacements(), active.originOffsetX(),
+            active.originOffsetY(), active.originOffsetZ());
+        drawBounds(level, origin, size);
         writeState(server);
         announce(server, "편집 범위 변경: " + format(size));
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -382,7 +468,7 @@ public final class LiveNbtEditorMod {
         if (active == null) throw new IllegalStateException("저장할 NBT가 없습니다.");
         ServerLevel level = requireEditLevel(server);
         StructureTemplate template = captureTemplate(
-            level, ORIGIN, active.size(), elevatorRecovery
+            level, activeStructureOrigin(), active.size(), elevatorRecovery
         );
         template.setAuthor("Cobbleventure Live NBT Editor");
         Path outbox = Filesystem.liveRoot(server).resolve("outbox");
@@ -426,7 +512,9 @@ public final class LiveNbtEditorMod {
         if (active == null) throw new IllegalStateException("테스트할 활성 NBT가 없습니다.");
         ServerLevel editLevel = requireEditLevel(server);
         ServerLevel testLevel = requireTestLevel(server);
-        StructureTemplate template = captureTemplate(editLevel, ORIGIN, active.size());
+        StructureTemplate template = captureTemplate(
+            editLevel, activeStructureOrigin(), active.size()
+        );
         int index = active.testPlacements();
         BlockPos destination = new BlockPos((index % 5) * 320, 65, (index / 5) * 320);
         prepareFloor(testLevel, destination, active.size());
@@ -439,7 +527,8 @@ public final class LiveNbtEditorMod {
         PlayingCardsEntityLinks.relinkPlacedEntities(testLevel, destination, active.size());
         syncPlacedBlockEntities(testLevel, destination, active.size());
         active = new LiveState(active.id(), active.source(), revision, active.sourceDigest(),
-            active.size(), active.sourceSize(), index + 1);
+            active.size(), active.sourceSize(), index + 1, active.originOffsetX(),
+            active.originOffsetY(), active.originOffsetZ());
         writeState(server);
         announce(server, "테스트 차원 배치: " + active.id() + " · " + destination.toShortString());
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -460,9 +549,9 @@ public final class LiveNbtEditorMod {
         }
     }
 
-    private static void clearSlot(ServerLevel level, Vec3i size) {
-        BlockPos from = ORIGIN.offset(-1, 0, -1);
-        BlockPos to = ORIGIN.offset(size.getX(), size.getY() - 1, size.getZ());
+    private static void clearSlot(ServerLevel level, BlockPos origin, Vec3i size) {
+        BlockPos from = origin.offset(-1, 0, -1);
+        BlockPos to = origin.offset(size.getX(), size.getY() - 1, size.getZ());
         for (Entity entity : level.getEntities(null, new AABB(
             from.getX(), from.getY(), from.getZ(),
             to.getX() + 1, to.getY() + 1, to.getZ() + 1
@@ -510,7 +599,12 @@ public final class LiveNbtEditorMod {
             position.add(DoubleTag.valueOf(entity.getY() - origin.getY()));
             position.add(DoubleTag.valueOf(entity.getZ() - origin.getZ()));
             entityInfo.put("pos", position);
-            BlockPos relative = entity.blockPosition().subtract(origin);
+            // Paintings are positioned from their wall attachment block, not from the
+            // entity bounding box. This mirrors StructureTemplate#fillEntityList and
+            // prevents their attachment point from moving up on every save/reload.
+            BlockPos relative = entity instanceof Painting painting
+                ? painting.getPos().subtract(origin)
+                : entity.blockPosition().subtract(origin);
             ListTag blockPosition = new ListTag();
             blockPosition.add(IntTag.valueOf(relative.getX()));
             blockPosition.add(IntTag.valueOf(relative.getY()));
@@ -706,12 +800,13 @@ public final class LiveNbtEditorMod {
         if (!BuiltInRegistries.BLOCK.getKey(pokerTable)
             .equals(PlayingCardsTableOwnerProcessor.POKER_TABLE)) return;
         int repaired = 0;
-        BlockPos end = ORIGIN.offset(
+        BlockPos origin = activeStructureOrigin();
+        BlockPos end = origin.offset(
             active.size().getX() - 1,
             active.size().getY() - 1,
             active.size().getZ() - 1
         );
-        for (BlockPos position : BlockPos.betweenClosed(ORIGIN, end)) {
+        for (BlockPos position : BlockPos.betweenClosed(origin, end)) {
             if (!level.getBlockState(position).is(pokerTable)) continue;
             BlockEntity blockEntity = level.getBlockEntity(position);
             if (blockEntity == null) continue;
@@ -735,14 +830,14 @@ public final class LiveNbtEditorMod {
         }
     }
 
-    private static void clearBounds(ServerLevel level, Vec3i size) {
+    private static void clearBounds(ServerLevel level, BlockPos origin, Vec3i size) {
         for (int x = -1; x <= size.getX(); x++) {
-            level.setBlock(ORIGIN.offset(x, -1, -1), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
-            level.setBlock(ORIGIN.offset(x, -1, size.getZ()), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
+            level.setBlock(origin.offset(x, -1, -1), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
+            level.setBlock(origin.offset(x, -1, size.getZ()), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
         }
         for (int z = 0; z < size.getZ(); z++) {
-            level.setBlock(ORIGIN.offset(-1, -1, z), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
-            level.setBlock(ORIGIN.offset(size.getX(), -1, z), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
+            level.setBlock(origin.offset(-1, -1, z), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
+            level.setBlock(origin.offset(size.getX(), -1, z), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), 2);
         }
     }
 
@@ -775,13 +870,17 @@ public final class LiveNbtEditorMod {
     }
 
     private static void drawBounds(ServerLevel level, Vec3i size) {
+        drawBounds(level, ORIGIN, size);
+    }
+
+    private static void drawBounds(ServerLevel level, BlockPos origin, Vec3i size) {
         for (int x = -1; x <= size.getX(); x++) {
-            setBorder(level, ORIGIN.offset(x, -1, -1));
-            setBorder(level, ORIGIN.offset(x, -1, size.getZ()));
+            setBorder(level, origin.offset(x, -1, -1));
+            setBorder(level, origin.offset(x, -1, size.getZ()));
         }
         for (int z = 0; z < size.getZ(); z++) {
-            setBorder(level, ORIGIN.offset(-1, -1, z));
-            setBorder(level, ORIGIN.offset(size.getX(), -1, z));
+            setBorder(level, origin.offset(-1, -1, z));
+            setBorder(level, origin.offset(size.getX(), -1, z));
         }
     }
 
@@ -792,8 +891,9 @@ public final class LiveNbtEditorMod {
     }
 
     private static void teleportPlayer(MinecraftServer server, ServerPlayer player) {
-        player.teleportTo(requireEditLevel(server), ORIGIN.getX() - 3.5D, ORIGIN.getY() + 1.0D,
-            ORIGIN.getZ() - 3.5D, 45.0F, 0.0F);
+        BlockPos origin = activeStructureOrigin();
+        player.teleportTo(requireEditLevel(server), origin.getX() - 3.5D, origin.getY() + 1.0D,
+            origin.getZ() - 3.5D, 45.0F, 0.0F);
     }
 
     private static ServerLevel requireEditLevel(MinecraftServer server) {
@@ -816,7 +916,9 @@ public final class LiveNbtEditorMod {
             return new LiveState(requiredString(value, "id"), requiredString(value, "source"),
                 requiredString(value, "revision"), value.get("source_digest").getAsString(),
                 readSize(value), readSize(value.getAsJsonArray("source_size")),
-                value.has("test_placements") ? value.get("test_placements").getAsInt() : 0);
+                value.has("test_placements") ? value.get("test_placements").getAsInt() : 0,
+                readOriginOffset(value, 0), readOriginOffset(value, 1),
+                readOriginOffset(value, 2));
         } catch (Exception error) {
             return null;
         }
@@ -832,6 +934,11 @@ public final class LiveNbtEditorMod {
         value.add("size", sizeJson(active.size()));
         value.add("source_size", sizeJson(active.sourceSize()));
         value.addProperty("test_placements", active.testPlacements());
+        JsonArray originOffset = new JsonArray();
+        originOffset.add(active.originOffsetX());
+        originOffset.add(active.originOffsetY());
+        originOffset.add(active.originOffsetZ());
+        value.add("origin_offset", originOffset);
         writeJson(Filesystem.liveRoot(server).resolve("state.json"), value);
     }
 
@@ -867,6 +974,12 @@ public final class LiveNbtEditorMod {
         return active == null ? new Vec3i(0, 0, 0) : active.size();
     }
 
+    static BlockPos activeStructureOrigin() {
+        return active == null ? ORIGIN : ORIGIN.offset(
+            active.originOffsetX(), active.originOffsetY(), active.originOffsetZ()
+        );
+    }
+
     static JsonObject activeStructureMetadata() {
         if (active == null) throw new IllegalStateException("먼저 웹에서 NBT를 여세요.");
         if (activeMetadata == null) activeMetadata = defaultMetadata(active);
@@ -886,7 +999,7 @@ public final class LiveNbtEditorMod {
         if (!player.serverLevel().dimension().equals(EDIT_LEVEL)) {
             throw new IllegalStateException("NBT 편집 차원에서만 영역을 선택할 수 있습니다.");
         }
-        BlockPos start = ORIGIN;
+        BlockPos start = activeStructureOrigin();
         BlockPos end = start.offset(
             active.size().getX() - 1,
             active.size().getY() - 1,
@@ -1024,15 +1137,19 @@ public final class LiveNbtEditorMod {
         return size;
     }
 
+    private static int readOriginOffset(JsonObject value, int axis) {
+        if (value.has("origin_offset") && value.get("origin_offset").isJsonArray()) {
+            JsonArray offset = value.getAsJsonArray("origin_offset");
+            if (offset.size() == 3) return offset.get(axis).getAsInt();
+        }
+        return axis == 1 && value.has("origin_offset_y")
+            ? value.get("origin_offset_y").getAsInt() : 0;
+    }
+
     private static JsonArray sizeJson(Vec3i size) {
         JsonArray value = new JsonArray();
         value.add(size.getX()); value.add(size.getY()); value.add(size.getZ());
         return value;
-    }
-
-    private static Vec3i max(Vec3i left, Vec3i right) {
-        return new Vec3i(Math.max(left.getX(), right.getX()),
-            Math.max(left.getY(), right.getY()), Math.max(left.getZ(), right.getZ()));
     }
 
     private static String format(Vec3i size) {
@@ -1055,7 +1172,8 @@ public final class LiveNbtEditorMod {
     }
 
     private record LiveState(String id, String source, String revision, String sourceDigest,
-                             Vec3i size, Vec3i sourceSize, int testPlacements) {}
+                             Vec3i size, Vec3i sourceSize, int testPlacements,
+                             int originOffsetX, int originOffsetY, int originOffsetZ) {}
 
     private static final class Filesystem {
         static Path liveRoot(MinecraftServer server) {

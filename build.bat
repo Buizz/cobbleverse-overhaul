@@ -28,6 +28,7 @@ set "STRUCTURE_BUILDER_PROJECT=%REPO_ROOT%projects\cobbleventure-structure-build
 set "LIVE_NBT_EDITOR_PROJECT=%REPO_ROOT%projects\cobbleventure-live-nbt-editor"
 set "STRUCTURE_BUILDER_TOOL=%REPO_ROOT%tools\structure-builder\structure_builder.py"
 set "MUSIC_PACK_BUILDER=%REPO_ROOT%tools\music-catalog\music_catalog.py"
+set "PAINTING_PACK_BUILDER=%REPO_ROOT%tools\painting-pack\build_painting_pack.py"
 set "SMOKE_PROFILE=pack\profiles\import-smoke.json"
 set "DEVELOPMENT_PROFILE=pack\profiles\development-placeholder.json"
 set "STRUCTURE_BUILDER_PROFILE=pack\profiles\structure-builder.json"
@@ -67,6 +68,7 @@ if /I "%~1"=="test" goto test
 if /I "%~1"=="generate" goto generate
 if /I "%~1"=="spawns" goto spawns
 if /I "%~1"=="music" goto music
+if /I "%~1"=="paintings" goto paintings
 if /I "%~1"=="mod-ai" goto mod_ai
 if /I "%~1"=="mod-adventure" goto mod_adventure
 if /I "%~1"=="mod-bootstrap" goto mod_bootstrap
@@ -154,6 +156,10 @@ exit /b %errorlevel%
 %PYTHON_CMD% "%MUSIC_PACK_BUILDER%" --root "%REPO_ROOT%."
 exit /b %errorlevel%
 
+:paintings
+%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
+exit /b %errorlevel%
+
 :mod_ai
 call "%GRADLEW%" -p "%BATTLE_AI_PROJECT%" build
 exit /b %errorlevel%
@@ -224,6 +230,8 @@ if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%CASINO_PROJECT%" build
 if errorlevel 1 exit /b %errorlevel%
 call "%GRADLEW%" -p "%POKEFINDER_PROJECT%" build
+if errorlevel 1 exit /b %errorlevel%
+%PYTHON_CMD% "%PAINTING_PACK_BUILDER%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%PACK_BUILDER%" build --root "%REPO_ROOT%." --profile "%DEVELOPMENT_PROFILE%"
 exit /b %errorlevel%
@@ -302,6 +310,7 @@ echo   test           Run Python tests and compile the NeoForge modules
 echo   generate       Generate RCT trainers and in-game AI runtime profiles
 echo   spawns         Generate biome and generation filtered Cobblemon spawns
 echo   music          Build the selected local audio files as a Paxi resource pack
+echo   paintings      Build the Pokemon-themed vanilla painting resource pack
 echo   mod-ai         Build the standalone Battle AI NeoForge mod JAR
 echo   mod-adventure  Build the gameplay rules NeoForge Java mod JAR
 echo   mod-bootstrap  Build the starter-town NeoForge Java mod JAR

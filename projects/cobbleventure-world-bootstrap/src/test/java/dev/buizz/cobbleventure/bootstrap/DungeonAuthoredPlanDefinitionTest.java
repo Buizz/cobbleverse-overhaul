@@ -84,26 +84,26 @@ final class DungeonAuthoredPlanDefinitionTest {
 
         assertEquals(new BlockPos(4, 2, 8), layout.requiredMarker("entry", null));
         assertTrue(java.util.Set.of(
-            new BlockPos(25, 2, 9), new BlockPos(57, 6, 9)
+            new BlockPos(25, 2, 9), new BlockPos(57, 10, 9)
         ).contains(features.get(
             new DungeonPieceLayout.MarkerKey("encounter", "encounter_1")
         )));
         assertEquals(
-            new BlockPos(73, 6, 9),
+            new BlockPos(73, 10, 9),
             features.get(new DungeonPieceLayout.MarkerKey("boss", "boss_1"))
         );
         assertEquals(
-            new BlockPos(57, 6, 27),
+            new BlockPos(57, 10, 27),
             features.get(new DungeonPieceLayout.MarkerKey(
                 "objective", "security_switch"
             ))
         );
         assertTrue(java.util.Set.of(
-            new BlockPos(57, 6, 25), new BlockPos(54, 6, 6)
+            new BlockPos(57, 10, 25), new BlockPos(54, 10, 6)
         ).contains(features.get(
             new DungeonPieceLayout.MarkerKey("loot", "loot_1")
         )));
-        assertEquals(new BlockPos(93, 6, 8), layout.requiredMarker("exit", null));
+        assertEquals(new BlockPos(93, 10, 8), layout.requiredMarker("exit", null));
     }
 
     @Test

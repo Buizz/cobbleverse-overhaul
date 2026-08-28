@@ -53,6 +53,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.Painting;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
@@ -2410,7 +2411,12 @@ public final class StructureBuilderMod {
             position.add(DoubleTag.valueOf(entity.getZ() - origin.getZ()));
             entityInfo.put("pos", position);
 
-            BlockPos relativeBlockPosition = entity.blockPosition().subtract(origin);
+            // StructureTemplate stores paintings by their wall attachment block.
+            // Using the entity bounding-box position makes the attachment climb by
+            // one block whenever the exported NBT is loaded and saved again.
+            BlockPos relativeBlockPosition = entity instanceof Painting painting
+                ? painting.getPos().subtract(origin)
+                : entity.blockPosition().subtract(origin);
             ListTag blockPosition = new ListTag();
             blockPosition.add(IntTag.valueOf(relativeBlockPosition.getX()));
             blockPosition.add(IntTag.valueOf(relativeBlockPosition.getY()));

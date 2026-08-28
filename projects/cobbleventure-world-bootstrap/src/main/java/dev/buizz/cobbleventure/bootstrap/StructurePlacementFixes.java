@@ -9,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderGetter;
@@ -26,7 +25,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DoorBlock;
@@ -37,7 +35,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -55,16 +52,12 @@ final class StructurePlacementFixes {
     private static final int COPYCAT_RESTORE_RETRY_TICKS = 5;
     private static final int COPYCAT_RESTORE_MAX_ATTEMPTS = 20;
     private static final int COPYCAT_RESTORE_PASSES = 2;
-    private static final int COPYCAT_CHUNK_SYNC_DELAY_TICKS = 2;
-    private static final int COPYCAT_CHUNK_SYNC_PASSES = 2;
     private static final Map<ElevatorPulleyKey, PendingElevatorAssembly>
         PENDING_ELEVATOR_ASSEMBLIES = new LinkedHashMap<>();
     private static final Map<ElevatorDoorKey, ElevatorLandingDoors>
         ELEVATOR_LANDING_DOORS = new LinkedHashMap<>();
     private static final Map<CopycatBlockKey, PendingCopycatRestore>
         PENDING_COPYCAT_RESTORES = new LinkedHashMap<>();
-    private static final Map<CopycatChunkSyncKey, PendingCopycatChunkSync>
-        PENDING_COPYCAT_CHUNK_SYNCS = new LinkedHashMap<>();
     private static final Map<Class<?>, Method> COPYCAT_MULTI_SET_MATERIAL_METHODS =
         new LinkedHashMap<>();
     private static final Map<Class<?>, Method> COPYCAT_SINGLE_SET_MATERIAL_METHODS =
@@ -90,7 +83,6 @@ final class StructurePlacementFixes {
     ) {
         Vec3i size = template.getSize(settings.getRotation());
         repairFridges(level, origin, size);
-        restoreCopycatMaterials(level, origin, template, settings);
         markAuthoredStorageBlocks(level, origin, size);
         scheduleElevatorAssemblies(level, origin, template, settings);
     }
@@ -101,10 +93,25 @@ final class StructurePlacementFixes {
     ) {
         BlockPos end = origin.offset(size.getX() - 1, size.getY() - 1, size.getZ() - 1);
         int marked = 0;
+        int synchronizedCopycats = 0;
         for (BlockPos cursor : BlockPos.betweenClosed(origin, end)) {
             BlockPos position = cursor.immutable();
             BlockEntity blockEntity = level.getBlockEntity(position);
-            if (blockEntity == null || !hasItemStorage(level, position, blockEntity)) {
+            if (blockEntity == null) {
+                continue;
+            }
+            ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(
+                blockEntity.getBlockState().getBlock()
+            );
+            if (isCopycatBlock(blockId)) {
+                // StructureTemplate already loaded the authored Material and Item. Copycats
+                // notifies while reading Item, before it reads Material, so send one native
+                // update only after the complete block entity has been loaded.
+                blockEntity.setChanged();
+                level.getChunkSource().blockChanged(position);
+                synchronizedCopycats++;
+            }
+            if (!hasItemStorage(level, position, blockEntity)) {
                 continue;
             }
             blockEntity.getPersistentData().putBoolean(AUTHORED_STORAGE_MARKER, true);
@@ -113,6 +120,12 @@ final class StructurePlacementFixes {
         }
         if (marked > 0) {
             LOGGER.debug("Locked {} authored storage blocks at {}", marked, origin);
+        }
+        if (synchronizedCopycats > 0) {
+            LOGGER.debug(
+                "Synchronized {} authored Copycat blocks at {}",
+                synchronizedCopycats, origin
+            );
         }
     }
 
@@ -143,13 +156,9 @@ final class StructurePlacementFixes {
     static void clearPendingElevatorAssemblies() {
         PENDING_ELEVATOR_ASSEMBLIES.clear();
         ELEVATOR_LANDING_DOORS.clear();
-        PENDING_COPYCAT_RESTORES.clear();
-        PENDING_COPYCAT_CHUNK_SYNCS.clear();
     }
 
     static void tickPendingElevatorAssemblies(MinecraftServer server) {
-        tickPendingCopycatChunkSyncs(server);
-        tickPendingCopycatRestores(server);
         tickElevatorLandingDoors(server);
         Iterator<Map.Entry<ElevatorPulleyKey, PendingElevatorAssembly>> iterator =
             PENDING_ELEVATOR_ASSEMBLIES.entrySet().iterator();
@@ -185,146 +194,6 @@ final class StructurePlacementFixes {
                 pending.triggered() || result == ElevatorAssemblyResult.RETRY_TRIGGERED,
                 pending.minContactY(), pending.maxContactY()
             ));
-        }
-    }
-
-    /**
-     * A structure can finish restoring its copycat materials before a player starts tracking
-     * the containing chunk. In that ordering, the early block-entity packet is discarded by
-     * the client and its already-built chunk model keeps the default copycat-base material.
-     * Resend the authoritative block-entity data just after the chunk becomes visible.
-     */
-    static void scheduleCopycatChunkSync(ServerPlayer player, ChunkPos chunkPos) {
-        ServerLevel level = player.serverLevel();
-        CopycatChunkSyncKey key = new CopycatChunkSyncKey(
-            player.getUUID(), level.dimension(), chunkPos.toLong()
-        );
-        PENDING_COPYCAT_CHUNK_SYNCS.put(
-            key,
-            new PendingCopycatChunkSync(
-                COPYCAT_CHUNK_SYNC_PASSES,
-                level.getGameTime() + COPYCAT_CHUNK_SYNC_DELAY_TICKS
-            )
-        );
-    }
-
-    private static void tickPendingCopycatChunkSyncs(MinecraftServer server) {
-        Iterator<Map.Entry<CopycatChunkSyncKey, PendingCopycatChunkSync>> iterator =
-            PENDING_COPYCAT_CHUNK_SYNCS.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<CopycatChunkSyncKey, PendingCopycatChunkSync> entry = iterator.next();
-            CopycatChunkSyncKey key = entry.getKey();
-            PendingCopycatChunkSync pending = entry.getValue();
-            ServerPlayer player = server.getPlayerList().getPlayer(key.playerId());
-            ServerLevel level = server.getLevel(key.dimension());
-            if (player == null || level == null
-                || !player.serverLevel().dimension().equals(key.dimension())) {
-                iterator.remove();
-                continue;
-            }
-            if (level.getGameTime() < pending.nextSyncTick()) {
-                continue;
-            }
-
-            ChunkPos chunkPos = new ChunkPos(key.chunkKey());
-            LevelChunk chunk = level.getChunkSource().getChunkNow(chunkPos.x, chunkPos.z);
-            if (chunk == null) {
-                iterator.remove();
-                continue;
-            }
-
-            int synced = 0;
-            LinkedHashSet<BlockPos> syncedPositions = new LinkedHashSet<>();
-            for (BlockEntity blockEntity : chunk.getBlockEntities().values()) {
-                ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(
-                    blockEntity.getBlockState().getBlock()
-                );
-                if (!isCopycatBlock(blockId)) {
-                    continue;
-                }
-                var packet = blockEntity.getUpdatePacket();
-                if (packet != null) {
-                    player.connection.send(packet);
-                    syncedPositions.add(blockEntity.getBlockPos().immutable());
-                    synced++;
-                }
-            }
-            // Receiving an identical block-entity packet does not run Copycats' public material
-            // setter. Send the exact positions after those packets so the client can apply the
-            // authoritative values through the same lifecycle used by a player interaction.
-            CopycatRenderSyncNetwork.sync(player, syncedPositions);
-            if (synced > 0) {
-                LOGGER.debug(
-                    "Resent {} copycat block entities to {} for tracked chunk {}",
-                    synced, player.getGameProfile().getName(), chunkPos
-                );
-            }
-
-            int remainingPasses = pending.remainingPasses() - 1;
-            if (remainingPasses <= 0) {
-                iterator.remove();
-            } else {
-                entry.setValue(new PendingCopycatChunkSync(
-                    remainingPasses, level.getGameTime() + COPYCAT_RESTORE_RETRY_TICKS
-                ));
-            }
-        }
-    }
-
-    private static void tickPendingCopycatRestores(MinecraftServer server) {
-        Iterator<Map.Entry<CopycatBlockKey, PendingCopycatRestore>> iterator =
-            PENDING_COPYCAT_RESTORES.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<CopycatBlockKey, PendingCopycatRestore> entry = iterator.next();
-            CopycatBlockKey key = entry.getKey();
-            PendingCopycatRestore pending = entry.getValue();
-            ServerLevel level = server.getLevel(key.dimension());
-            if (level == null || level.getGameTime() < pending.nextAttemptTick()) {
-                continue;
-            }
-
-            BlockState state = level.getBlockState(key.position());
-            if (!BuiltInRegistries.BLOCK.getKey(state.getBlock()).equals(pending.blockId())) {
-                iterator.remove();
-                continue;
-            }
-
-            BlockEntity blockEntity = level.getBlockEntity(key.position());
-            if (blockEntity == null) {
-                int attempts = pending.attempts() + 1;
-                if (attempts >= COPYCAT_RESTORE_MAX_ATTEMPTS) {
-                    LOGGER.warn(
-                        "Copycat material could not be restored after structure placement: "
-                            + "dimension={}, position={}, block={}",
-                        key.dimension().location(), key.position(), pending.blockId()
-                    );
-                    iterator.remove();
-                } else {
-                    entry.setValue(pending.withRetry(
-                        attempts, level.getGameTime() + COPYCAT_RESTORE_RETRY_TICKS
-                    ));
-                }
-                continue;
-            }
-
-            try {
-                applyCopycatMaterial(level, key.position(), state, blockEntity, pending.data());
-                int remainingPasses = pending.remainingPasses() - 1;
-                if (remainingPasses <= 0) {
-                    iterator.remove();
-                } else {
-                    entry.setValue(pending.withPass(
-                        remainingPasses,
-                        level.getGameTime() + COPYCAT_RESTORE_RETRY_TICKS
-                    ));
-                }
-            } catch (RuntimeException error) {
-                LOGGER.warn(
-                    "Failed delayed copycat material restore at {} for {}",
-                    key.position(), pending.blockId(), error
-                );
-                iterator.remove();
-            }
         }
     }
 
@@ -1077,16 +946,6 @@ final class StructurePlacementFixes {
     }
 
     private record CopycatBlockKey(ResourceKey<Level> dimension, BlockPos position) {
-    }
-
-    private record CopycatChunkSyncKey(
-        UUID playerId,
-        ResourceKey<Level> dimension,
-        long chunkKey
-    ) {
-    }
-
-    private record PendingCopycatChunkSync(int remainingPasses, long nextSyncTick) {
     }
 
     private record PendingCopycatRestore(

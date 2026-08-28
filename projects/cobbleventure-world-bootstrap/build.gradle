@@ -149,8 +149,9 @@ tasks.register('cleanDevelopmentFontResourcePacks', Delete) {
 tasks.register('syncDevelopmentResourcePacks', Copy) {
     dependsOn 'cleanDevelopmentFontResourcePacks'
     group = 'cobbleventure development'
-    description = 'Copies the Caxton Pokemon BW MSDF font into the run directory.'
+    description = 'Copies the Cobbleventure resource packs into the run directory.'
     from(rootProject.file('../../local-assets/PokemonBW-Caxton.zip'))
+    from(rootProject.file('../../local-assets/Cobbleventure-Pokemon-Paintings.zip'))
     into(file('run/config/paxi/resourcepacks'))
 }
 

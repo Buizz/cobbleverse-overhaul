@@ -284,6 +284,21 @@ final class LiveEditorTools {
         }
         AnchorSelection exact = selectionAt(preferred);
         if (exact != null) return exact;
+        if (level.getBlockState(clicked).is(Blocks.BARRIER)) {
+            for (JsonElement element : anchors()) {
+                if (!element.isJsonObject()) continue;
+                JsonObject anchor = element.getAsJsonObject();
+                if (!anchorType(anchor).equals("transition")) continue;
+                BlockPos seed = LiveNbtEditorMod.activeStructureOrigin().offset(
+                    anchorPosition(anchor)
+                );
+                if (connectedBarrierRegion(level, seed).contains(clicked)) {
+                    return new AnchorSelection(
+                        "transition", "", anchorLabel(anchor)
+                    );
+                }
+            }
+        }
         AnchorSelection clickedSelection = selectionAt(relative(clicked));
         if (clickedSelection != null) return clickedSelection;
         return new AnchorSelection(
@@ -431,6 +446,19 @@ final class LiveEditorTools {
             BlockPos paired = pairedDoor(level, lower);
             if (paired != null) targets.add(relative(paired));
         }
+        if (level.getBlockState(clicked).is(Blocks.BARRIER)) {
+            for (JsonElement element : anchors()) {
+                if (!element.isJsonObject()) continue;
+                JsonObject anchor = element.getAsJsonObject();
+                if (!anchorType(anchor).equals("transition")) continue;
+                BlockPos seed = LiveNbtEditorMod.activeStructureOrigin().offset(
+                    anchorPosition(anchor)
+                );
+                if (connectedBarrierRegion(level, seed).contains(clicked)) {
+                    targets.add(anchorPosition(anchor));
+                }
+            }
+        }
         JsonArray anchors = anchors();
         int removed = 0;
         for (int index = anchors.size() - 1; index >= 0; index--) {
@@ -510,7 +538,7 @@ final class LiveEditorTools {
         return anchors().size();
     }
 
-    private static Set<BlockPos> connectedBarrierRegion(ServerLevel level, BlockPos seed) {
+    static Set<BlockPos> connectedBarrierRegion(ServerLevel level, BlockPos seed) {
         Set<BlockPos> result = new HashSet<>();
         ArrayDeque<BlockPos> pending = new ArrayDeque<>();
         pending.add(seed.immutable());
@@ -565,7 +593,7 @@ final class LiveEditorTools {
     }
 
     private static BlockPos relative(BlockPos world) {
-        return world.subtract(LiveNbtEditorMod.ORIGIN);
+        return world.subtract(LiveNbtEditorMod.activeStructureOrigin());
     }
 
     private static boolean inside(BlockPos relative) {

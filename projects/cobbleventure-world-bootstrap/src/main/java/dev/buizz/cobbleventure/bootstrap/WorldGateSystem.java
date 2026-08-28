@@ -921,7 +921,7 @@ final class WorldGateSystem {
             Direction inward = horizontalDirection(
                 destination.x() - portal.x(), destination.z() - portal.z()
             );
-            int gateY = safeForestStandY(
+            int gateY = safeForestGateStandY(
                 level, portal.x(), portal.z(), portal.y()
             );
             ForestTemplatePlacement placement = forestTemplatePlacement(
@@ -1585,15 +1585,13 @@ final class WorldGateSystem {
         int minimumY = Math.max(level.getMinBuildHeight() + 1, authoredY - 24);
         int maximumY = Math.min(level.getMaxBuildHeight() - 2, authoredY + 32);
         int startY = Math.max(minimumY, Math.min(maximumY, authoredY));
-        for (int y = startY; y <= maximumY; y++) {
-            if (canStandAt(level, x, y, z)) {
-                return y;
-            }
-        }
-        for (int y = startY - 1; y >= minimumY; y--) {
-            if (canStandAt(level, x, y, z)) {
-                return y;
-            }
+        if (canStandAt(level, x, startY, z)) return startY;
+        int maximumDistance = Math.max(maximumY - startY, startY - minimumY);
+        for (int distance = 1; distance <= maximumDistance; distance++) {
+            int below = startY - distance;
+            if (below >= minimumY && canStandAt(level, x, below, z)) return below;
+            int above = startY + distance;
+            if (above <= maximumY && canStandAt(level, x, above, z)) return above;
         }
         int heightmapY = groundY(level, x, z) + 1;
         if (heightmapY >= level.getMinBuildHeight() + 1
@@ -1606,6 +1604,36 @@ final class WorldGateSystem {
             level.dimension().location(), x, z, authoredY
         );
         return startY;
+    }
+
+    /** Resolves terrain height before the gate template clears trees and vegetation. */
+    private static int safeForestGateStandY(
+        ServerLevel level, int x, int z, int authoredY
+    ) {
+        int minimumY = Math.max(level.getMinBuildHeight() + 1, authoredY - 24);
+        int maximumY = Math.min(level.getMaxBuildHeight() - 2, authoredY + 24);
+        int startY = Math.max(minimumY, Math.min(maximumY, authoredY));
+        if (hasNaturalPortalFloor(level, x, startY, z)) return startY;
+        int maximumDistance = Math.max(maximumY - startY, startY - minimumY);
+        for (int distance = 1; distance <= maximumDistance; distance++) {
+            int below = startY - distance;
+            if (below >= minimumY && hasNaturalPortalFloor(level, x, below, z)) return below;
+            int above = startY + distance;
+            if (above <= maximumY && hasNaturalPortalFloor(level, x, above, z)) return above;
+        }
+        return safeForestStandY(level, x, z, authoredY);
+    }
+
+    private static boolean hasNaturalPortalFloor(
+        ServerLevel level, int x, int feetY, int z
+    ) {
+        BlockPos floor = new BlockPos(x, feetY - 1, z);
+        BlockState state = level.getBlockState(floor);
+        return !state.is(BlockTags.LOGS)
+            && !state.is(BlockTags.LEAVES)
+            && !state.is(Blocks.BARRIER)
+            && !state.getCollisionShape(level, floor).isEmpty()
+            && level.getFluidState(floor).isEmpty();
     }
 
     private static boolean canStandAt(ServerLevel level, int x, int y, int z) {

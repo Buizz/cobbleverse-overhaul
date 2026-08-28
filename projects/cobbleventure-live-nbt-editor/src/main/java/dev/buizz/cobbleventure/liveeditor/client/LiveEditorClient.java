@@ -175,10 +175,18 @@ public final class LiveEditorClient {
                     ), 1.0F, 0.72F, 0.18F);
                 }
             }
-            case "transition" -> renderBox(
-                pose, lines, new AABB(0.02, 0.02, 0.02, 0.98, 0.98, 0.98),
-                0.75F, 0.3F, 1.0F
-            );
+            case "transition" -> {
+                List<BlockPos> region = marker.regionPositions().isEmpty()
+                    ? List.of(block) : marker.regionPositions();
+                for (BlockPos regionBlock : region) {
+                    BlockPos offset = regionBlock.subtract(block);
+                    renderBox(pose, lines, new AABB(
+                        offset.getX() + 0.02D, offset.getY() + 0.02D,
+                        offset.getZ() + 0.02D, offset.getX() + 0.98D,
+                        offset.getY() + 0.98D, offset.getZ() + 0.98D
+                    ), 0.75F, 0.3F, 1.0F);
+                }
+            }
             case "dungeon_marker" -> renderDungeonMarker(pose, lines, marker.kind());
             default -> renderBox(
                 pose, lines, new AABB(0.15, 0.02, 0.15, 0.85, 0.18, 0.85),
@@ -245,6 +253,21 @@ public final class LiveEditorClient {
         if (marker.pairedPosition() != null) {
             centerX = (block.getX() + marker.pairedPosition().getX()) / 2.0D + 0.5D;
             centerZ = (block.getZ() + marker.pairedPosition().getZ()) / 2.0D + 0.5D;
+        }
+        if (marker.type().equals("transition") && !marker.regionPositions().isEmpty()) {
+            int minX = marker.regionPositions().stream().mapToInt(BlockPos::getX).min()
+                .orElse(block.getX());
+            int maxX = marker.regionPositions().stream().mapToInt(BlockPos::getX).max()
+                .orElse(block.getX());
+            int maxY = marker.regionPositions().stream().mapToInt(BlockPos::getY).max()
+                .orElse(block.getY());
+            int minZ = marker.regionPositions().stream().mapToInt(BlockPos::getZ).min()
+                .orElse(block.getZ());
+            int maxZ = marker.regionPositions().stream().mapToInt(BlockPos::getZ).max()
+                .orElse(block.getZ());
+            centerX = (minX + maxX) / 2.0D + 0.5D;
+            centerZ = (minZ + maxZ) / 2.0D + 0.5D;
+            height = maxY - block.getY() + 1.35D;
         }
         pose.pushPose();
         pose.translate(
@@ -367,22 +390,54 @@ public final class LiveEditorClient {
     }
 
     private static final class EditorToolsScreen extends Screen {
+        private EditBox amount;
+
         private EditorToolsScreen() {
             super(Component.literal("라이브 NBT 영역 도구"));
         }
 
         @Override
         protected void init() {
-            int x = width / 2 - 130;
-            int y = height / 2 - 45;
+            int x = width / 2 - 150;
+            int y = height / 2 - 120;
+            amount = new EditBox(font, x + 112, y + 55, 64, 20, Component.literal("이동 칸 수"));
+            amount.setFilter(value -> value.isEmpty() || value.matches("[0-9]+"));
+            amount.setMaxLength(2);
+            amount.setValue("1");
+            addRenderableWidget(amount);
+
+            addMoveButton(x + 14, y + 89, "위 (+Y)", "up");
+            addMoveButton(x + 106, y + 89, "아래 (-Y)", "down");
+            addMoveButton(x + 198, y + 89, "북 (-Z)", "north");
+            addMoveButton(x + 14, y + 115, "남 (+Z)", "south");
+            addMoveButton(x + 106, y + 115, "서 (-X)", "west");
+            addMoveButton(x + 198, y + 115, "동 (+X)", "east");
+
             Button select = Button.builder(Component.literal("WorldEdit 영역 선택"), button -> {
                 PacketDistributor.sendToServer(new LiveEditorNetwork.SelectWorldEditPayload());
-                onClose();
-            }).bounds(x + 14, y + 52, 232, 20).build();
+            }).bounds(x + 34, y + 158, 232, 20).build();
             select.active = active;
             addRenderableWidget(select);
             addRenderableWidget(Button.builder(Component.literal("닫기"), button -> onClose())
-                .bounds(x + 80, y + 80, 100, 20).build());
+                .bounds(x + 100, y + 190, 100, 20).build());
+            setInitialFocus(amount);
+        }
+
+        private void addMoveButton(int x, int y, String label, String direction) {
+            Button button = Button.builder(Component.literal(label), ignored -> {
+                int blocks;
+                try {
+                    blocks = Integer.parseInt(amount.getValue());
+                } catch (NumberFormatException error) {
+                    return;
+                }
+                if (blocks < 1 || blocks > 64) return;
+                PacketDistributor.sendToServer(
+                    new LiveEditorNetwork.MoveBoundsPayload(direction, blocks)
+                );
+            }).bounds(x, y, 88, 20).build();
+            button.active = active;
+            addRenderableWidget(button);
         }
 
         @Override
@@ -395,17 +450,22 @@ public final class LiveEditorClient {
 
         @Override
         public void render(GuiGraphics graphics, int mouseX, int mouseY, float tick) {
-            int x = width / 2 - 130;
-            int y = height / 2 - 45;
-            graphics.fill(x + 3, y + 3, x + 263, y + 113, 0x80000000);
-            graphics.fill(x, y, x + 260, y + 110, 0xF01C222B);
-            graphics.fill(x, y, x + 260, y + 2, 0xFF61D7FF);
+            int x = width / 2 - 150;
+            int y = height / 2 - 120;
+            graphics.fill(x + 3, y + 3, x + 303, y + 223, 0x80000000);
+            graphics.fill(x, y, x + 300, y + 220, 0xF01C222B);
+            graphics.fill(x, y, x + 300, y + 2, 0xFF61D7FF);
             graphics.drawCenteredString(font, title, width / 2, y + 13, 0xFFFFFFFF);
             graphics.drawCenteredString(
                 font,
                 active ? structureId + " · " + size.getX() + "×" + size.getY() + "×" + size.getZ()
                     : "먼저 웹에서 NBT를 여세요.",
                 width / 2, y + 31, active ? 0xFFB9C5D2 : 0xFFFF9C79
+            );
+            graphics.drawString(font, "이동 칸 수", x + 48, y + 61, 0xFFFFFFFF, false);
+            graphics.drawCenteredString(
+                font, "절대 방위 기준 · 블록/엔티티는 움직이지 않음",
+                width / 2, y + 141, 0xFF8797A8
             );
             super.render(graphics, mouseX, mouseY, tick);
         }

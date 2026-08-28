@@ -16369,6 +16369,16 @@ async function loadStructureBuilder() {
   if (!result.ok) throw new Error(result.data.error || "건축 월드 설정을 불러오지 못했습니다.");
   state.structureBuilder = result.data;
   renderStructureBuilder();
+  if (result.data.live_import?.imported) {
+    const selected = state.buildingSettings.selected;
+    lazyDataLoaded.structures = false;
+    lazyDataLoaded.buildingSettings = false;
+    state.buildingSettings.model = null;
+    await loadStructureData(true);
+    if (selected && buildingEntries().some(([id]) => id === selected)) {
+      await loadBuildingModel(selected);
+    }
+  }
 }
 
 async function saveStructureBuilderSettings() {

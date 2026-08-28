@@ -257,6 +257,11 @@
       "source": "local-assets/PokemonBW-Caxton.zip",
       "target": "PokemonBW-Caxton.zip",
       "pack_format": 34
+    },
+    {
+      "source": "local-assets/Cobbleventure-Pokemon-Paintings.zip",
+      "target": "Cobbleventure-Pokemon-Paintings.zip",
+      "pack_format": 34
     }
   ],
   "overrides_directory": "pack/overrides/development-placeholder",

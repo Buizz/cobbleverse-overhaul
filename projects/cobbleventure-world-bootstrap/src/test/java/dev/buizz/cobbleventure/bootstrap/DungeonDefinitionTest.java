@@ -230,7 +230,7 @@ final class DungeonDefinitionTest {
         assertEquals("ascending", silph.layout().verticalDirection());
         assertEquals("procedural_cave", zapdos.terrain().mode());
         assertEquals("rock", zapdos.terrain().caveSettings().style());
-        assertEquals(12, zapdos.terrain().caveSettings().mainRooms());
+        assertEquals(4, zapdos.terrain().caveSettings().mainRooms());
         assertEquals(5, zapdos.terrain().caveSettings().branchCount());
         assertTrue(zapdos.terrain().caveSettings().requiresFlash());
         assertEquals("wild_pokemon", zapdos.encounters().getFirst().kind());

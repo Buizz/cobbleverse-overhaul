@@ -38,7 +38,8 @@ public final class LiveEditorNetwork {
     static void sendSnapshot(ServerPlayer player) {
         PacketDistributor.sendToPlayer(player, new SnapshotPayload(
             LiveNbtEditorMod.hasActiveStructure(), LiveNbtEditorMod.activeStructureId(),
-            LiveNbtEditorMod.ORIGIN, LiveNbtEditorMod.activeStructureSize(), markers(player)
+            LiveNbtEditorMod.activeStructureOrigin(), LiveNbtEditorMod.activeStructureSize(),
+            markers(player)
         ));
     }
 
@@ -71,16 +72,22 @@ public final class LiveEditorNetwork {
             String facing = anchor.has("facing") ? anchor.get("facing").getAsString()
                 : anchor.has("door_facing") ? anchor.get("door_facing").getAsString() : "";
             String kind = anchor.has("kind") ? anchor.get("kind").getAsString() : "";
-            BlockPos position = LiveNbtEditorMod.ORIGIN.offset(relative);
+            BlockPos position = LiveNbtEditorMod.activeStructureOrigin().offset(relative);
             BlockPos pairedPosition = type.equals("door") && editLevel != null
                 ? LiveEditorTools.pairedDoor(editLevel, position) : null;
-            result.add(new Marker(label, type, kind, position, pairedPosition, facing));
+            List<BlockPos> regionPositions = type.equals("transition") && editLevel != null
+                ? LiveEditorTools.connectedBarrierRegion(editLevel, position).stream()
+                    .sorted(java.util.Comparator.comparingLong(BlockPos::asLong)).toList()
+                : List.of();
+            result.add(new Marker(
+                label, type, kind, position, pairedPosition, regionPositions, facing
+            ));
         }
         return List.copyOf(result);
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("3");
+        PayloadRegistrar registrar = event.registrar("5");
         registrar.playToClient(
             OpenAnchorPayload.TYPE, OpenAnchorPayload.CODEC, LiveEditorNetwork::handleOpen
         );
@@ -93,6 +100,10 @@ public final class LiveEditorNetwork {
         registrar.playToServer(
             SelectWorldEditPayload.TYPE, SelectWorldEditPayload.CODEC,
             LiveEditorNetwork::handleWorldEditSelect
+        );
+        registrar.playToServer(
+            MoveBoundsPayload.TYPE, MoveBoundsPayload.CODEC,
+            LiveEditorNetwork::handleMoveBounds
         );
         registrar.playToClient(
             ConfirmOpenPayload.TYPE, ConfirmOpenPayload.CODEC,
@@ -142,6 +153,17 @@ public final class LiveEditorNetwork {
         if (!(context.player() instanceof ServerPlayer player)) return;
         try {
             LiveNbtEditorMod.selectWorldEditRegion(player);
+        } catch (RuntimeException error) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                "[Live NBT Editor] " + error.getMessage()
+            ));
+        }
+    }
+
+    private static void handleMoveBounds(MoveBoundsPayload payload, IPayloadContext context) {
+        if (!(context.player() instanceof ServerPlayer player)) return;
+        try {
+            LiveNbtEditorMod.moveBounds(player, payload.direction(), payload.blocks());
         } catch (RuntimeException error) {
             player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                 "[Live NBT Editor] " + error.getMessage()
@@ -247,6 +269,10 @@ public final class LiveEditorNetwork {
                 if (marker.pairedPosition() != null) {
                     buffer.writeBlockPos(marker.pairedPosition());
                 }
+                buffer.writeVarInt(marker.regionPositions().size());
+                for (BlockPos regionPosition : marker.regionPositions()) {
+                    buffer.writeBlockPos(regionPosition);
+                }
                 buffer.writeUtf(marker.facing());
             }
         }
@@ -264,8 +290,14 @@ public final class LiveEditorNetwork {
                 String kind = buffer.readUtf();
                 BlockPos position = buffer.readBlockPos();
                 BlockPos pairedPosition = buffer.readBoolean() ? buffer.readBlockPos() : null;
+                int regionCount = Math.min(4096, buffer.readVarInt());
+                List<BlockPos> regionPositions = new ArrayList<>(regionCount);
+                for (int regionIndex = 0; regionIndex < regionCount; regionIndex++) {
+                    regionPositions.add(buffer.readBlockPos());
+                }
                 markers.add(new Marker(
-                    label, type, kind, position, pairedPosition, buffer.readUtf()
+                    label, type, kind, position, pairedPosition,
+                    List.copyOf(regionPositions), buffer.readUtf()
                 ));
             }
             return new SnapshotPayload(
@@ -281,7 +313,7 @@ public final class LiveEditorNetwork {
 
     public record Marker(
         String label, String type, String kind, BlockPos position, BlockPos pairedPosition,
-        String facing
+        List<BlockPos> regionPositions, String facing
     ) {}
 
     public record SelectWorldEditPayload() implements CustomPacketPayload {
@@ -294,6 +326,27 @@ public final class LiveEditorNetwork {
         public Type<? extends CustomPacketPayload> type() {
             return TYPE;
         }
+    }
+
+    public record MoveBoundsPayload(
+        String direction, int blocks
+    ) implements CustomPacketPayload {
+        private static final Type<MoveBoundsPayload> TYPE =
+            new Type<>(id("move_bounds"));
+        private static final StreamCodec<RegistryFriendlyByteBuf, MoveBoundsPayload> CODEC =
+            StreamCodec.ofMember(MoveBoundsPayload::write, MoveBoundsPayload::read);
+
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(direction);
+            buffer.writeVarInt(blocks);
+        }
+
+        private static MoveBoundsPayload read(RegistryFriendlyByteBuf buffer) {
+            return new MoveBoundsPayload(buffer.readUtf(), buffer.readVarInt());
+        }
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
     record ConfirmOpenPayload(

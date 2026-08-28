@@ -412,7 +412,6 @@ public final class CobbleventureBootstrap {
         LocalWeatherSystem.register(modBus);
         GateDialogueNetwork.register(modBus);
         GymBlockerVisibilityNetwork.register(modBus);
-        CopycatRenderSyncNetwork.register(modBus);
         DungeonSystem.register(modBus);
         GymInteriorSystem.register();
         BuildingRuntimeSystem.register();
@@ -762,7 +761,6 @@ public final class CobbleventureBootstrap {
         if (data.isTownDebrisCleanupPending(chunkKey)) {
             scheduledTownDebrisCleanup.putIfAbsent(chunkKey, level.getGameTime() + 2L);
         }
-        StructurePlacementFixes.scheduleCopycatChunkSync(player, event.getPos());
         repairLogBridgeChunk(level, event.getPos());
     }
 

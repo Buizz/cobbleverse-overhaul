@@ -1,6 +1,9 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import com.google.gson.JsonParser;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
@@ -10,6 +13,7 @@ import net.minecraft.nbt.NbtIo;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 final class CasinoInteriorStructureTest {
     @Test
@@ -21,12 +25,31 @@ final class CasinoInteriorStructureTest {
             structure = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
         }
 
-        assertFalse(stateAt(structure, 23, 0, 2).endsWith(":air"));
-        assertFalse(stateAt(structure, 34, 0, 16).endsWith(":air"));
-        assertFalse(
-            stateAt(structure, 33, 0, 16).endsWith(":air"),
-            () -> "Nearest supported floor positions: " + supportedNear(structure, 33, 16)
-        );
+        try (InputStream input = getClass().getResourceAsStream(
+            "/data/cobbleventure/structure_metadata/interiors/casino.structure.json"
+        )) {
+            assertNotNull(input);
+            var metadata = JsonParser.parseReader(
+                new InputStreamReader(input, StandardCharsets.UTF_8)
+            ).getAsJsonObject();
+            for (var anchorElement : metadata.getAsJsonArray("anchors")) {
+                var anchor = anchorElement.getAsJsonObject();
+                if (!anchor.has("safe_spawn")) {
+                    continue;
+                }
+                var spawn = anchor.getAsJsonArray("safe_spawn");
+                int x = spawn.get(0).getAsInt();
+                int y = spawn.get(1).getAsInt();
+                int z = spawn.get(2).getAsInt();
+                assertFalse(
+                    stateAt(structure, x, y - 1, z).endsWith(":air"),
+                    () -> "Unsupported safe_spawn for casino anchor "
+                        + anchor.get("id") + ": " + x + "," + y + "," + z
+                        + "; nearest supported positions: "
+                        + supportedNear(structure, x, y - 1, z)
+                );
+            }
+        }
     }
 
     private static String stateAt(CompoundTag structure, int x, int y, int z) {
@@ -42,12 +65,14 @@ final class CasinoInteriorStructureTest {
         return "minecraft:air";
     }
 
-    private static List<String> supportedNear(CompoundTag structure, int centerX, int centerZ) {
+    private static List<String> supportedNear(
+        CompoundTag structure, int centerX, int y, int centerZ
+    ) {
         List<String> result = new ArrayList<>();
         for (int x = 0; x < 48; x++) {
             for (int z = 0; z < 48; z++) {
-                if (!stateAt(structure, x, 0, z).endsWith(":air")) {
-                    result.add(x + ",1," + z);
+                if (!stateAt(structure, x, y, z).endsWith(":air")) {
+                    result.add(x + "," + (y + 1) + "," + z);
                 }
             }
         }
@@ -55,7 +80,7 @@ final class CasinoInteriorStructureTest {
             .sorted((left, right) -> Integer.compare(
                 distance(left, centerX, centerZ), distance(right, centerX, centerZ)
             ))
-            .limit(20)
+            .limit(12)
             .toList();
     }
 

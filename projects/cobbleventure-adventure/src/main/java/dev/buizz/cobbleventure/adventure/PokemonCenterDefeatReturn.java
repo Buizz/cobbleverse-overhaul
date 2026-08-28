@@ -440,18 +440,27 @@ public final class PokemonCenterDefeatReturn {
     private static BlockPos findNearbySafeRoom(
         ServerLevel level, BlockPos origin, int radius, int verticalRange
     ) {
+        BlockPos sameFloor = findNearbySafeRoomAtY(level, origin, radius, 0);
+        if (sameFloor != null) return sameFloor;
+        for (int y = 1; y <= verticalRange; y++) {
+            BlockPos below = findNearbySafeRoomAtY(level, origin, radius, -y);
+            if (below != null) return below;
+            BlockPos above = findNearbySafeRoomAtY(level, origin, radius, y);
+            if (above != null) return above;
+        }
+        return null;
+    }
+
+    private static BlockPos findNearbySafeRoomAtY(
+        ServerLevel level, BlockPos origin, int radius, int verticalOffset
+    ) {
+        BlockPos layer = origin.offset(0, verticalOffset, 0);
         for (int horizontal = 0; horizontal <= radius; horizontal++) {
             for (int x = -horizontal; x <= horizontal; x++) {
                 for (int z = -horizontal; z <= horizontal; z++) {
                     if (Math.max(Math.abs(x), Math.abs(z)) != horizontal) continue;
-                    BlockPos column = origin.offset(x, 0, z);
+                    BlockPos column = layer.offset(x, 0, z);
                     if (isSafeStandingRoom(level, column)) return column;
-                    for (int y = 1; y <= verticalRange; y++) {
-                        BlockPos above = column.above(y);
-                        if (isSafeStandingRoom(level, above)) return above;
-                        BlockPos below = column.below(y);
-                        if (isSafeStandingRoom(level, below)) return below;
-                    }
                 }
             }
         }

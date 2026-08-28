@@ -7233,6 +7233,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".building-door-route", styles)
         self.assertIn(".interior-creation-status", styles)
         self.assertIn("@keyframes interior-creation-spin", styles)
+        self.assertIn("height: clamp(680px, calc(100vh - 170px), 860px);", styles)
+        self.assertIn(".building-npc-editor { min-width: 0; overflow-y: auto;", styles)
+        self.assertIn("if (result.data.live_import?.imported)", script)
+        self.assertIn("await loadStructureData(true);", script)
+        self.assertIn("await loadBuildingModel(selected);", script)
 
     def test_space_connections_use_visual_tab_and_sync_building_routes(self) -> None:
         web_root = Path(__file__).parents[1] / "web"
