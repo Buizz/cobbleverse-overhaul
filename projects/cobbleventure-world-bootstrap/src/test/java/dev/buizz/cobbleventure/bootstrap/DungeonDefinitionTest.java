@@ -245,12 +245,21 @@ final class DungeonDefinitionTest {
         assertEquals(2, casino.match().requiredPlayers());
         assertEquals("summon_all", casino.multiplayer().battleJoin());
         assertEquals(2, casino.encounters().size());
-        assertEquals(2, casino.encounters().getFirst().npcs().size());
-        assertEquals(2, casino.encounters().getLast().npcs().size());
+        assertEquals(2, casino.encounters().getFirst().trainers().size());
+        assertEquals(2, casino.encounters().getLast().trainers().size());
         assertEquals(4, casino.encounters().stream()
-            .flatMap(encounter -> encounter.npcs().stream()).distinct().count());
-        assertEquals(2, casino.encounters().getFirst().runStateKeys().size());
-        assertEquals(2, casino.encounters().getLast().runStateKeys().size());
+            .flatMap(encounter -> encounter.trainers().stream())
+            .map(DungeonDefinition.TrainerActor::id).distinct().count());
+        assertTrue(casino.encounters().stream().allMatch(encounter ->
+            encounter.npcs().isEmpty() && encounter.runStateKeys().isEmpty()
+                && encounter.trigger() != null
+                && encounter.trigger().type().equals("proximity")
+                && encounter.trigger().leader() == 0
+        ));
+        assertEquals(
+            "cobbleventure:trainer_class/villain_admin",
+            casino.encounters().getLast().trainers().getFirst().trainerClass()
+        );
         assertEquals(List.of("basement_guard"), casino.encounters().getLast().requires());
         assertEquals("independent", silph.multiplayer().mode());
         assertEquals(2, silph.match().requiredPlayers());

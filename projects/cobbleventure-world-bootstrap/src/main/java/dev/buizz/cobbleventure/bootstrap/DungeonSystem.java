@@ -12,6 +12,9 @@ import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
 import dev.buizz.cobbleventure.adventure.event.EventBattlePreset;
 import dev.buizz.cobbleventure.adventure.event.EventBattlePresetRepository;
+import dev.buizz.cobbleventure.adventure.event.DungeonEncounterEvent;
+import dev.buizz.cobbleventure.adventure.event.EventDialogueLifecycle;
+import dev.buizz.cobbleventure.adventure.event.EventSessionKey;
 import dev.buizz.cobbleventure.adventure.event.EventNpcProximityHandler;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
@@ -73,6 +76,7 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -114,6 +118,8 @@ final class DungeonSystem {
     private static final Set<Integer> ACTIVE_SLOTS = new HashSet<>();
     private static final Set<UUID> COMPLETING_RUNS = new HashSet<>();
     private static final Set<UUID> INTERNAL_TELEPORTS = new HashSet<>();
+    private static final Set<DungeonTriggerKey> DUNGEON_WARNING_INSIDE = new HashSet<>();
+    private static final Set<DungeonTriggerKey> DUNGEON_TRIGGER_INSIDE = new HashSet<>();
     private static final long TETHER_WARNING_COOLDOWN_TICKS = 100L;
     private static final long OBJECTIVE_TRACKER_INTERVAL_TICKS = 80L;
 
@@ -130,6 +136,7 @@ final class DungeonSystem {
         EventNpcProximityHandler.setTriggerGuard(
             DungeonSystem::canTriggerDungeonNpc
         );
+        EventDialogueLifecycle.register(DungeonSystem::onDialogueStateChanged);
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(
             EventPriority.HIGHEST, DungeonSystem::onEntityInteract
@@ -239,6 +246,8 @@ final class DungeonSystem {
         ACTIVE_SLOTS.clear();
         COMPLETING_RUNS.clear();
         INTERNAL_TELEPORTS.clear();
+        DUNGEON_WARNING_INSIDE.clear();
+        DUNGEON_TRIGGER_INSIDE.clear();
         restorePersistedRuns(server);
         LOGGER.info(
             "Dungeon catalog loaded: definitions={}, entrances={}",
@@ -1306,15 +1315,21 @@ final class DungeonSystem {
                 );
                 continue;
             }
-            for (int index = 0; index < encounter.npcs().size(); index++) {
+            for (int index = 0; index < encounter.actorCount(); index++) {
                 int opponentIndex = index;
                 BlockPos position = encounterNpcPosition(
                     level, authoredPosition, encounter.yaw(), opponentIndex
                 );
-                if (!CobbleventureBootstrap.spawnRegionalNpc(
-                    level, encounter.npcs().get(opponentIndex), position,
-                    encounter.yaw(), "proximity"
-                )) {
+                boolean placed = encounter.trainers().isEmpty()
+                    ? CobbleventureBootstrap.spawnRegionalNpc(
+                        level, encounter.npcs().get(opponentIndex), position,
+                        encounter.yaw(), "proximity"
+                    )
+                    : spawnDungeonActor(
+                        level, encounter.trainers().get(opponentIndex), position,
+                        encounter.yaw()
+                    );
+                if (!placed) {
                     throw new IllegalStateException(
                         "Dungeon NPC placement failed: " + encounter.id()
                             + "[" + opponentIndex + "]"
@@ -1341,6 +1356,53 @@ final class DungeonSystem {
             }
         }
         return new SpawnedEncounters(Map.copyOf(spawned), Map.copyOf(positions));
+    }
+
+    private static boolean spawnDungeonActor(
+        ServerLevel level,
+        DungeonDefinition.TrainerActor trainer,
+        BlockPos position,
+        float yaw
+    ) {
+        Set<UUID> existing = level.getEntitiesOfClass(
+            Entity.class, new AABB(position).inflate(4.0D, 8.0D, 4.0D),
+            DungeonSystem::isEasyNpc
+        ).stream().map(Entity::getUUID).collect(Collectors.toSet());
+        String slug = trainer.trainerClass().substring(
+            trainer.trainerClass().lastIndexOf('/') + 1
+        );
+        String command = "easy_npc preset import_new data easy_npc:preset/dungeon_actor/"
+            + slug + ".npc.snbt " + position.getX() + " " + position.getY()
+            + " " + position.getZ();
+        try {
+            int result = level.getServer().getCommands().getDispatcher().execute(
+                command,
+                level.getServer().createCommandSourceStack()
+                    .withLevel(level)
+                    .withPosition(Vec3.atLowerCornerOf(position))
+                    .withRotation(new Vec2(0.0F, yaw))
+                    .withPermission(4)
+                    .withSuppressedOutput()
+            );
+            Entity created = level.getEntitiesOfClass(
+                Entity.class, new AABB(position).inflate(4.0D, 8.0D, 4.0D),
+                candidate -> isEasyNpc(candidate) && !existing.contains(candidate.getUUID())
+            ).stream().min(java.util.Comparator.comparingDouble(
+                candidate -> candidate.distanceToSqr(Vec3.atCenterOf(position))
+            )).orElse(null);
+            if (result == 0 || created == null) return false;
+            created.setCustomName(Component.literal(trainer.displayName()));
+            created.setCustomNameVisible(true);
+            created.setYRot(yaw);
+            created.addTag("cobbleventure_dungeon_actor/" + trainer.id());
+            return true;
+        } catch (CommandSyntaxException error) {
+            LOGGER.error(
+                "Dungeon actor placement failed: trainer={}, position={}",
+                trainer.id(), position, error
+            );
+            return false;
+        }
     }
 
     private static BlockPos encounterNpcPosition(
@@ -1976,6 +2038,21 @@ final class DungeonSystem {
         return true;
     }
 
+    private static synchronized void onDialogueStateChanged(
+        ServerPlayer player, EventSessionKey sessionKey, boolean open
+    ) {
+        if (open || !sessionKey.scriptId().equals(DungeonEncounterEvent.SCRIPT_ID)) {
+            return;
+        }
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null) return;
+        EncounterRuntime runtime = run.encounters();
+        if (player.getUUID().equals(runtime.dialoguePlayerId)) {
+            runtime.dialogueEncounterId = null;
+            runtime.dialoguePlayerId = null;
+        }
+    }
+
     private static boolean startGeneratedEncounter(
         ActiveRun run,
         DungeonDefinition definition,
@@ -2005,7 +2082,7 @@ final class DungeonSystem {
         List<String> trainerIds = new ArrayList<>();
         DungeonGeneratedTrainer.Result firstGenerated = null;
         try {
-            for (int index = 0; index < encounter.npcs().size(); index++) {
+            for (int index = 0; index < encounter.actorCount(); index++) {
                 Entity entity = index == interactedRef.opponentIndex()
                     ? interactedEntity : generatedEncounterEntity(run, encounter, index);
                 if (!(entity instanceof LivingEntity living)) {
@@ -2146,7 +2223,7 @@ final class DungeonSystem {
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
             BlockPos authored = runtime.positionsById.get(encounter.id());
             if (authored == null) continue;
-            for (int index = 0; index < encounter.npcs().size(); index++) {
+            for (int index = 0; index < encounter.actorCount(); index++) {
                 EncounterEntityRef ref = new EncounterEntityRef(encounter.id(), index);
                 if (assigned.contains(ref)) continue;
                 BlockPos expected = encounterNpcPosition(
@@ -3060,6 +3137,8 @@ final class DungeonSystem {
             active -> active == removed
         )) {
             ACTIVE_SLOTS.remove(removed.slot());
+            DUNGEON_WARNING_INSIDE.removeIf(key -> key.runId().equals(removed.runId()));
+            DUNGEON_TRIGGER_INSIDE.removeIf(key -> key.runId().equals(removed.runId()));
         }
         return removed;
     }
@@ -3167,6 +3246,7 @@ final class DungeonSystem {
             if (gameTime % 10L == 0L) {
                 DungeonDefinition definition = definitions.get(run.dungeonId());
                 if (definition != null) {
+                    activateDungeonOwnedEncounters(run, definition);
                     activateNearbyInvestigations(run, definition);
                     unlockSatisfiedGates(run, definition);
                 }
@@ -3174,6 +3254,105 @@ final class DungeonSystem {
         }
         if (gameTime % 20L == 0L) {
             persistActiveRuns(event.getServer());
+        }
+    }
+
+    private static void activateDungeonOwnedEncounters(
+        ActiveRun run, DungeonDefinition definition
+    ) {
+        EncounterRuntime runtime = run.encounters();
+        for (DungeonDefinition.Encounter encounter : definition.encounters()) {
+            DungeonDefinition.EncounterTrigger trigger = encounter.trigger();
+            if (trigger == null) continue;
+            Entity leader = generatedEncounterEntity(run, encounter, trigger.leader());
+            if (leader == null) continue;
+            boolean eligible = runtime.statusById.get(encounter.id())
+                == EncounterStatus.AVAILABLE
+                && runtime.pendingEncounterId == null
+                && runtime.dialogueEncounterId == null
+                && !runtime.statusById.containsValue(EncounterStatus.ACTIVE)
+                && encounter.requires().stream().allMatch(required ->
+                    runtime.statusById.get(required) == EncounterStatus.DEFEATED
+                );
+            double triggerSquared = trigger.range() * trigger.range();
+            double warningRange = trigger.range() + trigger.warningOffset();
+            double warningSquared = warningRange * warningRange;
+            for (UUID participantId : run.participantIds()) {
+                ServerPlayer player = run.server().getPlayerList().getPlayer(participantId);
+                if (player == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+                    continue;
+                }
+                DungeonTriggerKey key = new DungeonTriggerKey(
+                    run.runId(), participantId, encounter.id()
+                );
+                double distance = player.distanceToSqr(leader);
+                boolean inWarning = eligible && distance <= warningSquared;
+                boolean inTrigger = eligible && distance <= triggerSquared;
+                if (inWarning && !inTrigger && DUNGEON_WARNING_INSIDE.add(key)) {
+                    executeDungeonUiCommand(
+                        player, "cobbleventure_battle_warning @s "
+                            + leader.getUUID() + " " + trigger.warningTrack()
+                    );
+                } else if ((!inWarning || inTrigger)
+                    && DUNGEON_WARNING_INSIDE.remove(key)) {
+                    executeDungeonUiCommand(player, "cobbleventure_battle_warning_clear @s");
+                }
+                if (!inTrigger) {
+                    DUNGEON_TRIGGER_INSIDE.remove(key);
+                    continue;
+                }
+                if (!DUNGEON_TRIGGER_INSIDE.add(key) || runtime.dialogueEncounterId != null) {
+                    continue;
+                }
+                runtime.dialogueEncounterId = encounter.id();
+                runtime.dialoguePlayerId = participantId;
+                boolean started;
+                try {
+                    started = DungeonEncounterEvent.start(
+                        player,
+                        leader,
+                        "dungeon:" + run.runId() + ":" + encounter.id(),
+                        encounter.opponents().get(trigger.leader()),
+                        selectEncounterLine(run, encounter, trigger.startLines(), "start"),
+                        selectEncounterLine(run, encounter, trigger.winLines(), "win"),
+                        selectEncounterLine(run, encounter, trigger.lossLines(), "loss")
+                    );
+                } catch (RuntimeException error) {
+                    LOGGER.error(
+                        "Dungeon-owned encounter dialogue failed: {} -> {}",
+                        definition.id(), encounter.id(), error
+                    );
+                    started = false;
+                }
+                if (!started) {
+                    runtime.dialogueEncounterId = null;
+                    runtime.dialoguePlayerId = null;
+                    DUNGEON_TRIGGER_INSIDE.remove(key);
+                }
+            }
+        }
+    }
+
+    private static String selectEncounterLine(
+        ActiveRun run,
+        DungeonDefinition.Encounter encounter,
+        List<String> lines,
+        String phase
+    ) {
+        int index = Math.floorMod(
+            java.util.Objects.hash(run.seed(), encounter.id(), phase), lines.size()
+        );
+        return lines.get(index);
+    }
+
+    private static void executeDungeonUiCommand(ServerPlayer player, String command) {
+        try {
+            player.getServer().getCommands().getDispatcher().execute(
+                command,
+                player.createCommandSourceStack().withPermission(4).withSuppressedOutput()
+            );
+        } catch (CommandSyntaxException error) {
+            LOGGER.debug("Dungeon UI command is unavailable: {}", command, error);
         }
     }
 
@@ -4340,6 +4519,8 @@ final class DungeonSystem {
         private String pendingEncounterId;
         private long pendingExpiresAt;
         private Set<UUID> pendingPlayers = Set.of();
+        private String dialogueEncounterId;
+        private UUID dialoguePlayerId;
 
         private EncounterRuntime(
             Map<UUID, EncounterEntityRef> encounterByEntity,
@@ -4355,6 +4536,7 @@ final class DungeonSystem {
     }
 
     private record EncounterEntityRef(String encounterId, int opponentIndex) {}
+    private record DungeonTriggerKey(UUID runId, UUID playerId, String encounterId) {}
 
     private record SpawnedEncounters(
         Map<UUID, EncounterEntityRef> entities,

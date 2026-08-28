@@ -344,11 +344,51 @@ record DungeonDefinition(
                 npcs.add(npcId);
             }
             int expectedActors = multiplayerMode.equals("cooperative") ? 2 : 1;
-            if (encounterKind.equals("trainer") && npcs.size() != expectedActors) {
+            List<TrainerActor> trainers = new ArrayList<>();
+            Set<String> trainerActorIds = new HashSet<>();
+            for (JsonElement trainerElement : encounter.has("trainers")
+                ? encounter.getAsJsonArray("trainers") : List.<JsonElement>of()) {
+                JsonObject trainer = trainerElement.getAsJsonObject();
+                String actorId = requiredString(trainer, "id");
+                if (!actorId.matches("[a-z0-9_.-]+") || !trainerActorIds.add(actorId)) {
+                    throw new IllegalStateException(
+                        "Invalid or duplicate dungeon trainer actor ID: "
+                            + id + " -> " + encounterId + " -> " + actorId
+                    );
+                }
+                String trainerClass = resourceId(trainer, "trainer_class");
+                if (!trainerClass.contains(":trainer_class/")) {
+                    throw new IllegalStateException(
+                        "Dungeon trainer actor class must use namespace:trainer_class/path: "
+                            + trainerClass
+                    );
+                }
+                String battle = resourceId(trainer, "battle");
+                if (!battle.contains(":battle/")) {
+                    throw new IllegalStateException(
+                        "Dungeon trainer actor battle must use namespace:battle/path: "
+                            + battle
+                    );
+                }
+                trainers.add(new TrainerActor(
+                    actorId,
+                    localized(requiredObject(trainer, "display_name"), "ko_kr", "en_us"),
+                    trainerClass,
+                    battle
+                ));
+            }
+            if (!trainers.isEmpty() && (!npcs.isEmpty()
+                || encounter.has("opponents") || encounter.has("trainer_generation"))) {
+                throw new IllegalStateException(
+                    "Dungeon-owned trainers cannot mix legacy NPC or opponent fields: "
+                        + id + " -> " + encounterId
+                );
+            }
+            if (encounterKind.equals("trainer")
+                && (trainers.isEmpty() ? npcs.size() : trainers.size()) != expectedActors) {
                 throw new IllegalStateException(
                     "Dungeon " + multiplayerMode + " encounter requires exactly "
-                        + expectedActors + " NPC(s): "
-                        + id + " -> " + requiredString(encounter, "id")
+                        + expectedActors + " trainer actor(s): " + id + " -> " + encounterId
                 );
             }
             List<String> opponents = new ArrayList<>();
@@ -361,6 +401,9 @@ record DungeonDefinition(
                     );
                 }
                 opponents.add(battleId);
+            }
+            if (!trainers.isEmpty()) {
+                trainers.forEach(trainer -> opponents.add(trainer.battle()));
             }
             GeneratedTrainer generatedTrainer = null;
             if (encounterKind.equals("trainer") && encounter.has("trainer_generation")) {
@@ -422,7 +465,7 @@ record DungeonDefinition(
             }
             WildPokemon wildPokemon = null;
             if (encounterKind.equals("wild_pokemon")) {
-                if (!npcs.isEmpty() || !opponents.isEmpty()) {
+                if (!npcs.isEmpty() || !trainers.isEmpty() || !opponents.isEmpty()) {
                     throw new IllegalStateException(
                         "Wild dungeon encounter cannot define NPC opponents: "
                             + id + " -> " + encounterId
@@ -475,16 +518,62 @@ record DungeonDefinition(
                     }
                 }
             }
+            EncounterTrigger trigger = null;
+            if (encounter.has("trigger")) {
+                if (!encounterKind.equals("trainer") || trainers.isEmpty()) {
+                    throw new IllegalStateException(
+                        "Dungeon-owned trigger requires dungeon-owned trainer actors: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                JsonObject triggerValue = requiredObject(encounter, "trigger");
+                String triggerType = enumValue(
+                    triggerValue, "type", List.of("proximity")
+                );
+                int leader = requiredInt(triggerValue, "leader");
+                if (leader < 0 || leader >= trainers.size()) {
+                    throw new IllegalStateException(
+                        "Dungeon encounter trigger leader is outside NPC list: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                double range = requiredDouble(triggerValue, "range");
+                double warningOffset = requiredDouble(
+                    triggerValue, "warning_offset"
+                );
+                if (range <= 0.0D || warningOffset < 0.0D) {
+                    throw new IllegalStateException(
+                        "Dungeon encounter trigger ranges are invalid: "
+                            + id + " -> " + encounterId
+                    );
+                }
+                String warningTrack = requiredString(
+                    triggerValue, "warning_track"
+                );
+                if (!warningTrack.matches("[A-Za-z0-9._-]+")) {
+                    throw new IllegalStateException(
+                        "Dungeon encounter warning track is invalid: " + warningTrack
+                    );
+                }
+                trigger = new EncounterTrigger(
+                    triggerType, leader, range, warningOffset, warningTrack,
+                    nonEmptyStrings(triggerValue, "start_lines"),
+                    nonEmptyStrings(triggerValue, "win_lines"),
+                    nonEmptyStrings(triggerValue, "loss_lines")
+                );
+            }
             encounters.add(new Encounter(
                 encounterId,
                 localized(requiredObject(encounter, "display_name"), "ko_kr", "en_us"),
                 encounterKind,
                 List.copyOf(npcs),
+                List.copyOf(trainers),
                 List.copyOf(opponents),
                 generatedTrainer,
                 wildPokemon,
                 List.copyOf(requirements),
                 List.copyOf(runStateKeys),
+                trigger,
                 encounter.has("position") ? blockPosition(encounter, "position") : null,
                 encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
                 requiredBoolean(encounter, "boss")
@@ -1090,6 +1179,14 @@ record DungeonDefinition(
         return value.get(key).getAsInt();
     }
 
+    private static double requiredDouble(JsonObject value, String key) {
+        if (!value.has(key) || !value.get(key).isJsonPrimitive()
+            || !value.get(key).getAsJsonPrimitive().isNumber()) {
+            throw new IllegalStateException("Dungeon number is missing: " + key);
+        }
+        return value.get(key).getAsDouble();
+    }
+
     private static boolean requiredBoolean(JsonObject value, String key) {
         if (!value.has(key) || !value.get(key).isJsonPrimitive()
             || !value.get(key).getAsJsonPrimitive().isBoolean()) {
@@ -1217,14 +1314,36 @@ record DungeonDefinition(
         String displayName,
         String kind,
         List<String> npcs,
+        List<TrainerActor> trainers,
         List<String> opponents,
         GeneratedTrainer generatedTrainer,
         WildPokemon pokemon,
         List<String> requires,
         List<String> runStateKeys,
+        EncounterTrigger trigger,
         BlockPos position,
         float yaw,
         boolean boss
+    ) {
+        int actorCount() {
+            return trainers.isEmpty() ? npcs.size() : trainers.size();
+        }
+    }
+    record TrainerActor(
+        String id,
+        String displayName,
+        String trainerClass,
+        String battle
+    ) {}
+    record EncounterTrigger(
+        String type,
+        int leader,
+        double range,
+        double warningOffset,
+        String warningTrack,
+        List<String> startLines,
+        List<String> winLines,
+        List<String> lossLines
     ) {}
     record GeneratedTrainer(
         List<WeightedSpecies> pokemonPool,

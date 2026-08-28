@@ -29,6 +29,7 @@ CATALOG = PROJECT_ROOT / "content" / "catalogs" / "trainer-outfits.json"
 TRAINER_CLASSES = PROJECT_ROOT / "content" / "catalogs" / "trainer-classes.json"
 CONTENT_ROOT = PROJECT_ROOT / "content" / "source"
 BATTLE_ROOT = PROJECT_ROOT / "content" / "battles"
+DUNGEON_ROOT = PROJECT_ROOT / "content" / "dungeons"
 GYM_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "gyms.json"
 LEAGUE_CATALOG = PROJECT_ROOT / "content" / "catalogs" / "league-progression.json"
 TRAINER_ROSTER = PROJECT_ROOT / "content" / "catalogs" / "trainer-roster.json"
@@ -1224,6 +1225,63 @@ def v5_encounter_preset_snbt(
 '''
 
 
+def dungeon_actor_preset_snbt(trainer_class: str, outfit: dict) -> str:
+    """Render an inert class appearance used by dungeon-owned trainer actors."""
+    adapter = outfit["adapters"]["easy_npc"]
+    display = localized(outfit.get("display_name")) or trainer_class.rsplit("/", 1)[-1]
+    slug = trainer_class.rsplit("/", 1)[-1]
+    preset_uuid = str(uuid.uuid5(
+        uuid.NAMESPACE_URL, trainer_class + "/easy_npc_dungeon_actor"
+    ))
+    variant = "ALEX" if outfit.get("arm_model") == "slim" else "STEVE"
+    scale = float(adapter["root_scale"])
+    return f'''{{
+  PresetMetadata:{{
+    author:"Cobbleventure",
+    category:"Cobbleventure Dungeon Actors",
+    created:0L,
+    description:{quote(display + " 던전 생성 NPC 외형")},
+    entityTypeId:{quote(adapter["entity_type"])},
+    modified:0L,
+    name:{quote(display)},
+    variantType:"{variant}",
+    version:"1.0.0"
+  }},
+  data:{{
+    ActionData:{{ActionEventSet:{{}},ActionPermissionLevel:2}},
+    ArmorDropChances:{drop_chances(outfit["equipment"])},
+    ArmorItems:{armor_items(outfit["equipment"])},
+    CustomName:{quote(npc_name_component(display))},
+    DialogData:{{DialogDataSet:[],Type:"CUSTOM"}},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{{Root:{{Scale:[{scale:.3f}f,{scale:.3f}f,{scale:.3f}f]}}}},
+    ObjectiveData:{{HasObjectives:1b,ObjectiveDataSet:[{{Type:"LOOK_AT_PLAYER"}},{{Type:"LOOK_AT_RESET"}}]}},
+    PersistenceRequired:1b,
+    PresetUUID:{uuid_int_array(preset_uuid)},
+    SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid({"npc": {"appearance": {"resource": outfit["base_skin"]}}}, outfit))} }},
+    Tags:["cobbleventure_dungeon_actor","cobbleventure_dungeon_actor_template/{slug}"],
+    VariantType:"{variant}",
+    id:{quote(adapter["entity_type"])}
+  }}
+}}
+'''
+
+
+def dungeon_actor_classes(dungeon_root: Path = DUNGEON_ROOT) -> set[str]:
+    classes: set[str] = set()
+    if not dungeon_root.is_dir():
+        return classes
+    for source in sorted(dungeon_root.rglob("*.json")):
+        document = json.loads(source.read_text(encoding="utf-8"))
+        for encounter in document.get("encounters", []):
+            for trainer in encounter.get("trainers", []):
+                trainer_class = trainer.get("trainer_class")
+                if isinstance(trainer_class, str):
+                    classes.add(trainer_class)
+    return classes
+
+
 def cves_binding_tag(content_root: Path, source: Path, document: dict) -> str | None:
     """Resolve a representation tag by convention without adding it to V4 source."""
     return cves_binding_tag_for_relative(
@@ -1518,6 +1576,28 @@ def generate(
                     newline="\n",
                 )
                 written.append(override_preset)
+    for trainer_class in sorted(dungeon_actor_classes()):
+        outfit = outfits_by_class.get(trainer_class)
+        if outfit is None:
+            raise ValueError(f"던전 NPC 트레이너 클래스 외형이 없습니다: {trainer_class}")
+        slug = trainer_class.rsplit("/", 1)[-1]
+        document = {
+            "id": f"cobbleventure:npc/dungeon_actor/{slug}",
+            "npc": {"appearance": {"resource": outfit["base_skin"]}},
+        }
+        skin_path = prepare_encounter_skin(document, outfit)
+        if skin_path is not None:
+            written.append(skin_path)
+        preset = (
+            RESOURCE_ROOT / "data" / "easy_npc" / "preset"
+            / "dungeon_actor" / f"{slug}.npc.snbt"
+        )
+        preset.parent.mkdir(parents=True, exist_ok=True)
+        preset.write_text(
+            dungeon_actor_preset_snbt(trainer_class, outfit),
+            encoding="utf-8", newline="\n",
+        )
+        written.append(preset)
     return written
 
 

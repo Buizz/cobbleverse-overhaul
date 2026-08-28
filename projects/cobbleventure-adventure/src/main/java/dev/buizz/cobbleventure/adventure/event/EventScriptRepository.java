@@ -9,6 +9,7 @@ import java.io.Reader;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -27,6 +28,7 @@ public final class EventScriptRepository extends SimplePreparableReloadListener<
     private static final String DIRECTORY = "event_script";
 
     private volatile Map<String, EventScript> scripts = Map.of();
+    private final Map<String, EventScript> runtimeScripts = new ConcurrentHashMap<>();
 
     public EventScriptRepository() {}
 
@@ -39,11 +41,24 @@ public final class EventScriptRepository extends SimplePreparableReloadListener<
     }
 
     public Optional<EventScript> find(String scriptId) {
-        return Optional.ofNullable(scripts.get(scriptId));
+        EventScript runtime = runtimeScripts.get(scriptId);
+        return Optional.ofNullable(runtime == null ? scripts.get(scriptId) : runtime);
     }
 
     public Map<String, EventScript> scripts() {
-        return scripts;
+        Map<String, EventScript> result = new LinkedHashMap<>(scripts);
+        result.putAll(runtimeScripts);
+        return Map.copyOf(result);
+    }
+
+    /** Registers a deterministic script owned by another runtime subsystem. */
+    public void installRuntime(EventScript script) {
+        EventScript previous = runtimeScripts.putIfAbsent(script.scriptId(), script);
+        if (previous != null && !previous.sourceDigest().equals(script.sourceDigest())) {
+            throw new EventRuntimeException(
+                "같은 ID의 runtime script 내용이 다릅니다: " + script.scriptId()
+            );
+        }
     }
 
     @Override

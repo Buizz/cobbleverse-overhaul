@@ -5278,7 +5278,7 @@ function dungeonPositionFields(position, prefix = "position") {
 
 function dungeonTrainerModeFields(mode) {
   const option = (value, title, description) => `<button type="button" data-dungeon-trainer-mode="${value}" class="dungeon-trainer-mode-option${mode === value ? " is-active" : ""}"><b>${title}</b><small>${description}</small></button>`;
-  return `<fieldset class="wide dungeon-trainer-mode"><legend>트레이너 구성 방식</legend><input data-dungeon-content-field type="hidden" name="trainerMode" value="${mode}">${option("preset", "고정 트레이너", "NPC와 배틀 프리셋을 직접 짝지어 배치합니다.")}${option("generated", "포켓몬 풀 자동 생성", "외형 NPC만 정하고 포켓몬과 대사를 실행할 때 무작위로 만듭니다.")}</fieldset>`;
+  return `<fieldset class="wide dungeon-trainer-mode"><legend>트레이너 구성 방식</legend><input data-dungeon-content-field type="hidden" name="trainerMode" value="${mode}">${option("dungeon", "던전 자동 NPC", "던전이 외형·대사·배틀을 소유하고 입장할 때 NPC를 생성합니다.")}${option("preset", "기존 NPC 연결", "이미 제작된 NPC와 배틀 프리셋을 직접 짝지어 배치합니다.")}${option("generated", "포켓몬 풀 자동 생성", "외형 NPC만 정하고 포켓몬과 대사를 실행할 때 무작위로 만듭니다.")}</fieldset>`;
 }
 
 function dungeonTrainerNpcSelect(name, selected, label, required = false) {
@@ -5293,6 +5293,21 @@ function dungeonPresetTrainerFields(entry) {
   const npcs = entry.npcs || [];
   const opponents = entry.opponents || [];
   return `<section class="wide dungeon-trainer-assignments"><header><div><b>등장 트레이너</b><small>NPC 외형·대화와 실제 배틀 팀을 같은 번호끼리 연결합니다.</small></div></header>${[0, 1].map((index) => `<article data-dungeon-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${dungeonTrainerNpcSelect(`trainerNpc${index}`, npcs[index] || "", "NPC 프리셋", index === 0)}${dungeonBattleSelect(`trainerBattle${index}`, opponents[index] || "", "배틀 프리셋", index === 0)}</article>`).join("")}</section>`;
+}
+
+function dungeonTrainerClassSelect(name, selected) {
+  const options = state.trainerClasses.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</option>`).join("");
+  return `<label class="dungeon-trainer-select"><span>외형 클래스</span><select data-dungeon-content-field data-dungeon-search-select name="${name}" required>${options}</select></label>`;
+}
+
+function dungeonOwnedTrainerFields(entry) {
+  const trainers = entry.trainers || [];
+  const trigger = entry.trigger || {};
+  const actor = (index) => {
+    const value = trainers[index] || {};
+    return `<article data-dungeon-owned-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${contentField("내부 ID", `ownedTrainerId${index}`, value.id || "", { required: index === 0 })}${contentField("표시 이름", `ownedTrainerName${index}`, value.display_name?.ko_kr || "", { required: index === 0 })}${dungeonTrainerClassSelect(`ownedTrainerClass${index}`, value.trainer_class || "cobbleventure:trainer_class/villain_grunt")}${dungeonBattleSelect(`ownedTrainerBattle${index}`, value.battle || "", "배틀 프리셋", index === 0)}</article>`;
+  };
+  return `<section class="wide dungeon-trainer-assignments"><header><div><b>던전 생성 트레이너</b><small>별도 NPC 파일이나 V5 이벤트 없이 이 설정만으로 생성·조우합니다.</small></div></header>${actor(0)}${actor(1)}</section><section class="wide dungeon-generated-trainer"><header><div><b>근접 조우 연출</b><small>선두 NPC에 접근하면 경고 음악과 공용 V5 대사 뒤 전투가 시작됩니다.</small></div></header>${contentField("선두 번호 (0부터)", "triggerLeader", trigger.leader ?? 0, { type: "number", min: 0, max: 1, required: true })}${contentField("조우 거리", "triggerRange", trigger.range ?? 6, { type: "number", min: 1, max: 32, required: true })}${contentField("경고 추가 거리", "triggerWarningOffset", trigger.warning_offset ?? 3, { type: "number", min: 0, max: 32, required: true })}${contentField("경고 음악", "triggerWarningTrack", trigger.warning_track || "encounter.trainer_bad_guys", { required: true })}${contentField("시작 대사 — 한 줄에 하나", "triggerStartLines", (trigger.start_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("승리 대사 — 한 줄에 하나", "triggerWinLines", (trigger.win_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("패배 대사 — 한 줄에 하나", "triggerLossLines", (trigger.loss_lines || []).join("\n"), { wide: true, multiline: true, required: true })}</section>`;
 }
 
 function dungeonGeneratedTrainerFields(entry) {
@@ -5319,7 +5334,17 @@ function switchDungeonTrainerMode(mode) {
   const selected = selectedDungeonContent();
   if (!selected || selected.kind !== "encounter" || (selected.entry.kind || "trainer") !== "trainer") return;
   const entry = selected.entry;
-  if (mode === "generated") {
+  if (mode === "dungeon") {
+    const battles = entry.opponents || [];
+    entry.trainers ||= battles.map((battle, index) => ({
+      id: index ? "trainer_b" : "trainer_a",
+      display_name: { ko_kr: index ? "던전 트레이너 지원조" : "던전 트레이너" },
+      trainer_class: "cobbleventure:trainer_class/villain_grunt", battle,
+    }));
+    if (!entry.trainers.length) entry.trainers = [{ id: "trainer_a", display_name: { ko_kr: "던전 트레이너" }, trainer_class: "cobbleventure:trainer_class/villain_grunt", battle: state.battles[0]?.id || "cobbleventure:battle/new_encounter" }];
+    entry.trigger ||= { type: "proximity", leader: 0, range: 6, warning_offset: 3, warning_track: "encounter.trainer_bad_guys", start_lines: ["거기서 멈춰!"], win_lines: ["내가 지다니…"], loss_lines: ["여기까지다!"] };
+    delete entry.npcs; delete entry.opponents; delete entry.trainer_generation;
+  } else if (mode === "generated") {
     entry.trainer_generation ||= {
       pokemon_pool: [{ species: "cobblemon:pikachu", weight: 1 }],
       team_size: [1, 3], allow_duplicates: false,
@@ -5327,11 +5352,15 @@ function switchDungeonTrainerMode(mode) {
       battle_end_lines: ["이럴 수가… 다음에는 지지 않겠다!"],
     };
     delete entry.opponents;
+    delete entry.trainers; delete entry.trigger;
   } else {
     entry.opponents ||= [state.battles[0]?.id || "cobbleventure:battle/new_encounter"];
     delete entry.trainer_generation;
+    delete entry.trainers; delete entry.trigger;
   }
-  entry.npcs ||= [state.trainers[0]?.id || "cobbleventure:npc/new_encounter"];
+  if (mode !== "dungeon") {
+    entry.npcs ||= [state.trainers[0]?.id || "cobbleventure:npc/new_encounter"];
+  }
   markDungeonContentDirty();
   renderDungeonContentEditor(); renderDungeonPreview();
 }
@@ -5359,9 +5388,11 @@ function renderDungeonContentProperties() {
       fields += contentField("레벨", "level", entry.pokemon?.level ?? 1, { type: "number", min: 1, max: 100, required: true });
       fields += contentField("포획 가능", "catchable", entry.pokemon?.catchable !== false, { toggle: true });
     } else {
-      const trainerMode = entry.trainer_generation ? "generated" : "preset";
+      const trainerMode = entry.trainers ? "dungeon" : entry.trainer_generation ? "generated" : "preset";
       fields += dungeonTrainerModeFields(trainerMode);
-      if (trainerMode === "preset") {
+      if (trainerMode === "dungeon") {
+        fields += dungeonOwnedTrainerFields(entry);
+      } else if (trainerMode === "preset") {
         fields += dungeonPresetTrainerFields(entry);
       } else {
         const generation = entry.trainer_generation || {};
@@ -5454,11 +5485,20 @@ function updateDungeonContentFromEditor() {
     entry.kind = textValue("encounterKind"); entry.requires = csvValues(textValue("requires")); updatePlacement(); entry.yaw = numberValue("yaw"); entry.boss = checked("boss");
     if (entry.kind === "wild_pokemon") {
       entry.pokemon = { species: textValue("species") || entry.pokemon?.species || "cobblemon:pikachu", level: control("level") ? numberValue("level", 1) : entry.pokemon?.level || 1, catchable: control("catchable") ? checked("catchable") : entry.pokemon?.catchable !== false };
-      delete entry.npcs; delete entry.opponents;
+      delete entry.npcs; delete entry.opponents; delete entry.trainers;
+      delete entry.trigger; delete entry.trainer_generation;
     } else {
-      const npcValues = [...root.querySelectorAll("[data-dungeon-trainer-npc]")].map((field) => field.value).filter(Boolean);
-      entry.npcs = npcValues.length ? npcValues : entry.npcs || ["cobbleventure:npc/new_encounter"];
-      if (textValue("trainerMode") === "generated") {
+      const trainerMode = textValue("trainerMode");
+      if (trainerMode === "dungeon") {
+        const lines = (name) => (control(name)?.value || "").split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+        entry.trainers = [0, 1].map((index) => ({ id: textValue(`ownedTrainerId${index}`), display_name: { ko_kr: textValue(`ownedTrainerName${index}`) }, trainer_class: textValue(`ownedTrainerClass${index}`), battle: textValue(`ownedTrainerBattle${index}`) })).filter((actor) => actor.id && actor.display_name.ko_kr && actor.battle);
+        entry.trigger = { type: "proximity", leader: numberValue("triggerLeader"), range: Number(control("triggerRange")?.value || 6), warning_offset: Number(control("triggerWarningOffset")?.value || 3), warning_track: textValue("triggerWarningTrack"), start_lines: lines("triggerStartLines"), win_lines: lines("triggerWinLines"), loss_lines: lines("triggerLossLines") };
+        delete entry.npcs; delete entry.opponents; delete entry.trainer_generation;
+      } else {
+        const npcValues = [...root.querySelectorAll("[data-dungeon-trainer-npc]")].map((field) => field.value).filter(Boolean);
+        entry.npcs = npcValues.length ? npcValues : entry.npcs || ["cobbleventure:npc/new_encounter"];
+      }
+      if (trainerMode === "generated") {
         const lines = (name) => (control(name)?.value || "").split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
         const pokemonPool = [...root.querySelectorAll("[data-dungeon-pokemon-pool-row]")].map((row) => ({ species: row.querySelector('[name="poolSpecies"]').value.trim(), weight: Math.max(1, Math.round(Number(row.querySelector('[name="poolWeight"]').value) || 1)) })).filter((candidate) => candidate.species);
         entry.trainer_generation = {
@@ -5469,11 +5509,13 @@ function updateDungeonContentFromEditor() {
           battle_end_lines: lines("battleEndLines"),
         };
         delete entry.opponents;
-      } else {
+        delete entry.trainers; delete entry.trigger;
+      } else if (trainerMode === "preset") {
         const slots = [...root.querySelectorAll("[data-dungeon-trainer-slot]")].map((row) => ({ npc: row.querySelector("[data-dungeon-trainer-npc]")?.value || "", battle: row.querySelector("[data-dungeon-trainer-battle]")?.value || "" })).filter((slot) => slot.npc && slot.battle);
         if (slots.length) { entry.npcs = slots.map((slot) => slot.npc); entry.opponents = slots.map((slot) => slot.battle); }
         else entry.opponents ||= ["cobbleventure:battle/new_encounter"];
         delete entry.trainer_generation;
+        delete entry.trainers; delete entry.trigger;
       }
       delete entry.pokemon;
       if (entry.kind === "trainer") delete entry.kind;
@@ -5522,7 +5564,10 @@ function addDungeonContent() {
   const id = nextDungeonContentId(kind);
   let entry;
   const fixedPosition = dungeonSupportsAutomaticPlacement() ? {} : { position: [0, 1, 0] };
-  if (requested === "trainer_encounter") entry = { id, display_name: { ko_kr: "새 트레이너 조우" }, npcs: ["cobbleventure:npc/new_encounter"], opponents: ["cobbleventure:battle/new_encounter"], requires: [], ...fixedPosition, yaw: 0, boss: false };
+  if (requested === "trainer_encounter") {
+    const actorCount = state.dungeon.multiplayer?.mode === "cooperative" ? 2 : 1;
+    entry = { id, display_name: { ko_kr: "새 트레이너 조우" }, trainers: Array.from({ length: actorCount }, (_, index) => ({ id: index ? "trainer_b" : "trainer_a", display_name: { ko_kr: index ? "던전 트레이너 지원조" : "던전 트레이너" }, trainer_class: "cobbleventure:trainer_class/villain_grunt", battle: state.battles[0]?.id || "cobbleventure:battle/new_encounter" })), trigger: { type: "proximity", leader: 0, range: 6, warning_offset: 3, warning_track: "encounter.trainer_bad_guys", start_lines: ["거기서 멈춰!"], win_lines: ["내가 지다니…"], loss_lines: ["여기까지다!"] }, requires: [], ...fixedPosition, yaw: 0, boss: false };
+  }
   else if (requested === "wild_encounter") entry = { id, kind: "wild_pokemon", display_name: { ko_kr: "새 야생 포켓몬" }, pokemon: { species: "cobblemon:pikachu", level: 1, catchable: true }, requires: [], ...fixedPosition, yaw: 0, boss: false };
   else if (kind === "wild_species") entry = { species: "cobblemon:pikachu", min_level: 1, max_level: 1, weight: 10, spawn_as_evolved: false };
   else if (kind === "healing") entry = { id, position: [0, 1, 0], block: "minecraft:lodestone", uses_per_run: 1, restore_hp: true, restore_status: true, restore_pp: true };

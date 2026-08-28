@@ -99,6 +99,18 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         for preset in (outfit_preset, encounter_preset, v5_preset):
             self.assertIn('\\"font\\":\\"minecraft:uniform\\"', preset)
 
+    def test_dungeon_actor_preset_is_inert_and_class_owned(self) -> None:
+        trainer_class = "cobbleventure:trainer_class/villain_grunt"
+        preset = generator.dungeon_actor_preset_snbt(trainer_class, self.outfit)
+
+        self.assertIn('ActionEventSet:{}', preset)
+        self.assertIn('DialogDataSet:[]', preset)
+        self.assertIn('"cobbleventure_dungeon_actor"', preset)
+        self.assertIn('"cobbleventure_dungeon_actor_template/villain_grunt"', preset)
+        self.assertNotIn("cves_binding/", preset)
+        self.assertNotIn("ON_INTERACTION", preset)
+        self.assertNotIn("ON_DISTANCE", preset)
+
     def test_event_preset_can_generate_a_unique_state_key_from_the_npc_id(self) -> None:
         document = {
             "id": "cobbleventure:npc/test/researcher",

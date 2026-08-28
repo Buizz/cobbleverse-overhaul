@@ -501,6 +501,12 @@
           "maxItems": 2,
           "items": { "$ref": "#/$defs/resource_id" }
         },
+        "trainers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/trainer_actor" }
+        },
         "opponents": {
           "type": "array",
           "minItems": 1,
@@ -508,6 +514,7 @@
           "items": { "$ref": "#/$defs/resource_id" }
         },
         "trainer_generation": { "$ref": "#/$defs/trainer_generation" },
+        "trigger": { "$ref": "#/$defs/encounter_trigger" },
         "pokemon": {
           "type": "object",
           "additionalProperties": false,
@@ -540,22 +547,83 @@
         },
         "then": {
           "required": ["pokemon"],
-          "not": { "anyOf": [{ "required": ["npcs"] }, { "required": ["opponents"] }] }
+          "not": { "anyOf": [
+            { "required": ["npcs"] }, { "required": ["trainers"] },
+            { "required": ["opponents"] }, { "required": ["trigger"] }
+          ] }
         },
         "else": {
-          "required": ["npcs"],
           "oneOf": [
             {
-              "required": ["opponents"],
-              "not": { "required": ["trainer_generation"] }
+              "required": ["trainers", "trigger"],
+              "not": { "anyOf": [
+                { "required": ["npcs"] }, { "required": ["opponents"] },
+                { "required": ["trainer_generation"] }
+              ] }
             },
             {
-              "required": ["trainer_generation"],
-              "not": { "required": ["opponents"] }
+              "required": ["npcs", "opponents"],
+              "not": { "anyOf": [
+                { "required": ["trainers"] }, { "required": ["trainer_generation"] },
+                { "required": ["trigger"] }
+              ] }
+            },
+            {
+              "required": ["npcs", "trainer_generation"],
+              "not": { "anyOf": [
+                { "required": ["trainers"] }, { "required": ["opponents"] },
+                { "required": ["trigger"] }
+              ] }
             }
           ]
         }
       }]
+    },
+    "trainer_actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "display_name", "trainer_class", "battle"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "display_name": { "$ref": "#/$defs/localized_text" },
+        "trainer_class": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+:trainer_class/[a-z0-9_./-]+$"
+        },
+        "battle": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+:battle/[a-z0-9_./-]+$"
+        }
+      }
+    },
+    "encounter_trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type", "leader", "range", "warning_offset", "warning_track",
+        "start_lines", "win_lines", "loss_lines"
+      ],
+      "properties": {
+        "type": { "const": "proximity" },
+        "leader": { "type": "integer", "minimum": 0, "maximum": 1 },
+        "range": { "type": "number", "exclusiveMinimum": 0 },
+        "warning_offset": { "type": "number", "minimum": 0 },
+        "warning_track": {
+          "type": "string", "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "start_lines": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "win_lines": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "loss_lines": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
     },
     "trainer_generation": {
       "type": "object",

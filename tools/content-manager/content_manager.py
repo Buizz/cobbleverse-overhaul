@@ -8773,13 +8773,38 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                     if not isinstance(pokemon.get("catchable"), bool):
                         _issue(issues, "error", path, f"{base}.pokemon.catchable", "true 또는 false여야 합니다.")
             else:
-                for field in ("npcs",):
-                    values = encounter.get(field)
-                    if not isinstance(values, list) or not 1 <= len(values) <= 2:
-                        _issue(issues, "error", path, f"{base}.{field}", "리소스 ID가 1~2개 필요합니다.")
+                trainers = encounter.get("trainers")
+                if trainers is not None:
+                    if not isinstance(trainers, list) or not 1 <= len(trainers) <= 2:
+                        _issue(issues, "error", path, f"{base}.trainers", "던전 생성 트레이너가 1~2명 필요합니다.")
                     else:
-                        for value_index, value in enumerate(values):
-                            _resource_id(value, issues, path, f"{base}.{field}[{value_index}]")
+                        seen_actors: set[str] = set()
+                        for actor_index, actor in enumerate(trainers):
+                            actor_path = f"{base}.trainers[{actor_index}]"
+                            if not isinstance(actor, dict):
+                                _issue(issues, "error", path, actor_path, "던전 생성 트레이너는 객체여야 합니다.")
+                                continue
+                            local_id(actor.get("id"), f"{actor_path}.id", seen_actors)
+                            _resource_id(actor.get("trainer_class"), issues, path, f"{actor_path}.trainer_class")
+                            _resource_id(actor.get("battle"), issues, path, f"{actor_path}.battle")
+                            if not isinstance(actor.get("display_name"), dict) or not actor["display_name"].get("ko_kr"):
+                                _issue(issues, "error", path, f"{actor_path}.display_name", "한국어 표시 이름이 필요합니다.")
+                    trigger = encounter.get("trigger")
+                    if not isinstance(trigger, dict):
+                        _issue(issues, "error", path, f"{base}.trigger", "던전 생성 트레이너에는 근접 조우 설정이 필요합니다.")
+                    else:
+                        integer(trigger.get("leader"), 0, 1, f"{base}.trigger.leader")
+                        for field in ("start_lines", "win_lines", "loss_lines"):
+                            lines = trigger.get(field)
+                            if not isinstance(lines, list) or not lines or any(not isinstance(line, str) or not line.strip() for line in lines):
+                                _issue(issues, "error", path, f"{base}.trigger.{field}", "비어 있지 않은 대사 목록이 필요합니다.")
+                    continue
+                values = encounter.get("npcs")
+                if not isinstance(values, list) or not 1 <= len(values) <= 2:
+                    _issue(issues, "error", path, f"{base}.npcs", "리소스 ID가 1~2개 필요합니다.")
+                else:
+                    for value_index, value in enumerate(values):
+                        _resource_id(value, issues, path, f"{base}.npcs[{value_index}]")
                 opponents = encounter.get("opponents")
                 generated = encounter.get("trainer_generation")
                 if opponents is not None and generated is not None:

@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.adventure.event;
 
 import java.util.Optional;
+import java.util.Map;
+import com.google.gson.JsonElement;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 
@@ -17,6 +19,20 @@ final class EventTriggerExecutor {
         EventScript script,
         EventScript.Event event,
         String triggerInstance
+    ) {
+        return execute(
+            player, npc, binding, script, event, triggerInstance, Map.of()
+        );
+    }
+
+    static boolean execute(
+        ServerPlayer player,
+        Entity npc,
+        EventNpcBinding binding,
+        EventScript script,
+        EventScript.Event event,
+        String triggerInstance,
+        Map<String, JsonElement> initialLocals
     ) {
         if (!binding.scriptId().equals(script.scriptId())) {
             throw new EventRuntimeException(
@@ -37,6 +53,10 @@ final class EventTriggerExecutor {
             script, event.index(), key, environment, store
         );
         if (session.isEmpty()) return false;
+        initialLocals.forEach((name, value) ->
+            session.orElseThrow().putLocal(name, value.deepCopy())
+        );
+        store.save(session.orElseThrow());
         EventInterpreter.run(
             script,
             session.orElseThrow(),
