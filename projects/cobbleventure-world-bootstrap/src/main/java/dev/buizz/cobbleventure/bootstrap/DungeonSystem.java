@@ -1326,11 +1326,16 @@ final class DungeonSystem {
                 );
                 continue;
             }
+            DungeonEncounterFormation.Formation formation =
+                DungeonEncounterFormation.create(
+                    authoredPosition, encounter.yaw(), encounter.actorCount()
+                );
+            validateEncounterFormation(
+                level, definition, encounter, formation, origin, terrain.size()
+            );
             for (int index = 0; index < encounter.actorCount(); index++) {
                 int opponentIndex = index;
-                BlockPos position = encounterNpcPosition(
-                    level, authoredPosition, encounter.yaw(), opponentIndex
-                );
+                BlockPos position = formation.opponents().get(opponentIndex);
                 boolean placed = encounter.trainers().isEmpty()
                     ? CobbleventureBootstrap.spawnRegionalNpc(
                         level, encounter.npcs().get(opponentIndex), position,
@@ -1416,28 +1421,40 @@ final class DungeonSystem {
         }
     }
 
-    private static BlockPos encounterNpcPosition(
-        ServerLevel level, BlockPos authored, float yaw, int index
+    private static void validateEncounterFormation(
+        ServerLevel level,
+        DungeonDefinition definition,
+        DungeonDefinition.Encounter encounter,
+        DungeonEncounterFormation.Formation formation,
+        BlockPos origin,
+        BlockPos size
     ) {
-        if (index == 0) return authored;
-        Direction facing = Direction.fromYRot(yaw);
-        Direction right = facing.getClockWise();
-        List<BlockPos> candidates = List.of(
-            authored.relative(right, 2),
-            authored.relative(right.getOpposite(), 2),
-            authored.relative(facing, 2),
-            authored.relative(facing.getOpposite(), 2)
-        );
-        return candidates.stream().filter(position -> {
-            BlockPos floor = position.below();
-            return level.getBlockState(floor).isFaceSturdy(level, floor, Direction.UP)
-                && level.getBlockState(position).getCollisionShape(level, position).isEmpty()
-                && level.getBlockState(position.above()).getCollisionShape(
-                    level, position.above()
-                ).isEmpty();
-        }).findFirst().orElseThrow(() -> new IllegalStateException(
-            "Dungeon partner NPC has no safe adjacent position: " + authored
-        ));
+        List<BlockPos> reserved = new ArrayList<>(formation.opponents());
+        if (definition.multiplayer().mode().equals("cooperative")) {
+            reserved.addAll(formation.players());
+        }
+        for (BlockPos position : reserved) {
+            if (!safeEncounterStandPosition(level, position, origin, size)) {
+                throw new IllegalStateException(
+                    "Dungeon encounter formation has no safe standing space: "
+                        + encounter.id() + " at " + position
+                );
+            }
+        }
+    }
+
+    private static boolean safeEncounterStandPosition(
+        ServerLevel level, BlockPos position, BlockPos origin, BlockPos size
+    ) {
+        if (!insideRunBounds(Vec3.atBottomCenterOf(position), origin, size)) {
+            return false;
+        }
+        BlockPos floor = position.below();
+        return level.getBlockState(floor).isFaceSturdy(level, floor, Direction.UP)
+            && level.getBlockState(position).getCollisionShape(level, position).isEmpty()
+            && level.getBlockState(position.above()).getCollisionShape(
+                level, position.above()
+            ).isEmpty();
     }
 
     private static boolean isEasyNpc(Entity entity) {
@@ -2022,7 +2039,15 @@ final class DungeonSystem {
         runtime.pendingPlayers = Set.copyOf(
             players.stream().map(ServerPlayer::getUUID).toList()
         );
-        gatherEncounterPlayers(players, opponent.position(), run);
+        BlockPos authored = runtime.positionsById.get(encounter.id());
+        if (authored == null) {
+            throw new IllegalStateException(
+                "Dungeon cooperative encounter position is missing: " + encounter.id()
+            );
+        }
+        gatherEncounterPlayers(
+            players, authored, encounter.yaw(), encounter.actorCount(), run
+        );
         String command = DungeonCooperativeBattleCommand.build(
             players.get(0).getGameProfile().getName(),
             players.get(1).getGameProfile().getName(), opponentEntityIds, trainerIds,
@@ -2145,9 +2170,17 @@ final class DungeonSystem {
         );
         notifyEncounterResult(run, encounter.displayName() + ": "
             + firstGenerated.battleStartLine());
-        if (players.size() == 2) gatherEncounterPlayers(
-            players, interactedEntity.position(), run
-        );
+        if (players.size() == 2) {
+            BlockPos authored = runtime.positionsById.get(encounter.id());
+            if (authored == null) {
+                throw new IllegalStateException(
+                    "Generated dungeon encounter position is missing: " + encounter.id()
+                );
+            }
+            gatherEncounterPlayers(
+                players, authored, encounter.yaw(), encounter.actorCount(), run
+            );
+        }
 
         String command = players.size() == 2
             ? DungeonCooperativeBattleCommand.build(
@@ -2202,9 +2235,9 @@ final class DungeonSystem {
         }
         BlockPos anchor = run.encounters().positionsById.get(encounter.id());
         if (anchor == null) return null;
-        BlockPos expectedPosition = encounterNpcPosition(
-            level, anchor, encounter.yaw(), opponentIndex
-        );
+        BlockPos expectedPosition = DungeonEncounterFormation.create(
+            anchor, encounter.yaw(), encounter.actorCount()
+        ).opponents().get(opponentIndex);
         Entity entity = level.getEntitiesOfClass(
             Entity.class, new AABB(expectedPosition).inflate(6.0D, 10.0D, 6.0D),
             DungeonSystem::isEasyNpc
@@ -2248,9 +2281,9 @@ final class DungeonSystem {
             for (int index = 0; index < encounter.actorCount(); index++) {
                 EncounterEntityRef ref = new EncounterEntityRef(encounter.id(), index);
                 if (assigned.contains(ref)) continue;
-                BlockPos expected = encounterNpcPosition(
-                    level, authored, encounter.yaw(), index
-                );
+                BlockPos expected = DungeonEncounterFormation.create(
+                    authored, encounter.yaw(), encounter.actorCount()
+                ).opponents().get(index);
                 double distance = entity.distanceToSqr(Vec3.atCenterOf(expected));
                 if (distance <= 144.0D
                     && (nearest == null || distance < nearest.distanceSquared())) {
@@ -2282,51 +2315,41 @@ final class DungeonSystem {
     }
 
     private static void gatherEncounterPlayers(
-        List<ServerPlayer> players, Vec3 anchor, ActiveRun run
+        List<ServerPlayer> players,
+        BlockPos authored,
+        float opponentYaw,
+        int actorCount,
+        ActiveRun run
     ) {
-        double[][] preferred = {{2.0D, 0.0D}, {-2.0D, 0.0D}};
+        DungeonEncounterFormation.Formation formation =
+            DungeonEncounterFormation.create(authored, opponentYaw, actorCount);
+        if (players.size() > formation.players().size()) {
+            throw new IllegalStateException(
+                "Dungeon encounter formation has too few player positions"
+            );
+        }
         for (int index = 0; index < players.size(); index++) {
             ServerPlayer player = players.get(index);
-            Vec3 target = safeEncounterPosition(player, anchor, preferred[index], run);
-            if (target == null) continue;
+            BlockPos reserved = formation.players().get(index);
+            Vec3 target = Vec3.atBottomCenterOf(reserved);
+            if (!safeEncounterStandPosition(
+                player.serverLevel(), reserved, run.origin(), run.size()
+            )) {
+                throw new IllegalStateException(
+                    "Reserved dungeon player position became unsafe: " + reserved
+                );
+            }
             INTERNAL_TELEPORTS.add(player.getUUID());
             try {
                 player.teleportTo(
                     player.serverLevel(), target.x, target.y, target.z,
-                    player.getYRot(), player.getXRot()
+                    formation.playerYaw(), 0.0F
                 );
                 player.fallDistance = 0.0F;
             } finally {
                 INTERNAL_TELEPORTS.remove(player.getUUID());
             }
         }
-    }
-
-    private static Vec3 safeEncounterPosition(
-        ServerPlayer player, Vec3 anchor, double[] preferred, ActiveRun run
-    ) {
-        double[][] offsets = {
-            preferred, {0.0D, 2.0D}, {0.0D, -2.0D},
-            {-preferred[0], -preferred[1]}
-        };
-        for (double[] offset : offsets) {
-            Vec3 candidate = new Vec3(
-                Math.floor(anchor.x) + 0.5D + offset[0],
-                Math.floor(anchor.y),
-                Math.floor(anchor.z) + 0.5D + offset[1]
-            );
-            if (!insideRunBounds(candidate, run.origin(), run.size())) continue;
-            BlockPos floor = BlockPos.containing(candidate).below();
-            if (!player.serverLevel().getBlockState(floor).isFaceSturdy(
-                player.serverLevel(), floor, Direction.UP
-            )) continue;
-            AABB moved = player.getBoundingBox().move(
-                candidate.x - player.getX(), candidate.y - player.getY(),
-                candidate.z - player.getZ()
-            );
-            if (player.serverLevel().noCollision(player, moved)) return candidate;
-        }
-        return null;
     }
 
     private static synchronized void onBattleStarted(BattleStartedEvent.Post event) {
