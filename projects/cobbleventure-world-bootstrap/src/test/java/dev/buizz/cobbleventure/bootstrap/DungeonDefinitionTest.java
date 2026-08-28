@@ -201,10 +201,25 @@ final class DungeonDefinitionTest {
                     JsonParser.parseReader(reader).getAsJsonObject()
                 );
                 assertEquals(resource.getValue(), definition.terrain().mode(), name);
-                int recommendedMinimum = name.equals("zapdos_storm_chamber") ? 22 : 1;
-                int recommendedMaximum = name.equals("zapdos_storm_chamber") ? 30 : 1;
-                int internalMinimum = name.equals("zapdos_storm_chamber") ? 18 : 1;
-                int internalMaximum = name.equals("zapdos_storm_chamber") ? 30 : 1;
+                int recommendedMinimum = switch (name) {
+                    case "rocket_power_plant", "zapdos_storm_chamber" -> 22;
+                    default -> 1;
+                };
+                int recommendedMaximum = switch (name) {
+                    case "rocket_power_plant" -> 35;
+                    case "zapdos_storm_chamber" -> 30;
+                    default -> 1;
+                };
+                int internalMinimum = switch (name) {
+                    case "rocket_power_plant" -> 22;
+                    case "zapdos_storm_chamber" -> 18;
+                    default -> 1;
+                };
+                int internalMaximum = switch (name) {
+                    case "rocket_power_plant" -> 35;
+                    case "zapdos_storm_chamber" -> 30;
+                    default -> 1;
+                };
                 assertEquals(recommendedMinimum, definition.difficulty().recommendedMin(), name);
                 assertEquals(recommendedMaximum, definition.difficulty().recommendedMax(), name);
                 assertEquals(internalMinimum, definition.difficulty().internalMin(), name);

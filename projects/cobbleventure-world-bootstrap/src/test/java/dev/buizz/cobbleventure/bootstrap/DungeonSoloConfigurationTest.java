@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 final class DungeonSoloConfigurationTest {
     @Test
-    void testSoloDungeonsUseLevelOneResetAndRepeatRewardContracts() throws Exception {
+    void testSoloDungeonsUseFullResetAndRepeatRewardContracts() throws Exception {
         for (String name : List.of("rocket_power_plant", "rocket_pokemon_tower")) {
             DungeonDefinition dungeon = packagedDungeon(name);
 
@@ -21,10 +21,6 @@ final class DungeonSoloConfigurationTest {
             assertEquals(1, dungeon.multiplayer().minSize());
             assertEquals(1, dungeon.multiplayer().maxSize());
             assertEquals(1, dungeon.match().requiredPlayers());
-            assertEquals(1, dungeon.difficulty().recommendedMin());
-            assertEquals(1, dungeon.difficulty().recommendedMax());
-            assertEquals(1, dungeon.difficulty().internalMin());
-            assertEquals(1, dungeon.difficulty().internalMax());
             assertEquals("full_reset", dungeon.lifecycle().resumeMode());
             assertEquals("reset_run", dungeon.lifecycle().onWipe());
             assertFalse(dungeon.battleRules().allowFlee());
@@ -34,6 +30,21 @@ final class DungeonSoloConfigurationTest {
             assertNotNull(dungeon.rewards().repeatTable());
             assertEquals("clear_exit", dungeon.completion().returnTrigger());
         }
+    }
+
+    @Test
+    void soloDungeonLevelsPreserveEachDungeonsEncounterContract() throws Exception {
+        DungeonDefinition powerPlant = packagedDungeon("rocket_power_plant");
+        assertEquals(22, powerPlant.difficulty().recommendedMin());
+        assertEquals(35, powerPlant.difficulty().recommendedMax());
+        assertEquals(22, powerPlant.difficulty().internalMin());
+        assertEquals(35, powerPlant.difficulty().internalMax());
+
+        DungeonDefinition tower = packagedDungeon("rocket_pokemon_tower");
+        assertEquals(1, tower.difficulty().recommendedMin());
+        assertEquals(1, tower.difficulty().recommendedMax());
+        assertEquals(1, tower.difficulty().internalMin());
+        assertEquals(1, tower.difficulty().internalMax());
     }
 
     @Test

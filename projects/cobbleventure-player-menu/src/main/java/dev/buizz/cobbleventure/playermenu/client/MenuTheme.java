@@ -7,7 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 
 /** Client-resource view of the global menu presentation tokens. */
-final class MenuTheme {
+public final class MenuTheme {
     private static final String RESOURCE_PATH = "dialogue_theme/global.json";
 
     final int background;
@@ -40,7 +40,7 @@ final class MenuTheme {
         shadowOffset = integer(panel, "shadow_offset", 3, 0, 12);
     }
 
-    static MenuTheme load(Minecraft minecraft) {
+    public static MenuTheme load(Minecraft minecraft) {
         if (minecraft != null) {
             try {
                 ResourceLocation resourceId = ResourceLocation.fromNamespaceAndPath(
@@ -62,6 +62,30 @@ final class MenuTheme {
     static MenuTheme parse(String json) {
         try { return new MenuTheme(JsonParser.parseString(json).getAsJsonObject()); }
         catch (RuntimeException ignored) { return new MenuTheme(new JsonObject()); }
+    }
+
+    public int background() {
+        return background;
+    }
+
+    public int border() {
+        return border;
+    }
+
+    public int innerBorder() {
+        return innerBorder;
+    }
+
+    public int textColor() {
+        return textColor;
+    }
+
+    public int accent() {
+        return accent;
+    }
+
+    public int shadow() {
+        return shadow;
     }
 
     private static JsonObject object(JsonObject parent, String key) {

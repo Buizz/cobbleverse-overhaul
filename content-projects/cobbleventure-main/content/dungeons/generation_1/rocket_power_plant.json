@@ -26,10 +26,10 @@
     "background_texture": "cobbleventure_bootstrap:textures/gui/dungeons/rocket_facility.png"
   },
   "difficulty": {
-    "recommended_min": 1,
-    "recommended_max": 1,
-    "internal_min": 1,
-    "internal_max": 1
+    "recommended_min": 22,
+    "recommended_max": 35,
+    "internal_min": 22,
+    "internal_max": 35
   },
   "eligibility": {
     "minimum_party_size": 1,
