@@ -2169,13 +2169,15 @@ function alignGateMapPoint(gate, edge) {
   const dx = tile.x - edge.x; const dy = tile.y - edge.y; const distance = Math.hypot(dx, dy);
   const buildingEnabled = ["gate", "gate_npc"].includes(gateCenterPlacement(gate.properties));
   const worldRadius = Number(state.worldLayout?.grid?.tile_radius_blocks) || 64;
-  const inset = (buildingEnabled ? 10 : 5) * mapHexSize() / worldRadius;
+  const facing = gate.properties?.facing || "north";
+  const openFaces = gateFaceOffsets(facing).filter((offset) => gateFaceIsOpen(gate, offset)).length;
+  const inset = (["north", "south"].includes(facing) && openFaces === 2 ? (buildingEnabled ? 16 : 10) : 0)
+    * mapHexSize() / worldRadius;
   const candidate = distance < 1
     ? edge
     : { x: edge.x + dx / distance * inset, y: edge.y + dy / distance * inset };
-  const facing = gate.properties?.facing || "north";
   if (["north", "south"].includes(facing)
-    && gateFaceOffsets(facing).filter((offset) => gateFaceIsOpen(gate, offset)).length !== 1) {
+    && openFaces !== 1) {
     return candidate;
   }
   let nearest = null; let nearestDistance = mapHexSize() * .8;

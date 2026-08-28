@@ -2706,9 +2706,10 @@
       "display_name": "상록숲 - 회색시티 길"
     },
     {
-      "id": "route_custom_20",
-      "route_preset": "cobbleventure:route/route_custom_20",
+      "id": "route_custom_05",
+      "route_preset": "cobbleventure:route/route_custom_05",
       "from": "cobbleventure:settlement/route_01_town",
+      "to": "cobbleventure:settlement/skyreach_town",
       "anchors": [
         {
           "q": -4,
@@ -2717,6 +2718,10 @@
         {
           "q": -8,
           "r": 4
+        },
+        {
+          "q": -6,
+          "r": -2
         }
       ],
       "cells": [
@@ -2739,28 +2744,7 @@
         {
           "q": -8,
           "r": 4
-        }
-      ],
-      "corridor_width_blocks": 12,
-      "edge_noise": 0,
-      "surface_style": "road",
-      "pathfinding": "explicit",
-      "display_name": "22번도로"
-    },
-    {
-      "id": "route_custom_21",
-      "route_preset": "cobbleventure:route/route_custom_21",
-      "anchors": [
-        {
-          "q": -8,
-          "r": 3
         },
-        {
-          "q": -7,
-          "r": 1
-        }
-      ],
-      "cells": [
         {
           "q": -8,
           "r": 3
@@ -2772,29 +2756,7 @@
         {
           "q": -7,
           "r": 1
-        }
-      ],
-      "corridor_width_blocks": 12,
-      "edge_noise": 0,
-      "surface_style": "road",
-      "pathfinding": "explicit",
-      "display_name": "포켓몬리그 관문길 (23번도로)"
-    },
-    {
-      "id": "route_custom_05",
-      "route_preset": "cobbleventure:route/route_custom_05",
-      "to": "cobbleventure:settlement/skyreach_town",
-      "anchors": [
-        {
-          "q": -7,
-          "r": 0
         },
-        {
-          "q": -6,
-          "r": -2
-        }
-      ],
-      "cells": [
         {
           "q": -7,
           "r": 0
@@ -2809,9 +2771,15 @@
         }
       ],
       "corridor_width_blocks": 12,
-      "edge_noise": 0.15,
-      "surface_style": "natural",
+      "edge_noise": 0,
+      "surface_style": "road",
       "pathfinding": "explicit",
+      "pokemon_spawns": {
+        "inherit_biome": true,
+        "excluded_species": [],
+        "additions": [],
+        "level_overrides": []
+      },
       "display_name": "챔피언로드"
     },
     {
@@ -3638,38 +3606,6 @@
       ]
     },
     {
-      "id": "starter_town_north_gate",
-      "type": "gate",
-      "anchor": {
-        "q": -5,
-        "r": 7
-      },
-      "rotation": 0,
-      "properties": {
-        "facing": "south",
-        "center_placement": "npc",
-        "surrounding_type": "natural",
-        "wall_block": "minecraft:stone_bricks",
-        "tree_log": "minecraft:oak_log",
-        "tree_leaves": "minecraft:oak_leaves",
-        "wall_thickness": 5,
-        "wall_height": 7,
-        "passage_width": 7,
-        "barrier_height": 24,
-        "condition_mode": "all",
-        "conditions": [
-          {
-            "type": "party_count",
-            "operator": ">=",
-            "value": 1
-          }
-        ],
-        "deny_message": "포켓몬 없이 마을 밖으로 나가는 건 위험합니다. 오박사에게 첫 파트너를 받은 뒤 다시 오세요.",
-        "deny_dialog": "greeting",
-        "npc": "easy_npc:preset/encounter/starter_town_gatekeeper_minho__v5.npc.snbt"
-      }
-    },
-    {
       "id": "viridian_gate",
       "type": "gate",
       "anchor": {
@@ -3705,32 +3641,6 @@
       "rotation": 0,
       "properties": {
         "facing": "north",
-        "center_placement": "gate",
-        "surrounding_type": "natural",
-        "wall_block": "minecraft:stone_bricks",
-        "tree_log": "minecraft:oak_log",
-        "tree_leaves": "minecraft:oak_leaves",
-        "wall_thickness": 5,
-        "wall_height": 7,
-        "passage_width": 7,
-        "barrier_height": 24,
-        "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
-        "deny_dialog": "greeting"
-      },
-      "resource": "cobbleventure:gate/default_gate"
-    },
-    {
-      "id": "saffron_gate_north",
-      "type": "gate",
-      "anchor": {
-        "q": 6,
-        "r": 0
-      },
-      "rotation": 0,
-      "properties": {
-        "facing": "south",
         "center_placement": "gate",
         "surrounding_type": "natural",
         "wall_block": "minecraft:stone_bricks",
@@ -3798,6 +3708,64 @@
         "deny_dialog": "greeting"
       },
       "resource": "cobbleventure:gate/default_gate"
+    },
+    {
+      "id": "saffron_gate_north",
+      "type": "gate",
+      "anchor": {
+        "q": 6,
+        "r": 0
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "south",
+        "center_placement": "gate",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 7,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
+        "deny_dialog": "greeting"
+      },
+      "resource": "cobbleventure:gate/default_gate"
+    },
+    {
+      "id": "starter_town_north_gate",
+      "type": "gate",
+      "anchor": {
+        "q": -5,
+        "r": 7
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "south",
+        "center_placement": "npc",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 11,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "party_count",
+            "operator": ">=",
+            "value": 1
+          }
+        ],
+        "deny_message": "포켓몬 없이 마을 밖으로 나가는 건 위험합니다. 오박사에게 첫 파트너를 받은 뒤 다시 오세요.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/starter_town_gatekeeper_minho__v5.npc.snbt"
+      }
     }
   ],
   "environment_overrides": [],

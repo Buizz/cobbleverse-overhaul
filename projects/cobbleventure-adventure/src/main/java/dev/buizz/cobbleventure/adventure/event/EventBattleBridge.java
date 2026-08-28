@@ -127,17 +127,19 @@ public final class EventBattleBridge {
             if (override != null && override.launch(player, preset, opponent)) {
                 // The override owns launch validation.
             } else {
-                player.getServer().getCommands().getDispatcher().execute(
+                int accepted = player.getServer().getCommands().getDispatcher().execute(
                     preset.launchCommand(
                         player.getGameProfile().getName(), opponent.getUUID()
                     ),
                     opponent.createCommandSourceStack()
                         .withPermission(4).withSuppressedOutput()
                 );
-                if (BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player)
-                    == null) {
+                // The cinematic intro deliberately launches TBCS a few ticks later.
+                // Immediate BattleRegistry presence therefore cannot be used as
+                // success proof; the bridge timeout validates eventual attachment.
+                if (accepted <= 0) {
                     throw new EventRuntimeException(
-                        "battle 명령이 실행됐지만 플레이어가 배틀에 등록되지 않았습니다."
+                        "battle 시작 예약 명령이 거부됐습니다."
                     );
                 }
             }

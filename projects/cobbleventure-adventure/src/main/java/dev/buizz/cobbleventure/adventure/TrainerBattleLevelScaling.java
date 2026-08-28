@@ -8,7 +8,7 @@ import com.gitlab.srcmc.rctapi.api.trainer.TrainerNPC;
 import com.gitlab.srcmc.rctapi.api.trainer.TrainerRegistry;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -29,8 +29,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 final class TrainerBattleLevelScaling {
     private static final String TBCS_REGISTRY = "tbcs";
     private static final long PENDING_RETENTION_TICKS = 20L * 20L;
-    private static final Map<String, PendingTrainer> PENDING = new HashMap<>();
-    private static final Map<TrainerNPC, PendingTrainer> ACTIVE = new HashMap<>();
+    private static final TrainerBattleRuntimeIndex<PendingTrainer> RUNTIMES =
+        new TrainerBattleRuntimeIndex<>();
     private static boolean registered;
     private static boolean battleListenerRegistered;
 
@@ -175,8 +175,8 @@ final class TrainerBattleLevelScaling {
         ensureBattleListener(tbcs);
         String runtimeId = runtimeTrainerId.toString();
         registry.registerNPC(runtimeId, scaledTrainer);
-        PENDING.put(runtimeId, new PendingTrainer(
-            scaledTrainer, battleProxy,
+        RUNTIMES.register(runtimeId, new PendingTrainer(
+            runtimeId, scaledTrainer, battleProxy,
             source.getServer().overworld().getGameTime() + PENDING_RETENTION_TICKS
         ));
 
@@ -195,37 +195,35 @@ final class TrainerBattleLevelScaling {
     }
 
     private static void onBattleStarted(BattleState battle) {
+        UUID battleId = battle.getBattle().getBattleId();
         Stream<Trainer> participants = Stream.concat(
             battle.getParticipants1().stream(), battle.getParticipants2().stream()
         );
         var startedTrainers = participants.toList();
-        PENDING.entrySet().removeIf(entry -> {
-            if (!startedTrainers.contains(entry.getValue().trainer())) return false;
-            ACTIVE.put(entry.getValue().trainer(), entry.getValue());
-            unregister(entry.getKey());
-            return true;
-        });
+        RUNTIMES.activate(
+            battleId, runtime -> startedTrainers.contains(runtime.trainer())
+        );
     }
 
     private static void onBattleEnded(BattleState battle) {
-        Stream.concat(battle.getParticipants1().stream(), battle.getParticipants2().stream())
-            .filter(TrainerNPC.class::isInstance)
-            .map(TrainerNPC.class::cast)
-            .forEach(trainer -> {
-                PendingTrainer runtime = ACTIVE.remove(trainer);
-                if (runtime != null) runtime.proxy().discard();
-            });
+        UUID battleId = battle.getBattle().getBattleId();
+        PendingTrainer runtime = RUNTIMES.finish(battleId);
+        if (runtime == null) return;
+        unregister(runtime.runtimeId());
+        runtime.proxy().discard();
     }
 
     private static void onServerTick(ServerTickEvent.Post event) {
-        if (PENDING.isEmpty()) return;
         long gameTime = event.getServer().overworld().getGameTime();
-        PENDING.entrySet().removeIf(entry -> {
-            if (entry.getValue().expiresAt() >= gameTime) return false;
+        List<Map.Entry<String, PendingTrainer>> expired = RUNTIMES
+            .pendingEntries().stream().filter(entry ->
+                entry.getValue().expiresAt() < gameTime
+            ).toList();
+        for (var entry : expired) {
+            if (!RUNTIMES.removePending(entry.getKey(), entry.getValue())) continue;
             unregister(entry.getKey());
             entry.getValue().proxy().discard();
-            return true;
-        });
+        }
     }
 
     private static void unregister(String trainerId) {
@@ -260,6 +258,6 @@ final class TrainerBattleLevelScaling {
     }
 
     private record PendingTrainer(
-        TrainerNPC trainer, ArmorStand proxy, long expiresAt
+        String runtimeId, TrainerNPC trainer, ArmorStand proxy, long expiresAt
     ) {}
 }

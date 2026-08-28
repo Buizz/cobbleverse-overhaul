@@ -3459,6 +3459,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('북·남은 양쪽 이동 가능 면이 열리면 중앙', page)
         self.assertIn('function gateMapPoint(gate)', script)
         self.assertIn('function alignGateMapPoint(gate, edge)', script)
+        self.assertIn('["north", "south"].includes(facing) && openFaces === 2', script)
         self.assertIn('function gateMapBoundaryHalfSpan(gate)', script)
         self.assertIn('function gateMapBoundaryMarkup(gate)', script)
         self.assertIn('class="gate-boundary-segment"', script)
@@ -3542,10 +3543,18 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("placeNorthSouthNaturalGateEdges", runtime)
         self.assertIn("addNaturalGateEdgeBand", runtime)
         self.assertIn("snapGateToRouteCenterline", runtime)
-        self.assertIn(".count() != 1L", runtime)
+        self.assertIn("openFaces != 1L", runtime)
         self.assertIn("path.cells().contains(gate.anchor())", runtime)
-        self.assertIn("gate.buildingEnabled() ? 10 : 5", runtime)
+        self.assertIn("northSouth && openFaces == 2L", runtime)
         self.assertIn("footprint.expanded(5)", runtime)
+        place_method = runtime[
+            runtime.index("    private static void place(\n"):
+            runtime.index("    /** Refreshes the old solid leaf wall")
+        ]
+        self.assertLess(
+            place_method.index("layGateApproachRoads("),
+            place_method.index("placeNaturalSurroundings("),
+        )
         self.assertIn("clearLegacyNaturalBarrierLine", runtime)
         self.assertIn("gateBoundaryHalfLength", runtime)
         self.assertIn("naturalGateBoundaryDepth", runtime)

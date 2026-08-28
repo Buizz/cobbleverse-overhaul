@@ -212,8 +212,20 @@ final class WorldGateSystem {
             + (gate.buildingEnabled() ? 4 : 0);
         int centerY = groundY(level, center.x(), center.z());
         Map<Long, Integer> wallGroundHeights = new HashMap<>();
+        boolean shouldPlaceStructure = gate.buildingEnabled();
+        StructureFootprint plannedFootprint = shouldPlaceStructure && !forestGate
+            ? plannedStructureFootprint(level, gate, center)
+            : null;
         if (forestGate) {
             cacheForestEntryMarker(level, world, gate);
+        }
+        // The road column preparation deliberately removes trees and vegetation.
+        // Lay these short connectors before authored gate surroundings so it can
+        // never cut down the natural barrier that belongs to the gate itself.
+        if (!forestGate && (!shouldPlaceStructure || plannedFootprint != null)) {
+            layGateApproachRoads(
+                level, world, gate, center, plannedFootprint, halfThickness
+            );
         }
         if (!forestGate && gate.surroundingType().equals("wall")) {
             placeWallSurroundings(
@@ -226,7 +238,6 @@ final class WorldGateSystem {
                 halfLength, halfThickness, halfOpening
             );
         }
-        boolean shouldPlaceStructure = gate.buildingEnabled();
         GateStructurePlacement gatePlacement = null;
         boolean structurePlaced = true;
         if (shouldPlaceStructure) {
@@ -249,13 +260,6 @@ final class WorldGateSystem {
                 level, gate, center, horizontal,
                 halfLength, halfThickness, halfOpening, wallGroundHeights,
                 gatePlacement == null ? null : gatePlacement.footprint()
-            );
-        }
-        if (!forestGate) {
-            layGateApproachRoads(
-                level, world, gate, center,
-                gatePlacement == null ? null : gatePlacement.footprint(),
-                halfThickness
             );
         }
         if (gate.npc() != null) {
@@ -334,17 +338,21 @@ final class WorldGateSystem {
         double towardCenterX = tile.x() - edge.x();
         double towardCenterZ = tile.z() - edge.z();
         double distance = Math.hypot(towardCenterX, towardCenterZ);
-        int inset = gate.buildingEnabled() ? 10 : 5;
-        CobbleventureBootstrap.Point insetCenter = distance < 1.0D
+        boolean northSouth = gate.facing().equals("north")
+            || gate.facing().equals("south");
+        long openFaces = gateFaceOffsets(gate.facing()).stream()
+            .filter(offset -> gateFaceIsOpen(world, gate.anchor(), offset))
+            .count();
+        int inset = northSouth && openFaces == 2L
+            ? (gate.buildingEnabled() ? 16 : 10)
+            : 0;
+        CobbleventureBootstrap.Point insetCenter = distance < 1.0D || inset == 0
             ? edge
             : new CobbleventureBootstrap.Point(
                 roundGateCoordinate(edge.x() + towardCenterX / distance * inset),
                 roundGateCoordinate(edge.z() + towardCenterZ / distance * inset)
             );
-        if ((gate.facing().equals("north") || gate.facing().equals("south"))
-            && gateFaceOffsets(gate.facing()).stream()
-                .filter(offset -> gateFaceIsOpen(world, gate.anchor(), offset))
-                .count() != 1L) {
+        if (northSouth && openFaces != 1L) {
             return insetCenter;
         }
         return snapGateToRouteCenterline(world, gate, insetCenter);
@@ -1070,6 +1078,24 @@ final class WorldGateSystem {
             minZ + size.getZ() - 1
         );
         return new GateStructurePlacement(footprint);
+    }
+
+    private static StructureFootprint plannedStructureFootprint(
+        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center
+    ) {
+        if (gate.structure() == null) return null;
+        ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
+        if (structureId == null) return null;
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return null;
+        Vec3i size = template.orElseThrow().getSize(rotation(gate.rotation()));
+        int minX = center.x() - size.getX() / 2;
+        int minZ = center.z() - size.getZ() / 2;
+        return new StructureFootprint(
+            minX, minZ,
+            minX + size.getX() - 1,
+            minZ + size.getZ() - 1
+        );
     }
 
     private static boolean placeForestStructure(

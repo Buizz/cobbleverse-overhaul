@@ -34,9 +34,9 @@
       "z": 0
     },
     "gym_building": {
-      "x": -103,
+      "x": -99,
       "y": 69,
-      "z": 67
+      "z": 4
     },
     "facility_silph_company_1": {
       "x": -16,
@@ -66,7 +66,7 @@
   },
   "connections": [],
   "structure_profile": {
-    "road_layout_template": "grid",
+    "road_layout_template": "cross",
     "structure": "bca:village/default_large",
     "gym_theme": "psychic",
     "commercial_center": "pokemart",
@@ -6302,7 +6302,7 @@
       "material": "stone_bricks"
     },
     "generation_profile": {
-      "seed": 958171118,
+      "seed": 891927097,
       "depth": 4,
       "residential_buildings_enabled": true,
       "basic_buildings": [
