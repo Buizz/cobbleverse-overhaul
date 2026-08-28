@@ -1807,7 +1807,12 @@ final class DungeonSystem {
             return true;
         }
         if (encounter.generatedTrainer() == null) {
-            // CVES V5 owns dialogue and battle launch after dungeon guards pass.
+            if (encounter.kind().equals("trainer")) {
+                initiator.displayClientMessage(Component.literal(
+                    "[던전] 이 조우는 NPC에게 가까이 다가가면 시작됩니다."
+                ), true);
+                return true;
+            }
             // Wild Pokemon use Cobblemon's normal battle interaction.
             return false;
         }
