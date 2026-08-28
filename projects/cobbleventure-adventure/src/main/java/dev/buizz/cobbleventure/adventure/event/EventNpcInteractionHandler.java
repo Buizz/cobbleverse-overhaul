@@ -42,6 +42,9 @@ public final class EventNpcInteractionHandler {
         // A V5 binding owns the interaction, including failure paths, so a legacy
         // representation adapter cannot also open its own dialogue.
         cancel(event, InteractionResult.SUCCESS);
+        if (!EventNpcTriggerMode.acceptsInteraction(target.getTags())) {
+            return;
+        }
         try {
             executeInteract(player, target, binding, true);
         } catch (RuntimeException error) {
@@ -54,6 +57,7 @@ public final class EventNpcInteractionHandler {
      * Programmatic triggers intentionally skip the player's click-range check.
      */
     public static boolean startBoundInteraction(ServerPlayer player, Entity target) {
+        if (!EventNpcTriggerMode.acceptsInteraction(target.getTags())) return false;
         try {
             Optional<EventNpcBinding> match = EventNpcBindingRepository.instance()
                 .findByEntityTags(target.getTags());

@@ -106,6 +106,7 @@ public final class EventNpcProximityHandler {
         Set<BoundaryKey> observed,
         Set<EncounterGroupKey> observedGroups
     ) {
+        if (!EventNpcTriggerMode.acceptsProximity(npc.getTags())) return;
         for (EventScript.Event event : script.events()) {
             String trigger = event.trigger().name();
             if (!trigger.equals("proximity_enter") && !trigger.equals("proximity_exit")) {
@@ -119,10 +120,6 @@ public final class EventNpcProximityHandler {
                 EventTriggerContract.Options options = EventTriggerContract.proximity(
                     event, environment
                 );
-                if (options.group() != null
-                    && !npc.getTags().contains("cves_trigger/proximity")) {
-                    continue;
-                }
                 boolean inside = player.distanceToSqr(npc) <= options.range() * options.range();
                 EventProximityTracker.Transition transition = TRACKER.observe(key, inside);
                 EventProximityEncounterTracker.Decision encounterDecision =

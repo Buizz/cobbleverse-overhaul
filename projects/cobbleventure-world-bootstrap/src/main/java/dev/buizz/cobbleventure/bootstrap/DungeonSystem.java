@@ -1807,12 +1807,7 @@ final class DungeonSystem {
             return true;
         }
         if (encounter.generatedTrainer() == null) {
-            if (encounter.kind().equals("trainer")) {
-                initiator.displayClientMessage(Component.literal(
-                    "[던전] 이 조우는 NPC에게 가까이 다가가면 시작됩니다."
-                ), true);
-                return true;
-            }
+            // CVES V5 chooses interaction or proximity from the NPC representation.
             // Wild Pokemon use Cobblemon's normal battle interaction.
             return false;
         }
