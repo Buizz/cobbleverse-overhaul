@@ -508,7 +508,9 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "town_placement": { "enabled": true, "id": "daycare", "label": "키우미집", "note": "건물과 야외 목장", "color": "#80b918" },
-      "fixed_npcs": {},
+      "fixed_npcs": {
+        "attendant": "cobbleventure:npc/facilities/daycare_attendant"
+      },
       "fixed_pokemon": {},
       "citizen_placement_allowed": false,
       "interiors": [],

@@ -18,6 +18,8 @@ import dev.buizz.cobbleventure.adventure.event.EventServerSignalBridge;
 import dev.buizz.cobbleventure.adventure.event.EventAwaitInputLockService;
 import dev.buizz.cobbleventure.adventure.event.EventHealingBridge;
 import dev.buizz.cobbleventure.adventure.daycare.DaycareService;
+import dev.buizz.cobbleventure.adventure.daycare.DaycareNetwork;
+import dev.buizz.cobbleventure.adventure.daycare.DaycareProjectionService;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
@@ -85,6 +87,8 @@ public final class CobbleventureAdventure {
         BattlePokemonPositioning.register();
         PlayerVersusPlayerProtection.register();
         DaycareService.register();
+        DaycareNetwork.register(modBus);
+        DaycareProjectionService.register();
     }
 
     public static void registerWorldContext(AdventureWorldContext context) {

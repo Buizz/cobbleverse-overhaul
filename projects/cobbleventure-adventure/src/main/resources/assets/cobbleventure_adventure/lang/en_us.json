@@ -16,6 +16,7 @@
   "screen.cobbleventure_adventure.number_input.confirm": "Confirm",
   "screen.cobbleventure_adventure.number_input.cancel": "Cancel",
   "message.cobbleventure_adventure.daycare.same_slot": "Select two different party slots.",
+  "message.cobbleventure_adventure.daycare.invalid_slot": "The selected party slot is invalid.",
   "message.cobbleventure_adventure.daycare.already_active": "You already have Pokémon in the daycare.",
   "message.cobbleventure_adventure.daycare.empty_slot": "One of the selected party slots is empty.",
   "message.cobbleventure_adventure.daycare.party_required": "Keep at least one Pokémon in your party to continue adventuring.",
@@ -37,5 +38,14 @@
   "message.cobbleventure_adventure.daycare.none_target": "%s does not have an active daycare request.",
   "message.cobbleventure_adventure.daycare.forced_ready": "%s's daycare completion time was moved to now.",
   "message.cobbleventure_adventure.daycare.farm_breeding_badges": "Direct breeding unlocks after earning %s Gym Badges.",
-  "message.cobbleventure_adventure.daycare.farm_breeding_location": "A breeding pasture can only be activated inside your personal farm."
+  "message.cobbleventure_adventure.daycare.farm_breeding_location": "A breeding pasture can only be activated inside your personal farm.",
+  "message.cobbleventure_adventure.daycare.npc_too_far": "Move closer to the daycare attendant and try again.",
+  "screen.cobbleventure_adventure.daycare.title": "Pokémon Daycare",
+  "screen.cobbleventure_adventure.daycare.select_parents": "Select two Pokémon to leave at the daycare.",
+  "screen.cobbleventure_adventure.daycare.deposit": "Pay %s and leave Pokémon",
+  "screen.cobbleventure_adventure.daycare.breeding": "Caring for the Egg · about %s minutes left",
+  "screen.cobbleventure_adventure.daycare.ready": "Your Egg is ready!",
+  "screen.cobbleventure_adventure.daycare.collect": "Collect Egg and parents",
+  "screen.cobbleventure_adventure.daycare.refresh": "Refresh status",
+  "screen.cobbleventure_adventure.daycare.cancel": "Cancel request"
 }

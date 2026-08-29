@@ -3439,8 +3439,8 @@ def validate_dependency_lock(path: Path, strict_pack: bool) -> list[Issue]:
             else:
                 seen_content_pack_ids.add(content_pack_id)
 
-            if content_pack.get("kind") not in {"datapack", "resourcepack"}:
-                _issue(issues, "error", path, f"{item_path}.kind", "datapack 또는 resourcepack이어야 합니다.")
+            if content_pack.get("kind") not in {"datapack", "resourcepack", "mod"}:
+                _issue(issues, "error", path, f"{item_path}.kind", "datapack, resourcepack 또는 mod여야 합니다.")
             if content_pack.get("classification") not in VALID_CLASSIFICATIONS:
                 _issue(issues, "error", path, f"{item_path}.classification", "지원하지 않는 분류입니다.")
             if content_pack.get("side") not in VALID_SIDES:

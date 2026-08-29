@@ -1,0 +1,77 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/facilities/daycare_attendant",
+  "enabled": true,
+  "name": {
+    "ko_kr": "키우미집 관리인",
+    "en_us": "Daycare Attendant"
+  },
+  "description": {
+    "ko_kr": "포켓몬 두 마리를 맡아 돌보고 알을 전달하는 키우미집 관리인입니다.",
+    "en_us": "The daycare attendant who looks after two Pokemon and hands over their Egg."
+  },
+  "tags": [
+    "service",
+    "daycare",
+    "breeding",
+    "building_runtime"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "키우미집 관리인",
+      "en_us": "Daycare Attendant"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/picnicker",
+    "appearance": {
+      "source": "custom",
+      "type": "skin",
+      "resource": "cobbleventure:trainer_skin/picnicker",
+      "arm_model": "slim"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "custom",
+    "script_id": "cobbleventure:event_script/facilities/daycare"
+  },
+  "event_design": {
+    "mode": "easy_npc_events"
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "dialogue",
+          "id": "fallback",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "두 포켓몬을 맡기거나 준비된 알을 찾아가세요.",
+            "en_us": "Leave two Pokemon with me, or collect an Egg when it is ready."
+          }
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

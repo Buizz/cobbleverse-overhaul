@@ -645,6 +645,29 @@
       "sha512": "63bbba75a22081f8489e486c5dc7947c8556255022e9c3ac692d6ff252883c7d2d74692b1bdb663ce9d841042c9bcc38785815a7bd0a40e9f89ccc7664d2c273",
       "license": "CC0-1.0",
       "reason": "마을, 포켓몬센터, 포켓마트와 백화점 콘텐츠; 원본 JAR은 개발팩에 포함했으며 NeoForge 실행에는 Fabric 호환층 추가가 필요함"
+    },
+    {
+      "id": "cobbreeding",
+      "display_name": "Cobbreeding",
+      "kind": "mod",
+      "classification": "required",
+      "side": "both",
+      "selected": true,
+      "version": "2.2.2",
+      "artifact_format": "neoforge_mod",
+      "packaging_status": "ready",
+      "runtime_status": "ready",
+      "modrinth": {
+        "project_id": "ItmVb4zY",
+        "version_id": "9bPk2DC3"
+      },
+      "install_path": "mods",
+      "vendored_path": "pack/overrides/development-placeholder/mods/Cobbreeding-neoforge-2.2.2.jar",
+      "source_url": "https://cdn.modrinth.com/data/ItmVb4zY/versions/9bPk2DC3/Cobbreeding-neoforge-2.2.2.jar",
+      "sha1": "5e031dde496b447b4aa9b51bd63c3f6f9a78be86",
+      "sha512": "4af4f23a294b641a1f4129c96e38dde048ef760108713d5b5a73ac61817bac20b5c39a03d340a42f1a5dc4beb92d7ec40d3e10b9e556ac744c835865ce96a7ca",
+      "license": "MIT",
+      "reason": "NPC 키우미집 알 생성과 4배지 이후 개인 농장의 직접 교배 기능"
     }
   ]
 }

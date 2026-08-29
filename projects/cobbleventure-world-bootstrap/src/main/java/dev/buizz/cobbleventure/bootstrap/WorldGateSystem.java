@@ -297,6 +297,12 @@ final class WorldGateSystem {
                 gatePlacement == null ? null : gatePlacement.footprint()
             );
         }
+        if (!forestGate && gatePlacement != null
+            && gate.surroundingType().equals("natural")) {
+            // The first pass precedes the NBT so its trees survive road work.
+            // Once the facade exists, scan it and close only the exterior seam.
+            refreshNaturalGateSurroundings(level, world, gate, center);
+        }
         if (gate.npc() != null) {
             spawnNpc(level, gate, center, centerY);
         }
@@ -990,12 +996,6 @@ final class WorldGateSystem {
                 GATE_STRUCTURE_NATURAL_CLEARANCE
             );
         }
-        // Trees need crown clearance, but invisible collision must meet the
-        // authored wall. The default gate template has one empty lateral
-        // padding column, so allow barriers into that padding while keeping
-        // the actual occupied facade protected.
-        StructureFootprint barrierProtection = structureFootprint == null
-            ? null : structureFootprint.withoutLateralPadding(gate.facing(), 1);
         final StructureFootprint decorationBoundary = treeProtection;
         // A previous gate revision may already occupy this footprint. Remove
         // its barriers and obsolete configured tree palette before rebuilding.
@@ -1011,10 +1011,14 @@ final class WorldGateSystem {
             : columns.stream()
                 .filter(column -> !decorationBoundary.contains(column.x(), column.z()))
                 .toList();
-        List<NaturalGateColumn> barrierColumns = barrierProtection == null
+        List<NaturalGateColumn> barrierColumns = structureFootprint == null
             ? columns
             : columns.stream()
-                .filter(column -> !barrierProtection.contains(column.x(), column.z()))
+                .filter(column -> !structureFootprint.contains(column.x(), column.z())
+                    || isExteriorGateSeamColumn(
+                        level, world, gate, structureFootprint,
+                        column.x(), column.z()
+                    ))
                 .toList();
         // Pass 1: place all trees while the entire growth volume is still open.
         for (NaturalGateColumn column : decorationColumns) {
@@ -1046,6 +1050,52 @@ final class WorldGateSystem {
             columns.size() - barrierColumns.size(),
             maximumDepth, halfOpening * 2 + 1
         );
+    }
+
+    /**
+     * Extends collision through empty NBT padding only until the first actual
+     * facade column. Each cross-section is scanned independently so recessed
+     * walls are sealed without continuing through them into an interior.
+     */
+    private static boolean isExteriorGateSeamColumn(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        StructureFootprint footprint, int x, int z
+    ) {
+        boolean northSouth = gate.facing().equals("north")
+            || gate.facing().equals("south");
+        int lateral = northSouth ? x : z;
+        int minimum = northSouth ? footprint.minX() : footprint.minZ();
+        int maximum = northSouth ? footprint.maxX() : footprint.maxZ();
+        int midpoint = (minimum + maximum) / 2;
+        int step = lateral <= midpoint ? 1 : -1;
+        int cursor = step > 0 ? minimum : maximum;
+        while (cursor >= minimum && cursor <= maximum) {
+            int scanX = northSouth ? cursor : x;
+            int scanZ = northSouth ? z : cursor;
+            if (gateStructureColumnOccupied(level, world, gate, scanX, scanZ)) {
+                return step > 0 ? lateral < cursor : lateral > cursor;
+            }
+            cursor += step;
+        }
+        // Before placement no facade is available to stop the scan. The
+        // post-placement refresh performs the exact seam fill.
+        return false;
+    }
+
+    private static boolean gateStructureColumnOccupied(
+        ServerLevel level, HexWorldPlan world, Gate gate, int x, int z
+    ) {
+        int nativeY = CobbleventureBootstrap.nativeTerrainColumn(
+            world, x, z
+        ).groundY();
+        for (int y = nativeY + 1; y <= nativeY + gate.barrierHeight(); y++) {
+            BlockState state = level.getBlockState(new BlockPos(x, y, z));
+            if (!state.isAir() && !state.canBeReplaced()
+                && !state.is(Blocks.BARRIER)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void clearNaturalWedgeColumn(
@@ -2529,18 +2579,6 @@ final class WorldGateSystem {
             );
         }
 
-        private StructureFootprint withoutLateralPadding(
-            String facing, int padding
-        ) {
-            boolean northSouth = facing.equals("north") || facing.equals("south");
-            return northSouth
-                ? new StructureFootprint(
-                    minX + padding, minZ, maxX - padding, maxZ
-                )
-                : new StructureFootprint(
-                    minX, minZ + padding, maxX, maxZ - padding
-                );
-        }
     }
 
     private record GateStructurePlacement(StructureFootprint footprint) {}

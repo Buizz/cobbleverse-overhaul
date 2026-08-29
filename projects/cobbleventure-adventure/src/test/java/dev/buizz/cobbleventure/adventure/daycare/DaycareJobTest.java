@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
 final class DaycareJobTest {
@@ -65,6 +67,22 @@ final class DaycareJobTest {
         assertFalse(job.isTimeReady(4_999L));
         assertTrue(job.isTimeReady(5_000L));
         assertEquals(2_000L, job.readyNow(2_000L).readyAtMillis());
+    }
+
+    @Test
+    void roundTripsProjectionFacility() {
+        DaycareJob original = new DaycareJob(
+            UUID.randomUUID(), UUID.randomUUID(),
+            tag("name", "first"), tag("name", "second"),
+            UUID.randomUUID(), UUID.randomUUID(),
+            1_000L, 5_000L, 3_000L, null,
+            ResourceLocation.parse("cobbleventure:kanto"), new BlockPos(12, 65, -8)
+        );
+
+        DaycareJob restored = DaycareJob.load(original.save());
+
+        assertEquals(ResourceLocation.parse("cobbleventure:kanto"), restored.facilityDimension());
+        assertEquals(new BlockPos(12, 65, -8), restored.paddockCenter());
     }
 
     private static DaycareJob job() {

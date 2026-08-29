@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.adventure.daycare;
 import com.mojang.logging.LogUtils;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.HolderLookup;
@@ -53,6 +54,10 @@ final class DaycareSavedData extends SavedData {
 
     synchronized Optional<DaycareJob> find(UUID ownerId) {
         return Optional.ofNullable(jobs.get(ownerId));
+    }
+
+    synchronized List<DaycareJob> snapshotJobs() {
+        return List.copyOf(jobs.values());
     }
 
     synchronized boolean create(DaycareJob job) {

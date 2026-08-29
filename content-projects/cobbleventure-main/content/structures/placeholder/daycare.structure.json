@@ -3,6 +3,17 @@
   "structure": "content/structures/placeholder/daycare.nbt",
   "anchors": [
     {
+      "id": "attendant",
+      "label": "attendant",
+      "type": "npc_position",
+      "position": [
+        14,
+        1,
+        7
+      ],
+      "facing": "east"
+    },
+    {
       "id": "door1",
       "label": "door1",
       "type": "door",

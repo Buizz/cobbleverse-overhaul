@@ -16,6 +16,7 @@
   "screen.cobbleventure_adventure.number_input.confirm": "확인",
   "screen.cobbleventure_adventure.number_input.cancel": "취소",
   "message.cobbleventure_adventure.daycare.same_slot": "서로 다른 파티 슬롯 두 개를 선택해야 합니다.",
+  "message.cobbleventure_adventure.daycare.invalid_slot": "선택한 파티 슬롯이 올바르지 않습니다.",
   "message.cobbleventure_adventure.daycare.already_active": "이미 키우미집에 맡긴 포켓몬이 있습니다.",
   "message.cobbleventure_adventure.daycare.empty_slot": "선택한 파티 슬롯에 포켓몬이 없습니다.",
   "message.cobbleventure_adventure.daycare.party_required": "모험을 계속하려면 파티에 포켓몬 한 마리 이상을 남겨야 합니다.",
@@ -37,5 +38,14 @@
   "message.cobbleventure_adventure.daycare.none_target": "%s에게 진행 중인 키우미 작업이 없습니다.",
   "message.cobbleventure_adventure.daycare.forced_ready": "%s의 키우미 작업 완료 시간을 현재로 변경했습니다.",
   "message.cobbleventure_adventure.daycare.farm_breeding_badges": "직접 교배는 체육관 배지 %s개를 모은 뒤 이용할 수 있습니다.",
-  "message.cobbleventure_adventure.daycare.farm_breeding_location": "교배 목장은 자신의 개인 농장에서만 활성화할 수 있습니다."
+  "message.cobbleventure_adventure.daycare.farm_breeding_location": "교배 목장은 자신의 개인 농장에서만 활성화할 수 있습니다.",
+  "message.cobbleventure_adventure.daycare.npc_too_far": "키우미에게 가까이 다가가 다시 시도해 주세요.",
+  "screen.cobbleventure_adventure.daycare.title": "포켓몬 키우미집",
+  "screen.cobbleventure_adventure.daycare.select_parents": "맡길 포켓몬 두 마리를 선택하세요.",
+  "screen.cobbleventure_adventure.daycare.deposit": "%s원을 내고 맡기기",
+  "screen.cobbleventure_adventure.daycare.breeding": "알을 돌보고 있습니다 · 약 %s분 남음",
+  "screen.cobbleventure_adventure.daycare.ready": "알이 준비되었습니다!",
+  "screen.cobbleventure_adventure.daycare.collect": "알과 부모 포켓몬 찾기",
+  "screen.cobbleventure_adventure.daycare.refresh": "상태 새로고침",
+  "screen.cobbleventure_adventure.daycare.cancel": "위탁 취소하기"
 }

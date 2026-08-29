@@ -97,10 +97,16 @@ test {
 configurations {
     localRuntime
     runtimeClasspath.extendsFrom localRuntime
+    cobbreedingDistribution {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
 }
 
 dependencies {
     localRuntime "dev.buizz.cobbleventure:cobbleventure-battle-ai:0.1.0"
+    cobbreedingDistribution "maven.modrinth:ItmVb4zY:${cobbreeding_modrinth_version}"
 }
 
 if (project.hasProperty('integration_mods_dir')) {
@@ -154,6 +160,34 @@ processResources {
 tasks.register('cleanInstalledDevelopmentJars', Delete) {
     delete fileTree(rootProject.file('../../pack/overrides/development-placeholder/mods')) {
         include 'cobbleventure-adventure-*.jar'
+    }
+}
+
+tasks.register('syncCobbreedingDevelopmentJar') {
+    def destination = rootProject.file(
+        '../../pack/overrides/development-placeholder/mods/Cobbreeding-neoforge-2.2.2.jar'
+    )
+    inputs.files(configurations.cobbreedingDistribution)
+    outputs.file(destination)
+    doLast {
+        def source = inputs.files.singleFile
+        def digest = java.security.MessageDigest.getInstance('SHA-512')
+        source.withInputStream { stream ->
+            byte[] buffer = new byte[8192]
+            for (int read = stream.read(buffer); read >= 0; read = stream.read(buffer)) {
+                if (read > 0) digest.update(buffer, 0, read)
+            }
+        }
+        def actual = digest.digest().collect { String.format('%02x', it & 0xff) }.join()
+        def expected = '4af4f23a294b641a1f4129c96e38dde048ef760108713d5b5a73ac61817bac20b5c39a03d340a42f1a5dc4beb92d7ec40d3e10b9e556ac744c835865ce96a7ca'
+        if (actual != expected) {
+            throw new GradleException("Cobbreeding 2.2.2 SHA-512 불일치: ${actual}")
+        }
+        destination.parentFile.mkdirs()
+        java.nio.file.Files.copy(
+            source.toPath(), destination.toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        )
     }
 }
 

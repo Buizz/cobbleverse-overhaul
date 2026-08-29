@@ -13,12 +13,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
@@ -27,7 +29,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /** Paid, one-egg daycare lifecycle. Commands provide the first integration test surface. */
 public final class DaycareService {
-    private static final long SERVICE_FEE = 3_000L;
+    static final long SERVICE_FEE = 3_000L;
     private static final int MIN_BREEDING_TICKS = 8_000;
     private static final int MAX_BREEDING_TICKS = 14_000;
     private static final long MILLIS_PER_TICK = 50L;
@@ -68,7 +70,24 @@ public final class DaycareService {
         );
     }
 
-    private static int deposit(ServerPlayer player, int firstSlot, int secondSlot) {
+    static int deposit(ServerPlayer player, int firstSlot, int secondSlot) {
+        return deposit(
+            player, firstSlot, secondSlot,
+            player.level().dimension().location(), player.blockPosition()
+        );
+    }
+
+    static int deposit(
+        ServerPlayer player,
+        int firstSlot,
+        int secondSlot,
+        ResourceLocation facilityDimension,
+        BlockPos paddockCenter
+    ) {
+        if (firstSlot < 0 || firstSlot >= 6 || secondSlot < 0 || secondSlot >= 6) {
+            fail(player, "message.cobbleventure_adventure.daycare.invalid_slot");
+            return 0;
+        }
         if (firstSlot == secondSlot) {
             fail(player, "message.cobbleventure_adventure.daycare.same_slot");
             return 0;
@@ -120,7 +139,9 @@ public final class DaycareService {
             acceptedAt,
             acceptedAt + breedingTicks * MILLIS_PER_TICK,
             SERVICE_FEE,
-            null
+            null,
+            facilityDimension,
+            paddockCenter
         );
 
         if (!data.create(job)) {
@@ -146,7 +167,7 @@ public final class DaycareService {
         return 1;
     }
 
-    private static int status(ServerPlayer player) {
+    static int status(ServerPlayer player) {
         DaycareSavedData data = DaycareSavedData.get(player.getServer());
         DaycareJob job = data.find(player.getUUID()).orElse(null);
         if (job == null) {
@@ -170,7 +191,7 @@ public final class DaycareService {
         return 1;
     }
 
-    private static int collect(ServerPlayer player) {
+    static int collect(ServerPlayer player) {
         DaycareSavedData data = DaycareSavedData.get(player.getServer());
         DaycareJob job = data.find(player.getUUID()).orElse(null);
         if (job == null) {
@@ -224,7 +245,7 @@ public final class DaycareService {
         return 1;
     }
 
-    private static int cancel(ServerPlayer player) {
+    static int cancel(ServerPlayer player) {
         DaycareSavedData data = DaycareSavedData.get(player.getServer());
         DaycareJob job = data.find(player.getUUID()).orElse(null);
         if (job == null) {

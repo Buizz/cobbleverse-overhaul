@@ -217,6 +217,8 @@ if /I "%COBBLEVENTURE_COBBLEMON_TARGET%"=="1.8" (
     exit /b 1
 )
 
+call "%GRADLEW%" -p "%ADVENTURE_PROJECT%" syncCobbreedingDevelopmentJar
+if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CONTENT_MANAGER%" validate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"
 if errorlevel 1 exit /b %errorlevel%
 %PYTHON_CMD% "%CONTENT_MANAGER%" generate --root "%REPO_ROOT%." --project "%COBBLEVENTURE_PROJECT_PATH%"

@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.adventure.event;
 
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.daycare.DaycareNetwork;
 import java.util.Optional;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,6 +15,8 @@ import org.slf4j.Logger;
 /** Starts a CVES session when a player interacts with an entity carrying a V5 binding tag. */
 public final class EventNpcInteractionHandler {
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String DAYCARE_SCRIPT =
+        "cobbleventure:event_script/facilities/daycare";
     private EventNpcInteractionHandler() {}
 
     public static void register() {
@@ -43,6 +46,10 @@ public final class EventNpcInteractionHandler {
         // representation adapter cannot also open its own dialogue.
         cancel(event, InteractionResult.SUCCESS);
         if (!EventNpcTriggerMode.acceptsInteraction(target.getTags())) {
+            return;
+        }
+        if (DAYCARE_SCRIPT.equals(binding.scriptId())) {
+            DaycareNetwork.open(player, target);
             return;
         }
         try {

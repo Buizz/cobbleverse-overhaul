@@ -2,7 +2,9 @@ package dev.buizz.cobbleventure.adventure.daycare;
 
 import java.util.Objects;
 import java.util.UUID;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 
 /** Immutable persisted state for one paid daycare breeding request. */
 final class DaycareJob {
@@ -16,6 +18,8 @@ final class DaycareJob {
     private final long readyAtMillis;
     private final long feePaid;
     private final CompoundTag eggStack;
+    private final ResourceLocation facilityDimension;
+    private final BlockPos paddockCenter;
 
     DaycareJob(
         UUID jobId,
@@ -28,6 +32,27 @@ final class DaycareJob {
         long readyAtMillis,
         long feePaid,
         CompoundTag eggStack
+    ) {
+        this(
+            jobId, ownerId, parentA, parentB, parentAId, parentBId,
+            acceptedAtMillis, readyAtMillis, feePaid, eggStack,
+            ResourceLocation.withDefaultNamespace("overworld"), BlockPos.ZERO
+        );
+    }
+
+    DaycareJob(
+        UUID jobId,
+        UUID ownerId,
+        CompoundTag parentA,
+        CompoundTag parentB,
+        UUID parentAId,
+        UUID parentBId,
+        long acceptedAtMillis,
+        long readyAtMillis,
+        long feePaid,
+        CompoundTag eggStack,
+        ResourceLocation facilityDimension,
+        BlockPos paddockCenter
     ) {
         this.jobId = Objects.requireNonNull(jobId, "jobId");
         this.ownerId = Objects.requireNonNull(ownerId, "ownerId");
@@ -45,6 +70,8 @@ final class DaycareJob {
         this.readyAtMillis = readyAtMillis;
         this.feePaid = feePaid;
         this.eggStack = eggStack == null || eggStack.isEmpty() ? null : eggStack.copy();
+        this.facilityDimension = Objects.requireNonNull(facilityDimension, "facilityDimension");
+        this.paddockCenter = Objects.requireNonNull(paddockCenter, "paddockCenter").immutable();
     }
 
     UUID jobId() {
@@ -95,6 +122,14 @@ final class DaycareJob {
         return eggStack == null ? null : eggStack.copy();
     }
 
+    ResourceLocation facilityDimension() {
+        return facilityDimension;
+    }
+
+    BlockPos paddockCenter() {
+        return paddockCenter;
+    }
+
     DaycareJob withEgg(CompoundTag value) {
         if (hasEgg()) {
             throw new IllegalStateException("키우미 작업의 알은 한 번만 생성할 수 있습니다.");
@@ -102,14 +137,15 @@ final class DaycareJob {
         return new DaycareJob(
             jobId, ownerId, parentA, parentB, parentAId, parentBId,
             acceptedAtMillis, readyAtMillis, feePaid,
-            Objects.requireNonNull(value, "value")
+            Objects.requireNonNull(value, "value"), facilityDimension, paddockCenter
         );
     }
 
     DaycareJob readyNow(long nowMillis) {
         return new DaycareJob(
             jobId, ownerId, parentA, parentB, parentAId, parentBId,
-            acceptedAtMillis, Math.max(acceptedAtMillis, nowMillis), feePaid, eggStack
+            acceptedAtMillis, Math.max(acceptedAtMillis, nowMillis), feePaid, eggStack,
+            facilityDimension, paddockCenter
         );
     }
 
@@ -124,6 +160,8 @@ final class DaycareJob {
         tag.putLong("acceptedAtMillis", acceptedAtMillis);
         tag.putLong("readyAtMillis", readyAtMillis);
         tag.putLong("feePaid", feePaid);
+        tag.putString("facilityDimension", facilityDimension.toString());
+        tag.putLong("paddockCenter", paddockCenter.asLong());
         if (eggStack != null) {
             tag.put("eggStack", eggStack.copy());
         }
@@ -135,6 +173,12 @@ final class DaycareJob {
             || !tag.hasUUID("parentAId") || !tag.hasUUID("parentBId")) {
             throw new IllegalArgumentException("키우미 작업 UUID가 누락되었습니다.");
         }
+        ResourceLocation dimension = ResourceLocation.tryParse(
+            tag.getString("facilityDimension")
+        );
+        if (dimension == null) {
+            dimension = ResourceLocation.withDefaultNamespace("overworld");
+        }
         return new DaycareJob(
             tag.getUUID("jobId"),
             tag.getUUID("ownerId"),
@@ -145,7 +189,10 @@ final class DaycareJob {
             tag.getLong("acceptedAtMillis"),
             tag.getLong("readyAtMillis"),
             tag.getLong("feePaid"),
-            tag.contains("eggStack") ? tag.getCompound("eggStack") : null
+            tag.contains("eggStack") ? tag.getCompound("eggStack") : null,
+            dimension,
+            tag.contains("paddockCenter")
+                ? BlockPos.of(tag.getLong("paddockCenter")) : BlockPos.ZERO
         );
     }
 }
