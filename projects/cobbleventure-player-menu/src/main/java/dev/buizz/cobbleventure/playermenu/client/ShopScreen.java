@@ -13,20 +13,16 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
 
 /** Blue-and-orange shop UI sharing the visual language of the Cobbleventure bag. */
 public final class ShopScreen extends Screen {
-    private static final int PANEL_MAX_WIDTH = 480;
-    private static final int PANEL_MAX_HEIGHT = 286;
-    private static final int PANEL_MIN_WIDTH = 320;
-    private static final int PANEL_MIN_HEIGHT = 220;
-    private static final int PANEL_PHYSICAL_MAX_WIDTH = 1680;
-    private static final int PANEL_PHYSICAL_MAX_HEIGHT = 1000;
     private static final int PANEL_DARK = 0xFF356A98;
     private static final int PANEL_LIGHT = 0xFFA9DCEE;
     private static final int PANEL_FILL = 0xF4D9EDF7;
@@ -77,11 +73,9 @@ public final class ShopScreen extends Screen {
 
     @Override
     protected void init() {
-        double guiScale = Math.max(1.0D, minecraft.getWindow().getGuiScale());
-        int widthLimit = Math.min(PANEL_MAX_WIDTH, (int) Math.floor(PANEL_PHYSICAL_MAX_WIDTH / guiScale));
-        int heightLimit = Math.min(PANEL_MAX_HEIGHT, (int) Math.floor(PANEL_PHYSICAL_MAX_HEIGHT / guiScale));
-        panelWidth = Math.min(width - 16, Math.max(PANEL_MIN_WIDTH, widthLimit));
-        panelHeight = Math.min(height - 16, Math.max(PANEL_MIN_HEIGHT, heightLimit));
+        ShopLayout.Panel panel = ShopLayout.panel(width, height);
+        panelWidth = panel.width();
+        panelHeight = panel.height();
         panelX = (width - panelWidth) / 2;
         panelY = (height - panelHeight) / 2;
         rebuildShopWidgets();
@@ -89,7 +83,7 @@ public final class ShopScreen extends Screen {
 
     private void rebuildShopWidgets() {
         clearWidgets();
-        int leftWidth = Math.max(210, panelWidth * 2 / 3);
+        int leftWidth = ShopLayout.contentWidth(panelWidth);
         int tabsY = panelY + 41;
         int bodyY = panelY + 68;
 
@@ -102,10 +96,11 @@ public final class ShopScreen extends Screen {
         List<String> categoryList = new ArrayList<>();
         categoryList.add("");
         categoryList.addAll(categories.stream().limit(4).toList());
-        int categoryWidth = Math.max(48, Math.min(76, (leftWidth - 28) / categoryList.size()));
+        int categoryWidth = Math.max(28, Math.min(76, (leftWidth - 28) / categoryList.size()));
         for (int index = 0; index < categoryList.size(); index++) {
             addRenderableWidget(new CategoryButton(
                 categoryList.get(index),
+                categoryIcon(categoryList.get(index)),
                 panelX + 12 + index * categoryWidth,
                 bodyY,
                 categoryWidth - 3,
@@ -132,8 +127,8 @@ public final class ShopScreen extends Screen {
         refreshOffers(false);
         int gridX = panelX + 12;
         int gridY = bodyY + 45;
-        int cardWidth = Math.max(54, (leftWidth - 27) / GRID_COLUMNS);
-        int cardHeight = Math.max(48, (panelHeight - (gridY - panelY) - 20) / GRID_ROWS);
+        int cardWidth = Math.max(42, (leftWidth - 27) / GRID_COLUMNS);
+        int cardHeight = Math.max(44, (panelHeight - (gridY - panelY) - 20) / GRID_ROWS);
         int start = scrollRow * GRID_COLUMNS;
         for (int visible = 0; visible < GRID_COLUMNS * GRID_ROWS; visible++) {
             int offerPosition = start + visible;
@@ -162,6 +157,17 @@ public final class ShopScreen extends Screen {
             this::transact
         ));
         updateTransactionButton();
+    }
+
+    private ItemStack categoryIcon(String categoryValue) {
+        if (categoryValue.isBlank()) return new ItemStack(Items.CHEST);
+        return offers.stream()
+            .filter(offer -> categoryValue.equals(offer.category()))
+            .map(ShopNetwork.ClientOffer::stack)
+            .filter(stack -> !stack.isEmpty())
+            .findFirst()
+            .map(ItemStack::copy)
+            .orElseGet(() -> new ItemStack(Items.CHEST));
     }
 
     private void refreshOffers(boolean resetScroll) {
@@ -282,7 +288,7 @@ public final class ShopScreen extends Screen {
     }
 
     private void drawDetail(GuiGraphics graphics, int actualWidth) {
-        int leftWidth = Math.max(210, actualWidth * 2 / 3);
+        int leftWidth = ShopLayout.contentWidth(actualWidth);
         int detailX = panelX + leftWidth + 3;
         int detailWidth = actualWidth - leftWidth - 15;
         int detailTop = panelY + 68;
@@ -300,17 +306,28 @@ public final class ShopScreen extends Screen {
         graphics.drawString(font, itemName,
             detailX + (detailWidth - font.width(itemName)) / 2, detailTop + 31, TEXT, false);
         String unitPrice = format(selling ? offer.sellPrice() : offer.buyPrice());
-        graphics.drawString(font,
-            Component.translatable("screen.cobbleventure_player_menu.shop.unit_price", unitPrice),
-            detailX + 10, detailTop + 49, MUTED, false);
-        graphics.drawString(font,
-            Component.translatable("screen.cobbleventure_player_menu.shop.owned", offer.owned()),
-            detailX + 10, detailTop + 63, MUTED, false);
-        graphics.drawString(font,
-            Component.translatable("screen.cobbleventure_player_menu.shop.bundle", offer.count()),
-            detailX + 10, detailTop + 77, MUTED, false);
-        graphics.fill(detailX + 10, detailTop + 92, detailX + detailWidth - 10,
-            detailTop + 93, 0x55356A98);
+        boolean compact = panelHeight < 250;
+        if (compact) {
+            String summary = Component.translatable(
+                "screen.cobbleventure_player_menu.shop.compact_summary", unitPrice, offer.owned()
+            ).getString();
+            graphics.drawString(font, font.plainSubstrByWidth(summary, detailWidth - 20),
+                detailX + 10, detailTop + 49, MUTED, false);
+            graphics.fill(detailX + 10, detailTop + 60, detailX + detailWidth - 10,
+                detailTop + 61, 0x55356A98);
+        } else {
+            graphics.drawString(font,
+                Component.translatable("screen.cobbleventure_player_menu.shop.unit_price", unitPrice),
+                detailX + 10, detailTop + 49, MUTED, false);
+            graphics.drawString(font,
+                Component.translatable("screen.cobbleventure_player_menu.shop.owned", offer.owned()),
+                detailX + 10, detailTop + 63, MUTED, false);
+            graphics.drawString(font,
+                Component.translatable("screen.cobbleventure_player_menu.shop.bundle", offer.count()),
+                detailX + 10, detailTop + 77, MUTED, false);
+            graphics.fill(detailX + 10, detailTop + 92, detailX + detailWidth - 10,
+                detailTop + 93, 0x55356A98);
+        }
         String quantityText = Integer.toString(quantity);
         int stepY = detailBottom - 80;
         graphics.drawString(font, quantityText,
@@ -445,12 +462,17 @@ public final class ShopScreen extends Screen {
 
     private final class CategoryButton extends AbstractButton {
         private final String value;
+        private final ItemStack icon;
 
-        private CategoryButton(String value, int x, int y, int width, int height) {
+        private CategoryButton(
+            String value, ItemStack icon, int x, int y, int width, int height
+        ) {
             super(x, y, width, height, value.isBlank()
                 ? Component.translatable("screen.cobbleventure_player_menu.shop.category.all")
                 : Component.literal(value));
             this.value = value;
+            this.icon = icon;
+            setTooltip(Tooltip.create(getMessage()));
         }
 
         @Override public void onPress() {
@@ -468,9 +490,15 @@ public final class ShopScreen extends Screen {
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(), 5, border);
             fillRoundedRect(graphics, getX() + 1, getY() + 1, getX() + getWidth() - 1,
                 getY() + getHeight() - 1, 4, fill);
-            String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6);
-            drawCenteredNoShadow(graphics, label,
-                getX() + getWidth() / 2, getY() + 5, TEXT);
+            String label = getWidth() >= 44
+                ? font.plainSubstrByWidth(getMessage().getString(), getWidth() - 23)
+                : "";
+            int contentWidth = 16 + (label.isBlank() ? 0 : 2 + font.width(label));
+            int contentX = getX() + (getWidth() - contentWidth) / 2;
+            graphics.renderItem(icon, contentX, getY() + 2);
+            if (!label.isBlank()) {
+                graphics.drawString(font, label, contentX + 18, getY() + 5, TEXT, false);
+            }
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
@@ -507,15 +535,17 @@ public final class ShopScreen extends Screen {
             String name = font.plainSubstrByWidth(offer.stack().getHoverName().getString(), getWidth() - 6);
             int color = unavailable ? MUTED : TEXT;
             drawCenteredNoShadow(graphics, name,
-                getX() + getWidth() / 2, getY() + 25, color);
+                getX() + getWidth() / 2, getY() + 23, color);
             String price = "₽ " + format(selling ? offer.sellPrice() : offer.buyPrice());
             drawCenteredNoShadow(graphics, price,
-                getX() + getWidth() / 2, getY() + 38, color);
-            String owned = Component.translatable(
-                "screen.cobbleventure_player_menu.shop.card_owned", offer.owned()
-            ).getString();
-            drawCenteredNoShadow(graphics, owned,
-                getX() + getWidth() / 2, getY() + 51, MUTED);
+                getX() + getWidth() / 2, getY() + 35, color);
+            if (getHeight() >= 58) {
+                String owned = Component.translatable(
+                    "screen.cobbleventure_player_menu.shop.card_owned", offer.owned()
+                ).getString();
+                drawCenteredNoShadow(graphics, owned,
+                    getX() + getWidth() / 2, getY() + 48, MUTED);
+            }
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {

@@ -78,22 +78,6 @@
       "safe_side": "south"
     },
     {
-      "id": "transition",
-      "label": "transition",
-      "type": "transition",
-      "position": [
-        6,
-        2,
-        14
-      ],
-      "safe_spawn": [
-        7,
-        1,
-        14
-      ],
-      "facing": "west"
-    },
-    {
       "id": "gacha_default_tm",
       "label": "gacha_default_tm",
       "type": "npc_position",
@@ -114,6 +98,22 @@
         15
       ],
       "facing": "south"
+    },
+    {
+      "id": "transition",
+      "label": "transition",
+      "type": "transition",
+      "position": [
+        4,
+        2,
+        14
+      ],
+      "safe_spawn": [
+        7,
+        1,
+        14
+      ],
+      "facing": "west"
     }
   ]
 }

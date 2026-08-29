@@ -69,17 +69,17 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 | `01_pokemon_tower_grave` | `pokemon_tower_grave.json` |
 | `02_double_display_case` | `double_display_case.json` |
 | `03_double_glass_display_counter` | `double_glass_display_counter.json` |
-| `04_rocket_base_machine_1` | `rocket_base_machine_1.json` |
-| `05_rocket_base_machine_2` | `rocket_base_machine_2.json` |
-| `06_rocket_base_machine_3` | `rocket_base_machine_3.json` |
-| `07_research_device` | 원본: `research_device.bbmodel`, 자동 생성: `research_device_packed.bbmodel`, 게임: `research_device_1.json` + 단일 패킹 텍스처 |
-| `08_white_connecting_bookshelf` | 하얀색 연결형 책장. `*_core.json`, `*_left_end.json`, `*_right_end.json` |
+| `04_rocket_base_machine_1` | 완성 원본 `rocket_base_machine_1.json` + 단일 `rocket_base_machine.png` 텍스처 |
+| `05_rocket_base_machine_2` | 완성 원본 `rocket_base_machine_2.json`, 깊이 1 × 가로 2 × 높이 2 멀티블록 |
+| `06_rocket_base_machine_3` | 2×2×3 앞쪽과 연결부가 돌출된 2×2×2 뒤쪽 모델. 게임에서는 바닥 4×2, 최대 높이 3의 20파트 멀티블록으로 결합 |
+| `07_research_device` | 원본: `research_device.bbmodel`, 자동 생성: 패킹 모델·게임 JSON·단일 텍스처·LabPBR `research_device_1_texture_s.png` 반사광 맵 |
+| `08_white_connecting_bookshelf` | 완성 2×1×2 하얀색 책장. 이전 연결형 부품 JSON은 참고용으로만 보관 |
 | `09_large_single_iron_bed` | 편집: `large_single_iron_bed.bbmodel`, 게임: `large_single_iron_bed.json` |
 | `10_sky_view_glow_window` | 편집 원본: `sky_view_glow_window.bbmodel`, 게임: `sky_view_glow_window.json` |
 | `11_bright_double_glow_window` | 편집 원본: `bright_double_glow_window.bbmodel`, 게임: 2칸 자동 설치용 `bright_double_glow_window.json` |
 | `12_blue_panel_glow_window` | 편집 원본: `blue_panel_glow_window.bbmodel`, 게임: `blue_panel_glow_window.json` |
-| `13_green_connecting_bookshelf` | 초록색 연결형 책장 작업장. 현재 참고 이미지 보관 |
-| `14_glass_storage_cabinet` | 유리 수납장 임시 모델과 참고 이미지 |
+| `13_green_connecting_bookshelf` | 완성 2×1×2 초록색 책장과 단일 128×128 텍스처 |
+| `14_glass_storage_cabinet` | 완성 2×1×2 멀티블록 모델, 단일 텍스처의 반투명 유리와 `minecraft:translucent` 렌더 타입 |
 | `15_narrow_drawer_cabinet` | 좁은 서랍장 임시 모델과 참고 이미지 |
 
 `02_double_display_case/double_display_case.json`은 `textures/block/double_display_case.png`

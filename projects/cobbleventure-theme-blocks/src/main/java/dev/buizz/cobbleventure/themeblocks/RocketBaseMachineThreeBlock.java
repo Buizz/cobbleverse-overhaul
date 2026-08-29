@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.themeblocks;
 
 import com.mojang.serialization.MapCodec;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,7 +26,17 @@ final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
     private static final MapCodec<RocketBaseMachineThreeBlock> CODEC =
         simpleCodec(RocketBaseMachineThreeBlock::new);
     static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
-    static final IntegerProperty PART = IntegerProperty.create("part", 0, 5);
+    static final IntegerProperty PART = IntegerProperty.create("part", 0, 19);
+
+    /*
+     * The rear body occupies local width 0..1, depth 0..1 and height 0..1.
+     * The front body occupies local width 2..3, depth 0..1 and height 0..2.
+     * Both JSON models are anchored on their middle height layer. The rear
+     * connector slightly enters width 2, where it meets the front body.
+     */
+    private static final List<PartOffset> OFFSETS = createOffsets();
+    static final int REAR_MODEL_PART = partAt(1, 0, 1);
+    static final int FRONT_MODEL_PART = partAt(2, 0, 1);
 
     RocketBaseMachineThreeBlock(Properties properties) {
         super(properties);
@@ -60,11 +71,12 @@ final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
         if (level.isClientSide()) {
             return;
         }
-        List<BlockPos> positions = positions(position, state.getValue(FACING));
+        Direction facing = state.getValue(FACING);
+        List<BlockPos> positions = positions(position, facing);
         for (int part = 0; part < positions.size(); part++) {
             level.setBlock(
                 positions.get(part),
-                defaultBlockState().setValue(FACING, state.getValue(FACING)).setValue(PART, part),
+                defaultBlockState().setValue(FACING, facing).setValue(PART, part),
                 Block.UPDATE_ALL
             );
         }
@@ -90,12 +102,9 @@ final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
 
     @Override
     protected BlockState mirror(BlockState state, Mirror mirror) {
-        if (mirror == Mirror.NONE) {
-            return state;
-        }
-        return state
-            .rotate(mirror.getRotation(state.getValue(FACING)))
-            .setValue(PART, mirroredPart(state.getValue(PART)));
+        return mirror == Mirror.NONE
+            ? state
+            : state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
@@ -107,30 +116,60 @@ final class RocketBaseMachineThreeBlock extends HorizontalDirectionalBlock {
     protected VoxelShape getShape(
         BlockState state, BlockGetter level, BlockPos position, CollisionContext context
     ) {
-        return box(0.0D, 0.0D, 0.0D, 16.0D, 16.0D, 16.0D);
+        return Block.box(0.0D, 0.0D, 0.0D, 16.0D, 16.0D, 16.0D);
+    }
+
+    private static List<PartOffset> createOffsets() {
+        List<PartOffset> offsets = new ArrayList<>(20);
+        // Rear body: 2 wide x 2 deep x 2 high.
+        for (int height = 0; height < 2; height++) {
+            for (int depth = 0; depth < 2; depth++) {
+                for (int width = 0; width < 2; width++) {
+                    offsets.add(new PartOffset(width, depth, height));
+                }
+            }
+        }
+        // Front body: 2 wide x 2 deep x 3 high, placed to the right of the rear body.
+        for (int height = 0; height < 3; height++) {
+            for (int depth = 0; depth < 2; depth++) {
+                for (int width = 2; width < 4; width++) {
+                    offsets.add(new PartOffset(width, depth, height));
+                }
+            }
+        }
+        return List.copyOf(offsets);
+    }
+
+    private static int partAt(int width, int depth, int height) {
+        for (int part = 0; part < OFFSETS.size(); part++) {
+            PartOffset offset = OFFSETS.get(part);
+            if (offset.width == width && offset.depth == depth && offset.height == height) {
+                return part;
+            }
+        }
+        throw new IllegalArgumentException("No machine part at the requested offset");
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
-        Direction right = facing.getCounterClockWise();
-        return List.of(
-            core,
-            core.relative(right),
-            core.above(),
-            core.relative(right).above(),
-            core.above(2),
-            core.relative(right).above(2)
-        );
+        Direction right = facing.getClockWise();
+        Direction back = facing.getOpposite();
+        return OFFSETS.stream()
+            .map(offset -> core
+                .relative(right, offset.width)
+                .relative(back, offset.depth)
+                .above(offset.height))
+            .toList();
     }
 
     private static BlockPos corePosition(BlockPos position, BlockState state) {
-        int part = state.getValue(PART);
-        BlockPos lowerPosition = position.below(part / 2);
-        return part % 2 == 1
-            ? lowerPosition.relative(state.getValue(FACING).getClockWise())
-            : lowerPosition;
+        PartOffset offset = OFFSETS.get(state.getValue(PART));
+        Direction facing = state.getValue(FACING);
+        return position
+            .below(offset.height)
+            .relative(facing.getCounterClockWise(), offset.width)
+            .relative(facing, offset.depth);
     }
 
-    private static int mirroredPart(int part) {
-        return (part / 2) * 2 + (1 - part % 2);
+    private record PartOffset(int width, int depth, int height) {
     }
 }

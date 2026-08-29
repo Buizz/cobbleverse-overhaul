@@ -37,8 +37,8 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blo
 없습니다. 설계 참고본은 `docs/concepts/rocket_base_machine_1_reference.png`와
 `docs/concepts/rocket_base_machine_2_reference.png`에 보관합니다.
 
-`로켓단 기지 기계 3`은 빨간 표시등이 있는 계단식 원통 장치와 청록색 화면이 있는
-조작 콘솔이 연결된 가로 2블록 × 높이 3블록 장식입니다. 아이템 하나로 여섯 파트가 함께
+`로켓단 기지 기계 3`은 2×2×2 뒤쪽 본체와 2×2×3 앞쪽 본체가 연결된
+바닥 4×2, 최대 높이 3블록의 장식입니다. 아이템 하나로 20개 파트가 함께
 설치되며 어느 부분을 철거해도 나머지가 함께 제거됩니다. 기능이나 GUI는 없고 설계
 참고본은 `docs/concepts/rocket_base_machine_3_reference.png`에 보관합니다.
 
@@ -48,9 +48,8 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blo
 설계 참고본은
 `docs/concepts/research_device_1_reference.png`에 보관합니다.
 
-`하얀색 연결형 책장`은 한 칸만 설치하면 양쪽 끝판이 있는 독립 책장으로 보이고,
-같은 방향의 책장을 옆에 붙이면 맞닿는 끝판을 자동으로 숨겨 연속된 책장으로 합쳐집니다.
-두 칸뿐 아니라 세 칸 이상도 이어지며 설계 참고본은
+`하얀색 연결형 책장`과 `초록색 연결형 책장`은 각각 아이템 하나로 가로 2블록 ×
+높이 2블록의 완성 책장을 설치합니다. 네 파트가 함께 설치·철거되며 설계 참고본은
 `docs/concepts/white_connecting_bookshelf_reference.png`에 보관합니다.
 
 `2×2 1인용 철제 침대`는 Minecraft 축척상 가로 2블록 × 길이 2블록을 차지하며

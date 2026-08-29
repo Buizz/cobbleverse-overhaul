@@ -200,6 +200,7 @@
   "screen.cobbleventure_player_menu.shop.unit_price": "개당 ₽ %s",
   "screen.cobbleventure_player_menu.shop.owned": "가방 보유 %s개",
   "screen.cobbleventure_player_menu.shop.bundle": "거래 단위 %s개",
+  "screen.cobbleventure_player_menu.shop.compact_summary": "₽ %s · 보유 %s",
   "screen.cobbleventure_player_menu.shop.card_owned": "보유 %s",
   "screen.cobbleventure_player_menu.shop.total": "합계",
   "screen.cobbleventure_player_menu.shop.buy": "구매하기",

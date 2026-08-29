@@ -1,18 +1,8 @@
 {
   "multipart": [
-    { "when": {"facing":"north"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_core", "uvlock":true} },
-    { "when": {"facing":"east"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_core", "uvlock":true, "y":90} },
-    { "when": {"facing":"south"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_core", "uvlock":true, "y":180} },
-    { "when": {"facing":"west"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_core", "uvlock":true, "y":270} },
-
-    { "when": {"facing":"north", "left":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_right_end", "uvlock":true} },
-    { "when": {"facing":"east", "left":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_right_end", "uvlock":true, "y":90} },
-    { "when": {"facing":"south", "left":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_right_end", "uvlock":true, "y":180} },
-    { "when": {"facing":"west", "left":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_right_end", "uvlock":true, "y":270} },
-
-    { "when": {"facing":"north", "right":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_left_end", "uvlock":true} },
-    { "when": {"facing":"east", "right":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_left_end", "uvlock":true, "y":90} },
-    { "when": {"facing":"south", "right":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_left_end", "uvlock":true, "y":180} },
-    { "when": {"facing":"west", "right":"false"}, "apply": {"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf_left_end", "uvlock":true, "y":270} }
+    {"when":{"facing":"north","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf"}},
+    {"when":{"facing":"east","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf","y":90}},
+    {"when":{"facing":"south","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf","y":180}},
+    {"when":{"facing":"west","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf","y":270}}
   ]
 }

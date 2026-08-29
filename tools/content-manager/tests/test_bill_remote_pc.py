@@ -27,6 +27,11 @@ class BillRemotePcTests(unittest.TestCase):
         self.assertEqual(
             "cobbleventure:houses/bill_house", bill_house["resource"]
         )
+        self.assertEqual(3, bill_house["rotation"])
+        self.assertEqual("road_anchor", bill_house["properties"]["placement_anchor"])
+        metadata = load(CONTENT / "structures" / "houses" / "bill_house.structure.json")
+        door = next(anchor for anchor in metadata["anchors"] if anchor["id"] == "door")
+        self.assertEqual([14, 1, 2], door["safe_spawn"])
 
     def test_bill_house_uses_a_private_interior_npc_assignment(self) -> None:
         settings = load(CONTENT / "catalogs" / "building-settings.json")["buildings"]

@@ -1,8 +1,8 @@
 {
-  "variants": {
-    "facing=north": {"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet"},
-    "facing=east": {"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet","y":90},
-    "facing=south": {"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet","y":180},
-    "facing=west": {"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet","y":270}
-  }
+  "multipart": [
+    {"when":{"facing":"north","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet"}},
+    {"when":{"facing":"east","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet","y":90}},
+    {"when":{"facing":"south","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet","y":180}},
+    {"when":{"facing":"west","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/14_glass_storage_cabinet/glass_storage_cabinet","y":270}}
+  ]
 }

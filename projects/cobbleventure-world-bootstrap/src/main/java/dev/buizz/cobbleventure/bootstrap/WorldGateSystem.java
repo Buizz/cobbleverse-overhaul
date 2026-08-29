@@ -206,7 +206,13 @@ final class WorldGateSystem {
             } else {
                 if (gate.buildingEnabled()) {
                     protectExistingGateStructureLeaves(level, gate, center);
-                    int existingGroundY = groundY(level, center.x(), center.z());
+                    // The completed gate occupies the center column. Querying
+                    // the live heightmap here returns its roof and turns the
+                    // repaired approach into a staircase up the facade. Use
+                    // the immutable pre-structure terrain height instead.
+                    int existingGroundY = CobbleventureBootstrap.nativeTerrainColumn(
+                        world, center.x(), center.z()
+                    ).groundY();
                     StructureFootprint existingFootprint = plannedStructureFootprint(
                         level, gate, center
                     );
@@ -216,7 +222,7 @@ final class WorldGateSystem {
                         );
                     layGateApproachRoads(
                         level, world, gate, center, existingFootprint,
-                        existingEntrances, gate.wallThickness() / 2 + 4
+                        existingEntrances, gate.wallThickness() / 2 + 4, true
                     );
                 }
                 if (!gate.surroundingType().equals("natural")) return;
@@ -253,7 +259,7 @@ final class WorldGateSystem {
         if (!forestGate && (!shouldPlaceStructure || plannedFootprint != null)) {
             layGateApproachRoads(
                 level, world, gate, center, plannedFootprint,
-                plannedEntrances, halfThickness
+                plannedEntrances, halfThickness, false
             );
         }
         if (!forestGate && gate.surroundingType().equals("wall")) {
@@ -975,15 +981,22 @@ final class WorldGateSystem {
         CobbleventureBootstrap.Point center,
         List<NaturalGateColumn> columns, int maximumDepth, int halfOpening
     ) {
-        StructureFootprint protectedFootprint = gate.buildingEnabled()
+        StructureFootprint structureFootprint = gate.buildingEnabled()
             ? plannedStructureFootprint(level, gate, center)
             : null;
-        if (protectedFootprint != null) {
-            protectedFootprint = protectedFootprint.expanded(
+        StructureFootprint treeProtection = structureFootprint;
+        if (treeProtection != null) {
+            treeProtection = treeProtection.expanded(
                 GATE_STRUCTURE_NATURAL_CLEARANCE
             );
         }
-        final StructureFootprint decorationBoundary = protectedFootprint;
+        // Trees need crown clearance, but invisible collision must meet the
+        // authored wall. The default gate template has one empty lateral
+        // padding column, so allow barriers into that padding while keeping
+        // the actual occupied facade protected.
+        StructureFootprint barrierProtection = structureFootprint == null
+            ? null : structureFootprint.withoutLateralPadding(gate.facing(), 1);
+        final StructureFootprint decorationBoundary = treeProtection;
         // A previous gate revision may already occupy this footprint. Remove
         // its barriers and obsolete configured tree palette before rebuilding.
         for (NaturalGateColumn column : columns) {
@@ -997,6 +1010,11 @@ final class WorldGateSystem {
             ? columns
             : columns.stream()
                 .filter(column -> !decorationBoundary.contains(column.x(), column.z()))
+                .toList();
+        List<NaturalGateColumn> barrierColumns = barrierProtection == null
+            ? columns
+            : columns.stream()
+                .filter(column -> !barrierProtection.contains(column.x(), column.z()))
                 .toList();
         // Pass 1: place all trees while the entire growth volume is still open.
         for (NaturalGateColumn column : decorationColumns) {
@@ -1017,14 +1035,15 @@ final class WorldGateSystem {
         }
         // Pass 3: fill every remaining replaceable space in the wedge with an
         // invisible barrier. Natural blocks stay visible and no gap remains.
-        for (NaturalGateColumn column : decorationColumns) {
+        for (NaturalGateColumn column : barrierColumns) {
             placeNaturalBarrierColumn(
                 level, gate, column.terrainType(), column.x(), column.z()
             );
         }
         LOGGER.info(
-            "Natural gate boundary placed: gate={}, columns={}, protected={}, maxDepth={}, opening={}",
-            gate.id(), decorationColumns.size(), columns.size() - decorationColumns.size(),
+            "Natural gate boundary placed: gate={}, trees={}, barriers={}, protected={}, maxDepth={}, opening={}",
+            gate.id(), decorationColumns.size(), barrierColumns.size(),
+            columns.size() - barrierColumns.size(),
             maximumDepth, halfOpening * 2 + 1
         );
     }
@@ -1159,10 +1178,14 @@ final class WorldGateSystem {
     private static void layGateApproachRoads(
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center, StructureFootprint footprint,
-        List<GateEntrancePlacement> entrances, int halfThickness
+        List<GateEntrancePlacement> entrances, int halfThickness,
+        boolean repairExisting
     ) {
         if (!entrances.isEmpty()) {
             for (GateEntrancePlacement entrance : entrances) {
+                if (repairExisting) {
+                    clearLegacyRoofHeightApproach(level, world, entrance);
+                }
                 layAnchoredGateApproach(level, world, entrance);
             }
             return;
@@ -1200,6 +1223,44 @@ final class WorldGateSystem {
         }
     }
 
+    private static void clearLegacyRoofHeightApproach(
+        ServerLevel level, HexWorldPlan world, GateEntrancePlacement entrance
+    ) {
+        Direction outward = entrance.outward();
+        Direction sideways = outward.getClockWise();
+        for (int depth = 1; depth <= MAX_GATE_APPROACH_DEPTH; depth++) {
+            int centerX = entrance.x() + outward.getStepX() * depth;
+            int centerZ = entrance.z() + outward.getStepZ() * depth;
+            int nativeY = CobbleventureBootstrap.nativeTerrainColumn(
+                world, centerX, centerZ
+            ).groundY();
+            for (int lateral = -1; lateral <= 1; lateral++) {
+                int x = centerX + sideways.getStepX() * lateral;
+                int z = centerZ + sideways.getStepZ() * lateral;
+                for (int y = nativeY + 1;
+                    y <= nativeY + MAX_GATE_APPROACH_DEPTH + 4; y++) {
+                    BlockPos position = new BlockPos(x, y, z);
+                    if (isLegacyGateApproachBlock(level.getBlockState(position))) {
+                        level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean isLegacyGateApproachBlock(BlockState state) {
+        return state.is(Blocks.STONE)
+            || state.is(Blocks.STONE_BRICKS)
+            || state.is(Blocks.COBBLESTONE)
+            || state.is(Blocks.ANDESITE)
+            || state.is(Blocks.MOSSY_STONE_BRICKS)
+            || state.is(Blocks.STONE_STAIRS)
+            || state.is(Blocks.STONE_BRICK_STAIRS)
+            || state.is(Blocks.COBBLESTONE_STAIRS)
+            || state.is(Blocks.ANDESITE_STAIRS)
+            || state.is(Blocks.MOSSY_STONE_BRICK_STAIRS);
+    }
+
     private static void layAnchoredGateApproach(
         ServerLevel level, HexWorldPlan world, GateEntrancePlacement entrance
     ) {
@@ -1235,9 +1296,21 @@ final class WorldGateSystem {
             for (int lateral = -1; lateral <= 1; lateral++) {
                 int x = centerX + sideways.getStepX() * lateral;
                 int z = centerZ + sideways.getStepZ() * lateral;
+                int previousTopY = level.getHeight(
+                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z
+                ) - 1;
                 CobbleventureBootstrap.prepareWorldRoadColumnAtY(
                     level, world, x, z, roadY
                 );
+                // Remove remnants from the old roof-height repair bug. This is
+                // limited to the three-wide connector outside the template;
+                // the authored landing inside the footprint is never scanned
+                // to roof height.
+                for (int y = roadY + 1; y <= previousTopY; y++) {
+                    level.setBlock(
+                        new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2
+                    );
+                }
                 level.setBlock(
                     new BlockPos(x, roadY, z),
                     CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z), 2
@@ -2454,6 +2527,19 @@ final class WorldGateSystem {
                 minX - margin, minZ - margin,
                 maxX + margin, maxZ + margin
             );
+        }
+
+        private StructureFootprint withoutLateralPadding(
+            String facing, int padding
+        ) {
+            boolean northSouth = facing.equals("north") || facing.equals("south");
+            return northSouth
+                ? new StructureFootprint(
+                    minX + padding, minZ, maxX - padding, maxZ
+                )
+                : new StructureFootprint(
+                    minX, minZ + padding, maxX, maxZ - padding
+                );
         }
     }
 

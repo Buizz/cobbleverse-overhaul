@@ -32,7 +32,27 @@ final class WorldStructureSystemTest {
         assertEquals(1, structures.size());
         assertEquals(12, structures.getFirst().anchor().q());
         assertEquals(-2, structures.getFirst().anchor().r());
+        assertEquals("center", structures.getFirst().placementAnchor());
         assertEquals("dungeon_entry", structures.getFirst().dungeonConnections().getFirst().anchorId());
+    }
+
+    @Test
+    void parsesRoadAlignedBuildingPlacement() {
+        var structure = WorldStructureSystem.parse(
+            JsonParser.parseString("""
+                [{
+                  "id": "bill_house",
+                  "type": "structure",
+                  "anchor": {"q": 10, "r": -5},
+                  "resource": "cobbleventure:houses/bill_house",
+                  "rotation": 3,
+                  "properties": {"placement_anchor": "road_anchor"}
+                }]
+                """).getAsJsonArray()
+        ).getFirst();
+
+        assertEquals(3, structure.rotation());
+        assertEquals("road_anchor", structure.placementAnchor());
     }
 
     @Test

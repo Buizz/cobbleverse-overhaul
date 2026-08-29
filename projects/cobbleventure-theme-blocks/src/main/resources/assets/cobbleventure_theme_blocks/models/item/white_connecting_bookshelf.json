@@ -1,6 +1,3 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "cobbleventure_theme_blocks:item/white_connecting_bookshelf"
-  }
+  "parent": "cobbleventure_theme_blocks:block/workshop/08_white_connecting_bookshelf/white_connecting_bookshelf"
 }

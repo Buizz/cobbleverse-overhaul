@@ -10,14 +10,14 @@ final class RocketBaseMachineOneBlock extends AbstractRocketMachineBlock {
     RocketBaseMachineOneBlock(Properties properties) {
         super(
             properties,
-            box(3.0D, 0.0D, 3.0D, 13.0D, 16.0D, 14.0D),
-            box(2.0D, 0.0D, 3.0D, 13.0D, 16.0D, 13.0D),
-            box(3.0D, 0.0D, 2.0D, 13.0D, 16.0D, 13.0D),
-            box(3.0D, 0.0D, 3.0D, 14.0D, 16.0D, 13.0D),
-            box(3.0D, 0.0D, 3.0D, 13.0D, 14.0D, 14.0D),
-            box(2.0D, 0.0D, 3.0D, 13.0D, 14.0D, 13.0D),
-            box(3.0D, 0.0D, 2.0D, 13.0D, 14.0D, 13.0D),
-            box(3.0D, 0.0D, 3.0D, 14.0D, 14.0D, 13.0D)
+            box(0.0D, 0.0D, 0.5D, 16.0D, 16.0D, 16.0D),
+            box(0.0D, 0.0D, 0.0D, 15.5D, 16.0D, 16.0D),
+            box(0.0D, 0.0D, 0.0D, 16.0D, 16.0D, 15.5D),
+            box(0.5D, 0.0D, 0.0D, 16.0D, 16.0D, 16.0D),
+            box(0.0D, 0.0D, 0.5D, 16.0D, 16.0D, 16.0D),
+            box(0.0D, 0.0D, 0.0D, 15.5D, 16.0D, 16.0D),
+            box(0.0D, 0.0D, 0.0D, 16.0D, 16.0D, 15.5D),
+            box(0.5D, 0.0D, 0.0D, 16.0D, 16.0D, 16.0D)
         );
     }
 

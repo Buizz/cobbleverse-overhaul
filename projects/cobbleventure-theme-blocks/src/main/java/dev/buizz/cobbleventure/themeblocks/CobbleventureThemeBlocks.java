@@ -58,7 +58,7 @@ public final class CobbleventureThemeBlocks {
         registerDoubleGlassDisplayCounter();
         registerRocketBaseMachines();
         registerResearchDevices();
-        registerWhiteConnectingBookshelf();
+        registerBookshelves();
         registerFurniture();
         registerLargeBed();
         registerGlowWindows();
@@ -200,27 +200,36 @@ public final class CobbleventureThemeBlocks {
         ));
     }
 
-    private static void registerWhiteConnectingBookshelf() {
-        DeferredBlock<ConnectingBookshelfBlock> bookshelf = BLOCKS.register(
-            "white_connecting_bookshelf",
-            () -> new ConnectingBookshelfBlock(BlockBehaviour.Properties.of()
-                .mapColor(MapColor.COLOR_LIGHT_BLUE)
+    private static void registerBookshelves() {
+        registerBookshelf("white_connecting_bookshelf", MapColor.COLOR_LIGHT_BLUE);
+        registerBookshelf("green_connecting_bookshelf", MapColor.COLOR_LIGHT_GREEN);
+    }
+
+    private static void registerBookshelf(String name, MapColor mapColor) {
+        DeferredBlock<WideTallBookshelfBlock> bookshelf = BLOCKS.register(
+            name,
+            () -> new WideTallBookshelfBlock(BlockBehaviour.Properties.of()
+                .mapColor(mapColor)
                 .strength(2.0F, 6.0F)
                 .sound(SoundType.METAL)
                 .pushReaction(PushReaction.BLOCK)
                 .noOcclusion())
         );
         CREATIVE_ITEMS.add(ITEMS.register(
-            "white_connecting_bookshelf",
+            name,
             () -> new BlockItem(bookshelf.get(), new Item.Properties())
         ));
     }
 
     private static void registerFurniture() {
-        registerDirectionalFurnitureBlock(
+        DeferredBlock<WideTallFurnitureBlock> glassCabinet = BLOCKS.register(
             "glass_storage_cabinet",
-            MapColor.COLOR_LIGHT_BLUE
+            () -> new WideTallFurnitureBlock(furnitureProperties(MapColor.COLOR_LIGHT_BLUE))
         );
+        CREATIVE_ITEMS.add(ITEMS.register(
+            "glass_storage_cabinet",
+            () -> new BlockItem(glassCabinet.get(), new Item.Properties())
+        ));
         registerDirectionalFurnitureBlock(
             "narrow_drawer_cabinet",
             MapColor.COLOR_YELLOW
@@ -230,18 +239,22 @@ public final class CobbleventureThemeBlocks {
     private static void registerDirectionalFurnitureBlock(String name, MapColor mapColor) {
         DeferredBlock<DirectionalStoneBlock> furniture = BLOCKS.register(
             name,
-            () -> new DirectionalStoneBlock(BlockBehaviour.Properties.of()
-                .mapColor(mapColor)
-                .strength(2.0F, 6.0F)
-                .sound(SoundType.METAL)
-                .requiresCorrectToolForDrops()
-                .pushReaction(PushReaction.BLOCK)
-                .noOcclusion())
+            () -> new DirectionalStoneBlock(furnitureProperties(mapColor))
         );
         CREATIVE_ITEMS.add(ITEMS.register(
             name,
             () -> new BlockItem(furniture.get(), new Item.Properties())
         ));
+    }
+
+    private static BlockBehaviour.Properties furnitureProperties(MapColor mapColor) {
+        return BlockBehaviour.Properties.of()
+            .mapColor(mapColor)
+            .strength(2.0F, 6.0F)
+            .sound(SoundType.METAL)
+            .requiresCorrectToolForDrops()
+            .pushReaction(PushReaction.BLOCK)
+            .noOcclusion();
     }
 
     private static void registerLargeBed() {

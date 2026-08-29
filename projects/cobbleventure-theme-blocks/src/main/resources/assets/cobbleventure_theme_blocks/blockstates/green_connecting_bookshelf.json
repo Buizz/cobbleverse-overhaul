@@ -1,0 +1,8 @@
+{
+  "multipart": [
+    {"when":{"facing":"north","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/13_green_connecting_bookshelf/green_connecting_bookshelf"}},
+    {"when":{"facing":"east","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/13_green_connecting_bookshelf/green_connecting_bookshelf","y":90}},
+    {"when":{"facing":"south","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/13_green_connecting_bookshelf/green_connecting_bookshelf","y":180}},
+    {"when":{"facing":"west","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/13_green_connecting_bookshelf/green_connecting_bookshelf","y":270}}
+  ]
+}

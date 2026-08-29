@@ -830,6 +830,7 @@ Cobbleventure는 특정 모드팩의 확장 계층이 아니다. Cobblemon과 �
 | [차원 및 지역 이동](implementation/DIMENSION_TRAVEL.md) | 세대·리그·던전 차원, 이동 오브젝트, 진행 검사와 귀환 | 기술 조사 진행 |
 | [서바이벌 월드와 플레이어 집 PC](implementation/SURVIVAL_WORLD.md) | 3안의 집 PC 왕복과 개인 농장 접속 | 기준 설계 |
 | [PC 기반 1청크 개인 농장](implementation/PERSONAL_FARM_PLOT.md) | 3안의 규토리·열매 농장과 플롯 운영 | 기준 설계 |
+| [키우미집 NPC 위탁 교배와 개인 농장 자가 교배](implementation/DAYCARE_BREEDING.md) | Cobbreeding 기반 유료 NPC 위탁과 후반 농장 브리더 도구 | 기준 설계 |
 | [플레이어 메뉴](implementation/PLAYER_MENU.md) | 인벤토리 키 기반 8개 핵심 기능 진입점, 접근 조건과 확장 경계 | 본가식 세로 리스트 구현 |
 | [본가식 가방 인벤토리](implementation/BAG_INVENTORY.md) | 포켓별 UI, 서버 권위 저장과 차원별 포켓 제한 | 기준 설계 |
 | [비전머신과 포켓몬 탑승 이동](implementation/HM_TRAVERSAL.md) | 3안의 탑승 권한, 공중날기와 파도타기 | 기준 설계 |

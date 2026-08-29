@@ -5,16 +5,20 @@ import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import org.slf4j.Logger;
@@ -42,6 +46,16 @@ final class WorldStructureSystem {
                 throw new IllegalStateException("Invalid world structure resource: " + resource);
             }
             List<DungeonConnection> connections = new ArrayList<>();
+            JsonObject properties = value.has("properties")
+                && value.get("properties").isJsonObject()
+                ? value.getAsJsonObject("properties") : new JsonObject();
+            String placementAnchor = properties.has("placement_anchor")
+                ? requiredString(properties, "placement_anchor") : "center";
+            if (!List.of("center", "road_anchor").contains(placementAnchor)) {
+                throw new IllegalStateException(
+                    "Invalid world structure placement anchor: " + placementAnchor
+                );
+            }
             if (value.has("connections")) {
                 for (JsonElement connectionElement : value.getAsJsonArray("connections")) {
                     JsonObject connection = connectionElement.getAsJsonObject();
@@ -66,6 +80,7 @@ final class WorldStructureSystem {
                 new HexCoord(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
                 resource,
                 value.has("rotation") ? value.get("rotation").getAsInt() : 0,
+                placementAnchor,
                 List.copyOf(connections)
             ));
         }
@@ -94,15 +109,33 @@ final class WorldStructureSystem {
         Rotation rotation = rotation(configured.rotation());
         CobbleventureBootstrap.Point center = world.grid().worldCenter(configured.anchor());
         Vec3i rotatedSize = template.getSize(rotation);
-        int minX = center.x() - rotatedSize.getX() / 2;
-        int minZ = center.z() - rotatedSize.getZ() / 2;
         int floorY = CobbleventureBootstrap.nativeTerrainColumn(
             world, center.x(), center.z()
         ).groundY();
-        BlockPos origin = rotatedTemplateOrigin(
-            minX, floorY, minZ,
-            template.getSize().getX(), template.getSize().getZ(), rotation
-        );
+        BlockPos origin;
+        if (configured.placementAnchor().equals("road_anchor")) {
+            BlockPos roadAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
+                level, configured.structure(), rotationName(configured.rotation())
+            );
+            if (roadAnchor == null) {
+                throw new IllegalStateException(
+                    "Road-aligned world structure requires exactly one road_anchor: "
+                        + configured.id() + " (" + configured.structure() + ")"
+                );
+            }
+            origin = new BlockPos(
+                center.x() - roadAnchor.getX(),
+                floorY - roadAnchor.getY(),
+                center.z() - roadAnchor.getZ()
+            );
+        } else {
+            int minX = center.x() - rotatedSize.getX() / 2;
+            int minZ = center.z() - rotatedSize.getZ() / 2;
+            origin = rotatedTemplateOrigin(
+                minX, floorY, minZ,
+                template.getSize().getX(), template.getSize().getZ(), rotation
+            );
+        }
         BlockPos marker = new BlockPos(
             center.x(), world.grid().origin().y() - 18, center.z()
         );
@@ -120,6 +153,7 @@ final class WorldStructureSystem {
                     "World structure placement failed: " + configured.id()
                 );
             }
+            replacePlacedRoadAnchors(level, template, origin, settings);
             CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
                 level, configured.structure(), origin, template, rotation
             );
@@ -150,6 +184,34 @@ final class WorldStructureSystem {
             case COUNTERCLOCKWISE_90 -> new BlockPos(x, y, z + width - 1);
             default -> new BlockPos(x, y, z);
         };
+    }
+
+    private static void replacePlacedRoadAnchors(
+        ServerLevel level, StructureTemplate structure, BlockPos origin,
+        StructurePlaceSettings settings
+    ) {
+        for (StructureTemplate.StructureBlockInfo info : structure.filterBlocks(
+            origin, settings, Blocks.JIGSAW
+        )) {
+            if (info.nbt() == null
+                || !"cobbleventure:road_anchor".equals(info.nbt().getString("name"))) {
+                continue;
+            }
+            BlockState replacement = Blocks.AIR.defaultBlockState();
+            try {
+                replacement = BlockStateParser.parseForBlock(
+                    level.holderLookup(Registries.BLOCK),
+                    info.nbt().getString("final_state"), false
+                ).blockState();
+            } catch (CommandSyntaxException | RuntimeException error) {
+                LOGGER.warn(
+                    "Invalid world structure road_anchor final_state; replacing with air: "
+                        + "position={}, value={}",
+                    info.pos(), info.nbt().getString("final_state")
+                );
+            }
+            level.setBlock(info.pos(), replacement, 2);
+        }
     }
 
     private static Rotation rotation(int value) {
@@ -187,6 +249,7 @@ final class WorldStructureSystem {
         HexCoord anchor,
         String structure,
         int rotation,
+        String placementAnchor,
         List<DungeonConnection> dungeonConnections
     ) {}
 

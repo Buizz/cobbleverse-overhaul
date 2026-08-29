@@ -3692,9 +3692,10 @@
         "r": -5
       },
       "resource": "cobbleventure:houses/bill_house",
-      "rotation": 0,
+      "rotation": 3,
       "properties": {
-        "terrain_fit": "foundation"
+        "terrain_fit": "foundation",
+        "placement_anchor": "road_anchor"
       }
     },
     {

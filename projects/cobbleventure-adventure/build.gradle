@@ -80,6 +80,7 @@ repositories {
 
 dependencies {
     compileOnly cobblemonBuildDependency
+    compileOnly "maven.modrinth:ItmVb4zY:${cobbreeding_modrinth_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
     compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"
     compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.20"
@@ -138,6 +139,7 @@ processResources {
         mod_version: mod_version,
         cobblemon_version: cobblemonEffectiveVersion,
         cobblemon_version_range: cobblemonVersionRange,
+        cobbreeding_version: cobbreeding_version,
         player_menu_version_range: player_menu_version_range,
     ]
     inputs.properties properties

@@ -43,6 +43,13 @@ ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
+modId="cobbreeding"
+type="required"
+versionRange="[${cobbreeding_version},2.3)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
 modId="rctapi"
 type="required"
 versionRange="[0.15.0-beta,)"

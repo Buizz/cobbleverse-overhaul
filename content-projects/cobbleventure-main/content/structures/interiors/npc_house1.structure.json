@@ -27,6 +27,7 @@
       "safe_side": "south"
     },
     {
+      "id": "npc2",
       "label": "npc2",
       "type": "npc_position",
       "position": [
@@ -34,9 +35,10 @@
         1,
         6
       ],
-      "facing": "north"
+      "facing": "east"
     },
     {
+      "id": "npc1",
       "label": "npc1",
       "type": "npc_position",
       "position": [
@@ -44,7 +46,7 @@
         1,
         6
       ],
-      "facing": "north"
+      "facing": "west"
     }
   ]
 }

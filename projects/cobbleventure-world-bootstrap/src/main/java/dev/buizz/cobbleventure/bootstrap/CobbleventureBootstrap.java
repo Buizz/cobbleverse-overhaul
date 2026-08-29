@@ -3526,6 +3526,18 @@ public final class CobbleventureBootstrap {
                     origin.y() + Math.max(16, facility.footprintHeight()) + 4,
                     origin.z() + extent + cleanupMargin
                 );
+                // Entity queries only inspect loaded chunks. Load the complete facility
+                // bounds first so merchants saved in an idle town are found and removed
+                // before their configured replacement is spawned.
+                int minChunkX = Math.floorDiv(origin.x() - cleanupMargin, 16);
+                int maxChunkX = Math.floorDiv(origin.x() + extent + cleanupMargin, 16);
+                int minChunkZ = Math.floorDiv(origin.z() - cleanupMargin, 16);
+                int maxChunkZ = Math.floorDiv(origin.z() + extent + cleanupMargin, 16);
+                for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+                    for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                        level.getChunk(chunkX, chunkZ);
+                    }
+                }
                 for (Entity entity : level.getEntities(
                     (Entity) null, facilityBounds, CobbleventureBootstrap::isConfiguredMerchant
                 )) {

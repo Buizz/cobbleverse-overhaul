@@ -1,8 +1,12 @@
 {
   "multipart": [
-    {"when":{"facing":"north","part":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3","uvlock":true}},
-    {"when":{"facing":"east","part":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3","uvlock":true,"y":90}},
-    {"when":{"facing":"south","part":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3","uvlock":true,"y":180}},
-    {"when":{"facing":"west","part":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3","uvlock":true,"y":270}}
+    {"when":{"facing":"north","part":"5"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_rear_2x3x3"}},
+    {"when":{"facing":"east","part":"5"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_rear_2x3x3","y":90}},
+    {"when":{"facing":"south","part":"5"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_rear_2x3x3","y":180}},
+    {"when":{"facing":"west","part":"5"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_rear_2x3x3","y":270}},
+    {"when":{"facing":"north","part":"12"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_front_2x2x3"}},
+    {"when":{"facing":"east","part":"12"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_front_2x2x3","y":90}},
+    {"when":{"facing":"south","part":"12"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_front_2x2x3","y":180}},
+    {"when":{"facing":"west","part":"12"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/06_rocket_base_machine_3/rocket_base_machine_3_front_2x2x3","y":270}}
   ]
 }

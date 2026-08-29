@@ -64,6 +64,47 @@ def run(command: list[str]) -> None:
     subprocess.run(command, cwd=WORKSPACE_ROOT, check=True)
 
 
+def ensure_model_render_type(model: Path, render_type: str) -> dict:
+    """Preserve a NeoForge render type that Blockbench may drop when exporting JSON."""
+    source = model.read_text(encoding="utf-8-sig")
+    parsed = json.loads(source)
+    previous = parsed.get("render_type")
+    if previous == render_type:
+        return {
+            "asset": model.stem,
+            "status": "render_type_present",
+            "render_type": render_type,
+            "java_model": str(model),
+        }
+
+    newline = "\r\n" if "\r\n" in source else "\n"
+    lines = source.splitlines(keepends=True)
+    render_line = f'\t"render_type": "{render_type}",{newline}'
+    replaced = False
+    for index, line in enumerate(lines):
+        if '"render_type"' in line:
+            indent = line[: len(line) - len(line.lstrip())]
+            lines[index] = f'{indent}"render_type": "{render_type}",{newline}'
+            replaced = True
+            break
+    if not replaced:
+        insert_at = 1
+        for index, line in enumerate(lines):
+            if '"credit"' in line:
+                insert_at = index + 1
+                break
+        lines.insert(insert_at, render_line)
+
+    model.write_text("".join(lines), encoding="utf-8", newline="")
+    return {
+        "asset": model.stem,
+        "status": "render_type_restored",
+        "previous_render_type": previous,
+        "render_type": render_type,
+        "java_model": str(model),
+    }
+
+
 def sync_bed(temporary_root: Path) -> dict:
     model = MODEL_ROOT / "09_large_single_iron_bed/large_single_iron_bed.bbmodel"
     texture = TEXTURE_ROOT / "bed_single_texture.png"
@@ -114,6 +155,8 @@ def sync_research_device(temporary_root: Path) -> dict:
             str(java_model),
         ]
     )
+    specular_texture = TEXTURE_ROOT / f"{asset}_texture_s.png"
+    run([sys.executable, str(WORKSPACE_ROOT / "generate-research-device-specular.py")])
     return {
         "asset": asset,
         "status": "synchronized",
@@ -123,6 +166,7 @@ def sync_research_device(temporary_root: Path) -> dict:
         "packed_model": str(packed_model),
         "java_model": str(java_model),
         "game_texture": str(game_texture),
+        "specular_texture": str(specular_texture),
     }
 
 
@@ -196,6 +240,13 @@ def main() -> None:
                 "12_blue_panel_glow_window",
             )
         )
+
+    reports.append(
+        ensure_model_render_type(
+            MODEL_ROOT / "14_glass_storage_cabinet/glass_storage_cabinet.json",
+            "minecraft:translucent",
+        )
+    )
 
     report_path = WORKSPACE_ROOT / "reports/model-sync-report.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)

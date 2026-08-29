@@ -1,8 +1,8 @@
 {
   "multipart": [
-    {"when":{"facing":"north","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1","uvlock":true}},
-    {"when":{"facing":"east","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1","uvlock":true,"y":90}},
-    {"when":{"facing":"south","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1","uvlock":true,"y":180}},
-    {"when":{"facing":"west","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1","uvlock":true,"y":270}}
+    {"when":{"facing":"north","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1"}},
+    {"when":{"facing":"east","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1","y":90}},
+    {"when":{"facing":"south","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1","y":180}},
+    {"when":{"facing":"west","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/04_rocket_base_machine_1/rocket_base_machine_1","y":270}}
   ]
 }

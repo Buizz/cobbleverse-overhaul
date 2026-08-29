@@ -1253,6 +1253,27 @@ def validate_hex_worlds(
                 rotation = custom_object.get("rotation")
                 if not isinstance(rotation, int) or isinstance(rotation, bool) or rotation not in range(4):
                     _issue(issues, "error", path, f"{object_path}.rotation", f"{object_label} NBT 회전은 0~3이어야 합니다.")
+                properties = custom_object.get("properties", {})
+                placement_anchor = properties.get("placement_anchor", "center") \
+                    if isinstance(properties, dict) else "center"
+                if placement_anchor not in {"center", "road_anchor"}:
+                    _issue(
+                        issues, "error", path,
+                        f"{object_path}.properties.placement_anchor",
+                        "NBT 오브젝트 배치 기준은 center 또는 road_anchor여야 합니다.",
+                    )
+                elif placement_anchor == "road_anchor" and isinstance(resource, str):
+                    structure_path = available_structures.get(resource)
+                    if structure_path is not None:
+                        road_anchors = read_minecraft_structure_metadata(
+                            structure_path.read_bytes()
+                        ).get("road_anchors", [])
+                        if len(road_anchors) != 1:
+                            _issue(
+                                issues, "error", path,
+                                f"{object_path}.properties.placement_anchor",
+                                f"road_anchor 배치는 구조물에 정확히 하나의 road_anchor가 필요합니다: {resource}",
+                            )
                 continue
             if object_type != "gate":
                 continue
