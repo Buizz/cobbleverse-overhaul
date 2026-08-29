@@ -4,15 +4,15 @@
   "output_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\bright_double_glow_window_texture.png",
   "output_java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\11_bright_double_glow_window\\bright_double_glow_window.json",
   "source_size": [
-    32,
+    64,
     32
   ],
   "packed_size": [
-    64,
-    64
+    128,
+    128
   ],
   "faces": 66,
-  "source_regions": 19,
-  "packed_regions": 8,
+  "source_regions": 23,
+  "packed_regions": 7,
   "padding": 1
 }

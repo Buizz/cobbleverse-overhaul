@@ -181,20 +181,6 @@ Write-CompleteModel '06_rocket_base_machine_3' 'rocket_base_machine_3_complete' 
     (Component '06_rocket_base_machine_3/rocket_base_machine_3_right_upper' -16 32 0 0 'right_upper')
 )
 
-$researchComponents = @()
-$quadrants = @(
-    @{ x=0; z=0; rotation=0; name='north_west' },
-    @{ x=-16; z=0; rotation=90; name='north_east' },
-    @{ x=-16; z=-16; rotation=180; name='south_east' },
-    @{ x=0; z=-16; rotation=270; name='south_west' }
-)
-foreach ($quadrant in $quadrants) {
-    $researchComponents += Component '07_professor_lab_research_device/professor_lab_research_device_1_lower_quadrant' $quadrant.x 0 $quadrant.z $quadrant.rotation "$($quadrant.name)_lower"
-    $researchComponents += Component '07_professor_lab_research_device/professor_lab_research_device_1_upper_quadrant' $quadrant.x 16 $quadrant.z $quadrant.rotation "$($quadrant.name)_upper"
-}
-$researchComponents += Component '07_professor_lab_research_device/professor_lab_research_device_1_connector' 0 0 0 0 'connector'
-Write-CompleteModel '07_professor_lab_research_device' 'professor_lab_research_device_1_complete' $researchComponents
-
 Write-CompleteModel '08_professor_lab_connecting_bookshelf' 'professor_lab_connecting_bookshelf_complete' @(
     (Component '08_professor_lab_connecting_bookshelf/professor_lab_connecting_bookshelf_core' 0 0 0 0 'core'),
     (Component '08_professor_lab_connecting_bookshelf/professor_lab_connecting_bookshelf_left_end' 0 0 0 0 'left_end'),

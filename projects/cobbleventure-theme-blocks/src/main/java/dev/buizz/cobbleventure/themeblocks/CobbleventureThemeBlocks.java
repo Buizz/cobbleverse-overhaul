@@ -50,7 +50,7 @@ public final class CobbleventureThemeBlocks {
         registerDirectionalStoneBlock("casino_sky_chevron_wall", MapColor.COLOR_LIGHT_BLUE);
 
         registerDirectionalStoneBlock("house_beige_panel_wall", MapColor.SAND);
-        registerStoneBlock("house_mint_band_wall", MapColor.COLOR_LIGHT_GREEN);
+        registerDirectionalStoneBlock("house_mint_band_wall", MapColor.COLOR_LIGHT_GREEN);
         registerDirectionalStoneBlock("house_blue_band_wall", MapColor.COLOR_LIGHT_BLUE);
         registerStoneBlock("house_cream_base_wall", MapColor.SAND);
         registerStoneBlock("soft_cream_block", MapColor.SAND);

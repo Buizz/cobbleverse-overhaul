@@ -17,11 +17,6 @@ WORKSPACE_ROOT = Path(__file__).resolve().parent
 ASSET_ROOT = WORKSPACE_ROOT / "assets/cobbleventure_theme_blocks"
 MODEL_ROOT = ASSET_ROOT / "models/block/workshop"
 TEXTURE_ROOT = ASSET_ROOT / "textures/block"
-PAUSED_GLOW_WINDOWS = {
-    "sky_view_glow_window",
-    "bright_double_glow_window",
-    "blue_panel_glow_window",
-}
 
 
 def source_with_newest_texture(
@@ -108,17 +103,6 @@ def sync_glow_window(
     packed_model = model_directory / f"{asset}_packed.bbmodel"
     game_texture = TEXTURE_ROOT / f"{asset}_texture.png"
     java_model = model_directory / f"{asset}.json"
-    if asset in PAUSED_GLOW_WINDOWS:
-        if not java_model.exists() or not game_texture.exists():
-            raise FileNotFoundError(f"일시 정지할 기존 게임 리소스가 없습니다: {asset}")
-        return {
-            "asset": asset,
-            "status": "paused_while_editing",
-            "model_source": str(model),
-            "editable_texture": str(editable_texture),
-            "java_model": str(java_model),
-            "game_texture": str(game_texture),
-        }
     try:
         source, texture_source = source_with_newest_texture(model, editable_texture, temporary_root)
     except ValueError as error:

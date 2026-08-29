@@ -128,12 +128,16 @@ final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBloc
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
-        Direction side = facing.getCounterClockWise();
+        Direction depthDirection = facing.getOpposite();
+        Direction widthDirection = facing.getClockWise();
         List<BlockPos> positions = new ArrayList<>(8);
         for (int height = 0; height < 2; height++) {
             for (int depth = 0; depth < 2; depth++) {
                 for (int width = 0; width < 2; width++) {
-                    positions.add(core.relative(facing, depth).relative(side, width).above(height));
+                    positions.add(core
+                        .relative(depthDirection, depth)
+                        .relative(widthDirection, width)
+                        .above(height));
                 }
             }
         }
@@ -144,7 +148,7 @@ final class ProfessorLabResearchDeviceOneBlock extends HorizontalDirectionalBloc
         Direction facing = state.getValue(FACING);
         return position
             .below(state.getValue(HEIGHT))
-            .relative(facing.getOpposite(), state.getValue(DEPTH))
-            .relative(facing.getClockWise(), state.getValue(WIDTH));
+            .relative(facing, state.getValue(DEPTH))
+            .relative(facing.getCounterClockWise(), state.getValue(WIDTH));
     }
 }

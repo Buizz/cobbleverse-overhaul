@@ -21,7 +21,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 final class DoubleGlowWindowBlock extends HorizontalDirectionalBlock {
     private static final MapCodec<DoubleGlowWindowBlock> CODEC = simpleCodec(DoubleGlowWindowBlock::new);
     static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
-    static final IntegerProperty PART = IntegerProperty.create("part", 0, 1);
+    static final IntegerProperty PART = IntegerProperty.create("part", 0, 3);
 
     DoubleGlowWindowBlock(Properties properties) {
         super(properties);
@@ -97,12 +97,15 @@ final class DoubleGlowWindowBlock extends HorizontalDirectionalBlock {
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
-        return List.of(core, core.relative(facing.getClockWise()));
+        BlockPos side = core.relative(facing.getClockWise());
+        return List.of(core, side, core.above(), side.above());
     }
 
     private static BlockPos corePosition(BlockPos position, BlockState state) {
-        return state.getValue(PART) == 1
-            ? position.relative(state.getValue(FACING).getCounterClockWise())
-            : position;
+        int part = state.getValue(PART);
+        BlockPos bottom = part >= 2 ? position.below() : position;
+        return (part & 1) == 1
+            ? bottom.relative(state.getValue(FACING).getCounterClockWise())
+            : bottom;
     }
 }

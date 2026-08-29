@@ -11,8 +11,7 @@ $culture = [System.Globalization.CultureInfo]::InvariantCulture
 $machines = @(
     @{ folder='04_rocket_base_machine_1'; source='rocket_base_machine_1_complete'; output='rocket_base_machine_1'; atlas='rocket_base_machine_1_texture' },
     @{ folder='05_rocket_base_machine_2'; source='rocket_base_machine_2_complete'; output='rocket_base_machine_2'; atlas='rocket_base_machine_2_texture' },
-    @{ folder='06_rocket_base_machine_3'; source='rocket_base_machine_3_complete'; output='rocket_base_machine_3'; atlas='rocket_base_machine_3_texture' },
-    @{ folder='07_professor_lab_research_device'; source='professor_lab_research_device_1_complete'; output='professor_lab_research_device_1'; atlas='professor_lab_research_device_1_texture' }
+    @{ folder='06_rocket_base_machine_3'; source='rocket_base_machine_3_complete'; output='rocket_base_machine_3'; atlas='rocket_base_machine_3_texture' }
 )
 
 function Number([double]$value) {

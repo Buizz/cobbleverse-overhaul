@@ -1,8 +1,0 @@
-{
-  "parent":"minecraft:block/block",
-  "ambientocclusion":true,
-  "textures":{"particle":"cobbleventure_theme_blocks:block/professor_machine_dark","metal":"cobbleventure_theme_blocks:block/professor_machine_white","dark":"cobbleventure_theme_blocks:block/professor_machine_dark"},
-  "elements":[
-    {"name":"side_connector","from":[13,1,5],"to":[16,5,11],"faces":{"down":{"texture":"#dark"},"up":{"texture":"#metal"},"north":{"texture":"#dark"},"south":{"texture":"#dark"},"west":{"texture":"#metal"},"east":{"texture":"#dark"}}}
-  ]
-}

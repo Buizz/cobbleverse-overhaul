@@ -43,8 +43,6 @@ Blockbench가 모델 JSON의 네임스페이스 텍스처를 같은 작업장 �
 사용합니다. 모델 형상과 UV는 항상 `.bbmodel`에서 가져옵니다.
 창문 크기를 바꾸는 도중 BBModel UV 크기와 외부 PNG 크기가 일시적으로 다르면 해당
 창문만 자동 변환을 건너뛰고 마지막 정상 게임 리소스를 유지합니다.
-현재 세 창문은 2블록 높이 재설계가 끝났다는 확인을 받기 전까지 자동 변환을 일시
-정지한 상태입니다. 편집 중인 BBModel과 외부 PNG는 빌드가 덮어쓰지 않습니다.
 
 Gradle은 자동 동기화를 먼저 실행한 다음 게임용 모델 `.json`과 텍스처 경로의 `.png`만
 JAR로 복사합니다. 모델
@@ -59,7 +57,7 @@ JAR로 복사합니다. 모델
 `./build-complete-models.ps1`을 실행합니다. 이 명령은 기존 `*_complete.json`을 덮어쓰므로,
 완성형 모델을 직접 수정한 뒤에는 실행하지 않습니다.
 
-기계 OBJ를 기존 완성형 JSON으로부터 다시 생성하려면 `./build-machine-obj-models.ps1`을
+로켓단 기계 OBJ를 기존 완성형 JSON으로부터 다시 생성하려면 `./build-machine-obj-models.ps1`을
 실행합니다. 이 명령은 OBJ, MTL, 기계별 단일 텍스처 아틀라스를 덮어쓰므로 OBJ를 직접
 수정한 뒤에는 실행하지 않습니다. 일반 `.mtl`은 Blockbench용 상대 PNG 경로를 사용하고,
 `.neoforge.mtl`은 게임 빌드 전용입니다.
@@ -84,7 +82,7 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 | `04_rocket_base_machine_1` | `rocket_base_machine_1.obj` 단일 OBJ |
 | `05_rocket_base_machine_2` | `rocket_base_machine_2.obj` 단일 OBJ |
 | `06_rocket_base_machine_3` | `rocket_base_machine_3.obj` 단일 OBJ |
-| `07_professor_lab_research_device` | `professor_lab_research_device_1.obj` 단일 OBJ |
+| `07_professor_lab_research_device` | 편집: `professor_lab_research_device.bbmodel`, 게임: `professor_lab_research_device_1.obj` 16각 원통형 OBJ |
 | `08_professor_lab_connecting_bookshelf` | `*_core.json`, `*_left_end.json`, `*_right_end.json` |
 | `09_large_single_iron_bed` | 편집: `large_single_iron_bed.bbmodel`, 게임: `large_single_iron_bed.json` |
 | `10_sky_view_glow_window` | 편집 원본: `sky_view_glow_window.bbmodel`, 게임: `sky_view_glow_window.json` |
@@ -98,7 +96,8 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 - `underground_blue_band` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
 - `underground_cracked_wall` — 적용 완료: 녹색 꺾임 몰딩을 전면으로 1픽셀 돌출
 - `underground_olive_band` — 적용 완료: 어두운 나무결 2줄을 1픽셀 안쪽으로 홈 처리
-- `house_blue_band_wall` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
+- `house_mint_band_wall` — 적용 완료: 이미지 10~13행의 짙은 띠를 전면으로 1픽셀 돌출
+- `house_blue_band_wall` — 적용 완료: 이미지 10~13행의 짙은 띠를 전면으로 1픽셀 돌출
 - `house_beige_panel_wall` — 적용 완료: 어두운 나무결 4줄을 1픽셀 안쪽으로 홈 처리
 - `casino_coral_band` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
 - `casino_sky_chevron_wall` — 적용 완료: 밝은 V자 몰딩을 전면으로 1픽셀 돌출
@@ -108,11 +107,12 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 - `rocket_base_olive_vent` — 어두운 벤트 슬롯 3개를 1픽셀 안쪽으로 홈 처리
 - `rocket_base_yellow_light_panel` — 밝은 15×15 보호판을 전면으로 1픽셀 돌출
 
-## 발광 창문 초안
+## 발광 창문
 
 창문은 하나의 `.bbmodel` 파일 안에서 창틀 요소를 `window_body`, 발광판을
 `luminous_panel`로 구분합니다. 세 창문 모두 편집 원본과 게임 리소스 변환 대상으로
-확정되어 있습니다. 커튼은
+확정되어 있으며, 하늘 풍경 창문과 파란 패널 창문은 1×2블록, 밝은 이중 창문은
+2×2블록으로 자동 설치됩니다. 커튼은
 모델과 텍스처에서 제외했고 패널에는 Blockbench 확인용 `light_emission: 15`가 설정되어
 있습니다. `pack-bbmodel-texture.py`와
 `finalize-bbmodel.py`는 발광값이 있는 큐브에만 Minecraft 1.21.1용 NeoForge

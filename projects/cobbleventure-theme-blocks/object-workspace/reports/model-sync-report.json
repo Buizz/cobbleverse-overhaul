@@ -9,24 +9,27 @@
   },
   {
     "asset": "sky_view_glow_window",
-    "status": "paused_while_editing",
+    "status": "synchronized",
     "model_source": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\10_sky_view_glow_window\\sky_view_glow_window.bbmodel",
+    "texture_source": "embedded_bbmodel_texture",
     "editable_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\windows\\sky_view_glow_window_texture.png",
     "java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\10_sky_view_glow_window\\sky_view_glow_window.json",
     "game_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\sky_view_glow_window_texture.png"
   },
   {
     "asset": "bright_double_glow_window",
-    "status": "paused_while_editing",
+    "status": "synchronized",
     "model_source": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\11_bright_double_glow_window\\bright_double_glow_window.bbmodel",
+    "texture_source": "embedded_bbmodel_texture",
     "editable_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\windows\\bright_double_glow_window_texture.png",
     "java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\11_bright_double_glow_window\\bright_double_glow_window.json",
     "game_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\bright_double_glow_window_texture.png"
   },
   {
     "asset": "blue_panel_glow_window",
-    "status": "paused_while_editing",
+    "status": "synchronized",
     "model_source": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\12_blue_panel_glow_window\\blue_panel_glow_window.bbmodel",
+    "texture_source": "embedded_bbmodel_texture",
     "editable_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\windows\\blue_panel_glow_window_texture.png",
     "java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\12_blue_panel_glow_window\\blue_panel_glow_window.json",
     "game_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\blue_panel_glow_window_texture.png"

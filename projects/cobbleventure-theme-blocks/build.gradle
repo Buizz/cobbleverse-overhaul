@@ -60,8 +60,6 @@ processResources {
         exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/05_rocket_base_machine_2/*_upper.json'
         exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/06_rocket_base_machine_3/*_left*.json'
         exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/06_rocket_base_machine_3/*_right*.json'
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/07_professor_lab_research_device/*_connector.json'
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/07_professor_lab_research_device/*_quadrant.json'
     }
 }
 
