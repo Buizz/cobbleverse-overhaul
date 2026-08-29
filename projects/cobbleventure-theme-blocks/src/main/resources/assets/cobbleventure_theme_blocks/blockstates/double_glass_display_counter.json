@@ -1,8 +1,12 @@
 {
   "variants": {
-    "facing=north,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter", "uvlock": true },
-    "facing=east,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter", "y": 90, "uvlock": true },
-    "facing=south,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter", "y": 180, "uvlock": true },
-    "facing=west,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter", "y": 270, "uvlock": true }
+    "facing=north,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter" },
+    "facing=east,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter", "y": 90 },
+    "facing=south,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter", "y": 180 },
+    "facing=west,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter", "y": 270 },
+    "facing=north,part=1": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=east,part=1": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=south,part=1": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=west,part=1": { "model": "cobbleventure_theme_blocks:block/empty" }
   }
 }

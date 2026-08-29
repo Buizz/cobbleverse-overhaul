@@ -82,16 +82,31 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 | `14_glass_storage_cabinet` | 유리 수납장 임시 모델과 참고 이미지 |
 | `15_narrow_drawer_cabinet` | 좁은 서랍장 임시 모델과 참고 이미지 |
 
+`02_double_display_case/double_display_case.json`은 `textures/block/double_display_case.png`
+한 장만 사용합니다. 현재 텍스처는 `128×128`이며 234개 면의 픽셀 일치 검사를 마친
+패킹본입니다. Java 모델의 단일 텍스처를 다시 정리할 때는
+`pack-java-model-texture.py`를 사용하고, 출력본의 면별 픽셀 일치를 확인한 뒤 원본을
+교체합니다.
+
+유리 진열 판매대의 `dobule_glass_counter_blue.png`, `dobule_glass_counter_basic.png`,
+`dobule_glass_counter_goods_bottom.png`, `dobule_glass_counter_glass.png`은 각각 대표색으로
+전체를 채운 뒤 ±4 RGB 범위의 결정성 있는 16×16 반복 미세 노이즈를 적용합니다. 원본은
+`recovery/double_glass_counter/pre-filled-noise-20260829`에 보관하며,
+`apply-glass-counter-base-noise.py`를 다시 실행해 같은 결과를 재생성할 수 있습니다.
+파란색 텍스처만 참고 이미지의 평균색 `#4576C8`에 맞추고 큰 픽셀 덩어리가 보이도록
+16×16 패턴을 8배 확대해 `128×128` 전체에 배치합니다. 파랑은 채널별 변화 폭을 달리해
+낮은 대비 안에서도 색 덩어리가 보이게 하며, 나머지 세 텍스처는 1픽셀 단위 패턴을 사용합니다.
+
 ## 돌출 벽 타일 작업 목록
 
 다음 블록은 정육면체 텍스처의 일부를 전면으로 돌출시키는 방향성 벽 타일 대상입니다.
 
 - `underground_blue_band` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
 - `underground_cracked_wall` — 적용 완료: 녹색 꺾임 몰딩을 전면으로 1픽셀 돌출
-- `underground_olive_band` — 적용 완료: 어두운 나무결 2줄을 1픽셀 안쪽으로 홈 처리
+- `underground_olive_band` — 적용 완료: 어두운 나무결 2줄을 여섯 면 모두 1픽셀 안쪽으로 홈 처리
 - `house_mint_band_wall` — 적용 완료: 이미지 10~13행의 짙은 띠를 전면으로 1픽셀 돌출
 - `house_blue_band_wall` — 적용 완료: 이미지 10~13행의 짙은 띠를 전면으로 1픽셀 돌출
-- `house_beige_panel_wall` — 적용 완료: 어두운 나무결 4줄을 1픽셀 안쪽으로 홈 처리
+- `house_beige_panel_wall` — 적용 완료: 어두운 나무결 4줄을 여섯 면 모두 1픽셀 안쪽으로 홈 처리
 - `casino_coral_band` — 적용 완료: 하단 4픽셀을 전면으로 1픽셀 돌출
 - `casino_sky_chevron_wall` — 적용 완료: 밝은 V자 몰딩을 전면으로 1픽셀 돌출
 

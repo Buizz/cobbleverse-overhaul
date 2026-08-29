@@ -1,0 +1,18 @@
+{
+  "source_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\02_double_display_case\\double_display_case.json",
+  "source_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\double_display_case.png",
+  "output_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\02_double_display_case\\double_display_case.json",
+  "output_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\double_display_case.png",
+  "source_size": [
+    128,
+    128
+  ],
+  "packed_size": [
+    128,
+    128
+  ],
+  "faces": 234,
+  "source_regions": 83,
+  "packed_regions": 72,
+  "padding": 0
+}

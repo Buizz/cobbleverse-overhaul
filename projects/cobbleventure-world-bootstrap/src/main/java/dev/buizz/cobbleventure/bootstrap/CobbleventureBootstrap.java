@@ -2141,17 +2141,17 @@ public final class CobbleventureBootstrap {
             || rotation.equals("counterclockwise_90");
         int footprintWidth = quarterTurn ? size.getZ() : size.getX();
         int footprintDepth = quarterTurn ? size.getX() : size.getZ();
-        int groundY = plannedTerrainGroundY(level, centerX, centerZ);
-        BlockPoint origin = new BlockPoint(
-            centerX - footprintWidth / 2,
-            groundY - 3,
-            centerZ - footprintDepth / 2
-        );
         FacilityPlacement facility = new FacilityPlacement(
             "facility_pokemon_center", "direct_template", structure,
             "pokemon_center", "포켓몬센터", "cave_entrance", null, null,
             null, null, null, 0.0D,
             footprintWidth, footprintDepth, size.getY(), 4
+        );
+        int groundY = plannedTerrainGroundY(level, centerX, centerZ);
+        BlockPoint origin = facilityTemplateOrigin(
+            level, facility,
+            centerX - footprintWidth / 2, groundY,
+            centerZ - footprintDepth / 2, rotation
         );
         prepareSpecialDistrict(level, facility, origin, rotation);
         if (!placeFacilityTemplate(level, facility, origin, rotation)) {
@@ -2174,9 +2174,17 @@ public final class CobbleventureBootstrap {
         if (!placeFacilityWorkers(level, null, facility, origin, rotation)) {
             LOGGER.warn("Cave Pokemon Center worker placement was not completed: {}", entrance.id());
         }
-        Point facilityEntrance = rotatedPokemonCenterEntrance(
-            origin, size.getX(), size.getZ(), facility.clearance(), rotation
+        BlockPos roadAnchor = facilityRoadAnchorWorldPosition(
+            level, facility, origin, rotation
         );
+        if (roadAnchor == null) {
+            LOGGER.error(
+                "Cave Pokemon Center road anchor is missing: entrance={}, structure={}",
+                entrance.id(), structure
+            );
+            return;
+        }
+        Point facilityEntrance = new Point(roadAnchor.getX(), roadAnchor.getZ());
         // The cave mountain is raised after the base terrain is generated. A direct
         // diagonal from the mouth to the facility can therefore cut straight through
         // that mountain. Follow the authored approach back into the entrance tile
@@ -2234,17 +2242,17 @@ public final class CobbleventureBootstrap {
                 || rotation.equals("counterclockwise_90");
             int footprintWidth = quarterTurn ? size.getZ() : size.getX();
             int footprintDepth = quarterTurn ? size.getX() : size.getZ();
-            int groundY = plannedTerrainGroundY(level, centerX, centerZ);
-            BlockPoint origin = new BlockPoint(
-                centerX - footprintWidth / 2,
-                groundY - 3,
-                centerZ - footprintDepth / 2
-            );
             FacilityPlacement facility = new FacilityPlacement(
                 "facility_pokemon_center", "direct_template", structure,
                 "pokemon_center", "포켓몬센터", "cave_entrance", null, null,
                 null, null, null, 0.0D,
                 footprintWidth, footprintDepth, size.getY(), 4
+            );
+            int groundY = plannedTerrainGroundY(level, centerX, centerZ);
+            BlockPoint origin = facilityTemplateOrigin(
+                level, facility,
+                centerX - footprintWidth / 2, groundY,
+                centerZ - footprintDepth / 2, rotation
             );
             BlockPoint placedOrigin = facilityPlacementOrigin(
                 level, facility, origin, rotation
@@ -2268,17 +2276,6 @@ public final class CobbleventureBootstrap {
             case SOUTH -> "counterclockwise_90";
             default -> "none";
         };
-    }
-
-    private static Point rotatedPokemonCenterEntrance(
-        BlockPoint origin, int width, int depth, int clearance, String rotation
-    ) {
-        int localX = -Math.max(2, clearance);
-        int localZ = Math.min(10, depth - 1);
-        BlockPoint rotated = rotatedTemplateOffset(
-            new BlockPoint(localX, 0, localZ), width, depth, rotation
-        );
-        return new Point(origin.x() + rotated.x(), origin.z() + rotated.z());
     }
 
     private static void drawCaveAccessRoad(
@@ -2818,10 +2815,6 @@ public final class CobbleventureBootstrap {
                 templateOrigin.x() + doorOffset.getX(),
                 templateOrigin.z() + doorOffset.getZ()
             )
-            : plot.id().equals("facility_pokemon_center")
-            ? new Point(x - 1, z + Math.min(10, plot.depth() - 1))
-            : plot.id().equals("facility_pokemart")
-                ? new Point(x + plot.width(), z + Math.min(15, plot.depth() - 1))
             : switch (facing) {
             case "east" -> new Point(x + plot.width(), z + plot.depth() / 2);
             case "south" -> new Point(x + plot.width() / 2, z + plot.depth());
@@ -2901,8 +2894,6 @@ public final class CobbleventureBootstrap {
 
     private static String facilityCanonicalEntranceFacing(String facilityId) {
         return switch (facilityId) {
-            case "facility_pokemon_center" -> "west";
-            case "facility_pokemart" -> "east";
             case "facility_department_store" -> "north";
             default -> facilityId.contains("gym") ? "south" : "north";
         };
@@ -4600,9 +4591,13 @@ public final class CobbleventureBootstrap {
     ) {
         return connected.stream().anyMatch(position -> {
             BlockState state = level.getBlockState(position);
-            return state.is(BlockTags.LEAVES)
+            ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+            boolean strippedLog = state.is(BlockTags.LOGS)
+                && blockId.getPath().startsWith("stripped_");
+            boolean persistentLeaves = state.is(BlockTags.LEAVES)
                 && state.hasProperty(LeavesBlock.PERSISTENT)
                 && state.getValue(LeavesBlock.PERSISTENT);
+            return strippedLog || persistentLeaves;
         });
     }
 
@@ -4855,7 +4850,9 @@ public final class CobbleventureBootstrap {
             }
         }
         int clearance = Math.max(0, facility.clearance());
-        int targetY = facilityGroundLevelY(facility, origin);
+        int targetY = facilityGroundLevelY(
+            level, facility, origin, rotationName
+        );
         int minX = origin.x() - clearance;
         int minZ = origin.z() - clearance;
         int maxX = origin.x() + width - 1 + clearance;
@@ -4938,8 +4935,9 @@ public final class CobbleventureBootstrap {
         }
         if (facility.mode().equals("placeholder") || !facility.id().contains("gym")) {
             return facilityTemplateOrigin(
-                facility,
-                anchor.x(), plannedTerrainGroundY(level, anchor.x(), anchor.z()), anchor.z()
+                level, facility,
+                anchor.x(), plannedTerrainGroundY(level, anchor.x(), anchor.z()),
+                anchor.z(), "none"
             );
         }
         LOGGER.error(
@@ -4960,41 +4958,60 @@ public final class CobbleventureBootstrap {
     }
 
     private static BlockPoint facilityTemplateOrigin(
-        FacilityPlacement facility, int x, int groundY, int z
-    ) {
-        return new BlockPoint(x, groundY - facilityGroundOffset(facility), z);
-    }
-
-    private static BlockPoint facilityTemplateOrigin(
         ServerLevel level, FacilityPlacement facility,
         int x, int roadY, int z, String rotationName
     ) {
-        BlockPos roadAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
-            level, facility.structure(), rotationName
+        BlockPos roadAnchor = facilityRoadAnchorOffset(
+            level, facility, rotationName
         );
-        int localRoadY = roadAnchor == null
-            ? facilityGroundOffset(facility) : roadAnchor.getY();
+        int localRoadY = roadAnchor == null ? 0 : roadAnchor.getY();
         return new BlockPoint(x, roadY - localRoadY, z);
-    }
-
-    private static int facilityGroundLevelY(
-        FacilityPlacement facility, BlockPoint origin
-    ) {
-        return origin.y() + facilityGroundOffset(facility)
-            - BuildingRuntimeSystem.placementYOffset(facility.structure());
     }
 
     private static int facilityGroundLevelY(
         ServerLevel level, FacilityPlacement facility,
         BlockPoint origin, String rotationName
     ) {
+        BlockPos roadAnchor = facilityRoadAnchorOffset(
+            level, facility, rotationName
+        );
+        int localRoadY = roadAnchor == null ? 0 : roadAnchor.getY();
+        return origin.y() + localRoadY
+            - BuildingRuntimeSystem.placementYOffset(facility.structure());
+    }
+
+    private static BlockPos facilityRoadAnchorWorldPosition(
+        ServerLevel level, FacilityPlacement facility,
+        BlockPoint origin, String rotationName
+    ) {
+        BlockPos roadAnchor = facilityRoadAnchorOffset(
+            level, facility, rotationName
+        );
+        if (roadAnchor == null) {
+            return null;
+        }
+        BlockPoint placementOrigin = facilityPlacementOrigin(
+            level, facility, origin, rotationName
+        );
+        return placementOrigin.toBlockPos().offset(roadAnchor);
+    }
+
+    private static BlockPos facilityRoadAnchorOffset(
+        ServerLevel level, FacilityPlacement facility, String rotationName
+    ) {
         BlockPos roadAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
             level, facility.structure(), rotationName
         );
-        int localRoadY = roadAnchor == null
-            ? facilityGroundOffset(facility) : roadAnchor.getY();
-        return origin.y() + localRoadY
-            - BuildingRuntimeSystem.placementYOffset(facility.structure());
+        if (roadAnchor == null && (
+            facility.id().equals("facility_pokemon_center")
+                || facility.id().equals("facility_pokemart")
+        )) {
+            throw new IllegalStateException(
+                "Facility template requires exactly one road_anchor: "
+                    + facility.structure()
+            );
+        }
+        return roadAnchor;
     }
 
     private static BlockPoint applyBuildingPlacementYOffset(
@@ -5004,12 +5021,6 @@ public final class CobbleventureBootstrap {
         return offset == 0 ? origin : new BlockPoint(
             origin.x(), origin.y() + offset, origin.z()
         );
-    }
-
-    private static int facilityGroundOffset(FacilityPlacement facility) {
-        // The BCA Pokecenter template stores its surface blocks at local Y=3.
-        // Its berry children connect below that surface and grow at local Y=4.
-        return facility.id().equals("facility_pokemon_center") ? 3 : 0;
     }
 
     private static boolean placeFacilityPlaceholder(
@@ -5507,10 +5518,7 @@ public final class CobbleventureBootstrap {
             StructurePlaceSettings settings = new StructurePlaceSettings()
                 .setRotation(rotation)
                 .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-                .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE)
-                .addProcessor(new FacilityTerrainPreservationProcessor(
-                    facilityGroundLevelY(level, facility, position, rotationName)
-                ));
+                .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
             ExplicitAirPlacementProcessor.configure(template.get(), settings);
             boolean placed = template.get().placeInWorld(
                 level, blockPos, blockPos, settings,
@@ -6152,16 +6160,29 @@ public final class CobbleventureBootstrap {
                     level.getServer(), level.dimension(), facility.structure(), eventSpaceId
                 );
             BlockPoint origin;
+            String placementRotation;
             if (placed != null) {
                 origin = placed.origin();
+                placementRotation = placed.rotation();
             } else {
                 int originX = settlement.center().x() + (int) Math.round(center.x());
                 int originZ = settlement.center().z() + (int) Math.round(center.z());
+                placementRotation = center.rotation();
                 origin = facilityTemplateOrigin(
                     level, facility, originX,
                     loadedRoadSurfaceY(level, entranceX, entranceZ),
-                    originZ, center.rotation()
+                    originZ, placementRotation
                 );
+            }
+            BlockPos recoveryOffset = BuildingRuntimeSystem.exteriorNpcApproachOffset(
+                facility.structure(), placementRotation, "nurse", 2
+            );
+            if (recoveryOffset == null) {
+                LOGGER.error(
+                    "Pokemon Center checkpoint has no nurse anchor: settlement={}, structure={}",
+                    settlement.id(), facility.structure()
+                );
+                continue;
             }
             BlockPos exit = surfacePosition(
                 level, entranceX, entranceZ
@@ -6169,7 +6190,7 @@ public final class CobbleventureBootstrap {
             PokemonCenterDefeatReturn.recordCenterVisit(
                 player,
                 level,
-                new BlockPos(origin.x() + 14, origin.y() + 5, origin.z() + 10),
+                origin.toBlockPos().offset(recoveryOffset),
                 exit
             );
             return;
@@ -6201,20 +6222,50 @@ public final class CobbleventureBootstrap {
                     continue;
                 }
                 var size = level.getStructureManager().get(structureId).orElseThrow().getSize();
-                int groundY = plannedTerrainGroundY(level, centerX, centerZ);
-                BlockPoint origin = new BlockPoint(
-                    centerX - size.getX() / 2,
-                    groundY - 3,
-                    centerZ - size.getZ() / 2
+                Direction roadFacing = horizontalDirection(
+                    entranceCenter.x() - centerX, entranceCenter.z() - centerZ
                 );
+                String rotation = pokemonCenterRotation(roadFacing);
+                boolean quarterTurn = rotation.equals("clockwise_90")
+                    || rotation.equals("counterclockwise_90");
+                int footprintWidth = quarterTurn ? size.getZ() : size.getX();
+                int footprintDepth = quarterTurn ? size.getX() : size.getZ();
+                FacilityPlacement facility = new FacilityPlacement(
+                    "facility_pokemon_center", "direct_template", structure,
+                    "pokemon_center", "포켓몬센터", "cave_entrance", null, null,
+                    null, null, null, 0.0D,
+                    footprintWidth, footprintDepth, size.getY(), 4
+                );
+                int groundY = plannedTerrainGroundY(level, centerX, centerZ);
+                BlockPoint origin = facilityTemplateOrigin(
+                    level, facility,
+                    centerX - footprintWidth / 2, groundY,
+                    centerZ - footprintDepth / 2, rotation
+                );
+                BlockPos roadAnchor = facilityRoadAnchorWorldPosition(
+                    level, facility, origin, rotation
+                );
+                if (roadAnchor == null) {
+                    LOGGER.error(
+                        "Cave Pokemon Center checkpoint has no road anchor: entrance={}, structure={}",
+                        entrance.id(), structure
+                    );
+                    continue;
+                }
+                BlockPos recoveryOffset = BuildingRuntimeSystem.exteriorNpcApproachOffset(
+                    structure, rotation, "nurse", 2
+                );
+                if (recoveryOffset == null) {
+                    LOGGER.error(
+                        "Cave Pokemon Center checkpoint has no nurse anchor: entrance={}, structure={}",
+                        entrance.id(), structure
+                    );
+                    continue;
+                }
                 PokemonCenterDefeatReturn.recordCenterVisit(
                     player, level,
-                    new BlockPos(origin.x() + 14, origin.y() + 5, origin.z() + 10),
-                    surfacePosition(
-                        level,
-                        origin.x() - 4,
-                        origin.z() + Math.min(10, size.getZ() - 1)
-                    )
+                    origin.toBlockPos().offset(recoveryOffset),
+                    surfacePosition(level, roadAnchor.getX(), roadAnchor.getZ())
                 );
                 return;
             }
@@ -14848,16 +14899,28 @@ public final class CobbleventureBootstrap {
         ServerLevel level, HexWorldPlan world, int x, int z
     ) {
         int groundY = nativeTerrainColumn(world, x, z).groundY();
+        return prepareWorldRoadColumnAtY(level, world, x, z, groundY);
+    }
+
+    /**
+     * Prepares a road column at an explicit connector height. Gate entrances
+     * use this to grade the native terrain one block at a time toward an
+     * authored structure entrance instead of leaving an unclimbable ledge.
+     */
+    static int prepareWorldRoadColumnAtY(
+        ServerLevel level, HexWorldPlan world, int x, int z, int roadY
+    ) {
+        int nativeGroundY = nativeTerrainColumn(world, x, z).groundY();
         long columnKey = blockColumnKey(x, z);
         clearTreesIntersectingRoad(
-            level, Set.of(columnKey), Map.of(columnKey, groundY)
+            level, Set.of(columnKey), Map.of(columnKey, roadY)
         );
-        clearVegetationColumn(level, x, groundY, z, 32);
-        supportRoadColumn(level, x, groundY, z);
-        for (int y = groundY + 1; y <= groundY + 4; y++) {
+        clearVegetationColumn(level, x, roadY, z, 32);
+        supportRoadColumn(level, x, roadY, z);
+        for (int y = roadY + 1; y <= Math.max(roadY + 4, nativeGroundY + 4); y++) {
             level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2);
         }
-        return groundY;
+        return roadY;
     }
 
     private static int roadSurfaceChoice(HexWorldPlan world, int x, int z) {

@@ -210,7 +210,9 @@ public final class MusicPlayback {
 
     /** Re-sends retained battle, encounter, or building music after a dimension change. */
     public static void tickRetainedContext(ServerPlayer player) {
-        if (!tickPriority(player, load(player.serverLevel()))) {
+        MusicData music = load(player.serverLevel());
+        if (!tickPriority(player, music)
+            && music.isTransientBattleTrack(PLAYING.get(player.getUUID()))) {
             stop(player);
         }
     }
@@ -267,15 +269,17 @@ public final class MusicPlayback {
             stop(player);
             return;
         }
+        String soundEvent = music.soundEvents.get(track);
+        if (soundEvent == null) {
+            LOGGER.warn("Unknown music tag requested for playback: {}", track);
+            return;
+        }
         if (track.equals(PLAYING.get(player.getUUID()))) return;
         PLAYING.put(player.getUUID(), track);
-        String soundEvent = music.soundEvents.get(track);
-        if (soundEvent != null) {
-            PacketDistributor.sendToPlayer(
-                player,
-                new PlayPayload(ResourceLocation.fromNamespaceAndPath(music.namespace, soundEvent))
-            );
-        }
+        PacketDistributor.sendToPlayer(
+            player,
+            new PlayPayload(ResourceLocation.fromNamespaceAndPath(music.namespace, soundEvent))
+        );
     }
 
     private static void stop(ServerPlayer player) {
@@ -602,6 +606,22 @@ public final class MusicPlayback {
             String trainer = optionalString(battle, "trainer_id");
             String gym = trainer == null ? null : gymByTrainer.get(trainer);
             return defaults.get(gym == null ? "victory_trainer" : "victory_gym");
+        }
+
+        private boolean isTransientBattleTrack(String track) {
+            if (track == null) return false;
+            if (track.equals(defaults.get("battle")) || track.equals(defaults.get("gym"))
+                || track.equals(defaults.get("victory_wild"))
+                || track.equals(defaults.get("victory_trainer"))
+                || track.equals(defaults.get("victory_gym"))) {
+                return true;
+            }
+            if (gymMusic.containsValue(track)) return true;
+            for (JsonObject preset : battles.values()) {
+                JsonObject battle = preset.getAsJsonObject("battle");
+                if (track.equals(optionalString(battle, "music_track"))) return true;
+            }
+            return false;
         }
 
         private static String first(String... values) {

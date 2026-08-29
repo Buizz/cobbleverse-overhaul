@@ -133,12 +133,14 @@ final class DoubleGlassDisplayCounterBlock extends HorizontalDirectionalBlock {
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
-        return List.of(core, core.relative(facing.getCounterClockWise()));
+        // The complete north-facing model occupies local X 0..32, so its
+        // second block is to the right (clockwise) of the facing direction.
+        return List.of(core, core.relative(facing.getClockWise()));
     }
 
     private static BlockPos corePosition(BlockPos position, BlockState state) {
         return state.getValue(PART) == 1
-            ? position.relative(state.getValue(FACING).getClockWise())
+            ? position.relative(state.getValue(FACING).getCounterClockWise())
             : position;
     }
 }

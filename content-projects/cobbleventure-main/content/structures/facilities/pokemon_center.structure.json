@@ -1,6 +1,4 @@
 {
-  "schema_version": 1,
-  "structure": "content/structures/facilities/pokemon_center.nbt",
   "display_name": {
     "ko_kr": "포켓몬센터",
     "en_us": "Pokemon Center"
@@ -20,26 +18,30 @@
     "license": "CC0-1.0",
     "modified_copy": true
   },
+  "schema_version": 1,
+  "structure": "content/structures/facilities/pokemon_center.nbt",
   "anchors": [
     {
-      "label": "nurse",
-      "type": "npc_position",
-      "position": [
-        16,
-        5,
-        10
-      ],
-      "facing": "north"
-    },
-    {
+      "id": "chansey",
       "label": "chansey",
       "type": "npc_position",
       "position": [
-        17,
-        5,
+        11,
+        1,
+        12
+      ],
+      "facing": "west"
+    },
+    {
+      "id": "nurse",
+      "label": "nurse",
+      "type": "npc_position",
+      "position": [
+        10,
+        1,
         11
       ],
-      "facing": "north"
+      "facing": "west"
     }
   ]
 }

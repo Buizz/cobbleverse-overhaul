@@ -43,6 +43,21 @@ class CaveRoadAnchorTests(unittest.TestCase):
                 cave_road_anchor.road_anchors(target),
             )
 
+    def test_moving_anchor_removes_the_previous_anchor(self) -> None:
+        source = cave_road_anchor.DEFAULT_CAVE_ROOT / "stone_mountain.nbt"
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / source.name
+            shutil.copy2(source, target)
+
+            cave_road_anchor.add_road_anchor(
+                target, (1, 0, 1), "west_up", "minecraft:stone"
+            )
+
+            self.assertEqual(
+                [([1, 0, 1], "west_up")],
+                cave_road_anchor.road_anchors(target),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

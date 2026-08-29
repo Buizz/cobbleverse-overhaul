@@ -909,20 +909,23 @@ class ContentManagerTests(unittest.TestCase):
         size = root["size"]
         self.assertEqual(3, len(size))
         self.assertTrue(all(isinstance(value, int) and value > 0 for value in size))
-        self.assertEqual([], root.get("entities", []))
+        self.assertEqual(
+            ["minecraft:painting"],
+            [entity.get("nbt", {}).get("id") for entity in root.get("entities", [])],
+        )
         structure_metadata = content_manager.read_minecraft_structure_metadata(
             path.read_bytes()
         )
         self.assertEqual([{
-            "position": [0, 3, 10],
+            "position": [1, 0, 11],
             "facing": "west",
             "orientation": "west_up",
-            "final_state": "minecraft:stone_bricks",
+            "final_state": "minecraft:smooth_stone",
         }], structure_metadata["road_anchors"])
         metadata = json.loads(path.with_suffix(".structure.json").read_text(encoding="utf-8"))
         self.assertEqual({
-            ("nurse", "npc_position", (16, 5, 10)),
-            ("chansey", "npc_position", (17, 5, 11)),
+            ("nurse", "npc_position", (10, 1, 11)),
+            ("chansey", "npc_position", (11, 1, 12)),
         }, {
             (anchor["label"], anchor["type"], tuple(anchor["position"]))
             for anchor in metadata["anchors"]
@@ -957,10 +960,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual(3, len(size))
         self.assertTrue(all(isinstance(value, int) and value > 0 for value in size))
         self.assertEqual([{
-            "position": [22, 0, 15],
-            "facing": "east",
-            "orientation": "east_up",
-            "final_state": "minecraft:stone",
+            "position": [1, 0, 6],
+            "facing": "west",
+            "orientation": "west_up",
+            "final_state": "minecraft:smooth_stone",
         }], structure_metadata["road_anchors"])
         jigsaw_names = {
             block.get("nbt", {}).get("name")
@@ -971,10 +974,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn("bca:random_shopkeeper_spawner", jigsaw_names)
         metadata = json.loads(path.with_suffix(".structure.json").read_text(encoding="utf-8"))
         self.assertEqual([{
+            "id": "counter",
             "label": "counter",
             "type": "npc_position",
-            "position": [7, 2, 17],
-            "facing": "north",
+            "position": [7, 1, 4],
+            "facing": "south",
         }], metadata["anchors"])
         self.assertEqual("CC0-1.0", metadata["provenance"]["license"])
         self.assertEqual(
@@ -3584,6 +3588,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("markNewTreeLeavesPersistent", bootstrap)
         self.assertIn("protectedTreeIntersectsColumn", bootstrap)
         self.assertIn("isProtectedAuthoredTree", bootstrap)
+        self.assertIn('blockId.getPath().startsWith("stripped_")', bootstrap)
         self.assertIn("CobbleventureBootstrap.treeBlocksInVolume", runtime)
         self.assertIn("CobbleventureBootstrap.markNewTreeLeavesPersistent", runtime)
         self.assertIn("protectExistingGateStructureLeaves", runtime)

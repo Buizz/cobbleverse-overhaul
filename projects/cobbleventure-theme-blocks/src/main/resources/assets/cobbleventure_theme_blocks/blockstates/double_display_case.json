@@ -1,8 +1,20 @@
 {
   "variants": {
-    "facing=north,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "uvlock": true },
-    "facing=east,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 90, "uvlock": true },
-    "facing=south,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 180, "uvlock": true },
-    "facing=west,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 270, "uvlock": true }
+    "facing=north,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case" },
+    "facing=east,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 90 },
+    "facing=south,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 180 },
+    "facing=west,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 270 },
+    "facing=north,part=1": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=east,part=1": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=south,part=1": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=west,part=1": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=north,part=2": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=east,part=2": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=south,part=2": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=west,part=2": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=north,part=3": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=east,part=3": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=south,part=3": { "model": "cobbleventure_theme_blocks:block/empty" },
+    "facing=west,part=3": { "model": "cobbleventure_theme_blocks:block/empty" }
   }
 }

@@ -24,7 +24,7 @@ side="BOTH"
 [[dependencies.cobbleventure_bootstrap]]
 modId="cobbleventure_player_menu"
 type="required"
-versionRange="[1.5.1,1.6)"
+versionRange="[1.6.0,1.7)"
 ordering="AFTER"
 side="BOTH"
 

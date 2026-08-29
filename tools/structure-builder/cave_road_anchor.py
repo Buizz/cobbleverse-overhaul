@@ -153,6 +153,7 @@ def add_road_anchor(
         block_nbt = block.get("nbt", {})
         if block_nbt.get("name") == ANCHOR_NAME:
             existing_anchor = True
+            continue
         if block_position != position:
             kept_blocks.append(encoded)
     marker = _road_anchor_block(jigsaw_state, position, final_state)

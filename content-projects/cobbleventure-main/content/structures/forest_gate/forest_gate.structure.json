@@ -1,9 +1,32 @@
 {
-  "schema_version": 1,
-  "structure": "content/structures/forest_gate/forest_gate.nbt",
   "display_name": {
     "ko_kr": "숲관문",
     "en_us": "Forest Gate"
   },
-  "anchors": []
+  "schema_version": 1,
+  "structure": "content/structures/forest_gate/forest_gate.nbt",
+  "anchors": [
+    {
+      "id": "npc1",
+      "label": "npc1",
+      "type": "npc_position",
+      "position": [
+        9,
+        3,
+        13
+      ],
+      "facing": "east"
+    },
+    {
+      "id": "npc2",
+      "label": "npc2",
+      "type": "npc_position",
+      "position": [
+        20,
+        3,
+        12
+      ],
+      "facing": "west"
+    }
+  ]
 }

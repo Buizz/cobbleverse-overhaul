@@ -121,7 +121,9 @@ final class DoubleDisplayCaseBlock extends HorizontalDirectionalBlock {
     }
 
     private static List<BlockPos> positions(BlockPos core, Direction facing) {
-        Direction right = facing.getCounterClockWise();
+        // The complete north-facing model occupies local X 0..32, so the
+        // second column is clockwise (the viewer's right) from the core.
+        Direction right = facing.getClockWise();
         return List.of(core, core.relative(right), core.above(), core.relative(right).above());
     }
 
@@ -129,7 +131,7 @@ final class DoubleDisplayCaseBlock extends HorizontalDirectionalBlock {
         int part = state.getValue(PART);
         BlockPos core = part >= 2 ? position.below() : position;
         return (part & 1) == 1
-            ? core.relative(state.getValue(FACING).getClockWise())
+            ? core.relative(state.getValue(FACING).getCounterClockWise())
             : core;
     }
 }

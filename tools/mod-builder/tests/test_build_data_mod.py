@@ -944,7 +944,7 @@ class DataModBuilderTests(unittest.TestCase):
             for identifier, dimensions in detailed_specs.items()
         }
 
-        self.assertEqual((22, 23), specs["facility_pokemon_center"])
+        self.assertEqual((16, 23), specs["facility_pokemon_center"])
         self.assertEqual(
             "cobbleventure:facilities/pokemon_center",
             detailed_specs["facility_pokemon_center"][2],
@@ -967,13 +967,20 @@ class DataModBuilderTests(unittest.TestCase):
         )
         profile.pop("facility_structures")
 
-        layout = build_data_mod._compile_town_layout(source)
+        layout = build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
         center = layout["facilities"]["facility_pokemon_center"]
-        self.assertEqual("west", center["entrance_facing"])
+        center_anchor = build_data_mod._managed_structure_road_anchor(
+            REPOSITORY_ROOT, center["structure"],
+        )
+        self.assertIsNotNone(center_anchor)
+        center_local_x, center_local_z = build_data_mod._rotated_structure_point(
+            center_anchor["position"][0], center_anchor["position"][2],
+            center["width"], center["depth"], center["rotation"],
+        )
         self.assertEqual(
             {
-                "x": math.floor(float(center["x"]) + 0.5) - 1,
-                "z": math.floor(float(center["z"]) + 0.5) + 10,
+                "x": math.floor(float(center["x"]) + 0.5) + center_local_x,
+                "z": math.floor(float(center["z"]) + 0.5) + center_local_z,
             },
             center["entrance"],
         )
@@ -985,16 +992,147 @@ class DataModBuilderTests(unittest.TestCase):
             in build_data_mod._compiled_facility_specs(source, REPOSITORY_ROOT)
         }
         self.assertEqual(
-            (23, 22, "cobbleventure:facilities/pokemart"),
+            (18, 18, "cobbleventure:facilities/pokemart"),
             mart_specs["facility_pokemart"],
         )
-        mart_layout = build_data_mod._compile_town_layout(source)
+        mart_layout = build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
         mart = mart_layout["facilities"]["facility_pokemart"]
-        self.assertEqual("east", mart["entrance_facing"])
+        mart_anchor = build_data_mod._managed_structure_road_anchor(
+            REPOSITORY_ROOT, mart["structure"],
+        )
+        self.assertIsNotNone(mart_anchor)
+        mart_local_x, mart_local_z = build_data_mod._rotated_structure_point(
+            mart_anchor["position"][0], mart_anchor["position"][2],
+            mart["width"], mart["depth"], mart["rotation"],
+        )
+        directions = ["north", "east", "south", "west"]
+        rotation_steps = {
+            "none": 0,
+            "clockwise_90": 1,
+            "clockwise_180": 2,
+            "counterclockwise_90": 3,
+        }
+        self.assertEqual(
+            directions[
+                (directions.index(mart_anchor["facing"])
+                 + rotation_steps[mart["rotation"]]) % 4
+            ],
+            mart["entrance_facing"],
+        )
         self.assertEqual(
             {
-                "x": math.floor(float(mart["x"]) + 0.5) + 23,
-                "z": math.floor(float(mart["z"]) + 0.5) + 15,
+                "x": math.floor(float(mart["x"]) + 0.5) + mart_local_x,
+                "z": math.floor(float(mart["z"]) + 0.5) + mart_local_z,
+            },
+            mart["entrance"],
+        )
+
+    def test_managed_pokemon_center_requires_a_road_anchor(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = source["structure_profile"]
+        profile["pokemon_center_enabled"] = True
+        profile["facility_structures"] = {
+            "pokemon_center": "cobbleventure:facilities/department_store",
+        }
+
+        with self.assertRaisesRegex(
+            build_data_mod.ModBuildError,
+            "road_anchor",
+        ):
+            build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
+
+    def test_managed_pokemon_center_layout_uses_road_anchor(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = source["structure_profile"]
+        profile["pokemon_center_enabled"] = True
+        profile["commercial_center"] = "none"
+        profile.setdefault("gym", {})["enabled"] = False
+
+        layout = build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
+        center = layout["facilities"]["facility_pokemon_center"]
+        anchor = build_data_mod._managed_structure_road_anchor(
+            REPOSITORY_ROOT, center["structure"],
+        )
+        self.assertIsNotNone(anchor)
+        local_x, local_z = build_data_mod._rotated_structure_point(
+            anchor["position"][0], anchor["position"][2],
+            center["width"], center["depth"], center["rotation"],
+        )
+        self.assertEqual(
+            {
+                "x": math.floor(float(center["x"]) + 0.5) + local_x,
+                "z": math.floor(float(center["z"]) + 0.5) + local_z,
+            },
+            center["entrance"],
+        )
+
+    def test_managed_pokemart_requires_a_road_anchor(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = source["structure_profile"]
+        profile["pokemon_center_enabled"] = False
+        profile["commercial_center"] = "pokemart"
+        profile["facility_structures"] = {
+            "pokemart": "cobbleventure:facilities/department_store",
+        }
+        profile.setdefault("gym", {})["enabled"] = False
+
+        with self.assertRaisesRegex(
+            build_data_mod.ModBuildError,
+            "포케마트 구조물에는 road_anchor",
+        ):
+            build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
+
+    def test_managed_pokemart_layout_uses_road_anchor(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = source["structure_profile"]
+        profile["pokemon_center_enabled"] = False
+        profile["commercial_center"] = "pokemart"
+        profile.setdefault("gym", {})["enabled"] = False
+
+        layout = build_data_mod._compile_town_layout(source, REPOSITORY_ROOT)
+        mart = layout["facilities"]["facility_pokemart"]
+        anchor = build_data_mod._managed_structure_road_anchor(
+            REPOSITORY_ROOT, mart["structure"],
+        )
+        self.assertIsNotNone(anchor)
+        local_x, local_z = build_data_mod._rotated_structure_point(
+            anchor["position"][0], anchor["position"][2],
+            mart["width"], mart["depth"], mart["rotation"],
+        )
+        directions = ["north", "east", "south", "west"]
+        rotation_steps = {
+            "none": 0,
+            "clockwise_90": 1,
+            "clockwise_180": 2,
+            "counterclockwise_90": 3,
+        }
+        self.assertEqual(
+            directions[
+                (directions.index(anchor["facing"])
+                 + rotation_steps[mart["rotation"]]) % 4
+            ],
+            mart["entrance_facing"],
+        )
+        self.assertEqual(
+            {
+                "x": math.floor(float(mart["x"]) + 0.5) + local_x,
+                "z": math.floor(float(mart["z"]) + 0.5) + local_z,
             },
             mart["entrance"],
         )

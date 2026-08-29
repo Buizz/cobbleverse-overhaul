@@ -1035,11 +1035,10 @@ def _managed_structure_size(root: Path | None, structure: str) -> tuple[int, int
 
 
 @lru_cache(maxsize=512)
-def _managed_structure_occupied_bounds_cached(
+def _managed_structure_root_cached(
     path_key: str, modified_ns: int, file_size: int,
-    structure: str, width: int, depth: int,
-) -> dict[str, int] | None:
-    """Return the same non-terrain top bounds used by the web preview."""
+    structure: str,
+) -> dict[str, object]:
     del modified_ns, file_size
     path = Path(path_key)
     raw = path.read_bytes()
@@ -1102,6 +1101,18 @@ def _managed_structure_occupied_bounds_cached(
     root_tag = read_payload(10)
     if not isinstance(root_tag, dict):
         raise ModBuildError(f"NBT 루트가 Compound가 아닙니다: {structure}")
+    return root_tag
+
+
+@lru_cache(maxsize=512)
+def _managed_structure_occupied_bounds_cached(
+    path_key: str, modified_ns: int, file_size: int,
+    structure: str, width: int, depth: int,
+) -> dict[str, int] | None:
+    """Return the same non-terrain top bounds used by the web preview."""
+    root_tag = _managed_structure_root_cached(
+        path_key, modified_ns, file_size, structure,
+    )
     palette = root_tag.get("palette")
     blocks = root_tag.get("blocks")
     if not isinstance(palette, list) or not isinstance(blocks, list):
@@ -1169,6 +1180,52 @@ def _managed_structure_occupied_bounds(
         structure, width, depth,
     )
     return dict(bounds) if bounds is not None else None
+
+
+def _managed_structure_road_anchor(
+    root: Path | None, structure: str,
+) -> dict[str, object] | None:
+    path = _managed_structure_path(root, structure)
+    if path is None:
+        return None
+    stat = path.stat()
+    root_tag = _managed_structure_root_cached(
+        str(path.resolve()), stat.st_mtime_ns, stat.st_size, structure,
+    )
+    palette = root_tag.get("palette")
+    blocks = root_tag.get("blocks")
+    if not isinstance(palette, list) or not isinstance(blocks, list):
+        return None
+    anchors: list[dict[str, object]] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        state_index = block.get("state")
+        block_nbt = block.get("nbt")
+        position = block.get("pos")
+        if (
+            not isinstance(state_index, int) or isinstance(state_index, bool)
+            or not 0 <= state_index < len(palette)
+            or not isinstance(block_nbt, dict)
+            or block_nbt.get("name") != "cobbleventure:road_anchor"
+            or not isinstance(position, list) or len(position) != 3
+            or any(not isinstance(value, int) or isinstance(value, bool) for value in position)
+        ):
+            continue
+        state = palette[state_index]
+        if not isinstance(state, dict) or state.get("Name") != "minecraft:jigsaw":
+            continue
+        properties = state.get("Properties")
+        orientation = properties.get("orientation") if isinstance(properties, dict) else None
+        facing = str(orientation).split("_", 1)[0]
+        if facing not in {"north", "east", "south", "west"}:
+            raise ModBuildError(
+                f"도로 앵커 방향이 올바르지 않습니다: {structure} ({orientation})"
+            )
+        anchors.append({"position": list(position), "facing": facing})
+    if len(anchors) > 1:
+        raise ModBuildError(f"도로 앵커가 여러 개입니다: {structure}")
+    return anchors[0] if anchors else None
 
 
 def _compiled_facility_specs(
@@ -1282,10 +1339,6 @@ def _facility_occupied_bounds(
 def _facility_entrance_facing(identifier: str) -> str:
     if identifier == "facility_department_store":
         return "north"
-    if identifier == "facility_pokemon_center":
-        return "west"
-    if identifier == "facility_pokemart":
-        return "east"
     if "gym" in identifier:
         return "west"
     return "north"
@@ -1317,17 +1370,20 @@ def _structure_authored_door_side(
         return None
     _, path = structure.split(":", 1)
     metadata_path = root / CONTENT_ROOT / "structures" / f"{path}.structure.json"
-    if not metadata_path.is_file():
-        return None
-    metadata = _read_cached_json(metadata_path)
-    anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
-    door = next((
-        anchor for anchor in anchors or []
-        if isinstance(anchor, dict) and anchor.get("type") == "door"
-    ), None)
-    if not isinstance(door, dict):
-        return None
-    side = door.get("safe_side", door.get("door_facing"))
+    door = None
+    if metadata_path.is_file():
+        metadata = _read_cached_json(metadata_path)
+        anchors = metadata.get("anchors") if isinstance(metadata, dict) else None
+        door = next((
+            anchor for anchor in anchors or []
+            if isinstance(anchor, dict) and anchor.get("type") == "door"
+        ), None)
+    if isinstance(door, dict):
+        side = door.get("safe_side", door.get("door_facing"))
+        if side in {"north", "east", "south", "west"}:
+            return str(side)
+    road_anchor = _managed_structure_road_anchor(root, structure)
+    side = road_anchor.get("facing") if isinstance(road_anchor, dict) else None
     return str(side) if side in {"north", "east", "south", "west"} else None
 
 
@@ -1451,6 +1507,27 @@ def _structure_door_approach(
     return _structure_door_point(plot, root, safe=True)
 
 
+def _structure_road_anchor_point(
+    plot: dict[str, object], root: Path | None = None,
+) -> tuple[int, int] | None:
+    structure = plot.get("structure")
+    if not isinstance(structure, str):
+        return None
+    anchor = _managed_structure_road_anchor(root, structure)
+    position = anchor.get("position") if isinstance(anchor, dict) else None
+    if not isinstance(position, list) or len(position) != 3:
+        return None
+    local_x, local_z = _rotated_structure_point(
+        int(position[0]), int(position[2]),
+        int(plot["width"]), int(plot["depth"]),
+        str(plot.get("rotation", "none")),
+    )
+    return (
+        math.floor(float(plot["x"]) + 0.5) + local_x,
+        math.floor(float(plot["z"]) + 0.5) + local_z,
+    )
+
+
 def _structure_door_position(
     plot: dict[str, object], root: Path | None = None,
 ) -> tuple[int, int] | None:
@@ -1463,6 +1540,9 @@ def _plot_authored_entrance(
     structure_approach = _structure_door_approach(plot, root)
     if structure_approach is not None:
         return structure_approach
+    road_anchor = _structure_road_anchor_point(plot, root)
+    if road_anchor is not None:
+        return road_anchor
     if str(plot["id"]).startswith("house_"):
         return _house_door_approach(plot, root)
     return None
@@ -1490,10 +1570,6 @@ def _plot_entrance(
     width = int(plot["width"])
     plot_depth = int(plot["depth"])
     facing = str(plot["entrance_facing"])
-    if plot["id"] == "facility_pokemon_center":
-        return x - 1, z + min(10, plot_depth - 1)
-    if plot["id"] == "facility_pokemart":
-        return x + width, z + min(15, plot_depth - 1)
     if "gym" in str(plot["id"]):
         return x + width // 2, z + plot_depth
     return {
@@ -2198,6 +2274,14 @@ def _compile_town_layout_attempt(
         _compiled_facility_specs(data, root), key=facility_area, reverse=True
     )
     for identifier, width, plot_depth, structure in facility_specs:
+        road_anchor = _managed_structure_road_anchor(root, structure)
+        if (identifier in {"facility_pokemon_center", "facility_pokemart"}
+                and _managed_structure_path(root, structure) is not None
+                and road_anchor is None):
+            label = "포켓몬센터" if identifier == "facility_pokemon_center" else "포케마트"
+            raise ModBuildError(
+                f"{label} 구조물에는 road_anchor가 정확히 하나 필요합니다: {structure}"
+            )
         occupied_bounds = _facility_occupied_bounds(
             data, identifier, width, plot_depth, structure, root
         )

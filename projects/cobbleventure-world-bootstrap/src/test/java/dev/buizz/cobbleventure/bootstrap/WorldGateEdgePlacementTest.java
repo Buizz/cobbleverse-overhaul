@@ -81,4 +81,11 @@ final class WorldGateEdgePlacementTest {
         assertEquals(6, WorldGateSystem.naturalGateBoundaryDepth(64, 2));
         assertEquals(9, WorldGateSystem.naturalGateBoundaryDepth(64, 7));
     }
+
+    @Test
+    void gateApproachNeverChangesMoreThanOneBlockAtATime() {
+        assertEquals(65, WorldGateSystem.nextGateApproachY(64, 70));
+        assertEquals(63, WorldGateSystem.nextGateApproachY(64, 58));
+        assertEquals(64, WorldGateSystem.nextGateApproachY(64, 64));
+    }
 }

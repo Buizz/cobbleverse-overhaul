@@ -3,8 +3,8 @@
   "structure": "content/structures/placeholder/daycare.nbt",
   "anchors": [
     {
-      "id": "door",
-      "label": "door",
+      "id": "door1",
+      "label": "door1",
       "type": "door",
       "position": [
         22,
@@ -18,6 +18,23 @@
       ],
       "door_facing": "south",
       "safe_side": "north"
+    },
+    {
+      "id": "door2",
+      "label": "door2",
+      "type": "door",
+      "position": [
+        16,
+        1,
+        7
+      ],
+      "safe_spawn": [
+        15,
+        1,
+        7
+      ],
+      "door_facing": "east",
+      "safe_side": "west"
     }
   ]
 }

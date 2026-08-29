@@ -1,6 +1,4 @@
 {
-  "schema_version": 1,
-  "structure": "content/structures/facilities/pokemart.nbt",
   "display_name": {
     "ko_kr": "포켓몬상점",
     "en_us": "Pokemart"
@@ -20,16 +18,19 @@
     "license": "CC0-1.0",
     "modified_copy": true
   },
+  "schema_version": 1,
+  "structure": "content/structures/facilities/pokemart.nbt",
   "anchors": [
     {
+      "id": "counter",
       "label": "counter",
       "type": "npc_position",
       "position": [
         7,
-        2,
-        17
+        1,
+        4
       ],
-      "facing": "north"
+      "facing": "south"
     }
   ]
 }

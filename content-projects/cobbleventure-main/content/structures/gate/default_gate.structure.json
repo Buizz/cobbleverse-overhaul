@@ -3,16 +3,7 @@
   "structure": "content/structures/gate/default_gate.nbt",
   "anchors": [
     {
-      "label": "npc2",
-      "type": "npc_position",
-      "position": [
-        20,
-        3,
-        11
-      ],
-      "facing": "north"
-    },
-    {
+      "id": "npc1",
       "label": "npc1",
       "type": "npc_position",
       "position": [
@@ -20,7 +11,18 @@
         3,
         12
       ],
-      "facing": "north"
+      "facing": "east"
+    },
+    {
+      "id": "npc2",
+      "label": "npc2",
+      "type": "npc_position",
+      "position": [
+        20,
+        3,
+        11
+      ],
+      "facing": "west"
     }
   ]
 }

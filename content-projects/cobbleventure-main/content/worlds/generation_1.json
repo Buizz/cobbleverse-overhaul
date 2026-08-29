@@ -2140,7 +2140,7 @@
     {
       "q": 1,
       "r": 8,
-      "biome": "minecraft:river",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -2152,7 +2152,7 @@
     {
       "q": 2,
       "r": 8,
-      "biome": "minecraft:river",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -2164,7 +2164,7 @@
     {
       "q": 1,
       "r": 7,
-      "biome": "minecraft:river",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,
@@ -2176,7 +2176,7 @@
     {
       "q": 2,
       "r": 6,
-      "biome": "minecraft:river",
+      "biome": "minecraft:ocean",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
         "base_height_offset": 0,

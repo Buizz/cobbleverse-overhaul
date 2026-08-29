@@ -23,10 +23,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
+import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
@@ -42,6 +44,7 @@ import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RespawnAnchorBlock;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
@@ -57,8 +60,11 @@ final class WorldGateSystem {
     private static final String DENY_COOLDOWN = "cobbleventureGateDenyCooldown";
     private static final String FOREST_PORTAL_COOLDOWN = "cobbleventureForestPortalCooldown";
     private static final String FOREST_ENTRY_MARKER = "cobbleventure:forest_entry";
+    private static final String ROAD_ANCHOR_MARKER = "cobbleventure:road_anchor";
     private static final int MAX_NATURAL_GATE_FUNNEL_DEPTH = 8;
     private static final int GATE_STRUCTURE_NATURAL_CLEARANCE = 3;
+    private static final int MIN_GATE_APPROACH_DEPTH = 8;
+    private static final int MAX_GATE_APPROACH_DEPTH = 24;
     private static final Map<UUID, Vec3> LAST_POSITIONS = new HashMap<>();
     private static final Map<UUID, PendingGateDenial> PENDING_DENIALS = new HashMap<>();
     private static final Map<UUID, PendingEventDialogue> PENDING_EVENT_DIALOGUES =
@@ -200,6 +206,18 @@ final class WorldGateSystem {
             } else {
                 if (gate.buildingEnabled()) {
                     protectExistingGateStructureLeaves(level, gate, center);
+                    int existingGroundY = groundY(level, center.x(), center.z());
+                    StructureFootprint existingFootprint = plannedStructureFootprint(
+                        level, gate, center
+                    );
+                    List<GateEntrancePlacement> existingEntrances =
+                        existingFootprint == null ? List.of() : plannedGateRoadAnchors(
+                            level, gate, existingFootprint, existingGroundY
+                        );
+                    layGateApproachRoads(
+                        level, world, gate, center, existingFootprint,
+                        existingEntrances, gate.wallThickness() / 2 + 4
+                    );
                 }
                 if (!gate.surroundingType().equals("natural")) return;
                 refreshNaturalGateSurroundings(level, world, gate, center);
@@ -221,6 +239,11 @@ final class WorldGateSystem {
         StructureFootprint plannedFootprint = shouldPlaceStructure && !forestGate
             ? plannedStructureFootprint(level, gate, center)
             : null;
+        List<GateEntrancePlacement> plannedEntrances = plannedFootprint == null
+            ? List.of()
+            : plannedGateRoadAnchors(
+                level, gate, plannedFootprint, centerY
+            );
         if (forestGate) {
             cacheForestEntryMarker(level, world, gate);
         }
@@ -229,7 +252,8 @@ final class WorldGateSystem {
         // never cut down the natural barrier that belongs to the gate itself.
         if (!forestGate && (!shouldPlaceStructure || plannedFootprint != null)) {
             layGateApproachRoads(
-                level, world, gate, center, plannedFootprint, halfThickness
+                level, world, gate, center, plannedFootprint,
+                plannedEntrances, halfThickness
             );
         }
         if (!forestGate && gate.surroundingType().equals("wall")) {
@@ -1135,12 +1159,16 @@ final class WorldGateSystem {
     private static void layGateApproachRoads(
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center, StructureFootprint footprint,
-        int halfThickness
+        List<GateEntrancePlacement> entrances, int halfThickness
     ) {
+        if (!entrances.isEmpty()) {
+            for (GateEntrancePlacement entrance : entrances) {
+                layAnchoredGateApproach(level, world, entrance);
+            }
+            return;
+        }
         Direction normal = facingDirection(gate.facing());
         Direction sideways = normal.getClockWise();
-        StructureFootprint protectedFootprint = footprint == null
-            ? null : footprint.expanded(5);
         for (int sign : new int[] {-1, 1}) {
             int outwardX = normal.getStepX() * sign;
             int outwardZ = normal.getStepZ() * sign;
@@ -1160,9 +1188,6 @@ final class WorldGateSystem {
                 for (int lateral = -1; lateral <= 1; lateral++) {
                     int x = roadX + sideways.getStepX() * lateral;
                     int z = roadZ + sideways.getStepZ() * lateral;
-                    if (protectedFootprint != null && protectedFootprint.contains(x, z)) {
-                        continue;
-                    }
                     int groundY = CobbleventureBootstrap.prepareWorldRoadColumn(
                         level, world, x, z
                     );
@@ -1173,6 +1198,60 @@ final class WorldGateSystem {
                 }
             }
         }
+    }
+
+    private static void layAnchoredGateApproach(
+        ServerLevel level, HexWorldPlan world, GateEntrancePlacement entrance
+    ) {
+        Direction outward = entrance.outward();
+        Direction sideways = outward.getClockWise();
+        // The default gate has a two-block landing between the template edge
+        // and its first authored stair. Grade that landing as part of the road;
+        // otherwise preserved native terrain can still leave a ledge inside
+        // the footprint even though the external connector is smooth.
+        for (int inwardDepth = 0; inwardDepth <= 1; inwardDepth++) {
+            int centerX = entrance.x() - outward.getStepX() * inwardDepth;
+            int centerZ = entrance.z() - outward.getStepZ() * inwardDepth;
+            for (int lateral = -1; lateral <= 1; lateral++) {
+                int x = centerX + sideways.getStepX() * lateral;
+                int z = centerZ + sideways.getStepZ() * lateral;
+                CobbleventureBootstrap.prepareWorldRoadColumnAtY(
+                    level, world, x, z, entrance.surfaceY()
+                );
+                level.setBlock(
+                    new BlockPos(x, entrance.surfaceY(), z),
+                    CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z), 2
+                );
+            }
+        }
+        int previousY = entrance.surfaceY();
+        for (int depth = 1; depth <= MAX_GATE_APPROACH_DEPTH; depth++) {
+            int centerX = entrance.x() + outward.getStepX() * depth;
+            int centerZ = entrance.z() + outward.getStepZ() * depth;
+            int nativeY = CobbleventureBootstrap.nativeTerrainColumn(
+                world, centerX, centerZ
+            ).groundY();
+            int roadY = nextGateApproachY(previousY, nativeY);
+            for (int lateral = -1; lateral <= 1; lateral++) {
+                int x = centerX + sideways.getStepX() * lateral;
+                int z = centerZ + sideways.getStepZ() * lateral;
+                CobbleventureBootstrap.prepareWorldRoadColumnAtY(
+                    level, world, x, z, roadY
+                );
+                level.setBlock(
+                    new BlockPos(x, roadY, z),
+                    CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z), 2
+                );
+            }
+            previousY = roadY;
+            if (depth >= MIN_GATE_APPROACH_DEPTH && roadY == nativeY) {
+                break;
+            }
+        }
+    }
+
+    static int nextGateApproachY(int previousY, int nativeY) {
+        return Math.max(previousY - 1, Math.min(previousY + 1, nativeY));
     }
 
     private static void placeOverheadBarrier(
@@ -1228,6 +1307,7 @@ final class WorldGateSystem {
             LOGGER.error("Gate structure placement failed: gate={}, origin={}", gate.id(), origin);
             return null;
         }
+        replacePlacedGateRoadAnchors(level, structure, origin, settings);
         CobbleventureBootstrap.markNewTreeLeavesPersistent(
             level, protectionGround, existingTreeBlocks,
             protectionRadius, protectionHeight
@@ -1259,6 +1339,105 @@ final class WorldGateSystem {
             minX + size.getX() - 1,
             minZ + size.getZ() - 1
         );
+    }
+
+    private static List<GateEntrancePlacement> plannedGateRoadAnchors(
+        ServerLevel level, Gate gate, StructureFootprint footprint, int originY
+    ) {
+        if (gate.structure() == null) return List.of();
+        ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
+        if (structureId == null) return List.of();
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return List.of();
+        StructureTemplate structure = template.orElseThrow();
+        Rotation rotation = rotation(gate.rotation());
+        int width = structure.getSize().getX();
+        int depth = structure.getSize().getZ();
+        List<StructureTemplate.StructureBlockInfo> markers = structure.filterBlocks(
+            BlockPos.ZERO, new StructurePlaceSettings(), Blocks.JIGSAW
+        ).stream().filter(info -> info.nbt() != null
+            && ROAD_ANCHOR_MARKER.equals(info.nbt().getString("name"))).toList();
+        if (markers.isEmpty()) {
+            LOGGER.warn(
+                "Gate NBT has no {} jigsaws; using legacy edge approaches: gate={}, structure={}",
+                ROAD_ANCHOR_MARKER, gate.id(), gate.structure()
+            );
+            return List.of();
+        }
+        if (markers.size() != 2) {
+            LOGGER.error(
+                "Pass-through gate NBT requires exactly two {} jigsaws: gate={}, structure={}, found={}",
+                ROAD_ANCHOR_MARKER, gate.id(), gate.structure(), markers.size()
+            );
+            return List.of();
+        }
+        List<GateEntrancePlacement> entrances = new ArrayList<>();
+        for (StructureTemplate.StructureBlockInfo marker : markers) {
+            Direction outward = rotateDirection(
+                JigsawBlock.getFrontFacing(marker.state()), rotation
+            );
+            if (!outward.getAxis().isHorizontal()) {
+                LOGGER.error(
+                    "Gate road anchor jigsaw must face horizontally: gate={}, position={}, facing={}",
+                    gate.id(), marker.pos(), outward
+                );
+                return List.of();
+            }
+            BlockPos rotated = rotatedTemplateOffset(
+                marker.pos(), width, depth, rotation
+            );
+            entrances.add(new GateEntrancePlacement(
+                footprint.minX() + rotated.getX(),
+                footprint.minZ() + rotated.getZ(),
+                originY + marker.pos().getY() - 1, outward
+            ));
+        }
+        return List.copyOf(entrances);
+    }
+
+    private static void replacePlacedGateRoadAnchors(
+        ServerLevel level, StructureTemplate structure, BlockPos origin,
+        StructurePlaceSettings settings
+    ) {
+        for (StructureTemplate.StructureBlockInfo info : structure.filterBlocks(
+            origin, settings, Blocks.JIGSAW
+        )) {
+            if (info.nbt() == null
+                || !ROAD_ANCHOR_MARKER.equals(info.nbt().getString("name"))) {
+                continue;
+            }
+            BlockState replacement = Blocks.AIR.defaultBlockState();
+            try {
+                replacement = BlockStateParser.parseForBlock(
+                    level.holderLookup(Registries.BLOCK),
+                    info.nbt().getString("final_state"), false
+                ).blockState();
+                if (replacement.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+                    replacement = replacement.setValue(
+                        BlockStateProperties.HORIZONTAL_FACING,
+                        JigsawBlock.getFrontFacing(info.state()).getOpposite()
+                    );
+                }
+            } catch (CommandSyntaxException | RuntimeException error) {
+                LOGGER.warn(
+                    "Invalid gate road anchor final_state; replacing with air: position={}, value={}",
+                    info.pos(), info.nbt().getString("final_state")
+                );
+            }
+            level.setBlock(info.pos(), replacement, 2);
+        }
+    }
+
+    private static Direction rotateDirection(
+        Direction direction, Rotation rotation
+    ) {
+        if (direction == null) return null;
+        return switch (rotation) {
+            case CLOCKWISE_90 -> direction.getClockWise();
+            case CLOCKWISE_180 -> direction.getOpposite();
+            case COUNTERCLOCKWISE_90 -> direction.getCounterClockWise();
+            default -> direction;
+        };
     }
 
     private static void protectExistingGateStructureLeaves(
@@ -2279,6 +2458,10 @@ final class WorldGateSystem {
     }
 
     private record GateStructurePlacement(StructureFootprint footprint) {}
+
+    private record GateEntrancePlacement(
+        int x, int z, int surfaceY, Direction outward
+    ) {}
 
     private record NaturalGateColumn(
         int x, int z, String terrainType, int distance, int offset

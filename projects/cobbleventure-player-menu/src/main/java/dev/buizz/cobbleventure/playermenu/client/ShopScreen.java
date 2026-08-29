@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -20,8 +21,12 @@ import org.lwjgl.glfw.GLFW;
 
 /** Blue-and-orange shop UI sharing the visual language of the Cobbleventure bag. */
 public final class ShopScreen extends Screen {
-    private static final int PANEL_WIDTH = 560;
-    private static final int PANEL_HEIGHT = 320;
+    private static final int PANEL_MAX_WIDTH = 480;
+    private static final int PANEL_MAX_HEIGHT = 286;
+    private static final int PANEL_MIN_WIDTH = 320;
+    private static final int PANEL_MIN_HEIGHT = 220;
+    private static final int PANEL_PHYSICAL_MAX_WIDTH = 1680;
+    private static final int PANEL_PHYSICAL_MAX_HEIGHT = 1000;
     private static final int PANEL_DARK = 0xFF356A98;
     private static final int PANEL_LIGHT = 0xFFA9DCEE;
     private static final int PANEL_FILL = 0xF4D9EDF7;
@@ -51,6 +56,8 @@ public final class ShopScreen extends Screen {
     private int scrollRow;
     private int panelX;
     private int panelY;
+    private int panelWidth;
+    private int panelHeight;
     private EditBox searchBox;
     private ActionButton transactionButton;
     private Component status = Component.empty();
@@ -70,19 +77,25 @@ public final class ShopScreen extends Screen {
 
     @Override
     protected void init() {
-        panelX = (width - Math.min(PANEL_WIDTH, width - 16)) / 2;
-        panelY = (height - Math.min(PANEL_HEIGHT, height - 16)) / 2;
+        double guiScale = Math.max(1.0D, minecraft.getWindow().getGuiScale());
+        int widthLimit = Math.min(PANEL_MAX_WIDTH, (int) Math.floor(PANEL_PHYSICAL_MAX_WIDTH / guiScale));
+        int heightLimit = Math.min(PANEL_MAX_HEIGHT, (int) Math.floor(PANEL_PHYSICAL_MAX_HEIGHT / guiScale));
+        panelWidth = Math.min(width - 16, Math.max(PANEL_MIN_WIDTH, widthLimit));
+        panelHeight = Math.min(height - 16, Math.max(PANEL_MIN_HEIGHT, heightLimit));
+        panelX = (width - panelWidth) / 2;
+        panelY = (height - panelHeight) / 2;
         rebuildShopWidgets();
     }
 
     private void rebuildShopWidgets() {
         clearWidgets();
-        int actualWidth = Math.min(PANEL_WIDTH, width - 16);
-        int leftWidth = Math.max(250, actualWidth * 2 / 3);
+        int leftWidth = Math.max(210, panelWidth * 2 / 3);
+        int tabsY = panelY + 41;
+        int bodyY = panelY + 68;
 
-        addRenderableWidget(new TabButton(false, panelX + 12, panelY + 45, (actualWidth - 24) / 2, 24));
-        addRenderableWidget(new TabButton(true, panelX + 12 + (actualWidth - 24) / 2,
-            panelY + 45, (actualWidth - 24) / 2, 24));
+        addRenderableWidget(new TabButton(false, panelX + 12, tabsY, (panelWidth - 24) / 2, 22));
+        addRenderableWidget(new TabButton(true, panelX + 12 + (panelWidth - 24) / 2,
+            tabsY, (panelWidth - 24) / 2, 22));
 
         Set<String> categories = new LinkedHashSet<>();
         for (ShopNetwork.ClientOffer offer : offers) categories.add(offer.category());
@@ -94,20 +107,18 @@ public final class ShopScreen extends Screen {
             addRenderableWidget(new CategoryButton(
                 categoryList.get(index),
                 panelX + 12 + index * categoryWidth,
-                panelY + 76,
+                bodyY,
                 categoryWidth - 3,
-                20
+                19
             ));
         }
 
         int searchX = panelX + 12;
-        int searchY = panelY + 100;
+        int searchY = bodyY + 23;
         int searchWidth = leftWidth - 24;
-        searchBox = new EditBox(font, searchX, searchY, searchWidth, 18,
+        searchBox = new InvisibleEditBox(font, searchX, searchY, searchWidth, 18,
             Component.translatable("screen.cobbleventure_player_menu.shop.search"));
-        searchBox.setHint(Component.translatable("screen.cobbleventure_player_menu.shop.search"));
         searchBox.setBordered(false);
-        searchBox.setTextColor(TEXT);
         searchBox.setValue(searchValue);
         searchBox.setResponder(value -> {
             searchValue = value;
@@ -120,9 +131,9 @@ public final class ShopScreen extends Screen {
 
         refreshOffers(false);
         int gridX = panelX + 12;
-        int gridY = panelY + 124;
+        int gridY = bodyY + 45;
         int cardWidth = Math.max(54, (leftWidth - 27) / GRID_COLUMNS);
-        int cardHeight = 72;
+        int cardHeight = Math.max(48, (panelHeight - (gridY - panelY) - 20) / GRID_ROWS);
         int start = scrollRow * GRID_COLUMNS;
         for (int visible = 0; visible < GRID_COLUMNS * GRID_ROWS; visible++) {
             int offerPosition = start + visible;
@@ -138,14 +149,16 @@ public final class ShopScreen extends Screen {
         }
 
         int detailX = panelX + leftWidth + 3;
-        int detailWidth = actualWidth - leftWidth - 15;
-        addRenderableWidget(new StepButton(-1, detailX + 12, panelY + 224, 30, 24));
-        addRenderableWidget(new StepButton(1, detailX + detailWidth - 42, panelY + 224, 30, 24));
+        int detailWidth = panelWidth - leftWidth - 15;
+        int detailBottom = panelY + panelHeight - 10;
+        int stepY = detailBottom - 80;
+        addRenderableWidget(new StepButton(-1, detailX + 12, stepY, 28, 22));
+        addRenderableWidget(new StepButton(1, detailX + detailWidth - 40, stepY, 28, 22));
         transactionButton = addRenderableWidget(new ActionButton(
             detailX + 10,
-            panelY + 276,
+            detailBottom - 25,
             detailWidth - 20,
-            26,
+            22,
             this::transact
         ));
         updateTransactionButton();
@@ -211,14 +224,17 @@ public final class ShopScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xA8101720);
-        int actualWidth = Math.min(PANEL_WIDTH, width - 16);
-        int actualHeight = Math.min(PANEL_HEIGHT, height - 16);
-        drawPanel(graphics, panelX, panelY, actualWidth, actualHeight);
-        drawHeader(graphics, actualWidth);
+        graphics.fill(0, 0, width, height, 0x70101720);
+        drawPanel(graphics, panelX, panelY, panelWidth, panelHeight);
+        drawHeader(graphics, panelWidth);
         drawSearchBox(graphics);
-        drawDetail(graphics, actualWidth);
+        drawDetail(graphics, panelWidth);
         super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // The shop draws its own translucent scrim; keep the live world sharp.
     }
 
     private void drawHeader(GuiGraphics graphics, int actualWidth) {
@@ -250,49 +266,67 @@ public final class ShopScreen extends Screen {
         fillRoundedRect(graphics, searchBox.getX() - 1, searchBox.getY(),
             searchBox.getX() + searchBox.getWidth() + 1,
             searchBox.getY() + searchBox.getHeight(), 3, CARD);
+        String value = searchValue.isEmpty()
+            ? Component.translatable("screen.cobbleventure_player_menu.shop.search").getString()
+            : searchValue;
+        int color = searchValue.isEmpty() ? MUTED : TEXT;
+        String visible = font.plainSubstrByWidth(value, searchBox.getWidth() - 8);
+        graphics.drawString(font, visible, searchBox.getX() + 4,
+            searchBox.getY() + (searchBox.getHeight() - font.lineHeight) / 2, color, false);
+        if (searchBox.isFocused() && !searchValue.isEmpty()
+            && (System.currentTimeMillis() / 500L) % 2L == 0L) {
+            int cursorX = searchBox.getX() + 4 + font.width(visible);
+            graphics.fill(cursorX, searchBox.getY() + 4,
+                cursorX + 1, searchBox.getY() + searchBox.getHeight() - 4, TEXT);
+        }
     }
 
     private void drawDetail(GuiGraphics graphics, int actualWidth) {
-        int leftWidth = Math.max(250, actualWidth * 2 / 3);
+        int leftWidth = Math.max(210, actualWidth * 2 / 3);
         int detailX = panelX + leftWidth + 3;
         int detailWidth = actualWidth - leftWidth - 15;
-        fillRoundedRect(graphics, detailX, panelY + 76,
-            detailX + detailWidth, panelY + 304, 8, PANEL_LIGHT);
-        fillRoundedRect(graphics, detailX + 2, panelY + 78,
-            detailX + detailWidth - 2, panelY + 302, 7, CARD);
+        int detailTop = panelY + 68;
+        int detailBottom = panelY + panelHeight - 10;
+        fillRoundedRect(graphics, detailX, detailTop,
+            detailX + detailWidth, detailBottom, 8, PANEL_LIGHT);
+        fillRoundedRect(graphics, detailX + 2, detailTop + 2,
+            detailX + detailWidth - 2, detailBottom - 2, 7, CARD);
 
         ShopNetwork.ClientOffer offer = selectedOffer();
         if (offer == null) return;
         ItemStack stack = offer.stack();
-        graphics.renderItem(stack, detailX + detailWidth / 2 - 8, panelY + 88);
+        graphics.renderItem(stack, detailX + detailWidth / 2 - 8, detailTop + 10);
         String itemName = font.plainSubstrByWidth(stack.getHoverName().getString(), detailWidth - 20);
         graphics.drawString(font, itemName,
-            detailX + (detailWidth - font.width(itemName)) / 2, panelY + 110, TEXT, false);
+            detailX + (detailWidth - font.width(itemName)) / 2, detailTop + 31, TEXT, false);
         String unitPrice = format(selling ? offer.sellPrice() : offer.buyPrice());
         graphics.drawString(font,
             Component.translatable("screen.cobbleventure_player_menu.shop.unit_price", unitPrice),
-            detailX + 10, panelY + 132, MUTED, false);
+            detailX + 10, detailTop + 49, MUTED, false);
         graphics.drawString(font,
             Component.translatable("screen.cobbleventure_player_menu.shop.owned", offer.owned()),
-            detailX + 10, panelY + 147, MUTED, false);
+            detailX + 10, detailTop + 63, MUTED, false);
         graphics.drawString(font,
             Component.translatable("screen.cobbleventure_player_menu.shop.bundle", offer.count()),
-            detailX + 10, panelY + 162, MUTED, false);
-        graphics.fill(detailX + 10, panelY + 181, detailX + detailWidth - 10,
-            panelY + 182, 0x55356A98);
+            detailX + 10, detailTop + 77, MUTED, false);
+        graphics.fill(detailX + 10, detailTop + 92, detailX + detailWidth - 10,
+            detailTop + 93, 0x55356A98);
         String quantityText = Integer.toString(quantity);
+        int stepY = detailBottom - 80;
         graphics.drawString(font, quantityText,
-            detailX + detailWidth / 2 - font.width(quantityText) / 2, panelY + 232, TEXT, false);
-        fillRoundedRect(graphics, detailX + 8, panelY + 252,
-            detailX + detailWidth - 8, panelY + 272, 5, CARD_SELECTED);
+            detailX + detailWidth / 2 - font.width(quantityText) / 2,
+            stepY + 7, TEXT, false);
+        int totalY = detailBottom - 49;
+        fillRoundedRect(graphics, detailX + 8, totalY,
+            detailX + detailWidth - 8, totalY + 20, 5, CARD_SELECTED);
         graphics.drawString(font, Component.translatable("screen.cobbleventure_player_menu.shop.total"),
-            detailX + 14, panelY + 258, TEXT, false);
+            detailX + 14, totalY + 6, TEXT, false);
         String total = "₽ " + format(totalPrice(offer).toString());
         graphics.drawString(font, total, detailX + detailWidth - font.width(total) - 14,
-            panelY + 258, TEXT, false);
+            totalY + 6, TEXT, false);
         if (!status.getString().isBlank()) {
             graphics.drawString(font, font.plainSubstrByWidth(status.getString(), leftWidth - 28),
-                panelX + 14, panelY + 292, statusColor, false);
+                panelX + 14, panelY + panelHeight - 12, statusColor, false);
         }
     }
 
@@ -331,6 +365,18 @@ public final class ShopScreen extends Screen {
 
     private static String format(String amount) {
         return NumberFormat.getIntegerInstance(Locale.getDefault()).format(new BigInteger(amount));
+    }
+
+    private void drawCenteredNoShadow(
+        GuiGraphics graphics, Component text, int centerX, int y, int color
+    ) {
+        graphics.drawString(font, text, centerX - font.width(text) / 2, y, color, false);
+    }
+
+    private void drawCenteredNoShadow(
+        GuiGraphics graphics, String text, int centerX, int y, int color
+    ) {
+        graphics.drawString(font, text, centerX - font.width(text) / 2, y, color, false);
     }
 
     private void drawPanel(GuiGraphics graphics, int x, int y, int width, int height) {
@@ -388,7 +434,8 @@ public final class ShopScreen extends Screen {
             int fill = selected ? ACCENT : (isHovered() ? CARD_HOVER : PANEL_DARK);
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(), 5, fill);
             int color = selected ? 0xFFFFFFFF : PANEL_LIGHT;
-            graphics.drawCenteredString(font, getMessage(), getX() + getWidth() / 2, getY() + 8, color);
+            drawCenteredNoShadow(graphics, getMessage(),
+                getX() + getWidth() / 2, getY() + 7, color);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
@@ -422,7 +469,8 @@ public final class ShopScreen extends Screen {
             fillRoundedRect(graphics, getX() + 1, getY() + 1, getX() + getWidth() - 1,
                 getY() + getHeight() - 1, 4, fill);
             String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6);
-            graphics.drawCenteredString(font, label, getX() + getWidth() / 2, getY() + 6, TEXT);
+            drawCenteredNoShadow(graphics, label,
+                getX() + getWidth() / 2, getY() + 5, TEXT);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
@@ -458,13 +506,16 @@ public final class ShopScreen extends Screen {
             graphics.renderItem(offer.stack(), getX() + getWidth() / 2 - 8, getY() + 6);
             String name = font.plainSubstrByWidth(offer.stack().getHoverName().getString(), getWidth() - 6);
             int color = unavailable ? MUTED : TEXT;
-            graphics.drawCenteredString(font, name, getX() + getWidth() / 2, getY() + 27, color);
+            drawCenteredNoShadow(graphics, name,
+                getX() + getWidth() / 2, getY() + 25, color);
             String price = "₽ " + format(selling ? offer.sellPrice() : offer.buyPrice());
-            graphics.drawCenteredString(font, price, getX() + getWidth() / 2, getY() + 41, color);
+            drawCenteredNoShadow(graphics, price,
+                getX() + getWidth() / 2, getY() + 38, color);
             String owned = Component.translatable(
                 "screen.cobbleventure_player_menu.shop.card_owned", offer.owned()
             ).getString();
-            graphics.drawCenteredString(font, owned, getX() + getWidth() / 2, getY() + 55, MUTED);
+            drawCenteredNoShadow(graphics, owned,
+                getX() + getWidth() / 2, getY() + 51, MUTED);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
@@ -490,7 +541,8 @@ public final class ShopScreen extends Screen {
         ) {
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
                 5, isHovered() ? ACCENT : PANEL_DARK);
-            graphics.drawCenteredString(font, getMessage(), getX() + getWidth() / 2, getY() + 8, 0xFFFFFFFF);
+            drawCenteredNoShadow(graphics, getMessage(),
+                getX() + getWidth() / 2, getY() + 7, 0xFFFFFFFF);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
@@ -513,11 +565,24 @@ public final class ShopScreen extends Screen {
         ) {
             int fill = !active ? 0xFF9AA9B4 : isHovered() ? 0xFFFFA243 : ACCENT;
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(), 5, fill);
-            graphics.drawCenteredString(font, getMessage(), getX() + getWidth() / 2, getY() + 9, 0xFFFFFFFF);
+            drawCenteredNoShadow(graphics, getMessage(),
+                getX() + getWidth() / 2, getY() + 7, 0xFFFFFFFF);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
             defaultButtonNarrationText(output);
         }
+    }
+
+    /** Keeps EditBox input behavior while this screen draws crisp shadow-free text itself. */
+    private static final class InvisibleEditBox extends EditBox {
+        private InvisibleEditBox(
+            Font font, int x, int y, int width, int height, Component message
+        ) {
+            super(font, x, y, width, height, message);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
     }
 }

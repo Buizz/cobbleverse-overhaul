@@ -5,64 +5,70 @@
   },
   "elements": [
     {
-      "name": "wall_body",
+      "name": "six_face_grain_00",
       "from": [
+        1,
         0,
-        0,
-        0
+        1
       ],
       "to": [
+        15,
         16,
-        16,
-        16
+        7
       ],
       "faces": {
-        "east": {
+        "north": {
           "uv": [
+            1,
             0,
-            0,
-            16,
+            15,
             16
           ],
-          "texture": "#wall",
-          "cullface": "east"
+          "texture": "#wall"
+        },
+        "east": {
+          "uv": [
+            1,
+            0,
+            7,
+            16
+          ],
+          "texture": "#wall"
         },
         "south": {
           "uv": [
+            1,
             0,
-            0,
-            16,
+            15,
             16
           ],
-          "texture": "#wall",
-          "cullface": "south"
+          "texture": "#wall"
         },
         "west": {
           "uv": [
+            1,
             0,
-            0,
-            16,
+            7,
             16
           ],
-          "texture": "#wall",
-          "cullface": "west"
+          "texture": "#wall"
         },
         "up": {
           "uv": [
-            0,
-            0,
-            16,
-            16
+            1,
+            1,
+            15,
+            7
           ],
           "texture": "#wall",
           "cullface": "up"
         },
         "down": {
           "uv": [
-            0,
-            0,
-            16,
-            16
+            1,
+            1,
+            15,
+            7
           ],
           "texture": "#wall",
           "cullface": "down"
@@ -70,31 +76,78 @@
       }
     },
     {
-      "name": "raised_panel_00_06",
+      "name": "six_face_grain_01",
       "from": [
+        1,
         0,
-        9,
-        0
+        8
       ],
       "to": [
+        15,
         16,
-        16,
-        16
+        15
       ],
       "faces": {
         "north": {
           "uv": [
+            1,
             0,
-            0,
-            16,
-            7
+            15,
+            16
           ],
           "texture": "#wall"
+        },
+        "east": {
+          "uv": [
+            8,
+            0,
+            15,
+            16
+          ],
+          "texture": "#wall"
+        },
+        "south": {
+          "uv": [
+            1,
+            0,
+            15,
+            16
+          ],
+          "texture": "#wall"
+        },
+        "west": {
+          "uv": [
+            8,
+            0,
+            15,
+            16
+          ],
+          "texture": "#wall"
+        },
+        "up": {
+          "uv": [
+            1,
+            8,
+            15,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            1,
+            8,
+            15,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "down"
         }
       }
     },
     {
-      "name": "raised_panel_08_14",
+      "name": "six_face_grain_02",
       "from": [
         0,
         1,
@@ -103,7 +156,7 @@
       "to": [
         16,
         8,
-        16
+        1
       ],
       "faces": {
         "north": {
@@ -113,109 +166,87 @@
             16,
             15
           ],
-          "texture": "#wall"
-        }
-      }
-    },
-    {
-      "name": "recessed_grain_07",
-      "from": [
-        0,
-        8,
-        1
-      ],
-      "to": [
-        16,
-        9,
-        16
-      ],
-      "faces": {
-        "north": {
+          "texture": "#wall",
+          "cullface": "north"
+        },
+        "east": {
           "uv": [
             0,
-            7,
-            16,
-            8
+            8,
+            1,
+            15
           ],
-          "texture": "#wall"
-        }
-      }
-    },
-    {
-      "name": "recess_depth_07",
-      "from": [
-        0,
-        8,
-        0
-      ],
-      "to": [
-        16,
-        9,
-        1
-      ],
-      "faces": {
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            0,
+            8,
+            1,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
         "up": {
           "uv": [
             0,
-            7,
+            0,
             16,
-            8
+            1
           ],
           "texture": "#wall"
         },
         "down": {
           "uv": [
             0,
-            7,
+            0,
             16,
-            8
+            1
           ],
           "texture": "#wall"
         }
       }
     },
     {
-      "name": "recessed_grain_15",
+      "name": "six_face_grain_03",
       "from": [
         0,
-        0,
+        1,
         1
       ],
       "to": [
-        16,
         1,
+        8,
         16
       ],
       "faces": {
-        "north": {
+        "south": {
           "uv": [
             0,
-            15,
-            16,
-            16
+            8,
+            1,
+            15
           ],
-          "texture": "#wall"
-        }
-      }
-    },
-    {
-      "name": "recess_depth_15",
-      "from": [
-        0,
-        0,
-        0
-      ],
-      "to": [
-        16,
-        1,
-        1
-      ],
-      "faces": {
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "west": {
+          "uv": [
+            1,
+            8,
+            16,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
         "up": {
           "uv": [
             0,
-            15,
-            16,
+            1,
+            1,
             16
           ],
           "texture": "#wall"
@@ -223,11 +254,565 @@
         "down": {
           "uv": [
             0,
+            1,
+            1,
+            16
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_04",
+      "from": [
+        15,
+        1,
+        1
+      ],
+      "to": [
+        16,
+        8,
+        16
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            1,
+            8,
+            16,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "south": {
+          "uv": [
             15,
+            8,
+            16,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "up": {
+          "uv": [
+            15,
+            1,
             16,
             16
           ],
           "texture": "#wall"
+        },
+        "down": {
+          "uv": [
+            15,
+            1,
+            16,
+            16
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_05",
+      "from": [
+        1,
+        1,
+        7
+      ],
+      "to": [
+        15,
+        15,
+        8
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            7,
+            1,
+            8,
+            15
+          ],
+          "texture": "#wall"
+        },
+        "west": {
+          "uv": [
+            7,
+            1,
+            8,
+            15
+          ],
+          "texture": "#wall"
+        },
+        "up": {
+          "uv": [
+            1,
+            7,
+            15,
+            8
+          ],
+          "texture": "#wall"
+        },
+        "down": {
+          "uv": [
+            1,
+            7,
+            15,
+            8
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_06",
+      "from": [
+        1,
+        1,
+        15
+      ],
+      "to": [
+        15,
+        8,
+        16
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1,
+            8,
+            15,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "up": {
+          "uv": [
+            1,
+            15,
+            15,
+            16
+          ],
+          "texture": "#wall"
+        },
+        "down": {
+          "uv": [
+            1,
+            15,
+            15,
+            16
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_07",
+      "from": [
+        0,
+        9,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "north"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            1,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            1,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#wall",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_08",
+      "from": [
+        0,
+        9,
+        1
+      ],
+      "to": [
+        1,
+        15,
+        16
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            0,
+            1,
+            1,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "west": {
+          "uv": [
+            1,
+            1,
+            16,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            1,
+            1,
+            16
+          ],
+          "texture": "#wall"
+        },
+        "down": {
+          "uv": [
+            0,
+            1,
+            1,
+            16
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_09",
+      "from": [
+        15,
+        9,
+        1
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            1,
+            1,
+            16,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "south": {
+          "uv": [
+            15,
+            1,
+            16,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "up": {
+          "uv": [
+            15,
+            1,
+            16,
+            16
+          ],
+          "texture": "#wall"
+        },
+        "down": {
+          "uv": [
+            15,
+            1,
+            16,
+            16
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_10",
+      "from": [
+        1,
+        9,
+        15
+      ],
+      "to": [
+        15,
+        15,
+        16
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1,
+            1,
+            15,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "south"
+        },
+        "up": {
+          "uv": [
+            1,
+            15,
+            15,
+            16
+          ],
+          "texture": "#wall"
+        },
+        "down": {
+          "uv": [
+            1,
+            15,
+            15,
+            16
+          ],
+          "texture": "#wall"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_11",
+      "from": [
+        0,
+        15,
+        1
+      ],
+      "to": [
+        1,
+        16,
+        7
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "texture": "#wall"
+        },
+        "west": {
+          "uv": [
+            1,
+            0,
+            7,
+            1
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            1,
+            1,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "up"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_12",
+      "from": [
+        15,
+        15,
+        1
+      ],
+      "to": [
+        16,
+        16,
+        7
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            1,
+            0,
+            7,
+            1
+          ],
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "south": {
+          "uv": [
+            15,
+            0,
+            16,
+            1
+          ],
+          "texture": "#wall"
+        },
+        "up": {
+          "uv": [
+            15,
+            1,
+            16,
+            7
+          ],
+          "texture": "#wall",
+          "cullface": "up"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_13",
+      "from": [
+        0,
+        15,
+        8
+      ],
+      "to": [
+        1,
+        16,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "texture": "#wall"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "texture": "#wall"
+        },
+        "west": {
+          "uv": [
+            8,
+            0,
+            15,
+            1
+          ],
+          "texture": "#wall",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            8,
+            1,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "up"
+        }
+      }
+    },
+    {
+      "name": "six_face_grain_14",
+      "from": [
+        15,
+        15,
+        8
+      ],
+      "to": [
+        16,
+        16,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            15,
+            0,
+            16,
+            1
+          ],
+          "texture": "#wall"
+        },
+        "east": {
+          "uv": [
+            8,
+            0,
+            15,
+            1
+          ],
+          "texture": "#wall",
+          "cullface": "east"
+        },
+        "south": {
+          "uv": [
+            15,
+            0,
+            16,
+            1
+          ],
+          "texture": "#wall"
+        },
+        "up": {
+          "uv": [
+            15,
+            8,
+            16,
+            15
+          ],
+          "texture": "#wall",
+          "cullface": "up"
         }
       }
     }

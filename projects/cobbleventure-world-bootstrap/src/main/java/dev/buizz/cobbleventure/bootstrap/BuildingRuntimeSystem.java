@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.Registries;
@@ -660,6 +661,31 @@ final class BuildingRuntimeSystem {
         }
         BlockPos approach = door.safeSpawn == null
             ? door.position : door.safeSpawn;
+        return StructureTemplate.transform(
+            approach, Mirror.NONE, rotation(rotationName), BlockPos.ZERO
+        );
+    }
+
+    static BlockPos exteriorNpcApproachOffset(
+        String structure, String rotationName, String npcSlot, int distance
+    ) {
+        StructureMetadata metadata = METADATA.get(structure);
+        if (metadata == null) {
+            return null;
+        }
+        Anchor npc = metadata.namedNpc(npcSlot);
+        if (npc == null || npc.position == null || npc.facing == null) {
+            return null;
+        }
+        return rotatedNpcApproachOffset(
+            npc.position, npc.facing, Math.max(1, distance), rotationName
+        );
+    }
+
+    static BlockPos rotatedNpcApproachOffset(
+        BlockPos npcPosition, Direction npcFacing, int distance, String rotationName
+    ) {
+        BlockPos approach = npcPosition.relative(npcFacing, Math.max(1, distance));
         return StructureTemplate.transform(
             approach, Mirror.NONE, rotation(rotationName), BlockPos.ZERO
         );

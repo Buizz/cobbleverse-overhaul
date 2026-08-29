@@ -20,66 +20,16 @@
   "pokemon_spawns": {
     "inherit_biome": false,
     "excluded_species": [],
-    "additions": [
-      {
-        "species": "cobblemon:ekans",
-        "min_level": 6,
-        "max_level": 12,
-        "spawn_as_evolved": false
-      },
-      {
-        "species": "cobblemon:rattata",
-        "min_level": 8,
-        "max_level": 12,
-        "spawn_as_evolved": false
-      },
-      {
-        "species": "cobblemon:sandshrew",
-        "min_level": 6,
-        "max_level": 12,
-        "spawn_as_evolved": false
-      },
-      {
-        "species": "cobblemon:spearow",
-        "min_level": 8,
-        "max_level": 12,
-        "spawn_as_evolved": false
-      }
-    ],
-    "level_overrides": [
-      {
-        "species": "cobblemon:ekans",
-        "min_level": 6,
-        "max_level": 12
-      },
-      {
-        "species": "cobblemon:rattata",
-        "min_level": 8,
-        "max_level": 12
-      },
-      {
-        "species": "cobblemon:sandshrew",
-        "min_level": 6,
-        "max_level": 12
-      },
-      {
-        "species": "cobblemon:spearow",
-        "min_level": 8,
-        "max_level": 12
-      }
-    ],
+    "additions": [],
+    "level_overrides": [],
     "encounter_pools": {}
   },
   "npc_placements": [],
   "automatic_npc_placement": {
-    "enabled": true,
+    "enabled": false,
     "count": 3,
     "use_biome_defaults": false,
-    "direct_trainers": [
-      "cobbleventure:npc/sample_hiker_seok",
-      "cobbleventure:npc/sample_camper_jun",
-      "cobbleventure:npc/sample_picnicker_hana"
-    ],
+    "direct_trainers": [],
     "trigger_override": "proximity",
     "trainer_trigger_overrides": {}
   },
