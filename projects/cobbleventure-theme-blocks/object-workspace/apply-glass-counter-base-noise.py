@@ -18,6 +18,10 @@ TEXTURE_ROOT = (
     / "assets/cobbleventure_theme_blocks/textures/block"
 )
 BACKUP_ROOT = WORKSPACE_ROOT / "recovery/double_glass_counter/pre-filled-noise-20260829"
+BLUE_SINGLE_PIXEL_BACKUP_ROOT = (
+    WORKSPACE_ROOT
+    / "recovery/double_glass_counter/pre-blue-single-pixel-noise-20260829"
+)
 TARGETS = {
     "dobule_glass_counter_blue.png": (69, 118, 200),
     "dobule_glass_counter_basic.png": (255, 255, 255),
@@ -25,7 +29,6 @@ TARGETS = {
     "dobule_glass_counter_glass.png": (156, 213, 255),
 }
 BLUE_TEXTURE = "dobule_glass_counter_blue.png"
-BLUE_PIXEL_SCALE = 8
 
 
 def build_pattern() -> list[list[int]]:
@@ -77,6 +80,14 @@ def varied_blue(color: tuple[int, int, int], offset: int) -> tuple[int, int, int
     ], 255)
 
 
+def build_single_pixel_noise(width: int, height: int) -> list[list[int]]:
+    """Return subtle deterministic noise with one independent sample per pixel."""
+    rng = random.Random(0xB10E128)
+    shades = (-3, -2, -1, 0, 1, 2, 3)
+    weights = (6, 12, 20, 24, 20, 12, 6)
+    return [rng.choices(shades, weights=weights, k=width) for _ in range(height)]
+
+
 def main() -> None:
     BACKUP_ROOT.mkdir(parents=True, exist_ok=True)
     pattern = build_pattern()
@@ -87,16 +98,23 @@ def main() -> None:
         if not backup.exists():
             shutil.copy2(destination, backup)
 
+        if filename == BLUE_TEXTURE:
+            BLUE_SINGLE_PIXEL_BACKUP_ROOT.mkdir(parents=True, exist_ok=True)
+            blue_backup = BLUE_SINGLE_PIXEL_BACKUP_ROOT / filename
+            if not blue_backup.exists():
+                shutil.copy2(destination, blue_backup)
+
         with Image.open(backup) as source:
             size = source.size
         output = Image.new("RGBA", size)
+        blue_noise = build_single_pixel_noise(*size) if filename == BLUE_TEXTURE else None
         shades: Counter[int] = Counter()
         for y in range(size[1]):
             for x in range(size[0]):
                 if filename == BLUE_TEXTURE:
-                    # Match the reference's enlarged 16x16 mineral pixels: one
-                    # pattern cell occupies an 8x8 area in the 128px atlas.
-                    offset = pattern[(y // BLUE_PIXEL_SCALE) % 16][(x // BLUE_PIXEL_SCALE) % 16]
+                    # Every atlas pixel gets its own subtle variation. Do not
+                    # enlarge a 16px pattern into visible 8x8 color blocks.
+                    offset = blue_noise[y][x]
                 else:
                     offset = pattern[y % 16][x % 16]
                 output.putpixel(
