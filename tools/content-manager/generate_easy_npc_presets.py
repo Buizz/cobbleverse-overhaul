@@ -295,10 +295,6 @@ def league_encounter_document(entry: dict, post_victory_level_cap: int = 100) ->
                 {"type": "branch", "conditions": [{"type": "flag", "key": clear_key, "value": True}], "target": "cleared"},
                 {"type": "label", "name": "challenge"},
                 *league_dialogue_commands(dialogue["challenge"], "challenge"),
-                {"type": "choices", "options": [
-                    {"id": "battle", "text": {"ko_kr": "승부한다"}, "target": "battle"},
-                    {"id": "cancel", "text": {"ko_kr": "다음에 도전한다"}, "target": "end"},
-                ]},
                 {"type": "label", "name": "battle"},
                 {"type": "start_battle", "battle": encounter["battle_id"], "results": {"player_win": "victory", "player_loss": "defeat"}},
                 {"type": "label", "name": "victory"},

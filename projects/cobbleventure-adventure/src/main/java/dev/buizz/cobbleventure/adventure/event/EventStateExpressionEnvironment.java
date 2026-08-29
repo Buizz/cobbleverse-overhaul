@@ -3,7 +3,6 @@ package dev.buizz.cobbleventure.adventure.event;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,11 +37,11 @@ public final class EventStateExpressionEnvironment implements EventExpressionEnv
             ));
             case "money" -> {
                 requireNoArguments(function, arguments);
-                yield new JsonPrimitive(runtimeInt(function, state.money()));
+                yield new JsonPrimitive(state.money());
             }
             case "casino_balance" -> {
                 requireNoArguments(function, arguments);
-                yield new JsonPrimitive(runtimeInt(function, state.casinoBalance()));
+                yield new JsonPrimitive(state.casinoBalance());
             }
             case "gacha_ticket_price" -> new JsonPrimitive(state.gachaTicketPrice(
                 singleString(function, arguments)
@@ -108,29 +107,29 @@ public final class EventStateExpressionEnvironment implements EventExpressionEnv
         }
     }
 
-    private static int floorDiv(String function, List<Argument> arguments) {
+    private static long floorDiv(String function, List<Argument> arguments) {
         requirePositionalArguments(function, arguments, 2);
-        int dividend = exactInt(function, arguments.get(0).value());
-        int divisor = exactInt(function, arguments.get(1).value());
+        long dividend = exactLong(function, arguments.get(0).value());
+        long divisor = exactLong(function, arguments.get(1).value());
         if (divisor == 0) throw new EventRuntimeException("floor_div 함수의 제수는 0일 수 없습니다.");
         return Math.floorDiv(dividend, divisor);
     }
 
-    private static int minInt(String function, List<Argument> arguments) {
+    private static long minInt(String function, List<Argument> arguments) {
         requirePositionalArguments(function, arguments, 2);
         return Math.min(
-            exactInt(function, arguments.get(0).value()),
-            exactInt(function, arguments.get(1).value())
+            exactLong(function, arguments.get(0).value()),
+            exactLong(function, arguments.get(1).value())
         );
     }
 
-    private static int exactInt(String function, JsonElement value) {
+    private static long exactLong(String function, JsonElement value) {
         if (value == null || !value.isJsonPrimitive()
             || !value.getAsJsonPrimitive().isNumber()) {
             throw new EventRuntimeException(function + " 함수 인자는 정수여야 합니다.");
         }
         try {
-            return value.getAsBigDecimal().intValueExact();
+            return value.getAsBigDecimal().longValueExact();
         } catch (ArithmeticException | NumberFormatException error) {
             throw new EventRuntimeException(function + " 함수 인자는 정수여야 합니다.", error);
         }
@@ -150,13 +149,4 @@ public final class EventStateExpressionEnvironment implements EventExpressionEnv
         }
     }
 
-    private static int runtimeInt(String function, BigInteger value) {
-        try {
-            return value.intValueExact();
-        } catch (ArithmeticException error) {
-            throw new EventRuntimeException(
-                function + " 결과가 Runtime IR int 범위를 벗어났습니다: " + value, error
-            );
-        }
-    }
 }

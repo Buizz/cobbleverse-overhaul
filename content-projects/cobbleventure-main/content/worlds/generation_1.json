@@ -1076,21 +1076,11 @@
       },
       {
         "q": 2,
-        "r": 6,
-        "type": "ocean"
-      },
-      {
-        "q": 2,
         "r": 7,
         "type": "ocean"
       },
       {
         "q": 3,
-        "r": 7,
-        "type": "ocean"
-      },
-      {
-        "q": 1,
         "r": 7,
         "type": "ocean"
       },
@@ -1322,16 +1312,6 @@
       {
         "q": 5,
         "r": 15,
-        "type": "ocean"
-      },
-      {
-        "q": 1,
-        "r": 8,
-        "type": "ocean"
-      },
-      {
-        "q": 2,
-        "r": 8,
         "type": "ocean"
       },
       {
@@ -2111,7 +2091,103 @@
     },
     {
       "q": 9,
+      "r": -5,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 9,
       "r": -4,
+      "biome": "minecraft:river",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 8,
+      "r": -5,
+      "biome": "minecraft:river",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 7,
+      "r": -4,
+      "biome": "minecraft:river",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 1,
+      "r": 8,
+      "biome": "minecraft:river",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 2,
+      "r": 8,
+      "biome": "minecraft:river",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 1,
+      "r": 7,
+      "biome": "minecraft:river",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 2,
+      "r": 6,
+      "biome": "minecraft:river",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": 10,
+      "r": -5,
       "biome": "minecraft:plains",
       "boundary_profile": "cobbleventure:boundary/earthwork",
       "terrain_profile": {
@@ -2792,12 +2868,12 @@
           "r": -2
         },
         {
-          "q": 8,
-          "r": -4
+          "q": 9,
+          "r": -5
         },
         {
-          "q": 9,
-          "r": -4
+          "q": 10,
+          "r": -5
         }
       ],
       "cells": [
@@ -2815,7 +2891,11 @@
         },
         {
           "q": 9,
-          "r": -4
+          "r": -5
+        },
+        {
+          "q": 10,
+          "r": -5
         }
       ],
       "corridor_width_blocks": 12,
@@ -3527,6 +3607,40 @@
       "surface_style": "road",
       "pathfinding": "explicit",
       "display_name": "갈색시티 - 보라타운 통나무다리"
+    },
+    {
+      "id": "route_custom_22",
+      "route_preset": "cobbleventure:route/route_custom_22",
+      "anchors": [
+        {
+          "q": 3,
+          "r": 6
+        },
+        {
+          "q": 2,
+          "r": 8
+        }
+      ],
+      "cells": [
+        {
+          "q": 3,
+          "r": 6
+        },
+        {
+          "q": 3,
+          "r": 7
+        },
+        {
+          "q": 2,
+          "r": 8
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "from": "cobbleventure:settlement/vermilion_city",
+      "display_name": "갈색시티 남쪽 통나무다리"
     }
   ],
   "forest_entrances": [
@@ -3574,8 +3688,8 @@
       "id": "bill_house",
       "type": "structure",
       "anchor": {
-        "q": 9,
-        "r": -4
+        "q": 10,
+        "r": -5
       },
       "resource": "cobbleventure:houses/bill_house",
       "rotation": 0,
@@ -3766,6 +3880,16 @@
         "deny_dialog": "greeting",
         "npc": "easy_npc:preset/encounter/starter_town_gatekeeper_minho__v5.npc.snbt"
       }
+    },
+    {
+      "id": "daycare",
+      "type": "structure",
+      "anchor": {
+        "q": 6,
+        "r": 0
+      },
+      "resource": "cobbleventure:placeholder/daycare",
+      "rotation": 0
     }
   ],
   "environment_overrides": [],

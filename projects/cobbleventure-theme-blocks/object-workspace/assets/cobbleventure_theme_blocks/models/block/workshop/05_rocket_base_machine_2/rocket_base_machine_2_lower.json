@@ -1,8 +1,0 @@
-{
-  "parent":"minecraft:block/block","ambientocclusion":true,
-  "textures":{"particle":"cobbleventure_theme_blocks:block/rocket_machine_gray","gray":"cobbleventure_theme_blocks:block/rocket_machine_gray","dark":"cobbleventure_theme_blocks:block/rocket_machine_dark"},
-  "elements":[
-    {"name":"plinth","from":[1,0,3],"to":[15,2,15],"faces":{"down":{"texture":"#dark"},"up":{"texture":"#dark"},"north":{"texture":"#dark"},"south":{"texture":"#dark"},"west":{"texture":"#dark"},"east":{"texture":"#dark"}}},
-    {"name":"lower_body","from":[1.5,2,3.5],"to":[14.5,16,14.5],"faces":{"down":{"texture":"#gray"},"up":{"texture":"#gray"},"north":{"texture":"#gray"},"south":{"texture":"#gray"},"west":{"texture":"#gray"},"east":{"texture":"#gray"}}}
-  ]
-}

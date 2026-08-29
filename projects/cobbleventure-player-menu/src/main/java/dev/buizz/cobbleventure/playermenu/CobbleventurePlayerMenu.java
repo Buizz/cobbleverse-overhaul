@@ -16,6 +16,7 @@ public final class CobbleventurePlayerMenu {
         EventItemGrant.register();
         EventLootGrant.register();
         EventMoneyTransaction.register();
+        ShopNetwork.register(modBus);
         MapNetwork.register(modBus);
         PlayerOverviewNetwork.register(modBus);
         BadgeProgressNetwork.register(modBus);

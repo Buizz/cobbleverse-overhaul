@@ -389,23 +389,23 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
             "money": 1200, "item": "cobblemon:rare_candy", "item_count": 2,
         })
         document = generator.league_encounter_document(entry, post_victory_cap)
-        battle_id = entry["encounter"]["battle_id"]
-        battle_path = PROJECT_ROOT / "content/battles/gym_leaders" / f"{battle_id.rsplit('/', 1)[-1]}.json"
-        battle = json.loads(battle_path.read_text(encoding="utf-8"))
-        document["_battle_presets"] = {battle_id: battle}
-        catalog = json.loads(
-            (PROJECT_ROOT / "content/catalogs/trainer-outfits.json").read_text(encoding="utf-8")
-        )
-        outfit = next(item for item in catalog["outfits"] if item["trainer_class"] == "cobbleventure:trainer_class/gym_leader")
-
-        preset = generator.encounter_preset_snbt(document, outfit)
-
-        self.assertIn("cobbledollars give @1 1200", preset)
-        self.assertIn("cobbleventurebag acquire @1 cobblemon:rare_candy 2", preset)
-        self.assertIn(entry["encounter"]["rewards"]["badge_id"], preset)
+        commands = document["events"][0]["commands"]
+        self.assertFalse(any(command.get("type") == "choices" for command in commands))
         self.assertIn(
-            f"cobbleventure_progress level_cap @1 {post_victory_cap}",
-            preset,
+            {"type": "give_money", "mode": "fixed", "amount": 1200},
+            commands,
+        )
+        self.assertIn(
+            {"type": "give_item", "item": "cobblemon:rare_candy", "count": 2},
+            commands,
+        )
+        self.assertIn(
+            {"type": "grant_badge", "badge": entry["encounter"]["rewards"]["badge_id"]},
+            commands,
+        )
+        self.assertIn(
+            {"type": "set_level_cap", "level_cap": post_victory_cap},
+            commands,
         )
 
     def test_brock_v5_preset_uses_virtual_league_binding_without_v4_actions(self) -> None:

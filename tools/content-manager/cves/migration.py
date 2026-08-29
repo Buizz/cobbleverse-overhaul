@@ -63,7 +63,6 @@ class GymLeaderMigrationContract:
     trigger_range: Decimal
     defeated_state_key: str
     challenge_text: tuple[tuple[tuple[str, str], ...], ...]
-    choices: tuple[tuple[tuple[str, str], ...], ...]
     battle: str
     victory_text: tuple[tuple[tuple[str, str], ...], ...]
     defeat_text: tuple[tuple[tuple[str, str], ...], ...]
@@ -310,7 +309,6 @@ def gym_leader_contract_from_league(
             Decimal("4"),
             f"cobbleventure:flag/gym/{region}/{slug}/defeated",
             _league_dialogue_documents(dialogue["challenge"]),
-            ((('ko_kr', '승부한다'),), (('ko_kr', '다음에 도전한다'),)),
             _string(encounter["battle_id"], "battle id"),
             _league_dialogue_documents(dialogue["victory"]),
             _league_dialogue_documents(dialogue["defeat"]),
@@ -332,24 +330,17 @@ def gym_leader_contract_from_cves(program: ast.Program) -> GymLeaderMigrationCon
         raise ValueError("V5 gym leader의 마지막 페이지는 default여야 합니다.")
     cleared_says = _direct_says(cleared_page.block)
     challenge_says = _direct_says(default_page.block)
-    choices = [value for value in default_page.block.statements if isinstance(value, ast.ChoiceStatement)]
-    if len(cleared_says) < 1 or len(challenge_says) < 1 or len(choices) != 1:
-        raise ValueError("V5 gym leader 페이지의 대사와 choice 구성이 올바르지 않습니다.")
-    choice = choices[0]
-    if len(choice.options) != 2:
-        raise ValueError("V5 gym leader choice에는 승부와 취소 선택지가 필요합니다.")
-    battle_options = [
-        option for option in choice.options
-        if _find_commands(option.block, ast.CommandKind.BATTLE)
+    choices = [
+        value for value in default_page.block.statements
+        if isinstance(value, ast.ChoiceStatement)
     ]
-    if len(battle_options) != 1:
-        raise ValueError("V5 gym leader choice에는 battle 선택지 하나가 필요합니다.")
-    battle_block = battle_options[0].block
-    battle = _single_command(battle_block, ast.CommandKind.BATTLE)
+    if len(cleared_says) < 1 or len(challenge_says) < 1 or choices:
+        raise ValueError("V5 gym leader는 안내 대사 뒤 선택지 없이 전투를 시작해야 합니다.")
+    battle = _single_command(default_page.block, ast.CommandKind.BATTLE)
     if not battle.awaited or battle.result is None:
         raise ValueError("V5 gym leader battle은 결과를 받는 명시적 await여야 합니다.")
     outcome = next(
-        (value for value in battle_block.statements if isinstance(value, ast.IfStatement)),
+        (value for value in default_page.block.statements if isinstance(value, ast.IfStatement)),
         None,
     )
     if outcome is None or outcome.else_block is None \
@@ -369,7 +360,6 @@ def gym_leader_contract_from_cves(program: ast.Program) -> GymLeaderMigrationCon
         Decimal(str(_named_literal(event.trigger.arguments, "range", 4))),
         defeated_state,
         tuple(_text_document(value.text) for value in challenge_says),
-        tuple(_text_document(option.text) for option in choice.options),
         _string(_positional_literal(battle.arguments, 0), "battle"),
         tuple(_text_document(value.text) for value in victory_says),
         tuple(_text_document(value.text) for value in defeat_says),

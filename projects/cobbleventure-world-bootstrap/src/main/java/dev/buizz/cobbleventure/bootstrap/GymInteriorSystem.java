@@ -544,11 +544,17 @@ final class GymInteriorSystem {
         if (offset == null) {
             throw new IllegalStateException("Gym staff anchor does not exist: " + anchor);
         }
-        String slug = trainerId.substring(Math.max(trainerId.lastIndexOf('/'), trainerId.lastIndexOf(':')) + 1);
-        String suffix = role.equals("leader") ? "__v5" : "";
         members.add(new GymStaffMember(
-            role, "easy_npc:preset/encounter/" + slug + suffix + ".npc.snbt", offset
+            role, staffPreset(trainerId, role), offset
         ));
+    }
+
+    static String staffPreset(String trainerId, String role) {
+        String slug = trainerId.substring(
+            Math.max(trainerId.lastIndexOf('/'), trainerId.lastIndexOf(':')) + 1
+        );
+        String suffix = role.equals("leader") ? "__v5" : "__v5_proximity";
+        return "easy_npc:preset/encounter/" + slug + suffix + ".npc.snbt";
     }
 
     private static ModuleMetadata readModuleMetadata(MinecraftServer server, String structure) {

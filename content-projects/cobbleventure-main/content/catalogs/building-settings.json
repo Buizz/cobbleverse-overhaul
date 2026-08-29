@@ -339,6 +339,7 @@
     "cobbleventure:interiors/casino": {
       "placement_y_offset": 0,
       "structure_category": "interior",
+      "music_track": "facility.game_corner",
       "no_interior_space": false,
       "fixed_npcs": {
         "blackjack_dealer_*": "cobbleventure:npc/blackjack_dealer",
@@ -470,6 +471,7 @@
     "cobbleventure:placeholder/casino": {
       "placement_y_offset": 0,
       "structure_category": "placeholder",
+      "music_track": "facility.game_corner",
       "no_interior_space": false,
       "town_placement": { "enabled": true, "id": "casino", "label": "카지노", "note": "CasinoCraft 게임 시설 예정", "color": "#d4a017" },
       "fixed_npcs": {

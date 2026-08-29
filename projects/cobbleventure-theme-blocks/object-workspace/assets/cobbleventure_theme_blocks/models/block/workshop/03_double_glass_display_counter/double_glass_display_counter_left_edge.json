@@ -1,9 +1,0 @@
-{
-  "parent":"minecraft:block/block","ambientocclusion":true,
-  "textures":{"particle":"cobbleventure_theme_blocks:block/double_glass_counter_white","white":"cobbleventure_theme_blocks:block/double_glass_counter_white","blue":"cobbleventure_theme_blocks:block/double_glass_counter_blue"},
-  "elements":[
-    {"name":"left_body_end","from":[0,0,3],"to":[0.75,10,16],"faces":{"down":{"texture":"#white"},"up":{"texture":"#white"},"north":{"texture":"#white"},"south":{"texture":"#white"},"west":{"texture":"#white"},"east":{"texture":"#white"}}},
-    {"name":"left_outer_rim","from":[0,10,3],"to":[2,13,14],"faces":{"down":{"texture":"#white"},"up":{"texture":"#white"},"north":{"texture":"#white"},"south":{"texture":"#white"},"west":{"texture":"#white"},"east":{"texture":"#white"}}},
-    {"name":"left_base_end","from":[0,0,2.5],"to":[0.75,1.5,16],"faces":{"down":{"texture":"#blue"},"up":{"texture":"#blue"},"north":{"texture":"#blue"},"south":{"texture":"#blue"},"west":{"texture":"#blue"},"east":{"texture":"#blue"}}}
-  ]
-}

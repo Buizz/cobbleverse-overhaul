@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -58,6 +60,7 @@ final class DialogueEventCommandAdapterTest {
             .getAsJsonArray("entries").get(0).getAsJsonObject().get("value").getAsString());
         assertEquals("레드", request.locals().get("visitor").getAsString());
         assertEquals("dialogue-token", session.awaiting().token());
+        assertTrue(EventDialogueLifecycle.isActive(store, PLAYER_ID));
 
         EventAwaitCompletionService.Outcome outcome =
             EventAwaitCompletionService.completeAndRun(
@@ -76,6 +79,7 @@ final class DialogueEventCommandAdapterTest {
         assertEquals(EventAwaitCompletionService.Status.RESUMED, outcome.status());
         assertEquals(EventInterpreter.RunResult.COMPLETED, outcome.runResult());
         assertEquals(EventSession.Status.COMPLETED, session.status());
+        assertFalse(EventDialogueLifecycle.isActive(store, PLAYER_ID));
 
         EventAwaitCompletionService.Outcome duplicate =
             EventAwaitCompletionService.completeAndRun(

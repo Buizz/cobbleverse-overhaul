@@ -1,8 +1,0 @@
-{
-  "multipart": [
-    {"when":{"facing":"north","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/07_professor_lab_research_device/professor_lab_research_device_1"}},
-    {"when":{"facing":"east","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/07_professor_lab_research_device/professor_lab_research_device_1","y":90}},
-    {"when":{"facing":"south","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/07_professor_lab_research_device/professor_lab_research_device_1","y":180}},
-    {"when":{"facing":"west","depth":"0","width":"0","height":"0"},"apply":{"model":"cobbleventure_theme_blocks:block/workshop/07_professor_lab_research_device/professor_lab_research_device_1","y":270}}
-  ]
-}

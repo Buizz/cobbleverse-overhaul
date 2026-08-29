@@ -58,6 +58,7 @@ final class WorldGateSystem {
     private static final String FOREST_PORTAL_COOLDOWN = "cobbleventureForestPortalCooldown";
     private static final String FOREST_ENTRY_MARKER = "cobbleventure:forest_entry";
     private static final int MAX_NATURAL_GATE_FUNNEL_DEPTH = 8;
+    private static final int GATE_STRUCTURE_NATURAL_CLEARANCE = 3;
     private static final Map<UUID, Vec3> LAST_POSITIONS = new HashMap<>();
     private static final Map<UUID, PendingGateDenial> PENDING_DENIALS = new HashMap<>();
     private static final Map<UUID, PendingEventDialogue> PENDING_EVENT_DIALOGUES =
@@ -950,15 +951,31 @@ final class WorldGateSystem {
         CobbleventureBootstrap.Point center,
         List<NaturalGateColumn> columns, int maximumDepth, int halfOpening
     ) {
+        StructureFootprint protectedFootprint = gate.buildingEnabled()
+            ? plannedStructureFootprint(level, gate, center)
+            : null;
+        if (protectedFootprint != null) {
+            protectedFootprint = protectedFootprint.expanded(
+                GATE_STRUCTURE_NATURAL_CLEARANCE
+            );
+        }
+        final StructureFootprint decorationBoundary = protectedFootprint;
         // A previous gate revision may already occupy this footprint. Remove
         // its barriers and obsolete configured tree palette before rebuilding.
         for (NaturalGateColumn column : columns) {
             clearNaturalWedgeColumn(
-                level, gate, column.terrainType(), column.x(), column.z()
+                level, gate, column.terrainType(), column.x(), column.z(),
+                decorationBoundary != null
+                    && decorationBoundary.contains(column.x(), column.z())
             );
         }
+        List<NaturalGateColumn> decorationColumns = decorationBoundary == null
+            ? columns
+            : columns.stream()
+                .filter(column -> !decorationBoundary.contains(column.x(), column.z()))
+                .toList();
         // Pass 1: place all trees while the entire growth volume is still open.
-        for (NaturalGateColumn column : columns) {
+        for (NaturalGateColumn column : decorationColumns) {
             decorateNaturalShoulderColumn(
                 level, world, gate, column.terrainType(),
                 center,
@@ -967,7 +984,7 @@ final class WorldGateSystem {
         }
         // Pass 2: add ground cover only after every crown is known. Columns
         // below logs or leaves are cleared instead of becoming overgrown.
-        for (NaturalGateColumn column : columns) {
+        for (NaturalGateColumn column : decorationColumns) {
             decorateNaturalShoulderColumn(
                 level, world, gate, column.terrainType(),
                 center,
@@ -976,23 +993,27 @@ final class WorldGateSystem {
         }
         // Pass 3: fill every remaining replaceable space in the wedge with an
         // invisible barrier. Natural blocks stay visible and no gap remains.
-        for (NaturalGateColumn column : columns) {
+        for (NaturalGateColumn column : decorationColumns) {
             placeNaturalBarrierColumn(
                 level, gate, column.terrainType(), column.x(), column.z()
             );
         }
         LOGGER.info(
-            "Natural gate boundary placed: gate={}, columns={}, maxDepth={}, opening={}",
-            gate.id(), columns.size(), maximumDepth, halfOpening * 2 + 1
+            "Natural gate boundary placed: gate={}, columns={}, protected={}, maxDepth={}, opening={}",
+            gate.id(), decorationColumns.size(), columns.size() - decorationColumns.size(),
+            maximumDepth, halfOpening * 2 + 1
         );
     }
 
     private static void clearNaturalWedgeColumn(
-        ServerLevel level, Gate gate, String terrainType, int x, int z
+        ServerLevel level, Gate gate, String terrainType, int x, int z,
+        boolean clearCurrentNaturalTrees
     ) {
         int groundY = naturalBarrierGroundY(level, x, z);
         BlockState configuredLog = blockState(gate.treeLog());
         BlockState configuredLeaves = blockState(gate.treeLeaves());
+        BlockState naturalLog = blockState(naturalGateTreeLog(terrainType));
+        BlockState naturalLeaves = blockState(naturalGateTreeLeaves(terrainType));
         boolean forestTerrain = terrainType.equals("high_forest")
             || terrainType.equals("dense_forest");
         boolean obsoletePalette = forestTerrain
@@ -1002,6 +1023,9 @@ final class WorldGateSystem {
             BlockPos position = new BlockPos(x, groundY + height, z);
             BlockState state = level.getBlockState(position);
             if (state.is(Blocks.BARRIER)
+                || (clearCurrentNaturalTrees && forestTerrain
+                    && (state.is(naturalLog.getBlock())
+                        || state.is(naturalLeaves.getBlock())))
                 || (obsoletePalette && (state.is(configuredLog.getBlock())
                     || state.is(configuredLeaves.getBlock())))) {
                 level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);

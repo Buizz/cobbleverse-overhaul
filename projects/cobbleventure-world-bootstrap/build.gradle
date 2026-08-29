@@ -29,7 +29,7 @@ repositories {
 
 dependencies {
     compileOnly "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
-    compileOnly "dev.buizz.cobbleventure:cobbleventure-player-menu:1.5.1"
+    compileOnly "dev.buizz.cobbleventure:cobbleventure-player-menu:1.6.0"
     compileOnly cobblemonBuildDependency
     compileOnly "curse.maven:radical-cobblemon-trainers-api-1152792:7952419"
     compileOnly "curse.maven:cobbledollars-859232:8484919"
@@ -54,7 +54,7 @@ configurations {
 
 dependencies {
     localRuntime "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
-    localRuntime "dev.buizz.cobbleventure:cobbleventure-player-menu:1.5.1"
+    localRuntime "dev.buizz.cobbleventure:cobbleventure-player-menu:1.6.0"
     localRuntime fileTree('../cobbleventure-theme-blocks/build/libs') {
         include 'cobbleventure-theme-blocks-*.jar'
     }

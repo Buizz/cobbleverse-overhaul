@@ -10,7 +10,9 @@ import dev.buizz.cobbleventure.adventure.event.EventLocationRef;
 import dev.buizz.cobbleventure.adventure.event.EventMovementFailureReason;
 import dev.buizz.cobbleventure.adventure.event.EventLocationResolverRegistry;
 import dev.buizz.cobbleventure.adventure.event.EventBoundaryProviderRegistry;
+import dev.buizz.cobbleventure.adventure.event.EventDialogueLifecycle;
 import dev.buizz.cobbleventure.playermenu.LocationAnnouncement;
+import dev.buizz.cobbleventure.playermenu.MapNetwork;
 import dev.buizz.cobbleventure.playermenu.MusicPlayback;
 
 import com.google.gson.JsonArray;
@@ -412,6 +414,12 @@ public final class CobbleventureBootstrap {
         FlashCaveEffects.register();
         LocalWeatherSystem.register(modBus);
         GateDialogueNetwork.register(modBus);
+        MapNetwork.registerTeleportGuard(
+            "cobbleventure:active_dialogue",
+            player -> EventDialogueLifecycle.isActive(player)
+                ? "대화 중에는 순간이동할 수 없습니다."
+                : null
+        );
         GymBlockerVisibilityNetwork.register(modBus);
         DungeonSystem.register(modBus);
         GymInteriorSystem.register();
@@ -3983,6 +3991,7 @@ public final class CobbleventureBootstrap {
             );
             Entity spawned = level.getEntity(merchantId);
             if (spawned instanceof Mob mob) {
+                mob.getPersistentData().putString("cobbleventure_shop_vendor", vendorUnitId);
                 mob.setNoAi(true);
                 mob.moveTo(mob.getX(), mob.getY(), mob.getZ(), yaw, 0.0F);
                 mob.setYRot(yaw);
@@ -5791,7 +5800,7 @@ public final class CobbleventureBootstrap {
                 if (gameTime % 10L == 0L) {
                     InteriorMusicSystem.sync(player);
                     MusicPlayback.tickDimension(
-                        player, "cave", caveIdAt(player.getX(), player.getZ())
+                        player, "dungeon", DungeonSystem.activeDungeonId(player)
                     );
                 }
                 LocalWeatherSystem.clear(player);

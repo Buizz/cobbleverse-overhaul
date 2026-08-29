@@ -73,16 +73,33 @@ final class EventStateAdapterTest {
     }
 
     @Test
-    void moneyOutsideRuntimeIntIsRejected() {
+    void moneySupportsValuesOutsideRuntimeInt() {
         FakeState state = new FakeState();
-        state.balance = BigInteger.valueOf(Integer.MAX_VALUE).add(BigInteger.ONE);
+        state.balance = new BigInteger("100000000001400");
         EventExpressionEvaluator evaluator = new EventExpressionEvaluator(
             new EventStateExpressionEnvironment(state)
         );
 
-        assertThrows(
-            EventRuntimeException.class,
-            () -> evaluator.evaluate(call("money"), Map.of())
+        assertEquals(
+            new BigInteger("100000000001400"),
+            evaluator.evaluate(call("money"), Map.of()).getAsBigInteger()
+        );
+        assertEquals(
+            1_000_000_000_014L,
+            evaluator.evaluate(
+                call("floor_div", call("money"), literal(100)), Map.of()
+            ).getAsLong()
+        );
+        assertEquals(
+            1_000_000_000_014L,
+            evaluator.evaluate(
+                call(
+                    "min_int",
+                    call("floor_div", call("money"), literal(100)),
+                    literal(2_000_000_000_000L)
+                ),
+                Map.of()
+            ).getAsLong()
         );
     }
 
@@ -279,7 +296,7 @@ final class EventStateAdapterTest {
         return expression;
     }
 
-    private static JsonObject literal(int value) {
+    private static JsonObject literal(long value) {
         JsonObject expression = new JsonObject();
         expression.addProperty("kind", "literal");
         expression.addProperty("type", "int");

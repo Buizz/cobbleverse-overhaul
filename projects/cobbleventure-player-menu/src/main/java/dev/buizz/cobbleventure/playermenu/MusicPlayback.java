@@ -394,6 +394,7 @@ public final class MusicPlayback {
         private final Map<String, String> settlementMusic;
         private final Map<String, String> caveMusic;
         private final Map<String, String> forestMusic;
+        private final Map<String, String> dungeonMusic;
         private final Map<String, JsonObject> battles;
         private final Map<String, String> gymByTrainer;
         private final Map<String, String> gymMusic;
@@ -409,6 +410,7 @@ public final class MusicPlayback {
             Map<String, String> settlementMusic,
             Map<String, String> caveMusic,
             Map<String, String> forestMusic,
+            Map<String, String> dungeonMusic,
             Map<String, JsonObject> battles,
             Map<String, String> gymByTrainer,
             Map<String, String> gymMusic
@@ -423,6 +425,7 @@ public final class MusicPlayback {
             this.settlementMusic = settlementMusic;
             this.caveMusic = caveMusic;
             this.forestMusic = forestMusic;
+            this.dungeonMusic = dungeonMusic;
             this.battles = battles;
             this.gymByTrainer = gymByTrainer;
             this.gymMusic = gymMusic;
@@ -461,6 +464,9 @@ public final class MusicPlayback {
 
             Map<String, String> caveMusic = musicByDocument(resources, "caves");
             Map<String, String> forestMusic = musicByDocument(resources, "forests");
+            Map<String, String> dungeonMusic = musicByDocument(
+                resources, "dungeons", "dungeon_id"
+            );
 
             Map<String, JsonObject> battles = new HashMap<>();
             resources.listResources("battles", location -> location.getPath().endsWith(".json"))
@@ -483,7 +489,7 @@ public final class MusicPlayback {
             return new MusicData(
                 namespace, defaults, soundEvents, tileMusic, coordinateOverrides,
                 routeMusic, worldSettlementMusic, settlementMusic, caveMusic,
-                forestMusic, battles,
+                forestMusic, dungeonMusic, battles,
                 gymByTrainer, gymMusic
             );
         }
@@ -492,12 +498,18 @@ public final class MusicPlayback {
             return new MusicData(
                 CONTENT_NAMESPACE,
                 Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(),
-                Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of()
+                Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of()
             );
         }
 
         private static Map<String, String> musicByDocument(
             ResourceManager resources, String directory
+        ) {
+            return musicByDocument(resources, directory, "id");
+        }
+
+        private static Map<String, String> musicByDocument(
+            ResourceManager resources, String directory, String idKey
         ) {
             Map<String, String> result = new HashMap<>();
             resources.listResources(
@@ -505,7 +517,7 @@ public final class MusicPlayback {
             ).forEach((location, resource) -> {
                 JsonObject document = readResource(location, resource);
                 String track = optionalString(document, "music_track");
-                if (track != null) result.put(document.get("id").getAsString(), track);
+                if (track != null) result.put(document.get(idKey).getAsString(), track);
             });
             return result;
         }
@@ -564,6 +576,9 @@ public final class MusicPlayback {
             }
             if ("forest".equals(areaKind)) {
                 return first(forestMusic.get(areaOwner), defaults.get("forest"), defaults.get("tile"));
+            }
+            if ("dungeon".equals(areaKind)) {
+                return first(dungeonMusic.get(areaOwner), defaults.get("cave"), defaults.get("tile"));
             }
             return defaults.get("tile");
         }

@@ -1,0 +1,90 @@
+{
+  "$schema": "../../schemas/route.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:route/route_custom_22",
+  "display_name": {
+    "ko_kr": "갈색시티 남쪽 통나무다리",
+    "en_us": "갈색시티 남쪽 통나무다리"
+  },
+  "auto_name": true,
+  "enabled": true,
+  "route_type": "log_bridge",
+  "corridor": {
+    "width_blocks": 12,
+    "edge_noise": 0
+  },
+  "level_scaling": {
+    "mode": "world",
+    "offset": 0
+  },
+  "pokemon_spawns": {
+    "inherit_biome": false,
+    "excluded_species": [],
+    "additions": [
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 6,
+        "max_level": 12,
+        "spawn_as_evolved": false
+      },
+      {
+        "species": "cobblemon:rattata",
+        "min_level": 8,
+        "max_level": 12,
+        "spawn_as_evolved": false
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 6,
+        "max_level": 12,
+        "spawn_as_evolved": false
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 8,
+        "max_level": 12,
+        "spawn_as_evolved": false
+      }
+    ],
+    "level_overrides": [
+      {
+        "species": "cobblemon:ekans",
+        "min_level": 6,
+        "max_level": 12
+      },
+      {
+        "species": "cobblemon:rattata",
+        "min_level": 8,
+        "max_level": 12
+      },
+      {
+        "species": "cobblemon:sandshrew",
+        "min_level": 6,
+        "max_level": 12
+      },
+      {
+        "species": "cobblemon:spearow",
+        "min_level": 8,
+        "max_level": 12
+      }
+    ],
+    "encounter_pools": {}
+  },
+  "npc_placements": [],
+  "automatic_npc_placement": {
+    "enabled": true,
+    "count": 3,
+    "use_biome_defaults": false,
+    "direct_trainers": [
+      "cobbleventure:npc/sample_hiker_seok",
+      "cobbleventure:npc/sample_camper_jun",
+      "cobbleventure:npc/sample_picnicker_hana"
+    ],
+    "trigger_override": "proximity",
+    "trainer_trigger_overrides": {}
+  },
+  "log_bridge_layout": {
+    "pattern": "straight",
+    "detour_blocks": 18
+  }
+}

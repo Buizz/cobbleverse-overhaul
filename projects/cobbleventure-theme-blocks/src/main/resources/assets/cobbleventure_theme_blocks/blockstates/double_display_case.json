@@ -1,20 +1,8 @@
 {
   "variants": {
-    "facing=north,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_left", "uvlock": true },
-    "facing=east,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_left", "y": 90, "uvlock": true },
-    "facing=south,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_left", "y": 180, "uvlock": true },
-    "facing=west,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_left", "y": 270, "uvlock": true },
-    "facing=north,part=1": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_right", "uvlock": true },
-    "facing=east,part=1": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_right", "y": 90, "uvlock": true },
-    "facing=south,part=1": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_right", "y": 180, "uvlock": true },
-    "facing=west,part=1": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_lower_right", "y": 270, "uvlock": true },
-    "facing=north,part=2": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_left", "uvlock": true },
-    "facing=east,part=2": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_left", "y": 90, "uvlock": true },
-    "facing=south,part=2": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_left", "y": 180, "uvlock": true },
-    "facing=west,part=2": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_left", "y": 270, "uvlock": true },
-    "facing=north,part=3": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_right", "uvlock": true },
-    "facing=east,part=3": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_right", "y": 90, "uvlock": true },
-    "facing=south,part=3": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_right", "y": 180, "uvlock": true },
-    "facing=west,part=3": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case_upper_right", "y": 270, "uvlock": true }
+    "facing=north,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "uvlock": true },
+    "facing=east,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 90, "uvlock": true },
+    "facing=south,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 180, "uvlock": true },
+    "facing=west,part=0": { "model": "cobbleventure_theme_blocks:block/workshop/02_double_display_case/double_display_case", "y": 270, "uvlock": true }
   }
 }

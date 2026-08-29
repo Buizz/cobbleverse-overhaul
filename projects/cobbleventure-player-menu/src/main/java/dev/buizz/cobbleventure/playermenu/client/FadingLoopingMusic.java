@@ -7,7 +7,7 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 
-/** A relative looping music sound that can cross-fade without restarting abruptly. */
+/** A single streamed music pass that can cross-fade without restarting abruptly. */
 final class FadingLoopingMusic extends AbstractTickableSoundInstance {
     private final ResourceLocation soundEvent;
     private final float targetVolume;
@@ -25,7 +25,11 @@ final class FadingLoopingMusic extends AbstractTickableSoundInstance {
         this.volumeStep = targetVolume / Math.max(1, transitionTicks);
         this.volume = 0.0F;
         this.pitch = 1.0F;
-        this.looping = true;
+        // Long BGM entries are streamed. Minecraft/OpenAL's native looping flag can
+        // rewind only the currently queued stream buffer, which repeats the intro
+        // instead of the complete OGG. LoopingMusic starts a fresh pass after this
+        // instance naturally finishes, so this instance itself must never loop.
+        this.looping = false;
         this.delay = 0;
         this.attenuation = SoundInstance.Attenuation.NONE;
         this.relative = true;

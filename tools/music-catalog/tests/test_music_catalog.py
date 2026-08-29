@@ -24,7 +24,7 @@ class MusicCatalogTest(unittest.TestCase):
         )
 
     def test_catalog_uses_only_selected_ogg_tracks(self) -> None:
-        self.assertEqual(25, len(self.catalog["tracks"]))
+        self.assertEqual(30, len(self.catalog["tracks"]))
         self.assertFalse(self.catalog["datapack_required"])
         self.assertFalse(self.catalog["source"]["audio_tracked_by_git"])
         self.assertTrue(
@@ -70,6 +70,48 @@ class MusicCatalogTest(unittest.TestCase):
         )
         gym = settings["buildings"]["cobbleventure:interiors/gyms/base_gym_interior"]
         self.assertEqual("facility.gym", gym["music_track"])
+
+    def test_added_kanto_facilities_and_rocket_dungeons_use_named_tags(self) -> None:
+        tracks = {track["id"]: track["source_file"] for track in self.catalog["tracks"]}
+        self.assertEqual("download/1-42. Pokémon Gym.ogg", tracks["facility.gym"])
+        self.assertEqual(
+            "download/36. Rocket Game Corner.ogg", tracks["facility.game_corner"]
+        )
+        self.assertEqual(
+            "download/1-77. Team Rocket HQ.ogg", tracks["dungeon.team_rocket_hq"]
+        )
+        self.assertEqual(
+            "download/34. Pokémon Tower.ogg", tracks["dungeon.pokemon_tower"]
+        )
+        self.assertEqual(
+            "download/37. Rocket Hideout.ogg", tracks["dungeon.rocket_hideout"]
+        )
+        self.assertEqual(
+            "download/39. Silph Co.ogg", tracks["dungeon.silph_company"]
+        )
+
+        settings = json.loads(
+            (PROJECT_ROOT / "content/catalogs/building-settings.json").read_text(encoding="utf-8")
+        )["buildings"]
+        self.assertEqual(
+            "facility.game_corner",
+            settings["cobbleventure:interiors/casino"]["music_track"],
+        )
+        self.assertEqual(
+            "facility.game_corner",
+            settings["cobbleventure:placeholder/casino"]["music_track"],
+        )
+
+        expected_dungeons = {
+            "rocket_casino_hideout": "dungeon.rocket_hideout",
+            "rocket_pokemon_tower": "dungeon.pokemon_tower",
+            "rocket_power_plant": "dungeon.team_rocket_hq",
+            "rocket_silph_company": "dungeon.silph_company",
+        }
+        dungeons = PROJECT_ROOT / "content/dungeons/generation_1"
+        for name, track in expected_dungeons.items():
+            document = json.loads((dungeons / f"{name}.json").read_text(encoding="utf-8"))
+            self.assertEqual(track, document["music_track"], name)
 
     def test_music_notification_uses_full_sound_event_ids(self) -> None:
         manifest = music_catalog.build_music_notification_manifest(self.catalog)

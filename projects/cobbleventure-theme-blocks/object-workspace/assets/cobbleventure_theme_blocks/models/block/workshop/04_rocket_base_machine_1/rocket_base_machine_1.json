@@ -1,13 +1,413 @@
 {
-  "loader": "neoforge:obj",
-  "model": "cobbleventure_theme_blocks:models/block/workshop/04_rocket_base_machine_1/rocket_base_machine_1.obj",
-  "mtl_override": "cobbleventure_theme_blocks:models/block/workshop/04_rocket_base_machine_1/rocket_base_machine_1.neoforge.mtl",
+  "parent": "minecraft:block/block",
+  "ambientocclusion": true,
   "textures": {
-    "texture0": "cobbleventure_theme_blocks:block/rocket_base_machine_1_texture",
-    "particle": "cobbleventure_theme_blocks:block/rocket_base_machine_1_texture"
+    "particle": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "lower_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "lower_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "lower_keypad": "cobbleventure_theme_blocks:block/rocket_machine_keypad",
+    "lower_red": "cobbleventure_theme_blocks:block/rocket_machine_red",
+    "lower_green": "cobbleventure_theme_blocks:block/rocket_machine_green",
+    "upper_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "upper_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "upper_screen": "cobbleventure_theme_blocks:block/rocket_machine_screen_1"
   },
-  "automatic_culling": false,
-  "shade_quads": true,
-  "flip_v": true,
-  "emissive_ambient": false
+  "elements": [
+    {
+      "name": "lower_plinth",
+      "from": [
+        2.0,
+        0.0,
+        4.0
+      ],
+      "to": [
+        14.0,
+        2.0,
+        15.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_dark"
+        },
+        "up": {
+          "texture": "#lower_dark"
+        },
+        "north": {
+          "texture": "#lower_dark"
+        },
+        "south": {
+          "texture": "#lower_dark"
+        },
+        "west": {
+          "texture": "#lower_dark"
+        },
+        "east": {
+          "texture": "#lower_dark"
+        }
+      }
+    },
+    {
+      "name": "lower_body",
+      "from": [
+        2.5,
+        2.0,
+        4.5
+      ],
+      "to": [
+        13.5,
+        16.0,
+        14.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_gray"
+        },
+        "up": {
+          "texture": "#lower_gray"
+        },
+        "north": {
+          "texture": "#lower_gray"
+        },
+        "south": {
+          "texture": "#lower_gray"
+        },
+        "west": {
+          "texture": "#lower_gray"
+        },
+        "east": {
+          "texture": "#lower_gray"
+        }
+      }
+    },
+    {
+      "name": "lower_keypad_frame",
+      "from": [
+        3.5,
+        8.0,
+        3.75
+      ],
+      "to": [
+        12.5,
+        15.0,
+        5.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_dark"
+        },
+        "up": {
+          "texture": "#lower_dark"
+        },
+        "north": {
+          "texture": "#lower_dark"
+        },
+        "south": {
+          "texture": "#lower_dark"
+        },
+        "west": {
+          "texture": "#lower_dark"
+        },
+        "east": {
+          "texture": "#lower_dark"
+        }
+      }
+    },
+    {
+      "name": "lower_keypad",
+      "from": [
+        4.0,
+        8.5,
+        3.5
+      ],
+      "to": [
+        12.0,
+        14.5,
+        4.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_keypad"
+        },
+        "up": {
+          "texture": "#lower_keypad"
+        },
+        "north": {
+          "texture": "#lower_keypad"
+        },
+        "south": {
+          "texture": "#lower_keypad"
+        },
+        "west": {
+          "texture": "#lower_keypad"
+        },
+        "east": {
+          "texture": "#lower_keypad"
+        }
+      }
+    },
+    {
+      "name": "lower_red_status",
+      "from": [
+        3.5,
+        4.0,
+        3.5
+      ],
+      "to": [
+        5.5,
+        6.0,
+        4.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_red"
+        },
+        "up": {
+          "texture": "#lower_red"
+        },
+        "north": {
+          "texture": "#lower_red"
+        },
+        "south": {
+          "texture": "#lower_red"
+        },
+        "west": {
+          "texture": "#lower_red"
+        },
+        "east": {
+          "texture": "#lower_red"
+        }
+      }
+    },
+    {
+      "name": "lower_green_status",
+      "from": [
+        10.5,
+        4.0,
+        3.5
+      ],
+      "to": [
+        12.5,
+        6.0,
+        4.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_green"
+        },
+        "up": {
+          "texture": "#lower_green"
+        },
+        "north": {
+          "texture": "#lower_green"
+        },
+        "south": {
+          "texture": "#lower_green"
+        },
+        "west": {
+          "texture": "#lower_green"
+        },
+        "east": {
+          "texture": "#lower_green"
+        }
+      }
+    },
+    {
+      "name": "upper_upper_body",
+      "from": [
+        2.5,
+        16.0,
+        4.5
+      ],
+      "to": [
+        13.5,
+        29.0,
+        14.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_gray"
+        },
+        "up": {
+          "texture": "#upper_gray"
+        },
+        "north": {
+          "texture": "#upper_gray"
+        },
+        "south": {
+          "texture": "#upper_gray"
+        },
+        "west": {
+          "texture": "#upper_gray"
+        },
+        "east": {
+          "texture": "#upper_gray"
+        }
+      }
+    },
+    {
+      "name": "upper_top_cap",
+      "from": [
+        2.0,
+        28.0,
+        4.0
+      ],
+      "to": [
+        14.0,
+        30.0,
+        15.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_gray"
+        },
+        "up": {
+          "texture": "#upper_gray"
+        },
+        "north": {
+          "texture": "#upper_gray"
+        },
+        "south": {
+          "texture": "#upper_gray"
+        },
+        "west": {
+          "texture": "#upper_gray"
+        },
+        "east": {
+          "texture": "#upper_gray"
+        }
+      }
+    },
+    {
+      "name": "upper_monitor_frame",
+      "from": [
+        3.5,
+        17.0,
+        3.75
+      ],
+      "to": [
+        12.5,
+        25.5,
+        5.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_dark"
+        },
+        "up": {
+          "texture": "#upper_dark"
+        },
+        "north": {
+          "texture": "#upper_dark"
+        },
+        "south": {
+          "texture": "#upper_dark"
+        },
+        "west": {
+          "texture": "#upper_dark"
+        },
+        "east": {
+          "texture": "#upper_dark"
+        }
+      }
+    },
+    {
+      "name": "upper_monitor",
+      "from": [
+        4.0,
+        17.5,
+        3.5
+      ],
+      "to": [
+        12.0,
+        25.0,
+        4.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_screen"
+        },
+        "up": {
+          "texture": "#upper_screen"
+        },
+        "north": {
+          "texture": "#upper_screen"
+        },
+        "south": {
+          "texture": "#upper_screen"
+        },
+        "west": {
+          "texture": "#upper_screen"
+        },
+        "east": {
+          "texture": "#upper_screen"
+        }
+      }
+    },
+    {
+      "name": "upper_left_vent",
+      "from": [
+        2.0,
+        19.0,
+        7.0
+      ],
+      "to": [
+        2.75,
+        25.0,
+        12.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_dark"
+        },
+        "up": {
+          "texture": "#upper_dark"
+        },
+        "north": {
+          "texture": "#upper_dark"
+        },
+        "south": {
+          "texture": "#upper_dark"
+        },
+        "west": {
+          "texture": "#upper_dark"
+        },
+        "east": {
+          "texture": "#upper_dark"
+        }
+      }
+    },
+    {
+      "name": "upper_right_vent",
+      "from": [
+        13.25,
+        19.0,
+        7.0
+      ],
+      "to": [
+        14.0,
+        25.0,
+        12.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_dark"
+        },
+        "up": {
+          "texture": "#upper_dark"
+        },
+        "north": {
+          "texture": "#upper_dark"
+        },
+        "south": {
+          "texture": "#upper_dark"
+        },
+        "west": {
+          "texture": "#upper_dark"
+        },
+        "east": {
+          "texture": "#upper_dark"
+        }
+      }
+    }
+  ]
 }

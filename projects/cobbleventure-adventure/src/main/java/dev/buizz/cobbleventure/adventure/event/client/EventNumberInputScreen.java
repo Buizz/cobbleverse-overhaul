@@ -15,7 +15,7 @@ public final class EventNumberInputScreen extends Screen {
     private final EventDialogueTheme theme;
     private EditBox input;
     private Layout layout;
-    private int selectedAmount;
+    private long selectedAmount;
     private boolean valid;
     private boolean replied;
 
@@ -38,7 +38,7 @@ public final class EventNumberInputScreen extends Screen {
             layout.inputBottom() - layout.inputTop() - 4,
             Component.translatable("screen.cobbleventure_adventure.number_input.field"));
         input.setFilter(value -> value.matches("-?\\d*"));
-        input.setMaxLength(11);
+        input.setMaxLength(20);
         input.setResponder(ignored -> refresh());
         input.setBordered(false);
         input.setTextShadow(false);
@@ -220,9 +220,14 @@ public final class EventNumberInputScreen extends Screen {
         return false;
     }
 
-    private void adjustAmount(int delta) {
-        long adjusted = (long) selectedAmount + delta;
-        selectedAmount = (int) Math.max(payload.minimum(), Math.min(payload.maximum(), adjusted));
+    private void adjustAmount(long delta) {
+        long adjusted;
+        try {
+            adjusted = Math.addExact(selectedAmount, delta);
+        } catch (ArithmeticException ignored) {
+            adjusted = delta > 0 ? Long.MAX_VALUE : Long.MIN_VALUE;
+        }
+        selectedAmount = Math.max(payload.minimum(), Math.min(payload.maximum(), adjusted));
         valid = true;
     }
 
@@ -252,8 +257,13 @@ public final class EventNumberInputScreen extends Screen {
     }
 
     private void renderPriceSummary(GuiGraphics graphics) {
-        Integer amount = parsedValue();
-        long total = amount == null ? 0L : (long) amount * payload.unitPrice();
+        Long amount = parsedValue();
+        long total;
+        try {
+            total = amount == null ? 0L : Math.multiplyExact(amount, payload.unitPrice());
+        } catch (ArithmeticException ignored) {
+            total = Long.MAX_VALUE;
+        }
         long remaining = Math.max(0L, (long) payload.currentBalance() - total);
         int x = layout.inputLeft() + 2;
         int y = layout.inputBottom() + 7;
@@ -387,29 +397,29 @@ public final class EventNumberInputScreen extends Screen {
         graphics.pose().popPose();
     }
 
-    private Integer validValue() {
+    private Long validValue() {
         if (payload.hasPriceSummary()) return selectedAmount;
-        Integer value = parsedValue();
+        Long value = parsedValue();
         if (value == null) return null;
         return value >= payload.minimum() && value <= payload.maximum() ? value : null;
     }
 
-    private Integer parsedValue() {
+    private Long parsedValue() {
         if (payload.hasPriceSummary()) return selectedAmount;
         if (input == null || input.getValue().isBlank() || "-".equals(input.getValue())) return null;
         try {
-            return Integer.parseInt(input.getValue());
+            return Long.parseLong(input.getValue());
         } catch (NumberFormatException ignored) {
             return null;
         }
     }
 
     private void submit() {
-        Integer value = validValue();
+        Long value = validValue();
         if (value != null) complete(value, false);
     }
 
-    private void complete(int value, boolean cancelled) {
+    private void complete(long value, boolean cancelled) {
         if (replied) return;
         replied = true;
         PacketDistributor.sendToServer(new EventDialogueNetwork.NumberInputCompletePayload(

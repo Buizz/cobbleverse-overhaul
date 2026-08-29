@@ -2,6 +2,7 @@
   "$schema": "../../schemas/dungeon.schema.json",
   "schema_version": 1,
   "dungeon_id": "cobbleventure:dungeon/rocket_silph_company",
+  "music_track": "dungeon.silph_company",
   "display_name": { "ko_kr": "점거된 실프주식회사", "en_us": "Occupied Silph Company" },
   "description": { "ko_kr": "좁고 높은 사옥을 계속 올라가는 로켓단 점거 테스트입니다.", "en_us": "A test occupation climbing a narrow high-rise." },
   "preset": "cobbleventure:team_rocket_facility",

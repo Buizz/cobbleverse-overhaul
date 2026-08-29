@@ -1,13 +1,447 @@
 {
-  "loader": "neoforge:obj",
-  "model": "cobbleventure_theme_blocks:models/block/workshop/05_rocket_base_machine_2/rocket_base_machine_2.obj",
-  "mtl_override": "cobbleventure_theme_blocks:models/block/workshop/05_rocket_base_machine_2/rocket_base_machine_2.neoforge.mtl",
+  "parent": "minecraft:block/block",
+  "ambientocclusion": true,
   "textures": {
-    "texture0": "cobbleventure_theme_blocks:block/rocket_base_machine_2_texture",
-    "particle": "cobbleventure_theme_blocks:block/rocket_base_machine_2_texture"
+    "particle": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "lower_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "lower_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "upper_gray": "cobbleventure_theme_blocks:block/rocket_machine_gray",
+    "upper_dark": "cobbleventure_theme_blocks:block/rocket_machine_dark",
+    "upper_screen": "cobbleventure_theme_blocks:block/rocket_machine_screen_2",
+    "upper_keypad": "cobbleventure_theme_blocks:block/rocket_machine_keypad",
+    "upper_red": "cobbleventure_theme_blocks:block/rocket_machine_red",
+    "upper_green": "cobbleventure_theme_blocks:block/rocket_machine_green",
+    "upper_yellow": "cobbleventure_theme_blocks:block/rocket_machine_yellow"
   },
-  "automatic_culling": false,
-  "shade_quads": true,
-  "flip_v": true,
-  "emissive_ambient": false
+  "elements": [
+    {
+      "name": "lower_plinth",
+      "from": [
+        1.0,
+        0.0,
+        3.0
+      ],
+      "to": [
+        15.0,
+        2.0,
+        15.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_dark"
+        },
+        "up": {
+          "texture": "#lower_dark"
+        },
+        "north": {
+          "texture": "#lower_dark"
+        },
+        "south": {
+          "texture": "#lower_dark"
+        },
+        "west": {
+          "texture": "#lower_dark"
+        },
+        "east": {
+          "texture": "#lower_dark"
+        }
+      }
+    },
+    {
+      "name": "lower_lower_body",
+      "from": [
+        1.5,
+        2.0,
+        3.5
+      ],
+      "to": [
+        14.5,
+        16.0,
+        14.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#lower_gray"
+        },
+        "up": {
+          "texture": "#lower_gray"
+        },
+        "north": {
+          "texture": "#lower_gray"
+        },
+        "south": {
+          "texture": "#lower_gray"
+        },
+        "west": {
+          "texture": "#lower_gray"
+        },
+        "east": {
+          "texture": "#lower_gray"
+        }
+      }
+    },
+    {
+      "name": "upper_upper_body",
+      "from": [
+        1.5,
+        16.0,
+        3.5
+      ],
+      "to": [
+        14.5,
+        21.0,
+        14.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_gray"
+        },
+        "up": {
+          "texture": "#upper_gray"
+        },
+        "north": {
+          "texture": "#upper_gray"
+        },
+        "south": {
+          "texture": "#upper_gray"
+        },
+        "west": {
+          "texture": "#upper_gray"
+        },
+        "east": {
+          "texture": "#upper_gray"
+        }
+      }
+    },
+    {
+      "name": "upper_control_deck",
+      "from": [
+        1.5,
+        20.0,
+        3.0
+      ],
+      "to": [
+        14.5,
+        23.0,
+        11.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_gray"
+        },
+        "up": {
+          "texture": "#upper_gray"
+        },
+        "north": {
+          "texture": "#upper_gray"
+        },
+        "south": {
+          "texture": "#upper_gray"
+        },
+        "west": {
+          "texture": "#upper_gray"
+        },
+        "east": {
+          "texture": "#upper_gray"
+        }
+      }
+    },
+    {
+      "name": "upper_keypad",
+      "from": [
+        2.5,
+        22.75,
+        4.0
+      ],
+      "to": [
+        9.0,
+        23.25,
+        9.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_keypad"
+        },
+        "up": {
+          "texture": "#upper_keypad"
+        },
+        "north": {
+          "texture": "#upper_keypad"
+        },
+        "south": {
+          "texture": "#upper_keypad"
+        },
+        "west": {
+          "texture": "#upper_keypad"
+        },
+        "east": {
+          "texture": "#upper_keypad"
+        }
+      }
+    },
+    {
+      "name": "upper_red_control",
+      "from": [
+        10.0,
+        22.75,
+        4.0
+      ],
+      "to": [
+        11.5,
+        23.5,
+        5.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_red"
+        },
+        "up": {
+          "texture": "#upper_red"
+        },
+        "north": {
+          "texture": "#upper_red"
+        },
+        "south": {
+          "texture": "#upper_red"
+        },
+        "west": {
+          "texture": "#upper_red"
+        },
+        "east": {
+          "texture": "#upper_red"
+        }
+      }
+    },
+    {
+      "name": "upper_green_control",
+      "from": [
+        12.0,
+        22.75,
+        4.0
+      ],
+      "to": [
+        13.5,
+        23.5,
+        5.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_green"
+        },
+        "up": {
+          "texture": "#upper_green"
+        },
+        "north": {
+          "texture": "#upper_green"
+        },
+        "south": {
+          "texture": "#upper_green"
+        },
+        "west": {
+          "texture": "#upper_green"
+        },
+        "east": {
+          "texture": "#upper_green"
+        }
+      }
+    },
+    {
+      "name": "upper_yellow_control",
+      "from": [
+        10.0,
+        22.75,
+        7.0
+      ],
+      "to": [
+        11.5,
+        23.5,
+        8.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_yellow"
+        },
+        "up": {
+          "texture": "#upper_yellow"
+        },
+        "north": {
+          "texture": "#upper_yellow"
+        },
+        "south": {
+          "texture": "#upper_yellow"
+        },
+        "west": {
+          "texture": "#upper_yellow"
+        },
+        "east": {
+          "texture": "#upper_yellow"
+        }
+      }
+    },
+    {
+      "name": "upper_monitor_housing",
+      "from": [
+        2.0,
+        21.0,
+        10.0
+      ],
+      "to": [
+        14.0,
+        30.0,
+        15.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_gray"
+        },
+        "up": {
+          "texture": "#upper_gray"
+        },
+        "north": {
+          "texture": "#upper_gray"
+        },
+        "south": {
+          "texture": "#upper_gray"
+        },
+        "west": {
+          "texture": "#upper_gray"
+        },
+        "east": {
+          "texture": "#upper_gray"
+        }
+      }
+    },
+    {
+      "name": "upper_monitor_frame",
+      "from": [
+        3.0,
+        23.0,
+        9.5
+      ],
+      "to": [
+        11.0,
+        29.5,
+        10.5
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_dark"
+        },
+        "up": {
+          "texture": "#upper_dark"
+        },
+        "north": {
+          "texture": "#upper_dark"
+        },
+        "south": {
+          "texture": "#upper_dark"
+        },
+        "west": {
+          "texture": "#upper_dark"
+        },
+        "east": {
+          "texture": "#upper_dark"
+        }
+      }
+    },
+    {
+      "name": "upper_monitor",
+      "from": [
+        3.5,
+        23.5,
+        9.25
+      ],
+      "to": [
+        10.5,
+        29.0,
+        9.75
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_screen"
+        },
+        "up": {
+          "texture": "#upper_screen"
+        },
+        "north": {
+          "texture": "#upper_screen"
+        },
+        "south": {
+          "texture": "#upper_screen"
+        },
+        "west": {
+          "texture": "#upper_screen"
+        },
+        "east": {
+          "texture": "#upper_screen"
+        }
+      }
+    },
+    {
+      "name": "upper_red_status",
+      "from": [
+        12.0,
+        27.5,
+        9.25
+      ],
+      "to": [
+        13.25,
+        28.75,
+        10.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_red"
+        },
+        "up": {
+          "texture": "#upper_red"
+        },
+        "north": {
+          "texture": "#upper_red"
+        },
+        "south": {
+          "texture": "#upper_red"
+        },
+        "west": {
+          "texture": "#upper_red"
+        },
+        "east": {
+          "texture": "#upper_red"
+        }
+      }
+    },
+    {
+      "name": "upper_green_status",
+      "from": [
+        12.0,
+        25.5,
+        9.25
+      ],
+      "to": [
+        13.25,
+        26.75,
+        10.0
+      ],
+      "faces": {
+        "down": {
+          "texture": "#upper_green"
+        },
+        "up": {
+          "texture": "#upper_green"
+        },
+        "north": {
+          "texture": "#upper_green"
+        },
+        "south": {
+          "texture": "#upper_green"
+        },
+        "west": {
+          "texture": "#upper_green"
+        },
+        "east": {
+          "texture": "#upper_green"
+        }
+      }
+    }
+  ]
 }

@@ -57,8 +57,9 @@ public final class CobbleventureThemeBlocks {
         registerDoubleDisplayCase();
         registerDoubleGlassDisplayCounter();
         registerRocketBaseMachines();
-        registerProfessorLabResearchDevices();
-        registerProfessorLabConnectingBookshelf();
+        registerResearchDevices();
+        registerWhiteConnectingBookshelf();
+        registerFurniture();
         registerLargeBed();
         registerGlowWindows();
     }
@@ -188,21 +189,21 @@ public final class CobbleventureThemeBlocks {
             .noOcclusion();
     }
 
-    private static void registerProfessorLabResearchDevices() {
-        DeferredBlock<ProfessorLabResearchDeviceOneBlock> deviceOne = BLOCKS.register(
-            "professor_lab_research_device_1",
-            () -> new ProfessorLabResearchDeviceOneBlock(machineProperties())
+    private static void registerResearchDevices() {
+        DeferredBlock<ResearchDeviceBlock> deviceOne = BLOCKS.register(
+            "research_device_1",
+            () -> new ResearchDeviceBlock(machineProperties())
         );
         CREATIVE_ITEMS.add(ITEMS.register(
-            "professor_lab_research_device_1",
+            "research_device_1",
             () -> new BlockItem(deviceOne.get(), new Item.Properties())
         ));
     }
 
-    private static void registerProfessorLabConnectingBookshelf() {
-        DeferredBlock<ProfessorLabConnectingBookshelfBlock> bookshelf = BLOCKS.register(
-            "professor_lab_connecting_bookshelf",
-            () -> new ProfessorLabConnectingBookshelfBlock(BlockBehaviour.Properties.of()
+    private static void registerWhiteConnectingBookshelf() {
+        DeferredBlock<ConnectingBookshelfBlock> bookshelf = BLOCKS.register(
+            "white_connecting_bookshelf",
+            () -> new ConnectingBookshelfBlock(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.COLOR_LIGHT_BLUE)
                 .strength(2.0F, 6.0F)
                 .sound(SoundType.METAL)
@@ -210,8 +211,36 @@ public final class CobbleventureThemeBlocks {
                 .noOcclusion())
         );
         CREATIVE_ITEMS.add(ITEMS.register(
-            "professor_lab_connecting_bookshelf",
+            "white_connecting_bookshelf",
             () -> new BlockItem(bookshelf.get(), new Item.Properties())
+        ));
+    }
+
+    private static void registerFurniture() {
+        registerDirectionalFurnitureBlock(
+            "glass_storage_cabinet",
+            MapColor.COLOR_LIGHT_BLUE
+        );
+        registerDirectionalFurnitureBlock(
+            "narrow_drawer_cabinet",
+            MapColor.COLOR_YELLOW
+        );
+    }
+
+    private static void registerDirectionalFurnitureBlock(String name, MapColor mapColor) {
+        DeferredBlock<DirectionalStoneBlock> furniture = BLOCKS.register(
+            name,
+            () -> new DirectionalStoneBlock(BlockBehaviour.Properties.of()
+                .mapColor(mapColor)
+                .strength(2.0F, 6.0F)
+                .sound(SoundType.METAL)
+                .requiresCorrectToolForDrops()
+                .pushReaction(PushReaction.BLOCK)
+                .noOcclusion())
+        );
+        CREATIVE_ITEMS.add(ITEMS.register(
+            name,
+            () -> new BlockItem(furniture.get(), new Item.Properties())
         ));
     }
 

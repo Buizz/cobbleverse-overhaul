@@ -1,6 +1,0 @@
-# Blockbench OBJ material
-newmtl machine_texture
-Ka 1.0 1.0 1.0
-Kd 1.0 1.0 1.0
-d 1.0
-map_Kd ../../../../textures/block/rocket_base_machine_3_texture.png

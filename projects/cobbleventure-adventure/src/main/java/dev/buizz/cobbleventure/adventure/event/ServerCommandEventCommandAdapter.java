@@ -46,11 +46,11 @@ public final class ServerCommandEventCommandAdapter implements EventCommandAdapt
             throw new EventRuntimeException("server_command contains unsupported characters");
         }
         if (arguments.size() == 2) {
-            int value;
+            long value;
             try {
-                value = arguments.get(1).getAsBigDecimal().intValueExact();
+                value = arguments.get(1).getAsBigDecimal().longValueExact();
             } catch (RuntimeException error) {
-                throw new EventRuntimeException("server_command argument must be an integer", error);
+                throw new EventRuntimeException("server_command argument must be a long integer", error);
             }
             command += " " + value;
         }

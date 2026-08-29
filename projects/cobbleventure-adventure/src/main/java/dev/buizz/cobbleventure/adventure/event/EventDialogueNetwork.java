@@ -594,7 +594,7 @@ public final class EventDialogueNetwork {
 
     public record NumberInputOpenPayload(
         String token, UUID npcId, String scriptId, String triggerInstance,
-        int minimum, int maximum, int currentBalance, int unitPrice, String themeJson
+        long minimum, long maximum, long currentBalance, long unitPrice, String themeJson
     ) implements CustomPacketPayload {
         public static final Type<NumberInputOpenPayload> TYPE = new Type<>(id("event_number_input_open"));
         public static final StreamCodec<RegistryFriendlyByteBuf, NumberInputOpenPayload> STREAM_CODEC =
@@ -609,14 +609,14 @@ public final class EventDialogueNetwork {
         }
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(token); buffer.writeUUID(npcId); buffer.writeUtf(scriptId);
-            buffer.writeUtf(triggerInstance); buffer.writeInt(minimum); buffer.writeInt(maximum);
-            buffer.writeInt(currentBalance); buffer.writeInt(unitPrice);
+            buffer.writeUtf(triggerInstance); buffer.writeLong(minimum); buffer.writeLong(maximum);
+            buffer.writeLong(currentBalance); buffer.writeLong(unitPrice);
             buffer.writeUtf(themeJson);
         }
         private static NumberInputOpenPayload read(RegistryFriendlyByteBuf buffer) {
             return new NumberInputOpenPayload(
                 buffer.readUtf(), buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
-                buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt(),
+                buffer.readLong(), buffer.readLong(), buffer.readLong(), buffer.readLong(),
                 buffer.readUtf()
             );
         }
@@ -628,7 +628,7 @@ public final class EventDialogueNetwork {
 
     public record NumberInputCompletePayload(
         String token, UUID npcId, String scriptId, String triggerInstance,
-        int value, boolean cancelled
+        long value, boolean cancelled
     ) implements CustomPacketPayload {
         public static final Type<NumberInputCompletePayload> TYPE = new Type<>(id("event_number_input_complete"));
         public static final StreamCodec<RegistryFriendlyByteBuf, NumberInputCompletePayload> STREAM_CODEC =
@@ -642,12 +642,12 @@ public final class EventDialogueNetwork {
         }
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(token); buffer.writeUUID(npcId); buffer.writeUtf(scriptId);
-            buffer.writeUtf(triggerInstance); buffer.writeInt(value); buffer.writeBoolean(cancelled);
+            buffer.writeUtf(triggerInstance); buffer.writeLong(value); buffer.writeBoolean(cancelled);
         }
         private static NumberInputCompletePayload read(RegistryFriendlyByteBuf buffer) {
             return new NumberInputCompletePayload(
                 buffer.readUtf(), buffer.readUUID(), buffer.readUtf(), buffer.readUtf(),
-                buffer.readInt(), buffer.readBoolean()
+                buffer.readLong(), buffer.readBoolean()
             );
         }
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }

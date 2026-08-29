@@ -61,15 +61,15 @@ public final class NumberInputEventCommandAdapter implements EventCommandAdapter
             throw new EventRuntimeException("number_input properties must be an array");
         }
         EventExpressionEvaluator evaluator = new EventExpressionEvaluator(environment);
-        Integer minimum = null;
-        Integer maximum = null;
-        Integer currentBalance = null;
-        Integer unitPrice = null;
+        Long minimum = null;
+        Long maximum = null;
+        Long currentBalance = null;
+        Long unitPrice = null;
         for (JsonElement element : raw.getAsJsonArray()) {
             if (!element.isJsonObject()) throw new EventRuntimeException("number_input property must be an object");
             JsonObject property = element.getAsJsonObject();
             String name = property.get("name").getAsString();
-            int value = evaluator.evaluateInt(property.get("value"), locals);
+            long value = evaluator.evaluateLong(property.get("value"), locals);
             if ("min".equals(name) && minimum == null) minimum = value;
             else if ("max".equals(name) && maximum == null) maximum = value;
             else if ("current".equals(name) && currentBalance == null) currentBalance = value;
@@ -88,11 +88,11 @@ public final class NumberInputEventCommandAdapter implements EventCommandAdapter
         return new InputSpec(new Bounds(minimum, maximum), currentBalance, unitPrice);
     }
 
-    public record Bounds(int minimum, int maximum) {
-        public boolean contains(int value) {
+    public record Bounds(long minimum, long maximum) {
+        public boolean contains(long value) {
             return value >= minimum && value <= maximum;
         }
     }
 
-    public record InputSpec(Bounds bounds, Integer currentBalance, Integer unitPrice) {}
+    public record InputSpec(Bounds bounds, Long currentBalance, Long unitPrice) {}
 }

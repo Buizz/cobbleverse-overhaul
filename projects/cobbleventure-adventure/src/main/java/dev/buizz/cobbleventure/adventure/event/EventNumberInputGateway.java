@@ -11,10 +11,10 @@ public interface EventNumberInputGateway {
         EventSessionKey sessionKey,
         String sourceDigest,
         String instructionId,
-        int minimum,
-        int maximum,
-        Integer currentBalance,
-        Integer unitPrice
+        long minimum,
+        long maximum,
+        Long currentBalance,
+        Long unitPrice
     ) {
         public NumberInputRequest {
             Objects.requireNonNull(sessionKey, "sessionKey");

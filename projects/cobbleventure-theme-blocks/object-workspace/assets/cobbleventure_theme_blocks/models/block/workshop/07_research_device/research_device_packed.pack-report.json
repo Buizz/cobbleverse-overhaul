@@ -1,0 +1,18 @@
+{
+  "source_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\07_research_device\\research_device.bbmodel",
+  "output_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\07_research_device\\research_device_packed.bbmodel",
+  "output_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\research_device_1_texture.png",
+  "output_java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\07_research_device\\research_device_1.json",
+  "source_size": [
+    128,
+    128
+  ],
+  "packed_size": [
+    128,
+    128
+  ],
+  "faces": 270,
+  "source_regions": 87,
+  "packed_regions": 24,
+  "padding": 1
+}

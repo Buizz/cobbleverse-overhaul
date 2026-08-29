@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -47,6 +48,8 @@ public final class MapNetwork {
     private static final long SELECTION_LIFETIME_MILLIS = 5L * 60L * 1000L;
     private static final Map<UUID, PendingTeleport> PENDING_TELEPORTS = new HashMap<>();
     private static final Map<UUID, PendingSelection> PENDING_SELECTIONS = new HashMap<>();
+    private static final Map<String, TeleportGuard> TELEPORT_GUARDS =
+        new ConcurrentHashMap<>();
     private static volatile ClientSnapshot clientSnapshot = new ClientSnapshot(
         false, false, Set.of(), List.of(), "", false, 0L
     );
@@ -67,6 +70,14 @@ public final class MapNetwork {
 
     public static SelectionSnapshot selectionSnapshot() {
         return selectionSnapshot;
+    }
+
+    /** Registers a server-authoritative veto that is checked both before and during travel. */
+    public static void registerTeleportGuard(String id, TeleportGuard guard) {
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("teleport guard id가 필요합니다.");
+        }
+        TELEPORT_GUARDS.put(id, java.util.Objects.requireNonNull(guard, "guard"));
     }
 
     public static void requestSnapshot() {
@@ -254,6 +265,11 @@ public final class MapNetwork {
             context.reply(new MapTeleportResultPayload(false, "전투 중에는 순간이동할 수 없습니다."));
             return;
         }
+        String guarded = teleportDenialReason(player);
+        if (guarded != null) {
+            context.reply(new MapTeleportResultPayload(false, guarded));
+            return;
+        }
         if (PENDING_TELEPORTS.containsKey(player.getUUID())) {
             context.reply(new MapTeleportResultPayload(false, "이미 이동을 준비하고 있습니다."));
             return;
@@ -385,6 +401,8 @@ public final class MapNetwork {
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             return "전투 중에는 순간이동할 수 없습니다.";
         }
+        String guarded = teleportDenialReason(player);
+        if (guarded != null) return guarded;
         ServerLevel level = player.getServer().getLevel(pending.dimension);
         if (level == null) {
             return "지도 차원을 불러오지 못했습니다.";
@@ -426,6 +444,24 @@ public final class MapNetwork {
         );
         player.resetFallDistance();
         return null;
+    }
+
+    static String teleportDenialReason(ServerPlayer player) {
+        for (TeleportGuard guard : TELEPORT_GUARDS.values()) {
+            String reason;
+            try {
+                reason = guard.denialReason(player);
+            } catch (RuntimeException error) {
+                return "현재 상태를 안전하게 확인할 수 없어 순간이동을 취소했습니다.";
+            }
+            if (reason != null && !reason.isBlank()) return reason;
+        }
+        return null;
+    }
+
+    @FunctionalInterface
+    public interface TeleportGuard {
+        String denialReason(ServerPlayer player);
     }
 
     /** Finds standing room below the hidden barrier ceiling instead of landing on it. */

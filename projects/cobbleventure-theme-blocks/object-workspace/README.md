@@ -21,8 +21,8 @@ Blockbench가 모델 JSON의 네임스페이스 텍스처를 같은 작업장 �
 ## Blockbench에서 수정하기
 
 1. `assets/cobbleventure_theme_blocks/models/block/workshop` 아래에서 수정할 모델을 엽니다.
-   로켓단 기계 1~3과 연구소 기계는 `.obj`, 침대는 `large_single_iron_bed.bbmodel`, 그 외
-   오브젝트는 이름이 `*_complete.json`인 완성형 모델을 사용합니다.
+   침대와 연구 장치는 `.bbmodel`, 그 외 오브젝트는 각 폴더에서 오브젝트 이름과 같은
+   단일 `.json` 모델을 사용합니다. 연결형 책장은 연결 상태 표현 때문에 세 JSON으로 유지합니다.
 2. Java Block/Item 모델로 불러옵니다.
 3. 각 멀티블록 파트의 좌표는 원칙적으로 `0..16` 범위 안에서 편집합니다.
 4. 파일 이름과 폴더 위치를 바꾸지 않고 같은 `.bbmodel`에 저장합니다.
@@ -45,22 +45,12 @@ Blockbench가 모델 JSON의 네임스페이스 텍스처를 같은 작업장 �
 창문만 자동 변환을 건너뛰고 마지막 정상 게임 리소스를 유지합니다.
 
 Gradle은 자동 동기화를 먼저 실행한 다음 게임용 모델 `.json`과 텍스처 경로의 `.png`만
-JAR로 복사합니다. 모델
-폴더에 있는 `*_complete.json`, `original_*`, `generated_concept.png`, 실사 참고 이미지는
-아직 게임에서 사용하지 않으므로 빌드 결과에서 제외됩니다.
+JAR로 복사합니다. `original_*`, `generated_concept.png`, 실사 참고 이미지는 설계 자료로만
+남고 빌드 결과에는 들어가지 않습니다.
 
-`*_complete.json`은 여러 칸에 나뉜 기존 모델을 실제 크기로 펼쳐 놓은 Blockbench 편집
-기준본입니다. 현재 게임 배치는 기존 분할 모델을 계속 사용하므로, 완성형 모델을 충분히
-다듬은 다음 기준 블록 하나가 전체 모델을 렌더링하도록 전환할 수 있습니다.
-
-기존 분할 모델을 다시 기준으로 완성형 모델을 생성하려면 작업장 루트에서
-`./build-complete-models.ps1`을 실행합니다. 이 명령은 기존 `*_complete.json`을 덮어쓰므로,
-완성형 모델을 직접 수정한 뒤에는 실행하지 않습니다.
-
-로켓단 기계 OBJ를 기존 완성형 JSON으로부터 다시 생성하려면 `./build-machine-obj-models.ps1`을
-실행합니다. 이 명령은 OBJ, MTL, 기계별 단일 텍스처 아틀라스를 덮어쓰므로 OBJ를 직접
-수정한 뒤에는 실행하지 않습니다. 일반 `.mtl`은 Blockbench용 상대 PNG 경로를 사용하고,
-`.neoforge.mtl`은 게임 빌드 전용입니다.
+02~06번 오브젝트는 분할 편집 파일과 OBJ 중간 산출물을 없앴습니다. 각 다중 블록의
+기준 파트 하나가 폴더 안의 단일 JSON 전체를 렌더링하고 나머지 파트는 설치·충돌·철거만
+담당하므로, 해당 JSON 하나만 수정하면 게임에도 그대로 반영됩니다.
 
 자동 동기화 대상이 아닌 완성형 단일 텍스처 `.bbmodel`의 빈 공간을 수동으로 줄이려면
 `pack-bbmodel-texture.py <모델.bbmodel> --output-java-model <게임모델.json>`을 사용합니다.
@@ -77,17 +67,20 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 | 폴더 | 실제 사용 모델 |
 | --- | --- |
 | `01_pokemon_tower_grave` | `pokemon_tower_grave.json` |
-| `02_double_display_case` | `double_display_case_lower*.json`, `double_display_case_upper*.json` |
-| `03_double_glass_display_counter` | `double_glass_display_counter_*.json` |
-| `04_rocket_base_machine_1` | `rocket_base_machine_1.obj` 단일 OBJ |
-| `05_rocket_base_machine_2` | `rocket_base_machine_2.obj` 단일 OBJ |
-| `06_rocket_base_machine_3` | `rocket_base_machine_3.obj` 단일 OBJ |
-| `07_professor_lab_research_device` | 원본: `professor_lab_research_device2.bbmodel`, 자동 생성: `professor_lab_research_device2_packed.bbmodel`, 게임: `professor_lab_research_device_1.json` + 단일 패킹 텍스처 |
-| `08_professor_lab_connecting_bookshelf` | `*_core.json`, `*_left_end.json`, `*_right_end.json` |
+| `02_double_display_case` | `double_display_case.json` |
+| `03_double_glass_display_counter` | `double_glass_display_counter.json` |
+| `04_rocket_base_machine_1` | `rocket_base_machine_1.json` |
+| `05_rocket_base_machine_2` | `rocket_base_machine_2.json` |
+| `06_rocket_base_machine_3` | `rocket_base_machine_3.json` |
+| `07_research_device` | 원본: `research_device.bbmodel`, 자동 생성: `research_device_packed.bbmodel`, 게임: `research_device_1.json` + 단일 패킹 텍스처 |
+| `08_white_connecting_bookshelf` | 하얀색 연결형 책장. `*_core.json`, `*_left_end.json`, `*_right_end.json` |
 | `09_large_single_iron_bed` | 편집: `large_single_iron_bed.bbmodel`, 게임: `large_single_iron_bed.json` |
 | `10_sky_view_glow_window` | 편집 원본: `sky_view_glow_window.bbmodel`, 게임: `sky_view_glow_window.json` |
 | `11_bright_double_glow_window` | 편집 원본: `bright_double_glow_window.bbmodel`, 게임: 2칸 자동 설치용 `bright_double_glow_window.json` |
 | `12_blue_panel_glow_window` | 편집 원본: `blue_panel_glow_window.bbmodel`, 게임: `blue_panel_glow_window.json` |
+| `13_green_connecting_bookshelf` | 초록색 연결형 책장 작업장. 현재 참고 이미지 보관 |
+| `14_glass_storage_cabinet` | 유리 수납장 임시 모델과 참고 이미지 |
+| `15_narrow_drawer_cabinet` | 좁은 서랍장 임시 모델과 참고 이미지 |
 
 ## 돌출 벽 타일 작업 목록
 
@@ -131,8 +124,7 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 `recovery/block-textures/pre-subtle-noise-20260829`에 보관됩니다. 스크립트는 항상 이
 백업에서 결과를 다시 만들기 때문에 반복 실행해도 노이즈가 누적되지 않습니다.
 
-기계의 `*_complete.json`은 OBJ 재생성용 원본이며, 게임은 기준 블록 하나에서 OBJ를
-직접 렌더링합니다. 침대도 기준 블록 하나에서 단일 모델을 직접 렌더링합니다.
+02~06번 오브젝트와 침대는 각각 기준 블록 하나에서 단일 전체 모델을 직접 렌더링합니다.
 
 침대 재질은 `textures/block/bed_single_texture.png` 한 장만 사용합니다. `64×32` 이미지의
 16×16 슬롯은 왼쪽 위부터 흰 금속, 어두운 금속, 흰 천, 파란 이불 순서이며, 왼쪽 아래

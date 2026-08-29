@@ -1,5 +1,7 @@
 # Cobbleventure Player Menu
 
+플레이어 메뉴, 자체 가방과 가방 연동 구매·판매 상점 UI를 제공하는 NeoForge 모드입니다.
+
 인벤토리 키를 Cobbleventure의 본가식 세로 플레이어 메뉴 진입점으로 바꾸는
 NeoForge 1.21.1 모드다.
 

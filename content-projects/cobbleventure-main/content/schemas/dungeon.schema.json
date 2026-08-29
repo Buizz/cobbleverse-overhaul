@@ -13,6 +13,7 @@
     "$schema": { "type": "string" },
     "schema_version": { "const": 1 },
     "dungeon_id": { "$ref": "#/$defs/resource_id" },
+    "music_track": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
     "display_name": { "$ref": "#/$defs/localized_text" },
     "description": { "$ref": "#/$defs/localized_text" },
     "preset": { "$ref": "#/$defs/resource_id" },

@@ -34,9 +34,9 @@
       "z": 0
     },
     "gym_building": {
-      "x": -30,
+      "x": -36,
       "y": 69,
-      "z": -1
+      "z": 35
     }
   },
   "biome_layout": {
@@ -61,7 +61,7 @@
   },
   "connections": [],
   "structure_profile": {
-    "road_layout_template": "ring",
+    "road_layout_template": "cross",
     "structure": "bca:village/default_mid",
     "gym_theme": "water",
     "commercial_center": "pokemart",
@@ -113,11 +113,11 @@
     "civic_facilities_explicit": true,
     "layout_shape": "branching",
     "road_profile": {
-      "width": 7,
+      "width": 5,
       "material": "grass_path"
     },
     "generation_profile": {
-      "seed": 937936474,
+      "seed": 535613690,
       "depth": 4,
       "residential_buildings_enabled": true,
       "basic_buildings": [
@@ -125,24 +125,16 @@
         "cobbleventure:placeholder/basic_building_2",
         "cobbleventure:placeholder/basic_building_3"
       ],
-      "building_density": "normal",
+      "building_density": "sparse",
       "house_palette": {
         "bases": [
-          "one_story",
-          "two_story",
-          "five_story"
+          "one_story"
         ],
         "roofs": [
-          "gable",
-          "gambrel",
-          "shed",
-          "flat"
+          "gambrel"
         ],
         "roof_colors": [
-          "red",
-          "green",
-          "blue",
-          "brown"
+          "blue"
         ]
       }
     },

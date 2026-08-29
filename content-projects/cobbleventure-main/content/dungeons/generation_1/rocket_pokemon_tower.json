@@ -2,6 +2,7 @@
   "$schema": "../../schemas/dungeon.schema.json",
   "schema_version": 1,
   "dungeon_id": "cobbleventure:dungeon/rocket_pokemon_tower",
+  "music_track": "dungeon.pokemon_tower",
   "display_name": { "ko_kr": "포켓몬타워 로켓단", "en_us": "Rocket-Occupied Pokemon Tower" },
   "description": { "ko_kr": "낮은 중형 타워를 올라가는 로켓단 점거 테스트입니다.", "en_us": "A test occupation spanning a short, medium-width tower." },
   "preset": "cobbleventure:team_rocket_facility",

@@ -571,6 +571,11 @@ final class DungeonSystem {
         return run == null ? null : run.randomEncounters();
     }
 
+    static synchronized String activeDungeonId(ServerPlayer player) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        return run == null ? null : run.dungeonId();
+    }
+
     static synchronized DungeonDefinition.BattleRules activeBattleRules(
         ServerPlayer player
     ) {

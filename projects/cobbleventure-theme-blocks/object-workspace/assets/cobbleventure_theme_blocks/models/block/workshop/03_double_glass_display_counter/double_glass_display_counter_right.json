@@ -1,8 +1,0 @@
-{
-  "parent": "cobbleventure_theme_blocks:block/workshop/03_double_glass_display_counter/double_glass_display_counter_base",
-  "textures": {
-    "product_a": "cobbleventure_theme_blocks:block/double_glass_counter_product_blue",
-    "product_b": "cobbleventure_theme_blocks:block/double_glass_counter_pink",
-    "product_c": "cobbleventure_theme_blocks:block/double_glass_counter_orange"
-  }
-}

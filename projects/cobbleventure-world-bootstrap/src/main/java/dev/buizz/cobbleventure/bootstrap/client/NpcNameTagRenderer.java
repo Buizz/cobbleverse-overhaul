@@ -30,11 +30,12 @@ public final class NpcNameTagRenderer {
     private static final ResourceLocation COBBLE_MERCHANT =
         ResourceLocation.fromNamespaceAndPath("cobbledollars", "cobble_merchant");
     private static final ResourceLocation WORLD_NAME_FONT =
-        ResourceLocation.withDefaultNamespace("uniform");
-    private static final float NAME_TAG_SCALE = 0.025F;
-    private static final int HORIZONTAL_PADDING = 6;
-    private static final int PANEL_TOP = -4;
-    private static final int PANEL_BOTTOM = 13;
+        ResourceLocation.fromNamespaceAndPath("cobbleventure", "battle");
+    private static final float NAME_TAG_SCALE = 0.021F;
+    private static final int HORIZONTAL_PADDING = 4;
+    private static final int PANEL_TOP = -3;
+    private static final int PANEL_BOTTOM = 12;
+    private static final float PANEL_DEPTH = 0.01F;
 
     private static MenuTheme theme;
 
@@ -93,23 +94,16 @@ public final class NpcNameTagRenderer {
         poseStack.mulPose(minecraft.getEntityRenderDispatcher().cameraOrientation());
         poseStack.scale(NAME_TAG_SCALE, -NAME_TAG_SCALE, NAME_TAG_SCALE);
         Matrix4f pose = poseStack.last().pose();
-        VertexConsumer background = buffers.getBuffer(RenderType.textBackgroundSeeThrough());
+        VertexConsumer background = buffers.getBuffer(RenderType.textBackground());
 
-        fillPanel(background, pose, left + 1, PANEL_TOP + 2, right + 1, PANEL_BOTTOM + 2,
-            withOpacity(menuTheme.shadow(), 0.72F), 0.000F, LightTexture.FULL_BRIGHT);
         fillPanel(background, pose, left, PANEL_TOP, right, PANEL_BOTTOM,
-            opaque(menuTheme.border()), 0.001F, LightTexture.FULL_BRIGHT);
+            opaque(menuTheme.border()), PANEL_DEPTH, LightTexture.FULL_BRIGHT);
         fillPanel(background, pose, left + 1, PANEL_TOP + 1, right - 1, PANEL_BOTTOM - 1,
-            opaque(menuTheme.innerBorder()), 0.002F, LightTexture.FULL_BRIGHT);
+            opaque(menuTheme.innerBorder()), PANEL_DEPTH, LightTexture.FULL_BRIGHT);
         fillPanel(background, pose, left + 2, PANEL_TOP + 2, right - 2, PANEL_BOTTOM - 2,
-            opaque(menuTheme.background()), 0.003F, LightTexture.FULL_BRIGHT);
-        fillPanel(background, pose, left + 5, PANEL_TOP + 1, right - 5, PANEL_TOP + 3,
-            opaque(menuTheme.accent()), 0.004F, LightTexture.FULL_BRIGHT);
-
-        font.drawInBatch(
-            themedName, textX, 1.0F, 0xFFFFFFFF, false, pose, buffers,
-            Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT
-        );
+            opaque(menuTheme.background()), PANEL_DEPTH, LightTexture.FULL_BRIGHT);
+        fillPanel(background, pose, left + 4, PANEL_TOP + 1, right - 4, PANEL_TOP + 2,
+            opaque(menuTheme.accent()), PANEL_DEPTH, LightTexture.FULL_BRIGHT);
         font.drawInBatch(
             themedName, textX, 1.0F, 0xFFFFFFFF, false, pose, buffers,
             Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT
@@ -132,11 +126,6 @@ public final class NpcNameTagRenderer {
         vertices.addVertex(pose, left, bottom, depth).setColor(color).setLight(packedLight);
         vertices.addVertex(pose, right, bottom, depth).setColor(color).setLight(packedLight);
         vertices.addVertex(pose, right, top, depth).setColor(color).setLight(packedLight);
-    }
-
-    private static int withOpacity(int color, float opacity) {
-        int alpha = Math.round((color >>> 24) * Math.clamp(opacity, 0.0F, 1.0F));
-        return alpha << 24 | color & 0x00FFFFFF;
     }
 
     private static int opaque(int color) {

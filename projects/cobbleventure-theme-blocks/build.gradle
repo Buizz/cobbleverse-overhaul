@@ -46,23 +46,13 @@ processResources {
     // 사용하는 모델 JSON과 텍스처 PNG만 최종 리소스에 합친다.
     from('object-workspace') {
         include 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.json'
-        include 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.obj'
-        include 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.mtl'
         include 'assets/cobbleventure_theme_blocks/textures/block/**/*.png'
         exclude 'assets/cobbleventure_theme_blocks/textures/block/windows/**/*.png'
-        // The professor device source atlas stays editable outside the JAR;
+        // The research device source atlas stays editable outside the JAR;
         // only the generated *_1_texture.png atlas is a runtime resource.
-        exclude 'assets/cobbleventure_theme_blocks/textures/block/professor_lab_research_device.png'
+        exclude 'assets/cobbleventure_theme_blocks/textures/block/research_device.png'
         exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*_complete.json'
         exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.pack-report.json'
-        // These JSON fragments remain in the external workspace only as OBJ
-        // regeneration sources. The game renders one OBJ wrapper per machine.
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/04_rocket_base_machine_1/*_lower.json'
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/04_rocket_base_machine_1/*_upper.json'
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/05_rocket_base_machine_2/*_lower.json'
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/05_rocket_base_machine_2/*_upper.json'
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/06_rocket_base_machine_3/*_left*.json'
-        exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/06_rocket_base_machine_3/*_right*.json'
     }
 }
 

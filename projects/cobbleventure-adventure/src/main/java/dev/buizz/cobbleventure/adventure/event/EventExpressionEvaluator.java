@@ -51,6 +51,15 @@ public final class EventExpressionEvaluator {
         }
     }
 
+    public long evaluateLong(JsonElement expression, Map<String, JsonElement> locals) {
+        BigDecimal value = number(evaluate(expression, locals));
+        try {
+            return value.longValueExact();
+        } catch (ArithmeticException error) {
+            throw new EventRuntimeException("long 범위를 벗어나거나 정수가 아닌 값입니다: " + value, error);
+        }
+    }
+
     private JsonElement name(String name, Map<String, JsonElement> locals) {
         JsonElement local = locals.get(name);
         if (local != null) {

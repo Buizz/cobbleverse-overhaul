@@ -2,6 +2,7 @@
   "$schema": "../../schemas/dungeon.schema.json",
   "schema_version": 1,
   "dungeon_id": "cobbleventure:dungeon/rocket_casino_hideout",
+  "music_track": "dungeon.rocket_hideout",
   "display_name": { "ko_kr": "카지노 지하 로켓단 기지", "en_us": "Rocket Casino Hideout" },
   "description": { "ko_kr": "넓은 지하층을 차례로 내려가는 로켓단 비밀기지 테스트입니다.", "en_us": "A test hideout descending through broad underground floors." },
   "preset": "cobbleventure:team_rocket_facility",

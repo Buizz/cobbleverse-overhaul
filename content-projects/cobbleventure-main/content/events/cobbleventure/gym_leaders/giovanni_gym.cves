@@ -4,20 +4,15 @@ event interact(range: 4) {
   }
   page default {
     say npc "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!"
-    choice "도전하시겠습니까?" {
-      "승부한다" {
-        id "challenge/battle" await battle "cobbleventure:battle/gym_leader/giovanni_gym" -> result
-        if result.outcome == "win" {
-          id "victory/set_defeated" set_flag "cobbleventure:flag/gym/kanto/giovanni_gym/defeated" true
-          id "victory/give_money" give_money 5000
-          id "victory/grant_badge" grant_badge "cobbleventure:badge/kanto/earth"
-          id "victory/set_level_cap" set_level_cap 100
-          say npc "훌륭한 승부였다. 이 배지는 네 것이다."
-        } else {
-          say npc "좋은 승부였다. 준비해서 다시 도전해라."
-        }
-      }
-      "다음에 도전한다" { stop }
+    id "challenge/battle" await battle "cobbleventure:battle/gym_leader/giovanni_gym" -> result
+    if result.outcome == "win" {
+      id "victory/set_defeated" set_flag "cobbleventure:flag/gym/kanto/giovanni_gym/defeated" true
+      id "victory/give_money" give_money 5000
+      id "victory/grant_badge" grant_badge "cobbleventure:badge/kanto/earth"
+      id "victory/set_level_cap" set_level_cap 100
+      say npc "훌륭한 승부였다. 이 배지는 네 것이다."
+    } else {
+      say npc "좋은 승부였다. 준비해서 다시 도전해라."
     }
   }
 }

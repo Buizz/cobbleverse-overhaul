@@ -116,9 +116,49 @@
       "id": "facility.gym",
       "sound_event": "music.facility.gym",
       "resource": "music/facility/gym",
-      "source_file": "another-red-bgm/PWT.ogg",
+      "source_file": "download/1-42. Pokémon Gym.ogg",
       "category": "facility",
       "usage": "체육관 내부"
+    },
+    {
+      "id": "facility.game_corner",
+      "sound_event": "music.facility.game_corner",
+      "resource": "music/facility/game_corner",
+      "source_file": "download/36. Rocket Game Corner.ogg",
+      "category": "facility",
+      "usage": "로켓 게임코너 내부"
+    },
+    {
+      "id": "dungeon.team_rocket_hq",
+      "sound_event": "music.dungeon.team_rocket_hq",
+      "resource": "music/dungeon/team_rocket_hq",
+      "source_file": "download/1-77. Team Rocket HQ.ogg",
+      "category": "dungeon",
+      "usage": "로켓단 본부 및 점거 시설"
+    },
+    {
+      "id": "dungeon.pokemon_tower",
+      "sound_event": "music.dungeon.pokemon_tower",
+      "resource": "music/dungeon/pokemon_tower",
+      "source_file": "download/34. Pokémon Tower.ogg",
+      "category": "dungeon",
+      "usage": "포켓몬타워"
+    },
+    {
+      "id": "dungeon.rocket_hideout",
+      "sound_event": "music.dungeon.rocket_hideout",
+      "resource": "music/dungeon/rocket_hideout",
+      "source_file": "download/37. Rocket Hideout.ogg",
+      "category": "dungeon",
+      "usage": "게임코너 지하 로켓단 아지트"
+    },
+    {
+      "id": "dungeon.silph_company",
+      "sound_event": "music.dungeon.silph_company",
+      "resource": "music/dungeon/silph_company",
+      "source_file": "download/39. Silph Co.ogg",
+      "category": "dungeon",
+      "usage": "실프주식회사"
     },
     {
       "id": "kanto.celadon_city",
@@ -220,7 +260,7 @@
       "id": "encounter.trainer_bad_guys",
       "sound_event": "music.encounter.trainer_bad_guys",
       "resource": "music/encounter/trainer_bad_guys",
-      "source_file": "download/Trainer Appears Bad Guys.ogg",
+      "source_file": "download/1-31. A Trainer Appears! (Bad Guys).ogg",
       "category": "encounter",
       "usage": "악역 트레이너 조우",
       "album": "Pokémon: Let's Go, Pikachu! & Pokémon: Let's Go, Eevee! Super Music Collection",
@@ -230,7 +270,7 @@
       "id": "encounter.trainer_boy",
       "sound_event": "music.encounter.trainer_boy",
       "resource": "music/encounter/trainer_boy",
-      "source_file": "download/Trainer Appears Boy.ogg",
+      "source_file": "download/1-13. A Trainer Appears (Boy's Version).ogg",
       "category": "encounter",
       "usage": "남성 트레이너 조우",
       "album": "Pokémon: Let's Go, Pikachu! & Pokémon: Let's Go, Eevee! Super Music Collection",
@@ -240,7 +280,7 @@
       "id": "encounter.trainer_girl",
       "sound_event": "music.encounter.trainer_girl",
       "resource": "music/encounter/trainer_girl",
-      "source_file": "download/Trainer Appears Girl.ogg",
+      "source_file": "download/1-21. A Trainer Appears! (Girl's Version).ogg",
       "category": "encounter",
       "usage": "여성 트레이너 조우",
       "album": "Pokémon: Let's Go, Pikachu! & Pokémon: Let's Go, Eevee! Super Music Collection",
