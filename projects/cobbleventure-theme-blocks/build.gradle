@@ -50,6 +50,9 @@ processResources {
         include 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.mtl'
         include 'assets/cobbleventure_theme_blocks/textures/block/**/*.png'
         exclude 'assets/cobbleventure_theme_blocks/textures/block/windows/**/*.png'
+        // The professor device source atlas stays editable outside the JAR;
+        // only the generated *_1_texture.png atlas is a runtime resource.
+        exclude 'assets/cobbleventure_theme_blocks/textures/block/professor_lab_research_device.png'
         exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*_complete.json'
         exclude 'assets/cobbleventure_theme_blocks/models/block/workshop/**/*.pack-report.json'
         // These JSON fragments remain in the external workspace only as OBJ

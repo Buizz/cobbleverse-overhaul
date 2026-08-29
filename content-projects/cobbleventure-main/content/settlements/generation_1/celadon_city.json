@@ -5077,7 +5077,6 @@
       "building_density": "normal",
       "house_palette": {
         "bases": [
-          "one_story",
           "two_story",
           "five_story"
         ],
@@ -5088,8 +5087,7 @@
           "flat"
         ],
         "roof_colors": [
-          "green",
-          "blue"
+          "green"
         ]
       }
     },

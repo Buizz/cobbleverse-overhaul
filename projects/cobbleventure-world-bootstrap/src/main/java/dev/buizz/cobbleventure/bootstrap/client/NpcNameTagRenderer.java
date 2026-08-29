@@ -6,6 +6,7 @@ import dev.buizz.cobbleventure.bootstrap.CobbleventureBootstrap;
 import dev.buizz.cobbleventure.playermenu.client.MenuTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -43,7 +44,7 @@ public final class NpcNameTagRenderer {
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onRenderNameTag(RenderNameTagEvent event) {
         Entity entity = event.getEntity();
-        if (!isNpc(entity) || !shouldRender(event, entity)) {
+        if (!handles(entity) || !shouldRender(event, entity)) {
             return;
         }
 
@@ -58,7 +59,7 @@ public final class NpcNameTagRenderer {
         );
         renderNameTag(
             entity, name, event.getPoseStack(), event.getMultiBufferSource(),
-            event.getPackedLight(), event.getPartialTick(), minecraft
+            event.getPartialTick(), minecraft
         );
         event.setCanRender(TriState.FALSE);
     }
@@ -68,7 +69,6 @@ public final class NpcNameTagRenderer {
         Component name,
         PoseStack poseStack,
         MultiBufferSource buffers,
-        int packedLight,
         float partialTick,
         Minecraft minecraft
     ) {
@@ -96,23 +96,23 @@ public final class NpcNameTagRenderer {
         VertexConsumer background = buffers.getBuffer(RenderType.textBackgroundSeeThrough());
 
         fillPanel(background, pose, left + 1, PANEL_TOP + 2, right + 1, PANEL_BOTTOM + 2,
-            withOpacity(menuTheme.shadow(), 0.72F), 0.000F, packedLight);
+            withOpacity(menuTheme.shadow(), 0.72F), 0.000F, LightTexture.FULL_BRIGHT);
         fillPanel(background, pose, left, PANEL_TOP, right, PANEL_BOTTOM,
-            opaque(menuTheme.border()), 0.001F, packedLight);
+            opaque(menuTheme.border()), 0.001F, LightTexture.FULL_BRIGHT);
         fillPanel(background, pose, left + 1, PANEL_TOP + 1, right - 1, PANEL_BOTTOM - 1,
-            opaque(menuTheme.innerBorder()), 0.002F, packedLight);
+            opaque(menuTheme.innerBorder()), 0.002F, LightTexture.FULL_BRIGHT);
         fillPanel(background, pose, left + 2, PANEL_TOP + 2, right - 2, PANEL_BOTTOM - 2,
-            opaque(menuTheme.background()), 0.003F, packedLight);
+            opaque(menuTheme.background()), 0.003F, LightTexture.FULL_BRIGHT);
         fillPanel(background, pose, left + 5, PANEL_TOP + 1, right - 5, PANEL_TOP + 3,
-            opaque(menuTheme.accent()), 0.004F, packedLight);
+            opaque(menuTheme.accent()), 0.004F, LightTexture.FULL_BRIGHT);
 
         font.drawInBatch(
             themedName, textX, 1.0F, 0xFFFFFFFF, false, pose, buffers,
-            Font.DisplayMode.SEE_THROUGH, 0, packedLight
+            Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT
         );
         font.drawInBatch(
             themedName, textX, 1.0F, 0xFFFFFFFF, false, pose, buffers,
-            Font.DisplayMode.NORMAL, 0, packedLight
+            Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT
         );
         poseStack.popPose();
     }
@@ -150,7 +150,7 @@ public final class NpcNameTagRenderer {
         return theme;
     }
 
-    private static boolean isNpc(Entity entity) {
+    public static boolean handles(Entity entity) {
         ResourceLocation entityType = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
         return entityType.getNamespace().equals("easy_npc") || entityType.equals(COBBLE_MERCHANT);
     }

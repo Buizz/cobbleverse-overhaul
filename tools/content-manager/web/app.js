@@ -130,6 +130,7 @@ const houseRoofColorCatalog = [
   { id: "green", label: "초록", color: "#567d46" },
   { id: "blue", label: "파랑", color: "#39778a" },
   { id: "purple", label: "보라", color: "#75517f" },
+  { id: "pink", label: "분홍", color: "#d47f9f" },
   { id: "brown", label: "갈색", color: "#654b36" },
   { id: "gray", label: "회색", color: "#656b70" },
   { id: "black", label: "검정", color: "#292d32" },
@@ -2136,6 +2137,9 @@ function gateFaceOffsets(facing = "north") {
 }
 function gateFaceIsOpen(gate, offset) {
   const q = gate.anchor.q + offset.q; const r = gate.anchor.r + offset.r;
+  return gateMapCellIsOpen(q, r);
+}
+function gateMapCellIsOpen(q, r) {
   return Boolean(
     tileAt(q, r)
     || settlementFootprintAt(q, r)
@@ -2204,11 +2208,28 @@ function alignGateMapPoint(gate, edge) {
 function gateMapBoundaryHalfSpan(gate) {
   const facing = gate.properties?.facing || "north";
   if (["east", "west"].includes(facing)) return mapHexSize() * .5;
-  if (["gate", "gate_npc"].includes(gateCenterPlacement(gate.properties))) {
-    return mapHexSize() * Math.sqrt(3) * .5;
-  }
   const openFaces = gateFaceOffsets(facing).filter((offset) => gateFaceIsOpen(gate, offset)).length;
-  return mapHexSize() * Math.sqrt(3) * (openFaces === 1 ? .25 : .5);
+  const dynamicHalfSpan = (fallback) => openFaces >= 1
+    ? Math.max(
+        gateMapLengthToInaccessible(gate, { x: -1, y: 0 }, fallback),
+        gateMapLengthToInaccessible(gate, { x: 1, y: 0 }, fallback)
+      )
+    : fallback;
+  if (["gate", "gate_npc"].includes(gateCenterPlacement(gate.properties))) {
+    return dynamicHalfSpan(mapHexSize() * Math.sqrt(3) * .5);
+  }
+  return dynamicHalfSpan(mapHexSize() * Math.sqrt(3) * (openFaces === 1 ? .25 : .5));
+}
+function gateMapLengthToInaccessible(gate, direction, fallback) {
+  const origin = gateMapPoint(gate); const maximum = mapHexSize() * 4;
+  for (let distance = 5; distance <= maximum; distance++) {
+    const cell = pixelToHex(
+      origin.x + direction.x * distance,
+      origin.y + direction.y * distance
+    );
+    if (!gateMapCellIsOpen(cell.q, cell.r)) return distance;
+  }
+  return fallback;
 }
 function gateMapFaceTangent(facing, face) {
   const diagonalX = Math.sqrt(3) * .5;
@@ -2237,13 +2258,19 @@ function gateMapBoundaryMarkup(gate) {
   const segment = (vector, start, end) => `<line class="gate-boundary-segment" x1="${vector.x * start}" y1="${vector.y * start}" x2="${vector.x * end}" y2="${vector.y * end}"></line>`;
   if (firstOpen !== secondOpen) {
     const tangent = gateMapFaceTangent(facing, firstOpen ? faces[0] : faces[1]);
-    const length = mapHexSize() * .5;
-    return segment(tangent, -length, -gap) + segment(tangent, gap, length);
+    const opposite = { x: -tangent.x, y: -tangent.y };
+    const fallback = mapHexSize() * .5;
+    const oppositeLength = gateMapLengthToInaccessible(gate, opposite, fallback);
+    const tangentLength = gateMapLengthToInaccessible(gate, tangent, fallback);
+    return segment(opposite, gap, oppositeLength)
+      + segment(tangent, gap, tangentLength);
   }
   const vertical = facing === "north" ? .5 : -.5;
-  const length = mapHexSize();
-  return segment({ x: -Math.sqrt(3) * .5, y: vertical }, gap, length)
-    + segment({ x: Math.sqrt(3) * .5, y: vertical }, gap, length);
+  const left = { x: -Math.sqrt(3) * .5, y: vertical };
+  const right = { x: Math.sqrt(3) * .5, y: vertical };
+  const leftLength = gateMapLengthToInaccessible(gate, left, mapHexSize());
+  const rightLength = gateMapLengthToInaccessible(gate, right, mapHexSize());
+  return segment(left, gap, leftLength) + segment(right, gap, rightLength);
 }
 function hexPolygon(x, y, radius = mapHexSize() - 2) { return Array.from({ length: 6 }, (_, i) => { const angle = Math.PI / 180 * (60 * i - 30); return `${x + radius * Math.cos(angle)},${y + radius * Math.sin(angle)}`; }).join(" "); }
 function pixelToHex(x, y) { const size = mapHexSize(); const r = (y - 330) / (size * 1.5); return roundHex((x - 490) / (Math.sqrt(3) * size) - r / 2, r); }

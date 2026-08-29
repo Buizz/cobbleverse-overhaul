@@ -2644,7 +2644,7 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                 for field, allowed in (
                     ("bases", {"one_story", "two_story", "five_story"}),
                     ("roofs", {"gable", "gambrel", "shed", "flat"}),
-                    ("roof_colors", {"red", "orange", "yellow", "green", "blue", "purple", "brown", "gray", "black", "white"}),
+                    ("roof_colors", {"red", "orange", "yellow", "green", "blue", "purple", "pink", "brown", "gray", "black", "white"}),
                 ):
                     values = house_palette.get(field)
                     field_path = f"$.structure_profile.generation_profile.house_palette.{field}"

@@ -92,6 +92,40 @@ def sync_bed(temporary_root: Path) -> dict:
     }
 
 
+def sync_professor_lab_research_device(temporary_root: Path) -> dict:
+    asset = "professor_lab_research_device_1"
+    model_directory = MODEL_ROOT / "07_professor_lab_research_device"
+    model = model_directory / "professor_lab_research_device2.bbmodel"
+    editable_texture = TEXTURE_ROOT / "professor_lab_research_device.png"
+    packed_model = model_directory / "professor_lab_research_device2_packed.bbmodel"
+    game_texture = TEXTURE_ROOT / f"{asset}_texture.png"
+    java_model = model_directory / f"{asset}.json"
+    source, texture_source = source_with_newest_texture(model, editable_texture, temporary_root)
+    run(
+        [
+            sys.executable,
+            str(WORKSPACE_ROOT / "pack-bbmodel-texture.py"),
+            str(source),
+            "--output-model",
+            str(packed_model),
+            "--output-texture",
+            str(game_texture),
+            "--output-java-model",
+            str(java_model),
+        ]
+    )
+    return {
+        "asset": asset,
+        "status": "synchronized",
+        "model_source": str(model),
+        "texture_source": texture_source,
+        "editable_texture": str(editable_texture),
+        "packed_model": str(packed_model),
+        "java_model": str(java_model),
+        "game_texture": str(game_texture),
+    }
+
+
 def sync_glow_window(
     temporary_root: Path,
     asset: str,
@@ -146,6 +180,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="cobbleventure-bbmodel-sync-") as temporary_directory:
         temporary_root = Path(temporary_directory)
         reports.append(sync_bed(temporary_root))
+        reports.append(sync_professor_lab_research_device(temporary_root))
         reports.append(sync_glow_window(temporary_root, "sky_view_glow_window", "10_sky_view_glow_window"))
         reports.append(
             sync_glow_window(

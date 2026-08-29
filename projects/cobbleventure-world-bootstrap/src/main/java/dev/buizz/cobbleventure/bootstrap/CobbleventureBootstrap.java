@@ -4517,6 +4517,9 @@ public final class CobbleventureBootstrap {
     private static void clearVegetationColumn(
         ServerLevel level, int x, int groundY, int z, int clearHeight
     ) {
+        if (protectedTreeIntersectsColumn(level, x, groundY, z)) {
+            return;
+        }
         int top = Math.min(level.getMaxBuildHeight() - 1, groundY + clearHeight);
         for (int y = groundY + 1; y <= top; y++) {
             BlockPos position = new BlockPos(x, y, z);
@@ -4556,6 +4559,47 @@ public final class CobbleventureBootstrap {
     private static int clearConnectedTree(
         ServerLevel level, BlockPos seed, int roadGroundY
     ) {
+        List<BlockPos> connected = connectedTreeBlocks(level, seed, roadGroundY);
+        if (isProtectedAuthoredTree(level, connected)) {
+            return 0;
+        }
+        for (BlockPos position : connected) {
+            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+        }
+        return connected.size();
+    }
+
+    private static boolean protectedTreeIntersectsColumn(
+        ServerLevel level, int x, int groundY, int z
+    ) {
+        int top = Math.min(level.getMaxBuildHeight() - 1, groundY + 32);
+        for (int y = groundY + 1; y <= top; y++) {
+            BlockPos seed = new BlockPos(x, y, z);
+            BlockState state = level.getBlockState(seed);
+            if ((state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES))
+                && isProtectedAuthoredTree(
+                    level, connectedTreeBlocks(level, seed, groundY)
+                )) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isProtectedAuthoredTree(
+        ServerLevel level, List<BlockPos> connected
+    ) {
+        return connected.stream().anyMatch(position -> {
+            BlockState state = level.getBlockState(position);
+            return state.is(BlockTags.LEAVES)
+                && state.hasProperty(LeavesBlock.PERSISTENT)
+                && state.getValue(LeavesBlock.PERSISTENT);
+        });
+    }
+
+    private static List<BlockPos> connectedTreeBlocks(
+        ServerLevel level, BlockPos seed, int roadGroundY
+    ) {
         int minY = Math.max(level.getMinBuildHeight(), roadGroundY - 2);
         int maxY = Math.min(level.getMaxBuildHeight() - 1, roadGroundY + 40);
         int horizontalLimit = 12;
@@ -4587,10 +4631,7 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
-        for (BlockPos position : connected) {
-            level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-        }
-        return connected.size();
+        return connected;
     }
 
     private static void cleanupTownGenerationDebris(
@@ -9279,6 +9320,12 @@ public final class CobbleventureBootstrap {
         );
     }
 
+    static boolean isInaccessibleTerrainAt(
+        HexWorldPlan world, double x, double z
+    ) {
+        return !world.cells().containsKey(warpedHexAt(world, x, z));
+    }
+
     private static HexCoord warpedHexAt(
         HexWorldPlan world, double x, double z
     ) {
@@ -12593,8 +12640,68 @@ public final class CobbleventureBootstrap {
     static boolean placeNaturalGateTree(
         ServerLevel level, String log, String leaves, BlockPos ground, long seed
     ) {
-        return placeVanillaTree(
+        Set<Long> existingTreeBlocks = treeBlocksInVolume(level, ground, 7, 20);
+        boolean placed = placeVanillaTree(
             level, ground.above(), new TreeProfile(log, leaves, 1, 5, 10), seed
+        );
+        if (placed) {
+            markNewTreeLeavesPersistent(level, ground, existingTreeBlocks, 7, 20);
+        }
+        return placed;
+    }
+
+    static Set<Long> treeBlocksInVolume(
+        ServerLevel level, BlockPos ground, int horizontalRadius, int height
+    ) {
+        Set<Long> blocks = new HashSet<>();
+        for (int x = ground.getX() - horizontalRadius;
+            x <= ground.getX() + horizontalRadius; x++) {
+            for (int z = ground.getZ() - horizontalRadius;
+                z <= ground.getZ() + horizontalRadius; z++) {
+                for (int y = ground.getY() + 1;
+                    y <= Math.min(level.getMaxBuildHeight() - 1, ground.getY() + height); y++) {
+                    BlockPos position = new BlockPos(x, y, z);
+                    BlockState state = level.getBlockState(position);
+                    if (state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES)) {
+                        blocks.add(position.asLong());
+                    }
+                }
+            }
+        }
+        return blocks;
+    }
+
+    static void markNewTreeLeavesPersistent(
+        ServerLevel level, BlockPos ground, Set<Long> existingTreeBlocks,
+        int horizontalRadius, int height
+    ) {
+        for (int x = ground.getX() - horizontalRadius;
+            x <= ground.getX() + horizontalRadius; x++) {
+            for (int z = ground.getZ() - horizontalRadius;
+                z <= ground.getZ() + horizontalRadius; z++) {
+                for (int y = ground.getY() + 1;
+                    y <= Math.min(level.getMaxBuildHeight() - 1, ground.getY() + height); y++) {
+                    BlockPos position = new BlockPos(x, y, z);
+                    if (existingTreeBlocks.contains(position.asLong())) continue;
+                    BlockState state = level.getBlockState(position);
+                    if (state.is(BlockTags.LEAVES)
+                        && state.hasProperty(LeavesBlock.PERSISTENT)
+                        && !state.getValue(LeavesBlock.PERSISTENT)) {
+                        level.setBlock(
+                            position,
+                            state.setValue(LeavesBlock.PERSISTENT, true), 2
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    static void markTreeLeavesPersistentInVolume(
+        ServerLevel level, BlockPos ground, int horizontalRadius, int height
+    ) {
+        markNewTreeLeavesPersistent(
+            level, ground, Set.of(), horizontalRadius, height
         );
     }
 

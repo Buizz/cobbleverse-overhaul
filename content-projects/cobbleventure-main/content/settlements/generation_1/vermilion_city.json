@@ -133,20 +133,14 @@
       "building_density": "sparse",
       "house_palette": {
         "bases": [
-          "one_story",
-          "two_story",
-          "five_story"
+          "one_story"
         ],
         "roofs": [
           "gable",
-          "gambrel",
-          "shed",
-          "flat"
+          "shed"
         ],
         "roof_colors": [
-          "red",
-          "green",
-          "blue",
+          "orange",
           "brown"
         ]
       }

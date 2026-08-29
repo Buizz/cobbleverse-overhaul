@@ -94,6 +94,9 @@ final class DoubleDisplayCaseBlock extends HorizontalDirectionalBlock {
 
     @Override
     protected BlockState mirror(BlockState state, Mirror mirror) {
+        if (mirror == Mirror.NONE) {
+            return state;
+        }
         int part = state.getValue(PART);
         return state
             .rotate(mirror.getRotation(state.getValue(FACING)))

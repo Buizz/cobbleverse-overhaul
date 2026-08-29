@@ -107,6 +107,9 @@ final class DoubleGlassDisplayCounterBlock extends HorizontalDirectionalBlock {
 
     @Override
     protected BlockState mirror(BlockState state, Mirror mirror) {
+        if (mirror == Mirror.NONE) {
+            return state;
+        }
         return state
             .rotate(mirror.getRotation(state.getValue(FACING)))
             .setValue(PART, state.getValue(PART) ^ 1);

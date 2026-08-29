@@ -8,6 +8,16 @@
     "game_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\bed_single_texture.png"
   },
   {
+    "asset": "professor_lab_research_device_1",
+    "status": "synchronized",
+    "model_source": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\07_professor_lab_research_device\\professor_lab_research_device2.bbmodel",
+    "texture_source": "embedded_bbmodel_texture",
+    "editable_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\professor_lab_research_device.png",
+    "packed_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\07_professor_lab_research_device\\professor_lab_research_device2_packed.bbmodel",
+    "java_model": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\07_professor_lab_research_device\\professor_lab_research_device_1.json",
+    "game_texture": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\textures\\block\\professor_lab_research_device_1_texture.png"
+  },
+  {
     "asset": "sky_view_glow_window",
     "status": "synchronized",
     "model_source": "E:\\Source\\repos\\Buizz\\cobbleverse-overhaul\\projects\\cobbleventure-theme-blocks\\object-workspace\\assets\\cobbleventure_theme_blocks\\models\\block\\workshop\\10_sky_view_glow_window\\sky_view_glow_window.bbmodel",

@@ -47,6 +47,7 @@ HOUSE_ROOF_STONE_BLOCKS = {
     "green": "minecraft:cobblestone",
     "blue": "minecraft:cobblestone",
     "purple": "minecraft:cobbled_deepslate",
+    "pink": "minecraft:granite",
     "brown": "minecraft:granite",
     "gray": "minecraft:cobbled_deepslate",
     "black": "minecraft:cobbled_deepslate",

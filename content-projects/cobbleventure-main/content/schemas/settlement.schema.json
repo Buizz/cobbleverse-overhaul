@@ -528,7 +528,7 @@
                 },
                 "roof_colors": {
                   "type": "array", "minItems": 1, "uniqueItems": true,
-                  "items": { "enum": ["red", "orange", "yellow", "green", "blue", "purple", "brown", "gray", "black", "white"] }
+                  "items": { "enum": ["red", "orange", "yellow", "green", "blue", "purple", "pink", "brown", "gray", "black", "white"] }
                 }
               }
             }

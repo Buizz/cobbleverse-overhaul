@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
@@ -56,6 +57,7 @@ final class WorldGateSystem {
     private static final String DENY_COOLDOWN = "cobbleventureGateDenyCooldown";
     private static final String FOREST_PORTAL_COOLDOWN = "cobbleventureForestPortalCooldown";
     private static final String FOREST_ENTRY_MARKER = "cobbleventure:forest_entry";
+    private static final int MAX_NATURAL_GATE_FUNNEL_DEPTH = 8;
     private static final Map<UUID, Vec3> LAST_POSITIONS = new HashMap<>();
     private static final Map<UUID, PendingGateDenial> PENDING_DENIALS = new HashMap<>();
     private static final Map<UUID, PendingEventDialogue> PENDING_EVENT_DIALOGUES =
@@ -194,7 +196,11 @@ final class WorldGateSystem {
         if (markerState.is(Blocks.RESPAWN_ANCHOR)) {
             if (forestGate) {
                 cacheForestEntryMarker(level, world, gate);
-            } else if (gate.surroundingType().equals("natural")) {
+            } else {
+                if (gate.buildingEnabled()) {
+                    protectExistingGateStructureLeaves(level, gate, center);
+                }
+                if (!gate.surroundingType().equals("natural")) return;
                 refreshNaturalGateSurroundings(level, world, gate, center);
                 level.setBlock(
                     marker,
@@ -589,7 +595,7 @@ final class WorldGateSystem {
     private static void decorateNaturalShoulderColumn(
         ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
         CobbleventureBootstrap.Point center,
-        int x, int z, int distance, int offset
+        int x, int z, int distance, int offset, boolean treePass
     ) {
         int groundY = naturalBarrierGroundY(level, x, z);
         long hash = mixGateSeed(world.seed(), x, z, distance, offset);
@@ -604,7 +610,7 @@ final class WorldGateSystem {
             boolean treeCandidate = Math.floorMod(
                 distance + absoluteOffset * 2, 4
             ) == 0 && Math.floorMod((int) hash, 3) != 0;
-            if (treeCandidate) {
+            if (treePass && treeCandidate) {
                 // The collision wedge can be only one block deep near the
                 // passage. Plant those trees just beyond its center columns so
                 // trunks and crowns read as a dense forest instead of exposing
@@ -632,6 +638,16 @@ final class WorldGateSystem {
                     ground, hash
                 )) return;
             }
+            if (treePass) return;
+            if (hasNaturalGateTreeOverhead(level, ground)) {
+                BlockPos position = ground.above();
+                BlockState existing = level.getBlockState(position);
+                if (!existing.isAir() && existing.canBeReplaced()
+                    && existing.getFluidState().isEmpty()) {
+                    level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
+                }
+                return;
+            }
             if (Math.floorMod((int) (hash >>> 24), 4) != 0) {
                 BlockPos position = ground.above();
                 BlockState decoration = CobbleventureBootstrap
@@ -643,6 +659,7 @@ final class WorldGateSystem {
             }
             return;
         }
+        if (treePass) return;
         // Non-forest surroundings already provide their natural terrain. Add a
         // few irregular boulders instead of extruding every column into a wall.
         if (Math.floorMod((int) hash, 11) != 0) {
@@ -664,6 +681,21 @@ final class WorldGateSystem {
             };
             level.setBlock(position, state, 2);
         }
+    }
+
+    private static boolean hasNaturalGateTreeOverhead(
+        ServerLevel level, BlockPos ground
+    ) {
+        int top = Math.min(level.getMaxBuildHeight() - 1, ground.getY() + 18);
+        for (int y = ground.getY() + 1; y <= top; y++) {
+            BlockState state = level.getBlockState(
+                new BlockPos(ground.getX(), y, ground.getZ())
+            );
+            if (state.is(BlockTags.LOGS) || state.is(BlockTags.LEAVES)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String naturalGateTreeLog(String terrainType) {
@@ -717,9 +749,9 @@ final class WorldGateSystem {
             );
             return;
         }
-        int availableLength = Math.max(1, halfLength - halfOpening);
-        int maximumDepth = naturalGateBoundaryDepth(
-            world.grid().radius(), halfThickness
+        int maximumDepth = Math.min(
+            MAX_NATURAL_GATE_FUNNEL_DEPTH,
+            naturalGateBoundaryDepth(world.grid().radius(), halfThickness)
         );
         List<NaturalGateColumn> columns = new ArrayList<>();
         for (int shoulderSign : new int[] {-1, 1}) {
@@ -728,8 +760,17 @@ final class WorldGateSystem {
             String terrainType = inaccessibleTerrainType(
                 world, center, sampleDirection
             );
+            int shoulderLength = northSouthHasOpenFace(world, gate)
+                ? naturalGateLengthToInaccessible(
+                    world, center,
+                    sideways.getStepX() * shoulderSign,
+                    sideways.getStepZ() * shoulderSign,
+                    halfOpening, halfLength
+                )
+                : halfLength;
+            int availableLength = Math.max(1, shoulderLength - halfOpening);
             for (int distance = halfOpening + 1;
-                distance <= halfLength; distance++) {
+                distance <= shoulderLength; distance++) {
                 double progress = (distance - halfOpening) / (double) availableLength;
                 double curvedProgress = progress * progress * (3.0D - 2.0D * progress);
                 long edgeHash = mixGateSeed(
@@ -770,8 +811,9 @@ final class WorldGateSystem {
         List<HexCoord> faces = gateFaceOffsets(gate.facing());
         boolean firstOpen = gateFaceIsOpen(world, gate.anchor(), faces.get(0));
         boolean secondOpen = gateFaceIsOpen(world, gate.anchor(), faces.get(1));
-        int maximumDepth = naturalGateBoundaryDepth(
-            world.grid().radius(), halfThickness
+        int maximumDepth = Math.min(
+            MAX_NATURAL_GATE_FUNNEL_DEPTH,
+            naturalGateBoundaryDepth(world.grid().radius(), halfThickness)
         );
         Map<Long, NaturalGateColumn> uniqueColumns = new LinkedHashMap<>();
         if (firstOpen != secondOpen) {
@@ -781,17 +823,30 @@ final class WorldGateSystem {
                 halfOpening + 8, world.grid().radius() / 2 - 2
             );
             for (int sign : new int[] {-1, 1}) {
+                int edgeLength = naturalGateLengthToInaccessible(
+                    world, center,
+                    tangent.x() * sign, tangent.z() * sign,
+                    halfOpening, halfFaceLength
+                );
                 addNaturalGateEdgeBand(
                     world, center, tangent.x() * sign, tangent.z() * sign,
-                    halfOpening, halfFaceLength, maximumDepth, sign, uniqueColumns
+                    halfOpening, edgeLength, maximumDepth, sign, uniqueColumns
                 );
             }
         } else {
             double vertical = gate.facing().equals("north") ? 0.5D : -0.5D;
-            int faceLength = Math.max(
+            int fallbackLength = Math.max(
                 halfOpening + 8, world.grid().radius() - 2
             );
             for (int sign : new int[] {-1, 1}) {
+                int faceLength = firstOpen && secondOpen
+                    ? naturalGateLengthToInaccessible(
+                        world, center,
+                        sign * Math.sqrt(3.0D) * 0.5D,
+                        vertical,
+                        halfOpening, fallbackLength
+                    )
+                    : fallbackLength;
                 addNaturalGateEdgeBand(
                     world, center, sign * Math.sqrt(3.0D) * 0.5D, vertical,
                     halfOpening, faceLength, maximumDepth, sign, uniqueColumns
@@ -802,6 +857,33 @@ final class WorldGateSystem {
         finishNaturalGateColumns(
             level, world, gate, center, columns, maximumDepth, halfOpening
         );
+    }
+
+    private static boolean northSouthHasOpenFace(HexWorldPlan world, Gate gate) {
+        if (!gate.facing().equals("north") && !gate.facing().equals("south")) {
+            return false;
+        }
+        return gateFaceOffsets(gate.facing()).stream()
+            .anyMatch(offset -> gateFaceIsOpen(world, gate.anchor(), offset));
+    }
+
+    private static int naturalGateLengthToInaccessible(
+        HexWorldPlan world, CobbleventureBootstrap.Point center,
+        double directionX, double directionZ,
+        int halfOpening, int fallbackLength
+    ) {
+        int maximumSearch = Math.max(fallbackLength, world.grid().radius() * 4);
+        for (int distance = halfOpening + 1;
+            distance <= maximumSearch; distance++) {
+            double x = center.x() + directionX * distance;
+            double z = center.z() + directionZ * distance;
+            if (CobbleventureBootstrap.isInaccessibleTerrainAt(
+                world, x + 0.5D, z + 0.5D
+            )) {
+                return distance;
+            }
+        }
+        return fallbackLength;
     }
 
     private static GateEdgeVector gateFaceTangent(String facing, HexCoord face) {
@@ -875,16 +957,24 @@ final class WorldGateSystem {
                 level, gate, column.terrainType(), column.x(), column.z()
             );
         }
-        // Pass 1: place complete natural features while their growth volume is
-        // still open. Crowns and boulders may protrude beyond the wedge.
+        // Pass 1: place all trees while the entire growth volume is still open.
         for (NaturalGateColumn column : columns) {
             decorateNaturalShoulderColumn(
                 level, world, gate, column.terrainType(),
                 center,
-                column.x(), column.z(), column.distance(), column.offset()
+                column.x(), column.z(), column.distance(), column.offset(), true
             );
         }
-        // Pass 2: fill every remaining replaceable space in the wedge with an
+        // Pass 2: add ground cover only after every crown is known. Columns
+        // below logs or leaves are cleared instead of becoming overgrown.
+        for (NaturalGateColumn column : columns) {
+            decorateNaturalShoulderColumn(
+                level, world, gate, column.terrainType(),
+                center,
+                column.x(), column.z(), column.distance(), column.offset(), false
+            );
+        }
+        // Pass 3: fill every remaining replaceable space in the wedge with an
         // invisible barrier. Natural blocks stay visible and no gap remains.
         for (NaturalGateColumn column : columns) {
             placeNaturalBarrierColumn(
@@ -1101,6 +1191,12 @@ final class WorldGateSystem {
             .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         ExplicitAirPlacementProcessor.configure(structure, settings);
+        BlockPos protectionGround = new BlockPos(center.x(), groundY, center.z());
+        int protectionRadius = Math.max(size.getX(), size.getZ()) / 2 + 3;
+        int protectionHeight = size.getY() + 8;
+        Set<Long> existingTreeBlocks = CobbleventureBootstrap.treeBlocksInVolume(
+            level, protectionGround, protectionRadius, protectionHeight
+        );
         if (!structure.placeInWorld(
             level, origin, origin, settings,
             RandomSource.create(level.getSeed() ^ origin.asLong()), 2
@@ -1108,6 +1204,10 @@ final class WorldGateSystem {
             LOGGER.error("Gate structure placement failed: gate={}, origin={}", gate.id(), origin);
             return null;
         }
+        CobbleventureBootstrap.markNewTreeLeavesPersistent(
+            level, protectionGround, existingTreeBlocks,
+            protectionRadius, protectionHeight
+        );
         CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
             level, gate.structure(), origin, structure, rotation
         );
@@ -1134,6 +1234,23 @@ final class WorldGateSystem {
             minX, minZ,
             minX + size.getX() - 1,
             minZ + size.getZ() - 1
+        );
+    }
+
+    private static void protectExistingGateStructureLeaves(
+        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center
+    ) {
+        if (gate.structure() == null) return;
+        ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
+        if (structureId == null) return;
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return;
+        Vec3i size = template.orElseThrow().getSize(rotation(gate.rotation()));
+        int protectionRadius = Math.max(size.getX(), size.getZ()) / 2 + 3;
+        CobbleventureBootstrap.markTreeLeavesPersistentInVolume(
+            level,
+            new BlockPos(center.x(), groundY(level, center.x(), center.z()), center.z()),
+            protectionRadius, size.getY() + 8
         );
     }
 

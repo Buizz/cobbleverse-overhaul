@@ -77,6 +77,9 @@ final class ProfessorLabConnectingBookshelfBlock extends HorizontalDirectionalBl
 
     @Override
     protected BlockState mirror(BlockState state, Mirror mirror) {
+        if (mirror == Mirror.NONE) {
+            return state;
+        }
         return state
             .rotate(mirror.getRotation(state.getValue(FACING)))
             .setValue(LEFT, state.getValue(RIGHT))

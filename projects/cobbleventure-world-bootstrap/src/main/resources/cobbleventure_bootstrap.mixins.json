@@ -25,7 +25,8 @@
     "CreateNixieTubeFontMixin",
     "GymBlockerEntityRenderMixin",
     "GymBlockerPickMixin",
-    "MinecraftFontAccessor"
+    "MinecraftFontAccessor",
+    "NpcVanillaNameTagMixin"
   ],
   "injectors": {
     "defaultRequire": 1

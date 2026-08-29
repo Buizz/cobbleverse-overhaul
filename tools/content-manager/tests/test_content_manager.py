@@ -3559,19 +3559,34 @@ class ContentManagerTests(unittest.TestCase):
         )
         self.assertIn("clearLegacyNaturalBarrierLine", runtime)
         self.assertIn("gateBoundaryHalfLength", runtime)
+        self.assertIn("MAX_NATURAL_GATE_FUNNEL_DEPTH = 8", runtime)
+        self.assertIn("naturalGateLengthToInaccessible", runtime)
+        self.assertIn("northSouthHasOpenFace", runtime)
+        self.assertIn(".anyMatch(offset -> gateFaceIsOpen", runtime)
+        self.assertIn("isInaccessibleTerrainAt", bootstrap)
         self.assertIn("naturalGateBoundaryDepth", runtime)
         self.assertNotIn("halfLength * 0.52D", runtime)
         self.assertIn("placeNaturalGateTree", runtime)
-        self.assertIn("Pass 1: place complete natural features", runtime)
-        self.assertIn("Pass 2: fill every remaining replaceable space", runtime)
+        self.assertIn("Pass 1: place all trees", runtime)
+        self.assertIn("Pass 2: add ground cover only after every crown is known", runtime)
+        self.assertIn("Pass 3: fill every remaining replaceable space", runtime)
         self.assertNotIn("clearNaturalFeaturePocket", runtime)
         self.assertIn('"minecraft:dark_oak_log"', runtime)
         self.assertIn('"minecraft:spruce_log"', runtime)
         self.assertIn("distance + absoluteOffset * 2, 4", runtime)
         self.assertIn("absoluteOffset <= 1", runtime)
         self.assertIn("fringeGround", runtime)
+        self.assertIn("hasNaturalGateTreeOverhead", runtime)
+        self.assertIn("column.offset(), true", runtime)
+        self.assertIn("column.offset(), false", runtime)
         self.assertIn("clearNaturalWedgeColumn", runtime)
         self.assertIn('featureIds = List.of("dark_oak_checked")', bootstrap)
+        self.assertIn("markNewTreeLeavesPersistent", bootstrap)
+        self.assertIn("protectedTreeIntersectsColumn", bootstrap)
+        self.assertIn("isProtectedAuthoredTree", bootstrap)
+        self.assertIn("CobbleventureBootstrap.treeBlocksInVolume", runtime)
+        self.assertIn("CobbleventureBootstrap.markNewTreeLeavesPersistent", runtime)
+        self.assertIn("protectExistingGateStructureLeaves", runtime)
         self.assertIn("WorldGateSystem.refreshNaturalSurroundingsAfterTown(", bootstrap)
         self.assertIn("alignedGateCenter", runtime)
         self.assertIn('case "north" -> List.of(new HexCoord(0, -1), new HexCoord(1, -1))', runtime)
@@ -3912,6 +3927,21 @@ class ContentManagerTests(unittest.TestCase):
             "roofs": ["gable"],
             "roof_colors": ["red"],
         }
+
+        _, issues = content_manager._validate_payload(
+            source, content_manager.validate_settlement_file
+        )
+
+        self.assertEqual([], [issue for issue in issues if issue.level == "error"])
+
+    def test_settlement_accepts_pink_house_roofs(self) -> None:
+        root = PROJECT_ROOT
+        source = json.loads(
+            (root / "content" / "settlements" / "generation_1" / "starter_town.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        source["structure_profile"]["generation_profile"]["house_palette"]["roof_colors"] = ["pink"]
 
         _, issues = content_manager._validate_payload(
             source, content_manager.validate_settlement_file

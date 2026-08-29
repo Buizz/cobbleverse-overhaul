@@ -82,7 +82,7 @@ Java 블록 모델의 UV 좌표계로 변환한 JSON을 함께 생성합니다.
 | `04_rocket_base_machine_1` | `rocket_base_machine_1.obj` 단일 OBJ |
 | `05_rocket_base_machine_2` | `rocket_base_machine_2.obj` 단일 OBJ |
 | `06_rocket_base_machine_3` | `rocket_base_machine_3.obj` 단일 OBJ |
-| `07_professor_lab_research_device` | 편집: `professor_lab_research_device.bbmodel`, 게임: `professor_lab_research_device_1.obj` 16각 원통형 OBJ |
+| `07_professor_lab_research_device` | 원본: `professor_lab_research_device2.bbmodel`, 자동 생성: `professor_lab_research_device2_packed.bbmodel`, 게임: `professor_lab_research_device_1.json` + 단일 패킹 텍스처 |
 | `08_professor_lab_connecting_bookshelf` | `*_core.json`, `*_left_end.json`, `*_right_end.json` |
 | `09_large_single_iron_bed` | 편집: `large_single_iron_bed.bbmodel`, 게임: `large_single_iron_bed.json` |
 | `10_sky_view_glow_window` | 편집 원본: `sky_view_glow_window.bbmodel`, 게임: `sky_view_glow_window.json` |
