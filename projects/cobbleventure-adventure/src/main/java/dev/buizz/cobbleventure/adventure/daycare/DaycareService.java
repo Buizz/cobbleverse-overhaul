@@ -183,6 +183,7 @@ public final class DaycareService {
         }
         DaycareJob.StoredPokemon stored = job.pokemon(daycareSlot);
         Pokemon pokemon = loadPokemon(player, stored.data());
+        TrainingResult training = applyTraining(player, pokemon, stored);
 
         boolean removeJob = job.pokemonCount() == 1 && job.eggCount() == 0;
         if (removeJob) {
@@ -198,7 +199,6 @@ public final class DaycareService {
             if (removeJob) data.create(job); else data.replace(job);
             return failure(player, "message.cobbleventure_adventure.daycare.return_storage_full");
         }
-        TrainingResult training = applyTraining(player, pokemon, stored);
         if (training.cost().signum() > 0) {
             BigInteger balance = PlayerExtensionKt.getCobbleDollars(player);
             PlayerExtensionKt.setCobbleDollars(
@@ -308,6 +308,12 @@ public final class DaycareService {
         return Math.max(1L, Duration.ofMillis(
             job.nextEggCheckAtMillis() - Instant.now().toEpochMilli()
         ).toMinutes());
+    }
+
+    static int accruedTrainingExperience(DaycareJob.StoredPokemon stored) {
+        return DaycarePolicy.accruedTrainingExperience(
+            stored, Instant.now().toEpochMilli()
+        );
     }
 
     private static int forceReady(CommandSourceStack source, ServerPlayer player) {

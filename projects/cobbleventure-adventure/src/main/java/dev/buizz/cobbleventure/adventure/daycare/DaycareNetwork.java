@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import dev.buizz.cobbleventure.adventure.CobbleventureAdventure;
 import dev.buizz.cobbleventure.adventure.daycare.client.DaycareClient;
 import dev.buizz.cobbleventure.adventure.event.EventNpcBindingRepository;
+import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -27,7 +28,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative transport for the multi-Pokemon daycare screen. */
 public final class DaycareNetwork {
-    private static final String VERSION = "6";
+    private static final String VERSION = "9";
     private static final String DAYCARE_SCRIPT = "cobbleventure:event_script/facilities/daycare";
     private static final double MAX_NPC_DISTANCE_SQUARED = 64.0D;
 
@@ -86,7 +87,7 @@ public final class DaycareNetwork {
             ).message();
             case COLLECT -> feedback = DaycareService.collectWithFeedback(player).message();
             case REFRESH -> {
-                DaycareService.status(player);
+                DaycareService.refreshState(player);
                 feedback = Component.empty();
             }
             default -> throw new IllegalStateException("Unknown daycare action");
@@ -110,7 +111,8 @@ public final class DaycareNetwork {
         List<PokemonView> partySlots = new ArrayList<>(6);
         for (int index = 0; index < 6; index++) {
             Pokemon pokemon = party.get(index);
-            partySlots.add(pokemon == null ? PokemonView.empty() : viewOf(player, pokemon, false));
+            partySlots.add(pokemon == null
+                ? PokemonView.empty() : viewOf(player, pokemon, false, 0));
         }
 
         DaycareJob job = DaycareService.refreshState(player);
@@ -120,7 +122,10 @@ public final class DaycareNetwork {
                 Pokemon pokemon = new Pokemon().loadFromNBT(
                     player.registryAccess(), value.data().copy()
                 );
-                stored.add(viewOf(player, pokemon, value.training()));
+                stored.add(viewOf(
+                    player, pokemon, value.training(),
+                    DaycareService.accruedTrainingExperience(value)
+                ));
             }
         }
         boolean compatible = DaycareService.hasCompatiblePair(player, job);
@@ -128,16 +133,29 @@ public final class DaycareNetwork {
             npcId,
             DaycareService.SERVICE_FEE, DaycareService.TRAINING_COST_PER_EXPERIENCE,
             DaycareService.MAX_TRAINING_EXPERIENCE,
+            DaycarePolicy.TRAINING_EXPERIENCE_PER_SECOND,
+            PlayerExtensionKt.getCobbleDollars(player).toString(),
             job == null ? 0L : DaycareService.remainingMinutes(job),
             partySlots, stored, job == null ? 0 : job.eggCount(), compatible, feedback
         );
     }
 
     private static PokemonView viewOf(
-        ServerPlayer player, Pokemon pokemon, boolean training
+        ServerPlayer player, Pokemon pokemon, boolean training, int trainingExperience
     ) {
+        int applicableExperience = Math.min(
+            trainingExperience, pokemon.getExperienceToLevel(100)
+        );
+        int trainingExperienceLimit = Math.min(
+            DaycareService.MAX_TRAINING_EXPERIENCE,
+            pokemon.getExperienceToLevel(100)
+        );
+        int projectedLevel = pokemon.getExperienceGroup().getLevel(
+            pokemon.getExperience() + applicableExperience
+        );
         return new PokemonView(
-            pokemon.getDisplayName(false).getString(), pokemon.getLevel(), training,
+            pokemon.getDisplayName(false).getString(), pokemon.getLevel(), projectedLevel, training,
+            applicableExperience, trainingExperienceLimit,
             pokemon.saveToNBT(player.registryAccess(), new CompoundTag())
         );
     }
@@ -149,7 +167,8 @@ public final class DaycareNetwork {
     public enum Action { DEPOSIT, WITHDRAW, COLLECT, REFRESH }
 
     public record PokemonView(
-        String name, int level, boolean training, CompoundTag data
+        String name, int originalLevel, int level, boolean training,
+        int trainingExperience, int trainingExperienceLimit, CompoundTag data
     ) {
         public PokemonView {
             Objects.requireNonNull(name, "name");
@@ -158,25 +177,32 @@ public final class DaycareNetwork {
         }
 
         public static PokemonView empty() {
-            return new PokemonView("", 0, false, new CompoundTag());
+            return new PokemonView("", 0, 0, false, 0, 0, new CompoundTag());
         }
 
         public boolean emptySlot() { return name.isBlank(); }
 
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUtf(name);
+            buffer.writeVarInt(originalLevel);
             buffer.writeVarInt(level);
             buffer.writeBoolean(training);
+            buffer.writeVarInt(trainingExperience);
+            buffer.writeVarInt(trainingExperienceLimit);
             buffer.writeNbt(data);
         }
 
         private static PokemonView read(RegistryFriendlyByteBuf buffer) {
             String name = buffer.readUtf();
+            int originalLevel = buffer.readVarInt();
             int level = buffer.readVarInt();
             boolean training = buffer.readBoolean();
+            int trainingExperience = buffer.readVarInt();
+            int trainingExperienceLimit = buffer.readVarInt();
             CompoundTag data = buffer.readNbt();
             return new PokemonView(
-                name, level, training,
+                name, originalLevel, level, training,
+                trainingExperience, trainingExperienceLimit,
                 data == null ? new CompoundTag() : data
             );
         }
@@ -185,6 +211,8 @@ public final class DaycareNetwork {
     public record ViewPayload(
         UUID npcId,
         long fee, long trainingCostPerExperience, int maxTrainingExperience,
+        long trainingExperiencePerSecond,
+        String balance,
         long remainingMinutes,
         List<PokemonView> partySlots, List<PokemonView> storedPokemon,
         int eggCount, boolean compatiblePair, Component feedback
@@ -195,6 +223,7 @@ public final class DaycareNetwork {
 
         public ViewPayload {
             Objects.requireNonNull(npcId, "npcId");
+            Objects.requireNonNull(balance, "balance");
             Objects.requireNonNull(feedback, "feedback");
             partySlots = List.copyOf(partySlots);
             storedPokemon = List.copyOf(storedPokemon);
@@ -207,6 +236,8 @@ public final class DaycareNetwork {
             buffer.writeLong(fee);
             buffer.writeLong(trainingCostPerExperience);
             buffer.writeVarInt(maxTrainingExperience);
+            buffer.writeLong(trainingExperiencePerSecond);
+            buffer.writeUtf(balance);
             buffer.writeLong(remainingMinutes);
             partySlots.forEach(value -> value.write(buffer));
             buffer.writeVarInt(storedPokemon.size());
@@ -221,6 +252,8 @@ public final class DaycareNetwork {
             long fee = buffer.readLong();
             long trainingCost = buffer.readLong();
             int maxTrainingExperience = buffer.readVarInt();
+            long trainingExperiencePerSecond = buffer.readLong();
+            String balance = buffer.readUtf();
             long remaining = buffer.readLong();
             List<PokemonView> party = new ArrayList<>(6);
             for (int index = 0; index < 6; index++) party.add(PokemonView.read(buffer));
@@ -231,7 +264,8 @@ public final class DaycareNetwork {
             boolean compatible = buffer.readBoolean();
             Component feedback = ComponentSerialization.TRUSTED_STREAM_CODEC.decode(buffer);
             return new ViewPayload(
-                npcId, fee, trainingCost, maxTrainingExperience, remaining,
+                npcId, fee, trainingCost, maxTrainingExperience,
+                trainingExperiencePerSecond, balance, remaining,
                 party, stored, eggs, compatible, feedback
             );
         }

@@ -210,6 +210,9 @@ final class WorldGateSystem {
         BlockState markerState = level.getBlockState(marker);
         boolean forestGate = gate.destinationForest() != null;
         if (markerState.is(Blocks.RESPAWN_ANCHOR)) {
+            // A completed gate is immutable. Entrance grading changes apply
+            // only while creating a new world and must never rewrite an
+            // existing world's authored or player-modified surroundings.
             if (forestGate) {
                 cacheForestEntryMarker(level, world, gate);
             }
@@ -1252,11 +1255,13 @@ final class WorldGateSystem {
             int centerZ = entrance.z() + outward.getStepZ() * depth;
             int roadY = heights.get(index);
             int priorY = index == 0 ? entrance.surfaceY() : heights.get(index - 1);
-            Direction ascent = index + 1 < heights.size()
-                && heights.get(index + 1) > roadY
-                    ? outward
-                    : priorY > roadY ? outward.getOpposite() : null;
-            for (int lateral = -1; lateral <= 1; lateral++) {
+            Integer nextY = index + 1 < heights.size()
+                ? heights.get(index + 1) : null;
+            Direction ascent = gateApproachAscent(
+                priorY, roadY, nextY, outward
+            );
+            for (int lateral = entrance.minimumLateral();
+                lateral <= entrance.maximumLateral(); lateral++) {
                 int x = centerX + sideways.getStepX() * lateral;
                 int z = centerZ + sideways.getStepZ() * lateral;
                 if (!finishAfterStructure && entrance.footprint().contains(x, z)) {
@@ -1286,6 +1291,15 @@ final class WorldGateSystem {
 
     static int nextGateApproachY(int previousY, int nativeY) {
         return Math.max(previousY - 1, Math.min(previousY + 1, nativeY));
+    }
+
+    static Direction gateApproachAscent(
+        int priorY, int roadY, Integer nextY, Direction outward
+    ) {
+        if (nextY != null && nextY > roadY) {
+            return outward;
+        }
+        return priorY > roadY ? outward.getOpposite() : null;
     }
 
     private static void placeOverheadBarrier(
@@ -1388,8 +1402,7 @@ final class WorldGateSystem {
         Rotation rotation = rotation(gate.rotation());
         int width = structure.getSize().getX();
         int depth = structure.getSize().getZ();
-        long originSum = 0L;
-        int anchorCount = 0;
+        List<Integer> alignedOriginHeights = new ArrayList<>();
         for (StructureTemplate.StructureBlockInfo marker : structure.filterBlocks(
             BlockPos.ZERO, new StructurePlaceSettings(), Blocks.JIGSAW
         )) {
@@ -1414,12 +1427,23 @@ final class WorldGateSystem {
             int roadY = CobbleventureBootstrap.nativeTerrainColumn(
                 world, roadX, roadZ
             ).groundY();
-            originSum += roadY - (marker.pos().getY() - 1L);
-            anchorCount++;
+            // A road_anchor now occupies the authored road surface itself.
+            // Align the whole pass-through structure to the lower entrance so
+            // uneven terrain never leaves its lower side hanging in the air.
+            alignedOriginHeights.add(roadY - marker.pos().getY());
         }
-        return anchorCount == 0
-            ? fallbackY
-            : (int) Math.round(originSum / (double) anchorCount);
+        return lowestRoadAlignedGateOriginY(
+            fallbackY, alignedOriginHeights
+        );
+    }
+
+    static int lowestRoadAlignedGateOriginY(
+        int fallbackY, List<Integer> alignedOriginHeights
+    ) {
+        return alignedOriginHeights.stream()
+            .mapToInt(Integer::intValue)
+            .min()
+            .orElse(fallbackY);
     }
 
     private static List<GateEntrancePlacement> plannedGateRoadAnchors(
@@ -1467,13 +1491,74 @@ final class WorldGateSystem {
             BlockPos rotated = rotatedTemplateOffset(
                 marker.pos(), width, depth, rotation
             );
+            GateApproachWidth approachWidth = plannedGateApproachWidth(
+                level, structure, marker, rotated, rotation,
+                width, depth, outward
+            );
             entrances.add(new GateEntrancePlacement(
                 footprint.minX() + rotated.getX(),
                 footprint.minZ() + rotated.getZ(),
-                originY + marker.pos().getY() - 1, outward, footprint
+                originY + marker.pos().getY(), outward, footprint,
+                approachWidth.minimumLateral(), approachWidth.maximumLateral()
             ));
         }
         return List.copyOf(entrances);
+    }
+
+    private static GateApproachWidth plannedGateApproachWidth(
+        ServerLevel level, StructureTemplate structure,
+        StructureTemplate.StructureBlockInfo marker, BlockPos rotatedMarker,
+        Rotation rotation, int width, int depth, Direction outward
+    ) {
+        if (marker.nbt() == null) {
+            return GateApproachWidth.DEFAULT;
+        }
+        try {
+            BlockState finalState = BlockStateParser.parseForBlock(
+                level.holderLookup(Registries.BLOCK),
+                marker.nbt().getString("final_state"), false
+            ).blockState();
+            Set<BlockPos> authoredSurface = new java.util.HashSet<>();
+            for (StructureTemplate.StructureBlockInfo info : structure.filterBlocks(
+                BlockPos.ZERO, new StructurePlaceSettings(), finalState.getBlock()
+            )) {
+                if (info.pos().getY() != marker.pos().getY()) {
+                    continue;
+                }
+                authoredSurface.add(rotatedTemplateOffset(
+                    info.pos(), width, depth, rotation
+                ));
+            }
+            return contiguousGateApproachWidth(
+                rotatedMarker, outward.getClockWise(), authoredSurface
+            );
+        } catch (CommandSyntaxException | RuntimeException error) {
+            LOGGER.warn(
+                "Invalid gate road anchor final_state while resolving approach width: position={}, value={}",
+                marker.pos(), marker.nbt().getString("final_state")
+            );
+            return GateApproachWidth.DEFAULT;
+        }
+    }
+
+    static GateApproachWidth contiguousGateApproachWidth(
+        BlockPos anchor, Direction sideways, Set<BlockPos> authoredSurface
+    ) {
+        int minimum = 0;
+        while (authoredSurface.contains(
+            anchor.relative(sideways, minimum - 1)
+        )) {
+            minimum--;
+        }
+        int maximum = 0;
+        while (authoredSurface.contains(
+            anchor.relative(sideways, maximum + 1)
+        )) {
+            maximum++;
+        }
+        return minimum == 0 && maximum == 0
+            ? GateApproachWidth.DEFAULT
+            : new GateApproachWidth(minimum, maximum);
     }
 
     private static void replacePlacedGateRoadAnchors(
@@ -1697,7 +1782,8 @@ final class WorldGateSystem {
             }
             anchors.add(new GateEntrancePlacement(
                 marker.pos().getX(), marker.pos().getZ(),
-                marker.pos().getY() - 1, outward, placement.footprint()
+                marker.pos().getY(), outward, placement.footprint(),
+                -1, 1
             ));
         }
         if (anchors.isEmpty()) {
@@ -2787,8 +2873,13 @@ final class WorldGateSystem {
 
     private record GateEntrancePlacement(
         int x, int z, int surfaceY, Direction outward,
-        StructureFootprint footprint
+        StructureFootprint footprint, int minimumLateral, int maximumLateral
     ) {}
+
+    record GateApproachWidth(int minimumLateral, int maximumLateral) {
+        private static final GateApproachWidth DEFAULT =
+            new GateApproachWidth(-1, 1);
+    }
 
     private record NaturalGateColumn(
         int x, int z, String terrainType, int distance, int offset

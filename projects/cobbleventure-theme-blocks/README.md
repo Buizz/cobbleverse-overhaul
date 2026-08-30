@@ -17,6 +17,12 @@ projects\cobbleventure-battle-ai\gradlew.bat -p projects\cobbleventure-theme-blo
 블록은 크리에이티브 모드의 `건축 블록` 탭에서 찾을 수 있으며, 현재 조합법은 없습니다.
 지하통로, 포켓몬타워, 로켓단 기지, 카지노와 일반 주택 테마를 제공합니다.
 
+`지하통로 올리브 나무 바닥`과 `주택 베이지 나무 바닥`은 배치하는 플레이어의
+방향과 관계없이 항상 북쪽 기준으로 나무결이 정렬됩니다. NBT 구조물을 회전하거나
+미러링해도 이 두 바닥의 방향은 변하지 않습니다. 내부 리소스 ID는 기존 모델과
+작업장 연결을 유지하기 위해 각각 `underground_olive_band`,
+`house_beige_panel_wall`을 사용합니다.
+
 `포켓몬타워 보랏빛 묘비`는 한 블록 안에 다섯 개의 직육면체 요소를 조합한 3D
 장식 블록입니다. 설치 방향에 따라 네 방향으로 회전하며 충돌 영역도 모델 방향을
 따라 회전합니다. 설계 참고본은 `docs/concepts/pokemon_tower_grave_reference.png`에

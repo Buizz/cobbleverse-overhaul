@@ -14264,13 +14264,16 @@ public final class CobbleventureBootstrap {
             Point approach = settlementRouteApproach(
                 world, connection, settlement.id(), toTown
             );
-            if (approach == null && overlapsTownTile) {
-                // Coastal town endpoints can already be over water. The road
-                // corridor still touches the authored town hex, so use that
-                // endpoint instead of abandoning the town-to-route join.
-                approach = toTown
-                    ? connection.centerline().getLast()
-                    : connection.centerline().getFirst();
+            if (approach == null) {
+                // A route explicitly attached to this settlement is already an
+                // authoritative connection. Its first centerline point may be
+                // over water (for example Vermilion's log bridge) and its
+                // corridor may begin just outside a non-circular town footprint.
+                // Do not discard that connection based on the optional geometric
+                // overlap test; paint the access road up to the authored endpoint.
+                approach = RegionalRouteGeometry.connectedEndpoint(
+                    connection.centerline(), toTown
+                );
             }
             if (approach == null) {
                 LOGGER.warn(

@@ -7,6 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonParser;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexGrid;
+import java.util.List;
+import java.util.Set;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import org.junit.jupiter.api.Test;
 
 final class WorldGateEdgePlacementTest {
@@ -99,6 +103,52 @@ final class WorldGateEdgePlacementTest {
         assertEquals(65, WorldGateSystem.nextGateApproachY(64, 70));
         assertEquals(63, WorldGateSystem.nextGateApproachY(64, 58));
         assertEquals(64, WorldGateSystem.nextGateApproachY(64, 64));
+    }
+
+    @Test
+    void gateStructureUsesTheLowerOfItsTwoRoadEntrances() {
+        assertEquals(
+            61,
+            WorldGateSystem.lowestRoadAlignedGateOriginY(
+                64, List.of(65, 61)
+            )
+        );
+        assertEquals(
+            64,
+            WorldGateSystem.lowestRoadAlignedGateOriginY(64, List.of())
+        );
+    }
+
+    @Test
+    void gateApproachUsesStairsThatRiseTowardTheHigherNeighbor() {
+        assertEquals(
+            Direction.SOUTH,
+            WorldGateSystem.gateApproachAscent(65, 64, 63, Direction.NORTH)
+        );
+        assertEquals(
+            Direction.NORTH,
+            WorldGateSystem.gateApproachAscent(63, 64, 65, Direction.NORTH)
+        );
+        assertEquals(
+            null,
+            WorldGateSystem.gateApproachAscent(64, 64, 64, Direction.NORTH)
+        );
+    }
+
+    @Test
+    void gateApproachCoversTheWholeAuthoredEntranceWidth() {
+        BlockPos anchor = new BlockPos(14, 1, 2);
+        WorldGateSystem.GateApproachWidth width =
+            WorldGateSystem.contiguousGateApproachWidth(
+                anchor, Direction.EAST, Set.of(
+                    new BlockPos(13, 1, 2),
+                    new BlockPos(15, 1, 2),
+                    new BlockPos(16, 1, 2)
+                )
+            );
+
+        assertEquals(-1, width.minimumLateral());
+        assertEquals(2, width.maximumLateral());
     }
 
     @Test

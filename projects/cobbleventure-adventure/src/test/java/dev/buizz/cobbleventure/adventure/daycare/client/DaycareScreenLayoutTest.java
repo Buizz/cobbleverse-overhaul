@@ -1,56 +1,68 @@
 package dev.buizz.cobbleventure.adventure.daycare.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
 final class DaycareScreenLayoutTest {
     @Test
-    void highGuiScaleUsesACompactPanelWithScreenMargins() {
+    void normalGuiScaleUsesTheNewWideDesignSize() {
+        DaycareScreenLayout layout = DaycareScreenLayout.calculate(1280, 720);
+
+        assertEquals(1F, layout.scale());
+        assertEquals(720, layout.panelWidth());
+        assertEquals(390, layout.panelHeight());
+    }
+
+    @Test
+    void depositedPokemonOccupyOneHorizontalRow() {
+        DaycareScreenLayout layout = DaycareScreenLayout.calculate(1280, 720);
+        int lastCardRight = layout.storedX()
+            + layout.storedCardWidth() * 6 + layout.storedGap() * 5;
+
+        assertTrue(layout.storedCardWidth() > layout.partyCardHeight());
+        assertTrue(lastCardRight <= layout.panelX() + layout.panelWidth() - layout.padding());
+        assertTrue(layout.storedY() + layout.storedCardHeight() <= layout.contentY());
+    }
+
+    @Test
+    void partyUsesTwoColumnsAndThreeRows() {
         DaycareScreenLayout layout = DaycareScreenLayout.calculate(620, 337);
+        int gridRight = layout.partyGridX()
+            + layout.partyCardWidth() * 2 + layout.partyGap();
+        int gridBottom = layout.partyGridY()
+            + layout.partyCardHeight() * 3 + layout.partyGap() * 2;
+
+        assertTrue(gridRight <= layout.partyPanelX() + layout.partyPanelWidth());
+        assertTrue(gridBottom <= layout.contentY() + layout.contentHeight());
+        assertTrue(layout.partyCardHeight() >= 22);
+    }
+
+    @Test
+    void compactViewportKeepsBothLowerPanelsReadable() {
+        DaycareScreenLayout layout = DaycareScreenLayout.calculate(480, 270);
 
         assertTrue(layout.scale() < 1F);
-        assertTrue(layout.panelX() >= 32);
-        assertTrue(layout.panelY() >= 20);
-        assertTrue(layout.panelX() + layout.panelWidth() <= 620 - 32);
-        assertTrue(layout.panelY() + layout.panelHeight() <= 337 - 20);
+        assertTrue(layout.partyCardWidth() >= 48);
+        assertTrue(layout.detailPanelWidth() >= 150);
+        assertTrue(layout.detailInfoX()
+            < layout.detailPanelX() + layout.detailPanelWidth() - layout.padding());
+        assertTrue(layout.actionY() + layout.actionHeight()
+            <= layout.contentY() + layout.contentHeight());
     }
 
     @Test
-    void normalGuiScaleUsesTheFullDesignSize() {
-        DaycareScreenLayout layout = DaycareScreenLayout.calculate(1280, 720);
+    void allRegionsRemainInsideAHighGuiScaleViewport() {
+        DaycareScreenLayout layout = DaycareScreenLayout.calculate(320, 240);
 
-        assertTrue(layout.scale() == 1F);
-        assertTrue(layout.panelWidth() == 560);
-        assertTrue(layout.panelHeight() == 306);
-    }
-
-    @Test
-    void controlsRemainInsideCompactPanel() {
-        DaycareScreenLayout layout = DaycareScreenLayout.calculate(480, 270);
-        int collectBottom = layout.actionY() + 47;
-        int statusTop = layout.panelY() + layout.panelHeight() - 39;
-
-        assertTrue(collectBottom <= statusTop);
-        assertTrue(layout.storageX() + layout.storageWidth()
+        assertTrue(layout.panelX() >= 0);
+        assertTrue(layout.panelY() >= 0);
+        assertTrue(layout.panelX() + layout.panelWidth() <= 320);
+        assertTrue(layout.panelY() + layout.panelHeight() <= 240);
+        assertTrue(layout.closeX() + layout.closeWidth()
             <= layout.panelX() + layout.panelWidth() - layout.padding());
-    }
-
-    @Test
-    void depositedPokemonUseCompactSquareSlots() {
-        DaycareScreenLayout layout = DaycareScreenLayout.calculate(1280, 720);
-        int gridWidth = layout.storageCardWidth() * 3 + layout.cardGap() * 2;
-
-        assertTrue(layout.storageCardWidth() == layout.storageCardHeight());
-        assertTrue(layout.storageCardWidth() <= 64);
-        assertTrue(gridWidth < layout.storageWidth());
-    }
-
-    @Test
-    void compactPartyRowsKeepEnoughHeightForText() {
-        DaycareScreenLayout layout = DaycareScreenLayout.calculate(480, 270);
-
-        assertTrue(layout.partyCardHeight() >= 18);
-        assertTrue(layout.gridTop() >= layout.panelY() + 55);
+        assertTrue(layout.eggX() + layout.eggWidth()
+            <= layout.panelX() + layout.panelWidth() - layout.padding());
     }
 }

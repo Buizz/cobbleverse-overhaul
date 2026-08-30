@@ -30,7 +30,9 @@
     { "projectID": 968398, "fileID": 7251823, "required": true },
     { "projectID": 1199355, "fileID": 8555615, "required": true },
     { "projectID": 1581357, "fileID": 8283427, "required": true },
-    { "projectID": 302113, "fileID": 8515718, "required": true }
+    { "projectID": 302113, "fileID": 8515718, "required": true },
+    { "projectID": 1015157, "fileID": 6485740, "required": true },
+    { "projectID": 1015100, "fileID": 6715463, "required": true }
   ],
   "local_resourcepacks": [
       {

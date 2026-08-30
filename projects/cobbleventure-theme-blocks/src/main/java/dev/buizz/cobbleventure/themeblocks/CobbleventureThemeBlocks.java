@@ -30,7 +30,7 @@ public final class CobbleventureThemeBlocks {
         registerDirectionalStoneBlock("underground_blue_band", MapColor.COLOR_LIGHT_BLUE);
         registerStoneBlock("underground_pale_wall", MapColor.COLOR_LIGHT_GREEN);
         registerDirectionalStoneBlock("underground_cracked_wall", MapColor.COLOR_LIGHT_GREEN);
-        registerDirectionalStoneBlock("underground_olive_band", MapColor.TERRACOTTA_YELLOW);
+        registerFixedDirectionalWoodFloor("underground_olive_band", MapColor.TERRACOTTA_YELLOW);
 
         registerStoneBlock("pokemon_tower_green_mosaic", MapColor.COLOR_GREEN);
         registerStoneBlock("pokemon_tower_purple_plinth", MapColor.COLOR_PURPLE);
@@ -49,7 +49,7 @@ public final class CobbleventureThemeBlocks {
         registerStoneBlock("casino_sky_wall", MapColor.COLOR_LIGHT_BLUE);
         registerDirectionalStoneBlock("casino_sky_chevron_wall", MapColor.COLOR_LIGHT_BLUE);
 
-        registerDirectionalStoneBlock("house_beige_panel_wall", MapColor.SAND);
+        registerFixedDirectionalWoodFloor("house_beige_panel_wall", MapColor.SAND);
         registerDirectionalStoneBlock("house_mint_band_wall", MapColor.COLOR_LIGHT_GREEN);
         registerDirectionalStoneBlock("house_blue_band_wall", MapColor.COLOR_LIGHT_BLUE);
         registerStoneBlock("house_cream_base_wall", MapColor.SAND);
@@ -93,6 +93,20 @@ public final class CobbleventureThemeBlocks {
                 .strength(1.5F, 6.0F)
                 .sound(SoundType.STONE)
                 .requiresCorrectToolForDrops())
+        );
+        CREATIVE_ITEMS.add(ITEMS.register(
+            name,
+            () -> new BlockItem(block.get(), new Item.Properties())
+        ));
+    }
+
+    private static void registerFixedDirectionalWoodFloor(String name, MapColor mapColor) {
+        DeferredBlock<FixedDirectionalFloorBlock> block = BLOCKS.register(
+            name,
+            () -> new FixedDirectionalFloorBlock(BlockBehaviour.Properties.of()
+                .mapColor(mapColor)
+                .strength(2.0F, 3.0F)
+                .sound(SoundType.WOOD))
         );
         CREATIVE_ITEMS.add(ITEMS.register(
             name,

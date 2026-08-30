@@ -44,6 +44,15 @@ final class RegionalRouteGeometry {
         return distance(last, target) < distance(first, target);
     }
 
+    static CobbleventureBootstrap.Point connectedEndpoint(
+        List<CobbleventureBootstrap.Point> centerline, boolean last
+    ) {
+        if (centerline.isEmpty()) {
+            return null;
+        }
+        return last ? centerline.getLast() : centerline.getFirst();
+    }
+
     private static double distanceToPolyline(
         List<CobbleventureBootstrap.Point> centerline,
         CobbleventureBootstrap.Point target

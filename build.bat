@@ -345,6 +345,23 @@ set "PAINTING_PACK_TARGET=%~1\config\paxi\resourcepacks"
 if not exist "%PAINTING_PACK_TARGET%" mkdir "%PAINTING_PACK_TARGET%"
 if errorlevel 1 exit /b %errorlevel%
 copy /Y "%REPO_ROOT%local-assets\Cobbleventure-Pokemon-Paintings.zip" "%PAINTING_PACK_TARGET%\Cobbleventure-Pokemon-Paintings.zip" >nul
+if errorlevel 1 exit /b %errorlevel%
+call :sync_paxi_dependency "%~1" "Paxi-1.21.1-NeoForge-5.1.3.jar"
+if errorlevel 1 exit /b %errorlevel%
+call :sync_paxi_dependency "%~1" "YungsApi-1.21.1-NeoForge-5.1.6.jar"
+exit /b %errorlevel%
+
+:sync_paxi_dependency
+if exist "%~1\mods\%~2" exit /b 0
+set "PAXI_DEPENDENCY_SOURCE="
+for /r "%USERPROFILE%\curseforge\minecraft\Instances" %%F in (%~2) do if not defined PAXI_DEPENDENCY_SOURCE set "PAXI_DEPENDENCY_SOURCE=%%~fF"
+if not defined PAXI_DEPENDENCY_SOURCE (
+    echo [ERROR] Required Paxi dependency was not found in any local CurseForge instance: %~2
+    exit /b 1
+)
+if not exist "%~1\mods" mkdir "%~1\mods"
+if errorlevel 1 exit /b %errorlevel%
+copy /Y "%PAXI_DEPENDENCY_SOURCE%" "%~1\mods\%~2" >nul
 exit /b %errorlevel%
 
 :help_error

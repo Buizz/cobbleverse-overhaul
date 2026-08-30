@@ -94,4 +94,21 @@ final class TownAccessRoadEndTest {
             centerline, new CobbleventureBootstrap.Point(80, 10)
         ));
     }
+
+    @Test
+    void keepsTheAuthoredTownEndpointWhenALogBridgeStartsOverWater() {
+        var centerline = List.of(
+            new CobbleventureBootstrap.Point(1265, 405),
+            new CobbleventureBootstrap.Point(1265, 463)
+        );
+
+        assertEquals(
+            new CobbleventureBootstrap.Point(1265, 405),
+            RegionalRouteGeometry.connectedEndpoint(centerline, false)
+        );
+        assertEquals(
+            new CobbleventureBootstrap.Point(1265, 463),
+            RegionalRouteGeometry.connectedEndpoint(centerline, true)
+        );
+    }
 }

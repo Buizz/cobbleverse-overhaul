@@ -85,6 +85,16 @@
       "projectID": 302113,
       "fileID": 8515718,
       "required": true
+    },
+    {
+      "projectID": 1015157,
+      "fileID": 6485740,
+      "required": true
+    },
+    {
+      "projectID": 1015100,
+      "fileID": 6715463,
+      "required": true
     }
   ],
   "local_resourcepacks": [

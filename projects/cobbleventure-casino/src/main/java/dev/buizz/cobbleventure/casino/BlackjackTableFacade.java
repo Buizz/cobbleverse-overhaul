@@ -47,7 +47,13 @@ public final class BlackjackTableFacade {
     private BlackjackTableFacade() {
     }
 
-    @SubscribeEvent
+    /**
+     * Functional dealer interaction must run before the generic CVES binding
+     * handler claims the same right click. Once the hidden backend table has
+     * handled it, cancellation prevents the guidance dialogue from replacing
+     * the blackjack screen.
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onDealerInteract(PlayerInteractEvent.EntityInteract event) {
         if (event.getHand() != InteractionHand.MAIN_HAND
             || !(event.getEntity() instanceof ServerPlayer player)

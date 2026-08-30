@@ -1,6 +1,8 @@
 {
   "replace": false,
   "values": [
-    "cobbleventure_theme_blocks:large_bed"
+    "cobbleventure_theme_blocks:large_bed",
+    "cobbleventure_theme_blocks:underground_olive_band",
+    "cobbleventure_theme_blocks:house_beige_panel_wall"
   ]
 }
