@@ -152,4 +152,37 @@ final class WorldGateEdgePlacementTest {
             8.1D, 0.0D, 11
         ));
     }
+
+    @Test
+    void npcOnlyGateBlocksTheAuthoredHexBoundaryInBothDirections() {
+        HexCoord anchor = new HexCoord(0, 0);
+
+        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+            anchor, "east", anchor, new HexCoord(1, 0)
+        ));
+        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+            anchor, "east", new HexCoord(1, 0), anchor
+        ));
+        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+            anchor, "south", anchor, new HexCoord(-1, 1)
+        ));
+        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+            anchor, "south", anchor, new HexCoord(0, 1)
+        ));
+    }
+
+    @Test
+    void npcOnlyGateDoesNotReactToMovementWithinOrAlongOtherHexEdges() {
+        HexCoord anchor = new HexCoord(0, 0);
+
+        assertFalse(WorldGateSystem.crossedNpcGateHexBoundary(
+            anchor, "east", anchor, anchor
+        ));
+        assertFalse(WorldGateSystem.crossedNpcGateHexBoundary(
+            anchor, "east", anchor, new HexCoord(0, 1)
+        ));
+        assertFalse(WorldGateSystem.crossedNpcGateHexBoundary(
+            anchor, "south", new HexCoord(-1, 1), new HexCoord(0, 1)
+        ));
+    }
 }

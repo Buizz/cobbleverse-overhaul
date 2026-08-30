@@ -110,6 +110,7 @@ COMMANDS: dict[ast.CommandKind, CommandContract] = {
     ast.CommandKind.STARTER_ROULETTE: CommandContract(result=ast.ValueType.POKEMON_SELECTION),
     ast.CommandKind.MAP_SELECTION: CommandContract(result=ast.ValueType.LOCATION_REF),
     ast.CommandKind.HEAL_PARTY: CommandContract(result=ast.ValueType.HEALING_RESULT),
+    ast.CommandKind.OPEN_DAYCARE: CommandContract(),
     ast.CommandKind.NUMBER_INPUT: CommandContract(
         properties=(
             _p("min", INT), _p("max", INT),

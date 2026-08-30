@@ -7,6 +7,7 @@ final class DaycarePolicy {
     static final float EGG_DISCOVERY_CHANCE = 0.35F;
     static final long TRAINING_COST_PER_EXPERIENCE = 1L;
     static final long TRAINING_EXPERIENCE_PER_SECOND = 1L;
+    static final int MAX_TRAINING_EXPERIENCE = 10_000;
 
     private DaycarePolicy() {}
 
@@ -17,10 +18,13 @@ final class DaycarePolicy {
     static int accruedTrainingExperience(
         DaycareJob.StoredPokemon stored, long nowMillis
     ) {
-        if (!stored.training() || nowMillis <= stored.trainingStartedAtMillis()) return 0;
+        if (!stored.training() || stored.trainingStartedAtMillis() < 0
+            || nowMillis <= stored.trainingStartedAtMillis()) {
+            return 0;
+        }
         long seconds = (nowMillis - stored.trainingStartedAtMillis()) / 1_000L;
         long experience = seconds * TRAINING_EXPERIENCE_PER_SECOND;
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, experience));
+        return (int) Math.min(MAX_TRAINING_EXPERIENCE, Math.max(0L, experience));
     }
 
     static BigInteger trainingCost(int appliedExperience) {

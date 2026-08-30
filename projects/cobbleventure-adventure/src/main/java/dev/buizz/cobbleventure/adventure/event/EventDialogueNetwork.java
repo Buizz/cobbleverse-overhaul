@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.adventure.CobbleventureAdventure;
+import dev.buizz.cobbleventure.adventure.daycare.DaycareNetwork;
 import dev.buizz.cobbleventure.adventure.event.client.EventDialogueClient;
 import java.util.Objects;
 import java.util.UUID;
@@ -157,6 +158,21 @@ public final class EventDialogueNetwork {
                                         EventStarterRouletteBridge.gateway(player),
                                         new MapSelectionEventCommandAdapter(
                                             EventMapSelectionBridge.gateway(player),
+                                            new DaycareEventCommandAdapter(
+                                                key -> {
+                                                    if (!player.getUUID().equals(key.playerId())) {
+                                                        throw new EventRuntimeException(
+                                                            "키우미집 세션의 플레이어가 일치하지 않습니다."
+                                                        );
+                                                    }
+                                                    var npc = player.serverLevel().getEntity(key.npcId());
+                                                    if (npc == null || !npc.isAlive()) {
+                                                        throw new EventRuntimeException(
+                                                            "키우미집 NPC를 찾을 수 없습니다."
+                                                        );
+                                                    }
+                                                    DaycareNetwork.open(player, npc);
+                                                },
                                             new GiveItemEventCommandAdapter(
                                                 EventItemGrantBridge.gateway(player),
                                                 environment,
@@ -173,7 +189,7 @@ public final class EventDialogueNetwork {
                                                         )
                                                     )
                                                 )
-                                            )
+                                            ))
                                         )
                                     )
                                 )

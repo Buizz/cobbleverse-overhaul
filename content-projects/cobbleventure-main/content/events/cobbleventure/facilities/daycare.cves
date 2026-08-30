@@ -4,5 +4,6 @@ event interact(range: 4) {
       ko_kr: "포켓몬을 맡기거나 찾아가시겠어요? 원하시면 함께 육성해 드릴게요."
       en_us: "Would you like to deposit or withdraw a Pokemon? We can train them too."
     }
+    open_daycare
   }
 }

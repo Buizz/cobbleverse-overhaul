@@ -1330,7 +1330,7 @@ public final class CobbleventureBootstrap {
                 placedSettlements++;
             }
         }
-        WorldGateSystem.refreshNaturalSurroundingsAfterTown(
+        WorldGateSystem.finishNaturalSurroundingsAfterTownGeneration(
             level, runtime.hexWorld()
         );
 
@@ -4307,7 +4307,15 @@ public final class CobbleventureBootstrap {
     ) {
         HexWorldPlan world = activeHexWorld;
         TerrainSample sample = world == null ? null : terrainAt(world, x + 0.5D, z + 0.5D);
-        if (sample != null && isAquatic(sample)) return false;
+        if (sample != null) {
+            boolean bridgeOverOcean = sample.surfaceStyle().equals("log_bridge")
+                && logBridgeOverOceanAt(world, x, z);
+            if (RegionalRouteGeometry.approachIsAquatic(
+                sample.surfaceStyle(), isAquatic(sample), bridgeOverOcean
+            )) {
+                return false;
+            }
+        }
         // The circular cave-mountain envelope belongs to sealed outer terrain only.
         // Applying it to authored town/route samples cuts circular holes out of roads
         // whenever a settlement happens to overlap the midpoint of two cave entrances.
@@ -6552,7 +6560,7 @@ public final class CobbleventureBootstrap {
                     decorateTownLandscape(job.level, job.runtime.hexWorld(), settlement);
                 }
                 cleanupTownGenerationDebris(job.level, settlement);
-                WorldGateSystem.refreshNaturalSurroundingsAfterTown(
+                WorldGateSystem.finishNaturalSurroundingsAfterTownGeneration(
                     job.level, job.runtime.hexWorld()
                 );
                 placeAutomaticTownNpcs(job.level, settlement, job.data);
@@ -14986,6 +14994,14 @@ public final class CobbleventureBootstrap {
 
     static BlockState worldRoadSurfaceBlock(HexWorldPlan world, int x, int z) {
         return fullRoadSurfaceBlock(roadSurfaceChoice(world, x, z));
+    }
+
+    static BlockState worldRoadSurfaceBlock(
+        HexWorldPlan world, int x, int z, Direction ascent
+    ) {
+        return ascent == null
+            ? worldRoadSurfaceBlock(world, x, z)
+            : roadStairBlock(roadSurfaceChoice(world, x, z), ascent);
     }
 
     static int prepareWorldRoadColumn(

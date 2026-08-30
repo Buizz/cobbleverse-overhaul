@@ -17,4 +17,13 @@ final class EventDialogueClientTest {
         assertTrue(EventDialogueClient.usesMovementLockScreen("transition"));
         assertTrue(EventDialogueClient.usesMovementLockScreen("move"));
     }
+
+    @Test
+    void daycareScreenCanReplaceTheCompletedDialogueDuringTransition() {
+        String daycare =
+            "dev.buizz.cobbleventure.adventure.daycare.client.DaycareScreen";
+
+        assertTrue(EventDialogueClient.allowsExternalScreen(daycare, "transition"));
+        assertFalse(EventDialogueClient.allowsExternalScreen(daycare, "say"));
+    }
 }

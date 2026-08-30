@@ -287,6 +287,17 @@ class CvesSemanticTests(unittest.TestCase):
         self.assertEqual(1, len(diagnostics))
         self.assertIn("map, pc, settlement_teleport 중 하나", diagnostics[0].message)
 
+    def test_open_daycare_is_a_parameterless_immediate_command(self) -> None:
+        source = '''event interact {
+  page default {
+    say npc "어서 오세요."
+    open_daycare
+  }
+}
+'''
+
+        self.assertEqual((), validate(parse(source, "daycare.cves")))
+
 
     def test_reports_unknown_variable_wrong_filter_and_bad_resource_id(self) -> None:
         source = '''event interact {

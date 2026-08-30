@@ -103,6 +103,21 @@ final class DaycareJobTest {
         assertEquals(2_000L, job.readyNow(2_000L).nextEggCheckAtMillis());
     }
 
+    @Test
+    void gameTimeTrainingDataStartsSafelyFromCurrentWallClock() {
+        CompoundTag legacy = stored("legacy-trained").save();
+        legacy.putBoolean("training", true);
+        legacy.remove("trainingStartedAtMillis");
+        legacy.putLong("trainingStartedAtGameTime", 1L);
+
+        DaycareJob.StoredPokemon loaded = DaycareJob.StoredPokemon.load(legacy);
+        assertEquals(0, DaycarePolicy.accruedTrainingExperience(loaded, 50_000L));
+
+        DaycareJob.StoredPokemon initialized = loaded.initializeTrainingClock(50_000L);
+        assertEquals(50_000L, initialized.trainingStartedAtMillis());
+        assertEquals(0, DaycarePolicy.accruedTrainingExperience(initialized, 50_000L));
+    }
+
     private static DaycareJob job() {
         return new DaycareJob(
             UUID.randomUUID(), UUID.randomUUID(), List.of(stored("first"), stored("second")),

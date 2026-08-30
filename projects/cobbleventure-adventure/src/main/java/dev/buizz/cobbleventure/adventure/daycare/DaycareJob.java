@@ -110,6 +110,19 @@ final class DaycareJob {
         return copy(pokemon, Math.max(openedAtMillis, nowMillis), feePaid, eggStacks);
     }
 
+    DaycareJob initializeLegacyTraining(long nowMillis) {
+        boolean changed = false;
+        List<StoredPokemon> updated = new ArrayList<>(pokemon.size());
+        for (StoredPokemon value : pokemon) {
+            StoredPokemon initialized = value.initializeTrainingClock(nowMillis);
+            updated.add(initialized);
+            changed |= initialized != value;
+        }
+        return changed
+            ? copy(updated, nextEggCheckAtMillis, feePaid, eggStacks)
+            : this;
+    }
+
     private DaycareJob copy(
         List<StoredPokemon> updatedPokemon, long updatedNextCheck,
         long updatedFee, List<CompoundTag> updatedEggs
@@ -175,10 +188,12 @@ final class DaycareJob {
     record StoredPokemon(
         UUID pokemonId, CompoundTag data, boolean training, long trainingStartedAtMillis
     ) {
+        private static final long UNINITIALIZED_TIME = -1L;
+
         StoredPokemon {
             Objects.requireNonNull(pokemonId, "pokemonId");
             data = Objects.requireNonNull(data, "data").copy();
-            if (trainingStartedAtMillis < 0) {
+            if (trainingStartedAtMillis < UNINITIALIZED_TIME) {
                 throw new IllegalArgumentException("육성 시작 시간이 올바르지 않습니다.");
             }
         }
@@ -189,6 +204,11 @@ final class DaycareJob {
 
         StoredPokemon copy() {
             return new StoredPokemon(pokemonId, data, training, trainingStartedAtMillis);
+        }
+
+        StoredPokemon initializeTrainingClock(long nowMillis) {
+            if (!training || trainingStartedAtMillis != UNINITIALIZED_TIME) return this;
+            return new StoredPokemon(pokemonId, data, true, Math.max(0L, nowMillis));
         }
 
         CompoundTag save() {
@@ -202,9 +222,12 @@ final class DaycareJob {
 
         static StoredPokemon load(CompoundTag tag) {
             if (!tag.hasUUID("pokemonId")) throw new IllegalArgumentException("포켓몬 UUID가 누락되었습니다.");
+            boolean training = tag.getBoolean("training");
+            long startedAt = tag.contains("trainingStartedAtMillis")
+                ? tag.getLong("trainingStartedAtMillis")
+                : training ? UNINITIALIZED_TIME : 0L;
             return new StoredPokemon(
-                tag.getUUID("pokemonId"), tag.getCompound("data"),
-                tag.getBoolean("training"), tag.getLong("trainingStartedAtMillis")
+                tag.getUUID("pokemonId"), tag.getCompound("data"), training, startedAt
             );
         }
     }

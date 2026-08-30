@@ -115,7 +115,15 @@ public final class EventDialogueClient {
             || screen instanceof EventFadeScreen) {
             return true;
         }
-        String className = screen.getClass().getName();
+        return allowsExternalScreen(screen.getClass().getName(), kind);
+    }
+
+    static boolean allowsExternalScreen(String className, String kind) {
+        if (className.equals(
+            "dev.buizz.cobbleventure.adventure.daycare.client.DaycareScreen"
+        )) {
+            return kind.equals("transition");
+        }
         if (className.equals(
             "dev.buizz.cobbleventure.playermenu.client.StarterRouletteScreen"
         )) {

@@ -35,4 +35,22 @@ final class DaycareScreenLayoutTest {
         assertTrue(layout.storageX() + layout.storageWidth()
             <= layout.panelX() + layout.panelWidth() - layout.padding());
     }
+
+    @Test
+    void depositedPokemonUseCompactSquareSlots() {
+        DaycareScreenLayout layout = DaycareScreenLayout.calculate(1280, 720);
+        int gridWidth = layout.storageCardWidth() * 3 + layout.cardGap() * 2;
+
+        assertTrue(layout.storageCardWidth() == layout.storageCardHeight());
+        assertTrue(layout.storageCardWidth() <= 64);
+        assertTrue(gridWidth < layout.storageWidth());
+    }
+
+    @Test
+    void compactPartyRowsKeepEnoughHeightForText() {
+        DaycareScreenLayout layout = DaycareScreenLayout.calculate(480, 270);
+
+        assertTrue(layout.partyCardHeight() >= 18);
+        assertTrue(layout.gridTop() >= layout.panelY() + 55);
+    }
 }

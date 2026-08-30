@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -40,12 +41,14 @@ final class DaycareScreen extends Screen {
     private int partyWidth;
     private int storageX;
     private int storageWidth;
+    private int storageGridX;
     private int gridTop;
     private int storageCardWidth;
     private int storageCardHeight;
     private int cardGap;
     private int gridHeight;
     private int actionY;
+    private int partyCardHeight;
 
     DaycareScreen(DaycareNetwork.ViewPayload payload) {
         super(Component.translatable("screen.cobbleventure_adventure.daycare.title"));
@@ -74,8 +77,10 @@ final class DaycareScreen extends Screen {
         partyX = layout.partyX();
         storageX = layout.storageX();
         storageWidth = layout.storageWidth();
+        storageGridX = layout.storageGridX();
         gridTop = layout.gridTop();
         gridHeight = layout.gridHeight();
+        partyCardHeight = layout.partyCardHeight();
         cardGap = layout.cardGap();
         storageCardWidth = layout.storageCardWidth();
         storageCardHeight = layout.storageCardHeight();
@@ -89,7 +94,6 @@ final class DaycareScreen extends Screen {
         daycareCards.clear();
         models.clear();
 
-        int partyCardHeight = Math.max(16, gridHeight / 6);
         for (int slot = 0; slot < PARTY_SLOTS; slot++) {
             DaycareNetwork.PokemonView view = payload.partySlots().get(slot);
             int y = gridTop + slot * partyCardHeight;
@@ -97,20 +101,25 @@ final class DaycareScreen extends Screen {
                 view, slot, false, partyX, y, partyWidth, partyCardHeight - 2
             ));
             partyCards.add(card);
-            addModel(view, partyX + 2, y + 1, Math.min(22, partyCardHeight - 3));
+            int partyModelSize = Math.min(22, partyCardHeight - 3);
+            if (partyModelSize >= 20) {
+                addModel(view, partyX + 2, y + 1, partyModelSize);
+            }
         }
 
         for (int slot = 0; slot < DAYCARE_SLOTS; slot++) {
             DaycareNetwork.PokemonView view = slot < payload.storedPokemon().size()
                 ? payload.storedPokemon().get(slot) : DaycareNetwork.PokemonView.empty();
-            int x = storageX + (slot % 3) * (storageCardWidth + cardGap);
+            int x = storageGridX + (slot % 3) * (storageCardWidth + cardGap);
             int y = gridTop + (slot / 3) * (storageCardHeight + cardGap);
             PokemonCard card = addRenderableWidget(new PokemonCard(
                 view, slot, true, x, y, storageCardWidth, storageCardHeight
             ));
             daycareCards.add(card);
-            addModel(view, x + 3, y + 5,
-                Math.min(Math.max(18, storageCardWidth - 6), Math.min(32, storageCardHeight - 10)));
+            int modelSize = Math.min(
+                Math.max(18, storageCardWidth - 12), Math.min(30, storageCardHeight - 15)
+            );
+            addModel(view, x + (storageCardWidth - modelSize) / 2, y + 2, modelSize);
         }
 
         int buttonGap = 5;
@@ -185,6 +194,11 @@ final class DaycareScreen extends Screen {
         trainingButton.setMessage(Component.translatable(trainingEnabled
                 ? "screen.cobbleventure_adventure.daycare.training_short_on"
                 : "screen.cobbleventure_adventure.daycare.training_short_off"));
+        trainingButton.setTooltip(Tooltip.create(Component.translatable(
+            "screen.cobbleventure_adventure.daycare.training_tooltip",
+            format(payload.trainingCostPerExperience()),
+            format(payload.maxTrainingExperience())
+        )));
         depositButton.setMessage(Component.translatable(
             "screen.cobbleventure_adventure.daycare.deposit_short", format(payload.fee())
         ));
@@ -223,12 +237,12 @@ final class DaycareScreen extends Screen {
             panelX + 16, panelY + 29, theme.mutedText(), false);
         graphics.drawString(font,
             Component.translatable("screen.cobbleventure_adventure.daycare.party"),
-            partyX, panelY + 44, theme.textColor, false);
+            partyX, gridTop - 13, theme.textColor, false);
         Component storedTitle = Component.translatable(
             "screen.cobbleventure_adventure.daycare.stored",
             payload.storedPokemon().size(), DAYCARE_SLOTS
         );
-        graphics.drawString(font, storedTitle, storageX, panelY + 44,
+        graphics.drawString(font, storedTitle, storageGridX, gridTop - 13,
             theme.textColor, false);
 
         Component breeding = payload.storedPokemon().size() < 2
@@ -277,6 +291,12 @@ final class DaycareScreen extends Screen {
             this.pokemon = pokemon;
             this.slot = slot;
             this.stored = stored;
+            if (!pokemon.emptySlot()) {
+                setTooltip(Tooltip.create(Component.literal(
+                    pokemon.name() + " · Lv." + pokemon.level()
+                        + (pokemon.training() ? " · ★" : "")
+                )));
+            }
             refreshState();
         }
 
@@ -305,7 +325,18 @@ final class DaycareScreen extends Screen {
                     getY() + getHeight() / 2 - 4, theme.mutedText());
                 return;
             }
-            int modelSpace = stored ? Math.min(38, getHeight()) : Math.min(25, getHeight());
+            if (stored) {
+                String level = "Lv." + pokemon.level();
+                drawCenteredNoShadow(graphics, level,
+                    getX() + getWidth() / 2, getY() + getHeight() - 11,
+                    theme.mutedText());
+                if (pokemon.training()) {
+                    graphics.drawString(font, "★", getX() + getWidth() - 11,
+                        getY() + 4, theme.accent, false);
+                }
+                return;
+            }
+            int modelSpace = getHeight() < 22 ? 5 : Math.min(25, getHeight());
             int textX = getX() + modelSpace;
             int textWidth = Math.max(20, getWidth() - modelSpace - 5);
             if (!stored && getHeight() < 27) {
@@ -320,24 +351,12 @@ final class DaycareScreen extends Screen {
                     getX() + getWidth() - levelWidth - 4, textY, theme.mutedText(), false);
                 return;
             }
-            boolean compactStorage = stored && getHeight() < 56;
             graphics.drawString(font,
                 font.plainSubstrByWidth(pokemon.name(), textWidth),
-                textX, getY() + (compactStorage ? 7 : stored ? 12 : 5),
+                textX, getY() + 5,
                 selected ? theme.selectedTextColor : theme.textColor, false);
             graphics.drawString(font, "Lv." + pokemon.level(), textX,
-                getY() + (compactStorage ? getHeight() - 13 : stored ? 27 : 16),
-                theme.mutedText(), false);
-            if (stored && pokemon.training()) {
-                if (compactStorage) {
-                    graphics.drawString(font, "★", getX() + getWidth() - 11,
-                        getY() + 5, theme.accent, false);
-                } else {
-                    graphics.drawString(font,
-                        Component.translatable("screen.cobbleventure_adventure.daycare.training_badge"),
-                        textX, getY() + 42, theme.accent, false);
-                }
-            }
+                getY() + 16, theme.mutedText(), false);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {

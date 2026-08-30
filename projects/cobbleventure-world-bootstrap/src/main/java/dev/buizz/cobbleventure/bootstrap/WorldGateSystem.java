@@ -42,7 +42,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.JigsawBlock;
 import net.minecraft.world.level.block.LeavesBlock;
-import net.minecraft.world.level.block.RespawnAnchorBlock;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -75,6 +74,7 @@ final class WorldGateSystem {
     private static final double MIN_GATE_NPC_SEARCH_RADIUS = 8.0D;
     private static final double GATE_DIALOGUE_APPROACH_DEPTH = 8.0D;
     private static final Map<UUID, Vec3> LAST_POSITIONS = new HashMap<>();
+    private static final Map<UUID, HexCoord> LAST_HEX_CELLS = new HashMap<>();
     private static final Map<UUID, PendingGateDenial> PENDING_DENIALS = new HashMap<>();
     private static final Map<UUID, PendingEventDialogue> PENDING_EVENT_DIALOGUES =
         new HashMap<>();
@@ -212,38 +212,6 @@ final class WorldGateSystem {
         if (markerState.is(Blocks.RESPAWN_ANCHOR)) {
             if (forestGate) {
                 cacheForestEntryMarker(level, world, gate);
-                repairExistingForestGateApproach(level, world, gate);
-            } else {
-                int existingGroundY = CobbleventureBootstrap.nativeTerrainColumn(
-                    world, center.x(), center.z()
-                ).groundY();
-                StructureFootprint existingFootprint = null;
-                List<GateEntrancePlacement> existingEntrances = List.of();
-                if (gate.buildingEnabled()) {
-                    protectExistingGateStructureLeaves(level, gate, center);
-                    // The completed gate occupies the center column. Querying
-                    // the live heightmap here returns its roof and turns the
-                    // repaired approach into a staircase up the facade. Use
-                    // the immutable pre-structure terrain height instead.
-                    existingFootprint = plannedStructureFootprint(
-                        level, gate, center
-                    );
-                    existingEntrances = existingFootprint == null
-                        ? List.of() : plannedGateRoadAnchors(
-                            level, gate, existingFootprint, existingGroundY
-                        );
-                    layGateApproachRoads(
-                        level, world, gate, center, existingFootprint,
-                        existingEntrances, gate.wallThickness() / 2 + 4, true
-                    );
-                }
-                if (gate.surroundingType().equals("natural")) {
-                    refreshNaturalGateSurroundings(level, world, gate, center);
-                    level.setBlock(
-                        marker,
-                        markerState.setValue(RespawnAnchorBlock.CHARGE, 3), 2
-                    );
-                }
             }
             return;
         }
@@ -258,11 +226,24 @@ final class WorldGateSystem {
         StructureFootprint plannedFootprint = shouldPlaceStructure && !forestGate
             ? plannedStructureFootprint(level, gate, center)
             : null;
+        if (plannedFootprint != null) {
+            centerY = roadAlignedGateOriginY(
+                level, world, gate, plannedFootprint, centerY
+            );
+        }
         List<GateEntrancePlacement> plannedEntrances = plannedFootprint == null
             ? List.of()
             : plannedGateRoadAnchors(
                 level, gate, plannedFootprint, centerY
             );
+        if (shouldPlaceStructure && !forestGate
+            && plannedEntrances.size() != 2) {
+            LOGGER.error(
+                "World gate generation stopped because two road_anchor jigsaws are required: gate={}, structure={}",
+                gate.id(), gate.structure()
+            );
+            return;
+        }
         if (forestGate) {
             cacheForestEntryMarker(level, world, gate);
         }
@@ -272,7 +253,7 @@ final class WorldGateSystem {
         if (!forestGate && (!shouldPlaceStructure || plannedFootprint != null)) {
             layGateApproachRoads(
                 level, world, gate, center, plannedFootprint,
-                plannedEntrances, halfThickness, false
+                plannedEntrances, halfThickness
             );
         }
         if (!forestGate && gate.surroundingType().equals("wall")) {
@@ -303,8 +284,13 @@ final class WorldGateSystem {
             );
             return;
         }
+        if (!forestGate && gatePlacement != null) {
+            finishGateRoadAnchorApproaches(
+                level, world, plannedEntrances
+            );
+        }
         if (!forestGate && gate.surroundingType().equals("wall")) {
-            repairWallSurroundingGaps(
+            sealWallSurroundingAfterStructure(
                 level, gate, center, horizontal,
                 halfLength, halfThickness, halfOpening, wallGroundHeights,
                 gatePlacement == null ? null : gatePlacement.footprint()
@@ -314,25 +300,20 @@ final class WorldGateSystem {
             && gate.surroundingType().equals("natural")) {
             // The first pass precedes the NBT so its trees survive road work.
             // Once the facade exists, scan it and close only the exterior seam.
-            refreshNaturalGateSurroundings(level, world, gate, center);
+            finishNaturalGateSurroundings(level, world, gate, center);
         }
         if (gate.npc() != null) {
             spawnNpc(level, gate, center, centerY);
         }
-        BlockState completedMarker = Blocks.RESPAWN_ANCHOR.defaultBlockState();
-        if (!forestGate && gate.surroundingType().equals("natural")
-            && !gate.buildingEnabled()) {
-            completedMarker = completedMarker.setValue(RespawnAnchorBlock.CHARGE, 3);
-        }
-        level.setBlock(marker, completedMarker, 2);
+        level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
         LOGGER.info(
             "World gate generated: id={}, anchor={}, facing={}, building={}, surroundings={}",
             gate.id(), gate.anchor(), gate.facing(), gate.buildingEnabled(), gate.surroundingType()
         );
     }
 
-    /** Restores natural gate shoulders after later road or town generation passes. */
-    private static void refreshNaturalGateSurroundings(
+    /** Finishes natural gate shoulders within the current world-generation run. */
+    private static void finishNaturalGateSurroundings(
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center
     ) {
@@ -344,10 +325,10 @@ final class WorldGateSystem {
             level, world, gate, center,
             halfLength, halfThickness, halfOpening
         );
-        LOGGER.info("Natural gate surroundings restored: gate={}", gate.id());
+        LOGGER.info("Natural gate surroundings finished: gate={}", gate.id());
     }
 
-    static void refreshNaturalSurroundingsAfterTown(
+    static void finishNaturalSurroundingsAfterTownGeneration(
         ServerLevel level, HexWorldPlan world
     ) {
         for (Gate gate : world.gates()) {
@@ -355,7 +336,7 @@ final class WorldGateSystem {
                 || !gate.surroundingType().equals("natural")) {
                 continue;
             }
-            refreshNaturalGateSurroundings(
+            finishNaturalGateSurroundings(
                 level, world, gate, alignedGateCenter(world, gate)
             );
         }
@@ -778,9 +759,6 @@ final class WorldGateSystem {
     ) {
         Direction normal = facingDirection(gate.facing());
         Direction sideways = normal.getClockWise();
-        clearLegacyNaturalBarrierLine(
-            level, gate, center, sideways, halfLength, halfOpening
-        );
         placeNaturalGateWedges(
             level, world, gate, center, normal, sideways,
             halfLength, halfThickness, halfOpening
@@ -1015,13 +993,11 @@ final class WorldGateSystem {
             );
         }
         final StructureFootprint decorationBoundary = treeProtection;
-        // A previous gate revision may already occupy this footprint. Remove
-        // its barriers and obsolete configured tree palette before rebuilding.
+        // The post-structure pass recalculates collision against the now-visible
+        // facade, so discard only barriers from the earlier pass.
         for (NaturalGateColumn column : columns) {
-            clearNaturalWedgeColumn(
-                level, gate, column.terrainType(), column.x(), column.z(),
-                decorationBoundary != null
-                    && decorationBoundary.contains(column.x(), column.z())
+            clearNaturalWedgeBarriers(
+                level, gate, column.x(), column.z()
             );
         }
         List<NaturalGateColumn> decorationColumns = decorationBoundary == null
@@ -1116,51 +1092,14 @@ final class WorldGateSystem {
         return false;
     }
 
-    private static void clearNaturalWedgeColumn(
-        ServerLevel level, Gate gate, String terrainType, int x, int z,
-        boolean clearCurrentNaturalTrees
+    private static void clearNaturalWedgeBarriers(
+        ServerLevel level, Gate gate, int x, int z
     ) {
         int groundY = naturalBarrierGroundY(level, x, z);
-        BlockState configuredLog = blockState(gate.treeLog());
-        BlockState configuredLeaves = blockState(gate.treeLeaves());
-        BlockState naturalLog = blockState(naturalGateTreeLog(terrainType));
-        BlockState naturalLeaves = blockState(naturalGateTreeLeaves(terrainType));
-        boolean forestTerrain = terrainType.equals("high_forest")
-            || terrainType.equals("dense_forest");
-        boolean obsoletePalette = forestTerrain
-            && (!gate.treeLog().equals(naturalGateTreeLog(terrainType))
-                || !gate.treeLeaves().equals(naturalGateTreeLeaves(terrainType)));
         for (int height = 1; height <= gate.barrierHeight(); height++) {
             BlockPos position = new BlockPos(x, groundY + height, z);
-            BlockState state = level.getBlockState(position);
-            if (state.is(Blocks.BARRIER)
-                || (clearCurrentNaturalTrees && forestTerrain
-                    && (state.is(naturalLog.getBlock())
-                        || state.is(naturalLeaves.getBlock())))
-                || (obsoletePalette && (state.is(configuredLog.getBlock())
-                    || state.is(configuredLeaves.getBlock())))) {
+            if (level.getBlockState(position).is(Blocks.BARRIER)) {
                 level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-            }
-        }
-    }
-
-    /** Removes the obsolete center-to-edge collision line before wedge refresh. */
-    private static void clearLegacyNaturalBarrierLine(
-        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
-        Direction sideways, int halfLength, int halfOpening
-    ) {
-        for (int lateral = -halfLength; lateral <= halfLength; lateral++) {
-            if (Math.abs(lateral) <= halfOpening) {
-                continue;
-            }
-            int x = center.x() + sideways.getStepX() * lateral;
-            int z = center.z() + sideways.getStepZ() * lateral;
-            int groundY = naturalBarrierGroundY(level, x, z);
-            for (int height = 1; height <= gate.barrierHeight(); height++) {
-                BlockPos position = new BlockPos(x, groundY + height, z);
-                if (level.getBlockState(position).is(Blocks.BARRIER)) {
-                    level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-                }
             }
         }
     }
@@ -1197,12 +1136,8 @@ final class WorldGateSystem {
         }
         return heightmapGround;
     }
-    /**
-     * Restores only air holes that a gate template's padded air volume cut into
-     * the already generated wall. Existing NBT blocks are left untouched so the
-     * gatehouse can still join and decorate the wall itself.
-     */
-    private static void repairWallSurroundingGaps(
+    /** Seals the thin wall padding after the authored gatehouse is placed. */
+    private static void sealWallSurroundingAfterStructure(
         ServerLevel level, Gate gate, CobbleventureBootstrap.Point center,
         boolean horizontal, int halfLength, int halfThickness, int halfOpening,
         Map<Long, Integer> groundHeights, StructureFootprint structureFootprint
@@ -1215,10 +1150,8 @@ final class WorldGateSystem {
             for (int across = -halfThickness; across <= halfThickness; across++) {
                 int x = center.x() + (horizontal ? along : across);
                 int z = center.z() + (horizontal ? across : along);
-                // Only the thin outer padding of an NBT may be repaired. Air
-                // farther inside the rotated footprint belongs to the authored
-                // gatehouse (rooms and the walk-through passage), not to a gap
-                // in the generated wall.
+                // Only thin outer padding may be sealed. Air farther inside
+                // belongs to authored rooms and the walk-through passage.
                 if (structureFootprint != null
                     && structureFootprint.containsInterior(x, z, 2)) {
                     continue;
@@ -1246,17 +1179,11 @@ final class WorldGateSystem {
     private static void layGateApproachRoads(
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center, StructureFootprint footprint,
-        List<GateEntrancePlacement> entrances, int halfThickness,
-        boolean repairExisting
+        List<GateEntrancePlacement> entrances, int halfThickness
     ) {
         if (!entrances.isEmpty()) {
             for (GateEntrancePlacement entrance : entrances) {
-                if (repairExisting) {
-                    clearLegacyRoofHeightApproach(level, world, entrance);
-                }
-                layAnchoredGateApproach(
-                    level, world, entrance, !repairExisting
-                );
+                layAnchoredGateApproach(level, world, entrance, false);
             }
             return;
         }
@@ -1293,106 +1220,67 @@ final class WorldGateSystem {
         }
     }
 
-    private static void clearLegacyRoofHeightApproach(
-        ServerLevel level, HexWorldPlan world, GateEntrancePlacement entrance
-    ) {
-        Direction outward = entrance.outward();
-        Direction sideways = outward.getClockWise();
-        for (int depth = 1; depth <= MAX_GATE_APPROACH_DEPTH; depth++) {
-            int centerX = entrance.x() + outward.getStepX() * depth;
-            int centerZ = entrance.z() + outward.getStepZ() * depth;
-            int nativeY = CobbleventureBootstrap.nativeTerrainColumn(
-                world, centerX, centerZ
-            ).groundY();
-            for (int lateral = -1; lateral <= 1; lateral++) {
-                int x = centerX + sideways.getStepX() * lateral;
-                int z = centerZ + sideways.getStepZ() * lateral;
-                for (int y = nativeY + 1;
-                    y <= nativeY + MAX_GATE_APPROACH_DEPTH + 4; y++) {
-                    BlockPos position = new BlockPos(x, y, z);
-                    if (isLegacyGateApproachBlock(level.getBlockState(position))) {
-                        level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
-                    }
-                }
-            }
-        }
-    }
-
-    private static boolean isLegacyGateApproachBlock(BlockState state) {
-        return state.is(Blocks.STONE)
-            || state.is(Blocks.STONE_BRICKS)
-            || state.is(Blocks.COBBLESTONE)
-            || state.is(Blocks.ANDESITE)
-            || state.is(Blocks.MOSSY_STONE_BRICKS)
-            || state.is(Blocks.STONE_STAIRS)
-            || state.is(Blocks.STONE_BRICK_STAIRS)
-            || state.is(Blocks.COBBLESTONE_STAIRS)
-            || state.is(Blocks.ANDESITE_STAIRS)
-            || state.is(Blocks.MOSSY_STONE_BRICK_STAIRS);
-    }
-
     private static void layAnchoredGateApproach(
         ServerLevel level, HexWorldPlan world, GateEntrancePlacement entrance,
-        boolean prepareAuthoredLanding
+        boolean finishAfterStructure
     ) {
         Direction outward = entrance.outward();
         Direction sideways = outward.getClockWise();
-        // The default gate has a two-block landing between the template edge
-        // and its first authored stair. Grade that landing as part of the road;
-        // otherwise preserved native terrain can still leave a ledge inside
-        // the footprint even though the external connector is smooth.
-        if (prepareAuthoredLanding) {
-            for (int inwardDepth = 0; inwardDepth <= 1; inwardDepth++) {
-                int centerX = entrance.x() - outward.getStepX() * inwardDepth;
-                int centerZ = entrance.z() - outward.getStepZ() * inwardDepth;
-                for (int lateral = -1; lateral <= 1; lateral++) {
-                    int x = centerX + sideways.getStepX() * lateral;
-                    int z = centerZ + sideways.getStepZ() * lateral;
-                    CobbleventureBootstrap.prepareWorldRoadColumnAtY(
-                        level, world, x, z, entrance.surfaceY()
-                    );
-                    level.setBlock(
-                        new BlockPos(x, entrance.surfaceY(), z),
-                        CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z), 2
-                    );
-                }
-            }
-        }
         int previousY = entrance.surfaceY();
+        List<Integer> heights = new ArrayList<>();
         for (int depth = 1; depth <= MAX_GATE_APPROACH_DEPTH; depth++) {
             int centerX = entrance.x() + outward.getStepX() * depth;
             int centerZ = entrance.z() + outward.getStepZ() * depth;
             int nativeY = CobbleventureBootstrap.nativeTerrainColumn(
                 world, centerX, centerZ
             ).groundY();
-            int roadY = nextGateApproachY(previousY, nativeY);
+            int targetY = finishAfterStructure
+                && entrance.footprint().contains(centerX, centerZ)
+                    ? entrance.surfaceY() : nativeY;
+            int roadY = nextGateApproachY(previousY, targetY);
+            heights.add(roadY);
+            previousY = roadY;
+            if (depth >= MIN_GATE_APPROACH_DEPTH
+                && !entrance.footprint().contains(centerX, centerZ)
+                && roadY == nativeY) {
+                break;
+            }
+        }
+        for (int index = 0; index < heights.size(); index++) {
+            int depth = index + 1;
+            int centerX = entrance.x() + outward.getStepX() * depth;
+            int centerZ = entrance.z() + outward.getStepZ() * depth;
+            int roadY = heights.get(index);
+            int priorY = index == 0 ? entrance.surfaceY() : heights.get(index - 1);
+            Direction ascent = index + 1 < heights.size()
+                && heights.get(index + 1) > roadY
+                    ? outward
+                    : priorY > roadY ? outward.getOpposite() : null;
             for (int lateral = -1; lateral <= 1; lateral++) {
                 int x = centerX + sideways.getStepX() * lateral;
                 int z = centerZ + sideways.getStepZ() * lateral;
-                int previousTopY = level.getHeight(
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z
-                ) - 1;
+                if (!finishAfterStructure && entrance.footprint().contains(x, z)) {
+                    continue;
+                }
                 CobbleventureBootstrap.prepareWorldRoadColumnAtY(
                     level, world, x, z, roadY
                 );
-                // Remove remnants from the old roof-height repair bug. This is
-                // limited to the three-wide connector outside the template;
-                // the authored landing inside the footprint is never scanned
-                // to roof height.
-                for (int y = roadY + 1; y <= previousTopY; y++) {
-                    level.setBlock(
-                        new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), 2
-                    );
-                }
                 level.setBlock(
                     new BlockPos(x, roadY, z),
-                    CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z), 2
+                    CobbleventureBootstrap.worldRoadSurfaceBlock(
+                        world, x, z, ascent
+                    ), 2
                 );
             }
-            previousY = roadY;
-            if (depth >= MIN_GATE_APPROACH_DEPTH && roadY == nativeY) {
-                break;
-            }
+        }
+    }
+
+    private static void finishGateRoadAnchorApproaches(
+        ServerLevel level, HexWorldPlan world,
+        List<GateEntrancePlacement> entrances
+    ) {
+        for (GateEntrancePlacement entrance : entrances) {
+            layAnchoredGateApproach(level, world, entrance, true);
         }
     }
 
@@ -1487,6 +1375,53 @@ final class WorldGateSystem {
         );
     }
 
+    private static int roadAlignedGateOriginY(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        StructureFootprint footprint, int fallbackY
+    ) {
+        if (gate.structure() == null) return fallbackY;
+        ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
+        if (structureId == null) return fallbackY;
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return fallbackY;
+        StructureTemplate structure = template.orElseThrow();
+        Rotation rotation = rotation(gate.rotation());
+        int width = structure.getSize().getX();
+        int depth = structure.getSize().getZ();
+        long originSum = 0L;
+        int anchorCount = 0;
+        for (StructureTemplate.StructureBlockInfo marker : structure.filterBlocks(
+            BlockPos.ZERO, new StructurePlaceSettings(), Blocks.JIGSAW
+        )) {
+            if (marker.nbt() == null
+                || !ROAD_ANCHOR_MARKER.equals(marker.nbt().getString("name"))) {
+                continue;
+            }
+            Direction outward = rotateDirection(
+                JigsawBlock.getFrontFacing(marker.state()), rotation
+            );
+            if (!outward.getAxis().isHorizontal()) continue;
+            BlockPos rotated = rotatedTemplateOffset(
+                marker.pos(), width, depth, rotation
+            );
+            int roadX = footprint.minX() + rotated.getX();
+            int roadZ = footprint.minZ() + rotated.getZ();
+            int guard = Math.max(width, depth) + 2;
+            while (guard-- > 0 && footprint.contains(roadX, roadZ)) {
+                roadX += outward.getStepX();
+                roadZ += outward.getStepZ();
+            }
+            int roadY = CobbleventureBootstrap.nativeTerrainColumn(
+                world, roadX, roadZ
+            ).groundY();
+            originSum += roadY - (marker.pos().getY() - 1L);
+            anchorCount++;
+        }
+        return anchorCount == 0
+            ? fallbackY
+            : (int) Math.round(originSum / (double) anchorCount);
+    }
+
     private static List<GateEntrancePlacement> plannedGateRoadAnchors(
         ServerLevel level, Gate gate, StructureFootprint footprint, int originY
     ) {
@@ -1504,8 +1439,8 @@ final class WorldGateSystem {
         ).stream().filter(info -> info.nbt() != null
             && ROAD_ANCHOR_MARKER.equals(info.nbt().getString("name"))).toList();
         if (markers.isEmpty()) {
-            LOGGER.warn(
-                "Gate NBT has no {} jigsaws; using legacy edge approaches: gate={}, structure={}",
+            LOGGER.error(
+                "Gate NBT has no required {} jigsaws: gate={}, structure={}",
                 ROAD_ANCHOR_MARKER, gate.id(), gate.structure()
             );
             return List.of();
@@ -1535,7 +1470,7 @@ final class WorldGateSystem {
             entrances.add(new GateEntrancePlacement(
                 footprint.minX() + rotated.getX(),
                 footprint.minZ() + rotated.getZ(),
-                originY + marker.pos().getY() - 1, outward
+                originY + marker.pos().getY() - 1, outward, footprint
             ));
         }
         return List.copyOf(entrances);
@@ -1586,23 +1521,6 @@ final class WorldGateSystem {
         };
     }
 
-    private static void protectExistingGateStructureLeaves(
-        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center
-    ) {
-        if (gate.structure() == null) return;
-        ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
-        if (structureId == null) return;
-        var template = level.getStructureManager().get(structureId);
-        if (template.isEmpty()) return;
-        Vec3i size = template.orElseThrow().getSize(rotation(gate.rotation()));
-        int protectionRadius = Math.max(size.getX(), size.getZ()) / 2 + 3;
-        CobbleventureBootstrap.markTreeLeavesPersistentInVolume(
-            level,
-            new BlockPos(center.x(), groundY(level, center.x(), center.z()), center.z()),
-            protectionRadius, size.getY() + 8
-        );
-    }
-
     private static boolean placeForestStructure(
         ServerLevel level, HexWorldPlan world, Gate gate
     ) {
@@ -1646,26 +1564,6 @@ final class WorldGateSystem {
             gate.id(), entry.position(), entry.inward(), placement.origin()
         );
         return true;
-    }
-
-    private static void repairExistingForestGateApproach(
-        ServerLevel level, HexWorldPlan world, Gate gate
-    ) {
-        ForestGateGeometry geometry = forestGateGeometry(world, gate);
-        int groundY = forestGateApproachFloorY(level, world, gate, geometry);
-        ForestTemplatePlacement placement = forestTemplatePlacement(
-            level, gate, geometry, groundY
-        );
-        if (placement == null) {
-            return;
-        }
-        List<GateEntrancePlacement> roadAnchors = placedForestRoadAnchors(
-            gate, placement
-        );
-        if (roadAnchors.isEmpty()) {
-            return;
-        }
-        layForestGateApproach(level, world, gate, placement, roadAnchors);
     }
 
     private static void layForestGateApproach(
@@ -1799,7 +1697,7 @@ final class WorldGateSystem {
             }
             anchors.add(new GateEntrancePlacement(
                 marker.pos().getX(), marker.pos().getZ(),
-                marker.pos().getY() - 1, outward
+                marker.pos().getY() - 1, outward, placement.footprint()
             ));
         }
         if (anchors.isEmpty()) {
@@ -2126,13 +2024,15 @@ final class WorldGateSystem {
         HexGrid grid = world.grid();
         List<Gate> gates = world.gates();
         Vec3 previous = LAST_POSITIONS.put(player.getUUID(), player.position());
-        if (previous == null || player.isSpectator()) {
+        HexCoord currentCell = grid.worldToHex(player.getX(), player.getZ());
+        HexCoord previousCell = LAST_HEX_CELLS.put(player.getUUID(), currentCell);
+        if (previous == null || previousCell == null || player.isSpectator()) {
             return;
         }
         beginPendingEventDialogueDenial(
             player, generationLevel, world, gameTime
         );
-        if (handlePendingDenial(player, gameTime)) {
+        if (handlePendingDenial(player, grid, gameTime)) {
             return;
         }
         for (Gate gate : gates) {
@@ -2146,6 +2046,17 @@ final class WorldGateSystem {
                 continue;
             }
             CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
+            if (isNpcOnlyGate(gate)) {
+                if (!crossedNpcGateHexBoundary(
+                        gate.anchor(), gate.facing(), previousCell, currentCell
+                    )) {
+                    continue;
+                }
+                beginHexGateDenial(
+                    player, world, gate, center, grid, previousCell, gameTime
+                );
+                return;
+            }
             boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
             double normal = horizontal ? player.getZ() - center.z() : player.getX() - center.x();
             double previousNormal = horizontal ? previous.z - center.z() : previous.x - center.x();
@@ -2170,6 +2081,29 @@ final class WorldGateSystem {
             );
             return;
         }
+    }
+
+    private static boolean isNpcOnlyGate(Gate gate) {
+        return gate.npc() != null && gate.centerPlacement().equals("npc");
+    }
+
+    /**
+     * NPC-only gates guard the authored edge between hex cells. The check is
+     * independent of the NPC's radial interaction range and therefore cannot
+     * be bypassed by rubbing along one side of a wide road.
+     */
+    static boolean crossedNpcGateHexBoundary(
+        HexCoord anchor, String facing, HexCoord previous, HexCoord current
+    ) {
+        if (previous.equals(current)) return false;
+        for (HexCoord offset : gateFaceOffsets(facing)) {
+            HexCoord neighbor = anchor.plus(offset);
+            if ((previous.equals(anchor) && current.equals(neighbor))
+                || (previous.equals(neighbor) && current.equals(anchor))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -2238,6 +2172,62 @@ final class WorldGateSystem {
         }
     }
 
+    private static void beginHexGateDenial(
+        ServerPlayer player, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center, HexGrid grid,
+        HexCoord originCell, long gameTime
+    ) {
+        PendingGateDenial pending = createHexGateDenial(
+            player, gate, center, grid, originCell, gameTime
+        );
+        PENDING_DENIALS.put(player.getUUID(), pending);
+        holdPlayer(player, pending.lockedPosition);
+        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+        LAST_HEX_CELLS.put(player.getUUID(), originCell);
+        if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
+            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 20L);
+            if (!openGateNpcDialog(player, world, gate)) {
+                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
+                pending.finished = true;
+            }
+        }
+    }
+
+    private static PendingGateDenial createHexGateDenial(
+        ServerPlayer player, Gate gate, CobbleventureBootstrap.Point center,
+        HexGrid grid, HexCoord originCell, long gameTime
+    ) {
+        CobbleventureBootstrap.Point tileCenter = grid.worldCenter(originCell);
+        double directionX = tileCenter.x() - center.x();
+        double directionZ = tileCenter.z() - center.z();
+        double directionLength = Math.hypot(directionX, directionZ);
+        if (directionLength < 1.0D) {
+            throw new IllegalStateException(
+                "NPC gate origin cell has no direction from its center: " + gate.id()
+            );
+        }
+        directionX /= directionLength;
+        directionZ /= directionLength;
+        double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
+        Vec3 locked = gatePoint(
+            player.serverLevel(), center, directionX, directionZ, threshold + 0.12D
+        );
+        Vec3 retreat = gatePoint(
+            player.serverLevel(), center, directionX, directionZ, threshold + 6.0D
+        );
+        return new PendingGateDenial(locked, retreat, originCell, gameTime);
+    }
+
+    private static Vec3 gatePoint(
+        ServerLevel level, CobbleventureBootstrap.Point center,
+        double directionX, double directionZ, double distance
+    ) {
+        double x = center.x() + directionX * distance;
+        double z = center.z() + directionZ * distance;
+        double y = groundY(level, (int)Math.floor(x), (int)Math.floor(z)) + 1.0D;
+        return new Vec3(x, y, z);
+    }
+
     private static PendingGateDenial createGateDenial(
         ServerPlayer player, Gate gate, CobbleventureBootstrap.Point center,
         boolean horizontal, double side, double threshold, double lateral,
@@ -2261,7 +2251,7 @@ final class WorldGateSystem {
         ) + 1.0D;
         return new PendingGateDenial(
             new Vec3(lockedX, lockedY, lockedZ),
-            new Vec3(retreatX, retreatY, retreatZ), gameTime
+            new Vec3(retreatX, retreatY, retreatZ), null, gameTime
         );
     }
 
@@ -2293,15 +2283,23 @@ final class WorldGateSystem {
             double side = normal == 0.0D
                 ? (gate.facing().equals("north") || gate.facing().equals("west") ? 1.0D : -1.0D)
                 : Math.signum(normal);
-            PendingGateDenial pending = createGateDenial(
-                player, gate, center, horizontal, side, threshold, lateral, gameTime
-            );
+            PendingGateDenial pending = isNpcOnlyGate(gate)
+                ? createHexGateDenial(
+                    player, gate, center, world.grid(),
+                    world.grid().worldToHex(player.getX(), player.getZ()), gameTime
+                )
+                : createGateDenial(
+                    player, gate, center, horizontal, side, threshold, lateral, gameTime
+                );
             pending.sawDialogue = true;
             pending.dialogueOpen = dialogue.open;
             pending.finished = !dialogue.open;
             PENDING_DENIALS.put(player.getUUID(), pending);
             holdPlayer(player, pending.lockedPosition);
             LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+            if (pending.retreatCell != null) {
+                LAST_HEX_CELLS.put(player.getUUID(), pending.retreatCell);
+            }
             return;
         }
     }
@@ -2334,7 +2332,9 @@ final class WorldGateSystem {
         );
     }
 
-    private static boolean handlePendingDenial(ServerPlayer player, long gameTime) {
+    private static boolean handlePendingDenial(
+        ServerPlayer player, HexGrid grid, long gameTime
+    ) {
         PendingGateDenial pending = PENDING_DENIALS.get(player.getUUID());
         if (pending == null) {
             return false;
@@ -2350,10 +2350,20 @@ final class WorldGateSystem {
             );
             player.setDeltaMovement(Vec3.ZERO);
             LAST_POSITIONS.put(player.getUUID(), pending.retreatPosition);
+            LAST_HEX_CELLS.put(
+                player.getUUID(), pending.retreatCell != null
+                    ? pending.retreatCell
+                    : grid.worldToHex(
+                        pending.retreatPosition.x(), pending.retreatPosition.z()
+                    )
+            );
             return true;
         }
         holdPlayer(player, pending.lockedPosition);
         LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+        if (pending.retreatCell != null) {
+            LAST_HEX_CELLS.put(player.getUUID(), pending.retreatCell);
+        }
         return true;
     }
 
@@ -2471,6 +2481,7 @@ final class WorldGateSystem {
             player.getYRot(), player.getXRot()
         );
         LAST_POSITIONS.put(player.getUUID(), player.position());
+        LAST_HEX_CELLS.remove(player.getUUID());
     }
 
     /**
@@ -2604,6 +2615,7 @@ final class WorldGateSystem {
 
     static void forget(ServerPlayer player) {
         LAST_POSITIONS.remove(player.getUUID());
+        LAST_HEX_CELLS.remove(player.getUUID());
         PENDING_DENIALS.remove(player.getUUID());
         PENDING_EVENT_DIALOGUES.remove(player.getUUID());
     }
@@ -2640,6 +2652,9 @@ final class WorldGateSystem {
             target.teleportTo(x + 0.5D, y, z + 0.5D);
             if (target instanceof ServerPlayer player) {
                 LAST_POSITIONS.put(player.getUUID(), player.position());
+                LAST_HEX_CELLS.put(
+                    player.getUUID(), grid.worldToHex(player.getX(), player.getZ())
+                );
             }
             moved++;
         }
@@ -2771,7 +2786,8 @@ final class WorldGateSystem {
     private record GateStructurePlacement(StructureFootprint footprint) {}
 
     private record GateEntrancePlacement(
-        int x, int z, int surfaceY, Direction outward
+        int x, int z, int surfaceY, Direction outward,
+        StructureFootprint footprint
     ) {}
 
     private record NaturalGateColumn(
@@ -2783,16 +2799,19 @@ final class WorldGateSystem {
     private static final class PendingGateDenial {
         private final Vec3 lockedPosition;
         private final Vec3 retreatPosition;
+        private final HexCoord retreatCell;
         private final long startedAt;
         private boolean sawDialogue;
         private boolean dialogueOpen;
         private boolean finished;
 
         private PendingGateDenial(
-            Vec3 lockedPosition, Vec3 retreatPosition, long startedAt
+            Vec3 lockedPosition, Vec3 retreatPosition,
+            HexCoord retreatCell, long startedAt
         ) {
             this.lockedPosition = lockedPosition;
             this.retreatPosition = retreatPosition;
+            this.retreatCell = retreatCell;
             this.startedAt = startedAt;
         }
     }

@@ -108,37 +108,41 @@ final class WorldStructureSystem {
             );
         }
         StructureTemplate template = optional.orElseThrow();
-        Rotation rotation = rotation(configured.rotation());
         CobbleventureBootstrap.Point center = world.grid().worldCenter(configured.anchor());
+        int effectiveRotation = configured.rotation();
+        Rotation rotation = rotation(effectiveRotation);
         Vec3i rotatedSize = template.getSize(rotation);
         CobbleventureBootstrap.Point placementPoint = center;
-        Direction outside = null;
+        CobbleventureBootstrap.Point roadPoint = null;
         BlockPos entranceAnchor = null;
-        String rotationName = rotationName(configured.rotation());
-        if (configured.placementAnchor().equals("road_anchor")) {
-            outside = BuildingRuntimeSystem.exteriorRoadAnchorOutsideDirection(
-                level, configured.structure(), rotationName
+        if (!configured.placementAnchor().equals("center")) {
+            RoadAlignedPlacement aligned = roadAlignedPlacement(
+                level, world, configured, template, center
             );
+            if (aligned != null) {
+                effectiveRotation = aligned.rotation();
+                rotation = rotation(effectiveRotation);
+                rotatedSize = template.getSize(rotation);
+                placementPoint = aligned.entrance();
+                roadPoint = aligned.road();
+                entranceAnchor = aligned.entranceAnchor();
+            }
+        }
+        String rotationName = rotationName(effectiveRotation);
+        if (entranceAnchor == null && configured.placementAnchor().equals("road_anchor")) {
             entranceAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
                 level, configured.structure(), rotationName
             );
-        } else if (configured.placementAnchor().equals("door")) {
-            outside = BuildingRuntimeSystem.exteriorDoorOutsideDirection(
-                configured.structure(), rotationName
-            );
+        } else if (entranceAnchor == null
+            && configured.placementAnchor().equals("door")) {
             entranceAnchor = BuildingRuntimeSystem.exteriorDoorOffset(
                 configured.structure(), rotationName
             );
         }
-        if (outside != null && outside.getAxis().isHorizontal()
-            && entranceAnchor != null) {
-            placementPoint = roadEdgePlacementPoint(
-                world, configured, center, outside, entranceAnchor,
-                template.getSize(), rotation
-            );
-        }
+        CobbleventureBootstrap.Point heightReference = roadPoint == null
+            ? placementPoint : roadPoint;
         int floorY = CobbleventureBootstrap.nativeTerrainColumn(
-            world, placementPoint.x(), placementPoint.z()
+            world, heightReference.x(), heightReference.z()
         ).groundY();
         BlockPos origin;
         if (configured.placementAnchor().equals("road_anchor")) {
@@ -180,6 +184,9 @@ final class WorldStructureSystem {
             center.x(), world.grid().origin().y() - 18, center.z()
         );
         if (!level.getBlockState(marker).is(Blocks.RESPAWN_ANCHOR)) {
+            if (roadPoint != null) {
+                layAccessRoad(level, world, roadPoint, placementPoint, floorY);
+            }
             StructurePlaceSettings settings = new StructurePlaceSettings()
                 .setRotation(rotation)
                 .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
@@ -208,21 +215,23 @@ final class WorldStructureSystem {
             new CobbleventureBootstrap.BlockPoint(
                 origin.getX(), origin.getY(), origin.getZ()
             ),
-            rotationName(configured.rotation())
+            rotationName
         );
         DungeonSystem.registerWorldPlacement(
             level, configured, origin, rotation
         );
     }
 
-    private static CobbleventureBootstrap.Point roadEdgePlacementPoint(
-        HexWorldPlan world, WorldStructure configured,
-        CobbleventureBootstrap.Point center, Direction outside,
-        BlockPos entranceAnchor, Vec3i templateSize, Rotation rotation
+    private static RoadAlignedPlacement roadAlignedPlacement(
+        ServerLevel level, HexWorldPlan world, WorldStructure configured,
+        StructureTemplate template, CobbleventureBootstrap.Point center
     ) {
         List<RouteClearance> routes = world.paths().stream()
-            .filter(path -> path.cells().contains(configured.anchor()))
             .filter(path -> path.corridorWidthBlocks() > 0.0D)
+            .filter(path -> RegionalRouteGeometry.corridorOverlapsHexTile(
+                path.centerline(), center, world.grid().radius(),
+                path.corridorWidthBlocks()
+            ))
             .map(path -> new RouteClearance(
                 path.id(), path.centerline(), roadClearance(path)
             ))
@@ -234,11 +243,162 @@ final class WorldStructureSystem {
                 )
                 .thenComparing(RouteClearance::id))
             .orElse(null);
-        if (route == null) return center;
-        return roadClearingPlacementPoint(
-            route.centerline(), routes, center, outside, entranceAnchor,
-            templateSize, rotation, route.clearance()
+        if (route == null) return null;
+
+        RouteProjection centerProjection = nearestRouteProjection(
+            route.centerline(), center.x(), center.z()
         );
+        if (centerProjection == null) return null;
+        double tangentLength = Math.hypot(
+            centerProjection.tangentX(), centerProjection.tangentZ()
+        );
+        if (tangentLength < 0.0001D) return null;
+        double normalX = -centerProjection.tangentZ() / tangentLength;
+        double normalZ = centerProjection.tangentX() / tangentLength;
+        List<CobbleventureBootstrap.Point> reservations = reservedStructurePoints(
+            world, configured, center
+        );
+
+        RoadAlignedPlacement selected = null;
+        double selectedReservationDistance = Double.NEGATIVE_INFINITY;
+        for (int offset = 0; offset < 4; offset++) {
+            int candidateRotation = Math.floorMod(configured.rotation() + offset, 4);
+            String candidateRotationName = rotationName(candidateRotation);
+            Direction candidateOutside;
+            BlockPos candidateAnchor;
+            if (configured.placementAnchor().equals("road_anchor")) {
+                candidateOutside = BuildingRuntimeSystem.exteriorRoadAnchorOutsideDirection(
+                    level, configured.structure(), candidateRotationName
+                );
+                candidateAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
+                    level, configured.structure(), candidateRotationName
+                );
+            } else {
+                candidateOutside = BuildingRuntimeSystem.exteriorDoorOutsideDirection(
+                    configured.structure(), candidateRotationName
+                );
+                candidateAnchor = BuildingRuntimeSystem.exteriorDoorOffset(
+                    configured.structure(), candidateRotationName
+                );
+            }
+            if (candidateOutside == null || candidateAnchor == null
+                || !candidateOutside.getAxis().isHorizontal()) {
+                continue;
+            }
+            double facingAcrossRoad = normalX * candidateOutside.getStepX()
+                + normalZ * candidateOutside.getStepZ();
+            if (Math.abs(facingAcrossRoad) < 0.5D) {
+                continue;
+            }
+            Rotation candidateTransform = rotation(candidateRotation);
+            CobbleventureBootstrap.Point entrance = roadClearingPlacementPoint(
+                route.centerline(), routes, center, candidateOutside,
+                candidateAnchor, template.getSize(), candidateTransform,
+                route.clearance()
+            );
+            int originX = entrance.x() - candidateAnchor.getX();
+            int originZ = entrance.z() - candidateAnchor.getZ();
+            StructureFootprint footprint = structureFootprint(
+                originX, originZ, template.getSize().getX(),
+                template.getSize().getZ(), candidateTransform
+            );
+            if (routes.stream().anyMatch(candidate ->
+                distanceToFootprint(candidate.centerline(), footprint)
+                    < candidate.clearance())) {
+                continue;
+            }
+            double reservationDistance = reservations.stream()
+                .mapToDouble(point -> pointToRectangleDistance(
+                    point.x(), point.z(), footprint
+                ))
+                .min().orElse(Double.POSITIVE_INFINITY);
+            RouteProjection entranceProjection = nearestRouteProjection(
+                route.centerline(), entrance.x(), entrance.z()
+            );
+            if (entranceProjection == null) continue;
+            RoadAlignedPlacement candidate = new RoadAlignedPlacement(
+                candidateRotation, entrance,
+                new CobbleventureBootstrap.Point(
+                    (int) Math.round(entranceProjection.x()),
+                    (int) Math.round(entranceProjection.z())
+                ),
+                candidateAnchor
+            );
+            if (selected == null
+                || reservationDistance > selectedReservationDistance + 0.001D) {
+                selected = candidate;
+                selectedReservationDistance = reservationDistance;
+            }
+        }
+        return selected;
+    }
+
+    private static List<CobbleventureBootstrap.Point> reservedStructurePoints(
+        HexWorldPlan world, WorldStructure configured,
+        CobbleventureBootstrap.Point center
+    ) {
+        int distance = (int) Math.round(world.grid().radius() * 7.0D / 16.0D);
+        List<CobbleventureBootstrap.Point> reserved = new ArrayList<>();
+        for (var entrance : world.caveEntrances()) {
+            if (!entrance.anchor().equals(configured.anchor())) continue;
+            Direction facing = horizontalDirection(entrance.facing());
+            if (facing != null) {
+                reserved.add(new CobbleventureBootstrap.Point(
+                    center.x() + facing.getStepX() * distance,
+                    center.z() + facing.getStepZ() * distance
+                ));
+            }
+        }
+        for (var gate : world.gates()) {
+            if (!gate.anchor().equals(configured.anchor())) continue;
+            Direction facing = horizontalDirection(gate.facing());
+            if (facing != null) {
+                reserved.add(new CobbleventureBootstrap.Point(
+                    center.x() + facing.getStepX() * distance,
+                    center.z() + facing.getStepZ() * distance
+                ));
+            }
+        }
+        return List.copyOf(reserved);
+    }
+
+    private static Direction horizontalDirection(String facing) {
+        return switch (facing) {
+            case "north" -> Direction.NORTH;
+            case "east" -> Direction.EAST;
+            case "south" -> Direction.SOUTH;
+            case "west" -> Direction.WEST;
+            default -> null;
+        };
+    }
+
+    private static void layAccessRoad(
+        ServerLevel level, HexWorldPlan world,
+        CobbleventureBootstrap.Point road,
+        CobbleventureBootstrap.Point entrance, int roadY
+    ) {
+        int dx = entrance.x() - road.x();
+        int dz = entrance.z() - road.z();
+        int steps = Math.max(Math.abs(dx), Math.abs(dz));
+        double length = Math.max(1.0D, Math.hypot(dx, dz));
+        double normalX = -dz / length;
+        double normalZ = dx / length;
+        for (int step = 0; step <= steps; step++) {
+            double progress = steps == 0 ? 0.0D : step / (double) steps;
+            int centerX = (int) Math.round(road.x() + dx * progress);
+            int centerZ = (int) Math.round(road.z() + dz * progress);
+            for (int side = -1; side <= 1; side++) {
+                int x = (int) Math.round(centerX + normalX * side);
+                int z = (int) Math.round(centerZ + normalZ * side);
+                CobbleventureBootstrap.prepareWorldRoadColumnAtY(
+                    level, world, x, z, roadY
+                );
+                level.setBlock(
+                    new BlockPos(x, roadY, z),
+                    CobbleventureBootstrap.worldRoadSurfaceBlock(world, x, z), 2
+                );
+            }
+        }
     }
 
     private static double roadClearance(WorldPlanModels.ConnectionPath route) {
@@ -283,26 +443,24 @@ final class WorldStructureSystem {
         int maximumDistance = (int) Math.ceil(maximumClearance
             + Math.hypot(templateSize.getX(), templateSize.getZ()) * 4.0D + 64.0D);
         int startDistance = Math.max(1, (int) Math.ceil(clearance));
-        for (int sign : new int[] {preferredSign, -preferredSign}) {
-            for (int distance = startDistance; distance <= maximumDistance; distance++) {
-                int entranceX = (int) Math.round(
-                    projection.x() + normalX * sign * distance
-                );
-                int entranceZ = (int) Math.round(
-                    projection.z() + normalZ * sign * distance
-                );
-                int originX = entranceX - entranceAnchor.getX();
-                int originZ = entranceZ - entranceAnchor.getZ();
-                StructureFootprint footprint = structureFootprint(
-                    originX, originZ, templateSize.getX(), templateSize.getZ(), rotation
-                );
-                boolean clearsEveryRoad = routes.stream().allMatch(route ->
-                    distanceToFootprint(route.centerline(), footprint)
-                        >= route.clearance()
-                );
-                if (clearsEveryRoad) {
-                    return new CobbleventureBootstrap.Point(entranceX, entranceZ);
-                }
+        for (int distance = startDistance; distance <= maximumDistance; distance++) {
+            int entranceX = (int) Math.round(
+                projection.x() + normalX * preferredSign * distance
+            );
+            int entranceZ = (int) Math.round(
+                projection.z() + normalZ * preferredSign * distance
+            );
+            int originX = entranceX - entranceAnchor.getX();
+            int originZ = entranceZ - entranceAnchor.getZ();
+            StructureFootprint footprint = structureFootprint(
+                originX, originZ, templateSize.getX(), templateSize.getZ(), rotation
+            );
+            boolean clearsEveryRoad = routes.stream().allMatch(route ->
+                distanceToFootprint(route.centerline(), footprint)
+                    >= route.clearance()
+            );
+            if (clearsEveryRoad) {
+                return new CobbleventureBootstrap.Point(entranceX, entranceZ);
             }
         }
         int setback = Math.max(1, (int) Math.ceil(clearance));
@@ -574,5 +732,12 @@ final class WorldStructureSystem {
 
     private record RouteClearance(
         String id, List<CobbleventureBootstrap.Point> centerline, double clearance
+    ) {}
+
+    private record RoadAlignedPlacement(
+        int rotation,
+        CobbleventureBootstrap.Point entrance,
+        CobbleventureBootstrap.Point road,
+        BlockPos entranceAnchor
     ) {}
 }

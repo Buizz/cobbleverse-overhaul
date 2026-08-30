@@ -32,6 +32,18 @@ final class DaycareBreedingPolicyTest {
     }
 
     @Test
+    void trainingExperienceIsCappedPerPokemon() {
+        DaycareJob.StoredPokemon trained = new DaycareJob.StoredPokemon(
+            UUID.randomUUID(), new CompoundTag(), true, 1_000L
+        );
+
+        assertEquals(
+            DaycarePolicy.MAX_TRAINING_EXPERIENCE,
+            DaycarePolicy.accruedTrainingExperience(trained, 100_000_000L)
+        );
+    }
+
+    @Test
     void trainingSettlementAllowsNegativeBalance() {
         assertEquals(
             BigInteger.valueOf(-150L),

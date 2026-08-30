@@ -1364,6 +1364,7 @@ final class BuildingRuntimeSystem {
         Set<String> result = new HashSet<>();
         BlockPos position = player.blockPosition();
         for (Map.Entry<String, EventSpaceInstance> eventSpace : EVENT_SPACES.entrySet()) {
+            if (!BuildingEventSpaceIds.isPublic(eventSpace.getKey())) continue;
             for (Map.Entry<String, SpaceInstance> space : eventSpace.getValue().spaces.entrySet()) {
                 if (space.getKey().equals("exterior")) continue;
                 SpaceInstance instance = space.getValue();

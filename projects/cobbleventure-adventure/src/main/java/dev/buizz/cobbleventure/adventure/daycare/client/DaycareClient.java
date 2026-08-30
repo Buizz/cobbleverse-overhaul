@@ -9,10 +9,6 @@ public final class DaycareClient {
 
     public static void open(DaycareNetwork.ViewPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (payload.showGreeting()) {
-            minecraft.setScreen(new DaycareGreetingScreen(payload));
-            return;
-        }
         if (minecraft.screen instanceof DaycareScreen screen && screen.apply(payload)) {
             return;
         }
