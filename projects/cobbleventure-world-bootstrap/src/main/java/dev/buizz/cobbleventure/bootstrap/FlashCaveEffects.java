@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -65,13 +66,17 @@ final class FlashCaveEffects {
     }
 
     private static void applyVisionRule(ServerPlayer player) {
-        FlashRegion region = flashRegions.stream()
+        BlockPos dungeonEntrance = DungeonSystem.flashRequiredDungeonEntrance(player);
+        FlashRegion region = dungeonEntrance == null ? flashRegions.stream()
             .filter(candidate -> candidate.contains(player))
             .findFirst()
-            .orElse(null);
-        String desiredEffect = region == null ? ""
-            : FieldMoveRidingAccess.isActive(player, "flash")
-                ? NIGHT_VISION : region.visionEffect(player);
+            .orElse(null) : null;
+        String desiredEffect = desiredEffect(
+            FieldMoveRidingAccess.isActive(player, "flash"),
+            dungeonEntrance == null
+                ? region == null ? Double.NaN : region.nearestEntranceDistanceSquared(player)
+                : distanceSquared(player, dungeonEntrance)
+        );
         String appliedEffect = player.getPersistentData().getString(APPLIED_EFFECT);
 
         if (!appliedEffect.equals(desiredEffect)) {
@@ -90,6 +95,29 @@ final class FlashCaveEffects {
         } else if (NIGHT_VISION.equals(desiredEffect)) {
             ensureInfiniteEffect(player, MobEffects.NIGHT_VISION);
         }
+    }
+
+    static String desiredEffect(boolean flashActive, double entranceDistanceSquared) {
+        if (Double.isNaN(entranceDistanceSquared)) {
+            return "";
+        }
+        if (flashActive) {
+            return NIGHT_VISION;
+        }
+        if (entranceDistanceSquared <= CLEAR_ENTRANCE_RADIUS * CLEAR_ENTRANCE_RADIUS) {
+            return "";
+        }
+        if (entranceDistanceSquared < FULL_BLINDNESS_RADIUS * FULL_BLINDNESS_RADIUS) {
+            return DARKNESS;
+        }
+        return BLINDNESS;
+    }
+
+    private static double distanceSquared(ServerPlayer player, BlockPos position) {
+        double dx = player.getX() - (position.getX() + 0.5D);
+        double dy = player.getY() - position.getY();
+        double dz = player.getZ() - (position.getZ() + 0.5D);
+        return dx * dx + dy * dy + dz * dz;
     }
 
     private static void ensureInfiniteEffect(
@@ -179,18 +207,11 @@ final class FlashCaveEffects {
                 && player.getZ() >= minZ && player.getZ() <= maxZ;
         }
 
-        String visionEffect(ServerPlayer player) {
-            double nearestDistanceSquared = entrances.stream()
+        double nearestEntranceDistanceSquared(ServerPlayer player) {
+            return entrances.stream()
                 .mapToDouble(entrance -> entrance.distanceSquared(player))
                 .min()
                 .orElse(Double.POSITIVE_INFINITY);
-            if (nearestDistanceSquared <= CLEAR_ENTRANCE_RADIUS * CLEAR_ENTRANCE_RADIUS) {
-                return "";
-            }
-            if (nearestDistanceSquared < FULL_BLINDNESS_RADIUS * FULL_BLINDNESS_RADIUS) {
-                return DARKNESS;
-            }
-            return BLINDNESS;
         }
     }
 

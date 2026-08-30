@@ -457,6 +457,20 @@ final class DungeonSystem {
         return definition != null && !definition.battleRules().allowEscapeActions();
     }
 
+    /** Returns the entrance used as the light falloff origin for a Flash cave dungeon. */
+    static synchronized BlockPos flashRequiredDungeonEntrance(ServerPlayer player) {
+        ActiveRun run = ACTIVE_RUNS.get(player.getUUID());
+        if (run == null || !player.serverLevel().dimension().equals(DUNGEONS)) {
+            return null;
+        }
+        DungeonDefinition definition = definitions.get(run.dungeonId());
+        if (definition == null || definition.terrain().caveSettings() == null
+            || !definition.terrain().caveSettings().requiresFlash()) {
+            return null;
+        }
+        return run.entry();
+    }
+
     static boolean insideRunBounds(Vec3 position, BlockPos origin, BlockPos size) {
         double margin = 2.0D;
         return size.getX() > 0 && size.getY() > 0 && size.getZ() > 0
