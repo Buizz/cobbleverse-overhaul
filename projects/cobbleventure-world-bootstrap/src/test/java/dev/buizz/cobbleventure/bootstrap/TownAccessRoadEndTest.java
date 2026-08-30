@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,6 +62,36 @@ final class TownAccessRoadEndTest {
         ));
         assertTrue(RegionalRouteGeometry.approachIsAquatic(
             "water", true, false
+        ));
+    }
+
+    @Test
+    void connectsARegionalRoadWhenItsCorridorOnlyTouchesATownHex() {
+        var centerline = List.of(
+            new CobbleventureBootstrap.Point(-100, 61),
+            new CobbleventureBootstrap.Point(100, 61)
+        );
+
+        assertTrue(RegionalRouteGeometry.corridorOverlapsHexTile(
+            centerline, new CobbleventureBootstrap.Point(0, 0), 64, 12
+        ));
+        assertFalse(RegionalRouteGeometry.corridorOverlapsHexTile(
+            centerline, new CobbleventureBootstrap.Point(0, 0), 64, 8
+        ));
+    }
+
+    @Test
+    void selectsTheRoadEndClosestToTheOverlappedTown() {
+        var centerline = List.of(
+            new CobbleventureBootstrap.Point(-100, 0),
+            new CobbleventureBootstrap.Point(100, 0)
+        );
+
+        assertFalse(RegionalRouteGeometry.nearestRouteEndIsLast(
+            centerline, new CobbleventureBootstrap.Point(-80, 10)
+        ));
+        assertTrue(RegionalRouteGeometry.nearestRouteEndIsLast(
+            centerline, new CobbleventureBootstrap.Point(80, 10)
         ));
     }
 }

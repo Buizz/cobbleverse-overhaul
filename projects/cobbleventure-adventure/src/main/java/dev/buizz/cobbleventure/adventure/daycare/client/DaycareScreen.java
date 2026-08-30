@@ -18,7 +18,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 final class DaycareScreen extends Screen {
     private static final int PARTY_SLOTS = 6;
     private static final int DAYCARE_SLOTS = 6;
-    private static final int CARD_GAP = 6;
 
     private DaycareNetwork.ViewPayload payload;
     private final List<PokemonCard> partyCards = new ArrayList<>();
@@ -44,6 +43,9 @@ final class DaycareScreen extends Screen {
     private int gridTop;
     private int storageCardWidth;
     private int storageCardHeight;
+    private int cardGap;
+    private int gridHeight;
+    private int actionY;
 
     DaycareScreen(DaycareNetwork.ViewPayload payload) {
         super(Component.translatable("screen.cobbleventure_adventure.daycare.title"));
@@ -63,17 +65,21 @@ final class DaycareScreen extends Screen {
     @Override
     protected void init() {
         theme = DaycareMenuTheme.load(minecraft);
-        panelWidth = Math.min(620, Math.max(300, width - 16));
-        panelHeight = Math.min(342, Math.max(286, height - 12));
-        panelX = (width - panelWidth) / 2;
-        panelY = (height - panelHeight) / 2;
-        partyWidth = Math.clamp(panelWidth / 4, 104, 150);
-        partyX = panelX + 12;
-        storageX = partyX + partyWidth + 15;
-        storageWidth = panelX + panelWidth - 12 - storageX;
-        gridTop = panelY + 55;
-        storageCardWidth = Math.max(42, (storageWidth - CARD_GAP * 2) / 3);
-        storageCardHeight = Math.max(58, Math.min(82, (panelHeight - 160 - CARD_GAP) / 2));
+        DaycareScreenLayout layout = DaycareScreenLayout.calculate(width, height);
+        panelWidth = layout.panelWidth();
+        panelHeight = layout.panelHeight();
+        panelX = layout.panelX();
+        panelY = layout.panelY();
+        partyWidth = layout.partyWidth();
+        partyX = layout.partyX();
+        storageX = layout.storageX();
+        storageWidth = layout.storageWidth();
+        gridTop = layout.gridTop();
+        gridHeight = layout.gridHeight();
+        cardGap = layout.cardGap();
+        storageCardWidth = layout.storageCardWidth();
+        storageCardHeight = layout.storageCardHeight();
+        actionY = layout.actionY();
         rebuildDaycareWidgets();
     }
 
@@ -83,7 +89,7 @@ final class DaycareScreen extends Screen {
         daycareCards.clear();
         models.clear();
 
-        int partyCardHeight = Math.max(27, (storageCardHeight * 2 + CARD_GAP) / 6);
+        int partyCardHeight = Math.max(16, gridHeight / 6);
         for (int slot = 0; slot < PARTY_SLOTS; slot++) {
             DaycareNetwork.PokemonView view = payload.partySlots().get(slot);
             int y = gridTop + slot * partyCardHeight;
@@ -91,23 +97,22 @@ final class DaycareScreen extends Screen {
                 view, slot, false, partyX, y, partyWidth, partyCardHeight - 2
             ));
             partyCards.add(card);
-            addModel(view, partyX + 2, y + 1, Math.min(28, partyCardHeight - 3));
+            addModel(view, partyX + 2, y + 1, Math.min(22, partyCardHeight - 3));
         }
 
         for (int slot = 0; slot < DAYCARE_SLOTS; slot++) {
             DaycareNetwork.PokemonView view = slot < payload.storedPokemon().size()
                 ? payload.storedPokemon().get(slot) : DaycareNetwork.PokemonView.empty();
-            int x = storageX + (slot % 3) * (storageCardWidth + CARD_GAP);
-            int y = gridTop + (slot / 3) * (storageCardHeight + CARD_GAP);
+            int x = storageX + (slot % 3) * (storageCardWidth + cardGap);
+            int y = gridTop + (slot / 3) * (storageCardHeight + cardGap);
             PokemonCard card = addRenderableWidget(new PokemonCard(
                 view, slot, true, x, y, storageCardWidth, storageCardHeight
             ));
             daycareCards.add(card);
             addModel(view, x + 3, y + 5,
-                Math.min(Math.max(20, storageCardWidth - 6), Math.min(48, storageCardHeight - 10)));
+                Math.min(Math.max(18, storageCardWidth - 6), Math.min(32, storageCardHeight - 10)));
         }
 
-        int actionY = gridTop + storageCardHeight * 2 + CARD_GAP + 10;
         int buttonGap = 5;
         int actionWidth = Math.max(34, (storageWidth - buttonGap * 2) / 3);
         trainingButton = addRenderableWidget(new ActionButton(
@@ -296,23 +301,42 @@ final class DaycareScreen extends Screen {
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
                 Math.max(0, theme.rowRadius - 1), fill);
             if (pokemon.emptySlot()) {
-                graphics.drawCenteredString(font, "·", getX() + getWidth() / 2,
+                drawCenteredNoShadow(graphics, "·", getX() + getWidth() / 2,
                     getY() + getHeight() / 2 - 4, theme.mutedText());
                 return;
             }
-            int modelSpace = stored ? Math.min(51, getHeight()) : Math.min(31, getHeight());
+            int modelSpace = stored ? Math.min(38, getHeight()) : Math.min(25, getHeight());
             int textX = getX() + modelSpace;
             int textWidth = Math.max(20, getWidth() - modelSpace - 5);
+            if (!stored && getHeight() < 27) {
+                String level = "Lv." + pokemon.level();
+                int levelWidth = font.width(level);
+                int textY = getY() + Math.max(3, (getHeight() - 8) / 2);
+                graphics.drawString(font,
+                    font.plainSubstrByWidth(pokemon.name(), Math.max(8, textWidth - levelWidth - 3)),
+                    textX, textY,
+                    selected ? theme.selectedTextColor : theme.textColor, false);
+                graphics.drawString(font, level,
+                    getX() + getWidth() - levelWidth - 4, textY, theme.mutedText(), false);
+                return;
+            }
+            boolean compactStorage = stored && getHeight() < 56;
             graphics.drawString(font,
                 font.plainSubstrByWidth(pokemon.name(), textWidth),
-                textX, getY() + (stored ? 12 : 5),
+                textX, getY() + (compactStorage ? 7 : stored ? 12 : 5),
                 selected ? theme.selectedTextColor : theme.textColor, false);
             graphics.drawString(font, "Lv." + pokemon.level(), textX,
-                getY() + (stored ? 27 : 16), theme.mutedText(), false);
+                getY() + (compactStorage ? getHeight() - 13 : stored ? 27 : 16),
+                theme.mutedText(), false);
             if (stored && pokemon.training()) {
-                graphics.drawString(font,
-                    Component.translatable("screen.cobbleventure_adventure.daycare.training_badge"),
-                    textX, getY() + 42, theme.accent, false);
+                if (compactStorage) {
+                    graphics.drawString(font, "★", getX() + getWidth() - 11,
+                        getY() + 5, theme.accent, false);
+                } else {
+                    graphics.drawString(font,
+                        Component.translatable("screen.cobbleventure_adventure.daycare.training_badge"),
+                        textX, getY() + 42, theme.accent, false);
+                }
             }
         }
 
@@ -342,7 +366,7 @@ final class DaycareScreen extends Screen {
             DaycareThemedPanel.roundedFill(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
                 Math.max(0, theme.rowRadius - 1), fill);
-            graphics.drawCenteredString(font,
+            drawCenteredNoShadow(graphics,
                 font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8),
                 getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2,
                 active ? theme.selectedTextColor : theme.mutedText());
@@ -351,5 +375,11 @@ final class DaycareScreen extends Screen {
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
             defaultButtonNarrationText(output);
         }
+    }
+
+    private void drawCenteredNoShadow(
+        GuiGraphics graphics, String text, int centerX, int y, int color
+    ) {
+        graphics.drawString(font, text, centerX - font.width(text) / 2, y, color, false);
     }
 }

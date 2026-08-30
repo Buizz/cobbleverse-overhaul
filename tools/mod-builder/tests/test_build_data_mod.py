@@ -1194,7 +1194,7 @@ class DataModBuilderTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        layout = build_data_mod._compile_town_layout(source)
+        layout = build_data_mod._compile_town_layout(source, root=REPOSITORY_ROOT)
         buildings = {
             **layout["facilities"],
             **{house["id"]: house for house in layout["houses"]},
@@ -1331,6 +1331,23 @@ class DataModBuilderTests(unittest.TestCase):
             self.assertIsNotNone(expected)
             self.assertEqual(expected, (house["width"], house["depth"]))
         self.assertTrue(any((house["width"], house["depth"]) != (16, 16) for house in houses))
+
+    def test_saffron_building_nbt_bounds_do_not_overlap(self) -> None:
+        source = json.loads(
+            (PROJECT_ROOT / "content/settlements/generation_1/saffron_city.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        layout = build_data_mod._compile_town_layout(source, root=REPOSITORY_ROOT)
+        buildings = [*layout["facilities"].values(), *layout["houses"]]
+
+        for index, building in enumerate(buildings):
+            for other in buildings[index + 1:]:
+                self.assertFalse(
+                    build_data_mod._plots_intersect(building, other, 0.0),
+                    f'{building["id"]} overlaps {other["id"]}',
+                )
 
     def test_legacy_wide_house_palette_migrates_to_one_story(self) -> None:
         source = json.loads(

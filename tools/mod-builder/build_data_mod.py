@@ -2040,8 +2040,8 @@ def _compile_town_layout_attempt(
                 continue
             if any(
                 _plots_intersect(
-                    candidate_occupied,
-                    existing.get("occupied", existing),
+                    candidate,
+                    existing,
                     float(density["gap"]),
                 )
                 for existing in plots
@@ -2125,12 +2125,16 @@ def _compile_town_layout_attempt(
                     "x": float(occupied_x), "z": float(occupied_z),
                     "width": occupied["width"], "depth": occupied["depth"],
                 }
+                full_plot = {
+                    "x": float(occupied_x - occupied["min_x"]),
+                    "z": float(occupied_z - occupied["min_z"]),
+                    "width": width, "depth": plot_depth,
+                    "rotation": "none",
+                }
                 if not _plot_inside_town_layout(occupied_plot, cell_count, footprint_shape, custom_cells):
                     continue
                 if any(
-                    _plots_intersect(
-                        occupied_plot, existing.get("occupied", existing), 4.0
-                    )
+                    _plots_intersect(full_plot, existing, 4.0)
                     for existing in plots
                 ):
                     continue

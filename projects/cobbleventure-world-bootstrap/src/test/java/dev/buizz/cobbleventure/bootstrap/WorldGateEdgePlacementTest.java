@@ -46,6 +46,16 @@ final class WorldGateEdgePlacementTest {
     }
 
     @Test
+    void eastAndWestNaturalGateShouldersCanReachTheirOuterBarrier() {
+        assertTrue(WorldGateSystem.gateHasOpenFace(
+            "east", offset -> offset.equals(new HexCoord(1, 0))
+        ));
+        assertTrue(WorldGateSystem.gateHasOpenFace(
+            "west", offset -> offset.equals(new HexCoord(-1, 0))
+        ));
+    }
+
+    @Test
     void northAlwaysStaysCenteredBetweenBothFaces() {
         assertEquals(
             new CobbleventureBootstrap.Point(0, -100),
@@ -127,6 +137,19 @@ final class WorldGateEdgePlacementTest {
         ));
         assertFalse(WorldGateSystem.insideGateTriggerZone(
             3.0D, 0.0D, 2.15D, 31
+        ));
+    }
+
+    @Test
+    void gateDialogueApproachFollowsTheRoadInsteadOfACircle() {
+        assertTrue(WorldGateSystem.insideGateDialogueApproach(
+            7.9D, 6.4D, 11
+        ));
+        assertFalse(WorldGateSystem.insideGateDialogueApproach(
+            0.0D, 6.6D, 11
+        ));
+        assertFalse(WorldGateSystem.insideGateDialogueApproach(
+            8.1D, 0.0D, 11
         ));
     }
 }

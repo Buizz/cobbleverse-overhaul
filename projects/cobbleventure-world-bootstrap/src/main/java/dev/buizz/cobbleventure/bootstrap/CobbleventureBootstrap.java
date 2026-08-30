@@ -14236,12 +14236,32 @@ public final class CobbleventureBootstrap {
         for (ConnectionPath connection : world.paths()) {
             boolean fromTown = settlement.id().equals(connection.from());
             boolean toTown = settlement.id().equals(connection.to());
-            if ((!fromTown && !toTown) || connection.centerline().isEmpty()) {
+            if (connection.centerline().isEmpty()) {
+                continue;
+            }
+            boolean overlapsTownTile = routeCorridorOverlapsSettlement(
+                world, connection, settlement
+            );
+            if (!fromTown && !toTown && overlapsTownTile) {
+                toTown = RegionalRouteGeometry.nearestRouteEndIsLast(
+                    connection.centerline(), townCenter
+                );
+                fromTown = !toTown;
+            }
+            if (!fromTown && !toTown) {
                 continue;
             }
             Point approach = settlementRouteApproach(
                 world, connection, settlement.id(), toTown
             );
+            if (approach == null && overlapsTownTile) {
+                // Coastal town endpoints can already be over water. The road
+                // corridor still touches the authored town hex, so use that
+                // endpoint instead of abandoning the town-to-route join.
+                approach = toTown
+                    ? connection.centerline().getLast()
+                    : connection.centerline().getFirst();
+            }
             if (approach == null) {
                 LOGGER.warn(
                     "Town route could not find a land approach: settlement={}, route={}",
@@ -14282,6 +14302,26 @@ public final class CobbleventureBootstrap {
             "Town roads connected to regional centerlines: settlement={}, routes={}",
             settlement.id(), connected
         );
+    }
+
+    private static boolean routeCorridorOverlapsSettlement(
+        HexWorldPlan world,
+        ConnectionPath connection,
+        SettlementPlan settlement
+    ) {
+        HexSettlement footprint = world.settlements().get(settlement.id());
+        if (footprint == null) {
+            return false;
+        }
+        for (HexCoord cell : townFootprint(footprint)) {
+            if (RegionalRouteGeometry.corridorOverlapsHexTile(
+                connection.centerline(), world.grid().worldCenter(cell),
+                world.grid().radius(), connection.corridorWidthBlocks()
+            )) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isConfiguredRoadSlab(BlockState state) {

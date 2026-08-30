@@ -25,8 +25,9 @@ final class DaycareGreetingScreen extends Screen {
     @Override
     protected void init() {
         theme = DaycareMenuTheme.load(minecraft);
-        panelWidth = Math.min(520, width - 24);
-        panelHeight = Math.min(128, Math.max(104, height / 3));
+        float scale = DaycareScreenLayout.scaleFor(width, height);
+        panelWidth = Math.min(Math.max(1, width - 32), Math.max(300, Math.round(520 * scale)));
+        panelHeight = Math.min(Math.max(1, height - 28), Math.max(92, Math.round(128 * scale)));
         panelX = (width - panelWidth) / 2;
         panelY = height - panelHeight - 18;
         addRenderableWidget(new ContinueButton(
@@ -103,8 +104,10 @@ final class DaycareGreetingScreen extends Screen {
             DaycareThemedPanel.roundedFill(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
                 Math.max(0, theme.rowRadius - 1), fill);
-            graphics.drawCenteredString(font, getMessage(),
-                getX() + getWidth() / 2, getY() + 6, theme.selectedTextColor);
+            String text = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8);
+            graphics.drawString(font, text,
+                getX() + (getWidth() - font.width(text)) / 2,
+                getY() + 6, theme.selectedTextColor, false);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {

@@ -248,9 +248,13 @@ public final class ProgressionNetwork {
         int targets = 0;
         for (ServerPlayer player : players) {
             targets++;
-            if (isUnlocked(player, feature) != unlocked) changed++;
+            boolean wasUnlocked = isUnlocked(player, feature);
+            if (wasUnlocked != unlocked) changed++;
             player.getPersistentData().putBoolean(FEATURE_PREFIX + feature.id, unlocked);
             sync(player);
+            if (unlocked && !wasUnlocked) {
+                ItemAcquisition.showFeatureUnlocked(player, feature.id);
+            }
         }
         int changedCount = changed;
         int targetCount = targets;

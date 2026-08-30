@@ -65,6 +65,20 @@ public final class ItemAcquisition {
         );
     }
 
+    /** Shows a progression unlock with the same themed lower-screen feedback as a key item. */
+    public static void showFeatureUnlocked(ServerPlayer player, String feature) {
+        Component featureName = Component.translatable(
+            "feature.cobbleventure_player_menu." + feature
+        );
+        Component message = Component.translatable(
+            "message.cobbleventure_player_menu.feature_unlocked",
+            player.getDisplayName(), featureName
+        );
+        PacketDistributor.sendToPlayer(
+            player, new AcquiredPayload(message, sound(player, "key_item_acquired"))
+        );
+    }
+
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(NETWORK_VERSION);
         registrar.playToClient(

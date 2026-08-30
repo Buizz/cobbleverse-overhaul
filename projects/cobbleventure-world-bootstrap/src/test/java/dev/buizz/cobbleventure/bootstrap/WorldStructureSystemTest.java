@@ -3,10 +3,14 @@ package dev.buizz.cobbleventure.bootstrap;
 import com.google.gson.JsonParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.block.Rotation;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class WorldStructureSystemTest {
     @Test
@@ -106,5 +110,43 @@ final class WorldStructureSystemTest {
                 center, Direction.WEST, 7
             )
         );
+    }
+
+    @Test
+    void movesTheEntireBuildingFootprintBesideAHorizontalRoad() {
+        var placement = WorldStructureSystem.roadClearingPlacementPoint(
+            List.of(
+                new CobbleventureBootstrap.Point(0, 0),
+                new CobbleventureBootstrap.Point(100, 0)
+            ),
+            new CobbleventureBootstrap.Point(50, 0),
+            Direction.SOUTH,
+            new BlockPos(10, 0, 0),
+            new Vec3i(21, 12, 15),
+            Rotation.NONE,
+            6.0D
+        );
+
+        int structureMaximumZ = placement.z() + 14;
+        assertTrue(placement.z() < 0);
+        assertTrue(structureMaximumZ <= -6);
+    }
+
+    @Test
+    void usesTheRoadNormalInsteadOfFollowingTheRoadDirection() {
+        var placement = WorldStructureSystem.roadClearingPlacementPoint(
+            List.of(
+                new CobbleventureBootstrap.Point(0, -50),
+                new CobbleventureBootstrap.Point(0, 50)
+            ),
+            new CobbleventureBootstrap.Point(0, 0),
+            Direction.WEST,
+            new BlockPos(0, 0, 7),
+            new Vec3i(21, 12, 15),
+            Rotation.NONE,
+            6.0D
+        );
+
+        assertTrue(placement.x() >= 6);
     }
 }
