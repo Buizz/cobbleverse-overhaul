@@ -86,6 +86,7 @@ public final class CobbleventureAdventure {
         BattleWeatherSystem.register();
         BattlePokemonPositioning.register();
         PlayerVersusPlayerProtection.register();
+        DefaultPlayerMovementSpeed.register();
         DaycareService.register();
         DaycareNetwork.register(modBus);
         DaycareProjectionService.register();
@@ -115,5 +116,11 @@ public final class CobbleventureAdventure {
 
     static String authoredWeatherAt(ServerPlayer player) {
         return worldContext.authoredWeatherAt(player);
+    }
+
+    public static AdventureWorldContext.FacilityPosition daycarePaddock(
+        ServerPlayer player
+    ) {
+        return worldContext.daycarePaddock(player);
     }
 }

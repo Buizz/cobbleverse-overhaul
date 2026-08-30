@@ -65,6 +65,13 @@ final class WorldGateSystem {
     private static final int GATE_STRUCTURE_NATURAL_CLEARANCE = 3;
     private static final int MIN_GATE_APPROACH_DEPTH = 8;
     private static final int MAX_GATE_APPROACH_DEPTH = 24;
+    /**
+     * Lets the trigger plane overlap the solid shoulders on both sides of the
+     * authored opening. The overlap accounts for the player's body width and
+     * prevents a wider passage from exposing a sub-block seam at either edge.
+     */
+    private static final double GATE_TRIGGER_EDGE_OVERLAP = 1.0D;
+    private static final double MIN_GATE_NPC_SEARCH_RADIUS = 8.0D;
     private static final Map<UUID, Vec3> LAST_POSITIONS = new HashMap<>();
     private static final Map<UUID, PendingGateDenial> PENDING_DENIALS = new HashMap<>();
     private static final Map<UUID, PendingEventDialogue> PENDING_EVENT_DIALOGUES =
@@ -204,20 +211,22 @@ final class WorldGateSystem {
             if (forestGate) {
                 cacheForestEntryMarker(level, world, gate);
             } else {
+                int existingGroundY = CobbleventureBootstrap.nativeTerrainColumn(
+                    world, center.x(), center.z()
+                ).groundY();
+                StructureFootprint existingFootprint = null;
+                List<GateEntrancePlacement> existingEntrances = List.of();
                 if (gate.buildingEnabled()) {
                     protectExistingGateStructureLeaves(level, gate, center);
                     // The completed gate occupies the center column. Querying
                     // the live heightmap here returns its roof and turns the
                     // repaired approach into a staircase up the facade. Use
                     // the immutable pre-structure terrain height instead.
-                    int existingGroundY = CobbleventureBootstrap.nativeTerrainColumn(
-                        world, center.x(), center.z()
-                    ).groundY();
-                    StructureFootprint existingFootprint = plannedStructureFootprint(
+                    existingFootprint = plannedStructureFootprint(
                         level, gate, center
                     );
-                    List<GateEntrancePlacement> existingEntrances =
-                        existingFootprint == null ? List.of() : plannedGateRoadAnchors(
+                    existingEntrances = existingFootprint == null
+                        ? List.of() : plannedGateRoadAnchors(
                             level, gate, existingFootprint, existingGroundY
                         );
                     layGateApproachRoads(
@@ -225,12 +234,19 @@ final class WorldGateSystem {
                         existingEntrances, gate.wallThickness() / 2 + 4, true
                     );
                 }
-                if (!gate.surroundingType().equals("natural")) return;
-                refreshNaturalGateSurroundings(level, world, gate, center);
-                level.setBlock(
-                    marker,
-                    markerState.setValue(RespawnAnchorBlock.CHARGE, 3), 2
-                );
+                if (gate.surroundingType().equals("natural")) {
+                    refreshNaturalGateSurroundings(level, world, gate, center);
+                    level.setBlock(
+                        marker,
+                        markerState.setValue(RespawnAnchorBlock.CHARGE, 3), 2
+                    );
+                }
+                if (gate.buildingEnabled()) {
+                    sealGateStructureSides(
+                        level, world, gate, existingFootprint,
+                        existingEntrances, existingGroundY
+                    );
+                }
             }
             return;
         }
@@ -302,6 +318,12 @@ final class WorldGateSystem {
             // The first pass precedes the NBT so its trees survive road work.
             // Once the facade exists, scan it and close only the exterior seam.
             refreshNaturalGateSurroundings(level, world, gate, center);
+        }
+        if (!forestGate && gatePlacement != null) {
+            sealGateStructureSides(
+                level, world, gate, gatePlacement.footprint(),
+                plannedEntrances, centerY
+            );
         }
         if (gate.npc() != null) {
             spawnNpc(level, gate, center, centerY);
@@ -1225,6 +1247,76 @@ final class WorldGateSystem {
         }
     }
 
+    /**
+     * Closes only the two lateral sides immediately outside an authored
+     * gatehouse. Its front and back stay completely open for the road, while
+     * irregular terrain can no longer expose a bypass beside the NBT.
+     */
+    private static void sealGateStructureSides(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        StructureFootprint footprint,
+        List<GateEntrancePlacement> entrances, int structureGroundY
+    ) {
+        if (footprint == null || entrances.isEmpty()) {
+            LOGGER.warn(
+                "Gate NBT sides were not sealed because its road anchors are unavailable: gate={}",
+                gate.id()
+            );
+            return;
+        }
+        int columns = 0;
+        boolean passageAlongX = entrances.getFirst().outward().getAxis()
+            == Direction.Axis.X;
+        if (passageAlongX) {
+            for (int x = footprint.minX(); x <= footprint.maxX(); x++) {
+                columns += sealGateSideColumn(
+                    level, world, gate, x, footprint.minZ() - 1,
+                    structureGroundY
+                );
+                columns += sealGateSideColumn(
+                    level, world, gate, x, footprint.maxZ() + 1,
+                    structureGroundY
+                );
+            }
+        } else {
+            for (int z = footprint.minZ(); z <= footprint.maxZ(); z++) {
+                columns += sealGateSideColumn(
+                    level, world, gate, footprint.minX() - 1, z,
+                    structureGroundY
+                );
+                columns += sealGateSideColumn(
+                    level, world, gate, footprint.maxX() + 1, z,
+                    structureGroundY
+                );
+            }
+        }
+        LOGGER.info(
+            "Gate NBT sides sealed: gate={}, columns={}, footprint={}..{} x {}..{}",
+            gate.id(), columns,
+            footprint.minX(), footprint.maxX(), footprint.minZ(), footprint.maxZ()
+        );
+    }
+
+    private static int sealGateSideColumn(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        int x, int z, int structureGroundY
+    ) {
+        int terrainGroundY = CobbleventureBootstrap.nativeTerrainColumn(
+            world, x, z
+        ).groundY();
+        int minY = Math.min(structureGroundY, terrainGroundY) + 1;
+        int maxY = Math.max(structureGroundY, terrainGroundY) + gate.barrierHeight();
+        for (int y = minY; y <= maxY; y++) {
+            BlockPos position = new BlockPos(x, y, z);
+            BlockState state = level.getBlockState(position);
+            if (state.isAir() || state.canBeReplaced()
+                || state.getBlock() instanceof LeavesBlock) {
+                level.setBlock(position, Blocks.BARRIER.defaultBlockState(), 2);
+            }
+        }
+        return 1;
+    }
+
     private static void layGateApproachRoads(
         ServerLevel level, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center, StructureFootprint footprint,
@@ -2031,23 +2123,72 @@ final class WorldGateSystem {
             double normal = horizontal ? player.getZ() - center.z() : player.getX() - center.x();
             double previousNormal = horizontal ? previous.z - center.z() : previous.x - center.x();
             double lateral = horizontal ? player.getX() - center.x() : player.getZ() - center.z();
+            double previousLateral = horizontal ? previous.x - center.x() : previous.z - center.z();
             double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
+            boolean crossed = crossedGateOpening(
+                    previousNormal, previousLateral, normal, lateral,
+                    threshold, gate.openingWidth()
+                ) && Math.abs(normal - previousNormal) < 12.0D;
+            if (!crossed && !insideGateTriggerZone(
+                    normal, lateral, threshold, gate.openingWidth()
+                )) {
+                continue;
+            }
             double side = previousNormal == 0.0D
                 ? (gate.facing().equals("north") || gate.facing().equals("west") ? -1.0D : 1.0D)
                 : Math.signum(previousNormal);
-            boolean crossed = side > 0.0D
-                ? previousNormal > threshold && normal <= threshold
-                : previousNormal < -threshold && normal >= -threshold;
-            if (Math.abs(lateral) > gate.openingWidth() / 2.0D + 0.5D
-                || !crossed || Math.abs(normal - previousNormal) >= 12.0D) {
-                continue;
-            }
             beginGateDenial(
                 player, world, gate, center, horizontal,
                 side, threshold, lateral, gameTime
             );
             return;
         }
+    }
+
+    /**
+     * Tests the point where the player's swept movement crosses the gate
+     * plane, rather than testing only the end position. This closes diagonal
+     * gaps that become noticeable as an authored passage grows wider.
+     */
+    static boolean crossedGateOpening(
+        double previousNormal, double previousLateral,
+        double normal, double lateral,
+        double threshold, int openingWidth
+    ) {
+        double side = Math.signum(previousNormal);
+        if (side == 0.0D) {
+            return false;
+        }
+        double plane = side * threshold;
+        boolean crossed = side > 0.0D
+            ? previousNormal > plane && normal <= plane
+            : previousNormal < plane && normal >= plane;
+        if (!crossed) {
+            return false;
+        }
+        double normalDelta = normal - previousNormal;
+        if (Math.abs(normalDelta) < 1.0E-7D) {
+            return false;
+        }
+        double intersection = (plane - previousNormal) / normalDelta;
+        double crossingLateral = previousLateral
+            + (lateral - previousLateral) * intersection;
+        return Math.abs(crossingLateral)
+            <= openingWidth / 2.0D + GATE_TRIGGER_EDGE_OVERLAP;
+    }
+
+    /**
+     * Acts as a fail-safe volume around the trigger plane. A crossing-only
+     * test can miss a player whose tracking begins while already standing in
+     * the gate band, so every tick also rejects locked players found inside
+     * the full opening.
+     */
+    static boolean insideGateTriggerZone(
+        double normal, double lateral, double threshold, int openingWidth
+    ) {
+        return Math.abs(normal) <= threshold + 0.35D
+            && Math.abs(lateral)
+                <= openingWidth / 2.0D + GATE_TRIGGER_EDGE_OVERLAP;
     }
 
     private static void beginGateDenial(
@@ -2370,9 +2511,13 @@ final class WorldGateSystem {
     ) {
         CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
         int centerY = groundY(player.serverLevel(), center.x(), center.z()) + 1;
+        double searchRadius = Math.max(
+            MIN_GATE_NPC_SEARCH_RADIUS,
+            gate.openingWidth() / 2.0D + GATE_TRIGGER_EDGE_OVERLAP + 1.0D
+        );
         AABB search = new AABB(
-            center.x() - 8.0D, centerY - 4.0D, center.z() - 8.0D,
-            center.x() + 8.0D, centerY + 5.0D, center.z() + 8.0D
+            center.x() - searchRadius, centerY - 4.0D, center.z() - searchRadius,
+            center.x() + searchRadius, centerY + 5.0D, center.z() + searchRadius
         );
         List<Entity> nearbyNpcs = player.serverLevel().getEntitiesOfClass(
             Entity.class, search,

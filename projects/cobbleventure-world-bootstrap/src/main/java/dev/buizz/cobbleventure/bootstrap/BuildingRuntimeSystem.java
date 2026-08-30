@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.AdventureWorldContext;
 import dev.buizz.cobbleventure.adventure.PokemonCenterHealingService;
 import dev.buizz.cobbleventure.adventure.event.EventLocationRef;
 import dev.buizz.cobbleventure.adventure.event.EventMovementFailureReason;
@@ -55,6 +56,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.JigsawBlock;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
@@ -77,6 +79,9 @@ import org.slf4j.Logger;
 final class BuildingRuntimeSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     static final String FIXED_POKEMON_TAG = "cobbleventure_building_pokemon";
+    private static final String DAYCARE_STRUCTURE = "cobbleventure:placeholder/daycare";
+    private static final String DAYCARE_NPC_TAG =
+        "cobbleventure_npc/cobbleventure/npc/facilities/daycare_attendant";
     private static final String DATA_FILE = "cobbleventure_building_runtime";
     private static final String INTERACTION_COOLDOWN = "cobbleventureBuildingDoorCooldown";
     private static final int LARGE_SLOT_SPACING = 512;
@@ -104,6 +109,35 @@ final class BuildingRuntimeSystem {
             EventPriority.HIGHEST, BuildingRuntimeSystem::onEntityInteract
         );
         NeoForge.EVENT_BUS.addListener(BuildingRuntimeSystem::onServerTick);
+    }
+
+    static AdventureWorldContext.FacilityPosition daycarePaddock(
+        ServerPlayer player
+    ) {
+        for (EventSpaceInstance eventSpace : EVENT_SPACES.values()) {
+            SpaceInstance exterior = eventSpace.spaces.get("exterior");
+            if (exterior == null
+                || !exterior.structure.equals("cobbleventure:placeholder/daycare")) {
+                continue;
+            }
+            boolean inside = eventSpace.spaces.entrySet().stream()
+                .filter(entry -> !entry.getKey().equals("exterior"))
+                .map(Map.Entry::getValue)
+                .anyMatch(space -> space.level == player.serverLevel()
+                    && space.contains(player.blockPosition()));
+            if (!inside) {
+                continue;
+            }
+            for (Anchor anchor : exterior.metadata.anchors) {
+                if (anchor.id.equals("paddock")) {
+                    return new AdventureWorldContext.FacilityPosition(
+                        exterior.level.dimension().location(),
+                        transform(exterior.origin, anchor.position, exterior.rotation)
+                    );
+                }
+            }
+        }
+        return null;
     }
 
     static void initialize(MinecraftServer server) {
@@ -152,6 +186,11 @@ final class BuildingRuntimeSystem {
         Rotation rotation = rotation(rotationName);
         String instanceKey = instanceKey(level, structure, origin.toBlockPos());
         BuildingSettings settings = settingsForStructure(structure);
+        if (structure.equals(DAYCARE_STRUCTURE)) {
+            removeLegacyExteriorDaycareAttendant(
+                level, metadata, origin.toBlockPos(), rotation
+            );
+        }
         applyFixedNpcs(
             level, metadata, origin.toBlockPos(), rotation, instanceKey,
             settings == null ? Map.of() : settings.fixedNpcs, "exterior"
@@ -189,6 +228,29 @@ final class BuildingRuntimeSystem {
                 level, structure, metadata, origin.toBlockPos(), rotation,
                 instanceKey, settings, eventSpaceId, vendorAssignments
             );
+        }
+    }
+
+    private static void removeLegacyExteriorDaycareAttendant(
+        ServerLevel level, StructureMetadata metadata,
+        BlockPos origin, Rotation rotation
+    ) {
+        for (Anchor anchor : metadata.anchors) {
+            if (!anchor.id.equals("paddock")) {
+                continue;
+            }
+            BlockPos position = transform(origin, anchor.position, rotation);
+            AABB area = new AABB(position).inflate(2.0D);
+            for (Entity entity : level.getEntities((Entity) null, area)) {
+                if (entity.getTags().contains(DAYCARE_NPC_TAG)) {
+                    entity.discard();
+                    LOGGER.info(
+                        "Removed legacy exterior daycare attendant: uuid={}, position={}",
+                        entity.getUUID(), position
+                    );
+                }
+            }
+            return;
         }
     }
 
@@ -715,6 +777,47 @@ final class BuildingRuntimeSystem {
         return anchors.isEmpty() ? null : anchors.getFirst().pos();
     }
 
+    static Direction exteriorRoadAnchorOutsideDirection(
+        ServerLevel level, String structure, String rotationName
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(structure);
+        if (structureId == null) return null;
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return null;
+        List<StructureTemplate.StructureBlockInfo> anchors = template.orElseThrow()
+            .filterBlocks(
+                BlockPos.ZERO, new StructurePlaceSettings(), Blocks.JIGSAW
+            ).stream()
+            .filter(marker -> marker.nbt() != null
+                && "cobbleventure:road_anchor".equals(marker.nbt().getString("name")))
+            .toList();
+        if (anchors.size() != 1) return null;
+        Direction authored = JigsawBlock.getFrontFacing(anchors.getFirst().state());
+        return rotation(rotationName).rotate(authored);
+    }
+
+    static BlockPos exteriorDoorOffset(String structure, String rotationName) {
+        StructureMetadata metadata = METADATA.get(structure);
+        if (metadata == null) return null;
+        Anchor door = metadata.first("door");
+        if (door == null || door.position == null) return null;
+        return StructureTemplate.transform(
+            door.position, Mirror.NONE, rotation(rotationName), BlockPos.ZERO
+        );
+    }
+
+    static Direction exteriorDoorOutsideDirection(
+        String structure, String rotationName
+    ) {
+        StructureMetadata metadata = METADATA.get(structure);
+        if (metadata == null) return null;
+        Anchor door = metadata.first("door");
+        if (door == null || door.facing == null) return null;
+        // Door metadata stores the direction into the room. The road belongs
+        // on the safe/outside side, which is the opposite direction.
+        return rotation(rotationName).rotate(door.facing.getOpposite());
+    }
+
     static String musicTrack(String structure) {
         BuildingSettings settings = settingsForStructure(structure);
         return settings == null ? null : settings.musicTrack;
@@ -1191,15 +1294,19 @@ final class BuildingRuntimeSystem {
             index++;
         }
 
-        if (eventSpaceId != null && !eventSpaceId.isBlank()) {
-            EventSpaceInstance existing = EVENT_SPACES.get(eventSpaceId);
+        boolean isDaycare = exteriorStructure.equals(DAYCARE_STRUCTURE);
+        if ((eventSpaceId != null && !eventSpaceId.isBlank()) || isDaycare) {
+            String registrationKey = eventSpaceId == null || eventSpaceId.isBlank()
+                ? "__daycare_instance__|" + instanceKey
+                : eventSpaceId;
+            EventSpaceInstance existing = EVENT_SPACES.get(registrationKey);
             if (existing != null && !existing.instanceKey.equals(instanceKey)) {
                 throw new IllegalStateException(
-                    "Duplicate building event space ID: " + eventSpaceId
+                    "Duplicate building event space ID: " + registrationKey
                 );
             }
             EVENT_SPACES.put(
-                eventSpaceId, new EventSpaceInstance(instanceKey, Map.copyOf(spaces))
+                registrationKey, new EventSpaceInstance(instanceKey, Map.copyOf(spaces))
             );
         }
 

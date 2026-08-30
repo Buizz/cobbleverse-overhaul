@@ -1,8 +1,8 @@
 event interact(range: 4) {
   page default {
     say npc {
-      ko_kr: "두 포켓몬을 맡기거나 준비된 알을 찾아가세요."
-      en_us: "Leave two Pokemon with me, or collect an Egg when it is ready."
+      ko_kr: "포켓몬을 맡기거나 찾아가시겠어요? 원하시면 함께 육성해 드릴게요."
+      en_us: "Would you like to deposit or withdraw a Pokemon? We can train them too."
     }
   }
 }

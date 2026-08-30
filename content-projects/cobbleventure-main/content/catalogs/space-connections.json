@@ -30,6 +30,18 @@
         ]
       }
     },
+    "building:cobbleventure:houses/bill_house": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ],
+        "room_1": [
+          466,
+          137
+        ]
+      }
+    },
     "building:cobbleventure:houses/five_story_flat": {
       "nodes": {
         "exterior": [
@@ -59,18 +71,6 @@
         "exterior": [
           90,
           170
-        ]
-      }
-    },
-    "building:cobbleventure:houses/bill_house": {
-      "nodes": {
-        "exterior": [
-          90,
-          170
-        ],
-        "room_1": [
-          466,
-          137
         ]
       }
     },
@@ -203,6 +203,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          470,
+          90
         ]
       }
     },
@@ -211,6 +215,10 @@
         "exterior": [
           90,
           170
+        ],
+        "room_1": [
+          430,
+          135
         ]
       }
     },
@@ -270,6 +278,14 @@
         ]
       }
     },
+    "building:cobbleventure:placeholder/pokemon_tower": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
     "building:cobbleventure:placeholder/power_plant": {
       "nodes": {
         "exterior": [
@@ -279,6 +295,14 @@
       }
     },
     "building:cobbleventure:placeholder/radio_tower": {
+      "nodes": {
+        "exterior": [
+          90,
+          170
+        ]
+      }
+    },
+    "building:cobbleventure:placeholder/silph_company": {
       "nodes": {
         "exterior": [
           90,
@@ -399,13 +423,6 @@
       }
     }
   },
-  "dungeon_entrance_assignments": [
-    {
-      "structure": "cobbleventure:interiors/casino",
-      "anchor": "transition",
-      "entrance_id": "cobbleventure:entrance/casino_hideout"
-    }
-  ],
   "annotations": {
     "building:cobbleventure:facilities/department_store": {
       "route_1": {
@@ -417,10 +434,6 @@
     },
     "building:cobbleventure:facilities/pokemart": {},
     "building:cobbleventure:facilities/pokemon_center": {},
-    "building:cobbleventure:houses/five_story_flat": {},
-    "building:cobbleventure:houses/five_story_gable": {},
-    "building:cobbleventure:houses/five_story_gambrel": {},
-    "building:cobbleventure:houses/five_story_shed": {},
     "building:cobbleventure:houses/bill_house": {
       "route_1": {
         "condition_mode": "all",
@@ -429,6 +442,10 @@
         "enter_dialogue": []
       }
     },
+    "building:cobbleventure:houses/five_story_flat": {},
+    "building:cobbleventure:houses/five_story_gable": {},
+    "building:cobbleventure:houses/five_story_gambrel": {},
+    "building:cobbleventure:houses/five_story_shed": {},
     "building:cobbleventure:houses/one_story_flat": {
       "route_1": {
         "condition_mode": "all",
@@ -477,8 +494,28 @@
         "enter_dialogue": []
       }
     },
-    "building:cobbleventure:placeholder/daycare": {},
-    "building:cobbleventure:placeholder/fossil_laboratory": {},
+    "building:cobbleventure:placeholder/daycare": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      },
+      "route_2": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
+    "building:cobbleventure:placeholder/fossil_laboratory": {
+      "route_1": {
+        "condition_mode": "all",
+        "conditions": [],
+        "locked_dialogue": [],
+        "enter_dialogue": []
+      }
+    },
     "building:cobbleventure:placeholder/gym_site": {},
     "building:cobbleventure:placeholder/hotel": {},
     "building:cobbleventure:placeholder/laboratory": {
@@ -499,8 +536,10 @@
         "enter_dialogue": []
       }
     },
+    "building:cobbleventure:placeholder/pokemon_tower": {},
     "building:cobbleventure:placeholder/power_plant": {},
     "building:cobbleventure:placeholder/radio_tower": {},
+    "building:cobbleventure:placeholder/silph_company": {},
     "building:cobbleventure:placeholder/tm_workshop": {},
     "building:cobbleventure:placeholder/train_station": {},
     "gym:cobbleventure:gym/pewter": {
@@ -567,5 +606,12 @@
         "enter_dialogue": []
       }
     }
-  }
+  },
+  "dungeon_entrance_assignments": [
+    {
+      "structure": "cobbleventure:interiors/casino",
+      "anchor": "transition",
+      "entrance_id": "cobbleventure:entrance/casino_hideout"
+    }
+  ]
 }

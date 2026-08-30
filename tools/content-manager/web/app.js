@@ -29,7 +29,10 @@ const state = {
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
   trainerAssignmentPicker: { scope: null, query: "", biome: "all", levelMode: "all" },
+  gateNpcPicker: { target: null, query: "", kind: "all" },
   npcFilter: "all",
+  systemNpcs: { loaded: false, items: [] },
+  resourcePackCharacters: { packs: [], items: [], query: "", kind: "all", target: "" },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
@@ -905,7 +908,7 @@ function switchPage(section) {
   const activeNavigationItem = $(`.nav-item[data-section="${navigationSection}"]`);
   if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "dungeon-pieces": "던전 조각 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", "system-npcs": "시스템 NPC", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "dungeon-pieces": "던전 조각 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -1118,6 +1121,367 @@ async function loadTrainerData(force = false) {
   })();
   try { await lazyDataPromises.trainers; }
   finally { lazyDataPromises.trainers = null; }
+}
+
+async function loadSystemNpcs(force = false) {
+  if (state.systemNpcs.loaded && !force) return;
+  const [result, resourcePackCharacters] = await Promise.all([
+    request("/api/system-npcs"), request("/api/resource-pack-characters")
+  ]);
+  if (!result.ok) throw new Error(result.data.error || "시스템 NPC 목록을 불러오지 못했습니다.");
+  state.systemNpcs = { loaded: true, items: result.data.items || [] };
+  state.resourcePackCharacters.packs = resourcePackCharacters.ok ? (resourcePackCharacters.data.packs || []) : [];
+  state.resourcePackCharacters.items = resourcePackCharacters.ok ? (resourcePackCharacters.data.items || []) : [];
+  if (!state.resourcePackCharacters.target || !state.systemNpcs.items.some((item) => item.id === state.resourcePackCharacters.target)) {
+    state.resourcePackCharacters.target = state.systemNpcs.items[0]?.id || "";
+  }
+}
+
+function systemNpcClassOptions(selected) {
+  return state.trainerClasses.map((entry) => {
+    const label = entry.display_name?.ko_kr || entry.display_name?.en_us || entry.id;
+    return `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+}
+
+function systemNpcReferenceLabel(reference) {
+  const filename = String(reference.path || "").split("/").at(-1);
+  return `${filename} · ${reference.value_path || "$"}`;
+}
+
+const systemNpcSkinImages = new Map();
+const systemNpcPreviewStates = new WeakMap();
+
+function loadSystemNpcSkin(url) {
+  if (!systemNpcSkinImages.has(url)) {
+    systemNpcSkinImages.set(url, new Promise((resolve, reject) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("스킨 이미지를 불러오지 못했습니다."));
+      image.src = url;
+    }));
+  }
+  return systemNpcSkinImages.get(url);
+}
+
+function skinFace(x, y, width, height) {
+  return { x, y, width, height };
+}
+
+function skinCuboid(top, right, front, left, back) {
+  return { top, right, front, left, back };
+}
+
+function systemNpcSkinParts(slim, legacy) {
+  const armWidth = slim ? 3 : 4;
+  const rightArm = skinCuboid(
+    skinFace(44, 16, armWidth, 4), skinFace(40, 20, 4, 12),
+    skinFace(44, 20, armWidth, 12), skinFace(44 + armWidth, 20, 4, 12),
+    skinFace(48 + armWidth, 20, armWidth, 12)
+  );
+  const rightArmLayer = skinCuboid(
+    skinFace(44, 32, armWidth, 4), skinFace(40, 36, 4, 12),
+    skinFace(44, 36, armWidth, 12), skinFace(44 + armWidth, 36, 4, 12),
+    skinFace(48 + armWidth, 36, armWidth, 12)
+  );
+  const leftArm = legacy ? rightArm : skinCuboid(
+    skinFace(36, 48, armWidth, 4), skinFace(32, 52, 4, 12),
+    skinFace(36, 52, armWidth, 12), skinFace(36 + armWidth, 52, 4, 12),
+    skinFace(40 + armWidth, 52, armWidth, 12)
+  );
+  const leftArmLayer = legacy ? null : skinCuboid(
+    skinFace(52, 48, armWidth, 4), skinFace(48, 52, 4, 12),
+    skinFace(52, 52, armWidth, 12), skinFace(52 + armWidth, 52, 4, 12),
+    skinFace(56 + armWidth, 52, armWidth, 12)
+  );
+  const rightLeg = skinCuboid(
+    skinFace(4, 16, 4, 4), skinFace(0, 20, 4, 12), skinFace(4, 20, 4, 12),
+    skinFace(8, 20, 4, 12), skinFace(12, 20, 4, 12)
+  );
+  const leftLeg = legacy ? rightLeg : skinCuboid(
+    skinFace(20, 48, 4, 4), skinFace(16, 52, 4, 12), skinFace(20, 52, 4, 12),
+    skinFace(24, 52, 4, 12), skinFace(28, 52, 4, 12)
+  );
+  return [
+    { box: [-4, 4, 0, 8, -4, 4], base: skinCuboid(skinFace(8, 0, 8, 8), skinFace(0, 8, 8, 8), skinFace(8, 8, 8, 8), skinFace(16, 8, 8, 8), skinFace(24, 8, 8, 8)), layer: skinCuboid(skinFace(40, 0, 8, 8), skinFace(32, 8, 8, 8), skinFace(40, 8, 8, 8), skinFace(48, 8, 8, 8), skinFace(56, 8, 8, 8)), layerSize: .5 },
+    { box: [-4, 4, 8, 20, -2, 2], base: skinCuboid(null, skinFace(16, 20, 4, 12), skinFace(20, 20, 8, 12), skinFace(28, 20, 4, 12), skinFace(32, 20, 8, 12)), layer: legacy ? null : skinCuboid(null, skinFace(16, 36, 4, 12), skinFace(20, 36, 8, 12), skinFace(28, 36, 4, 12), skinFace(32, 36, 8, 12)), layerSize: .15 },
+    { box: [-4 - armWidth, -4, 8, 20, -2, 2], base: rightArm, layer: legacy ? null : rightArmLayer, layerSize: .15 },
+    { box: [4, 4 + armWidth, 8, 20, -2, 2], base: leftArm, layer: leftArmLayer, layerSize: .15 },
+    { box: [-4, 0, 20, 32, -2, 2], base: rightLeg, layer: legacy ? null : skinCuboid(null, skinFace(0, 36, 4, 12), skinFace(4, 36, 4, 12), skinFace(8, 36, 4, 12), skinFace(12, 36, 4, 12)), layerSize: .15 },
+    { box: [0, 4, 20, 32, -2, 2], base: leftLeg, layer: legacy ? null : skinCuboid(null, skinFace(0, 52, 4, 12), skinFace(4, 52, 4, 12), skinFace(8, 52, 4, 12), skinFace(12, 52, 4, 12)), layerSize: .15 }
+  ];
+}
+
+function drawSystemNpcSkinFace(context, image, uv, points) {
+  if (!uv) return;
+  const sourceScaleX = image.naturalWidth / 64;
+  const sourceScaleY = image.naturalHeight / (image.naturalHeight >= image.naturalWidth ? 64 : 32);
+  const sourceX = uv.x * sourceScaleX, sourceY = uv.y * sourceScaleY;
+  const sourceWidth = uv.width * sourceScaleX, sourceHeight = uv.height * sourceScaleY;
+  const [topLeft, topRight,, bottomLeft] = points;
+  context.save();
+  context.beginPath();
+  context.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) context.lineTo(points[index].x, points[index].y);
+  context.closePath();
+  context.clip();
+  context.setTransform(
+    (topRight.x - topLeft.x) / sourceWidth,
+    (topRight.y - topLeft.y) / sourceWidth,
+    (bottomLeft.x - topLeft.x) / sourceHeight,
+    (bottomLeft.y - topLeft.y) / sourceHeight,
+    topLeft.x - sourceX * (topRight.x - topLeft.x) / sourceWidth - sourceY * (bottomLeft.x - topLeft.x) / sourceHeight,
+    topLeft.y - sourceX * (topRight.y - topLeft.y) / sourceWidth - sourceY * (bottomLeft.y - topLeft.y) / sourceHeight
+  );
+  context.imageSmoothingEnabled = false;
+  context.drawImage(image, 0, 0);
+  context.restore();
+}
+
+function renderSystemNpc3dPreview(canvas) {
+  const preview = systemNpcPreviewStates.get(canvas);
+  if (!preview?.image) return;
+  const context = canvas.getContext("2d");
+  const width = canvas.width, height = canvas.height;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, width, height);
+  context.imageSmoothingEnabled = false;
+  context.fillStyle = "rgba(30, 56, 47, .14)";
+  context.beginPath();
+  context.ellipse(width / 2, height - 28, 62, 13, 0, 0, Math.PI * 2);
+  context.fill();
+
+  const yaw = preview.yaw;
+  const sinYaw = Math.sin(yaw), cosYaw = Math.cos(yaw), scale = 7.2;
+  const project = ([x, y, z]) => {
+    const horizontal = x * cosYaw - z * sinYaw;
+    const depth = x * sinYaw + z * cosYaw;
+    return { x: width / 2 + horizontal * scale, y: 24 + y * scale - depth * scale * .29, depth };
+  };
+  const faces = [];
+  const addFaces = (box, texture, expansion, layer) => {
+    if (!texture) return;
+    let [x0, x1, y0, y1, z0, z1] = box;
+    x0 -= expansion; x1 += expansion; y0 -= expansion; y1 += expansion; z0 -= expansion; z1 += expansion;
+    const definitions = [
+      ["front", [0, 0, 1], [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]],
+      ["back", [0, 0, -1], [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]]],
+      ["right", [1, 0, 0], [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]]],
+      ["left", [-1, 0, 0], [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]]],
+      ["top", [0, -1, 0], [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]]]
+    ];
+    for (const [name, normal, vertices] of definitions) {
+      if (!texture[name]) continue;
+      if (name !== "top" && normal[0] * sinYaw + normal[2] * cosYaw <= .015) continue;
+      const points = vertices.map(project);
+      faces.push({ uv: texture[name], points, depth: points.reduce((sum, point) => sum + point.depth, 0) / 4 + layer * .001 });
+    }
+  };
+  const legacy = preview.image.naturalHeight * 2 <= preview.image.naturalWidth;
+  for (const part of systemNpcSkinParts(canvas.dataset.armModel === "slim", legacy)) {
+    addFaces(part.box, part.base, 0, 0);
+    addFaces(part.box, part.layer, part.layerSize, 1);
+  }
+  faces.sort((left, right) => left.depth - right.depth);
+  for (const face of faces) drawSystemNpcSkinFace(context, preview.image, face.uv, face.points);
+}
+
+function initializeSystemNpc3dPreview(canvas) {
+  if (!canvas || canvas.dataset.previewReady === "true") return;
+  canvas.dataset.previewReady = "true";
+  const preview = { image: null, yaw: .48, drag: null };
+  systemNpcPreviewStates.set(canvas, preview);
+  loadSystemNpcSkin(canvas.dataset.skinUrl).then((image) => {
+    preview.image = image;
+    renderSystemNpc3dPreview(canvas);
+  }).catch(() => {
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#73867d";
+    context.font = "12px sans-serif";
+    context.textAlign = "center";
+    context.fillText("3D 미리보기 없음", canvas.width / 2, canvas.height / 2);
+  });
+  canvas.addEventListener("pointerdown", (event) => {
+    preview.drag = { pointerId: event.pointerId, x: event.clientX, yaw: preview.yaw };
+    canvas.setPointerCapture(event.pointerId);
+    canvas.classList.add("is-dragging");
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (!preview.drag || preview.drag.pointerId !== event.pointerId) return;
+    preview.yaw = preview.drag.yaw + (event.clientX - preview.drag.x) * .018;
+    renderSystemNpc3dPreview(canvas);
+  });
+  const stopDragging = (event) => {
+    if (!preview.drag || preview.drag.pointerId !== event.pointerId) return;
+    preview.drag = null;
+    canvas.classList.remove("is-dragging");
+  };
+  canvas.addEventListener("pointerup", stopDragging);
+  canvas.addEventListener("pointercancel", stopDragging);
+  canvas.addEventListener("dblclick", () => { preview.yaw = .48; renderSystemNpc3dPreview(canvas); });
+}
+
+function initializeSystemNpc3dPreviews() {
+  document.querySelectorAll(".system-npc-model-preview").forEach(initializeSystemNpc3dPreview);
+}
+
+function refreshSystemNpc3dPreview(field) {
+  const card = field.closest("[data-system-npc-index]");
+  if (!card?.isConnected) return;
+  const canvas = card?.querySelector(".system-npc-model-preview");
+  if (!canvas) return;
+  if (field.dataset.systemNpcField === "arm_model") {
+    canvas.dataset.armModel = field.value === "classic" ? "classic" : "slim";
+    renderSystemNpc3dPreview(canvas);
+    return;
+  }
+  if (field.dataset.systemNpcField === "appearance_resource") {
+    const replacement = canvas.cloneNode(false);
+    replacement.dataset.skinUrl = `/api/trainer-skin?resource=${encodeURIComponent(field.value.trim())}`;
+    canvas.replaceWith(replacement);
+    initializeSystemNpc3dPreview(replacement);
+  }
+}
+
+function renderSystemNpcs() {
+  const items = state.systemNpcs.items || [];
+  $("#system-npc-count").textContent = items.length;
+  $("#system-npc-issues").className = "issues empty";
+  $("#system-npc-issues").textContent = items.length
+    ? "외형·행동·기능 변경은 동일한 NPC 원본에 저장됩니다. 사용처가 있는 NPC는 삭제 보호됩니다."
+    : "service 또는 building_runtime 태그가 붙은 시스템 NPC가 없습니다.";
+  $("#system-npc-grid").innerHTML = items.map((item, index) => {
+    const npc = item.npc || {};
+    const appearance = npc.appearance || {};
+    const references = item.references || [];
+    const functions = item.functions || [];
+    return `<article class="system-npc-card" data-system-npc-index="${index}">
+      <header><div><p class="eyebrow">${functions.length ? "RUNTIME FUNCTION" : "SERVICE NPC"}</p><h3>${escapeHtml(item.name || item.id)}</h3><small>${escapeHtml(item.id)}</small></div><span class="system-npc-lock${item.protected ? " is-locked" : ""}">${item.protected ? "사용 중 · 삭제 보호" : "미사용"}</span></header>
+      <div class="system-npc-body">
+        <figure><div class="system-npc-model-stage"><canvas class="system-npc-model-preview" width="320" height="320" data-skin-url="/api/trainer-skin?resource=${encodeURIComponent(appearance.resource || "")}" data-arm-model="${appearance.arm_model === "classic" ? "classic" : "slim"}" aria-label="${escapeHtml(item.name || item.id)} 3D 모델 미리보기"></canvas><span>드래그하여 회전</span></div><figcaption>${escapeHtml(appearance.resource || "외형 없음")}</figcaption></figure>
+        <div class="system-npc-fields">
+          <label><span>트레이너 클래스</span><select data-system-npc-field="trainer_class">${systemNpcClassOptions(npc.trainer_class)}</select></label>
+          <label><span>외형 출처</span><select data-system-npc-field="appearance_source"><option value="custom"${appearance.source === "custom" ? " selected" : ""}>직접 제작</option><option value="rct_single"${appearance.source === "rct_single" ? " selected" : ""}>RCT 개별</option><option value="rct_group"${appearance.source === "rct_group" ? " selected" : ""}>RCT 그룹</option></select></label>
+          <label class="wide"><span>스킨 리소스</span><input data-system-npc-field="appearance_resource" value="${escapeHtml(appearance.resource || "")}"></label>
+          <label><span>팔 모델</span><select data-system-npc-field="arm_model"><option value="classic"${appearance.arm_model === "classic" ? " selected" : ""}>Classic</option><option value="slim"${appearance.arm_model !== "classic" ? " selected" : ""}>Slim</option></select></label>
+          <label><span>이동 행동</span><select data-system-npc-field="movement"><option value="stationary"${npc.behavior?.movement === "stationary" ? " selected" : ""}>고정</option><option value="wander"${npc.behavior?.movement === "wander" ? " selected" : ""}>배회</option></select></label>
+          <label class="system-npc-toggle"><input type="checkbox" data-system-npc-field="look_at_player"${npc.behavior?.look_at_player ? " checked" : ""}><span>플레이어 바라보기</span></label>
+          <label class="system-npc-toggle"><input type="checkbox" data-system-npc-field="invulnerable"${npc.behavior?.invulnerable ? " checked" : ""}><span>무적</span></label>
+          <label class="wide"><span>기능 태그</span><input data-system-npc-field="functions" value="${escapeHtml(functions.join(", "))}" placeholder="blackjack, shop"></label>
+        </div>
+      </div>
+      <section class="system-npc-functions"><strong>연결된 기능</strong><div>${functions.length ? functions.map((name) => `<span>${escapeHtml(name)}</span>`).join("") : "<small>전용 기능 태그 없음</small>"}</div></section>
+      <section class="system-npc-references"><strong>사용처 ${references.length}개</strong><div>${references.length ? references.map((reference) => `<span title="${escapeHtml(reference.path)}">${escapeHtml(systemNpcReferenceLabel(reference))}</span>`).join("") : "<small>현재 배치 참조 없음</small>"}</div></section>
+      <footer><button type="button" class="button secondary" data-edit-system-npc="${index}">전체 NPC 편집</button><button type="button" class="button primary" data-save-system-npc="${index}">설정 저장</button></footer>
+    </article>`;
+  }).join("");
+  initializeSystemNpc3dPreviews();
+  renderResourcePackCharacters();
+}
+
+function resourcePackCharacterImageUrl(item) {
+  return `/api/resource-pack-character?pack=${encodeURIComponent(item.pack_token)}&entry=${encodeURIComponent(item.entry)}`;
+}
+
+function resourcePackCharacterKindLabel(item) {
+  if (item.category === "trainer_skin") return "NPC 스킨";
+  if (item.category === "rct_single") return "RCT 개별";
+  if (item.category === "rct_group") return "RCT 그룹";
+  if (item.category === "villager_profession") return "주민 직업 외형";
+  return "주민 바이옴 외형";
+}
+
+function renderResourcePackCharacters() {
+  const view = state.resourcePackCharacters;
+  const query = view.query.trim().toLowerCase();
+  const filtered = view.items.filter((item) => {
+    if (view.kind === "selectable" && !item.selectable) return false;
+    if (view.kind === "villager" && item.selectable) return false;
+    return !query || `${item.name} ${item.resource} ${item.pack}`.toLowerCase().includes(query);
+  });
+  $("#resource-pack-character-count").textContent = `${filtered.length} / ${view.items.length}`;
+  $("#resource-pack-character-query").value = view.query;
+  $("#resource-pack-character-kind").value = view.kind;
+  $("#resource-pack-character-target").innerHTML = state.systemNpcs.items.map((item) =>
+    `<option value="${escapeHtml(item.id)}"${item.id === view.target ? " selected" : ""}>${escapeHtml(item.name || item.id)}</option>`
+  ).join("");
+  const visible = filtered.slice(0, 160);
+  $("#resource-pack-character-grid").innerHTML = visible.length ? visible.map((item, index) => `
+    <article class="resource-pack-character-card${item.selectable ? " is-selectable" : ""}">
+      <img src="${resourcePackCharacterImageUrl(item)}" alt="${escapeHtml(item.name)} 외형" loading="lazy">
+      <div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(resourcePackCharacterKindLabel(item))}</span><code title="${escapeHtml(item.resource)}">${escapeHtml(item.resource)}</code><small>${escapeHtml(item.pack)}</small></div>
+      ${item.selectable ? `<button type="button" data-apply-resource-pack-character="${index}">선택 NPC에 적용</button>` : `<em>인게임 자동 적용</em>`}
+    </article>`).join("") : "<p>조건에 맞는 리소스팩 캐릭터가 없습니다.</p>";
+  $("#resource-pack-character-grid").dataset.visibleItems = JSON.stringify(visible.map((item) => view.items.indexOf(item)));
+}
+
+function applyResourcePackCharacter(visibleIndex) {
+  const indexes = JSON.parse($("#resource-pack-character-grid").dataset.visibleItems || "[]");
+  const character = state.resourcePackCharacters.items[indexes[visibleIndex]];
+  const item = state.systemNpcs.items.find((entry) => entry.id === state.resourcePackCharacters.target);
+  if (!character?.selectable || !item) return;
+  item.document.npc ||= {};
+  item.document.npc.appearance ||= { type: "skin", arm_model: "classic" };
+  item.document.npc.appearance.resource = character.resource;
+  item.document.npc.appearance.source = character.category === "rct_single"
+    ? "rct_single" : character.category === "rct_group" ? "rct_group" : "custom";
+  item.npc = item.document.npc;
+  renderSystemNpcs();
+  toast(`${item.name || item.id}에 ${character.name} 외형을 적용했습니다. NPC 카드에서 설정 저장을 눌러 확정하세요.`);
+}
+
+function updateSystemNpcField(target) {
+  const card = target.closest("[data-system-npc-index]");
+  const item = state.systemNpcs.items[Number(card?.dataset.systemNpcIndex)];
+  if (!item) return;
+  item.document.npc ||= {};
+  item.document.npc.appearance ||= { type: "skin" };
+  item.document.npc.behavior ||= {};
+  const field = target.dataset.systemNpcField;
+  if (field === "trainer_class") {
+    item.document.npc.trainer_class = target.value;
+    const trainerClass = state.trainerClasses.find((entry) => entry.id === target.value);
+    if (trainerClass?.default_appearance) {
+      Object.assign(item.document.npc.appearance, trainerClass.default_appearance);
+      item.document.npc.appearance.arm_model = trainerClass.body?.arm_model || item.document.npc.appearance.arm_model || "classic";
+      item.npc = item.document.npc;
+      renderSystemNpcs();
+    }
+  } else if (field === "appearance_source") item.document.npc.appearance.source = target.value;
+  else if (field === "appearance_resource") item.document.npc.appearance.resource = target.value.trim();
+  else if (field === "arm_model") item.document.npc.appearance.arm_model = target.value;
+  else if (field === "movement") item.document.npc.behavior.movement = target.value;
+  else if (field === "look_at_player" || field === "invulnerable") item.document.npc.behavior[field] = target.checked;
+  else if (field === "functions") {
+    item.document.system_npc ||= {};
+    item.document.system_npc.functions = target.value.split(",").map((value) => value.trim()).filter(Boolean);
+    item.functions = item.document.system_npc.functions;
+  }
+  item.npc = item.document.npc;
+}
+
+async function saveSystemNpc(index) {
+  const item = state.systemNpcs.items[index];
+  if (!item) return;
+  const result = await request(`/api/trainers?path=${encodeURIComponent(item.path)}`, {
+    method: "POST", body: JSON.stringify(item.document)
+  });
+  if (!result.ok) {
+    toast(result.data.error || result.data.issues?.[0]?.message || "시스템 NPC를 저장하지 못했습니다.");
+    return;
+  }
+  state.systemNpcs.loaded = false;
+  await loadSystemNpcs(true);
+  renderSystemNpcs();
+  toast(`${item.name} 시스템 NPC 설정을 저장했습니다.`);
+}
+
+async function editSystemNpc(index) {
+  const item = state.systemNpcs.items[index];
+  if (!item) return;
+  switchPage("trainers");
+  await loadDocument("trainers", item.path);
 }
 
 async function loadBiomeData(force = false) {
@@ -1895,7 +2259,9 @@ function loadSectionData(section, force = false) {
     return Promise.resolve();
   }
   if (section === "trainer-card") { renderTrainerCardManager(); return Promise.resolve(); }
-  if (section === "trainers" || section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
+  if (section === "trainers") return Promise.all([loadTrainerData(force), loadSystemNpcs(force), loadGameDefinitions(force)]);
+  if (section === "battles" || section === "league") return Promise.all([loadTrainerData(force), loadGameDefinitions(force)]).then(() => { if (section === "league") renderLeagueEditor(); });
+  if (section === "system-npcs") return Promise.all([loadTrainerData(force), loadSystemNpcs(force)]).then(renderSystemNpcs);
   if (section === "biomes") return loadBiomeData(force);
   if (section === "caves" || section === "forests") return loadBiomeData(force);
   if (section === "underground-roads") return loadStructureData(force).then(renderUndergroundRoad);
@@ -1996,17 +2362,70 @@ function worldSettlementOptions(selected) {
   const candidates = state.settlements.filter((item) => item.path?.replaceAll("\\", "/").includes(token));
   return '<option value="">마을 선택</option>' + candidates.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === selected ? "selected" : ""}>${escapeHtml(item.name || item.id)}</option>`).join("");
 }
-function easyNpcPresetResource(npcId) {
+function easyNpcPresetResource(trainerOrId) {
+  const trainer = typeof trainerOrId === "object"
+    ? trainerOrId
+    : state.trainers.find((entry) => entry.id === trainerOrId);
+  const npcId = trainer?.id || trainerOrId;
   const slug = String(npcId || "").split("/").at(-1);
-  return slug ? `easy_npc:preset/encounter/${slug}.npc.snbt` : "";
+  const suffix = trainer?.event_engine === "cves_v5" ? "__v5" : "";
+  return slug ? `easy_npc:preset/encounter/${slug}${suffix}.npc.snbt` : "";
 }
 function worldGatekeeperOptions(selected = "") {
   const options = state.trainers.map((trainer) => {
-    const resource = easyNpcPresetResource(trainer.id);
+    const resource = easyNpcPresetResource(trainer);
     return `<option value="${escapeHtml(resource)}" ${resource === selected ? "selected" : ""}>${escapeHtml(trainer.name || trainer.id)} · ${escapeHtml(trainer.id)}</option>`;
   });
   if (selected && !options.some((option) => option.includes(`value="${escapeHtml(selected)}"`))) options.unshift(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} · 목록에 없음</option>`);
   return `<option value="">NPC 없음</option>${options.join("")}`;
+}
+
+function gateNpcTargetInput() {
+  return state.gateNpcPicker.target === "inspector"
+    ? $("#tile-inspector-form").elements.objectNpc
+    : $("#object-tool-npc");
+}
+function gateNpcRole(trainer) {
+  const role = trainer.role || trainer.npc_role || "default";
+  return role === "gatekeeper" || (trainer.tags || []).includes("gatekeeper") ? "gatekeeper" : role;
+}
+function gateNpcClassification(trainer) {
+  return trainer.classification || (trainer.battle_type ? "trainer" : "ambient");
+}
+function renderGateNpcDialog() {
+  const query = state.gateNpcPicker.query.trim().toLocaleLowerCase();
+  const kind = state.gateNpcPicker.kind;
+  const selected = gateNpcTargetInput()?.value || "";
+  const candidates = state.trainers.filter((trainer) => {
+    const classification = gateNpcClassification(trainer);
+    const role = gateNpcRole(trainer);
+    if (kind === "gatekeeper" && role !== "gatekeeper") return false;
+    if (["ambient", "trainer"].includes(kind) && classification !== kind) return false;
+    const searchable = [trainer.name, trainer.npc_name, trainer.id, role, classification, ...(trainer.tags || [])].filter(Boolean).join(" ").toLocaleLowerCase();
+    return !query || searchable.includes(query);
+  });
+  $("#gate-npc-count").textContent = `${candidates.length}명`;
+  $("#gate-npc-list").innerHTML = candidates.length ? candidates.map((trainer) => {
+    const resource = easyNpcPresetResource(trainer);
+    const classification = gateNpcClassification(trainer);
+    const role = gateNpcRole(trainer);
+    const active = resource === selected;
+    return `<article class="trainer-assignment-result${active ? " is-assigned" : ""}"><header><div><strong>${escapeHtml(trainer.name || trainer.npc_name || trainer.id)}</strong><small>${escapeHtml(trainer.id)}</small></div><span>${role === "gatekeeper" ? "관문지기" : classification === "trainer" ? "트레이너" : "단순 NPC"}</span></header>${trainerPartyStrip(trainer)}<button type="button" data-select-gate-npc="${escapeHtml(resource)}">${active ? "선택됨" : "이 NPC 선택"}</button></article>`;
+  }).join("") : '<p class="trainer-assignment-empty">검색 조건에 맞는 NPC가 없습니다.</p>';
+}
+function openGateNpcDialog(target) {
+  state.gateNpcPicker = { target, query: "", kind: "all" };
+  $("#gate-npc-search").value = "";
+  $("#gate-npc-kind").value = "all";
+  renderGateNpcDialog();
+  $("#gate-npc-dialog").showModal();
+  $("#gate-npc-search").focus();
+}
+function selectGateNpc(resource = "") {
+  const input = gateNpcTargetInput();
+  if (!input) return;
+  input.value = resource;
+  $("#gate-npc-dialog").close();
 }
 
 function renderWorldLayout() {
@@ -3110,6 +3529,29 @@ function normalizedOdd(value, minimum, maximum) {
 function registeredWorldStructure(resource) {
   return Object.prototype.hasOwnProperty.call(state.structureSizes || {}, resource);
 }
+function worldObjectIsRoadCell(q, r) {
+  return (state.worldLayout?.connections || []).some((connection) =>
+    connection.surface_style !== "water"
+    && connectionPath(connection).some((cell) => cell.q === q && cell.r === r)
+  );
+}
+function worldObjectPlacementProperties(resource, q, r, properties = {}) {
+  const result = { ...(properties || {}) };
+  if (Object.prototype.hasOwnProperty.call(result, "placement_anchor")) return result;
+  if (!worldObjectIsRoadCell(q, r)) return result;
+  const metadata = state.structureSizes?.[resource] || state.buildingSettings.structures?.[resource];
+  if (Array.isArray(metadata?.road_anchors) && metadata.road_anchors.length === 1) {
+    result.placement_anchor = "road_anchor";
+  } else if (Array.isArray(metadata?.door_anchors) && metadata.door_anchors.length > 0) {
+    result.placement_anchor = "door";
+  }
+  return result;
+}
+function worldObjectAvoidsRoad(resource, q, r, properties = {}) {
+  if (!worldObjectIsRoadCell(q, r)) return true;
+  const placement = worldObjectPlacementProperties(resource, q, r, properties).placement_anchor;
+  return placement === "road_anchor" || placement === "door";
+}
 function gateProperties(values) {
   const centerPlacement = values.gateMode || "gate";
   const hasNpc = centerPlacement === "gate_npc" || centerPlacement === "npc";
@@ -3151,8 +3593,10 @@ function placeObjectWithTool(q, r) {
   if (!/^[a-z0-9_.-]+$/.test(id)) { toast("오브젝트 ID를 영문 소문자 형식으로 입력해 주세요."); return; }
   if (!gateResourceIdPattern.test(resource)) { toast("배치할 NBT를 선택해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
+  if (!worldObjectAvoidsRoad(resource, q, r)) { toast("길 셀에는 road_anchor 또는 외부 문 앵커가 있는 NBT만 배치할 수 있습니다."); return; }
   state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);
-  state.worldLayout.objects.push({ id, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number($("#generic-object-tool-rotation").value) });
+  const properties = worldObjectPlacementProperties(resource, q, r);
+  state.worldLayout.objects.push({ id, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number($("#generic-object-tool-rotation").value), ...(Object.keys(properties).length ? { properties } : {}) });
   state.selectedEntrance = null; state.selectedObjectId = id; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
@@ -4076,8 +4520,6 @@ function renderMapToolOptions() {
   $("#biome-brush-type").innerHTML = worldBiomeOptions($("#biome-brush-type").value || "minecraft:plains");
   $("#settlement-tool-biome").innerHTML = worldBiomeOptions($("#settlement-tool-biome").value || "minecraft:plains");
   $("#settlement-tool-preset").innerHTML = worldSettlementOptions($("#settlement-tool-preset").value);
-  const selectedGatekeeper = $("#object-tool-npc").value;
-  $("#object-tool-npc").innerHTML = worldGatekeeperOptions(selectedGatekeeper);
   renderWorldObjectNbtOptions();
   updateGateOptionVisibility();
   const currentCave = $("#cave-tool-cave").value;
@@ -4309,6 +4751,8 @@ function applyTilePlacement() {
     if (Boolean(connectionAnchor) !== Boolean(dungeonEntrance)) { toast("던전 연결의 구조물 앵커와 입구 ID를 모두 입력해 주세요."); return; }
     if (connectionAnchor && !/^structure:[a-z0-9_.-]+$/.test(connectionAnchor)) { toast("구조물 앵커는 structure:anchor_id 형식이어야 합니다."); return; }
     if (dungeonEntrance && !gateResourceIdPattern.test(dungeonEntrance)) { toast("던전 입구 ID를 리소스 ID 형식으로 입력해 주세요."); return; }
+    properties = worldObjectPlacementProperties(resource, q, r, properties);
+    if (!worldObjectAvoidsRoad(resource, q, r, properties)) { toast("길 셀에는 road_anchor 또는 외부 문 앵커가 있는 NBT만 배치할 수 있습니다."); return; }
     const object = { id, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number(form.elements.genericObjectRotation.value) };
     if (properties && Object.keys(properties).length) object.properties = properties;
     if (connectionAnchor) object.connections = [{ from: connectionAnchor, target: { type: "dungeon", entrance_id: dungeonEntrance } }];
@@ -4587,7 +5031,7 @@ function moveWorldPlacementDrag(event) {
   if (objectDrag?.pointerId === event.pointerId) {
     const object = (state.worldLayout.objects || []).find((entry) => entry.id === objectDrag.id); const target = nearestHexFromPointer(event);
     objectDrag.target = target; objectDrag.moved ||= Math.hypot(event.clientX - objectDrag.startX, event.clientY - objectDrag.startY) >= 4;
-    objectDrag.valid = Boolean(object);
+    objectDrag.valid = Boolean(object) && worldObjectAvoidsRoad(object.resource, target.q, target.r, object.properties);
     renderHexMap(); return true;
   }
   return false;
@@ -4611,7 +5055,10 @@ function finishObjectDrag(event) {
   if (!drag.moved) { selectWorldObject(drag.id); return; }
   const object = (state.worldLayout.objects || []).find((entry) => entry.id === drag.id); const target = drag.target;
   if (!object || !target || !drag.valid) { toast("오브젝트를 이동할 수 없습니다."); renderHexMap(); return; }
-  object.anchor = { ...target }; state.selectedHex = { ...target }; state.selectedEntrance = null; state.selectedObjectId = object.id; state.selectedRouteId = null;
+  object.anchor = { ...target };
+  const properties = worldObjectPlacementProperties(object.resource, target.q, target.r, object.properties);
+  if (Object.keys(properties).length) object.properties = properties;
+  state.selectedHex = { ...target }; state.selectedEntrance = null; state.selectedObjectId = object.id; state.selectedRouteId = null;
   state.suppressMapClick = true; setTimeout(() => { state.suppressMapClick = false; }, 0);
   markWorldDirty(); renderWorldLayout();
 }
@@ -8683,6 +9130,13 @@ function renderTrainer() {
   else renderEntryRoutes();
   $("#trainer-json").value = JSON.stringify(document, null, 2);
   ["#trainer-json", "#apply-trainer-json", "#add-event-command", "#event-command-type", "#event-design-mode", "#event-trigger-type", "#event-trigger-range", "#event-warning-offset", "#copy-spawn-command", "#delete-trainer", "#validate-trainer", "#save-trainer"].forEach((selector) => { if ($(selector)) $(selector).disabled = false; });
+  const systemNpc = state.systemNpcs.items.find((item) => item.path === state.trainerPath);
+  if (systemNpc?.protected) {
+    $("#delete-trainer").disabled = true;
+    $("#delete-trainer").title = `사용처 ${systemNpc.references.length}개와 시스템 기능이 연결되어 있어 삭제할 수 없습니다.`;
+  } else {
+    $("#delete-trainer").title = "";
+  }
   if (document.event_runtime?.engine === "cves_v5" && document.event_runtime?.authoring === "custom") {
     $("#event-design-mode").disabled = true;
   }
@@ -17505,6 +17959,38 @@ $("#validate-repository").addEventListener("click", loadDashboard);
 $("#validate-trainer").addEventListener("click", () => validateDocument("trainers"));
 $("#save-trainer").addEventListener("click", () => saveDocument("trainers"));
 $("#delete-trainer").addEventListener("click", () => deleteManagedDocument("trainers"));
+$("#system-npc-grid").addEventListener("change", (event) => {
+  const target = event.target.closest("[data-system-npc-field]");
+  if (target) {
+    updateSystemNpcField(target);
+    refreshSystemNpc3dPreview(target);
+  }
+});
+$("#system-npc-grid").addEventListener("input", (event) => {
+  const target = event.target.closest('[data-system-npc-field="appearance_resource"], [data-system-npc-field="functions"]');
+  if (target) updateSystemNpcField(target);
+});
+$("#system-npc-grid").addEventListener("click", (event) => {
+  const save = event.target.closest("[data-save-system-npc]");
+  if (save) saveSystemNpc(Number(save.dataset.saveSystemNpc));
+  const edit = event.target.closest("[data-edit-system-npc]");
+  if (edit) editSystemNpc(Number(edit.dataset.editSystemNpc));
+});
+$("#resource-pack-character-query").addEventListener("input", (event) => {
+  state.resourcePackCharacters.query = event.target.value;
+  renderResourcePackCharacters();
+});
+$("#resource-pack-character-kind").addEventListener("change", (event) => {
+  state.resourcePackCharacters.kind = event.target.value;
+  renderResourcePackCharacters();
+});
+$("#resource-pack-character-target").addEventListener("change", (event) => {
+  state.resourcePackCharacters.target = event.target.value;
+});
+$("#resource-pack-character-grid").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-apply-resource-pack-character]");
+  if (button) applyResourcePackCharacter(Number(button.dataset.applyResourcePackCharacter));
+});
 $$('[data-npc-filter]').forEach((button) => button.addEventListener("click", () => { state.npcFilter = button.dataset.npcFilter; renderList("trainers"); }));
 $("#validate-battle").addEventListener("click", () => validateDocument("battles"));
 $("#save-battle").addEventListener("click", () => saveDocument("battles"));
@@ -17548,6 +18034,24 @@ $("#trainer-assignment-list").addEventListener("click", (event) => {
   const button = event.target.closest("[data-assign-direct-trainer]");
   if (button && !button.disabled) addDirectTrainerFromDialog(button.dataset.assignDirectTrainer);
 });
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-open-gate-npc-picker]");
+  if (button) openGateNpcDialog(button.dataset.openGateNpcPicker);
+});
+$("#gate-npc-close").addEventListener("click", () => $("#gate-npc-dialog").close());
+$("#gate-npc-done").addEventListener("click", () => $("#gate-npc-dialog").close());
+$("#gate-npc-clear").addEventListener("click", () => selectGateNpc(""));
+$("#gate-npc-search").addEventListener("input", (event) => { state.gateNpcPicker.query = event.target.value; renderGateNpcDialog(); });
+$("#gate-npc-kind").addEventListener("change", (event) => { state.gateNpcPicker.kind = event.target.value; renderGateNpcDialog(); });
+$("#gate-npc-reset").addEventListener("click", () => {
+  state.gateNpcPicker.query = ""; state.gateNpcPicker.kind = "all";
+  $("#gate-npc-search").value = ""; $("#gate-npc-kind").value = "all"; renderGateNpcDialog();
+});
+$("#gate-npc-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-select-gate-npc]");
+  if (button) selectGateNpc(button.dataset.selectGateNpc);
+});
+$("#gate-npc-dialog").addEventListener("click", (event) => { if (event.target === event.currentTarget) event.currentTarget.close(); });
 $("#add-route-npc").addEventListener("click", addRouteNpcPlacement);
 $("#route-npc-list").addEventListener("click", (event) => { const button = event.target.closest("[data-remove-route-npc]"); if (button) removeRouteNpcPlacement(Number(button.dataset.removeRouteNpc)); });
 $("#add-league-entry").addEventListener("click", addLeagueEntry);

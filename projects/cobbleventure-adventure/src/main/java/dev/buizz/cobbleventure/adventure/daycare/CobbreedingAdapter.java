@@ -15,8 +15,16 @@ final class CobbreedingAdapter {
         return !BreedingUtilities.getPossibleEggs(List.of(first, second)).isEmpty();
     }
 
+    static boolean canBreed(List<Pokemon> pokemon) {
+        return pokemon.size() >= 2 && !BreedingUtilities.getPossibleEggs(pokemon).isEmpty();
+    }
+
     static ItemStack createEgg(Pokemon first, Pokemon second) {
-        PokemonProperties properties = BreedingUtilities.chooseEgg(List.of(first, second));
+        return createEgg(List.of(first, second));
+    }
+
+    static ItemStack createEgg(List<Pokemon> pokemon) {
+        PokemonProperties properties = BreedingUtilities.chooseEgg(pokemon);
         if (properties == null) {
             throw new IllegalStateException("Cobbreeding이 알 속성을 만들지 못했습니다.");
         }

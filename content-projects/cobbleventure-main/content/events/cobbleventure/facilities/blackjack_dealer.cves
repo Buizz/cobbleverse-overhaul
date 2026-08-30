@@ -1,0 +1,8 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "블랙잭 테이블에 앉아 게임을 시작해 주세요."
+      en_us: "Take a seat at the blackjack table to begin a game."
+    }
+  }
+}

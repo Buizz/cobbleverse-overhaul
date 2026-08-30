@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.adventure;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.resources.ResourceLocation;
@@ -36,6 +37,8 @@ public interface AdventureWorldContext {
         }
     }
     record WildSpawnLevelRange(int minLevel, int maxLevel) {}
+
+    record FacilityPosition(ResourceLocation dimension, BlockPos position) {}
 
     record WildSpawnRule(
         boolean inheritBiome,
@@ -98,4 +101,9 @@ public interface AdventureWorldContext {
     }
 
     String authoredWeatherAt(ServerPlayer player);
+
+    /** Resolves the exterior yard associated with the daycare interior containing the player. */
+    default FacilityPosition daycarePaddock(ServerPlayer player) {
+        return null;
+    }
 }

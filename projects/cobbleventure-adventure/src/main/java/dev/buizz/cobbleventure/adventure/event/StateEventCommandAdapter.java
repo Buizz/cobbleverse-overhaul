@@ -12,6 +12,13 @@ import java.util.Set;
 
 /** Executes immediate, idempotent player-state commands and delegates all other commands. */
 public final class StateEventCommandAdapter implements EventCommandAdapter {
+    private static final Set<String> FEATURE_KEYS = Set.of(
+        "map", "settlement_teleport", "pc"
+    );
+    private static final Set<String> FIELD_MOVES = Set.of(
+        "surf", "fly", "flash", "defog", "rock_climb", "whirlpool",
+        "strength", "rock_smash"
+    );
     private final EventStateExpressionEnvironment environment;
     private final EventExpressionEvaluator evaluator;
     private final EventCommandAdapter fallback;
@@ -65,9 +72,7 @@ public final class StateEventCommandAdapter implements EventCommandAdapter {
     private StartResult unlockFeature(
         EventScript.Instruction instruction, Map<String, JsonElement> locals
     ) {
-        Arguments arguments = arguments(instruction, locals);
-        arguments.requireShape(1);
-        environment.state().unlockFeature(arguments.string(0));
+        environment.state().unlockFeature(enumArgument(instruction, locals, FEATURE_KEYS));
         return new Completed(null);
     }
 
@@ -114,10 +119,57 @@ public final class StateEventCommandAdapter implements EventCommandAdapter {
     private StartResult grantFieldMove(
         EventScript.Instruction instruction, Map<String, JsonElement> locals
     ) {
-        Arguments arguments = arguments(instruction, locals);
-        arguments.requireShape(1);
-        environment.state().grantFieldMove(arguments.string(0));
+        environment.state().grantFieldMove(enumArgument(instruction, locals, FIELD_MOVES));
         return new Completed(new JsonPrimitive(true));
+    }
+
+    /**
+     * CVES enum arguments are represented as name expressions in compiled IR.
+     * They are language symbols, not runtime-local variable references. String
+     * literals remain accepted for compatibility with older hand-authored IR.
+     */
+    private String enumArgument(
+        EventScript.Instruction instruction, Map<String, JsonElement> locals,
+        Set<String> allowed
+    ) {
+        JsonElement raw = instruction.rawPayload().get("arguments");
+        if (raw == null || !raw.isJsonArray() || raw.getAsJsonArray().size() != 1) {
+            throw new EventRuntimeException(
+                instruction.command() + "에는 enum 인자 하나가 필요합니다."
+            );
+        }
+        JsonElement rawArgument = raw.getAsJsonArray().get(0);
+        if (!rawArgument.isJsonObject()) {
+            throw new EventRuntimeException("명령 argument는 객체여야 합니다.");
+        }
+        JsonObject argument = rawArgument.getAsJsonObject();
+        JsonElement argumentName = argument.get("name");
+        if (argumentName != null && !argumentName.isJsonNull()) {
+            throw new EventRuntimeException("enum 명령 인자는 positional이어야 합니다.");
+        }
+        JsonElement expression = argument.get("value");
+        if (expression == null || !expression.isJsonObject()) {
+            throw new EventRuntimeException("enum 명령 인자 값이 필요합니다.");
+        }
+        JsonObject object = expression.getAsJsonObject();
+        String value;
+        if (object.has("kind") && "name".equals(object.get("kind").getAsString())
+            && object.has("name")) {
+            value = object.get("name").getAsString();
+        } else {
+            JsonElement evaluated = evaluator.evaluate(expression, locals);
+            if (!evaluated.isJsonPrimitive()
+                || !evaluated.getAsJsonPrimitive().isString()) {
+                throw new EventRuntimeException("enum 명령 인자는 이름 또는 문자열이어야 합니다.");
+            }
+            value = evaluated.getAsString();
+        }
+        if (!allowed.contains(value)) {
+            throw new EventRuntimeException(
+                "지원하지 않는 " + instruction.command() + " 값입니다: " + value
+            );
+        }
+        return value;
     }
 
     private Arguments arguments(

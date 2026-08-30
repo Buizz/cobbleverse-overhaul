@@ -6,14 +6,14 @@ import com.cobblemon.mod.common.pokemon.Pokemon;
 import dev.buizz.cobbleventure.adventure.CobbleventureAdventure;
 import dev.buizz.cobbleventure.adventure.daycare.client.DaycareClient;
 import dev.buizz.cobbleventure.adventure.event.EventNpcBindingRepository;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -25,11 +25,10 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
-/** Server-authoritative transport for the daycare NPC screen. */
+/** Server-authoritative transport for the multi-Pokemon daycare screen. */
 public final class DaycareNetwork {
-    private static final String VERSION = "1";
-    private static final String DAYCARE_SCRIPT =
-        "cobbleventure:event_script/facilities/daycare";
+    private static final String VERSION = "4";
+    private static final String DAYCARE_SCRIPT = "cobbleventure:event_script/facilities/daycare";
     private static final double MAX_NPC_DISTANCE_SQUARED = 64.0D;
 
     private DaycareNetwork() {}
@@ -39,7 +38,9 @@ public final class DaycareNetwork {
     }
 
     public static void open(ServerPlayer player, Entity npc) {
-        PacketDistributor.sendToPlayer(player, snapshot(player, npc.getUUID()));
+        PacketDistributor.sendToPlayer(player, snapshot(
+            player, npc.getUUID(), npc.getDisplayName(), Component.empty(), true
+        ));
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
@@ -58,74 +59,140 @@ public final class DaycareNetwork {
         if (npc == null || !npc.isAlive()
             || player.distanceToSqr(npc) > MAX_NPC_DISTANCE_SQUARED
             || !isDaycareNpc(npc)) {
-            player.sendSystemMessage(Component.translatable(
+            Component feedback = Component.translatable(
                 "message.cobbleventure_adventure.daycare.npc_too_far"
+            );
+            player.sendSystemMessage(feedback);
+            PacketDistributor.sendToPlayer(player, snapshot(
+                player, payload.npcId(), Component.empty(), feedback, false
             ));
             return;
         }
+
+        Component feedback;
         switch (payload.action()) {
-            case DEPOSIT -> DaycareService.deposit(
-                player, payload.firstSlot(), payload.secondSlot(),
-                player.level().dimension().location(), npc.blockPosition()
-            );
-            case COLLECT -> DaycareService.collect(player);
-            case CANCEL -> DaycareService.cancel(player);
-            case REFRESH -> DaycareService.status(player);
+            case DEPOSIT -> {
+                var paddock = CobbleventureAdventure.daycarePaddock(player);
+                if (paddock == null) {
+                    feedback = Component.translatable(
+                        "message.cobbleventure_adventure.daycare.paddock_unavailable"
+                    );
+                    player.sendSystemMessage(feedback);
+                } else {
+                    feedback = DaycareService.depositWithFeedback(
+                        player, payload.slot(), payload.training(),
+                        paddock.dimension(), paddock.position()
+                    ).message();
+                }
+            }
+            case WITHDRAW -> feedback = DaycareService.withdrawWithFeedback(
+                player, payload.slot()
+            ).message();
+            case COLLECT -> feedback = DaycareService.collectWithFeedback(player).message();
+            case REFRESH -> {
+                DaycareService.status(player);
+                feedback = Component.empty();
+            }
+            default -> throw new IllegalStateException("Unknown daycare action");
         }
-        PacketDistributor.sendToPlayer(player, snapshot(player, npc.getUUID()));
+        PacketDistributor.sendToPlayer(player, snapshot(
+            player, npc.getUUID(), npc.getDisplayName(), feedback, false
+        ));
     }
 
     private static boolean isDaycareNpc(Entity entity) {
         try {
             return EventNpcBindingRepository.instance().findByEntityTags(entity.getTags())
-                .map(binding -> DAYCARE_SCRIPT.equals(binding.scriptId()))
-                .orElse(false);
+                .map(binding -> DAYCARE_SCRIPT.equals(binding.scriptId())).orElse(false);
         } catch (RuntimeException ignored) {
             return false;
         }
     }
 
-    private static ViewPayload snapshot(ServerPlayer player, UUID npcId) {
+    private static ViewPayload snapshot(
+        ServerPlayer player, UUID npcId, Component npcName,
+        Component feedback, boolean showGreeting
+    ) {
         PlayerPartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
-        List<String> slots = new ArrayList<>(6);
+        List<PokemonView> partySlots = new ArrayList<>(6);
         for (int index = 0; index < 6; index++) {
             Pokemon pokemon = party.get(index);
-            slots.add(pokemon == null ? "" : pokemon.getDisplayName(false).getString()
-                + "  Lv." + pokemon.getLevel());
+            partySlots.add(pokemon == null ? PokemonView.empty() : viewOf(player, pokemon, false));
         }
-        DaycareJob job = DaycareSavedData.get(player.getServer())
-            .find(player.getUUID()).orElse(null);
-        String state = "EMPTY";
-        long remainingMinutes = 0L;
+
+        DaycareJob job = DaycareService.refreshState(player);
+        List<PokemonView> stored = new ArrayList<>();
         if (job != null) {
-            job = ensureEgg(player, job);
-            state = job.hasEgg() ? "READY" : "BREEDING";
-            remainingMinutes = Math.max(1L, Duration.ofMillis(
-                job.readyAtMillis() - Instant.now().toEpochMilli()
-            ).toMinutes());
+            for (DaycareJob.StoredPokemon value : job.pokemon()) {
+                Pokemon pokemon = new Pokemon().loadFromNBT(
+                    player.registryAccess(), value.data().copy()
+                );
+                stored.add(viewOf(player, pokemon, value.training()));
+            }
         }
-        return new ViewPayload(npcId, state, DaycareService.SERVICE_FEE, remainingMinutes, slots);
+        boolean compatible = DaycareService.hasCompatiblePair(player, job);
+        return new ViewPayload(
+            npcId, npcName, showGreeting,
+            DaycareService.SERVICE_FEE, DaycareService.TRAINING_COST_PER_EXPERIENCE,
+            job == null ? 0L : DaycareService.remainingMinutes(job),
+            partySlots, stored, job == null ? 0 : job.eggCount(), compatible, feedback
+        );
     }
 
-    private static DaycareJob ensureEgg(ServerPlayer player, DaycareJob job) {
-        if (job.hasEgg() || !job.isTimeReady(Instant.now().toEpochMilli())) return job;
-        DaycareService.status(player);
-        return DaycareSavedData.get(player.getServer()).find(player.getUUID()).orElse(job);
+    private static PokemonView viewOf(
+        ServerPlayer player, Pokemon pokemon, boolean training
+    ) {
+        return new PokemonView(
+            pokemon.getDisplayName(false).getString(), pokemon.getLevel(), training,
+            pokemon.saveToNBT(player.registryAccess(), new CompoundTag())
+        );
     }
 
     private static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(CobbleventureAdventure.MOD_ID, path);
     }
 
-    public enum Action {
-        DEPOSIT,
-        COLLECT,
-        CANCEL,
-        REFRESH
+    public enum Action { DEPOSIT, WITHDRAW, COLLECT, REFRESH }
+
+    public record PokemonView(
+        String name, int level, boolean training, CompoundTag data
+    ) {
+        public PokemonView {
+            Objects.requireNonNull(name, "name");
+            Objects.requireNonNull(data, "data");
+            data = data.copy();
+        }
+
+        public static PokemonView empty() {
+            return new PokemonView("", 0, false, new CompoundTag());
+        }
+
+        public boolean emptySlot() { return name.isBlank(); }
+
+        private void write(RegistryFriendlyByteBuf buffer) {
+            buffer.writeUtf(name);
+            buffer.writeVarInt(level);
+            buffer.writeBoolean(training);
+            buffer.writeNbt(data);
+        }
+
+        private static PokemonView read(RegistryFriendlyByteBuf buffer) {
+            String name = buffer.readUtf();
+            int level = buffer.readVarInt();
+            boolean training = buffer.readBoolean();
+            CompoundTag data = buffer.readNbt();
+            return new PokemonView(
+                name, level, training,
+                data == null ? new CompoundTag() : data
+            );
+        }
     }
 
     public record ViewPayload(
-        UUID npcId, String state, long fee, long remainingMinutes, List<String> partySlots
+        UUID npcId, Component npcName, boolean showGreeting,
+        long fee, long trainingCostPerExperience, long remainingMinutes,
+        List<PokemonView> partySlots, List<PokemonView> storedPokemon,
+        int eggCount, boolean compatiblePair, Component feedback
     ) implements CustomPacketPayload {
         public static final Type<ViewPayload> TYPE = new Type<>(id("daycare_view"));
         public static final StreamCodec<RegistryFriendlyByteBuf, ViewPayload> STREAM_CODEC =
@@ -133,35 +200,55 @@ public final class DaycareNetwork {
 
         public ViewPayload {
             Objects.requireNonNull(npcId, "npcId");
-            Objects.requireNonNull(state, "state");
+            Objects.requireNonNull(npcName, "npcName");
+            Objects.requireNonNull(feedback, "feedback");
             partySlots = List.copyOf(partySlots);
+            storedPokemon = List.copyOf(storedPokemon);
             if (partySlots.size() != 6) throw new IllegalArgumentException("partySlots must contain 6 entries");
+            if (storedPokemon.size() > DaycareJob.MAX_POKEMON) throw new IllegalArgumentException("too many stored Pokemon");
         }
 
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUUID(npcId);
-            buffer.writeUtf(state);
+            ComponentSerialization.TRUSTED_STREAM_CODEC.encode(buffer, npcName);
+            buffer.writeBoolean(showGreeting);
             buffer.writeLong(fee);
+            buffer.writeLong(trainingCostPerExperience);
             buffer.writeLong(remainingMinutes);
-            partySlots.forEach(buffer::writeUtf);
+            partySlots.forEach(value -> value.write(buffer));
+            buffer.writeVarInt(storedPokemon.size());
+            storedPokemon.forEach(value -> value.write(buffer));
+            buffer.writeVarInt(eggCount);
+            buffer.writeBoolean(compatiblePair);
+            ComponentSerialization.TRUSTED_STREAM_CODEC.encode(buffer, feedback);
         }
 
         private static ViewPayload read(RegistryFriendlyByteBuf buffer) {
             UUID npcId = buffer.readUUID();
-            String state = buffer.readUtf();
+            Component npcName = ComponentSerialization.TRUSTED_STREAM_CODEC.decode(buffer);
+            boolean showGreeting = buffer.readBoolean();
             long fee = buffer.readLong();
+            long trainingCost = buffer.readLong();
             long remaining = buffer.readLong();
-            List<String> slots = new ArrayList<>(6);
-            for (int index = 0; index < 6; index++) slots.add(buffer.readUtf());
-            return new ViewPayload(npcId, state, fee, remaining, slots);
+            List<PokemonView> party = new ArrayList<>(6);
+            for (int index = 0; index < 6; index++) party.add(PokemonView.read(buffer));
+            int storedCount = buffer.readVarInt();
+            List<PokemonView> stored = new ArrayList<>(storedCount);
+            for (int index = 0; index < storedCount; index++) stored.add(PokemonView.read(buffer));
+            int eggs = buffer.readVarInt();
+            boolean compatible = buffer.readBoolean();
+            Component feedback = ComponentSerialization.TRUSTED_STREAM_CODEC.decode(buffer);
+            return new ViewPayload(
+                npcId, npcName, showGreeting, fee, trainingCost, remaining,
+                party, stored, eggs, compatible, feedback
+            );
         }
 
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record ActionPayload(
-        UUID npcId, Action action, int firstSlot, int secondSlot
-    ) implements CustomPacketPayload {
+    public record ActionPayload(UUID npcId, Action action, int slot, boolean training)
+        implements CustomPacketPayload {
         public static final Type<ActionPayload> TYPE = new Type<>(id("daycare_action"));
         public static final StreamCodec<RegistryFriendlyByteBuf, ActionPayload> STREAM_CODEC =
             StreamCodec.ofMember(ActionPayload::write, ActionPayload::read);
@@ -174,14 +261,14 @@ public final class DaycareNetwork {
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUUID(npcId);
             buffer.writeEnum(action);
-            buffer.writeVarInt(firstSlot);
-            buffer.writeVarInt(secondSlot);
+            buffer.writeVarInt(slot);
+            buffer.writeBoolean(training);
         }
 
         private static ActionPayload read(RegistryFriendlyByteBuf buffer) {
             return new ActionPayload(
-                buffer.readUUID(), buffer.readEnum(Action.class),
-                buffer.readVarInt(), buffer.readVarInt()
+                buffer.readUUID(), buffer.readEnum(Action.class), buffer.readVarInt(),
+                buffer.readBoolean()
             );
         }
 

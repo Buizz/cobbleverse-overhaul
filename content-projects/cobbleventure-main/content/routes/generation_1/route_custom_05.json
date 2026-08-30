@@ -5,8 +5,8 @@
   "display_name": { "ko_kr": "챔피언로드", "en_us": "Victory Road" },
   "auto_name": false,
   "enabled": true,
-  "route_type": "trail",
-  "corridor": { "width_blocks": 12, "edge_noise": 0.15 },
+  "route_type": "road",
+  "corridor": { "width_blocks": 12, "edge_noise": 0 },
   "level_scaling": { "mode": "world", "offset": 0 },
   "pokemon_spawns": {
     "inherit_biome": false,

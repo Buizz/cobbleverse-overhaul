@@ -60,6 +60,34 @@ def npc_identity_tag_fragment(document: dict) -> str:
     return "," + quote(identity)
 
 
+def npc_function_tag_fragment(document: dict) -> str:
+    """Compile authored system functions into stable runtime entity tags."""
+    system = document.get("system_npc", {})
+    functions = system.get("functions", []) if isinstance(system, dict) else []
+    return "".join(
+        "," + quote("cobbleventure_npc_function_" + function_name)
+        for function_name in functions
+        if isinstance(function_name, str) and re.fullmatch(r"[a-z0-9_.-]+", function_name)
+    )
+
+
+def validate_system_npc_runtime_bindings(documents: list[dict]) -> None:
+    """Fail before generation when a system NPC advertises V5 without a binding."""
+    missing = sorted(
+        document.get("id", "알 수 없는 NPC")
+        for document in documents
+        if document.get("enabled", True)
+        and isinstance(document.get("system_npc"), dict)
+        and document.get("system_npc")
+        and document.get("event_runtime", {}).get("engine") == "cves_v5"
+        and not isinstance(document.get("_cves_binding_tag"), str)
+    )
+    if missing:
+        raise ValueError(
+            "cves_v5 시스템 NPC 이벤트 바인딩 누락: " + ", ".join(missing)
+        )
+
+
 def encounter_outfits_by_class(catalog: dict, class_catalog_path: Path) -> dict[str, dict]:
     """Combine authored equipment outfits with class-derived EasyNPC body settings."""
     outfits = {outfit["trainer_class"]: outfit for outfit in catalog["outfits"]}
@@ -1161,7 +1189,7 @@ def encounter_preset_snbt(
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
     SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
-    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"{npc_identity_tag_fragment(document)}],
+    Tags:["cobbleventure_regional_npc","cobbleventure_npc_preset_v4"{npc_identity_tag_fragment(document)}{npc_function_tag_fragment(document)}],
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}
@@ -1213,7 +1241,7 @@ def v5_encounter_preset_snbt(
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
     SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
-    Tags:["cobbleventure_regional_npc",{quote(binding_tag)}{npc_identity_tag_fragment(document)}{trigger_tag}],
+    Tags:["cobbleventure_regional_npc",{quote(binding_tag)}{npc_identity_tag_fragment(document)}{npc_function_tag_fragment(document)}{trigger_tag}],
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}
@@ -1495,6 +1523,8 @@ def generate(
                 for command in event.get("commands", []):
                     if command.get("type") == "grant_badge":
                         command["badge"] = badge_id
+    validate_system_npc_runtime_bindings(source_documents)
+    compiled_npc_ids: set[str] = set()
     for document in paired_encounter_documents(source_documents, battle_presets):
         trainer_class = document.get("npc", {}).get("trainer_class")
         outfit = outfits_by_class.get(trainer_class)
@@ -1525,6 +1555,7 @@ def generate(
             encoding="utf-8", newline="\n",
         )
         written.append(preset)
+        compiled_npc_ids.add(document["id"])
         if isinstance(binding_tag, str):
             # The unsuffixed preset is now the canonical V5 representation.
             # Keep the transition-era names as inert compatibility aliases so
@@ -1572,6 +1603,17 @@ def generate(
                     newline="\n",
                 )
                 written.append(override_preset)
+    required_system_ids = {
+        document["id"] for document in source_documents
+        if document.get("enabled", True)
+        and isinstance(document.get("system_npc"), dict)
+        and document.get("system_npc")
+    }
+    missing_system_ids = sorted(required_system_ids - compiled_npc_ids)
+    if missing_system_ids:
+        raise ValueError(
+            "시스템 NPC EasyNPC 프리셋 생성 누락: " + ", ".join(missing_system_ids)
+        )
     for trainer_class in sorted(dungeon_actor_classes()):
         outfit = outfits_by_class.get(trainer_class)
         if outfit is None:

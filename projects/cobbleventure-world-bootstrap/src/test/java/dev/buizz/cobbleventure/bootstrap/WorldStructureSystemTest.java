@@ -2,6 +2,7 @@ package dev.buizz.cobbleventure.bootstrap;
 
 import com.google.gson.JsonParser;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Rotation;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +57,24 @@ final class WorldStructureSystemTest {
     }
 
     @Test
+    void parsesDoorAlignedBuildingPlacement() {
+        var structure = WorldStructureSystem.parse(
+            JsonParser.parseString("""
+                [{
+                  "id": "daycare",
+                  "type": "structure",
+                  "anchor": {"q": 6, "r": 0},
+                  "resource": "cobbleventure:placeholder/daycare",
+                  "rotation": 0,
+                  "properties": {"placement_anchor": "door"}
+                }]
+                """).getAsJsonArray()
+        ).getFirst();
+
+        assertEquals("door", structure.placementAnchor());
+    }
+
+    @Test
     void rotatesTemplateOriginAroundMinimumFootprintCorner() {
         assertEquals(
             new BlockPos(131, 70, 200),
@@ -67,6 +86,24 @@ final class WorldStructureSystemTest {
             new BlockPos(147, 70, 231),
             WorldStructureSystem.rotatedTemplateOrigin(
                 100, 70, 200, 48, 32, Rotation.CLOCKWISE_180
+            )
+        );
+    }
+
+    @Test
+    void movesRoadAlignedEntranceOffTheRoadCenterline() {
+        var center = new CobbleventureBootstrap.Point(100, 200);
+
+        assertEquals(
+            new CobbleventureBootstrap.Point(100, 193),
+            WorldStructureSystem.offsetEntranceFromRoadCenter(
+                center, Direction.SOUTH, 7
+            )
+        );
+        assertEquals(
+            new CobbleventureBootstrap.Point(107, 200),
+            WorldStructureSystem.offsetEntranceFromRoadCenter(
+                center, Direction.WEST, 7
             )
         );
     }

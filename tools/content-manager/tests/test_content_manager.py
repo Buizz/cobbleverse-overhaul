@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -3526,6 +3527,15 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("field.dataset.tileField !== kind", script)
         self.assertNotIn('const tileFieldKind = kind === "gate" ? "object" : kind;', script)
 
+    def test_world_objects_on_road_cells_use_their_entrance_anchor(self) -> None:
+        script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertIn("function worldObjectIsRoadCell(q, r)", script)
+        self.assertIn("function worldObjectPlacementProperties(resource, q, r, properties = {})", script)
+        self.assertIn('result.placement_anchor = "road_anchor"', script)
+        self.assertIn('result.placement_anchor = "door"', script)
+        self.assertIn("worldObjectAvoidsRoad(resource, q, r)", script)
+        self.assertIn("worldObjectAvoidsRoad(object.resource, target.q, target.r, object.properties)", script)
+
     def test_world_gate_denial_opens_easy_npc_dialog_and_uses_organic_forest_edge(self) -> None:
         runtime = (
             CORE_ROOT
@@ -4684,6 +4694,67 @@ class ContentManagerTests(unittest.TestCase):
             self.assertEqual(["content/worlds/generation_1.json"], references)
             self.assertTrue(cave.exists())
 
+    def test_system_npc_delete_is_blocked_by_functions_and_fixed_npc_references(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "content/source/facilities/dealer.json"
+            target.parent.mkdir(parents=True)
+            target.write_text(json.dumps({
+                "id": "cobbleventure:npc/dealer",
+                "system_npc": {"functions": ["blackjack"]},
+            }), encoding="utf-8")
+            catalog = root / "content/catalogs/building-settings.json"
+            catalog.parent.mkdir(parents=True)
+            catalog.write_text(json.dumps({
+                "buildings": {
+                    "cobbleventure:casino": {
+                        "fixed_npcs": {"dealer_*": "cobbleventure:npc/dealer"},
+                    },
+                },
+            }), encoding="utf-8")
+
+            preserved, references = content_manager._delete_document(
+                root, "trainers", "content/source/facilities/dealer.json"
+            )
+
+            self.assertEqual(target, preserved)
+            self.assertTrue(target.exists())
+            self.assertTrue(any("building-settings.json" in reference for reference in references))
+            self.assertIn("시스템 기능 · blackjack", references)
+
+    def test_system_npc_payload_exposes_appearance_functions_and_references(self) -> None:
+        payload = content_manager.system_npc_payload(PROJECT_ROOT)
+        dealer = next(
+            item for item in payload["items"]
+            if item["id"] == "cobbleventure:npc/blackjack_dealer"
+        )
+
+        self.assertEqual(["blackjack"], dealer["functions"])
+        self.assertEqual(
+            "cobbleventure:trainer_skin/waiter",
+            dealer["npc"]["appearance"]["resource"],
+        )
+        self.assertTrue(dealer["protected"])
+        self.assertTrue(any(
+            reference["path"].endswith("building-settings.json")
+            for reference in dealer["references"]
+        ))
+
+    def test_hardcoded_source_npc_preset_is_rejected_outside_world_bootstrap(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            duplicate = (
+                root / "projects/casino/src/main/resources/data/easy_npc/preset/encounter/dealer.npc.snbt"
+            )
+            duplicate.parent.mkdir(parents=True)
+            duplicate.write_text("{}", encoding="utf-8")
+
+            issues = content_manager.validate_easy_npc_preset_ownership(
+                root, {"cobbleventure:npc/dealer"}
+            )
+
+            self.assertTrue(any("하드코딩" in issue.message for issue in issues))
+
     def test_deletes_world_layout_by_generation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -4750,6 +4821,7 @@ class ContentManagerTests(unittest.TestCase):
     def test_web_exposes_npc_classification_and_automatic_placement_controls(self) -> None:
         page = (CORE_ROOT / "tools" / "content-manager" / "web" / "index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools" / "content-manager" / "web" / "app.js").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools" / "content-manager" / "web" / "styles.css").read_text(encoding="utf-8")
         self.assertIn('data-npc-filter="trainer"', page)
         self.assertIn('name="npcExpectedLevel"', page)
         self.assertIn('name="npcPreferredBiomes"', page)
@@ -4786,6 +4858,16 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".trainer-assignment-dialog {", styles)
         self.assertIn(".trainer-assignment-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr));", styles)
         trainer_summaries = content_manager._list_documents(PROJECT_ROOT, "trainers")
+        gatekeeper = next(entry for entry in trainer_summaries if entry["id"] == "cobbleventure:npc/starter_town_gatekeeper_minho")
+        self.assertEqual("gatekeeper", gatekeeper["role"])
+        self.assertIn("gatekeeper", gatekeeper["tags"])
+        self.assertIn('id="gate-npc-dialog"', page)
+        self.assertIn('data-open-gate-npc-picker="tool"', page)
+        self.assertIn('data-open-gate-npc-picker="inspector"', page)
+        self.assertIn('function openGateNpcDialog(target)', script)
+        self.assertIn('data-select-gate-npc', script)
+        self.assertIn('trainer?.event_engine === "cves_v5" ? "__v5" : ""', script)
+        self.assertIn('.gate-npc-picker-field', styles)
         battle_trainer = next(entry for entry in trainer_summaries if entry.get("battle_type"))
         self.assertEqual(battle_trainer["team_size"], len(battle_trainer["team"]))
         self.assertLessEqual(battle_trainer["team_size"], 6)
@@ -5999,7 +6081,10 @@ class ContentManagerTests(unittest.TestCase):
                 self.assertEqual(1, reference["entry_number"])
         self.assertTrue(validation["valid"])
         self.assertGreaterEqual(dashboard["trainers"], 2)
-        self.assertTrue(all(item["battle_type"] in {"singles", "doubles"} for item in trainers["items"]))
+        self.assertTrue(all(
+            item["battle_type"] in {"singles", "doubles"}
+            for item in trainers["items"] if item.get("battle_type")
+        ))
         self.assertEqual(11, dashboard["settlements"])
         self.assertEqual(11, len(settlements["items"]))
         self.assertEqual(11, len(world_layout["settlements"]))
@@ -6207,6 +6292,53 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".bag-item-description strong { font-size: 14px; }", styles)
         self.assertIn(".focused-move-description,", styles)
         self.assertIn("POKEMON_ENTRY_CLIPBOARD_SCHEMA", clipboard_module)
+
+    def test_resource_pack_characters_are_indexed_for_the_web_editor(self) -> None:
+        png = b"\x89PNG\r\n\x1a\n" + b"test-resource-pack-character"
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            instance_root = Path(temporary_directory)
+            resource_pack_root = instance_root / "resourcepacks"
+            resource_pack_root.mkdir()
+            with zipfile.ZipFile(resource_pack_root / "Custom Characters.zip", "w") as archive:
+                archive.writestr(
+                    "assets/custompack/textures/entity/trainer/casino_host.png", png
+                )
+                archive.writestr(
+                    "assets/custompack/textures/entity/villager/profession/clerk2.png", png
+                )
+            with mock.patch.dict(
+                "os.environ", {"COBBLEVERSE_INSTANCE": str(instance_root)}, clear=False
+            ):
+                server = content_manager.ThreadingHTTPServer(
+                    ("127.0.0.1", 0), content_manager.create_handler(CORE_ROOT)
+                )
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    base_url = f"http://127.0.0.1:{server.server_port}"
+                    with urllib.request.urlopen(
+                        f"{base_url}/api/resource-pack-characters"
+                    ) as response:
+                        catalog = json.load(response)
+                    custom = {
+                        item["resource"]: item for item in catalog["items"]
+                        if item["pack"] == "Custom Characters.zip"
+                    }
+                    trainer = custom["custompack:trainer_skin/casino_host"]
+                    villager = custom["custompack:villager/profession/clerk2"]
+                    image_url = (
+                        f"{base_url}/api/resource-pack-character?pack={trainer['pack_token']}"
+                        f"&entry={urllib.parse.quote(trainer['entry'], safe='')}"
+                    )
+                    with urllib.request.urlopen(image_url) as response:
+                        served_png = response.read()
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+        self.assertTrue(trainer["selectable"])
+        self.assertFalse(villager["selectable"])
+        self.assertEqual(png, served_png)
 
     def test_build_api_uses_allowlisted_runner(self) -> None:
         root = CORE_ROOT
@@ -6885,6 +7017,23 @@ class ContentManagerTests(unittest.TestCase):
                     ["cobbleventure:interiors/casino"]["fixed_npcs"]
                     ["blackjack_dealer_*"],
             )
+
+    def test_main_building_fixed_npcs_reference_existing_content(self) -> None:
+        npc_ids = {
+            entry.get("id")
+            for entry in content_manager._list_documents(PROJECT_ROOT, "trainers")
+            if isinstance(entry.get("id"), str)
+        }
+        settings = content_manager.load_building_settings(PROJECT_ROOT)["buildings"]
+        missing = {
+            npc_id
+            for building in settings.values()
+            if isinstance(building, dict)
+            for npc_id in building.get("fixed_npcs", {}).values()
+            if isinstance(npc_id, str) and npc_id not in npc_ids
+        }
+
+        self.assertEqual(set(), missing)
 
     def test_citizen_building_without_explicit_interior_uses_basic_capacity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -7700,6 +7849,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('window.addEventListener("building-settings-saved"', script)
         self.assertIn('"natural_feature"', script)
         self.assertIn('.space-flow-edge', styles)
+        self.assertIn('.space-flow-edges { z-index: 5;', styles)
+        self.assertIn('.space-flow-nodes { z-index: 4;', styles)
         self.assertIn('.space-map-pin.dungeon', styles)
         self.assertIn('.space-library-filters', styles)
         self.assertIn('.space-flow-save-state[data-state="error"]', styles)

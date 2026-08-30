@@ -1,0 +1,82 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/blackjack_dealer",
+  "enabled": true,
+  "name": {
+    "ko_kr": "블랙잭 딜러",
+    "en_us": "Blackjack Dealer"
+  },
+  "description": {
+    "ko_kr": "카지노 블랙잭 테이블을 안내하는 고정 배치 NPC입니다.",
+    "en_us": "A fixed NPC who guides players at casino blackjack tables."
+  },
+  "tags": [
+    "service",
+    "casino",
+    "blackjack",
+    "building_runtime"
+  ],
+  "system_npc": {
+    "functions": [
+      "blackjack"
+    ]
+  },
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "블랙잭 딜러",
+      "en_us": "Blackjack Dealer"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/waiter",
+    "appearance": {
+      "source": "custom",
+      "type": "skin",
+      "resource": "cobbleventure:trainer_skin/waiter",
+      "arm_model": "slim"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "custom",
+    "script_id": "cobbleventure:event_script/facilities/blackjack_dealer"
+  },
+  "event_design": {
+    "mode": "easy_npc_events"
+  },
+  "events": [
+    {
+      "id": "on_interact",
+      "trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "commands": [
+        {
+          "type": "dialogue",
+          "id": "table_guide",
+          "speaker": "npc",
+          "text": {
+            "ko_kr": "블랙잭 테이블에 앉아 게임을 시작해 주세요.",
+            "en_us": "Take a seat at the blackjack table to begin a game."
+          }
+        },
+        {
+          "type": "end"
+        }
+      ]
+    }
+  ]
+}

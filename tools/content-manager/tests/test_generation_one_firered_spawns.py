@@ -112,12 +112,12 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
         self.assertEqual(100, sum(entry["weight"] for entry in route_22["pokemon_spawns"]["additions"]))
         self.assertEqual(100, sum(entry["weight"] for entry in route_23["pokemon_spawns"]["additions"]))
         self.assertEqual(300, sum(entry["weight"] for entry in victory_road["pokemon_spawns"]["additions"]))
-        self.assertEqual("trail", victory_road["route_type"])
+        self.assertEqual("road", victory_road["route_type"])
         self.assertFalse(route_22["automatic_npc_placement"]["enabled"])
         self.assertFalse(route_23["automatic_npc_placement"]["enabled"])
         self.assertEqual(12, victory_road["automatic_npc_placement"]["count"])
 
-    def test_existing_league_road_cells_are_partitioned_without_overlap(self) -> None:
+    def test_existing_league_road_cells_are_partitioned_with_shared_junctions(self) -> None:
         world = self.load("worlds/generation_1.json")
         connections = {
             connection["id"]: connection
@@ -136,8 +136,19 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
 
         self.assertEqual({"route_custom_20", "route_custom_21", "route_custom_05"}, set(connections))
         self.assertEqual(expected_cells, set(claimed_cells))
-        self.assertEqual(len(expected_cells), len(claimed_cells))
-        self.assertEqual("natural", connections["route_custom_05"]["surface_style"])
+        self.assertEqual(len(expected_cells) + 2, len(claimed_cells))
+        self.assertEqual(2, claimed_cells.count((-6, 4)))
+        self.assertEqual(2, claimed_cells.count((-8, 4)))
+        self.assertEqual("road", connections["route_custom_05"]["surface_style"])
+        self.assertNotIn("from", connections["route_custom_05"])
+        self.assertEqual(
+            {(-8, 4), (-8, 3), (-7, 2), (-7, 1), (-7, 0), (-6, -1), (-6, -2)},
+            {(cell["q"], cell["r"]) for cell in connections["route_custom_05"]["cells"]},
+        )
+
+        route_order = [connection["id"] for connection in world["connections"]]
+        self.assertLess(route_order.index("route_custom_20"), route_order.index("route_custom_21"))
+        self.assertLess(route_order.index("route_custom_21"), route_order.index("route_custom_05"))
 
 
 if __name__ == "__main__":

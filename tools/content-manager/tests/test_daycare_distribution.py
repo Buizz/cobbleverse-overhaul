@@ -8,6 +8,26 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class DaycareDistributionTests(unittest.TestCase):
+    def test_daycare_attendant_is_inside_and_paddock_stays_outside(self) -> None:
+        content = ROOT / "content-projects/cobbleventure-main/content"
+        settings = json.loads(
+            (content / "catalogs/building-settings.json").read_text(encoding="utf-8")
+        )["buildings"]["cobbleventure:placeholder/daycare"]
+        self.assertEqual(
+            {"room_1:npc": "cobbleventure:npc/facilities/daycare_attendant"},
+            settings["fixed_npcs"],
+        )
+        self.assertEqual(
+            [{"key": "room_1", "structure": "cobbleventure:interiors/daycare"}],
+            settings["interiors"],
+        )
+        self.assertEqual({"exterior:door1", "exterior:door2"}, set(settings["door_routes"]))
+        sidecar = json.loads(
+            (content / "structures/placeholder/daycare.structure.json").read_text(encoding="utf-8")
+        )
+        self.assertIn("paddock", {anchor["id"] for anchor in sidecar["anchors"]})
+        self.assertNotIn("attendant", {anchor["id"] for anchor in sidecar["anchors"]})
+
     def test_cobbreeding_is_pinned_and_vendored(self) -> None:
         lock = json.loads((ROOT / "pack/dependencies.lock.json").read_text(encoding="utf-8"))
         entry = next(item for item in lock["content_packs"] if item["id"] == "cobbreeding")

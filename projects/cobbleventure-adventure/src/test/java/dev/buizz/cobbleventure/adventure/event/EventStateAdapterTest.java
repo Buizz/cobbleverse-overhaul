@@ -140,7 +140,7 @@ final class EventStateAdapterTest {
         ), locals));
         adapter.start(context(command(
             "unlock_feature",
-            argument(literal("cobbleventure:feature/map"))
+            argument(name("pc"))
         ), locals));
         EventCommandAdapter.StartResult capResult = adapter.start(context(command(
             "set_level_cap", argument(literal(25))
@@ -149,7 +149,7 @@ final class EventStateAdapterTest {
 
         assertTrue(state.flags.get("cobbleventure:flag/story/test"));
         assertEquals(3, state.variables.get("cobbleventure:variable/story/visits").getAsInt());
-        assertEquals("cobbleventure:feature/map", state.unlockedFeature);
+        assertEquals("pc", state.unlockedFeature);
         assertEquals(25, state.levelCap);
         assertTrue(capResult instanceof EventCommandAdapter.Completed);
         assertTrue(((EventCommandAdapter.Completed) capResult).result().getAsBoolean());
@@ -214,7 +214,7 @@ final class EventStateAdapterTest {
             "grant_badge", argument(literal("cobbleventure:badge/kanto/boulder"))
         ), Map.of()));
         adapter.start(context(command(
-            "grant_field_move", argument(literal("rock_smash"))
+            "grant_field_move", argument(name("rock_smash"))
         ), Map.of()));
 
         assertEquals("cobbleventure:badge/kanto/boulder", state.badge);

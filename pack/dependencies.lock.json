@@ -440,6 +440,32 @@
       "reason": "포켓몬센터·체육관·상점·도시에서 사용할 현대식 천장등·벽등·가로등과 스마트 조명 제공"
     },
     {
+      "id": "geckolib",
+      "display_name": "GeckoLib",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "4.9.2",
+      "curseforge": {
+        "project_id": 388172,
+        "file_id": 8350073
+      },
+      "reason": "Pokeblocks 포켓몬 인형의 3D 모델과 애니메이션을 구동하는 필수 라이브러리"
+    },
+    {
+      "id": "pokeblocks",
+      "display_name": "Pokeblocks (NeoForge Unofficial)",
+      "classification": "required",
+      "side": "both",
+      "enabled": true,
+      "version": "1.5.0-1.21.1",
+      "curseforge": {
+        "project_id": 1572805,
+        "file_id": 8235473
+      },
+      "reason": "일반·이로치·애니메이션 포켓몬 인형과 피규어를 배치해 건물과 전시 공간을 꾸미는 기능 제공"
+    },
+    {
       "id": "copycat-we-fix",
       "display_name": "Copycat WE Fix",
       "classification": "development",

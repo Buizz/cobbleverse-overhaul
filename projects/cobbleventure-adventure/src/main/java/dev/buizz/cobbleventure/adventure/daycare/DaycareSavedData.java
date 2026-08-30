@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 final class DaycareSavedData extends SavedData {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DATA_FILE = "cobbleventure_daycare_jobs";
-    private static final int DATA_VERSION = 1;
+    private static final int DATA_VERSION = 2;
 
     private final Map<UUID, DaycareJob> jobs = new LinkedHashMap<>();
 
@@ -34,7 +34,7 @@ final class DaycareSavedData extends SavedData {
     ) {
         DaycareSavedData data = new DaycareSavedData();
         int version = tag.getInt("dataVersion");
-        if (version != DATA_VERSION) {
+        if (version != 1 && version != DATA_VERSION) {
             LOGGER.error("Unsupported daycare data version {}; jobs were not loaded", version);
             return data;
         }

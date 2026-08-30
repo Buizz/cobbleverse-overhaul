@@ -35,4 +35,31 @@ final class TownAccessRoadEndTest {
         assertEquals(16, TownAccessRoadGeometry.cornerX(true, 16, 15));
         assertEquals(-29, TownAccessRoadGeometry.cornerZ(true, -32, -29));
     }
+
+    @Test
+    void connectsOpenEndedRegionalRoutesToTheTown() {
+        assertEquals(
+            "route:route_custom_22",
+            RegionalRouteGeometry.gateTarget(null, "route_custom_22")
+        );
+        assertEquals(
+            "cobbleventure:settlement/fuchsia_city",
+            RegionalRouteGeometry.gateTarget(
+                "cobbleventure:settlement/fuchsia_city", "route_custom_09"
+            )
+        );
+    }
+
+    @Test
+    void treatsOnlyTheOceanPartOfALogBridgeAsAquatic() {
+        assertFalse(RegionalRouteGeometry.approachIsAquatic(
+            "log_bridge", true, false
+        ));
+        assertTrue(RegionalRouteGeometry.approachIsAquatic(
+            "log_bridge", true, true
+        ));
+        assertTrue(RegionalRouteGeometry.approachIsAquatic(
+            "water", true, false
+        ));
+    }
 }

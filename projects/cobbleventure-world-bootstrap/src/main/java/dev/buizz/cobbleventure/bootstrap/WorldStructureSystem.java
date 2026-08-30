@@ -11,6 +11,7 @@ import com.mojang.logging.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -51,7 +52,7 @@ final class WorldStructureSystem {
                 ? value.getAsJsonObject("properties") : new JsonObject();
             String placementAnchor = properties.has("placement_anchor")
                 ? requiredString(properties, "placement_anchor") : "center";
-            if (!List.of("center", "road_anchor").contains(placementAnchor)) {
+            if (!List.of("center", "road_anchor", "door").contains(placementAnchor)) {
                 throw new IllegalStateException(
                     "Invalid world structure placement anchor: " + placementAnchor
                 );
@@ -109,24 +110,57 @@ final class WorldStructureSystem {
         Rotation rotation = rotation(configured.rotation());
         CobbleventureBootstrap.Point center = world.grid().worldCenter(configured.anchor());
         Vec3i rotatedSize = template.getSize(rotation);
+        CobbleventureBootstrap.Point placementPoint = center;
+        Direction outside = null;
+        String rotationName = rotationName(configured.rotation());
+        if (configured.placementAnchor().equals("road_anchor")) {
+            outside = BuildingRuntimeSystem.exteriorRoadAnchorOutsideDirection(
+                level, configured.structure(), rotationName
+            );
+        } else if (configured.placementAnchor().equals("door")) {
+            outside = BuildingRuntimeSystem.exteriorDoorOutsideDirection(
+                configured.structure(), rotationName
+            );
+        }
+        if (outside != null && outside.getAxis().isHorizontal()) {
+            placementPoint = roadEdgePlacementPoint(world, configured, center, outside);
+        }
         int floorY = CobbleventureBootstrap.nativeTerrainColumn(
-            world, center.x(), center.z()
+            world, placementPoint.x(), placementPoint.z()
         ).groundY();
         BlockPos origin;
         if (configured.placementAnchor().equals("road_anchor")) {
-            BlockPos roadAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
-                level, configured.structure(), rotationName(configured.rotation())
+            BlockPos entranceAnchor = BuildingRuntimeSystem.exteriorRoadAnchorOffset(
+                level, configured.structure(), rotationName
             );
-            if (roadAnchor == null) {
+            if (entranceAnchor == null) {
                 throw new IllegalStateException(
-                    "Road-aligned world structure requires exactly one road_anchor: "
-                        + configured.id() + " (" + configured.structure() + ")"
+                    "Road-aligned world structure requires its configured entrance anchor: "
+                        + configured.id() + " (" + configured.structure() + ", "
+                        + configured.placementAnchor() + ")"
                 );
             }
             origin = new BlockPos(
-                center.x() - roadAnchor.getX(),
-                floorY - roadAnchor.getY(),
-                center.z() - roadAnchor.getZ()
+                placementPoint.x() - entranceAnchor.getX(),
+                floorY - entranceAnchor.getY(),
+                placementPoint.z() - entranceAnchor.getZ()
+            );
+        } else if (configured.placementAnchor().equals("door")) {
+            BlockPos entranceAnchor = BuildingRuntimeSystem.exteriorDoorOffset(
+                configured.structure(), rotationName
+            );
+            if (entranceAnchor == null) {
+                throw new IllegalStateException(
+                    "Road-aligned world structure requires its configured entrance anchor: "
+                        + configured.id() + " (" + configured.structure() + ", door)"
+                );
+            }
+            // Door metadata points one block above the authored foundation. Only X/Z
+            // are alignment coordinates; lowering the origin by door Y buries the yard.
+            origin = new BlockPos(
+                placementPoint.x() - entranceAnchor.getX(),
+                floorY,
+                placementPoint.z() - entranceAnchor.getZ()
             );
         } else {
             int minX = center.x() - rotatedSize.getX() / 2;
@@ -172,6 +206,32 @@ final class WorldStructureSystem {
         );
         DungeonSystem.registerWorldPlacement(
             level, configured, origin, rotation
+        );
+    }
+
+    private static CobbleventureBootstrap.Point roadEdgePlacementPoint(
+        HexWorldPlan world, WorldStructure configured,
+        CobbleventureBootstrap.Point center, Direction outside
+    ) {
+        double corridorWidth = world.paths().stream()
+            .filter(path -> path.cells().contains(configured.anchor()))
+            .mapToDouble(path -> path.corridorWidthBlocks())
+            .max()
+            .orElse(0.0D);
+        if (corridorWidth <= 0.0D) return center;
+        int setback = Math.max(1, (int) Math.ceil(corridorWidth / 2.0D) + 1);
+        return offsetEntranceFromRoadCenter(center, outside, setback);
+    }
+
+    static CobbleventureBootstrap.Point offsetEntranceFromRoadCenter(
+        CobbleventureBootstrap.Point roadCenter, Direction outside, int setback
+    ) {
+        // The entrance faces from the building toward the road. Move the
+        // entrance in the opposite direction so the NBT body clears the road.
+        int distance = Math.max(0, setback);
+        return new CobbleventureBootstrap.Point(
+            roadCenter.x() - outside.getStepX() * distance,
+            roadCenter.z() - outside.getStepZ() * distance
         );
     }
 

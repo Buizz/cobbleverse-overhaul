@@ -3,8 +3,8 @@
   "structure": "content/structures/placeholder/daycare.nbt",
   "anchors": [
     {
-      "id": "attendant",
-      "label": "attendant",
+      "id": "paddock",
+      "label": "paddock",
       "type": "npc_position",
       "position": [
         14,

@@ -1055,6 +1055,7 @@ def validate_hex_worlds(
         seen_connections: set[str] = set()
         connection_degrees: dict[str, int] = {}
         connection_cells: set[tuple[int, int]] = set()
+        road_connection_cells: set[tuple[int, int]] = set()
         for index, connection in enumerate(connections):
             connection_path = f"$.connections[{index}]"
             if not isinstance(connection, dict):
@@ -1180,6 +1181,8 @@ def validate_hex_worlds(
                     continue
                 coordinates.append((cell["q"], cell["r"]))
             connection_cells.update(coordinates)
+            if connection.get("surface_style") != "water":
+                road_connection_cells.update(coordinates)
             for cell_index in range(1, len(coordinates)):
                 q1, r1 = coordinates[cell_index - 1]
                 q2, r2 = coordinates[cell_index]
@@ -1256,11 +1259,11 @@ def validate_hex_worlds(
                 properties = custom_object.get("properties", {})
                 placement_anchor = properties.get("placement_anchor", "center") \
                     if isinstance(properties, dict) else "center"
-                if placement_anchor not in {"center", "road_anchor"}:
+                if placement_anchor not in {"center", "road_anchor", "door"}:
                     _issue(
                         issues, "error", path,
                         f"{object_path}.properties.placement_anchor",
-                        "NBT 오브젝트 배치 기준은 center 또는 road_anchor여야 합니다.",
+                        "NBT 오브젝트 배치 기준은 center, road_anchor 또는 door여야 합니다.",
                     )
                 elif placement_anchor == "road_anchor" and isinstance(resource, str):
                     structure_path = available_structures.get(resource)
@@ -1274,6 +1277,28 @@ def validate_hex_worlds(
                                 f"{object_path}.properties.placement_anchor",
                                 f"road_anchor 배치는 구조물에 정확히 하나의 road_anchor가 필요합니다: {resource}",
                             )
+                elif placement_anchor == "door" and isinstance(resource, str):
+                    structure_path = available_structures.get(resource)
+                    if structure_path is not None:
+                        door_anchors = _structure_named_anchors(
+                            structure_path, {"door"}
+                        )
+                        if not door_anchors:
+                            _issue(
+                                issues, "error", path,
+                                f"{object_path}.properties.placement_anchor",
+                                f"door 배치는 구조물에 외부 문 앵커가 필요합니다: {resource}",
+                            )
+                if (
+                    isinstance(anchor, dict)
+                    and (anchor.get("q"), anchor.get("r")) in road_connection_cells
+                    and placement_anchor not in {"road_anchor", "door"}
+                ):
+                    _issue(
+                        issues, "error", path,
+                        f"{object_path}.properties.placement_anchor",
+                        "길 셀의 NBT 오브젝트는 road_anchor 또는 외부 문을 길 접점으로 사용해야 합니다.",
+                    )
                 continue
             if object_type != "gate":
                 continue
@@ -7145,6 +7170,40 @@ def create_interior_space(root: Path, payload: dict[str, Any]) -> dict[str, Any]
     return create_gym_interior_module(root, payload)
 
 
+def validate_easy_npc_preset_ownership(
+    core_root: Path, npc_ids: set[str]
+) -> list[Issue]:
+    """Reject duplicate presets and module-owned copies of source-authored NPCs."""
+    issues: list[Issue] = []
+    resource_roots = sorted((core_root / "projects").glob("*/src/main/resources"))
+    by_resource: dict[str, list[Path]] = {}
+    source_slugs = {npc_id.rsplit("/", 1)[-1] for npc_id in npc_ids}
+    canonical_root = (
+        core_root / "projects" / "cobbleventure-world-bootstrap" / "src" / "main" / "resources"
+    ).resolve()
+    for resource_root in resource_roots:
+        preset_root = resource_root / "data" / "easy_npc" / "preset" / "encounter"
+        for path in sorted(preset_root.glob("*.npc.snbt")) if preset_root.is_dir() else []:
+            resource = path.relative_to(resource_root).as_posix()
+            by_resource.setdefault(resource, []).append(path)
+            slug = path.name.removesuffix(".npc.snbt").split("__", 1)[0]
+            if slug in source_slugs and resource_root.resolve() != canonical_root:
+                _issue(
+                    issues, "error", path, "$",
+                    "콘텐츠 NPC와 같은 프리셋을 개별 모드에 하드코딩할 수 없습니다. "
+                    "content/source NPC를 유일한 원본으로 사용하세요.",
+                )
+    for resource, paths in by_resource.items():
+        if len(paths) < 2:
+            continue
+        for path in paths:
+            others = ", ".join(
+                other.relative_to(core_root).as_posix() for other in paths if other != path
+            )
+            _issue(issues, "error", path, "$", f"중복 EasyNPC 프리셋 리소스: {resource} ({others})")
+    return issues
+
+
 def validate_repository(
     root: Path, strict_pack: bool = False, dependency_root: Path | None = None
 ) -> ValidationResult:
@@ -7535,6 +7594,10 @@ def validate_repository(
             _issue(issues, "error", path, "$.id", f"다른 파일과 중복된 숲 ID: {forest_id}")
         elif forest_id:
             seen_forests.add(forest_id)
+
+    issues.extend(validate_easy_npc_preset_ownership(
+        dependency_root, set(seen_content)
+    ))
 
     errors = sum(issue.level == "error" for issue in issues)
     warnings = sum(issue.level == "warning" for issue in issues)
@@ -9421,6 +9484,8 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                     ] if isinstance(team, list) else []
                 summary["team_size"] = len(summary.get("team", []))
                 summary["npc_name"] = _localized_value(data.get("npc", {}).get("display_name"))
+                summary["role"] = data.get("npc", {}).get("role", "default")
+                summary["tags"] = [tag for tag in data.get("tags", []) if isinstance(tag, str)]
                 profile = data.get("placement_profile", {})
                 inferred_trainer = bool(summary.get("battle_type"))
                 summary["classification"] = profile.get(
@@ -9839,6 +9904,93 @@ def _contains_document_reference(value: Any, target_id: str, keys: set[str]) -> 
     return False
 
 
+def _collect_exact_references(
+    value: Any, target_id: str, value_path: str = "$"
+) -> list[str]:
+    references: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{value_path}.{key}"
+            if child == target_id:
+                references.append(child_path)
+            else:
+                references.extend(_collect_exact_references(child, target_id, child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            child_path = f"{value_path}[{index}]"
+            if child == target_id:
+                references.append(child_path)
+            else:
+                references.extend(_collect_exact_references(child, target_id, child_path))
+    return references
+
+
+def npc_references(root: Path, npc_id: str, excluded: Path | None = None) -> list[dict[str, str]]:
+    """Return every authored use of an NPC ID, including map-valued fixed_npcs."""
+    content = root / "content"
+    candidates: list[Path] = []
+    for directory in (
+        "source", "battles", "routes", "settlements", "caves", "forests",
+        "dungeons", "dungeon_plans", "worlds", "event-bindings",
+    ):
+        base = content / directory
+        if base.is_dir():
+            candidates.extend(base.rglob("*.json"))
+    for filename in (
+        "building-settings.json", "starter-settings.json", "gyms.json",
+        "league-progression.json",
+    ):
+        path = content / "catalogs" / filename
+        if path.is_file():
+            candidates.append(path)
+    references: list[dict[str, str]] = []
+    for path in sorted(set(candidate.resolve() for candidate in candidates)):
+        if excluded is not None and path == excluded.resolve():
+            continue
+        try:
+            document = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+        for value_path in _collect_exact_references(document, npc_id):
+            references.append({
+                "path": path.relative_to(root).as_posix(),
+                "value_path": value_path,
+            })
+    return references
+
+
+def system_npc_payload(root: Path) -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    source_root = root / "content" / "source"
+    for path in sorted(source_root.rglob("*.json")) if source_root.is_dir() else []:
+        try:
+            document = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+        npc_id = document.get("id") if isinstance(document, dict) else None
+        tags = document.get("tags", []) if isinstance(document, dict) else []
+        system = document.get("system_npc", {}) if isinstance(document, dict) else {}
+        if not isinstance(npc_id, str) or not (
+            isinstance(system, dict) and system
+            or isinstance(tags, list) and any(tag in {"service", "building_runtime"} for tag in tags)
+        ):
+            continue
+        references = npc_references(root, npc_id, path)
+        items.append({
+            "id": npc_id,
+            "path": path.relative_to(root).as_posix(),
+            "name": _localized_value(document.get("name")) or npc_id,
+            "description": _localized_value(document.get("description")),
+            "tags": tags if isinstance(tags, list) else [],
+            "functions": system.get("functions", []) if isinstance(system, dict) else [],
+            "npc": document.get("npc", {}),
+            "references": references,
+            "protected": bool(references) or bool(system),
+            "document": document,
+        })
+    return {"items": items}
+
+
 def _delete_document(root: Path, category: str, relative_path: str) -> tuple[Path, list[str]]:
     if category == "settlements":
         return _delete_settlement_document(root, relative_path)
@@ -9849,6 +10001,20 @@ def _delete_document(root: Path, category: str, relative_path: str) -> tuple[Pat
     document_id = data.get("id") if isinstance(data, dict) else None
     if not isinstance(document_id, str) or not document_id:
         raise ValueError("삭제할 문서의 ID를 읽을 수 없습니다.")
+
+    if category == "trainers":
+        exact_references = npc_references(root, document_id, target)
+        system = data.get("system_npc", {}) if isinstance(data, dict) else {}
+        system_functions = system.get("functions", []) if isinstance(system, dict) else []
+        if exact_references or system:
+            return target, [
+                f"{reference['path']} · {reference['value_path']}"
+                for reference in exact_references
+            ] + [
+                f"시스템 기능 · {function_name}"
+                for function_name in system_functions
+                if isinstance(function_name, str)
+            ]
 
     reference_keys = {
         "trainers": {"trainer_id", "npc_profile"},
@@ -14386,27 +14552,123 @@ def create_handler(
         ):
             refresh_structure_cache()
 
-    def load_installed_cobbleverse_rct_png(resource_group: str, resource_id: str) -> bytes | None:
+    def installed_resource_pack_archives() -> list[Path]:
+        """Return resource packs visible to the editor, including the dev instance."""
+        instance_roots: list[Path] = []
         instance_override = os.environ.get("COBBLEVERSE_INSTANCE")
-        instance_roots = []
         if instance_override:
             instance_roots.append(Path(instance_override))
-        instance_roots.append(
-            Path.home()
-            / "curseforge"
-            / "minecraft"
-            / "Instances"
-            / "COBBLEVERSE - Pokemon Adventure [Cobblemon]"
+        instance_roots.extend((
+            Path.home() / "curseforge" / "minecraft" / "Instances" / "Cobbleventure Development Test Pack",
+            Path.home() / "curseforge" / "minecraft" / "Instances" / "COBBLEVERSE - Pokemon Adventure [Cobblemon]",
+        ))
+        resource_pack_roots = [instance_root / "resourcepacks" for instance_root in instance_roots]
+        resource_pack_roots.extend((
+            core_root / "pack" / "overrides" / "development-placeholder" / "resourcepacks",
+            core_root / "pack" / "overrides" / "development-placeholder" / "config" / "paxi" / "resourcepacks",
+        ))
+        archives: list[Path] = []
+        seen: set[Path] = set()
+        for resource_pack_root in resource_pack_roots:
+            if not resource_pack_root.is_dir():
+                continue
+            for archive in sorted(resource_pack_root.glob("*.zip")):
+                resolved = archive.resolve()
+                if resolved not in seen:
+                    seen.add(resolved)
+                    archives.append(resolved)
+        return archives
+
+    def resource_pack_token(archive: Path) -> str:
+        return hashlib.sha1(str(archive).encode("utf-8")).hexdigest()[:16]
+
+    def resource_pack_character_catalog() -> dict[str, Any]:
+        """Index player-compatible skins and villager appearance layers in packs."""
+        items: list[dict[str, Any]] = []
+        packs: list[dict[str, Any]] = []
+        trainer_pattern = re.compile(
+            r"^assets/([a-z0-9_.-]+)/textures/entity/trainer/([a-z0-9_./-]+)\.png$"
         )
+        rct_pattern = re.compile(
+            r"^assets/(rctmod)/textures/trainers/(single|group)/([a-z0-9_./-]+)\.png$"
+        )
+        villager_pattern = re.compile(
+            r"^assets/([a-z0-9_.-]+)/textures/entity/villager/(profession|type)/([a-z0-9_./-]+)\.png$"
+        )
+        for archive in installed_resource_pack_archives():
+            token = resource_pack_token(archive)
+            pack_count = 0
+            try:
+                with zipfile.ZipFile(archive) as resource_pack:
+                    for entry in resource_pack.infolist():
+                        path = entry.filename.replace("\\", "/")
+                        resource = ""
+                        category = ""
+                        selectable = False
+                        match = trainer_pattern.fullmatch(path)
+                        if match:
+                            resource = f"{match.group(1)}:trainer_skin/{match.group(2)}"
+                            category = "trainer_skin"
+                            selectable = True
+                        else:
+                            match = rct_pattern.fullmatch(path)
+                            if match:
+                                resource = f"rctmod:trainers/{match.group(2)}/{match.group(3)}"
+                                category = f"rct_{match.group(2)}"
+                                selectable = True
+                            else:
+                                match = villager_pattern.fullmatch(path)
+                                if not match:
+                                    continue
+                                stem = match.group(3)
+                                if stem.endswith(("_blink", "_e")):
+                                    continue
+                                resource = f"{match.group(1)}:villager/{match.group(2)}/{stem}"
+                                category = f"villager_{match.group(2)}"
+                        if entry.file_size > 4 * 1024 * 1024:
+                            continue
+                        label_slug = resource.rsplit("/", 1)[-1]
+                        items.append({
+                            "pack": archive.name,
+                            "pack_token": token,
+                            "entry": path,
+                            "resource": resource,
+                            "name": label_slug.replace("_", " "),
+                            "namespace": match.group(1),
+                            "category": category,
+                            "selectable": selectable,
+                        })
+                        pack_count += 1
+            except (OSError, zipfile.BadZipFile):
+                continue
+            if pack_count:
+                packs.append({"name": archive.name, "token": token, "characters": pack_count})
+        return {"packs": packs, "items": items}
+
+    def resource_pack_character_png(pack_token: str, entry_path: str) -> bytes | None:
+        if not re.fullmatch(r"[0-9a-f]{16}", pack_token):
+            return None
+        if not re.fullmatch(r"assets/[a-z0-9_.-]+/[a-z0-9_./-]+\.png", entry_path):
+            return None
+        for archive in installed_resource_pack_archives():
+            if resource_pack_token(archive) != pack_token:
+                continue
+            try:
+                with zipfile.ZipFile(archive) as resource_pack:
+                    info = resource_pack.getinfo(entry_path)
+                    if info.file_size > 4 * 1024 * 1024:
+                        return None
+                    data = resource_pack.read(info)
+            except (OSError, KeyError, zipfile.BadZipFile):
+                return None
+            return data if data.startswith(b"\x89PNG\r\n\x1a\n") else None
+        return None
+
+    def load_installed_cobbleverse_rct_png(resource_group: str, resource_id: str) -> bytes | None:
         archive_entry = (
             f"assets/rctmod/textures/trainers/{resource_group}/{resource_id}.png"
         )
-        for instance_root in instance_roots:
-            resource_pack = (
-                instance_root / "resourcepacks" / "COBBLEVERSE RCTmod RP.zip"
-            )
-            if not resource_pack.is_file():
-                continue
+        for resource_pack in installed_resource_pack_archives():
             try:
                 with zipfile.ZipFile(resource_pack) as archive:
                     data = archive.read(archive_entry)
@@ -14671,6 +14933,12 @@ def create_handler(
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/system-npcs":
+                try:
+                    self._json(200, system_npc_payload(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/league-progression":
                 try:
                     self._json(200, load_json(root / "content" / "catalogs" / "league-progression.json"))
@@ -14728,6 +14996,19 @@ def create_handler(
                     )
                 except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/resource-pack-characters":
+                self._json(200, resource_pack_character_catalog())
+                return
+            if request.path == "/api/resource-pack-character":
+                query = parse_qs(request.query)
+                pack_token = query.get("pack", [""])[0]
+                entry_path = query.get("entry", [""])[0]
+                data = resource_pack_character_png(pack_token, entry_path)
+                if data is None:
+                    self._json(404, {"error": "리소스팩 캐릭터 이미지를 찾을 수 없습니다."})
+                else:
+                    self._bytes(200, data, "image/png")
                 return
             if request.path == "/api/trainer-skin":
                 query = parse_qs(request.query)
@@ -14808,6 +15089,21 @@ def create_handler(
                         skin_path = manual_candidate
                     elif candidate.is_relative_to(skin_root) and candidate.is_file():
                         skin_path = candidate
+                    else:
+                        packed_skin = next(
+                            (
+                                entry for entry in resource_pack_character_catalog()["items"]
+                                if entry["selectable"] and entry["resource"] == resource
+                            ),
+                            None,
+                        )
+                        if packed_skin is not None:
+                            data = resource_pack_character_png(
+                                packed_skin["pack_token"], packed_skin["entry"]
+                            )
+                            if data is not None:
+                                self._bytes(200, data, "image/png")
+                                return
                 try:
                     self._bytes(200, skin_path.read_bytes(), "image/png")
                 except OSError as error:

@@ -99,6 +99,34 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         for preset in (outfit_preset, encounter_preset, v5_preset):
             self.assertIn('\\"font\\":\\"minecraft:uniform\\"', preset)
 
+    def test_system_npc_function_is_compiled_into_every_preset_adapter(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/source/facilities/blackjack_dealer.json"
+        ).read_text(encoding="utf-8"))
+        document["_battle_presets"] = {}
+
+        encounter = generator.encounter_preset_snbt(document, self.outfit)
+        v5 = generator.v5_encounter_preset_snbt(
+            document, self.outfit,
+            "cves_binding/cobbleventure/facilities/blackjack_dealer",
+        )
+
+        for preset in (encounter, v5):
+            self.assertIn('"cobbleventure_npc_function_blackjack"', preset)
+
+    def test_v5_system_npc_requires_an_event_binding_before_generation(self) -> None:
+        missing = {
+            "id": "cobbleventure:npc/test_dealer",
+            "enabled": True,
+            "system_npc": {"functions": ["blackjack"]},
+            "event_runtime": {"engine": "cves_v5"},
+        }
+        with self.assertRaisesRegex(ValueError, "이벤트 바인딩 누락"):
+            generator.validate_system_npc_runtime_bindings([missing])
+
+        bound = {**missing, "_cves_binding_tag": "cves_binding/cobbleventure/facilities/test_dealer"}
+        generator.validate_system_npc_runtime_bindings([bound])
+
     def test_dungeon_actor_preset_is_inert_and_class_owned(self) -> None:
         trainer_class = "cobbleventure:trainer_class/villain_grunt"
         preset = generator.dungeon_actor_preset_snbt(trainer_class, self.outfit)

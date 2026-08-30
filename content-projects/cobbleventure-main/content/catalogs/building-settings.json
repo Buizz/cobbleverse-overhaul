@@ -12,6 +12,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -22,6 +23,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -32,6 +34,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -42,6 +45,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -52,6 +56,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -62,6 +67,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [
         {
@@ -86,6 +92,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -100,6 +107,7 @@
       "fixed_pokemon": {
         "chansey": "chansey level=30 female"
       },
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -110,6 +118,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -120,6 +129,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -130,57 +140,21 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
     },
-    "cobbleventure:houses/five_story_flat": {
+    "cobbleventure:houses/bill_house": {
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
-      "fixed_npcs": {},
+      "fixed_npcs": {
+        "room_1:npc1": "cobbleventure:npc/rewards/feature_pc_technician"
+      },
       "fixed_pokemon": {},
-      "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
-    },
-    "cobbleventure:houses/five_story_gable": {
-      "placement_y_offset": 0,
-      "structure_category": "residential",
-      "no_interior_space": false,
-      "fixed_npcs": {},
-      "fixed_pokemon": {},
-      "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
-    },
-    "cobbleventure:houses/five_story_gambrel": {
-      "placement_y_offset": 0,
-      "structure_category": "residential",
-      "no_interior_space": false,
-      "fixed_npcs": {},
-      "fixed_pokemon": {},
-      "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
-    },
-    "cobbleventure:houses/five_story_shed": {
-      "placement_y_offset": 0,
-      "structure_category": "residential",
-      "no_interior_space": false,
-      "fixed_npcs": {},
-      "fixed_pokemon": {},
-      "citizen_placement_allowed": true,
-      "interiors": [],
-      "door_routes": {}
-    },
-    "cobbleventure:houses/one_story_flat": {
-      "placement_y_offset": 0,
-      "structure_category": "residential",
-      "no_interior_space": false,
-      "fixed_npcs": {},
-      "fixed_pokemon": {},
-      "citizen_placement_allowed": true,
+      "fixed_gacha_machines": {},
+      "citizen_placement_allowed": false,
       "interiors": [
         {
           "key": "room_1",
@@ -198,15 +172,58 @@
         }
       }
     },
-    "cobbleventure:houses/bill_house": {
+    "cobbleventure:houses/five_story_flat": {
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
-      "fixed_npcs": {
-        "room_1:npc1": "cobbleventure:npc/rewards/feature_pc_technician"
-      },
+      "fixed_npcs": {},
       "fixed_pokemon": {},
-      "citizen_placement_allowed": false,
+      "fixed_gacha_machines": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/five_story_gable": {
+      "placement_y_offset": 0,
+      "structure_category": "residential",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/five_story_gambrel": {
+      "placement_y_offset": 0,
+      "structure_category": "residential",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/five_story_shed": {
+      "placement_y_offset": 0,
+      "structure_category": "residential",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
+      "citizen_placement_allowed": true,
+      "interiors": [],
+      "door_routes": {}
+    },
+    "cobbleventure:houses/one_story_flat": {
+      "placement_y_offset": 0,
+      "structure_category": "residential",
+      "no_interior_space": false,
+      "fixed_npcs": {},
+      "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
+      "citizen_placement_allowed": true,
       "interiors": [
         {
           "key": "room_1",
@@ -230,6 +247,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": true,
       "interiors": [
         {
@@ -254,6 +272,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": true,
       "interiors": [
         {
@@ -278,6 +297,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": true,
       "interiors": [
         {
@@ -302,6 +322,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -312,6 +333,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -322,6 +344,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -332,6 +355,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": true,
       "interiors": [],
       "door_routes": {}
@@ -347,14 +371,14 @@
         "npc2": "cobbleventure:npc/gacha_ticket_vendor"
       },
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {
+        "gacha_default_item": "cobbleventure:item_gacha",
+        "gacha_default_pokemon": "cobbleventure:starter_gacha",
+        "gacha_default_tm": "cobbleventure:technical_machine_gacha"
+      },
       "citizen_placement_allowed": false,
       "interiors": [],
-      "door_routes": {},
-      "fixed_gacha_machines": {
-        "gacha_default_pokemon": "cobbleventure:starter_gacha",
-        "gacha_default_item": "cobbleventure:item_gacha",
-        "gacha_default_tm": "cobbleventure:technical_machine_gacha"
-      }
+      "door_routes": {}
     },
     "cobbleventure:interiors/department_store": {
       "placement_y_offset": 0,
@@ -362,6 +386,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -373,6 +398,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -383,6 +409,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -393,6 +420,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -403,6 +431,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -413,6 +442,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -423,6 +453,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -433,6 +464,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -443,6 +475,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -453,6 +486,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -461,9 +495,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "battle_tower", "label": "배틀타워", "note": "전투 랜드마크", "color": "#9d4edd" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -471,15 +505,18 @@
     "cobbleventure:placeholder/casino": {
       "placement_y_offset": 0,
       "structure_category": "placeholder",
-      "music_track": "facility.game_corner",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "casino", "label": "카지노", "note": "CasinoCraft 게임 시설 예정", "color": "#d4a017" },
       "fixed_npcs": {
         "room_1:blackjack_dealer_*": "cobbleventure:npc/blackjack_dealer",
         "room_1:npc1": "cobbleventure:npc/casino_cashier",
         "room_1:npc2": "cobbleventure:npc/gacha_ticket_vendor"
       },
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {
+        "room_1:gacha_default_item": "cobbleventure:item_gacha",
+        "room_1:gacha_default_pokemon": "cobbleventure:starter_gacha",
+        "room_1:gacha_default_tm": "cobbleventure:technical_machine_gacha"
+      },
       "citizen_placement_allowed": false,
       "interiors": [
         {
@@ -496,36 +533,67 @@
           "locked_dialogue": [],
           "enter_dialogue": []
         }
-      },
-      "fixed_gacha_machines": {
-        "room_1:gacha_default_pokemon": "cobbleventure:starter_gacha",
-        "room_1:gacha_default_item": "cobbleventure:item_gacha",
-        "room_1:gacha_default_tm": "cobbleventure:technical_machine_gacha"
       }
     },
     "cobbleventure:placeholder/daycare": {
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "daycare", "label": "키우미집", "note": "건물과 야외 목장", "color": "#80b918" },
       "fixed_npcs": {
-        "attendant": "cobbleventure:npc/facilities/daycare_attendant"
+        "room_1:npc": "cobbleventure:npc/facilities/daycare_attendant"
       },
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/daycare"
+        }
+      ],
+      "door_routes": {
+        "exterior:door1": {
+          "space": "room_1",
+          "door": "door1",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        },
+        "exterior:door2": {
+          "space": "room_1",
+          "door": "door2",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
     },
     "cobbleventure:placeholder/fossil_laboratory": {
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "fossil_laboratory", "label": "화석연구소", "note": "화석 포켓몬 복원", "color": "#c9a66b" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
-      "interiors": [],
-      "door_routes": {}
+      "interiors": [
+        {
+          "key": "room_1",
+          "structure": "cobbleventure:interiors/fossil_laboratory"
+        }
+      ],
+      "door_routes": {
+        "exterior:door": {
+          "space": "room_1",
+          "door": "door",
+          "condition_mode": "all",
+          "conditions": [],
+          "locked_dialogue": [],
+          "enter_dialogue": []
+        }
+      }
     },
     "cobbleventure:placeholder/gym_site": {
       "placement_y_offset": 0,
@@ -533,6 +601,7 @@
       "no_interior_space": false,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -541,9 +610,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "hotel", "label": "호텔", "note": "중대형 숙박 시설", "color": "#e85d75" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -552,11 +621,11 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "laboratory", "label": "연구소", "note": "스타팅 포켓몬 지급", "color": "#4cc9f0" },
       "fixed_npcs": {
         "room_1:professor_oak": "cobbleventure:npc/professor_oak"
       },
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [
         {
@@ -579,9 +648,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "lighthouse", "label": "등대", "note": "해안과 항구의 항로 랜드마크", "color": "#f1f3f5" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -590,9 +659,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "mansion", "label": "멘션", "note": "대저택과 스토리 랜드마크", "color": "#6f4e37" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -601,9 +670,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "player_house", "label": "플레이어 집", "note": "플레이어의 거점 주택", "color": "#9a7248" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [
         {
@@ -626,15 +695,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": {
-        "enabled": true,
-        "id": "pokemon_tower",
-        "label": "포켓몬타워",
-        "note": "보라타운의 영혼과 추모 랜드마크",
-        "color": "#6d597a"
-      },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -643,9 +706,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "power_plant", "label": "파워플랜트", "note": "발전 설비와 사건 진행 시설", "color": "#adb5bd" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -654,9 +717,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "radio_tower", "label": "라디오 타워", "note": "방송국과 송신탑", "color": "#4361ee" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -665,15 +728,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": {
-        "enabled": true,
-        "id": "silph_company",
-        "label": "실프주식회사",
-        "note": "노란시티의 대기업 랜드마크",
-        "color": "#457b9d"
-      },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -682,9 +739,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "tm_workshop", "label": "기술머신 조합소", "note": "기술머신 제작 시설", "color": "#f48c06" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -693,9 +750,9 @@
       "placement_y_offset": 0,
       "structure_category": "placeholder",
       "no_interior_space": false,
-      "town_placement": { "enabled": true, "id": "train_station", "label": "기차역", "note": "역사와 선로 예약부지", "color": "#495057" },
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -706,6 +763,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -716,6 +774,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -726,6 +785,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -736,6 +796,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}
@@ -746,6 +807,7 @@
       "no_interior_space": true,
       "fixed_npcs": {},
       "fixed_pokemon": {},
+      "fixed_gacha_machines": {},
       "citizen_placement_allowed": false,
       "interiors": [],
       "door_routes": {}

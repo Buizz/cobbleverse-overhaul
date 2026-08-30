@@ -36,6 +36,7 @@
           <div class="nav-group-items" hidden>
             <button class="nav-item" data-section="starter-settings">스타팅 설정</button>
             <button class="nav-item" data-section="trainers">NPC</button>
+            <button class="nav-item" data-section="system-npcs">시스템 NPC</button>
             <button class="nav-item" data-section="battles">배틀 프리셋</button>
             <button class="nav-item" data-section="league">리그 운영</button>
           </div>
@@ -185,6 +186,20 @@
             <div id="trainer-issues" class="issues empty">편집할 NPC를 선택하세요.</div>
           </div>
         </div>
+      </section>
+
+      <section class="page" id="system-npcs">
+        <div class="system-npc-heading panel">
+          <div><p class="eyebrow">SYSTEM NPC REGISTRY</p><h2>시스템 NPC 외형과 연결 상태</h2><p>간호순, 딜러, 판매원처럼 게임 기능이 연결된 NPC를 한곳에서 관리합니다. 사용 중인 NPC는 참조를 먼저 해제하기 전까지 삭제할 수 없습니다.</p></div>
+          <div class="system-npc-summary"><strong id="system-npc-count">—</strong><span>등록된 시스템 NPC</span></div>
+        </div>
+        <div id="system-npc-issues" class="issues empty">시스템 NPC 목록을 불러오는 중입니다.</div>
+        <section class="resource-pack-character-panel panel">
+          <header><div><p class="eyebrow">RESOURCE PACK CHARACTERS</p><h3>리소스팩 캐릭터</h3><p>설치된 리소스팩의 NPC 스킨과 주민 외형을 자동으로 읽습니다. 플레이어 스킨 형식은 시스템 NPC에 바로 적용할 수 있고, 주민 외형은 팩에서 바이옴·직업에 따라 자동 적용되는 모습을 확인할 수 있습니다.</p></div><strong id="resource-pack-character-count">—</strong></header>
+          <div class="resource-pack-character-tools"><input id="resource-pack-character-query" placeholder="이름, 리소스 ID, 팩 이름 검색"><select id="resource-pack-character-kind"><option value="all">전체 외형</option><option value="selectable">NPC에 적용 가능</option><option value="villager">주민 자동 외형</option></select><select id="resource-pack-character-target" aria-label="외형을 적용할 시스템 NPC"></select></div>
+          <div id="resource-pack-character-grid" class="resource-pack-character-grid"><p>리소스팩 캐릭터를 불러오는 중입니다.</p></div>
+        </section>
+        <div id="system-npc-grid" class="system-npc-grid"></div>
       </section>
 
       <section class="page" id="battles">
@@ -419,7 +434,7 @@
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input id="object-tool-tree-log" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input id="object-tool-tree-leaves" value="minecraft:oak_leaves"></label></div>
                   <div class="inline-fields" data-gate-surrounding><label><span>장애물 두께</span><input id="object-tool-wall-thickness" type="number" min="1" max="15" step="2" value="5"></label><label><span>가운데 통로 폭</span><input id="object-tool-opening-width" type="number" min="3" max="31" step="2" value="7"></label></div>
                   <div class="inline-fields" data-gate-surrounding><label><span>장애물 높이</span><input id="object-tool-wall-height" type="number" min="3" max="32" value="7"></label><label><span>배리어 높이</span><input id="object-tool-barrier-height" type="number" min="8" max="128" value="24"></label></div>
-                  <label><span>NPC 프리셋 (선택)</span><select id="object-tool-npc"><option value="">NPC 없음</option></select><small>기존 NPC 프리셋을 참조합니다. 역할·외형·대화·액션은 NPC 화면에서 편집하세요.</small></label>
+                  <label class="gate-npc-picker-field"><span>NPC 프리셋 (선택)</span><span class="nbt-picker-control"><input id="object-tool-npc" placeholder="NPC를 선택하세요" readonly><button class="button secondary" type="button" data-open-gate-npc-picker="tool">NPC 선택</button></span><small>기존 NPC 프리셋을 참조합니다. 역할·외형·대화·액션은 NPC 화면에서 편집하세요.</small></label>
                   <button class="tool-action" id="edit-object-npc" type="button">선택한 NPC 프리셋 편집</button>
                   <label><span>조건 조합</span><select id="object-tool-condition-mode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label>
                   <section class="gate-condition-builder" id="object-tool-condition-builder" data-gate-condition-editor>
@@ -479,7 +494,7 @@
                   <div class="inline-fields" data-gate-trees><label><span>나무 줄기</span><input name="objectTreeLog" value="minecraft:oak_log"></label><label><span>나뭇잎</span><input name="objectTreeLeaves" value="minecraft:oak_leaves"></label></div>
                   <div class="inline-fields" data-gate-surrounding><label><span>장애물 두께</span><input name="objectWallThickness" type="number" min="1" max="15" step="2"></label><label><span>가운데 통로 폭</span><input name="objectOpeningWidth" type="number" min="3" max="31" step="2"></label></div>
                   <div class="inline-fields" data-gate-surrounding><label><span>장애물 높이</span><input name="objectWallHeight" type="number" min="3" max="32"></label><label><span>배리어 높이</span><input name="objectBarrierHeight" type="number" min="8" max="128"></label></div>
-                  <label><span>NPC 프리셋 (선택)</span><input name="objectNpc"></label>
+                  <label class="gate-npc-picker-field"><span>NPC 프리셋 (선택)</span><span class="nbt-picker-control"><input name="objectNpc" placeholder="NPC를 선택하세요" readonly><button class="button secondary" type="button" data-open-gate-npc-picker="inspector">NPC 선택</button></span></label>
                   <label><span>조건 조합</span><select name="objectConditionMode"><option value="all">모든 조건 충족</option><option value="any">조건 중 하나 충족</option></select></label>
                   <div class="gate-condition-builder" id="inspector-gate-condition-builder" data-gate-condition-editor>
                     <header><span>통과 조건</span><button type="button" data-gate-condition-add>+ 조건 추가</button></header>
@@ -1451,6 +1466,18 @@
         <div class="trainer-assignment-meta"><strong id="trainer-assignment-count">0명</strong><button id="trainer-assignment-reset" type="button">필터 초기화</button></div>
         <div id="trainer-assignment-list" class="trainer-assignment-list"></div>
         <footer><span>추가한 트레이너는 바깥의 직접 지정 목록에 바로 표시됩니다.</span><button id="trainer-assignment-done" class="button primary" type="button">완료</button></footer>
+      </div>
+    </dialog>
+    <dialog id="gate-npc-dialog" class="trainer-assignment-dialog gate-npc-dialog">
+      <div class="trainer-assignment-shell">
+        <header><div><p class="eyebrow">GATE NPC PICKER</p><h2>관문 NPC 선택</h2><small>이름·ID·분류로 검색한 뒤 관문에 사용할 NPC 프리셋을 선택합니다.</small></div><button id="gate-npc-close" type="button" aria-label="닫기">×</button></header>
+        <div class="trainer-assignment-filters gate-npc-filters">
+          <label class="wide"><span>검색</span><input id="gate-npc-search" type="search" placeholder="NPC 이름 또는 ID" autocomplete="off"></label>
+          <label><span>NPC 분류</span><select id="gate-npc-kind"><option value="all">모든 NPC</option><option value="gatekeeper">관문지기</option><option value="ambient">단순 NPC</option><option value="trainer">트레이너</option></select></label>
+        </div>
+        <div class="trainer-assignment-meta"><strong id="gate-npc-count">0명</strong><button id="gate-npc-reset" type="button">필터 초기화</button></div>
+        <div id="gate-npc-list" class="trainer-assignment-list"></div>
+        <footer><button id="gate-npc-clear" class="button secondary" type="button">NPC 없음</button><button id="gate-npc-done" class="button primary" type="button">닫기</button></footer>
       </div>
     </dialog>
     <dialog id="choice-dialog" class="choice-dialog">

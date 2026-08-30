@@ -1,6 +1,8 @@
 package dev.buizz.cobbleventure.bootstrap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexCoord;
@@ -87,5 +89,44 @@ final class WorldGateEdgePlacementTest {
         assertEquals(65, WorldGateSystem.nextGateApproachY(64, 70));
         assertEquals(63, WorldGateSystem.nextGateApproachY(64, 58));
         assertEquals(64, WorldGateSystem.nextGateApproachY(64, 64));
+    }
+
+    @Test
+    void wideGateTriggerCoversTheWholeAuthoredOpening() {
+        assertTrue(WorldGateSystem.crossedGateOpening(
+            3.0D, 15.4D, 1.0D, 15.4D, 2.15D, 31
+        ));
+        assertTrue(WorldGateSystem.crossedGateOpening(
+            -3.0D, -15.4D, -1.0D, -15.4D, 2.15D, 31
+        ));
+        assertFalse(WorldGateSystem.crossedGateOpening(
+            3.0D, 17.0D, 1.0D, 17.0D, 2.15D, 31
+        ));
+    }
+
+    @Test
+    void diagonalMovementUsesItsGatePlaneIntersection() {
+        assertTrue(WorldGateSystem.crossedGateOpening(
+            3.0D, 4.0D, 1.0D, 8.0D, 2.15D, 11
+        ));
+        assertFalse(WorldGateSystem.crossedGateOpening(
+            3.0D, 9.0D, 1.0D, 4.0D, 2.15D, 11
+        ));
+    }
+
+    @Test
+    void lockedPlayerAlreadyInsideTheWideOpeningCannotUseATrackingGap() {
+        assertTrue(WorldGateSystem.insideGateTriggerZone(
+            0.0D, 15.9D, 2.15D, 31
+        ));
+        assertTrue(WorldGateSystem.insideGateTriggerZone(
+            2.4D, -15.9D, 2.15D, 31
+        ));
+        assertFalse(WorldGateSystem.insideGateTriggerZone(
+            0.0D, 17.0D, 2.15D, 31
+        ));
+        assertFalse(WorldGateSystem.insideGateTriggerZone(
+            3.0D, 0.0D, 2.15D, 31
+        ));
     }
 }

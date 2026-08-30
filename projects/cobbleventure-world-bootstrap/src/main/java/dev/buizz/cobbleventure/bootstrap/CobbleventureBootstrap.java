@@ -405,6 +405,13 @@ public final class CobbleventureBootstrap {
             public String authoredWeatherAt(ServerPlayer player) {
                 return CobbleventureBootstrap.authoredWeatherAt(player);
             }
+
+            @Override
+            public AdventureWorldContext.FacilityPosition daycarePaddock(
+                ServerPlayer player
+            ) {
+                return BuildingRuntimeSystem.daycarePaddock(player);
+            }
         });
         NativeWorldGeneration.register(modBus);
         TrainerCosmetics.register(modBus);
@@ -864,7 +871,15 @@ public final class CobbleventureBootstrap {
         activeSettlements = runtime.settlements();
         activeFacilityPortals = facilityPortals(runtime.settlements());
         activeFacilityMusicZones = facilityMusicZones(level, runtime.settlements());
-        placeCaveEntrances(level, runtime.hexWorld());
+        if (CaveEntrancePlacementPolicy.restoreEntrancesAtStartup(
+            data.isComplete(MAP_VERSION)
+        )) {
+            placeCaveEntrances(level, runtime.hexWorld());
+        } else {
+            LOGGER.info(
+                "Skipped cave entrance restoration until initial world generation completes"
+            );
+        }
         WorldGateSystem.placeAll(level, runtime.hexWorld());
         ServerLevel dungeons = event.getServer().getLevel(DUNGEONS);
         if (dungeons == null) {
@@ -1373,10 +1388,16 @@ public final class CobbleventureBootstrap {
         double mouthDistance = mouth.mouthDistance();
         int plannedFloorY = plannedCaveMouthFloorY(level, mouthX, mouthZ);
         String caveStructure = caveEntranceStructure(world, entrance);
+        BlockPos placementMarker = new BlockPos(
+            mouthX, plannedFloorY - 2, mouthZ
+        );
+        boolean markerPresent = level.getBlockState(placementMarker).is(Blocks.LODESTONE);
+        boolean placeTemplate = CaveEntrancePlacementPolicy.placeTemplate(markerPresent);
         CaveEntrancePlacement placement = placeCaveEntranceTemplate(
             level, caveStructure, mouthX, plannedFloorY, mouthZ,
             horizontalDirection(forwardX, forwardZ),
-            entrance.surfaceTransition(), !isUndergroundRoad(entrance)
+            entrance.surfaceTransition(), !isUndergroundRoad(entrance),
+            placeTemplate
         );
         if (placement == null) {
             return;
@@ -1384,26 +1405,28 @@ public final class CobbleventureBootstrap {
         ACTIVE_SURFACE_ENTRY_REGIONS.put(
             entrance.id(), placement.surfaceEntryRegion()
         );
-        if (!NativeWorldGeneration.usesNativeGenerator(
-            level.getChunkSource().getGenerator()
-        )) {
-            restoreCaveEntranceBarrierRoof(level, world, entrance);
+        if (placeTemplate) {
+            if (!NativeWorldGeneration.usesNativeGenerator(
+                level.getChunkSource().getGenerator()
+            )) {
+                restoreCaveEntranceBarrierRoof(level, world, entrance);
+            }
+            restoreCaveApproach(
+                level, world, approachRoad, center, forwardX, forwardZ,
+                mouthDistance, placement.floorY()
+            );
+            level.setBlock(
+                placement.markerPosition().below(2),
+                Blocks.LODESTONE.defaultBlockState(), 2
+            );
+            placeCavePokemonCenter(
+                level, world, entrance, center, new Point(mouthX, mouthZ), approachRoad
+            );
         }
-        restoreCaveApproach(
-            level, world, approachRoad, center, forwardX, forwardZ,
-            mouthDistance, placement.floorY()
-        );
-        level.setBlock(
-            placement.markerPosition().below(2),
-            Blocks.LODESTONE.defaultBlockState(), 2
-        );
-        placeCavePokemonCenter(
-            level, world, entrance, center, new Point(mouthX, mouthZ), approachRoad
-        );
         LOGGER.info(
-            "Cave entrance ensured: id={}, cave={}, pokemonCenter={}, structure={}, position={}",
+            "Cave entrance ensured: id={}, cave={}, pokemonCenter={}, structure={}, position={}, templatePlaced={}",
             entrance.id(), entrance.cave(), entrance.pokemonCenterEnabled(), caveStructure,
-            placement.markerPosition()
+            placement.markerPosition(), placeTemplate
         );
     }
 
@@ -1427,7 +1450,8 @@ public final class CobbleventureBootstrap {
     private static CaveEntrancePlacement placeCaveEntranceTemplate(
         ServerLevel level, String structure,
         int anchorX, int floorY, int anchorZ, Direction inward,
-        String surfaceTransition, boolean requireOddHorizontalSize
+        String surfaceTransition, boolean requireOddHorizontalSize,
+        boolean placeTemplate
     ) {
         ResourceLocation structureId = ResourceLocation.tryParse(structure);
         if (structureId == null) {
@@ -1501,6 +1525,38 @@ public final class CobbleventureBootstrap {
                 local, Mirror.NONE, rotation, BlockPos.ZERO
             )))
             .collect(Collectors.toUnmodifiableSet());
+        List<StructureTemplate.StructureBlockInfo> placedRoadAnchors = template.filterBlocks(
+            blockPos, settings, Blocks.JIGSAW
+        ).stream().filter(CobbleventureBootstrap::isCaveRoadAnchor).toList();
+        if (placedRoadAnchors.size() != 1) {
+            LOGGER.error(
+                "Rotated cave road anchor is invalid: structure={}, found={}",
+                structure, placedRoadAnchors.size()
+            );
+            return null;
+        }
+        StructureTemplate.StructureBlockInfo placedAnchor = placedRoadAnchors.getFirst();
+        Direction expectedOutward = inward.getOpposite();
+        Direction actualOutward = JigsawBlock.getFrontFacing(placedAnchor.state());
+        if (!placedAnchor.pos().equals(new BlockPos(anchorX, floorY, anchorZ))
+            || actualOutward != expectedOutward) {
+            LOGGER.error(
+                "Cave road anchor transform mismatch: structure={}, expected={} {}, actual={} {}",
+                structure, new BlockPos(anchorX, floorY, anchorZ), expectedOutward,
+                placedAnchor.pos(), actualOutward
+            );
+            return null;
+        }
+        TransitionRegion transition = new TransitionRegion(placedTransitionBlocks.stream()
+            .map(position -> new BlockPoint(
+                position.getX(), position.getY(), position.getZ()
+            )).toList());
+        CaveEntrancePlacement placement = new CaveEntrancePlacement(
+            placedAnchor.pos(), transition, floorY
+        );
+        if (!placeTemplate) {
+            return placement;
+        }
         List<ChunkPos> forcedChunks = forceTemplateChunks(level, structure, blockPos);
         try {
             boolean placed = template.placeInWorld(
@@ -1514,29 +1570,6 @@ public final class CobbleventureBootstrap {
             scheduleGenerationDebrisCleanup(
                 level, structure, blockPos, template, rotation
             );
-            List<StructureTemplate.StructureBlockInfo> placedRoadAnchors = template.filterBlocks(
-                blockPos, settings, Blocks.JIGSAW
-            ).stream().filter(CobbleventureBootstrap::isCaveRoadAnchor).toList();
-            if (placedRoadAnchors.size() != 1) {
-                LOGGER.error(
-                    "Rotated cave road anchor is invalid: structure={}, found={}",
-                    structure, placedRoadAnchors.size()
-                );
-                return null;
-            }
-            StructureTemplate.StructureBlockInfo placedAnchor = placedRoadAnchors.getFirst();
-            Direction expectedOutward = inward.getOpposite();
-            Direction actualOutward = JigsawBlock.getFrontFacing(placedAnchor.state());
-            if (!placedAnchor.pos().equals(new BlockPos(anchorX, floorY, anchorZ))
-                || actualOutward != expectedOutward) {
-                LOGGER.error(
-                    "Cave road anchor transform mismatch: structure={}, expected={} {}, actual={} {}",
-                    structure, new BlockPos(anchorX, floorY, anchorZ), expectedOutward,
-                    placedAnchor.pos(), actualOutward
-                );
-                level.setBlock(placedAnchor.pos(), Blocks.AIR.defaultBlockState(), 2);
-                return null;
-            }
             BlockState anchorFinalState = Blocks.COBBLESTONE.defaultBlockState();
             if (placedAnchor.nbt() != null) {
                 try {
@@ -1553,11 +1586,7 @@ public final class CobbleventureBootstrap {
                 "Cave entrance template placed: structure={}, roadAnchor={}, rotation={}, transitionBlocks={}",
                 structure, placedAnchor.pos(), rotationName, placedTransitionBlocks.size()
             );
-            TransitionRegion transition = new TransitionRegion(placedTransitionBlocks.stream()
-                .map(position -> new BlockPoint(
-                    position.getX(), position.getY(), position.getZ()
-                )).toList());
-            return new CaveEntrancePlacement(placedAnchor.pos(), transition, floorY);
+            return placement;
         } finally {
             releaseForcedChunks(level, forcedChunks);
         }
@@ -14210,12 +14239,8 @@ public final class CobbleventureBootstrap {
             if ((!fromTown && !toTown) || connection.centerline().isEmpty()) {
                 continue;
             }
-            String targetSettlement = fromTown ? connection.to() : connection.from();
-            if (targetSettlement == null) {
-                continue;
-            }
             Point approach = settlementRouteApproach(
-                world, connection.centerline(), settlement.id(), toTown
+                world, connection, settlement.id(), toTown
             );
             if (approach == null) {
                 LOGGER.warn(
@@ -14224,7 +14249,13 @@ public final class CobbleventureBootstrap {
                 );
                 continue;
             }
-            TownGateConfig gateConfig = townGateConfig(settlement, targetSettlement);
+            String targetSettlement = fromTown ? connection.to() : connection.from();
+            // Open-ended authored routes still need a town exit. Use a stable
+            // synthetic target only for choosing the default gate configuration.
+            String gateTarget = RegionalRouteGeometry.gateTarget(
+                targetSettlement, connection.id()
+            );
+            TownGateConfig gateConfig = townGateConfig(settlement, gateTarget);
             Point gateRoad = findTownGateRoad(
                 settlement, townCenter, approach, gateConfig, usedGateRoads
             );
@@ -14274,14 +14305,22 @@ public final class CobbleventureBootstrap {
     }
 
     private static Point settlementRouteApproach(
-        HexWorldPlan world, List<Point> centerline, String settlementId, boolean reverse
+        HexWorldPlan world, ConnectionPath connection,
+        String settlementId, boolean reverse
     ) {
+        List<Point> centerline = connection.centerline();
         Point lastLand = null;
         for (int offset = 0; offset < centerline.size(); offset++) {
             int index = reverse ? centerline.size() - 1 - offset : offset;
             Point point = centerline.get(index);
             TerrainSample sample = terrainAt(world, point.x() + 0.5D, point.z() + 0.5D);
-            if (sample == null || isAquatic(sample)) {
+            boolean bridgeOverOcean = connection.surfaceStyle().equals("log_bridge")
+                && logBridgeOverOceanAt(world, point.x(), point.z());
+            boolean aquatic = sample == null || RegionalRouteGeometry.approachIsAquatic(
+                connection.surfaceStyle(), isAquatic(sample),
+                bridgeOverOcean
+            );
+            if (aquatic) {
                 break;
             }
             lastLand = point;

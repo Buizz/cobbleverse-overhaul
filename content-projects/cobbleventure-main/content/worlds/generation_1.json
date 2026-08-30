@@ -2782,22 +2782,17 @@
       "display_name": "상록숲 - 회색시티 길"
     },
     {
-      "id": "route_custom_05",
-      "route_preset": "cobbleventure:route/route_custom_05",
+      "id": "route_custom_20",
+      "route_preset": "cobbleventure:route/route_custom_20",
       "from": "cobbleventure:settlement/route_01_town",
-      "to": "cobbleventure:settlement/skyreach_town",
       "anchors": [
         {
           "q": -4,
           "r": 4
         },
         {
-          "q": -8,
-          "r": 4
-        },
-        {
           "q": -6,
-          "r": -2
+          "r": 4
         }
       ],
       "cells": [
@@ -2812,11 +2807,62 @@
         {
           "q": -6,
           "r": 4
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "22번도로"
+    },
+    {
+      "id": "route_custom_21",
+      "route_preset": "cobbleventure:route/route_custom_21",
+      "anchors": [
+        {
+          "q": -6,
+          "r": 4
+        },
+        {
+          "q": -8,
+          "r": 4
+        }
+      ],
+      "cells": [
+        {
+          "q": -6,
+          "r": 4
         },
         {
           "q": -7,
           "r": 4
         },
+        {
+          "q": -8,
+          "r": 4
+        }
+      ],
+      "corridor_width_blocks": 12,
+      "edge_noise": 0,
+      "surface_style": "road",
+      "pathfinding": "explicit",
+      "display_name": "포켓몬리그 관문길 (23번도로)"
+    },
+    {
+      "id": "route_custom_05",
+      "route_preset": "cobbleventure:route/route_custom_05",
+      "to": "cobbleventure:settlement/skyreach_town",
+      "anchors": [
+        {
+          "q": -8,
+          "r": 4
+        },
+        {
+          "q": -6,
+          "r": -2
+        }
+      ],
+      "cells": [
         {
           "q": -8,
           "r": 4
@@ -2850,12 +2896,6 @@
       "edge_noise": 0,
       "surface_style": "road",
       "pathfinding": "explicit",
-      "pokemon_spawns": {
-        "inherit_biome": true,
-        "excluded_species": [],
-        "additions": [],
-        "level_overrides": []
-      },
       "display_name": "챔피언로드"
     },
     {
@@ -3692,9 +3732,10 @@
         "r": -5
       },
       "resource": "cobbleventure:houses/bill_house",
-      "rotation": 0,
+      "rotation": 3,
       "properties": {
-        "terrain_fit": "foundation"
+        "terrain_fit": "foundation",
+        "placement_anchor": "road_anchor"
       }
     },
     {
@@ -3863,18 +3904,21 @@
         "r": 0
       },
       "resource": "cobbleventure:placeholder/daycare",
-      "rotation": 0
+      "rotation": 0,
+      "properties": {
+        "placement_anchor": "door"
+      }
     },
     {
       "id": "viridian_gate",
       "type": "gate",
       "anchor": {
-        "q": -6,
+        "q": -5,
         "r": 4
       },
       "rotation": 1,
       "properties": {
-        "facing": "east",
+        "facing": "west",
         "center_placement": "gate",
         "surrounding_type": "natural",
         "wall_block": "minecraft:stone_bricks",

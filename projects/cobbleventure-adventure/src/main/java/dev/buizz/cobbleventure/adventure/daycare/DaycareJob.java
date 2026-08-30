@@ -1,151 +1,122 @@
 package dev.buizz.cobbleventure.adventure.daycare;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 
-/** Immutable persisted state for one paid daycare breeding request. */
+/** Immutable persisted state for one player's multi-Pokemon daycare enclosure. */
 final class DaycareJob {
+    static final int MAX_POKEMON = 6;
+    static final int MAX_EGGS = 6;
+
     private final UUID jobId;
     private final UUID ownerId;
-    private final CompoundTag parentA;
-    private final CompoundTag parentB;
-    private final UUID parentAId;
-    private final UUID parentBId;
-    private final long acceptedAtMillis;
-    private final long readyAtMillis;
+    private final List<StoredPokemon> pokemon;
+    private final long openedAtMillis;
+    private final long nextEggCheckAtMillis;
     private final long feePaid;
-    private final CompoundTag eggStack;
+    private final List<CompoundTag> eggStacks;
     private final ResourceLocation facilityDimension;
     private final BlockPos paddockCenter;
 
     DaycareJob(
-        UUID jobId,
-        UUID ownerId,
-        CompoundTag parentA,
-        CompoundTag parentB,
-        UUID parentAId,
-        UUID parentBId,
-        long acceptedAtMillis,
-        long readyAtMillis,
-        long feePaid,
-        CompoundTag eggStack
-    ) {
-        this(
-            jobId, ownerId, parentA, parentB, parentAId, parentBId,
-            acceptedAtMillis, readyAtMillis, feePaid, eggStack,
-            ResourceLocation.withDefaultNamespace("overworld"), BlockPos.ZERO
-        );
-    }
-
-    DaycareJob(
-        UUID jobId,
-        UUID ownerId,
-        CompoundTag parentA,
-        CompoundTag parentB,
-        UUID parentAId,
-        UUID parentBId,
-        long acceptedAtMillis,
-        long readyAtMillis,
-        long feePaid,
-        CompoundTag eggStack,
-        ResourceLocation facilityDimension,
+        UUID jobId, UUID ownerId, List<StoredPokemon> pokemon,
+        long openedAtMillis, long nextEggCheckAtMillis, long feePaid,
+        List<CompoundTag> eggStacks, ResourceLocation facilityDimension,
         BlockPos paddockCenter
     ) {
         this.jobId = Objects.requireNonNull(jobId, "jobId");
         this.ownerId = Objects.requireNonNull(ownerId, "ownerId");
-        this.parentA = Objects.requireNonNull(parentA, "parentA").copy();
-        this.parentB = Objects.requireNonNull(parentB, "parentB").copy();
-        this.parentAId = Objects.requireNonNull(parentAId, "parentAId");
-        this.parentBId = Objects.requireNonNull(parentBId, "parentBId");
-        if (parentAId.equals(parentBId)) {
-            throw new IllegalArgumentException("부모 포켓몬 UUID는 서로 달라야 합니다.");
+        this.pokemon = List.copyOf(pokemon);
+        if (this.pokemon.size() > MAX_POKEMON
+            || (this.pokemon.isEmpty() && eggStacks.isEmpty())) {
+            throw new IllegalArgumentException("키우미집 보관 포켓몬 수가 올바르지 않습니다.");
         }
-        if (acceptedAtMillis < 0 || readyAtMillis < acceptedAtMillis || feePaid < 0) {
-            throw new IllegalArgumentException("키우미 작업 시간 또는 요금이 올바르지 않습니다.");
+        long distinct = this.pokemon.stream().map(StoredPokemon::pokemonId).distinct().count();
+        if (distinct != this.pokemon.size()) {
+            throw new IllegalArgumentException("키우미집 포켓몬 UUID가 중복되었습니다.");
         }
-        this.acceptedAtMillis = acceptedAtMillis;
-        this.readyAtMillis = readyAtMillis;
+        if (openedAtMillis < 0 || nextEggCheckAtMillis < openedAtMillis || feePaid < 0) {
+            throw new IllegalArgumentException("키우미집 시간 또는 요금이 올바르지 않습니다.");
+        }
+        this.openedAtMillis = openedAtMillis;
+        this.nextEggCheckAtMillis = nextEggCheckAtMillis;
         this.feePaid = feePaid;
-        this.eggStack = eggStack == null || eggStack.isEmpty() ? null : eggStack.copy();
+        this.eggStacks = eggStacks.stream().map(CompoundTag::copy).toList();
+        if (this.eggStacks.size() > MAX_EGGS) {
+            throw new IllegalArgumentException("키우미집 알 보관 수가 올바르지 않습니다.");
+        }
         this.facilityDimension = Objects.requireNonNull(facilityDimension, "facilityDimension");
         this.paddockCenter = Objects.requireNonNull(paddockCenter, "paddockCenter").immutable();
     }
 
-    UUID jobId() {
-        return jobId;
+    UUID jobId() { return jobId; }
+    UUID ownerId() { return ownerId; }
+    long openedAtMillis() { return openedAtMillis; }
+    long nextEggCheckAtMillis() { return nextEggCheckAtMillis; }
+    long feePaid() { return feePaid; }
+    ResourceLocation facilityDimension() { return facilityDimension; }
+    BlockPos paddockCenter() { return paddockCenter; }
+    int pokemonCount() { return pokemon.size(); }
+    int eggCount() { return eggStacks.size(); }
+    boolean isEggCheckReady(long nowMillis) { return nowMillis >= nextEggCheckAtMillis; }
+
+    List<StoredPokemon> pokemon() {
+        return pokemon.stream().map(StoredPokemon::copy).toList();
     }
 
-    UUID ownerId() {
-        return ownerId;
+    StoredPokemon pokemon(int index) { return pokemon.get(index).copy(); }
+
+    List<CompoundTag> eggStacks() {
+        return eggStacks.stream().map(CompoundTag::copy).toList();
     }
 
-    CompoundTag parentA() {
-        return parentA.copy();
+    DaycareJob addPokemon(StoredPokemon value, long additionalFee) {
+        if (pokemon.size() >= MAX_POKEMON) throw new IllegalStateException("키우미집이 가득 찼습니다.");
+        List<StoredPokemon> updated = new ArrayList<>(pokemon);
+        updated.add(value.copy());
+        return copy(updated, nextEggCheckAtMillis, feePaid + additionalFee, eggStacks);
     }
 
-    CompoundTag parentB() {
-        return parentB.copy();
-    }
-
-    UUID parentAId() {
-        return parentAId;
-    }
-
-    UUID parentBId() {
-        return parentBId;
-    }
-
-    long acceptedAtMillis() {
-        return acceptedAtMillis;
-    }
-
-    long readyAtMillis() {
-        return readyAtMillis;
-    }
-
-    long feePaid() {
-        return feePaid;
-    }
-
-    boolean isTimeReady(long nowMillis) {
-        return nowMillis >= readyAtMillis;
-    }
-
-    boolean hasEgg() {
-        return eggStack != null;
-    }
-
-    CompoundTag eggStack() {
-        return eggStack == null ? null : eggStack.copy();
-    }
-
-    ResourceLocation facilityDimension() {
-        return facilityDimension;
-    }
-
-    BlockPos paddockCenter() {
-        return paddockCenter;
-    }
-
-    DaycareJob withEgg(CompoundTag value) {
-        if (hasEgg()) {
-            throw new IllegalStateException("키우미 작업의 알은 한 번만 생성할 수 있습니다.");
+    DaycareJob removePokemon(int index) {
+        List<StoredPokemon> updated = new ArrayList<>(pokemon);
+        updated.remove(index);
+        if (updated.isEmpty() && eggStacks.isEmpty()) {
+            throw new IllegalStateException("마지막 포켓몬 제거는 저장 상태 삭제로 처리해야 합니다.");
         }
-        return new DaycareJob(
-            jobId, ownerId, parentA, parentB, parentAId, parentBId,
-            acceptedAtMillis, readyAtMillis, feePaid,
-            Objects.requireNonNull(value, "value"), facilityDimension, paddockCenter
-        );
+        return copy(updated, nextEggCheckAtMillis, feePaid, eggStacks);
+    }
+
+    DaycareJob afterEggCheck(long nextCheckAtMillis, CompoundTag discoveredEgg) {
+        List<CompoundTag> updatedEggs = new ArrayList<>(eggStacks);
+        if (discoveredEgg != null && !discoveredEgg.isEmpty()) {
+            if (updatedEggs.size() >= MAX_EGGS) throw new IllegalStateException("알 보관함이 가득 찼습니다.");
+            updatedEggs.add(discoveredEgg.copy());
+        }
+        return copy(pokemon, nextCheckAtMillis, feePaid, updatedEggs);
+    }
+
+    DaycareJob withoutEggs() {
+        return copy(pokemon, nextEggCheckAtMillis, feePaid, List.of());
     }
 
     DaycareJob readyNow(long nowMillis) {
+        return copy(pokemon, Math.max(openedAtMillis, nowMillis), feePaid, eggStacks);
+    }
+
+    private DaycareJob copy(
+        List<StoredPokemon> updatedPokemon, long updatedNextCheck,
+        long updatedFee, List<CompoundTag> updatedEggs
+    ) {
         return new DaycareJob(
-            jobId, ownerId, parentA, parentB, parentAId, parentBId,
-            acceptedAtMillis, Math.max(acceptedAtMillis, nowMillis), feePaid, eggStack,
-            facilityDimension, paddockCenter
+            jobId, ownerId, updatedPokemon, openedAtMillis, updatedNextCheck,
+            updatedFee, updatedEggs, facilityDimension, paddockCenter
         );
     }
 
@@ -153,46 +124,88 @@ final class DaycareJob {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("jobId", jobId);
         tag.putUUID("ownerId", ownerId);
-        tag.put("parentA", parentA.copy());
-        tag.put("parentB", parentB.copy());
-        tag.putUUID("parentAId", parentAId);
-        tag.putUUID("parentBId", parentBId);
-        tag.putLong("acceptedAtMillis", acceptedAtMillis);
-        tag.putLong("readyAtMillis", readyAtMillis);
+        ListTag stored = new ListTag();
+        for (StoredPokemon value : pokemon) stored.add(value.save());
+        tag.put("pokemon", stored);
+        tag.putLong("openedAtMillis", openedAtMillis);
+        tag.putLong("nextEggCheckAtMillis", nextEggCheckAtMillis);
         tag.putLong("feePaid", feePaid);
+        ListTag eggs = new ListTag();
+        eggStacks.forEach(egg -> eggs.add(egg.copy()));
+        tag.put("eggStacks", eggs);
         tag.putString("facilityDimension", facilityDimension.toString());
         tag.putLong("paddockCenter", paddockCenter.asLong());
-        if (eggStack != null) {
-            tag.put("eggStack", eggStack.copy());
-        }
         return tag;
     }
 
     static DaycareJob load(CompoundTag tag) {
-        if (!tag.hasUUID("jobId") || !tag.hasUUID("ownerId")
-            || !tag.hasUUID("parentAId") || !tag.hasUUID("parentBId")) {
-            throw new IllegalArgumentException("키우미 작업 UUID가 누락되었습니다.");
+        if (!tag.hasUUID("jobId") || !tag.hasUUID("ownerId")) {
+            throw new IllegalArgumentException("키우미집 작업 UUID가 누락되었습니다.");
         }
-        ResourceLocation dimension = ResourceLocation.tryParse(
-            tag.getString("facilityDimension")
-        );
-        if (dimension == null) {
-            dimension = ResourceLocation.withDefaultNamespace("overworld");
+        List<StoredPokemon> stored = new ArrayList<>();
+        if (tag.contains("pokemon", Tag.TAG_LIST)) {
+            ListTag entries = tag.getList("pokemon", Tag.TAG_COMPOUND);
+            for (int index = 0; index < entries.size(); index++) {
+                stored.add(StoredPokemon.load(entries.getCompound(index)));
+            }
+        } else {
+            stored.add(new StoredPokemon(tag.getUUID("parentAId"), tag.getCompound("parentA")));
+            stored.add(new StoredPokemon(tag.getUUID("parentBId"), tag.getCompound("parentB")));
         }
+        List<CompoundTag> eggs = new ArrayList<>();
+        if (tag.contains("eggStacks", Tag.TAG_LIST)) {
+            ListTag entries = tag.getList("eggStacks", Tag.TAG_COMPOUND);
+            for (int index = 0; index < entries.size(); index++) eggs.add(entries.getCompound(index));
+        } else if (tag.contains("eggStack", Tag.TAG_COMPOUND)) {
+            eggs.add(tag.getCompound("eggStack"));
+        }
+        ResourceLocation dimension = ResourceLocation.tryParse(tag.getString("facilityDimension"));
+        if (dimension == null) dimension = ResourceLocation.withDefaultNamespace("overworld");
+        long openedAt = tag.contains("openedAtMillis")
+            ? tag.getLong("openedAtMillis") : tag.getLong("acceptedAtMillis");
+        long nextCheck = tag.contains("nextEggCheckAtMillis")
+            ? tag.getLong("nextEggCheckAtMillis") : tag.getLong("readyAtMillis");
         return new DaycareJob(
-            tag.getUUID("jobId"),
-            tag.getUUID("ownerId"),
-            tag.getCompound("parentA"),
-            tag.getCompound("parentB"),
-            tag.getUUID("parentAId"),
-            tag.getUUID("parentBId"),
-            tag.getLong("acceptedAtMillis"),
-            tag.getLong("readyAtMillis"),
-            tag.getLong("feePaid"),
-            tag.contains("eggStack") ? tag.getCompound("eggStack") : null,
-            dimension,
-            tag.contains("paddockCenter")
-                ? BlockPos.of(tag.getLong("paddockCenter")) : BlockPos.ZERO
+            tag.getUUID("jobId"), tag.getUUID("ownerId"), stored,
+            openedAt, nextCheck, tag.getLong("feePaid"), eggs, dimension,
+            tag.contains("paddockCenter") ? BlockPos.of(tag.getLong("paddockCenter")) : BlockPos.ZERO
         );
+    }
+
+    record StoredPokemon(
+        UUID pokemonId, CompoundTag data, boolean training, long trainingStartedAtMillis
+    ) {
+        StoredPokemon {
+            Objects.requireNonNull(pokemonId, "pokemonId");
+            data = Objects.requireNonNull(data, "data").copy();
+            if (trainingStartedAtMillis < 0) {
+                throw new IllegalArgumentException("육성 시작 시간이 올바르지 않습니다.");
+            }
+        }
+
+        StoredPokemon(UUID pokemonId, CompoundTag data) {
+            this(pokemonId, data, false, 0L);
+        }
+
+        StoredPokemon copy() {
+            return new StoredPokemon(pokemonId, data, training, trainingStartedAtMillis);
+        }
+
+        CompoundTag save() {
+            CompoundTag tag = new CompoundTag();
+            tag.putUUID("pokemonId", pokemonId);
+            tag.put("data", data.copy());
+            tag.putBoolean("training", training);
+            tag.putLong("trainingStartedAtMillis", trainingStartedAtMillis);
+            return tag;
+        }
+
+        static StoredPokemon load(CompoundTag tag) {
+            if (!tag.hasUUID("pokemonId")) throw new IllegalArgumentException("포켓몬 UUID가 누락되었습니다.");
+            return new StoredPokemon(
+                tag.getUUID("pokemonId"), tag.getCompound("data"),
+                tag.getBoolean("training"), tag.getLong("trainingStartedAtMillis")
+            );
+        }
     }
 }

@@ -14,6 +14,18 @@
     "description": { "$ref": "content-bundle.schema.json#/$defs/localized_text" },
     "placement_profile": { "$ref": "content-bundle.schema.json#/$defs/placement_profile" },
     "tags": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "system_npc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["functions"],
+      "properties": {
+        "functions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9_.-]+$" }
+        }
+      }
+    },
     "npc": { "$ref": "content-bundle.schema.json#/$defs/npc" },
     "event_runtime": {
       "type": "object",

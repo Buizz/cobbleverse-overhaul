@@ -1,13 +1,13 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Casino",
+    category:"Cobbleventure Encounters V5",
     created:0L,
-    description:"포켓몬 블랙잭 게임을 시작하는 카지노 딜러",
+    description:"블랙잭 딜러 CVES V5 NPC 표현 프리셋",
     entityTypeId:"easy_npc:humanoid",
     modified:0L,
-    name:"블랙잭 딜러",
-    variantType:"STEVE",
+    name:"블랙잭 딜러 [V5]",
+    variantType:"ALEX",
     version:"1.0.0"
   },
   data:{
@@ -18,13 +18,13 @@
     DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,
     Invulnerable:1b,
-    ModelData:{Root:{Scale:[1.020f,1.020f,1.020f]}},
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
-    PresetUUID:[I;284653844,-1844282731,-1549192932,207503964],
-    SkinData:{Type:"CUSTOM",UUID:[I;-2043599629,139088278,-1441442447,-173202830]},
-    Tags:["cobbleventure_blackjack_dealer","cobbleventure_npc_function_blackjack"],
-    VariantType:"STEVE",
+    PresetUUID:[I;-809111219,2139183289,-1620493966,614878718],
+    SkinData:{Type:"CUSTOM",UUID:[I;-1338233725,-1545120614,-1247305470,919330838] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/facilities/blackjack_dealer","cobbleventure_npc/cobbleventure/npc/blackjack_dealer","cobbleventure_npc_function_blackjack"],
+    VariantType:"ALEX",
     id:"easy_npc:humanoid"
   }
 }

@@ -5,12 +5,17 @@ import com.cobblemon.mod.common.api.storage.party.PlayerPartyStore;
 import com.cobblemon.mod.common.api.storage.pc.PCBox;
 import com.cobblemon.mod.common.api.storage.pc.PCStore;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import com.cobblemon.mod.common.pokemon.AddExperienceResult;
+import com.cobblemon.mod.common.api.pokemon.experience.SidemodExperienceSource;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -27,9 +32,11 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
-/** Paid, one-egg daycare lifecycle. Commands provide the first integration test surface. */
+/** Paid multi-Pokemon daycare storage with periodic, non-guaranteed egg discovery. */
 public final class DaycareService {
     static final long SERVICE_FEE = 3_000L;
+    static final long TRAINING_COST_PER_EXPERIENCE =
+        DaycarePolicy.TRAINING_COST_PER_EXPERIENCE;
     private static final int MIN_BREEDING_TICKS = 8_000;
     private static final int MAX_BREEDING_TICKS = 14_000;
     private static final long MILLIS_PER_TICK = 50L;
@@ -48,19 +55,27 @@ public final class DaycareService {
         dispatcher.register(
             Commands.literal("cobbleventure_daycare")
                 .then(Commands.literal("deposit")
-                    .then(Commands.argument("firstPartySlot", IntegerArgumentType.integer(1, 6))
-                        .then(Commands.argument("secondPartySlot", IntegerArgumentType.integer(1, 6))
+                    .then(Commands.argument("partySlot", IntegerArgumentType.integer(1, 6))
+                        .executes(context -> deposit(
+                            context.getSource().getPlayerOrException(),
+                            IntegerArgumentType.getInteger(context, "partySlot") - 1
+                        ))
+                        .then(Commands.argument("training", BoolArgumentType.bool())
                             .executes(context -> deposit(
                                 context.getSource().getPlayerOrException(),
-                                IntegerArgumentType.getInteger(context, "firstPartySlot") - 1,
-                                IntegerArgumentType.getInteger(context, "secondPartySlot") - 1
+                                IntegerArgumentType.getInteger(context, "partySlot") - 1,
+                                BoolArgumentType.getBool(context, "training")
                             )))))
+                .then(Commands.literal("withdraw")
+                    .then(Commands.argument("daycareSlot", IntegerArgumentType.integer(1, 6))
+                        .executes(context -> withdraw(
+                            context.getSource().getPlayerOrException(),
+                            IntegerArgumentType.getInteger(context, "daycareSlot") - 1
+                        ))))
                 .then(Commands.literal("status")
                     .executes(context -> status(context.getSource().getPlayerOrException())))
                 .then(Commands.literal("collect")
                     .executes(context -> collect(context.getSource().getPlayerOrException())))
-                .then(Commands.literal("cancel")
-                    .executes(context -> cancel(context.getSource().getPlayerOrException())))
                 .then(Commands.literal("force_ready")
                     .requires(source -> source.hasPermission(2))
                     .then(Commands.argument("player", EntityArgument.player())
@@ -70,215 +85,217 @@ public final class DaycareService {
         );
     }
 
-    static int deposit(ServerPlayer player, int firstSlot, int secondSlot) {
-        return deposit(
-            player, firstSlot, secondSlot,
-            player.level().dimension().location(), player.blockPosition()
-        );
+    static int deposit(ServerPlayer player, int partySlot) {
+        return deposit(player, partySlot, false);
     }
 
-    static int deposit(
-        ServerPlayer player,
-        int firstSlot,
-        int secondSlot,
-        ResourceLocation facilityDimension,
-        BlockPos paddockCenter
+    static int deposit(ServerPlayer player, int partySlot, boolean training) {
+        return depositWithFeedback(
+            player, partySlot, training,
+            player.level().dimension().location(), player.blockPosition()
+        ).result();
+    }
+
+    static ServiceOutcome depositWithFeedback(
+        ServerPlayer player, int partySlot, boolean training,
+        ResourceLocation facilityDimension, BlockPos paddockCenter
     ) {
-        if (firstSlot < 0 || firstSlot >= 6 || secondSlot < 0 || secondSlot >= 6) {
-            fail(player, "message.cobbleventure_adventure.daycare.invalid_slot");
-            return 0;
+        if (partySlot < 0 || partySlot >= 6) {
+            return failure(player, "message.cobbleventure_adventure.daycare.invalid_slot");
         }
-        if (firstSlot == secondSlot) {
-            fail(player, "message.cobbleventure_adventure.daycare.same_slot");
-            return 0;
+        PlayerPartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        Pokemon selected = party.get(partySlot);
+        if (selected == null) {
+            return failure(player, "message.cobbleventure_adventure.daycare.empty_slot");
         }
-        DaycareSavedData data = DaycareSavedData.get(player.getServer());
-        if (data.find(player.getUUID()).isPresent()) {
-            fail(player, "message.cobbleventure_adventure.daycare.already_active");
-            return 0;
+        if (party.occupied() <= 1) {
+            return failure(player, "message.cobbleventure_adventure.daycare.party_required");
+        }
+        if (selected.getEntity() != null) {
+            return failure(player, "message.cobbleventure_adventure.daycare.recall_first");
         }
 
-        PlayerPartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
-        Pokemon first = party.get(firstSlot);
-        Pokemon second = party.get(secondSlot);
-        if (first == null || second == null) {
-            fail(player, "message.cobbleventure_adventure.daycare.empty_slot");
-            return 0;
+        DaycareSavedData data = DaycareSavedData.get(player.getServer());
+        DaycareJob current = data.find(player.getUUID()).orElse(null);
+        if (current != null && current.pokemonCount() >= DaycareJob.MAX_POKEMON) {
+            return failure(player, "message.cobbleventure_adventure.daycare.full");
         }
-        if (party.occupied() - 2 < 1) {
-            fail(player, "message.cobbleventure_adventure.daycare.party_required");
-            return 0;
-        }
-        if (first.getEntity() != null || second.getEntity() != null) {
-            fail(player, "message.cobbleventure_adventure.daycare.recall_first");
-            return 0;
-        }
-        if (!CobbreedingAdapter.canBreed(first, second)) {
-            fail(player, "message.cobbleventure_adventure.daycare.incompatible");
-            return 0;
+        if (current != null && (!current.facilityDimension().equals(facilityDimension)
+            || !current.paddockCenter().equals(paddockCenter))) {
+            return failure(player, "message.cobbleventure_adventure.daycare.other_facility");
         }
 
         BigInteger fee = BigInteger.valueOf(SERVICE_FEE);
         BigInteger balance = PlayerExtensionKt.getCobbleDollars(player).max(BigInteger.ZERO);
         if (balance.compareTo(fee) < 0) {
-            fail(player, "message.cobbleventure_adventure.daycare.insufficient_funds", SERVICE_FEE);
-            return 0;
+            return failure(
+                player, "message.cobbleventure_adventure.daycare.insufficient_funds", SERVICE_FEE
+            );
         }
 
-        long acceptedAt = Instant.now().toEpochMilli();
-        int breedingTicks = RandomSource.create().nextIntBetweenInclusive(
-            MIN_BREEDING_TICKS, MAX_BREEDING_TICKS
+        long now = Instant.now().toEpochMilli();
+        DaycareJob.StoredPokemon stored = new DaycareJob.StoredPokemon(
+            selected.getUuid(), selected.saveToNBT(player.registryAccess(), new CompoundTag()),
+            training, training ? now : 0L
         );
-        DaycareJob job = new DaycareJob(
-            UUID.randomUUID(),
-            player.getUUID(),
-            first.saveToNBT(player.registryAccess(), new CompoundTag()),
-            second.saveToNBT(player.registryAccess(), new CompoundTag()),
-            first.getUuid(),
-            second.getUuid(),
-            acceptedAt,
-            acceptedAt + breedingTicks * MILLIS_PER_TICK,
-            SERVICE_FEE,
-            null,
-            facilityDimension,
-            paddockCenter
-        );
-
-        if (!data.create(job)) {
-            fail(player, "message.cobbleventure_adventure.daycare.already_active");
-            return 0;
+        DaycareJob updated = current == null
+            ? new DaycareJob(
+                UUID.randomUUID(), player.getUUID(), List.of(stored), now,
+                nextEggCheck(now), SERVICE_FEE, List.of(), facilityDimension, paddockCenter
+            )
+            : current.addPokemon(stored, SERVICE_FEE);
+        if (current == null ? !data.create(updated) : !replace(data, updated)) {
+            return failure(player, "message.cobbleventure_adventure.daycare.storage_changed");
         }
-        boolean firstRemoved = party.remove(first);
-        boolean secondRemoved = firstRemoved && party.remove(second);
-        if (!firstRemoved || !secondRemoved) {
-            if (firstRemoved) {
-                party.add(first);
-            }
-            data.remove(player.getUUID(), job.jobId());
-            fail(player, "message.cobbleventure_adventure.daycare.storage_changed");
-            return 0;
+        if (!party.remove(selected)) {
+            if (current == null) data.remove(player.getUUID(), updated.jobId());
+            else data.replace(current);
+            return failure(player, "message.cobbleventure_adventure.daycare.storage_changed");
         }
         PlayerExtensionKt.setCobbleDollars(player, balance.subtract(fee));
-        player.sendSystemMessage(Component.translatable(
-            "message.cobbleventure_adventure.daycare.accepted",
-            first.getDisplayName(false), second.getDisplayName(false), SERVICE_FEE,
-            Math.max(1L, Duration.ofMillis(job.readyAtMillis() - acceptedAt).toMinutes())
-        ));
-        return 1;
+        return success(player, training
+                ? "message.cobbleventure_adventure.daycare.accepted_training"
+                : "message.cobbleventure_adventure.daycare.accepted_single",
+            selected.getDisplayName(false), SERVICE_FEE,
+            updated.pokemonCount(), DaycareJob.MAX_POKEMON,
+            TRAINING_COST_PER_EXPERIENCE
+        );
     }
+
+    static ServiceOutcome withdrawWithFeedback(ServerPlayer player, int daycareSlot) {
+        DaycareSavedData data = DaycareSavedData.get(player.getServer());
+        DaycareJob job = data.find(player.getUUID()).orElse(null);
+        if (job == null || daycareSlot < 0 || daycareSlot >= job.pokemonCount()) {
+            return failure(player, "message.cobbleventure_adventure.daycare.invalid_stored_slot");
+        }
+        PlayerPartyStore party = Cobblemon.INSTANCE.getStorage().getParty(player);
+        PCStore pc = Cobblemon.INSTANCE.getStorage().getPC(player);
+        boolean toParty = party.occupied() < 6;
+        if (!toParty && freePcSlots(pc) < 1) {
+            return failure(player, "message.cobbleventure_adventure.daycare.return_storage_full");
+        }
+        DaycareJob.StoredPokemon stored = job.pokemon(daycareSlot);
+        Pokemon pokemon = loadPokemon(player, stored.data());
+
+        boolean removeJob = job.pokemonCount() == 1 && job.eggCount() == 0;
+        if (removeJob) {
+            if (!data.remove(player.getUUID(), job.jobId())) {
+                return failure(player, "message.cobbleventure_adventure.daycare.storage_changed");
+            }
+        } else {
+            data.replace(job.removePokemon(daycareSlot));
+        }
+        if (toParty) {
+            party.add(pokemon);
+        } else if (!pc.add(pokemon)) {
+            if (removeJob) data.create(job); else data.replace(job);
+            return failure(player, "message.cobbleventure_adventure.daycare.return_storage_full");
+        }
+        TrainingResult training = applyTraining(player, pokemon, stored);
+        if (training.cost().signum() > 0) {
+            BigInteger balance = PlayerExtensionKt.getCobbleDollars(player);
+            PlayerExtensionKt.setCobbleDollars(
+                player, DaycarePolicy.balanceAfterTraining(balance, training.experience())
+            );
+        }
+        if (stored.training()) {
+            return success(
+                player, "message.cobbleventure_adventure.daycare.withdrawn_trained",
+                pokemon.getDisplayName(false), destination(toParty),
+                training.experience(), training.oldLevel(), training.newLevel(), training.cost()
+            );
+        }
+        return success(
+            player, "message.cobbleventure_adventure.daycare.withdrawn",
+            pokemon.getDisplayName(false), destination(toParty)
+        );
+    }
+
+    static int withdraw(ServerPlayer player, int daycareSlot) {
+        return withdrawWithFeedback(player, daycareSlot).result();
+    }
+
+    static ServiceOutcome collectWithFeedback(ServerPlayer player) {
+        DaycareSavedData data = DaycareSavedData.get(player.getServer());
+        DaycareJob job = refreshState(player);
+        if (job == null || job.eggCount() == 0) {
+            return failure(player, "message.cobbleventure_adventure.daycare.no_eggs");
+        }
+        if (freeInventorySlots(player) < job.eggCount()) {
+            return failure(
+                player, "message.cobbleventure_adventure.daycare.inventory_slots_required",
+                job.eggCount()
+            );
+        }
+        List<ItemStack> eggs = job.eggStacks().stream()
+            .map(tag -> ItemStack.parseOptional(player.registryAccess(), tag)).toList();
+        if (eggs.stream().anyMatch(ItemStack::isEmpty)) {
+            return failure(player, "message.cobbleventure_adventure.daycare.corrupt_egg");
+        }
+        for (ItemStack egg : eggs) player.getInventory().add(egg.copy());
+        if (job.pokemonCount() == 0) data.remove(player.getUUID(), job.jobId());
+        else data.replace(job.withoutEggs());
+        return success(
+            player, "message.cobbleventure_adventure.daycare.eggs_collected", eggs.size()
+        );
+    }
+
+    static int collect(ServerPlayer player) { return collectWithFeedback(player).result(); }
 
     static int status(ServerPlayer player) {
-        DaycareSavedData data = DaycareSavedData.get(player.getServer());
-        DaycareJob job = data.find(player.getUUID()).orElse(null);
-        if (job == null) {
-            fail(player, "message.cobbleventure_adventure.daycare.none");
-            return 0;
+        DaycareJob job = refreshState(player);
+        if (job == null) return failure(player, "message.cobbleventure_adventure.daycare.none").result();
+        List<Pokemon> occupants = loadPokemon(player, job);
+        if (job.eggCount() > 0) {
+            return success(
+                player, "message.cobbleventure_adventure.daycare.eggs_waiting", job.eggCount()
+            ).result();
         }
-        job = generateEggIfReady(player, data, job);
-        if (job.hasEgg()) {
-            player.sendSystemMessage(Component.translatable(
-                "message.cobbleventure_adventure.daycare.ready"
-            ));
-            return 1;
+        if (!CobbreedingAdapter.canBreed(occupants)) {
+            return success(
+                player, "message.cobbleventure_adventure.daycare.no_compatible_pair"
+            ).result();
         }
-        long remainingSeconds = Math.max(
-            1L, Duration.ofMillis(job.readyAtMillis() - Instant.now().toEpochMilli()).toSeconds()
-        );
-        player.sendSystemMessage(Component.translatable(
-            "message.cobbleventure_adventure.daycare.progress",
-            (remainingSeconds + 59L) / 60L
-        ));
-        return 1;
+        return success(
+            player, "message.cobbleventure_adventure.daycare.next_check",
+            remainingMinutes(job)
+        ).result();
     }
 
-    static int collect(ServerPlayer player) {
+    static DaycareJob refreshState(ServerPlayer player) {
         DaycareSavedData data = DaycareSavedData.get(player.getServer());
         DaycareJob job = data.find(player.getUUID()).orElse(null);
-        if (job == null) {
-            fail(player, "message.cobbleventure_adventure.daycare.none");
-            return 0;
+        if (job == null || job.pokemonCount() < 2 || job.eggCount() >= DaycareJob.MAX_EGGS) {
+            return job;
         }
-        job = generateEggIfReady(player, data, job);
-        if (!job.hasEgg()) {
-            fail(player, "message.cobbleventure_adventure.daycare.not_ready");
-            return 0;
+        long now = Instant.now().toEpochMilli();
+        if (!job.isEggCheckReady(now)) return job;
+        List<Pokemon> occupants = loadPokemon(player, job);
+        CompoundTag discovered = null;
+        if (CobbreedingAdapter.canBreed(occupants)
+            && DaycarePolicy.discoversEgg(
+                RandomSource.create(job.jobId().getMostSignificantBits() ^ now).nextFloat()
+            )) {
+            ItemStack egg = CobbreedingAdapter.createEgg(occupants);
+            Tag serialized = egg.save(player.registryAccess(), new CompoundTag());
+            if (!(serialized instanceof CompoundTag eggTag)) {
+                throw new IllegalStateException("Cobbreeding 알이 CompoundTag로 직렬화되지 않았습니다.");
+            }
+            discovered = eggTag;
         }
-        if (player.getInventory().getFreeSlot() < 0) {
-            fail(player, "message.cobbleventure_adventure.daycare.inventory_full");
-            return 0;
-        }
-        PCStore pc = Cobblemon.INSTANCE.getStorage().getPC(player);
-        if (freePcSlots(pc) < 2) {
-            fail(player, "message.cobbleventure_adventure.daycare.pc_full");
-            return 0;
-        }
-
-        Pokemon first = loadPokemon(player, job.parentA());
-        Pokemon second = loadPokemon(player, job.parentB());
-        ItemStack egg = ItemStack.parseOptional(player.registryAccess(), job.eggStack());
-        if (egg.isEmpty()) {
-            fail(player, "message.cobbleventure_adventure.daycare.corrupt_egg");
-            return 0;
-        }
-        if (!pc.add(first) || !pc.add(second)) {
-            pc.remove(first);
-            pc.remove(second);
-            fail(player, "message.cobbleventure_adventure.daycare.pc_full");
-            return 0;
-        }
-        if (!player.getInventory().add(egg.copy())) {
-            pc.remove(first);
-            pc.remove(second);
-            fail(player, "message.cobbleventure_adventure.daycare.inventory_full");
-            return 0;
-        }
-        if (!data.remove(player.getUUID(), job.jobId())) {
-            player.getInventory().removeItem(egg);
-            pc.remove(first);
-            pc.remove(second);
-            fail(player, "message.cobbleventure_adventure.daycare.storage_changed");
-            return 0;
-        }
-        player.sendSystemMessage(Component.translatable(
-            "message.cobbleventure_adventure.daycare.collected"
-        ));
-        return 1;
+        DaycareJob updated = job.afterEggCheck(nextEggCheck(now), discovered);
+        data.replace(updated);
+        return updated;
     }
 
-    static int cancel(ServerPlayer player) {
-        DaycareSavedData data = DaycareSavedData.get(player.getServer());
-        DaycareJob job = data.find(player.getUUID()).orElse(null);
-        if (job == null) {
-            fail(player, "message.cobbleventure_adventure.daycare.none");
-            return 0;
-        }
-        if (job.isTimeReady(Instant.now().toEpochMilli()) || job.hasEgg()) {
-            fail(player, "message.cobbleventure_adventure.daycare.cancel_ready");
-            return 0;
-        }
-        PCStore pc = Cobblemon.INSTANCE.getStorage().getPC(player);
-        if (freePcSlots(pc) < 2) {
-            fail(player, "message.cobbleventure_adventure.daycare.pc_full");
-            return 0;
-        }
-        Pokemon first = loadPokemon(player, job.parentA());
-        Pokemon second = loadPokemon(player, job.parentB());
-        if (!pc.add(first) || !pc.add(second)) {
-            pc.remove(first);
-            pc.remove(second);
-            fail(player, "message.cobbleventure_adventure.daycare.pc_full");
-            return 0;
-        }
-        if (!data.remove(player.getUUID(), job.jobId())) {
-            pc.remove(first);
-            pc.remove(second);
-            fail(player, "message.cobbleventure_adventure.daycare.storage_changed");
-            return 0;
-        }
-        player.sendSystemMessage(Component.translatable(
-            "message.cobbleventure_adventure.daycare.cancelled"
-        ));
-        return 1;
+    static boolean hasCompatiblePair(ServerPlayer player, DaycareJob job) {
+        return job != null && CobbreedingAdapter.canBreed(loadPokemon(player, job));
+    }
+
+    static long remainingMinutes(DaycareJob job) {
+        return Math.max(1L, Duration.ofMillis(
+            job.nextEggCheckAtMillis() - Instant.now().toEpochMilli()
+        ).toMinutes());
     }
 
     private static int forceReady(CommandSourceStack source, ServerPlayer player) {
@@ -286,55 +303,95 @@ public final class DaycareService {
         DaycareJob job = data.find(player.getUUID()).orElse(null);
         if (job == null) {
             source.sendFailure(Component.translatable(
-                "message.cobbleventure_adventure.daycare.none_target",
-                player.getDisplayName()
+                "message.cobbleventure_adventure.daycare.none_target", player.getDisplayName()
             ));
             return 0;
         }
-        DaycareJob ready = job.readyNow(Instant.now().toEpochMilli());
-        data.replace(ready);
+        data.replace(job.readyNow(Instant.now().toEpochMilli()));
         source.sendSuccess(() -> Component.translatable(
-            "message.cobbleventure_adventure.daycare.forced_ready",
-            player.getDisplayName()
+            "message.cobbleventure_adventure.daycare.forced_ready", player.getDisplayName()
         ), true);
         return 1;
     }
 
-    private static DaycareJob generateEggIfReady(
-        ServerPlayer player, DaycareSavedData data, DaycareJob job
-    ) {
-        if (job.hasEgg() || !job.isTimeReady(Instant.now().toEpochMilli())) {
-            return job;
-        }
-        Pokemon first = loadPokemon(player, job.parentA());
-        Pokemon second = loadPokemon(player, job.parentB());
-        ItemStack egg = CobbreedingAdapter.createEgg(first, second);
-        Tag serialized = egg.save(player.registryAccess(), new CompoundTag());
-        if (!(serialized instanceof CompoundTag eggTag)) {
-            throw new IllegalStateException("Cobbreeding 알이 CompoundTag로 직렬화되지 않았습니다.");
-        }
-        DaycareJob completed = job.withEgg(eggTag);
-        data.replace(completed);
-        return completed;
+    private static List<Pokemon> loadPokemon(ServerPlayer player, DaycareJob job) {
+        return job.pokemon().stream().map(value -> loadPokemon(player, value.data())).toList();
     }
 
     private static Pokemon loadPokemon(ServerPlayer player, CompoundTag tag) {
         return new Pokemon().loadFromNBT(player.registryAccess(), tag.copy());
     }
 
+    private static TrainingResult applyTraining(
+        ServerPlayer player, Pokemon pokemon, DaycareJob.StoredPokemon stored
+    ) {
+        if (!stored.training()) {
+            return new TrainingResult(0, pokemon.getLevel(), pokemon.getLevel(), BigInteger.ZERO);
+        }
+        int available = DaycarePolicy.accruedTrainingExperience(
+            stored, Instant.now().toEpochMilli()
+        );
+        int requested = Math.min(available, pokemon.getExperienceToLevel(100));
+        int oldLevel = pokemon.getLevel();
+        AddExperienceResult result = pokemon.addExperience(
+            new SidemodExperienceSource("cobbleventure_adventure"), requested
+        );
+        int applied = Math.max(0, result.getExperienceAdded());
+        return new TrainingResult(
+            applied, oldLevel, pokemon.getLevel(),
+            DaycarePolicy.trainingCost(applied)
+        );
+    }
+
+    private static Component destination(boolean party) {
+        return Component.translatable(party
+            ? "message.cobbleventure_adventure.daycare.destination_party"
+            : "message.cobbleventure_adventure.daycare.destination_pc");
+    }
+
+    private static long nextEggCheck(long now) {
+        int ticks = RandomSource.create().nextIntBetweenInclusive(
+            MIN_BREEDING_TICKS, MAX_BREEDING_TICKS
+        );
+        return now + ticks * MILLIS_PER_TICK;
+    }
+
+    private static boolean replace(DaycareSavedData data, DaycareJob updated) {
+        data.replace(updated);
+        return true;
+    }
+
     private static int freePcSlots(PCStore pc) {
         int free = 0;
-        for (PCBox box : pc.getBoxes()) {
-            free += box.getUnoccupiedSlots();
-            if (free >= 2) {
-                return free;
-            }
-        }
+        for (PCBox box : pc.getBoxes()) free += box.getUnoccupiedSlots();
         return free;
     }
 
-    private static void fail(ServerPlayer player, String key, Object... arguments) {
-        Objects.requireNonNull(player, "player");
-        player.sendSystemMessage(Component.translatable(key, arguments));
+    private static int freeInventorySlots(ServerPlayer player) {
+        int free = 0;
+        for (ItemStack stack : player.getInventory().items) if (stack.isEmpty()) free++;
+        return free;
     }
+
+    private static ServiceOutcome failure(ServerPlayer player, String key, Object... arguments) {
+        return notify(player, 0, key, arguments);
+    }
+
+    private static ServiceOutcome success(ServerPlayer player, String key, Object... arguments) {
+        return notify(player, 1, key, arguments);
+    }
+
+    private static ServiceOutcome notify(
+        ServerPlayer player, int result, String key, Object... arguments
+    ) {
+        Objects.requireNonNull(player, "player");
+        Component message = Component.translatable(key, arguments);
+        player.sendSystemMessage(message);
+        return new ServiceOutcome(result, message);
+    }
+
+    record ServiceOutcome(int result, Component message) {}
+    private record TrainingResult(
+        int experience, int oldLevel, int newLevel, BigInteger cost
+    ) {}
 }

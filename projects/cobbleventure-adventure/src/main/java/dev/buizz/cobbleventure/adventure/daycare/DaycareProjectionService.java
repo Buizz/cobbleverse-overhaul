@@ -19,11 +19,11 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Maintains non-interactive visual copies of deposited parents near the daycare yard. */
+/** Maintains non-interactive visual copies of every deposited Pokemon near the daycare yard. */
 public final class DaycareProjectionService {
     public static final String ENTITY_TAG = "cobbleventure_daycare_projection";
     private static final String JOB_ID = "cobbleventureDaycareJob";
-    private static final String PARENT_INDEX = "cobbleventureDaycareParent";
+    private static final String POKEMON_INDEX = "cobbleventureDaycarePokemon";
     private static final int UPDATE_INTERVAL_TICKS = 40;
     private static final double VIEW_DISTANCE_SQUARED = 64.0D * 64.0D;
     private static final double PADDOCK_RADIUS_SQUARED = 8.0D * 8.0D;
@@ -54,19 +54,19 @@ public final class DaycareProjectionService {
                 }
                 UUID jobId = pokemon.getPersistentData().hasUUID(JOB_ID)
                     ? pokemon.getPersistentData().getUUID(JOB_ID) : null;
-                int parentIndex = pokemon.getPersistentData().getInt(PARENT_INDEX);
+                int pokemonIndex = pokemon.getPersistentData().getInt(POKEMON_INDEX);
                 DaycareJob job = jobId == null ? null : jobs.get(jobId);
-                if (job == null || parentIndex < 0 || parentIndex > 1
+                if (job == null || pokemonIndex < 0 || pokemonIndex >= job.pokemonCount()
                     || !isVisible(server, job, level)) {
                     pokemon.discard();
                     continue;
                 }
-                ProjectionKey key = new ProjectionKey(jobId, parentIndex);
+                ProjectionKey key = new ProjectionKey(jobId, pokemonIndex);
                 if (!present.add(key)) {
                     pokemon.discard();
                     continue;
                 }
-                keepInsidePaddock(pokemon, job.paddockCenter(), parentIndex);
+                keepInsidePaddock(pokemon, job.paddockCenter(), pokemonIndex);
             }
         }
 
@@ -78,10 +78,10 @@ public final class DaycareProjectionService {
             if (level == null || !isVisible(server, job, level)) {
                 continue;
             }
-            for (int parentIndex = 0; parentIndex < 2; parentIndex++) {
-                ProjectionKey key = new ProjectionKey(job.jobId(), parentIndex);
+            for (int pokemonIndex = 0; pokemonIndex < job.pokemonCount(); pokemonIndex++) {
+                ProjectionKey key = new ProjectionKey(job.jobId(), pokemonIndex);
                 if (!present.contains(key)) {
-                    spawn(level, job, parentIndex);
+                    spawn(level, job, pokemonIndex);
                 }
             }
         }
@@ -99,19 +99,19 @@ public final class DaycareProjectionService {
                 <= VIEW_DISTANCE_SQUARED;
     }
 
-    private static void spawn(ServerLevel level, DaycareJob job, int parentIndex) {
+    private static void spawn(ServerLevel level, DaycareJob job, int pokemonIndex) {
         Pokemon pokemon = new Pokemon().loadFromNBT(
-            level.registryAccess(), parentIndex == 0 ? job.parentA() : job.parentB()
+            level.registryAccess(), job.pokemon(pokemonIndex).data()
         );
         pokemon.setUuid(UUID.randomUUID());
         PokemonEntity entity = new PokemonEntity(level, pokemon, CobblemonEntities.POKEMON);
         entity.addTag(ENTITY_TAG);
         entity.getPersistentData().putUUID(JOB_ID, job.jobId());
-        entity.getPersistentData().putInt(PARENT_INDEX, parentIndex);
+        entity.getPersistentData().putInt(POKEMON_INDEX, pokemonIndex);
         entity.setInvulnerable(true);
         entity.setPersistenceRequired();
         entity.setCountsTowardsSpawnCap(false);
-        BlockPos spawn = paddockPosition(job.paddockCenter(), parentIndex);
+        BlockPos spawn = paddockPosition(job.paddockCenter(), pokemonIndex);
         entity.moveTo(
             spawn.getX() + 0.5D, spawn.getY(), spawn.getZ() + 0.5D,
             level.random.nextFloat() * 360.0F, 0.0F
@@ -120,23 +120,25 @@ public final class DaycareProjectionService {
     }
 
     private static void keepInsidePaddock(
-        PokemonEntity entity, BlockPos center, int parentIndex
+        PokemonEntity entity, BlockPos center, int pokemonIndex
     ) {
         if (entity.distanceToSqr(Vec3.atCenterOf(center)) <= PADDOCK_RADIUS_SQUARED) {
             return;
         }
-        BlockPos target = paddockPosition(center, parentIndex);
+        BlockPos target = paddockPosition(center, pokemonIndex);
         entity.teleportTo(target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D);
         entity.getNavigation().stop();
     }
 
-    private static BlockPos paddockPosition(BlockPos center, int parentIndex) {
-        int x = center.getX() + (parentIndex == 0 ? -3 : 3);
-        int z = center.getZ() + (parentIndex == 0 ? 2 : -2);
+    private static BlockPos paddockPosition(BlockPos center, int pokemonIndex) {
+        int[][] offsets = {{-3, 2}, {3, -2}, {-2, -3}, {2, 3}, {-4, -1}, {4, 1}};
+        int[] offset = offsets[Math.floorMod(pokemonIndex, offsets.length)];
+        int x = center.getX() + offset[0];
+        int z = center.getZ() + offset[1];
         // The structure anchor already denotes a walkable floor. Keeping its Y avoids
         // accidentally placing projections on the daycare roof.
         return new BlockPos(x, center.getY(), z);
     }
 
-    private record ProjectionKey(UUID jobId, int parentIndex) {}
+    private record ProjectionKey(UUID jobId, int pokemonIndex) {}
 }
