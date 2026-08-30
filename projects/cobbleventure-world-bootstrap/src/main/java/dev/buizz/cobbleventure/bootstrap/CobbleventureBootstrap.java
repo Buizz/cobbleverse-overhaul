@@ -1393,6 +1393,12 @@ public final class CobbleventureBootstrap {
         );
         boolean markerPresent = level.getBlockState(placementMarker).is(Blocks.LODESTONE);
         boolean placeTemplate = CaveEntrancePlacementPolicy.placeTemplate(markerPresent);
+        if (placeTemplate) {
+            restoreCaveApproach(
+                level, world, approachRoad, center, forwardX, forwardZ,
+                mouthDistance, plannedFloorY
+            );
+        }
         CaveEntrancePlacement placement = placeCaveEntranceTemplate(
             level, caveStructure, mouthX, plannedFloorY, mouthZ,
             horizontalDirection(forwardX, forwardZ),
@@ -1411,10 +1417,6 @@ public final class CobbleventureBootstrap {
             )) {
                 restoreCaveEntranceBarrierRoof(level, world, entrance);
             }
-            restoreCaveApproach(
-                level, world, approachRoad, center, forwardX, forwardZ,
-                mouthDistance, placement.floorY()
-            );
             level.setBlock(
                 placement.markerPosition().below(2),
                 Blocks.LODESTONE.defaultBlockState(), 2
