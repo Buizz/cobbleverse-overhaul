@@ -2259,11 +2259,19 @@ body { font-size: 14px; line-height: 1.45; }
 .system-npc-model-stage canvas { position:relative; display:block; width:100%; height:100%; cursor:grab; image-rendering:pixelated; touch-action:none; }
 .system-npc-model-stage canvas.is-dragging { cursor:grabbing; }
 .system-npc-model-stage>span { position:absolute; right:6px; bottom:5px; padding:3px 5px; border-radius:999px; background:rgba(34,58,48,.68); color:#fff; font-size:7px; pointer-events:none; }
+.system-npc-entity-stage { display:grid; aspect-ratio:1; align-content:center; justify-items:center; gap:8px; padding:14px; border:1px solid #cad8d1; border-radius:5px; background:radial-gradient(circle at 50% 35%,#fff 0,#edf4f0 48%,#dce8e2 100%); text-align:center; }
+.system-npc-entity-stage::before { display:grid; width:54px; height:54px; place-items:center; border:2px solid #d4493f; border-radius:50%; background:#fff4e1; color:#b52e27; font-size:25px; content:"♟"; }
+.system-npc-entity-stage>span { color:#74901d; font-size:7px; letter-spacing:.16em; }
+.system-npc-entity-stage>strong { color:#263f35; font-size:11px; }
+.system-npc-entity-stage>small { color:#71837a; font-size:7px; line-height:1.5; }
 .system-npc-body figcaption { overflow:hidden; color:#7b8c84; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
 .system-npc-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
 .system-npc-fields label { display:grid; align-content:end; gap:4px; min-width:0; color:#687c72; font-size:8px; }
 .system-npc-fields label.wide { grid-column:1/-1; }
+.system-npc-fields label>small { color:#839189; font-size:7px; line-height:1.45; }
 .system-npc-fields input,.system-npc-fields select { width:100%; min-width:0; padding:8px 9px; border:1px solid #b7c8bf; border-radius:3px; background:#fbfdfc; color:#294137; }
+.system-npc-resource-field { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; }
+.system-npc-resource-field .button { min-width:92px; padding:7px 10px; }
 .system-npc-fields label.system-npc-toggle { display:flex; align-items:center; align-self:end; min-height:34px; padding:8px 9px; border:1px solid #d1ddd7; border-radius:3px; background:#f8faf9; }
 .system-npc-fields label.system-npc-toggle input { width:auto; margin:0 7px 0 0; }
 .system-npc-functions,.system-npc-references { display:grid; grid-template-columns:115px minmax(0,1fr); gap:10px; padding:10px 17px; border-top:1px solid #e0e8e4; }
@@ -2273,24 +2281,26 @@ body { font-size: 14px; line-height: 1.45; }
 .system-npc-functions span { background:#e9f5d4; color:#587419; }
 .system-npc-functions small,.system-npc-references small { color:#899891; }
 .system-npc-card>footer { display:flex; justify-content:flex-end; gap:8px; padding:11px 17px; border-top:1px solid #dce5e1; background:#f7f9f8; }
-.resource-pack-character-panel { margin:12px 0 16px; overflow:hidden; }
-.resource-pack-character-panel>header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:17px 19px; border-bottom:1px solid #d5e0da; background:#f8fbf9; }
-.resource-pack-character-panel>header h3 { margin:2px 0 5px; color:#203a30; font-size:16px; }
-.resource-pack-character-panel>header p:last-child { max-width:850px; margin:0; color:#71847a; font-size:9px; line-height:1.55; }
-.resource-pack-character-panel>header strong { padding:7px 10px; border-radius:999px; background:#e8f3cf; color:#5d7b15; font-size:10px; white-space:nowrap; }
-.resource-pack-character-tools { display:grid; grid-template-columns:minmax(260px,1fr) 180px 220px; gap:8px; padding:11px 14px; border-bottom:1px solid #dbe5e0; background:#eef5f1; }
-.resource-pack-character-tools input,.resource-pack-character-tools select { min-width:0; min-height:38px; padding:7px 9px; border:1px solid #b8cac0; border-radius:4px; background:#fff; color:#294137; }
-.resource-pack-character-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); align-content:start; gap:8px; max-height:520px; overflow-y:auto; padding:13px 14px 15px; }
-.resource-pack-character-grid>p { grid-column:1/-1; margin:0; padding:28px; color:#7a8b83; text-align:center; }
-.resource-pack-character-card { display:grid; grid-template-columns:66px minmax(0,1fr); gap:9px; min-width:0; padding:8px; border:1px solid #d3ded8; border-radius:6px; background:#fff; }
-.resource-pack-character-card.is-selectable { border-color:#b8cf8d; background:#fbfdf7; }
-.resource-pack-character-card img { width:66px; height:66px; object-fit:contain; border:1px solid #e0e7e3; border-radius:4px; background:repeating-conic-gradient(#edf2ef 0 25%,#f8faf9 0 50%) 50%/12px 12px; image-rendering:pixelated; }
-.resource-pack-character-card>div { display:grid; align-content:start; min-width:0; gap:2px; }
-.resource-pack-character-card strong { overflow:hidden; color:#294137; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
-.resource-pack-character-card span { color:#71847a; font-size:8px; }
-.resource-pack-character-card code,.resource-pack-character-card small { overflow:hidden; color:#829189; font-size:7px; text-overflow:ellipsis; white-space:nowrap; }
-.resource-pack-character-card button,.resource-pack-character-card em { grid-column:1/-1; min-height:27px; border:0; border-radius:4px; font-size:8px; font-style:normal; }
-.resource-pack-character-card button { background:#89b527; color:#17270f; font-weight:850; cursor:pointer; }
-.resource-pack-character-card em { display:grid; place-items:center; background:#edf1ef; color:#7d8b84; }
+.system-npc-resource-dialog { width:min(1080px,calc(100vw - 36px)); max-width:none; padding:0; border:0; border-radius:9px; background:#f5f9f7; box-shadow:0 24px 64px rgba(13,35,27,.32); }
+.system-npc-resource-dialog::backdrop { background:rgba(15,31,25,.64); backdrop-filter:blur(3px); }
+.system-npc-resource-dialog-shell { display:grid; grid-template-rows:auto auto auto minmax(0,1fr); max-height:min(820px,calc(100vh - 50px)); }
+.system-npc-resource-dialog-shell>header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:20px 22px; border-bottom:1px solid #d5e0da; background:#fff; }
+.system-npc-resource-dialog-shell>header h2 { margin:3px 0 5px; color:#203a30; font-size:20px; }
+.system-npc-resource-dialog-shell>header span { color:#71847a; font-size:10px; }
+.system-npc-resource-tools { display:grid; grid-template-columns:minmax(260px,1fr) 190px 240px; gap:9px; padding:12px 16px; border-bottom:1px solid #dbe5e0; background:#edf4f0; }
+.system-npc-resource-tools input,.system-npc-resource-tools select { min-width:0; min-height:40px; padding:8px 10px; border:1px solid #b8cac0; border-radius:4px; background:#fff; color:#294137; }
+.system-npc-resource-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 17px; color:#788a81; font-size:9px; }
+.system-npc-resource-summary strong { color:#315347; font-size:11px; }
+.system-npc-resource-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(245px,1fr)); align-content:start; gap:9px; min-height:280px; overflow-y:auto; padding:0 16px 18px; }
+.system-npc-resource-grid>p { grid-column:1/-1; margin:0; padding:54px 20px; color:#7a8b83; text-align:center; }
+.system-npc-resource-card { display:grid; grid-template-columns:88px minmax(0,1fr); align-items:center; gap:11px; min-width:0; padding:9px; border:1px solid #c9d8d0; border-radius:6px; background:#fff; color:inherit; text-align:left; cursor:pointer; }
+.system-npc-resource-card:hover,.system-npc-resource-card:focus-visible { border-color:#86ac38; background:#f8fdea; outline:2px solid rgba(137,181,39,.22); }
+.system-npc-resource-preview { display:block; width:88px; height:88px; border:1px solid #d8e2dd; border-radius:5px; background:radial-gradient(circle at 50% 35%,#fff,#e6f0eb); image-rendering:pixelated; pointer-events:none; }
+.system-npc-resource-card>span { display:grid; min-width:0; gap:4px; }
+.system-npc-resource-card strong,.system-npc-resource-card code,.system-npc-resource-card em { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.system-npc-resource-card strong { color:#294137; font-size:11px; }
+.system-npc-resource-card small { color:#698075; font-size:8px; }
+.system-npc-resource-card code { color:#4c665b; font-size:8px; }
+.system-npc-resource-card em { color:#8a9891; font-size:7px; font-style:normal; }
 @media (max-width:720px) { .system-npc-heading{align-items:flex-start;flex-direction:column}.system-npc-summary{width:100%;border-left:0;border-top:1px solid #d2ded8}.system-npc-grid{grid-template-columns:1fr}.system-npc-body{grid-template-columns:105px minmax(0,1fr)}.system-npc-fields{grid-template-columns:1fr}.system-npc-fields label.wide{grid-column:auto}.system-npc-functions,.system-npc-references{grid-template-columns:1fr} }
-@media (max-width:720px) { .resource-pack-character-tools{grid-template-columns:1fr}.resource-pack-character-grid{grid-template-columns:1fr;max-height:460px} }
+@media (max-width:720px) { .system-npc-resource-tools{grid-template-columns:1fr}.system-npc-resource-grid{grid-template-columns:1fr}.system-npc-resource-field{grid-template-columns:1fr} }

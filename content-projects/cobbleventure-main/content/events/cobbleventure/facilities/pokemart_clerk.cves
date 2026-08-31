@@ -1,0 +1,9 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "어서 오세요. 무엇을 도와드릴까요?"
+      en_us: "Welcome. How may I help you?"
+    }
+    server_command "cobbleventure_shop open bca:pokemart_shopkeeper"
+  }
+}

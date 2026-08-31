@@ -1,30 +1,23 @@
 {
   PresetMetadata:{
     author:"Cobbleventure",
-    category:"Cobbleventure Encounters V5",
+    category:"Cobbleventure Entity NPCs",
     created:0L,
-    description:"카지노 환전상 CVES V5 NPC 표현 프리셋",
-    entityTypeId:"easy_npc:humanoid",
+    description:"카지노 환전상 실제 게임 엔티티 표현 프리셋",
+    entityTypeId:"cobbledollars:cobble_merchant",
     modified:0L,
-    name:"카지노 환전상 [V5]",
-    variantType:"ALEX",
+    name:"카지노 환전상",
+    variantType:"NONE",
     version:"1.0.0"
   },
   data:{
-    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
-    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
-    ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"카지노 환전상\",\"font\":\"minecraft:uniform\"}",
-    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
-    EasyNPCVersion:3,
     Invulnerable:1b,
-    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
-    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    NoAI:1b,
     PersistenceRequired:1b,
-    PresetUUID:[I;-1155725700,574053935,-1548695730,-349950651],
-    SkinData:{Type:"CUSTOM",UUID:[I;-1338233725,-1545120614,-1247305470,919330838] },
+    PresetUUID:[I;-165831228,345528198,-1188179201,46170668],
     Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/facilities/casino_cashier","cobbleventure_npc/cobbleventure/npc/casino_cashier"],
-    VariantType:"ALEX",
-    id:"easy_npc:humanoid"
+    VillagerData:{level:1,profession:"cobbledollars:cobble_merchant",type:"minecraft:plains"},
+    id:"cobbledollars:cobble_merchant"
   }
 }

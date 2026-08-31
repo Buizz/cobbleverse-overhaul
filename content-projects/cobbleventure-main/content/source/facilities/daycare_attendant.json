@@ -29,12 +29,13 @@
       "en_us": "Daycare Attendant"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/picnicker",
+    "trainer_class": "cobbleventure:trainer_class/pokemon_breeder",
     "appearance": {
-      "source": "custom",
+      "source": "rct_single",
       "type": "skin",
-      "resource": "cobbleventure:trainer_skin/picnicker",
-      "arm_model": "slim"
+      "resource": "rctmod:trainers/single/pokemon_breeder_albert_0310",
+      "arm_model": "slim",
+      "implementation_status": "ready"
     },
     "behavior": {
       "movement": "stationary",

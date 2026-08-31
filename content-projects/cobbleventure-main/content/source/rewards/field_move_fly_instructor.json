@@ -1,18 +1,18 @@
 {
   "$schema": "../../schemas/npc-event-script.schema.json", "schema_version": 4,
   "id": "cobbleventure:npc/rewards/field_move_fly_instructor", "enabled": true,
-  "name": { "ko_kr": "비행 우편원" }, "description": { "ko_kr": "플레이어에게 공중날기 사용 권한을 한 번 지급하는 수동 배치 NPC입니다." },
+  "name": { "ko_kr": "석영고원 비행 안내원" }, "description": { "ko_kr": "석영고원에 처음 도착한 플레이어에게 공중날기 사용 권한을 지급합니다." },
   "tags": ["reward", "field_move", "manual_placement"],
   "placement_profile": { "classification": "ambient", "preferred_biomes": [], "automatic_town_placement": false, "automatic_route_placement": false },
-  "npc": { "display_name": { "ko_kr": "비행 우편원" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/bird_keeper",
+  "npc": { "display_name": { "ko_kr": "비행 안내원" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/bird_keeper",
     "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/bird_keeper_mitch_013a" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
   "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/field_move_fly_instructor" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/field_move/fly", "value": true }], "target": "claimed" },
-    { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "하늘길은 빠르지만 출발과 착륙이 중요해. 공중날기 요령을 알려 줄게." } },
+    { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "석영고원에 처음 도착했구나. 먼 길을 다시 걸어 내려갈 필요가 없도록 공중날기를 허가해 줄게." } },
     { "type": "grant_field_move", "move": "fly" }, { "type": "set_flag", "key": "cobbleventure:flag/rewards/field_move/fly", "value": true },
-    { "type": "dialogue", "id": "granted", "speaker": "npc", "text": { "ko_kr": "이제 조건이 맞는 곳에서 공중날기를 이용할 수 있어." } }, { "type": "end" },
-    { "type": "label", "name": "claimed" }, { "type": "dialogue", "id": "repeat", "speaker": "npc", "text": { "ko_kr": "날씨가 나쁠 때는 무리해서 날지 마." } }, { "type": "end" }
+    { "type": "dialogue", "id": "granted", "speaker": "npc", "text": { "ko_kr": "이제 방문한 장소를 오갈 때 공중날기를 이용할 수 있어." } }, { "type": "end" },
+    { "type": "label", "name": "claimed" }, { "type": "dialogue", "id": "repeat", "speaker": "npc", "text": { "ko_kr": "석영고원까지 올라온 트레이너라면 공중날기를 맡겨도 안심이야." } }, { "type": "end" }
   ] }]
 }

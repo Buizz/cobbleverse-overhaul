@@ -1,18 +1,19 @@
 {
   "$schema": "../../schemas/npc-event-script.schema.json", "schema_version": 4,
   "id": "cobbleventure:npc/rewards/feature_map_guide", "enabled": true,
-  "name": { "ko_kr": "지도 제작자" }, "description": { "ko_kr": "플레이어 메뉴의 지도 기능을 한 번 해금하는 수동 배치 NPC입니다." },
-  "tags": ["reward", "menu_feature", "manual_placement"],
+  "name": { "ko_kr": "상록시티 관문 안내원" }, "description": { "ko_kr": "상록시티 첫 방문자에게 지도와 포켓파인더를 지급하고 석영고원 관문의 배지 조건을 안내하는 NPC입니다." },
+  "tags": ["reward", "menu_feature", "gatekeeper", "manual_placement"],
   "placement_profile": { "classification": "ambient", "preferred_biomes": [], "automatic_town_placement": false, "automatic_route_placement": false },
-  "npc": { "display_name": { "ko_kr": "지도 제작자" }, "role": "default", "trainer_class": "cobbleventure:trainer_class/gentleman",
-    "appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/gentleman_arthur_01a6" },
+  "npc": { "display_name": { "ko_kr": "관문 안내원" }, "role": "gatekeeper", "trainer_class": "cobbleventure:trainer_class/pokemon_ranger_male",
+    "appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/pokemon_ranger_male" },
     "behavior": { "movement": "stationary", "look_at_player": true, "invulnerable": true, "collision": true } },
   "event_runtime": { "engine": "cves_v5", "authoring": "custom", "script_id": "cobbleventure:event_script/rewards/feature_map_guide" }, "event_design": { "mode": "easy_npc_events" },
   "events": [{ "id": "on_interact", "trigger": { "type": "interact", "range": 4 }, "commands": [
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/feature/map", "value": true }], "target": "claimed" },
-    { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "처음 가는 길이라면 기록을 남겨야지. 네 메뉴에 지도를 등록해 줄게." } },
+    { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "상록시티에 처음 왔구나! 관장과 다음 목적지를 찾기 쉽도록 지도와 포켓파인더를 줄게." } },
+    { "type": "give_item", "item": "cobblenav:pokefinder_item", "count": 1 },
     { "type": "unlock_feature", "feature": "map" }, { "type": "set_flag", "key": "cobbleventure:flag/rewards/feature/map", "value": true },
-    { "type": "dialogue", "id": "granted", "speaker": "npc", "text": { "ko_kr": "이제 메뉴에서 지도를 확인할 수 있어." } }, { "type": "end" },
-    { "type": "label", "name": "claimed" }, { "type": "dialogue", "id": "repeat", "speaker": "npc", "text": { "ko_kr": "새로운 장소를 발견할 때마다 지도를 확인해 봐." } }, { "type": "end" }
+    { "type": "dialogue", "id": "granted", "speaker": "npc", "text": { "ko_kr": "이제 메뉴에서 지도를 보고, 포켓파인더로 주변 정보를 확인할 수 있어. 서쪽 관문 너머로 가려면 관동의 여덟 배지를 모두 모아 와." } }, { "type": "end" },
+    { "type": "label", "name": "claimed" }, { "type": "dialogue", "id": "repeat", "speaker": "npc", "text": { "ko_kr": "서쪽 관문은 석영고원으로 이어져 있어. 회색·블루·오렌지·무지개·핑크·골드·크림슨·그린배지를 모두 모으면 통과할 수 있어." } }, { "type": "end" }
   ] }]
 }

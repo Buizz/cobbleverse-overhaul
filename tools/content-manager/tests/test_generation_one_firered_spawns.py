@@ -150,6 +150,44 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
         self.assertLess(route_order.index("route_custom_20"), route_order.index("route_custom_21"))
         self.assertLess(route_order.index("route_custom_21"), route_order.index("route_custom_05"))
 
+    def test_vermilion_south_sea_uses_firered_surf_and_fishing_pools(self) -> None:
+        route = self.load("routes/generation_1/route_custom_22.json")
+        spawns = route["pokemon_spawns"]
+        pools = spawns["encounter_pools"]
+
+        self.assertFalse(spawns["inherit_biome"])
+        self.assertEqual([], spawns["additions"])
+        self.assertEqual({"surf", "old_rod", "good_rod", "super_rod"}, set(pools))
+        self.assertEqual(
+            {"tentacool": (5, 40, 100)},
+            self.by_species(pools["surf"]["additions"]),
+        )
+        self.assertEqual(
+            {"magikarp": (5, 5, 100)},
+            self.by_species(pools["old_rod"]["additions"]),
+        )
+        self.assertEqual(
+            {
+                "horsea": (5, 15, 60),
+                "magikarp": (5, 15, 20),
+                "krabby": (5, 15, 20),
+            },
+            self.by_species(pools["good_rod"]["additions"]),
+        )
+        self.assertEqual(
+            {
+                "horsea": (15, 35, 44),
+                "shellder": (15, 25, 40),
+                "gyarados": (15, 25, 15),
+                "psyduck": (25, 35, 1),
+            },
+            self.by_species(pools["super_rod"]["additions"]),
+        )
+        for pool in pools.values():
+            self.assertTrue(pool["enabled"])
+            self.assertFalse(pool["inherit_biome"])
+            self.assertEqual(100, sum(entry["weight"] for entry in pool["additions"]))
+
 
 if __name__ == "__main__":
     unittest.main()

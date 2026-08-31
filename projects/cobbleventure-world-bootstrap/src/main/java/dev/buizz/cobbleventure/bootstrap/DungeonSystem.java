@@ -19,6 +19,7 @@ import dev.buizz.cobbleventure.adventure.event.EventNpcProximityHandler;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.bootstrap.WorldPlanModels.HexWorldPlan;
 import dev.buizz.cobbleventure.playermenu.BagApi;
+import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -28,11 +29,11 @@ import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -773,6 +774,12 @@ final class DungeonSystem {
         DungeonDefinition definition = pending.ref().definition();
         String terrainProblem = terrainEntryProblem(definition);
         if (terrainProblem != null) return terrainProblem;
+        DungeonDefinition.Eligibility settings = definition.eligibility();
+        if (!PlayerConditions.matches(
+            player, settings.conditionMode(), settings.conditions()
+        )) {
+            return settings.lockedMessage();
+        }
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             return "배틀 중에는 던전에 입장할 수 없습니다.";
         }

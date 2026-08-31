@@ -1,0 +1,65 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/rewards/item_coin_case_guest",
+  "enabled": true,
+  "name": {
+    "ko_kr": "은퇴한 카지노 손님"
+  },
+  "description": {
+    "ko_kr": "무지개시티 카지노 휴게 공간에서 동전케이스를 플레이어당 한 번 지급합니다."
+  },
+  "tags": [
+    "reward",
+    "key_item",
+    "casino"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "은퇴한 카지노 손님"
+    },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/gentleman",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/gentleman_arthur_01a6"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/rewards/item_coin_case_guest"
+  },
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "item",
+      "initial_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "first_text": {
+        "ko_kr": "난 이제 게임을 그만뒀네. 자네가 쓸 생각이라면 이 동전케이스를 가져가게."
+      },
+      "state_key": "cobbleventure:flag/rewards/item/coin_case_guest",
+      "repeat_text": {
+        "ko_kr": "동전은 정해 둔 만큼만 쓰게. 게임에 너무 빠지면 곤란하니까."
+      },
+      "item": "cobbleventure_casino:coin_case",
+      "item_count": 1
+    }
+  }
+}

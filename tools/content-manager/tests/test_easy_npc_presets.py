@@ -127,6 +127,41 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         bound = {**missing, "_cves_binding_tag": "cves_binding/cobbleventure/facilities/test_dealer"}
         generator.validate_system_npc_runtime_bindings([bound])
 
+    def test_entity_representation_keeps_cobbledollars_renderer_and_cves_binding(self) -> None:
+        document = {
+            "id": "cobbleventure:npc/facilities/test_shopkeeper",
+            "name": {"ko_kr": "상점 주인"},
+            "system_npc": {"functions": ["shop"]},
+            "npc": {
+                "display_name": {"ko_kr": "상점 주인"},
+                "appearance": {
+                    "source": "entity", "type": "model",
+                    "resource": "cobbledollars:cobble_merchant",
+                },
+                "behavior": {"movement": "stationary", "invulnerable": True},
+            },
+        }
+        binding = "cves_binding/cobbleventure/facilities/test_shopkeeper"
+
+        preset = generator.v5_entity_preset_snbt(document, binding)
+
+        self.assertIn('entityTypeId:"cobbledollars:cobble_merchant"', preset)
+        self.assertIn('id:"cobbledollars:cobble_merchant"', preset)
+        self.assertIn(binding, preset)
+        self.assertIn('"cobbleventure_npc_function_shop"', preset)
+        self.assertIn('profession:"cobbledollars:cobble_merchant"', preset)
+        self.assertNotIn("SkinData", preset)
+
+    def test_entity_representation_does_not_copy_a_player_skin(self) -> None:
+        document = {
+            "npc": {"appearance": {
+                "source": "entity", "type": "model",
+                "resource": "cobbledollars:cobble_merchant",
+            }},
+        }
+
+        self.assertIsNone(generator.prepare_encounter_skin(document, self.outfit))
+
     def test_dungeon_actor_preset_is_inert_and_class_owned(self) -> None:
         trainer_class = "cobbleventure:trainer_class/villain_grunt"
         preset = generator.dungeon_actor_preset_snbt(trainer_class, self.outfit)
@@ -386,6 +421,38 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
 
         self.assertEqual(png, result)
 
+    def test_reads_exact_player_skin_selected_from_resource_pack(self) -> None:
+        selected_png = b"\x89PNG\r\n\x1a\n" + b"selected-player-skin"
+        other_png = b"\x89PNG\r\n\x1a\n" + b"other-player-skin"
+        entry = "assets/custompack/textures/entity/trainer/daycare_attendant.png"
+        with tempfile.TemporaryDirectory() as directory:
+            resource_packs = Path(directory) / "resourcepacks"
+            resource_packs.mkdir(parents=True)
+            with zipfile.ZipFile(resource_packs / "Other Characters.zip", "w") as archive:
+                archive.writestr(entry, other_png)
+            with zipfile.ZipFile(resource_packs / "Selected Characters.zip", "w") as archive:
+                archive.writestr(entry, selected_png)
+            appearance = {
+                "source": "custom",
+                "type": "skin",
+                "resource": "custompack:trainer_skin/daycare_attendant",
+                "resource_pack": "Selected Characters.zip",
+                "resource_pack_entry": entry,
+            }
+            document = json.loads(json.dumps(self.document))
+            document["npc"]["appearance"] = appearance
+            output_root = Path(directory) / "output"
+            with mock.patch.dict(os.environ, {"COBBLEVERSE_INSTANCE": directory}), mock.patch.object(
+                generator, "PACK_OVERRIDE", output_root,
+            ):
+                result = generator.installed_resource_pack_skin(appearance)
+                generated = generator.prepare_encounter_skin(document, self.outfit)
+                generated_data = generated.read_bytes() if generated is not None else None
+
+        self.assertEqual(selected_png, result)
+        self.assertIsNotNone(generated)
+        self.assertEqual(selected_png, generated_data)
+
     def test_reads_selected_rct_skin_from_installed_mod_jar(self) -> None:
         png = b"\x89PNG\r\n\x1a\n" + b"mod-jar-skin"
         with tempfile.TemporaryDirectory() as directory:
@@ -415,6 +482,7 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         entry = json.loads(json.dumps(entry))
         entry["encounter"]["rewards"].update({
             "money": 1200, "item": "cobblemon:rare_candy", "item_count": 2,
+            "field_move": "surf",
         })
         document = generator.league_encounter_document(entry, post_victory_cap)
         commands = document["events"][0]["commands"]
@@ -429,6 +497,10 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         )
         self.assertIn(
             {"type": "grant_badge", "badge": entry["encounter"]["rewards"]["badge_id"]},
+            commands,
+        )
+        self.assertIn(
+            {"type": "grant_field_move", "move": "surf"},
             commands,
         )
         self.assertIn(

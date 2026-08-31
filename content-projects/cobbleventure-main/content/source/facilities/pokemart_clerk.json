@@ -1,0 +1,57 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/pokemart_clerk",
+  "enabled": true,
+  "name": { "ko_kr": "포켓마트 점원", "en_us": "Poke Mart Clerk" },
+  "description": {
+    "ko_kr": "포켓마트 카운터에 배치하며 기존 포켓마트 상품을 거래하는 점원입니다.",
+    "en_us": "A Poke Mart counter clerk who trades the existing Poke Mart inventory."
+  },
+  "tags": ["service", "shop", "pokemart", "building_runtime"],
+  "system_npc": {
+    "functions": ["shop"]
+  },
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": { "ko_kr": "포켓마트 점원", "en_us": "Poke Mart Clerk" },
+    "role": "default",
+    "trainer_class": "cobbleventure:trainer_class/pokemart_clerk",
+    "appearance": {
+      "source": "custom",
+      "type": "skin",
+      "resource": "cobbleventure:trainer_skin/pokemart_clerk_male",
+      "arm_model": "classic"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "custom",
+    "script_id": "cobbleventure:event_script/facilities/pokemart_clerk"
+  },
+  "event_design": { "mode": "easy_npc_events" },
+  "events": [{
+    "id": "on_interact",
+    "trigger": { "type": "interact", "range": 4 },
+    "commands": [{
+      "type": "dialogue",
+      "id": "welcome",
+      "speaker": "npc",
+      "text": {
+        "ko_kr": "어서 오세요. 무엇을 도와드릴까요?",
+        "en_us": "Welcome. How may I help you?"
+      }
+    }, { "type": "end" }]
+  }]
+}

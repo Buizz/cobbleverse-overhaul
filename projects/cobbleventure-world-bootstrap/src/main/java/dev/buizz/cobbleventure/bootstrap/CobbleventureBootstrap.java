@@ -23,6 +23,7 @@ import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.playermenu.ShopNetwork;
 import net.minecraft.ChatFormatting;
 import java.io.IOException;
 import java.io.Reader;
@@ -60,8 +61,11 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
@@ -80,6 +84,8 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
@@ -287,9 +293,16 @@ public final class CobbleventureBootstrap {
     private static final Map<UUID, SafeWaterPosition> safeWaterPositions = new HashMap<>();
     private static final Map<UUID, Integer> deepWaterTicks = new HashMap<>();
     private static final Map<UUID, Vec3> safeWhirlpoolPositions = new HashMap<>();
-    private static final Map<Long, Long> scheduledTownDebrisCleanup = new HashMap<>();
-    private static final Map<GenerationDebrisChunk, Long> scheduledGenerationDebrisCleanup =
-        new HashMap<>();
+    private static final Map<Long, GenerationDebrisCleanupSchedule>
+        scheduledTownDebrisCleanup = new HashMap<>();
+    private static final Map<GenerationDebrisChunk, GenerationDebrisCleanupSchedule>
+        scheduledGenerationDebrisCleanup = new HashMap<>();
+    private static final Set<GenerationDebrisChunk> pendingGenerationDebrisCleanup =
+        new HashSet<>();
+    private static final TagKey<Item> COBBLEMON_NATURAL_DEBRIS = TagKey.create(
+        Registries.ITEM,
+        ResourceLocation.fromNamespaceAndPath("cobblemon", "plants")
+    );
     static final ResourceKey<Level> GENERATION_ONE =
         ResourceKey.create(
             Registries.DIMENSION,
@@ -766,6 +779,13 @@ public final class CobbleventureBootstrap {
     private static void onChunkWatch(ChunkWatchEvent.Watch event) {
         ServerPlayer player = event.getPlayer();
         ServerLevel level = player.serverLevel();
+        long gameTime = level.getGameTime();
+        GenerationDebrisChunk generationChunk = new GenerationDebrisChunk(
+            level.dimension(), event.getPos().toLong()
+        );
+        if (pendingGenerationDebrisCleanup.contains(generationChunk)) {
+            scheduleGenerationDebrisCleanupWindow(generationChunk, gameTime, true);
+        }
         if (!level.dimension().equals(GENERATION_ONE)) {
             return;
         }
@@ -775,7 +795,11 @@ public final class CobbleventureBootstrap {
             DATA_FILE
         );
         if (data.isTownDebrisCleanupPending(chunkKey)) {
-            scheduledTownDebrisCleanup.putIfAbsent(chunkKey, level.getGameTime() + 2L);
+            scheduledTownDebrisCleanup.merge(
+                chunkKey,
+                new GenerationDebrisCleanupSchedule(gameTime + 2L, gameTime + 200L, true),
+                GenerationDebrisCleanupSchedule::merge
+            );
         }
         repairLogBridgeChunk(level, event.getPos());
     }
@@ -786,6 +810,7 @@ public final class CobbleventureBootstrap {
         activeInitialization = null;
         scheduledTownDebrisCleanup.clear();
         scheduledGenerationDebrisCleanup.clear();
+        pendingGenerationDebrisCleanup.clear();
         completedTownGenerationDisplay = null;
         completedTownGenerationDisplayTicks = 0;
         activeDimensionAnchors = null;
@@ -3991,26 +4016,7 @@ public final class CobbleventureBootstrap {
             merchant.putBoolean("NoAI", true);
             UUID merchantId = UUID.randomUUID();
             merchant.putUUID("UUID", merchantId);
-            ListTag shop = new ListTag();
-            for (JsonElement categoryElement : definition.getAsJsonArray("categories")) {
-                JsonObject categoryJson = categoryElement.getAsJsonObject();
-                CompoundTag category = new CompoundTag();
-                category.putString("Category", localizedString(categoryJson, "name", exportLanguage));
-                ListTag offers = new ListTag();
-                for (JsonElement offerElement : categoryJson.getAsJsonArray("offers")) {
-                    JsonObject offerJson = offerElement.getAsJsonObject();
-                    CompoundTag offer = new CompoundTag();
-                    CompoundTag item = new CompoundTag();
-                    item.putString("id", requiredString(offerJson, "item"));
-                    item.putInt("count", offerJson.get("count").getAsInt());
-                    offer.put("Item", item);
-                    offer.putString("Price", requiredString(offerJson, "price"));
-                    offers.add(offer);
-                }
-                category.put("Offers", offers);
-                shop.add(category);
-            }
-            merchant.put("CobbleMerchantShop", shop);
+            merchant.put("CobbleMerchantShop", configuredVendorShop(definition, level));
             CompoundTag villagerData = new CompoundTag();
             villagerData.putString("profession", "cobbledollars:cobble_merchant");
             villagerData.putString("type", "minecraft:plains");
@@ -4043,6 +4049,38 @@ public final class CobbleventureBootstrap {
             LOGGER.error("Configured merchant spawn failed: {} at {}", vendorUnitId, position, error);
             return false;
         }
+    }
+
+    static int openConfiguredVendorShop(ServerPlayer player, String vendorUnitId) {
+        Entity shopNpc = player.serverLevel().getEntities(
+            player, player.getBoundingBox().inflate(5.0D),
+            entity -> entity.getTags().contains("cobbleventure_npc_function_shop")
+        ).stream().findFirst().orElse(null);
+        return ShopNetwork.open(player, shopNpc, vendorUnitId);
+    }
+
+    private static ListTag configuredVendorShop(JsonObject definition, ServerLevel level) {
+        String exportLanguage = configuredExportLanguage(level);
+        ListTag shop = new ListTag();
+        for (JsonElement categoryElement : definition.getAsJsonArray("categories")) {
+            JsonObject categoryJson = categoryElement.getAsJsonObject();
+            CompoundTag category = new CompoundTag();
+            category.putString("Category", localizedString(categoryJson, "name", exportLanguage));
+            ListTag offers = new ListTag();
+            for (JsonElement offerElement : categoryJson.getAsJsonArray("offers")) {
+                JsonObject offerJson = offerElement.getAsJsonObject();
+                CompoundTag offer = new CompoundTag();
+                CompoundTag item = new CompoundTag();
+                item.putString("id", requiredString(offerJson, "item"));
+                item.putInt("count", offerJson.get("count").getAsInt());
+                offer.put("Item", item);
+                offer.putString("Price", requiredString(offerJson, "price"));
+                offers.add(offer);
+            }
+            category.put("Offers", offers);
+            shop.add(category);
+        }
+        return shop;
     }
 
     static void applyNpcWorldFont(Entity entity) {
@@ -4736,14 +4774,21 @@ public final class CobbleventureBootstrap {
             DATA_FILE
         );
         List<Long> dueChunks = scheduledTownDebrisCleanup.entrySet().stream()
-            .filter(entry -> entry.getValue() <= gameTime)
+            .filter(entry -> entry.getValue().nextRun() <= gameTime)
             .map(Map.Entry::getKey)
             .toList();
         for (long chunkKey : dueChunks) {
-            scheduledTownDebrisCleanup.remove(chunkKey);
+            GenerationDebrisCleanupSchedule schedule = scheduledTownDebrisCleanup.get(chunkKey);
             int chunkX = ChunkPos.getX(chunkKey);
             int chunkZ = ChunkPos.getZ(chunkKey);
             if (level.getChunkSource().getChunkNow(chunkX, chunkZ) == null) {
+                if (gameTime >= schedule.expiresAt()) {
+                    scheduledTownDebrisCleanup.remove(chunkKey);
+                } else {
+                    scheduledTownDebrisCleanup.put(
+                        chunkKey, schedule.withNextRun(gameTime + 20L)
+                    );
+                }
                 continue;
             }
             AABB bounds = new AABB(
@@ -4757,17 +4802,34 @@ public final class CobbleventureBootstrap {
                     removed++;
                 }
             }
-            data.markTownDebrisCleanupComplete(chunkKey);
             if (removed > 0) {
                 LOGGER.info(
                     "Deferred town debris cleaned: chunk=({}, {}), itemEntities={}",
                     chunkX, chunkZ, removed
                 );
             }
+            if (gameTime >= schedule.expiresAt()) {
+                scheduledTownDebrisCleanup.remove(chunkKey);
+                data.markTownDebrisCleanupComplete(chunkKey);
+            } else {
+                scheduledTownDebrisCleanup.put(
+                    chunkKey, schedule.withNextRun(gameTime + 20L)
+                );
+            }
         }
     }
 
     private static boolean isNaturalGenerationDebris(ItemEntity entity) {
+        if (entity.getOwner() != null) {
+            return false;
+        }
+        if (entity.getItem().is(COBBLEMON_NATURAL_DEBRIS)
+            || entity.getItem().is(ItemTags.VILLAGER_PLANTABLE_SEEDS)
+            || entity.getItem().is(Items.STICK)
+            || entity.getItem().is(Items.APPLE)
+            || entity.getItem().is(Items.COCOA_BEANS)) {
+            return true;
+        }
         if (!(entity.getItem().getItem() instanceof BlockItem blockItem)) {
             return false;
         }
@@ -4808,15 +4870,28 @@ public final class CobbleventureBootstrap {
             maxX + 2, origin.getY() + Math.max(1, size.getY()) + 1, maxZ + 2
         );
         cleanupNaturalGenerationDebris(level, bounds, structure);
-        long dueAt = level.getGameTime() + 2L;
+        long gameTime = level.getGameTime();
         for (int chunkX = (minX - 1) >> 4; chunkX <= (maxX + 1) >> 4; chunkX++) {
             for (int chunkZ = (minZ - 1) >> 4; chunkZ <= (maxZ + 1) >> 4; chunkZ++) {
                 GenerationDebrisChunk key = new GenerationDebrisChunk(
                     level.dimension(), ChunkPos.asLong(chunkX, chunkZ)
                 );
-                scheduledGenerationDebrisCleanup.merge(key, dueAt, Math::max);
+                pendingGenerationDebrisCleanup.add(key);
+                scheduleGenerationDebrisCleanupWindow(key, gameTime, false);
             }
         }
+    }
+
+    private static void scheduleGenerationDebrisCleanupWindow(
+        GenerationDebrisChunk chunk, long gameTime, boolean watched
+    ) {
+        scheduledGenerationDebrisCleanup.merge(
+            chunk,
+            new GenerationDebrisCleanupSchedule(
+                gameTime + 2L, gameTime + 200L, watched
+            ),
+            GenerationDebrisCleanupSchedule::merge
+        );
     }
 
     private static void runScheduledGenerationDebrisCleanup(MinecraftServer server) {
@@ -4827,12 +4902,14 @@ public final class CobbleventureBootstrap {
             .stream()
             .filter(entry -> {
                 ServerLevel level = server.getLevel(entry.getKey().dimension());
-                return level != null && entry.getValue() <= level.getGameTime();
+                return level != null && entry.getValue().nextRun() <= level.getGameTime();
             })
             .map(Map.Entry::getKey)
             .toList();
         for (GenerationDebrisChunk pending : dueChunks) {
             ServerLevel level = server.getLevel(pending.dimension());
+            GenerationDebrisCleanupSchedule schedule =
+                scheduledGenerationDebrisCleanup.get(pending);
             if (level == null) {
                 scheduledGenerationDebrisCleanup.remove(pending);
                 continue;
@@ -4840,10 +4917,15 @@ public final class CobbleventureBootstrap {
             int chunkX = ChunkPos.getX(pending.chunkKey());
             int chunkZ = ChunkPos.getZ(pending.chunkKey());
             if (level.getChunkSource().getChunkNow(chunkX, chunkZ) == null) {
-                scheduledGenerationDebrisCleanup.put(pending, level.getGameTime() + 20L);
+                if (level.getGameTime() >= schedule.expiresAt()) {
+                    scheduledGenerationDebrisCleanup.remove(pending);
+                } else {
+                    scheduledGenerationDebrisCleanup.put(
+                        pending, schedule.withNextRun(level.getGameTime() + 20L)
+                    );
+                }
                 continue;
             }
-            scheduledGenerationDebrisCleanup.remove(pending);
             AABB bounds = new AABB(
                 chunkX << 4, level.getMinBuildHeight(), chunkZ << 4,
                 (chunkX + 1) << 4, level.getMaxBuildHeight(), (chunkZ + 1) << 4
@@ -4851,6 +4933,16 @@ public final class CobbleventureBootstrap {
             cleanupNaturalGenerationDebris(
                 level, bounds, "chunk " + chunkX + "," + chunkZ
             );
+            if (level.getGameTime() >= schedule.expiresAt()) {
+                scheduledGenerationDebrisCleanup.remove(pending);
+                if (schedule.watched()) {
+                    pendingGenerationDebrisCleanup.remove(pending);
+                }
+            } else {
+                scheduledGenerationDebrisCleanup.put(
+                    pending, schedule.withNextRun(level.getGameTime() + 20L)
+                );
+            }
         }
     }
 
@@ -4875,6 +4967,22 @@ public final class CobbleventureBootstrap {
     private record GenerationDebrisChunk(
         ResourceKey<Level> dimension, long chunkKey
     ) {}
+
+    private record GenerationDebrisCleanupSchedule(
+        long nextRun, long expiresAt, boolean watched
+    ) {
+        GenerationDebrisCleanupSchedule merge(GenerationDebrisCleanupSchedule other) {
+            return new GenerationDebrisCleanupSchedule(
+                Math.min(nextRun, other.nextRun),
+                Math.max(expiresAt, other.expiresAt),
+                watched || other.watched
+            );
+        }
+
+        GenerationDebrisCleanupSchedule withNextRun(long value) {
+            return new GenerationDebrisCleanupSchedule(value, expiresAt, watched);
+        }
+    }
 
     private static void prepareSpecialDistrict(
         ServerLevel level,
@@ -7182,6 +7290,15 @@ public final class CobbleventureBootstrap {
                     )))
         );
         event.getDispatcher().register(
+            Commands.literal("cobbleventure_shop")
+                .then(Commands.literal("open")
+                    .then(Commands.argument("vendor", StringArgumentType.greedyString())
+                        .executes(context -> openConfiguredVendorShop(
+                            context.getSource().getPlayerOrException(),
+                            StringArgumentType.getString(context, "vendor")
+                        ))))
+        );
+        event.getDispatcher().register(
             Commands.literal("cobbleventure_field_move")
                 .then(Commands.literal("grant")
                     .requires(source -> source.hasPermission(2))
@@ -8857,7 +8974,8 @@ public final class CobbleventureBootstrap {
                 connection.routeBiome(), connection.boundaryProfile(),
                 connection.corridorWidthBlocks(), connection.edgeNoise(), connection.terrainProfile(),
                 connection.surfaceStyle(), connection.accessRequirement(), List.copyOf(path),
-                centerline, routeBounds(centerline), connection.pokemonSpawns(),
+                centerline, routeBounds(centerline), connection.fromTownRoad(),
+                connection.toTownRoad(), connection.pokemonSpawns(),
                 connection.npcPlacements(), connection.trainerPopulation()
             ));
         }
@@ -13461,9 +13579,10 @@ public final class CobbleventureBootstrap {
                 Entity.class, new AABB(position).inflate(1.75D, 2.5D, 1.75D)
             ));
         }
+        String identityTag = "cobbleventure_npc/" + npcId.replace(':', '/');
         List<Entity> existingNpcs = nearbyEntities.stream()
             .filter(entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
-            .getNamespace().equals("easy_npc"))
+                .getNamespace().equals("easy_npc") || entity.getTags().contains(identityTag))
             .toList();
         boolean cvesV5 = npcPresetSuffix(level, npcId).equals("__v5");
         String suffix = RegionalNpcPresetSelection.suffix(cvesV5, triggerOverride);
@@ -13502,6 +13621,11 @@ public final class CobbleventureBootstrap {
                 npcId, safePosition, existingNpcs.size()
             );
         }
+        if (spawnEntityNpcRepresentation(
+            level, npcId, safePosition, yaw, triggerOverride
+        )) {
+            return true;
+        }
         String command = "easy_npc preset import_new data easy_npc:preset/encounter/"
             + slug + suffix + ".npc.snbt " + safePosition.getX() + " "
             + safePosition.getY() + " " + safePosition.getZ();
@@ -13524,16 +13648,105 @@ public final class CobbleventureBootstrap {
     }
 
     static String npcPresetSuffix(ServerLevel level, String npcId) {
+        JsonObject profile = npcRuntimeProfile(level, npcId);
+        if (profile != null && profile.has("event_engine")
+            && "cves_v5".equals(profile.get("event_engine").getAsString())) return "__v5";
+        return "";
+    }
+
+    private static JsonObject npcRuntimeProfile(ServerLevel level, String npcId) {
         JsonObject catalog = readJsonResource(level, "catalogs/npc-placement-profiles.json");
         for (JsonElement element : catalog.getAsJsonArray("profiles")) {
             JsonObject profile = element.getAsJsonObject();
-            if (npcId.equals(requiredString(profile, "npc"))
-                && profile.has("event_engine")
-                && "cves_v5".equals(profile.get("event_engine").getAsString())) {
-                return "__v5";
+            if (npcId.equals(requiredString(profile, "npc"))) return profile;
+        }
+        return null;
+    }
+
+    static boolean spawnEntityNpcRepresentation(
+        ServerLevel level, String npcId, BlockPos position, float yaw,
+        String triggerOverride
+    ) {
+        JsonObject profile = npcRuntimeProfile(level, npcId);
+        if (profile == null || !profile.has("runtime")) return false;
+        JsonObject runtime = profile.getAsJsonObject("runtime");
+        if (!runtime.has("appearance")) return false;
+        JsonObject appearance = runtime.getAsJsonObject("appearance");
+        if (!"entity".equals(optionalString(appearance, "source"))) return false;
+        String entityType = requiredString(appearance, "resource");
+        if (!entityType.equals(COBBLE_MERCHANT.toString())) {
+            LOGGER.error("Unsupported NPC entity representation: npc={}, entity={}", npcId, entityType);
+            return false;
+        }
+        if (!runtime.has("binding_tag")) {
+            LOGGER.error("Entity NPC representation has no CVES binding: npc={}", npcId);
+            return false;
+        }
+        CompoundTag entityData = new CompoundTag();
+        String displayName = runtime.has("display_name")
+            ? localizedString(runtime, "display_name", configuredExportLanguage(level))
+            : npcId;
+        entityData.putString("CustomName", Component.Serializer.toJson(
+            Component.literal(displayName), level.registryAccess()
+        ));
+        entityData.putBoolean("PersistenceRequired", true);
+        JsonObject behavior = runtime.has("behavior")
+            ? runtime.getAsJsonObject("behavior") : new JsonObject();
+        entityData.putBoolean("Invulnerable", !behavior.has("invulnerable")
+            || behavior.get("invulnerable").getAsBoolean());
+        entityData.putBoolean("NoAI", !behavior.has("movement")
+            || "stationary".equals(behavior.get("movement").getAsString()));
+        UUID entityId = UUID.randomUUID();
+        entityData.putUUID("UUID", entityId);
+        ListTag tags = new ListTag();
+        tags.add(StringTag.valueOf("cobbleventure_regional_npc"));
+        tags.add(StringTag.valueOf("cobbleventure_npc/" + npcId.replace(':', '/')));
+        tags.add(StringTag.valueOf(requiredString(runtime, "binding_tag")));
+        if ("proximity".equals(triggerOverride)) {
+            tags.add(StringTag.valueOf("cves_trigger/proximity"));
+        }
+        if (runtime.has("functions")) {
+            for (JsonElement element : runtime.getAsJsonArray("functions")) {
+                String function = element.getAsString();
+                if (function.matches("[a-z0-9_.-]+")) {
+                    tags.add(StringTag.valueOf("cobbleventure_npc_function_" + function));
+                }
             }
         }
-        return "";
+        entityData.put("Tags", tags);
+        CompoundTag villagerData = new CompoundTag();
+        villagerData.putString("profession", COBBLE_MERCHANT.toString());
+        villagerData.putString("type", "minecraft:plains");
+        villagerData.putInt("level", 1);
+        entityData.put("VillagerData", villagerData);
+        String command = "summon " + entityType + " "
+            + (position.getX() + 0.5D) + " " + position.getY() + " "
+            + (position.getZ() + 0.5D) + " " + entityData;
+        try {
+            int result = level.getServer().getCommands().getDispatcher().execute(
+                command, level.getServer().createCommandSourceStack()
+                    .withLevel(level).withPosition(Vec3.atLowerCornerOf(position))
+                    .withPermission(4).withSuppressedOutput()
+            );
+            Entity spawned = level.getEntity(entityId);
+            if (spawned != null) {
+                applyNpcWorldFont(spawned);
+                spawned.moveTo(spawned.getX(), spawned.getY(), spawned.getZ(), yaw, 0.0F);
+                spawned.setYRot(yaw);
+                if (spawned instanceof Mob mob) {
+                    mob.setYBodyRot(yaw);
+                    mob.setYHeadRot(yaw);
+                    mob.setNoAi(entityData.getBoolean("NoAI"));
+                }
+            }
+            return result != 0;
+        } catch (CommandSyntaxException error) {
+            LOGGER.error(
+                "Entity NPC placement failed: npc={}, entity={}, position={}",
+                npcId, entityType, position, error
+            );
+            return false;
+        }
     }
 
     private static BlockPos findRegionalNpcPosition(ServerLevel level, BlockPos requested) {
@@ -14289,9 +14502,21 @@ public final class CobbleventureBootstrap {
                 targetSettlement, connection.id()
             );
             TownGateConfig gateConfig = townGateConfig(settlement, gateTarget);
-            Point gateRoad = findTownGateRoad(
-                settlement, townCenter, approach, gateConfig, usedGateRoads
-            );
+            Point authoredTownRoad = fromTown
+                ? connection.fromTownRoad() : connection.toTownRoad();
+            if (authoredTownRoad == null && "log_bridge".equals(connection.surfaceStyle())) {
+                LOGGER.error(
+                    "Log bridge is missing its web-compiled town road endpoint: "
+                        + "settlement={}, route={}",
+                    settlement.id(), connection.id()
+                );
+                continue;
+            }
+            Point gateRoad = authoredTownRoad != null
+                ? townCenter.translate(authoredTownRoad.x(), authoredTownRoad.z())
+                : findTownGateRoad(
+                    settlement, townCenter, approach, gateConfig, usedGateRoads
+                );
             if (gateRoad == null) {
                 LOGGER.warn(
                     "Town route could not find an outer village road: settlement={}, route={}",

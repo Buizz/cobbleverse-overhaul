@@ -1392,6 +1392,11 @@ final class BuildingRuntimeSystem {
             );
             return false;
         }
+        if (CobbleventureBootstrap.spawnEntityNpcRepresentation(
+            level, npcId, position, yaw, "interact"
+        )) {
+            return true;
+        }
         UUID spawnedNpcId = UUID.randomUUID();
         String slug = npcId.substring(Math.max(npcId.lastIndexOf('/'), npcId.lastIndexOf(':')) + 1);
         String preset = "easy_npc:preset/encounter/" + slug

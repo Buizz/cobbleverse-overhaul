@@ -37,7 +37,15 @@
     "maximum_party_size": 6,
     "require_usable_pokemon": true,
     "level_measure": "average",
-    "recommended_level_policy": "warn"
+    "recommended_level_policy": "warn",
+    "condition_mode": "all",
+    "conditions": [
+      {
+        "type": "badge",
+        "badge": "cobbleventure:badge/kanto/thunder"
+      }
+    ],
+    "locked_message": "갈색시티 체육관을 클리어한 트레이너만 발전소 조사에 참여할 수 있습니다."
   },
   "multiplayer": {
     "mode": "solo",

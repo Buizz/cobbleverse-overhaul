@@ -32,7 +32,7 @@ const state = {
   gateNpcPicker: { target: null, query: "", kind: "all" },
   npcFilter: "all",
   systemNpcs: { loaded: false, items: [] },
-  resourcePackCharacters: { packs: [], items: [], query: "", kind: "all", target: "" },
+  resourcePackCharacters: { packs: [], items: [], query: "", kind: "all", pack: "all", targetIndex: -1 },
   selectedPokemonIndex: 0, editorCatalog: null, choice: null,
   biomeCatalog: { profiles: [], sets: [] }, pokemonHabitats: [], selectedBiomeProfile: null,
   worldLayout: null, worldGenerations: [1], selectedGeneration: 1,
@@ -1132,9 +1132,7 @@ async function loadSystemNpcs(force = false) {
   state.systemNpcs = { loaded: true, items: result.data.items || [] };
   state.resourcePackCharacters.packs = resourcePackCharacters.ok ? (resourcePackCharacters.data.packs || []) : [];
   state.resourcePackCharacters.items = resourcePackCharacters.ok ? (resourcePackCharacters.data.items || []) : [];
-  if (!state.resourcePackCharacters.target || !state.systemNpcs.items.some((item) => item.id === state.resourcePackCharacters.target)) {
-    state.resourcePackCharacters.target = state.systemNpcs.items[0]?.id || "";
-  }
+  if (state.resourcePackCharacters.targetIndex >= state.systemNpcs.items.length) state.resourcePackCharacters.targetIndex = -1;
 }
 
 function systemNpcClassOptions(selected) {
@@ -1354,17 +1352,24 @@ function renderSystemNpcs() {
   $("#system-npc-grid").innerHTML = items.map((item, index) => {
     const npc = item.npc || {};
     const appearance = npc.appearance || {};
+    const appearanceMode = systemNpcAppearanceMode(appearance);
+    const entityAppearance = appearanceMode === "entity";
     const references = item.references || [];
     const functions = item.functions || [];
     return `<article class="system-npc-card" data-system-npc-index="${index}">
       <header><div><p class="eyebrow">${functions.length ? "RUNTIME FUNCTION" : "SERVICE NPC"}</p><h3>${escapeHtml(item.name || item.id)}</h3><small>${escapeHtml(item.id)}</small></div><span class="system-npc-lock${item.protected ? " is-locked" : ""}">${item.protected ? "사용 중 · 삭제 보호" : "미사용"}</span></header>
       <div class="system-npc-body">
-        <figure><div class="system-npc-model-stage"><canvas class="system-npc-model-preview" width="320" height="320" data-skin-url="/api/trainer-skin?resource=${encodeURIComponent(appearance.resource || "")}" data-arm-model="${appearance.arm_model === "classic" ? "classic" : "slim"}" aria-label="${escapeHtml(item.name || item.id)} 3D 모델 미리보기"></canvas><span>드래그하여 회전</span></div><figcaption>${escapeHtml(appearance.resource || "외형 없음")}</figcaption></figure>
+        <figure>${entityAppearance
+          ? `<div class="system-npc-entity-stage"><span>GAME ENTITY</span><strong>코블달러 상인</strong><small>Melody 주민 모델 + 상인 직업 레이어</small></div>`
+          : `<div class="system-npc-model-stage"><canvas class="system-npc-model-preview" width="320" height="320" data-skin-url="${escapeHtml(systemNpcSkinUrl(appearance))}" data-arm-model="${appearance.arm_model === "classic" ? "classic" : "slim"}" aria-label="${escapeHtml(item.name || item.id)} 3D 모델 미리보기"></canvas><span>드래그하여 회전</span></div>`}
+          <figcaption>${escapeHtml(appearance.resource || "외형 없음")}</figcaption></figure>
         <div class="system-npc-fields">
           <label><span>트레이너 클래스</span><select data-system-npc-field="trainer_class">${systemNpcClassOptions(npc.trainer_class)}</select></label>
-          <label><span>외형 출처</span><select data-system-npc-field="appearance_source"><option value="custom"${appearance.source === "custom" ? " selected" : ""}>직접 제작</option><option value="rct_single"${appearance.source === "rct_single" ? " selected" : ""}>RCT 개별</option><option value="rct_group"${appearance.source === "rct_group" ? " selected" : ""}>RCT 그룹</option></select></label>
-          <label class="wide"><span>스킨 리소스</span><input data-system-npc-field="appearance_resource" value="${escapeHtml(appearance.resource || "")}"></label>
-          <label><span>팔 모델</span><select data-system-npc-field="arm_model"><option value="classic"${appearance.arm_model === "classic" ? " selected" : ""}>Classic</option><option value="slim"${appearance.arm_model !== "classic" ? " selected" : ""}>Slim</option></select></label>
+          <label><span>외형 선택 방식</span><select data-system-npc-field="appearance_mode"><option value="custom"${appearanceMode === "custom" ? " selected" : ""}>사용자 정의</option><option value="resource"${appearanceMode === "resource" ? " selected" : ""}>스킨 리소스 선택</option><option value="entity"${entityAppearance ? " selected" : ""}>게임 엔티티 사용</option></select></label>
+          ${entityAppearance
+            ? `<label class="wide"><span>게임 엔티티</span><select data-system-npc-field="appearance_entity"><option value="cobbledollars:cobble_merchant" selected>코블달러 상인 · 빨간 모자</option></select><small>게임에서 활성화된 주민 리소스팩과 CobbleDollars 직업 레이어를 그대로 사용합니다.</small></label>`
+            : `<label class="wide"><span>스킨 리소스</span><div class="system-npc-resource-field"><input data-system-npc-field="appearance_resource" value="${escapeHtml(appearance.resource || "")}"${appearanceMode === "resource" ? " readonly" : ""}><button type="button" class="button secondary" data-choose-system-npc-resource="${index}"${appearanceMode === "custom" ? " hidden" : ""}>리소스 선택</button></div></label>
+              <label><span>팔 모델</span><select data-system-npc-field="arm_model"><option value="classic"${appearance.arm_model === "classic" ? " selected" : ""}>Classic</option><option value="slim"${appearance.arm_model !== "classic" ? " selected" : ""}>Slim</option></select></label>`}
           <label><span>이동 행동</span><select data-system-npc-field="movement"><option value="stationary"${npc.behavior?.movement === "stationary" ? " selected" : ""}>고정</option><option value="wander"${npc.behavior?.movement === "wander" ? " selected" : ""}>배회</option></select></label>
           <label class="system-npc-toggle"><input type="checkbox" data-system-npc-field="look_at_player"${npc.behavior?.look_at_player ? " checked" : ""}><span>플레이어 바라보기</span></label>
           <label class="system-npc-toggle"><input type="checkbox" data-system-npc-field="invulnerable"${npc.behavior?.invulnerable ? " checked" : ""}><span>무적</span></label>
@@ -1377,10 +1382,10 @@ function renderSystemNpcs() {
     </article>`;
   }).join("");
   initializeSystemNpc3dPreviews();
-  renderResourcePackCharacters();
 }
 
 function resourcePackCharacterImageUrl(item) {
+  if (item.local) return `/api/trainer-skin?resource=${encodeURIComponent(item.resource)}`;
   return `/api/resource-pack-character?pack=${encodeURIComponent(item.pack_token)}&entry=${encodeURIComponent(item.entry)}`;
 }
 
@@ -1388,47 +1393,86 @@ function resourcePackCharacterKindLabel(item) {
   if (item.category === "trainer_skin") return "NPC 스킨";
   if (item.category === "rct_single") return "RCT 개별";
   if (item.category === "rct_group") return "RCT 그룹";
-  if (item.category === "villager_profession") return "주민 직업 외형";
-  return "주민 바이옴 외형";
+  return "사용 가능 외형";
 }
 
-function renderResourcePackCharacters() {
+function systemNpcAppearanceMode(appearance) {
+  if (appearance?.source === "entity") return "entity";
+  if (appearance?.resource_pack_entry) return "resource";
+  if (appearance?.source === "rct_single" || appearance?.source === "rct_group") return "resource";
+  return state.resourcePackCharacters.items.some((item) =>
+    item.selectable && item.resource === appearance?.resource
+  ) ? "resource" : "custom";
+}
+
+function systemNpcSkinUrl(appearance) {
+  const selected = state.resourcePackCharacters.items.find((item) => item.selectable
+    && item.resource === appearance?.resource
+    && (!appearance?.resource_pack || item.pack === appearance.resource_pack)
+    && (!appearance?.resource_pack_entry || item.entry === appearance.resource_pack_entry));
+  return selected ? resourcePackCharacterImageUrl(selected)
+    : `/api/trainer-skin?resource=${encodeURIComponent(appearance?.resource || "")}`;
+}
+
+function renderSystemNpcResourceDialog() {
   const view = state.resourcePackCharacters;
   const query = view.query.trim().toLowerCase();
   const filtered = view.items.filter((item) => {
-    if (view.kind === "selectable" && !item.selectable) return false;
-    if (view.kind === "villager" && item.selectable) return false;
+    if (!item.selectable) return false;
+    if (view.kind !== "all" && item.category !== view.kind) return false;
+    if (view.pack !== "all" && item.pack_token !== view.pack) return false;
     return !query || `${item.name} ${item.resource} ${item.pack}`.toLowerCase().includes(query);
   });
-  $("#resource-pack-character-count").textContent = `${filtered.length} / ${view.items.length}`;
-  $("#resource-pack-character-query").value = view.query;
-  $("#resource-pack-character-kind").value = view.kind;
-  $("#resource-pack-character-target").innerHTML = state.systemNpcs.items.map((item) =>
-    `<option value="${escapeHtml(item.id)}"${item.id === view.target ? " selected" : ""}>${escapeHtml(item.name || item.id)}</option>`
+  const selectablePacks = view.packs.filter((pack) => view.items.some((item) => item.selectable && item.pack_token === pack.token));
+  $("#system-npc-resource-query").value = view.query;
+  $("#system-npc-resource-kind").value = view.kind;
+  $("#system-npc-resource-pack").innerHTML = '<option value="all">모든 리소스팩</option>' + selectablePacks.map((pack) =>
+    `<option value="${escapeHtml(pack.token)}"${pack.token === view.pack ? " selected" : ""}>${escapeHtml(pack.name)}</option>`
   ).join("");
-  const visible = filtered.slice(0, 160);
-  $("#resource-pack-character-grid").innerHTML = visible.length ? visible.map((item, index) => `
-    <article class="resource-pack-character-card${item.selectable ? " is-selectable" : ""}">
-      <img src="${resourcePackCharacterImageUrl(item)}" alt="${escapeHtml(item.name)} 외형" loading="lazy">
-      <div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(resourcePackCharacterKindLabel(item))}</span><code title="${escapeHtml(item.resource)}">${escapeHtml(item.resource)}</code><small>${escapeHtml(item.pack)}</small></div>
-      ${item.selectable ? `<button type="button" data-apply-resource-pack-character="${index}">선택 NPC에 적용</button>` : `<em>인게임 자동 적용</em>`}
-    </article>`).join("") : "<p>조건에 맞는 리소스팩 캐릭터가 없습니다.</p>";
-  $("#resource-pack-character-grid").dataset.visibleItems = JSON.stringify(visible.map((item) => view.items.indexOf(item)));
+  $("#system-npc-resource-count").textContent = `${filtered.length}개`;
+  const visible = filtered.slice(0, 80);
+  $("#system-npc-resource-grid").innerHTML = visible.length ? visible.map((item, index) => `
+    <button type="button" class="system-npc-resource-card" data-apply-system-npc-resource="${index}">
+      <canvas class="system-npc-model-preview system-npc-resource-preview" width="160" height="160" data-skin-url="${resourcePackCharacterImageUrl(item)}" data-arm-model="classic" aria-label="${escapeHtml(item.name)} 외형 미리보기"></canvas>
+      <span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(resourcePackCharacterKindLabel(item))}</small><code title="${escapeHtml(item.resource)}">${escapeHtml(item.resource)}</code><em>${escapeHtml(item.pack)}</em></span>
+    </button>`).join("") : "<p>조건에 맞는 사용 가능한 NPC 외형이 없습니다.</p>";
+  $("#system-npc-resource-grid").dataset.visibleItems = JSON.stringify(visible.map((item) => view.items.indexOf(item)));
+  initializeSystemNpc3dPreviews();
 }
 
-function applyResourcePackCharacter(visibleIndex) {
-  const indexes = JSON.parse($("#resource-pack-character-grid").dataset.visibleItems || "[]");
+function openSystemNpcResourceDialog(index) {
+  const item = state.systemNpcs.items[index];
+  if (!item) return;
+  state.resourcePackCharacters.targetIndex = index;
+  state.resourcePackCharacters.query = "";
+  state.resourcePackCharacters.kind = "all";
+  state.resourcePackCharacters.pack = "all";
+  $("#system-npc-resource-dialog-title").textContent = `${item.name || item.id} 외형 선택`;
+  renderSystemNpcResourceDialog();
+  $("#system-npc-resource-dialog").showModal();
+}
+
+function applySystemNpcResource(visibleIndex) {
+  const indexes = JSON.parse($("#system-npc-resource-grid").dataset.visibleItems || "[]");
   const character = state.resourcePackCharacters.items[indexes[visibleIndex]];
-  const item = state.systemNpcs.items.find((entry) => entry.id === state.resourcePackCharacters.target);
+  const item = state.systemNpcs.items[state.resourcePackCharacters.targetIndex];
   if (!character?.selectable || !item) return;
   item.document.npc ||= {};
   item.document.npc.appearance ||= { type: "skin", arm_model: "classic" };
   item.document.npc.appearance.resource = character.resource;
   item.document.npc.appearance.source = character.category === "rct_single"
     ? "rct_single" : character.category === "rct_group" ? "rct_group" : "custom";
+  if (character.local) {
+    delete item.document.npc.appearance.resource_pack;
+    delete item.document.npc.appearance.resource_pack_entry;
+  } else {
+    item.document.npc.appearance.resource_pack = character.pack;
+    item.document.npc.appearance.resource_pack_entry = character.entry;
+  }
   item.npc = item.document.npc;
+  $("#system-npc-resource-dialog").close();
   renderSystemNpcs();
-  toast(`${item.name || item.id}에 ${character.name} 외형을 적용했습니다. NPC 카드에서 설정 저장을 눌러 확정하세요.`);
+  toast(`${item.name || item.id}에 ${character.name} 외형을 적용했습니다. 설정 저장을 눌러 확정하세요.`);
 }
 
 function updateSystemNpcField(target) {
@@ -1443,13 +1487,37 @@ function updateSystemNpcField(target) {
     item.document.npc.trainer_class = target.value;
     const trainerClass = state.trainerClasses.find((entry) => entry.id === target.value);
     if (trainerClass?.default_appearance) {
+      delete item.document.npc.appearance.resource_pack;
+      delete item.document.npc.appearance.resource_pack_entry;
       Object.assign(item.document.npc.appearance, trainerClass.default_appearance);
       item.document.npc.appearance.arm_model = trainerClass.body?.arm_model || item.document.npc.appearance.arm_model || "classic";
       item.npc = item.document.npc;
       renderSystemNpcs();
     }
-  } else if (field === "appearance_source") item.document.npc.appearance.source = target.value;
-  else if (field === "appearance_resource") item.document.npc.appearance.resource = target.value.trim();
+  } else if (field === "appearance_mode") {
+    if (target.value === "resource") openSystemNpcResourceDialog(Number(card.dataset.systemNpcIndex));
+    else if (target.value === "entity") {
+      item.document.npc.appearance = {
+        source: "entity", type: "model", resource: "cobbledollars:cobble_merchant"
+      };
+      item.npc = item.document.npc;
+      renderSystemNpcs();
+    }
+    else {
+      item.document.npc.appearance.source = "custom";
+      item.document.npc.appearance.type = "skin";
+      if (item.document.npc.appearance.resource === "cobbledollars:cobble_merchant") {
+        item.document.npc.appearance.resource = "cobbleventure:trainer_skin/unimplemented";
+      }
+      delete item.document.npc.appearance.resource_pack;
+      delete item.document.npc.appearance.resource_pack_entry;
+      renderSystemNpcs();
+    }
+  } else if (field === "appearance_entity") {
+    item.document.npc.appearance = {
+      source: "entity", type: "model", resource: target.value
+    };
+  } else if (field === "appearance_resource") item.document.npc.appearance.resource = target.value.trim();
   else if (field === "arm_model") item.document.npc.appearance.arm_model = target.value;
   else if (field === "movement") item.document.npc.behavior.movement = target.value;
   else if (field === "look_at_player" || field === "invulnerable") item.document.npc.behavior[field] = target.checked;
@@ -1464,17 +1532,34 @@ function updateSystemNpcField(target) {
 async function saveSystemNpc(index) {
   const item = state.systemNpcs.items[index];
   if (!item) return;
-  const result = await request(`/api/trainers?path=${encodeURIComponent(item.path)}`, {
-    method: "POST", body: JSON.stringify(item.document)
-  });
-  if (!result.ok) {
-    toast(result.data.error || result.data.issues?.[0]?.message || "시스템 NPC를 저장하지 못했습니다.");
-    return;
+  const button = $(`[data-save-system-npc="${index}"]`);
+  if (button?.disabled) return;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "저장 중…";
   }
-  state.systemNpcs.loaded = false;
-  await loadSystemNpcs(true);
-  renderSystemNpcs();
-  toast(`${item.name} 시스템 NPC 설정을 저장했습니다.`);
+  try {
+    const result = await request(`/api/trainers?path=${encodeURIComponent(item.path)}`, {
+      method: "PUT", body: JSON.stringify(item.document)
+    });
+    if (!result.ok) {
+      const message = result.status === 404 && result.data.error === "not_found"
+        ? "시스템 NPC 저장 API를 찾지 못했습니다. 실행 중인 웹 서버를 다시 시작해 주세요."
+        : result.data.issues?.find((issue) => issue.level === "error")?.message
+          || result.data.error || "시스템 NPC를 저장하지 못했습니다.";
+      toast(message);
+      return;
+    }
+    state.systemNpcs.loaded = false;
+    await loadSystemNpcs(true);
+    renderSystemNpcs();
+    toast(`${item.name} 시스템 NPC 설정을 저장했습니다.`);
+  } finally {
+    if (button?.isConnected) {
+      button.disabled = false;
+      button.textContent = "설정 저장";
+    }
+  }
 }
 
 async function editSystemNpc(index) {
@@ -17971,25 +18056,29 @@ $("#system-npc-grid").addEventListener("input", (event) => {
   if (target) updateSystemNpcField(target);
 });
 $("#system-npc-grid").addEventListener("click", (event) => {
+  const chooseResource = event.target.closest("[data-choose-system-npc-resource]");
+  if (chooseResource) openSystemNpcResourceDialog(Number(chooseResource.dataset.chooseSystemNpcResource));
   const save = event.target.closest("[data-save-system-npc]");
   if (save) saveSystemNpc(Number(save.dataset.saveSystemNpc));
   const edit = event.target.closest("[data-edit-system-npc]");
   if (edit) editSystemNpc(Number(edit.dataset.editSystemNpc));
 });
-$("#resource-pack-character-query").addEventListener("input", (event) => {
+$("#system-npc-resource-query").addEventListener("input", (event) => {
   state.resourcePackCharacters.query = event.target.value;
-  renderResourcePackCharacters();
+  renderSystemNpcResourceDialog();
 });
-$("#resource-pack-character-kind").addEventListener("change", (event) => {
+$("#system-npc-resource-kind").addEventListener("change", (event) => {
   state.resourcePackCharacters.kind = event.target.value;
-  renderResourcePackCharacters();
+  renderSystemNpcResourceDialog();
 });
-$("#resource-pack-character-target").addEventListener("change", (event) => {
-  state.resourcePackCharacters.target = event.target.value;
+$("#system-npc-resource-pack").addEventListener("change", (event) => {
+  state.resourcePackCharacters.pack = event.target.value;
+  renderSystemNpcResourceDialog();
 });
-$("#resource-pack-character-grid").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-apply-resource-pack-character]");
-  if (button) applyResourcePackCharacter(Number(button.dataset.applyResourcePackCharacter));
+$("#system-npc-resource-dialog-close").addEventListener("click", () => $("#system-npc-resource-dialog").close());
+$("#system-npc-resource-grid").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-apply-system-npc-resource]");
+  if (button) applySystemNpcResource(Number(button.dataset.applySystemNpcResource));
 });
 $$('[data-npc-filter]').forEach((button) => button.addEventListener("click", () => { state.npcFilter = button.dataset.npcFilter; renderList("trainers"); }));
 $("#validate-battle").addEventListener("click", () => validateDocument("battles"));

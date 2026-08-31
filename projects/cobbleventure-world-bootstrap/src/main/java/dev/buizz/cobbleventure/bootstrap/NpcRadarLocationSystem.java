@@ -115,6 +115,9 @@ final class NpcRadarLocationSystem {
             String item = slug.substring("item_".length());
             return "cobbleventure:flag/rewards/item/" + item;
         }
+        if (slug.equals("item_coin_case_guest")) {
+            return "cobbleventure:flag/rewards/item/coin_case_guest";
+        }
         if (slug.equals("feature_map_guide")) {
             return "cobbleventure:flag/rewards/feature/map";
         }

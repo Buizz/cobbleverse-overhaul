@@ -352,9 +352,29 @@ def _npc_placement_profiles(root: Path) -> list[dict[str, object]]:
             continue
         event_runtime = document.get("event_runtime")
         event_engine = event_runtime.get("engine") if isinstance(event_runtime, dict) else "easy_npc_v4"
+        npc = document.get("npc") if isinstance(document.get("npc"), dict) else {}
+        appearance = npc.get("appearance") if isinstance(npc.get("appearance"), dict) else {}
+        behavior = npc.get("behavior") if isinstance(npc.get("behavior"), dict) else {}
+        system_npc = document.get("system_npc") if isinstance(document.get("system_npc"), dict) else {}
+        namespace = npc_id.split(":", 1)[0] if ":" in npc_id else "cobbleventure"
+        relative = source_path.relative_to(source_dir).with_suffix("")
+        binding_source = source_dir.parent / "event-bindings" / namespace / relative.with_suffix(".json")
+        binding_tag = (
+            f"cves_binding/{namespace}/{relative.as_posix()}"
+            if event_engine == "cves_v5" and binding_source.is_file() else None
+        )
+        runtime = {
+            "appearance": copy.deepcopy(appearance),
+            "behavior": copy.deepcopy(behavior),
+            "display_name": copy.deepcopy(npc.get("display_name", document.get("name", {}))),
+            "functions": copy.deepcopy(system_npc.get("functions", [])),
+        }
+        if binding_tag is not None:
+            runtime["binding_tag"] = binding_tag
         profiles.append({
             "npc": npc_id,
             "event_engine": event_engine if event_engine in {"easy_npc_v4", "cves_v5"} else "easy_npc_v4",
+            "runtime": runtime,
             **copy.deepcopy(profile),
         })
     return profiles
@@ -2584,6 +2604,135 @@ def _compile_town_layout(
     ) from last_error
 
 
+def _hex_route_delta(
+    cells: list[object], anchor: dict[str, object], reverse: bool,
+    radius: float,
+) -> tuple[float, float] | None:
+    ordered = list(reversed(cells)) if reverse else cells
+    anchor_q = int(anchor.get("q", 0))
+    anchor_r = int(anchor.get("r", 0))
+    for cell in ordered:
+        if not isinstance(cell, dict):
+            continue
+        q = cell.get("q")
+        r = cell.get("r")
+        if not isinstance(q, int) or not isinstance(r, int):
+            continue
+        delta_q = q - anchor_q
+        delta_r = r - anchor_r
+        if delta_q == 0 and delta_r == 0:
+            continue
+        return (
+            radius * math.sqrt(3.0) * (delta_q + delta_r / 2.0),
+            radius * 1.5 * delta_r,
+        )
+    return None
+
+
+def _coastal_town_road_exit(
+    compiled_layout: dict[str, object], direction: tuple[float, float],
+) -> dict[str, int] | None:
+    external = compiled_layout.get("external_exit_points")
+    candidates: set[tuple[int, int]] = {
+        (int(point["x"]), int(point["z"]))
+        for point in external if isinstance(point, dict)
+        and isinstance(point.get("x"), int) and isinstance(point.get("z"), int)
+    } if isinstance(external, list) else set()
+    if not candidates:
+        for road in compiled_layout.get("roads", []):
+            if not isinstance(road, dict):
+                continue
+            for x_key, z_key in (("x1", "z1"), ("x2", "z2")):
+                x = road.get(x_key)
+                z = road.get(z_key)
+                if isinstance(x, int) and isinstance(z, int):
+                    candidates.add((x, z))
+    if not candidates:
+        return None
+    delta_x, delta_z = direction
+    if abs(delta_x) > abs(delta_z):
+        outward_x, outward_z = (1, 0) if delta_x >= 0 else (-1, 0)
+    else:
+        outward_x, outward_z = (0, 1) if delta_z >= 0 else (0, -1)
+    tangent_x, tangent_z = -outward_z, outward_x
+    facing = [
+        (x, z) for x, z in candidates
+        if x * outward_x + z * outward_z >= 8
+    ]
+    if not facing:
+        return None
+    # A log bridge must leave the coast on the axis running through the town.
+    # Selecting the farthest road end creates a large diagonal stair field over
+    # the beach. Prefer the center axis first, then the outer road on that axis.
+    x, z = min(
+        facing,
+        key=lambda point: (
+            abs(point[0] * tangent_x + point[1] * tangent_z),
+            -(point[0] * outward_x + point[1] * outward_z),
+            point[0] * point[0] + point[1] * point[1],
+        ),
+    )
+    return {"x": x, "z": z}
+
+
+def _resolve_world_town_road_exits(
+    root: Path,
+    world: dict[str, object],
+    settlements: list[tuple[Path, dict[str, object]]],
+    route_presets: dict[str, dict[str, object]],
+) -> None:
+    settlement_documents = {
+        str(document.get("id")): document
+        for _, document in settlements if isinstance(document.get("id"), str)
+    }
+    settlement_nodes = {
+        str(node.get("settlement")): node
+        for node in world.get("settlements", []) if isinstance(node, dict)
+        and isinstance(node.get("settlement"), str)
+        and isinstance(node.get("anchor"), dict)
+    }
+    compiled_layouts: dict[str, dict[str, object]] = {}
+    radius = float(
+        world.get("grid", {}).get("tile_radius_blocks", VILLAGE_TILE_RADIUS)
+        if isinstance(world.get("grid"), dict) else VILLAGE_TILE_RADIUS
+    )
+    for connection in world.get("connections", []):
+        if not isinstance(connection, dict):
+            continue
+        preset = route_presets.get(str(connection.get("route_preset")), {})
+        route_type = str(preset.get("route_type", connection.get("surface_style", "road")))
+        if route_type != "log_bridge":
+            connection.pop("from_town_road", None)
+            connection.pop("to_town_road", None)
+            continue
+        cells = connection.get("cells")
+        if not isinstance(cells, list):
+            continue
+        for field, reverse in (("from", False), ("to", True)):
+            target_id = connection.get(field)
+            output_field = f"{field}_town_road"
+            node = settlement_nodes.get(str(target_id))
+            document = settlement_documents.get(str(target_id))
+            if node is None or document is None:
+                connection.pop(output_field, None)
+                continue
+            direction = _hex_route_delta(cells, node["anchor"], reverse, radius)
+            if direction is None:
+                connection.pop(output_field, None)
+                continue
+            if str(target_id) not in compiled_layouts:
+                compiled_layouts[str(target_id)] = _compile_town_layout(
+                    document, root=root
+                )
+            exit_point = _coastal_town_road_exit(
+                compiled_layouts[str(target_id)], direction
+            )
+            if exit_point is None:
+                connection.pop(output_field, None)
+            else:
+                connection[output_field] = exit_point
+
+
 def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, dict[str, object]]]) -> None:
     source_dir = _inside(root, root / HEX_WORLD_CONFIG_DIR, "육각 월드 설정 디렉터리")
     if not source_dir.is_dir():
@@ -2697,6 +2846,7 @@ def _package_hex_worlds(root: Path, output: Path, settlements: list[tuple[Path, 
                 resolved.pop("music_track", None)
             resolved_connections.append(resolved)
         data["connections"] = resolved_connections
+        _resolve_world_town_road_exits(root, data, settlements, route_presets)
         relative = source_path.relative_to(source_dir)
         target = _inside(root, output / GENERATED_HEX_WORLD_DIR / relative, "생성 육각 월드 설정")
         target.parent.mkdir(parents=True, exist_ok=True)

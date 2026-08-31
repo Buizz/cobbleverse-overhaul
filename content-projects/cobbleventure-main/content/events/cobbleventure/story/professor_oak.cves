@@ -15,6 +15,18 @@ event interact(range: 4) {
       ko_kr: "그럼 이것도 받아라. 포켓몬 도감이란다."
       en_us: "Then take this as well. It's a Pokédex."
     }
+    if !flag("cobbleventure:flag/story/pokenav_received") {
+      say npc {
+        ko_kr: "포켓몬을 찾을 때 도움이 될 포켓내비도 함께 가져가거라."
+        en_us: "Take this PokéNav too. It will help you find Pokémon."
+      }
+      id "retry/give_pokenav" give_item "cobblenav:pokenav_item_red" count 1 notify -> pokenav
+      if pokenav.remaining_count > 0 {
+        narrate "가방에 빈 공간이 없어 포켓내비를 받을 수 없습니다."
+        stop
+      }
+      id "retry/set_pokenav_received" set_flag "cobbleventure:flag/story/pokenav_received" true
+    }
     id "retry/give_pokedex" give_item "cobblemon:pokedex_red" count 1 notify -> pokedex
     if pokedex.remaining_count > 0 {
       narrate "가방에 빈 공간이 없어 포켓몬 도감을 받을 수 없습니다."
@@ -44,6 +56,18 @@ event interact(range: 4) {
     say npc {
       ko_kr: "그럼 이것도 받아라. 포켓몬 도감이란다."
       en_us: "Then take this as well. It's a Pokédex."
+    }
+    if !flag("cobbleventure:flag/story/pokenav_received") {
+      say npc {
+        ko_kr: "포켓몬을 찾을 때 도움이 될 포켓내비도 함께 가져가거라."
+        en_us: "Take this PokéNav too. It will help you find Pokémon."
+      }
+      id "first/give_pokenav" give_item "cobblenav:pokenav_item_red" count 1 notify -> pokenav
+      if pokenav.remaining_count > 0 {
+        narrate "가방에 빈 공간이 없어 포켓내비를 받을 수 없습니다."
+        stop
+      }
+      id "first/set_pokenav_received" set_flag "cobbleventure:flag/story/pokenav_received" true
     }
     id "first/give_pokedex" give_item "cobblemon:pokedex_red" count 1 notify -> pokedex
     if pokedex.remaining_count > 0 {

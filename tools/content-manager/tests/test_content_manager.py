@@ -4740,6 +4740,57 @@ class ContentManagerTests(unittest.TestCase):
             for reference in dealer["references"]
         ))
 
+    def test_system_npc_save_uses_the_document_update_endpoint(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        save_handler = script.split("async function saveSystemNpc", 1)[1].split(
+            "async function editSystemNpc", 1
+        )[0]
+        self.assertIn('method: "PUT"', save_handler)
+        self.assertNotIn('method: "POST"', save_handler)
+        self.assertNotIn('class="resource-pack-character-panel panel"', markup)
+        self.assertIn('id="system-npc-resource-dialog"', markup)
+        self.assertIn('data-system-npc-field="appearance_mode"', script)
+        self.assertIn('value="entity"', script)
+        self.assertIn('data-system-npc-field="appearance_entity"', script)
+        self.assertIn('cobbledollars:cobble_merchant', script)
+        self.assertIn("resource_pack_entry = character.entry", script)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            relative_path = "content/source/facilities/daycare_attendant.json"
+            document = {
+                "id": "cobbleventure:npc/facilities/daycare_attendant",
+                "name": {"ko_kr": "키우미집 관리인"},
+                "tags": ["service"],
+            }
+            target = root / relative_path
+            server = content_manager.ThreadingHTTPServer(
+                ("127.0.0.1", 0), content_manager.create_handler(root)
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                with mock.patch.object(
+                    content_manager, "_save_document", return_value=(target, []),
+                ) as save_document:
+                    request = urllib.request.Request(
+                        f"http://127.0.0.1:{server.server_port}/api/trainers?path="
+                        f"{urllib.parse.quote(relative_path)}",
+                        data=json.dumps(document).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                        method="PUT",
+                    )
+                    with urllib.request.urlopen(request) as response:
+                        payload = json.load(response)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+            self.assertTrue(payload["saved"])
+            save_document.assert_called_once_with(root, "trainers", relative_path, document)
+
     def test_hardcoded_source_npc_preset_is_rejected_outside_world_bootstrap(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -6326,6 +6377,13 @@ class ContentManagerTests(unittest.TestCase):
                     }
                     trainer = custom["custompack:trainer_skin/casino_host"]
                     villager = custom["custompack:villager/profession/clerk2"]
+                    local_clerks = {
+                        item["resource"]: item for item in catalog["items"]
+                        if item.get("local")
+                        and item["resource"].startswith(
+                            "cobbleventure:trainer_skin/pokemart_clerk_"
+                        )
+                    }
                     image_url = (
                         f"{base_url}/api/resource-pack-character?pack={trainer['pack_token']}"
                         f"&entry={urllib.parse.quote(trainer['entry'], safe='')}"
@@ -6339,6 +6397,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(trainer["selectable"])
         self.assertFalse(villager["selectable"])
         self.assertEqual(png, served_png)
+        self.assertEqual({
+            "cobbleventure:trainer_skin/pokemart_clerk_female",
+            "cobbleventure:trainer_skin/pokemart_clerk_male",
+        }, set(local_clerks))
+        self.assertTrue(all(
+            item["pack_token"] == "project-local"
+            for item in local_clerks.values()
+        ))
 
     def test_build_api_uses_allowlisted_runner(self) -> None:
         root = CORE_ROOT

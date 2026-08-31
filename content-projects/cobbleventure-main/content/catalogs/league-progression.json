@@ -152,13 +152,14 @@
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
-          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "victory": "훌륭한 승부였다. 이 배지와 함께 파도타기 사용을 허가하마.",
           "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
           "money": 4300,
-          "badge_id": "cobbleventure:badge/kanto/soul"
+          "badge_id": "cobbleventure:badge/kanto/soul",
+          "field_move": "surf"
         }
       }
     },
@@ -248,13 +249,14 @@
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
-          "victory": "훌륭한 승부였다. 이 배지는 네 것이다.",
+          "victory": "훌륭한 승부였다. 그린배지와 함께 락클라임을 사용할 자격을 주겠다.",
           "defeat": "좋은 승부였다. 준비해서 다시 도전해라.",
           "cleared": "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
         },
         "rewards": {
           "money": 5000,
-          "badge_id": "cobbleventure:badge/kanto/earth"
+          "badge_id": "cobbleventure:badge/kanto/earth",
+          "field_move": "rock_climb"
         }
       }
     }

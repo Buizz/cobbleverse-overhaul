@@ -32,6 +32,8 @@ final class NpcRadarLocationSystemTest {
             NpcRadarLocationSystem.rewardFlag("field_move_rock_smash_instructor"));
         assertEquals("cobbleventure:flag/rewards/item/potion_supplier",
             NpcRadarLocationSystem.rewardFlag("item_potion_supplier"));
+        assertEquals("cobbleventure:flag/rewards/item/coin_case_guest",
+            NpcRadarLocationSystem.rewardFlag("item_coin_case_guest"));
         assertEquals("cobbleventure:flag/rewards/feature/settlement_teleport",
             NpcRadarLocationSystem.rewardFlag("feature_teleport_guide"));
     }

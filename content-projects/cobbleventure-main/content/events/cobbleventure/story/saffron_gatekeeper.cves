@@ -1,0 +1,7 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "노랑시티에 들어가려면 회색·블루·오렌지·무지개·핑크·그린배지가 모두 필요합니다. 여섯 배지를 보여 주세요."
+    }
+  }
+}

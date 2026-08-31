@@ -258,6 +258,13 @@
       "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/waiter", "implementation_status": "ready" }, "tags": ["service", "town"]
     },
     {
+      "id": "cobbleventure:trainer_class/pokemart_clerk", "category": "occupation",
+      "display_name": { "ko_kr": "포켓마트 점원", "en_us": "Poke Mart Clerk" }, "title_pattern": { "ko_kr": "포켓마트 점원 {name}", "en_us": "Poke Mart Clerk {name}" },
+      "body": { "age_group": "adult", "height_scale": 1.0, "arm_model": "classic" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/pokemart_clerk_male", "implementation_status": "ready" },
+      "appearance_options": [{ "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/pokemart_clerk_female", "implementation_status": "ready" }], "tags": ["service", "shop", "pokemart", "town"]
+    },
+    {
      "id": "cobbleventure:trainer_class/waitress", "category": "occupation",
      "display_name": { "ko_kr": "웨이트리스", "en_us": "Waitress" }, "title_pattern": { "ko_kr": "웨이트리스 {name}", "en_us": "Waitress {name}" },
      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },

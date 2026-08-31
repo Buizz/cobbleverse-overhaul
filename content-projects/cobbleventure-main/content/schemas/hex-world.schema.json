@@ -97,6 +97,15 @@
         "z": { "type": "integer" }
       }
     },
+    "horizontal_block_position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "z"],
+      "properties": {
+        "x": { "type": "integer" },
+        "z": { "type": "integer" }
+      }
+    },
     "axial_coordinate": {
       "type": "object",
       "additionalProperties": false,
@@ -275,6 +284,8 @@
         "route_preset": { "$ref": "#/$defs/resource_id" },
         "from": { "$ref": "#/$defs/route_endpoint_id" },
         "to": { "$ref": "#/$defs/route_endpoint_id" },
+        "from_town_road": { "$ref": "#/$defs/horizontal_block_position" },
+        "to_town_road": { "$ref": "#/$defs/horizontal_block_position" },
         "route_biome": { "$ref": "#/$defs/resource_id" },
         "width_cells": { "type": "integer", "minimum": 1, "maximum": 3 },
         "pathfinding": { "enum": ["shortest", "organic", "explicit"] },

@@ -87,8 +87,16 @@ public final class ShopNetwork {
         event.setCancellationResult(InteractionResult.SUCCESS);
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
+        open(player, target, vendorId);
+    }
+
+    /** Opens the Cobbleventure product menu for a server-authorized vendor entity. */
+    public static int open(ServerPlayer player, Entity target, String vendorId) {
+        if (target == null || !target.isAlive()
+            || player.distanceToSqr(target) > MAX_INTERACTION_DISTANCE_SQR) return 0;
         ShopDefinition definition = loadDefinition(player, vendorId);
-        if (definition == null || definition.offers().isEmpty()) return;
+        if (definition == null || definition.offers().isEmpty()) return 0;
+        target.getPersistentData().putString(VENDOR_DATA_KEY, vendorId);
         UUID token = UUID.randomUUID();
         SESSIONS.put(player.getUUID(), new Session(
             token,
@@ -97,6 +105,7 @@ public final class ShopNetwork {
             player.serverLevel().getGameTime() + SESSION_TICKS
         ));
         PacketDistributor.sendToPlayer(player, openPayload(player, token, definition));
+        return 1;
     }
 
     private static void handleOpen(OpenPayload payload, IPayloadContext context) {

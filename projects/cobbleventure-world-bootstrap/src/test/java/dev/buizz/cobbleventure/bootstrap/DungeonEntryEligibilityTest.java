@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +50,8 @@ final class DungeonEntryEligibilityTest {
     private static DungeonDefinition.Eligibility settings(
         String measure, String policy
     ) {
-        return new DungeonDefinition.Eligibility(1, 6, true, measure, policy);
+        return new DungeonDefinition.Eligibility(
+            1, 6, true, measure, policy, "all", List.of(), "locked"
+        );
     }
 }

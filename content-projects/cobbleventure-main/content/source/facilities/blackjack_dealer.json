@@ -34,12 +34,13 @@
       "en_us": "Blackjack Dealer"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/waiter",
+    "trainer_class": "cobbleventure:trainer_class/waitress",
     "appearance": {
-      "source": "custom",
+      "source": "rct_single",
       "type": "skin",
-      "resource": "cobbleventure:trainer_skin/waiter",
-      "arm_model": "slim"
+      "resource": "rctmod:trainers/single/waitress_kati_03fc",
+      "arm_model": "slim",
+      "implementation_status": "ready"
     },
     "behavior": {
       "movement": "stationary",

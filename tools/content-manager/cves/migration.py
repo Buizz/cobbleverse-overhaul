@@ -502,8 +502,22 @@ def _single_command(block: ast.Block, kind: ast.CommandKind) -> ast.CommandState
 
 
 def _guarded_item_reward(block: ast.Block, state_key: str) -> tuple[str, int]:
-    reward = _single_command(block, ast.CommandKind.GIVE_ITEM)
-    set_flag = _single_command(block, ast.CommandKind.SET_FLAG)
+    # The starter flow may grant secondary tools in nested recovery branches.
+    # Keep the staged V4/V5 contract focused on the direct Pokédex reward.
+    direct_rewards = [
+        value for value in block.statements
+        if isinstance(value, ast.CommandStatement)
+        and value.kind is ast.CommandKind.GIVE_ITEM
+    ]
+    direct_flags = [
+        value for value in block.statements
+        if isinstance(value, ast.CommandStatement)
+        and value.kind is ast.CommandKind.SET_FLAG
+    ]
+    if len(direct_rewards) != 1 or len(direct_flags) != 1:
+        raise ValueError("V5 starter 페이지에는 직접 도감 지급과 완료 기록이 하나씩 필요합니다.")
+    reward = direct_rewards[0]
+    set_flag = direct_flags[0]
     if reward.result is None:
         raise ValueError("V5 give_item은 실패 분기를 위한 결과 변수가 필요합니다.")
     reward_index = block.statements.index(reward)

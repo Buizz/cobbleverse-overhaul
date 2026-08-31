@@ -368,7 +368,8 @@
       "fixed_npcs": {
         "blackjack_dealer_*": "cobbleventure:npc/blackjack_dealer",
         "npc1": "cobbleventure:npc/casino_cashier",
-        "npc2": "cobbleventure:npc/gacha_ticket_vendor"
+        "npc2": "cobbleventure:npc/gacha_ticket_vendor",
+        "retired_guest": "cobbleventure:npc/rewards/item_coin_case_guest"
       },
       "fixed_pokemon": {},
       "fixed_gacha_machines": {
@@ -509,7 +510,8 @@
       "fixed_npcs": {
         "room_1:blackjack_dealer_*": "cobbleventure:npc/blackjack_dealer",
         "room_1:npc1": "cobbleventure:npc/casino_cashier",
-        "room_1:npc2": "cobbleventure:npc/gacha_ticket_vendor"
+        "room_1:npc2": "cobbleventure:npc/gacha_ticket_vendor",
+        "room_1:retired_guest": "cobbleventure:npc/rewards/item_coin_case_guest"
       },
       "fixed_pokemon": {},
       "fixed_gacha_machines": {
@@ -622,7 +624,8 @@
       "structure_category": "placeholder",
       "no_interior_space": false,
       "fixed_npcs": {
-        "room_1:professor_oak": "cobbleventure:npc/professor_oak"
+        "room_1:professor_oak": "cobbleventure:npc/professor_oak",
+        "room_1:researcher1": "cobbleventure:npc/rewards/item_pokeball_supplier"
       },
       "fixed_pokemon": {},
       "fixed_gacha_machines": {},

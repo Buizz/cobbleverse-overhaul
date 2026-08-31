@@ -76,6 +76,9 @@
                 "money": { "type": "integer", "minimum": 0 },
                 "item": { "$ref": "#/$defs/resource_id" },
                 "item_count": { "type": "integer", "minimum": 1, "maximum": 999 },
+                "field_move": {
+                  "enum": ["surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash"]
+                },
                 "badge_id": { "$ref": "#/$defs/resource_id" }
               }
             }

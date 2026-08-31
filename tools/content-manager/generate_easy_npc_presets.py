@@ -210,12 +210,63 @@ def local_appearance_skin(resource: str) -> bytes | None:
     return data if data.startswith(b"\x89PNG\r\n\x1a\n") else None
 
 
+def installed_resource_pack_skin(appearance: dict) -> bytes | None:
+    """Read the exact player skin selected in Content Studio from an installed pack."""
+    entry = appearance.get("resource_pack_entry")
+    pack_name = appearance.get("resource_pack")
+    if not isinstance(entry, str) or not re.fullmatch(
+        r"assets/[a-z0-9_.-]+/textures/(?:entity/trainer|trainers/(?:single|group))/[a-z0-9_./-]+\.png",
+        entry,
+    ):
+        return None
+    instance_roots: list[Path] = []
+    override = os.environ.get("COBBLEVERSE_INSTANCE")
+    if override:
+        instance_roots.append(Path(override))
+    instance_roots.extend((
+        Path.home() / "curseforge" / "minecraft" / "Instances" / "Cobbleventure Development Test Pack",
+        Path.home() / "curseforge" / "minecraft" / "Instances" / "COBBLEVERSE - Pokemon Adventure [Cobblemon]",
+    ))
+    resource_pack_roots = [path / "resourcepacks" for path in instance_roots]
+    resource_pack_roots.extend((
+        PACK_OVERRIDE / "resourcepacks",
+        PACK_OVERRIDE / "config" / "paxi" / "resourcepacks",
+    ))
+    archives = [
+        archive
+        for resource_pack_root in resource_pack_roots if resource_pack_root.is_dir()
+        for archive in sorted(resource_pack_root.glob("*.zip"))
+    ]
+    if isinstance(pack_name, str) and pack_name:
+        archives.sort(key=lambda archive: archive.name != pack_name)
+    for archive_path in archives:
+        if isinstance(pack_name, str) and pack_name and archive_path.name != pack_name:
+            continue
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                info = archive.getinfo(entry)
+                if info.file_size > 2 * 1024 * 1024:
+                    continue
+                data = archive.read(info)
+        except (OSError, KeyError, zipfile.BadZipFile):
+            continue
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return data
+    return None
+
+
 def prepare_encounter_skin(document: dict, outfit: dict) -> Path | None:
     appearance = document.get("npc", {}).get("appearance", {})
+    if appearance.get("source") == "entity":
+        return None
     resource = appearance.get("resource")
     if not isinstance(resource, str) or not resource:
         return None
-    data = installed_rct_skin(resource) or local_appearance_skin(resource)
+    data = (
+        installed_resource_pack_skin(appearance)
+        or installed_rct_skin(resource)
+        or local_appearance_skin(resource)
+    )
     if data is None:
         raise ValueError(
             f"EasyNPC 외형 원본을 찾을 수 없습니다: {document.get('id')} -> {resource}"
@@ -289,6 +340,10 @@ def league_encounter_document(entry: dict, post_victory_level_cap: int = 100) ->
             "count": int(rewards.get("item_count", 1)),
         })
     victory_rewards.append({"type": "grant_badge", "badge": rewards["badge_id"]})
+    if rewards.get("field_move"):
+        victory_rewards.append({
+            "type": "grant_field_move", "move": rewards["field_move"],
+        })
     victory_rewards.append({
         "type": "set_level_cap", "level_cap": int(post_victory_level_cap),
     })
@@ -1249,6 +1304,62 @@ def v5_encounter_preset_snbt(
 '''
 
 
+def v5_entity_preset_snbt(
+    document: dict, binding_tag: str, *, proximity: bool = False
+) -> str:
+    """Create an importable preset that preserves an actual mod entity renderer."""
+    npc = document.get("npc", {})
+    appearance = npc.get("appearance", {})
+    entity_type = appearance.get("resource")
+    if entity_type != "cobbledollars:cobble_merchant":
+        raise ValueError(
+            f"지원하지 않는 NPC 게임 엔티티 외형: {document.get('id')} -> {entity_type}"
+        )
+    display = localized(npc.get("display_name")) or localized(document.get("name"))
+    preset_uuid = str(uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        document["id"] + "/entity_representation/" + binding_tag
+        + ("/proximity" if proximity else ""),
+    ))
+    tags = [
+        "cobbleventure_regional_npc", binding_tag,
+        "cobbleventure_npc/" + document["id"].replace(":", "/"),
+        *(
+            "cobbleventure_npc_function_" + value
+            for value in document.get("system_npc", {}).get("functions", [])
+            if isinstance(value, str) and re.fullmatch(r"[a-z0-9_.-]+", value)
+        ),
+    ]
+    if proximity:
+        tags.append("cves_trigger/proximity")
+    tag_snbt = "[" + ",".join(quote(value) for value in tags) + "]"
+    no_ai = 1 if npc.get("behavior", {}).get("movement", "stationary") == "stationary" else 0
+    return f'''{{
+  PresetMetadata:{{
+    author:"Cobbleventure",
+    category:"Cobbleventure Entity NPCs",
+    created:0L,
+    description:{quote(display + " 실제 게임 엔티티 표현 프리셋")},
+    entityTypeId:{quote(entity_type)},
+    modified:0L,
+    name:{quote(display)},
+    variantType:"NONE",
+    version:"1.0.0"
+  }},
+  data:{{
+    CustomName:{quote(npc_name_component(display))},
+    Invulnerable:{1 if npc.get("behavior", {}).get("invulnerable", True) else 0}b,
+    NoAI:{no_ai}b,
+    PersistenceRequired:1b,
+    PresetUUID:{uuid_int_array(preset_uuid)},
+    Tags:{tag_snbt},
+    VillagerData:{{level:1,profession:"cobbledollars:cobble_merchant",type:"minecraft:plains"}},
+    id:{quote(entity_type)}
+  }}
+}}
+'''
+
+
 def dungeon_actor_preset_snbt(trainer_class: str, outfit: dict) -> str:
     """Render an inert class appearance used by dungeon-owned trainer actors."""
     adapter = outfit["adapters"]["easy_npc"]
@@ -1544,7 +1655,14 @@ def generate(
         preset = RESOURCE_ROOT / "data" / "easy_npc" / "preset" / "encounter" / f"{slug}.npc.snbt"
         preset.parent.mkdir(parents=True, exist_ok=True)
         binding_tag = document.get("_cves_binding_tag")
-        if isinstance(binding_tag, str):
+        entity_appearance = document.get("npc", {}).get("appearance", {}).get("source") == "entity"
+        if entity_appearance and not isinstance(binding_tag, str):
+            raise ValueError(
+                f"게임 엔티티 외형에는 CVES V5 바인딩이 필요합니다: {document.get('id')}"
+            )
+        if entity_appearance:
+            primary_source = v5_entity_preset_snbt(document, binding_tag)
+        elif isinstance(binding_tag, str):
             primary_source = v5_encounter_preset_snbt(document, outfit, binding_tag)
         else:
             primary_source = encounter_preset_snbt(
@@ -1571,8 +1689,12 @@ def generate(
                 preset_type in {"battle", "gym", "elite", "champion"}
                 or has_cves_proximity_events(binding_tag)
             )
-            proximity_source = v5_encounter_preset_snbt(
-                document, outfit, binding_tag, proximity=has_proximity
+            proximity_source = (
+                v5_entity_preset_snbt(document, binding_tag, proximity=has_proximity)
+                if entity_appearance else
+                v5_encounter_preset_snbt(
+                    document, outfit, binding_tag, proximity=has_proximity
+                )
             )
             if has_proximity:
                 proximity_preset = preset.with_name(f"{slug}__v5_proximity.npc.snbt")

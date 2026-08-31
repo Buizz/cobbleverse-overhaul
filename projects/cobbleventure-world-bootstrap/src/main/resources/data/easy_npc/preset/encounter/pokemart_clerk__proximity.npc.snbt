@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"포켓마트 점원 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"포켓마트 점원 [V5]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"포켓마트 점원\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-1226653523,846094052,-1073848718,-1835778191],
+    SkinData:{Type:"CUSTOM",UUID:[I;1839392977,-201302552,-1782316692,1502322769] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/facilities/pokemart_clerk","cobbleventure_npc/cobbleventure/npc/pokemart_clerk","cobbleventure_npc_function_shop"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

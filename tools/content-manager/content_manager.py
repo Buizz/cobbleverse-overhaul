@@ -1074,6 +1074,22 @@ def validate_hex_worlds(
             route_preset = connection.get("route_preset")
             if route_preset is not None and route_ids and route_preset not in route_ids:
                 _issue(issues, "error", path, f"{connection_path}.route_preset", f"존재하지 않는 길 프리셋: {route_preset}")
+            for field in ("from_town_road", "to_town_road"):
+                point = connection.get(field)
+                if point is None:
+                    continue
+                if (
+                    not isinstance(point, dict)
+                    or any(
+                        not isinstance(point.get(axis), int)
+                        or isinstance(point.get(axis), bool)
+                        for axis in ("x", "z")
+                    )
+                ):
+                    _issue(
+                        issues, "error", path, f"{connection_path}.{field}",
+                        "웹에서 계산한 정수 상대 좌표 x, z가 필요합니다.",
+                    )
             for field in ("from", "to"):
                 target = connection.get(field)
                 if target is not None and target not in world_settlements and target not in cave_entrance_anchors and target not in forest_entrance_anchors:
@@ -1995,10 +2011,36 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
     target = root / "content" / "worlds" / f"generation_{generation}.json"
     if not isinstance(data, dict):
         return [Issue("error", target.as_posix(), "$", "세대 월드 지도는 객체여야 합니다.")]
+    data = copy.deepcopy(data)
+    settlement_documents: list[tuple[Path, dict[str, Any]]] = []
+    settlement_dir = root / "content" / "settlements"
+    for settlement_path in sorted(settlement_dir.rglob("*.json")) if settlement_dir.is_dir() else []:
+        try:
+            settlement = load_json(settlement_path)
+            if isinstance(settlement, dict) and isinstance(settlement.get("id"), str):
+                settlement_documents.append((settlement_path, settlement))
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+    route_documents: dict[str, dict[str, Any]] = {}
+    route_dir = root / "content" / "routes"
+    for route_path in sorted(route_dir.rglob("*.json")) if route_dir.is_dir() else []:
+        try:
+            route = load_json(route_path)
+            if isinstance(route, dict) and isinstance(route.get("id"), str):
+                route_documents[route["id"]] = route
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+    try:
+        _mod_builder_module()._resolve_world_town_road_exits(
+            root, data, settlement_documents, route_documents,
+        )
+    except Exception as error:
+        return [Issue(
+            "error", target.as_posix(), "$.connections",
+            f"웹에서 해안 도로 접속점을 계산하지 못했습니다: {error}",
+        )]
     settlement_ids = {
-        item["id"]
-        for item in _list_documents(root, "settlements")
-        if isinstance(item.get("id"), str) and item["id"]
+        document["id"] for _, document in settlement_documents
     }
     cave_documents: dict[str, dict[str, Any]] = {}
     cave_dir = root / "content" / "caves"
@@ -2027,10 +2069,7 @@ def save_world_layout(root: Path, data: Any, generation: int = 1) -> list[Issue]
                 underground_documents[underground["id"]] = underground
         except (OSError, json.JSONDecodeError, DuplicateKeyError):
             continue
-    route_ids = {
-        item["id"] for item in _list_documents(root, "routes")
-        if isinstance(item.get("id"), str) and item["id"]
-    }
+    route_ids = set(route_documents)
     with tempfile.TemporaryDirectory(prefix="cobbleventure-world-layout-") as directory:
         candidate_root = Path(directory)
         world_dir = candidate_root / "content" / "worlds"
@@ -4213,11 +4252,16 @@ def validate_content_file(path: Path) -> tuple[str | None, list[Issue]]:
             _resource_id(npc.get("character"), issues, path, "$.npc.character")
         appearance = _require_object(npc.get("appearance"), issues, path, "$.npc.appearance")
         if appearance is not None:
-            if appearance.get("source") not in {"custom", "rct_single", "rct_group"}:
-                _issue(issues, "error", path, "$.npc.appearance.source", "custom, rct_single, rct_group 중 하나여야 합니다.")
+            if appearance.get("source") not in {"custom", "rct_single", "rct_group", "entity"}:
+                _issue(issues, "error", path, "$.npc.appearance.source", "custom, rct_single, rct_group, entity 중 하나여야 합니다.")
             if appearance.get("type") not in {"skin", "model"}:
                 _issue(issues, "error", path, "$.npc.appearance.type", "skin 또는 model이어야 합니다.")
             _resource_id(appearance.get("resource"), issues, path, "$.npc.appearance.resource")
+            if appearance.get("source") == "entity":
+                if appearance.get("type") != "model":
+                    _issue(issues, "error", path, "$.npc.appearance.type", "게임 엔티티 외형은 model 형식이어야 합니다.")
+                if root.get("event_runtime", {}).get("engine") != "cves_v5":
+                    _issue(issues, "error", path, "$.npc.appearance.source", "게임 엔티티 외형은 CVES V5 NPC에서만 사용할 수 있습니다.")
             if "portrait" in appearance:
                 _resource_id(appearance.get("portrait"), issues, path, "$.npc.appearance.portrait")
         behavior = _require_object(npc.get("behavior"), issues, path, "$.npc.behavior")
@@ -14643,6 +14687,60 @@ def create_handler(
                 continue
             if pack_count:
                 packs.append({"name": archive.name, "token": token, "characters": pack_count})
+
+        local_catalog_path = root / "content" / "catalogs" / "trainer-skin-sources.json"
+        local_skin_root = (
+            core_root
+            / "projects"
+            / "cobbleventure-world-bootstrap"
+            / "src"
+            / "main"
+            / "resources"
+            / "assets"
+        ).resolve()
+        local_count = 0
+        try:
+            local_catalog = load_json(local_catalog_path)
+        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError):
+            local_catalog = {}
+        for source in local_catalog.get("skins", []) if isinstance(local_catalog, dict) else []:
+            if not isinstance(source, dict):
+                continue
+            resource = source.get("resource")
+            match = re.fullmatch(
+                r"([a-z0-9_.-]+):trainer_skin/([a-z0-9_./-]+)",
+                resource if isinstance(resource, str) else "",
+            )
+            if not match:
+                continue
+            skin_path = (
+                local_skin_root
+                / match.group(1)
+                / "textures"
+                / "entity"
+                / "trainer"
+                / f"{match.group(2)}.png"
+            ).resolve()
+            if not skin_path.is_relative_to(local_skin_root) or not skin_path.is_file():
+                continue
+            items.append({
+                "pack": "프로젝트 기본 스킨",
+                "pack_token": "project-local",
+                "entry": skin_path.relative_to(local_skin_root).as_posix(),
+                "resource": resource,
+                "name": source.get("title") or match.group(2).replace("_", " "),
+                "namespace": match.group(1),
+                "category": "trainer_skin",
+                "selectable": True,
+                "local": True,
+            })
+            local_count += 1
+        if local_count:
+            packs.insert(0, {
+                "name": "프로젝트 기본 스킨",
+                "token": "project-local",
+                "characters": local_count,
+            })
         return {"packs": packs, "items": items}
 
     def resource_pack_character_png(pack_token: str, entry_path: str) -> bytes | None:

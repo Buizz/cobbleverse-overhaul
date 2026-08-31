@@ -45,7 +45,7 @@ class SkinPipelineTests(unittest.TestCase):
         project_root = root / "content-projects" / "cobbleventure-main"
         catalog = json.loads((project_root / "content/catalogs/trainer-skin-sources.json").read_text(encoding="utf-8"))
         texture_root = root / "projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer"
-        self.assertEqual(24, len(catalog["skins"]))
+        self.assertEqual(26, len(catalog["skins"]))
         for entry in catalog["skins"]:
             slug = entry["resource"].rsplit("/", 1)[-1]
             with Image.open(texture_root / f"{slug}.png") as skin:

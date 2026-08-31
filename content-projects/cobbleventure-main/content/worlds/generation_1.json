@@ -3539,7 +3539,11 @@
       "surface_style": "road",
       "pathfinding": "explicit",
       "from": "cobbleventure:settlement/lavender_town",
-      "display_name": "보라타운 - 연분홍시티 통나무다리"
+      "display_name": "보라타운 - 연분홍시티 통나무다리",
+      "from_town_road": {
+        "x": 0,
+        "z": 112
+      }
     },
     {
       "id": "route_custom_16",
@@ -3680,7 +3684,11 @@
       "surface_style": "road",
       "pathfinding": "explicit",
       "from": "cobbleventure:settlement/vermilion_city",
-      "display_name": "갈색시티 남쪽 통나무다리"
+      "display_name": "갈색시티 남쪽 통나무다리",
+      "from_town_road": {
+        "x": 0,
+        "z": 32
+      }
     }
   ],
   "forest_entrances": [
@@ -3739,6 +3747,58 @@
       }
     },
     {
+      "id": "cerulean_teleport_guide",
+      "type": "gate",
+      "anchor": {
+        "q": 6,
+        "r": -2
+      },
+      "rotation": 1,
+      "properties": {
+        "facing": "east",
+        "center_placement": "npc",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 11,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "블루시티 서쪽길의 순간이동 안내 NPC입니다.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/feature_teleport_guide__v5.npc.snbt"
+      }
+    },
+    {
+      "id": "indigo_plateau_fly_guide",
+      "type": "gate",
+      "anchor": {
+        "q": -6,
+        "r": -1
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "south",
+        "center_placement": "npc",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:spruce_log",
+        "tree_leaves": "minecraft:spruce_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 11,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "석영고원 비행 안내 NPC입니다.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/field_move_fly_instructor__v5.npc.snbt"
+      }
+    },
+    {
       "id": "rocket_power_plant",
       "type": "villain_base",
       "anchor": {
@@ -3770,7 +3830,7 @@
       "rotation": 0,
       "properties": {
         "facing": "north",
-        "center_placement": "gate",
+        "center_placement": "gate_npc",
         "surrounding_type": "natural",
         "wall_block": "minecraft:stone_bricks",
         "tree_log": "minecraft:oak_log",
@@ -3780,9 +3840,17 @@
         "passage_width": 7,
         "barrier_height": 24,
         "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
-        "deny_dialog": "greeting"
+        "conditions": [
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/boulder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/cascade" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/thunder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/rainbow" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/soul" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/earth" }
+        ],
+        "deny_message": "노랑시티 출입에는 회색·블루·오렌지·무지개·핑크·그린배지가 모두 필요합니다.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/saffron_gatekeeper__v5.npc.snbt"
       },
       "resource": "cobbleventure:gate/default_gate"
     },
@@ -3796,7 +3864,7 @@
       "rotation": 1,
       "properties": {
         "facing": "west",
-        "center_placement": "gate",
+        "center_placement": "gate_npc",
         "surrounding_type": "natural",
         "wall_block": "minecraft:stone_bricks",
         "tree_log": "minecraft:oak_log",
@@ -3806,9 +3874,17 @@
         "passage_width": 7,
         "barrier_height": 24,
         "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
-        "deny_dialog": "greeting"
+        "conditions": [
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/boulder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/cascade" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/thunder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/rainbow" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/soul" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/earth" }
+        ],
+        "deny_message": "노랑시티 출입에는 회색·블루·오렌지·무지개·핑크·그린배지가 모두 필요합니다.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/saffron_gatekeeper__v5.npc.snbt"
       },
       "resource": "cobbleventure:gate/default_gate"
     },
@@ -3822,7 +3898,7 @@
       "rotation": 1,
       "properties": {
         "facing": "east",
-        "center_placement": "gate",
+        "center_placement": "gate_npc",
         "surrounding_type": "natural",
         "wall_block": "minecraft:stone_bricks",
         "tree_log": "minecraft:oak_log",
@@ -3832,9 +3908,17 @@
         "passage_width": 7,
         "barrier_height": 24,
         "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
-        "deny_dialog": "greeting"
+        "conditions": [
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/boulder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/cascade" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/thunder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/rainbow" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/soul" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/earth" }
+        ],
+        "deny_message": "노랑시티 출입에는 회색·블루·오렌지·무지개·핑크·그린배지가 모두 필요합니다.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/saffron_gatekeeper__v5.npc.snbt"
       },
       "resource": "cobbleventure:gate/default_gate"
     },
@@ -3848,7 +3932,7 @@
       "rotation": 0,
       "properties": {
         "facing": "south",
-        "center_placement": "gate",
+        "center_placement": "gate_npc",
         "surrounding_type": "natural",
         "wall_block": "minecraft:stone_bricks",
         "tree_log": "minecraft:oak_log",
@@ -3858,9 +3942,17 @@
         "passage_width": 7,
         "barrier_height": 24,
         "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
-        "deny_dialog": "greeting"
+        "conditions": [
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/boulder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/cascade" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/thunder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/rainbow" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/soul" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/earth" }
+        ],
+        "deny_message": "노랑시티 출입에는 회색·블루·오렌지·무지개·핑크·그린배지가 모두 필요합니다.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/saffron_gatekeeper__v5.npc.snbt"
       },
       "resource": "cobbleventure:gate/default_gate"
     },
@@ -3919,7 +4011,7 @@
       "rotation": 1,
       "properties": {
         "facing": "west",
-        "center_placement": "gate",
+        "center_placement": "gate_npc",
         "surrounding_type": "natural",
         "wall_block": "minecraft:stone_bricks",
         "tree_log": "minecraft:oak_log",
@@ -3929,9 +4021,19 @@
         "passage_width": 7,
         "barrier_height": 24,
         "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "아직 이 관문을 통과할 수 없습니다.",
-        "deny_dialog": "greeting"
+        "conditions": [
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/boulder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/cascade" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/thunder" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/rainbow" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/soul" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/marsh" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/volcano" },
+          { "type": "badge", "badge": "cobbleventure:badge/kanto/earth" }
+        ],
+        "deny_message": "석영고원 방면 관문을 통과하려면 관동의 여덟 배지가 모두 필요합니다.",
+        "deny_dialog": "greeting",
+        "npc": "easy_npc:preset/encounter/feature_map_guide__v5.npc.snbt"
       },
       "resource": "cobbleventure:gate/default_gate"
     }

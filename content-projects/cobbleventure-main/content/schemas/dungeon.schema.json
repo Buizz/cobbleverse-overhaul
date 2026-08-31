@@ -55,7 +55,10 @@
         "maximum_party_size": { "type": "integer", "minimum": 1, "maximum": 6 },
         "require_usable_pokemon": { "type": "boolean" },
         "level_measure": { "enum": ["average", "highest"] },
-        "recommended_level_policy": { "enum": ["ignore", "warn", "enforce"] }
+        "recommended_level_policy": { "enum": ["ignore", "warn", "enforce"] },
+        "condition_mode": { "$ref": "player-condition.schema.json#/$defs/mode" },
+        "conditions": { "$ref": "player-condition.schema.json#/$defs/condition_list" },
+        "locked_message": { "type": "string", "minLength": 1, "maxLength": 256 }
       }
     },
     "multiplayer": {

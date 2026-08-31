@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Encounters V5",
+    created:0L,
+    description:"은퇴한 카지노 손님 CVES V5 NPC 표현 프리셋",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"은퇴한 카지노 손님 [V5]",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"은퇴한 카지노 손님\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.020f,1.020f,1.020f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-413118188,16668638,-1954374132,-1543200661],
+    SkinData:{Type:"CUSTOM",UUID:[I;-1168325703,773347093,-1832510719,2018503361] },
+    Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/rewards/item_coin_case_guest"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

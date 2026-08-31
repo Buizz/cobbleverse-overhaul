@@ -201,15 +201,15 @@ final class WorldStructureSystem {
                 );
             }
             replacePlacedRoadAnchors(level, template, origin, settings);
-            CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
-                level, configured.structure(), origin, template, rotation
-            );
             level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
             LOGGER.info(
                 "World structure generated: id={}, type={}, anchor={}, origin={}",
                 configured.id(), configured.type(), configured.anchor(), origin
             );
         }
+        CobbleventureBootstrap.scheduleGenerationDebrisCleanup(
+            level, configured.structure(), origin, template, rotation
+        );
         BuildingRuntimeSystem.onStructurePlaced(
             level, configured.structure(),
             new CobbleventureBootstrap.BlockPoint(

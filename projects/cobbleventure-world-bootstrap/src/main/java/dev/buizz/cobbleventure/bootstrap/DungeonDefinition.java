@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.buizz.cobbleventure.playermenu.PlayerConditions;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -121,6 +122,12 @@ record DungeonDefinition(
         validateRange("internal level", internalMin, internalMax);
         int minimumPartySize = requiredInt(eligibility, "minimum_party_size");
         int maximumPartySize = requiredInt(eligibility, "maximum_party_size");
+        List<PlayerConditions.Condition> entryConditions = new ArrayList<>();
+        if (eligibility.has("conditions")) {
+            for (JsonElement element : eligibility.getAsJsonArray("conditions")) {
+                entryConditions.add(PlayerConditions.parse(element.getAsJsonObject()));
+            }
+        }
         if (minimumPartySize < 1 || maximumPartySize > 6
             || minimumPartySize > maximumPartySize) {
             throw new IllegalStateException(
@@ -1031,7 +1038,14 @@ record DungeonDefinition(
                 enumValue(eligibility, "level_measure", List.of("average", "highest")),
                 enumValue(eligibility, "recommended_level_policy", List.of(
                     "ignore", "warn", "enforce"
-                ))
+                )),
+                eligibility.has("condition_mode")
+                    ? enumValue(eligibility, "condition_mode", List.of("all", "any"))
+                    : "all",
+                List.copyOf(entryConditions),
+                eligibility.has("locked_message")
+                    ? requiredString(eligibility, "locked_message")
+                    : "아직 이 던전에 입장할 수 없습니다."
             ),
             new Multiplayer(
                 multiplayerMode, minimumPlayers, maximumPlayers, battleJoin, tether
@@ -1258,7 +1272,10 @@ record DungeonDefinition(
         int maximumPartySize,
         boolean requireUsablePokemon,
         String levelMeasure,
-        String recommendedLevelPolicy
+        String recommendedLevelPolicy,
+        String conditionMode,
+        List<PlayerConditions.Condition> conditions,
+        String lockedMessage
     ) {}
     record Multiplayer(
         String mode,

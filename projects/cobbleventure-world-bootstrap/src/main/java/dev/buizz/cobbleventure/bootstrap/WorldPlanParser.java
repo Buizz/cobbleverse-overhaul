@@ -96,11 +96,25 @@ final class WorldPlanParser {
                     ? terrainProfile(value) : new TerrainProfile(0, 0, 96.0D, 0),
                 required(value, "surface_style"), logBridgeLayout(value),
                 optional(value, "access_requirement"),
-                coordinates(value, "cells"), routePokemonSpawns(value), routeNpcPlacements(value),
+                coordinates(value, "cells"), optionalPoint(value, "from_town_road"),
+                optionalPoint(value, "to_town_road"),
+                routePokemonSpawns(value), routeNpcPlacements(value),
                 regionalTrainerPopulation(value, "automatic_npc_placement", "count")
             ));
         }
         return List.copyOf(result);
+    }
+
+    private static CobbleventureBootstrap.Point optionalPoint(
+        JsonObject parent, String field
+    ) {
+        if (!parent.has(field) || !parent.get(field).isJsonObject()) {
+            return null;
+        }
+        JsonObject point = parent.getAsJsonObject(field);
+        return new CobbleventureBootstrap.Point(
+            point.get("x").getAsInt(), point.get("z").getAsInt()
+        );
     }
 
     private static LogBridgeLayout logBridgeLayout(JsonObject connection) {

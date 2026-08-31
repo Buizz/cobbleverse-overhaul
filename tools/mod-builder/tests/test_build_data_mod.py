@@ -23,6 +23,103 @@ SPEC.loader.exec_module(build_data_mod)
 
 
 class TownNpcCapacityUnitTests(unittest.TestCase):
+    def test_npc_profile_packages_actual_entity_runtime_data(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / build_data_mod.CONTENT_ROOT
+            source = project / "source/facilities/shopkeeper.json"
+            binding = project / "event-bindings/test/facilities/shopkeeper.json"
+            source.parent.mkdir(parents=True)
+            binding.parent.mkdir(parents=True)
+            binding.write_text('{"schema_version":1,"script_id":"test:event_script/shop"}', encoding="utf-8")
+            source.write_text(json.dumps({
+                "id": "test:npc/facilities/shopkeeper",
+                "placement_profile": {
+                    "classification": "ambient", "preferred_biomes": [],
+                    "automatic_town_placement": False,
+                    "automatic_route_placement": False,
+                },
+                "event_runtime": {"engine": "cves_v5"},
+                "system_npc": {"functions": ["shop"]},
+                "npc": {
+                    "display_name": {"ko_kr": "상점 주인"},
+                    "appearance": {
+                        "source": "entity", "type": "model",
+                        "resource": "cobbledollars:cobble_merchant",
+                    },
+                    "behavior": {"movement": "stationary", "invulnerable": True},
+                },
+            }), encoding="utf-8")
+
+            profile = build_data_mod._npc_placement_profiles(root)[0]
+
+            self.assertEqual(
+                "cobbledollars:cobble_merchant",
+                profile["runtime"]["appearance"]["resource"],
+            )
+            self.assertEqual(
+                "cves_binding/test/facilities/shopkeeper",
+                profile["runtime"]["binding_tag"],
+            )
+            self.assertEqual(["shop"], profile["runtime"]["functions"])
+
+    def test_log_bridge_uses_center_axis_town_exit(self) -> None:
+        compiled_layout = {
+            "external_exit_points": [
+                {"x": -48, "z": 80},
+                {"x": 0, "z": 32},
+                {"x": 32, "z": 48},
+            ],
+        }
+
+        selected = build_data_mod._coastal_town_road_exit(
+            compiled_layout, (0.0, 96.0),
+        )
+
+        self.assertEqual({"x": 0, "z": 32}, selected)
+
+    def test_log_bridge_town_exit_is_written_during_world_compile(self) -> None:
+        world = {
+            "grid": {"tile_radius_blocks": 64},
+            "settlements": [
+                {
+                    "settlement": "cobbleventure:settlement/coast",
+                    "anchor": {"q": 3, "r": 6},
+                },
+            ],
+            "connections": [
+                {
+                    "id": "coast_bridge",
+                    "route_preset": "cobbleventure:route/coast_bridge",
+                    "from": "cobbleventure:settlement/coast",
+                    "cells": [{"q": 3, "r": 6}, {"q": 3, "r": 7}],
+                    "surface_style": "road",
+                },
+            ],
+        }
+        settlements = [
+            (Path("coast.json"), {"id": "cobbleventure:settlement/coast"}),
+        ]
+        routes = {
+            "cobbleventure:route/coast_bridge": {"route_type": "log_bridge"},
+        }
+        compiled_layout = {
+            "external_exit_points": [
+                {"x": -48, "z": 80}, {"x": 0, "z": 32},
+            ],
+        }
+
+        with mock.patch.object(
+            build_data_mod, "_compile_town_layout", return_value=compiled_layout,
+        ):
+            build_data_mod._resolve_world_town_road_exits(
+                Path("."), world, settlements, routes,
+            )
+
+        self.assertEqual(
+            {"x": 0, "z": 32}, world["connections"][0]["from_town_road"],
+        )
+
     def test_dimension_anchor_catalog_is_packaged_for_runtime_resolver(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -43,6 +43,19 @@
       }
     },
     {
+      "id": "cobbleventure:flag/story/pokenav_received",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "포켓내비 수령",
+        "en_us": "PokéNav Received"
+      },
+      "description": {
+        "ko_kr": "플레이어가 오박사에게 포켓내비를 받았는지 기록합니다."
+      }
+    },
+    {
       "id": "cobbleventure:flag/sample/sample_potion_giver/claimed",
       "scope": "player",
       "type": "boolean",

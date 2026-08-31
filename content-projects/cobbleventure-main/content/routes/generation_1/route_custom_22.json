@@ -22,7 +22,148 @@
     "excluded_species": [],
     "additions": [],
     "level_overrides": [],
-    "encounter_pools": {}
+    "encounter_pools": {
+      "surf": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:tentacool",
+            "min_level": 5,
+            "max_level": 40,
+            "weight": 100
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:tentacool",
+            "min_level": 5,
+            "max_level": 40
+          }
+        ]
+      },
+      "old_rod": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 5,
+            "weight": 100
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 5
+          }
+        ]
+      },
+      "good_rod": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:horsea",
+            "min_level": 5,
+            "max_level": 15,
+            "weight": 60
+          },
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 15,
+            "weight": 20
+          },
+          {
+            "species": "cobblemon:krabby",
+            "min_level": 5,
+            "max_level": 15,
+            "weight": 20
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:horsea",
+            "min_level": 5,
+            "max_level": 15
+          },
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 15
+          },
+          {
+            "species": "cobblemon:krabby",
+            "min_level": 5,
+            "max_level": 15
+          }
+        ]
+      },
+      "super_rod": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:horsea",
+            "min_level": 15,
+            "max_level": 35,
+            "weight": 44
+          },
+          {
+            "species": "cobblemon:shellder",
+            "min_level": 15,
+            "max_level": 25,
+            "weight": 40
+          },
+          {
+            "species": "cobblemon:gyarados",
+            "min_level": 15,
+            "max_level": 25,
+            "weight": 15,
+            "spawn_as_evolved": true
+          },
+          {
+            "species": "cobblemon:psyduck",
+            "min_level": 25,
+            "max_level": 35,
+            "weight": 1
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:horsea",
+            "min_level": 15,
+            "max_level": 35
+          },
+          {
+            "species": "cobblemon:shellder",
+            "min_level": 15,
+            "max_level": 25
+          },
+          {
+            "species": "cobblemon:gyarados",
+            "min_level": 15,
+            "max_level": 25
+          },
+          {
+            "species": "cobblemon:psyduck",
+            "min_level": 25,
+            "max_level": 35
+          }
+        ]
+      }
+    }
   },
   "npc_placements": [],
   "automatic_npc_placement": {

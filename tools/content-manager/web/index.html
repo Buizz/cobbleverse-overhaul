@@ -194,11 +194,6 @@
           <div class="system-npc-summary"><strong id="system-npc-count">—</strong><span>등록된 시스템 NPC</span></div>
         </div>
         <div id="system-npc-issues" class="issues empty">시스템 NPC 목록을 불러오는 중입니다.</div>
-        <section class="resource-pack-character-panel panel">
-          <header><div><p class="eyebrow">RESOURCE PACK CHARACTERS</p><h3>리소스팩 캐릭터</h3><p>설치된 리소스팩의 NPC 스킨과 주민 외형을 자동으로 읽습니다. 플레이어 스킨 형식은 시스템 NPC에 바로 적용할 수 있고, 주민 외형은 팩에서 바이옴·직업에 따라 자동 적용되는 모습을 확인할 수 있습니다.</p></div><strong id="resource-pack-character-count">—</strong></header>
-          <div class="resource-pack-character-tools"><input id="resource-pack-character-query" placeholder="이름, 리소스 ID, 팩 이름 검색"><select id="resource-pack-character-kind"><option value="all">전체 외형</option><option value="selectable">NPC에 적용 가능</option><option value="villager">주민 자동 외형</option></select><select id="resource-pack-character-target" aria-label="외형을 적용할 시스템 NPC"></select></div>
-          <div id="resource-pack-character-grid" class="resource-pack-character-grid"><p>리소스팩 캐릭터를 불러오는 중입니다.</p></div>
-        </section>
         <div id="system-npc-grid" class="system-npc-grid"></div>
       </section>
 
@@ -1478,6 +1473,14 @@
         <div class="trainer-assignment-meta"><strong id="gate-npc-count">0명</strong><button id="gate-npc-reset" type="button">필터 초기화</button></div>
         <div id="gate-npc-list" class="trainer-assignment-list"></div>
         <footer><button id="gate-npc-clear" class="button secondary" type="button">NPC 없음</button><button id="gate-npc-done" class="button primary" type="button">닫기</button></footer>
+      </div>
+    </dialog>
+    <dialog id="system-npc-resource-dialog" class="system-npc-resource-dialog">
+      <div class="system-npc-resource-dialog-shell">
+        <header><div><p class="eyebrow">NPC APPEARANCE RESOURCE</p><h2 id="system-npc-resource-dialog-title">NPC 외형 리소스 선택</h2><span id="system-npc-resource-dialog-subtitle">실제로 NPC 스킨으로 사용할 수 있는 리소스만 표시합니다.</span></div><button type="button" class="dialog-close" id="system-npc-resource-dialog-close" aria-label="닫기">×</button></header>
+        <div class="system-npc-resource-tools"><input id="system-npc-resource-query" type="search" placeholder="이름, 리소스 ID, 팩 이름 검색"><select id="system-npc-resource-kind"><option value="all">모든 사용 가능 외형</option><option value="trainer_skin">일반 NPC 스킨</option><option value="rct_single">RCT 개별 스킨</option><option value="rct_group">RCT 그룹 스킨</option></select><select id="system-npc-resource-pack"><option value="all">모든 리소스팩</option></select></div>
+        <div class="system-npc-resource-summary"><strong id="system-npc-resource-count">0개</strong><span>항목을 누르면 현재 NPC 외형에 적용됩니다.</span></div>
+        <div id="system-npc-resource-grid" class="system-npc-resource-grid"><p>외형 리소스를 불러오는 중입니다.</p></div>
       </div>
     </dialog>
     <dialog id="choice-dialog" class="choice-dialog">

@@ -1,0 +1,60 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/story/saffron_gatekeeper",
+  "enabled": true,
+  "name": {
+    "ko_kr": "노랑시티 관문 경비원"
+  },
+  "description": {
+    "ko_kr": "노랑시티와 홍련섬 배지를 제외한 관동 배지 여섯 개를 확인하는 관문 경비원입니다."
+  },
+  "tags": [
+    "story",
+    "required",
+    "gatekeeper",
+    "saffron_city"
+  ],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": {
+      "ko_kr": "관문 경비원"
+    },
+    "role": "gatekeeper",
+    "trainer_class": "cobbleventure:trainer_class/pokemon_ranger_male",
+    "appearance": {
+      "source": "custom",
+      "type": "skin",
+      "resource": "cobbleventure:trainer_skin/pokemon_ranger_male"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/story/saffron_gatekeeper"
+  },
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "simple",
+      "initial_trigger": {
+        "type": "interact",
+        "range": 4
+      },
+      "first_text": {
+        "ko_kr": "노랑시티에 들어가려면 회색·블루·오렌지·무지개·핑크·그린배지가 모두 필요합니다. 여섯 배지를 보여 주세요."
+      }
+    }
+  }
+}

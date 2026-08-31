@@ -315,6 +315,12 @@ final class DungeonDefinitionTest {
         DungeonDefinition dungeon = resource("rocket_power_plant");
 
         assertEquals("marker", dungeon.gates().getFirst().placement());
+        assertEquals("all", dungeon.eligibility().conditionMode());
+        assertEquals(1, dungeon.eligibility().conditions().size());
+        assertEquals(
+            "갈색시티 체육관을 클리어한 트레이너만 발전소 조사에 참여할 수 있습니다.",
+            dungeon.eligibility().lockedMessage()
+        );
     }
 
     @Test
@@ -500,6 +506,12 @@ final class DungeonDefinitionTest {
         assertTrue(definition.eligibility().requireUsablePokemon());
         assertEquals("average", definition.eligibility().levelMeasure());
         assertEquals("warn", definition.eligibility().recommendedLevelPolicy());
+        assertEquals("all", definition.eligibility().conditionMode());
+        assertTrue(definition.eligibility().conditions().isEmpty());
+        assertEquals(
+            "아직 이 던전에 입장할 수 없습니다.",
+            definition.eligibility().lockedMessage()
+        );
         assertEquals("cooperative", definition.multiplayer().mode());
         assertEquals("summon_all", definition.multiplayer().battleJoin());
         assertEquals(32, definition.multiplayer().tether().warnDistance());

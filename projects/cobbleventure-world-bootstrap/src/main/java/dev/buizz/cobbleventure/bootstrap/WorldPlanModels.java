@@ -69,6 +69,8 @@ final class WorldPlanModels {
         double edgeNoise, String boundaryProfile, TerrainProfile terrainProfile,
         String surfaceStyle, LogBridgeLayout logBridgeLayout,
         String accessRequirement, List<HexCoord> cells,
+        CobbleventureBootstrap.Point fromTownRoad,
+        CobbleventureBootstrap.Point toTownRoad,
         RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements,
         RegionalTrainerPopulation trainerPopulation
     ) {}
@@ -154,6 +156,8 @@ final class WorldPlanModels {
         double corridorWidthBlocks, double edgeNoise, TerrainProfile terrainProfile,
         String surfaceStyle, String accessRequirement, List<HexCoord> cells,
         List<CobbleventureBootstrap.Point> centerline, RouteBounds bounds,
+        CobbleventureBootstrap.Point fromTownRoad,
+        CobbleventureBootstrap.Point toTownRoad,
         RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements,
         RegionalTrainerPopulation trainerPopulation
     ) {}

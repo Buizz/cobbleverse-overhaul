@@ -50,6 +50,16 @@
       "facing": "north"
     },
     {
+      "label": "retired_guest",
+      "type": "npc_position",
+      "position": [
+        34,
+        6,
+        20
+      ],
+      "facing": "west"
+    },
+    {
       "id": "gacha_default_pokemon",
       "label": "gacha_default_pokemon",
       "type": "npc_position",

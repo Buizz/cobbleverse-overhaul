@@ -126,7 +126,7 @@ final class HabitatSpawnRulesTest {
         return new ConnectionPath(
             id, id, "from", "to", "minecraft:plains", "none",
             12.0D, 0.0D, null, surfaceStyle, "none", List.of(cells),
-            List.of(), null, null, List.of(), null
+            List.of(), null, null, null, null, List.of(), null
         );
     }
 
