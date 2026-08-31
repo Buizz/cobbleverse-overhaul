@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.pokefinder.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerType;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
@@ -13,6 +14,8 @@ class WorldBootstrapRadarProviderTest {
             WorldBootstrapRadarProvider.markerType("GYM"));
         assertEquals(RadarMarkerType.POKEMON_CENTER,
             WorldBootstrapRadarProvider.markerType("POKEMON_CENTER"));
+        assertEquals(RadarMarkerType.POKEMART,
+            WorldBootstrapRadarProvider.markerType("POKEMART"));
         assertEquals(RadarMarkerType.CAVE_ENTRANCE,
             WorldBootstrapRadarProvider.markerType("CAVE_ENTRANCE"));
         assertEquals(RadarMarkerType.TRAINER,
@@ -43,5 +46,23 @@ class WorldBootstrapRadarProviderTest {
             WorldBootstrapRadarProvider.markerState("COMPLETED"));
         assertEquals(RadarMarkerState.AVAILABLE,
             WorldBootstrapRadarProvider.markerState("UNKNOWN"));
+    }
+
+    @Test
+    void prioritizesMajorFacilitiesOverNearbyNpcs() {
+        int trainer = WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.TRAINER, "npc/trainer"
+        );
+        assertTrue(WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.POKEMON_CENTER, "building/pokemon_center"
+        ) > trainer);
+        assertTrue(WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.POKEMART, "building/pokemart"
+        ) > trainer);
+        assertTrue(WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.GYM_LEADER, "building/gym"
+        ) > WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.GYM_LEADER, "npc/gym_leader"
+        ));
     }
 }

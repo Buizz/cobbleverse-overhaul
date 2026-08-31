@@ -15,6 +15,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
+import java.io.IOException;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -35,6 +37,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
@@ -61,6 +64,7 @@ final class WorldGateSystem {
     private static final String FOREST_PORTAL_COOLDOWN = "cobbleventureForestPortalCooldown";
     private static final String FOREST_ENTRY_MARKER = "cobbleventure:forest_entry";
     private static final String ROAD_ANCHOR_MARKER = "cobbleventure:road_anchor";
+    private static final String NPC_ANCHOR_TYPE = "npc_position";
     private static final int MAX_NATURAL_GATE_FUNNEL_DEPTH = 8;
     private static final int GATE_STRUCTURE_NATURAL_CLEARANCE = 3;
     private static final int MIN_GATE_APPROACH_DEPTH = 8;
@@ -210,6 +214,9 @@ final class WorldGateSystem {
         BlockState markerState = level.getBlockState(marker);
         boolean forestGate = gate.destinationForest() != null;
         if (markerState.is(Blocks.RESPAWN_ANCHOR)) {
+            if (!forestGate && gate.npc() != null && gate.buildingEnabled()) {
+                reconcileGateNpcs(level, world, gate, center);
+            }
             // A completed gate is immutable. Entrance grading changes apply
             // only while creating a new world and must never rewrite an
             // existing world's authored or player-modified surroundings.
@@ -306,7 +313,7 @@ final class WorldGateSystem {
             finishNaturalGateSurroundings(level, world, gate, center);
         }
         if (gate.npc() != null) {
-            spawnNpc(level, gate, center, centerY);
+            spawnNpc(level, gate, gatePlacement, center, centerY);
         }
         level.setBlock(marker, Blocks.RESPAWN_ANCHOR.defaultBlockState(), 2);
         LOGGER.info(
@@ -1339,8 +1346,7 @@ final class WorldGateSystem {
         );
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
-            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
         ExplicitAirPlacementProcessor.configure(structure, settings);
         BlockPos protectionGround = new BlockPos(center.x(), groundY, center.z());
         int protectionRadius = Math.max(size.getX(), size.getZ()) / 2 + 3;
@@ -1368,7 +1374,83 @@ final class WorldGateSystem {
             minX + size.getX() - 1,
             minZ + size.getZ() - 1
         );
-        return new GateStructurePlacement(footprint);
+        return new GateStructurePlacement(
+            footprint,
+            gateNpcAnchors(level, gate, footprint, groundY)
+        );
+    }
+
+    private static List<GateNpcAnchor> gateNpcAnchors(
+        ServerLevel level, Gate gate, StructureFootprint footprint, int originY
+    ) {
+        ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
+        if (structureId == null) return List.of();
+        ResourceLocation metadataId = ResourceLocation.fromNamespaceAndPath(
+            structureId.getNamespace(),
+            "structure_metadata/" + structureId.getPath() + ".structure.json"
+        );
+        Resource resource = level.getServer().getResourceManager()
+            .getResource(metadataId).orElse(null);
+        if (resource == null) {
+            LOGGER.error(
+                "Gate NPC anchor metadata is missing: gate={}, metadata={}",
+                gate.id(), metadataId
+            );
+            return List.of();
+        }
+        Rotation rotation = rotation(gate.rotation());
+        var template = level.getStructureManager().get(structureId);
+        if (template.isEmpty()) return List.of();
+        int templateWidth = template.orElseThrow().getSize().getX();
+        int templateDepth = template.orElseThrow().getSize().getZ();
+        try (Reader reader = resource.openAsReader()) {
+            JsonObject root = com.google.gson.JsonParser.parseReader(reader)
+                .getAsJsonObject();
+            List<GateNpcAnchor> anchors = new ArrayList<>();
+            for (JsonElement element : root.getAsJsonArray("anchors")) {
+                JsonObject anchor = element.getAsJsonObject();
+                if (!anchor.has("id") || !anchor.has("type")
+                    || !NPC_ANCHOR_TYPE.equals(anchor.get("type").getAsString())) {
+                    continue;
+                }
+                String id = anchor.get("id").getAsString();
+                if (!id.equals("npc1") && !id.equals("npc2")) continue;
+                JsonArray position = anchor.getAsJsonArray("position");
+                BlockPos rotated = rotatedTemplateOffset(
+                    new BlockPos(
+                        position.get(0).getAsInt(), position.get(1).getAsInt(),
+                        position.get(2).getAsInt()
+                    ),
+                    templateWidth, templateDepth,
+                    rotation
+                );
+                anchors.add(new GateNpcAnchor(
+                    id,
+                    new BlockPos(
+                        footprint.minX() + rotated.getX(),
+                        originY + rotated.getY(),
+                        footprint.minZ() + rotated.getZ()
+                    )
+                ));
+            }
+            anchors.sort(java.util.Comparator.comparing(GateNpcAnchor::id));
+            if (anchors.size() != 2
+                || !anchors.get(0).id().equals("npc1")
+                || !anchors.get(1).id().equals("npc2")) {
+                LOGGER.error(
+                    "Pass-through gate requires npc1 and npc2 anchors: gate={}, metadata={}",
+                    gate.id(), metadataId
+                );
+                return List.of();
+            }
+            return List.copyOf(anchors);
+        } catch (IOException | RuntimeException error) {
+            LOGGER.error(
+                "Gate NPC anchor metadata could not be read: gate={}, metadata={}",
+                gate.id(), metadataId, error
+            );
+            return List.of();
+        }
     }
 
     private static StructureFootprint plannedStructureFootprint(
@@ -1916,8 +1998,7 @@ final class WorldGateSystem {
         );
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
-            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
         ExplicitAirPlacementProcessor.configure(template, settings);
         int outsideOffset = (geometry.inward().getAxis() == Direction.Axis.X
             ? template.getSize(rotation).getX()
@@ -2085,10 +2166,32 @@ final class WorldGateSystem {
     }
 
     private static void spawnNpc(
-        ServerLevel level, Gate gate, CobbleventureBootstrap.Point center, int groundY
+        ServerLevel level, Gate gate, GateStructurePlacement placement,
+        CobbleventureBootstrap.Point center, int groundY
+    ) {
+        if (placement != null) {
+            if (placement.npcAnchors().isEmpty()) {
+                LOGGER.error(
+                    "Gate NPC was not spawned because npc1/npc2 anchors are missing: gate={}",
+                    gate.id()
+                );
+                return;
+            }
+            for (GateNpcAnchor anchor : placement.npcAnchors()) {
+                spawnNpcAt(level, gate, anchor.position(), anchor.id());
+            }
+            return;
+        }
+        spawnNpcAt(
+            level, gate, new BlockPos(center.x(), groundY + 1, center.z()), null
+        );
+    }
+
+    private static void spawnNpcAt(
+        ServerLevel level, Gate gate, BlockPos position, String anchorId
     ) {
         String command = "easy_npc preset import_new data " + gate.npc() + " "
-            + center.x() + " " + (groundY + 1) + " " + center.z();
+            + position.getX() + " " + position.getY() + " " + position.getZ();
         try {
             int result = level.getServer().getCommands().getDispatcher().execute(
                 command,
@@ -2096,11 +2199,94 @@ final class WorldGateSystem {
                     .withLevel(level).withPermission(4).withSuppressedOutput()
             );
             if (result == 0) {
-                LOGGER.warn("Gate NPC command returned no result: gate={}, npc={}", gate.id(), gate.npc());
+                LOGGER.warn(
+                    "Gate NPC command returned no result: gate={}, npc={}, position={}",
+                    gate.id(), gate.npc(), position
+                );
+            } else if (anchorId != null) {
+                level.getEntitiesOfClass(
+                    Entity.class,
+                    new AABB(position).inflate(1.0D),
+                    WorldGateSystem::isEasyNpc
+                ).stream().min(java.util.Comparator.comparingDouble(
+                    entity -> entity.distanceToSqr(Vec3.atCenterOf(position))
+                )).ifPresent(entity -> entity.addTag(gateNpcTag(gate, anchorId)));
             }
         } catch (CommandSyntaxException error) {
-            LOGGER.error("Gate NPC placement failed: gate={}, npc={}", gate.id(), gate.npc(), error);
+            LOGGER.error(
+                "Gate NPC placement failed: gate={}, npc={}, position={}",
+                gate.id(), gate.npc(), position, error
+            );
         }
+    }
+
+    private static void reconcileGateNpcs(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center
+    ) {
+        StructureFootprint footprint = plannedStructureFootprint(level, gate, center);
+        if (footprint == null) return;
+        int originY = roadAlignedGateOriginY(
+            level, world, gate, footprint, groundY(level, center.x(), center.z())
+        );
+        List<GateNpcAnchor> anchors = gateNpcAnchors(
+            level, gate, footprint, originY
+        );
+        if (anchors.size() != 2) return;
+        int minimumY = anchors.stream().mapToInt(anchor -> anchor.position().getY())
+            .min().orElse(originY) - 3;
+        int maximumY = anchors.stream().mapToInt(anchor -> anchor.position().getY())
+            .max().orElse(originY) + 4;
+        AABB gateBounds = new AABB(
+            footprint.minX(), minimumY, footprint.minZ(),
+            footprint.maxX() + 1.0D, maximumY, footprint.maxZ() + 1.0D
+        );
+        List<Entity> nearby = new ArrayList<>(level.getEntitiesOfClass(
+            Entity.class, gateBounds, WorldGateSystem::isEasyNpc
+        ));
+        Set<UUID> claimed = new java.util.HashSet<>();
+        List<GateNpcAnchor> missing = new ArrayList<>();
+        for (GateNpcAnchor anchor : anchors) {
+            Entity existing = nearby.stream()
+                .filter(entity -> !claimed.contains(entity.getUUID()))
+                .filter(entity -> entity.distanceToSqr(
+                    Vec3.atCenterOf(anchor.position())
+                ) <= 2.25D)
+                .min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(
+                    Vec3.atCenterOf(anchor.position())
+                )))
+                .orElse(null);
+            if (existing == null) {
+                missing.add(anchor);
+            } else {
+                claimed.add(existing.getUUID());
+                existing.addTag(gateNpcTag(gate, anchor.id()));
+            }
+        }
+        for (Entity obsolete : nearby) {
+            if (!claimed.contains(obsolete.getUUID())) {
+                obsolete.discard();
+            }
+        }
+        for (GateNpcAnchor anchor : missing) {
+            spawnNpcAt(level, gate, anchor.position(), anchor.id());
+        }
+        if (!missing.isEmpty() || claimed.size() != nearby.size()) {
+            LOGGER.info(
+                "Gate NPC anchors reconciled: gate={}, kept={}, spawned={}, removed={}",
+                gate.id(), claimed.size(), missing.size(),
+                Math.max(0, nearby.size() - claimed.size())
+            );
+        }
+    }
+
+    private static boolean isEasyNpc(Entity entity) {
+        return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
+            .getNamespace().equals("easy_npc");
+    }
+
+    private static String gateNpcTag(Gate gate, String anchorId) {
+        return "cobbleventure_gate_npc/" + gate.id() + "/" + anchorId;
     }
 
     static void tick(
@@ -2139,7 +2325,7 @@ final class WorldGateSystem {
                     continue;
                 }
                 beginHexGateDenial(
-                    player, world, gate, center, grid, previousCell, gameTime
+                    player, world, gate, center, grid, previousCell, previous, gameTime
                 );
                 return;
             }
@@ -2163,7 +2349,7 @@ final class WorldGateSystem {
                 : Math.signum(previousNormal);
             beginGateDenial(
                 player, world, gate, center, horizontal,
-                side, threshold, lateral, gameTime
+                side, threshold, lateral, previous, gameTime
             );
             return;
         }
@@ -2241,10 +2427,12 @@ final class WorldGateSystem {
     private static void beginGateDenial(
         ServerPlayer player, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center, boolean horizontal,
-        double side, double threshold, double lateral, long gameTime
+        double side, double threshold, double lateral, Vec3 approachPosition,
+        long gameTime
     ) {
         PendingGateDenial pending = createGateDenial(
-            player, gate, center, horizontal, side, threshold, lateral, gameTime
+            player, gate, center, horizontal, side, threshold, lateral,
+            approachPosition.y(), gameTime
         );
         PENDING_DENIALS.put(player.getUUID(), pending);
         holdPlayer(player, pending.lockedPosition);
@@ -2261,10 +2449,10 @@ final class WorldGateSystem {
     private static void beginHexGateDenial(
         ServerPlayer player, HexWorldPlan world, Gate gate,
         CobbleventureBootstrap.Point center, HexGrid grid,
-        HexCoord originCell, long gameTime
+        HexCoord originCell, Vec3 approachPosition, long gameTime
     ) {
         PendingGateDenial pending = createHexGateDenial(
-            player, gate, center, grid, originCell, gameTime
+            player, gate, center, grid, originCell, approachPosition.y(), gameTime
         );
         PENDING_DENIALS.put(player.getUUID(), pending);
         holdPlayer(player, pending.lockedPosition);
@@ -2281,7 +2469,7 @@ final class WorldGateSystem {
 
     private static PendingGateDenial createHexGateDenial(
         ServerPlayer player, Gate gate, CobbleventureBootstrap.Point center,
-        HexGrid grid, HexCoord originCell, long gameTime
+        HexGrid grid, HexCoord originCell, double preferredY, long gameTime
     ) {
         CobbleventureBootstrap.Point tileCenter = grid.worldCenter(originCell);
         double directionX = tileCenter.x() - center.x();
@@ -2296,28 +2484,33 @@ final class WorldGateSystem {
         directionZ /= directionLength;
         double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
         Vec3 locked = gatePoint(
-            player.serverLevel(), center, directionX, directionZ, threshold + 0.12D
+            player.serverLevel(), center, directionX, directionZ,
+            threshold + 0.12D, preferredY
         );
         Vec3 retreat = gatePoint(
-            player.serverLevel(), center, directionX, directionZ, threshold + 6.0D
+            player.serverLevel(), center, directionX, directionZ,
+            threshold + 6.0D, preferredY
         );
         return new PendingGateDenial(locked, retreat, originCell, gameTime);
     }
 
     private static Vec3 gatePoint(
         ServerLevel level, CobbleventureBootstrap.Point center,
-        double directionX, double directionZ, double distance
+        double directionX, double directionZ, double distance, double preferredY
     ) {
         double x = center.x() + directionX * distance;
         double z = center.z() + directionZ * distance;
-        double y = groundY(level, (int)Math.floor(x), (int)Math.floor(z)) + 1.0D;
+        double y = safeStandYNear(
+            level, (int)Math.floor(x), (int)Math.floor(z),
+            (int)Math.floor(preferredY)
+        );
         return new Vec3(x, y, z);
     }
 
     private static PendingGateDenial createGateDenial(
         ServerPlayer player, Gate gate, CobbleventureBootstrap.Point center,
         boolean horizontal, double side, double threshold, double lateral,
-        long gameTime
+        double preferredY, long gameTime
     ) {
         double clampedLateral = Math.max(
             -gate.openingWidth() / 2.0D + 0.4D,
@@ -2329,12 +2522,14 @@ final class WorldGateSystem {
         double lockedZ = horizontal ? center.z() + lockedNormal : center.z() + clampedLateral;
         double retreatX = horizontal ? center.x() + clampedLateral : center.x() + retreatNormal;
         double retreatZ = horizontal ? center.z() + retreatNormal : center.z() + clampedLateral;
-        double lockedY = groundY(
-            player.serverLevel(), (int) Math.floor(lockedX), (int) Math.floor(lockedZ)
-        ) + 1.0D;
-        double retreatY = groundY(
-            player.serverLevel(), (int) Math.floor(retreatX), (int) Math.floor(retreatZ)
-        ) + 1.0D;
+        double lockedY = safeStandYNear(
+            player.serverLevel(), (int)Math.floor(lockedX), (int)Math.floor(lockedZ),
+            (int)Math.floor(preferredY)
+        );
+        double retreatY = safeStandYNear(
+            player.serverLevel(), (int)Math.floor(retreatX), (int)Math.floor(retreatZ),
+            (int)Math.floor(preferredY)
+        );
         return new PendingGateDenial(
             new Vec3(lockedX, lockedY, lockedZ),
             new Vec3(retreatX, retreatY, retreatZ), null, gameTime
@@ -2372,10 +2567,12 @@ final class WorldGateSystem {
             PendingGateDenial pending = isNpcOnlyGate(gate)
                 ? createHexGateDenial(
                     player, gate, center, world.grid(),
-                    world.grid().worldToHex(player.getX(), player.getZ()), gameTime
+                    world.grid().worldToHex(player.getX(), player.getZ()),
+                    player.getY(), gameTime
                 )
                 : createGateDenial(
-                    player, gate, center, horizontal, side, threshold, lateral, gameTime
+                    player, gate, center, horizontal, side, threshold, lateral,
+                    player.getY(), gameTime
                 );
             pending.sawDialogue = true;
             pending.dialogueOpen = dialogue.open;
@@ -2645,38 +2842,53 @@ final class WorldGateSystem {
             && level.getFluidState(head).isEmpty();
     }
 
+    private static int safeStandYNear(
+        ServerLevel level, int x, int z, int preferredY
+    ) {
+        int minimumY = Math.max(level.getMinBuildHeight() + 1, preferredY - 16);
+        int maximumY = Math.min(level.getMaxBuildHeight() - 2, preferredY + 16);
+        int startY = Math.max(minimumY, Math.min(maximumY, preferredY));
+        if (canStandAt(level, x, startY, z)) return startY;
+        int maximumDistance = Math.max(maximumY - startY, startY - minimumY);
+        for (int distance = 1; distance <= maximumDistance; distance++) {
+            int below = startY - distance;
+            if (below >= minimumY && canStandAt(level, x, below, z)) return below;
+            int above = startY + distance;
+            if (above <= maximumY && canStandAt(level, x, above, z)) return above;
+        }
+        return groundY(level, x, z) + 1;
+    }
+
     private static boolean openGateNpcDialog(
         ServerPlayer player, HexWorldPlan world, Gate gate
     ) {
         CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
-        int centerY = groundY(player.serverLevel(), center.x(), center.z()) + 1;
+        double playerY = player.getY();
         double searchRadius = Math.max(
             MIN_GATE_NPC_SEARCH_RADIUS,
             gate.openingWidth() / 2.0D + GATE_TRIGGER_EDGE_OVERLAP + 1.0D
         );
         AABB search = new AABB(
-            center.x() - searchRadius, centerY - 4.0D, center.z() - searchRadius,
-            center.x() + searchRadius, centerY + 5.0D, center.z() + searchRadius
+            center.x() - searchRadius, playerY - 8.0D, center.z() - searchRadius,
+            center.x() + searchRadius, playerY + 8.0D, center.z() + searchRadius
         );
         List<Entity> nearbyNpcs = player.serverLevel().getEntitiesOfClass(
-            Entity.class, search,
-            entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
-                .getNamespace().equals("easy_npc")
+            Entity.class, search, WorldGateSystem::isEasyNpc
         );
-        java.util.Comparator<Entity> nearestToGate = java.util.Comparator.comparingDouble(
-            entity -> entity.distanceToSqr(center.x() + 0.5D, centerY, center.z() + 0.5D)
+        java.util.Comparator<Entity> nearestToPlayer = java.util.Comparator.comparingDouble(
+            entity -> entity.distanceToSqr(player)
         );
         Entity v5Npc = nearbyNpcs.stream()
             .filter(entity -> entity.getTags().stream()
                 .anyMatch(tag -> tag.startsWith("cves_binding/")))
-            .min(nearestToGate)
+            .min(nearestToPlayer)
             .orElse(null);
         if (v5Npc != null) {
             return EventNpcInteractionHandler.startBoundInteraction(player, v5Npc);
         }
         Entity npc = nearbyNpcs.stream()
             .filter(entity -> entity.getTags().contains("cobbleventure_npc_preset_v4"))
-            .min(nearestToGate)
+            .min(nearestToPlayer)
             .orElse(null);
         if (npc == null) {
             LOGGER.warn("Gate denial dialog NPC was not found: gate={}, npc={}", gate.id(), gate.npc());
@@ -2718,21 +2930,34 @@ final class WorldGateSystem {
         Gate gate = gates.stream().filter(value -> value.id().equals(gateId)).findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Unknown world gate: " + gateId));
         CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
-        double distance = gate.wallThickness() / 2.0D + 3.0D;
-        double directionX = switch (gate.facing()) {
-            case "east" -> 1.0D;
-            case "west" -> -1.0D;
-            default -> 0.0D;
-        };
-        double directionZ = switch (gate.facing()) {
-            case "south" -> 1.0D;
-            case "north" -> -1.0D;
-            default -> 0.0D;
-        };
-        double sign = side.equals("back") ? -1.0D : side.equals("center") ? 0.0D : 1.0D;
-        int x = (int) Math.round(center.x() + directionX * distance * sign);
-        int z = (int) Math.round(center.z() + directionZ * distance * sign);
-        int y = groundY(level, x, z) + 1;
+        if (!List.of("front", "back", "center").contains(side)) {
+            throw new IllegalArgumentException("Unknown gate side: " + side);
+        }
+        StructureFootprint footprint = plannedStructureFootprint(level, gate, center);
+        int originY = groundY(level, center.x(), center.z());
+        List<GateEntrancePlacement> entrances = List.of();
+        if (footprint != null) {
+            originY = roadAlignedGateOriginY(level, world, gate, footprint, originY);
+            entrances = plannedGateRoadAnchors(level, gate, footprint, originY);
+        }
+        int x = center.x();
+        int z = center.z();
+        int preferredY = originY + 1;
+        if (!side.equals("center") && !entrances.isEmpty()) {
+            Direction expected = side.equals("front")
+                ? facingDirection(gate.facing())
+                : facingDirection(gate.facing()).getOpposite();
+            GateEntrancePlacement entrance = entrances.stream()
+                .filter(value -> value.outward().equals(expected))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Gate side has no matching road anchor: " + gateId + "/" + side
+                ));
+            x = entrance.x() + entrance.outward().getStepX() * 2;
+            z = entrance.z() + entrance.outward().getStepZ() * 2;
+            preferredY = entrance.surfaceY() + 1;
+        }
+        int y = safeStandYNear(level, x, z, preferredY);
         int moved = 0;
         for (Entity target : targets) {
             target.teleportTo(x + 0.5D, y, z + 0.5D);
@@ -2869,7 +3094,11 @@ final class WorldGateSystem {
 
     }
 
-    private record GateStructurePlacement(StructureFootprint footprint) {}
+    private record GateStructurePlacement(
+        StructureFootprint footprint, List<GateNpcAnchor> npcAnchors
+    ) {}
+
+    private record GateNpcAnchor(String id, BlockPos position) {}
 
     private record GateEntrancePlacement(
         int x, int z, int surfaceY, Direction outward,

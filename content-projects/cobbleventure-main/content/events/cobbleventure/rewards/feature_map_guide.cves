@@ -14,6 +14,7 @@ event interact(range: 4) {
       narrate "가방에 빈 공간이 없어 포켓파인더를 받을 수 없습니다."
       stop
     }
+    id "grant/pokefinder_state" set_flag "cobbleventure:flag/rewards/item/pokefinder_received" true
     id "grant/feature" unlock_feature map
     id "grant/state" set_flag "cobbleventure:flag/rewards/feature/map" true
     say npc {

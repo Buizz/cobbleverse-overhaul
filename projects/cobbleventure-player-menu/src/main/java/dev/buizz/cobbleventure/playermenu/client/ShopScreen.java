@@ -36,6 +36,7 @@ public final class ShopScreen extends Screen {
     private static final int SUCCESS = 0xFF24764D;
     private static final int GRID_COLUMNS = 4;
     private static final int GRID_ROWS = 2;
+    private static final ItemStack SHOP_HEADER_ICON = new ItemStack(Items.CHEST);
 
     private final UUID token;
     private final String shopName;
@@ -92,7 +93,9 @@ public final class ShopScreen extends Screen {
             tabsY, (panelWidth - 24) / 2, 22));
 
         Set<String> categories = new LinkedHashSet<>();
-        for (ShopNetwork.ClientOffer offer : offers) categories.add(offer.category());
+        for (ShopNetwork.ClientOffer offer : offers) {
+            if (isAvailableInCurrentMode(offer)) categories.add(offer.category());
+        }
         List<String> categoryList = new ArrayList<>();
         categoryList.add("");
         categoryList.addAll(categories.stream().limit(4).toList());
@@ -149,11 +152,12 @@ public final class ShopScreen extends Screen {
         int stepY = detailBottom - 80;
         addRenderableWidget(new StepButton(-1, detailX + 12, stepY, 28, 22));
         addRenderableWidget(new StepButton(1, detailX + detailWidth - 40, stepY, 28, 22));
+        int actionWidth = Math.max(56, detailWidth - 36);
         transactionButton = addRenderableWidget(new ActionButton(
-            detailX + 10,
-            detailBottom - 25,
-            detailWidth - 20,
-            22,
+            detailX + (detailWidth - actionWidth) / 2,
+            detailBottom - 22,
+            actionWidth,
+            18,
             this::transact
         ));
         updateTransactionButton();
@@ -172,14 +176,24 @@ public final class ShopScreen extends Screen {
 
     private void refreshOffers(boolean resetScroll) {
         String query = searchValue.strip().toLowerCase(Locale.ROOT);
-        filtered = offers.stream().filter(offer -> category.isBlank() || category.equals(offer.category()))
+        filtered = offers.stream()
+            .filter(this::isAvailableInCurrentMode)
+            .filter(offer -> category.isBlank() || category.equals(offer.category()))
             .filter(offer -> query.isBlank()
                 || offer.stack().getHoverName().getString().toLowerCase(Locale.ROOT).contains(query))
             .toList();
         if (resetScroll) scrollRow = 0;
         int maxRow = Math.max(0, (filtered.size() - 1) / GRID_COLUMNS - (GRID_ROWS - 1));
         scrollRow = Math.clamp(scrollRow, 0, maxRow);
-        if (selectedOffer() == null && !filtered.isEmpty()) selectedIndex = filtered.getFirst().index();
+        boolean selectedVisible = filtered.stream().anyMatch(offer -> offer.index() == selectedIndex);
+        if (!selectedVisible) {
+            selectedIndex = filtered.isEmpty() ? -1 : filtered.getFirst().index();
+            quantity = 1;
+        }
+    }
+
+    private boolean isAvailableInCurrentMode(ShopNetwork.ClientOffer offer) {
+        return !selling || offer.owned() > 0 && new BigInteger(offer.sellPrice()).signum() > 0;
     }
 
     private ShopNetwork.ClientOffer selectedOffer() {
@@ -234,6 +248,7 @@ public final class ShopScreen extends Screen {
         drawPanel(graphics, panelX, panelY, panelWidth, panelHeight);
         drawHeader(graphics, panelWidth);
         drawSearchBox(graphics);
+        drawEmptyState(graphics);
         drawDetail(graphics, panelWidth);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
@@ -247,8 +262,7 @@ public final class ShopScreen extends Screen {
         fillRoundedRect(graphics, panelX + 10, panelY + 8,
             panelX + actualWidth - 10, panelY + 40, 7, CARD);
         fillRoundedRect(graphics, panelX + 16, panelY + 13, panelX + 40, panelY + 36, 6, PANEL_LIGHT);
-        graphics.fill(panelX + 23, panelY + 18, panelX + 33, panelY + 31, ACCENT);
-        graphics.fill(panelX + 20, panelY + 21, panelX + 36, panelY + 32, ACCENT);
+        graphics.renderItem(SHOP_HEADER_ICON, panelX + 20, panelY + 17);
         graphics.drawString(font, font.plainSubstrByWidth(shopName, actualWidth - 210),
             panelX + 47, panelY + 13, TEXT, false);
         graphics.drawString(font, font.plainSubstrByWidth(role, actualWidth - 210),
@@ -285,6 +299,18 @@ public final class ShopScreen extends Screen {
             graphics.fill(cursorX, searchBox.getY() + 4,
                 cursorX + 1, searchBox.getY() + searchBox.getHeight() - 4, TEXT);
         }
+    }
+
+    private void drawEmptyState(GuiGraphics graphics) {
+        if (!filtered.isEmpty()) return;
+        int leftWidth = ShopLayout.contentWidth(panelWidth);
+        Component message = Component.translatable(selling
+            ? "screen.cobbleventure_player_menu.shop.sell_empty"
+            : "screen.cobbleventure_player_menu.shop.no_results");
+        String label = font.plainSubstrByWidth(message.getString(), leftWidth - 32);
+        graphics.drawString(font, label,
+            panelX + leftWidth / 2 - font.width(label) / 2,
+            panelY + 154, MUTED, false);
     }
 
     private void drawDetail(GuiGraphics graphics, int actualWidth) {
@@ -439,6 +465,8 @@ public final class ShopScreen extends Screen {
 
         @Override public void onPress() {
             selling = sellTab;
+            category = "";
+            selectedIndex = -1;
             quantity = 1;
             status = Component.empty();
             rebuildShopWidgets();
@@ -596,7 +624,8 @@ public final class ShopScreen extends Screen {
             int fill = !active ? 0xFF9AA9B4 : isHovered() ? 0xFFFFA243 : ACCENT;
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(), 5, fill);
             drawCenteredNoShadow(graphics, getMessage(),
-                getX() + getWidth() / 2, getY() + 7, 0xFFFFFFFF);
+                getX() + getWidth() / 2,
+                getY() + (getHeight() - font.lineHeight) / 2, 0xFFFFFFFF);
         }
 
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {

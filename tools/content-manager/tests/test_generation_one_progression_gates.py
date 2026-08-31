@@ -8,6 +8,19 @@ WORLD = ROOT / "content-projects/cobbleventure-main/content/worlds/generation_1.
 
 
 class GenerationOneProgressionGateTests(unittest.TestCase):
+    def test_starter_town_gate_requires_partner_and_pokenav(self) -> None:
+        world = json.loads(WORLD.read_text(encoding="utf-8"))
+        gate = next(item for item in world["objects"] if item["id"] == "starter_town_north_gate")
+
+        self.assertIn({
+            "type": "party_count", "operator": ">=", "value": 1,
+        }, gate["properties"]["conditions"])
+        self.assertIn({
+            "type": "flag_equals",
+            "key": "cobbleventure:flag/story/pokenav_received",
+            "value": True,
+        }, gate["properties"]["conditions"])
+
     def test_viridian_west_gate_requires_all_kanto_badges(self) -> None:
         world = json.loads(WORLD.read_text(encoding="utf-8"))
         gate = next(item for item in world["objects"] if item["id"] == "viridian_gate")

@@ -3086,7 +3086,7 @@ function renderHexMap() {
     const { x, y } = hexPoint(q, r); const name = settlementSummary(owner.settlement)?.name || owner.settlement;
     return `<g class="hex-town-area${owner.anchor.q === q && owner.anchor.r === r ? " is-anchor" : ""}"><polygon points="${hexPolygon(x, y, mapHexSize() - 4)}"></polygon><title>${escapeHtml(name)} · 마을 크기 ${worldSettlementCellCount(owner)}칸</title></g>`;
   }).join("");
-  const routes = (state.worldLayout.connections || []).filter((connection) => connection.surface_style !== "water").map((connection) => {
+  const routes = (state.worldLayout.connections || []).map((connection) => {
     const cells = connectionPath(connection);
     const points = cells.map((cell, index) => { const point = routeCellMapPoint(connection, cell, index, cells); return `${point.x},${point.y}`; }).join(" ");
     if (!points) return "";

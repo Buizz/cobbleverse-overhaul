@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap.mixin;
 
 import com.mojang.datafixers.util.Either;
+import dev.buizz.cobbleventure.bootstrap.GroundFloorAirPreservationProcessor;
 import dev.buizz.cobbleventure.bootstrap.TerrainAirPreservationProcessor;
 import dev.buizz.cobbleventure.bootstrap.TownPlacementHeightContext;
 import net.minecraft.core.BlockPos;
@@ -40,6 +41,11 @@ abstract class SinglePoolElementMixin {
         boolean keepJigsaws,
         CallbackInfoReturnable<StructurePlaceSettings> callback
     ) {
+        if (TownPlacementHeightContext.isActive()) {
+            callback.getReturnValue().addProcessor(
+                GroundFloorAirPreservationProcessor.INSTANCE
+            );
+        }
         boolean preserveTerrain = template.left()
             .map(TownPlacementHeightContext::shouldPreserveTerrain)
             .orElse(false);

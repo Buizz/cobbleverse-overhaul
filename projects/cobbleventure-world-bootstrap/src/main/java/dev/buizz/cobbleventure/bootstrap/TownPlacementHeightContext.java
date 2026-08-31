@@ -59,6 +59,10 @@ public final class TownPlacementHeightContext {
         return state == null ? null : state.resolver().baseHeight(x, z, heightmap);
     }
 
+    public static boolean isActive() {
+        return ACTIVE_STATE.get() != null;
+    }
+
     public static ResourceKey<StructureTemplatePool> remapHousePool(
         ResourceKey<StructureTemplatePool> original
     ) {

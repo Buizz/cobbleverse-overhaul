@@ -176,6 +176,9 @@ public final class ShopNetwork {
     }
 
     private static String sell(ServerPlayer player, Offer offer, int quantity) {
+        if (ImportantItemProtection.isProtected(new ItemStack(offer.item()))) {
+            return "screen.cobbleventure_player_menu.shop.error.not_sellable";
+        }
         if (offer.sellPrice().signum() <= 0) {
             return "screen.cobbleventure_player_menu.shop.error.not_sellable";
         }

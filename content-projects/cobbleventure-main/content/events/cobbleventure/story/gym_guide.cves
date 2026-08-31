@@ -1,0 +1,7 @@
+event interact(range: 4) {
+  page default {
+    say npc {
+      ko_kr: "포켓몬리그 규정상 체육관은 정해진 순서로 도전해야 해. 먼저 앞선 도시의 관장에게 승리하고 배지를 받아 와."
+    }
+  }
+}

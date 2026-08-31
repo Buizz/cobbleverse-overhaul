@@ -670,4 +670,14 @@ final class DungeonDefinitionTest {
         assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32790, 82, 30)));
         assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32769, 81, 30)));
     }
+
+    @Test
+    void identifiesTheHorizontalAreaOwnedByDungeonEncounters() {
+        var origin = new net.minecraft.core.BlockPos(32768, 80, 0);
+        var size = new net.minecraft.core.BlockPos(48, 24, 48);
+
+        assertTrue(DungeonSystem.insideRunHorizontalBounds(32790, 30, origin, size));
+        assertFalse(DungeonSystem.insideRunHorizontalBounds(32700, 30, origin, size));
+        assertFalse(DungeonSystem.insideRunHorizontalBounds(32790, 80, origin, size));
+    }
 }

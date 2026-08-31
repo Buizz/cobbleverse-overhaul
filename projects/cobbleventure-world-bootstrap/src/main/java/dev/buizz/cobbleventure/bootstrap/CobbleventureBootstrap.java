@@ -5676,8 +5676,7 @@ public final class CobbleventureBootstrap {
             Rotation rotation = structureRotation(rotationName);
             StructurePlaceSettings settings = new StructurePlaceSettings()
                 .setRotation(rotation)
-                .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-                .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+                .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
             ExplicitAirPlacementProcessor.configure(template.get(), settings);
             boolean placed = template.get().placeInWorld(
                 level, blockPos, blockPos, settings,
@@ -5734,8 +5733,7 @@ public final class CobbleventureBootstrap {
             return false;
         }
         StructurePlaceSettings settings = new StructurePlaceSettings()
-            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
         ExplicitAirPlacementProcessor.configure(template.orElseThrow(), settings);
         boolean placed = template.orElseThrow().placeInWorld(
             level, blockPos, blockPos, settings,
@@ -5769,8 +5767,7 @@ public final class CobbleventureBootstrap {
         BlockPos blockPos = position.toBlockPos();
         StructurePlaceSettings settings = new StructurePlaceSettings()
             .setRotation(rotation)
-            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+            .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
         ExplicitAirPlacementProcessor.configure(template.get(), settings);
         boolean placed = template.get().placeInWorld(
             level, blockPos, blockPos, settings,
@@ -8974,6 +8971,7 @@ public final class CobbleventureBootstrap {
                 connection.routeBiome(), connection.boundaryProfile(),
                 connection.corridorWidthBlocks(), connection.edgeNoise(), connection.terrainProfile(),
                 connection.surfaceStyle(), connection.accessRequirement(), List.copyOf(path),
+                connection.encounterCells(),
                 centerline, routeBounds(centerline), connection.fromTownRoad(),
                 connection.toTownRoad(), connection.pokemonSpawns(),
                 connection.npcPlacements(), connection.trainerPopulation()
@@ -10008,7 +10006,7 @@ public final class CobbleventureBootstrap {
         if (world == null) {
             return null;
         }
-        ConnectionPath route = authoredEncounterRouteAt(world, x, z);
+        ConnectionPath route = authoredEncounterRouteAt(world, x, z, method);
         return wildSpawnRule(route, method);
     }
 
@@ -10021,11 +10019,23 @@ public final class CobbleventureBootstrap {
     static ConnectionPath authoredEncounterRouteAt(
         HexWorldPlan world, double x, double z
     ) {
+        return authoredEncounterRouteAt(
+            world, x, z, AdventureWorldContext.WildEncounterMethod.LAND
+        );
+    }
+
+    static ConnectionPath authoredEncounterRouteAt(
+        HexWorldPlan world, double x, double z,
+        AdventureWorldContext.WildEncounterMethod method
+    ) {
         HexCoord cell = world.grid().worldToHex(x, z);
         CellPlan cellPlan = world.cells().get(cell);
         Set<HexCoord> settlementCells = cellPlan != null && cellPlan.kind().equals("town")
             ? Set.of(cell) : Set.of();
-        return RouteEncounterSelector.forCell(cell, world.paths(), settlementCells);
+        return RouteEncounterSelector.forCell(
+            cell, world.paths(), settlementCells,
+            method != AdventureWorldContext.WildEncounterMethod.LAND
+        );
     }
 
     private static AdventureWorldContext.WildSpawnRule wildSpawnRule(
@@ -10401,12 +10411,35 @@ public final class CobbleventureBootstrap {
             .setValue(BlockStateProperties.LIT, false)
             .setValue(BlockStateProperties.HORIZONTAL_FACING, facing);
         boolean overOcean = logBridgeOverOceanAt(world, x, z);
+        if (!overOcean && !logBridgeNearOceanAlongRoute(
+            world, x, z, tangentX, tangentZ
+        )) {
+            return null;
+        }
         boolean support = overOcean && closest >= 1.5D
             && Math.floorMod((int) Math.round(progress), 6) == 0;
         int deckY = overOcean
             ? WATER_SURFACE_Y + 1
             : roadUnderlyingGroundY(world, x, z) + 1;
         return new LogBridgeDeckPlan(deckY, deck, support, overOcean);
+    }
+
+    private static boolean logBridgeNearOceanAlongRoute(
+        HexWorldPlan world, int x, int z, double tangentX, double tangentZ
+    ) {
+        int stepX = Math.abs(tangentX) >= Math.abs(tangentZ)
+            ? (tangentX >= 0.0D ? 1 : -1) : 0;
+        int stepZ = stepX == 0 ? (tangentZ >= 0.0D ? 1 : -1) : 0;
+        for (int distance = 1; distance <= 6; distance++) {
+            if (logBridgeOverOceanAt(
+                world, x + stepX * distance, z + stepZ * distance
+            ) || logBridgeOverOceanAt(
+                world, x - stepX * distance, z - stepZ * distance
+            )) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean logBridgeOverOceanAt(
@@ -14026,6 +14059,14 @@ public final class CobbleventureBootstrap {
             grid, settlements.get(connection.to()), controls, true
         );
         if (connection.surfaceStyle().equals("log_bridge")) {
+            controls = anchorRouteAtCompiledTownRoad(
+                grid, settlements.get(connection.from()),
+                connection.fromTownRoad(), controls, false
+            );
+            controls = anchorRouteAtCompiledTownRoad(
+                grid, settlements.get(connection.to()),
+                connection.toTownRoad(), controls, true
+            );
             Set<HexCoord> routeArea = new HashSet<>(cells);
             HexSettlement from = settlements.get(connection.from());
             HexSettlement to = settlements.get(connection.to());
@@ -14074,6 +14115,29 @@ public final class CobbleventureBootstrap {
             }
         }
         return List.copyOf(curved);
+    }
+
+    private static List<WarpedPoint> anchorRouteAtCompiledTownRoad(
+        HexGrid grid,
+        HexSettlement settlement,
+        Point relativeRoad,
+        List<WarpedPoint> controls,
+        boolean reverse
+    ) {
+        if (settlement == null || relativeRoad == null || controls.isEmpty()) {
+            return controls;
+        }
+        Point center = townFootprintWorldCenter(grid, settlement);
+        WarpedPoint authored = new WarpedPoint(
+            center.x() + relativeRoad.x(), center.z() + relativeRoad.z()
+        );
+        List<WarpedPoint> anchored = new ArrayList<>(controls);
+        if (reverse) {
+            anchored.set(anchored.size() - 1, authored);
+        } else {
+            anchored.set(0, authored);
+        }
+        return anchored;
     }
 
     private static List<WarpedPoint> orthogonalLogBridgeControls(

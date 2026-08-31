@@ -34,13 +34,6 @@ public final class PokefinderRadarClient {
 
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null || minecraft.screen != null) return;
-        if (!PinnedPokefinderHud.canControl(minecraft.player)) {
-            minecraft.player.displayClientMessage(Component.translatable(
-                "message.cobbleventure_pokefinder.hud.missing_pokenav"
-            ), true);
-            return;
-        }
-
         cycleHud();
     }
 

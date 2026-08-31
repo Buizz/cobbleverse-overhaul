@@ -39,6 +39,12 @@ public final class HabitatSpawnRules {
         ServerLevel level, double x, double y, double z,
         AdventureWorldContext.WildSpawnRule routeRule
     ) {
+        // Dungeon runs use their authored pursuit pool. Blocking Cobblemon's
+        // independent biome spawner prevents unrelated dimension-biome species
+        // from appearing beside those encounters.
+        if (DungeonSystem.ownsRandomEncountersAt(level, x, z)) {
+            return Set.of();
+        }
         // Authored cave/forest encounters are spawned only by PursuitEncounterSystem.
         // An empty natural pool prevents Cobblemon's independent spawner from duplicating them.
         if (CobbleventureBootstrap.authoredEncounterWeights(level, x, z) != null) {
@@ -93,6 +99,11 @@ public final class HabitatSpawnRules {
     public static Map<ResourceLocation, Integer> authoredEncounterWeights(
         ServerLevel level, double x, double z
     ) {
+        Map<ResourceLocation, Integer> dungeon =
+            DungeonSystem.randomEncounterWeightsAt(level, x, z);
+        if (dungeon != null) {
+            return dungeon;
+        }
         Map<ResourceLocation, Integer> authored =
             CobbleventureBootstrap.authoredEncounterWeights(level, x, z);
         if (authored != null) {
@@ -115,6 +126,11 @@ public final class HabitatSpawnRules {
     public static Map<ResourceLocation, Integer> authoredEncounterWeights(
         ServerLevel level, double x, double y, double z
     ) {
+        Map<ResourceLocation, Integer> dungeon =
+            DungeonSystem.randomEncounterWeightsAt(level, x, z);
+        if (dungeon != null) {
+            return dungeon;
+        }
         if (CobbleventureBootstrap.isLogBridgeDeckSpawn(level, x, y, z)) {
             return Map.of();
         }

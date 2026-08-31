@@ -189,8 +189,7 @@ final class WorldStructureSystem {
             }
             StructurePlaceSettings settings = new StructurePlaceSettings()
                 .setRotation(rotation)
-                .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-                .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
+                .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE);
             ExplicitAirPlacementProcessor.configure(template, settings);
             if (!template.placeInWorld(
                 level, origin, origin, settings,

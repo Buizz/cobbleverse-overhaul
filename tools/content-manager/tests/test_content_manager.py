@@ -6195,6 +6195,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("saveWorldLayout", app_script)
         self.assertIn("renderHexMap", app_script)
         self.assertIn("primaryRouteAt", app_script)
+        self.assertNotIn('.filter((connection) => connection.surface_style !== "water")', app_script)
+        self.assertIn(".hex-route.water", styles)
         self.assertNotIn("connection.route_biome", app_script)
         self.assertIn("is-route-terrain", app_script)
         self.assertNotIn('name="kind" value="route"', page)

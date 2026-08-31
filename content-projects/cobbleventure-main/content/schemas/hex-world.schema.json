@@ -315,6 +315,13 @@
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/axial_coordinate" }
+        },
+        "encounter_cells": {
+          "description": "Optional cells where this route's encounter pools apply without changing generated route geometry.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/axial_coordinate" }
         }
       }
     },

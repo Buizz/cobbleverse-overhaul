@@ -52,7 +52,20 @@
         "en_us": "PokéNav Received"
       },
       "description": {
-        "ko_kr": "플레이어가 오박사에게 포켓내비를 받았는지 기록합니다."
+        "ko_kr": "플레이어가 태초마을 문지기에게 포켓내비를 받았는지 기록합니다."
+      }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/item/pokeball_supplier",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": {
+        "ko_kr": "연구소 몬스터볼 수령",
+        "en_us": "Lab Poké Ball Supply Received"
+      },
+      "description": {
+        "ko_kr": "플레이어가 오박사 연구소 조수에게 몬스터볼을 받았는지 기록합니다."
       }
     },
     {
@@ -192,6 +205,22 @@
       "default": false,
       "display_name": { "ko_kr": "지도 기능 해금", "en_us": "Map Feature Unlocked" },
       "description": { "ko_kr": "플레이어 메뉴의 지도 기능을 해금했는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/item/pokefinder_received",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "포켓파인더 획득", "en_us": "Poké Finder Acquired" },
+      "description": { "ko_kr": "플레이어가 상록시티 관문 안내원에게 포켓파인더를 받았는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/rewards/item/coin_case_guest",
+      "scope": "player",
+      "type": "boolean",
+      "default": false,
+      "display_name": { "ko_kr": "동전케이스 획득", "en_us": "Coin Case Acquired" },
+      "description": { "ko_kr": "플레이어가 무지개시티의 은퇴한 카지노 손님에게 동전케이스를 받았는지 기록합니다." }
     },
     {
       "id": "cobbleventure:flag/rewards/feature/pc",

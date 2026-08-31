@@ -14,13 +14,19 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Daycare screen with a deposited row, a PC-like party grid, and a detail pane. */
 final class DaycareScreen extends Screen {
     private static final int PARTY_SLOTS = 6;
     private static final int DAYCARE_SLOTS = 6;
+    private static final ResourceLocation DAYCARE_EGG =
+        ResourceLocation.fromNamespaceAndPath("cobbreeding", "normal_pokemon_egg");
 
     private DaycareNetwork.ViewPayload payload;
     private final List<PokemonCard> partyCards = new ArrayList<>();
@@ -279,7 +285,9 @@ final class DaycareScreen extends Screen {
             : "screen.cobbleventure_adventure.daycare.training_short_off"));
         trainingButton.setTooltip(Tooltip.create(Component.translatable(
             "screen.cobbleventure_adventure.daycare.training_tooltip",
-            format(payload.trainingCostPerExperience()),
+            format(payload.trainingExperiencePerInterval()),
+            format(payload.trainingIntervalSeconds() / 60L),
+            format(payload.trainingCostPerInterval()),
             format(payload.maxTrainingExperience())
         )));
         depositButton.setMessage(Component.translatable(
@@ -366,13 +374,19 @@ final class DaycareScreen extends Screen {
     }
 
     private void drawDaycareIcon(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x + 2, y + 7, x + 17, y + 17, 0xFFF3E3BE);
-        graphics.fill(x + 7, y + 11, x + 11, y + 17, 0xFF9D7448);
-        graphics.fill(x + 8, y, x + 12, y + 2, theme.accent);
-        graphics.fill(x + 6, y + 2, x + 14, y + 4, theme.accent);
-        graphics.fill(x + 4, y + 4, x + 16, y + 6, theme.accent);
-        graphics.fill(x + 2, y + 6, x + 18, y + 8, theme.accent);
-        graphics.fill(x + 3, y + 7, x + 17, y + 9, 0xFF4F8FC7);
+        DaycareThemedPanel.roundedFill(
+            graphics, x, y, x + 20, y + 20, 5, theme.border
+        );
+        DaycareThemedPanel.roundedFill(
+            graphics, x + 1, y + 1, x + 19, y + 19, 4,
+            DaycareThemedPanel.withOpacity(theme.background, .9F)
+        );
+        graphics.renderItem(daycareEggIcon(), x + 2, y + 2);
+    }
+
+    private static ItemStack daycareEggIcon() {
+        return new ItemStack(BuiltInRegistries.ITEM.getOptional(DAYCARE_EGG)
+            .orElse(Items.EGG));
     }
 
     private void drawSectionPanel(GuiGraphics graphics, int x, int y, int width, int height) {
@@ -505,8 +519,11 @@ final class DaycareScreen extends Screen {
         if (!validConfirmation()) return;
         DaycareNetwork.PokemonView pokemon = payload.storedPokemon().get(confirmingStoredSlot);
         int visibleExperience = visibleTrainingExperience(pokemon);
-        BigInteger cost = BigInteger.valueOf(payload.trainingCostPerExperience())
-            .multiply(BigInteger.valueOf(visibleExperience));
+        long chargedIntervals = (visibleExperience
+            + payload.trainingExperiencePerInterval() - 1L)
+            / payload.trainingExperiencePerInterval();
+        BigInteger cost = BigInteger.valueOf(payload.trainingCostPerInterval())
+            .multiply(BigInteger.valueOf(chargedIntervals));
         BigInteger balance = parseBalance(payload.balance());
         BigInteger remaining = balance.subtract(cost);
         int modalWidth = confirmationWidth();
@@ -605,7 +622,14 @@ final class DaycareScreen extends Screen {
         long elapsedSeconds = Math.max(
             0L, (System.currentTimeMillis() - payloadReceivedAtMillis) / 1_000L
         );
-        long gainedSinceSnapshot = elapsedSeconds * payload.trainingExperiencePerSecond();
+        long completedIntervals = 0L;
+        if (elapsedSeconds >= pokemon.secondsUntilNextTrainingGain()) {
+            completedIntervals = 1L + (elapsedSeconds
+                - pokemon.secondsUntilNextTrainingGain())
+                / payload.trainingIntervalSeconds();
+        }
+        long gainedSinceSnapshot = completedIntervals
+            * payload.trainingExperiencePerInterval();
         long visible = pokemon.trainingExperience() + gainedSinceSnapshot;
         return (int) Math.min(pokemon.trainingExperienceLimit(), visible);
     }

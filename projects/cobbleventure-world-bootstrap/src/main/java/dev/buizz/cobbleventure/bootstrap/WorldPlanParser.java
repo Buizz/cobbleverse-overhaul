@@ -96,7 +96,8 @@ final class WorldPlanParser {
                     ? terrainProfile(value) : new TerrainProfile(0, 0, 96.0D, 0),
                 required(value, "surface_style"), logBridgeLayout(value),
                 optional(value, "access_requirement"),
-                coordinates(value, "cells"), optionalPoint(value, "from_town_road"),
+                coordinates(value, "cells"), coordinates(value, "encounter_cells"),
+                optionalPoint(value, "from_town_road"),
                 optionalPoint(value, "to_town_road"),
                 routePokemonSpawns(value), routeNpcPlacements(value),
                 regionalTrainerPopulation(value, "automatic_npc_placement", "count")

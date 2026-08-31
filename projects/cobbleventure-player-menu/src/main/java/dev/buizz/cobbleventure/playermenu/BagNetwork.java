@@ -395,6 +395,10 @@ public final class BagNetwork {
         NonNullList<ItemStack> storage = BagStorage.load(player);
         ItemStack stack = getStack(player, storage, payload.extended(), payload.slot());
         if (stack.isEmpty()) return;
+        if (ImportantItemProtection.isProtected(stack)) {
+            ImportantItemProtection.notifyProtected(player, stack);
+            return;
+        }
         int remaining = payload.quantity();
         if (!payload.extended()) {
             int removed = Math.min(remaining, stack.getCount());
@@ -418,6 +422,11 @@ public final class BagNetwork {
         if (!(context.player() instanceof ServerPlayer player) || !validSlot(payload.extended(), payload.slot())
             || payload.quantity() <= 0) return;
         NonNullList<ItemStack> storage = BagStorage.load(player);
+        ItemStack source = getStack(player, storage, payload.extended(), payload.slot());
+        if (ImportantItemProtection.isProtected(source)) {
+            ImportantItemProtection.notifyProtected(player, source);
+            return;
+        }
         ItemStack dropped = takeSelectedItems(player, storage, payload.extended(), payload.slot(), payload.quantity());
         if (dropped.isEmpty()) return;
         player.drop(dropped, false, true);
@@ -431,6 +440,10 @@ public final class BagNetwork {
         ItemStack source = getStack(player, storage, payload.extended(), payload.slot());
         Pokemon pokemon = Cobblemon.INSTANCE.getStorage().getParty(player).get(payload.partySlot());
         if (source.isEmpty() || pokemon == null) return;
+        if (ImportantItemProtection.isProtected(source)) {
+            ImportantItemProtection.notifyProtected(player, source);
+            return;
+        }
 
         ItemStack offered = source.copy();
         int before = offered.getCount();

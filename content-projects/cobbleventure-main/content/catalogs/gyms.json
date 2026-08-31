@@ -46,7 +46,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "staff": {
@@ -81,7 +81,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "exterior": {
@@ -148,7 +148,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "exterior": {
@@ -220,7 +220,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "exterior": {
@@ -312,7 +312,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "exterior": {
@@ -399,7 +399,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "exterior": {
@@ -491,7 +491,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "exterior": {
@@ -583,7 +583,7 @@
         ],
         "blocking_npc": {
           "enabled": true,
-          "npc_profile": "cobbleventure:npc/starter_town_gatekeeper_minho"
+          "npc_profile": "cobbleventure:npc/gym_guide"
         }
       },
       "exterior": {

@@ -28,7 +28,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative transport for the multi-Pokemon daycare screen. */
 public final class DaycareNetwork {
-    private static final String VERSION = "9";
+    private static final String VERSION = "10";
     private static final String DAYCARE_SCRIPT = "cobbleventure:event_script/facilities/daycare";
     private static final double MAX_NPC_DISTANCE_SQUARED = 64.0D;
 
@@ -112,7 +112,7 @@ public final class DaycareNetwork {
         for (int index = 0; index < 6; index++) {
             Pokemon pokemon = party.get(index);
             partySlots.add(pokemon == null
-                ? PokemonView.empty() : viewOf(player, pokemon, false, 0));
+                ? PokemonView.empty() : viewOf(player, pokemon, false, 0, 0L));
         }
 
         DaycareJob job = DaycareService.refreshState(player);
@@ -124,16 +124,18 @@ public final class DaycareNetwork {
                 );
                 stored.add(viewOf(
                     player, pokemon, value.training(),
-                    DaycareService.accruedTrainingExperience(value)
+                    DaycareService.accruedTrainingExperience(value),
+                    DaycareService.secondsUntilNextTrainingGain(value)
                 ));
             }
         }
         boolean compatible = DaycareService.hasCompatiblePair(player, job);
         return new ViewPayload(
             npcId,
-            DaycareService.SERVICE_FEE, DaycareService.TRAINING_COST_PER_EXPERIENCE,
+            DaycareService.SERVICE_FEE, DaycareService.TRAINING_COST_PER_INTERVAL,
             DaycareService.MAX_TRAINING_EXPERIENCE,
-            DaycarePolicy.TRAINING_EXPERIENCE_PER_SECOND,
+            DaycarePolicy.TRAINING_EXPERIENCE_PER_INTERVAL,
+            DaycarePolicy.TRAINING_INTERVAL_SECONDS,
             PlayerExtensionKt.getCobbleDollars(player).toString(),
             job == null ? 0L : DaycareService.remainingMinutes(job),
             partySlots, stored, job == null ? 0 : job.eggCount(), compatible, feedback
@@ -141,7 +143,8 @@ public final class DaycareNetwork {
     }
 
     private static PokemonView viewOf(
-        ServerPlayer player, Pokemon pokemon, boolean training, int trainingExperience
+        ServerPlayer player, Pokemon pokemon, boolean training, int trainingExperience,
+        long secondsUntilNextTrainingGain
     ) {
         int applicableExperience = Math.min(
             trainingExperience, pokemon.getExperienceToLevel(100)
@@ -155,7 +158,7 @@ public final class DaycareNetwork {
         );
         return new PokemonView(
             pokemon.getDisplayName(false).getString(), pokemon.getLevel(), projectedLevel, training,
-            applicableExperience, trainingExperienceLimit,
+            applicableExperience, trainingExperienceLimit, secondsUntilNextTrainingGain,
             pokemon.saveToNBT(player.registryAccess(), new CompoundTag())
         );
     }
@@ -168,7 +171,8 @@ public final class DaycareNetwork {
 
     public record PokemonView(
         String name, int originalLevel, int level, boolean training,
-        int trainingExperience, int trainingExperienceLimit, CompoundTag data
+        int trainingExperience, int trainingExperienceLimit,
+        long secondsUntilNextTrainingGain, CompoundTag data
     ) {
         public PokemonView {
             Objects.requireNonNull(name, "name");
@@ -177,7 +181,7 @@ public final class DaycareNetwork {
         }
 
         public static PokemonView empty() {
-            return new PokemonView("", 0, 0, false, 0, 0, new CompoundTag());
+            return new PokemonView("", 0, 0, false, 0, 0, 0L, new CompoundTag());
         }
 
         public boolean emptySlot() { return name.isBlank(); }
@@ -189,6 +193,7 @@ public final class DaycareNetwork {
             buffer.writeBoolean(training);
             buffer.writeVarInt(trainingExperience);
             buffer.writeVarInt(trainingExperienceLimit);
+            buffer.writeLong(secondsUntilNextTrainingGain);
             buffer.writeNbt(data);
         }
 
@@ -199,10 +204,11 @@ public final class DaycareNetwork {
             boolean training = buffer.readBoolean();
             int trainingExperience = buffer.readVarInt();
             int trainingExperienceLimit = buffer.readVarInt();
+            long secondsUntilNextTrainingGain = buffer.readLong();
             CompoundTag data = buffer.readNbt();
             return new PokemonView(
                 name, originalLevel, level, training,
-                trainingExperience, trainingExperienceLimit,
+                trainingExperience, trainingExperienceLimit, secondsUntilNextTrainingGain,
                 data == null ? new CompoundTag() : data
             );
         }
@@ -210,8 +216,8 @@ public final class DaycareNetwork {
 
     public record ViewPayload(
         UUID npcId,
-        long fee, long trainingCostPerExperience, int maxTrainingExperience,
-        long trainingExperiencePerSecond,
+        long fee, long trainingCostPerInterval, int maxTrainingExperience,
+        int trainingExperiencePerInterval, long trainingIntervalSeconds,
         String balance,
         long remainingMinutes,
         List<PokemonView> partySlots, List<PokemonView> storedPokemon,
@@ -234,9 +240,10 @@ public final class DaycareNetwork {
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeUUID(npcId);
             buffer.writeLong(fee);
-            buffer.writeLong(trainingCostPerExperience);
+            buffer.writeLong(trainingCostPerInterval);
             buffer.writeVarInt(maxTrainingExperience);
-            buffer.writeLong(trainingExperiencePerSecond);
+            buffer.writeVarInt(trainingExperiencePerInterval);
+            buffer.writeLong(trainingIntervalSeconds);
             buffer.writeUtf(balance);
             buffer.writeLong(remainingMinutes);
             partySlots.forEach(value -> value.write(buffer));
@@ -252,7 +259,8 @@ public final class DaycareNetwork {
             long fee = buffer.readLong();
             long trainingCost = buffer.readLong();
             int maxTrainingExperience = buffer.readVarInt();
-            long trainingExperiencePerSecond = buffer.readLong();
+            int trainingExperiencePerInterval = buffer.readVarInt();
+            long trainingIntervalSeconds = buffer.readLong();
             String balance = buffer.readUtf();
             long remaining = buffer.readLong();
             List<PokemonView> party = new ArrayList<>(6);
@@ -265,7 +273,8 @@ public final class DaycareNetwork {
             Component feedback = ComponentSerialization.TRUSTED_STREAM_CODEC.decode(buffer);
             return new ViewPayload(
                 npcId, fee, trainingCost, maxTrainingExperience,
-                trainingExperiencePerSecond, balance, remaining,
+                trainingExperiencePerInterval, trainingIntervalSeconds,
+                balance, remaining,
                 party, stored, eggs, compatible, feedback
             );
         }

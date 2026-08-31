@@ -70,6 +70,10 @@ final class GymInteriorSystem {
     private static final String INTERACTION_COOLDOWN = "cobbleventureGymDoorCooldown";
     private static final String STARTER_RECEIVED_FLAG =
         "cobbleventure:flag/story/starter_received";
+    private static final String LEGACY_GYM_BLOCKER_BINDING =
+        "cves_binding/cobbleventure/story/starter_town_gatekeeper_minho";
+    private static final String GYM_GUIDE_BINDING =
+        "cves_binding/cobbleventure/story/gym_guide";
     private static final int INSTANCE_GAP = 128;
     private static final int SLOT_Y = 64;
     private static final BlockPoint DEFAULT_DOOR = new BlockPoint(12, 3, 3);
@@ -913,10 +917,39 @@ final class GymInteriorSystem {
     }
 
     private static void ensureBlockingNpc(MinecraftServer server, BlockingNpc blocker) {
-        if (blocker == null || BLOCKING_NPCS.containsKey(blocker.key)) return;
+        if (blocker == null) return;
         ServerLevel level = server.getLevel(blocker.dimension);
         if (level == null) return;
         AABB search = new AABB(blocker.position).inflate(2.0D);
+
+        UUID registeredUuid = BLOCKING_NPCS.get(blocker.key);
+        Entity registered = registeredUuid == null ? null : level.getEntity(registeredUuid);
+        if (registered != null && registered.getTags().contains(GYM_GUIDE_BINDING)) {
+            configureBlockingNpc(registered);
+            return;
+        }
+        BLOCKING_NPCS.remove(blocker.key);
+
+        List<Entity> nearbyBlockers = level.getEntities(
+            (Entity) null,
+            search,
+            GymInteriorSystem::isGymBlockingNpc
+        );
+        Entity existingGuide = nearbyBlockers.stream()
+            .filter(entity -> entity.getTags().contains(GYM_GUIDE_BINDING))
+            .min(java.util.Comparator.comparingDouble(
+                entity -> entity.distanceToSqr(Vec3.atCenterOf(blocker.position))
+            ))
+            .orElse(null);
+        for (Entity entity : nearbyBlockers) {
+            if (entity != existingGuide) entity.discard();
+        }
+        if (existingGuide != null) {
+            configureBlockingNpc(existingGuide);
+            BLOCKING_NPCS.put(blocker.key, existingGuide.getUUID());
+            return;
+        }
+
         Set<UUID> before = new HashSet<>();
         for (Entity entity : level.getEntities((Entity) null, search)) before.add(entity.getUUID());
         GymConfig gym = GYMS.get(blocker.key);
@@ -925,10 +958,7 @@ final class GymInteriorSystem {
         level.getEntities((Entity) null, search, entity -> !before.contains(entity.getUUID()))
             .stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(Vec3.atCenterOf(blocker.position))))
             .ifPresent(entity -> {
-                entity.noPhysics = true;
-                entity.setInvulnerable(true);
-                entity.setNoGravity(true);
-                entity.setDeltaMovement(Vec3.ZERO);
+                configureBlockingNpc(entity);
                 BLOCKING_NPCS.put(blocker.key, entity.getUUID());
             });
     }
@@ -936,9 +966,27 @@ final class GymInteriorSystem {
     private static void removeBlockingNpc(MinecraftServer server, BlockingNpc blocker) {
         UUID uuid = BLOCKING_NPCS.remove(blocker.key);
         ServerLevel level = server.getLevel(blocker.dimension);
-        if (uuid == null || level == null) return;
-        Entity entity = level.getEntity(uuid);
-        if (entity != null) entity.discard();
+        if (level == null) return;
+        if (uuid != null) {
+            Entity entity = level.getEntity(uuid);
+            if (entity != null) entity.discard();
+        }
+        AABB search = new AABB(blocker.position).inflate(2.0D);
+        for (Entity entity : level.getEntities((Entity) null, search, GymInteriorSystem::isGymBlockingNpc)) {
+            entity.discard();
+        }
+    }
+
+    private static boolean isGymBlockingNpc(Entity entity) {
+        Set<String> tags = entity.getTags();
+        return tags.contains(GYM_GUIDE_BINDING) || tags.contains(LEGACY_GYM_BLOCKER_BINDING);
+    }
+
+    private static void configureBlockingNpc(Entity entity) {
+        entity.noPhysics = true;
+        entity.setInvulnerable(true);
+        entity.setNoGravity(true);
+        entity.setDeltaMovement(Vec3.ZERO);
     }
 
     private static void onServerTick(ServerTickEvent.Post event) {

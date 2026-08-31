@@ -201,6 +201,9 @@ processResources {
     from(new File(contentDir, 'catalogs/trainer-roster.json')) {
         into 'data/cobbleventure_player_menu/league'
     }
+    from(new File(contentDir, 'catalogs/important-items.json')) {
+        into 'data/cobbleventure_player_menu/progression'
+    }
     from(new File(contentDir, 'source/trainers/gym_leaders')) {
         into 'data/cobbleventure_player_menu/league/npcs'
         include '*.json'

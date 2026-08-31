@@ -3,17 +3,9 @@
   "schema_version": 4,
   "id": "cobbleventure:npc/rewards/item_pokeball_supplier",
   "enabled": true,
-  "name": {
-    "ko_kr": "포획 지원원"
-  },
-  "description": {
-    "ko_kr": "몬스터볼 5개를 플레이어당 한 번 지급하는 수동 배치 NPC입니다."
-  },
-  "tags": [
-    "reward",
-    "item_giver",
-    "manual_placement"
-  ],
+  "name": { "ko_kr": "오박사 연구소 조수" },
+  "description": { "ko_kr": "첫 파트너를 받은 트레이너에게 오박사가 준비한 몬스터볼 5개를 건네는 연구소 조수입니다." },
+  "tags": ["reward", "item_giver", "researcher", "manual_placement"],
   "placement_profile": {
     "classification": "ambient",
     "preferred_biomes": [],
@@ -21,15 +13,13 @@
     "automatic_route_placement": false
   },
   "npc": {
-    "display_name": {
-      "ko_kr": "포획 지원원"
-    },
+    "display_name": { "ko_kr": "연구소 조수" },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/gentleman",
+    "trainer_class": "cobbleventure:trainer_class/scientist",
     "appearance": {
       "source": "rct_single",
       "type": "skin",
-      "resource": "rctmod:trainers/single/gentleman_brooks_01e2"
+      "resource": "rctmod:trainers/single/scientist_ed_0158"
     },
     "behavior": {
       "movement": "stationary",
@@ -40,26 +30,57 @@
   },
   "event_runtime": {
     "engine": "cves_v5",
-    "authoring": "preset",
+    "authoring": "custom",
     "script_id": "cobbleventure:event_script/rewards/item_pokeball_supplier"
   },
-  "event_design": {
-    "mode": "preset",
-    "preset": {
-      "type": "item",
-      "initial_trigger": {
-        "type": "interact",
-        "range": 4
+  "event_design": { "mode": "easy_npc_events" },
+  "events": [{
+    "id": "on_interact",
+    "trigger": { "type": "interact", "range": 4 },
+    "commands": [
+      {
+        "type": "branch",
+        "conditions": [{
+          "type": "flag_equals",
+          "key": "cobbleventure:flag/story/starter_received",
+          "value": false
+        }],
+        "target": "needs_partner"
       },
-      "first_text": {
-        "ko_kr": "새로운 포켓몬과 만날 준비는 됐나요? 몬스터볼을 보급해 드리죠."
+      {
+        "type": "branch",
+        "conditions": [{
+          "type": "flag_equals",
+          "key": "cobbleventure:flag/rewards/item/pokeball_supplier",
+          "value": true
+        }],
+        "target": "claimed"
       },
-      "state_key": "cobbleventure:flag/rewards/item/pokeball_supplier",
-      "repeat_text": {
-        "ko_kr": "포켓몬을 포획하기 전에는 상태와 체력을 잘 살펴보세요."
+      {
+        "type": "dialogue",
+        "id": "offer",
+        "speaker": "npc",
+        "text": { "ko_kr": "첫 파트너를 정했군요. 오박사님이 초보 트레이너를 위해 준비한 몬스터볼이에요. 야생 포켓몬을 만났을 때 사용해 보세요." }
       },
-      "item": "cobblemon:poke_ball",
-      "item_count": 5
-    }
-  }
+      { "type": "give_item", "item": "cobblemon:poke_ball", "count": 5 },
+      { "type": "set_flag", "key": "cobbleventure:flag/rewards/item/pokeball_supplier", "value": true },
+      { "type": "end" },
+      { "type": "label", "name": "needs_partner" },
+      {
+        "type": "dialogue",
+        "id": "needs_partner",
+        "speaker": "npc",
+        "text": { "ko_kr": "오박사님과 먼저 이야기해 보세요. 첫 파트너를 정하면 여행에 필요한 물품을 챙겨 드릴게요." }
+      },
+      { "type": "end" },
+      { "type": "label", "name": "claimed" },
+      {
+        "type": "dialogue",
+        "id": "claimed",
+        "speaker": "npc",
+        "text": { "ko_kr": "야생 포켓몬은 체력을 줄이거나 상태 이상으로 만들면 훨씬 잡기 쉬워져요." }
+      },
+      { "type": "end" }
+    ]
+  }]
 }

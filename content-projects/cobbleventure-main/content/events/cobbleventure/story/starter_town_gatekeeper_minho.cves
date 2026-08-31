@@ -1,7 +1,28 @@
 event interact(range: 4) {
+  page when !flag("cobbleventure:flag/story/starter_received") {
+    say npc {
+      ko_kr: "이 앞부터는 야생 포켓몬이 나타나. 오박사님께 첫 파트너를 받은 뒤 다시 오렴."
+    }
+  }
+
+  page when flag("cobbleventure:flag/story/pokenav_received") {
+    say npc {
+      ko_kr: "파트너와 포켓내비도 준비됐네. 길에서 어떤 포켓몬을 만날지 기대되는걸!"
+    }
+  }
+
   page default {
     say npc {
-      ko_kr: "이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사님께 먼저 다녀오렴."
+      ko_kr: "이제 출발하는구나! 오박사님이 네가 마을을 나설 때 전해 달라며 포켓내비를 맡기셨어."
+    }
+    id "first/give_pokenav" give_item "cobblenav:pokenav_item_red" count 1 notify -> pokenav
+    if pokenav.remaining_count > 0 {
+      narrate "가방에 빈 공간이 없어 포켓내비를 받을 수 없습니다."
+      stop
+    }
+    id "first/set_pokenav_received" set_flag "cobbleventure:flag/story/pokenav_received" true
+    say npc {
+      ko_kr: "포켓내비를 사용하면 주변에 사는 포켓몬을 찾는 데 도움이 될 거야. 첫 여행, 조심해서 다녀와!"
     }
   }
 }

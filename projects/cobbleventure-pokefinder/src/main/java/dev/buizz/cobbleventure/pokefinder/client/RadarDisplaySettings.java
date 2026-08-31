@@ -42,6 +42,14 @@ public final class RadarDisplaySettings {
                 && marker.type() != RadarMarkerType.GYM_LEADER);
     }
 
+    /** Major travel facilities keep their labels visible even when generic names are hidden. */
+    static boolean isLandmark(RadarMarker marker) {
+        return marker.type() == RadarMarkerType.POKEMON_CENTER
+            || marker.type() == RadarMarkerType.POKEMART
+            || (marker.type() == RadarMarkerType.GYM_LEADER
+                && !marker.id().getPath().startsWith("npc/"));
+    }
+
     static Option category(RadarMarkerType type, String idPath) {
         return switch (type) {
             case PLAYER -> Option.PLAYERS;

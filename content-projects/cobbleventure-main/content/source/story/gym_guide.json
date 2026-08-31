@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/npc-event-script.schema.json",
+  "schema_version": 4,
+  "id": "cobbleventure:npc/gym_guide",
+  "enabled": true,
+  "name": { "ko_kr": "체육관 안내인" },
+  "description": { "ko_kr": "포켓몬리그의 체육관 도전 순서를 안내하는 전용 안내인입니다." },
+  "tags": ["story", "gym", "guide", "gatekeeper", "manual_placement"],
+  "placement_profile": {
+    "classification": "ambient",
+    "preferred_biomes": [],
+    "automatic_town_placement": false,
+    "automatic_route_placement": false
+  },
+  "npc": {
+    "display_name": { "ko_kr": "체육관 안내인" },
+    "role": "gatekeeper",
+    "trainer_class": "cobbleventure:trainer_class/ace_trainer_male",
+    "appearance": {
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/ace_trainer_symes_0071"
+    },
+    "behavior": {
+      "movement": "stationary",
+      "look_at_player": true,
+      "invulnerable": true,
+      "collision": true
+    }
+  },
+  "event_runtime": {
+    "engine": "cves_v5",
+    "authoring": "preset",
+    "script_id": "cobbleventure:event_script/story/gym_guide"
+  },
+  "event_design": {
+    "mode": "preset",
+    "preset": {
+      "type": "simple",
+      "initial_trigger": { "type": "interact", "range": 4 },
+      "first_text": {
+        "ko_kr": "포켓몬리그 규정상 체육관은 정해진 순서로 도전해야 해. 먼저 앞선 도시의 관장에게 승리하고 배지를 받아 와."
+      }
+    }
+  }
+}

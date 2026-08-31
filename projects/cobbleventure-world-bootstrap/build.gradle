@@ -38,6 +38,7 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation "dev.buizz.cobbleventure:cobbleventure-adventure:0.1.0"
+    testImplementation "dev.buizz.cobbleventure:cobbleventure-player-menu:1.6.0"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

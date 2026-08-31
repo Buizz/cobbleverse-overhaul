@@ -11,8 +11,6 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.loading.FMLPaths;
 
 /** Owns the PokéNav's built-in Pokefinder HUD state and reuses CobbleNav's renderer. */
@@ -21,7 +19,6 @@ public final class PinnedPokefinderHud {
     private static final ThreadLocal<Boolean> INTEGRATED_RENDER =
         ThreadLocal.withInitial(() -> false);
     private static State state = load(STATE_FILE);
-    private static boolean pokenavOpenedThisSession;
 
     private PinnedPokefinderHud() {}
 
@@ -58,14 +55,6 @@ public final class PinnedPokefinderHud {
         return new State(false, PokefinderHudPosition.LEFT);
     }
 
-    public static void markPokenavOpened() {
-        pokenavOpenedThisSession = true;
-    }
-
-    static boolean canControl(LocalPlayer player) {
-        return state.enabled() || pokenavOpenedThisSession || ownsPokenav(player);
-    }
-
     public static void renderBase(GuiGraphics graphics, DeltaTracker deltaTracker) {
         Minecraft minecraft = Minecraft.getInstance();
         if (!shouldRenderPinned(minecraft)) return;
@@ -99,17 +88,6 @@ public final class PinnedPokefinderHud {
             && minecraft.screen == null
             && player != null
             && CobblenavClient.INSTANCE.getPokefinderSettings() != null;
-    }
-
-    static boolean ownsPokenav(LocalPlayer player) {
-        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            var id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            if (id.getNamespace().equals("cobblenav") && id.getPath().startsWith("pokenav_item")) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static Path stateFile() {

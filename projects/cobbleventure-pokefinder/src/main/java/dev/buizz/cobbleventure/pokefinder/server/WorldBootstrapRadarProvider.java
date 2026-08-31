@@ -128,7 +128,7 @@ public final class WorldBootstrapRadarProvider {
                     CobbleventurePokefinder.MOD_ID,
                     "radar/" + markerType.name().toLowerCase(Locale.ROOT)
                 ),
-                priority(markerType),
+                priority(markerType, rawId),
                 state,
                 areaId,
                 RadarRanges.DEFAULT_LOCAL,
@@ -139,12 +139,15 @@ public final class WorldBootstrapRadarProvider {
         }
     }
 
-    private static int priority(RadarMarkerType type) {
+    static int priority(RadarMarkerType type, String rawId) {
+        if (type == RadarMarkerType.GYM_LEADER
+            && !safePath(rawId).startsWith("npc/")) return 700;
         return switch (type) {
             case GYM_LEADER -> 500;
-            case OBJECTIVE -> 600;
+            case OBJECTIVE -> 800;
             case TRAINER, IMPORTANT_NPC -> 400;
-            case POKEMON_CENTER, POKEMART, CASINO, SPECIAL_BUILDING -> 300;
+            case POKEMON_CENTER, POKEMART -> 700;
+            case CASINO, SPECIAL_BUILDING -> 300;
             case CAVE_ENTRANCE, FOREST_ENTRANCE, GATE -> 200;
             default -> 100;
         };

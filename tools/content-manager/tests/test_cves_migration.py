@@ -4,7 +4,6 @@ import copy
 import json
 import sys
 import unittest
-from decimal import Decimal
 from pathlib import Path
 
 
@@ -18,11 +17,9 @@ from cves import (  # noqa: E402
     compare_battle_event_migration,
     compare_item_reward_migration,
     compare_gym_leader_migration,
-    compare_simple_dialogue_migration,
     compare_starter_event_migration,
     item_reward_contract_from_cves,
     gym_leader_contract_from_cves,
-    simple_dialogue_contract_from_cves,
     starter_event_contract_from_cves,
     parse,
 )
@@ -159,18 +156,15 @@ class CvesStarterEventMigrationTests(unittest.TestCase):
             starter_event_contract_from_cves(parse(unsafe, "unsafe-pokedex.cves"))
 
 
-class CvesSimpleDialogueMigrationTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.legacy = json.loads(V4_GATEKEEPER_SOURCE.read_text(encoding="utf-8"))
-        cls.program = parse(V5_GATEKEEPER_SOURCE.read_text(encoding="utf-8"), str(V5_GATEKEEPER_SOURCE))
+class CvesStarterTownGatekeeperTests(unittest.TestCase):
+    def test_gatekeeper_gives_pokenav_only_after_the_starter(self) -> None:
+        source = V5_GATEKEEPER_SOURCE.read_text(encoding="utf-8")
+        parse(source, str(V5_GATEKEEPER_SOURCE))
 
-    def test_gatekeeper_preserves_v4_trigger_and_dialogue(self) -> None:
-        contract = simple_dialogue_contract_from_cves(self.program)
-
-        self.assertEqual((), compare_simple_dialogue_migration(self.legacy, self.program))
-        self.assertEqual(Decimal("4"), contract.trigger_range)
-        self.assertIn(("ko_kr", "이 앞부터는 야생 포켓몬이 나타나. 파트너가 없다면 오박사님께 먼저 다녀오렴."), contract.text)
+        self.assertIn('!flag("cobbleventure:flag/story/starter_received")', source)
+        self.assertIn('give_item "cobblenav:pokenav_item_red" count 1 notify', source)
+        self.assertIn('set_flag "cobbleventure:flag/story/pokenav_received" true', source)
+        self.assertNotIn("give_pokenav", V5_STARTER_SOURCE.read_text(encoding="utf-8"))
 
 
 class CvesGymLeaderMigrationTests(unittest.TestCase):

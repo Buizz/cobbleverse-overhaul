@@ -3,8 +3,8 @@
   "schema_version": 1,
   "id": "cobbleventure:route/route_custom_12",
   "display_name": {
-    "ko_kr": "노랑시티 - 블루시티–갈색시티 지하통로 길",
-    "en_us": "노랑시티 - 블루시티–갈색시티 지하통로 길"
+    "ko_kr": "블루시티–갈색시티 지하통로 - 블루시티 길",
+    "en_us": "블루시티–갈색시티 지하통로 - 블루시티 길"
   },
   "auto_name": true,
   "enabled": true,

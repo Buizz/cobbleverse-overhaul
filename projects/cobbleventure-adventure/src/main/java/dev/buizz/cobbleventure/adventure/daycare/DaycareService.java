@@ -35,8 +35,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 /** Paid multi-Pokemon daycare storage with periodic, non-guaranteed egg discovery. */
 public final class DaycareService {
     static final long SERVICE_FEE = 3_000L;
-    static final long TRAINING_COST_PER_EXPERIENCE =
-        DaycarePolicy.TRAINING_COST_PER_EXPERIENCE;
+    static final long TRAINING_COST_PER_INTERVAL =
+        DaycarePolicy.TRAINING_COST_PER_INTERVAL;
     static final int MAX_TRAINING_EXPERIENCE = DaycarePolicy.MAX_TRAINING_EXPERIENCE;
     private static final int MIN_BREEDING_TICKS = 8_000;
     private static final int MAX_BREEDING_TICKS = 14_000;
@@ -160,7 +160,9 @@ public final class DaycareService {
                 : "message.cobbleventure_adventure.daycare.accepted_single",
             selected.getDisplayName(false), SERVICE_FEE,
             updated.pokemonCount(), DaycareJob.MAX_POKEMON,
-            TRAINING_COST_PER_EXPERIENCE, MAX_TRAINING_EXPERIENCE
+            DaycarePolicy.TRAINING_EXPERIENCE_PER_INTERVAL,
+            DaycarePolicy.TRAINING_INTERVAL_SECONDS / 60L,
+            TRAINING_COST_PER_INTERVAL, MAX_TRAINING_EXPERIENCE
         );
     }
 
@@ -312,6 +314,12 @@ public final class DaycareService {
 
     static int accruedTrainingExperience(DaycareJob.StoredPokemon stored) {
         return DaycarePolicy.accruedTrainingExperience(
+            stored, Instant.now().toEpochMilli()
+        );
+    }
+
+    static long secondsUntilNextTrainingGain(DaycareJob.StoredPokemon stored) {
+        return DaycarePolicy.secondsUntilNextTrainingGain(
             stored, Instant.now().toEpochMilli()
         );
     }

@@ -1993,7 +1993,8 @@ public final class StructureBuilderMod {
         loadChunks(level, planned.origin(), expected);
         StructurePlaceSettings placementSettings = new StructurePlaceSettings()
             .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
-            .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE);
+            .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE)
+            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         boolean placed = template.placeInWorld(
             level, planned.origin(), planned.origin(), placementSettings,
             RandomSource.create(level.getSeed() ^ planned.origin().asLong()), 2

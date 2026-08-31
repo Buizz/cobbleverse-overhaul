@@ -108,6 +108,7 @@ public final class RadarMarkerRenderer {
         Cobblenav233LayoutAdapter.RadarPoint point, Vec3 playerPosition
     ) {
         boolean names = marker.type() == RadarMarkerType.PLAYER
+            || RadarDisplaySettings.isLandmark(marker)
             || RadarDisplaySettings.value(RadarDisplaySettings.Option.NAMES);
         boolean distances = RadarDisplaySettings.value(
             RadarDisplaySettings.Option.DISTANCES
@@ -177,21 +178,39 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x - 1, y + 1, x + 2, y + 2, color);
             }
             case POKEMON_CENTER -> {
-                graphics.fill(x - 2, y - 1, x + 3, y + 2, 0xFF101820);
-                graphics.fill(x - 1, y - 2, x + 2, y + 3, 0xFF101820);
-                graphics.fill(x - 1, y, x + 2, y + 1, color);
-                graphics.fill(x, y - 1, x + 1, y + 2, color);
+                drawFacilityPlate(graphics, x, y, color);
+                graphics.fill(x - 3, y - 1, x + 4, y + 2, 0xFFF7FBFF);
+                graphics.fill(x - 1, y - 3, x + 2, y + 4, 0xFFF7FBFF);
             }
-            case POKEMART, SPECIAL_BUILDING -> {
+            case POKEMART -> {
+                drawFacilityPlate(graphics, x, y, color);
+                // A compact white M remains legible at the radar's native scale.
+                graphics.fill(x - 3, y - 3, x - 2, y + 4, 0xFFF7FBFF);
+                graphics.fill(x + 2, y - 3, x + 3, y + 4, 0xFFF7FBFF);
+                graphics.fill(x - 2, y - 2, x - 1, y, 0xFFF7FBFF);
+                graphics.fill(x + 1, y - 2, x + 2, y, 0xFFF7FBFF);
+                graphics.fill(x - 1, y - 1, x + 2, y + 1, 0xFFF7FBFF);
+            }
+            case SPECIAL_BUILDING -> {
                 graphics.fill(x - 2, y - 2, x + 3, y + 3, 0xFF101820);
                 graphics.fill(x - 1, y - 1, x + 2, y + 2, color);
             }
             case GYM_LEADER -> {
-                graphics.fill(x - 2, y + 1, x + 3, y + 3, 0xFF101820);
-                graphics.fill(x - 2, y - 2, x - 1, y + 1, color);
-                graphics.fill(x, y - 1, x + 1, y + 1, color);
-                graphics.fill(x + 2, y - 2, x + 3, y + 1, color);
-                graphics.fill(x - 1, y + 1, x + 2, y + 2, color);
+                if (RadarDisplaySettings.isLandmark(marker)) {
+                    drawFacilityPlate(graphics, x, y, color);
+                    // Dark pixel G distinguishes a gym entrance from its leader NPC.
+                    graphics.fill(x - 2, y - 3, x + 3, y - 2, 0xFF101820);
+                    graphics.fill(x - 3, y - 2, x - 2, y + 3, 0xFF101820);
+                    graphics.fill(x - 2, y + 2, x + 3, y + 3, 0xFF101820);
+                    graphics.fill(x, y, x + 3, y + 1, 0xFF101820);
+                    graphics.fill(x + 2, y, x + 3, y + 3, 0xFF101820);
+                } else {
+                    graphics.fill(x - 2, y + 1, x + 3, y + 3, 0xFF101820);
+                    graphics.fill(x - 2, y - 2, x - 1, y + 1, color);
+                    graphics.fill(x, y - 1, x + 1, y + 1, color);
+                    graphics.fill(x + 2, y - 2, x + 3, y + 1, color);
+                    graphics.fill(x - 1, y + 1, x + 2, y + 2, color);
+                }
             }
             case CASINO -> {
                 graphics.fill(x, y - 3, x + 1, y + 4, 0xFF101820);
@@ -237,6 +256,15 @@ public final class RadarMarkerRenderer {
             graphics.fill(x - 2, y + 2, x, y + 3, 0xFFF2F7F5);
             graphics.fill(x - 1, y, x + 2, y + 1, 0xFFF2F7F5);
         }
+    }
+
+    private static void drawFacilityPlate(
+        GuiGraphics graphics, int x, int y, int color
+    ) {
+        graphics.fill(x - 5, y - 4, x + 6, y + 5, 0xFF101820);
+        graphics.fill(x - 4, y - 5, x + 5, y + 6, 0xFF101820);
+        graphics.fill(x - 4, y - 3, x + 5, y + 4, color);
+        graphics.fill(x - 3, y - 4, x + 4, y + 5, color);
     }
 
     private static int markerColor(RadarMarker marker) {

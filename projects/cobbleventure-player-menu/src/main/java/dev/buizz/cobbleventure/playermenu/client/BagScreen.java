@@ -5,6 +5,7 @@ import com.cobblemon.mod.common.api.item.PokemonSelectingItem;
 
 import dev.buizz.cobbleventure.playermenu.BagNetwork;
 import dev.buizz.cobbleventure.playermenu.CobbleventurePlayerMenu;
+import dev.buizz.cobbleventure.playermenu.ImportantItemProtection;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -60,6 +61,9 @@ public final class BagScreen extends Screen {
     private final int SELECTED_TEXT_COLOR;
     private final int ACCENT_COLOR;
     private final int SEPARATOR_COLOR;
+    private final int DISABLED_BUTTON_BORDER_COLOR;
+    private final int DISABLED_BUTTON_FILL_COLOR;
+    private final int DISABLED_BUTTON_TEXT_COLOR;
     private final MenuOpeningEffect openingEffect = new MenuOpeningEffect();
     private final List<CategoryButton> categoryButtons = new ArrayList<>();
     private final List<ItemSlotButton> itemButtons = new ArrayList<>();
@@ -112,6 +116,9 @@ public final class BagScreen extends Screen {
         SELECTED_TEXT_COLOR = 0xFF593400;
         ACCENT_COLOR = 0xFFF08C2E;
         SEPARATOR_COLOR = 0x55356A98;
+        DISABLED_BUTTON_BORDER_COLOR = 0xFF687680;
+        DISABLED_BUTTON_FILL_COLOR = 0xFF929EA7;
+        DISABLED_BUTTON_TEXT_COLOR = 0xFFE9EEF1;
     }
 
     @Override
@@ -645,6 +652,10 @@ public final class BagScreen extends Screen {
 
     private void dropSelected() {
         if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
+        if (ImportantItemProtection.isProtected(selectedStack())) {
+            showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.important_item"));
+            return;
+        }
         minecraft.setScreen(new BagDiscardScreen(
             this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(), selectedSlot.displayCount(),
             BagDiscardScreen.Mode.DROP
@@ -653,6 +664,10 @@ public final class BagScreen extends Screen {
 
     private void deleteSelected() {
         if (minecraft == null || selectedSlot == null || selectedStack().isEmpty()) return;
+        if (ImportantItemProtection.isProtected(selectedStack())) {
+            showStatus(Component.translatable("screen.cobbleventure_player_menu.bag.important_item"));
+            return;
+        }
         minecraft.setScreen(new BagDiscardScreen(
             this, selectedSlot.extended(), selectedSlot.slot(), selectedStack().copy(), selectedSlot.displayCount(),
             BagDiscardScreen.Mode.DELETE
@@ -697,11 +712,12 @@ public final class BagScreen extends Screen {
 
     private void updateActionButtons() {
         boolean hasSelection = selectedSlot != null && !selectedStack().isEmpty();
+        boolean protectedItem = hasSelection && ImportantItemProtection.isProtected(selectedStack());
         if (useButton != null) useButton.active = hasSelection;
         if (giveButton != null) giveButton.active = hasSelection && CobblemonMenuIntegration.partySize() > 0;
         if (shortcutButton != null) shortcutButton.active = hasSelection;
-        if (dropButton != null) dropButton.active = hasSelection;
-        if (deleteButton != null) deleteButton.active = hasSelection;
+        if (dropButton != null) dropButton.active = hasSelection && !protectedItem;
+        if (deleteButton != null) deleteButton.active = hasSelection && !protectedItem;
     }
 
     private void showStatus(Component message) {
@@ -1011,14 +1027,20 @@ public final class BagScreen extends Screen {
 
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            int border = active && isHovered() ? ACCENT_COLOR : PANEL_LIGHT_COLOR;
-            int fill = active && isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR;
+            int border = !active
+                ? DISABLED_BUTTON_BORDER_COLOR
+                : isHovered() ? ACCENT_COLOR : PANEL_LIGHT_COLOR;
+            int fill = !active
+                ? DISABLED_BUTTON_FILL_COLOR
+                : isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR;
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
                 rowRadius(getHeight()), border);
             fillRoundedRect(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
                 Math.max(0, rowRadius(getHeight()) - 1), fill);
-            int color = active ? (isHovered() ? ACCENT_COLOR : PRIMARY_TEXT_COLOR) : MUTED_TEXT_COLOR;
+            int color = active
+                ? (isHovered() ? ACCENT_COLOR : PRIMARY_TEXT_COLOR)
+                : DISABLED_BUTTON_TEXT_COLOR;
             String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 10);
             graphics.drawString(font, label,
                 getX() + (getWidth() - font.width(label)) / 2,

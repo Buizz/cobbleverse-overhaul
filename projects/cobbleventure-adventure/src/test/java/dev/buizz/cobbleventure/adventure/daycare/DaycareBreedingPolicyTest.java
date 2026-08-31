@@ -19,7 +19,7 @@ final class DaycareBreedingPolicyTest {
     }
 
     @Test
-    void trainingAccruesFromWallClockOnlyWhenEnabled() {
+    void trainingAccruesInFiveMinuteHundredExperienceIntervals() {
         DaycareJob.StoredPokemon trained = new DaycareJob.StoredPokemon(
             UUID.randomUUID(), new CompoundTag(), true, 1_000L
         );
@@ -27,8 +27,10 @@ final class DaycareBreedingPolicyTest {
             UUID.randomUUID(), new CompoundTag(), false, 0L
         );
 
-        assertEquals(10, DaycarePolicy.accruedTrainingExperience(trained, 11_000L));
-        assertEquals(0, DaycarePolicy.accruedTrainingExperience(untrained, 11_000L));
+        assertEquals(0, DaycarePolicy.accruedTrainingExperience(trained, 300_999L));
+        assertEquals(100, DaycarePolicy.accruedTrainingExperience(trained, 301_000L));
+        assertEquals(0, DaycarePolicy.accruedTrainingExperience(untrained, 301_000L));
+        assertEquals(300L, DaycarePolicy.secondsUntilNextTrainingGain(trained, 301_000L));
     }
 
     @Test
@@ -46,8 +48,15 @@ final class DaycareBreedingPolicyTest {
     @Test
     void trainingSettlementAllowsNegativeBalance() {
         assertEquals(
-            BigInteger.valueOf(-150L),
+            BigInteger.valueOf(-200L),
             DaycarePolicy.balanceAfterTraining(BigInteger.valueOf(100L), 250)
         );
+    }
+
+    @Test
+    void trainingFeeRoundsUpToWholeHundredExperienceIntervals() {
+        assertEquals(BigInteger.ZERO, DaycarePolicy.trainingCost(0));
+        assertEquals(BigInteger.valueOf(100L), DaycarePolicy.trainingCost(100));
+        assertEquals(BigInteger.valueOf(200L), DaycarePolicy.trainingCost(101));
     }
 }

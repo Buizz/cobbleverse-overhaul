@@ -12,6 +12,7 @@
     { "type": "branch", "conditions": [{ "type": "flag_equals", "key": "cobbleventure:flag/rewards/feature/map", "value": true }], "target": "claimed" },
     { "type": "dialogue", "id": "offer", "speaker": "npc", "text": { "ko_kr": "상록시티에 처음 왔구나! 관장과 다음 목적지를 찾기 쉽도록 지도와 포켓파인더를 줄게." } },
     { "type": "give_item", "item": "cobblenav:pokefinder_item", "count": 1 },
+    { "type": "set_flag", "key": "cobbleventure:flag/rewards/item/pokefinder_received", "value": true },
     { "type": "unlock_feature", "feature": "map" }, { "type": "set_flag", "key": "cobbleventure:flag/rewards/feature/map", "value": true },
     { "type": "dialogue", "id": "granted", "speaker": "npc", "text": { "ko_kr": "이제 메뉴에서 지도를 보고, 포켓파인더로 주변 정보를 확인할 수 있어. 서쪽 관문 너머로 가려면 관동의 여덟 배지를 모두 모아 와." } }, { "type": "end" },
     { "type": "label", "name": "claimed" }, { "type": "dialogue", "id": "repeat", "speaker": "npc", "text": { "ko_kr": "서쪽 관문은 석영고원으로 이어져 있어. 회색·블루·오렌지·무지개·핑크·골드·크림슨·그린배지를 모두 모으면 통과할 수 있어." } }, { "type": "end" }

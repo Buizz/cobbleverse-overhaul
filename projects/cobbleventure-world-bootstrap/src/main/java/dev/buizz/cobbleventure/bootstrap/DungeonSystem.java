@@ -483,6 +483,56 @@ final class DungeonSystem {
             && position.z < origin.getZ() + size.getZ() + margin;
     }
 
+    static boolean insideRunHorizontalBounds(
+        double x, double z, BlockPos origin, BlockPos size
+    ) {
+        double margin = 2.0D;
+        return size.getX() > 0 && size.getZ() > 0
+            && x >= origin.getX() - margin
+            && x < origin.getX() + size.getX() + margin
+            && z >= origin.getZ() - margin
+            && z < origin.getZ() + size.getZ() + margin;
+    }
+
+    static synchronized boolean ownsRandomEncountersAt(
+        ServerLevel level, double x, double z
+    ) {
+        return randomEncounterConfigAt(level, x, z) != null;
+    }
+
+    static synchronized Map<ResourceLocation, Integer> randomEncounterWeightsAt(
+        ServerLevel level, double x, double z
+    ) {
+        PursuitEncounterSystem.Config config = randomEncounterConfigAt(level, x, z);
+        if (config == null) {
+            return null;
+        }
+        Map<ResourceLocation, Integer> weights = new LinkedHashMap<>();
+        for (PursuitEncounterSystem.SpeciesChoice choice : config.species()) {
+            ResourceLocation species = ResourceLocation.tryParse(choice.species());
+            if (species != null) {
+                weights.merge(species, choice.weight(), Integer::sum);
+            }
+        }
+        return Map.copyOf(weights);
+    }
+
+    private static PursuitEncounterSystem.Config randomEncounterConfigAt(
+        ServerLevel level, double x, double z
+    ) {
+        if (!level.dimension().equals(DUNGEONS)) {
+            return null;
+        }
+        for (ActiveRun run : ACTIVE_RUNS.values()) {
+            if (run.randomEncounters() != null
+                && run.server().getLevel(DUNGEONS) == level
+                && insideRunHorizontalBounds(x, z, run.origin(), run.size())) {
+                return run.randomEncounters();
+            }
+        }
+        return null;
+    }
+
     private static boolean enforceCooperativeTether(
         ServerPlayer player, ActiveRun run, long gameTime
     ) {

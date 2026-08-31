@@ -568,7 +568,8 @@ public final class LiveNbtEditorMod {
         return new StructurePlaceSettings()
             .addProcessor(PlayingCardsTableOwnerProcessor.INSTANCE)
             .addProcessor(PlayingCardsEntityPlacementProcessor.INSTANCE)
-            .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE);
+            .addProcessor(CreateElevatorEntityPlacementProcessor.INSTANCE)
+            .addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
     }
 
     private static StructureTemplate captureTemplate(

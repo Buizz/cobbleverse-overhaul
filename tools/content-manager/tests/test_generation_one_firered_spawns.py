@@ -26,9 +26,20 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
         }
 
     def test_cerulean_north_road_uses_combined_route_24_and_25_pool(self) -> None:
+        world = self.load("worlds/generation_1.json")
+        world_route = next(
+            connection
+            for connection in world["connections"]
+            if connection["id"] == "route_custom_19"
+        )
         route = self.load("routes/generation_1/route_custom_19.json")
         spawns = route["pokemon_spawns"]
+        pools = spawns["encounter_pools"]
 
+        self.assertEqual(
+            [{"q": 7, "r": -4}, {"q": 8, "r": -5}, {"q": 9, "r": -4}],
+            world_route["encounter_cells"],
+        )
         self.assertFalse(spawns["inherit_biome"])
         self.assertEqual(
             {
@@ -45,6 +56,31 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
         self.assertEqual(100, sum(entry["weight"] for entry in spawns["additions"]))
         self.assertTrue(next(entry for entry in spawns["additions"] if entry["species"].endswith(":kakuna"))["spawn_as_evolved"])
         self.assertTrue(next(entry for entry in spawns["additions"] if entry["species"].endswith(":metapod"))["spawn_as_evolved"])
+        self.assertEqual(
+            {"psyduck": (20, 40, 100)},
+            self.by_species(pools["surf"]["additions"]),
+        )
+        self.assertEqual(
+            {"magikarp": (5, 5, 100)},
+            self.by_species(pools["old_rod"]["additions"]),
+        )
+        self.assertEqual(
+            {
+                "poliwag": (5, 15, 60),
+                "magikarp": (5, 15, 20),
+                "goldeen": (5, 15, 20),
+            },
+            self.by_species(pools["good_rod"]["additions"]),
+        )
+        self.assertEqual(
+            {
+                "poliwag": (15, 25, 40),
+                "poliwhirl": (20, 30, 40),
+                "gyarados": (15, 25, 15),
+                "psyduck": (15, 35, 5),
+            },
+            self.by_species(pools["super_rod"]["additions"]),
+        )
 
     def test_cerulean_north_road_reaches_bill_house_anchor(self) -> None:
         world = self.load("worlds/generation_1.json")
@@ -151,10 +187,20 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
         self.assertLess(route_order.index("route_custom_21"), route_order.index("route_custom_05"))
 
     def test_vermilion_south_sea_uses_firered_surf_and_fishing_pools(self) -> None:
+        world = self.load("worlds/generation_1.json")
+        world_route = next(
+            connection
+            for connection in world["connections"]
+            if connection["id"] == "route_custom_22"
+        )
         route = self.load("routes/generation_1/route_custom_22.json")
         spawns = route["pokemon_spawns"]
         pools = spawns["encounter_pools"]
 
+        self.assertEqual(
+            [{"q": 2, "r": 7}, {"q": 3, "r": 7}],
+            world_route["encounter_cells"],
+        )
         self.assertFalse(spawns["inherit_biome"])
         self.assertEqual([], spawns["additions"])
         self.assertEqual({"surf", "old_rod", "good_rod", "super_rod"}, set(pools))

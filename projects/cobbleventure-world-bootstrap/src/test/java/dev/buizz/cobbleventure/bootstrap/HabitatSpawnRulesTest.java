@@ -105,6 +105,30 @@ final class HabitatSpawnRulesTest {
         );
     }
 
+    @Test
+    void explicitEncounterAreaCanCoverSettlementWater() {
+        HexCoord townWater = new HexCoord(2, 7);
+        ConnectionPath route = routeWithEncounterCells(
+            "vermilion_sea", "path", List.of(townWater), new HexCoord(3, 7)
+        );
+
+        assertSame(route, RouteEncounterSelector.forCell(
+            townWater, List.of(route), Set.of(townWater), true
+        ));
+    }
+
+    @Test
+    void explicitAquaticAreaDoesNotReplaceSettlementLandEncounters() {
+        HexCoord townWater = new HexCoord(2, 7);
+        ConnectionPath route = routeWithEncounterCells(
+            "vermilion_sea", "path", List.of(townWater), new HexCoord(3, 7)
+        );
+
+        assertNull(RouteEncounterSelector.forCell(
+            townWater, List.of(route), Set.of(townWater)
+        ));
+    }
+
     private static AdventureWorldContext.WildSpawnRule rule(
         boolean inheritBiome, Set<ResourceLocation> excluded,
         List<AdventureWorldContext.WildSpawnAddition> additions
@@ -125,7 +149,17 @@ final class HabitatSpawnRulesTest {
     ) {
         return new ConnectionPath(
             id, id, "from", "to", "minecraft:plains", "none",
-            12.0D, 0.0D, null, surfaceStyle, "none", List.of(cells),
+            12.0D, 0.0D, null, surfaceStyle, "none", List.of(cells), List.of(),
+            List.of(), null, null, null, null, List.of(), null
+        );
+    }
+
+    private static ConnectionPath routeWithEncounterCells(
+        String id, String surfaceStyle, List<HexCoord> encounterCells, HexCoord... cells
+    ) {
+        return new ConnectionPath(
+            id, id, "from", "to", "minecraft:plains", "none",
+            12.0D, 0.0D, null, surfaceStyle, "none", List.of(cells), encounterCells,
             List.of(), null, null, null, null, List.of(), null
         );
     }

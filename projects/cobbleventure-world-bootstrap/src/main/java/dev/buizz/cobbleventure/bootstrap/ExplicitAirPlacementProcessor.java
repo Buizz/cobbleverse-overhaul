@@ -24,6 +24,10 @@ public final class ExplicitAirPlacementProcessor extends BlockIgnoreProcessor {
     public static StructurePlaceSettings configure(
         StructureTemplate template, StructurePlaceSettings settings
     ) {
+        // Every direct Cobbleventure NBT placement passes through this method.
+        // Keep local Y=0 air padding non-destructive regardless of whether the
+        // template also opts into explicit excavation markers.
+        settings.addProcessor(GroundFloorAirPreservationProcessor.INSTANCE);
         boolean explicitAir = !template.filterBlocks(
             BlockPos.ZERO, new StructurePlaceSettings(),
             StructureMarkerBlocks.EXCAVATION_MARKER.get()

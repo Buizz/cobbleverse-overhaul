@@ -102,7 +102,150 @@
         "min_level": 8,
         "max_level": 9
       }
-    ]
+    ],
+    "encounter_pools": {
+      "surf": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:psyduck",
+            "min_level": 20,
+            "max_level": 40,
+            "weight": 100
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:psyduck",
+            "min_level": 20,
+            "max_level": 40
+          }
+        ]
+      },
+      "old_rod": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 5,
+            "weight": 100
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 5
+          }
+        ]
+      },
+      "good_rod": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:poliwag",
+            "min_level": 5,
+            "max_level": 15,
+            "weight": 60
+          },
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 15,
+            "weight": 20
+          },
+          {
+            "species": "cobblemon:goldeen",
+            "min_level": 5,
+            "max_level": 15,
+            "weight": 20
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:poliwag",
+            "min_level": 5,
+            "max_level": 15
+          },
+          {
+            "species": "cobblemon:magikarp",
+            "min_level": 5,
+            "max_level": 15
+          },
+          {
+            "species": "cobblemon:goldeen",
+            "min_level": 5,
+            "max_level": 15
+          }
+        ]
+      },
+      "super_rod": {
+        "enabled": true,
+        "inherit_biome": false,
+        "excluded_species": [],
+        "trigger_chance": 1,
+        "additions": [
+          {
+            "species": "cobblemon:poliwag",
+            "min_level": 15,
+            "max_level": 25,
+            "weight": 40
+          },
+          {
+            "species": "cobblemon:poliwhirl",
+            "min_level": 20,
+            "max_level": 30,
+            "weight": 40,
+            "spawn_as_evolved": true
+          },
+          {
+            "species": "cobblemon:gyarados",
+            "min_level": 15,
+            "max_level": 25,
+            "weight": 15,
+            "spawn_as_evolved": true
+          },
+          {
+            "species": "cobblemon:psyduck",
+            "min_level": 15,
+            "max_level": 35,
+            "weight": 5
+          }
+        ],
+        "level_overrides": [
+          {
+            "species": "cobblemon:poliwag",
+            "min_level": 15,
+            "max_level": 25
+          },
+          {
+            "species": "cobblemon:poliwhirl",
+            "min_level": 20,
+            "max_level": 30
+          },
+          {
+            "species": "cobblemon:gyarados",
+            "min_level": 15,
+            "max_level": 25
+          },
+          {
+            "species": "cobblemon:psyduck",
+            "min_level": 15,
+            "max_level": 35
+          }
+        ]
+      }
+    }
   },
   "npc_placements": [],
   "automatic_npc_placement": {
