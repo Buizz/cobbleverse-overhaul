@@ -76,6 +76,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.Entity;
@@ -130,6 +131,10 @@ public final class CobbleventureBootstrap {
         ResourceLocation.withDefaultNamespace("uniform");
     private static final ResourceLocation COBBLE_MERCHANT =
         ResourceLocation.fromNamespaceAndPath("cobbledollars", "cobble_merchant");
+    private static final double STATIONARY_NPC_LOOK_RANGE = 10.0D;
+    private static final float STATIONARY_NPC_MAX_HEAD_YAW = 75.0F;
+    private static final float STATIONARY_NPC_MAX_HEAD_PITCH = 30.0F;
+    private static final Set<UUID> STATIONARY_NPCS_LOOKING = ConcurrentHashMap.newKeySet();
     private static final int INITIAL_SPAWN_DIAGNOSTIC_EVENTS = 20;
     private static int blockedPursuitZonePokemon;
     private static int blockedOutsideTerrainPokemon;
@@ -5925,6 +5930,7 @@ public final class CobbleventureBootstrap {
                 LOGGER.error("Pokemon Center emergency recovery also failed", recoveryError);
             }
         }
+        tickStationaryNpcLook(event.getServer());
         Set<UUID> deepWaterBlocked = new HashSet<>();
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             ServerLevel playerLevel = player.serverLevel();
@@ -6085,6 +6091,97 @@ public final class CobbleventureBootstrap {
                 }
             }
         }
+    }
+
+    /**
+     * Keeps fixed villager-rendered service NPCs looking alive without enabling
+     * navigation AI. Melody's CEM model reads the vanilla head rotations, but a
+     * NoAI merchant never updates those rotations on its own.
+     */
+    private static void tickStationaryNpcLook(MinecraftServer server) {
+        Map<Mob, ServerPlayer> targets = new HashMap<>();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (!player.isAlive() || player.isSpectator()) continue;
+            AABB search = player.getBoundingBox().inflate(
+                STATIONARY_NPC_LOOK_RANGE, 5.0D, STATIONARY_NPC_LOOK_RANGE
+            );
+            for (Mob mob : player.serverLevel().getEntitiesOfClass(
+                Mob.class, search, CobbleventureBootstrap::isStationaryNpcLookTarget
+            )) {
+                ServerPlayer previous = targets.get(mob);
+                if (previous == null
+                    || mob.distanceToSqr(player) < mob.distanceToSqr(previous)) {
+                    targets.put(mob, player);
+                }
+            }
+        }
+
+        Set<UUID> lookingNow = new HashSet<>();
+        for (Map.Entry<Mob, ServerPlayer> entry : targets.entrySet()) {
+            Mob mob = entry.getKey();
+            ServerPlayer player = entry.getValue();
+            double dx = player.getX() - mob.getX();
+            double dz = player.getZ() - mob.getZ();
+            double horizontal = Math.sqrt(dx * dx + dz * dz);
+            double dy = player.getEyeY() - mob.getEyeY();
+            float desiredYaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
+            float desiredPitch = Mth.clamp(
+                (float) -Math.toDegrees(Math.atan2(dy, horizontal)),
+                -STATIONARY_NPC_MAX_HEAD_PITCH,
+                STATIONARY_NPC_MAX_HEAD_PITCH
+            );
+            float headYaw = StationaryNpcLookMath.approachAngle(
+                mob.getYHeadRot(),
+                StationaryNpcLookMath.clampHeadYaw(
+                    mob.getYRot(), desiredYaw, STATIONARY_NPC_MAX_HEAD_YAW
+                ),
+                8.0F
+            );
+            mob.setYHeadRot(headYaw);
+            mob.setXRot(StationaryNpcLookMath.approachAngle(
+                mob.getXRot(), desiredPitch, 6.0F
+            ));
+            lookingNow.add(mob.getUUID());
+        }
+
+        for (UUID entityId : Set.copyOf(STATIONARY_NPCS_LOOKING)) {
+            if (lookingNow.contains(entityId)) continue;
+            Entity entity = findLoadedEntity(server, entityId);
+            if (!(entity instanceof Mob mob) || !isStationaryNpcLookTarget(mob)) {
+                STATIONARY_NPCS_LOOKING.remove(entityId);
+                continue;
+            }
+            float resetYaw = StationaryNpcLookMath.approachAngle(
+                mob.getYHeadRot(), mob.getYRot(), 8.0F
+            );
+            float resetPitch = StationaryNpcLookMath.approachAngle(
+                mob.getXRot(), 0.0F, 6.0F
+            );
+            mob.setYHeadRot(resetYaw);
+            mob.setXRot(resetPitch);
+            if (Math.abs(Mth.wrapDegrees(resetYaw - mob.getYRot())) < 0.5F
+                && Math.abs(resetPitch) < 0.5F) {
+                STATIONARY_NPCS_LOOKING.remove(entityId);
+            }
+        }
+        STATIONARY_NPCS_LOOKING.addAll(lookingNow);
+    }
+
+    private static boolean isStationaryNpcLookTarget(Mob mob) {
+        if (!mob.isNoAi()
+            || !COBBLE_MERCHANT.equals(BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()))) {
+            return false;
+        }
+        return mob.getPersistentData().contains("cobbleventure_shop_vendor")
+            || mob.getTags().contains("cobbleventure_regional_npc");
+    }
+
+    private static Entity findLoadedEntity(MinecraftServer server, UUID entityId) {
+        for (ServerLevel level : server.getAllLevels()) {
+            Entity entity = level.getEntity(entityId);
+            if (entity != null) return entity;
+        }
+        return null;
     }
 
     private static LocationArea locationAreaAt(HexWorldPlan world, double x, double z) {
@@ -14059,14 +14156,6 @@ public final class CobbleventureBootstrap {
             grid, settlements.get(connection.to()), controls, true
         );
         if (connection.surfaceStyle().equals("log_bridge")) {
-            controls = anchorRouteAtCompiledTownRoad(
-                grid, settlements.get(connection.from()),
-                connection.fromTownRoad(), controls, false
-            );
-            controls = anchorRouteAtCompiledTownRoad(
-                grid, settlements.get(connection.to()),
-                connection.toTownRoad(), controls, true
-            );
             Set<HexCoord> routeArea = new HashSet<>(cells);
             HexSettlement from = settlements.get(connection.from());
             HexSettlement to = settlements.get(connection.to());
@@ -14115,29 +14204,6 @@ public final class CobbleventureBootstrap {
             }
         }
         return List.copyOf(curved);
-    }
-
-    private static List<WarpedPoint> anchorRouteAtCompiledTownRoad(
-        HexGrid grid,
-        HexSettlement settlement,
-        Point relativeRoad,
-        List<WarpedPoint> controls,
-        boolean reverse
-    ) {
-        if (settlement == null || relativeRoad == null || controls.isEmpty()) {
-            return controls;
-        }
-        Point center = townFootprintWorldCenter(grid, settlement);
-        WarpedPoint authored = new WarpedPoint(
-            center.x() + relativeRoad.x(), center.z() + relativeRoad.z()
-        );
-        List<WarpedPoint> anchored = new ArrayList<>(controls);
-        if (reverse) {
-            anchored.set(anchored.size() - 1, authored);
-        } else {
-            anchored.set(0, authored);
-        }
-        return anchored;
     }
 
     private static List<WarpedPoint> orthogonalLogBridgeControls(

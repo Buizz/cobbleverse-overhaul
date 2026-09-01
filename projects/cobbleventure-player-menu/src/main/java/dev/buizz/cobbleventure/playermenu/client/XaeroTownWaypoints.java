@@ -11,7 +11,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
-/** Adds generated Cobbleventure towns to Xaero's active minimap waypoint set when available. */
+/** Adds generated Cobbleventure towns and marked world objects to Xaero's active waypoint set. */
 @EventBusSubscriber(modid = CobbleventurePlayerMenu.MOD_ID, value = Dist.CLIENT)
 public final class XaeroTownWaypoints {
     private static final int SYNC_INTERVAL_TICKS = 100;
@@ -72,6 +72,15 @@ public final class XaeroTownWaypoints {
             if (contains(waypoints, getX, getZ, getName, point.x(), point.z(), town.name())) continue;
             Object waypoint = constructor.newInstance(
                 point.x(), content.originY(), point.z(), town.name(), initials(town.name()), 6
+            );
+            waypoints.add(waypoint);
+        }
+        for (MapContent.MapObject object : content.objects()) {
+            if (!object.showOnMinimap()) continue;
+            MapContent.WorldPoint point = content.worldCenter(object.hex().q(), object.hex().r());
+            if (contains(waypoints, getX, getZ, getName, point.x(), point.z(), object.name())) continue;
+            Object waypoint = constructor.newInstance(
+                point.x(), content.originY(), point.z(), object.name(), initials(object.name()), 6
             );
             waypoints.add(waypoint);
         }

@@ -3,6 +3,8 @@ package dev.buizz.cobbleventure.adventure.daycare.client;
 import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import dev.buizz.cobbleventure.adventure.daycare.DaycareNetwork;
+import dev.buizz.cobbleventure.playermenu.client.MenuBackButton;
+import dev.buizz.cobbleventure.playermenu.client.MenuTheme;
 import java.math.BigInteger;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -32,13 +34,13 @@ final class DaycareScreen extends Screen {
     private final List<PokemonCard> partyCards = new ArrayList<>();
     private final List<PokemonCard> daycareCards = new ArrayList<>();
     private final List<ModelWidget> models = new ArrayList<>();
-    private DaycareMenuTheme theme;
+    private MenuTheme theme;
     private DaycareScreenLayout layout;
     private ActionButton depositButton;
     private ActionButton withdrawButton;
     private ActionButton trainingButton;
     private ActionButton collectButton;
-    private ActionButton closeButton;
+    private MenuBackButton closeButton;
     private ActionButton confirmWithdrawButton;
     private ActionButton cancelWithdrawButton;
     private int selectedPartySlot = -1;
@@ -74,7 +76,7 @@ final class DaycareScreen extends Screen {
 
     @Override
     protected void init() {
-        theme = DaycareMenuTheme.load(minecraft);
+        theme = MenuTheme.load(minecraft);
         layout = DaycareScreenLayout.calculate(width, height);
         rebuildDaycareWidgets();
     }
@@ -151,11 +153,10 @@ final class DaycareScreen extends Screen {
             layout.eggX(), layout.eggY(), layout.eggWidth(), layout.eggHeight(),
             () -> send(DaycareNetwork.Action.COLLECT, -1)
         ));
-        closeButton = addRenderableWidget(new ActionButton(
-            layout.closeX(), layout.closeY(), layout.closeWidth(), layout.closeHeight(),
-            this::onClose
+        closeButton = addRenderableWidget(new MenuBackButton(
+            theme, layout.closeX(), layout.closeY(),
+            layout.closeWidth(), layout.closeHeight(), this::onClose
         ));
-        closeButton.setMessage(Component.translatable("gui.done"));
         if (validConfirmation()) {
             addRenderableWidget(new ModalBackdrop());
             addConfirmationModel(payload.storedPokemon().get(confirmingStoredSlot));
@@ -367,7 +368,9 @@ final class DaycareScreen extends Screen {
         drawDaycareIcon(graphics, iconX, iconY);
         int titleX = iconX + 24;
         int titleY = layout.panelY() + Math.max(7, (layout.headerHeight() - 9) / 2);
-        graphics.drawString(font, title, titleX, titleY, theme.selectedTextColor, false);
+        theme.drawText(
+            graphics, font, title, titleX, titleY, MenuTheme.TextRole.TITLE
+        );
         graphics.fill(layout.panelX() + 1, layout.panelY() + layout.headerHeight() - 1,
             layout.panelX() + layout.panelWidth() - 1,
             layout.panelY() + layout.headerHeight(), theme.border);
@@ -778,20 +781,21 @@ final class DaycareScreen extends Screen {
         ) {
             boolean primary = active && (this == depositButton || this == withdrawButton
                 || this == confirmWithdrawButton);
-            int border = primary ? 0xFFE85D58 : active ? theme.accent : theme.border;
-            int fill = !active ? DaycareThemedPanel.withOpacity(theme.background, .58F)
-                : primary ? (isHovered() ? 0xFFFF9189 : 0xFFFF746B)
-                : isHovered() ? theme.hoverBackground : theme.selectedBackground;
+            MenuTheme.ButtonStyle style = theme.button(
+                primary ? MenuTheme.ButtonVariant.PRIMARY : MenuTheme.ButtonVariant.SECONDARY,
+                active, isHoveredOrFocused(), false
+            );
             DaycareThemedPanel.roundedFill(graphics, getX(), getY(),
-                getX() + getWidth(), getY() + getHeight(), theme.rowRadius, border);
+                getX() + getWidth(), getY() + getHeight(), theme.rowRadius, style.border());
             DaycareThemedPanel.roundedFill(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
-                Math.max(0, theme.rowRadius - 1), fill);
-            drawCenteredNoShadow(graphics,
-                font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8),
-                getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2,
-                primary ? 0xFFFFFFFF
-                    : active ? theme.selectedTextColor : theme.mutedText());
+                Math.max(0, theme.rowRadius - 1), style.background());
+            theme.drawCenteredText(
+                graphics, font, Component.literal(font.plainSubstrByWidth(
+                    getMessage().getString(), getWidth() - 8
+                )), getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2,
+                MenuTheme.TextRole.LABEL, style.text()
+            );
         }
 
         @Override

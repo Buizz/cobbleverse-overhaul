@@ -258,7 +258,7 @@ public final class MapNetwork {
     private static void handleTeleport(MapTeleportPayload payload, IPayloadContext context) {
         ServerPlayer player = (ServerPlayer) context.player();
         if (!ProgressionNetwork.isUnlocked(player, ProgressionNetwork.Feature.SETTLEMENT_TELEPORT)) {
-            context.reply(new MapTeleportResultPayload(false, "마을 순간이동 기능을 아직 사용할 수 없습니다."));
+            context.reply(new MapTeleportResultPayload(false, "장소 순간이동 기능을 아직 사용할 수 없습니다."));
             return;
         }
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
@@ -287,8 +287,11 @@ public final class MapNetwork {
         boolean administrator = isAdministrator(player);
         boolean unrestrictedTeleport = administrator || player.isCreative();
         MapContent.Town town = content.townAt(payload.q(), payload.r());
-        if (!unrestrictedTeleport && (town == null || !hasVisited(player, town.id()))) {
-            context.reply(new MapTeleportResultPayload(false, "방문한 마을만 순간이동할 수 있습니다."));
+        MapContent.MapObject object = content.objectAt(payload.q(), payload.r());
+        String destinationId = town != null ? town.id()
+            : object != null && object.teleportable() ? object.id() : null;
+        if (!unrestrictedTeleport && (destinationId == null || !hasVisited(player, destinationId))) {
+            context.reply(new MapTeleportResultPayload(false, "방문한 순간이동 가능 장소만 이동할 수 있습니다."));
             return;
         }
 
@@ -316,6 +319,7 @@ public final class MapNetwork {
             content,
             dimension,
             town,
+            object,
             targetQ,
             targetR,
             currentTick + FADE_OUT_TICKS
@@ -379,13 +383,16 @@ public final class MapNetwork {
                 }
                 pending.teleported = true;
                 pending.brightenAt = currentTick + FADE_IN_DELAY_TICKS;
-                if (pending.town != null) {
-                    markVisited(player, pending.town.id());
-                }
+                String destinationId = pending.town != null ? pending.town.id()
+                    : pending.object != null && pending.object.teleportable()
+                        ? pending.object.id() : null;
+                if (destinationId != null) markVisited(player, destinationId);
                 PacketDistributor.sendToPlayer(player, new MapTeleportResultPayload(
                     true,
                     pending.town == null
-                        ? "선택 타일로 이동했습니다."
+                        ? pending.object == null
+                            ? "선택 타일로 이동했습니다."
+                            : pending.object.name() + "(으)로 이동했습니다."
                         : pending.town.name() + "(으)로 이동했습니다."
                 ));
             }
@@ -506,6 +513,8 @@ public final class MapNetwork {
             MapContent.Hex hex = content.worldToHex(player.getX(), player.getZ());
             MapContent.Town town = content.townAt(hex.q(), hex.r());
             if (town != null) markVisited(player, town.id());
+            MapContent.MapObject object = content.objectAt(hex.q(), hex.r());
+            if (object != null && object.teleportable()) markVisited(player, object.id());
             return;
         }
     }
@@ -523,6 +532,9 @@ public final class MapNetwork {
         for (MapContent content : MapContent.all()) {
             for (MapContent.Town town : content.towns()) {
                 if (hasVisited(player, town.id())) result.add(town.id());
+            }
+            for (MapContent.MapObject object : content.objects()) {
+                if (object.teleportable() && hasVisited(player, object.id())) result.add(object.id());
             }
         }
         return result;
@@ -702,6 +714,7 @@ public final class MapNetwork {
         private final MapContent content;
         private final ResourceKey<Level> dimension;
         private final MapContent.Town town;
+        private final MapContent.MapObject object;
         private final int targetQ;
         private final int targetR;
         private final int teleportAt;
@@ -712,6 +725,7 @@ public final class MapNetwork {
             MapContent content,
             ResourceKey<Level> dimension,
             MapContent.Town town,
+            MapContent.MapObject object,
             int targetQ,
             int targetR,
             int teleportAt
@@ -719,6 +733,7 @@ public final class MapNetwork {
             this.content = content;
             this.dimension = dimension;
             this.town = town;
+            this.object = object;
             this.targetQ = targetQ;
             this.targetR = targetR;
             this.teleportAt = teleportAt;

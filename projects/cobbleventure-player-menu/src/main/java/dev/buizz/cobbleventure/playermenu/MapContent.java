@@ -37,6 +37,7 @@ public final class MapContent {
     private final Map<Hex, String> emptyTerrain;
     private final Map<Hex, BiomeTile> tiles;
     private final List<Town> towns;
+    private final List<MapObject> objects;
     private final List<Route> routes;
     private final List<CaveEntrance> caveEntrances;
     private final Map<String, CaveInfo> caves;
@@ -60,6 +61,7 @@ public final class MapContent {
         Map<Hex, String> emptyTerrain,
         Map<Hex, BiomeTile> tiles,
         List<Town> towns,
+        List<MapObject> objects,
         List<Route> routes,
         List<CaveEntrance> caveEntrances,
         Map<String, CaveInfo> caves,
@@ -75,7 +77,7 @@ public final class MapContent {
         this.dimension = dimension;
         this.tileRadiusBlocks = tileRadiusBlocks;
         this.mapRadiusCells = visibleMapRadius(
-            mapRadiusCells, tiles, towns, routes, caveEntrances, forestEntrances
+            mapRadiusCells, tiles, towns, objects, routes, caveEntrances, forestEntrances
         );
         this.originX = originX;
         this.originY = originY;
@@ -84,6 +86,7 @@ public final class MapContent {
         this.emptyTerrain = Map.copyOf(emptyTerrain);
         this.tiles = Map.copyOf(tiles);
         this.towns = List.copyOf(towns);
+        this.objects = List.copyOf(objects);
         this.routes = List.copyOf(routes);
         this.caveEntrances = List.copyOf(caveEntrances);
         this.caves = Map.copyOf(caves);
@@ -125,6 +128,7 @@ public final class MapContent {
     }
     public Map<Hex, BiomeTile> tiles() { return tiles; }
     public List<Town> towns() { return towns; }
+    public List<MapObject> objects() { return objects; }
     public List<Route> routes() { return routes; }
     public List<CaveEntrance> caveEntrances() { return caveEntrances; }
     public List<ForestEntrance> forestEntrances() { return forestEntrances; }
@@ -136,6 +140,13 @@ public final class MapContent {
         Hex target = new Hex(q, r);
         for (Town town : towns) {
             if (townContains(town, target)) return town;
+        }
+        return null;
+    }
+
+    public MapObject objectAt(int q, int r) {
+        for (MapObject object : objects) {
+            if (object.hex().q() == q && object.hex().r() == r) return object;
         }
         return null;
     }
@@ -209,6 +220,7 @@ public final class MapContent {
         int configuredRadius,
         Map<Hex, BiomeTile> tiles,
         List<Town> towns,
+        List<MapObject> objects,
         List<Route> routes,
         List<CaveEntrance> caveEntrances,
         List<ForestEntrance> forestEntrances
@@ -235,6 +247,9 @@ public final class MapContent {
                 footprintRadius = Math.max(footprintRadius, hexDistance(origin, relative));
             }
             radius = Math.max(radius, hexDistance(origin, town.hex()) + footprintRadius);
+        }
+        for (MapObject object : objects) {
+            radius = Math.max(radius, hexDistance(origin, object.hex()));
         }
         return radius;
     }
@@ -309,6 +324,26 @@ public final class MapContent {
             ));
         }
 
+        List<MapObject> objects = new ArrayList<>();
+        if (world.has("objects")) {
+            for (JsonElement element : world.getAsJsonArray("objects")) {
+                JsonObject placed = element.getAsJsonObject();
+                if ("gate".equals(stringValue(placed, "type", ""))) continue;
+                JsonObject properties = placed.has("properties")
+                    && placed.get("properties").isJsonObject()
+                    ? placed.getAsJsonObject("properties") : new JsonObject();
+                JsonObject anchor = placed.getAsJsonObject("anchor");
+                String id = placed.get("id").getAsString();
+                objects.add(new MapObject(
+                    id,
+                    stringValue(properties, "display_name", readableId(id)),
+                    new Hex(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
+                    properties.has("teleportable") && properties.get("teleportable").getAsBoolean(),
+                    properties.has("show_on_minimap") && properties.get("show_on_minimap").getAsBoolean()
+                ));
+            }
+        }
+
         List<Route> routes = new ArrayList<>();
         List<RouteEncounter> routeEncounters = new ArrayList<>();
         for (JsonElement element : world.getAsJsonArray("connections")) {
@@ -364,7 +399,7 @@ public final class MapContent {
             grid.get("map_radius_cells").getAsInt(),
             origin.get("x").getAsInt(), origin.get("y").getAsInt(), origin.get("z").getAsInt(),
             defaultEmptyTerrain, emptyTerrain,
-            tiles, towns, routes, loadedCaves.entrances(), loadedCaves.byId(),
+            tiles, towns, objects, routes, loadedCaves.entrances(), loadedCaves.byId(),
             loadedForests.entrances(), loadedForests.byId(),
             loadedBiomes.byBiome(), loadedBiomes.byTile(), tileHabitats
         );
@@ -913,6 +948,13 @@ public final class MapContent {
             Objects.requireNonNull(id);
             Objects.requireNonNull(hex);
             fieldMoveNpcs = List.copyOf(fieldMoveNpcs);
+        }
+    }
+    public record MapObject(String id, String name, Hex hex, boolean teleportable, boolean showOnMinimap) {
+        public MapObject {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(hex);
         }
     }
 }

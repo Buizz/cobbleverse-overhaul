@@ -27,6 +27,11 @@ class EconomyCatalogTests(unittest.TestCase):
         return {
             "schema_version": 2,
             "vanilla_crafting_disabled": True,
+            "sell_price_policy": {
+                "apply_default_to_all": True,
+                "default_percentage": 50,
+            },
+            "standard_prices": [],
             "shop_catalogs": [{
                 "id": "cobbleventure:shop_catalog/tm_store",
                 "display_name": "기술머신 백화점",
@@ -122,10 +127,38 @@ class EconomyCatalogTests(unittest.TestCase):
 
     def test_standard_item_prices_are_validated(self):
         payload = self.valid_catalog()
-        payload["standard_prices"] = [{"item": "cobblemon:poke_ball", "price": "200"}]
+        payload["standard_prices"] = [{
+            "item": "cobblemon:poke_ball",
+            "buy_price": "200",
+            "sell_price": "0",
+            "use_default_sell_price": True,
+            "no_sell_penalty": False,
+        }]
         self.assertEqual([], self.validate(payload))
-        payload["standard_prices"].append({"item": "cobblemon:poke_ball", "price": "300"})
+        payload["standard_prices"].append({
+            "item": "cobblemon:poke_ball",
+            "buy_price": "300",
+            "sell_price": "150",
+            "use_default_sell_price": False,
+            "no_sell_penalty": False,
+        })
         self.assertTrue(any("중복 표준 가격" in issue.message for issue in self.validate(payload)))
+
+    def test_standard_item_price_rejects_negative_values(self):
+        payload = self.valid_catalog()
+        payload["standard_prices"] = [{
+            "item": "cobblemon:poke_ball",
+            "buy_price": "-1",
+            "sell_price": "100",
+            "use_default_sell_price": False,
+            "no_sell_penalty": False,
+        }]
+        self.assertTrue(any("0 이상의 정수 구매가" in issue.message for issue in self.validate(payload)))
+
+    def test_default_sell_percentage_must_be_between_zero_and_one_hundred(self):
+        payload = self.valid_catalog()
+        payload["sell_price_policy"]["default_percentage"] = 101
+        self.assertTrue(any(issue.path == "$.sell_price_policy.default_percentage" for issue in self.validate(payload)))
 
     def test_vanilla_crafting_must_stay_disabled(self):
         payload = self.valid_catalog(); payload["vanilla_crafting_disabled"] = False

@@ -35,16 +35,16 @@ final class DungeonSoloConfigurationTest {
     @Test
     void soloDungeonLevelsPreserveEachDungeonsEncounterContract() throws Exception {
         DungeonDefinition powerPlant = packagedDungeon("rocket_power_plant");
-        assertEquals(22, powerPlant.difficulty().recommendedMin());
-        assertEquals(35, powerPlant.difficulty().recommendedMax());
+        assertEquals(24, powerPlant.difficulty().recommendedMin());
+        assertEquals(29, powerPlant.difficulty().recommendedMax());
         assertEquals(22, powerPlant.difficulty().internalMin());
-        assertEquals(35, powerPlant.difficulty().internalMax());
+        assertEquals(29, powerPlant.difficulty().internalMax());
 
         DungeonDefinition tower = packagedDungeon("rocket_pokemon_tower");
-        assertEquals(1, tower.difficulty().recommendedMin());
-        assertEquals(1, tower.difficulty().recommendedMax());
-        assertEquals(1, tower.difficulty().internalMin());
-        assertEquals(1, tower.difficulty().internalMax());
+        assertEquals(27, tower.difficulty().recommendedMin());
+        assertEquals(30, tower.difficulty().recommendedMax());
+        assertEquals(27, tower.difficulty().internalMin());
+        assertEquals(30, tower.difficulty().internalMax());
     }
 
     @Test

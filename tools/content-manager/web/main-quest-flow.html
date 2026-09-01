@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>메인 퀘스트 진행 순서 · Cobbleventure</title>
+  <link rel="stylesheet" href="/typography.css">
+  <link rel="stylesheet" href="/quest-editor.css">
+  <link rel="stylesheet" href="/main-quest-flow.css">
+  <link rel="stylesheet" href="/studio-tool-shell.css">
+  <script>document.documentElement.classList.toggle("is-embedded", new URLSearchParams(location.search).get("embedded") === "1");</script>
+</head>
+<body>
+  <header class="topbar">
+    <div><p>COBBLEVENTURE CONTENT MANAGER</p><h1>메인 퀘스트 진행 순서</h1></div>
+    <nav><a href="/">전체 관리</a><a href="/quests.html">퀘스트 관리</a><a href="/quest-global.html">전역 발동</a></nav>
+  </header>
+  <main class="flow-main">
+    <section class="editor flow-editor">
+      <header class="editor-head">
+        <div><small>content/catalogs/main-quest-progression.json</small><h2>진행 NPC 순서</h2></div>
+        <button id="save-flow" class="primary">저장</button>
+      </header>
+      <div id="issues" class="issues" hidden></div>
+      <div class="flow-summary">
+        <strong>현재 활성화된 문서 퀘스트가 포켓파인더의 주 목표가 됩니다.</strong>
+        <span>현재 단계가 완료되면 다음 단계로 넘어갑니다. 활성화된 문서 퀘스트가 없으면 다음 미클리어 체육관이 기본 메인 퀘스트로 표시됩니다.</span>
+      </div>
+      <label class="toggle flow-enabled"><input id="flow-enabled" type="checkbox" checked><span>작성한 NPC 진행 순서 사용</span></label>
+      <div class="flow-toolbar"><strong>NPC 퀘스트 단계</strong><button id="add-step" type="button">단계 추가</button></div>
+      <div id="flow-steps" class="flow-steps"></div>
+    </section>
+  </main>
+  <script src="/main-quest-flow.js"></script>
+</body>
+</html>

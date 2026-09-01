@@ -79,6 +79,7 @@ repositories {
 }
 
 dependencies {
+    compileOnly "dev.buizz.cobbleventure:cobbleventure-player-menu:1.6.0"
     compileOnly cobblemonBuildDependency
     compileOnly "maven.modrinth:ItmVb4zY:${cobbreeding_modrinth_version}"
     compileOnly "curse.maven:cobbledollars-859232:8484919"

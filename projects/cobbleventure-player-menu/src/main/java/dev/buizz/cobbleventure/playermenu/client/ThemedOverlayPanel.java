@@ -3,10 +3,17 @@ package dev.buizz.cobbleventure.playermenu.client;
 import net.minecraft.client.gui.GuiGraphics;
 
 /** Shared compact panel renderer for HUD notices using the global menu theme. */
-final class ThemedOverlayPanel {
+public final class ThemedOverlayPanel {
     private ThemedOverlayPanel() {}
 
-    static void draw(
+    public static void draw(
+        GuiGraphics graphics, MenuTheme theme,
+        int x, int y, int width, int height
+    ) {
+        draw(graphics, theme, x, y, width, height, 1.0F, theme.accent);
+    }
+
+    public static void draw(
         GuiGraphics graphics, MenuTheme theme,
         int x, int y, int width, int height, float opacity, int accent
     ) {
@@ -38,13 +45,13 @@ final class ThemedOverlayPanel {
         );
     }
 
-    static int withOpacity(int color, float opacity) {
+    public static int withOpacity(int color, float opacity) {
         int sourceAlpha = color >>> 24;
         int alpha = Math.round(sourceAlpha * Math.clamp(opacity, 0.0F, 1.0F));
         return (alpha << 24) | (color & 0x00FFFFFF);
     }
 
-    private static void fillRoundedRect(
+    public static void fillRoundedRect(
         GuiGraphics graphics,
         int left, int top, int right, int bottom,
         int radius, int color

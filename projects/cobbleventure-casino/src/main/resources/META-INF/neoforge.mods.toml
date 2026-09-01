@@ -48,6 +48,13 @@ ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
+modId="cobbleventure_player_menu"
+type="required"
+versionRange="[1.6.0,2)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
 modId="playingcards"
 type="required"
 versionRange="[2.0.1,3)"

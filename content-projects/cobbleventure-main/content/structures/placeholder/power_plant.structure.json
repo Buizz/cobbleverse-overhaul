@@ -26,6 +26,10 @@
       "reference": "east_grunt", "position": [34, 1, 27]
     },
     {
+      "id": "central_technician", "type": "dungeon_marker", "kind": "encounter",
+      "reference": "central_technician", "position": [24, 1, 24]
+    },
+    {
       "id": "control_room_officer", "type": "dungeon_marker", "kind": "boss",
       "reference": "control_room_officer", "position": [24, 1, 40]
     },

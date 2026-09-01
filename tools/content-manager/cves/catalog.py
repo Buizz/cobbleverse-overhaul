@@ -27,6 +27,7 @@ class ResourceKind(str, Enum):
     EFFECT = "effect"
     EVENT_REGION = "event_region"
     EVENT_ANCHOR = "event_anchor"
+    QUEST = "quest"
 
 
 @dataclass(slots=True)
@@ -91,6 +92,11 @@ def load_project_catalog(project_root: Path, *, item_catalog: Path | None = None
                 catalog.add(ResourceKind.ITEM, value["id"])
         catalog.complete_kinds.update({ResourceKind.FLAG, ResourceKind.VARIABLE})
     _load_npc_preset_flags(content / "source", catalog)
+
+    quest_directory = content / "quests"
+    _load_document_ids(quest_directory, ResourceKind.QUEST, catalog)
+    if quest_directory.is_dir():
+        catalog.complete_kinds.add(ResourceKind.QUEST)
 
     settlement_directory = content / "settlements"
     _load_location_documents(settlement_directory, ResourceKind.SETTLEMENT, catalog, _object_anchor_ids)

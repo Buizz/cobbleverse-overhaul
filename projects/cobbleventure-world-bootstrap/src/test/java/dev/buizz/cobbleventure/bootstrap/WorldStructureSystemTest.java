@@ -79,6 +79,28 @@ final class WorldStructureSystemTest {
     }
 
     @Test
+    void explicitCenterPlacementOverridesAuthoredEntranceAnchors() {
+        var structure = WorldStructureSystem.parse(
+            JsonParser.parseString("""
+                [{
+                  "id": "indigo_plateau",
+                  "type": "structure",
+                  "anchor": {"q": -6, "r": -2},
+                  "resource": "cobbleventure:league/kanto_league",
+                  "rotation": 0,
+                  "properties": {
+                    "teleportable": true,
+                    "center_placement": true,
+                    "placement_anchor": "road_anchor"
+                  }
+                }]
+                """).getAsJsonArray()
+        ).getFirst();
+
+        assertEquals("center", structure.placementAnchor());
+    }
+
+    @Test
     void rotatesTemplateOriginAroundMinimumFootprintCorner() {
         assertEquals(
             new BlockPos(131, 70, 200),

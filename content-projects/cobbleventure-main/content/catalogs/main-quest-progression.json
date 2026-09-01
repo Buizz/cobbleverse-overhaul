@@ -1,0 +1,12 @@
+{
+  "$schema": "../schemas/main-quest-progression.schema.json",
+  "schema_version": 1,
+  "enabled": true,
+  "steps": [
+    {
+      "id": "choose_starter",
+      "quest": "cobbleventure:quest/main/choose_starter",
+      "npc": "cobbleventure:npc/professor_oak"
+    }
+  ]
+}

@@ -58,6 +58,9 @@ public final class EventStateExpressionEnvironment implements EventExpressionEnv
                 requireNoArguments(function, arguments);
                 yield new JsonPrimitive(state.levelCap());
             }
+            case "quest_state" -> new JsonPrimitive(
+                state.questState(singleString(function, arguments))
+            );
             default -> throw new EventRuntimeException("지원하지 않는 내장 함수입니다: " + function);
         };
     }

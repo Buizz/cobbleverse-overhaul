@@ -26,9 +26,22 @@ public final class DaycareProjectionService {
     private static final String POKEMON_INDEX = "cobbleventureDaycarePokemon";
     private static final int UPDATE_INTERVAL_TICKS = 40;
     private static final double VIEW_DISTANCE_SQUARED = 64.0D * 64.0D;
-    private static final double PADDOCK_RADIUS_SQUARED = 8.0D * 8.0D;
+    private static final double PADDOCK_RADIUS_SQUARED = 5.0D * 5.0D;
 
     private DaycareProjectionService() {}
+
+    static void reset(MinecraftServer server, UUID jobId) {
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof PokemonEntity pokemon
+                    && pokemon.getTags().contains(ENTITY_TAG)
+                    && pokemon.getPersistentData().hasUUID(JOB_ID)
+                    && pokemon.getPersistentData().getUUID(JOB_ID).equals(jobId)) {
+                    pokemon.discard();
+                }
+            }
+        }
+    }
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(DaycareProjectionService::onServerTick);

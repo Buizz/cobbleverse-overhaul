@@ -5,6 +5,7 @@ import com.cobblemon.mod.common.client.gui.summary.widgets.ModelWidget;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -15,22 +16,17 @@ import net.minecraft.world.item.ItemStack;
 /** Party picker used for held-item assignment and Pokémon-targeting bag items. */
 final class BagPokemonSelectScreen extends Screen {
     enum Action { USE, GIVE }
-    private static final int PANEL = 0xF01D2630;
-    private static final int DARK = 0xFF10171E;
-    private static final int LIGHT = 0xFF34444F;
-    private static final int ACCENT = 0xFF5EE4E4;
     private static final int HP_GREEN = 0xFF64D66D;
     private static final int HP_YELLOW = 0xFFE6C84F;
     private static final int HP_RED = 0xFFE86666;
     private static final int EXP_BLUE = 0xFF59BCE8;
-    private static final int TEXT = 0xFFF4F4F4;
-    private static final int MUTED = 0xFFA6A6A6;
 
     private final BagScreen parent;
     private final boolean extended;
     private final int sourceSlot;
     private final ItemStack stack;
     private final Action action;
+    private final MenuTheme theme;
     private final List<ModelWidget> models = new ArrayList<>();
     private final List<PokemonButton> pokemonButtons = new ArrayList<>();
     private int panelX;
@@ -48,6 +44,7 @@ final class BagPokemonSelectScreen extends Screen {
         this.sourceSlot = sourceSlot;
         this.stack = stack;
         this.action = action;
+        this.theme = MenuTheme.load(Minecraft.getInstance());
     }
 
     @Override
@@ -91,21 +88,16 @@ final class BagPokemonSelectScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        fillRoundedRect(graphics, panelX + 4, panelY + 5,
-            panelX + panelWidth + 4, panelY + panelHeight + 5, 9, 0x99000000);
-        fillRoundedRect(graphics, panelX, panelY,
-            panelX + panelWidth, panelY + panelHeight, 9, DARK);
-        fillRoundedRect(graphics, panelX + 1, panelY + 1,
-            panelX + panelWidth - 1, panelY + panelHeight - 1, 8, PANEL);
-        graphics.fill(panelX + 12, panelY + 1, panelX + 54, panelY + 3, ACCENT);
-        graphics.drawString(font, title, panelX + 12, panelY + 10, TEXT, false);
-        graphics.drawString(font,
+        ThemedOverlayPanel.draw(graphics, theme, panelX, panelY, panelWidth, panelHeight);
+        graphics.fill(panelX + 12, panelY + 1, panelX + 54, panelY + 3, theme.accent);
+        theme.drawText(graphics, font, title, panelX + 12, panelY + 10, MenuTheme.TextRole.HEADING);
+        theme.drawText(graphics, font,
             Component.translatable("screen.cobbleventure_player_menu.bag.pokemon_select."
                 + (action == Action.USE ? "use_hint" : "give_hint"), stack.getHoverName()),
-            panelX + 12, panelY + 25, MUTED, false);
+            panelX + 12, panelY + 26, MenuTheme.TextRole.CAPTION);
         graphics.renderItem(stack, panelX + panelWidth - 30, panelY + 9);
         graphics.renderItemDecorations(font, stack, panelX + panelWidth - 30, panelY + 9);
-        graphics.fill(panelX + 8, panelY + 45, panelX + panelWidth - 8, panelY + 46, 0x553F505B);
+        graphics.fill(panelX + 8, panelY + 45, panelX + panelWidth - 8, panelY + 46, theme.innerBorder);
         super.render(graphics, mouseX, mouseY, partialTick);
         for (PokemonButton button : pokemonButtons) button.renderHeldItemTooltip(graphics, mouseX, mouseY);
     }
@@ -147,8 +139,11 @@ final class BagPokemonSelectScreen extends Screen {
 
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            int border = isHovered() ? ACCENT : LIGHT;
-            int fill = isHovered() ? 0xE0374650 : DARK;
+            MenuTheme.ButtonStyle style = theme.button(
+                MenuTheme.ButtonVariant.SECONDARY, active, isHovered(), false
+            );
+            int border = style.border();
+            int fill = style.background();
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(), 8, border);
             fillRoundedRect(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1, 7, fill);
@@ -156,12 +151,12 @@ final class BagPokemonSelectScreen extends Screen {
             int detailsWidth = Math.max(38, getWidth() - (detailsX - getX()) - 7);
             graphics.drawString(font,
                 font.plainSubstrByWidth(pokemon.getDisplayName(false).getString(), detailsWidth - 42),
-                detailsX, getY() + 6, isHovered() ? ACCENT : TEXT, false);
+                detailsX, getY() + 6, style.text(), false);
             String level = Component.translatable(
                 "screen.cobbleventure_player_menu.bag.pokemon_select.level", pokemon.getLevel()
             ).getString();
             graphics.drawString(font, level, getX() + getWidth() - 7 - font.width(level),
-                getY() + 6, MUTED, false);
+                getY() + 6, theme.mutedTextColor, false);
 
             int maximumHealth = Math.max(1, pokemon.getMaxHealth());
             int currentHealth = Math.max(0, pokemon.getCurrentHealth());
@@ -197,7 +192,7 @@ final class BagPokemonSelectScreen extends Screen {
                 String health = Component.translatable(
                     "screen.cobbleventure_player_menu.bag.pokemon_select.hp", currentHealth, maximumHealth
                 ).getString();
-                graphics.drawString(font, health, detailsX, getY() + 17, MUTED, false);
+                graphics.drawString(font, health, detailsX, getY() + 17, theme.mutedTextColor, false);
                 String experience = maximumLevel
                     ? Component.translatable("screen.cobbleventure_player_menu.bag.pokemon_select.exp_max").getString()
                     : Component.translatable(
@@ -206,7 +201,7 @@ final class BagPokemonSelectScreen extends Screen {
                     ).getString();
                 graphics.drawString(font,
                     font.plainSubstrByWidth(experience, detailsWidth),
-                    detailsX, getY() + 32, MUTED, false);
+                    detailsX, getY() + 32, theme.mutedTextColor, false);
             }
 
             ItemStack held = pokemon.heldItem();
@@ -214,12 +209,12 @@ final class BagPokemonSelectScreen extends Screen {
             if (held.isEmpty()) {
                 graphics.drawString(font,
                     Component.translatable("screen.cobbleventure_player_menu.bag.no_held_item"),
-                    detailsX, heldY + 5, MUTED, false);
+                    detailsX, heldY + 5, theme.mutedTextColor, false);
             } else {
                 graphics.renderItem(held, detailsX, heldY);
                 graphics.drawString(font,
                     font.plainSubstrByWidth(held.getHoverName().getString(), detailsWidth - 19),
-                    detailsX + 18, heldY + 5, MUTED, false);
+                    detailsX + 18, heldY + 5, theme.mutedTextColor, false);
             }
         }
 
@@ -252,13 +247,16 @@ final class BagPokemonSelectScreen extends Screen {
 
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            MenuTheme.ButtonStyle style = theme.button(
+                MenuTheme.ButtonVariant.GHOST, active, isHovered(), false
+            );
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                getHeight() / 2, isHovered() ? ACCENT : LIGHT);
+                getHeight() / 2, style.border());
             fillRoundedRect(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
-                Math.max(1, getHeight() / 2 - 1), DARK);
-            graphics.drawCenteredString(font, getMessage(), getX() + getWidth() / 2,
-                getY() + (getHeight() - 8) / 2, isHovered() ? ACCENT : TEXT);
+                Math.max(1, getHeight() / 2 - 1), style.background());
+            theme.drawCenteredText(graphics, font, getMessage(), getX() + getWidth() / 2,
+                getY() + (getHeight() - 8) / 2, MenuTheme.TextRole.LABEL, style.text());
         }
 
         @Override

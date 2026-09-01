@@ -87,6 +87,36 @@ public final class BagApi {
         return total;
     }
 
+    /** Returns the matching count from the extended bag only. */
+    public static int countBag(ServerPlayer player, ItemStack prototype) {
+        if (prototype.isEmpty()) return 0;
+        int total = 0;
+        for (ItemStack stack : BagStorage.load(player)) {
+            if (ItemStack.isSameItemSameComponents(stack, prototype)) total += stack.getCount();
+        }
+        return total;
+    }
+
+    /** Atomically removes the requested amount from the extended bag only. */
+    public static boolean removeFromBag(ServerPlayer player, ItemStack prototype, int amount) {
+        if (amount <= 0) return true;
+        if (prototype.isEmpty() || countBag(player, prototype) < amount) return false;
+
+        int remaining = amount;
+        NonNullList<ItemStack> storage = BagStorage.load(player);
+        for (int slot = 0; slot < storage.size() && remaining > 0; slot++) {
+            ItemStack stack = storage.get(slot);
+            if (!ItemStack.isSameItemSameComponents(stack, prototype)) continue;
+            int removed = Math.min(remaining, stack.getCount());
+            stack.shrink(removed);
+            remaining -= removed;
+            if (stack.isEmpty()) storage.set(slot, ItemStack.EMPTY);
+        }
+        BagStorage.save(player, storage);
+        BagNetwork.syncExternalMutation(player, storage);
+        return true;
+    }
+
     /** Atomically removes the requested amount, returning false without changes when insufficient. */
     public static boolean remove(ServerPlayer player, ItemStack prototype, int amount) {
         if (amount <= 0) return true;

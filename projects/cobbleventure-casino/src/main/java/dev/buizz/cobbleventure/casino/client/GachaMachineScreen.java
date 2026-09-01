@@ -6,6 +6,8 @@ import com.cobblemon.mod.common.pokemon.RenderablePokemon;
 import com.cobblemon.mod.common.pokemon.Species;
 import dev.buizz.cobbleventure.casino.CasinoItems;
 import dev.buizz.cobbleventure.casino.GachaMachineNetwork;
+import dev.buizz.cobbleventure.playermenu.client.MenuBackButton;
+import dev.buizz.cobbleventure.playermenu.client.MenuTheme;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -49,6 +51,7 @@ public final class GachaMachineScreen extends Screen {
     private GachaMachineNetwork.ResultPayload pendingResult;
     private State state = State.PREVIEW;
     private GachaButton pullButton;
+    private MenuBackButton backButton;
     private int panelLeft;
     private int panelTop;
     private int panelRight;
@@ -61,7 +64,7 @@ public final class GachaMachineScreen extends Screen {
     private int themeTop;
     private int themeRight;
     private int themeBottom;
-    private CasinoMenuTheme menuTheme;
+    private MenuTheme menuTheme;
     private final List<ModelWidget> rewardModels = new ArrayList<>();
     private final List<String> rewardModelSpecies = new ArrayList<>();
     private ModelWidget featuredModel;
@@ -79,7 +82,7 @@ public final class GachaMachineScreen extends Screen {
 
     @Override
     protected void init() {
-        menuTheme = CasinoMenuTheme.load(minecraft);
+        menuTheme = MenuTheme.load(minecraft);
         int panelWidth = Math.min(MAX_PANEL_WIDTH, width - SCREEN_INSET_X);
         int panelHeight = Math.min(MAX_PANEL_HEIGHT, height - SCREEN_INSET_Y);
         panelLeft = (width - panelWidth) / 2;
@@ -89,16 +92,19 @@ public final class GachaMachineScreen extends Screen {
         themeLeft = panelLeft + 14;
         themeTop = panelTop + 58;
         themeRight = Math.min(themeLeft + 142, panelLeft + Math.max(108, panelWidth / 4));
-        themeBottom = panelBottom - 16;
+        themeBottom = panelBottom - 52;
         int split = panelRight - Math.max(190, panelWidth / 3);
         listLeft = themeRight + 10;
         listTop = panelTop + 58;
         listRight = split - 8;
-        listBottom = panelBottom - 16;
+        listBottom = panelBottom - 52;
         int buttonWidth = Math.max(120, panelRight - split - 28);
         initPokemonModels();
         pullButton = addRenderableWidget(new GachaButton(
             split + 14, panelBottom - 48, buttonWidth, 28
+        ));
+        backButton = addRenderableWidget(new MenuBackButton(
+            menuTheme, panelLeft + 14, panelBottom - 44, 72, 24, this::onClose
         ));
         updateButton();
     }
@@ -499,6 +505,7 @@ public final class GachaMachineScreen extends Screen {
         if (pullButton == null) return;
         GachaMachineNetwork.ThemeView theme = activeTheme();
         pullButton.active = state != State.ROLLING && theme != null && tickets >= theme.ticketCost();
+        if (backButton != null) backButton.active = state != State.ROLLING;
         pullButton.setMessage(state == State.ROLLING
             ? Component.translatable("screen.cobbleventure_casino.gacha.rolling_button")
             : Component.translatable("screen.cobbleventure_casino.gacha.pull_button_cost",
@@ -635,24 +642,27 @@ public final class GachaMachineScreen extends Screen {
         }
         @Override public void onPress() { pull(); }
         @Override protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            int background = !active ? menuTheme.background
-                : isHovered() ? menuTheme.hoverBackground : menuTheme.selectedBackground;
+            MenuTheme.ButtonStyle style = menuTheme.button(
+                MenuTheme.ButtonVariant.PRIMARY, active, isHoveredOrFocused(), false
+            );
             CasinoThemedPanel.roundedFill(
                 graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                menuTheme.rowRadius, menuTheme.border
+                menuTheme.rowRadius, style.border()
             );
             CasinoThemedPanel.roundedFill(
                 graphics, getX() + 2, getY() + 2,
                 getX() + getWidth() - 2, getY() + getHeight() - 2,
-                Math.max(0, menuTheme.rowRadius - 2), background
+                Math.max(0, menuTheme.rowRadius - 2), style.background()
             );
             if (active) CasinoThemedPanel.roundedFill(
                 graphics, getX() + 4, getY() + 4, getX() + 7, getY() + getHeight() - 4,
                 1, menuTheme.accent
             );
-            drawCenteredNoShadow(graphics, getMessage(), getX() + getWidth() / 2,
+            menuTheme.drawCenteredText(
+                graphics, font, getMessage(), getX() + getWidth() / 2,
                 getY() + (getHeight() - font.lineHeight) / 2,
-                active ? menuTheme.selectedTextColor : menuTheme.mutedText());
+                MenuTheme.TextRole.LABEL, style.text()
+            );
         }
         @Override protected void updateWidgetNarration(NarrationElementOutput output) {
             defaultButtonNarrationText(output);

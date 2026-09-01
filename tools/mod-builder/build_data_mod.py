@@ -72,6 +72,9 @@ DIALOGUE_THEME_ENTRY = Path("data/cobbleventure/dialogue_theme/global.json")
 DIALOGUE_THEME_ASSET_ENTRY = Path("assets/cobbleventure/dialogue_theme/global.json")
 BATTLE_PRESET_SOURCE_DIR = CONTENT_ROOT / "battles"
 LOOT_TABLE_SOURCE_DIR = CONTENT_ROOT / "loot_tables"
+QUEST_SOURCE_DIR = CONTENT_ROOT / "quests"
+MAIN_QUEST_PROGRESSION_SOURCE = CONTENT_ROOT / "catalogs/main-quest-progression.json"
+MAIN_QUEST_PROGRESSION_ENTRY = Path("data/cobbleventure/main_quest/progression.json")
 NPC_SOURCE_DIR = CONTENT_ROOT / "source"
 NPC_PLACEMENT_PROFILE_ENTRY = Path("data/cobbleventure/catalogs/npc-placement-profiles.json")
 BATTLE_PRESET_ENTRY_DIR = Path("data/cobbleventure/battles")
@@ -86,7 +89,6 @@ REQUIRED_ENTRIES = {
     "data/cobbleventure/worldgen/template_pool/route_01_town/center.json",
     "data/cobbleventure/worldgen/template_pool/crimson_town/center.json",
     "data/cobbleventure/worldgen/template_pool/tidehaven_town/center.json",
-    "data/cobbleventure/worldgen/template_pool/skyreach_town/center.json",
     "data/cobbleventure/worldgen/biome/starter_plains.json",
     "data/cobbleventure/worldgen/biome/sealed_forest_edge.json",
     "data/cobbleventure/worldgen/placed_feature/sealed_forest_edge_trees.json",
@@ -140,6 +142,31 @@ def _package_generated_cves_content(root: Path, output: Path) -> None:
             )
         return
     shutil.copytree(cves_data, output / "data", dirs_exist_ok=True)
+
+
+def _package_quests(root: Path, output: Path) -> None:
+    """Package validated quest definitions as data/<namespace>/quest resources."""
+    source_root = _inside(root, root / QUEST_SOURCE_DIR, "퀘스트 원본 디렉터리")
+    if not source_root.is_dir():
+        return
+    for source in sorted(source_root.rglob("*.json")):
+        relative = source.relative_to(source_root)
+        if len(relative.parts) < 2:
+            raise ModBuildError(f"퀘스트는 <namespace>/<path>.json 구조여야 합니다: {source}")
+        namespace = relative.parts[0]
+        target = output / "data" / namespace / "quest" / Path(*relative.parts[1:])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+
+def _package_main_quest_progression(root: Path, output: Path) -> None:
+    """Package the authored NPC quest order used by the server and Pokefinder."""
+    source = _inside(root, root / MAIN_QUEST_PROGRESSION_SOURCE, "메인 퀘스트 진행 문서")
+    if not source.is_file():
+        return
+    target = _inside(root, output / MAIN_QUEST_PROGRESSION_ENTRY, "메인 퀘스트 진행 런타임 문서")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
 
 
 def _package_dimension_anchor_catalog(root: Path, output: Path) -> None:
@@ -3483,6 +3510,8 @@ def build(root: Path) -> Path:
     _package_hex_worlds(root, output, settlements)
     _package_generated_trainer_content(root, output)
     _package_generated_cves_content(root, output)
+    _package_quests(root, output)
+    _package_main_quest_progression(root, output)
     _package_dimension_anchor_catalog(root, output)
     _package_event_boundary_catalog(root, output)
     _package_dialogue_theme(root, output)

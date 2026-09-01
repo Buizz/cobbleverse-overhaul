@@ -42,9 +42,16 @@ textarea {
 
 .button,
 .nav-item,
+.nav-link,
 button:not(.mini-button):not(.forest-anchor-delete):not(.economy-icon-add) {
   font-size: var(--text-label) !important;
   line-height: 1.35;
+}
+
+.nav-tree,
+.nav-tree button,
+.nav-tree a {
+  font-family: var(--font-ui);
 }
 
 label,

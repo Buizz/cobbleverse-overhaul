@@ -16,6 +16,8 @@ SPEC.loader.exec_module(content_manager)
 
 
 class DungeonOwnedTrainerTests(unittest.TestCase):
+    CONTENT = ROOT / "content-projects" / "cobbleventure-main" / "content"
+
     def test_casino_uses_dungeon_owned_actor_and_trigger_data(self) -> None:
         source = (
             ROOT / "content-projects" / "cobbleventure-main" / "content"
@@ -42,6 +44,85 @@ class DungeonOwnedTrainerTests(unittest.TestCase):
         self.assertIn("function dungeonOwnedTrainerFields", script)
         self.assertIn("ownedTrainerClass", script)
         self.assertIn("triggerWarningTrack", script)
+
+    def test_generation_one_rocket_dungeons_use_requested_rosters_and_compact_bounds(self) -> None:
+        expected = {
+            "rocket_power_plant": 4,
+            "rocket_pokemon_tower": 5,
+            "rocket_casino_hideout": 5,
+            "rocket_silph_company": 8,
+        }
+        original_layout = {
+            "rocket_pokemon_tower": {"rooms": 11, "branches": 4, "depth": 2},
+            "rocket_casino_hideout": {"rooms": 16, "branches": 7, "depth": 4},
+            "rocket_silph_company": {"rooms": 12, "branches": 1, "depth": 1},
+        }
+
+        for slug, trainer_count in expected.items():
+            dungeon = json.loads((
+                self.CONTENT / "dungeons" / "generation_1" / f"{slug}.json"
+            ).read_text(encoding="utf-8"))
+            actors = [
+                trainer
+                for encounter in dungeon["encounters"]
+                for trainer in encounter.get("trainers", [])
+            ]
+            self.assertEqual(trainer_count, len(actors), slug)
+            self.assertGreater(dungeon["difficulty"]["internal_min"], 1, slug)
+
+            for actor in actors:
+                battle_slug = actor["battle"].split("/")[-1]
+                battle = json.loads((
+                    self.CONTENT / "battles" / "generation_1" / f"{battle_slug}.json"
+                ).read_text(encoding="utf-8"))
+                levels = [pokemon["level"] for pokemon in battle["battle"]["team"]]
+                self.assertTrue(all(level > 1 for level in levels), actor["id"])
+                self.assertGreaterEqual(min(levels), dungeon["difficulty"]["internal_min"])
+                self.assertLessEqual(max(levels), dungeon["difficulty"]["internal_max"])
+
+            if slug in original_layout:
+                previous = original_layout[slug]
+                layout = dungeon["layout"]
+                self.assertLess(layout["critical_path_rooms"][1], previous["rooms"], slug)
+                self.assertLessEqual(layout["branch_count"][1], previous["branches"], slug)
+                self.assertLessEqual(layout["branch_depth"][1], previous["depth"], slug)
+
+    def test_pokemon_tower_uses_an_independent_copy_of_the_rocket_piece_skin(self) -> None:
+        dungeon = json.loads((
+            self.CONTENT / "dungeons" / "generation_1" / "rocket_pokemon_tower.json"
+        ).read_text(encoding="utf-8"))
+        self.assertEqual(
+            "cobbleventure:dungeon_pool/pokemon_tower_test",
+            dungeon["terrain"]["piece_pool"],
+        )
+
+        rocket_definitions = self.CONTENT / "dungeon_pieces" / "rocket"
+        tower_definitions = self.CONTENT / "dungeon_pieces" / "pokemon_tower"
+        rocket_structures = self.CONTENT / "structures" / "dungeon_pieces" / "rocket"
+        tower_structures = self.CONTENT / "structures" / "dungeon_pieces" / "pokemon_tower"
+        names = sorted(path.name for path in rocket_definitions.glob("*.json"))
+        self.assertEqual(names, sorted(path.name for path in tower_definitions.glob("*.json")))
+
+        for name in names:
+            rocket = json.loads((rocket_definitions / name).read_text(encoding="utf-8"))
+            tower = json.loads((tower_definitions / name).read_text(encoding="utf-8"))
+            shape = Path(name).stem
+            self.assertEqual(
+                f"cobbleventure:dungeon_piece/pokemon_tower/{shape}",
+                tower["piece_id"],
+            )
+            self.assertEqual(
+                f"cobbleventure:dungeon_pieces/pokemon_tower/{shape}",
+                tower["structure"],
+            )
+            self.assertIn("cobbleventure:dungeon_theme/pokemon_tower", tower["tags"])
+            self.assertIn("cobbleventure:dungeon_pool/pokemon_tower_test", tower["tags"])
+            self.assertEqual(rocket["connectors"], tower["connectors"])
+            self.assertEqual(rocket["markers"], tower["markers"])
+            self.assertEqual(
+                (rocket_structures / f"{shape}.nbt").read_bytes(),
+                (tower_structures / f"{shape}.nbt").read_bytes(),
+            )
 
 
 if __name__ == "__main__":

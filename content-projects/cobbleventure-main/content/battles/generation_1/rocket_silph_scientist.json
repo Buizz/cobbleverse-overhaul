@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json", "schema_version": 1, "id": "cobbleventure:battle/rocket_silph_scientist", "enabled": true,
+  "name": { "ko_kr": "실프주식회사 협력 과학자 배틀" },
+  "battle": { "trainer_id": "cobbleventure:trainer/rocket_silph_scientist", "format": "GEN_9_SINGLES", "battle_type": "singles", "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "balanced", "options": {} }, "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [], "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:magnemite", "level": 33, "form": null, "aspects": [], "gender": "genderless", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "thunder_wave", "supersonic", "sonic_boom"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:koffing", "level": 34, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["smog", "sludge", "smokescreen", "self_destruct"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:electrode", "level": 35, "form": null, "aspects": [], "gender": "genderless", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "rollout", "light_screen", "self_destruct"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+    ]
+  }
+}

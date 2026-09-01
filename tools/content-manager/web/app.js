@@ -9,9 +9,11 @@ import {
 const dialogueThemeDefaults = {
   "$schema": "../schemas/dialogue-theme.schema.json", schema_version: 1,
   font: { resource: "minecraft:default", body_scale: 1, speaker_scale: 1, hint_scale: .85 },
+  typography: { title: { scale: 1.25, shadow: false }, heading: { scale: 1, shadow: false }, body: { scale: 1, shadow: false }, label: { scale: .9, shadow: false }, caption: { scale: .8, shadow: false } },
   panel: { background: "#f8fbff", background_opacity: .98, border: "#72a8d4", inner_border: "#d9f4ff", border_width: 3, inner_border_width: 2, corner_radius: 18, shadow: "#24445f", shadow_opacity: .45, shadow_offset: 3, speaker_color: "#c52b2b", text_color: "#27323d", hint_color: "#57758e", page_color: "#72a8d4", height_ratio: .333, min_height: 112, max_height: 166 },
   choice: { panel_background: "#f8fbff", panel_opacity: .98, panel_border: "#72a8d4", panel_inner_border: "#d9f4ff", corner_radius: 12, panel_width: 190, panel_gap: 8, panel_padding: 10, selected_background: "#d9f4ff", hover_background: "#eaf7ff", background: "#f8fbff", selected_accent: "#4f8fc2", text_color: "#27323d", row_height: 24 },
-  menu: { background: "#f8fbff", background_opacity: .98, border: "#72a8d4", inner_border: "#d9f4ff", corner_radius: 14, row_radius: 7, selected_background: "#d9f4ff", hover_background: "#eaf7ff", text_color: "#27323d", selected_text_color: "#173f5f", accent: "#4f8fc2" },
+  menu: { background: "#f8fbff", background_opacity: .98, border: "#72a8d4", inner_border: "#d9f4ff", corner_radius: 14, row_radius: 7, selected_background: "#d9f4ff", hover_background: "#eaf7ff", text_color: "#27323d", selected_text_color: "#173f5f", accent: "#4f8fc2", card_background: "#f8fbff", input_background: "#f8fbff", secondary_text_color: "#57758e", muted_text_color: "#7b8d9a", text_on_accent: "#ffffff", danger: "#c94b52", success: "#2f7d56", warning: "#d38a2e", scrim: "#07121c", scrim_opacity: .52, disabled_background: "#aeb9c2", disabled_border: "#8796a2", disabled_text: "#5f6b74" },
+  buttons: { primary: { normal: { background: "#4f8fc2", border: "#376f9a", text: "#ffffff" }, hover: { background: "#67a8d7", border: "#376f9a", text: "#ffffff" }, selected: { background: "#376f9a", border: "#173f5f", text: "#ffffff" } }, secondary: { normal: { background: "#f8fbff", border: "#72a8d4", text: "#27323d" }, hover: { background: "#eaf7ff", border: "#4f8fc2", text: "#173f5f" }, selected: { background: "#d9f4ff", border: "#4f8fc2", text: "#173f5f" } }, danger: { normal: { background: "#c94b52", border: "#96373d", text: "#ffffff" }, hover: { background: "#df6269", border: "#96373d", text: "#ffffff" }, selected: { background: "#a83d43", border: "#76292e", text: "#ffffff" } }, ghost: { normal: { background: "#f8fbff", border: "#d9f4ff", text: "#57758e" }, hover: { background: "#eaf7ff", border: "#72a8d4", text: "#27323d" }, selected: { background: "#d9f4ff", border: "#4f8fc2", text: "#173f5f" } } },
   portrait: { yaw_degrees: 18, pitch_degrees: -4, scale: .7, background: "#0a1017", background_opacity: .72, accent: "#5e7789" }
 };
 
@@ -60,8 +62,8 @@ const state = {
   badgeCatalog: { schema_version: 1, badges: [], regions_without_gym_badges: [] },
   gameDefinitions: { schema_version: 1, items: [], variables: [] },
   musicCatalog: { schema_version: 1, tracks: [], defaults: {} }, musicMappingTag: "",
-  economy: { schema_version: 2, vanilla_crafting_disabled: true, standard_prices: [], shop_catalogs: [], vendor_units: [], pokemon_drop_rules: [], pokemon_drop_overrides: [], npc_recipes: [], resolved_shop_catalogs: [], resolved_vendor_units: [], resolved_standard_prices: [], resolved_pokemon_drops: [], editor_catalog: { items: [], species: [], filters: {} } },
-  economyView: { catalogSearch: "", vendorSearch: "", selectedVendorId: "", selectedCatalogId: "", vendorProductGroup: "balls", vendorProductSearch: "", pokemonSearch: "", pokemonType: "", pokemonGeneration: "", pokemonLimit: 50 },
+  economy: { schema_version: 2, vanilla_crafting_disabled: true, sell_price_policy: { apply_default_to_all: true, default_percentage: 50 }, standard_prices: [], shop_catalogs: [], vendor_units: [], pokemon_drop_rules: [], pokemon_drop_overrides: [], npc_recipes: [], resolved_shop_catalogs: [], resolved_vendor_units: [], resolved_standard_prices: [], resolved_pokemon_drops: [], editor_catalog: { items: [], species: [], filters: {} } },
+  economyView: { catalogSearch: "", vendorSearch: "", selectedVendorId: "", selectedCatalogId: "", vendorProductGroup: "balls", vendorProductSearch: "", salePriceGroup: "all", salePriceSearch: "", pokemonSearch: "", pokemonType: "", pokemonGeneration: "", pokemonLimit: 50 },
   structureBuilder: null,
   dialogueTheme: null,
   casinoConfig: { loaded: false, root: "", files: [], selectedPath: "", poolByPath: {}, query: "" },
@@ -905,6 +907,7 @@ function deleteStarterGeneration() {
 function switchPage(section) {
   const navigationSection = ["gyms", "trainer-card"].includes(section) ? "league" : section;
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === navigationSection));
+  $$(".nav-link").forEach((link) => link.classList.remove("is-active"));
   const activeNavigationItem = $(`.nav-item[data-section="${navigationSection}"]`);
   if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
@@ -913,6 +916,28 @@ function switchPage(section) {
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
   loadSectionData(section).catch((error) => toast(error.message));
+}
+
+function openEmbeddedTool(link) {
+  const source = new URL(link.href, window.location.origin);
+  source.searchParams.set("embedded", "1");
+  const key = source.pathname;
+  const frames = $("#embedded-tool-frames");
+  let frame = frames.querySelector(`iframe[data-tool-path="${CSS.escape(key)}"]`);
+  if (!frame) {
+    frame = document.createElement("iframe");
+    frame.dataset.toolPath = key;
+    frame.src = source.href;
+    frame.title = link.dataset.toolTitle || link.textContent.trim();
+    frame.loading = "eager";
+    frames.append(frame);
+  }
+  frames.querySelectorAll("iframe").forEach((entry) => { entry.hidden = entry !== frame; });
+  $$(".nav-item").forEach((button) => button.classList.remove("is-active"));
+  $$(".nav-link").forEach((entry) => entry.classList.toggle("is-active", entry === link));
+  openNavigationGroup(link.closest(".nav-group"));
+  $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === "embedded-tool"));
+  $("#page-title").textContent = frame.title;
 }
 
 function openNavigationGroup(group) {
@@ -1723,7 +1748,10 @@ function renderDialogueTheme() {
   for (const input of form.elements) {
     if (!input.name) continue;
     const value = dialogueThemeValue(input.name);
-    if (value !== undefined) input.value = String(value);
+    if (value !== undefined) {
+      if (input.type === "checkbox") input.checked = Boolean(value);
+      else input.value = String(value);
+    }
   }
   $$('[data-theme-output]').forEach((output) => {
     const value = dialogueThemeValue(output.dataset.themeOutput);
@@ -2339,6 +2367,7 @@ function changeCasinoConfigRows(event) {
 }
 
 function loadSectionData(section, force = false) {
+  if (section === "dashboard") return loadDashboard();
   if (section === "music") {
     renderMusicSettings();
     return Promise.resolve();
@@ -3622,6 +3651,10 @@ function worldObjectIsRoadCell(q, r) {
 }
 function worldObjectPlacementProperties(resource, q, r, properties = {}) {
   const result = { ...(properties || {}) };
+  if (result.center_placement === true) {
+    result.placement_anchor = "center";
+    return result;
+  }
   if (Object.prototype.hasOwnProperty.call(result, "placement_anchor")) return result;
   if (!worldObjectIsRoadCell(q, r)) return result;
   const metadata = state.structureSizes?.[resource] || state.buildingSettings.structures?.[resource];
@@ -3634,6 +3667,7 @@ function worldObjectPlacementProperties(resource, q, r, properties = {}) {
 }
 function worldObjectAvoidsRoad(resource, q, r, properties = {}) {
   if (!worldObjectIsRoadCell(q, r)) return true;
+  if (properties?.center_placement === true) return true;
   const placement = worldObjectPlacementProperties(resource, q, r, properties).placement_anchor;
   return placement === "road_anchor" || placement === "door";
 }
@@ -3678,9 +3712,16 @@ function placeObjectWithTool(q, r) {
   if (!/^[a-z0-9_.-]+$/.test(id)) { toast("오브젝트 ID를 영문 소문자 형식으로 입력해 주세요."); return; }
   if (!gateResourceIdPattern.test(resource)) { toast("배치할 NBT를 선택해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
-  if (!worldObjectAvoidsRoad(resource, q, r)) { toast("길 셀에는 road_anchor 또는 외부 문 앵커가 있는 NBT만 배치할 수 있습니다."); return; }
+  const centerPlacement = $("#generic-object-tool-center-placement").checked;
+  const teleportable = $("#generic-object-tool-teleportable").checked;
+  const baseProperties = {
+    ...(teleportable ? { teleportable: true } : {}),
+    ...(teleportable || $("#generic-object-tool-show-on-minimap").checked ? { show_on_minimap: true } : {}),
+    ...(centerPlacement ? { center_placement: true, placement_anchor: "center" } : {})
+  };
+  if (!worldObjectAvoidsRoad(resource, q, r, baseProperties)) { toast("길 셀에는 road_anchor 또는 외부 문 앵커가 있는 NBT만 배치할 수 있습니다."); return; }
   state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);
-  const properties = worldObjectPlacementProperties(resource, q, r);
+  const properties = worldObjectPlacementProperties(resource, q, r, baseProperties);
   state.worldLayout.objects.push({ id, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number($("#generic-object-tool-rotation").value), ...(Object.keys(properties).length ? { properties } : {}) });
   state.selectedEntrance = null; state.selectedObjectId = id; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
@@ -3760,6 +3801,8 @@ function routePlaceFromId(endpointId) {
   if (caveEntrance) return { id: caveEntrance.cave, name: caveSummary(caveEntrance.cave)?.name || caveEntrance.cave, kind: "cave" };
   const forestEntrance = (state.worldLayout?.forest_entrances || []).find((entry) => entry.id === endpointId);
   if (forestEntrance) return { id: forestEntrance.forest, name: forestSummary(forestEntrance.forest)?.name || forestEntrance.forest, kind: "forest" };
+  const object = (state.worldLayout?.objects || []).find((entry) => entry.id === endpointId && entry.type !== "gate");
+  if (object) return { id: object.id, name: object.properties?.display_name || object.id, kind: "object" };
   return null;
 }
 function routePlaceAtCell(cell) {
@@ -3771,6 +3814,8 @@ function routePlaceAtCell(cell) {
   if (caveEntrance) return { id: caveEntrance.cave, name: caveSummary(caveEntrance.cave)?.name || caveEntrance.cave, kind: "cave" };
   const forestEntrance = forestEntranceAt(cell.q, cell.r);
   if (forestEntrance) return { id: forestEntrance.forest, name: forestSummary(forestEntrance.forest)?.name || forestEntrance.forest, kind: "forest" };
+  const object = objectsAt(cell.q, cell.r).find((entry) => entry.type !== "gate");
+  if (object) return routePlaceFromId(object.id);
   return null;
 }
 function resolveRouteEndpointPlace(route, side, visited = new Set()) {
@@ -4267,6 +4312,10 @@ function renderTileInspector() {
   form.elements.genericObjectId.value = customObject?.type !== "gate" ? customObject?.id || "" : "";
   form.elements.genericObjectResource.value = customObject?.type !== "gate" ? customObject?.resource || "" : "";
   form.elements.genericObjectRotation.value = customObject?.type !== "gate" ? customObject?.rotation || 0 : 0;
+  form.elements.genericObjectTeleportable.checked = customObject?.type !== "gate" && customObject?.properties?.teleportable === true;
+  form.elements.genericObjectShowOnMinimap.checked = customObject?.type !== "gate" && customObject?.properties?.show_on_minimap === true;
+  form.elements.genericObjectShowOnMinimap.disabled = form.elements.genericObjectTeleportable.checked;
+  form.elements.genericObjectCenterPlacement.checked = customObject?.type !== "gate" && (customObject?.properties?.center_placement === true || (customObject?.properties?.placement_anchor || "center") === "center");
   form.elements.genericObjectProperties.value = customObject?.type !== "gate" && customObject?.properties
     ? JSON.stringify(customObject.properties, null, 2) : "";
   form.elements.genericObjectConnectionAnchor.value = dungeonConnection?.from || "";
@@ -4830,6 +4879,22 @@ function applyTilePlacement() {
       try { properties = JSON.parse(propertySource); }
       catch { toast("내부 속성 JSON 형식을 확인해 주세요."); return; }
       if (!properties || Array.isArray(properties) || typeof properties !== "object") { toast("내부 속성은 JSON 객체여야 합니다."); return; }
+    }
+    properties ||= {};
+    if (form.elements.genericObjectTeleportable.checked) {
+      properties.teleportable = true;
+      properties.show_on_minimap = true;
+    } else {
+      delete properties.teleportable;
+      if (form.elements.genericObjectShowOnMinimap.checked) properties.show_on_minimap = true;
+      else delete properties.show_on_minimap;
+    }
+    if (form.elements.genericObjectCenterPlacement.checked) {
+      properties.center_placement = true;
+      properties.placement_anchor = "center";
+    } else {
+      delete properties.center_placement;
+      if (properties.placement_anchor === "center") delete properties.placement_anchor;
     }
     const connectionAnchor = form.elements.genericObjectConnectionAnchor.value.trim();
     const dungeonEntrance = form.elements.genericObjectDungeonEntrance.value.trim();
@@ -16487,6 +16552,7 @@ async function loadEconomy(force = false) {
     state.economy.vendor_units ||= [];
     state.economy.shop_catalogs ||= [];
     state.economy.standard_prices ||= [];
+    state.economy.sell_price_policy ||= { apply_default_to_all: true, default_percentage: 50 };
     state.economy.resolved_standard_prices ||= [];
     state.economy.pokemon_drop_rules ||= [];
     state.economy.resolved_shop_catalogs ||= [];
@@ -16516,16 +16582,63 @@ function economyLocalized(koKr, enUs) {
 }
 
 function economyStandardPrice(itemId) {
-  return (state.economy.resolved_standard_prices || []).find((entry) => entry.item === itemId)?.price || "";
+  const entry = (state.economy.resolved_standard_prices || []).find((candidate) => candidate.item === itemId);
+  return entry?.buy_price ?? entry?.price ?? "";
 }
 
 function setEconomyStandardPrice(itemId, price) {
   if (!itemId || !String(price).trim()) return;
+  updateEconomyPriceEntry(itemId, { buy_price: String(price).trim() });
+}
+
+function economySellPolicy() {
+  state.economy.sell_price_policy ||= { apply_default_to_all: true, default_percentage: 50 };
+  return state.economy.sell_price_policy;
+}
+
+function economyDefaultSellPrice(buyPrice) {
+  return String(Math.floor(Math.max(0, Number(buyPrice || 0)) * economySellPolicy().default_percentage / 100));
+}
+
+function economyPriceEntry(itemId, resolved = false) {
+  const source = resolved ? state.economy.resolved_standard_prices : state.economy.standard_prices;
+  return (source || []).find((entry) => entry.item === itemId);
+}
+
+function normalizedEconomyPriceEntry(itemId, source = {}) {
+  const buyPrice = String(source.buy_price ?? source.price ?? economyStandardPrice(itemId) ?? "0");
+  return {
+    item: itemId,
+    buy_price: buyPrice,
+    sell_price: String(source.sell_price ?? economyDefaultSellPrice(buyPrice)),
+    use_default_sell_price: source.use_default_sell_price ?? true,
+    no_sell_penalty: source.no_sell_penalty ?? false,
+  };
+}
+
+function updateEconomyPriceEntry(itemId, patch) {
+  if (!itemId) return;
   state.economy.standard_prices ||= [];
-  const entry = state.economy.standard_prices.find((candidate) => candidate.item === itemId);
-  if (entry) entry.price = String(price).trim();
-  else state.economy.standard_prices.push({ item: itemId, price: String(price).trim() });
-  state.economy.resolved_standard_prices = [...(state.economy.resolved_standard_prices || []).filter((candidate) => candidate.item !== itemId), { item: itemId, price: String(price).trim() }];
+  let entry = economyPriceEntry(itemId);
+  if (!entry) {
+    entry = normalizedEconomyPriceEntry(itemId, economyPriceEntry(itemId, true));
+    state.economy.standard_prices.push(entry);
+  } else Object.assign(entry, normalizedEconomyPriceEntry(itemId, entry));
+  Object.assign(entry, patch);
+  const resolved = normalizedEconomyPriceEntry(itemId, entry);
+  state.economy.resolved_standard_prices = [
+    ...(state.economy.resolved_standard_prices || []).filter((candidate) => candidate.item !== itemId),
+    resolved,
+  ];
+}
+
+function economyEffectiveSellPrice(entry) {
+  const normalized = normalizedEconomyPriceEntry(entry.item, entry);
+  if (normalized.no_sell_penalty) return normalized.sell_price;
+  if (economySellPolicy().apply_default_to_all || normalized.use_default_sell_price) {
+    return economyDefaultSellPrice(normalized.buy_price);
+  }
+  return normalized.sell_price;
 }
 
 const ECONOMY_PRODUCT_GROUPS = [
@@ -16576,6 +16689,33 @@ function economyProductLibrary(vendor, itemName) {
     ? "Cobblemon 1.7.3 기본 아이템에는 기술머신이 없습니다. 기술머신을 제공하는 모드를 추가하면 이 탭에 표시됩니다."
     : "조건에 맞는 상품이 없습니다.";
   return `<div class="economy-product-browser"><div class="economy-product-controls"><label><span>상품 검색</span><input id="economy-product-search" value="${escapeHtml(state.economyView.vendorProductSearch || "")}" placeholder="한글명, 영문명 또는 아이템 ID"></label><div><strong>상품 종류</strong><small>종류를 선택한 뒤 상품을 켜거나 끄세요.</small></div></div><nav class="economy-product-groups">${groupButtons}</nav><div class="economy-product-result-head"><span data-product-visible-count>${visibleCount}개 상품</span><b>${selected.size}개 판매 중</b></div><div class="economy-product-toggle-grid">${cards || `<div class="economy-empty">${emptyMessage}</div>`}</div></div>`;
+}
+
+function economySalePriceLibrary() {
+  const query = String(state.economyView.salePriceSearch || "").trim().toLocaleLowerCase("ko");
+  const groupId = state.economyView.salePriceGroup || "all";
+  const allItems = state.economy.editor_catalog?.items || [];
+  const items = allItems.filter((item) => groupId === "all" || economyProductGroup(item) === groupId);
+  const matchesQuery = (item) => !query
+    || `${item.id} ${item.ko_kr || ""} ${item.en_us || ""}`.toLocaleLowerCase("ko").includes(query);
+  const groupButtons = ECONOMY_PRODUCT_GROUPS.filter((group) => group.id !== "sold").map((group) => {
+    const count = group.id === "all"
+      ? allItems.length
+      : allItems.filter((item) => economyProductGroup(item) === group.id).length;
+    return `<button type="button" class="${group.id === groupId ? "is-active" : ""}" data-sale-price-group="${group.id}"><span>${escapeHtml(group.ko)}</span><small>${escapeHtml(group.en)} · ${count}</small></button>`;
+  }).join("");
+  const cards = items.map((item) => {
+    const source = economyPriceEntry(item.id) || economyPriceEntry(item.id, true) || {};
+    const price = normalizedEconomyPriceEntry(item.id, source);
+    const configured = Boolean(economyPriceEntry(item.id));
+    const calculated = economyEffectiveSellPrice(price);
+    const explicitDisabled = !price.no_sell_penalty && (economySellPolicy().apply_default_to_all || price.use_default_sell_price);
+    return `<article class="economy-sale-price-card ${configured ? "is-configured" : ""}" data-sale-price-item="${escapeHtml(item.id)}" ${matchesQuery(item) ? "" : "hidden"}><span class="economy-sale-price-name"><strong>${escapeHtml(item.ko_kr || item.en_us || item.id)}</strong><small>${escapeHtml(item.en_us || item.id)}</small><code>${escapeHtml(item.id)}</code></span><div class="economy-sale-price-fields"><label><b>구매가</b><input data-price-buy data-item="${escapeHtml(item.id)}" type="number" min="0" step="1" value="${escapeHtml(price.buy_price)}"><i>원</i></label><label><b>직접 판매가</b><input data-price-sell data-item="${escapeHtml(item.id)}" type="number" min="0" step="1" value="${escapeHtml(price.sell_price)}" ${explicitDisabled ? "disabled" : ""}><i>원</i></label><label class="economy-price-check"><input data-price-use-default data-item="${escapeHtml(item.id)}" type="checkbox" ${price.use_default_sell_price ? "checked" : ""}><span>기본가격 사용</span></label><label class="economy-price-check"><input data-price-no-penalty data-item="${escapeHtml(item.id)}" type="checkbox" ${price.no_sell_penalty ? "checked" : ""}><span>감가 면제</span></label><output>실제 판매가 <strong>${Number(calculated).toLocaleString()}원</strong></output></div></article>`;
+  }).join("");
+  const configuredCount = (state.economy.standard_prices || []).length;
+  const visibleCount = items.filter(matchesQuery).length;
+  const policy = economySellPolicy();
+  return `<div class="economy-product-browser economy-sale-price-browser"><section class="economy-sell-policy"><label class="economy-price-check"><input data-sell-policy-field="apply_default_to_all" type="checkbox" ${policy.apply_default_to_all ? "checked" : ""}><span>전체 아이템에 기본 판매가 적용</span></label><label><span>기본 판매 비율</span><input data-sell-policy-field="default_percentage" type="number" min="0" max="100" step="1" value="${policy.default_percentage}"><i>%</i></label><p>기본 판매가는 구매가의 ${policy.default_percentage}%입니다. 감가 면제 아이템은 직접 판매가를 그대로 사용합니다.</p></section><div class="economy-product-controls"><label><span>아이템 검색</span><input id="economy-sale-price-search" value="${escapeHtml(state.economyView.salePriceSearch || "")}" placeholder="한글명, 영문명 또는 아이템 ID"></label><div><strong>${configuredCount}개 가격 설정됨</strong><small>가격이 없는 아이템은 0원으로 판매됩니다.</small></div></div><nav class="economy-product-groups">${groupButtons}</nav><div class="economy-product-result-head"><span data-sale-price-visible-count>${visibleCount}개 아이템</span><b>구매가·판매가는 개당 기준</b></div><div class="economy-sale-price-grid">${cards || '<div class="economy-empty">조건에 맞는 아이템이 없습니다.</div>'}</div></div>`;
 }
 
 function economyCollection(kind) {
@@ -16798,6 +16938,8 @@ function renderEconomy() {
     $("#economy-vendor-detail").innerHTML = `<header class="economy-detail-head"><div><p class="eyebrow">${escapeHtml(economyFacilityLabel(selectedVendor.facility_scope))}</p><h3>${escapeHtml(economyText(selectedVendor.role) || "판매원")}</h3><small>${escapeHtml(economyText(selectedVendor.display_name) || selectedVendor.npc_template || "")} · ${escapeHtml(economyText(selectedVendor.display_name, "en_us"))}</small><code>${escapeHtml(selectedVendor.id)}</code></div><div class="economy-detail-actions"><button data-economy-edit="shop" data-index="${customIndex ?? -1}" data-entry-id="${escapeHtml(selectedVendor.id)}">상인 정보 편집</button>${customIndex == null ? "" : `<button data-economy-remove="shop" data-index="${customIndex}">상인 삭제</button>`}</div></header><div class="economy-section-title"><div><h4>판매 상품 설정</h4><small>${rows.length}개 상품 판매 중 · 상품 카드를 눌러 즉시 추가하거나 제외합니다.</small></div></div>${economyProductLibrary(selectedVendor, itemName)}`;
   } else $("#economy-vendor-detail").innerHTML = '<div class="economy-detail-empty"><div><strong>상인을 선택하세요</strong><span>왼쪽 목록에서 상인을 누르면 판매 상품이 여기에 표시됩니다.</span></div></div>';
 
+  $("#economy-sale-price-editor").innerHTML = economySalePriceLibrary();
+
   if (selectedCatalog) {
     const assignments = selectedCatalog.assignments || [];
     const customIndex = customCatalogIds.get(selectedCatalog.id);
@@ -16908,6 +17050,12 @@ function handleEconomyClick(event) {
   if (catalogChoice) { state.economyView.selectedCatalogId = catalogChoice.dataset.selectCatalog; renderEconomy(); return; }
   const productGroup = event.target.closest("[data-product-group]");
   if (productGroup) { state.economyView.vendorProductGroup = productGroup.dataset.productGroup; renderEconomy(); return; }
+  const salePriceGroup = event.target.closest("[data-sale-price-group]");
+  if (salePriceGroup) {
+    state.economyView.salePriceGroup = salePriceGroup.dataset.salePriceGroup;
+    renderEconomy();
+    return;
+  }
   const productToggle = event.target.closest("[data-toggle-vendor-product]");
   if (productToggle) {
     event.preventDefault();
@@ -17014,6 +17162,30 @@ function handleEconomyClick(event) {
 }
 
 function handleEconomyInlineChange(event) {
+  const policyField = event.target.closest("[data-sell-policy-field]");
+  if (policyField) {
+    const scrollTop = $("#economy-sale-price-editor .economy-sale-price-grid")?.scrollTop || 0;
+    const key = policyField.dataset.sellPolicyField;
+    economySellPolicy()[key] = key === "apply_default_to_all"
+      ? policyField.checked
+      : Math.max(0, Math.min(100, Math.floor(Number(policyField.value || 0))));
+    renderEconomy();
+    if ($("#economy-sale-price-editor .economy-sale-price-grid")) $("#economy-sale-price-editor .economy-sale-price-grid").scrollTop = scrollTop;
+    return;
+  }
+  const priceField = event.target.closest("[data-price-buy], [data-price-sell], [data-price-use-default], [data-price-no-penalty]");
+  if (priceField) {
+    const scrollTop = $("#economy-sale-price-editor .economy-sale-price-grid")?.scrollTop || 0;
+    let patch;
+    if (priceField.matches("[data-price-buy]")) patch = { buy_price: String(Math.max(0, Math.floor(Number(priceField.value || 0)))) };
+    else if (priceField.matches("[data-price-sell]")) patch = { sell_price: String(Math.max(0, Math.floor(Number(priceField.value || 0)))) };
+    else if (priceField.matches("[data-price-use-default]")) patch = { use_default_sell_price: priceField.checked };
+    else patch = { no_sell_penalty: priceField.checked };
+    updateEconomyPriceEntry(priceField.dataset.item, patch);
+    renderEconomy();
+    if ($("#economy-sale-price-editor .economy-sale-price-grid")) $("#economy-sale-price-editor .economy-sale-price-grid").scrollTop = scrollTop;
+    return;
+  }
   const toggleCount = event.target.closest("[data-toggle-product-count]");
   if (toggleCount) {
     const editable = editableEconomyEntry("shop", state.economyView.selectedVendorId); if (!editable) return;
@@ -17065,15 +17237,27 @@ function handleEconomyInlineChange(event) {
 }
 
 function handleEconomyInput(event) {
-  if (event.target.id !== "economy-product-search") return;
-  const query = event.target.value.trim().toLocaleLowerCase("ko");
-  state.economyView.vendorProductSearch = event.target.value;
-  let visible = 0;
-  $$("#economy-vendor-detail .economy-product-toggle").forEach((card) => {
-    card.hidden = Boolean(query) && !card.textContent.toLocaleLowerCase("ko").includes(query);
-    if (!card.hidden) visible += 1;
-  });
-  $("#economy-vendor-detail [data-product-visible-count]").textContent = `${visible}개 상품`;
+  if (event.target.id === "economy-product-search") {
+    const query = event.target.value.trim().toLocaleLowerCase("ko");
+    state.economyView.vendorProductSearch = event.target.value;
+    let visible = 0;
+    $$("#economy-vendor-detail .economy-product-toggle").forEach((card) => {
+      card.hidden = Boolean(query) && !card.textContent.toLocaleLowerCase("ko").includes(query);
+      if (!card.hidden) visible += 1;
+    });
+    $("#economy-vendor-detail [data-product-visible-count]").textContent = `${visible}개 상품`;
+    return;
+  }
+  if (event.target.id === "economy-sale-price-search") {
+    const query = event.target.value.trim().toLocaleLowerCase("ko");
+    state.economyView.salePriceSearch = event.target.value;
+    let visible = 0;
+    $$("#economy-sale-price-editor .economy-sale-price-card").forEach((card) => {
+      card.hidden = Boolean(query) && !card.textContent.toLocaleLowerCase("ko").includes(query);
+      if (!card.hidden) visible += 1;
+    });
+    $("#economy-sale-price-editor [data-sale-price-visible-count]").textContent = `${visible}개 아이템`;
+  }
 }
 
 function handleEconomyDialogClick(event) {
@@ -17475,26 +17659,19 @@ async function refreshAll(showLoadingOverlay = true) {
   $("#server-dot").classList.remove("online");
   $("#server-label").textContent = "프로젝트 데이터 로드 중";
   const listsPromise = loadLists();
-  const nbtPromise = Promise.all([loadStructureData(), loadBuildingSettingsData()]);
   listsPromise.then(() => {
     $("#server-dot").classList.add("online");
-    $("#server-label").textContent = "기본 데이터 로드됨 · NBT 준비 중";
-    updateProjectLoading("기본 목록 준비 완료 · NBT 불러오는 중…");
+    $("#server-label").textContent = "기본 데이터 로드됨 · 현재 화면 준비 중";
+    updateProjectLoading("기본 목록 준비 완료 · 현재 화면 불러오는 중…");
   }, () => {
     $("#server-dot").classList.add("online");
     $("#server-label").textContent = "일부 데이터 로드 실패";
   });
-  nbtPromise.then(() => {
-    $("#server-label").textContent = "프로젝트 데이터 로드됨 · 현재 화면 준비 중";
-    updateProjectLoading("NBT 준비 완료 · 현재 화면 데이터 불러오는 중…");
-  }, () => {
-    $("#server-label").textContent = "일부 데이터 로드 실패";
-  });
-  const [listsResult, nbtResult] = await Promise.allSettled([listsPromise, nbtPromise]);
-  const errors = [listsResult, nbtResult]
+  const [listsResult] = await Promise.allSettled([listsPromise]);
+  const errors = [listsResult]
     .filter((result) => result.status === "rejected")
     .map((result) => result.reason?.message || "알 수 없는 로드 오류");
-  for (const result of [listsResult, nbtResult]) {
+  for (const result of [listsResult]) {
     if (result.status === "rejected") console.error("Project data load failed", result.reason);
   }
   if (listsResult.status === "fulfilled") {
@@ -17504,25 +17681,14 @@ async function refreshAll(showLoadingOverlay = true) {
     catch (error) { errors.push(error.message); }
   }
   $("#server-dot").classList.add("online");
-  $("#server-label").textContent = errors.length ? "일부 데이터 로드 실패" : "서버 연결됨 · 검증 중";
+  $("#server-label").textContent = errors.length ? "일부 데이터 로드 실패" : "서버 연결됨";
   if (errors.length) {
     hideProjectLoading();
     toast(errors[0].split("\n")[0]);
     return;
   }
-  updateProjectLoading("마지막 검증 결과 불러오는 중…");
-  try {
-    await loadDashboard();
-    $("#server-label").textContent = "서버 연결됨";
-    updateProjectLoading("모든 프로젝트 데이터를 불러왔습니다.");
-  } catch (error) {
-    $("#dashboard-issues").className = "issues";
-    $("#dashboard-issues").textContent = error.message || "검증 결과를 불러오지 못했습니다.";
-    $("#server-label").textContent = "검증 결과 로드 실패";
-    toast((error.message || "검증 결과를 불러오지 못했습니다.").split("\n")[0]);
-  } finally {
-    hideProjectLoading();
-  }
+  updateProjectLoading("현재 화면을 불러왔습니다.");
+  hideProjectLoading();
 }
 
 $("#starter-generation-list").addEventListener("click", (event) => {
@@ -17584,7 +17750,9 @@ $("#save-starter-settings").addEventListener("click", async () => {
 $("#dialogue-theme-form").addEventListener("input", (event) => {
   const input = event.target;
   if (!input.name || !state.dialogueTheme) return;
-  setDialogueThemeValue(input.name, input.type === "range" ? Number(input.value) : input.value);
+  setDialogueThemeValue(input.name,
+    input.type === "checkbox" ? input.checked
+      : input.type === "range" ? Number(input.value) : input.value);
   renderDialogueTheme();
 });
 $("#save-dialogue-theme").addEventListener("click", saveDialogueTheme);
@@ -17610,6 +17778,10 @@ $("#add-gacha-machine").addEventListener("click", addGachaSet);
 $("#save-gacha-machines").addEventListener("click", saveGachaMachines);
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => switchPage(button.dataset.section)));
+$$('.nav-link[data-tool-title]').forEach((link) => link.addEventListener("click", (event) => {
+  event.preventDefault();
+  openEmbeddedTool(link);
+}));
 $$(".nav-group-toggle").forEach((button) => button.addEventListener("click", () => toggleNavigationGroup(button.closest(".nav-group"))));
 $("#gym-list").addEventListener("click", (event) => { const button = event.target.closest("[data-gym-id]"); if (button) { state.selectedGymId = button.dataset.gymId; state.gymLayout.selected = null; renderGymEditor(); } });
 $("#gym-form").addEventListener("input", updateGymFromForm);
@@ -18020,6 +18192,11 @@ $("#sync-structure-builder").addEventListener("click", syncStructureBuilder);
 $("#import-structure-builder").addEventListener("click", importStructureBuilder);
 $("#choose-structure-builder-live-source").addEventListener("click", () => openStructureBuilderSourceDialog("live"));
 $("#choose-generic-object-tool-resource").addEventListener("click", () => openStructureBuilderSourceDialog("world-tool"));
+$("#generic-object-tool-teleportable").addEventListener("change", (event) => {
+  const minimap = $("#generic-object-tool-show-on-minimap");
+  if (event.target.checked) minimap.checked = true;
+  minimap.disabled = event.target.checked;
+});
 $("#choose-selected-object-resource").addEventListener("click", () => openStructureBuilderSourceDialog("world-inspector"));
 $("#close-structure-builder-source").addEventListener("click", () => $("#structure-builder-source-dialog").close());
 $("#structure-builder-source-search").addEventListener("input", renderStructureBuilderSourceDialog);
@@ -18542,6 +18719,11 @@ $("#save-world-layout").addEventListener("click", saveWorldLayout);
 $("#delete-world-layout").addEventListener("click", deleteWorldLayout);
 $("#add-generation").addEventListener("click", addGeneration);
 $("#tile-inspector-form").addEventListener("change", (event) => {
+  if (event.target.name === "genericObjectTeleportable") {
+    const minimap = event.currentTarget.elements.genericObjectShowOnMinimap;
+    if (event.target.checked) minimap.checked = true;
+    minimap.disabled = event.target.checked;
+  }
   if (["objectType", "objectGateMode", "objectSurroundingType"].includes(event.target.name)) updateGateOptionVisibility();
   handleTileInspectorChange(event);
 });

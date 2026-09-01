@@ -2196,6 +2196,19 @@
         "noise_scale_blocks": 96,
         "connection_height": 0
       }
+    },
+    {
+      "q": -6,
+      "r": -2,
+      "biome": "minecraft:stony_peaks",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 10,
+        "height_variation": 3,
+        "noise_scale_blocks": 88,
+        "connection_height": 2
+      },
+      "access_requirement": "cobbleventure:field_move/rock_climb"
     }
   ],
   "settlements": [
@@ -2389,27 +2402,6 @@
       },
       "access_requirement": "cobbleventure:field_move/surf",
       "town_footprint_shape": "triangle_down",
-      "town_footprint_cells": [],
-      "town_road_exits": []
-    },
-    {
-      "settlement": "cobbleventure:settlement/skyreach_town",
-      "anchor": {
-        "q": -6,
-        "r": -2
-      },
-      "town_radius_cells": 7,
-      "town_biome": "minecraft:stony_peaks",
-      "surroundings": [],
-      "boundary_profile": "cobbleventure:boundary/earthwork",
-      "terrain_profile": {
-        "base_height_offset": 10,
-        "height_variation": 3,
-        "noise_scale_blocks": 88,
-        "connection_height": 2
-      },
-      "access_requirement": "cobbleventure:field_move/rock_climb",
-      "town_footprint_shape": "line_q",
       "town_footprint_cells": [],
       "town_road_exits": []
     }
@@ -2851,7 +2843,7 @@
     {
       "id": "route_custom_05",
       "route_preset": "cobbleventure:route/route_custom_05",
-      "to": "cobbleventure:settlement/skyreach_town",
+      "to": "indigo_plateau",
       "anchors": [
         {
           "q": -8,
@@ -3760,6 +3752,23 @@
     }
   ],
   "objects": [
+    {
+      "id": "indigo_plateau",
+      "type": "structure",
+      "anchor": {
+        "q": -6,
+        "r": -2
+      },
+      "resource": "cobbleventure:league/kanto_league",
+      "rotation": 0,
+      "properties": {
+        "display_name": "석영고원",
+        "teleportable": true,
+        "show_on_minimap": true,
+        "center_placement": true,
+        "placement_anchor": "center"
+      }
+    },
     {
       "id": "bill_house",
       "type": "structure",
@@ -5445,5 +5454,11 @@
       "average_level": 33
     }
   ],
-  "music_overrides": []
+  "music_overrides": [
+    {
+      "q": -6,
+      "r": -2,
+      "music_track": "kanto.route_03"
+    }
+  ]
 }

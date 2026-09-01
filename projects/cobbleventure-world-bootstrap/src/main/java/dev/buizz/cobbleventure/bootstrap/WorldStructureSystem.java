@@ -51,8 +51,11 @@ final class WorldStructureSystem {
             JsonObject properties = value.has("properties")
                 && value.get("properties").isJsonObject()
                 ? value.getAsJsonObject("properties") : new JsonObject();
-            String placementAnchor = properties.has("placement_anchor")
-                ? requiredString(properties, "placement_anchor") : "center";
+            String placementAnchor = properties.has("center_placement")
+                && properties.get("center_placement").getAsBoolean()
+                ? "center"
+                : properties.has("placement_anchor")
+                    ? requiredString(properties, "placement_anchor") : "center";
             if (!List.of("center", "road_anchor", "door").contains(placementAnchor)) {
                 throw new IllegalStateException(
                     "Invalid world structure placement anchor: " + placementAnchor

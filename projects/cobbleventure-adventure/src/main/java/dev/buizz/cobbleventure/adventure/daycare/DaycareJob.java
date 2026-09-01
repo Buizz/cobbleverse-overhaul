@@ -123,6 +123,14 @@ final class DaycareJob {
             : this;
     }
 
+    DaycareJob relocatePaddock(BlockPos updatedPaddockCenter) {
+        if (paddockCenter.equals(updatedPaddockCenter)) return this;
+        return new DaycareJob(
+            jobId, ownerId, pokemon, openedAtMillis, nextEggCheckAtMillis,
+            feePaid, eggStacks, facilityDimension, updatedPaddockCenter
+        );
+    }
+
     private DaycareJob copy(
         List<StoredPokemon> updatedPokemon, long updatedNextCheck,
         long updatedFee, List<CompoundTag> updatedEggs

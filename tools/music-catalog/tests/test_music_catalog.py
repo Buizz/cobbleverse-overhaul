@@ -55,7 +55,6 @@ class MusicCatalogTest(unittest.TestCase):
             "lavender_town": "kanto.lavender_town",
             "route_01_town": "kanto.pewter_city",
             "saffron_city": "kanto.pewter_city",
-            "skyreach_town": "kanto.route_03",
             "starter_town": "kanto.pallet_town",
             "tidehaven_town": "kanto.cinnabar_island",
             "vermilion_city": "kanto.vermilion_city",

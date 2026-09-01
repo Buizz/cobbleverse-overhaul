@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json", "schema_version": 1, "id": "cobbleventure:battle/rocket_silph_admin", "enabled": true,
+  "name": { "ko_kr": "실프주식회사 로켓단 간부 배틀" },
+  "battle": { "trainer_id": "cobbleventure:trainer/rocket_silph_admin", "format": "GEN_9_SINGLES", "battle_type": "singles", "ai": { "controller": "cobbleventure", "difficulty": "advanced", "strategy": "aggressive", "options": {} }, "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [], "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:golbat", "level": 37, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["bite", "confuse_ray", "wing_attack", "mean_look"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:weezing", "level": 39, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["sludge", "smokescreen", "haze", "self_destruct"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:rhydon", "level": 41, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["stomp", "rock_blast", "scary_face", "take_down"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+    ]
+  }
+}

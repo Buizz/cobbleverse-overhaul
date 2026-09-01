@@ -9,3 +9,5 @@ plugins {
 }
 
 rootProject.name = 'cobbleventure-pokefinder'
+
+includeBuild('../cobbleventure-player-menu')

@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json", "schema_version": 1,
+  "id": "cobbleventure:battle/rocket_tower_grunt_low", "enabled": true,
+  "name": { "ko_kr": "포켓몬타워 로켓단 조무래기 배틀 A" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/rocket_tower_grunt_low", "format": "GEN_9_SINGLES", "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} }, "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:rattata", "level": 27, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["quick_attack", "hyper_fang", "bite", "focus_energy"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:rattata", "level": 27, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["quick_attack", "hyper_fang", "bite", "focus_energy"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:zubat", "level": 27, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["bite", "supersonic", "confuse_ray", "wing_attack"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+    ]
+  }
+}

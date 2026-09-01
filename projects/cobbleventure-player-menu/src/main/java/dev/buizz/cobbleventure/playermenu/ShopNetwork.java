@@ -38,8 +38,8 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 /** Server-authoritative shop sessions backed by CobbleDollars and the Cobbleventure bag. */
 public final class ShopNetwork {
     public static final String VENDOR_DATA_KEY = "cobbleventure_shop_vendor";
-    private static final String VERSION = "1";
-    private static final int MAX_TRANSACTION_QUANTITY = 999;
+    private static final String VERSION = "2";
+    private static final int MAX_BUY_QUANTITY = 999;
     private static final long SESSION_TICKS = 20L * 60L * 10L;
     private static final double MAX_INTERACTION_DISTANCE_SQR = 100.0D;
     private static final ResourceLocation CATALOG = ResourceLocation.fromNamespaceAndPath(
@@ -55,8 +55,12 @@ public final class ShopNetwork {
         NeoForge.EVENT_BUS.addListener(ShopNetwork::onPlayerLogout);
     }
 
-    public static void requestTransaction(UUID token, int offerIndex, int quantity, boolean selling) {
-        PacketDistributor.sendToServer(new TransactionPayload(token, offerIndex, quantity, selling));
+    public static void requestTransaction(
+        UUID token, int offerIndex, int quantity, boolean selling, ItemStack stack
+    ) {
+        PacketDistributor.sendToServer(new TransactionPayload(
+            token, offerIndex, quantity, selling, stack.copyWithCount(1)
+        ));
     }
 
     public static void close(UUID token) {
@@ -121,7 +125,8 @@ public final class ShopNetwork {
             ));
             return;
         }
-        if (payload.quantity() < 1 || payload.quantity() > MAX_TRANSACTION_QUANTITY) {
+        if (payload.quantity() < 1
+            || !payload.selling() && payload.quantity() > MAX_BUY_QUANTITY) {
             context.reply(failure(
                 player, payload.token(), "screen.cobbleventure_player_menu.shop.error.quantity"
             ));
@@ -129,18 +134,30 @@ public final class ShopNetwork {
         }
 
         ShopDefinition definition = loadDefinition(player, session.vendorId());
-        if (definition == null || payload.offerIndex() < 0
-            || payload.offerIndex() >= definition.offers().size()) {
+        if (definition == null) {
             context.reply(failure(
                 player, payload.token(), "screen.cobbleventure_player_menu.shop.error.offer"
             ));
             return;
         }
 
-        Offer offer = definition.offers().get(payload.offerIndex());
-        String error = payload.selling()
-            ? sell(player, offer, payload.quantity())
-            : buy(player, offer, payload.quantity());
+        String error;
+        if (payload.selling()) {
+            ItemStack prototype = payload.stack().copyWithCount(1);
+            BigInteger unitPrice = definition.salePrices().getOrDefault(
+                prototype.getItem(), BigInteger.ZERO
+            );
+            error = sell(player, prototype, unitPrice, payload.quantity());
+        } else {
+            if (payload.offerIndex() < 0
+                || payload.offerIndex() >= definition.offers().size()) {
+                context.reply(failure(
+                    player, payload.token(), "screen.cobbleventure_player_menu.shop.error.offer"
+                ));
+                return;
+            }
+            error = buy(player, definition.offers().get(payload.offerIndex()), payload.quantity());
+        }
         ShopDefinition refreshed = loadDefinition(player, session.vendorId());
         if (refreshed == null) {
             context.reply(failure(
@@ -175,27 +192,28 @@ public final class ShopNetwork {
         return "screen.cobbleventure_player_menu.shop.success.buy";
     }
 
-    private static String sell(ServerPlayer player, Offer offer, int quantity) {
-        if (ImportantItemProtection.isProtected(new ItemStack(offer.item()))) {
+    private static String sell(
+        ServerPlayer player, ItemStack prototype, BigInteger unitPrice, int quantity
+    ) {
+        if (prototype.isEmpty() || ImportantItemProtection.isProtected(prototype)) {
             return "screen.cobbleventure_player_menu.shop.error.not_sellable";
         }
-        if (offer.sellPrice().signum() <= 0) {
-            return "screen.cobbleventure_player_menu.shop.error.not_sellable";
-        }
-        long requested = (long) offer.count() * quantity;
-        if (requested > Integer.MAX_VALUE) {
-            return "screen.cobbleventure_player_menu.shop.error.quantity";
-        }
-        ItemStack prototype = new ItemStack(offer.item());
-        if (!BagApi.remove(player, prototype, (int) requested)) {
+        if (!BagApi.removeFromBag(player, prototype, quantity)) {
             return "screen.cobbleventure_player_menu.shop.error.items";
         }
         BigInteger before = PlayerExtensionKt.getCobbleDollars(player).max(BigInteger.ZERO);
-        BigInteger earned = offer.sellPrice().multiply(BigInteger.valueOf(quantity));
+        BigInteger earned = unitPrice.multiply(BigInteger.valueOf(quantity));
         try {
             PlayerExtensionKt.setCobbleDollars(player, before.add(earned));
         } catch (RuntimeException error) {
-            BagApi.insertAll(player, splitStacks(offer.item(), (int) requested));
+            List<ItemStack> rollback = new ArrayList<>();
+            int remaining = quantity;
+            while (remaining > 0) {
+                int count = Math.min(remaining, prototype.getMaxStackSize());
+                rollback.add(prototype.copyWithCount(count));
+                remaining -= count;
+            }
+            BagApi.insertAll(player, rollback);
             return "screen.cobbleventure_player_menu.shop.error.transaction";
         }
         return "screen.cobbleventure_player_menu.shop.success.sell";
@@ -288,7 +306,40 @@ public final class ShopNetwork {
                 offer.count(),
                 offer.buyPrice().toString(),
                 offer.sellPrice().toString(),
-                BagApi.count(player, prototype)
+                BagApi.count(player, prototype),
+                false
+            ));
+        }
+        List<SellCandidate> candidates = new ArrayList<>();
+        Map<Integer, List<Integer>> buckets = new HashMap<>();
+        for (ItemStack stack : BagStorage.load(player)) {
+            if (stack.isEmpty() || ImportantItemProtection.isProtected(stack)) continue;
+            int hash = ItemStack.hashItemAndComponents(stack);
+            List<Integer> bucket = buckets.computeIfAbsent(hash, ignored -> new ArrayList<>());
+            int match = -1;
+            for (int candidateIndex : bucket) {
+                if (ItemStack.isSameItemSameComponents(candidates.get(candidateIndex).stack(), stack)) {
+                    match = candidateIndex;
+                    break;
+                }
+            }
+            if (match < 0) {
+                bucket.add(candidates.size());
+                candidates.add(new SellCandidate(stack.copyWithCount(1), stack.getCount()));
+            } else {
+                SellCandidate candidate = candidates.get(match);
+                candidates.set(match, new SellCandidate(
+                    candidate.stack(), candidate.count() + stack.getCount()
+                ));
+            }
+        }
+        for (SellCandidate candidate : candidates) {
+            ItemStack prototype = candidate.stack();
+            BigInteger price = definition.salePrices().getOrDefault(
+                prototype.getItem(), BigInteger.ZERO
+            );
+            offers.add(new ClientOffer(
+                offers.size(), "", prototype, 1, "0", price.toString(), candidate.count(), true
             ));
         }
         return List.copyOf(offers);
@@ -300,6 +351,25 @@ public final class ShopNetwork {
         String language = player.clientInformation().language();
         try (Reader reader = resource.openAsReader()) {
             JsonObject catalog = JsonParser.parseReader(reader).getAsJsonObject();
+            SellPricePolicy sellPricePolicy = readSellPricePolicy(catalog);
+            Map<Item, StandardPrice> standardPrices = new HashMap<>();
+            Map<Item, BigInteger> resolvedSalePrices = new HashMap<>();
+            if (catalog.has("standard_prices")) {
+                for (JsonElement priceElement : catalog.getAsJsonArray("standard_prices")) {
+                    JsonObject price = priceElement.getAsJsonObject();
+                    ResourceLocation itemId = ResourceLocation.tryParse(requiredString(price, "item"));
+                    if (itemId == null || !BuiltInRegistries.ITEM.containsKey(itemId)) continue;
+                    StandardPrice standardPrice = new StandardPrice(
+                        nonNegativeMoney(requiredString(price, "buy_price")),
+                        nonNegativeMoney(requiredString(price, "sell_price")),
+                        price.has("use_default_sell_price") && price.get("use_default_sell_price").getAsBoolean(),
+                        price.has("no_sell_penalty") && price.get("no_sell_penalty").getAsBoolean()
+                    );
+                    Item item = BuiltInRegistries.ITEM.get(itemId);
+                    standardPrices.put(item, standardPrice);
+                    resolvedSalePrices.put(item, standardPrice.resolveSellPrice(sellPricePolicy));
+                }
+            }
             for (JsonElement element : catalog.getAsJsonArray("vendor_units")) {
                 JsonObject vendor = element.getAsJsonObject();
                 if (!vendorId.equals(requiredString(vendor, "id"))) continue;
@@ -312,12 +382,22 @@ public final class ShopNetwork {
                         ResourceLocation itemId = ResourceLocation.tryParse(requiredString(offer, "item"));
                         if (itemId == null || !BuiltInRegistries.ITEM.containsKey(itemId)) continue;
                         BigInteger buyPrice = positiveMoney(requiredString(offer, "price"));
-                        BigInteger sellPrice = offer.has("sell_price")
-                            ? nonNegativeMoney(requiredString(offer, "sell_price"))
-                            : buyPrice.divide(BigInteger.TWO);
+                        Item item = BuiltInRegistries.ITEM.get(itemId);
+                        StandardPrice standardPrice = standardPrices.get(item);
+                        BigInteger sellPrice;
+                        if (offer.has("sell_price")) {
+                            sellPrice = nonNegativeMoney(requiredString(offer, "sell_price"));
+                        } else if (standardPrice != null) {
+                            sellPrice = standardPrice.resolveSellPrice(sellPricePolicy);
+                        } else if (sellPricePolicy.applyDefaultToAll()) {
+                            sellPrice = percentageOf(buyPrice, sellPricePolicy.defaultPercentage());
+                        } else {
+                            sellPrice = BigInteger.ZERO;
+                        }
+                        resolvedSalePrices.put(item, sellPrice);
                         offers.add(new Offer(
                             categoryName,
-                            BuiltInRegistries.ITEM.get(itemId),
+                            item,
                             Math.max(1, offer.get("count").getAsInt()),
                             buyPrice,
                             sellPrice
@@ -327,7 +407,8 @@ public final class ShopNetwork {
                 return new ShopDefinition(
                     localized(vendor.get("display_name"), language),
                     localized(vendor.get("role"), language),
-                    List.copyOf(offers)
+                    List.copyOf(offers),
+                    Map.copyOf(resolvedSalePrices)
                 );
             }
         } catch (IOException | RuntimeException error) {
@@ -352,6 +433,23 @@ public final class ShopNetwork {
         return object.get(key).getAsString();
     }
 
+    private static SellPricePolicy readSellPricePolicy(JsonObject catalog) {
+        if (!catalog.has("sell_price_policy") || !catalog.get("sell_price_policy").isJsonObject()) {
+            return new SellPricePolicy(true, 50);
+        }
+        JsonObject policy = catalog.getAsJsonObject("sell_price_policy");
+        boolean applyDefaultToAll = !policy.has("apply_default_to_all")
+            || policy.get("apply_default_to_all").getAsBoolean();
+        int percentage = policy.has("default_percentage")
+            ? policy.get("default_percentage").getAsInt()
+            : 50;
+        return new SellPricePolicy(applyDefaultToAll, Math.max(0, Math.min(100, percentage)));
+    }
+
+    private static BigInteger percentageOf(BigInteger price, int percentage) {
+        return price.multiply(BigInteger.valueOf(percentage)).divide(BigInteger.valueOf(100));
+    }
+
     private static BigInteger positiveMoney(String value) {
         BigInteger parsed = new BigInteger(value);
         if (parsed.signum() < 0) throw new IllegalArgumentException("Negative price");
@@ -367,10 +465,28 @@ public final class ShopNetwork {
     }
 
     private record Session(UUID token, UUID entityId, String vendorId, long expiresAt) {}
-    private record ShopDefinition(String name, String role, List<Offer> offers) {}
+    private record ShopDefinition(
+        String name, String role, List<Offer> offers, Map<Item, BigInteger> salePrices
+    ) {}
+    private record SellPricePolicy(boolean applyDefaultToAll, int defaultPercentage) {}
+    private record StandardPrice(
+        BigInteger buyPrice,
+        BigInteger sellPrice,
+        boolean useDefaultSellPrice,
+        boolean noSellPenalty
+    ) {
+        private BigInteger resolveSellPrice(SellPricePolicy policy) {
+            if (noSellPenalty) return sellPrice;
+            if (policy.applyDefaultToAll() || useDefaultSellPrice) {
+                return percentageOf(buyPrice, policy.defaultPercentage());
+            }
+            return sellPrice;
+        }
+    }
     private record Offer(
         String category, Item item, int count, BigInteger buyPrice, BigInteger sellPrice
     ) {}
+    private record SellCandidate(ItemStack stack, int count) {}
 
     public record ClientOffer(
         int index,
@@ -379,7 +495,8 @@ public final class ShopNetwork {
         int count,
         String buyPrice,
         String sellPrice,
-        int owned
+        int owned,
+        boolean sellCandidate
     ) {
         private void write(RegistryFriendlyByteBuf buffer) {
             buffer.writeVarInt(index);
@@ -389,6 +506,7 @@ public final class ShopNetwork {
             buffer.writeUtf(buyPrice);
             buffer.writeUtf(sellPrice);
             buffer.writeVarInt(owned);
+            buffer.writeBoolean(sellCandidate);
         }
 
         private static ClientOffer read(RegistryFriendlyByteBuf buffer) {
@@ -399,7 +517,8 @@ public final class ShopNetwork {
                 buffer.readVarInt(),
                 buffer.readUtf(),
                 buffer.readUtf(),
-                buffer.readVarInt()
+                buffer.readVarInt(),
+                buffer.readBoolean()
             );
         }
     }
@@ -434,7 +553,9 @@ public final class ShopNetwork {
         @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
-    public record TransactionPayload(UUID token, int offerIndex, int quantity, boolean selling)
+    public record TransactionPayload(
+        UUID token, int offerIndex, int quantity, boolean selling, ItemStack stack
+    )
         implements CustomPacketPayload {
         public static final Type<TransactionPayload> TYPE = new Type<>(id("shop_transaction"));
         public static final StreamCodec<RegistryFriendlyByteBuf, TransactionPayload> STREAM_CODEC =
@@ -445,11 +566,13 @@ public final class ShopNetwork {
             buffer.writeVarInt(offerIndex);
             buffer.writeVarInt(quantity);
             buffer.writeBoolean(selling);
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, stack);
         }
 
         private static TransactionPayload read(RegistryFriendlyByteBuf buffer) {
             return new TransactionPayload(
-                buffer.readUUID(), buffer.readVarInt(), buffer.readVarInt(), buffer.readBoolean()
+                buffer.readUUID(), buffer.readVarInt(), buffer.readVarInt(), buffer.readBoolean(),
+                ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer)
             );
         }
 

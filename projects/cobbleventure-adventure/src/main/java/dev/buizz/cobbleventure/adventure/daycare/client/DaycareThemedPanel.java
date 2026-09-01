@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.adventure.daycare.client;
 
+import dev.buizz.cobbleventure.playermenu.client.MenuTheme;
 import net.minecraft.client.gui.GuiGraphics;
 
 /** Rounded panel renderer matching the existing global menu presentation. */
@@ -7,7 +8,7 @@ final class DaycareThemedPanel {
     private DaycareThemedPanel() {}
 
     static void draw(
-        GuiGraphics graphics, DaycareMenuTheme theme,
+        GuiGraphics graphics, MenuTheme theme,
         int x, int y, int width, int height, int accent
     ) {
         int radius = Math.min(theme.cornerRadius, Math.min(width, height) / 2);

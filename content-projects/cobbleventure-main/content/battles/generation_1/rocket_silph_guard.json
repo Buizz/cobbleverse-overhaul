@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json", "schema_version": 1, "id": "cobbleventure:battle/rocket_silph_guard", "enabled": true,
+  "name": { "ko_kr": "실프주식회사 로켓단 경비 배틀" },
+  "battle": { "trainer_id": "cobbleventure:trainer/rocket_silph_guard", "format": "GEN_9_SINGLES", "battle_type": "singles", "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "aggressive", "options": {} }, "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [], "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:machop", "level": 32, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["karate_chop", "seismic_toss", "focus_energy", "foresight"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:drowzee", "level": 32, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["confusion", "disable", "headbutt", "hypnosis"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+    ]
+  }
+}

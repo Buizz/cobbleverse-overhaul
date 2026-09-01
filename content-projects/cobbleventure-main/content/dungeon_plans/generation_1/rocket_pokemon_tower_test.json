@@ -5,13 +5,13 @@
   "seed": 421,
   "bounds": [128, 24, 80],
   "placements": [
-    { "piece_id": "cobbleventure:dungeon_piece/rocket/start", "origin": [1, 1, 1], "rotation": "none", "critical_path": true },
-    { "piece_id": "cobbleventure:dungeon_piece/rocket/encounter_room", "origin": [17, 1, 1], "rotation": "none", "critical_path": true },
-    { "piece_id": "cobbleventure:dungeon_piece/rocket/stairs_up", "origin": [33, 1, 1], "rotation": "none", "critical_path": true },
-    { "piece_id": "cobbleventure:dungeon_piece/rocket/room", "origin": [49, 9, 1], "rotation": "none", "critical_path": true },
-    { "piece_id": "cobbleventure:dungeon_piece/rocket/boss", "origin": [65, 9, 1], "rotation": "none", "critical_path": true },
-    { "piece_id": "cobbleventure:dungeon_piece/rocket/exit", "origin": [81, 9, 1], "rotation": "none", "critical_path": true },
-    { "piece_id": "cobbleventure:dungeon_piece/rocket/treasure", "origin": [49, 9, 17], "rotation": "none", "critical_path": false }
+    { "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/start", "origin": [1, 1, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/encounter_room", "origin": [17, 1, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/stairs_up", "origin": [33, 1, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/room", "origin": [49, 9, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/boss", "origin": [65, 9, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/exit", "origin": [81, 9, 1], "rotation": "none", "critical_path": true },
+    { "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/treasure", "origin": [49, 9, 17], "rotation": "none", "critical_path": false }
   ],
   "links": [
     { "from_index": 0, "from_connector": "east", "to_index": 1, "to_connector": "west", "critical_path": true },

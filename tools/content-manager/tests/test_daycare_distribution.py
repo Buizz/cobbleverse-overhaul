@@ -25,8 +25,14 @@ class DaycareDistributionTests(unittest.TestCase):
         sidecar = json.loads(
             (content / "structures/placeholder/daycare.structure.json").read_text(encoding="utf-8")
         )
-        self.assertIn("paddock", {anchor["id"] for anchor in sidecar["anchors"]})
+        anchors = {anchor["id"]: anchor for anchor in sidecar["anchors"]}
+        self.assertIn("paddock", anchors)
         self.assertNotIn("attendant", {anchor["id"] for anchor in sidecar["anchors"]})
+        paddock = anchors["paddock"]["position"]
+        door2 = anchors["door2"]
+        self.assertEqual("west", door2["safe_side"])
+        self.assertEqual(door2["position"][2], paddock[2])
+        self.assertGreaterEqual(door2["position"][0] - paddock[0], 6)
 
     def test_cobbreeding_is_pinned_and_vendored(self) -> None:
         lock = json.loads((ROOT / "pack/dependencies.lock.json").read_text(encoding="utf-8"))

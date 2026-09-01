@@ -36,7 +36,10 @@ SETTLEMENT_LEVELS = {
     "cobbleventure:settlement/saffron_city": 28,
     "cobbleventure:settlement/fuchsia_city": 33,
     "cobbleventure:settlement/tidehaven_town": 42,    # Cinnabar Island
-    "cobbleventure:settlement/skyreach_town": 50,     # Indigo Plateau
+}
+
+OBJECT_LEVELS = {
+    "indigo_plateau": 50,
 }
 
 # Route values follow the generation-one encounter ranges already defined in
@@ -71,7 +74,7 @@ def hex_distance(left: tuple[int, int], right: tuple[int, int]) -> int:
 
 
 def build_levels(world: dict) -> list[dict[str, int]]:
-    settlements = [
+    locations = [
         (
             entry["settlement"],
             (entry["anchor"]["q"], entry["anchor"]["r"]),
@@ -82,6 +85,20 @@ def build_levels(world: dict) -> list[dict[str, int]]:
     unknown = {entry["settlement"] for entry in world["settlements"]} - SETTLEMENT_LEVELS.keys()
     if unknown:
         raise ValueError(f"Settlement levels are missing for: {sorted(unknown)}")
+    locations.extend(
+        (
+            entry["id"],
+            (entry["anchor"]["q"], entry["anchor"]["r"]),
+            OBJECT_LEVELS[entry["id"]],
+        )
+        for entry in world.get("objects", [])
+        if entry.get("id") in OBJECT_LEVELS
+    )
+    missing_objects = OBJECT_LEVELS.keys() - {
+        entry.get("id") for entry in world.get("objects", [])
+    }
+    if missing_objects:
+        raise ValueError(f"Object levels are missing from the world: {sorted(missing_objects)}")
 
     route_cells = {
         connection["id"]: [(cell["q"], cell["r"]) for cell in connection.get("cells", [])]
@@ -95,7 +112,7 @@ def build_levels(world: dict) -> list[dict[str, int]]:
     result: list[dict[str, int]] = []
     for previous in world["level_overrides"]:
         coordinate = (previous["q"], previous["r"])
-        _, _, level = min(settlements, key=lambda entry: hex_distance(coordinate, entry[1]))
+        _, _, level = min(locations, key=lambda entry: hex_distance(coordinate, entry[1]))
 
         route_candidates = [
             (min(hex_distance(coordinate, route_cell) for route_cell in cells), ROUTE_LEVELS[route_id])
@@ -110,13 +127,13 @@ def build_levels(world: dict) -> list[dict[str, int]]:
             level = route_level
 
         # Keep towns legible on the overlay even where several routes converge.
-        nearby_settlements = [
+        nearby_locations = [
             (hex_distance(coordinate, anchor), town_level)
-            for _, anchor, town_level in settlements
+            for _, anchor, town_level in locations
         ]
-        settlement_distance, settlement_level = min(nearby_settlements)
-        if settlement_distance <= 1:
-            level = settlement_level
+        location_distance, location_level = min(nearby_locations)
+        if location_distance <= 1:
+            level = location_level
 
         result.append({"q": coordinate[0], "r": coordinate[1], "average_level": level})
 

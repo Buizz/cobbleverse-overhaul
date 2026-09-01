@@ -11,8 +11,8 @@
     "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [],
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      { "species": "cobblemon:drowzee", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["confusion", "disable", "headbutt", "poison_gas"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
-      { "species": "cobblemon:koffing", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["smog", "sludge", "smokescreen", "assurance"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+      { "species": "cobblemon:drowzee", "level": 27, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["confusion", "disable", "headbutt", "poison_gas"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:koffing", "level": 27, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["smog", "sludge", "smokescreen", "assurance"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
     ]
   }
 }

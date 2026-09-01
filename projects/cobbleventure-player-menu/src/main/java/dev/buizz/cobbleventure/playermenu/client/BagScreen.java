@@ -101,24 +101,22 @@ public final class BagScreen extends Screen {
         super(Component.translatable("screen.cobbleventure_player_menu.bag.title"));
         this.parent = parent;
         this.menuTheme = MenuTheme.load(net.minecraft.client.Minecraft.getInstance());
-        // The bag keeps the global geometry, but uses a distinct Gen III-inspired
-        // blue body, orange pocket accents, and high-contrast paper surfaces.
-        SHADOW_COLOR = 0x7A17324A;
-        PANEL_COLOR = 0xF4D9EDF7;
-        PANEL_DARK_COLOR = 0xFF356A98;
-        PANEL_LIGHT_COLOR = 0xFFA9DCEE;
-        SLOT_COLOR = 0xFFF8FCFF;
-        SLOT_HOVER_COLOR = 0xFFE2F4FB;
-        SLOT_SELECTED_COLOR = 0xFFFFD27A;
-        PRIMARY_TEXT_COLOR = 0xFF17324A;
-        SECONDARY_TEXT_COLOR = 0xFF35536B;
-        MUTED_TEXT_COLOR = 0xFF587388;
-        SELECTED_TEXT_COLOR = 0xFF593400;
-        ACCENT_COLOR = 0xFFF08C2E;
-        SEPARATOR_COLOR = 0x55356A98;
-        DISABLED_BUTTON_BORDER_COLOR = 0xFF687680;
-        DISABLED_BUTTON_FILL_COLOR = 0xFF929EA7;
-        DISABLED_BUTTON_TEXT_COLOR = 0xFFE9EEF1;
+        SHADOW_COLOR = menuTheme.shadow;
+        PANEL_COLOR = menuTheme.background;
+        PANEL_DARK_COLOR = menuTheme.border;
+        PANEL_LIGHT_COLOR = menuTheme.innerBorder;
+        SLOT_COLOR = menuTheme.cardBackground;
+        SLOT_HOVER_COLOR = menuTheme.hoverBackground;
+        SLOT_SELECTED_COLOR = menuTheme.selectedBackground;
+        PRIMARY_TEXT_COLOR = menuTheme.textColor;
+        SECONDARY_TEXT_COLOR = menuTheme.secondaryTextColor;
+        MUTED_TEXT_COLOR = menuTheme.mutedTextColor;
+        SELECTED_TEXT_COLOR = menuTheme.selectedTextColor;
+        ACCENT_COLOR = menuTheme.accent;
+        SEPARATOR_COLOR = ThemedOverlayPanel.withOpacity(menuTheme.border, .33F);
+        DISABLED_BUTTON_BORDER_COLOR = menuTheme.disabledBorder;
+        DISABLED_BUTTON_FILL_COLOR = menuTheme.disabledBackground;
+        DISABLED_BUTTON_TEXT_COLOR = menuTheme.disabledText;
     }
 
     @Override
@@ -926,24 +924,25 @@ public final class BagScreen extends Screen {
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             boolean selected = category == buttonCategory;
-            int fill = selected ? SLOT_SELECTED_COLOR : (isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR);
-            int text = selected ? SELECTED_TEXT_COLOR : PRIMARY_TEXT_COLOR;
+            MenuTheme.ButtonStyle style = menuTheme.button(
+                MenuTheme.ButtonVariant.GHOST, active, isHovered(), selected
+            );
             if (selected) {
                 fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                    rowRadius(getHeight()), ACCENT_COLOR);
+                    rowRadius(getHeight()), style.border());
                 fillRoundedRect(graphics, getX() + 1, getY() + 1,
                     getX() + getWidth() - 1, getY() + getHeight() - 1,
-                    Math.max(0, rowRadius(getHeight()) - 1), fill);
+                    Math.max(0, rowRadius(getHeight()) - 1), style.background());
             } else if (isHovered()) {
                 fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                    rowRadius(getHeight()), fill);
+                    rowRadius(getHeight()), style.background());
             }
             graphics.fill(getX() + 8, getY() + getHeight() - 1,
                 getX() + getWidth() - 8, getY() + getHeight(), SEPARATOR_COLOR);
             String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 6);
             graphics.drawString(font, label,
                 getX() + (getWidth() - font.width(label)) / 2,
-                getY() + (getHeight() - 8) / 2, text, false);
+                getY() + (getHeight() - 8) / 2, style.text(), false);
         }
 
         @Override
@@ -1027,24 +1026,18 @@ public final class BagScreen extends Screen {
 
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            int border = !active
-                ? DISABLED_BUTTON_BORDER_COLOR
-                : isHovered() ? ACCENT_COLOR : PANEL_LIGHT_COLOR;
-            int fill = !active
-                ? DISABLED_BUTTON_FILL_COLOR
-                : isHovered() ? SLOT_HOVER_COLOR : SLOT_COLOR;
+            MenuTheme.ButtonStyle style = menuTheme.button(
+                MenuTheme.ButtonVariant.SECONDARY, active, isHovered(), false
+            );
             fillRoundedRect(graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-                rowRadius(getHeight()), border);
+                rowRadius(getHeight()), style.border());
             fillRoundedRect(graphics, getX() + 1, getY() + 1,
                 getX() + getWidth() - 1, getY() + getHeight() - 1,
-                Math.max(0, rowRadius(getHeight()) - 1), fill);
-            int color = active
-                ? (isHovered() ? ACCENT_COLOR : PRIMARY_TEXT_COLOR)
-                : DISABLED_BUTTON_TEXT_COLOR;
+                Math.max(0, rowRadius(getHeight()) - 1), style.background());
             String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 10);
             graphics.drawString(font, label,
                 getX() + (getWidth() - font.width(label)) / 2,
-                getY() + (getHeight() - 8) / 2, color, false);
+                getY() + (getHeight() - 8) / 2, style.text(), false);
         }
 
         @Override

@@ -350,7 +350,7 @@ record DungeonDefinition(
                 }
                 npcs.add(npcId);
             }
-            int expectedActors = multiplayerMode.equals("cooperative") ? 2 : 1;
+            int maximumActors = multiplayerMode.equals("cooperative") ? 2 : 1;
             List<TrainerActor> trainers = new ArrayList<>();
             Set<String> trainerActorIds = new HashSet<>();
             for (JsonElement trainerElement : encounter.has("trainers")
@@ -391,11 +391,12 @@ record DungeonDefinition(
                         + id + " -> " + encounterId
                 );
             }
+            int actorCount = trainers.isEmpty() ? npcs.size() : trainers.size();
             if (encounterKind.equals("trainer")
-                && (trainers.isEmpty() ? npcs.size() : trainers.size()) != expectedActors) {
+                && (actorCount < 1 || actorCount > maximumActors)) {
                 throw new IllegalStateException(
-                    "Dungeon " + multiplayerMode + " encounter requires exactly "
-                        + expectedActors + " trainer actor(s): " + id + " -> " + encounterId
+                    "Dungeon " + multiplayerMode + " encounter requires 1.."
+                        + maximumActors + " trainer actor(s): " + id + " -> " + encounterId
                 );
             }
             List<String> opponents = new ArrayList<>();
@@ -463,10 +464,10 @@ record DungeonDefinition(
                 );
             }
             if (encounterKind.equals("trainer") && generatedTrainer == null
-                && opponents.size() != expectedActors) {
+                && (opponents.isEmpty() || opponents.size() > maximumActors)) {
                 throw new IllegalStateException(
-                    "Dungeon " + multiplayerMode + " encounter requires exactly "
-                        + expectedActors + " opponent(s): "
+                    "Dungeon " + multiplayerMode + " encounter requires 1.."
+                        + maximumActors + " opponent(s): "
                         + id + " -> " + requiredString(encounter, "id")
                 );
             }

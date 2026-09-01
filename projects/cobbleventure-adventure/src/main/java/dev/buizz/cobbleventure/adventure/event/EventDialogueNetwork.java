@@ -181,10 +181,13 @@ public final class EventDialogueNetwork {
                                                     new GiveLootEventCommandAdapter(
                                                         EventLootGrantBridge.gateway(player),
                                                         environment,
-                                                        new StateEventCommandAdapter(
-                                                            environment,
-                                                            new ServerCommandEventCommandAdapter(
-                                                                player, environment, unsupported
+                                                        new QuestEventCommandAdapter(
+                                                            player, environment,
+                                                            new StateEventCommandAdapter(
+                                                                environment,
+                                                                new ServerCommandEventCommandAdapter(
+                                                                    player, environment, unsupported
+                                                                )
                                                             )
                                                         )
                                                     )

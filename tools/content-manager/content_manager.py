@@ -1048,6 +1048,14 @@ def validate_hex_worlds(
                     elif field in {"wall_thickness", "opening_width"} and number % 2 == 0:
                         _issue(issues, "error", path, f"{object_path}.{field}", "입구 중심 정렬을 위해 홀수여야 합니다.")
 
+        world_object_anchors = {
+            item.get("id"): (item["anchor"]["q"], item["anchor"]["r"])
+            for item in world.get("objects", [])
+            if isinstance(item, dict) and item.get("type") != "gate"
+            and isinstance(item.get("id"), str)
+            and isinstance(item.get("anchor"), dict)
+            and all(isinstance(item["anchor"].get(key), int) for key in ("q", "r"))
+        } if isinstance(world.get("objects", []), list) else {}
         connections = world.get("connections")
         if not isinstance(connections, list):
             _issue(issues, "error", path, "$.connections", "연결 목록은 배열이어야 합니다.")
@@ -1092,8 +1100,8 @@ def validate_hex_worlds(
                     )
             for field in ("from", "to"):
                 target = connection.get(field)
-                if target is not None and target not in world_settlements and target not in cave_entrance_anchors and target not in forest_entrance_anchors:
-                    _issue(issues, "error", path, f"{connection_path}.{field}", f"월드 지도에 없는 마을, 동굴 입구 또는 숲 입구입니다: {target}")
+                if target is not None and target not in world_settlements and target not in cave_entrance_anchors and target not in forest_entrance_anchors and target not in world_object_anchors:
+                    _issue(issues, "error", path, f"{connection_path}.{field}", f"월드 지도에 없는 마을, 동굴 입구, 숲 입구 또는 오브젝트입니다: {target}")
                 elif isinstance(target, str) and target in world_settlements:
                     connection_degrees[target] = connection_degrees.get(target, 0) + 1
             boundary = connection.get("boundary_profile")
@@ -1207,7 +1215,7 @@ def validate_hex_worlds(
                     _issue(issues, "error", path, f"{connection_path}.cells[{cell_index}]", "길 셀은 앞 셀과 맞닿아야 합니다.")
             for field, endpoint_index in (("from", 0), ("to", -1)):
                 target = connection.get(field)
-                entrance_anchor = cave_entrance_anchors.get(target) or forest_entrance_anchors.get(target)
+                entrance_anchor = cave_entrance_anchors.get(target) or forest_entrance_anchors.get(target) or world_object_anchors.get(target)
                 if entrance_anchor is not None and coordinates and coordinates[endpoint_index] != entrance_anchor:
                     _issue(issues, "error", path, f"{connection_path}.cells", f"길의 {field} 끝은 입구 {target} 좌표까지 이어져야 합니다.")
                 town_footprint = settlement_footprints.get(target)
@@ -1275,6 +1283,34 @@ def validate_hex_worlds(
                 properties = custom_object.get("properties", {})
                 placement_anchor = properties.get("placement_anchor", "center") \
                     if isinstance(properties, dict) else "center"
+                if isinstance(properties, dict):
+                    teleportable = properties.get("teleportable", False)
+                    if not isinstance(teleportable, bool):
+                        _issue(
+                            issues, "error", path,
+                            f"{object_path}.properties.teleportable",
+                            "순간이동 가능 설정은 boolean이어야 합니다.",
+                        )
+                    show_on_minimap = properties.get("show_on_minimap", False)
+                    if not isinstance(show_on_minimap, bool):
+                        _issue(
+                            issues, "error", path,
+                            f"{object_path}.properties.show_on_minimap",
+                            "미니맵 표시 설정은 boolean이어야 합니다.",
+                        )
+                    elif teleportable is True and show_on_minimap is not True:
+                        _issue(
+                            issues, "error", path,
+                            f"{object_path}.properties.show_on_minimap",
+                            "순간이동 가능한 오브젝트는 미니맵 표시를 켜야 합니다.",
+                        )
+                    center_placement = properties.get("center_placement", False)
+                    if not isinstance(center_placement, bool):
+                        _issue(
+                            issues, "error", path,
+                            f"{object_path}.properties.center_placement",
+                            "정가운데 배치 설정은 boolean이어야 합니다.",
+                        )
                 if placement_anchor not in {"center", "road_anchor", "door"}:
                     _issue(
                         issues, "error", path,
@@ -1309,6 +1345,7 @@ def validate_hex_worlds(
                     isinstance(anchor, dict)
                     and (anchor.get("q"), anchor.get("r")) in road_connection_cells
                     and placement_anchor not in {"road_anchor", "door"}
+                    and properties.get("center_placement") is not True
                 ):
                     _issue(
                         issues, "error", path,
@@ -2368,6 +2405,134 @@ def _validate_player_condition(
         return
     else:
         _issue(issues, "error", file, f"{data_path}.type", "지원하지 않는 공용 플레이어 조건 타입입니다.")
+
+
+def _validate_quest_condition_group(
+    value: Any, issues: list[Issue], file: Path, data_path: str
+) -> None:
+    group = _require_object(value, issues, file, data_path)
+    if group is None:
+        return
+    if group.get("condition_mode") not in {"all", "any"}:
+        _issue(issues, "error", file, f"{data_path}.condition_mode", "조건 방식은 all 또는 any여야 합니다.")
+    conditions = _require_list(group.get("conditions"), issues, file, f"{data_path}.conditions")
+    for index, condition in enumerate(conditions or []):
+        _validate_player_condition(condition, issues, file, f"{data_path}.conditions[{index}]")
+
+
+def validate_quest_file(path: Path) -> tuple[str | None, list[Issue]]:
+    """Validate one web-authored quest consumed by the server quest runtime."""
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        return None, [Issue("error", path.as_posix(), "$", str(error))]
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return None, issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "퀘스트 스키마 버전은 1이어야 합니다.")
+    quest_id = _resource_id(root.get("id"), issues, path, "$.id")
+    if not isinstance(root.get("enabled"), bool):
+        _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
+    if root.get("category") not in {"main", "side", "tutorial"}:
+        _issue(issues, "error", path, "$.category", "퀘스트 종류는 main, side 또는 tutorial이어야 합니다.")
+    _localized_text(root.get("display_name"), issues, path, "$.display_name")
+    _localized_text(root.get("summary"), issues, path, "$.summary")
+    _validate_quest_condition_group(root.get("accept_conditions"), issues, path, "$.accept_conditions")
+    global_activation = root.get("global_activation")
+    if global_activation is not None:
+        global_activation = _require_object(global_activation, issues, path, "$.global_activation")
+        if global_activation is not None:
+            if not isinstance(global_activation.get("enabled"), bool):
+                _issue(issues, "error", path, "$.global_activation.enabled", "boolean이어야 합니다.")
+            _validate_quest_condition_group(
+                global_activation.get("conditions"), issues, path, "$.global_activation.conditions"
+            )
+            trigger_group = global_activation.get("conditions")
+            trigger_conditions = (
+                trigger_group.get("conditions") if isinstance(trigger_group, dict) else None
+            )
+            if global_activation.get("enabled") is True:
+                if root.get("category") != "main":
+                    _issue(issues, "error", path, "$.global_activation.enabled", "전역 발동은 메인 퀘스트에만 사용할 수 있습니다.")
+                if not isinstance(trigger_conditions, list) or not trigger_conditions:
+                    _issue(issues, "error", path, "$.global_activation.conditions.conditions", "전역 발동 조건을 하나 이상 추가해야 합니다.")
+    objectives = _require_list(root.get("objectives"), issues, path, "$.objectives")
+    if objectives is not None and not objectives:
+        _issue(issues, "error", path, "$.objectives", "목표를 하나 이상 추가해야 합니다.")
+    seen_objectives: set[str] = set()
+    for index, value in enumerate(objectives or []):
+        objective_path = f"$.objectives[{index}]"
+        objective = _require_object(value, issues, path, objective_path)
+        if objective is None:
+            continue
+        objective_id = objective.get("id")
+        if not isinstance(objective_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]*", objective_id):
+            _issue(issues, "error", path, f"{objective_path}.id", "목표 ID는 영문 소문자 형식이어야 합니다.")
+        elif objective_id in seen_objectives:
+            _issue(issues, "error", path, f"{objective_path}.id", f"중복 목표 ID입니다: {objective_id}")
+        else:
+            seen_objectives.add(objective_id)
+        _localized_text(objective.get("text"), issues, path, f"{objective_path}.text")
+        _validate_quest_condition_group(objective.get("conditions"), issues, path, f"{objective_path}.conditions")
+        marker = objective.get("marker")
+        if marker is not None:
+            marker = _require_object(marker, issues, path, f"{objective_path}.marker")
+            if marker is not None:
+                if marker.get("type") not in {"npc", "settlement", "route", "anchor"}:
+                    _issue(issues, "error", path, f"{objective_path}.marker.type", "지원하지 않는 지도 표시 종류입니다.")
+                _resource_id(marker.get("target"), issues, path, f"{objective_path}.marker.target")
+    completion = _require_object(root.get("completion"), issues, path, "$.completion")
+    if completion is not None and completion.get("mode") not in {"npc_turn_in", "automatic"}:
+        _issue(issues, "error", path, "$.completion.mode", "완료 방식은 npc_turn_in 또는 automatic이어야 합니다.")
+    next_quests = root.get("next_quests", [])
+    if not isinstance(next_quests, list):
+        _issue(issues, "error", path, "$.next_quests", "후속 퀘스트 목록은 배열이어야 합니다.")
+    else:
+        for index, next_id in enumerate(next_quests):
+            _resource_id(next_id, issues, path, f"$.next_quests[{index}]")
+        if len(next_quests) != len(set(value for value in next_quests if isinstance(value, str))):
+            _issue(issues, "error", path, "$.next_quests", "후속 퀘스트 ID가 중복되었습니다.")
+    return quest_id, issues
+
+
+def validate_main_quest_progression_file(path: Path) -> list[Issue]:
+    """Validate the ordered authored-NPC main quest progression catalog."""
+    issues: list[Issue] = []
+    try:
+        data = load_json(path)
+    except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+        return [Issue("error", path.as_posix(), "$", str(error))]
+    root = _require_object(data, issues, path, "$")
+    if root is None:
+        return issues
+    if root.get("schema_version") != 1:
+        _issue(issues, "error", path, "$.schema_version", "메인 퀘스트 진행 스키마 버전은 1이어야 합니다.")
+    if not isinstance(root.get("enabled"), bool):
+        _issue(issues, "error", path, "$.enabled", "boolean이어야 합니다.")
+    steps = _require_list(root.get("steps"), issues, path, "$.steps")
+    seen_ids: set[str] = set()
+    seen_quests: set[str] = set()
+    for index, value in enumerate(steps or []):
+        step_path = f"$.steps[{index}]"
+        step = _require_object(value, issues, path, step_path)
+        if step is None:
+            continue
+        step_id = step.get("id")
+        if not isinstance(step_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]*", step_id):
+            _issue(issues, "error", path, f"{step_path}.id", "진행 단계 ID는 영문 소문자 형식이어야 합니다.")
+        elif step_id in seen_ids:
+            _issue(issues, "error", path, f"{step_path}.id", f"중복 진행 단계 ID입니다: {step_id}")
+        else:
+            seen_ids.add(step_id)
+        quest_id = _resource_id(step.get("quest"), issues, path, f"{step_path}.quest")
+        _resource_id(step.get("npc"), issues, path, f"{step_path}.npc")
+        if quest_id in seen_quests:
+            _issue(issues, "error", path, f"{step_path}.quest", f"진행 문서에 퀘스트가 중복되었습니다: {quest_id}")
+        elif quest_id is not None:
+            seen_quests.add(quest_id)
+    return issues
 
 
 def _validate_horizontal_bounds(
@@ -4729,9 +4894,11 @@ DIALOGUE_THEME_DEFAULTS: dict[str, Any] = {
     "$schema": "../schemas/dialogue-theme.schema.json",
     "schema_version": 1,
     "font": {"resource": "minecraft:default", "body_scale": 1.0, "speaker_scale": 1.0, "hint_scale": 0.85},
+    "typography": {"title": {"scale": 1.25, "shadow": False}, "heading": {"scale": 1.0, "shadow": False}, "body": {"scale": 1.0, "shadow": False}, "label": {"scale": 0.9, "shadow": False}, "caption": {"scale": 0.8, "shadow": False}},
     "panel": {"background": "#f8fbff", "background_opacity": 0.98, "border": "#72a8d4", "inner_border": "#d9f4ff", "border_width": 3, "inner_border_width": 2, "corner_radius": 18, "shadow": "#24445f", "shadow_opacity": 0.45, "shadow_offset": 3, "speaker_color": "#c52b2b", "text_color": "#27323d", "hint_color": "#57758e", "page_color": "#72a8d4", "height_ratio": 0.333, "min_height": 112, "max_height": 166},
     "choice": {"panel_background": "#f8fbff", "panel_opacity": 0.98, "panel_border": "#72a8d4", "panel_inner_border": "#d9f4ff", "corner_radius": 12, "panel_width": 190, "panel_gap": 8, "panel_padding": 10, "selected_background": "#d9f4ff", "hover_background": "#eaf7ff", "background": "#f8fbff", "selected_accent": "#4f8fc2", "text_color": "#27323d", "row_height": 24},
-    "menu": {"background": "#f8fbff", "background_opacity": 0.98, "border": "#72a8d4", "inner_border": "#d9f4ff", "corner_radius": 14, "row_radius": 7, "selected_background": "#d9f4ff", "hover_background": "#eaf7ff", "text_color": "#27323d", "selected_text_color": "#173f5f", "accent": "#4f8fc2"},
+    "menu": {"background": "#f8fbff", "background_opacity": 0.98, "border": "#72a8d4", "inner_border": "#d9f4ff", "corner_radius": 14, "row_radius": 7, "selected_background": "#d9f4ff", "hover_background": "#eaf7ff", "text_color": "#27323d", "selected_text_color": "#173f5f", "accent": "#4f8fc2", "card_background": "#f8fbff", "input_background": "#f8fbff", "secondary_text_color": "#57758e", "muted_text_color": "#7b8d9a", "text_on_accent": "#ffffff", "danger": "#c94b52", "success": "#2f7d56", "warning": "#d38a2e", "scrim": "#07121c", "scrim_opacity": 0.52, "disabled_background": "#aeb9c2", "disabled_border": "#8796a2", "disabled_text": "#5f6b74"},
+    "buttons": {"primary": {"normal": {"background": "#4f8fc2", "border": "#376f9a", "text": "#ffffff"}, "hover": {"background": "#67a8d7", "border": "#376f9a", "text": "#ffffff"}, "selected": {"background": "#376f9a", "border": "#173f5f", "text": "#ffffff"}}, "secondary": {"normal": {"background": "#f8fbff", "border": "#72a8d4", "text": "#27323d"}, "hover": {"background": "#eaf7ff", "border": "#4f8fc2", "text": "#173f5f"}, "selected": {"background": "#d9f4ff", "border": "#4f8fc2", "text": "#173f5f"}}, "danger": {"normal": {"background": "#c94b52", "border": "#96373d", "text": "#ffffff"}, "hover": {"background": "#df6269", "border": "#96373d", "text": "#ffffff"}, "selected": {"background": "#a83d43", "border": "#76292e", "text": "#ffffff"}}, "ghost": {"normal": {"background": "#f8fbff", "border": "#d9f4ff", "text": "#57758e"}, "hover": {"background": "#eaf7ff", "border": "#72a8d4", "text": "#27323d"}, "selected": {"background": "#d9f4ff", "border": "#4f8fc2", "text": "#173f5f"}}},
     "portrait": {"yaw_degrees": 18.0, "pitch_degrees": -4.0, "scale": 0.7, "background": "#0a1017", "background_opacity": 0.72, "accent": "#5e7789"},
 }
 
@@ -5456,11 +5623,34 @@ def validate_dialogue_theme(root: Path, data: Any) -> list[Issue]:
         number(choice, "choice", "row_height", 18, 48)
     menu = section("menu")
     if menu is not None:
-        for key in ("background", "border", "inner_border", "selected_background", "hover_background", "text_color", "selected_text_color", "accent"):
+        for key in ("background", "border", "inner_border", "selected_background", "hover_background", "text_color", "selected_text_color", "accent", "card_background", "input_background", "secondary_text_color", "muted_text_color", "text_on_accent", "danger", "success", "warning", "scrim", "disabled_background", "disabled_border", "disabled_text"):
             color(menu, "menu", key)
         number(menu, "menu", "background_opacity", 0, 1)
+        number(menu, "menu", "scrim_opacity", 0, 1)
         number(menu, "menu", "corner_radius", 0, 32)
         number(menu, "menu", "row_radius", 0, 20)
+    typography = section("typography")
+    if typography is not None:
+        for role in ("title", "heading", "body", "label", "caption"):
+            style = _require_object(typography.get(role), issues, path, f"$.typography.{role}")
+            if style is None:
+                continue
+            number(style, f"typography.{role}", "scale", 0.5, 2.0)
+            if not isinstance(style.get("shadow"), bool):
+                _issue(issues, "error", path, f"$.typography.{role}.shadow", "불리언이어야 합니다.")
+            if "color" in style:
+                color(style, f"typography.{role}", "color")
+    buttons = section("buttons")
+    if buttons is not None:
+        for variant in ("primary", "secondary", "danger", "ghost"):
+            variant_data = _require_object(buttons.get(variant), issues, path, f"$.buttons.{variant}")
+            if variant_data is None:
+                continue
+            for state in ("normal", "hover", "selected"):
+                state_data = _require_object(variant_data.get(state), issues, path, f"$.buttons.{variant}.{state}")
+                if state_data is not None:
+                    for key in ("background", "border", "text"):
+                        color(state_data, f"buttons.{variant}.{state}", key)
     portrait = section("portrait")
     if portrait is not None:
         for key in ("background", "accent"):
@@ -6226,14 +6416,32 @@ def load_economy_workspace(
     for vendor in custom_vendors:
         if isinstance(vendor, dict) and isinstance(vendor.get("id"), str):
             vendor_by_id[vendor["id"]] = {**copy.deepcopy(vendor), "origin": "custom"}
-    standard_price_by_item: dict[str, dict[str, str]] = {}
+    sell_price_policy = catalog.get("sell_price_policy", {})
+    if not isinstance(sell_price_policy, dict):
+        sell_price_policy = {}
+    sell_price_policy = {
+        "apply_default_to_all": sell_price_policy.get("apply_default_to_all", True),
+        "default_percentage": sell_price_policy.get("default_percentage", 50),
+    }
+    default_percentage = sell_price_policy["default_percentage"]
+    if not isinstance(default_percentage, int) or isinstance(default_percentage, bool):
+        default_percentage = 50
+    default_percentage = max(0, min(100, default_percentage))
+    standard_price_by_item: dict[str, dict[str, Any]] = {}
     for vendor in built_in_vendors:
         for category in vendor.get("categories", []):
             for offer in category.get("offers", []):
                 item_id = offer.get("item")
                 price = offer.get("price")
                 if isinstance(item_id, str) and isinstance(price, str) and price.strip():
-                    standard_price_by_item.setdefault(item_id, {"item": item_id, "price": price})
+                    buy_price = int(price)
+                    standard_price_by_item.setdefault(item_id, {
+                        "item": item_id,
+                        "buy_price": price,
+                        "sell_price": str(buy_price * default_percentage // 100),
+                        "use_default_sell_price": True,
+                        "no_sell_penalty": False,
+                    })
     for standard_price in catalog.get("standard_prices", []):
         if isinstance(standard_price, dict) and isinstance(standard_price.get("item"), str):
             standard_price_by_item[standard_price["item"]] = copy.deepcopy(standard_price)
@@ -6279,6 +6487,17 @@ def load_economy_workspace(
                     "product_group": _economy_fallback_product_group(item_id),
                     "tags": [],
                 }
+    for item_id in standard_price_by_item:
+        if item_id in editor_items_by_id:
+            continue
+        fallback_name = item_id.partition(":")[2].replace("_", " ").replace("/", " ").title()
+        editor_items_by_id[item_id] = {
+            "id": item_id,
+            "ko_kr": fallback_name,
+            "en_us": fallback_name,
+            "product_group": _economy_fallback_product_group(item_id),
+            "tags": [],
+        }
     editor_catalog["items"] = sorted(
         editor_items_by_id.values(), key=lambda entry: (entry["ko_kr"], entry["id"])
     )
@@ -6313,6 +6532,7 @@ def load_economy_workspace(
             }
     return {
         **catalog,
+        "sell_price_policy": sell_price_policy,
         "resolved_shop_catalogs": sorted(catalog_by_id.values(), key=lambda entry: str(entry.get("display_name", ""))),
         "resolved_vendor_units": sorted(vendor_by_id.values(), key=lambda entry: (entry.get("facility_scope", ""), str(entry.get("role", "")))),
         "resolved_standard_prices": sorted(standard_price_by_item.values(), key=lambda entry: entry["item"]),
@@ -6427,6 +6647,17 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
     if root.get("vanilla_crafting_disabled") is not True:
         _issue(issues, "error", path, "$.vanilla_crafting_disabled", "바닐라 조합법 비활성화가 true여야 합니다.")
 
+    sell_price_policy = _require_object(
+        root.get("sell_price_policy"), issues, path, "$.sell_price_policy"
+    )
+    if sell_price_policy is not None:
+        if not isinstance(sell_price_policy.get("apply_default_to_all"), bool):
+            _issue(issues, "error", path, "$.sell_price_policy.apply_default_to_all", "전체 기본 판매가 적용 여부가 필요합니다.")
+        percentage = sell_price_policy.get("default_percentage")
+        if (not isinstance(percentage, int) or isinstance(percentage, bool)
+                or percentage < 0 or percentage > 100):
+            _issue(issues, "error", path, "$.sell_price_policy.default_percentage", "기본 판매 비율은 0~100 사이의 정수여야 합니다.")
+
     def require_localized(value: Any, field_path: str, label: str) -> None:
         if isinstance(value, str) and value.strip():
             return
@@ -6446,8 +6677,13 @@ def validate_economy_catalog_file(path: Path, known_drop_items: set[str] | None 
             _issue(issues, "error", path, f"{entry_path}.item", f"중복 표준 가격 아이템: {item_id}")
         if item_id:
             seen_standard_items.add(item_id)
-        if not isinstance(standard_price.get("price"), str) or not standard_price["price"].strip():
-            _issue(issues, "error", path, f"{entry_path}.price", "표준 가격 문자열이 필요합니다.")
+        for key, label in (("buy_price", "구매가"), ("sell_price", "판매가")):
+            if (not isinstance(standard_price.get(key), str)
+                    or not standard_price[key].isdigit()):
+                _issue(issues, "error", path, f"{entry_path}.{key}", f"0 이상의 정수 {label}가 필요합니다.")
+        for key, label in (("use_default_sell_price", "기본 판매가 사용 여부"), ("no_sell_penalty", "감가 면제 여부")):
+            if not isinstance(standard_price.get(key), bool):
+                _issue(issues, "error", path, f"{entry_path}.{key}", f"{label}가 필요합니다.")
 
     seen_ids: set[str] = set()
     shop_catalogs = _require_list(root.get("shop_catalogs"), issues, path, "$.shop_catalogs")
@@ -7257,6 +7493,63 @@ def validate_repository(
         dependency_root / "pack" / "dependencies.lock.json", strict_pack
     )
     issues.extend(_validate_cves_project(root, dependency_root))
+    quest_ids: dict[str, Path] = {}
+    quest_root = root / "content" / "quests"
+    for quest_path in sorted(quest_root.rglob("*.json")) if quest_root.is_dir() else []:
+        quest_id, quest_issues = validate_quest_file(quest_path)
+        issues.extend(quest_issues)
+        if quest_id is not None:
+            relative = quest_path.relative_to(quest_root)
+            if len(relative.parts) < 2:
+                _issue(issues, "error", quest_path, "$.id", "퀘스트 파일은 <namespace>/<path>.json 구조여야 합니다.")
+            else:
+                expected_id = f"{relative.parts[0]}:quest/{Path(*relative.parts[1:]).with_suffix('').as_posix()}"
+                if quest_id != expected_id:
+                    _issue(issues, "error", quest_path, "$.id", f"파일 경로에 맞는 퀘스트 ID는 {expected_id}입니다.")
+            if quest_id in quest_ids:
+                _issue(issues, "error", quest_path, "$.id", f"중복 퀘스트 ID: {quest_id}")
+            quest_ids[quest_id] = quest_path
+    for quest_path in quest_ids.values():
+        try:
+            quest = load_json(quest_path)
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+        for index, next_id in enumerate(quest.get("next_quests", [])):
+            if isinstance(next_id, str) and next_id not in quest_ids:
+                _issue(issues, "error", quest_path, f"$.next_quests[{index}]", f"존재하지 않는 후속 퀘스트: {next_id}")
+    progression_path = root / "content" / "catalogs" / "main-quest-progression.json"
+    if progression_path.is_file():
+        issues.extend(validate_main_quest_progression_file(progression_path))
+        try:
+            progression = load_json(progression_path)
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            progression = {}
+        npc_ids: set[str] = set()
+        npc_root = root / "content" / "source"
+        for npc_path in sorted(npc_root.rglob("*.json")) if npc_root.is_dir() else []:
+            try:
+                npc = load_json(npc_path)
+            except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                continue
+            if isinstance(npc, dict) and isinstance(npc.get("id"), str):
+                npc_ids.add(npc["id"])
+        for index, step in enumerate(progression.get("steps", [])):
+            if not isinstance(step, dict):
+                continue
+            quest_id = step.get("quest")
+            quest_path = quest_ids.get(quest_id)
+            if quest_path is None and isinstance(quest_id, str):
+                _issue(issues, "error", progression_path, f"$.steps[{index}].quest", f"존재하지 않는 퀘스트입니다: {quest_id}")
+            elif quest_path is not None:
+                try:
+                    quest = load_json(quest_path)
+                    if quest.get("category") != "main":
+                        _issue(issues, "error", progression_path, f"$.steps[{index}].quest", "메인 퀘스트만 진행 문서에 넣을 수 있습니다.")
+                except (OSError, json.JSONDecodeError, DuplicateKeyError):
+                    pass
+            npc_id = step.get("npc")
+            if isinstance(npc_id, str) and npc_id not in npc_ids:
+                _issue(issues, "error", progression_path, f"$.steps[{index}].npc", f"존재하지 않는 NPC입니다: {npc_id}")
     issues.extend(validate_loot_tables(root, _cves_item_catalog(dependency_root)))
     issues.extend(validate_game_definitions_file(root / "content" / "catalogs" / "game-definitions.json"))
     dialogue_theme_path = root / "content" / "catalogs" / "dialogue-theme.json"
@@ -8566,6 +8859,7 @@ def _managed_directory(root: Path, category: str) -> Path:
         "dungeon-pieces": root / "content" / "dungeon_pieces",
         "underground-roads": root / "content" / "underground_roads",
         "forests": root / "content" / "forests",
+        "quests": root / "content" / "quests",
     }
     if category not in directories:
         raise ValueError("지원하지 않는 문서 종류입니다.")
@@ -9575,6 +9869,11 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
                 summary["entrance_count"] = len(data.get("entrances", []))
                 summary["entrances"] = data.get("entrances", [])
                 summary["path_count"] = len(data.get("paths", []))
+            elif category == "quests":
+                summary["category"] = data.get("category", "side")
+                summary["objective_count"] = len(data.get("objectives", []))
+                summary["completion_mode"] = data.get("completion", {}).get("mode", "npc_turn_in")
+                summary["global_activation_enabled"] = data.get("global_activation", {}).get("enabled", False)
             else:
                 summary["generation"] = data.get("generation", 1)
                 summary["path_count"] = len(data.get("paths", []))
@@ -9595,6 +9894,59 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
             item.get("path", ""),
         ))
     return documents
+
+
+def main_quest_progression_payload(root: Path) -> dict[str, Any]:
+    path = root / "content" / "catalogs" / "main-quest-progression.json"
+    document = load_json(path) if path.is_file() else {
+        "$schema": "../schemas/main-quest-progression.schema.json",
+        "schema_version": 1,
+        "enabled": True,
+        "steps": [],
+    }
+    quests = [
+        item for item in _list_documents(root, "quests")
+        if item.get("category") == "main"
+    ]
+    npcs = _list_documents(root, "trainers")
+    return {"document": document, "quests": quests, "npcs": npcs}
+
+
+def save_main_quest_progression(root: Path, data: Any) -> list[Issue]:
+    target = root / "content" / "catalogs" / "main-quest-progression.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as directory:
+        candidate = Path(directory) / target.name
+        candidate.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        issues = validate_main_quest_progression_file(candidate)
+    quest_ids = {
+        item.get("id") for item in _list_documents(root, "quests")
+        if item.get("category") == "main"
+    }
+    npc_ids = {item.get("id") for item in _list_documents(root, "trainers")}
+    if isinstance(data, dict):
+        for index, step in enumerate(data.get("steps", [])):
+            if not isinstance(step, dict):
+                continue
+            if step.get("quest") not in quest_ids:
+                _issue(
+                    issues, "error", target, f"$.steps[{index}].quest",
+                    "존재하는 메인 퀘스트를 선택해야 합니다.",
+                )
+            if step.get("npc") not in npc_ids:
+                _issue(
+                    issues, "error", target, f"$.steps[{index}].npc",
+                    "존재하는 NPC를 선택해야 합니다.",
+                )
+    if not any(issue.level == "error" for issue in issues):
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        temporary.replace(target)
+    return issues
 
 
 def _reorder_settlements(root: Path, ordered_ids: Any) -> list[Issue]:
@@ -9689,6 +10041,7 @@ def _save_document(
         "dungeon-pieces": validate_dungeon_piece_file,
         "underground-roads": validate_underground_road_file,
         "forests": validate_forest_file,
+        "quests": validate_quest_file,
     }[category]
     data = synchronize_spatial_build_bounds(copy.deepcopy(data), category)
     if category == "forests" and isinstance(data, dict):
@@ -10063,6 +10416,24 @@ def _delete_document(root: Path, category: str, relative_path: str) -> tuple[Pat
                 for function_name in system_functions
                 if isinstance(function_name, str)
             ]
+
+    if category == "quests":
+        references: list[str] = []
+        quest_root = root / "content" / "quests"
+        for path in sorted(quest_root.rglob("*.json")) if quest_root.is_dir() else []:
+            if path.resolve() == target.resolve():
+                continue
+            document = load_json(path)
+            if document_id in document.get("next_quests", []):
+                references.append(path.relative_to(root).as_posix())
+        event_root = root / "content" / "events"
+        for path in sorted(event_root.rglob("*.cves")) if event_root.is_dir() else []:
+            if document_id in path.read_text(encoding="utf-8"):
+                references.append(path.relative_to(root).as_posix())
+        if references:
+            return target, references
+        target.unlink()
+        return target, []
 
     reference_keys = {
         "trainers": {"trainer_id", "npc_profile"},
@@ -14838,10 +15209,20 @@ def create_handler(
                 "/cves.html": web_root / "cves.html",
                 "/cves-editor.js": web_root / "cves-editor.js",
                 "/cves-editor.css": web_root / "cves-editor.css",
+                "/quests.html": web_root / "quests.html",
+                "/quest-editor.js": web_root / "quest-editor.js",
+                "/quest-editor.css": web_root / "quest-editor.css",
+                "/quest-global.html": web_root / "quest-global.html",
+                "/quest-global.js": web_root / "quest-global.js",
+                "/quest-global.css": web_root / "quest-global.css",
+                "/main-quest-flow.html": web_root / "main-quest-flow.html",
+                "/main-quest-flow.js": web_root / "main-quest-flow.js",
+                "/main-quest-flow.css": web_root / "main-quest-flow.css",
                 "/space-connections.js": web_root / "space-connections.js",
                 "/styles.css": web_root / "styles.css",
                 "/economy.css": web_root / "economy.css",
                 "/typography.css": web_root / "typography.css",
+                "/studio-tool-shell.css": web_root / "studio-tool-shell.css",
                 "/fonts/PretendardVariable.woff2": web_root
                 / "fonts"
                 / "PretendardVariable.woff2",
@@ -15414,6 +15795,15 @@ def create_handler(
                 return
             if request.path == "/api/forests":
                 self._document_response("forests", request)
+                return
+            if request.path == "/api/quests":
+                self._document_response("quests", request)
+                return
+            if request.path == "/api/main-quest-progression":
+                try:
+                    self._json(200, main_quest_progression_payload(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
                 return
             self._json(404, {"error": "not_found"})
 
@@ -16164,6 +16554,20 @@ def create_handler(
                 errors = sum(issue.level == "error" for issue in issues)
                 self._json(200 if errors == 0 else 422, {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]})
                 return
+            if request.path == "/api/main-quest-progression":
+                try:
+                    payload = self._read_json()
+                    issues = save_main_quest_progression(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
+                self._json(200 if errors == 0 else 422, {
+                    "saved": errors == 0,
+                    "valid": errors == 0,
+                    "issues": [asdict(issue) for issue in issues],
+                })
+                return
             if request.path == "/api/biome-catalog":
                 try:
                     payload = self._read_json()
@@ -16203,6 +16607,7 @@ def create_handler(
                 "/api/dungeon-pieces": "dungeon-pieces",
                 "/api/underground-roads": "underground-roads",
                 "/api/forests": "forests",
+                "/api/quests": "quests",
             }
             category = categories.get(request.path)
             if category is None:
@@ -16247,6 +16652,7 @@ def create_handler(
                 "/api/caves": "caves",
                 "/api/underground-roads": "underground-roads",
                 "/api/forests": "forests",
+                "/api/quests": "quests",
             }
             category = categories.get(request.path)
             if category is None:

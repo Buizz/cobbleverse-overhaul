@@ -22,10 +22,25 @@ final class DungeonAuthoredPlanDefinitionTest {
         var root = resourceJson(
             "data/cobbleventure/dungeons/generation_1/rocket_pokemon_tower.json"
         );
-        var secondEncounter = root.getAsJsonArray("encounters")
+        var firstEncounter = root.getAsJsonArray("encounters")
             .get(0).getAsJsonObject().deepCopy();
+        firstEncounter.addProperty("id", "encounter_1");
+        firstEncounter.add("requires", JsonParser.parseString("[]"));
+        var secondEncounter = firstEncounter.deepCopy();
         secondEncounter.addProperty("id", "encounter_2");
+        var boss = root.getAsJsonArray("encounters")
+            .get(root.getAsJsonArray("encounters").size() - 1)
+            .getAsJsonObject().deepCopy();
+        boss.addProperty("id", "boss_1");
+        boss.add("requires", JsonParser.parseString(
+            "[\"encounter_1\",\"encounter_2\"]"
+        ));
+        root.add("encounters", JsonParser.parseString("[]"));
+        root.getAsJsonArray("encounters").add(firstEncounter);
         root.getAsJsonArray("encounters").add(secondEncounter);
+        root.getAsJsonArray("encounters").add(boss);
+        root.getAsJsonArray("gates").get(0).getAsJsonObject()
+            .add("requires", JsonParser.parseString("[\"encounter_1\"]"));
         var dungeon = DungeonDefinition.parse(root);
         var layout = new DungeonPieceLayout(null, List.of(
             new DungeonPieceLayout.ResolvedMarker("encounter", null, new BlockPos(2, 1, 2)),
@@ -57,13 +72,13 @@ final class DungeonAuthoredPlanDefinitionTest {
     }
 
     @Test
-    void loadsRocketSkinPokemonTowerPlanFromPackagedResources() throws Exception {
+    void loadsPokemonTowerSkinPlanFromPackagedResources() throws Exception {
         var pieces = new HashMap<String, DungeonPieceDefinition>();
         for (String id : new String[] {
             "start", "encounter_room", "stairs_up", "room", "boss", "exit", "treasure"
         }) {
             var piece = DungeonPieceDefinition.parse(resourceJson(
-                "data/cobbleventure/dungeon_pieces/rocket/" + id + ".json"
+                "data/cobbleventure/dungeon_pieces/pokemon_tower/" + id + ".json"
             ));
             pieces.put(piece.id(), piece);
         }
@@ -83,15 +98,17 @@ final class DungeonAuthoredPlanDefinitionTest {
             layout.featureMarkers(dungeon, 421L);
 
         assertEquals(new BlockPos(4, 2, 8), layout.requiredMarker("entry", null));
-        assertTrue(java.util.Set.of(
-            new BlockPos(25, 2, 9), new BlockPos(57, 10, 9)
-        ).contains(features.get(
-            new DungeonPieceLayout.MarkerKey("encounter", "encounter_1")
-        )));
         assertEquals(
             new BlockPos(73, 10, 9),
-            features.get(new DungeonPieceLayout.MarkerKey("boss", "boss_1"))
+            features.get(new DungeonPieceLayout.MarkerKey("boss", "tower_admin"))
         );
+        for (String encounter : List.of(
+            "memorial_guard_1", "memorial_guard_2", "upper_guard_1", "upper_guard_2"
+        )) {
+            assertNotNull(features.get(
+                new DungeonPieceLayout.MarkerKey("encounter", encounter)
+            ), encounter);
+        }
         assertEquals(
             new BlockPos(57, 10, 27),
             features.get(new DungeonPieceLayout.MarkerKey(
@@ -108,7 +125,7 @@ final class DungeonAuthoredPlanDefinitionTest {
 
     @Test
     void rejectsGateWhoseRequiredEncounterIsBehindItsBlockedConnector() throws Exception {
-        Map<String, DungeonPieceDefinition> pieces = rocketPieces();
+        Map<String, DungeonPieceDefinition> pieces = pokemonTowerPieces();
         DungeonAuthoredPlanDefinition authored = DungeonAuthoredPlanDefinition.parse(
             resourceJson(
                 "data/cobbleventure/dungeon_plans/generation_1/rocket_pokemon_tower_test.json"
@@ -119,7 +136,7 @@ final class DungeonAuthoredPlanDefinitionTest {
         );
         useAuthoredTowerPlan(root);
         root.getAsJsonArray("gates").get(0).getAsJsonObject()
-            .add("requires", JsonParser.parseString("[\"boss_1\"]"));
+            .add("requires", JsonParser.parseString("[\"tower_admin\"]"));
         DungeonDefinition dungeon = DungeonDefinition.parse(root);
 
         IllegalStateException error = assertThrows(IllegalStateException.class, () ->
@@ -309,13 +326,13 @@ final class DungeonAuthoredPlanDefinitionTest {
         }
     }
 
-    private Map<String, DungeonPieceDefinition> rocketPieces() throws Exception {
+    private Map<String, DungeonPieceDefinition> pokemonTowerPieces() throws Exception {
         var pieces = new HashMap<String, DungeonPieceDefinition>();
         for (String id : new String[] {
             "start", "encounter_room", "stairs_up", "room", "boss", "exit", "treasure"
         }) {
             var piece = DungeonPieceDefinition.parse(resourceJson(
-                "data/cobbleventure/dungeon_pieces/rocket/" + id + ".json"
+                "data/cobbleventure/dungeon_pieces/pokemon_tower/" + id + ".json"
             ));
             pieces.put(piece.id(), piece);
         }

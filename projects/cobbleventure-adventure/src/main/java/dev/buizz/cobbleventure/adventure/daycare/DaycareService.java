@@ -26,6 +26,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
@@ -120,6 +121,11 @@ public final class DaycareService {
         DaycareJob current = data.find(player.getUUID()).orElse(null);
         long now = Instant.now().toEpochMilli();
         if (current != null) current = initializeTrainingClock(data, current, now);
+        if (current != null) {
+            current = alignNearbyPaddock(
+                player.getServer(), data, current, facilityDimension, paddockCenter
+            );
+        }
         if (current != null && current.pokemonCount() >= DaycareJob.MAX_POKEMON) {
             return failure(player, "message.cobbleventure_adventure.daycare.full");
         }
@@ -318,6 +324,18 @@ public final class DaycareService {
         );
     }
 
+    static void alignNearbyPaddock(
+        ServerPlayer player, ResourceLocation facilityDimension, BlockPos paddockCenter
+    ) {
+        DaycareSavedData data = DaycareSavedData.get(player.getServer());
+        DaycareJob job = data.find(player.getUUID()).orElse(null);
+        if (job != null) {
+            alignNearbyPaddock(
+                player.getServer(), data, job, facilityDimension, paddockCenter
+            );
+        }
+    }
+
     static long secondsUntilNextTrainingGain(DaycareJob.StoredPokemon stored) {
         return DaycarePolicy.secondsUntilNextTrainingGain(
             stored, Instant.now().toEpochMilli()
@@ -381,6 +399,22 @@ public final class DaycareService {
         DaycareJob initialized = job.initializeLegacyTraining(nowMillis);
         if (initialized != job) data.replace(initialized);
         return initialized;
+    }
+
+    private static DaycareJob alignNearbyPaddock(
+        MinecraftServer server, DaycareSavedData data, DaycareJob job,
+        ResourceLocation facilityDimension, BlockPos paddockCenter
+    ) {
+        if (!job.facilityDimension().equals(facilityDimension)
+            || job.paddockCenter().distSqr(paddockCenter) > 36.0D) {
+            return job;
+        }
+        DaycareJob relocated = job.relocatePaddock(paddockCenter);
+        if (relocated != job) {
+            data.replace(relocated);
+            DaycareProjectionService.reset(server, job.jobId());
+        }
+        return relocated;
     }
 
     private static long nextEggCheck(long now) {

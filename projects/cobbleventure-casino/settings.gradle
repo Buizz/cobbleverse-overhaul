@@ -12,3 +12,5 @@ pluginManagement {
     }
 }
 rootProject.name = 'cobbleventure-casino'
+
+includeBuild('../cobbleventure-player-menu')

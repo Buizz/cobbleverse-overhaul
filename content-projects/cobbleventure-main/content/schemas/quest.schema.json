@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/quest.schema.json",
+  "title": "Cobbleventure quest definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "enabled",
+    "category",
+    "display_name",
+    "summary",
+    "accept_conditions",
+    "objectives",
+    "completion"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "id": { "$ref": "#/$defs/resource_id" },
+    "enabled": { "type": "boolean" },
+    "category": { "enum": ["main", "side", "tutorial"] },
+    "display_name": { "$ref": "#/$defs/localized_text" },
+    "summary": { "$ref": "#/$defs/localized_text" },
+    "accept_conditions": { "$ref": "#/$defs/condition_group" },
+    "global_activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "conditions"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "conditions": { "$ref": "#/$defs/condition_group" }
+      },
+      "allOf": [{
+        "if": { "properties": { "enabled": { "const": true } } },
+        "then": {
+          "properties": {
+            "conditions": {
+              "properties": { "conditions": { "minItems": 1 } }
+            }
+          }
+        }
+      }]
+    },
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "conditions"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+          "text": { "$ref": "#/$defs/localized_text" },
+          "conditions": { "$ref": "#/$defs/condition_group" },
+          "marker": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "target"],
+            "properties": {
+              "type": { "enum": ["npc", "settlement", "route", "anchor"] },
+              "target": { "$ref": "#/$defs/resource_id" }
+            }
+          }
+        }
+      }
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["npc_turn_in", "automatic"] }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required_tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "id", "reason"],
+            "properties": {
+              "type": { "const": "field_move" },
+              "id": { "enum": ["surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash"] },
+              "reason": { "$ref": "#/$defs/localized_text" }
+            }
+          }
+        }
+      }
+    },
+    "next_quests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/resource_id" }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "localized_text": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "condition_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition_mode", "conditions"],
+      "properties": {
+        "condition_mode": { "enum": ["all", "any"] },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "player-condition.schema.json#/$defs/condition" }
+        }
+      }
+    }
+  }
+}

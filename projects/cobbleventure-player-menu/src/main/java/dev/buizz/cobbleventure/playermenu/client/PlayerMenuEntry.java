@@ -17,7 +17,7 @@ enum PlayerMenuEntry {
     BAG("bag", true, "relic_coin_pouch"),
     PC("pc", false, "pc"),
     TRAINER_CARD("trainer_card", true, "red_card"),
-    QUESTS("quests", false, "scroll_of_darkness"),
+    QUESTS("quests", true, "scroll_of_darkness"),
     MAP("map", true, null),
     POKENAV("pokenav", false, null),
     POKEDEX("pokedex", false, "pokedex_red");
@@ -107,6 +107,10 @@ enum PlayerMenuEntry {
         }
         if (this == TRAINER_CARD) {
             PlayerMenuClient.openTrainerCard();
+            return OpenResult.OPENED;
+        }
+        if (this == QUESTS) {
+            PlayerMenuClient.openQuestLog();
             return OpenResult.OPENED;
         }
         if (this == POKEMON && connected()) {

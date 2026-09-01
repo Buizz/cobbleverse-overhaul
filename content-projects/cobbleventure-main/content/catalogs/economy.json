@@ -2,7 +2,2672 @@
   "$schema": "../schemas/economy.schema.json",
   "schema_version": 2,
   "vanilla_crafting_disabled": true,
-  "standard_prices": [],
+  "sell_price_policy": {
+    "apply_default_to_all": true,
+    "default_percentage": 50
+  },
+  "standard_prices": [
+    {
+      "item": "cobblemon:ability_capsule",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ability_patch",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ability_shield",
+      "buy_price": "20000",
+      "sell_price": "10000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:absorb_bulb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:adamant_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:aguav_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:air_balloon",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:antidote",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:apicot_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:armor_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:aspear_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:assault_vest",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:auspicious_armor",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:awakening",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:babiri_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:balm_mushroom",
+      "buy_price": "15000",
+      "sell_price": "7500",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:beast_ball",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:belue_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:berry_juice",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:berry_sweet",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:big_malasada",
+      "buy_price": "350",
+      "sell_price": "175",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:big_mushroom",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:big_nugget",
+      "buy_price": "40000",
+      "sell_price": "20000",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:big_pearl",
+      "buy_price": "8000",
+      "sell_price": "4000",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:binding_band",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:black_apricorn",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:black_augurite",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:black_belt",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:black_glasses",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:black_sludge",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:blue_apricorn",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:bluk_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:blunder_policy",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:bold_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:brave_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:bright_powder",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:bug_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:burn_heal",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:calcium",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:calm_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:carbos",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:careful_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:casteliacone",
+      "buy_price": "350",
+      "sell_price": "175",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:cell_battery",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:charti_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:cheri_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:cherish_ball",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:chesto_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:chilan_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:chipped_pot",
+      "buy_price": "38000",
+      "sell_price": "19000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:choice_band",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:choice_scarf",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:choice_specs",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:chople_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:claw_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:cleanse_tag",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:clear_amulet",
+      "buy_price": "30000",
+      "sell_price": "15000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:clever_mochi",
+      "buy_price": "125",
+      "sell_price": "62",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:clover_sweet",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:coba_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:colbur_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:comet_shard",
+      "buy_price": "25000",
+      "sell_price": "12500",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:cornn_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:courage_candy",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:cover_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:covert_cloak",
+      "buy_price": "20000",
+      "sell_price": "10000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:cracked_pot",
+      "buy_price": "1600",
+      "sell_price": "800",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:custap_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:damp_rock",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dark_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dawn_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:deep_sea_scale",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:deep_sea_tooth",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:destiny_knot",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dire_hit",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dive_ball",
+      "buy_price": "1000",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dome_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dragon_fang",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dragon_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dragon_scale",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dream_ball",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dubious_disc",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:durin_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dusk_ball",
+      "buy_price": "1000",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:dusk_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:eject_button",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:eject_pack",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:electirizer",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:electric_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:electric_seed",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:elixir",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:energy_root",
+      "buy_price": "1200",
+      "sell_price": "600",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:enigma_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ether",
+      "buy_price": "1200",
+      "sell_price": "600",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:everstone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:eviolite",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:exp_candy_l",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:exp_candy_m",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:exp_candy_s",
+      "buy_price": "240",
+      "sell_price": "120",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:exp_candy_xl",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:exp_candy_xs",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:exp_share",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:expert_belt",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fairy_feather",
+      "buy_price": "750",
+      "sell_price": "375",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fairy_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fast_ball",
+      "buy_price": "0",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fighting_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:figy_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fire_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fire_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:flame_orb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:float_stone",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:flower_sweet",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:flying_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:focus_band",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:focus_sash",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fossilized_bird",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fossilized_dino",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fossilized_drake",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fossilized_fish",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:fresh_start_mochi",
+      "buy_price": "75",
+      "sell_price": "37",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:friend_ball",
+      "buy_price": "0",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:full_heal",
+      "buy_price": "400",
+      "sell_price": "200",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:full_restore",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:galarica_cuff",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:galarica_wreath",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ganlon_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:genius_mochi",
+      "buy_price": "125",
+      "sell_price": "62",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:gentle_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ghost_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:grass_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:grassy_seed",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:great_ball",
+      "buy_price": "600",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:green_apricorn",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:grepa_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:grip_claw",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ground_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:growth_mulch",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:guard_spec",
+      "buy_price": "1500",
+      "sell_price": "750",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:haban_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:hard_stone",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:hasty_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:heal_ball",
+      "buy_price": "300",
+      "sell_price": "75",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:heal_powder",
+      "buy_price": "300",
+      "sell_price": "150",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:health_candy",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:health_mochi",
+      "buy_price": "125",
+      "sell_price": "62",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:heat_rock",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:heavy_ball",
+      "buy_price": "120",
+      "sell_price": "30",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:heavy_duty_boots",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:helix_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:hondew_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:hopo_berry",
+      "buy_price": "300",
+      "sell_price": "150",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:hp_up",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:hyper_potion",
+      "buy_price": "1500",
+      "sell_price": "750",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:iapapa_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ice_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ice_heal",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ice_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:icy_rock",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:impish_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:iron",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:iron_ball",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:jaboca_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:jaw_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:jolly_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:kasib_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:kebia_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:kee_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:kelpsy_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:kings_rock",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lagging_tail",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lansat_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lava_cookie",
+      "buy_price": "350",
+      "sell_price": "175",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lax_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:leaf_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:leftovers",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:leppa_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:level_ball",
+      "buy_price": "0",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:liechi_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:life_orb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:light_ball",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:light_clay",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:loaded_dice",
+      "buy_price": "20000",
+      "sell_price": "10000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lonely_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:love_ball",
+      "buy_price": "0",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:love_sweet",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lucky_egg",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lum_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:luminous_moss",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lumiose_galette",
+      "buy_price": "350",
+      "sell_price": "175",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:lure_ball",
+      "buy_price": "0",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:luxury_ball",
+      "buy_price": "3000",
+      "sell_price": "750",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:magmarizer",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:magnet",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:mago_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:magost_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:malicious_armor",
+      "buy_price": "750",
+      "sell_price": "375",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:maranga_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:master_ball",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:masterpiece_teacup",
+      "buy_price": "9500",
+      "sell_price": "4750",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:max_elixir",
+      "buy_price": "4500",
+      "sell_price": "2250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:max_ether",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:max_potion",
+      "buy_price": "2500",
+      "sell_price": "1250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:max_revive",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:mental_herb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:metal_alloy",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:metal_coat",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:metal_powder",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:metronome",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:micle_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:mighty_candy",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:mild_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:miracle_seed",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:mirror_herb",
+      "buy_price": "30000",
+      "sell_price": "15000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:misty_seed",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:modest_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:moomoo_milk",
+      "buy_price": "600",
+      "sell_price": "300",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:moon_ball",
+      "buy_price": "0",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:moon_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:muscle_band",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:muscle_mochi",
+      "buy_price": "125",
+      "sell_price": "62",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:mystic_water",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:naive_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:nanab_berry",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:naughty_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:nest_ball",
+      "buy_price": "1000",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:net_ball",
+      "buy_price": "1000",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:never_melt_ice",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:nomel_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:normal_gem",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:nugget",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:occa_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:old_gateau",
+      "buy_price": "350",
+      "sell_price": "175",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:oran_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:oval_stone",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pamtre_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:paralyze_heal",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:park_ball",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:passho_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:payapa_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pearl",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:pearl_string",
+      "buy_price": "20000",
+      "sell_price": "10000",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:peat_block",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pecha_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:persim_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:petaya_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pewter_crunchies",
+      "buy_price": "250",
+      "sell_price": "125",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pinap_berry",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pink_apricorn",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:plume_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:poison_barb",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:poison_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:poke_ball",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pomeg_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:potion",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:power_anklet",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:power_band",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:power_belt",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:power_bracer",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:power_herb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:power_lens",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:power_weight",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pp_max",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:pp_up",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:premier_ball",
+      "buy_price": "20",
+      "sell_price": "5",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:prism_scale",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:protective_pads",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:protector",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:protein",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:psychic_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:psychic_seed",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:punching_glove",
+      "buy_price": "15000",
+      "sell_price": "7500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:qualot_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:quick_ball",
+      "buy_price": "1000",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:quick_candy",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:quick_claw",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:quick_powder",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:quiet_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rabuta_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rage_candy_bar",
+      "buy_price": "350",
+      "sell_price": "175",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rare_bone",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:rare_candy",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rash_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rawst_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:razor_claw",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:razor_fang",
+      "buy_price": "5000",
+      "sell_price": "2500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:razz_berry",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:reaper_cloth",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:red_apricorn",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:red_card",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:relaxed_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:repeat_ball",
+      "buy_price": "1000",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:resist_mochi",
+      "buy_price": "125",
+      "sell_price": "62",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:revival_herb",
+      "buy_price": "2800",
+      "sell_price": "1400",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:revive",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ribbon_sweet",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rich_mulch",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rindo_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ring_target",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rock_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rocky_helmet",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:room_service",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:root_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:roseli_berry",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:rowap_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sachet",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:safari_ball",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:safety_goggles",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sail_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:salac_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sassy_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:scope_lens",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:scroll_of_darkness",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:scroll_of_waters",
+      "buy_price": "0",
+      "sell_price": "0",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:serious_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:shalour_sable",
+      "buy_price": "350",
+      "sell_price": "175",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sharp_beak",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:shed_shell",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:shell_bell",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:shiny_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:shuca_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:silk_scarf",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:silver_powder",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sitrus_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:skull_fossil",
+      "buy_price": "7000",
+      "sell_price": "3500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:smart_candy",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:smoke_ball",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:smooth_rock",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:soft_sand",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:soothe_bell",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:spell_tag",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:spelon_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sport_ball",
+      "buy_price": "300",
+      "sell_price": "150",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:star_piece",
+      "buy_price": "12000",
+      "sell_price": "6000",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:star_sweet",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:stardust",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:starf_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:steel_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sticky_barb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:strawberry_sweet",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sun_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:super_potion",
+      "buy_price": "700",
+      "sell_price": "350",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:surprise_mulch",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:sweet_apple",
+      "buy_price": "2200",
+      "sell_price": "1100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:swift_mochi",
+      "buy_price": "125",
+      "sell_price": "62",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:syrupy_apple",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:tamato_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:tanga_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:tart_apple",
+      "buy_price": "2200",
+      "sell_price": "1100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:terrain_extender",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:throat_spray",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:thunder_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:timer_ball",
+      "buy_price": "1000",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:timid_mint",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:tiny_mushroom",
+      "buy_price": "500",
+      "sell_price": "250",
+      "use_default_sell_price": false,
+      "no_sell_penalty": true
+    },
+    {
+      "item": "cobblemon:tough_candy",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:toxic_orb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:twisted_spoon",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:ultra_ball",
+      "buy_price": "800",
+      "sell_price": "200",
+      "use_default_sell_price": false,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:unremarkable_teacup",
+      "buy_price": "400",
+      "sell_price": "200",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:utility_umbrella",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:wacan_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:water_gem",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:water_stone",
+      "buy_price": "3000",
+      "sell_price": "1500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:watmel_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:weakness_policy",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:wepear_berry",
+      "buy_price": "20",
+      "sell_price": "10",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:whipped_dream",
+      "buy_price": "2000",
+      "sell_price": "1000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:white_apricorn",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:white_herb",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:wide_lens",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:wiki_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:wise_glasses",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:x_accuracy",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:x_attack",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:x_speed",
+      "buy_price": "1000",
+      "sell_price": "500",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:yache_berry",
+      "buy_price": "80",
+      "sell_price": "40",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:yellow_apricorn",
+      "buy_price": "200",
+      "sell_price": "100",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:zinc",
+      "buy_price": "10000",
+      "sell_price": "5000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    },
+    {
+      "item": "cobblemon:zoom_lens",
+      "buy_price": "4000",
+      "sell_price": "2000",
+      "use_default_sell_price": true,
+      "no_sell_penalty": false
+    }
+  ],
   "shop_catalogs": [
     {
       "id": "cobbleventure:shop_catalog/lilycove_department_store",

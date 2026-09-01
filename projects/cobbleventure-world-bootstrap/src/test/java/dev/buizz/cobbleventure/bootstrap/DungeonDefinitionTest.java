@@ -17,15 +17,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
     @Test
-    void parsesRunScopedV5StateKeys() throws Exception {
+    void powerPlantUsesFourDungeonOwnedTrainers() throws Exception {
         DungeonDefinition definition = DungeonDefinition.parse(
             resourceObject("rocket_power_plant")
         );
 
-        assertEquals(
-            List.of("cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"),
-            definition.encounters().getFirst().runStateKeys()
-        );
+        assertEquals(4, definition.encounters().size());
+        assertTrue(definition.encounters().stream().allMatch(encounter ->
+            encounter.npcs().isEmpty() && encounter.opponents().size() == 1
+                && encounter.trainers().size() == 1
+        ));
     }
 
     @Test
@@ -33,6 +34,10 @@ final class DungeonDefinitionTest {
         JsonObject root = resourceObject("rocket_power_plant");
         JsonObject encounter = root.getAsJsonArray("encounters")
             .get(0).getAsJsonObject();
+        encounter.remove("trainers");
+        encounter.add("npcs", JsonParser.parseString(
+            "[\"cobbleventure:npc/rocket_power_plant_grunt\"]"
+        ).getAsJsonArray());
         encounter.remove("opponents");
         encounter.add("trainer_generation", JsonParser.parseString("""
             {
@@ -202,23 +207,34 @@ final class DungeonDefinitionTest {
                 );
                 assertEquals(resource.getValue(), definition.terrain().mode(), name);
                 int recommendedMinimum = switch (name) {
-                    case "rocket_power_plant", "zapdos_storm_chamber" -> 22;
-                    default -> 1;
+                    case "rocket_power_plant" -> 24;
+                    case "zapdos_storm_chamber" -> 22;
+                    case "rocket_casino_hideout" -> 25;
+                    case "rocket_pokemon_tower" -> 27;
+                    case "rocket_silph_company" -> 30;
+                    default -> throw new IllegalStateException(name);
                 };
                 int recommendedMaximum = switch (name) {
-                    case "rocket_power_plant" -> 35;
+                    case "rocket_power_plant", "rocket_casino_hideout" -> 29;
                     case "zapdos_storm_chamber" -> 30;
-                    default -> 1;
+                    case "rocket_pokemon_tower" -> 30;
+                    case "rocket_silph_company" -> 41;
+                    default -> throw new IllegalStateException(name);
                 };
                 int internalMinimum = switch (name) {
                     case "rocket_power_plant" -> 22;
                     case "zapdos_storm_chamber" -> 18;
-                    default -> 1;
+                    case "rocket_casino_hideout" -> 24;
+                    case "rocket_pokemon_tower" -> 27;
+                    case "rocket_silph_company" -> 30;
+                    default -> throw new IllegalStateException(name);
                 };
                 int internalMaximum = switch (name) {
-                    case "rocket_power_plant" -> 35;
+                    case "rocket_power_plant", "rocket_casino_hideout" -> 29;
                     case "zapdos_storm_chamber" -> 30;
-                    default -> 1;
+                    case "rocket_pokemon_tower" -> 30;
+                    case "rocket_silph_company" -> 41;
+                    default -> throw new IllegalStateException(name);
                 };
                 assertEquals(recommendedMinimum, definition.difficulty().recommendedMin(), name);
                 assertEquals(recommendedMaximum, definition.difficulty().recommendedMax(), name);
@@ -244,10 +260,11 @@ final class DungeonDefinitionTest {
         assertEquals("cooperative", casino.multiplayer().mode());
         assertEquals(2, casino.match().requiredPlayers());
         assertEquals("summon_all", casino.multiplayer().battleJoin());
-        assertEquals(2, casino.encounters().size());
-        assertEquals(2, casino.encounters().getFirst().trainers().size());
-        assertEquals(2, casino.encounters().getLast().trainers().size());
-        assertEquals(4, casino.encounters().stream()
+        assertEquals(5, casino.encounters().size());
+        assertTrue(casino.encounters().stream().allMatch(encounter ->
+            encounter.trainers().size() == 1
+        ));
+        assertEquals(5, casino.encounters().stream()
             .flatMap(encounter -> encounter.trainers().stream())
             .map(DungeonDefinition.TrainerActor::id).distinct().count());
         assertTrue(casino.encounters().stream().allMatch(encounter ->
@@ -260,10 +277,11 @@ final class DungeonDefinitionTest {
             "cobbleventure:trainer_class/villain_admin",
             casino.encounters().getLast().trainers().getFirst().trainerClass()
         );
-        assertEquals(List.of("basement_guard"), casino.encounters().getLast().requires());
+        assertEquals(List.of("admin_guard"), casino.encounters().getLast().requires());
         assertEquals("independent", silph.multiplayer().mode());
         assertEquals(2, silph.match().requiredPlayers());
         assertEquals("initiator_only", silph.multiplayer().battleJoin());
+        assertEquals(8, silph.encounters().size());
         assertEquals("descending", casino.layout().verticalDirection());
         assertEquals("ascending", silph.layout().verticalDirection());
         assertEquals("procedural_cave", zapdos.terrain().mode());
@@ -293,11 +311,11 @@ final class DungeonDefinitionTest {
         assertEquals("marker", gate.placement());
         assertEquals(-2, gate.minimum().getZ());
         assertEquals(2, gate.maximum().getZ());
-        assertEquals(List.of("encounter_1"), gate.requires());
+        assertEquals(List.of("memorial_guard_1", "memorial_guard_2"), gate.requires());
         assertEquals(1, tower.objectives().size());
         assertEquals("security_switch", tower.objectives().getFirst().id());
-        assertEquals("objective", gate.requirements().get(1).type());
-        assertEquals("security_switch", gate.requirements().get(1).reference());
+        assertEquals("objective", gate.requirements().getLast().type());
+        assertEquals("security_switch", gate.requirements().getLast().reference());
     }
 
     @Test

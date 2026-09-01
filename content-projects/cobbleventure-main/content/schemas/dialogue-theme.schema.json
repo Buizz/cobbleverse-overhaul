@@ -18,6 +18,16 @@
         "hint_scale": { "type": "number", "minimum": 0.5, "maximum": 2.0 }
       }
     },
+    "typography": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "title": { "$ref": "#/$defs/text_style" },
+        "heading": { "$ref": "#/$defs/text_style" },
+        "body": { "$ref": "#/$defs/text_style" },
+        "label": { "$ref": "#/$defs/text_style" },
+        "caption": { "$ref": "#/$defs/text_style" }
+      }
+    },
     "panel": {
       "type": "object", "additionalProperties": false,
       "required": ["background", "background_opacity", "border", "inner_border", "border_width", "inner_border_width", "corner_radius", "shadow", "shadow_opacity", "shadow_offset", "speaker_color", "text_color", "hint_color", "page_color", "height_ratio", "min_height", "max_height"],
@@ -62,7 +72,23 @@
         "row_radius": { "type": "integer", "minimum": 0, "maximum": 20 },
         "selected_background": { "$ref": "#/$defs/color" }, "hover_background": { "$ref": "#/$defs/color" },
         "text_color": { "$ref": "#/$defs/color" }, "selected_text_color": { "$ref": "#/$defs/color" },
-        "accent": { "$ref": "#/$defs/color" }
+        "accent": { "$ref": "#/$defs/color" },
+        "card_background": { "$ref": "#/$defs/color" }, "input_background": { "$ref": "#/$defs/color" },
+        "secondary_text_color": { "$ref": "#/$defs/color" }, "muted_text_color": { "$ref": "#/$defs/color" },
+        "text_on_accent": { "$ref": "#/$defs/color" }, "danger": { "$ref": "#/$defs/color" },
+        "success": { "$ref": "#/$defs/color" }, "warning": { "$ref": "#/$defs/color" },
+        "scrim": { "$ref": "#/$defs/color" }, "scrim_opacity": { "$ref": "#/$defs/opacity" },
+        "disabled_background": { "$ref": "#/$defs/color" }, "disabled_border": { "$ref": "#/$defs/color" },
+        "disabled_text": { "$ref": "#/$defs/color" }
+      }
+    },
+    "buttons": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "primary": { "$ref": "#/$defs/button_variant" },
+        "secondary": { "$ref": "#/$defs/button_variant" },
+        "danger": { "$ref": "#/$defs/button_variant" },
+        "ghost": { "$ref": "#/$defs/button_variant" }
       }
     },
     "portrait": {
@@ -79,6 +105,32 @@
   },
   "$defs": {
     "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
-    "opacity": { "type": "number", "minimum": 0, "maximum": 1 }
+    "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+    "text_style": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scale", "shadow"],
+      "properties": {
+        "scale": { "type": "number", "minimum": 0.5, "maximum": 2.0 },
+        "shadow": { "type": "boolean" },
+        "color": { "$ref": "#/$defs/color" }
+      }
+    },
+    "button_state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["background", "border", "text"],
+      "properties": {
+        "background": { "$ref": "#/$defs/color" },
+        "border": { "$ref": "#/$defs/color" },
+        "text": { "$ref": "#/$defs/color" }
+      }
+    },
+    "button_variant": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "normal": { "$ref": "#/$defs/button_state" },
+        "hover": { "$ref": "#/$defs/button_state" },
+        "selected": { "$ref": "#/$defs/button_state" }
+      }
+    }
   }
 }

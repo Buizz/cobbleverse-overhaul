@@ -1,0 +1,15 @@
+.activation-summary {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #35538a;
+  border-radius: 9px;
+  background: #17233a;
+}
+
+.activation-summary span {
+  color: #aebbd0;
+  font-size: 13px;
+  line-height: 1.5;
+}

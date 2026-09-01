@@ -15,13 +15,6 @@ final class BagDiscardScreen extends Screen {
 
     private static final int PANEL_WIDTH = 260;
     private static final int PANEL_HEIGHT = 144;
-    private static final int TEXT_COLOR = 0xFF243947;
-    private static final int MUTED_COLOR = 0xFF607B8C;
-    private static final int PANEL_BORDER = 0xFF4B91C1;
-    private static final int PANEL_INNER = 0xFFD8F2F8;
-    private static final int PANEL_FILL = 0xFFF7FCFD;
-    private static final int ACTION_BLUE = 0xFF3478A8;
-    private static final int ACTION_RED = 0xFFC95555;
 
     private final BagScreen parent;
     private final boolean extended;
@@ -29,6 +22,7 @@ final class BagDiscardScreen extends Screen {
     private final ItemStack stack;
     private final int maximum;
     private final Mode mode;
+    private final MenuTheme theme;
     private EditBox quantityBox;
     private AbstractButton confirmButton;
     private int panelX;
@@ -43,6 +37,7 @@ final class BagDiscardScreen extends Screen {
         this.stack = stack;
         this.maximum = Math.max(1, maximum);
         this.mode = mode;
+        this.theme = MenuTheme.load(net.minecraft.client.Minecraft.getInstance());
     }
 
     @Override
@@ -55,8 +50,8 @@ final class BagDiscardScreen extends Screen {
         quantityBox.setMaxLength(9);
         quantityBox.setValue("1");
         quantityBox.setBordered(false);
-        quantityBox.setTextColor(TEXT_COLOR);
-        quantityBox.setTextColorUneditable(0xFF93A4AD);
+        quantityBox.setTextColor(theme.textColor);
+        quantityBox.setTextColorUneditable(theme.disabledText);
         quantityBox.setResponder(ignored -> updateConfirmButton());
         addRenderableWidget(quantityBox);
 
@@ -87,27 +82,35 @@ final class BagDiscardScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xA81A2730);
+        graphics.fill(0, 0, width, height, theme.scrim);
         drawPanel(graphics, panelX, panelY, PANEL_WIDTH, PANEL_HEIGHT);
-        graphics.fill(panelX + 8, panelY + 7, panelX + PANEL_WIDTH - 8, panelY + 34, 0xFFCDEAF2);
-        graphics.fill(panelX + 8, panelY + 33, panelX + PANEL_WIDTH - 8, panelY + 34, 0xFF8CC5D8);
-        graphics.fill(panelX + 8, panelY + 7, panelX + 29, panelY + 30, 0xFFF6FCFE);
-        graphics.fill(panelX + 9, panelY + 8, panelX + 28, panelY + 29, 0xFFDDEFF4);
+        graphics.fill(panelX + 8, panelY + 7, panelX + PANEL_WIDTH - 8, panelY + 34,
+            theme.selectedBackground);
+        graphics.fill(panelX + 8, panelY + 33, panelX + PANEL_WIDTH - 8, panelY + 34,
+            theme.border);
+        graphics.fill(panelX + 8, panelY + 7, panelX + 29, panelY + 30,
+            theme.cardBackground);
+        graphics.fill(panelX + 9, panelY + 8, panelX + 28, panelY + 29,
+            theme.innerBorder);
         graphics.renderItem(stack, panelX + 10, panelY + 10);
-        graphics.drawString(font, title, panelX + 32, panelY + 9, TEXT_COLOR, false);
-        graphics.drawString(font, font.plainSubstrByWidth(stack.getHoverName().getString(), PANEL_WIDTH - 44),
-            panelX + 32, panelY + 21, MUTED_COLOR, false);
+        theme.drawText(graphics, font, title, panelX + 32, panelY + 9,
+            MenuTheme.TextRole.HEADING);
+        theme.drawText(graphics, font, Component.literal(font.plainSubstrByWidth(
+            stack.getHoverName().getString(), PANEL_WIDTH - 44
+        )), panelX + 32, panelY + 21, MenuTheme.TextRole.CAPTION);
         Component owned = Component.translatable(
             "screen.cobbleventure_player_menu.bag.discard_owned", maximum
         );
         graphics.drawString(font, owned,
-            panelX + (PANEL_WIDTH - font.width(owned)) / 2, panelY + 36, MUTED_COLOR, false);
+            panelX + (PANEL_WIDTH - font.width(owned)) / 2, panelY + 36,
+            theme.mutedTextColor, false);
         drawInputFrame(graphics, panelX + 89, panelY + 46, 82, 24,
             quantityBox.isFocused(), validQuantity() > 0);
         graphics.drawString(font,
             Component.translatable("screen.cobbleventure_player_menu.bag."
                 + (mode == Mode.DROP ? "drop_warning" : "delete_warning")),
-            panelX + 10, panelY + 98, mode == Mode.DROP ? ACTION_BLUE : ACTION_RED, false);
+            panelX + 10, panelY + 98,
+            mode == Mode.DROP ? theme.accent : theme.danger, false);
         super.render(graphics, mouseX, mouseY, partialTick);
         drawQuantity(graphics);
     }
@@ -176,23 +179,20 @@ final class BagDiscardScreen extends Screen {
         return Math.max(minimum, Math.min(maximum, value));
     }
 
-    private static void drawPanel(GuiGraphics graphics, int x, int y, int width, int height) {
-        graphics.fill(x + 4, y + 5, x + width + 4, y + height + 5, 0x76000000);
-        graphics.fill(x + 2, y, x + width - 2, y + height, PANEL_BORDER);
-        graphics.fill(x, y + 2, x + width, y + height - 2, PANEL_BORDER);
-        graphics.fill(x + 3, y + 3, x + width - 3, y + height - 3, PANEL_INNER);
-        graphics.fill(x + 5, y + 5, x + width - 5, y + height - 5, PANEL_FILL);
-        graphics.fill(x + 7, y + height - 7, x + width - 7, y + height - 5, 0xFFB4DCE8);
+    private void drawPanel(GuiGraphics graphics, int x, int y, int width, int height) {
+        ThemedOverlayPanel.draw(graphics, theme, x, y, width, height, 1, theme.accent);
     }
 
-    private static void drawInputFrame(
+    private void drawInputFrame(
         GuiGraphics graphics, int x, int y, int width, int height, boolean focused, boolean valid
     ) {
-        int border = !valid ? ACTION_RED : focused ? PANEL_BORDER : 0xFF9BCAD8;
+        int border = !valid ? theme.danger : focused ? theme.accent : theme.border;
         graphics.fill(x + 2, y, x + width - 2, y + height, border);
         graphics.fill(x, y + 2, x + width, y + height - 2, border);
-        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, 0xFFFFFFFF);
-        graphics.fill(x + 5, y + height - 4, x + width - 5, y + height - 3, 0xFFD7EAF0);
+        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2,
+            theme.inputBackground);
+        graphics.fill(x + 5, y + height - 4, x + width - 5, y + height - 3,
+            theme.innerBorder);
     }
 
     private void drawQuantity(GuiGraphics graphics) {
@@ -200,10 +200,11 @@ final class BagDiscardScreen extends Screen {
         int textWidth = font.width(value);
         int textX = panelX + (PANEL_WIDTH - textWidth) / 2;
         int textY = panelY + 54;
-        graphics.drawString(font, value, textX, textY, TEXT_COLOR, false);
+        graphics.drawString(font, value, textX, textY, theme.textColor, false);
         if (quantityBox.isFocused() && (System.currentTimeMillis() / 500L) % 2L == 0L) {
             int cursorX = textX + textWidth + 1;
-            graphics.fill(cursorX, textY - 1, cursorX + 1, textY + font.lineHeight + 1, TEXT_COLOR);
+            graphics.fill(cursorX, textY - 1, cursorX + 1,
+                textY + font.lineHeight + 1, theme.textColor);
         }
     }
 
@@ -228,43 +229,33 @@ final class BagDiscardScreen extends Screen {
 
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            int base = switch (tone) {
-                case PRIMARY -> ACTION_BLUE;
-                case DANGER -> ACTION_RED;
-                case NEUTRAL -> 0xFFF4FAFC;
+            MenuTheme.ButtonVariant variant = switch (tone) {
+                case PRIMARY -> MenuTheme.ButtonVariant.PRIMARY;
+                case DANGER -> MenuTheme.ButtonVariant.DANGER;
+                case NEUTRAL -> MenuTheme.ButtonVariant.SECONDARY;
             };
-            int border = active
-                ? (isHoveredOrFocused() ? 0xFFFFFFFF : tone == ButtonTone.NEUTRAL ? 0xFF91C2D2 : base)
-                : 0xFFB7C3C8;
-            int fill = active
-                ? (isHoveredOrFocused() ? lighten(base) : base)
-                : 0xFFE1E7E9;
-            graphics.fill(getX() + 2, getY(), getX() + getWidth() - 2, getY() + getHeight(), border);
-            graphics.fill(getX(), getY() + 2, getX() + getWidth(), getY() + getHeight() - 2, border);
-            graphics.fill(getX() + 2, getY() + 2,
-                getX() + getWidth() - 2, getY() + getHeight() - 2, fill);
-            graphics.fill(getX() + 5, getY() + 3,
-                getX() + getWidth() - 5, getY() + 4,
-                tone == ButtonTone.NEUTRAL ? 0xFFFFFFFF : 0x55FFFFFF);
-            int textColor = !active ? 0xFF89969C
-                : tone == ButtonTone.NEUTRAL ? TEXT_COLOR : 0xFFFFFFFF;
-            String label = font.plainSubstrByWidth(getMessage().getString(), getWidth() - 8);
-            graphics.drawString(font, label,
-                getX() + (getWidth() - font.width(label)) / 2,
-                getY() + (getHeight() - font.lineHeight) / 2, textColor, false);
+            MenuTheme.ButtonStyle style = theme.button(
+                variant, active, isHoveredOrFocused(), false
+            );
+            ThemedOverlayPanel.fillRoundedRect(
+                graphics, getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+                theme.rowRadius, style.border()
+            );
+            ThemedOverlayPanel.fillRoundedRect(
+                graphics, getX() + 1, getY() + 1,
+                getX() + getWidth() - 1, getY() + getHeight() - 1,
+                Math.max(0, theme.rowRadius - 1), style.background()
+            );
+            theme.drawCenteredText(
+                graphics, font, getMessage(), getX() + getWidth() / 2,
+                getY() + (getHeight() - 8) / 2,
+                MenuTheme.TextRole.LABEL, style.text()
+            );
         }
 
         @Override
         protected void updateWidgetNarration(NarrationElementOutput output) {
             defaultButtonNarrationText(output);
-        }
-
-        private int lighten(int color) {
-            if (tone == ButtonTone.NEUTRAL) return 0xFFE2F3F8;
-            int red = Math.min(255, ((color >> 16) & 0xFF) + 24);
-            int green = Math.min(255, ((color >> 8) & 0xFF) + 24);
-            int blue = Math.min(255, (color & 0xFF) + 24);
-            return 0xFF000000 | red << 16 | green << 8 | blue;
         }
     }
 

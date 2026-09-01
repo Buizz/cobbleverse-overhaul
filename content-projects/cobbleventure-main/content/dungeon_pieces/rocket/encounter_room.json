@@ -72,14 +72,9 @@
     }
   ],
   "markers": [
-    {
-      "id": "encounter_slot",
-      "kind": "encounter",
-      "position": [
-        8,
-        1,
-        8
-      ]
-    }
+    { "id": "encounter_slot_1", "kind": "encounter", "position": [5, 1, 6] },
+    { "id": "encounter_slot_2", "kind": "encounter", "position": [10, 1, 6] },
+    { "id": "encounter_slot_3", "kind": "encounter", "position": [5, 1, 10] },
+    { "id": "encounter_slot_4", "kind": "encounter", "position": [10, 1, 10] }
   ]
 }

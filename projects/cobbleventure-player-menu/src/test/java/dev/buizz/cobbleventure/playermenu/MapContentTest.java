@@ -2,6 +2,8 @@ package dev.buizz.cobbleventure.playermenu;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -10,6 +12,19 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 final class MapContentTest {
+    @Test
+    void indigoPlateauIsATeleportableCenteredWorldObjectInsteadOfATown() {
+        MapContent content = MapContent.forGeneration(1);
+
+        assertNull(content.townAt(-6, -2));
+        MapContent.MapObject plateau = content.objectAt(-6, -2);
+        assertNotNull(plateau);
+        assertEquals("indigo_plateau", plateau.id());
+        assertEquals("석영고원", plateau.name());
+        assertTrue(plateau.teleportable());
+        assertTrue(plateau.showOnMinimap());
+    }
+
     @Test
     void caveLoaderIgnoresUndergroundRoadEntrances() {
         MapContent content = MapContent.forGeneration(1);

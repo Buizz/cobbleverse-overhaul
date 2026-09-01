@@ -25,7 +25,10 @@ public final class RadarLocationCatalog {
     /** Returns the primary progression target selected for this player. */
     public static List<ObjectiveLocation> objectiveLocations(ServerPlayer player) {
         List<ObjectiveLocation> story = NpcRadarLocationSystem.objectives(player);
-        return story.isEmpty() ? GymInteriorSystem.radarObjectives(player) : story;
+        if (!story.isEmpty() || NpcRadarLocationSystem.hasAuthoredObjective(player)) {
+            return story;
+        }
+        return GymInteriorSystem.radarObjectives(player);
     }
 
     public static Kind buildingKind(String structure) {

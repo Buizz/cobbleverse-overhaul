@@ -7,6 +7,13 @@
     "speaker_scale": 1.4,
     "hint_scale": 0.85
   },
+  "typography": {
+    "title": { "scale": 1.25, "shadow": false },
+    "heading": { "scale": 1.0, "shadow": false },
+    "body": { "scale": 1.0, "shadow": false },
+    "label": { "scale": 0.9, "shadow": false },
+    "caption": { "scale": 0.8, "shadow": false }
+  },
   "panel": {
     "background": "#f8fbff",
     "background_opacity": 0.98,
@@ -53,7 +60,42 @@
     "hover_background": "#eaf7ff",
     "text_color": "#27323d",
     "selected_text_color": "#173f5f",
-    "accent": "#4f8fc2"
+    "accent": "#4f8fc2",
+    "card_background": "#f8fbff",
+    "input_background": "#f8fbff",
+    "secondary_text_color": "#57758e",
+    "muted_text_color": "#7b8d9a",
+    "text_on_accent": "#ffffff",
+    "danger": "#c94b52",
+    "success": "#2f7d56",
+    "warning": "#d38a2e",
+    "scrim": "#07121c",
+    "scrim_opacity": 0.52,
+    "disabled_background": "#aeb9c2",
+    "disabled_border": "#8796a2",
+    "disabled_text": "#5f6b74"
+  },
+  "buttons": {
+    "primary": {
+      "normal": { "background": "#4f8fc2", "border": "#376f9a", "text": "#ffffff" },
+      "hover": { "background": "#67a8d7", "border": "#376f9a", "text": "#ffffff" },
+      "selected": { "background": "#376f9a", "border": "#173f5f", "text": "#ffffff" }
+    },
+    "secondary": {
+      "normal": { "background": "#f8fbff", "border": "#72a8d4", "text": "#27323d" },
+      "hover": { "background": "#eaf7ff", "border": "#4f8fc2", "text": "#173f5f" },
+      "selected": { "background": "#d9f4ff", "border": "#4f8fc2", "text": "#173f5f" }
+    },
+    "danger": {
+      "normal": { "background": "#c94b52", "border": "#96373d", "text": "#ffffff" },
+      "hover": { "background": "#df6269", "border": "#96373d", "text": "#ffffff" },
+      "selected": { "background": "#a83d43", "border": "#76292e", "text": "#ffffff" }
+    },
+    "ghost": {
+      "normal": { "background": "#f8fbff", "border": "#d9f4ff", "text": "#57758e" },
+      "hover": { "background": "#eaf7ff", "border": "#72a8d4", "text": "#27323d" },
+      "selected": { "background": "#d9f4ff", "border": "#4f8fc2", "text": "#173f5f" }
+    }
   },
   "portrait": {
     "yaw_degrees": -12,

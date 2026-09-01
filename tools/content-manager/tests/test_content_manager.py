@@ -2033,11 +2033,12 @@ class ContentManagerTests(unittest.TestCase):
     def test_world_layout_graph_can_be_saved_atomically(self) -> None:
         root = PROJECT_ROOT
         layout = content_manager.load_world_layout(root)
-        self.assertEqual(11, len(layout["settlements"]))
+        self.assertEqual(10, len(layout["settlements"]))
         settlement_ids = {node["settlement"] for node in layout["settlements"]}
         cave_entrance_ids = {node["id"] for node in layout.get("cave_entrances", [])}
         forest_entrance_ids = {node["id"] for node in layout.get("forest_entrances", [])}
-        route_target_ids = settlement_ids | cave_entrance_ids | forest_entrance_ids
+        object_ids = {node["id"] for node in layout.get("objects", []) if node.get("type") != "gate"}
+        route_target_ids = settlement_ids | cave_entrance_ids | forest_entrance_ids | object_ids
         self.assertGreater(len(layout["connections"]), 0)
         self.assertTrue(all(connection.get("from") in route_target_ids for connection in layout["connections"] if connection.get("from")))
         self.assertTrue(all(connection.get("to") in route_target_ids for connection in layout["connections"] if connection.get("to")))
@@ -2176,7 +2177,6 @@ class ContentManagerTests(unittest.TestCase):
             "saffron_city": "노랑시티",
             "fuchsia_city": "연분홍시티",
             "tidehaven_town": "홍련마을",
-            "skyreach_town": "석영고원",
         }
         for slug, expected_name in expected_names.items():
             settlement = json.loads(
@@ -3330,6 +3330,14 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-drag-object="${escapeHtml(node.id)}"', script)
         self.assertIn("function beginObjectDrag(event, id)", script)
         self.assertIn("function finishObjectDrag(event)", script)
+        self.assertIn('id="generic-object-tool-teleportable"', page)
+        self.assertIn('id="generic-object-tool-show-on-minimap"', page)
+        self.assertIn('id="generic-object-tool-center-placement"', page)
+        self.assertIn('name="genericObjectTeleportable"', page)
+        self.assertIn('name="genericObjectShowOnMinimap"', page)
+        self.assertIn('name="genericObjectCenterPlacement"', page)
+        self.assertIn('properties.teleportable = true', script)
+        self.assertIn('properties.center_placement = true', script)
         self.assertIn('addEventListener("pointerup", finishObjectDrag)', script)
         self.assertIn("function handleWorldLayerPlacement(event)", script)
         self.assertIn('addEventListener("click", handleWorldLayerPlacement, true)', script)
@@ -3408,17 +3416,26 @@ class ContentManagerTests(unittest.TestCase):
             layout["objects"].append(npc_center)
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
             villain_base = {
-                "id": "rocket_hideout", "type": "villain_base", "anchor": {"q": 3, "r": -1},
+                "id": "rocket_hideout", "type": "villain_base", "anchor": {"q": 3, "r": 0},
                 "resource": "cobbleventure:villain_base/rocket_hideout", "rotation": 2,
             }
             layout["objects"].append(villain_base)
             self.assertEqual([], content_manager.save_world_layout(candidate_root, layout, 2))
             generic_structure = json.loads(json.dumps(layout))
             generic_structure["objects"][-1] = {
-                "id": "power_plant", "type": "structure", "anchor": {"q": 3, "r": -1},
+                "id": "power_plant", "type": "structure", "anchor": {"q": 3, "r": 0},
                 "resource": "cobbleventure:placeholder/power_plant", "rotation": 0,
+                "properties": {"teleportable": True, "show_on_minimap": True, "center_placement": True, "placement_anchor": "center"},
             }
             self.assertEqual([], content_manager.save_world_layout(candidate_root, generic_structure, 2))
+            invalid_teleportable = json.loads(json.dumps(generic_structure))
+            invalid_teleportable["objects"][-1]["properties"]["teleportable"] = "yes"
+            issues = content_manager.save_world_layout(candidate_root, invalid_teleportable, 2)
+            self.assertTrue(any(issue.path.endswith(".teleportable") for issue in issues))
+            hidden_teleport = json.loads(json.dumps(generic_structure))
+            hidden_teleport["objects"][-1]["properties"]["show_on_minimap"] = False
+            issues = content_manager.save_world_layout(candidate_root, hidden_teleport, 2)
+            self.assertTrue(any(issue.path.endswith(".show_on_minimap") for issue in issues))
             generic_structure["objects"][-1].pop("resource")
             issues = content_manager.save_world_layout(candidate_root, generic_structure, 2)
             self.assertTrue(any("NBT 오브젝트 NBT" in issue.message for issue in issues))
@@ -3427,7 +3444,7 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.save_world_layout(candidate_root, missing_base_nbt, 2)
             self.assertTrue(any("빌런기지 NBT" in issue.message for issue in issues))
             legendary_site = {
-                "id": "sea_guardian_shrine", "type": "legendary_site", "anchor": {"q": 4, "r": -1},
+                "id": "sea_guardian_shrine", "type": "legendary_site", "anchor": {"q": 4, "r": 0},
                 "resource": "cobbleventure:legendary_site/sea_guardian_shrine", "rotation": 1,
             }
             layout["objects"].append(legendary_site)
@@ -6025,6 +6042,10 @@ class ContentManagerTests(unittest.TestCase):
                 page = response.read().decode("utf-8")
             with urllib.request.urlopen(f"{base_url}/typography.css") as response:
                 typography = response.read().decode("utf-8")
+            with urllib.request.urlopen(f"{base_url}/styles.css") as response:
+                styles = response.read().decode("utf-8")
+            with urllib.request.urlopen(f"{base_url}/studio-tool-shell.css") as response:
+                tool_shell = response.read().decode("utf-8")
             with urllib.request.urlopen(
                 f"{base_url}/fonts/PretendardVariable.woff2"
             ) as response:
@@ -6038,6 +6059,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('href="/typography.css"', page)
         self.assertIn('font-family: "Pretendard Variable"', typography)
         self.assertIn("--text-caption: 12px", typography)
+        self.assertIn(".nav-link,", typography)
+        self.assertIn(".nav-tree a", typography)
+        self.assertIn(".nav-link, .nav-link:visited", styles)
+        self.assertIn("color: #9db0c0", styles)
+        self.assertIn("html.is-embedded body > .topbar", tool_shell)
+        self.assertIn("--studio-accent: #b8f23f", tool_shell)
         self.assertEqual("font/woff2", font_content_type)
         self.assertTrue(pretendard.startswith(b"wOF2"))
 
@@ -6143,9 +6170,9 @@ class ContentManagerTests(unittest.TestCase):
             item["battle_type"] in {"singles", "doubles"}
             for item in trainers["items"] if item.get("battle_type")
         ))
-        self.assertEqual(11, dashboard["settlements"])
-        self.assertEqual(11, len(settlements["items"]))
-        self.assertEqual(11, len(world_layout["settlements"]))
+        self.assertEqual(10, dashboard["settlements"])
+        self.assertEqual(10, len(settlements["items"]))
+        self.assertEqual(10, len(world_layout["settlements"]))
         starter_summary = next(item for item in settlements["items"] if item["id"] == "cobbleventure:settlement/starter_town")
         starter_world_node = next(item for item in world_layout["settlements"] if item["settlement"] == starter_summary["id"])
         self.assertEqual(starter_world_node["town_biome"], starter_summary["biome"])
@@ -7841,16 +7868,22 @@ class ContentManagerTests(unittest.TestCase):
         refresh_all = script.split("async function refreshAll", 1)[1].split(
             '$("#starter-generation-list")', 1
         )[0]
-        self.assertIn(
+        self.assertNotIn(
             "Promise.all([loadStructureData(), loadBuildingSettingsData()])",
             refresh_all,
         )
         self.assertNotIn("loadStructureData(true)", refresh_all)
         self.assertNotIn("loadBuildingSettingsData(true)", refresh_all)
         self.assertIn("await loadSectionData(activeSection);", refresh_all)
-        self.assertIn("await loadDashboard();", refresh_all)
-        self.assertIn("finally {\n    hideProjectLoading();\n  }", refresh_all)
+        self.assertNotIn("await loadDashboard();", refresh_all)
+        self.assertIn('if (section === "dashboard") return loadDashboard();', script)
+        self.assertIn('updateProjectLoading("현재 화면을 불러왔습니다.");', refresh_all)
+        self.assertIn("hideProjectLoading();", refresh_all)
         self.assertNotIn("backgroundLoadSections", script)
+        self.assertIn("function openEmbeddedTool(link)", script)
+        self.assertIn('source.searchParams.set("embedded", "1")', script)
+        self.assertIn('id="embedded-tool-frames"', markup)
+        self.assertEqual(4, markup.count('data-tool-title='))
         self.assertIn("await refreshAll(true);", script)
         self.assertGreaterEqual(
             script.count("await loadStructureData(true);\n    await loadBuildingSettingsData();"),

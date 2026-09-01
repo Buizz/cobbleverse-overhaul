@@ -282,7 +282,8 @@ public final class WorldMapScreen extends Screen {
         }
         if (mouseX >= layout.infoLeft() && mouseX < layout.infoRight()
             && mouseY >= layout.top() && mouseY < layout.bottom()
-            && content.townAt(selected.q(), selected.r()) == null) {
+            && content.townAt(selected.q(), selected.r()) == null
+            && content.objectAt(selected.q(), selected.r()) == null) {
             MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
             if (tile != null) {
                 int count = content.biome(tile).pokemon().size();
@@ -381,6 +382,22 @@ public final class WorldMapScreen extends Screen {
             graphics.fill(point.x() - marker, point.y() - marker, point.x() + marker + 1, point.y() + marker + 1, TOWN_BORDER);
             graphics.fill(point.x() - 1, point.y() - 1, point.x() + 2, point.y() + 2, 0xFF2A1D0E);
             String label = font.plainSubstrByWidth(town.name(), Math.max(42, size * 7));
+            int labelWidth = font.width(label);
+            int labelX = point.x() - labelWidth / 2;
+            int labelY = point.y() - marker - 11;
+            graphics.fill(labelX - 2, labelY - 1, labelX + labelWidth + 2, labelY + 9,
+                MAP_LABEL_BACKGROUND);
+            graphics.drawString(font, label, labelX, labelY, TEXT, false);
+        }
+
+        for (MapContent.MapObject object : content.objects()) {
+            ScreenPoint point = hexCenter(center, size, object.hex().q(), object.hex().r());
+            int marker = Math.max(3, size / 3);
+            graphics.fill(point.x() - marker, point.y() - marker,
+                point.x() + marker + 1, point.y() + marker + 1, ACCENT_COLOR);
+            graphics.fill(point.x() - marker + 2, point.y() - marker + 2,
+                point.x() + marker - 1, point.y() + marker - 1, 0xFF30251A);
+            String label = font.plainSubstrByWidth(object.name(), Math.max(42, size * 7));
             int labelWidth = font.width(label);
             int labelX = point.x() - labelWidth / 2;
             int labelY = point.y() - marker - 11;
@@ -525,6 +542,7 @@ public final class WorldMapScreen extends Screen {
         int lineWidth = layout.infoWidth() - 20;
         MapNetwork.ClientSnapshot snapshot = MapNetwork.clientSnapshot();
         MapContent.Town town = content.townAt(selected.q(), selected.r());
+        MapContent.MapObject object = content.objectAt(selected.q(), selected.r());
         MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
         MapContent.CaveInfo cave = hoveredCave == null ? null : content.cave(hoveredCave.caveId());
         MapContent.ForestInfo forest = hoveredForest == null
@@ -596,6 +614,24 @@ public final class WorldMapScreen extends Screen {
             if (!visited && !snapshot.administrator() && !snapshot.creative()) {
                 y += 4;
                 graphics.drawWordWrap(font, Component.literal("이 마을을 직접 방문하면 빠른 이동이 해금됩니다."), x, y, lineWidth, MUTED_TEXT);
+            }
+        } else if (object != null) {
+            boolean visited = snapshot.visited().contains(object.id());
+            graphics.drawString(font, object.name(), x, y, TEXT, false);
+            y += 14;
+            graphics.drawString(font, "월드 오브젝트", x, y, MUTED_TEXT, false);
+            y += 15;
+            if (object.teleportable()) {
+                graphics.drawString(font, visited ? "방문 완료 · 순간이동 가능" : "미방문 · 순간이동 가능",
+                    x, y, visited ? SUCCESS_TEXT : WARNING_TEXT, false);
+                if (!visited && !snapshot.administrator() && !snapshot.creative()) {
+                    y += 16;
+                    graphics.drawWordWrap(font, Component.literal(
+                        "이 장소를 직접 방문하면 빠른 이동이 해금됩니다."
+                    ), x, y, lineWidth, MUTED_TEXT);
+                }
+            } else {
+                graphics.drawString(font, "순간이동 불가", x, y, MUTED_TEXT, false);
             }
         } else if (tile != null) {
             MapContent.BiomeInfo biome = content.biome(tile);
@@ -876,11 +912,15 @@ public final class WorldMapScreen extends Screen {
         if (teleportButton == null) return;
         MapNetwork.ClientSnapshot snapshot = MapNetwork.clientSnapshot();
         MapContent.Town town = content.townAt(selected.q(), selected.r());
+        MapContent.MapObject object = content.objectAt(selected.q(), selected.r());
         boolean privileged = snapshot.administrator() || snapshot.creative();
         boolean permitted = selectionToken != null
             ? town != null && (privileged || snapshot.visited().contains(town.id()))
             : ProgressionNetwork.clientSnapshot().settlementTeleport()
-                && (privileged || town != null && snapshot.visited().contains(town.id()));
+                && (privileged
+                    || town != null && snapshot.visited().contains(town.id())
+                    || object != null && object.teleportable()
+                        && snapshot.visited().contains(object.id()));
         teleportButton.visible = permitted;
         teleportButton.active = permitted;
         teleportButton.setMessage(Component.translatable(
@@ -1003,7 +1043,8 @@ public final class WorldMapScreen extends Screen {
     }
 
     private boolean isPopulated(int q, int r) {
-        return content.tileAt(q, r) != null || content.townAt(q, r) != null;
+        return content.tileAt(q, r) != null || content.townAt(q, r) != null
+            || content.objectAt(q, r) != null;
     }
 
     private MapBounds mapBounds() {

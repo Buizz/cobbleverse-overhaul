@@ -31,6 +31,10 @@ public interface EventStateAccess {
 
     int levelCap();
 
+    default String questState(String questId) {
+        return "not_started";
+    }
+
     void setFlag(String resourceId, boolean value);
 
     void setPlayerVariable(String resourceId, JsonElement value);

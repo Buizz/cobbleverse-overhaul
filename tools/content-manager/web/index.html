@@ -69,6 +69,9 @@
             <button class="nav-item" data-section="definitions">게임 데이터</button>
             <button class="nav-item" data-section="economy">경제 · 제작</button>
             <button class="nav-item" data-section="casino-config">카지노 설정</button>
+            <a class="nav-link" href="/quests.html" data-tool-title="퀘스트 관리">퀘스트 관리</a>
+            <a class="nav-link" href="/quest-global.html" data-tool-title="메인 퀘스트 전역 발동">메인 퀘스트 전역 발동</a>
+            <a class="nav-link" href="/main-quest-flow.html" data-tool-title="메인 퀘스트 진행 순서">메인 퀘스트 진행 순서</a>
           </div>
         </section>
         <section class="nav-group" data-nav-group="resources">
@@ -76,7 +79,7 @@
           <div class="nav-group-items" hidden>
             <button class="nav-item" data-section="music">음악 설정</button>
             <button class="nav-item" data-section="global-resources">전역 리소스</button>
-            <a class="nav-link" href="/cves.html">이벤트 스크립트 V5</a>
+            <a class="nav-link" href="/cves.html" data-tool-title="이벤트 스크립트 V5">이벤트 스크립트 V5</a>
             <button class="nav-item" data-section="builds">빌드 작업</button>
           </div>
         </section>
@@ -107,6 +110,10 @@
           <div class="panel-heading"><div><p class="eyebrow">REPOSITORY CHECK</p><h2>최근 검증 결과</h2></div><button class="button primary" id="validate-repository">전체 검증</button></div>
           <div id="dashboard-issues" class="issues empty">검증 결과를 불러오는 중입니다.</div>
         </div>
+      </section>
+
+      <section class="page embedded-tool-page" id="embedded-tool" aria-label="도구 편집 화면">
+        <div id="embedded-tool-frames" class="embedded-tool-frames"></div>
       </section>
 
       <section class="page" id="trainers">
@@ -446,6 +453,9 @@
                   <label><span>배치 종류</span><input value="NBT 오브젝트" readonly></label>
                   <label><span>오브젝트 NBT</span><span class="nbt-picker-control"><input id="generic-object-tool-resource" placeholder="NBT를 선택하세요" readonly><button class="button secondary" id="choose-generic-object-tool-resource" type="button">NBT 선택</button></span></label>
                   <label><span>NBT 회전</span><select id="generic-object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
+                  <label class="toggle"><input id="generic-object-tool-teleportable" type="checkbox"><span>순간이동 가능</span></label>
+                  <label class="toggle"><input id="generic-object-tool-show-on-minimap" type="checkbox"><span>미니맵에 표시</span></label>
+                  <label class="toggle"><input id="generic-object-tool-center-placement" type="checkbox" checked><span>오브젝트를 타일 정가운데에 배치</span></label>
                   <p class="tool-panel-note">랜드마크와 특수 건물처럼 NBT 배치만 필요한 요소를 배치합니다. 진행 조건과 지형 연결은 관문 도구에서 관리합니다.</p>
                 </section>
                 <section class="tool-option-panel" data-tool-options="eraser" hidden>
@@ -505,6 +515,9 @@
                   <label><span>배치 종류</span><input value="NBT 오브젝트" readonly></label>
                   <label><span>오브젝트 NBT</span><span class="nbt-picker-control"><input name="genericObjectResource" placeholder="NBT를 선택하세요" readonly><button class="button secondary" id="choose-selected-object-resource" type="button">NBT 선택</button></span></label>
                   <label><span>NBT 회전</span><select name="genericObjectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
+                  <label class="toggle"><input name="genericObjectTeleportable" type="checkbox"><span>순간이동 가능</span></label>
+                  <label class="toggle"><input name="genericObjectShowOnMinimap" type="checkbox"><span>미니맵에 표시</span></label>
+                  <label class="toggle"><input name="genericObjectCenterPlacement" type="checkbox"><span>오브젝트를 타일 정가운데에 배치</span></label>
                   <label><span>내부 속성 (JSON)</span><textarea name="genericObjectProperties" rows="4" spellcheck="false" placeholder='{"terrain_fit":"foundation"}'></textarea><small>오브젝트 전용 배치 속성을 JSON 객체로 보존합니다.</small></label>
                   <fieldset><legend>던전 연결</legend>
                     <label><span>구조물 앵커</span><input name="genericObjectConnectionAnchor" placeholder="structure:dungeon_entry"><small>NBT 메타데이터에 선언된 앵커를 지정합니다.</small></label>
@@ -1067,6 +1080,7 @@
           <div class="economy-summary" id="economy-summary"><article><span>판매 NPC</span><strong>0</strong></article><article><span>판매 품목</span><strong>0</strong></article><article><span>드롭 규칙</span><strong>0</strong></article><article><span>NPC 제작법</span><strong>0</strong></article></div>
           <div class="economy-tabs" role="tablist">
             <button class="is-active" data-economy-tab="vendors">상인 · 판매 상품</button>
+            <button data-economy-tab="sale-prices">아이템 가격</button>
             <button data-economy-tab="department-stores">백화점 설정</button>
             <button data-economy-tab="drops">포켓몬 드롭</button>
             <button data-economy-tab="recipes">NPC 제작법</button>
@@ -1080,6 +1094,10 @@
               </aside>
               <section class="economy-detail-pane" id="economy-vendor-detail"></section>
             </div>
+          </section>
+          <section class="economy-panel economy-sale-price-panel" data-economy-panel="sale-prices">
+            <header class="economy-section-head"><div><h3>아이템 구매·판매 가격</h3><small>본가 구매가와 플레이어 판매가, 기본 비율 및 감가 면제를 설정합니다. 가격이 없는 아이템은 0원으로 처리됩니다.</small></div></header>
+            <div id="economy-sale-price-editor"></div>
           </section>
           <section class="economy-panel" data-economy-panel="department-stores">
             <div class="economy-workspace economy-store-workspace">
@@ -1218,6 +1236,14 @@
                 <label><span>화자명 배율 <output data-theme-output="font.speaker_scale"></output></span><input type="range" name="font.speaker_scale" min="0.5" max="2" step="0.05"></label>
                 <label><span>도움말 배율 <output data-theme-output="font.hint_scale"></output></span><input type="range" name="font.hint_scale" min="0.5" max="2" step="0.05"></label>
               </div>
+              <p class="field-note">화면 코드는 제목·본문·라벨·보조문구 역할만 선택하며 실제 배율과 그림자는 여기서 결정합니다.</p>
+              <div class="form-grid three">
+                <label><span>큰 제목 <output data-theme-output="typography.title.scale"></output></span><input type="range" name="typography.title.scale" min="0.5" max="2" step="0.05"><small><input type="checkbox" name="typography.title.shadow"> 그림자 사용</small></label>
+                <label><span>구역 제목 <output data-theme-output="typography.heading.scale"></output></span><input type="range" name="typography.heading.scale" min="0.5" max="2" step="0.05"><small><input type="checkbox" name="typography.heading.shadow"> 그림자 사용</small></label>
+                <label><span>본문 <output data-theme-output="typography.body.scale"></output></span><input type="range" name="typography.body.scale" min="0.5" max="2" step="0.05"><small><input type="checkbox" name="typography.body.shadow"> 그림자 사용</small></label>
+                <label><span>버튼·라벨 <output data-theme-output="typography.label.scale"></output></span><input type="range" name="typography.label.scale" min="0.5" max="2" step="0.05"><small><input type="checkbox" name="typography.label.shadow"> 그림자 사용</small></label>
+                <label><span>작은 안내문 <output data-theme-output="typography.caption.scale"></output></span><input type="range" name="typography.caption.scale" min="0.5" max="2" step="0.05"><small><input type="checkbox" name="typography.caption.shadow"> 그림자 사용</small></label>
+              </div>
             </fieldset>
             <fieldset><legend>대화창</legend>
               <div class="form-grid three">
@@ -1282,6 +1308,31 @@
                 <label><span>일반 글자</span><input type="color" name="menu.text_color"></label>
                 <label><span>선택 글자</span><input type="color" name="menu.selected_text_color"></label>
                 <label><span>강조색</span><input type="color" name="menu.accent"></label>
+                <label><span>카드 배경</span><input type="color" name="menu.card_background"></label>
+                <label><span>입력창 배경</span><input type="color" name="menu.input_background"></label>
+                <label><span>보조 글자</span><input type="color" name="menu.secondary_text_color"></label>
+                <label><span>흐린 글자</span><input type="color" name="menu.muted_text_color"></label>
+                <label><span>강조 위 글자</span><input type="color" name="menu.text_on_accent"></label>
+                <label><span>위험</span><input type="color" name="menu.danger"></label>
+                <label><span>성공</span><input type="color" name="menu.success"></label>
+                <label><span>경고</span><input type="color" name="menu.warning"></label>
+                <label><span>비활성 배경</span><input type="color" name="menu.disabled_background"></label>
+                <label><span>비활성 테두리</span><input type="color" name="menu.disabled_border"></label>
+                <label><span>비활성 글자</span><input type="color" name="menu.disabled_text"></label>
+              </div>
+            </fieldset>
+            <fieldset><legend>공통 버튼 상태</legend>
+              <p class="field-note">기본·호버·선택 상태의 대표 배경색입니다. 테두리와 글자색도 같은 JSON의 상태 토큰을 사용합니다.</p>
+              <div class="form-grid three">
+                <label><span>주요 버튼</span><input type="color" name="buttons.primary.normal.background"></label>
+                <label><span>주요 버튼 호버</span><input type="color" name="buttons.primary.hover.background"></label>
+                <label><span>주요 버튼 선택</span><input type="color" name="buttons.primary.selected.background"></label>
+                <label><span>보조 버튼</span><input type="color" name="buttons.secondary.normal.background"></label>
+                <label><span>보조 버튼 호버</span><input type="color" name="buttons.secondary.hover.background"></label>
+                <label><span>보조 버튼 선택</span><input type="color" name="buttons.secondary.selected.background"></label>
+                <label><span>위험 버튼</span><input type="color" name="buttons.danger.normal.background"></label>
+                <label><span>위험 버튼 호버</span><input type="color" name="buttons.danger.hover.background"></label>
+                <label><span>위험 버튼 선택</span><input type="color" name="buttons.danger.selected.background"></label>
               </div>
             </fieldset>
             <div id="dialogue-theme-issues" class="issues empty"></div>

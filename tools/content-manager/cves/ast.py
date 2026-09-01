@@ -28,6 +28,7 @@ class ValueType(str, Enum):
     ITEM_RESULT = "item_result"
     MOVEMENT_RESULT = "movement_result"
     HEALING_RESULT = "healing_result"
+    QUEST_RESULT = "quest_result"
 
 
 class CommandKind(str, Enum):
@@ -44,6 +45,9 @@ class CommandKind(str, Enum):
     TAKE_MONEY = "take_money"
     GRANT_BADGE = "grant_badge"
     GRANT_FIELD_MOVE = "grant_field_move"
+    QUEST_GRANT = "quest_grant"
+    QUEST_CHECK = "quest_check"
+    QUEST_COMPLETE = "quest_complete"
     BATTLE = "battle"
     STARTER_ROULETTE = "starter_roulette"
     MAP_SELECTION = "map_selection"

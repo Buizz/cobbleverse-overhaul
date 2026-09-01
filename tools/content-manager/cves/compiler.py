@@ -35,6 +35,8 @@ PERSISTENT_COMMANDS = (AWAIT_COMMANDS - REPEATABLE_AWAIT_COMMANDS) | {
     ast.CommandKind.TAKE_MONEY,
     ast.CommandKind.GRANT_BADGE,
     ast.CommandKind.GRANT_FIELD_MOVE,
+    ast.CommandKind.QUEST_GRANT,
+    ast.CommandKind.QUEST_COMPLETE,
     ast.CommandKind.FADE,
     ast.CommandKind.WAIT,
     ast.CommandKind.SOUND,

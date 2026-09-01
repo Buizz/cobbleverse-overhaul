@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/battle-preset.schema.json", "schema_version": 1,
+  "id": "cobbleventure:battle/rocket_power_plant_technician", "enabled": true,
+  "name": { "ko_kr": "발전소 로켓단 기술자 배틀" },
+  "battle": {
+    "trainer_id": "cobbleventure:trainer/rocket_power_plant_technician", "format": "GEN_9_SINGLES", "battle_type": "singles",
+    "ai": { "controller": "cobbleventure", "difficulty": "standard", "strategy": "balanced", "options": {} },
+    "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [],
+    "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
+    "team": [
+      { "species": "cobblemon:voltorb", "level": 25, "form": null, "aspects": [], "gender": "genderless", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "sonic_boom", "screech", "charge"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:magnemite", "level": 26, "form": null, "aspects": [], "gender": "genderless", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "thunder_wave", "supersonic", "sonic_boom"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+    ]
+  }
+}

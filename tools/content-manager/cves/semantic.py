@@ -106,6 +106,15 @@ COMMANDS: dict[ast.CommandKind, CommandContract] = {
         (_p("move", names=frozenset({"surf", "fly", "flash", "defog", "rock_climb", "whirlpool", "strength", "rock_smash"})),),
         result=ast.ValueType.BOOL,
     ),
+    ast.CommandKind.QUEST_GRANT: CommandContract(
+        (_p("quest", RESOURCE, resource=ResourceKind.QUEST),), result=ast.ValueType.QUEST_RESULT,
+    ),
+    ast.CommandKind.QUEST_CHECK: CommandContract(
+        (_p("quest", RESOURCE, resource=ResourceKind.QUEST),), result=ast.ValueType.QUEST_RESULT,
+    ),
+    ast.CommandKind.QUEST_COMPLETE: CommandContract(
+        (_p("quest", RESOURCE, resource=ResourceKind.QUEST),), result=ast.ValueType.QUEST_RESULT,
+    ),
     ast.CommandKind.BATTLE: CommandContract((_p("battle", RESOURCE, resource=ResourceKind.BATTLE),), result=ast.ValueType.BATTLE_RESULT),
     ast.CommandKind.STARTER_ROULETTE: CommandContract(result=ast.ValueType.POKEMON_SELECTION),
     ast.CommandKind.MAP_SELECTION: CommandContract(result=ast.ValueType.LOCATION_REF),
@@ -171,6 +180,11 @@ RESULT_FIELDS: dict[ast.ValueType, dict[str, Type]] = {
     },
     ast.ValueType.HEALING_RESULT: {
         "healed": ast.ValueType.BOOL, "failure_reason": ast.ValueType.STRING,
+    },
+    ast.ValueType.QUEST_RESULT: {
+        "state": ast.ValueType.STRING, "granted": ast.ValueType.BOOL,
+        "ready": ast.ValueType.BOOL, "completed": ast.ValueType.BOOL,
+        "failure_reason": ast.ValueType.STRING,
     },
 }
 
@@ -572,6 +586,7 @@ class SemanticValidator:
             "route": ((RESOURCE,), ast.ValueType.LOCATION_REF),
             "dimension": ((RESOURCE,), ast.ValueType.LOCATION_REF),
             "space": ((RESOURCE,), ast.ValueType.LOCATION_REF),
+            "quest_state": ((RESOURCE,), ast.ValueType.STRING),
         }
         if name == "relative":
             return self._coordinate_call(expression, scope, "relative", {"x", "y", "z"}, set(), ast.ValueType.LOCATION_REF)
@@ -599,6 +614,7 @@ class SemanticValidator:
             "route": ResourceKind.ROUTE,
             "dimension": ResourceKind.DIMENSION,
             "space": ResourceKind.SPACE,
+            "quest_state": ResourceKind.QUEST,
         }
         resource_kind = resource_calls.get(name)
         if resource_kind is not None and expression.arguments and expression.arguments[0].value is not None:

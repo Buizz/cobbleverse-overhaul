@@ -111,6 +111,12 @@ public final class PlayerMenuClient {
         minecraft.setScreen(new TrainerCardScreen(minecraft.screen));
     }
 
+    public static void openQuestLog() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) return;
+        minecraft.setScreen(new QuestLogScreen(minecraft.screen));
+    }
+
     private static void onScreenOpening(ScreenEvent.Opening event) {
         Screen newScreen = event.getNewScreen();
         if (newScreen instanceof StarterSelectionScreen) {

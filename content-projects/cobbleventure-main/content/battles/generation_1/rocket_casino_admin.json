@@ -11,9 +11,9 @@
     "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [],
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      { "species": "cobblemon:magnemite", "level": 1, "form": null, "aspects": [], "gender": "genderless", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "thunder_wave", "light_screen", "sonic_boom"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
-      { "species": "cobblemon:muk", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["sludge", "mud_shot", "disable", "minimize"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
-      { "species": "cobblemon:raichu", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["spark", "quick_attack", "electro_ball", "double_team"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+      { "species": "cobblemon:onix", "level": 25, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["rock_throw", "rage", "bind", "screech"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:rhyhorn", "level": 24, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["stomp", "tail_whip", "fury_attack", "scary_face"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:kangaskhan", "level": 29, "form": null, "aspects": [], "gender": "female", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["mega_punch", "bite", "tail_whip", "rage"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
     ]
   }
 }

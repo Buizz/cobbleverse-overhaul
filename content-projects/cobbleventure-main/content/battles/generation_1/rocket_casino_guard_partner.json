@@ -11,8 +11,8 @@
     "level_mode": "fixed", "rules": { "can_forfeit": false }, "bag": [],
     "mechanics": { "mega_evolution": false, "z_move": false, "dynamax": false, "terastallization": false },
     "team": [
-      { "species": "cobblemon:zubat", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["astonish", "bite", "supersonic", "absorb"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
-      { "species": "cobblemon:ekans", "level": 1, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["bite", "poison_sting", "glare", "wrap"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
+      { "species": "cobblemon:zubat", "level": 26, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["astonish", "bite", "supersonic", "absorb"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false },
+      { "species": "cobblemon:ekans", "level": 26, "form": null, "aspects": [], "gender": "random", "nature": null, "ability": null, "held_item": null, "gimmick": null, "moves": ["bite", "poison_sting", "glare", "wrap"], "ivs": {}, "evs": {}, "tera_type": "auto", "shiny": false, "gigantamax_factor": false }
     ]
   }
 }

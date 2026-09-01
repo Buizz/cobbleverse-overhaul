@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.example/schema/main-quest-progression.schema.json",
+  "title": "Cobbleventure main quest progression",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "enabled", "steps"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "enabled": { "type": "boolean" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "quest", "npc"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
+          "quest": { "$ref": "#/$defs/resource_id" },
+          "npc": { "$ref": "#/$defs/resource_id" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resource_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    }
+  }
+}

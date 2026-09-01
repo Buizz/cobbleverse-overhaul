@@ -104,6 +104,19 @@ final class DaycareJobTest {
     }
 
     @Test
+    void relocatesPaddockWithoutChangingStoredContents() {
+        DaycareJob original = job();
+        BlockPos relocatedCenter = new BlockPos(8, 65, -8);
+
+        DaycareJob relocated = original.relocatePaddock(relocatedCenter);
+
+        assertEquals(relocatedCenter, relocated.paddockCenter());
+        assertEquals(original.jobId(), relocated.jobId());
+        assertEquals(original.pokemonCount(), relocated.pokemonCount());
+        assertEquals(original.nextEggCheckAtMillis(), relocated.nextEggCheckAtMillis());
+    }
+
+    @Test
     void gameTimeTrainingDataStartsSafelyFromCurrentWallClock() {
         CompoundTag legacy = stored("legacy-trained").save();
         legacy.putBoolean("training", true);

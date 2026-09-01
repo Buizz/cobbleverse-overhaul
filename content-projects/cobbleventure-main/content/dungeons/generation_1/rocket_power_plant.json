@@ -27,10 +27,10 @@
     "background_texture": "cobbleventure_bootstrap:textures/gui/dungeons/rocket_facility.png"
   },
   "difficulty": {
-    "recommended_min": 22,
-    "recommended_max": 35,
+    "recommended_min": 24,
+    "recommended_max": 29,
     "internal_min": 22,
-    "internal_max": 35
+    "internal_max": 29
   },
   "eligibility": {
     "minimum_party_size": 1,
@@ -76,18 +76,22 @@
         "ko_kr": "서쪽 정비 구역 로켓단",
         "en_us": "West Maintenance Team Rocket"
       },
-      "npcs": [
-        "cobbleventure:npc/rocket_power_plant_grunt"
-      ],
-      "opponents": [
-        "cobbleventure:battle/rocket_power_plant_grunt"
-      ],
+      "trainers": [{
+        "id": "west_grunt", "display_name": { "ko_kr": "발전소 서쪽 로켓단", "en_us": "West Power Plant Grunt" },
+        "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_power_plant_grunt"
+      }],
       "requires": [],
-      "run_state_keys": [
-        "cobbleventure:flag/trainer/rocket_power_plant_grunt/defeated"
-      ],
       "yaw": 90,
       "boss": false
+    },
+    {
+      "id": "central_technician",
+      "display_name": { "ko_kr": "중앙 설비 로켓단 기술자", "en_us": "Central Facility Technician" },
+      "trainers": [{
+        "id": "central_technician", "display_name": { "ko_kr": "로켓단 기술자", "en_us": "Team Rocket Technician" },
+        "trainer_class": "cobbleventure:trainer_class/scientist", "battle": "cobbleventure:battle/rocket_power_plant_technician"
+      }],
+      "requires": [], "yaw": 180, "boss": false
     },
     {
       "id": "east_grunt",
@@ -95,16 +99,11 @@
         "ko_kr": "동쪽 변전 구역 로켓단",
         "en_us": "East Transformer Team Rocket"
       },
-      "npcs": [
-        "cobbleventure:npc/rocket_power_plant_grunt_east"
-      ],
-      "opponents": [
-        "cobbleventure:battle/rocket_power_plant_grunt"
-      ],
+      "trainers": [{
+        "id": "east_grunt", "display_name": { "ko_kr": "발전소 동쪽 로켓단", "en_us": "East Power Plant Grunt" },
+        "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_power_plant_grunt"
+      }],
       "requires": [],
-      "run_state_keys": [
-        "cobbleventure:flag/trainer/rocket_power_plant_grunt_east/defeated"
-      ],
       "yaw": -90,
       "boss": false
     },
@@ -114,16 +113,11 @@
         "ko_kr": "제어실 로켓단 간부",
         "en_us": "Control Room Team Rocket Officer"
       },
-      "npcs": [
-        "cobbleventure:npc/rocket_power_plant_officer"
-      ],
-      "opponents": [
-        "cobbleventure:battle/rocket_power_plant_officer"
-      ],
-      "requires": ["west_grunt", "east_grunt"],
-      "run_state_keys": [
-        "cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated"
-      ],
+      "trainers": [{
+        "id": "control_room_officer", "display_name": { "ko_kr": "발전소 로켓단 간부", "en_us": "Power Plant Team Rocket Officer" },
+        "trainer_class": "cobbleventure:trainer_class/villain_admin", "battle": "cobbleventure:battle/rocket_power_plant_officer"
+      }],
+      "requires": ["west_grunt", "central_technician", "east_grunt"],
       "yaw": 180,
       "boss": true
     }
@@ -159,14 +153,14 @@
       },
       {
         "species": "cobblemon:magneton",
-        "min_level": 31,
-        "max_level": 34,
+        "min_level": 27,
+        "max_level": 28,
         "weight": 10
       },
       {
         "species": "cobblemon:electabuzz",
-        "min_level": 32,
-        "max_level": 35,
+        "min_level": 28,
+        "max_level": 29,
         "weight": 5
       }
     ]
@@ -190,7 +184,7 @@
       "min": [-2, 0, 0],
       "max": [3, 2, 0],
       "block": "minecraft:iron_bars",
-      "requires": ["west_grunt", "east_grunt"]
+      "requires": ["west_grunt", "central_technician", "east_grunt"]
     }
   ],
   "loot": {

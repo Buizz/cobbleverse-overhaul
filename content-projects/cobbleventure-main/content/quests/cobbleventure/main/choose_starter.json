@@ -1,0 +1,55 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/choose_starter",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "오박사에게 첫 포켓몬 받기",
+    "en_us": "Receive Your First Pokémon from Professor Oak"
+  },
+  "summary": {
+    "ko_kr": "오박사를 찾아가 함께 모험할 첫 포켓몬과 포켓몬 도감을 받으세요.",
+    "en_us": "Find Professor Oak and receive your first Pokémon and Pokédex."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        { "type": "always" }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "receive_starter_and_pokedex",
+      "text": {
+        "ko_kr": "오박사에게 첫 포켓몬과 포켓몬 도감을 받기",
+        "en_us": "Receive your first Pokémon and Pokédex from Professor Oak"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "flag",
+            "key": "cobbleventure:flag/story/pokedex_received",
+            "value": true
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/professor_oak"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  },
+  "next_quests": []
+}

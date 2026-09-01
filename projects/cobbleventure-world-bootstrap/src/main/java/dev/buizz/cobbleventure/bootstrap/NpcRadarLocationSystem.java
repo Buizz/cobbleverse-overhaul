@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
+import dev.buizz.cobbleventure.adventure.quest.QuestService;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -26,9 +27,8 @@ import org.slf4j.Logger;
 final class NpcRadarLocationSystem {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String BINDING_PREFIX = "cves_binding/";
-    private static final String STARTER_RECEIVED_FLAG =
-        "cobbleventure:flag/story/starter_received";
     private static final double RANGE = 64.0D;
+    private static final double OBJECTIVE_RANGE = 256.0D;
     private static volatile CachedProfiles cachedProfiles;
     private static volatile boolean catalogFailureLogged;
 
@@ -60,23 +60,31 @@ final class NpcRadarLocationSystem {
     }
 
     static List<RadarLocationCatalog.ObjectiveLocation> objectives(ServerPlayer player) {
-        ServerPlayerEventState state = new ServerPlayerEventState(player);
-        if (state.flag(STARTER_RECEIVED_FLAG)) return List.of();
+        var primary = QuestService.primaryMainQuest(player);
+        if (primary.isEmpty()) return List.of();
         ServerLevel level = player.serverLevel();
-        double rangeSquared = RANGE * RANGE;
+        double rangeSquared = OBJECTIVE_RANGE * OBJECTIVE_RANGE;
         return level.getEntitiesOfClass(
-            Entity.class, player.getBoundingBox().inflate(RANGE),
+            Entity.class, player.getBoundingBox().inflate(OBJECTIVE_RANGE),
             candidate -> isEasyNpc(candidate)
                 && candidate.distanceToSqr(player) <= rangeSquared
-                && "professor_oak".equals(slug(binding(candidate.getTags())))
+                && matchesObjectiveNpc(binding(candidate.getTags()), primary.get().npcId())
         ).stream().sorted(java.util.Comparator.comparing(Entity::getUUID))
             .findFirst()
             .map(entity -> List.of(new RadarLocationCatalog.ObjectiveLocation(
-                "objective/story/professor_oak", "OBJECTIVE",
+                "objective/quest/" + slug(primary.get().questId()), "OBJECTIVE",
                 level.dimension().location(), entity.getX(), entity.getY(), entity.getZ(),
-                "오박사에게서 스타터 받기", "", "PRIMARY"
+                primary.get().displayName(), "", "PRIMARY"
             )))
             .orElseGet(List::of);
+    }
+
+    static boolean hasAuthoredObjective(ServerPlayer player) {
+        return QuestService.primaryMainQuest(player).isPresent();
+    }
+
+    static boolean matchesObjectiveNpc(String binding, String npcId) {
+        return slug(binding).equals(slug(npcId));
     }
 
     static RadarLocationCatalog.NpcKind kind(String binding, Set<String> trainerSlugs) {

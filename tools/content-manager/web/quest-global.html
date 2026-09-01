@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>메인 퀘스트 전역 발동 · Cobbleventure</title>
+  <link rel="stylesheet" href="/typography.css">
+  <link rel="stylesheet" href="/quest-editor.css">
+  <link rel="stylesheet" href="/quest-global.css">
+  <link rel="stylesheet" href="/studio-tool-shell.css">
+  <script>document.documentElement.classList.toggle("is-embedded", new URLSearchParams(location.search).get("embedded") === "1");</script>
+</head>
+<body>
+  <header class="topbar">
+    <div><p>COBBLEVENTURE CONTENT MANAGER</p><h1>메인 퀘스트 전역 발동</h1></div>
+    <nav><a href="/">전체 관리</a><a href="/quests.html">퀘스트 관리</a><a href="/main-quest-flow.html">진행 순서</a><a href="/cves.html">이벤트 스크립트 V5</a></nav>
+  </header>
+  <main>
+    <aside>
+      <div class="aside-head"><strong>메인 퀘스트</strong></div>
+      <input id="quest-search" placeholder="이름 또는 ID 검색">
+      <div id="quest-list" class="quest-list"></div>
+    </aside>
+    <section class="editor">
+      <header class="editor-head">
+        <div><small id="quest-path">메인 퀘스트를 선택하세요</small><h2 id="editor-title">전역 발동 설정</h2></div>
+        <button id="save-activation" class="primary" disabled>저장</button>
+      </header>
+      <div id="issues" class="issues" hidden></div>
+      <div class="activation-summary">
+        <strong>NPC와 관계없이 서버가 조건을 확인합니다.</strong>
+        <span>온라인 플레이어마다 전역 조건과 퀘스트 부여 조건을 모두 만족하면 한 번만 자동 부여됩니다. 완료한 퀘스트는 다시 발동하지 않습니다.</span>
+      </div>
+      <form id="activation-form">
+        <fieldset><legend>전역 발동</legend>
+          <label class="toggle wide"><input name="enabled" type="checkbox" disabled><span>이 메인 퀘스트를 전역 조건으로 자동 부여</span></label>
+          <label><span>조건 방식</span><select name="conditionMode" disabled><option value="all">모두 만족</option><option value="any">하나 이상 만족</option></select></label>
+          <label class="wide"><span>공용 조건 JSON 배열</span><textarea name="conditions" rows="14" disabled>[]</textarea><small>PLAYER_CONDITIONS 규격을 사용합니다. 전역 발동을 켤 때는 조건이 하나 이상 필요합니다.</small></label>
+        </fieldset>
+      </form>
+    </section>
+  </main>
+  <script src="/quest-global.js"></script>
+</body>
+</html>

@@ -462,6 +462,19 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertIn("Comparator.comparingInt(SettlementPlan::loadOrder)", source)
         self.assertIn("int loadOrder", source)
 
+    def test_log_bridge_keeps_regional_endpoint_at_town_edge(self) -> None:
+        source = (
+            REPOSITORY_ROOT
+            / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("anchorRouteAtCompiledTownRoad", source)
+        self.assertIn(
+            "? connection.fromTownRoad() : connection.toTownRoad();",
+            source,
+        )
+        self.assertIn("drawConfiguredRoad(\n                level, gateRoad, approach", source)
+
     def test_packages_generated_rct_trainer_data(self) -> None:
         output = REPOSITORY_ROOT / build_data_mod.OUTPUT
         self.assertTrue((output / "data/rctmod/trainers/ai_test.json").is_file())

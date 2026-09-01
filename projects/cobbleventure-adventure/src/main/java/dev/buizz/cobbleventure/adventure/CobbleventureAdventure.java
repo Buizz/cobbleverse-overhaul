@@ -20,6 +20,9 @@ import dev.buizz.cobbleventure.adventure.event.EventHealingBridge;
 import dev.buizz.cobbleventure.adventure.daycare.DaycareService;
 import dev.buizz.cobbleventure.adventure.daycare.DaycareNetwork;
 import dev.buizz.cobbleventure.adventure.daycare.DaycareProjectionService;
+import dev.buizz.cobbleventure.adventure.quest.QuestDefinitionRepository;
+import dev.buizz.cobbleventure.adventure.quest.QuestProgressUpdater;
+import dev.buizz.cobbleventure.adventure.quest.MainQuestProgressionRepository;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
@@ -57,6 +60,9 @@ public final class CobbleventureAdventure {
     private static volatile AdventureWorldContext worldContext = EMPTY_WORLD_CONTEXT;
 
     public CobbleventureAdventure(IEventBus modBus) {
+        QuestDefinitionRepository.register();
+        MainQuestProgressionRepository.register();
+        QuestProgressUpdater.register();
         EventScriptRepository.register();
         EventDialogueThemeRepository.register();
         EventNpcBindingRepository.register();

@@ -4,7 +4,7 @@
   "dungeon_id": "cobbleventure:dungeon/rocket_casino_hideout",
   "music_track": "dungeon.rocket_hideout",
   "display_name": { "ko_kr": "카지노 지하 로켓단 기지", "en_us": "Rocket Casino Hideout" },
-  "description": { "ko_kr": "넓은 지하층을 차례로 내려가는 로켓단 비밀기지 테스트입니다.", "en_us": "A test hideout descending through broad underground floors." },
+  "description": { "ko_kr": "무지개시티 카지노 아래의 로켓단 비밀기지를 공략합니다.", "en_us": "Raid Team Rocket's hideout beneath the Celadon casino." },
   "preset": "cobbleventure:team_rocket_facility",
   "entrances": [{
     "entrance_id": "cobbleventure:entrance/casino_hideout",
@@ -16,7 +16,7 @@
     "confirm_required": true,
     "background_texture": "cobbleventure_bootstrap:textures/gui/dungeons/rocket_facility.png"
   },
-  "difficulty": { "recommended_min": 1, "recommended_max": 1, "internal_min": 1, "internal_max": 1 },
+  "difficulty": { "recommended_min": 25, "recommended_max": 29, "internal_min": 24, "internal_max": 29 },
   "eligibility": {
     "minimum_party_size": 1, "maximum_party_size": 6,
     "require_usable_pokemon": true, "level_measure": "average",
@@ -40,64 +40,61 @@
     "bounds": [128, 48, 128]
   },
   "layout": {
-    "mode": "rooms_and_corridors", "critical_path_rooms": [12, 16],
-    "branch_count": [4, 7], "branch_depth": [2, 4], "loop_chance": 0.1,
-    "vertical_direction": "descending", "floor_changes": [2, 5]
+    "mode": "rooms_and_corridors", "critical_path_rooms": [9, 10],
+    "branch_count": [1, 2], "branch_depth": [1, 2], "loop_chance": 0.06,
+    "vertical_direction": "descending", "floor_changes": [1, 2]
   },
   "encounters": [
     {
       "id": "basement_guard", "display_name": { "ko_kr": "지하 창고 경비", "en_us": "Basement Guard" },
-      "trainers": [
-        {
-          "id": "guard_a", "display_name": { "ko_kr": "카지노 지하 경비", "en_us": "Casino Basement Guard" },
-          "trainer_class": "cobbleventure:trainer_class/villain_grunt",
-          "battle": "cobbleventure:battle/rocket_casino_guard"
-        },
-        {
-          "id": "guard_b", "display_name": { "ko_kr": "카지노 지하 경비 지원조", "en_us": "Casino Basement Backup" },
-          "trainer_class": "cobbleventure:trainer_class/villain_grunt",
-          "battle": "cobbleventure:battle/rocket_casino_guard_partner"
-        }
-      ],
+      "trainers": [{ "id": "basement_guard", "display_name": { "ko_kr": "카지노 지하 경비", "en_us": "Casino Basement Guard" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_casino_guard" }],
       "requires": [],
       "trigger": {
         "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3,
         "warning_track": "encounter.trainer_bad_guys",
-        "start_lines": ["침입자다! 둘이서 포위해!", "비밀기지에 들어온 걸 후회하게 해주지!"],
-        "win_lines": ["둘이 덤볐는데도 지다니..."],
+        "start_lines": ["침입자다!", "비밀기지에 들어온 걸 후회하게 해주지!"],
+        "win_lines": ["내가 지다니..."],
         "loss_lines": ["로켓단의 기지를 얕보지 마라!"]
       },
       "yaw": -90, "boss": false
     },
     {
-      "id": "hideout_admin", "display_name": { "ko_kr": "지하기지 관리자", "en_us": "Hideout Administrator" },
-      "trainers": [
-        {
-          "id": "admin", "display_name": { "ko_kr": "로켓단 간부", "en_us": "Team Rocket Admin" },
-          "trainer_class": "cobbleventure:trainer_class/villain_admin",
-          "battle": "cobbleventure:battle/rocket_casino_admin"
-        },
-        {
-          "id": "admin_guard", "display_name": { "ko_kr": "간부 호위대", "en_us": "Admin Guard" },
-          "trainer_class": "cobbleventure:trainer_class/villain_grunt",
-          "battle": "cobbleventure:battle/rocket_casino_admin_guard"
-        }
-      ],
+      "id": "storage_guard", "display_name": { "ko_kr": "지하 창고 로켓단", "en_us": "Storage Floor Grunt" },
+      "trainers": [{ "id": "storage_guard", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_casino_guard_partner" }],
       "requires": ["basement_guard"],
       "trigger": {
         "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3,
         "warning_track": "encounter.trainer_bad_guys",
-        "start_lines": ["여기까지 온 실력은 인정하지. 하지만 이곳이 끝이다.", "로켓단의 계획을 방해한 대가를 치르게 해주마!"],
-        "win_lines": ["이 기지를 포기해야 한다니... 보스께 보고해야겠군."],
-        "loss_lines": ["조직적인 전투가 무엇인지 이제 알겠나?"]
+        "start_lines": ["더 아래로는 못 간다!"], "win_lines": ["경비를 뚫다니..."], "loss_lines": ["이곳은 로켓단의 구역이다!"]
       },
+      "yaw": 90, "boss": false
+    },
+    {
+      "id": "lift_guard", "display_name": { "ko_kr": "엘리베이터 경비 로켓단", "en_us": "Elevator Guard" },
+      "trainers": [{ "id": "lift_guard", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_casino_guard" }],
+      "requires": ["storage_guard"],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["엘리베이터는 사용하게 둘 수 없다!"], "win_lines": ["열쇠를 지키지 못했군..."], "loss_lines": ["여기서 돌아가라!"] },
+      "yaw": -90, "boss": false
+    },
+    {
+      "id": "admin_guard", "display_name": { "ko_kr": "간부실 앞 호위", "en_us": "Admin Room Guard" },
+      "trainers": [{ "id": "admin_guard", "display_name": { "ko_kr": "로켓단 호위", "en_us": "Team Rocket Guard" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_casino_admin_guard" }],
+      "requires": ["lift_guard"],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["보스께는 접근할 수 없다!"], "win_lines": ["보스를 지켜야 하는데..."], "loss_lines": ["네 진격은 여기까지다!"] },
+      "yaw": 180, "boss": false
+    },
+    {
+      "id": "hideout_admin", "display_name": { "ko_kr": "로켓단 보스 비주기", "en_us": "Team Rocket Boss Giovanni" },
+      "trainers": [{ "id": "hideout_admin", "display_name": { "ko_kr": "비주기", "en_us": "Giovanni" }, "trainer_class": "cobbleventure:trainer_class/villain_admin", "battle": "cobbleventure:battle/rocket_casino_admin" }],
+      "requires": ["admin_guard"],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["여기까지 온 실력은 인정하지. 하지만 이곳이 끝이다."], "win_lines": ["이번에는 물러나도록 하지."], "loss_lines": ["조직적인 전투가 무엇인지 이제 알겠나?"] },
       "yaw": 180, "boss": true
     }
   ],
   "random_encounters": {
     "enabled": false, "minimum_distance": 8, "maximum_distance": 16,
     "max_active": 1, "spawn_interval_ticks": 100,
-    "spawn_bounds": { "min": [2, 1, 2], "max": [45, 17, 45] }, "additions": []
+    "spawn_bounds": { "min": [2, 1, 2], "max": [125, 45, 125] }, "additions": []
   },
   "support": { "healing_stations": [] },
   "gates": [],

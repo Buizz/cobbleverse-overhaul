@@ -20,6 +20,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import dev.buizz.cobbleventure.adventure.quest.QuestService;
 
 /** V4-compatible Minecraft storage adapter for one CVES player execution. */
 public final class ServerPlayerEventState implements EventStateAccess {
@@ -116,6 +117,11 @@ public final class ServerPlayerEventState implements EventStateAccess {
     public int levelCap() {
         int stored = player.getPersistentData().getInt(LEVEL_CAP_KEY);
         return stored <= 0 ? DEFAULT_LEVEL_CAP : Math.max(1, Math.min(100, stored));
+    }
+
+    @Override
+    public String questState(String questId) {
+        return QuestService.state(player, questId).token();
     }
 
     @Override

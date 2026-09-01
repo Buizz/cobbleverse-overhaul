@@ -39,6 +39,12 @@ public final class DaycareNetwork {
     }
 
     public static void open(ServerPlayer player, Entity npc) {
+        var paddock = CobbleventureAdventure.daycarePaddock(player);
+        if (paddock != null) {
+            DaycareService.alignNearbyPaddock(
+                player, paddock.dimension(), paddock.position()
+            );
+        }
         PacketDistributor.sendToPlayer(player, snapshot(player, npc.getUUID(), Component.empty()));
     }
 

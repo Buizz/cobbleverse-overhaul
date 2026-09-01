@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.casino.client;
 
+import dev.buizz.cobbleventure.playermenu.client.MenuTheme;
 import net.minecraft.client.gui.GuiGraphics;
 
 /** Shared rounded panel renderer matching the existing player-menu presentation. */
@@ -7,7 +8,7 @@ final class CasinoThemedPanel {
     private CasinoThemedPanel() {}
 
     static void draw(
-        GuiGraphics graphics, CasinoMenuTheme theme,
+        GuiGraphics graphics, MenuTheme theme,
         int x, int y, int width, int height, float opacity, int accent
     ) {
         float alpha = Math.clamp(opacity, 0, 1);

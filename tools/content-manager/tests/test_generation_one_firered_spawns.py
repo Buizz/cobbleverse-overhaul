@@ -90,7 +90,7 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
         self.assertEqual(bill_house["anchor"], route["anchors"][-1])
         self.assertIn(bill_house["anchor"], route["cells"])
 
-    def test_power_plant_uses_firered_land_encounter_pool(self) -> None:
+    def test_power_plant_uses_firered_species_with_story_adjusted_levels(self) -> None:
         dungeon = self.load("dungeons/generation_1/rocket_power_plant.json")
         encounters = dungeon["random_encounters"]
 
@@ -100,8 +100,8 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
                 "voltorb": (22, 25, 30),
                 "magnemite": (22, 25, 30),
                 "pikachu": (22, 26, 25),
-                "magneton": (31, 34, 10),
-                "electabuzz": (32, 35, 5),
+                "magneton": (27, 28, 10),
+                "electabuzz": (28, 29, 5),
             },
             self.by_species(encounters["additions"]),
         )

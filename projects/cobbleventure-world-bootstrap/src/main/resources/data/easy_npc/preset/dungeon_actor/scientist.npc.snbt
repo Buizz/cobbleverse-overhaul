@@ -1,0 +1,30 @@
+{
+  PresetMetadata:{
+    author:"Cobbleventure",
+    category:"Cobbleventure Dungeon Actors",
+    created:0L,
+    description:"연구원 던전 생성 NPC 외형",
+    entityTypeId:"easy_npc:humanoid",
+    modified:0L,
+    name:"연구원",
+    variantType:"STEVE",
+    version:"1.0.0"
+  },
+  data:{
+    ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
+    ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
+    ArmorItems:[{},{},{},{}],
+    CustomName:"{\"text\":\"연구원\",\"font\":\"minecraft:uniform\"}",
+    DialogData:{DialogDataSet:[],Type:"CUSTOM"},
+    EasyNPCVersion:3,
+    Invulnerable:1b,
+    ModelData:{Root:{Scale:[1.000f,1.000f,1.000f]}},
+    ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
+    PersistenceRequired:1b,
+    PresetUUID:[I;-1924282683,248078044,-1768739974,36489516],
+    SkinData:{Type:"CUSTOM",UUID:[I;46363215,1233606507,-1164037719,1116187650] },
+    Tags:["cobbleventure_dungeon_actor","cobbleventure_dungeon_actor_template/scientist"],
+    VariantType:"STEVE",
+    id:"easy_npc:humanoid"
+  }
+}

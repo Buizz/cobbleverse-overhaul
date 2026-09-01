@@ -4,19 +4,31 @@
   "title": "Cobbleventure economy catalog",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "vanilla_crafting_disabled", "shop_catalogs", "vendor_units", "pokemon_drop_rules", "pokemon_drop_overrides", "npc_recipes"],
+  "required": ["schema_version", "vanilla_crafting_disabled", "sell_price_policy", "standard_prices", "shop_catalogs", "vendor_units", "pokemon_drop_rules", "pokemon_drop_overrides", "npc_recipes"],
   "properties": {
     "$schema": { "type": "string" },
     "schema_version": { "const": 2 },
     "vanilla_crafting_disabled": { "const": true },
+    "sell_price_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apply_default_to_all", "default_percentage"],
+      "properties": {
+        "apply_default_to_all": { "type": "boolean" },
+        "default_percentage": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
     "standard_prices": {
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["item", "price"],
+        "required": ["item", "buy_price", "sell_price", "use_default_sell_price", "no_sell_penalty"],
         "properties": {
           "item": { "$ref": "#/$defs/resourceId" },
-          "price": { "type": "string", "minLength": 1 }
+          "buy_price": { "type": "string", "pattern": "^[0-9]+$" },
+          "sell_price": { "type": "string", "pattern": "^[0-9]+$" },
+          "use_default_sell_price": { "type": "boolean" },
+          "no_sell_penalty": { "type": "boolean" }
         }
       }
     },
