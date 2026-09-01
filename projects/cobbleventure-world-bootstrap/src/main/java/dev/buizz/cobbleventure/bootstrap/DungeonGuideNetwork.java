@@ -20,7 +20,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Synchronizes dungeon guide and matchmaking screens with server-owned entry state. */
 public final class DungeonGuideNetwork {
-    private static final String VERSION = "7";
+    private static final String VERSION = "8";
     private static final int MAX_REWARD_ENTRIES = 128;
 
     private DungeonGuideNetwork() {}
@@ -230,6 +230,9 @@ public final class DungeonGuideNetwork {
         boolean allowItems,
         String levelMeasure,
         int currentPartyLevel,
+        int currentPartySize,
+        int minimumPartySize,
+        int maximumPartySize,
         String multiplayerMode,
         int requiredPlayers,
         int tetherWarnDistance,
@@ -253,6 +256,9 @@ public final class DungeonGuideNetwork {
             buffer.writeBoolean(allowItems);
             buffer.writeUtf(levelMeasure);
             buffer.writeVarInt(currentPartyLevel);
+            buffer.writeVarInt(currentPartySize);
+            buffer.writeVarInt(minimumPartySize);
+            buffer.writeVarInt(maximumPartySize);
             buffer.writeUtf(multiplayerMode);
             buffer.writeVarInt(requiredPlayers);
             buffer.writeVarInt(tetherWarnDistance);
@@ -266,7 +272,9 @@ public final class DungeonGuideNetwork {
                 buffer.readVarInt(), buffer.readVarInt(), buffer.readUtf(),
                 buffer.readUtf(), buffer.readBoolean(), buffer.readBoolean(),
                 buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readUtf(), buffer.readVarInt(), buffer.readUtf(), buffer.readVarInt(),
+                buffer.readUtf(), buffer.readVarInt(),
+                buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(),
+                buffer.readUtf(), buffer.readVarInt(),
                 buffer.readVarInt(), buffer.readVarInt()
             );
         }

@@ -140,6 +140,7 @@ final class DungeonSystem {
             DungeonSystem::canTriggerDungeonNpc
         );
         EventDialogueLifecycle.register(DungeonSystem::onDialogueStateChanged);
+        DungeonWaitingPokemonAccess.register();
         NeoForge.EVENT_BUS.addListener(DungeonSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(
             EventPriority.HIGHEST, DungeonSystem::onEntityInteract
@@ -390,7 +391,13 @@ final class DungeonSystem {
         }
         QueuedEntry queued = QUEUED_ENTRIES.get(player.getUUID());
         if (queued != null) {
-            if (!queued.pending().placement().dimension().equals(
+            DungeonWaitingPokemonAccess.cancelTradeActivity(player);
+            if (!queued.pending().partyRoster().matches(partyRoster(player))) {
+                cancelQueuedEntry(
+                    player,
+                    "대기 중 휴대 포켓몬 구성이 변경되어 던전 매칭이 취소되었습니다."
+                );
+            } else if (!queued.pending().placement().dimension().equals(
                     player.serverLevel().dimension())
                 || !touchesEntrance(
                     player.position(), queued.pending().placement(),
@@ -687,10 +694,15 @@ final class DungeonSystem {
             player.sendSystemMessage(Component.literal("던전 입구 설정을 찾을 수 없습니다."));
             return;
         }
-        PENDING_ENTRIES.put(
-            player.getUUID(), new PendingEntry(ref, placement)
-        );
         DungeonDefinition definition = ref.definition();
+        PendingEntry pending = new PendingEntry(ref, placement, partyRoster(player));
+        String problem = entryProblem(player, pending);
+        if (problem != null) {
+            player.sendSystemMessage(Component.literal(problem));
+            return;
+        }
+        DungeonWaitingPokemonAccess.cancelTradeRequests(player);
+        PENDING_ENTRIES.put(player.getUUID(), pending);
         DungeonEntryEligibility.PartySnapshot party = partySnapshot(player);
         int currentPartyLevel = definition.eligibility().levelMeasure().equals("highest")
             ? party.highestLevel() : party.averageLevel();
@@ -714,6 +726,9 @@ final class DungeonSystem {
                 definition.battleRules().allowItems(),
                 definition.eligibility().levelMeasure(),
                 currentPartyLevel,
+                party.size(),
+                definition.eligibility().minimumPartySize(),
+                definition.eligibility().maximumPartySize(),
                 definition.multiplayer().mode(),
                 definition.match().requiredPlayers(),
                 definition.multiplayer().tether() == null ? 0
@@ -833,6 +848,12 @@ final class DungeonSystem {
         if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
             return "배틀 중에는 던전에 입장할 수 없습니다.";
         }
+        if (DungeonWaitingPokemonAccess.hasActiveTrade(player)) {
+            return "포켓몬 교환 중에는 던전에 입장할 수 없습니다.";
+        }
+        if (!pending.partyRoster().matches(partyRoster(player))) {
+            return "입장 확인 중 휴대 포켓몬 구성이 변경되었습니다. 다시 입장해 주세요.";
+        }
         DungeonEntryEligibility.Evaluation eligibility = DungeonEntryEligibility.evaluate(
             definition.eligibility(), definition.difficulty(), partySnapshot(player)
         );
@@ -873,6 +894,14 @@ final class DungeonSystem {
         ServerPlayer player = first.player();
         PendingEntry pending = first.pending();
         DungeonDefinition definition = pending.ref().definition();
+        for (MatchedEntry entry : entries) {
+            String problem = entryProblem(entry.player(), entry.pending());
+            if (problem != null) {
+                cancelMatch(entries, "참가자의 입장 조건이 변경되어 던전 입장이 취소되었습니다.");
+                entry.player().sendSystemMessage(Component.literal(problem));
+                return;
+            }
+        }
         entries.forEach(entry -> DungeonGuideNetwork.beginTransition(
             entry.player(),
             definition.displayName(),
@@ -1028,6 +1057,19 @@ final class DungeonSystem {
         return new DungeonEntryEligibility.PartySnapshot(
             size, usable, averageLevel, highestLevel
         );
+    }
+
+    private static PartyRoster partyRoster(ServerPlayer player) {
+        List<UUID> pokemonIds = new ArrayList<>();
+        for (var pokemon : Cobblemon.INSTANCE.getStorage().getParty(player)) {
+            pokemonIds.add(pokemon.getUuid());
+        }
+        return new PartyRoster(List.copyOf(pokemonIds));
+    }
+
+    static synchronized boolean entryPartyLocked(UUID playerId) {
+        return PENDING_ENTRIES.containsKey(playerId)
+            || QUEUED_ENTRIES.containsKey(playerId);
     }
 
     private static String eligibilityMessage(
@@ -4579,7 +4621,21 @@ final class DungeonSystem {
         }
     }
 
-    private record PendingEntry(DungeonEntranceRef ref, PlacedEntrance placement) {}
+    private record PendingEntry(
+        DungeonEntranceRef ref,
+        PlacedEntrance placement,
+        PartyRoster partyRoster
+    ) {}
+
+    static record PartyRoster(List<UUID> pokemonIds) {
+        PartyRoster {
+            pokemonIds = List.copyOf(pokemonIds);
+        }
+
+        boolean matches(PartyRoster current) {
+            return pokemonIds.equals(current.pokemonIds);
+        }
+    }
 
     private record QueuedEntry(
         PendingEntry pending,

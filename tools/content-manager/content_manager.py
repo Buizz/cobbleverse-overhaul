@@ -8762,6 +8762,10 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
     eligibility = object_at("eligibility")
     integer(eligibility.get("minimum_party_size"), 1, 6, "$.eligibility.minimum_party_size")
     integer(eligibility.get("maximum_party_size"), 1, 6, "$.eligibility.maximum_party_size")
+    if isinstance(eligibility.get("minimum_party_size"), int) and isinstance(eligibility.get("maximum_party_size"), int) and eligibility["minimum_party_size"] > eligibility["maximum_party_size"]:
+        _issue(issues, "error", path, "$.eligibility", "최소 휴대 포켓몬 수는 최대 수보다 클 수 없습니다.")
+    if not isinstance(eligibility.get("require_usable_pokemon"), bool):
+        _issue(issues, "error", path, "$.eligibility.require_usable_pokemon", "불리언이어야 합니다.")
     if eligibility.get("level_measure") not in {"average", "highest"}:
         _issue(issues, "error", path, "$.eligibility.level_measure", "average 또는 highest여야 합니다.")
     if eligibility.get("recommended_level_policy") not in {"ignore", "warn", "enforce"}:

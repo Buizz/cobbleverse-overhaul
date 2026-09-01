@@ -5621,6 +5621,9 @@ function renderDungeonForm() {
     infoMode: document.entry_ui?.info_mode || "summary", confirmRequired: document.entry_ui?.confirm_required !== false,
     recommendedMin: document.difficulty?.recommended_min ?? 1, recommendedMax: document.difficulty?.recommended_max ?? 1,
     internalMin: document.difficulty?.internal_min ?? 1, internalMax: document.difficulty?.internal_max ?? 1,
+    minimumPartySize: document.eligibility?.minimum_party_size ?? 1,
+    maximumPartySize: document.eligibility?.maximum_party_size ?? 6,
+    requireUsablePokemon: document.eligibility?.require_usable_pokemon !== false,
     levelMeasure: document.eligibility?.level_measure || "average", levelPolicy: document.eligibility?.recommended_level_policy || "warn",
     allowFlee: document.battle?.allow_flee, allowCapture: document.battle?.allow_capture, allowItems: document.battle?.allow_items,
     allowEscapeActions: document.battle?.allow_escape_actions, multiplayerMode: document.multiplayer?.mode || "solo",
@@ -5692,7 +5695,13 @@ function updateDungeonFromForm() {
   document.entry_ui = { info_mode: form.elements.infoMode.value, confirm_required: form.elements.confirmRequired.checked };
   document.difficulty = { recommended_min: integer("recommendedMin", 1), recommended_max: integer("recommendedMax", 1), internal_min: integer("internalMin", 1), internal_max: integer("internalMax", 1) };
   document.eligibility ||= { minimum_party_size: 1, maximum_party_size: 6, require_usable_pokemon: true };
-  Object.assign(document.eligibility, { level_measure: form.elements.levelMeasure.value, recommended_level_policy: form.elements.levelPolicy.value });
+  Object.assign(document.eligibility, {
+    minimum_party_size: integer("minimumPartySize", 1),
+    maximum_party_size: integer("maximumPartySize", 6),
+    require_usable_pokemon: form.elements.requireUsablePokemon.checked,
+    level_measure: form.elements.levelMeasure.value,
+    recommended_level_policy: form.elements.levelPolicy.value,
+  });
   document.battle = { allow_flee: form.elements.allowFlee.checked, allow_capture: form.elements.allowCapture.checked, allow_items: form.elements.allowItems.checked, allow_escape_actions: form.elements.allowEscapeActions.checked };
   const multiplayerMode = form.elements.multiplayerMode.value;
   document.multiplayer = { mode: multiplayerMode, min_size: integer("multiplayerMin", 1), max_size: integer("multiplayerMax", 1) };

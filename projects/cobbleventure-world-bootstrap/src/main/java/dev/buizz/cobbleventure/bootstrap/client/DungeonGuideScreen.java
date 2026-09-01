@@ -183,7 +183,14 @@ public final class DungeonGuideScreen extends Screen {
 
         graphics.drawString(font, "도전 정보", left + 14, top + 14, TEXT_PRIMARY, false);
         graphics.drawString(
-            font, "현재 파티 기준", left + 14, top + 27, TEXT_MUTED, false
+            font,
+            "현재 파티 " + data.currentPartySize() + "마리 · 휴대 허용 "
+                + partySizeRangeLabel(),
+            left + 14, top + 27,
+            data.currentPartySize() >= data.minimumPartySize()
+                && data.currentPartySize() <= data.maximumPartySize()
+                ? TEXT_MUTED : TEXT_DANGER,
+            false
         );
 
         int gap = 6;
@@ -315,6 +322,13 @@ public final class DungeonGuideScreen extends Screen {
             : data.multiplayerMode().equals("independent") ? "독립행동형" : "싱글";
         return data.requiredPlayers() + "인 · " + mode
             + (data.repeatable() ? " · 반복" : " · 1회");
+    }
+
+    private String partySizeRangeLabel() {
+        if (data.minimumPartySize() == data.maximumPartySize()) {
+            return data.maximumPartySize() + "마리";
+        }
+        return data.minimumPartySize() + "–" + data.maximumPartySize() + "마리";
     }
 
     private int panelWidth() {

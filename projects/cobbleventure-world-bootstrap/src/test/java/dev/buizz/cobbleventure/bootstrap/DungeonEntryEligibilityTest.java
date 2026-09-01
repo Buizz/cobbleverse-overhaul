@@ -47,6 +47,32 @@ final class DungeonEntryEligibilityTest {
         assertEquals(27, allowed.measuredLevel());
     }
 
+    @Test
+    void blocksPartiesAboveTheDungeonCarryLimit() {
+        DungeonDefinition.Eligibility settings = new DungeonDefinition.Eligibility(
+            1, 3, true, "average", "warn", "all", List.of(), "locked"
+        );
+
+        var evaluation = DungeonEntryEligibility.evaluate(
+            settings, DIFFICULTY,
+            new DungeonEntryEligibility.PartySnapshot(4, 4, 27, 30)
+        );
+
+        assertFalse(evaluation.allowed());
+        assertEquals(DungeonEntryEligibility.Issue.PARTY_TOO_LARGE, evaluation.issue());
+    }
+
+    @Test
+    void detectsPartyRosterChangesWhileWaiting() {
+        var first = java.util.UUID.randomUUID();
+        var second = java.util.UUID.randomUUID();
+        var locked = new DungeonSystem.PartyRoster(List.of(first, second));
+
+        assertTrue(locked.matches(new DungeonSystem.PartyRoster(List.of(first, second))));
+        assertFalse(locked.matches(new DungeonSystem.PartyRoster(List.of(second, first))));
+        assertFalse(locked.matches(new DungeonSystem.PartyRoster(List.of(first))));
+    }
+
     private static DungeonDefinition.Eligibility settings(
         String measure, String policy
     ) {

@@ -112,6 +112,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('document.terrain.generator = normalizeNaturalCaveGenerator', script)
         self.assertIn('data-dungeon-cave-field', markup)
         self.assertIn('일반 동굴 편집기와 같은 생성 데이터', markup)
+        self.assertIn('name="minimumPartySize"', markup)
+        self.assertIn('name="maximumPartySize"', markup)
+        self.assertIn('name="requireUsablePokemon"', markup)
+        self.assertIn('maximum_party_size: integer("maximumPartySize", 6)', script)
 
     def test_dungeon_cave_requires_the_shared_cave_generator_document(self) -> None:
         document = json.loads((
@@ -226,6 +230,8 @@ class ContentManagerTests(unittest.TestCase):
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
         document["difficulty"]["recommended_min"] = 20
         document["difficulty"]["recommended_max"] = 10
+        document["eligibility"]["minimum_party_size"] = 5
+        document["eligibility"]["maximum_party_size"] = 3
         document["multiplayer"] = {"mode": "solo", "min_size": 1, "max_size": 2}
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dungeon.json"
@@ -236,6 +242,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertEqual("cobbleventure:dungeon/rocket_power_plant", dungeon_id)
         messages = [issue.message for issue in issues]
         self.assertTrue(any("권장 최소 레벨" in message for message in messages))
+        self.assertTrue(any("최소 휴대 포켓몬" in message for message in messages))
         self.assertTrue(any("1인 던전" in message for message in messages))
 
     def test_dungeon_validator_allows_authored_pieces_but_rejects_authored_caves(self) -> None:
