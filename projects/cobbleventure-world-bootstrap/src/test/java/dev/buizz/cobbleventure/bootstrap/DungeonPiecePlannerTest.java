@@ -480,15 +480,17 @@ final class DungeonPiecePlannerTest {
 
     private List<DungeonPieceDefinition> packagedRocketPieces() throws Exception {
         List<DungeonPieceDefinition> pieces = new ArrayList<>();
-        for (String id : List.of(
-            "boss", "corner", "corridor", "dead_end", "encounter_room", "exit",
-            "junction", "room", "route_room", "stairs_down", "stairs_up", "start", "support",
-            "t_junction",
-            "treasure"
-        )) {
-            pieces.add(DungeonPieceDefinition.parse(resourceJson(
-                "data/cobbleventure/dungeon_pieces/rocket/" + id + ".json"
-            )));
+        for (String theme : List.of("rocket", "pokemon_tower")) {
+            for (String id : List.of(
+                "boss", "corner", "corridor", "dead_end", "encounter_room", "exit",
+                "junction", "room", "route_room", "stairs_down", "stairs_up", "start", "support",
+                "t_junction",
+                "treasure"
+            )) {
+                pieces.add(DungeonPieceDefinition.parse(resourceJson(
+                    "data/cobbleventure/dungeon_pieces/" + theme + "/" + id + ".json"
+                )));
+            }
         }
         return pieces;
     }
