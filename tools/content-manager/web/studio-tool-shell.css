@@ -5,11 +5,29 @@
   --studio-panel-soft: #f8fafb;
   --studio-line: #bccbd0;
   --studio-text: #101b2d;
-  --studio-muted: #607788;
+  --studio-muted: #526a7a;
   --studio-accent: #b8f23f;
   --studio-accent-border: #7ea91f;
   --studio-teal: #1e9eaa;
   --studio-danger: #c72f43;
+  /* Paired foreground/surface tokens for light authoring workspaces. */
+  --studio-label: #315166;
+  --studio-input: #fbfdfe;
+  --studio-hover: #eef8f8;
+  --studio-selected: #eaf8f7;
+  --studio-success: #426510;
+  --studio-success-bg: #eff8d9;
+  --studio-warning: #80540d;
+  --studio-warning-bg: #fff3d8;
+  --studio-danger-bg: #fff2f3;
+  --studio-info: #176575;
+  --studio-info-bg: #eaf5fa;
+  --studio-special: #715080;
+  --studio-special-bg: #f5eef8;
+  --studio-code-bg: #101b2d;
+  --studio-code-text: #dce9ef;
+  --studio-shadow: 0 8px 24px rgba(13, 37, 55, .05);
+  --studio-backdrop: rgba(16, 27, 45, .58);
 }
 
 body {

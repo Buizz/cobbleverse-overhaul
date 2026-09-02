@@ -1,0 +1,14 @@
+.gate-condition-builder,.gate-condition-list,#quest-objectives{display:grid;gap:12px;min-width:0}
+.gate-condition-builder{padding:12px;border:1px solid var(--studio-line);border-radius:7px}
+.gate-condition-builder>header,.objective-toolbar,.objective-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.gate-condition-row,.quest-objective{display:grid;gap:12px;padding:14px;background:var(--studio-panel-soft);color:var(--studio-text);border:1px solid var(--studio-line);border-radius:7px;min-width:0}
+.gate-condition-row-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}
+.gate-condition-fields,.objective-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.gate-condition-main{grid-column:1/-1}
+.gate-condition-empty{margin:0;padding:16px;border:1px dashed var(--studio-line);border-radius:6px;color:var(--studio-muted)}
+.objective-actions{display:flex;gap:6px}
+.gate-condition-builder small{color:var(--studio-muted)}
+#quest-form label span,#activation-form label span,#quest-form legend,#activation-form legend{color:var(--studio-label)}
+.objective-actions button:disabled{opacity:.5;cursor:default}
+.quest-objective textarea{font-family:inherit}
+@media(max-width:620px){.gate-condition-fields,.objective-fields{grid-template-columns:1fr}}

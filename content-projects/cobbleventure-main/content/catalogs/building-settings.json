@@ -173,6 +173,7 @@
       }
     },
     "cobbleventure:houses/five_story_flat": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "5층 평지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -184,6 +185,7 @@
       "door_routes": {}
     },
     "cobbleventure:houses/five_story_gable": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "5층 박공지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -195,6 +197,7 @@
       "door_routes": {}
     },
     "cobbleventure:houses/five_story_gambrel": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "5층 갬브럴지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -206,6 +209,7 @@
       "door_routes": {}
     },
     "cobbleventure:houses/five_story_shed": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "5층 외쪽 경사지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -217,6 +221,7 @@
       "door_routes": {}
     },
     "cobbleventure:houses/one_story_flat": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "1층 평지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -242,6 +247,7 @@
       }
     },
     "cobbleventure:houses/one_story_gable": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "1층 박공지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -267,6 +273,7 @@
       }
     },
     "cobbleventure:houses/one_story_gambrel": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "1층 갬브럴지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -292,6 +299,7 @@
       }
     },
     "cobbleventure:houses/one_story_shed": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "1층 외쪽 경사지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -317,6 +325,7 @@
       }
     },
     "cobbleventure:houses/two_story_flat": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "2층 평지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -328,6 +337,7 @@
       "door_routes": {}
     },
     "cobbleventure:houses/two_story_gable": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "2층 박공지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -339,6 +349,7 @@
       "door_routes": {}
     },
     "cobbleventure:houses/two_story_gambrel": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "2층 갬브럴지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,
@@ -350,6 +361,7 @@
       "door_routes": {}
     },
     "cobbleventure:houses/two_story_shed": {
+      "residential_placement": { "enabled": true, "weight": 1, "label": "2층 외쪽 경사지붕 주택" },
       "placement_y_offset": 0,
       "structure_category": "residential",
       "no_interior_space": false,

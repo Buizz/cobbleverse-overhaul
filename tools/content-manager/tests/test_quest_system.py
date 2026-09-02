@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -45,6 +47,50 @@ def quest_document() -> dict:
 
 
 class QuestSystemTests(unittest.TestCase):
+    def test_quest_editor_hides_unused_guidance_and_followup_fields(self) -> None:
+        web = MODULE_PATH.parent / "web"
+        markup = (web / "quests.html").read_text(encoding="utf-8")
+        script = (web / "quest-editor.js").read_text(encoding="utf-8")
+        for field in ("requiredTools", "nextQuests"):
+            self.assertNotIn(f'name="{field}"', markup)
+            self.assertNotIn(field, script)
+        self.assertIn('name="completionMode"', markup)
+        self.assertIn('href="/main-quest-flow.html"', markup)
+
+    def test_quest_pages_reuse_the_existing_condition_selector(self) -> None:
+        web = MODULE_PATH.parent / "web"
+        manager = MODULE_PATH.read_text(encoding="utf-8")
+        for filename in ("index.html", "quests.html", "quest-global.html"):
+            markup = (web / filename).read_text(encoding="utf-8")
+            self.assertIn('src="/player-condition-editor.js"', markup)
+        for filename in ("player-condition-editor.js", "quest-conditions.css"):
+            self.assertIn(f'"/{filename}"', manager)
+        markup = (web / "quests.html").read_text(encoding="utf-8")
+        script = (web / "quest-editor.js").read_text(encoding="utf-8")
+        global_markup = (web / "quest-global.html").read_text(encoding="utf-8")
+        global_script = (web / "quest-global.js").read_text(encoding="utf-8")
+        self.assertIn('id="quest-accept-conditions"', markup)
+        self.assertIn('id="quest-objectives"', markup)
+        self.assertNotIn('name="acceptConditions"', markup)
+        self.assertNotIn('name="objectives"', markup)
+        self.assertIn('conditions: conditionEditor.read(acceptEditor)', script)
+        self.assertIn('conditionEditor.read(editor)', script)
+        self.assertIn('id="quest-global-conditions"', global_markup)
+        self.assertNotIn('name="conditions"', global_markup)
+        self.assertIn('conditionEditor.read(globalEditor)', global_script)
+        for editor_script in (script, global_script):
+            self.assertIn('method: "PUT"', editor_script)
+            self.assertNotIn('method: "POST"', editor_script)
+            self.assertIn('throw new Error(payload.error ||', editor_script)
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is required for web editor behavior tests")
+    def test_shared_condition_selector_behavior(self) -> None:
+        result = subprocess.run(
+            [shutil.which("node"), "--test", str(Path(__file__).with_name("player_condition_editor.test.cjs"))],
+            capture_output=True, text=True, encoding="utf-8",
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     def test_web_quest_document_uses_shared_player_conditions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "quest.json"

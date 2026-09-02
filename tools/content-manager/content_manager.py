@@ -61,6 +61,7 @@ from cves import (
     write_project,
 )
 from loot_table_validation import validate_loot_table_document
+from cves.library import list_library, script_details, save_metadata
 
 
 class ThreadingHTTPServer(_ThreadingHTTPServer):
@@ -2902,6 +2903,15 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
                         _issue(issues, "error", path, field_path, "하나 이상 선택해야 합니다.")
                     elif len(values) != len(set(values)) or any(value not in allowed for value in values):
                         _issue(issues, "error", path, field_path, "지원하는 항목만 중복 없이 선택해야 합니다.")
+        if generation_profile is not None:
+            if generation_profile.get("residential_source", "legacy") not in {"legacy", "catalog"}:
+                _issue(issues, "error", path, "$.structure_profile.generation_profile.residential_source", "legacy 또는 catalog여야 합니다.")
+            if "residential_structures" in generation_profile:
+                selected = generation_profile["residential_structures"]
+                if (not isinstance(selected, list)
+                    or any(not isinstance(item, str) or not RESOURCE_ID.fullmatch(item) for item in selected)
+                    or len(selected) != len(set(selected))):
+                    _issue(issues, "error", path, "$.structure_profile.generation_profile.residential_structures", "NBT ID를 중복 없이 선택해야 합니다.")
         if generation_profile is not None and not isinstance(
             generation_profile.get("residential_buildings_enabled", True), bool
         ):
@@ -10146,6 +10156,10 @@ def _prepare_v5_preset_sync(
             raise ValueError("사용자 정의 V5 script_id는 이벤트 디렉터리를 벗어날 수 없습니다.") from error
         if not event_path.is_file():
             raise ValueError(f"연결할 사용자 정의 CVES를 찾을 수 없습니다: {event_path.relative_to(root)}")
+        details = script_details(root, event_path.relative_to(event_root).as_posix())
+        if any(item["managed"] and (root / item["path"]).resolve() != target.resolve()
+               for item in details["usages"]):
+            raise ValueError("다른 NPC의 행동 프리셋 관리 이벤트는 직접 연결할 수 없습니다. 복사본을 만들어 연결하세요.")
         binding_path = root / "content" / "event-bindings" / namespace / relative.with_suffix(".json")
         return {
             "binding_path": binding_path,
@@ -10665,6 +10679,11 @@ def _settlement_template(slug: str, name: str, generation: str) -> dict[str, Any
             "civic_facilities_explicit": True,
             "layout_shape": "branching",
             "layout_mode": "automatic",
+            "generation_profile": {
+                "seed": 1, "depth": 3, "basic_buildings": [],
+                "residential_buildings_enabled": True,
+                "residential_source": "catalog", "building_density": "normal",
+            },
             "road_profile": {"width": 7, "material": "cobblestone"},
             "required_facilities": {"village_hub": f"cobbleventure:{slug}/village_hub"},
             "facility_requirements": [],
@@ -13625,6 +13644,7 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
         if kind == "building":
             current = building_settings.get(owner, {})
             building_settings[owner] = {
+                **(current if isinstance(current, dict) else {}),
                 "structure_category": structure_categories.get(owner, "building"),
                 "fixed_npcs": current.get("fixed_npcs", {}) if isinstance(current, dict) else {},
                 "fixed_pokemon": current.get("fixed_pokemon", {}) if isinstance(current, dict) else {},
@@ -13694,6 +13714,23 @@ def save_space_connections(root: Path, data: Any) -> list[Issue]:
     return issues
 
 
+def residential_catalog_payload(root: Path) -> dict[str, Any]:
+    """Lightweight catalog: do not parse every NBT just to list house choices."""
+    buildings = load_building_settings(root)["buildings"]
+    entries = []
+    for resource_id, path in managed_structure_files(root).items():
+        settings = buildings.get(resource_id, {})
+        placement = settings.get("residential_placement", {})
+        if not isinstance(placement, dict) or placement.get("enabled") is not True:
+            continue
+        relative = path.relative_to(root / "content" / "structures")
+        if _configured_structure_category(relative, settings) in {"interior", "gym_interior"}:
+            continue
+        entries.append({"structure": resource_id, "label": placement.get("label") or path.stem,
+                        "weight": placement.get("weight", 1)})
+    return {"entries": entries}
+
+
 def building_settings_payload(
     root: Path,
     managed_catalog: dict[str, dict[str, Any]] | None = None,
@@ -13740,6 +13777,9 @@ def building_settings_payload(
                 "music_track": entry.get("music_track", "")
                 if isinstance(entry.get("music_track", ""), str) else "",
                 "no_interior_space": bool(entry.get("no_interior_space", False)),
+                "residential_placement": entry.get("residential_placement", {
+                    "enabled": False, "weight": 1, "label": "",
+                }),
                 "town_placement": entry.get("town_placement", {
                     "enabled": False,
                     "id": "",
@@ -14234,6 +14274,21 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
         relative = structure.relative_to(root / "content" / "structures")
         residential = bool(relative.parts and relative.parts[0] == "houses")
         no_interior_space = settings.get("no_interior_space", False)
+        residential_placement = settings.get("residential_placement", {})
+        if not isinstance(residential_placement, dict):
+            _issue(issues, "error", path, f"{entry_path}.residential_placement", "주택 자동 배치 설정은 객체여야 합니다.")
+            continue
+        house_enabled = residential_placement.get("enabled", False)
+        house_weight = residential_placement.get("weight", 1)
+        house_label = residential_placement.get("label", "")
+        if (not isinstance(house_enabled, bool) or isinstance(house_weight, bool)
+            or not isinstance(house_weight, int) or not 1 <= house_weight <= 1000
+            or not isinstance(house_label, str) or len(house_label) > 64):
+            _issue(issues, "error", path, f"{entry_path}.residential_placement", "사용 여부, 가중치(1~1000 정수), 표시 이름(64자 이내)을 확인하세요.")
+            continue
+        if house_enabled and _configured_structure_category(relative, settings) in {"interior", "gym_interior"}:
+            _issue(issues, "error", path, f"{entry_path}.residential_placement", "내부공간 NBT는 주택 외관으로 배치할 수 없습니다.")
+            continue
         if not isinstance(no_interior_space, bool):
             _issue(
                 issues, "error", path, f"{entry_path}.no_interior_space",
@@ -14456,6 +14511,8 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
         normalized[resource_id] = {
             "placement_y_offset": placement_y_offset,
             "structure_category": _configured_structure_category(relative, settings),
+            **({"residential_placement": {"enabled": house_enabled, "weight": house_weight, "label": house_label.strip()}}
+               if "residential_placement" in settings else {}),
             **({"music_track": music_track} if music_track else {}),
             "no_interior_space": no_interior_space,
             **(
@@ -15206,12 +15263,14 @@ def create_handler(
                 "/": web_root / "index.html",
                 "/index.html": web_root / "index.html",
                 "/app.js": web_root / "app.js",
+                "/player-condition-editor.js": web_root / "player-condition-editor.js",
                 "/cves.html": web_root / "cves.html",
                 "/cves-editor.js": web_root / "cves-editor.js",
                 "/cves-editor.css": web_root / "cves-editor.css",
                 "/quests.html": web_root / "quests.html",
                 "/quest-editor.js": web_root / "quest-editor.js",
                 "/quest-editor.css": web_root / "quest-editor.css",
+                "/quest-conditions.css": web_root / "quest-conditions.css",
                 "/quest-global.html": web_root / "quest-global.html",
                 "/quest-global.js": web_root / "quest-global.js",
                 "/quest-global.css": web_root / "quest-global.css",
@@ -15222,6 +15281,7 @@ def create_handler(
                 "/styles.css": web_root / "styles.css",
                 "/economy.css": web_root / "economy.css",
                 "/typography.css": web_root / "typography.css",
+                "/form-controls.css": web_root / "form-controls.css",
                 "/studio-tool-shell.css": web_root / "studio-tool-shell.css",
                 "/fonts/PretendardVariable.woff2": web_root
                 / "fonts"
@@ -15330,7 +15390,7 @@ def create_handler(
                 return
             if request.path == "/api/cves/scripts":
                 try:
-                    self._json(200, {"items": list_cves_scripts(root)})
+                    self._json(200, {"items": list_library(root)})
                 except (OSError, ValueError) as error:
                     self._json(400, {"error": str(error)})
                 return
@@ -15343,7 +15403,8 @@ def create_handler(
             if request.path == "/api/cves/script":
                 relative_path = parse_qs(request.query).get("path", [""])[0]
                 try:
-                    self._json(200, load_cves_script(root, relative_path, cves_catalog()))
+                    self._json(200, {**load_cves_script(root, relative_path, cves_catalog()),
+                                     "library": script_details(root, relative_path)})
                 except CvesSyntaxError as error:
                     self._json(422, {
                         "error": "CVES 문법 오류가 있습니다.",
@@ -15702,6 +15763,12 @@ def create_handler(
                         },
                     })
                 except (OSError, ValueError, EOFError, struct.error, zipfile.BadZipFile) as error:
+                    self._json(500, {"error": str(error)})
+                return
+            if request.path == "/api/residential-catalog":
+                try:
+                    self._json(200, residential_catalog_payload(root))
+                except (OSError, ValueError) as error:
                     self._json(500, {"error": str(error)})
                 return
             if request.path == "/api/building-settings":
@@ -16301,6 +16368,20 @@ def create_handler(
 
         def do_PUT(self) -> None:
             request = urlparse(self.path)
+            if request.path == "/api/cves/metadata":
+                try:
+                    payload = self._read_json()
+                    if not isinstance(payload, dict):
+                        raise ValueError("분류 저장 요청은 객체여야 합니다.")
+                    with cves_save_lock:
+                        result = save_metadata(root, payload.get("path"), payload.get("metadata"),
+                                               payload.get("expected_digest"))
+                    self._json(200, result)
+                except CvesEditorConflict as error:
+                    self._json(409, {"error": str(error)})
+                except (OSError, ValueError) as error:
+                    self._json(400, {"error": str(error)})
+                return
             if request.path == "/api/cves/script":
                 try:
                     payload = self._read_json()
@@ -16319,6 +16400,7 @@ def create_handler(
                             payload.get("ast"),
                             expected_digest,
                             cves_catalog(),
+                            usage_digest=payload.get("usage_digest"),
                         )
                     self._json(200 if document["saved"] else 422, document)
                 except CvesEditorConflict as error:

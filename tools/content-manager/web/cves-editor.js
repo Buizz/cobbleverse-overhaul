@@ -11,6 +11,7 @@ const state = {
   selected: null, dirty: false, diagnostics: [], contract: null,
   collapsed: new WeakSet(), dragged: null, showAdvancedCommands: false,
   gameDefinitions: { items: [], variables: [] }, variableTarget: null,
+  library: null, metadataDirty: false, sourceDirty: false, copyAst: null, loading: false,
 };
 
 function element(tag, className, text) {
@@ -42,7 +43,49 @@ function toast(message) {
 function markDirty() {
   state.dirty = true;
   updateState("저장되지 않은 변경", "dirty");
-  $("#save-script").disabled = false;
+  $("#save-script").disabled = Boolean(state.library?.managed);
+}
+
+function hasUnsavedChanges() { return state.dirty || state.metadataDirty || state.sourceDirty; }
+
+function setDocumentBusy(busy) {
+  state.loading = busy;
+  for (const selector of ["main", ".lower-grid", "#library-details"]) $(selector).inert = busy;
+}
+
+function renderLibraryDetails() {
+  const info = state.library;
+  $("#library-details").hidden = !info;
+  if (!info) return;
+  const metadata = info.metadata;
+  $("#metadata-name").value = metadata.display_name;
+  $("#metadata-description").value = metadata.description;
+  $("#metadata-category").value = metadata.category;
+  $("#metadata-tags").value = metadata.tags.join(", ");
+  state.metadataDirty = false;
+  $("#save-metadata").disabled = true;
+  $("#library-protection").textContent = info.managed
+    ? "행동 프리셋 관리 · 트리는 읽기 전용입니다. NPC에서 사용자 정의로 전환해 저장하거나 복사본을 만드세요."
+    : info.usages.length > 1 ? `공유 이벤트 · 저장하면 ${info.usages.length}개 사용처에 적용됩니다. 개별 변경은 복사본을 연결하세요.` : "사용자 정의 이벤트 · NPC 프리셋 저장으로 덮어쓰지 않습니다.";
+  $("#library-usages").replaceChildren(...(info.usages.length ? info.usages.map((usage) => element("li", "", `${usage.name} · ${usage.path}`)) : [element("li", "", "저장된 NPC/바인딩 사용처 없음")]));
+}
+
+async function saveLibraryMetadata() {
+  if (state.loading) return;
+  if (!state.library) throw new Error("먼저 CVES 원본을 저장해 주세요.");
+  setDocumentBusy(true);
+  try {
+  const path = state.path;
+  const metadata = { schema_version: 1, display_name: $("#metadata-name").value,
+    description: $("#metadata-description").value, category: $("#metadata-category").value,
+    tags: $("#metadata-tags").value.split(",").map((tag) => tag.trim()).filter(Boolean) };
+  const result = await request("/api/cves/metadata", { method: "PUT", body: JSON.stringify({ path, metadata, expected_digest: state.library.metadata_digest }) });
+  if (!result.ok) throw new Error(result.data.error || "분류 정보 저장 실패");
+  if (state.path !== path) return;
+  state.library = result.data; renderLibraryDetails();
+  state.items = state.items.map((item) => item.path === path ? result.data : item); renderScriptList();
+  toast("분류 정보를 저장했습니다. CVES 실행 원본은 변경하지 않았습니다.");
+  } finally { setDocumentBusy(false); }
 }
 
 function updateState(label, className = "") {
@@ -129,17 +172,21 @@ function resetCommand(node, kind) {
   node.result = null;
 }
 
-async function loadScripts(preferredPath = state.path) {
+async function loadScripts(preferredPath = state.path, { reload = false } = {}) {
   const result = await request("/api/cves/scripts");
   if (!result.ok) throw new Error(result.data.error || "CVES 목록을 불러오지 못했습니다.");
   state.items = result.data.items || [];
   renderScriptList();
-  const target = state.items.find((item) => item.path === preferredPath) || state.items[0];
-  if (target && target.path !== state.path) await loadScript(target);
+  const target = preferredPath ? state.items.find((item) => item.path === preferredPath) : state.items[0];
+  if (preferredPath && !target) toast("연결된 이벤트가 아직 없습니다. NPC 저장 여부와 이벤트 경로를 확인하세요.");
+  if (target && (target.path !== state.path || reload)) await loadScript(target);
 }
 
 async function loadScript(item) {
-  if (state.dirty && !confirm("저장하지 않은 트리 변경을 버리고 다른 CVES 원본을 열까요?")) return;
+  if (state.loading) return;
+  if (hasUnsavedChanges() && !confirm("저장하지 않은 트리·분류 변경을 버리고 다른 CVES 원본을 열까요?")) return;
+  setDocumentBusy(true);
+  try {
   updateState("불러오는 중");
   const result = await request(`/api/cves/script?path=${encodeURIComponent(item.path)}`);
   if (!result.ok) {
@@ -148,9 +195,16 @@ async function loadScript(item) {
     throw new Error(result.data.error || "CVES 원본을 불러오지 못했습니다.");
   }
   applyDocument(result.data, item.script_id, false);
+  } finally { setDocumentBusy(false); }
 }
 
 function applyDocument(document, scriptId = state.scriptId, dirty = state.dirty) {
+  const changedPath = document.path && document.path !== state.path;
+  if (document.library || changedPath) {
+    state.library = document.library || null;
+    state.metadataDirty = false;
+    renderLibraryDetails();
+  }
   state.path = document.path || state.path;
   state.scriptId = scriptId;
   state.digest = document.digest ?? state.digest;
@@ -160,6 +214,7 @@ function applyDocument(document, scriptId = state.scriptId, dirty = state.dirty)
   state.source = document.canonical ?? document.source ?? "";
   state.selected = state.ast?.root?.events?.[0] || null;
   state.dirty = dirty;
+  state.sourceDirty = false;
   state.diagnostics = document.diagnostics || [];
   $("#source-editor").value = state.source;
   $("#script-path").textContent = state.path || "이벤트 트리";
@@ -168,6 +223,14 @@ function applyDocument(document, scriptId = state.scriptId, dirty = state.dirty)
   $("#apply-source").disabled = !state.ast;
   $("#validate-ast").disabled = !state.ast;
   $("#save-script").disabled = !dirty;
+  $("#duplicate-script").disabled = !state.ast;
+  const managed = Boolean(state.library?.managed);
+  $("#save-script").disabled = !dirty || managed;
+  $("#source-editor").readOnly = managed;
+  $("#apply-source").disabled = !state.ast || managed;
+  $(".tree-actions").inert = managed;
+  $(".node-actions").inert = managed;
+  $("#inspector").inert = managed;
   $$('[data-add]').forEach((button) => { button.disabled = !state.ast; });
   renderScriptList();
   renderTree();
@@ -184,14 +247,21 @@ function renderScriptList() {
     return;
   }
   for (const item of state.items) {
+    const query = $("#library-search").value.trim().toLocaleLowerCase();
+    const category = $("#library-category").value;
+    const management = $("#library-management").value;
+    const searchable = [item.name, item.script_id, item.metadata?.description, ...(item.metadata?.tags || []), ...(item.usages || []).map((usage) => `${usage.name} ${usage.path}`)].join(" ").toLocaleLowerCase();
+    if (query && !searchable.includes(query) || category && item.metadata?.category !== category || management && Boolean(item.managed) !== (management === "preset")) continue;
     const button = element("button", `script-button${item.path === state.path ? " active" : ""}`);
     button.type = "button";
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", String(item.path === state.path));
     button.append(element("strong", "", item.name), element("small", "", item.path));
+    button.append(element("small", "", `${item.managed ? "프리셋 관리" : "사용자 정의"} · 사용처 ${item.usages?.length || 0} · ${(item.metadata?.tags || []).join(" · ")}`));
     button.addEventListener("click", () => loadScript(item).catch((error) => toast(error.message)));
     list.append(button);
   }
+  if (!list.childElementCount) list.append(element("p", "panel-help", "검색 결과가 없습니다."));
 }
 
 function textSummary(value) {
@@ -270,7 +340,7 @@ function renderNode(node) {
     event.stopPropagation(); state.selected = node; renderTree(); renderInspector();
   });
   const location = findNode(node);
-  if (location?.array) {
+  if (location?.array && !state.library?.managed) {
     row.draggable = true;
     row.addEventListener("dragstart", (event) => {
       state.dragged = node; row.classList.add("dragging"); event.dataTransfer.effectAllowed = "move";
@@ -1040,8 +1110,13 @@ function renderDiagnostics(diagnostics) {
 }
 
 async function validateTree() {
+  const validatedAst = state.ast;
+  const validatedPath = state.path;
   updateState("트리 검증 중");
-  const result = await request("/api/cves/validate", { method: "POST", body: JSON.stringify({ path: state.path, ast: state.ast }) });
+  const result = await request("/api/cves/validate", { method: "POST", body: JSON.stringify({ path: validatedPath, ast: validatedAst }) });
+  // A script switch or text replacement can finish before this validation.
+  // Never display the previous document's AST or diagnostics under the new path.
+  if (state.ast !== validatedAst || state.path !== validatedPath) return result.data;
   if (!result.data.ast) { renderDiagnostics(result.data.diagnostics || []); updateState("검증 실패", "invalid"); throw new Error(result.data.error || "AST를 검증하지 못했습니다."); }
   const selected = state.selected;
   state.ast = result.data.ast; state.source = result.data.canonical; state.selected = state.ast.root.events[0] || null;
@@ -1051,22 +1126,34 @@ async function validateTree() {
 }
 
 async function applySource() {
+  if (state.loading) return;
+  setDocumentBusy(true);
+  try {
   updateState("텍스트 해석 중");
   const result = await request("/api/cves/validate", { method: "POST", body: JSON.stringify({ path: state.path, source: $("#source-editor").value }) });
   renderDiagnostics(result.data.diagnostics || []);
   if (!result.data.ast) { updateState("문법 오류", "invalid"); throw new Error(result.data.error || result.data.diagnostics?.[0]?.rendered || "CVES 문법 오류가 있습니다."); }
   applyDocument({ ...result.data, digest: state.digest }, state.scriptId, true);
   toast(result.data.valid ? "CVES 텍스트를 공통 AST에 적용했습니다." : "AST는 적용했지만 의미 진단을 확인해야 합니다.");
+  } finally { setDocumentBusy(false); }
 }
 
 async function saveScript() {
+  if (state.loading) return;
+  if (state.sourceDirty) throw new Error("변경한 CVES 텍스트를 먼저 AST에 적용한 뒤 저장해 주세요.");
+  if (state.library?.managed) throw new Error("행동 프리셋 관리 이벤트는 복사하거나 NPC에서 사용자 정의로 전환해 주세요.");
+  if (state.library?.usages.length > 1 && !confirm(`이 이벤트를 사용하는 ${state.library.usages.length}개 NPC/바인딩에 모두 적용할까요?\n${state.library.usages.map((usage) => usage.name).join(", ")}\n개별 수정은 취소 후 복사본을 만드세요.`)) return;
+  setDocumentBusy(true);
+  try {
   updateState("결정적 포맷으로 저장 중");
-  const result = await request("/api/cves/script", { method: "PUT", body: JSON.stringify({ path: state.path, ast: state.ast, expected_digest: state.digest }) });
+  const result = await request("/api/cves/script", { method: "PUT", body: JSON.stringify({ path: state.path, ast: state.ast, expected_digest: state.digest, usage_digest: state.library?.usage_digest }) });
   renderDiagnostics(result.data.diagnostics || []);
   if (!result.ok) { updateState(result.status === 409 ? "외부 변경 충돌" : "저장 실패", "invalid"); throw new Error(result.data.error || "CVES를 저장하지 못했습니다."); }
   applyDocument(result.data, state.scriptId, false);
   await loadScripts(state.path);
+  if (!state.library) { state.library = state.items.find((item) => item.path === state.path) || null; renderLibraryDetails(); }
   toast("CVES 권위 원본을 결정적으로 저장했습니다.");
+  } finally { setDocumentBusy(false); }
 }
 
 function scriptIdFromPath(path) {
@@ -1081,10 +1168,11 @@ async function createNewScript(form) {
   const scriptId = scriptIdFromPath(path);
   if (!scriptId || path.includes("..") || path.includes("\\")) throw new Error("경로는 <namespace>/<path>.cves 형식이어야 합니다.");
   if (state.items.some((item) => item.path === path)) throw new Error("이미 존재하는 CVES 원본 경로입니다.");
-  if (state.dirty && !confirm("현재 저장하지 않은 변경을 버리고 새 CVES 트리를 만들까요?")) return;
+  if (state.loading) return;
+  if (hasUnsavedChanges() && !confirm("현재 저장하지 않은 변경을 버리고 새 CVES 트리를 만들까요?")) return;
   const triggerNode = { node: "trigger", name: trigger, arguments: [] };
   resetTrigger(triggerNode, trigger);
-  const ast = {
+  const ast = state.copyAst || {
     wire_version: 1,
     root: {
       node: "program",
@@ -1102,8 +1190,28 @@ async function createNewScript(form) {
   $("#new-script-dialog").close(); form.reset(); toast("새 트리를 만들었습니다. 저장 전까지 파일은 생성되지 않습니다.");
 }
 
-$("#refresh-scripts").addEventListener("click", () => loadScripts().catch((error) => toast(error.message)));
-$("#new-script").addEventListener("click", () => $("#new-script-dialog").showModal());
+$("#refresh-scripts").addEventListener("click", () => loadScripts(state.path, { reload: true }).catch((error) => toast(error.message)));
+$("#new-script").addEventListener("click", () => { if (state.loading) return; state.copyAst = null; $("#new-script-dialog").showModal(); });
+$("#duplicate-script").addEventListener("click", () => {
+  if (state.loading) return;
+  if (state.sourceDirty) { toast("텍스트 변경을 먼저 AST에 적용한 뒤 복사하세요."); return; }
+  state.copyAst = structuredClone(state.ast);
+  $("#new-script-form input[name=path]").value = state.path.replace(/\.cves$/, "_copy.cves");
+  $("#new-script-dialog").showModal();
+  toast("현재 트리를 새 경로에 복사합니다. 저장 후 NPC에서 복사본을 선택하세요.");
+});
+for (const id of ["library-search", "library-category", "library-management"]) $("#" + id).addEventListener("input", renderScriptList);
+for (const id of ["metadata-name", "metadata-description", "metadata-category", "metadata-tags"]) $("#" + id).addEventListener("input", () => { state.metadataDirty = true; $("#save-metadata").disabled = false; });
+$("#save-metadata").addEventListener("click", () => saveLibraryMetadata().catch((error) => toast(error.message)));
+$("#return-to-npc").addEventListener("click", () => {
+  window.parent.postMessage({ type: "cves:return-to-npc" }, window.location.origin);
+});
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== "cves:open") return;
+  $("#return-to-npc").hidden = !event.data.fromNpc;
+  if (typeof event.data.path === "string") loadScripts(event.data.path, { reload: event.data.path === state.path && !hasUnsavedChanges() }).catch((error) => toast(error.message));
+});
+$("#source-editor").addEventListener("input", () => { state.sourceDirty = true; updateState("텍스트 변경 · AST 적용 필요", "dirty"); });
 $("#close-new-script").addEventListener("click", () => $("#new-script-dialog").close());
 $("#cancel-new-script").addEventListener("click", () => $("#new-script-dialog").close());
 $("#new-script-form").addEventListener("submit", (event) => { event.preventDefault(); createNewScript(event.currentTarget).catch((error) => toast(error.message)); });
@@ -1123,12 +1231,13 @@ $$('[data-add]').forEach((button) => button.addEventListener("click", () => addS
 $("#move-up").addEventListener("click", () => moveSelected(-1));
 $("#move-down").addEventListener("click", () => moveSelected(1));
 $("#delete-node").addEventListener("click", deleteSelected);
-window.addEventListener("beforeunload", (event) => { if (state.dirty) { event.preventDefault(); event.returnValue = ""; } });
+window.addEventListener("beforeunload", (event) => { if (hasUnsavedChanges()) { event.preventDefault(); event.returnValue = ""; } });
 
 async function initialize() {
   await Promise.all([loadContract(), loadGameDefinitions()]);
   const preferredPath = new URLSearchParams(window.location.search).get("path") || state.path;
   await loadScripts(preferredPath);
+  if (window.parent !== window) window.parent.postMessage({ type: "cves:ready" }, window.location.origin);
 }
 
 initialize().catch((error) => { updateState("연결 실패", "invalid"); toast(error.message); });

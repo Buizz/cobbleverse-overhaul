@@ -1,0 +1,91 @@
+/* Shared by every authoring page, including embedded editors and dialogs.
+   Keep sizing in the owning editor: this file only owns control appearance. */
+:root {
+  --control-panel: var(--studio-panel, #ffffff);
+  --control-input: var(--studio-input, #fbfdfe);
+  --control-soft: var(--studio-panel-soft, #f8fafb);
+  --control-line: var(--studio-line, #bccbd0);
+  --control-text: var(--studio-text, #101b2d);
+  --control-muted: var(--studio-muted, #526a7a);
+  --control-label: var(--studio-label, #315166);
+  --control-focus: var(--studio-teal, #1e9eaa);
+  --control-hover: var(--studio-hover, #eef8f8);
+  --control-selected: var(--studio-selected, #eaf8f7);
+  --control-success: var(--studio-success, #426510);
+  --control-success-bg: var(--studio-success-bg, #eff8d9);
+  --control-shadow: var(--studio-shadow, 0 8px 24px rgba(13, 37, 55, .12));
+}
+
+body :is(textarea, .field textarea) {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--control-line);
+  border-radius: 6px;
+  background: var(--control-input);
+  color: var(--control-text);
+  caret-color: currentColor;
+  line-height: 1.65;
+  resize: vertical;
+  scrollbar-width: thin;
+  scrollbar-color: var(--control-muted) var(--control-soft);
+}
+body :is(textarea, select):hover:not(:disabled) { border-color: var(--control-label); }
+body :is(textarea, select):focus-visible {
+  border-color: var(--control-focus);
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+body :is(textarea, select):disabled { background: var(--control-soft); color: var(--control-muted); cursor: not-allowed; }
+textarea::selection { background: var(--control-selected); color: var(--control-text); }
+textarea::-webkit-resizer { background: repeating-linear-gradient(135deg, transparent 0 3px, var(--control-line) 3px 4px); }
+body .source-panel textarea {
+  background: var(--studio-code-bg, #101b2d);
+  color: var(--studio-code-text, #dce9ef);
+  font-family: var(--font-mono);
+  scrollbar-color: var(--control-muted) var(--studio-code-bg, #101b2d);
+}
+body select { color-scheme: light; border-radius: 6px; cursor: pointer; }
+/* Native fallback and multi-select listboxes remain native and usable. */
+body select option { background: var(--control-panel); color: var(--control-text); }
+body select option:disabled { color: var(--control-muted); }
+@supports (appearance: base-select) {
+  select:not([multiple]):not([size]),
+  select:not([multiple]):not([size])::picker(select) { appearance: base-select; }
+  select::picker(select) {
+    min-inline-size: anchor-size(width);
+    inline-size: max-content;
+    max-inline-size: min(42rem, calc(100vw - 24px));
+    max-block-size: min(360px, 50dvh);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+    border: 1px solid var(--control-line);
+    border-radius: 8px;
+    background: var(--control-panel);
+    color: var(--control-text);
+    box-shadow: var(--control-shadow);
+    font: var(--text-control)/1.5 var(--font-ui);
+    scrollbar-width: thin;
+    scrollbar-color: var(--control-muted) var(--control-soft);
+  }
+  select::picker-icon { color: var(--control-label); margin-inline-start: auto; padding-inline-start: 10px; }
+  body select:open { border-color: var(--control-focus); background: var(--control-selected); }
+  select:open::picker-icon { rotate: 180deg; }
+  select:not([multiple]):not([size]) option {
+    gap: 10px;
+    min-height: 38px;
+    padding: 9px 12px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+  select:not([multiple]):not([size]) option:checked { background: var(--control-success-bg); color: var(--control-success); font-weight: 650; }
+  select:not([multiple]):not([size]) option:is(:hover, :focus-visible):not(:disabled) { background: var(--control-hover); color: var(--control-text); border-color: var(--control-focus); outline: none; }
+  select option:disabled { color: var(--control-muted); cursor: not-allowed; }
+  select option::checkmark { color: var(--control-success); }
+  select option[hidden] { display: none; }
+}

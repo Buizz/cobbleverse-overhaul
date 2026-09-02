@@ -6,8 +6,10 @@
   <title>메인 퀘스트 전역 발동 · Cobbleventure</title>
   <link rel="stylesheet" href="/typography.css">
   <link rel="stylesheet" href="/quest-editor.css">
+  <link rel="stylesheet" href="/quest-conditions.css">
   <link rel="stylesheet" href="/quest-global.css">
   <link rel="stylesheet" href="/studio-tool-shell.css">
+  <link rel="stylesheet" href="/form-controls.css">
   <script>document.documentElement.classList.toggle("is-embedded", new URLSearchParams(location.search).get("embedded") === "1");</script>
 </head>
 <body>
@@ -35,11 +37,18 @@
         <fieldset><legend>전역 발동</legend>
           <label class="toggle wide"><input name="enabled" type="checkbox" disabled><span>이 메인 퀘스트를 전역 조건으로 자동 부여</span></label>
           <label><span>조건 방식</span><select name="conditionMode" disabled><option value="all">모두 만족</option><option value="any">하나 이상 만족</option></select></label>
-          <label class="wide"><span>공용 조건 JSON 배열</span><textarea name="conditions" rows="14" disabled>[]</textarea><small>PLAYER_CONDITIONS 규격을 사용합니다. 전역 발동을 켤 때는 조건이 하나 이상 필요합니다.</small></label>
+          <section class="gate-condition-builder wide" id="quest-global-conditions">
+            <header><span>전역 발동 조건</span><button type="button" data-gate-condition-add disabled>+ 조건 추가</button></header>
+            <div class="gate-condition-list" data-gate-condition-list></div>
+            <small>전역 발동을 켤 때는 조건이 하나 이상 필요합니다. 항상 발동하려면 ‘항상’을 선택하세요.</small>
+          </section>
         </fieldset>
       </form>
     </section>
   </main>
+  <datalist id="declared-variable-ids"></datalist>
+  <datalist id="declared-item-ids"></datalist>
+  <script src="/player-condition-editor.js"></script>
   <script src="/quest-global.js"></script>
 </body>
 </html>

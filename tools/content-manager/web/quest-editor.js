@@ -1,6 +1,10 @@
 const $ = (selector) => document.querySelector(selector);
 const form = $("#quest-form");
 const state = { items: [], path: "", document: null };
+const conditionEditor = PlayerConditionEditor;
+const escapeHtml = conditionEditor.escapeHtml;
+const acceptEditor = $("#quest-accept-conditions");
+conditionEditor.initialize(acceptEditor, { includeAlways: true });
 
 const defaultObjectives = [{
   id: "objective_1",
@@ -8,27 +12,73 @@ const defaultObjectives = [{
   conditions: { condition_mode: "all", conditions: [] }
 }];
 
-function parseJson(name) {
-  const value = form.elements[name].value.trim();
-  const parsed = JSON.parse(value || "[]");
-  if (!Array.isArray(parsed)) throw new Error(`${name} 값은 JSON 배열이어야 합니다.`);
-  return parsed;
-}
-
 function pathFor(id) {
   const [namespace, resource = ""] = id.split(":", 2);
   if (!namespace || !resource) throw new Error("퀘스트 ID는 namespace:path 형식이어야 합니다.");
   return `content/quests/${namespace}/${resource.replace(/^quest\//, "")}.json`;
 }
 
+function renderObjectives(objectives) {
+  const container = $("#quest-objectives");
+  container.replaceChildren();
+  objectives.forEach((objective, index) => {
+    const card = document.createElement("article");
+    card.className = "quest-objective";
+    card.objectiveDocument = structuredClone(objective);
+    card.innerHTML = `
+      <header class="objective-heading"><strong>목표 ${index + 1}</strong><div class="objective-actions">
+        <button type="button" data-objective-action="up" ${index === 0 ? "disabled" : ""} aria-label="목표 위로">↑</button>
+        <button type="button" data-objective-action="down" ${index === objectives.length - 1 ? "disabled" : ""} aria-label="목표 아래로">↓</button>
+        <button type="button" data-objective-action="remove" ${objectives.length === 1 ? "disabled" : ""}>목표 삭제</button>
+      </div></header>
+      <div class="objective-fields">
+        <label><span>목표 ID</span><input data-objective-field="id" value="${escapeHtml(objective.id || "")}" required></label>
+        <label><span>달성 조건 방식</span><select data-objective-field="mode"><option value="all">모두 만족</option><option value="any">하나 이상 만족</option></select></label>
+        <label><span>한국어 목표 안내</span><textarea data-objective-field="ko" rows="2">${escapeHtml(objective.text?.ko_kr || "")}</textarea></label>
+        <label><span>영문 목표 안내</span><textarea data-objective-field="en" rows="2">${escapeHtml(objective.text?.en_us || "")}</textarea></label>
+        <label><span>안내 마커</span><select data-objective-field="markerType"><option value="">없음</option><option value="npc">NPC</option><option value="settlement">마을</option><option value="route">길</option><option value="anchor">앵커</option></select></label>
+        <label><span>마커 대상 ID</span><input data-objective-field="markerTarget" value="${escapeHtml(objective.marker?.target || "")}" placeholder="cobbleventure:npc/professor_oak"></label>
+      </div>
+      <section class="gate-condition-builder"><header><span>목표 달성 조건</span><button type="button" data-gate-condition-add>+ 조건 추가</button></header><div class="gate-condition-list" data-gate-condition-list></div></section>`;
+    card.querySelector('[data-objective-field="mode"]').value = objective.conditions?.condition_mode || "all";
+    card.querySelector('[data-objective-field="markerType"]').value = objective.marker?.type || "";
+    const editor = card.querySelector(".gate-condition-builder");
+    conditionEditor.initialize(editor, { includeAlways: true });
+    conditionEditor.render(editor, objective.conditions?.conditions || []);
+    container.append(card);
+  });
+}
+
+function objectivesFromEditor(validate = true) {
+  return [...document.querySelectorAll(".quest-objective")].map(card => {
+    const value = key => card.querySelector(`[data-objective-field="${key}"]`).value.trim();
+    const objective = structuredClone(card.objectiveDocument);
+    objective.id = value("id");
+    objective.text = { ...objective.text, ko_kr: value("ko") };
+    if (value("en")) objective.text.en_us = value("en");
+    else delete objective.text.en_us;
+    const editor = card.querySelector(".gate-condition-builder");
+    objective.conditions = {
+      condition_mode: value("mode"),
+      conditions: validate ? conditionEditor.read(editor) : structuredClone(editor.gateConditions)
+    };
+    if (value("markerType")) objective.marker = { ...objective.marker, type: value("markerType"), target: value("markerTarget") };
+    else delete objective.marker;
+    return objective;
+  });
+}
+
 function documentFromForm() {
   const id = form.elements.id.value.trim();
-  const name = { ko_kr: form.elements.nameKo.value.trim() };
-  const summary = { ko_kr: form.elements.summaryKo.value.trim() };
+  const name = { ...state.document?.display_name, ko_kr: form.elements.nameKo.value.trim() };
+  const summary = { ...state.document?.summary, ko_kr: form.elements.summaryKo.value.trim() };
   if (form.elements.nameEn.value.trim()) name.en_us = form.elements.nameEn.value.trim();
   if (form.elements.summaryEn.value.trim()) summary.en_us = form.elements.summaryEn.value.trim();
-  const requiredTools = parseJson("requiredTools");
+  else delete summary.en_us;
+  if (!form.elements.nameEn.value.trim()) delete name.en_us;
   return {
+    // Preserve legacy guidance/next_quests data without exposing unused settings.
+    ...state.document,
     $schema: "../../../schemas/quest.schema.json",
     schema_version: 1,
     id,
@@ -38,13 +88,11 @@ function documentFromForm() {
     summary,
     accept_conditions: {
       condition_mode: form.elements.acceptMode.value,
-      conditions: parseJson("acceptConditions")
+      conditions: conditionEditor.read(acceptEditor)
     },
     ...(state.document?.global_activation ? { global_activation: state.document.global_activation } : {}),
-    objectives: parseJson("objectives"),
-    completion: { mode: form.elements.completionMode.value },
-    ...(requiredTools.length ? { guidance: { required_tools: requiredTools } } : {}),
-    next_quests: form.elements.nextQuests.value.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
+    objectives: objectivesFromEditor(),
+    completion: { mode: form.elements.completionMode.value }
   };
 }
 
@@ -53,7 +101,7 @@ function fill(document = null) {
     id: "cobbleventure:quest/main/new_quest", enabled: true, category: "main",
     display_name: { ko_kr: "새 퀘스트" }, summary: { ko_kr: "퀘스트 설명" },
     accept_conditions: { condition_mode: "all", conditions: [] }, objectives: defaultObjectives,
-    completion: { mode: "npc_turn_in" }, next_quests: []
+    completion: { mode: "npc_turn_in" }
   };
   form.elements.id.value = value.id || "";
   form.elements.category.value = value.category || "side";
@@ -63,11 +111,9 @@ function fill(document = null) {
   form.elements.summaryEn.value = value.summary?.en_us || "";
   form.elements.enabled.checked = value.enabled !== false;
   form.elements.acceptMode.value = value.accept_conditions?.condition_mode || "all";
-  form.elements.acceptConditions.value = JSON.stringify(value.accept_conditions?.conditions || [], null, 2);
-  form.elements.objectives.value = JSON.stringify(value.objectives || defaultObjectives, null, 2);
+  conditionEditor.render(acceptEditor, value.accept_conditions?.conditions || []);
+  renderObjectives(value.objectives || defaultObjectives);
   form.elements.completionMode.value = value.completion?.mode || "npc_turn_in";
-  form.elements.requiredTools.value = JSON.stringify(value.guidance?.required_tools || [], null, 2);
-  form.elements.nextQuests.value = (value.next_quests || []).join("\n");
   $("#editor-title").textContent = value.display_name?.ko_kr || "퀘스트 편집";
   $("#quest-path").textContent = state.path || "새 문서";
 }
@@ -83,7 +129,7 @@ function renderList() {
   const query = $("#quest-search").value.trim().toLowerCase();
   $("#quest-list").innerHTML = state.items.filter(item =>
     `${item.id} ${item.name}`.toLowerCase().includes(query)
-  ).map(item => `<button class="quest-card ${item.path === state.path ? "is-active" : ""}" data-path="${item.path}"><strong>${item.name || item.id}</strong><small>${item.category || "side"} · ${item.id}</small></button>`).join("") || "<small>저장된 퀘스트가 없습니다.</small>";
+  ).map(item => `<button class="quest-card ${item.path === state.path ? "is-active" : ""}" data-path="${escapeHtml(item.path)}"><strong>${escapeHtml(item.name || item.id)}</strong><small>${escapeHtml(item.category || "side")} · ${escapeHtml(item.id)}</small></button>`).join("") || "<small>저장된 퀘스트가 없습니다.</small>";
 }
 
 async function openQuest(path) {
@@ -107,11 +153,14 @@ async function saveQuest() {
     const document = documentFromForm();
     const path = state.path || pathFor(document.id);
     const response = await fetch(`/api/quests?path=${encodeURIComponent(path)}`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(document)
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(document)
     });
     const payload = await response.json();
     showIssues(payload);
-    if (!response.ok || !payload.saved) return;
+    if (!response.ok || !payload.saved) {
+      if (!payload.issues?.length) throw new Error(payload.error || "퀘스트를 저장하지 못했습니다.");
+      return;
+    }
     state.path = payload.path; state.document = document;
     await loadList(); fill(document);
   } catch (error) { showIssues({ issues: [{ path: "$", message: error.message }] }); }
@@ -123,4 +172,25 @@ $("#quest-list").addEventListener("click", event => {
 $("#quest-search").addEventListener("input", renderList);
 $("#new-quest").addEventListener("click", () => { state.path = ""; state.document = null; fill(); renderList(); });
 $("#save-quest").addEventListener("click", saveQuest);
+$("#add-objective").addEventListener("click", () => {
+  const objectives = objectivesFromEditor(false);
+  let index = objectives.length + 1;
+  while (objectives.some(objective => objective.id === `objective_${index}`)) index++;
+  objectives.push({ ...structuredClone(defaultObjectives[0]), id: `objective_${index}` });
+  renderObjectives(objectives);
+});
+$("#quest-objectives").addEventListener("click", event => {
+  const button = event.target.closest("[data-objective-action]");
+  if (!button) return;
+  const cards = [...document.querySelectorAll(".quest-objective")];
+  const index = cards.indexOf(button.closest(".quest-objective"));
+  const objectives = objectivesFromEditor(false);
+  if (button.dataset.objectiveAction === "remove" && objectives.length > 1) objectives.splice(index, 1);
+  else {
+    const next = index + (button.dataset.objectiveAction === "up" ? -1 : 1);
+    if (next >= 0 && next < objectives.length) [objectives[index], objectives[next]] = [objectives[next], objectives[index]];
+  }
+  renderObjectives(objectives);
+});
 fill(); loadList().catch(error => showIssues({issues:[{path:"$",message:error.message}]}));
+conditionEditor.loadCatalogs().catch(error => showIssues({issues:[{path:"$",message:error.message}]}));

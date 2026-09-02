@@ -233,7 +233,11 @@ def save_script(
     wire_ast: object,
     expected_digest: str | None,
     catalog: ResourceCatalog | None = None,
+    *,
+    usage_digest: str | None = None,
 ) -> dict[str, Any]:
+    from .library import check_source_write
+    check_source_write(project_root, relative_path, usage_digest)
     target = resolve_script_path(project_root, relative_path)
     document = validate_ast(wire_ast, relative_path, catalog)
     if not document["valid"]:

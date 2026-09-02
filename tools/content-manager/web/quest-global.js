@@ -1,6 +1,10 @@
 const $ = selector => document.querySelector(selector);
 const form = $("#activation-form");
 const state = { items: [], path: "", document: null };
+const conditionEditor = PlayerConditionEditor;
+const escapeHtml = conditionEditor.escapeHtml;
+const globalEditor = $("#quest-global-conditions");
+conditionEditor.initialize(globalEditor, { includeAlways: true });
 
 function showIssues(issues = []) {
   const box = $("#issues");
@@ -14,9 +18,9 @@ function renderList() {
     item.category === "main" && `${item.id} ${item.name}`.toLowerCase().includes(query)
   );
   $("#quest-list").innerHTML = matches.map(item => `
-    <button class="quest-card ${item.path === state.path ? "is-active" : ""}" data-path="${item.path}">
-      <strong>${item.name || item.id}</strong>
-      <small>${item.global_activation_enabled ? "전역 발동 사용 중" : "NPC/V5 부여만 사용"} · ${item.id}</small>
+    <button class="quest-card ${item.path === state.path ? "is-active" : ""}" data-path="${escapeHtml(item.path)}">
+      <strong>${escapeHtml(item.name || item.id)}</strong>
+      <small>${item.global_activation_enabled ? "전역 발동 사용 중" : "NPC/V5 부여만 사용"} · ${escapeHtml(item.id)}</small>
     </button>`).join("") || "<small>등록된 메인 퀘스트가 없습니다.</small>";
 }
 
@@ -31,7 +35,7 @@ async function loadList() {
 function setEditorEnabled(enabled) {
   form.elements.enabled.disabled = !enabled;
   form.elements.conditionMode.disabled = !enabled;
-  form.elements.conditions.disabled = !enabled;
+  globalEditor.querySelectorAll("button, input, select").forEach(element => { element.disabled = !enabled; });
   $("#save-activation").disabled = !enabled;
 }
 
@@ -41,7 +45,7 @@ function fill(document, path) {
   const activation = document.global_activation || {};
   form.elements.enabled.checked = activation.enabled === true;
   form.elements.conditionMode.value = activation.conditions?.condition_mode || "all";
-  form.elements.conditions.value = JSON.stringify(activation.conditions?.conditions || [], null, 2);
+  conditionEditor.render(globalEditor, activation.conditions?.conditions || []);
   $("#quest-path").textContent = path;
   $("#editor-title").textContent = document.display_name?.ko_kr || document.id;
   setEditorEnabled(true);
@@ -62,7 +66,7 @@ async function saveActivation() {
     if (!state.document || !state.path) return;
     const document = structuredClone(state.document);
     if (form.elements.enabled.checked) {
-      const conditions = JSON.parse(form.elements.conditions.value.trim() || "[]");
+      const conditions = conditionEditor.read(globalEditor);
       if (!Array.isArray(conditions) || conditions.length === 0) {
         throw new Error("전역 발동 조건을 하나 이상 추가해야 합니다.");
       }
@@ -74,13 +78,16 @@ async function saveActivation() {
       delete document.global_activation;
     }
     const response = await fetch(`/api/quests?path=${encodeURIComponent(state.path)}`, {
-      method: "POST",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(document)
     });
     const payload = await response.json();
     showIssues(payload.issues || []);
-    if (!response.ok || !payload.saved) return;
+    if (!response.ok || !payload.saved) {
+      if (!payload.issues?.length) throw new Error(payload.error || "전역 발동 조건을 저장하지 못했습니다.");
+      return;
+    }
     state.document = document;
     await loadList();
     fill(document, payload.path);
@@ -96,3 +103,4 @@ $("#quest-list").addEventListener("click", event => {
 $("#quest-search").addEventListener("input", renderList);
 $("#save-activation").addEventListener("click", saveActivation);
 loadList().catch(error => showIssues([{ path: "$", message: error.message }]));
+conditionEditor.loadCatalogs().then(() => setEditorEnabled(Boolean(state.document))).catch(error => showIssues([{ path: "$", message: error.message }]));

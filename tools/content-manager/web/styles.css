@@ -554,6 +554,13 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .village-decoration-controls { display: none; }
 .village-preview-actions { display: flex; gap: 7px; }
 .house-palette-fields.is-disabled .house-option-grid { opacity: .38; pointer-events: none; }
+.residential-catalog-options { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; max-height:330px; overflow-y:auto; margin-top:10px; }
+.residential-catalog-option { display:flex !important; align-items:flex-start; gap:10px; padding:12px; border:1px solid #bccbd0; border-radius:5px; background:#fff; min-width:0; }
+.residential-catalog-option input[type="checkbox"] { flex:0 0 17px; width:17px !important; min-width:17px; height:17px; min-height:17px; padding:0; margin-top:3px; }
+.residential-catalog-option > span { min-width:0; flex:1; }
+.residential-catalog-option strong,.residential-catalog-option small { display:block; overflow-wrap:anywhere; }
+.residential-catalog-option.is-unavailable { border-color:#c72f43; }
+#legacy-house-palette[hidden],#residential-catalog-panel[hidden],#building-residential-fields[hidden],#building-residential-section[hidden] { display:none; }
 .settlement-classification-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .settlement-classification-fields > label:first-of-type { grid-column: span 3; }
 .town-manual-workspace { position: fixed; inset: 12px; z-index: 120; overflow: hidden; border: 1px solid #9eb1aa; background: #eef4f1; box-shadow: 0 18px 70px rgba(15,34,29,.28); }
@@ -1884,6 +1891,11 @@ body { font-size: 14px; line-height: 1.45; }
 .gacha-machine-editor { display:grid; min-width:0; gap:12px; }
 .gacha-editor-section { display:grid; gap:10px; padding:13px; border:1px solid #d2ddd7; border-radius:7px; background:#fafcfb; }
 .gacha-editor-section > header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.gacha-machine-list > .gacha-casino-set { min-width:0; }
+.gacha-casino-set > .gacha-casino-set-heading { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:4px; min-width:0; }
+.gacha-casino-set-heading > strong { min-width:0; overflow-wrap:anywhere; word-break:keep-all; }
+.gacha-casino-set-heading > code { display:block; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gacha-casino-set .gacha-machine-card code { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .gacha-editor-section h4 { margin:0; color:#2f4b3d; }
 .gacha-field-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
 .gacha-field-grid label { display:grid; min-width:0; gap:4px; color:#5a6e64; font-size:9px; }
@@ -2312,3 +2324,14 @@ body { font-size: 14px; line-height: 1.45; }
 .system-npc-resource-card em { color:#8a9891; font-size:7px; font-style:normal; }
 @media (max-width:720px) { .system-npc-heading{align-items:flex-start;flex-direction:column}.system-npc-summary{width:100%;border-left:0;border-top:1px solid #d2ded8}.system-npc-grid{grid-template-columns:1fr}.system-npc-body{grid-template-columns:105px minmax(0,1fr)}.system-npc-fields{grid-template-columns:1fr}.system-npc-fields label.wide{grid-column:auto}.system-npc-functions,.system-npc-references{grid-template-columns:1fr} }
 @media (max-width:720px) { .system-npc-resource-tools{grid-template-columns:1fr}.system-npc-resource-grid{grid-template-columns:1fr}.system-npc-resource-field{grid-template-columns:1fr} }
+.event-combobox { position: relative; flex: 1; min-width: 220px; }
+.event-combobox > input { width: 100%; }
+#npc-event-options { position: absolute; z-index: 60; top: 100%; left: 0; width: max(100%, 360px); max-width: 80vw; max-height: 320px; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 8px 24px #0002; }
+#npc-event-options button { display: block; width: 100%; text-align: left; padding: 12px; border: 1px solid transparent; border-radius: 6px; background: var(--panel); color: var(--text); white-space: normal; overflow-wrap: anywhere; }
+#npc-event-options button:hover, #npc-event-options button[aria-selected="true"] { border-color: var(--line); background: var(--panel-2); }
+#npc-event-options button:disabled { color: var(--muted); cursor: not-allowed; }
+.authoring-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; }
+.authoring-tabs[hidden] { display: none; }
+.authoring-tabs a { padding: 10px 16px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; text-decoration: none; }
+.authoring-tabs a.is-active { font-weight: 800; border-color: currentColor; }
+#npc-event-return-note { color: var(--muted); font-size: 13px; }

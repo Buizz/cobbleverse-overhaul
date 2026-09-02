@@ -6,7 +6,9 @@
   <title>퀘스트 관리 · Cobbleventure</title>
   <link rel="stylesheet" href="/typography.css">
   <link rel="stylesheet" href="/quest-editor.css">
+  <link rel="stylesheet" href="/quest-conditions.css">
   <link rel="stylesheet" href="/studio-tool-shell.css">
+  <link rel="stylesheet" href="/form-controls.css">
   <script>document.documentElement.classList.toggle("is-embedded", new URLSearchParams(location.search).get("embedded") === "1");</script>
 </head>
 <body>
@@ -35,19 +37,24 @@
         </fieldset>
         <fieldset><legend>부여 조건</legend>
           <label><span>조건 방식</span><select name="acceptMode"><option value="all">모두 만족</option><option value="any">하나 이상 만족</option></select></label>
-          <label class="wide"><span>공용 조건 JSON 배열</span><textarea name="acceptConditions" rows="6">[]</textarea><small>PLAYER_CONDITIONS 규격을 그대로 사용합니다.</small></label>
+          <section class="gate-condition-builder wide" id="quest-accept-conditions">
+            <header><span>부여 조건</span><button type="button" data-gate-condition-add>+ 조건 추가</button></header>
+            <div class="gate-condition-list" data-gate-condition-list></div>
+          </section>
         </fieldset>
         <fieldset><legend>목표</legend>
-          <label class="wide"><span>목표 JSON 배열</span><textarea name="objectives" rows="14"></textarea><small>각 목표는 id, text, conditions를 가집니다.</small></label>
+          <div class="wide objective-toolbar"><span>목표별 안내와 달성 조건</span><button type="button" id="add-objective">+ 목표 추가</button></div>
+          <div class="wide" id="quest-objectives"></div>
         </fieldset>
-        <fieldset><legend>완료와 안내</legend>
+        <fieldset><legend>완료 설정</legend>
           <label><span>완료 방식</span><select name="completionMode"><option value="npc_turn_in">NPC에게 보고</option><option value="automatic">조건 충족 시 자동 완료</option></select></label>
-          <label class="wide"><span>필수 도구 JSON 배열</span><textarea name="requiredTools" rows="5">[]</textarea></label>
-          <label class="wide"><span>후속 퀘스트 ID (한 줄에 하나)</span><textarea name="nextQuests" rows="4"></textarea></label>
         </fieldset>
       </form>
     </section>
   </main>
+  <datalist id="declared-variable-ids"></datalist>
+  <datalist id="declared-item-ids"></datalist>
+  <script src="/player-condition-editor.js"></script>
   <script src="/quest-editor.js"></script>
 </body>
 </html>

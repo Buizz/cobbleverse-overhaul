@@ -573,7 +573,8 @@ def _town_indoor_npc_capacity(
         if not isinstance(house, dict):
             continue
         base, roof = house.get("base"), house.get("roof")
-        building_id = f"cobbleventure:houses/{base}_{roof}"
+        building_id = (f"cobbleventure:houses/{base}_{roof}" if base and roof
+                       else str(house.get("structure", "")))
         setting = buildings.get(building_id)
         capacity = _building_indoor_npc_capacity(project_root, setting) if isinstance(setting, dict) else 0
         placed.append({"building": str(house.get("id", building_id)), "structure": building_id, "capacity": capacity})
@@ -1687,6 +1688,60 @@ def _structure_door_safe_side(
     return directions[(directions.index(authored_side) + turns) % 4]
 
 
+def _residential_catalog_candidates(
+    root: Path | None, generation: dict[str, object],
+) -> list[dict[str, object]]:
+    """Resolve authored NBTs from the shared building catalog, never a name template."""
+    if root is None or not (root / BUILDING_SETTINGS_SOURCE).is_file():
+        raise ModBuildError("NBT 주택 카탈로그를 사용하려면 건물 설정이 필요합니다.")
+    document = _read_cached_json(root / BUILDING_SETTINGS_SOURCE)
+    buildings = document.get("buildings", {})
+    selected = generation.get("residential_structures")
+    if not isinstance(buildings, dict):
+        raise ModBuildError("주택 카탈로그의 buildings는 객체여야 합니다.")
+    if selected is not None and (
+        not isinstance(selected, list) or any(not isinstance(item, str) for item in selected)
+        or len(selected) != len(set(selected))
+    ):
+        raise ModBuildError("주택 NBT 목록은 중복 없는 ID 배열이어야 합니다.")
+    candidates = []
+    for structure, settings in sorted(buildings.items()):
+        if selected is not None and structure not in selected:
+            continue
+        if not isinstance(settings, dict):
+            raise ModBuildError(f"건물 설정은 객체여야 합니다: {structure}")
+        placement = settings.get("residential_placement", {})
+        if not isinstance(placement, dict) or placement.get("enabled") is not True:
+            continue
+        weight = placement.get("weight", 1)
+        if isinstance(weight, bool) or not isinstance(weight, int) or not 1 <= weight <= 1000:
+            raise ModBuildError(f"주택 가중치는 1~1000 정수여야 합니다: {structure}")
+        size = _managed_structure_size(root, structure)
+        if size is None:
+            raise ModBuildError(f"주택 NBT 원본을 찾을 수 없습니다: {structure}")
+        if settings.get("structure_category") in {"interior", "gym_interior"} or ":interiors/" in structure:
+            raise ModBuildError(f"내부공간 NBT는 주택 외관으로 배치할 수 없습니다: {structure}")
+        candidates.append({"structure": structure, "weight": weight,
+                           "width": size[0], "depth": size[1],
+                           "label": placement.get("label") or structure.split("/")[-1]})
+    if selected is not None:
+        unavailable = set(selected) - {item["structure"] for item in candidates}
+        if unavailable:
+            raise ModBuildError("사용할 수 없는 주택 NBT입니다: " + ", ".join(sorted(unavailable)))
+    if not candidates:
+        raise ModBuildError("자동 배치할 주택 NBT가 없습니다. NBT 건물 설정에서 후보를 등록하세요.")
+    return candidates
+
+
+def _weighted_residential_candidate(candidates: list[dict[str, object]], roll: float) -> dict[str, object]:
+    remaining = roll * sum(int(item["weight"]) for item in candidates)
+    for item in candidates:
+        remaining -= int(item["weight"])
+        if remaining < 0:
+            return item
+    return candidates[-1]
+
+
 def _compile_town_layout_attempt(
     data: dict[str, object], seed_override: int | None = None,
     root: Path | None = None,
@@ -2355,12 +2410,30 @@ def _compile_town_layout_attempt(
         plot["structure"] = structure
         facilities[identifier] = plot
     houses: list[dict[str, object]] = []
+    catalog_mode = generation.get("residential_source", "legacy") == "catalog"
+    catalog = (_residential_catalog_candidates(root, generation)
+               if catalog_mode and generation.get("residential_buildings_enabled", True) else [])
     base_house_target = min(36, max(12, 6 + depth * 5)) if cell_count == 19 else min(18, max(4, 3 + depth * 3))
     house_target = (
         max(2, round(base_house_target * float(density["multiplier"])))
         if generation.get("residential_buildings_enabled", True) else 0
     )
     for index in range(house_target):
+        if catalog_mode:
+            candidate = _weighted_residential_candidate(catalog, random.next_double())
+            structure = str(candidate["structure"])
+            width, plot_depth = int(candidate["width"]), int(candidate["depth"])
+            occupied_bounds = _managed_structure_occupied_bounds(root, structure, width, plot_depth)
+            facing = _structure_authored_door_side(structure, root)
+            plot = place_plot(
+                f"house_{index + 1}", width, plot_depth, len(slots) * 2,
+                authored_entrance_facing=facing or "north", balance_cells=True,
+                occupied_bounds=occupied_bounds,
+            )
+            if plot is not None:
+                plot.update({"structure": structure, "label": candidate["label"]})
+                houses.append(plot)
+            continue
         base_id = house_bases[int(random.next_double() * len(house_bases))]
         roof_id = house_roofs[int(random.next_double() * len(house_roofs))]
         roof_color = house_roof_colors[int(random.next_double() * len(house_roof_colors))]

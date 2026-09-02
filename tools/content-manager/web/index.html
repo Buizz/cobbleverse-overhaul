@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/economy.css">
     <link rel="stylesheet" href="/typography.css">
+    <link rel="stylesheet" href="/form-controls.css">
   </head>
   <body>
     <div id="project-loading-overlay" class="project-loading-overlay" role="status" aria-live="polite" aria-busy="true">
@@ -69,9 +70,13 @@
             <button class="nav-item" data-section="definitions">게임 데이터</button>
             <button class="nav-item" data-section="economy">경제 · 제작</button>
             <button class="nav-item" data-section="casino-config">카지노 설정</button>
-            <a class="nav-link" href="/quests.html" data-tool-title="퀘스트 관리">퀘스트 관리</a>
-            <a class="nav-link" href="/quest-global.html" data-tool-title="메인 퀘스트 전역 발동">메인 퀘스트 전역 발동</a>
-            <a class="nav-link" href="/main-quest-flow.html" data-tool-title="메인 퀘스트 진행 순서">메인 퀘스트 진행 순서</a>
+          </div>
+        </section>
+        <section class="nav-group" data-nav-group="story">
+          <button class="nav-group-toggle" type="button" aria-expanded="false"><strong>스토리 · 이벤트</strong><i aria-hidden="true">⌄</i></button>
+          <div class="nav-group-items" hidden>
+            <a class="nav-link" href="/cves.html" data-tool-title="이벤트 라이브러리">이벤트 라이브러리</a>
+            <a class="nav-link" href="/quests.html" data-tool-title="퀘스트">퀘스트</a>
           </div>
         </section>
         <section class="nav-group" data-nav-group="resources">
@@ -79,7 +84,6 @@
           <div class="nav-group-items" hidden>
             <button class="nav-item" data-section="music">음악 설정</button>
             <button class="nav-item" data-section="global-resources">전역 리소스</button>
-            <a class="nav-link" href="/cves.html" data-tool-title="이벤트 스크립트 V5">이벤트 스크립트 V5</a>
             <button class="nav-item" data-section="builds">빌드 작업</button>
           </div>
         </section>
@@ -113,6 +117,12 @@
       </section>
 
       <section class="page embedded-tool-page" id="embedded-tool" aria-label="도구 편집 화면">
+        <nav id="quest-workspace-tabs" class="authoring-tabs" aria-label="퀘스트 작업" hidden>
+          <a href="/quests.html" data-tool-title="퀘스트 · 목록과 목표">목록과 목표</a>
+          <a href="/quest-global.html" data-tool-title="퀘스트 · 전역 발동">전역 발동</a>
+          <a href="/main-quest-flow.html" data-tool-title="퀘스트 · 진행 순서">진행 순서</a>
+        </nav>
+        <p id="npc-event-return-note" hidden>NPC의 저장 전 변경과 이벤트 편집 상태는 화면을 돌아가도 유지됩니다. 저장은 각 화면에서 별도로 진행하세요.</p>
         <div id="embedded-tool-frames" class="embedded-tool-frames"></div>
       </section>
 
@@ -149,7 +159,7 @@
             <div class="event-design-mode event-trigger-editor">
               <label class="wide"><span>이벤트 실행 방식</span><select id="event-runtime-engine" disabled><option value="cves_v5">CVES V5 — 기본 실행 엔진</option><option value="easy_npc_v4" hidden>EasyNPC V4 — 읽기 전용 호환</option></select><small id="event-runtime-help">행동 프리셋과 사용자 정의 트리는 모두 CVES V5로 실행됩니다.</small></label>
               <label class="wide"><span>설계 방식</span><select id="event-design-mode" disabled><option value="preset">행동 프리셋 사용</option><option value="cves_custom" disabled>CVES 사용자 정의 트리 — V5 고급</option><option value="easy_npc_events" hidden disabled>EasyNPC 직접 이벤트 — V4 읽기 전용</option></select><small>표준 NPC는 행동 프리셋을 사용하고, 특수 NPC만 사용자 정의 CVES로 전환합니다.</small></label>
-              <label class="wide" id="event-script-link" hidden><span>연결된 V5 이벤트</span><div class="inline-field"><input id="event-script-id" readonly disabled><button class="button secondary" id="preview-cves-event" type="button" disabled>저장 결과 미리보기</button><button class="button secondary" id="customize-cves-event" type="button" disabled>사용자 정의로 전환</button><button class="button secondary" id="open-cves-event" type="button" disabled>트리 열기</button></div><small id="event-script-help">행동 프리셋을 저장하면 이 CVES와 바인딩이 자동으로 갱신됩니다.</small></label>
+              <div class="wide" id="event-script-link" hidden><label for="event-script-id">연결된 V5 이벤트 — 검색 후 선택</label><div class="inline-field"><div class="event-combobox"><input id="event-script-id" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="npc-event-options" autocomplete="off" disabled><div id="npc-event-options" role="listbox" aria-label="연결할 이벤트" hidden></div></div><button class="button secondary" id="preview-cves-event" type="button" disabled>저장 결과 미리보기</button><button class="button secondary" id="customize-cves-event" type="button" disabled>사용자 정의로 전환</button><button class="button secondary" id="open-cves-event" type="button" disabled>이벤트 바로 편집</button></div><small id="event-script-help">행동 프리셋을 저장하면 이 CVES와 바인딩이 자동으로 갱신됩니다.</small></div>
             </div>
             <section class="event-cves-preview" id="event-cves-preview" hidden><header><div><strong>V5 저장 결과 미리보기</strong><small id="event-cves-preview-summary">파일은 아직 변경되지 않았습니다.</small></div><button class="button secondary" id="close-cves-preview" type="button">닫기</button></header><div id="event-cves-preview-artifacts"></div><pre id="event-cves-preview-diff"></pre></section>
             <div class="event-trigger-editor" id="event-trigger-editor">
@@ -836,7 +846,16 @@
               <label><span>마을 크기</span><select name="townRadiusCells" disabled><option value="1">1칸 · 소규모 거점</option><option value="3">3칸 · 일반 마을</option><option value="5">5칸 · 확장 마을</option><option value="7">7칸 · 대형 도시</option><option value="19">19칸 · 광역 대도시</option></select><small>마을이 실제 월드맵에서 점유할 육각 타일 수입니다.</small></label><label><span>마을 배치 형태</span><select name="townFootprintShape" disabled><option value="triangle_up">윗삼각형</option><option value="triangle_down">아랫삼각형</option><option value="line_q">가로 일자</option><option value="line_r">우하향 대각선</option><option value="line_s">우상향 대각선</option><option value="five_up">위 확장</option><option value="five_down">아래 확장</option><option value="custom">커스텀 · 직접 타일 편집</option></select><small>커스텀은 자동 생성 범위와 외부 도로 출구를 직접 지정합니다.</small></label>
               <section class="custom-town-layout wide" id="custom-town-layout" hidden><header><div><strong>커스텀 마을 점유 타일</strong><small>건물과 내부 도로는 자동 생성됩니다. 타일 배치와 외부 월드 도로가 접속할 출구만 직접 지정하세요.</small></div><div class="custom-town-tools"><button type="button" class="is-active" data-custom-town-tool="cell">타일 배치</button><button type="button" data-custom-town-tool="exit">외부 출구</button><button type="button" data-custom-town-reset>초기화</button></div></header><svg id="custom-town-layout-map" viewBox="0 0 620 420" role="img" aria-label="커스텀 마을 육각 타일 편집기"></svg><div class="custom-town-layout-summary" id="custom-town-layout-summary"></div></section>
               <fieldset class="wide town-layout-fields"><legend>마을 형태 · 도로</legend><label><span>십자형 분기 성향</span><select name="townLayoutShape" disabled><option value="branching">분기형 · 자연스러운 기본 마을</option><option value="linear">선형 · 해안과 계곡</option><option value="radial">방사형 · 중심 도시</option><option value="loop">고리형 · 공원과 호수 주변</option><option value="terraced">계단형 · 산악 마을</option></select></label><label><span>도로 골격 템플릿</span><select name="townRoadLayoutTemplate" disabled><option value="cross">십자 분기형 · 현재 기본형</option><option value="grid">격자형 · 井자 도로</option><option value="spine">간선형 · 긴 중심도로와 지선</option><option value="ring">환상형 · 외곽 순환도로</option></select></label><div class="town-layout-note"><strong>도로 골격과 세부 분기 성향을 따로 지정합니다.</strong><span>템플릿 도로는 실제 육각 타일 내부에 맞춰 자동으로 잘립니다.</span></div><label><span>시설 연결 도로 폭</span><select name="townRoadWidth" disabled><option value="3">3블록 · 골목</option><option value="5">5블록 · 소형 도로</option><option value="7">7블록 · 일반 도로</option><option value="9">9블록 · 주도로</option></select></label><label><span>도로 노면</span><select name="townRoadMaterial" disabled><option value="cobblestone">조약돌</option><option value="stone_bricks">석재 벽돌</option><option value="gravel">자갈</option><option value="packed_mud">단단한 진흙</option><option value="sandstone">사암</option><option value="snow">설원석</option></select></label><section class="village-generation-test wide" aria-labelledby="village-generation-title"><header><div><strong id="village-generation-title">마을 생성 테스트</strong><small>여기에 표시되는 동일한 시드·도로·시설·기본 건물 NBT 배치를 인게임 생성기가 사용합니다.</small></div><button type="button" class="button secondary" id="regenerate-village-preview" disabled>다시 생성</button></header><div class="village-generation-controls"><label><span>생성 시드</span><input type="number" name="villagePreviewSeed" value="1" min="1" max="999999999" disabled></label><label><span>도로 확장 깊이</span><input type="number" name="villagePreviewDepth" value="4" min="1" max="7" disabled></label></div><div class="village-decoration-controls"><select id="town-decoration-type"><option value="street_lamp">가로등</option><option value="street_tree">가로수</option><option value="bench">벤치</option><option value="flower_bed">화단</option><option value="fountain">분수대</option></select><select id="town-decoration-rotation"><option value="none">0°</option><option value="clockwise_90">90°</option><option value="clockwise_180">180°</option><option value="counterclockwise_90">270°</option></select><button type="button" id="town-decoration-convert">현재 자동 배치 가져오기</button><button type="button" id="town-decoration-add">지도에 추가</button><button type="button" id="town-decoration-delete">선택 삭제</button><span id="town-decoration-status">자동 배치 미리보기</span></div><canvas id="village-generation-canvas" width="900" height="520" role="img" aria-label="마인크래프트 방식의 마을 생성 테스트 결과"></canvas><div class="village-generation-summary" id="village-generation-summary">마을을 선택하면 생성 테스트가 실행됩니다.</div></section></fieldset>
-              <fieldset class="wide house-palette-fields"><legend>주택 구성</legend><p class="house-palette-help wide">선택한 기본 골격·지붕 형태·지붕 색상을 조합해 주택마다 다른 구조물 NBT를 배치합니다. 각 그룹에서 하나 이상 선택해야 합니다.</p><section><strong>기본 골격</strong><div id="house-base-options" class="house-option-grid"></div></section><section><strong>지붕 형태</strong><div id="house-roof-options" class="house-option-grid"></div></section><section class="wide"><strong>지붕 색상</strong><div id="house-color-options" class="house-option-grid house-color-grid"></div></section></fieldset>
+              <fieldset class="wide house-palette-fields"><legend>주택 구성</legend>
+                <label class="wide"><span>주택 선택 방식</span><select name="residentialSource" disabled><option value="catalog">NBT 주택 카탈로그</option><option value="legacy">기존 층수·지붕 조합 (호환)</option></select></label>
+                <section id="residential-catalog-panel" class="wide" hidden>
+                  <p>‘NBT 건물 설정’에서 자동 배치에 등록한 NBT를 원본 크기와 가중치로 배치합니다. 지붕 색상을 자동 변경하지 않습니다.</p>
+                  <label class="toggle"><input type="checkbox" name="residentialUseAll" checked><span>활성화된 공통 주택 전체 사용</span></label>
+                  <label><span>주택 검색</span><input id="residential-catalog-search" type="search" placeholder="표시 이름 · NBT ID"></label>
+                  <div id="residential-catalog-options" class="residential-catalog-options"></div>
+                </section>
+                <div id="legacy-house-palette" class="wide form-grid compact-grid"><p class="house-palette-help wide">기존 마을의 주택 조합을 유지하는 호환 설정입니다.</p><section><strong>기본 골격</strong><div id="house-base-options" class="house-option-grid"></div></section><section><strong>지붕 형태</strong><div id="house-roof-options" class="house-option-grid"></div></section><section class="wide"><strong>지붕 색상</strong><div id="house-color-options" class="house-option-grid house-color-grid"></div></section></div>
+              </fieldset>
               <fieldset class="wide facility-catalog-fields"><legend>필수 시설 옵션</legend><p class="facility-catalog-help wide">시설을 체크하면 지정한 수량만큼 반드시 생성됩니다. NBT를 비워 두면 NBT 건물 설정의 전역 기본값을 사용합니다.</p><div class="civic-facility-options wide"><label class="toggle"><input type="checkbox" name="pokemonCenterEnabled" disabled><span>포켓몬센터 배치</span></label><label><span>상업 시설</span><select name="commercialFacility" disabled><option value="none">없음</option><option value="pokemart">포켓몬상점</option><option value="department_store">백화점</option></select><small>포켓몬상점과 백화점은 둘 중 하나만 선택할 수 있습니다.</small></label><label><span>포켓몬센터 NBT</span><input name="townPokemonCenterStructure" list="facility-nbt-options" placeholder="전역 기본값" disabled><small id="pokemon-center-structure-default">전역 기본값을 사용합니다.</small></label><label><span>상업 시설 NBT</span><input name="commercialFacilityStructure" list="facility-nbt-options" placeholder="전역 기본값" disabled><small id="commercial-structure-default">선택한 시설의 전역 기본값을 사용합니다.</small></label><small class="wide">마을별 NBT를 지정하면 전역값보다 우선합니다. 시작 마을은 포켓몬센터와 상업 시설이 자동으로 비활성화됩니다.</small></div><section class="gym-facility-panel wide" id="gym-config-fields"><header><label class="toggle"><input type="checkbox" name="gymEnabled" disabled><span>체육관 배치</span></label><small>마을에서는 체육관 종류만 선택합니다. 관장과 기타 트레이너는 체육관 관리에서 전역으로 지정합니다.</small></header><div class="gym-facility-grid"><label class="wide"><span>체육관 종류</span><select name="gymId" disabled><option value="">체육관을 선택하세요</option></select></label><input type="hidden" name="gymAnchor" value="gym_building"></div></section><div id="facility-option-list" class="facility-option-list wide"></div></fieldset>
               <datalist id="facility-nbt-options"></datalist>
               <fieldset class="wide" id="special-district-fields"><legend>특별 건물</legend><label class="toggle wide"><input type="checkbox" name="specialBuildingEnabled" disabled><span>특별 건물 배치</span></label><label class="wide"><span>특별 건물 선택</span><select name="specialBuildingPreset" disabled><option value="">직접 입력</option><option value="cobbleventure:placeholder/player_house">플레이어 집</option></select><small>NBT 건물 설정에서 ‘임시·특수 건물’로 복사한 외부 NBT가 자동으로 표시되며 실제 크기로 부지를 준비합니다.</small></label><label class="wide"><span>구조물 리소스 ID</span><input name="specialBuildingStructure" placeholder="cobbleventure:placeholder/radio_tower" disabled><small>구조물 템플릿 크기를 읽어 필요한 부지를 자동으로 준비합니다.</small></label><label class="wide"><span>배치 위치</span><select name="specialDistrictPlacementMode" disabled><option value="auto">자동 · 프리셋 기본 위치</option><option value="manual">직접 지정</option></select><small>자동은 프리셋의 기본 위치를 유지하고, 직접 지정할 때만 마을 중심 기준 오프셋을 입력합니다.</small></label><details class="advanced-settings wide"><summary>고급 설정</summary><div class="form-grid compact-grid"><label data-special-manual><span>오프셋 X</span><input type="number" name="specialDistrictX" disabled></label><label data-special-manual><span>오프셋 Y</span><input type="number" name="specialDistrictY" disabled></label><label data-special-manual><span>오프셋 Z</span><input type="number" name="specialDistrictZ" disabled></label><label><span>최소 폭</span><input type="number" min="8" max="192" name="specialDistrictWidth" disabled></label><label><span>최소 깊이</span><input type="number" min="8" max="192" name="specialDistrictDepth" disabled></label><label><span>주변 여유 폭</span><input type="number" min="0" max="32" name="specialDistrictClearance" disabled></label><small class="wide">최소 폭·깊이는 템플릿보다 넓은 부지가 필요할 때만 사용합니다. 실제 구조물이 더 크면 자동으로 확장됩니다.</small></div></details></fieldset>
@@ -1014,6 +1033,15 @@
                     <button class="button secondary" id="resize-building-nbt" type="button">NBT 크기 적용</button>
                   </div>
                   <small>내부공간은 현재 층수를 유지하므로 새 높이가 층수로 나누어져야 합니다. 변경 후 건축 팩을 다시 빌드하세요.</small>
+                </section>
+                <section class="building-space-editor" id="building-residential-section">
+                  <header><div><strong>주택 자동 배치 카탈로그</strong><small>층수·파일명에 관계없이 이 NBT를 주택 자동 배치 후보로 등록합니다.</small></div></header>
+                  <label class="toggle"><input type="checkbox" id="building-residential-enabled"><span>주택 자동 배치에 사용</span></label>
+                  <div id="building-residential-fields" class="form-grid compact-grid" hidden>
+                    <label class="wide"><span>표시 이름</span><input id="building-residential-label" maxlength="64" placeholder="비워 두면 NBT 파일명"></label>
+                    <label><span>선택 가중치</span><input id="building-residential-weight" type="number" min="1" max="1000" step="1" value="1"></label>
+                    <small>가중치 2인 주택은 1인 주택보다 두 배 자주 추첨됩니다. 실제 배치는 부지 크기에 따라 달라집니다.</small>
+                  </div>
                 </section>
                 <section class="building-space-editor" id="building-town-placement-section">
                   <header><div><strong>마을 배치 목록</strong><small>이 NBT를 마을 관리의 ‘필수 시설 옵션’ 목록에 노출합니다.</small></div></header>
@@ -1626,6 +1654,7 @@
       </form>
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/player-condition-editor.js"></script>
     <script type="module" src="/app.js"></script>
     <script type="module" src="/space-connections.js"></script>
   </body>

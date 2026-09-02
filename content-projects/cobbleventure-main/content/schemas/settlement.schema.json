@@ -507,6 +507,12 @@
             "depth": { "type": "integer", "minimum": 1, "maximum": 7 },
             "building_density": { "enum": ["sparse", "normal", "dense", "packed"] },
             "residential_buildings_enabled": { "type": "boolean", "default": true },
+            "residential_source": { "enum": ["legacy", "catalog"], "default": "legacy" },
+            "residential_structures": {
+              "type": "array", "uniqueItems": true,
+              "description": "생략하면 활성화된 공통 주택 카탈로그 전체를 사용합니다.",
+              "items": { "$ref": "#/$defs/resource_id" }
+            },
             "basic_buildings": {
               "type": "array",
               "minItems": 0,

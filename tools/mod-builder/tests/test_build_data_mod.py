@@ -22,6 +22,90 @@ sys.modules[SPEC.name] = build_data_mod
 SPEC.loader.exec_module(build_data_mod)
 
 
+class ResidentialCatalogTests(unittest.TestCase):
+    def fixture(self, root):
+        structure = root / build_data_mod.CONTENT_ROOT / "structures/custom/cottage.nbt"
+        structure.parent.mkdir(parents=True)
+        authored = PROJECT_ROOT / "content/structures/houses/one_story_gable.nbt"
+        structure.write_bytes(authored.read_bytes())
+        structure.with_suffix(".structure.json").write_text(json.dumps({
+            "anchors": [{"type": "door", "position": [2, 3, 3],
+                         "safe_spawn": [1, 3, 3], "door_facing": "west", "safe_side": "west"}],
+        }), encoding="utf-8")
+        catalog = root / build_data_mod.BUILDING_SETTINGS_SOURCE
+        catalog.parent.mkdir(parents=True)
+        catalog.write_text(json.dumps({"buildings": {
+            "cobbleventure:custom/cottage": {"residential_placement": {
+                "enabled": True, "weight": 3, "label": "맞춤 주택"}},
+            "cobbleventure:missing/disabled": {"residential_placement": {"enabled": False}},
+        }}), encoding="utf-8")
+        source = json.loads((PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(encoding="utf-8"))
+        profile = source["structure_profile"]
+        profile["layout_mode"] = "automatic"
+        profile["facility_requirements"] = []
+        profile["facility_placements"] = []
+        profile["pokemon_center_enabled"] = False
+        profile["commercial_center"] = "none"
+        profile["gym"] = {"enabled": False}
+        profile["special_district"] = {"enabled": False}
+        profile["generation_profile"]["residential_source"] = "catalog"
+        return source
+
+    def test_custom_nbt_compiles_deterministically_with_real_dimensions_and_door(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.fixture(root)
+            layout = build_data_mod._compile_town_layout(source, root=root)
+            self.assertEqual(layout, build_data_mod._compile_town_layout(source, root=root))
+            self.assertTrue(layout["houses"])
+            for house in layout["houses"]:
+                self.assertEqual("cobbleventure:custom/cottage", house["structure"])
+                self.assertNotIn("base", house)
+                self.assertEqual(build_data_mod._managed_structure_size(root, house["structure"]), (house["width"], house["depth"]))
+                self.assertEqual(build_data_mod._rotation_between_facings("west", house["entrance_facing"]), house["rotation"])
+                self.assertIsNotNone(build_data_mod._plot_door_position(house, root))
+            self.assertTrue(layout["access_roads"])
+
+    def test_missing_or_disabled_selection_fails_instead_of_using_legacy_houses(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.fixture(root)
+            for selected in [[], ["cobbleventure:missing/disabled"], ["cobbleventure:deleted/house"]]:
+                source["structure_profile"]["generation_profile"]["residential_structures"] = selected
+                with self.subTest(selected=selected), self.assertRaises(build_data_mod.ModBuildError):
+                    build_data_mod._compile_town_layout(source, root=root)
+
+    def test_residential_disabled_does_not_require_catalog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = self.fixture(Path(directory))
+            source["structure_profile"]["generation_profile"]["residential_buildings_enabled"] = False
+            self.assertEqual([], build_data_mod._compile_town_layout(source)["houses"])
+
+    def test_weighted_selection_uses_relative_weights(self):
+        choices = [{"structure": "a", "weight": 1}, {"structure": "b", "weight": 3}]
+        self.assertEqual("a", build_data_mod._weighted_residential_candidate(choices, 0.249)["structure"])
+        self.assertEqual("b", build_data_mod._weighted_residential_candidate(choices, 0.25)["structure"])
+        self.assertEqual("b", build_data_mod._weighted_residential_candidate(choices, 0.999)["structure"])
+
+    def test_legacy_palette_still_uses_same_variant_without_catalog(self):
+        source = json.loads((PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json").read_text(encoding="utf-8"))
+        source["structure_profile"]["generation_profile"]["house_palette"] = {
+            "bases": ["five_story"], "roofs": ["flat"], "roof_colors": ["black"]}
+        houses = build_data_mod._compile_town_layout(source)["houses"]
+        self.assertTrue(houses)
+        self.assertEqual({"cobbleventure:houses/five_story_flat_black"}, {house["structure"] for house in houses})
+
+    def test_custom_house_npc_capacity_uses_exact_structure_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            with mock.patch.object(build_data_mod, "_building_indoor_npc_capacity", return_value=4):
+                capacity = build_data_mod._town_indoor_npc_capacity(root, {}, {
+                    "houses": [{"id": "house_1", "structure": "cobbleventure:custom/cottage"}],
+                }, resolved_auto_npcs={"placements": []})
+            self.assertEqual(4, capacity["available"])
+
+
 class TownNpcCapacityUnitTests(unittest.TestCase):
     def test_npc_profile_packages_actual_entity_runtime_data(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

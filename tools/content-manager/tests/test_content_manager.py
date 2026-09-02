@@ -46,6 +46,37 @@ def dungeon_cave_terrain(bounds: list[int]) -> dict[str, object]:
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_residential_catalog_settings_roundtrip_and_lightweight_listing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/custom/cottage.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((20, 18, 24)))
+            placement = {"enabled": True, "weight": 7, "label": "맞춤 주택"}
+            document = {"schema_version": 1, "buildings": {
+                "cobbleventure:custom/cottage": {"residential_placement": placement, "citizen_placement_allowed": False},
+            }}
+            issues = content_manager.save_building_settings(root, document)
+            self.assertFalse([issue for issue in issues if issue.level == "error"], issues)
+            self.assertEqual(placement, content_manager.building_settings_payload(root)["structures"]["cobbleventure:custom/cottage"]["settings"]["residential_placement"])
+            with mock.patch.object(content_manager, "read_minecraft_structure_metadata", side_effect=AssertionError("NBT scan")):
+                self.assertEqual([{"structure": "cobbleventure:custom/cottage", "weight": 7, "label": "맞춤 주택"}], content_manager.residential_catalog_payload(root)["entries"])
+            placement["enabled"] = False
+            content_manager.save_building_settings(root, document)
+            self.assertEqual([], content_manager.residential_catalog_payload(root)["entries"])
+
+    def test_residential_catalog_rejects_invalid_weight_and_interior(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/interiors/room.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((16, 8, 16)))
+            for weight in [0, -1, True, 1.5, 1001, 1]:
+                issues = content_manager.save_building_settings(root, {"schema_version": 1, "buildings": {
+                    "cobbleventure:interiors/room": {"residential_placement": {"enabled": True, "weight": weight, "label": "방"}},
+                }})
+                self.assertTrue(any(issue.level == "error" and "residential_placement" in issue.path for issue in issues))
+
     def test_world_route_anchor_insertion_controls_are_exposed(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
@@ -3503,8 +3534,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('customObject.type === "gate" ? "gate" : "object"', script)
         self.assertIn('id="object-tool-condition-builder"', page)
         self.assertIn('id="inspector-gate-condition-builder"', page)
-        self.assertIn('["badge", "배지 클리어"]', script)
-        self.assertIn('["party_count", "파티 포켓몬 수"]', script)
+        condition_script = (CORE_ROOT / "tools/content-manager/web/player-condition-editor.js").read_text(encoding="utf-8")
+        self.assertIn('src="/player-condition-editor.js"', page)
+        self.assertIn('PlayerConditionEditor.initialize(editor)', script)
+        self.assertIn('["badge", "배지 클리어"]', condition_script)
+        self.assertIn('["party_count", "파티 포켓몬 수"]', condition_script)
         self.assertNotIn('id="object-tool-conditions"', page)
         self.assertNotIn('id="object-tool-building-enabled"', page)
         self.assertIn('id="object-tool-surrounding-type"', page)
@@ -5425,6 +5459,10 @@ class ContentManagerTests(unittest.TestCase):
         html = (web_root / "index.html").read_text(encoding="utf-8")
         script = (web_root / "app.js").read_text(encoding="utf-8")
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
+        self.assertIn('class="gacha-casino-set-heading"', script)
+        self.assertIn('code title="${escapeHtml(set.id)}"', script)
+        self.assertIn('.gacha-casino-set > .gacha-casino-set-heading { display:grid; grid-template-columns:minmax(0,1fr);', styles)
+        self.assertIn('.gacha-casino-set-heading > strong { min-width:0; overflow-wrap:anywhere; word-break:keep-all; }', styles)
 
         self.assertIn('data-section="casino-config"', html)
         self.assertIn('data-section="casino-config">카지노 설정', html)
@@ -8031,6 +8069,7 @@ class ContentManagerTests(unittest.TestCase):
                 "buildings": {
                     "cobbleventure:houses/test_house": {
                         "fixed_npcs": {}, "citizen_placement_allowed": False,
+                        "residential_placement": {"enabled": True, "weight": 5, "label": "연결 주택"},
                         "interiors": [{"key": "main", "structure": "cobbleventure:interiors/test_room"}],
                         "door_routes": {"exterior:front": {"space": "main", "door": "back"}},
                     },
@@ -8131,6 +8170,8 @@ class ContentManagerTests(unittest.TestCase):
                 "schema_version": 1, "graphs": [graph],
             })
             self.assertFalse(any(issue.level == "error" for issue in legacy_save_issues), legacy_save_issues)
+            self.assertEqual({"enabled": True, "weight": 5, "label": "연결 주택"},
+                             content_manager.load_building_settings(root)["buildings"]["cobbleventure:houses/test_house"]["residential_placement"])
             preserved_metadata = json.loads(interior.with_suffix(".structure.json").read_text(encoding="utf-8"))
             preserved_basement = next(anchor for anchor in preserved_metadata["anchors"] if anchor["label"] == "basement")
             self.assertEqual("door", preserved_basement["type"])

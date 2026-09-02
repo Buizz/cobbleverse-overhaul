@@ -6,11 +6,12 @@
     <title>CVES 이벤트 편집기 · Cobbleventure</title>
     <meta name="description" content="공통 CVES AST 기반 NPC 이벤트 트리 편집기">
     <link rel="stylesheet" href="/typography.css">
-    <link rel="stylesheet" href="/cves-editor.css">
     <link rel="stylesheet" href="/studio-tool-shell.css">
+    <link rel="stylesheet" href="/cves-editor.css">
+    <link rel="stylesheet" href="/form-controls.css">
     <script>document.documentElement.classList.toggle("is-embedded", new URLSearchParams(location.search).get("embedded") === "1");</script>
   </head>
-  <body>
+  <body class="cves-workspace">
     <header class="studio-header">
       <div class="title-group">
         <a href="/" class="back-link" aria-label="Content Studio로 돌아가기">←</a>
@@ -18,6 +19,8 @@
       </div>
       <div class="header-actions">
         <span id="document-state" class="state-pill">문서 선택 대기</span>
+        <button id="return-to-npc" class="button secondary" type="button" hidden>← NPC로 돌아가기</button>
+        <button id="duplicate-script" class="button secondary" type="button" disabled>복사본 만들기</button>
         <button id="validate-ast" class="button secondary" type="button" disabled>트리 검증</button>
         <button id="save-script" class="button primary" type="button" disabled>CVES 저장</button>
       </div>
@@ -27,6 +30,9 @@
       <aside class="script-column panel">
         <div class="panel-heading"><div><small>AUTHORITY SOURCES</small><h2>.cves 원본</h2></div><div class="compact-actions"><button id="new-script" class="icon-button" type="button" title="새 CVES 원본">＋</button><button id="refresh-scripts" class="icon-button" type="button" title="목록 새로고침">↻</button></div></div>
         <p class="panel-help">Git에서 관리되는 V5 원본만 표시합니다. V4 NPC 파일은 변경하지 않습니다.</p>
+        <label class="field"><span>이벤트 검색</span><input id="library-search" type="search" placeholder="이름, ID, 태그, NPC 이름"></label>
+        <label class="field"><span>분류</span><select id="library-category"><option value="">전체 분류</option><option value="npc">NPC</option><option value="quest">퀘스트</option><option value="region">지역</option><option value="common">공통</option><option value="system">시스템</option></select></label>
+        <label class="field"><span>관리 방식</span><select id="library-management"><option value="">전체</option><option value="preset">행동 프리셋 관리</option><option value="custom">사용자 정의</option></select></label>
         <div id="script-list" class="script-list" role="listbox" aria-label="CVES 스크립트"></div>
       </aside>
 
@@ -57,6 +63,18 @@
       </aside>
     </main>
 
+    <section class="panel library-details" id="library-details" hidden>
+      <div class="panel-heading"><h2>이벤트 정보와 사용처</h2><button id="save-metadata" class="button secondary" type="button" disabled>분류 정보 저장</button></div>
+      <p id="library-protection" class="panel-help"></p>
+      <div class="library-fields">
+        <label class="field"><span>표시 이름</span><input id="metadata-name" maxlength="120"></label>
+        <label class="field"><span>분류</span><select id="metadata-category"><option value="npc">NPC</option><option value="quest">퀘스트</option><option value="region">지역</option><option value="common">공통</option><option value="system">시스템</option></select></label>
+        <label class="field"><span>태그 (쉼표로 구분)</span><input id="metadata-tags"></label>
+        <label class="field"><span>설명</span><textarea id="metadata-description" rows="2" maxlength="2000"></textarea></label>
+      </div>
+      <ul id="library-usages"></ul>
+      <p class="panel-help">사용처는 저장된 NPC와 바인딩 기준입니다. 퀘스트 실행 훅 연결은 다음 단계이며, 분류 자체는 실행 조건이 아닙니다.</p>
+    </section>
     <section class="lower-grid">
       <div class="diagnostics panel">
         <div class="panel-heading"><div><small>VALIDATION</small><h2>진단</h2></div><span id="diagnostic-count">0</span></div>

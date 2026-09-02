@@ -70,6 +70,16 @@
           "no_interior_space": {
             "type": "boolean"
           },
+          "residential_placement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["enabled", "weight", "label"],
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
+              "label": { "type": "string", "maxLength": 64 }
+            }
+          },
           "town_placement": {
             "type": "object",
             "additionalProperties": false,
