@@ -51,7 +51,7 @@ def validate_metadata(value: object) -> dict:
 
 
 def usage_index(root: Path) -> dict[str, list[dict]]:
-    """Scan saved documents, including binding-only consumers. No inferred quest hooks."""
+    """Scan saved NPCs, binding-only consumers, and explicit quest hooks."""
     result: dict[str, list[dict]] = {}
     covered: set[tuple[str, str]] = set()
     source_root = root / "content/source"
@@ -82,6 +82,19 @@ def usage_index(root: Path) -> dict[str, list[dict]]:
             continue
         result.setdefault(script_id, []).append({"kind": "binding", "path": file.relative_to(root).as_posix(),
                                                 "id": "", "name": file.stem, "managed": False})
+    from .quest_hooks import iter_hooks, validate_hook
+    for file in sorted((root / "content/quests").rglob("*.json")):
+        data = json.loads(file.read_text(encoding="utf-8-sig"))
+        if not isinstance(data, dict):
+            continue
+        for location, hook in iter_hooks(data):
+            validate_hook(hook)
+            name = data.get("display_name", {})
+            result.setdefault(hook["script_id"], []).append({
+                "kind": "quest", "path": file.relative_to(root).as_posix(),
+                "id": data.get("id", ""), "name": f"{name.get('ko_kr', file.stem)} · {location}",
+                "managed": False, "hook": location, "npc_id": hook["npc_id"],
+            })
     return result
 
 
@@ -97,7 +110,18 @@ def script_details(root: Path, path: str, *, usages: dict | None = None) -> dict
         "schema_version": 1, "display_name": "", "description": "",
         "category": "npc" if usage else "common", "tags": [],
     }
+    from .parser import parse
+    from .diagnostics import CvesSyntaxError
+    quest_compatible = False
+    if source.is_file():
+        try:
+            quest_events = [event for event in parse(source.read_text(encoding="utf-8"), relative).events
+                            if event.trigger.name == "quest"]
+            quest_compatible = len(quest_events) == 1 and not quest_events[0].trigger.arguments
+        except CvesSyntaxError:
+            pass  # Invalid sources remain visible so the editor can diagnose them.
     return {"path": relative, "script_id": script_id, "name": metadata["display_name"] or source.stem,
+            "quest_compatible": quest_compatible,
             "metadata": metadata, "metadata_digest": _digest(raw) if raw is not None else None,
             "usages": usage, "managed": any(item["managed"] for item in usage),
             "usage_digest": _digest(json.dumps(usage, sort_keys=True, ensure_ascii=False).encode("utf-8"))}
@@ -108,12 +132,13 @@ def list_library(root: Path) -> list[dict]:
     return [script_details(root, item["path"], usages=usages) for item in list_scripts(root)]
 
 
-def check_source_write(root: Path, path: str, usage_digest: str | None) -> None:
+def check_source_write(root: Path, path: str, usage_digest: str | None) -> dict:
     details = script_details(root, path)
     if details["managed"]:
         raise ValueError("행동 프리셋 관리 이벤트입니다. NPC에서 사용자 정의로 전환해 저장하거나 복사본을 만드세요.")
     if len(details["usages"]) > 1 and usage_digest != details["usage_digest"]:
         raise CvesEditorConflict("공유 이벤트의 사용처를 다시 확인한 뒤 전체 적용을 승인해 주세요.")
+    return details
 
 
 def save_metadata(root: Path, path: str, metadata: object, expected_digest: str | None) -> dict:

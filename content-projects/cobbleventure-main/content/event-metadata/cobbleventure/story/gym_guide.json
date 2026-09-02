@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "체육관 안내인",
+  "description": "체육관 안내인의 체육관 안내 이벤트.",
+  "category": "system",
+  "tags": [
+    "안내",
+    "체육관"
+  ]
+}

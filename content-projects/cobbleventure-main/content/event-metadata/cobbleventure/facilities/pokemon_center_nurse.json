@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "간호순",
+  "description": "간호순의 시설 이용 이벤트.",
+  "category": "system",
+  "tags": [
+    "시설",
+    "회복"
+  ]
+}

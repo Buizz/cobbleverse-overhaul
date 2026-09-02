@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "오박사 연구소 조수",
+  "description": "오박사 연구소 조수의 아이템 지급 이벤트.",
+  "category": "system",
+  "tags": [
+    "보상",
+    "아이템 지급"
+  ]
+}

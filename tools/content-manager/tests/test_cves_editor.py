@@ -157,6 +157,46 @@ class CvesEditorApiTests(unittest.TestCase):
         except urllib.error.HTTPError as error:
             return error.code, json.load(error)
 
+    def test_library_metadata_api_conflict_and_managed_source_protection(self) -> None:
+        source = self.root / "content/events/test/story/welcome.cves"
+        original = source.read_bytes()
+        payload = {"path": "test/story/welcome.cves", "expected_digest": None,
+                   "metadata": {"schema_version": 1, "display_name": "공용 인사", "category": "system", "tags": ["공통"]}}
+        status, saved = self.call("/api/cves/metadata", "PUT", payload)
+        self.assertEqual(status, 200)
+        self.assertEqual(saved["name"], "공용 인사")
+        self.assertEqual(self.call("/api/cves/metadata", "PUT", payload)[0], 409)
+        self.assertEqual(source.read_bytes(), original)
+        npc = self.root / "content/source/story/npc.json"
+        npc.parent.mkdir(parents=True)
+        npc.write_text(json.dumps({"id": "test:npc/npc", "event_runtime": {
+            "engine": "cves_v5", "authoring": "preset", "script_id": "test:event_script/story/welcome"}}), encoding="utf-8")
+        status, loaded = self.call("/api/cves/script?path=test/story/welcome.cves")
+        self.assertEqual(status, 200)
+        self.assertTrue(loaded["library"]["managed"])
+        status, rejected = self.call("/api/cves/script", "PUT", {
+            "path": loaded["path"], "ast": loaded["ast"], "expected_digest": loaded["digest"]})
+        self.assertEqual(status, 400)
+        self.assertIn("프리셋 관리", rejected["error"])
+        self.assertEqual(source.read_bytes(), original)
+
+    def test_custom_binding_reuses_selected_source_and_rejects_other_managed_source(self) -> None:
+        target = self.root / "content/source/story/new_npc.json"
+        data = {"id": "test:npc/new_npc", "event_runtime": {"engine": "cves_v5", "authoring": "custom", "script_id": "test:event_script/story/welcome"}}
+        original = (self.root / "content/events/test/story/welcome.cves").read_bytes()
+        plan = content_manager._prepare_v5_preset_sync(self.root, target, data)
+        self.assertNotIn("event_path", plan)
+        content_manager._write_v5_preset_sync(plan)
+        self.assertEqual(json.loads(plan["binding_path"].read_text())["script_id"], "test:event_script/story/welcome")
+        self.assertEqual((self.root / "content/events/test/story/welcome.cves").read_bytes(), original)
+        owner = self.root / "content/source/story/owner.json"
+        owner.parent.mkdir(parents=True)
+        owner.write_text(json.dumps({"id": "test:npc/owner", "event_runtime": {**data["event_runtime"], "authoring": "preset"}}), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "다른 NPC"):
+            content_manager._prepare_v5_preset_sync(self.root, target, data)
+        # Switching the owner itself to custom is allowed and never rewrites CVES.
+        self.assertNotIn("event_path", content_manager._prepare_v5_preset_sync(self.root, owner, data))
+
     def test_list_load_validate_save_and_conflict_contract(self) -> None:
         status, listing = self.call("/api/cves/scripts")
         self.assertEqual(200, status)

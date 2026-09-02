@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "괴력 수련가",
+  "description": "괴력 수련가의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "괴력",
+    "보상",
+    "필드 기술"
+  ]
+}

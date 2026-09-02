@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "상록시티 관문 안내원",
+  "description": "상록시티 관문 안내원의 기능 해금 이벤트.",
+  "category": "system",
+  "tags": [
+    "기능 해금",
+    "보상",
+    "지도"
+  ]
+}

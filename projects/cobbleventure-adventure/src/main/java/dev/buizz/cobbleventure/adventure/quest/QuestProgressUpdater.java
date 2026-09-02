@@ -15,6 +15,9 @@ public final class QuestProgressUpdater {
     }
 
     private static void onServerTick(ServerTickEvent.Post event) {
+        for (var player : event.getServer().getPlayerList().getPlayers()) {
+            dev.buizz.cobbleventure.adventure.event.QuestEventHooks.tick(player);
+        }
         if (++ticks < INTERVAL_TICKS) return;
         ticks = 0;
         for (var player : event.getServer().getPlayerList().getPlayers()) {

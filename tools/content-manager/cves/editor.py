@@ -193,7 +193,7 @@ def editor_contract(catalog: ResourceCatalog) -> dict[str, Any]:
         triggers.append({"id": trigger_id, "arguments": parameters})
     return {
         "commands": commands,
-        "triggers": triggers,
+        "triggers": triggers + [{"id": "quest", "arguments": []}],
         "resources": resources,
         "anchors": anchors,
         "speakers": ["npc", "player", "system"],
@@ -237,11 +237,15 @@ def save_script(
     usage_digest: str | None = None,
 ) -> dict[str, Any]:
     from .library import check_source_write
-    check_source_write(project_root, relative_path, usage_digest)
+    details = check_source_write(project_root, relative_path, usage_digest)
     target = resolve_script_path(project_root, relative_path)
     document = validate_ast(wire_ast, relative_path, catalog)
     if not document["valid"]:
         return {**document, "saved": False}
+    if any(usage["kind"] == "quest" for usage in details["usages"]):
+        events = [event for event in decode_program(wire_ast).events if event.trigger.name == "quest"]
+        if len(events) != 1 or events[0].trigger.arguments:
+            raise ValueError("퀘스트가 사용 중인 이벤트에는 인수 없는 event quest 진입점을 정확히 하나 유지해야 합니다.")
 
     if target.is_file():
         current_digest = _digest(target.read_bytes())

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "오박사",
+  "description": "오박사의 스타팅 선택 및 도감 지급 이벤트.",
+  "category": "npc",
+  "tags": [
+    "스타팅",
+    "스토리",
+    "튜토리얼"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "display_name": "포켓몬타워 간부",
+  "description": "포켓몬타워 간부의 관동 트레이너 이벤트.",
+  "category": "npc",
+  "tags": [
+    "관동",
+    "로켓단",
+    "배틀",
+    "트레이너"
+  ]
+}

@@ -406,6 +406,7 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .event-trigger-editor select option,.event-command-toolbar select option { background:#fff; color:#142f43; }
 .event-trigger-editor small { display:block; margin-top:5px; color:#526d7f; font-size:9px; }
 .event-cves-preview { margin:0 24px 14px; overflow:hidden; border:1px solid #9eb8c2; border-left:4px solid #168f99; border-radius:5px; background:#f7fafb; }
+#event-script-link[hidden], #event-customize-action[hidden] { display:none; }
 .event-cves-preview[hidden] { display:none; }.event-cves-preview>header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 13px; border-bottom:1px solid #cad8dd; background:#edf5f6; }.event-cves-preview>header strong,.event-cves-preview>header small { display:block; }.event-cves-preview>header strong { color:#23475a; font-size:12px; }.event-cves-preview>header small { margin-top:3px; color:#657d89; font-size:9px; }
 #event-cves-preview-artifacts { display:flex; flex-wrap:wrap; gap:6px; padding:9px 13px; border-bottom:1px solid #d8e1e4; }.event-cves-artifact { padding:4px 7px; border-radius:11px; background:#e4eaec; color:#405a68; font:800 9px/1.3 Consolas,monospace; }.event-cves-artifact[data-action="create"] { background:#dff2df; color:#286536; }.event-cves-artifact[data-action="update"] { background:#fff0cf; color:#80580f; }
 #event-cves-preview-diff { max-height:360px; margin:0; overflow:auto; padding:12px 14px; background:#14242b; color:#dbe8e8; font:10px/1.5 Consolas,monospace; white-space:pre; }
@@ -698,27 +699,8 @@ body {
 .trainer-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-height: 320px; padding: 14px; overflow: hidden; border-right: 1px solid #d0dce0; background: radial-gradient(circle, rgba(64,215,207,.18), transparent 56%); }
 .trainer-preview > strong { color: #17344a; font-size: 13px; }.trainer-preview-fallback { display: grid; width: 90px; height: 130px; place-items: center; border: 1px dashed #8ca0ad; border-radius: 42px 42px 12px 12px; background: #fff; color: #6d8190; font-size: 24px; font-weight: 900; }
 .trainer-appearance-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: center; padding: 22px; }.trainer-appearance-fields .wide, .trainer-appearance-fields > small { grid-column: 1 / -1; }.trainer-appearance-fields > small { color: #667e8e; line-height: 1.55; }
-.minecraft-stage { position: relative; width: 150px; height: 205px; perspective: 520px; perspective-origin: 50% 42%; }
-.minecraft-model { position: absolute; bottom: 18px; left: 50%; width: 80px; height: 160px; transform: translateX(-50%) scale(var(--height-scale)) rotateX(-4deg) rotateY(-24deg); transform-origin: 50% 100%; transform-style: preserve-3d; transition: transform 180ms ease; }
-.minecraft-stage:hover .minecraft-model { transform: translateX(-50%) scale(var(--height-scale)) rotateX(-4deg) rotateY(24deg); }
-.mc-part { position: absolute; top: var(--y); left: var(--x); width: var(--w); height: var(--h); transform-style: preserve-3d; }
-.mc-face { position: absolute; display: block; overflow: hidden; background-image: var(--skin-image); background-position: var(--uv-x) var(--uv-y); background-repeat: no-repeat; background-size: 320px 320px; image-rendering: pixelated; backface-visibility: hidden; }
-.mc-face.front, .mc-face.back { top: 0; left: 0; width: var(--w); height: var(--h); }
-.mc-face.front { transform: translateZ(calc(var(--d) / 2)); }
-.mc-face.back { transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); }
-.mc-face.right, .mc-face.left { top: 0; left: calc((var(--w) - var(--d)) / 2); width: var(--d); height: var(--h); }
-.mc-face.right { transform: rotateY(90deg) translateZ(calc(var(--w) / 2)); }
-.mc-face.left { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2)); }
-.mc-face.top, .mc-face.bottom { top: calc((var(--h) - var(--d)) / 2); left: 0; width: var(--w); height: var(--d); }
-.mc-face.top { transform: rotateX(90deg) translateZ(calc(var(--h) / 2)); }
-.mc-face.bottom { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2)); }
-.mc-face.front.overlay { transform: translateZ(calc(var(--d) / 2 + .8px)); }
-.mc-face.back.overlay { transform: rotateY(180deg) translateZ(calc(var(--d) / 2 + .8px)); }
-.mc-face.right.overlay { transform: rotateY(90deg) translateZ(calc(var(--w) / 2 + .8px)); }
-.mc-face.left.overlay { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2 + .8px)); }
-.mc-face.top.overlay { transform: rotateX(90deg) translateZ(calc(var(--h) / 2 + .8px)); }
-.mc-face.bottom.overlay { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2 + .8px)); }
-.minecraft-ground { position: absolute; bottom: 8px; left: 50%; width: 92px; height: 18px; border-radius: 50%; background: rgba(18,44,60,.18); filter: blur(5px); transform: translateX(-50%); }
+.npc-skin-preview { display: block; max-width: 100%; cursor: grab; image-rendering: pixelated; touch-action: none; }
+.npc-skin-preview.is-dragging { cursor: grabbing; }
 .appearance-status { padding: 3px 7px; border: 1px solid #76ad16; border-radius: 999px; background: #f4fae9; color: #496e0c; font-size: 8px; font-weight: 850; }
 .appearance-status.placeholder { border-color: #b991d0; background: #f8effc; color: #7a339b; }
 .trainer-appearance-comparison { display: grid; width: 100%; grid-template-columns: minmax(150px,1fr) minmax(150px,1fr); gap: 8px; align-items: stretch; }
@@ -729,7 +711,7 @@ body {
 .trainer-reference-empty { display: grid; width: 104px; height: 150px; margin-top: 18px; place-items: center; align-content: center; gap: 8px; border: 1px dashed #9babb4; border-radius: 5px; color: #738794; text-align: center; }
 .trainer-reference-empty[hidden] { display: none; }
 .trainer-reference-empty b { font-size: 30px; font-weight: 350; }.trainer-reference-empty span { font-size: 9px; font-weight: 800; }
-.trainer-minecraft-card .minecraft-stage { height: 220px; transform: scale(.9); transform-origin: 50% 55%; }
+.trainer-minecraft-card .npc-skin-preview { width: 220px; height: auto; aspect-ratio: 1; margin-top: 20px; }
 
 .team-list { display: block; padding: 0 24px 24px; }
 .focused-entry-editor { overflow: hidden; border: 1px solid #b9c9cf; border-radius: 5px; background: #eaf0f2; box-shadow: var(--shadow); }

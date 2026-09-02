@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "조류 연구 선원",
+  "description": "조류 연구 선원의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "바다회오리",
+    "보상",
+    "필드 기술"
+  ]
+}

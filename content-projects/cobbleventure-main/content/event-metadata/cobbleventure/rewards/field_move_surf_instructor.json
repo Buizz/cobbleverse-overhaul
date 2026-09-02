@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "수상 안전요원",
+  "description": "수상 안전요원의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "보상",
+    "파도타기",
+    "필드 기술"
+  ]
+}

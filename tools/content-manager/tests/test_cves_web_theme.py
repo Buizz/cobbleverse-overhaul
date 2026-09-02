@@ -14,6 +14,16 @@ def luminance(color: str) -> float:
 
 
 class CvesWebThemeTests(unittest.TestCase):
+    def test_tree_connectors_branch_to_each_row_and_stop_at_last_child(self):
+        css = (WEB / "cves-editor.css").read_text(encoding="utf-8")
+        children = css.split(".node-children {", 1)[1].split("}", 1)[0]
+        self.assertIn("display: grid", children)
+        self.assertNotIn("border-left", children)
+        self.assertIn(".node-children > ::after", css)
+        self.assertIn("border-top: 2px solid var(--studio-line)", css)
+        self.assertIn(".node-children > :last-child::before { bottom: auto; height: 22px; }", css)
+        self.assertIn("pointer-events: none", css)
+
     def test_multiline_and_expanded_native_controls_follow_the_theme(self):
         css = (WEB / "form-controls.css").read_text(encoding="utf-8")
         # Localized fields are direct children of .locale-entry, not .field.

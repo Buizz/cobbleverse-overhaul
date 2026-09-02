@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/economy.css">
     <link rel="stylesheet" href="/typography.css">
+    <link rel="stylesheet" href="/save-bars.css">
     <link rel="stylesheet" href="/form-controls.css">
   </head>
   <body>
@@ -122,7 +123,7 @@
           <a href="/quest-global.html" data-tool-title="퀘스트 · 전역 발동">전역 발동</a>
           <a href="/main-quest-flow.html" data-tool-title="퀘스트 · 진행 순서">진행 순서</a>
         </nav>
-        <p id="npc-event-return-note" hidden>NPC의 저장 전 변경과 이벤트 편집 상태는 화면을 돌아가도 유지됩니다. 저장은 각 화면에서 별도로 진행하세요.</p>
+        <p id="npc-event-return-note" hidden>NPC·퀘스트의 저장 전 변경과 이벤트 편집 상태는 화면을 돌아가도 유지됩니다. 저장은 각 화면에서 별도로 진행하세요.</p>
         <div id="embedded-tool-frames" class="embedded-tool-frames"></div>
       </section>
 
@@ -159,7 +160,8 @@
             <div class="event-design-mode event-trigger-editor">
               <label class="wide"><span>이벤트 실행 방식</span><select id="event-runtime-engine" disabled><option value="cves_v5">CVES V5 — 기본 실행 엔진</option><option value="easy_npc_v4" hidden>EasyNPC V4 — 읽기 전용 호환</option></select><small id="event-runtime-help">행동 프리셋과 사용자 정의 트리는 모두 CVES V5로 실행됩니다.</small></label>
               <label class="wide"><span>설계 방식</span><select id="event-design-mode" disabled><option value="preset">행동 프리셋 사용</option><option value="cves_custom" disabled>CVES 사용자 정의 트리 — V5 고급</option><option value="easy_npc_events" hidden disabled>EasyNPC 직접 이벤트 — V4 읽기 전용</option></select><small>표준 NPC는 행동 프리셋을 사용하고, 특수 NPC만 사용자 정의 CVES로 전환합니다.</small></label>
-              <div class="wide" id="event-script-link" hidden><label for="event-script-id">연결된 V5 이벤트 — 검색 후 선택</label><div class="inline-field"><div class="event-combobox"><input id="event-script-id" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="npc-event-options" autocomplete="off" disabled><div id="npc-event-options" role="listbox" aria-label="연결할 이벤트" hidden></div></div><button class="button secondary" id="preview-cves-event" type="button" disabled>저장 결과 미리보기</button><button class="button secondary" id="customize-cves-event" type="button" disabled>사용자 정의로 전환</button><button class="button secondary" id="open-cves-event" type="button" disabled>이벤트 바로 편집</button></div><small id="event-script-help">행동 프리셋을 저장하면 이 CVES와 바인딩이 자동으로 갱신됩니다.</small></div>
+              <div class="wide" id="event-script-link" hidden><label for="event-script-id">연결된 V5 이벤트 — 검색 후 선택</label><div class="inline-field"><div class="event-combobox"><input id="event-script-id" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="npc-event-options" autocomplete="off" disabled><div id="npc-event-options" role="listbox" aria-label="연결할 이벤트" hidden></div></div><button class="button secondary" id="preview-cves-event" type="button" disabled>저장 결과 미리보기</button><button class="button secondary" id="open-cves-event" type="button" disabled>이벤트 바로 편집</button></div><small id="event-script-help">행동 프리셋을 저장하면 이 CVES와 바인딩이 자동으로 갱신됩니다.</small></div>
+              <div class="wide" id="event-customize-action"><button class="button secondary" id="customize-cves-event" type="button" disabled>사용자 정의로 전환</button><small>프리셋 대신 이벤트를 직접 작성하거나 기존 사용자 정의 이벤트를 연결할 때만 전환하세요.</small></div>
             </div>
             <section class="event-cves-preview" id="event-cves-preview" hidden><header><div><strong>V5 저장 결과 미리보기</strong><small id="event-cves-preview-summary">파일은 아직 변경되지 않았습니다.</small></div><button class="button secondary" id="close-cves-preview" type="button">닫기</button></header><div id="event-cves-preview-artifacts"></div><pre id="event-cves-preview-diff"></pre></section>
             <div class="event-trigger-editor" id="event-trigger-editor">
@@ -724,7 +726,7 @@
               </section>
             </form>
             <section id="dungeon-authored-plan-editor" class="dungeon-authored-plan-editor" hidden>
-              <header><div><strong>게시형 계획 편집</strong><small id="dungeon-authored-plan-path">웹에서 확정한 NBT 조각 배치를 관리합니다.</small></div><div><button class="button secondary" id="new-dungeon-plan" type="button">새 계획</button><button class="button secondary" id="validate-dungeon-plan" type="button" disabled>계획 검증</button><button class="button primary" id="save-dungeon-plan" type="button" disabled>계획 저장</button></div></header>
+              <header data-save-bar><div><strong>게시형 계획 편집</strong><small id="dungeon-authored-plan-path">웹에서 확정한 NBT 조각 배치를 관리합니다.</small></div><div><button class="button secondary" id="new-dungeon-plan" type="button">새 계획</button><button class="button secondary" id="validate-dungeon-plan" type="button" disabled>계획 검증</button><button class="button primary" id="save-dungeon-plan" type="button" disabled>계획 저장</button></div></header>
               <form id="dungeon-plan-form" class="dungeon-plan-form" hidden><div class="dungeon-plan-meta"><label class="wide"><span>계획 ID</span><input name="planId" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label><span>고정 시드</span><input name="seed" type="number"></label><input name="boundsX" type="hidden"><input name="boundsY" type="hidden"><input name="boundsZ" type="hidden"><div class="dungeon-grid-notice wide"><b>16×16 격자 자동 정렬</b><small>조각을 추가하거나 끌면 가장 가까운 격자 칸에 배치되며 계획 영역은 자동 계산됩니다.</small></div></div>
                 <div class="dungeon-piece-toolbar"><label><span>추가할 NBT 조각</span><select id="dungeon-piece-choice"></select></label><button class="button primary" id="add-dungeon-piece" type="button">＋ 조각 추가</button><button class="button secondary" id="rotate-dungeon-piece" type="button" disabled>↻ 선택 회전</button><button class="button danger" id="remove-dungeon-piece" type="button" disabled>선택 삭제</button></div>
                 <div class="dungeon-plan-layout"><aside><strong>배치된 조각</strong><div id="dungeon-placement-list" class="dungeon-placement-list"></div></aside><section><div id="dungeon-placement-properties" class="dungeon-placement-properties"><div class="dungeon-content-empty"><span>◇</span><p>평면도나 목록에서 조각을 선택하세요.</p></div></div><div class="dungeon-link-editor"><header><div><strong>조각 연결</strong><small>각 조각의 커넥터를 짝지어 실제 이동 경로를 정의합니다.</small></div><button class="button secondary" id="add-dungeon-link" type="button">＋ 연결 추가</button></header><div id="dungeon-link-list"></div></div></section></div>
@@ -744,7 +746,7 @@
       <section class="page" id="dungeon-pieces">
         <div class="panel dungeon-piece-catalog-page">
           <section id="dungeon-piece-editor" class="dungeon-piece-editor">
-            <header><div><p class="eyebrow">SHARED DUNGEON PIECES</p><strong>NBT 조각 라이브러리</strong><small id="dungeon-piece-path">모든 던전이 공유하는 구조물 조각과 연결점·콘텐츠 마커를 관리합니다.</small></div><div class="dungeon-piece-header-actions"><label class="dungeon-piece-theme-picker"><span>조각 스킨</span><select id="dungeon-piece-theme" aria-label="던전 조각 스킨"></select><small id="dungeon-piece-theme-summary">스킨 세트를 불러오는 중입니다.</small></label><div><button class="button secondary" id="new-dungeon-piece" type="button">새 조각</button><button class="button secondary" id="validate-dungeon-piece" type="button" disabled>조각 검증</button><button class="button primary" id="save-dungeon-piece" type="button" disabled>조각 저장</button></div></div></header>
+            <header data-save-bar><div><p class="eyebrow">SHARED DUNGEON PIECES</p><strong>NBT 조각 라이브러리</strong><small id="dungeon-piece-path">모든 던전이 공유하는 구조물 조각과 연결점·콘텐츠 마커를 관리합니다.</small></div><div class="dungeon-piece-header-actions"><label class="dungeon-piece-theme-picker"><span>조각 스킨</span><select id="dungeon-piece-theme" aria-label="던전 조각 스킨"></select><small id="dungeon-piece-theme-summary">스킨 세트를 불러오는 중입니다.</small></label><div><button class="button secondary" id="new-dungeon-piece" type="button">새 조각</button><button class="button secondary" id="validate-dungeon-piece" type="button" disabled>조각 검증</button><button class="button primary" id="save-dungeon-piece" type="button" disabled>조각 저장</button></div></div></header>
             <div class="dungeon-piece-workspace">
               <aside><div class="dungeon-piece-search"><input id="dungeon-piece-search" type="search" placeholder="조각 ID·역할·태그 검색"></div><div id="dungeon-piece-list" class="dungeon-piece-list"><div class="issues empty">등록된 조각이 없습니다.</div></div></aside>
               <form id="dungeon-piece-form" hidden>
@@ -1409,7 +1411,7 @@
 
       <section class="page" id="live-nbt-editor">
         <div class="panel build-panel live-nbt-editor-panel">
-          <div class="panel-heading"><div><p class="eyebrow">LIVE NBT AUTHORING</p><h2>라이브 NBT 편집</h2><p>게임을 종료하지 않고 NBT 하나를 편집 차원에 불러와 저장하고 테스트합니다.</p></div><span class="path-label" id="structure-builder-live-status">연결 대기</span></div>
+          <div class="panel-heading"><div><p class="eyebrow">LIVE NBT AUTHORING</p><h2>라이브 NBT 편집</h2><p>게임을 종료하지 않고 NBT 하나를 편집 차원에 불러와 저장하고 테스트합니다.</p></div><div class="document-save-actions"><span class="path-label" id="structure-builder-live-status">연결 대기</span><button class="button secondary" id="save-live-editor-settings" type="button">경로 저장</button><button class="button primary" id="save-structure-builder-live" type="button">지금 저장</button></div></div>
           <section class="structure-builder-workflow">
             <header>
               <div><p class="eyebrow">EDITOR CONNECTION</p><h3>라이브 에디터 인스턴스</h3><small>CurseForge 라이브 에디터 인스턴스와 실행 중인 전용 월드를 연결합니다.</small></div>
@@ -1418,7 +1420,6 @@
             <div class="structure-builder-settings">
               <label class="grow"><span>라이브 NBT 에디터 인스턴스 경로</span><input id="structure-builder-live-instance" list="structure-builder-candidates" placeholder="C:\CurseForge\Minecraft\Instances\Cobbleventure Live NBT Editor"><small>월드는 saves/Cobbleventure Live NBT Editor에서 자동으로 찾습니다.</small></label>
               <datalist id="structure-builder-candidates"></datalist>
-              <button class="button secondary" id="save-live-editor-settings" type="button">경로 저장</button>
             </div>
             <section class="structure-builder-live">
               <header><div><strong>현재 편집 대상</strong><small>선택한 NBT 하나만 편집 차원에 배치하며 저장 결과는 원본에 자동 반영됩니다.</small></div></header>
@@ -1431,7 +1432,6 @@
               <div class="structure-builder-actions">
                 <button class="button primary" id="open-structure-builder-live" type="button">편집 차원에서 열기</button>
                 <button class="button secondary" id="resize-structure-builder-live" type="button">편집 범위 변경</button>
-                <button class="button secondary" id="save-structure-builder-live" type="button">지금 저장</button>
                 <button class="button secondary" id="test-place-structure-builder-live" type="button">테스트 차원에 사본 배치</button>
                 <label class="button secondary">외부 NBT 추가<input id="structure-builder-external-file" type="file" accept=".nbt" hidden></label>
               </div>
@@ -1456,7 +1456,7 @@
 
       <section class="page" id="builds">
         <div class="panel build-panel">
-          <div class="panel-heading"><div><p class="eyebrow">SAFE COMMAND RUNNER</p><h2>빌드 및 검사</h2></div><span class="path-label">허용된 명령만 실행</span></div>
+          <div class="panel-heading"><div><p class="eyebrow">SAFE COMMAND RUNNER</p><h2>빌드 및 검사</h2></div><div class="document-save-actions"><span class="path-label">허용된 명령만 실행</span><button class="button secondary" id="save-structure-builder-settings" type="button">경로 저장</button></div></div>
           <section class="structure-builder-workflow">
             <header>
               <div><p class="eyebrow">STRUCTURE AUTHORING</p><h3>독립 건축 월드</h3><small>CurseForge 인스턴스를 한 번 지정하면 건축 모드 설치와 게임에서 내보낸 NBT 가져오기를 웹에서 실행할 수 있습니다.</small></div>
@@ -1464,7 +1464,6 @@
             </header>
             <div class="structure-builder-settings">
               <label class="grow"><span>CurseForge 건축 프로필 인스턴스 경로</span><input id="structure-builder-instance" list="structure-builder-candidates" placeholder="C:\CurseForge\Minecraft\Instances\Cobbleventure Structure Builder"><small>프로필 폴더를 지정합니다. 월드는 그 아래 saves/Cobbleventure Structure Builder에서 자동으로 찾습니다.</small></label>
-              <button class="button secondary" id="save-structure-builder-settings" type="button">경로 저장</button>
             </div>
             <div class="structure-builder-summary">
               <article><span>건축 팩</span><strong id="structure-builder-package">—</strong></article>

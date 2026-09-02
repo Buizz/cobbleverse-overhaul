@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "베테랑 트레이너 태호",
+  "description": "베테랑 트레이너 태호의 작성 예제 이벤트.",
+  "category": "common",
+  "tags": [
+    "샘플",
+    "예제"
+  ]
+}

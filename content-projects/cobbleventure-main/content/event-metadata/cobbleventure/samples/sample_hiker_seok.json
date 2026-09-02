@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "등산가 석",
+  "description": "등산가 석의 작성 예제 이벤트.",
+  "category": "common",
+  "tags": [
+    "샘플",
+    "예제"
+  ]
+}

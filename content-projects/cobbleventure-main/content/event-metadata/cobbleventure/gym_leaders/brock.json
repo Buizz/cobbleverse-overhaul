@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "display_name": "관동 체육관 관장 웅",
+  "description": "관동 체육관 관장 웅의 관장전 이벤트.",
+  "category": "npc",
+  "tags": [
+    "관동",
+    "관장전",
+    "배틀",
+    "체육관"
+  ]
+}

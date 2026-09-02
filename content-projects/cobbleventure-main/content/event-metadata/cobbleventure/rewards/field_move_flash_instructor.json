@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "동굴 조사원",
+  "description": "동굴 조사원의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "보상",
+    "플래시",
+    "필드 기술"
+  ]
+}

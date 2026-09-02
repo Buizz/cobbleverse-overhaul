@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "절벽 등반가",
+  "description": "절벽 등반가의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "락클라임",
+    "보상",
+    "필드 기술"
+  ]
+}

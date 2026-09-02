@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.adventure.quest;
 
 import com.google.gson.JsonObject;
+import dev.buizz.cobbleventure.adventure.event.QuestEventHooks;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -93,6 +94,7 @@ public final class QuestService {
             return failure(State.NOT_STARTED, "accept_conditions_not_met");
         }
         writeState(player, questId, State.ACTIVE, ACCEPTED_AT_KEY);
+        QuestEventHooks.enqueue(player, questId + "|accept", definition.onAccept());
         return new Result(State.ACTIVE, true, false, false, "");
     }
 
@@ -102,9 +104,7 @@ public final class QuestService {
         State current = state(player, questId);
         if (current == State.NOT_STARTED) return failure(current, "not_started");
         if (current == State.COMPLETED) return result(current, false, "");
-        boolean ready = definition.objectives().stream().allMatch(
-            objective -> matches(player, objective.conditions())
-        );
+        boolean ready = evaluateObjectives(player, definition);
         State next = ready ? State.READY : State.ACTIVE;
         if (next != current) writeState(player, questId, next, null);
         if (ready && definition.completionMode() == QuestDefinition.CompletionMode.AUTOMATIC) {
@@ -119,15 +119,25 @@ public final class QuestService {
         State current = state(player, questId);
         if (current == State.COMPLETED) return result(current, false, "");
         if (current == State.NOT_STARTED) return failure(current, "not_started");
-        boolean ready = definition.objectives().stream().allMatch(
-            objective -> matches(player, objective.conditions())
-        );
+        boolean ready = evaluateObjectives(player, definition);
         if (!ready) {
             writeState(player, questId, State.ACTIVE, null);
             return failure(State.ACTIVE, "conditions_not_met");
         }
         writeState(player, questId, State.COMPLETED, COMPLETED_AT_KEY);
+        QuestEventHooks.enqueue(player, questId + "|complete", definition.onComplete());
         return new Result(State.COMPLETED, false, true, true, "");
+    }
+
+    private static boolean evaluateObjectives(ServerPlayer player, QuestDefinition definition) {
+        boolean ready = true;
+        for (QuestDefinition.Objective objective : definition.objectives()) {
+            boolean completed = matches(player, objective.conditions());
+            ready &= completed;
+            if (completed) QuestEventHooks.enqueue(player,
+                definition.id() + "|objective|" + objective.id(), objective.onComplete());
+        }
+        return ready;
     }
 
     /** Re-evaluates active quests so conditions changed anywhere in the world are reflected. */

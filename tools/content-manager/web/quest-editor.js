@@ -1,6 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const form = $("#quest-form");
-const state = { items: [], path: "", document: null };
+const state = { items: [], path: "", document: null, events: [], npcs: [], dirty: false };
 const conditionEditor = PlayerConditionEditor;
 const escapeHtml = conditionEditor.escapeHtml;
 const acceptEditor = $("#quest-accept-conditions");
@@ -11,6 +11,52 @@ const defaultObjectives = [{
   text: { ko_kr: "목표를 입력하세요." },
   conditions: { condition_mode: "all", conditions: [] }
 }];
+
+function hookValue(host) {
+  const scriptId = host.querySelector('[data-hook-script]')?.value || "";
+  return scriptId ? {script_id: scriptId, npc_id: host.querySelector('[data-hook-npc]').value} : null;
+}
+
+function renderHookPicker(host, hook, title) {
+  host.classList.add('quest-hook-picker');
+  host.innerHTML = `<strong>${escapeHtml(title)}</strong><label><span>이벤트 검색</span><input type="search" data-hook-search placeholder="이름, ID, 태그"></label><label><span>실행 이벤트</span><select data-hook-script></select></label><label><span>실행 기준 NPC</span><select data-hook-npc><option value="">NPC 선택</option></select></label><button type="button" data-hook-edit>이벤트 바로 편집</button>`;
+  const script = host.querySelector('[data-hook-script]');
+  const npc = host.querySelector('[data-hook-npc]');
+  function options(query = '') {
+    const selected = script.value || hook?.script_id || '';
+    script.replaceChildren(new Option('연결 없음', ''));
+    const events = state.events.filter(item => !item.managed && item.quest_compatible);
+    for (const item of events) {
+      if (item.script_id !== selected && ![item.name,item.script_id,...(item.metadata?.tags || [])].join(' ').toLowerCase().includes(query.toLowerCase())) continue;
+      script.add(new Option(`${item.name} · ${item.script_id}`, item.script_id));
+    }
+    if (selected && ![...script.options].some(option => option.value === selected)) script.add(new Option(`현재 연결 (검증 필요): ${selected}`, selected));
+    script.value = selected;
+  }
+  options();
+  for (const item of state.npcs) npc.add(new Option(`${item.name || item.id} · ${item.id}`, item.id));
+  if (hook?.npc_id && ![...npc.options].some(option => option.value === hook.npc_id)) npc.add(new Option(`현재 NPC (검증 필요): ${hook.npc_id}`, hook.npc_id));
+  npc.value = hook?.npc_id || '';
+  const update = () => { npc.disabled = !script.value; host.querySelector('[data-hook-edit]').disabled = !script.value; };
+  update();
+  script.addEventListener('change', () => { hook = null; update(); state.dirty = true; });
+  host.querySelector('[data-hook-search]').addEventListener('input', event => options(event.target.value));
+  host.querySelector('[data-hook-edit]').addEventListener('click', () => openHookEvent(script.value));
+}
+
+function openHookEvent(scriptId = '') {
+  const item = state.events.find(item => item.script_id === scriptId);
+  if (window.parent !== window) window.parent.postMessage({type:'quest:open-event',path:item?.path || null}, location.origin);
+  else window.open(`/cves.html${item ? '?path=' + encodeURIComponent(item.path) : ''}`, '_blank', 'noopener');
+}
+
+async function loadHookCatalogs() {
+  const [eventResponse,npcResponse] = await Promise.all([fetch('/api/cves/scripts'),fetch('/api/trainers')]);
+  if (!eventResponse.ok || !npcResponse.ok) throw new Error('이벤트/NPC 목록을 불러오지 못했습니다.');
+  state.events = (await eventResponse.json()).items || [];
+  state.npcs = (await npcResponse.json()).items || [];
+  document.querySelectorAll('.quest-hook-picker').forEach(host => renderHookPicker(host, hookValue(host), host.querySelector('strong').textContent));
+}
 
 function pathFor(id) {
   const [namespace, resource = ""] = id.split(":", 2);
@@ -46,6 +92,8 @@ function renderObjectives(objectives) {
     conditionEditor.initialize(editor, { includeAlways: true });
     conditionEditor.render(editor, objective.conditions?.conditions || []);
     container.append(card);
+    const hookHost = document.createElement('div'); card.append(hookHost);
+    renderHookPicker(hookHost, objective.on_complete, '목표 최초 달성 이벤트');
   });
 }
 
@@ -64,6 +112,8 @@ function objectivesFromEditor(validate = true) {
     };
     if (value("markerType")) objective.marker = { ...objective.marker, type: value("markerType"), target: value("markerTarget") };
     else delete objective.marker;
+    const hook = hookValue(card.querySelector('.quest-hook-picker'));
+    if (hook) objective.on_complete = hook; else delete objective.on_complete;
     return objective;
   });
 }
@@ -76,7 +126,7 @@ function documentFromForm() {
   if (form.elements.summaryEn.value.trim()) summary.en_us = form.elements.summaryEn.value.trim();
   else delete summary.en_us;
   if (!form.elements.nameEn.value.trim()) delete name.en_us;
-  return {
+  const document = {
     // Preserve legacy guidance/next_quests data without exposing unused settings.
     ...state.document,
     $schema: "../../../schemas/quest.schema.json",
@@ -94,6 +144,11 @@ function documentFromForm() {
     objectives: objectivesFromEditor(),
     completion: { mode: form.elements.completionMode.value }
   };
+  const onAccept = hookValue($('#quest-accept-event'));
+  const onComplete = hookValue($('#quest-complete-event'));
+  if (onAccept || onComplete) document.event_hooks = {...(onAccept ? {on_accept:onAccept}:{}),...(onComplete ? {on_complete:onComplete}:{})};
+  else delete document.event_hooks;
+  return document;
 }
 
 function fill(document = null) {
@@ -114,6 +169,9 @@ function fill(document = null) {
   conditionEditor.render(acceptEditor, value.accept_conditions?.conditions || []);
   renderObjectives(value.objectives || defaultObjectives);
   form.elements.completionMode.value = value.completion?.mode || "npc_turn_in";
+  renderHookPicker($('#quest-accept-event'), value.event_hooks?.on_accept, '퀘스트 수락 이벤트');
+  renderHookPicker($('#quest-complete-event'), value.event_hooks?.on_complete, '퀘스트 완료 이벤트');
+  state.dirty = false;
   $("#editor-title").textContent = value.display_name?.ko_kr || "퀘스트 편집";
   $("#quest-path").textContent = state.path || "새 문서";
 }
@@ -133,6 +191,7 @@ function renderList() {
 }
 
 async function openQuest(path) {
+  if (state.dirty && !confirm('저장하지 않은 퀘스트 변경을 버리고 다른 퀘스트를 열까요?')) return;
   const response = await fetch(`/api/quests?path=${encodeURIComponent(path)}`);
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error || "퀘스트를 불러오지 못했습니다.");
@@ -170,7 +229,7 @@ $("#quest-list").addEventListener("click", event => {
   const button = event.target.closest("[data-path]"); if (button) openQuest(button.dataset.path).catch(error => showIssues({issues:[{path:"$",message:error.message}]}));
 });
 $("#quest-search").addEventListener("input", renderList);
-$("#new-quest").addEventListener("click", () => { state.path = ""; state.document = null; fill(); renderList(); });
+$("#new-quest").addEventListener("click", () => { if (state.dirty && !confirm('저장하지 않은 변경을 버릴까요?')) return; state.path = ""; state.document = null; fill(); renderList(); });
 $("#save-quest").addEventListener("click", saveQuest);
 $("#add-objective").addEventListener("click", () => {
   const objectives = objectivesFromEditor(false);
@@ -178,6 +237,7 @@ $("#add-objective").addEventListener("click", () => {
   while (objectives.some(objective => objective.id === `objective_${index}`)) index++;
   objectives.push({ ...structuredClone(defaultObjectives[0]), id: `objective_${index}` });
   renderObjectives(objectives);
+  state.dirty = true;
 });
 $("#quest-objectives").addEventListener("click", event => {
   const button = event.target.closest("[data-objective-action]");
@@ -191,6 +251,16 @@ $("#quest-objectives").addEventListener("click", event => {
     if (next >= 0 && next < objectives.length) [objectives[index], objectives[next]] = [objectives[next], objectives[index]];
   }
   renderObjectives(objectives);
+  state.dirty = true;
 });
+form.addEventListener('input', event => { if (!event.target.matches('[data-hook-search]')) state.dirty = true; });
+form.addEventListener('change', () => {state.dirty = true;});
+form.addEventListener('click', event => {
+  if (event.target.closest('[data-gate-condition-add], [data-gate-condition-remove]')) state.dirty = true;
+});
+window.addEventListener('beforeunload', event => {if (state.dirty) {event.preventDefault(); event.returnValue = '';}});
+$('#refresh-hook-events').addEventListener('click', () => loadHookCatalogs().catch(error => showIssues({issues:[{path:'$.event_hooks',message:error.message}]})));
+$('#open-hook-library').addEventListener('click', () => openHookEvent());
+loadHookCatalogs().catch(error => showIssues({issues:[{path:'$.event_hooks',message:error.message}]}));
 fill(); loadList().catch(error => showIssues({issues:[{path:"$",message:error.message}]}));
 conditionEditor.loadCatalogs().catch(error => showIssues({issues:[{path:"$",message:error.message}]}));

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "display_name": "캠프보이 리암",
+  "description": "캠프보이 리암의 관동 트레이너 이벤트.",
+  "category": "npc",
+  "tags": [
+    "관동",
+    "배틀",
+    "트레이너",
+    "파이어레드"
+  ]
+}

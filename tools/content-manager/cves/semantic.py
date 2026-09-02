@@ -244,6 +244,10 @@ class SemanticValidator:
         return tuple(self.diagnostics)
 
     def _trigger(self, trigger: ast.Trigger) -> None:
+        if trigger.name == "quest":
+            if trigger.arguments:
+                self._issue(trigger.span, "quest 트리거는 인수를 받지 않습니다. 발동과 중복 방지는 퀘스트 훅이 관리합니다.")
+            return
         ranges = {"interact", "proximity_enter", "proximity_exit"}
         required_targets = {
             "region_enter", "region_exit", "anchor_step",

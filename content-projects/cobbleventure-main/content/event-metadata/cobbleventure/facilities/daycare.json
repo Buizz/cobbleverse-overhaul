@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "키우미집 관리인",
+  "description": "키우미집 관리인의 시설 이용 이벤트.",
+  "category": "system",
+  "tags": [
+    "시설",
+    "키우미집"
+  ]
+}

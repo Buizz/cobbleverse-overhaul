@@ -1,0 +1,35 @@
+/* Document actions stay with their editor while the document scrolls.
+   Scope to save headers, not every list/table/inspector heading. */
+body :is(.panel-heading, .section-heading, .world-map-heading, .editor-head, .studio-header, [data-save-bar]):has(button[id^="save-"], #save-script, [data-save-system-npc]) {
+  position: sticky;
+  top: var(--save-bar-offset, 0px);
+  z-index: 30;
+  align-self: start;
+  min-width: 0;
+  border-radius: 5px 5px 0 0;
+  background: var(--studio-panel-soft, #f8fafb);
+  box-shadow: 0 7px 18px rgba(31, 53, 42, .12);
+}
+
+/* overflow:hidden creates a non-scrolling scroll container and disables
+   viewport stickiness. clip preserves rounded clipping without that trap. */
+body :is(.panel, .editor, .system-npc-card, .dungeon-piece-editor, .dungeon-authored-plan-editor):has(button[id^="save-"], #save-script, [data-save-system-npc]) {
+  overflow: clip;
+}
+body .section-heading:has(#save-dialogue-theme) { padding: 16px 20px; }
+body .editor-head:has(button[id^="save-"]) { padding: 14px 16px; margin-bottom: 16px; }
+body .document-save-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+body .document-save-actions .button { white-space: nowrap; }
+body .system-npc-card > header[data-save-bar] { gap: 12px; flex-wrap: wrap; }
+body .system-npc-card > header[data-save-bar] > div:first-child { flex: 1 1 200px; min-width: 0; }
+body #dungeon-authored-plan-editor > [data-save-bar] { --save-bar-offset: var(--dungeon-save-bar-height, 0px); z-index: 29; }
+
+@media (max-width: 760px) {
+  body :is(.panel-heading, .section-heading, .world-map-heading, .editor-head, [data-save-bar]):has(button[id^="save-"], [data-save-system-npc]) { gap: 8px; flex-wrap: wrap; padding: 10px 12px; }
+  body .document-save-actions { justify-content: flex-start; }
+  body :is(.panel-heading, .section-heading, .world-map-heading):has(button[id^="save-"]) p:not(.eyebrow),
+  body .panel-heading:has(button[id^="save-"]) .path-label { display: none; }
+}
+@media print {
+  body :is(.panel-heading, .section-heading, .world-map-heading, .editor-head, .studio-header, [data-save-bar]):has(button[id^="save-"], #save-script, [data-save-system-npc]) { position: static; box-shadow: none; }
+}

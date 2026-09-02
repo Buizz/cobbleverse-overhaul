@@ -36,19 +36,21 @@ test('validation still updates the current document', async () => {
   assert.ok(h.rendered.includes('tree'));
 });
 
-for (const replacement of ['different-script', 'same-path-new-ast']) {
+for (const replacement of ['different-script', 'same-path-new-ast', 'pending-source-edit']) {
   for (const success of [true, false]) {
     test(`ignore stale ${success ? 'success' : 'error'} after ${replacement}`, async () => {
       const h = harness();
       const task = h.context.validateTree();
       const newAst = { root: { events: [] } };
-      h.context.state.ast = newAst;
+      h.context.state.ast = replacement === 'pending-source-edit' ? h.context.state.ast : newAst;
+      const expectedAst = h.context.state.ast;
+      if (replacement === 'pending-source-edit') h.context.state.sourceDirty = true;
       h.context.state.source = 'new document';
       if (replacement === 'different-script') h.context.state.path = 'second.cves';
       h.rendered.length = 0;
       h.finish({ data: success ? { ast: { root: { events: [] } }, canonical: 'old', valid: true } : { error: 'old error' } });
       await task;
-      assert.equal(h.context.state.ast, newAst);
+      assert.equal(h.context.state.ast, expectedAst);
       assert.equal(h.context.state.source, 'new document');
       assert.deepEqual(h.rendered, []);
     });

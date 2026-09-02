@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/typography.css">
     <link rel="stylesheet" href="/studio-tool-shell.css">
     <link rel="stylesheet" href="/cves-editor.css">
+    <link rel="stylesheet" href="/save-bars.css">
     <link rel="stylesheet" href="/form-controls.css">
     <script>document.documentElement.classList.toggle("is-embedded", new URLSearchParams(location.search).get("embedded") === "1");</script>
   </head>
@@ -29,10 +30,11 @@
     <main class="editor-grid">
       <aside class="script-column panel">
         <div class="panel-heading"><div><small>AUTHORITY SOURCES</small><h2>.cves 원본</h2></div><div class="compact-actions"><button id="new-script" class="icon-button" type="button" title="새 CVES 원본">＋</button><button id="refresh-scripts" class="icon-button" type="button" title="목록 새로고침">↻</button></div></div>
-        <p class="panel-help">Git에서 관리되는 V5 원본만 표시합니다. V4 NPC 파일은 변경하지 않습니다.</p>
+        <p class="panel-help">사용자 정의 이벤트만 표시합니다. 행동 프리셋의 자동 생성 스크립트는 NPC 설정에서 관리합니다.</p>
+        <div class="library-filters">
         <label class="field"><span>이벤트 검색</span><input id="library-search" type="search" placeholder="이름, ID, 태그, NPC 이름"></label>
         <label class="field"><span>분류</span><select id="library-category"><option value="">전체 분류</option><option value="npc">NPC</option><option value="quest">퀘스트</option><option value="region">지역</option><option value="common">공통</option><option value="system">시스템</option></select></label>
-        <label class="field"><span>관리 방식</span><select id="library-management"><option value="">전체</option><option value="preset">행동 프리셋 관리</option><option value="custom">사용자 정의</option></select></label>
+        </div>
         <div id="script-list" class="script-list" role="listbox" aria-label="CVES 스크립트"></div>
       </aside>
 
@@ -40,6 +42,7 @@
         <div class="panel-heading tree-heading">
           <div><small id="script-id">NO SCRIPT</small><h2 id="script-path">이벤트 트리</h2></div>
           <div class="tree-actions">
+            <button id="add-event" type="button" disabled>＋ 이벤트 추가</button>
             <button data-add="say" type="button" disabled>대사</button>
             <button data-add="narrate" type="button" disabled>설명</button>
             <button data-add="let" type="button" disabled>임시 변수</button>
@@ -49,6 +52,7 @@
             <button data-add="command" type="button" disabled>명령</button>
           </div>
         </div>
+        <p id="tree-protection-note" class="panel-help" hidden></p>
         <div id="event-tree" class="event-tree empty"><p>왼쪽에서 CVES 원본을 선택하세요.</p></div>
       </section>
 
@@ -73,7 +77,7 @@
         <label class="field"><span>설명</span><textarea id="metadata-description" rows="2" maxlength="2000"></textarea></label>
       </div>
       <ul id="library-usages"></ul>
-      <p class="panel-help">사용처는 저장된 NPC와 바인딩 기준입니다. 퀘스트 실행 훅 연결은 다음 단계이며, 분류 자체는 실행 조건이 아닙니다.</p>
+      <p class="panel-help">저장된 NPC·바인딩·퀘스트 훅의 사용처입니다. 퀘스트 훅은 인수 없는 event quest 진입점을 사용하며, 분류 자체는 실행 조건이 아닙니다.</p>
     </section>
     <section class="lower-grid">
       <div class="diagnostics panel">
@@ -89,6 +93,20 @@
     </section>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="add-event-dialog" class="editor-dialog">
+      <form id="add-event-form">
+        <div class="panel-heading"><h2>현재 스크립트에 이벤트 추가</h2><button id="close-add-event" class="icon-button" type="button" aria-label="이벤트 추가 닫기">×</button></div>
+        <div class="dialog-body">
+          <p class="panel-help">파일 맨 뒤에 독립적인 발동 이벤트와 기본 페이지를 추가합니다. 기존 이벤트와 명령은 유지되며, CVES 저장 전에는 파일을 변경하지 않습니다.</p>
+          <label class="field"><span>발동 조건</span><select name="trigger" required></select></label>
+          <label class="field" id="add-event-range"><span>감지 거리 (블록)</span><input name="range" type="number" min="0" step="any" value="4"></label>
+          <label class="field" id="add-event-target" hidden><span>발동 대상 리소스</span><select name="target"></select></label>
+          <p class="panel-help">말 걸기·퀘스트 이벤트는 파일당 하나입니다. 말 걸기의 상태별 대화는 기존 이벤트에 페이지를 추가하세요. 반복·재사용 대기시간 등은 추가 후 속성에서 설정할 수 있습니다.</p>
+          <p id="add-event-error" class="diagnostic-item error" role="alert" hidden></p>
+        </div>
+        <div class="dialog-actions"><button id="cancel-add-event" class="button secondary" type="button">취소</button><button class="button primary" type="submit">이벤트 추가</button></div>
+      </form>
+    </dialog>
     <dialog id="new-script-dialog" class="editor-dialog">
       <form id="new-script-form" method="dialog">
         <div class="panel-heading"><div><small>NEW AUTHORITY SOURCE</small><h2>새 CVES 원본</h2></div><button id="close-new-script" class="icon-button" type="button">×</button></div>

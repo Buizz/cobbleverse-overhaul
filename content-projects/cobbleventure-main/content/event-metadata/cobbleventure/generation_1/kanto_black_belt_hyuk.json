@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "태권왕 혁",
+  "description": "태권왕 혁의 관동 트레이너 이벤트.",
+  "category": "npc",
+  "tags": [
+    "관동",
+    "배틀",
+    "트레이너"
+  ]
+}

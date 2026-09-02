@@ -18,7 +18,9 @@ public record QuestDefinition(
     ConditionGroup acceptConditions,
     GlobalActivation globalActivation,
     List<Objective> objectives,
-    CompletionMode completionMode
+    CompletionMode completionMode,
+    EventHook onAccept,
+    EventHook onComplete
 ) {
     public enum Category { MAIN, SIDE, TUTORIAL }
     public enum CompletionMode { NPC_TURN_IN, AUTOMATIC }
@@ -50,7 +52,8 @@ public record QuestDefinition(
             objectives.add(new Objective(
                 objectiveId,
                 optionalLocalizedText(objective, "text", objectiveId),
-                ConditionGroup.parse(requiredObject(objective, "conditions"))
+                ConditionGroup.parse(requiredObject(objective, "conditions")),
+                EventHook.optional(objective, "on_complete")
             ));
         }
         if (objectives.isEmpty()) {
@@ -75,6 +78,9 @@ public record QuestDefinition(
             throw new IllegalArgumentException("전역 발동은 메인 퀘스트에만 사용할 수 있습니다: " + id);
         }
         String displayName = localizedText(requiredObject(root, "display_name"));
+        JsonObject hooks = root.has("event_hooks") ? requiredObject(root, "event_hooks") : new JsonObject();
+        if (!java.util.Set.of("on_accept", "on_complete").containsAll(hooks.keySet()))
+            throw new IllegalArgumentException("지원하지 않는 퀘스트 훅 종류입니다.");
         return new QuestDefinition(
             id,
             root.has("enabled") && root.get("enabled").getAsBoolean(),
@@ -84,7 +90,9 @@ public record QuestDefinition(
             ConditionGroup.parse(requiredObject(root, "accept_conditions")),
             globalActivation,
             objectives,
-            completionMode
+            completionMode,
+            EventHook.optional(hooks, "on_accept"),
+            EventHook.optional(hooks, "on_complete")
         );
     }
 
@@ -111,7 +119,29 @@ public record QuestDefinition(
         }
     }
 
-    public record Objective(String id, String text, ConditionGroup conditions) {
+    public record EventHook(String scriptId, String npcId) {
+        public EventHook {
+            if (scriptId == null || !scriptId.matches("[a-z0-9_.-]+:event_script/[a-z0-9_./-]+")
+                || npcId == null || !npcId.matches("[a-z0-9_.-]+:npc/[a-z0-9_./-]+")) {
+                throw new IllegalArgumentException("퀘스트 훅에는 V5 이벤트 ID와 NPC ID가 필요합니다.");
+            }
+            for (String id : List.of(scriptId, npcId)) {
+                for (String part : id.split("/", -1)) {
+                    if (part.isEmpty() || part.equals(".") || part.equals(".."))
+                        throw new IllegalArgumentException("퀘스트 훅의 리소스 경로가 올바르지 않습니다.");
+                }
+            }
+        }
+        static EventHook optional(JsonObject root, String field) {
+            if (!root.has(field)) return null;
+            JsonObject value = requiredObject(root, field);
+            if (!value.keySet().equals(java.util.Set.of("script_id", "npc_id")))
+                throw new IllegalArgumentException("퀘스트 훅 필드가 올바르지 않습니다.");
+            return new EventHook(requiredString(value, "script_id"), requiredString(value, "npc_id"));
+        }
+    }
+
+    public record Objective(String id, String text, ConditionGroup conditions, EventHook onComplete) {
         public Objective {
             Objects.requireNonNull(id, "id");
             Objects.requireNonNull(text, "text");

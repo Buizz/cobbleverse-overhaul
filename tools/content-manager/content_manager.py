@@ -62,6 +62,7 @@ from cves import (
 )
 from loot_table_validation import validate_loot_table_document
 from cves.library import list_library, script_details, save_metadata
+from cves.quest_hooks import iter_hooks as iter_quest_hooks, validate_hook as validate_quest_hook, validate_references as validate_quest_hook_references
 
 
 class ThreadingHTTPServer(_ThreadingHTTPServer):
@@ -2488,6 +2489,14 @@ def validate_quest_file(path: Path) -> tuple[str | None, list[Issue]]:
     if completion is not None and completion.get("mode") not in {"npc_turn_in", "automatic"}:
         _issue(issues, "error", path, "$.completion.mode", "완료 방식은 npc_turn_in 또는 automatic이어야 합니다.")
     next_quests = root.get("next_quests", [])
+    try:
+        for hook_path, hook in iter_quest_hooks(root):
+            try:
+                validate_quest_hook(hook)
+            except ValueError as error:
+                _issue(issues, "error", path, hook_path, str(error))
+    except (ValueError, TypeError) as error:
+        _issue(issues, "error", path, "$.event_hooks", str(error))
     if not isinstance(next_quests, list):
         _issue(issues, "error", path, "$.next_quests", "후속 퀘스트 목록은 배열이어야 합니다.")
     else:
@@ -7508,6 +7517,11 @@ def validate_repository(
     for quest_path in sorted(quest_root.rglob("*.json")) if quest_root.is_dir() else []:
         quest_id, quest_issues = validate_quest_file(quest_path)
         issues.extend(quest_issues)
+        if not any(issue.level == "error" for issue in quest_issues):
+            try:
+                validate_quest_hook_references(root, load_json(quest_path))
+            except (OSError, ValueError) as error:
+                _issue(issues, "error", quest_path, "$.event_hooks", str(error))
         if quest_id is not None:
             relative = quest_path.relative_to(quest_root)
             if len(relative.parts) < 2:
@@ -10066,6 +10080,11 @@ def _save_document(
     except ValueError as error:
         return None, [Issue("error", relative_path, "$", str(error))]
     document_id, candidate_issues = _validate_payload(data, validator)
+    if category == "quests" and not any(issue.level == "error" for issue in candidate_issues):
+        try:
+            validate_quest_hook_references(root, data)
+        except (OSError, ValueError) as error:
+            candidate_issues.append(Issue("error", target.as_posix(), "$.event_hooks", str(error)))
     issues = [
         Issue(issue.level, target.as_posix(), issue.path, issue.message)
         for issue in candidate_issues
@@ -15263,6 +15282,8 @@ def create_handler(
                 "/": web_root / "index.html",
                 "/index.html": web_root / "index.html",
                 "/app.js": web_root / "app.js",
+                "/npc-skin-preview.mjs": web_root / "npc-skin-preview.mjs",
+                "/world-map-rendering.mjs": web_root / "world-map-rendering.mjs",
                 "/player-condition-editor.js": web_root / "player-condition-editor.js",
                 "/cves.html": web_root / "cves.html",
                 "/cves-editor.js": web_root / "cves-editor.js",
@@ -15282,6 +15303,7 @@ def create_handler(
                 "/economy.css": web_root / "economy.css",
                 "/typography.css": web_root / "typography.css",
                 "/form-controls.css": web_root / "form-controls.css",
+                "/save-bars.css": web_root / "save-bars.css",
                 "/studio-tool-shell.css": web_root / "studio-tool-shell.css",
                 "/fonts/PretendardVariable.woff2": web_root
                 / "fonts"
@@ -16701,7 +16723,9 @@ def create_handler(
             except ValueError as error:
                 self._json(400, {"error": str(error)})
                 return
-            target, issues = _save_document(root, category, relative_path, payload)
+            # Serialize NPC binding updates with shared-event save confirmation.
+            with cves_save_lock:
+                target, issues = _save_document(root, category, relative_path, payload)
             errors = sum(issue.level == "error" for issue in issues)
             self._json(
                 200 if errors == 0 else 422,

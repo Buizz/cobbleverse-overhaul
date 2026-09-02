@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "오랭열매를 나눠주는 농부",
+  "description": "오랭열매를 나눠주는 농부의 작성 예제 이벤트.",
+  "category": "common",
+  "tags": [
+    "샘플",
+    "예제"
+  ]
+}

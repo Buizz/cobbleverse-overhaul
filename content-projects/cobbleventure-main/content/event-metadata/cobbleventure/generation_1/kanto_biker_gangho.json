@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "폭주족 강호",
+  "description": "폭주족 강호의 관동 트레이너 이벤트.",
+  "category": "npc",
+  "tags": [
+    "관동",
+    "배틀",
+    "트레이너"
+  ]
+}

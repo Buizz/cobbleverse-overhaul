@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "노랑시티 관문 경비원",
+  "description": "노랑시티 관문 경비원의 관문 통행 제한 이벤트.",
+  "category": "region",
+  "tags": [
+    "관문",
+    "노랑시티",
+    "통행 제한"
+  ]
+}

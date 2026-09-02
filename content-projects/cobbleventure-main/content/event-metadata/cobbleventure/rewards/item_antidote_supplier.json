@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "야외 탐사 지원원",
+  "description": "야외 탐사 지원원의 아이템 지급 이벤트.",
+  "category": "system",
+  "tags": [
+    "보상",
+    "아이템 지급"
+  ]
+}

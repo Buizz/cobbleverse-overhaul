@@ -22,13 +22,14 @@ class QuestPackagingTests(unittest.TestCase):
             root = Path(directory)
             source = root / build_data_mod.QUEST_SOURCE_DIR / "test/main/welcome.json"
             source.parent.mkdir(parents=True)
-            source.write_text('{"schema_version":1}', encoding="utf-8")
+            authored = '{"schema_version":1,"event_hooks":{"on_accept":{"script_id":"test:event_script/intro","npc_id":"test:npc/oak"}},"objectives":[{"id":"one","on_complete":{"script_id":"test:event_script/done","npc_id":"test:npc/oak"}}]}'
+            source.write_text(authored, encoding="utf-8")
             output = root / "output"
 
             build_data_mod._package_quests(root, output)
 
             self.assertEqual(
-                '{"schema_version":1}',
+                authored,
                 (output / "data/test/quest/main/welcome.json").read_text(encoding="utf-8"),
             )
 

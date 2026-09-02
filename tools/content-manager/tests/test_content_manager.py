@@ -5396,7 +5396,14 @@ class ContentManagerTests(unittest.TestCase):
         styles = (web_root / "styles.css").read_text(encoding="utf-8")
 
         self.assertIn('class="nav-tree"', html)
-        self.assertEqual(6, html.count('data-nav-group='))
+        self.assertEqual(7, html.count('data-nav-group='))
+        story = html.split('data-nav-group="story"', 1)[1].split('</section>', 1)[0]
+        resources = html.split('data-nav-group="resources"', 1)[1].split('</section>', 1)[0]
+        self.assertIn('href="/cves.html"', story)
+        self.assertIn('href="/quests.html"', story)
+        self.assertNotIn('href="/cves.html"', resources)
+        self.assertNotIn('href="/quest-global.html"', story)
+        self.assertIn('id="quest-workspace-tabs"', html)
         self.assertIn('<strong>지형 설정</strong>', html)
         terrain = html.split('data-nav-group="terrain"', 1)[1].split('</section>', 1)[0]
         for section in ("worlds", "settlements", "routes", "caves", "forests", "biomes"):
@@ -7918,10 +7925,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('updateProjectLoading("현재 화면을 불러왔습니다.");', refresh_all)
         self.assertIn("hideProjectLoading();", refresh_all)
         self.assertNotIn("backgroundLoadSections", script)
-        self.assertIn("function openEmbeddedTool(link)", script)
+        self.assertIn("function openEmbeddedTool(link, eventPath = null, fromNpc = false)", script)
         self.assertIn('source.searchParams.set("embedded", "1")', script)
         self.assertIn('id="embedded-tool-frames"', markup)
-        self.assertEqual(4, markup.count('data-tool-title='))
+        self.assertEqual(5, markup.count('data-tool-title='))
         self.assertIn("await refreshAll(true);", script)
         self.assertGreaterEqual(
             script.count("await loadStructureData(true);\n    await loadBuildingSettingsData();"),

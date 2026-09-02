@@ -29,11 +29,13 @@
       "en_us": "Casino Cashier"
     },
     "role": "default",
-    "trainer_class": "cobbleventure:trainer_class/custom",
+    "trainer_class": "cobbleventure:trainer_class/waitress",
     "appearance": {
-      "source": "entity",
-      "type": "model",
-      "resource": "cobbledollars:cobble_merchant"
+      "source": "rct_single",
+      "type": "skin",
+      "resource": "rctmod:trainers/single/waitress_kati_03fc",
+      "implementation_status": "ready",
+      "arm_model": "slim"
     },
     "behavior": {
       "movement": "stationary",

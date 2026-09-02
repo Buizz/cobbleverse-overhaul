@@ -1,0 +1,6 @@
+# QuestService alone dispatches this entry point; NPC interaction cannot trigger it.
+event quest {
+  page default {
+    id "quest/dialogue" say npc "퀘스트를 시작하자!"
+  }
+}

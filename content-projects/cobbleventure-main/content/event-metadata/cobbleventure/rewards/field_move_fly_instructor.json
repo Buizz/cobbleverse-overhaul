@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "석영고원 비행 안내원",
+  "description": "석영고원 비행 안내원의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "공중날기",
+    "보상",
+    "필드 기술"
+  ]
+}

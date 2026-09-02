@@ -23,7 +23,8 @@ test("quest saves preserve hidden legacy settings and omit them from new documen
       ...Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, { value }])),
       enabled: { checked: true }
     } },
-    conditionEditor: { read: () => [] }, acceptEditor: {}, objectivesFromEditor: () => []
+    conditionEditor: { read: () => [] }, acceptEditor: {}, objectivesFromEditor: () => [],
+    $: () => ({}), hookValue: () => null
   });
   vm.runInContext(serializer, context);
   const saved = vm.runInContext("documentFromForm()", context);

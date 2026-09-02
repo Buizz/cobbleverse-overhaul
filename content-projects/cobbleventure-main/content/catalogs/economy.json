@@ -2684,10 +2684,7 @@
         "cobbleventure:vendor/lilycove_attack_tms_taeo",
         "cobbleventure:vendor/lilycove_support_tms_serin",
         "cobbleventure:vendor/lilycove_dolls_yuri",
-        "cobbleventure:vendor/lilycove_cushions_bomi",
-        "cobbleventure:vendor/lilycove_furniture_geonu",
-        "cobbleventure:vendor/lilycove_decor_chorong",
-        "cobbleventure:vendor/lilycove_rooftop_manbok"
+        "cobbleventure:vendor/lilycove_cushions_bomi"
       ],
       "assignments": [
         {
@@ -2753,14 +2750,6 @@
             "en_us": "5F Right Counter"
           },
           "vendor_unit": "cobbleventure:vendor/lilycove_cushions_bomi"
-        },
-        {
-          "slot_id": "rooftop_sale",
-          "display_name": {
-            "ko_kr": "옥상 특가 판매대",
-            "en_us": "Rooftop Clearance Counter"
-          },
-          "vendor_unit": "cobbleventure:vendor/lilycove_rooftop_manbok"
         }
       ]
     }

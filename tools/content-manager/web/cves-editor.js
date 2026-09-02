@@ -6,6 +6,20 @@ const LABELS = {
   if: "조건", choice: "선택지", choice_option: "항목", repeat: "반복", command: "명령",
 };
 
+// Local vector icons stay crisp at any GUI scale and do not depend on emoji fonts.
+const NODE_ICONS = {
+  event: "M9 2 4 9h5l-2 5 6-8H8z",
+  page: "M4 2h5l3 3v9H4z M9 2v4h3 M6 9h4 M6 11h3",
+  say: "M2 3h12v8H7l-4 3v-3H2z M5 6h6 M5 8h4",
+  narrate: "M3 2h10v12H3z M5 5h6 M5 8h6 M5 11h4",
+  let: "M5 2H3v12h2 M11 2h2v12h-2 M6 6l4 4 M10 6l-4 4",
+  if: "M8 2 12 6 8 10 4 6z M4 6H2v8 M12 6h2v8",
+  choice: "M2 3h2v2H2z M7 4h7 M2 7h2v2H2z M7 8h7 M2 11h2v2H2z M7 12h7",
+  choice_option: "M2 8h11 M9 4l4 4-4 4",
+  repeat: "M3 5a5 5 0 0 1 9-1l1 2 M13 2v4H9 M13 11a5 5 0 0 1-9 1l-1-2 M3 14v-4h4",
+  command: "M3 4l4 4-4 4 M9 12h4",
+};
+
 const state = {
   items: [], path: null, scriptId: null, digest: null, ast: null, source: "",
   selected: null, dirty: false, diagnostics: [], contract: null,
@@ -13,6 +27,10 @@ const state = {
   gameDefinitions: { items: [], variables: [] }, variableTarget: null,
   library: null, metadataDirty: false, sourceDirty: false, copyAst: null, loading: false,
 };
+
+// View-only lookup tables; navigation never stores DOM state in the AST.
+let renderedRows = new WeakMap();
+let renderedBlocks = new WeakMap();
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -56,6 +74,7 @@ function setDocumentBusy(busy) {
 function renderLibraryDetails() {
   const info = state.library;
   $("#library-details").hidden = !info;
+  $("#tree-protection-note").hidden = !info || !info.managed && info.usages.length <= 1;
   if (!info) return;
   const metadata = info.metadata;
   $("#metadata-name").value = metadata.display_name;
@@ -67,7 +86,8 @@ function renderLibraryDetails() {
   $("#library-protection").textContent = info.managed
     ? "행동 프리셋 관리 · 트리는 읽기 전용입니다. NPC에서 사용자 정의로 전환해 저장하거나 복사본을 만드세요."
     : info.usages.length > 1 ? `공유 이벤트 · 저장하면 ${info.usages.length}개 사용처에 적용됩니다. 개별 변경은 복사본을 연결하세요.` : "사용자 정의 이벤트 · NPC 프리셋 저장으로 덮어쓰지 않습니다.";
-  $("#library-usages").replaceChildren(...(info.usages.length ? info.usages.map((usage) => element("li", "", `${usage.name} · ${usage.path}`)) : [element("li", "", "저장된 NPC/바인딩 사용처 없음")]));
+  $("#tree-protection-note").textContent = $("#library-protection").textContent;
+  $("#library-usages").replaceChildren(...(info.usages.length ? info.usages.map((usage) => element("li", "", `${usage.name} · ${usage.path}`)) : [element("li", "", "저장된 NPC·바인딩·퀘스트 사용처 없음")]));
 }
 
 async function saveLibraryMetadata() {
@@ -173,16 +193,20 @@ function resetCommand(node, kind) {
 }
 
 async function loadScripts(preferredPath = state.path, { reload = false } = {}) {
+  const navigationVersion = state.navigationVersion = (state.navigationVersion || 0) + 1;
   const result = await request("/api/cves/scripts");
+  if (state.navigationVersion !== navigationVersion) return;
   if (!result.ok) throw new Error(result.data.error || "CVES 목록을 불러오지 못했습니다.");
   state.items = result.data.items || [];
   renderScriptList();
-  const target = preferredPath ? state.items.find((item) => item.path === preferredPath) : state.items[0];
+  const target = preferredPath ? state.items.find((item) => item.path === preferredPath) : state.items.find((item) => !item.managed);
+  if (target?.managed) { toast("행동 프리셋의 자동 생성 스크립트입니다. NPC 설정에서 행동 프리셋을 편집하세요."); return; }
   if (preferredPath && !target) toast("연결된 이벤트가 아직 없습니다. NPC 저장 여부와 이벤트 경로를 확인하세요.");
   if (target && (target.path !== state.path || reload)) await loadScript(target);
 }
 
 async function loadScript(item) {
+  if (item.managed) { toast("행동 프리셋은 NPC 설정에서 편집하세요."); return; }
   if (state.loading) return;
   if (hasUnsavedChanges() && !confirm("저장하지 않은 트리·분류 변경을 버리고 다른 CVES 원본을 열까요?")) return;
   setDocumentBusy(true);
@@ -207,7 +231,9 @@ function applyDocument(document, scriptId = state.scriptId, dirty = state.dirty)
   }
   state.path = document.path || state.path;
   state.scriptId = scriptId;
-  state.digest = document.digest ?? state.digest;
+  // A new/duplicated document intentionally clears the old file's optimistic lock.
+  if (Object.prototype.hasOwnProperty.call(document, "digest")) state.digest = document.digest;
+  else if (changedPath) state.digest = null;
   state.ast = document.ast;
   state.collapsed = new WeakSet();
   state.dragged = null;
@@ -225,6 +251,7 @@ function applyDocument(document, scriptId = state.scriptId, dirty = state.dirty)
   $("#save-script").disabled = !dirty;
   $("#duplicate-script").disabled = !state.ast;
   const managed = Boolean(state.library?.managed);
+  $("#add-event").disabled = !state.ast || managed;
   $("#save-script").disabled = !dirty || managed;
   $("#source-editor").readOnly = managed;
   $("#apply-source").disabled = !state.ast || managed;
@@ -242,22 +269,22 @@ function applyDocument(document, scriptId = state.scriptId, dirty = state.dirty)
 function renderScriptList() {
   const list = $("#script-list");
   list.replaceChildren();
-  if (!state.items.length) {
-    list.append(element("p", "panel-help", "content/events 아래에 .cves 원본이 없습니다."));
+  if (!state.items.some(item => !item.managed)) {
+    list.append(element("p", "panel-help", "사용자 정의 이벤트가 없습니다. ＋ 버튼으로 새 원본을 만드세요. 행동 프리셋은 NPC 설정에서 관리합니다."));
     return;
   }
   for (const item of state.items) {
+    if (item.managed) continue;
     const query = $("#library-search").value.trim().toLocaleLowerCase();
     const category = $("#library-category").value;
-    const management = $("#library-management").value;
     const searchable = [item.name, item.script_id, item.metadata?.description, ...(item.metadata?.tags || []), ...(item.usages || []).map((usage) => `${usage.name} ${usage.path}`)].join(" ").toLocaleLowerCase();
-    if (query && !searchable.includes(query) || category && item.metadata?.category !== category || management && Boolean(item.managed) !== (management === "preset")) continue;
+    if (query && !searchable.includes(query) || category && item.metadata?.category !== category) continue;
     const button = element("button", `script-button${item.path === state.path ? " active" : ""}`);
     button.type = "button";
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", String(item.path === state.path));
     button.append(element("strong", "", item.name), element("small", "", item.path));
-    button.append(element("small", "", `${item.managed ? "프리셋 관리" : "사용자 정의"} · 사용처 ${item.usages?.length || 0} · ${(item.metadata?.tags || []).join(" · ")}`));
+    button.append(element("small", "", `사용처 ${item.usages?.length || 0} · ${(item.metadata?.tags || []).join(" · ")}`));
     button.addEventListener("click", () => loadScript(item).catch((error) => toast(error.message)));
     list.append(button);
   }
@@ -300,7 +327,6 @@ function flowBadges(node) {
   const badges = [];
   const info = findNode(node);
   if (node.node === "page") badges.push({ text: node.condition ? `우선 ${info.index + 1}` : "FALLBACK", kind: node.condition ? "priority" : "fallback" });
-  if (node.node === "if") badges.push({ text: "참 / 거짓", kind: "branch" });
   if (node.node === "choice") badges.push({ text: `${node.options?.length || 0}개 분기`, kind: "branch" });
   if (node.node === "choice_option") badges.push({ text: `선택 ${info.index + 1}`, kind: "branch" });
   if (node.node === "repeat") badges.push({ text: "반복", kind: "branch" });
@@ -313,8 +339,70 @@ function flowBadges(node) {
   return badges;
 }
 
+function createNodeBadge(node) {
+  const badge = element("span", "badge");
+  badge.dataset.kind = node.node;
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.setAttribute("viewBox", "0 0 16 16");
+  icon.setAttribute("aria-hidden", "true");
+  icon.setAttribute("focusable", "false");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", NODE_ICONS[node.node] || NODE_ICONS.command);
+  icon.append(path);
+  badge.append(icon, element("span", "", LABELS[node.node] || node.node));
+  return badge;
+}
+
+function navigateBranch(node, branch) {
+  if (node.node !== "if" || !["then", "else"].includes(branch) || !findNode(node)) return;
+  const block = branch === "then" ? node.then_block : node.else_block;
+  if (!block) return;
+  // Include ancestors so the same navigation remains safe from any editor entry point.
+  for (let ancestor = node; ancestor; ancestor = findNode(ancestor)?.parent) state.collapsed.delete(ancestor);
+  const first = block.statements[0];
+  state.selected = first || node;
+  renderTree(); renderInspector();
+  const target = first ? renderedRows.get(first) : renderedBlocks.get(block);
+  focusTreeDestination(target);
+}
+
+function navigateCondition(node) {
+  if (node?.node !== "if" || !findNode(node)) return;
+  for (let ancestor = node; ancestor; ancestor = findNode(ancestor)?.parent) state.collapsed.delete(ancestor);
+  state.selected = node;
+  renderTree(); renderInspector();
+  focusTreeDestination(renderedRows.get(node));
+}
+
+function focusTreeDestination(target) {
+  if (!target) return;
+  target.classList.add("branch-destination");
+  requestAnimationFrame(() => {
+    if (!target.isConnected) return;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+  });
+}
+
+function createBranchNavigation(node) {
+  const controls = element("span", "branch-jumps");
+  for (const [branch, label] of [["then", "참으로 가기"], ["else", "거짓으로 가기"]]) {
+    const block = branch === "then" ? node.then_block : node.else_block;
+    const button = element("button", `branch-jump ${branch}`, branch === "then" ? "T" : "F");
+    button.type = "button";
+    button.setAttribute("aria-label", label);
+    button.disabled = !block;
+    button.title = !block ? "거짓 경로가 없습니다." : block.statements.length ? `${label} · 첫 항목 선택` : `${label} · 빈 분기 위치`;
+    button.addEventListener("click", (event) => { event.stopPropagation(); navigateBranch(node, branch); });
+    button.addEventListener("dragstart", (event) => { event.preventDefault(); event.stopPropagation(); });
+    controls.append(button);
+  }
+  return controls;
+}
+
 function renderTree() {
   const tree = $("#event-tree");
+  renderedRows = new WeakMap(); renderedBlocks = new WeakMap();
   tree.replaceChildren();
   tree.classList.toggle("empty", !state.ast);
   if (!state.ast) { tree.append(element("p", "", "왼쪽에서 CVES 원본을 선택하세요.")); return; }
@@ -326,6 +414,8 @@ function renderTree() {
 function renderNode(node) {
   const wrapper = element("div", "tree-node");
   const row = element("div", `node-row${node === state.selected ? " selected" : ""}`);
+  row.tabIndex = -1;
+  renderedRows.set(node, row);
   const canExpand = ["event", "page", "if", "choice", "choice_option", "repeat"].includes(node.node);
   const toggle = element("button", `node-toggle${canExpand ? "" : " spacer"}`, state.collapsed.has(node) ? "▸" : "▾");
   toggle.type = "button"; toggle.disabled = !canExpand; toggle.setAttribute("aria-label", state.collapsed.has(node) ? "노드 펼치기" : "노드 접기");
@@ -334,7 +424,9 @@ function renderNode(node) {
     if (state.collapsed.has(node)) state.collapsed.delete(node); else state.collapsed.add(node);
     renderTree();
   });
-  row.append(toggle, element("span", "badge", LABELS[node.node] || node.node), element("span", "label", nodeLabel(node)));
+  row.append(toggle, createNodeBadge(node));
+  if (node.node === "if") row.append(createBranchNavigation(node));
+  row.append(element("span", "label", nodeLabel(node)));
   flowBadges(node).forEach((value) => row.append(element("span", `flow-badge ${value.kind}`, value.text)));
   row.addEventListener("click", (event) => {
     event.stopPropagation(); state.selected = node; renderTree(); renderInspector();
@@ -370,17 +462,28 @@ function renderNode(node) {
   if (node.node === "event") node.pages.forEach((child) => children.append(renderNode(child)));
   else if (node.node === "page") renderBlock(children, node.block, "commands");
   else if (node.node === "if") {
-    renderBlock(children, node.then_block, "then");
-    if (node.else_block) renderBlock(children, node.else_block, "else");
+    renderBlock(children, node.then_block, "then", node);
+    if (node.else_block) renderBlock(children, node.else_block, "else", node);
   } else if (node.node === "choice") node.options.forEach((child) => children.append(renderNode(child)));
   else if (node.node === "choice_option" || node.node === "repeat") renderBlock(children, node.block, "commands");
   if (children.childNodes.length) wrapper.append(children);
   return wrapper;
 }
 
-function renderBlock(target, value, caption) {
+function renderBlock(target, value, caption, condition = null) {
   const labels = { commands: "실행 순서", then: "참 경로", else: "거짓 경로" };
-  target.append(element("div", `block-caption ${caption}`, labels[caption] || caption));
+  const heading = element("div", `block-caption ${caption}`, labels[caption] || caption);
+  heading.tabIndex = -1;
+  if (condition && (caption === "then" || caption === "else")) {
+    const back = element("button", "branch-jump condition-return", "↶");
+    back.type = "button";
+    back.setAttribute("aria-label", "조건 노드로 가기");
+    back.title = "조건 노드로 가기 · 이 경로를 소유한 조건으로 이동";
+    back.addEventListener("click", (event) => { event.stopPropagation(); navigateCondition(condition); });
+    heading.append(back);
+  }
+  renderedBlocks.set(value, heading);
+  target.append(heading);
   if (!value.statements.length) target.append(element("div", "panel-help", "빈 블록"));
   value.statements.forEach((statement) => target.append(renderNode(statement)));
 }
@@ -1110,13 +1213,14 @@ function renderDiagnostics(diagnostics) {
 }
 
 async function validateTree() {
+  if (state.sourceDirty) throw new Error("변경한 텍스트를 먼저 AST에 적용해 주세요.");
   const validatedAst = state.ast;
   const validatedPath = state.path;
   updateState("트리 검증 중");
   const result = await request("/api/cves/validate", { method: "POST", body: JSON.stringify({ path: validatedPath, ast: validatedAst }) });
   // A script switch or text replacement can finish before this validation.
   // Never display the previous document's AST or diagnostics under the new path.
-  if (state.ast !== validatedAst || state.path !== validatedPath) return result.data;
+  if (state.ast !== validatedAst || state.path !== validatedPath || state.sourceDirty) return result.data;
   if (!result.data.ast) { renderDiagnostics(result.data.diagnostics || []); updateState("검증 실패", "invalid"); throw new Error(result.data.error || "AST를 검증하지 못했습니다."); }
   const selected = state.selected;
   state.ast = result.data.ast; state.source = result.data.canonical; state.selected = state.ast.root.events[0] || null;
@@ -1142,7 +1246,7 @@ async function saveScript() {
   if (state.loading) return;
   if (state.sourceDirty) throw new Error("변경한 CVES 텍스트를 먼저 AST에 적용한 뒤 저장해 주세요.");
   if (state.library?.managed) throw new Error("행동 프리셋 관리 이벤트는 복사하거나 NPC에서 사용자 정의로 전환해 주세요.");
-  if (state.library?.usages.length > 1 && !confirm(`이 이벤트를 사용하는 ${state.library.usages.length}개 NPC/바인딩에 모두 적용할까요?\n${state.library.usages.map((usage) => usage.name).join(", ")}\n개별 수정은 취소 후 복사본을 만드세요.`)) return;
+  if (state.library?.usages.length > 1 && !confirm(`이 이벤트의 ${state.library.usages.length}개 사용처에 모두 적용할까요?\n${state.library.usages.map((usage) => usage.name).join(", ")}\n개별 수정은 취소 후 복사본을 만드세요.`)) return;
   setDocumentBusy(true);
   try {
   updateState("결정적 포맷으로 저장 중");
@@ -1154,6 +1258,80 @@ async function saveScript() {
   if (!state.library) { state.library = state.items.find((item) => item.path === state.path) || null; renderLibraryDetails(); }
   toast("CVES 권위 원본을 결정적으로 저장했습니다.");
   } finally { setDocumentBusy(false); }
+}
+
+const TRIGGER_LABELS = {
+  interact: "말 걸기", proximity_enter: "주변 범위 진입", proximity_exit: "주변 범위 이탈",
+  region_enter: "지역 진입", region_exit: "지역 이탈", anchor_step: "앵커 밟기",
+  building_enter: "건물 진입", building_exit: "건물 이탈", dimension_enter: "차원 진입",
+  dimension_exit: "차원 이탈", flag_changed: "플래그 변경", item_used: "아이템 사용",
+  battle_finished: "배틀 종료", quest: "퀘스트 훅",
+};
+let eventDialogAst = null;
+
+function requireEventEditable() {
+  if (!state.ast || state.loading) throw new Error("편집할 스크립트를 먼저 불러오세요.");
+  if (state.library?.managed) throw new Error("프리셋 관리 원본은 복사하거나 사용자 정의로 전환한 뒤 편집하세요.");
+  if (state.sourceDirty) throw new Error("변경한 CVES 텍스트를 먼저 AST에 적용하세요.");
+}
+
+function uniqueTriggerExists(kind) {
+  return ["interact", "quest"].includes(kind) && state.ast.root.events.some(event => event.trigger.name === kind);
+}
+
+function updateAddEventFields() {
+  const form = $("#add-event-form");
+  const contract = triggerContract(form.elements.trigger.value);
+  const hasRange = Boolean(contract?.arguments.some(parameter => parameter.name === "range"));
+  $("#add-event-range").hidden = !hasRange;
+  form.elements.range.disabled = !hasRange; form.elements.range.required = hasRange;
+  const target = contract?.arguments.find(parameter => parameter.name === "target");
+  $("#add-event-target").hidden = !target;
+  form.elements.target.disabled = !target; form.elements.target.required = Boolean(target);
+  form.elements.target.replaceChildren(new Option("대상 선택", ""));
+  for (const id of state.contract.resources[target?.resource_kind] || []) form.elements.target.add(new Option(id, id));
+  $("#add-event-error").hidden = true;
+}
+
+function openAddEvent() {
+  requireEventEditable();
+  const form = $("#add-event-form"); form.reset();
+  form.elements.trigger.replaceChildren();
+  for (const contract of state.contract.triggers) {
+    const exists = uniqueTriggerExists(contract.id);
+    const option = new Option(`${TRIGGER_LABELS[contract.id] || contract.id} · ${contract.id}${exists ? " (이미 있음)" : ""}`, contract.id);
+    option.disabled = exists; form.elements.trigger.add(option);
+  }
+  form.elements.trigger.value = uniqueTriggerExists("interact") ? "proximity_enter" : "interact";
+  eventDialogAst = state.ast;
+  updateAddEventFields(); $("#add-event-dialog").showModal();
+}
+
+function appendEvent(kind, values = {}) {
+  requireEventEditable();
+  const contract = triggerContract(kind);
+  if (!contract) throw new Error("지원하지 않는 발동 조건입니다.");
+  if (uniqueTriggerExists(kind)) throw new Error("말 걸기·퀘스트 이벤트는 하나만 추가할 수 있습니다. 기존 이벤트의 페이지를 편집하세요.");
+  const args = [];
+  if (contract.arguments.some(parameter => parameter.name === "range")) {
+    const raw = String(values.range ?? "").trim();
+    const range = Number(raw);
+    if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw) || !Number.isFinite(range) || range <= 0) throw new Error("감지 거리는 0보다 큰 숫자여야 합니다. 지수 표기 대신 일반 소수를 입력하세요.");
+    const integer = Number.isSafeInteger(range);
+    let decimal = raw.startsWith(".") ? `0${raw}` : raw;
+    if (!decimal.includes(".")) decimal += ".0";
+    else if (decimal.endsWith(".")) decimal += "0";
+    args.push(argument(literal(integer ? range : decimal, integer ? "int" : "decimal"), "range"));
+  }
+  const target = contract.arguments.find(parameter => parameter.name === "target");
+  if (target) {
+    if (!(state.contract.resources[target.resource_kind] || []).includes(values.target)) throw new Error("발동 대상 리소스를 선택하세요.");
+    args.push(argument(literal(values.target, "string"), "target"));
+  }
+  const event = { node: "event", trigger: {node:"trigger", name:kind, arguments:args}, pages:[{node:"page",condition:null,block:block()}] };
+  state.ast.root.events.push(event); state.selected = event;
+  markDirty(); renderTree(); renderInspector();
+  return event;
 }
 
 function scriptIdFromPath(path) {
@@ -1170,6 +1348,8 @@ async function createNewScript(form) {
   if (state.items.some((item) => item.path === path)) throw new Error("이미 존재하는 CVES 원본 경로입니다.");
   if (state.loading) return;
   if (hasUnsavedChanges() && !confirm("현재 저장하지 않은 변경을 버리고 새 CVES 트리를 만들까요?")) return;
+  setDocumentBusy(true);
+  try {
   const triggerNode = { node: "trigger", name: trigger, arguments: [] };
   resetTrigger(triggerNode, trigger);
   const ast = state.copyAst || {
@@ -1188,9 +1368,24 @@ async function createNewScript(form) {
   state.items.sort((left, right) => left.path.localeCompare(right.path));
   applyDocument({ ...result.data, path, digest: null }, scriptId, true);
   $("#new-script-dialog").close(); form.reset(); toast("새 트리를 만들었습니다. 저장 전까지 파일은 생성되지 않습니다.");
+  } finally { setDocumentBusy(false); }
 }
 
 $("#refresh-scripts").addEventListener("click", () => loadScripts(state.path, { reload: true }).catch((error) => toast(error.message)));
+$("#add-event").addEventListener("click", () => { try { openAddEvent(); } catch (error) { toast(error.message); } });
+$("#add-event-form select[name=trigger]").addEventListener("change", updateAddEventFields);
+for (const id of ["close-add-event", "cancel-add-event"]) $("#" + id).addEventListener("click", () => $("#add-event-dialog").close());
+$("#add-event-dialog").addEventListener("close", () => { eventDialogAst = null; });
+$("#add-event-form").addEventListener("submit", event => {
+  event.preventDefault();
+  try {
+    if (eventDialogAst !== state.ast) throw new Error("편집 문서가 바뀌었습니다. 추가창을 다시 열어 주세요.");
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const added = appendEvent(values.trigger, values);
+    $("#add-event-dialog").close(); focusTreeDestination(renderedRows.get(added));
+    toast("현재 스크립트에 이벤트를 추가했습니다. CVES 저장 후 적용됩니다.");
+  } catch (error) { $("#add-event-error").textContent = error.message; $("#add-event-error").hidden = false; }
+});
 $("#new-script").addEventListener("click", () => { if (state.loading) return; state.copyAst = null; $("#new-script-dialog").showModal(); });
 $("#duplicate-script").addEventListener("click", () => {
   if (state.loading) return;
@@ -1200,7 +1395,7 @@ $("#duplicate-script").addEventListener("click", () => {
   $("#new-script-dialog").showModal();
   toast("현재 트리를 새 경로에 복사합니다. 저장 후 NPC에서 복사본을 선택하세요.");
 });
-for (const id of ["library-search", "library-category", "library-management"]) $("#" + id).addEventListener("input", renderScriptList);
+for (const id of ["library-search", "library-category"]) $("#" + id).addEventListener("input", renderScriptList);
 for (const id of ["metadata-name", "metadata-description", "metadata-category", "metadata-tags"]) $("#" + id).addEventListener("input", () => { state.metadataDirty = true; $("#save-metadata").disabled = false; });
 $("#save-metadata").addEventListener("click", () => saveLibraryMetadata().catch((error) => toast(error.message)));
 $("#return-to-npc").addEventListener("click", () => {
@@ -1209,6 +1404,7 @@ $("#return-to-npc").addEventListener("click", () => {
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== "cves:open") return;
   $("#return-to-npc").hidden = !event.data.fromNpc;
+  $("#return-to-npc").textContent = event.data.returnLabel || "← NPC로 돌아가기";
   if (typeof event.data.path === "string") loadScripts(event.data.path, { reload: event.data.path === state.path && !hasUnsavedChanges() }).catch((error) => toast(error.message));
 });
 $("#source-editor").addEventListener("input", () => { state.sourceDirty = true; updateState("텍스트 변경 · AST 적용 필요", "dirty"); });

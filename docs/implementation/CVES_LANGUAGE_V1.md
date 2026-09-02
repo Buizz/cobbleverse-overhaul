@@ -82,6 +82,12 @@ primary          = INTEGER | DECIMAL | STRING | "true" | "false" |
 
 ## 3. 트리 AST 계약
 
+퀘스트 수락·목표 달성·완료 훅은 인수 없는 `event quest`를 사용한다.
+일반 EBNF의 `IDENT` 트리거를 그대로 사용하므로 lexer/AST/IR 버전을 바꾸지 않는다.
+`range`, `once`, `scope` 등 인수는 받지 않고 퀘스트의 플레이어별 저널에서 발동과 중복을 관리한다.
+연결되는 원본에는 quest 진입점이 정확히 하나 필요하다. 상세 작성/실행 계약은
+`EVENT_AUTHORING_INTEGRATION.md`의 2차 퀘스트 실행 훅 절을 따른다.
+
 모든 노드는 원본 파일, 시작/끝 offset, 1부터 시작하는 줄과 열을 가진 `SourceSpan`을
 보존한다. 위치는 진단과 source map용 메타데이터이며 AST 의미 동등성 비교에서는
 제외한다.

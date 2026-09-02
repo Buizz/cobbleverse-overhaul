@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "카지노 환전상",
+  "description": "카지노 환전상의 시설 이용 이벤트.",
+  "category": "system",
+  "tags": [
+    "시설",
+    "카지노",
+    "환전"
+  ]
+}

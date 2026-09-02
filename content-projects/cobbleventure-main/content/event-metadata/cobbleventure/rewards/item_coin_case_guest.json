@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "은퇴한 카지노 손님",
+  "description": "은퇴한 카지노 손님의 아이템 지급 이벤트.",
+  "category": "system",
+  "tags": [
+    "보상",
+    "아이템 지급"
+  ]
+}

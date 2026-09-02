@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "display_name": "피크닉걸 켈시",
+  "description": "피크닉걸 켈시의 관동 트레이너 이벤트.",
+  "category": "npc",
+  "tags": [
+    "관동",
+    "배틀",
+    "트레이너",
+    "파이어레드"
+  ]
+}

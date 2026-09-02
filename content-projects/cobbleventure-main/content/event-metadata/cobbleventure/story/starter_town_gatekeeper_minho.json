@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "태초마을 길지기 민호",
+  "description": "태초마을 길지기 민호의 관문 통행 제한 이벤트.",
+  "category": "region",
+  "tags": [
+    "관문",
+    "태초마을",
+    "통행 제한"
+  ]
+}

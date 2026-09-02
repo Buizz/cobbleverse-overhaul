@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "바위 작업반장",
+  "description": "바위 작업반장의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "바위깨기",
+    "보상",
+    "필드 기술"
+  ]
+}

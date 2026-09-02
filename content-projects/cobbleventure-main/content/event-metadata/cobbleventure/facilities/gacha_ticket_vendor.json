@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "가챠 티켓 교환상",
+  "description": "가챠 티켓 교환상의 시설 이용 이벤트.",
+  "category": "system",
+  "tags": [
+    "가챠",
+    "교환",
+    "시설"
+  ]
+}

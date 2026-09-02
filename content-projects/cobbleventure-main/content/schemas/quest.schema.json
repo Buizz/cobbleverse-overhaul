@@ -24,6 +24,13 @@
     "display_name": { "$ref": "#/$defs/localized_text" },
     "summary": { "$ref": "#/$defs/localized_text" },
     "accept_conditions": { "$ref": "#/$defs/condition_group" },
+    "event_hooks": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "on_accept": { "$ref": "#/$defs/event_hook" },
+        "on_complete": { "$ref": "#/$defs/event_hook" }
+      }
+    },
     "global_activation": {
       "type": "object",
       "additionalProperties": false,
@@ -54,6 +61,7 @@
           "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]*$" },
           "text": { "$ref": "#/$defs/localized_text" },
           "conditions": { "$ref": "#/$defs/condition_group" },
+          "on_complete": { "$ref": "#/$defs/event_hook" },
           "marker": {
             "type": "object",
             "additionalProperties": false,
@@ -100,6 +108,14 @@
     }
   },
   "$defs": {
+    "event_hook": {
+      "type": "object", "additionalProperties": false,
+      "required": ["script_id", "npc_id"],
+      "properties": {
+        "script_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:event_script/[a-z0-9_./-]+$" },
+        "npc_id": { "type": "string", "pattern": "^[a-z0-9_.-]+:npc/[a-z0-9_./-]+$" }
+      }
+    },
     "resource_id": {
       "type": "string",
       "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "display_name": "피크닉걸 하나",
+  "description": "피크닉걸 하나의 작성 예제 이벤트.",
+  "category": "common",
+  "tags": [
+    "샘플",
+    "예제"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "블랙잭 딜러",
+  "description": "블랙잭 딜러의 시설 이용 이벤트.",
+  "category": "system",
+  "tags": [
+    "블랙잭",
+    "시설",
+    "카지노"
+  ]
+}

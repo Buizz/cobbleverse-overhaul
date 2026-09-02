@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "display_name": "안개 관측가",
+  "description": "안개 관측가의 필드 기술 습득 이벤트.",
+  "category": "system",
+  "tags": [
+    "보상",
+    "안개제거",
+    "필드 기술"
+  ]
+}
