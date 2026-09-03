@@ -140,6 +140,14 @@ final class WildSpawnLeveling {
         boolean forceEvolvedSpawn = entity.getTags().contains(FORCE_EVOLVED_SPAWN_TAG)
             || addition != null && addition.spawnAsEvolved();
         if (!forceEvolvedSpawn) normalizeLevelEvolution(pokemon);
+        if (shouldLog(eventNumber)) {
+            LOGGER.info(
+                "[Spawn diagnosis] Final wild level: species={}, level={}, method={}, speciesOverride={}, worldAverage={}, dimension={}, position=({}, {}, {})",
+                pokemon.getSpecies().getResourceIdentifier(), pokemon.getLevel(), method,
+                rule != null && rule.levelOverrides().containsKey(pokemon.getSpecies().getResourceIdentifier()),
+                averageLevel, level.dimension().location(), entity.getBlockX(), entity.getBlockY(), entity.getBlockZ()
+            );
+        }
     }
 
     private static boolean shouldLog(int eventNumber) {
@@ -171,10 +179,19 @@ final class WildSpawnLeveling {
         PokemonEntity entity, ResourceLocation species,
         AdventureWorldContext.WildSpawnRule rule, Integer averageLevel, int fallback
     ) {
+        return levelFor(entity.getRandom()::nextInt, species, rule, averageLevel, fallback);
+    }
+
+    static int levelFor(
+        java.util.function.IntUnaryOperator nextInt, ResourceLocation species,
+        AdventureWorldContext.WildSpawnRule rule, Integer averageLevel, int fallback
+    ) {
         AdventureWorldContext.WildSpawnLevelRange override = rule == null
             ? null : rule.levelOverrides().get(species);
-        if (override != null) return randomLevel(entity, override.minLevel(), override.maxLevel());
-        return averageLevel == null ? fallback : randomLevel(entity, averageLevel);
+        if (override != null) return override.sample(nextInt);
+        return averageLevel == null ? fallback : new AdventureWorldContext.WildSpawnLevelRange(
+            averageLevel - LEVEL_SPREAD, averageLevel + LEVEL_SPREAD
+        ).sample(nextInt);
     }
 
     static AdventureWorldContext.WildSpawnAddition selectAddition(

@@ -17,9 +17,10 @@
     "role": "gatekeeper",
     "trainer_class": "cobbleventure:trainer_class/ace_trainer_male",
     "appearance": {
-      "source": "rct_single",
+      "source": "custom",
       "type": "skin",
-      "resource": "rctmod:trainers/single/ace_trainer_symes_0071"
+      "resource": "cobbleventure:trainer_skin/police_officer",
+      "arm_model": "classic"
     },
     "behavior": {
       "movement": "stationary",

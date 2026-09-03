@@ -1,4 +1,8 @@
 {
+  "item.cobbleventure_bootstrap.poke_flute": "포켓몬 피리",
+  "item.cobbleventure_bootstrap.poke_flute.desc": "잠든 잠만보 근처에서 사용해 잠을 깨웁니다. 사용해도 사라지지 않습니다.",
+  "message.cobbleventure_bootstrap.poke_flute.no_target": "근처에 피리로 깨울 수 있는 포켓몬이 없습니다.",
+  "message.cobbleventure_bootstrap.poke_flute.awakened": "포켓몬 피리를 불었다! 잠만보가 잠에서 깨어났다!",
   "item.cobbleventure_bootstrap.youngster_cap": "반바지 꼬마의 모자",
   "block.cobbleventure_bootstrap.strength_boulder": "괴력 바위",
   "block.cobbleventure_bootstrap.strength_plate": "괴력 발판",

@@ -14,6 +14,7 @@ COMMAND_MODIFIERS: dict[ast.CommandKind, tuple[frozenset[str], frozenset[str]]] 
     ast.CommandKind.GIVE_LOOT: (frozenset({"count"}), frozenset({"notify"})),
     ast.CommandKind.GIVE_MONEY: (frozenset(), frozenset({"notify"})),
     ast.CommandKind.TAKE_MONEY: (frozenset(), frozenset({"allow_debt"})),
+    ast.CommandKind.HEAL_PARTY: (frozenset(), frozenset({"fallback"})),
     ast.CommandKind.MOVE: (frozenset(), frozenset()),
     ast.CommandKind.TELEPORT: (frozenset(), frozenset()),
     ast.CommandKind.ENTER_SPACE: (frozenset(), frozenset()),

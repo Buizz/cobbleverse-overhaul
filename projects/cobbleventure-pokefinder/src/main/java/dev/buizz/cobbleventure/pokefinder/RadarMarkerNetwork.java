@@ -26,7 +26,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 /** Server-authoritative static radar marker snapshots. */
 public final class RadarMarkerNetwork {
-    private static final String VERSION = "2";
+    private static final String VERSION = "3";
     private static final int SYNC_INTERVAL_TICKS = 20;
     private static final int MAX_MARKERS = 2_048;
     private static final Map<UUID, SnapshotPayload> LAST_SENT = new HashMap<>();

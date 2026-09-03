@@ -1,0 +1,56 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/restore_power_plant",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "발전소를 되찾고 플래시 얻기"
+  },
+  "summary": {
+    "ko_kr": "갈색시티의 오렌지배지를 얻어 블루시티 옆 발전소가 개방되었습니다. 발전소 던전의 로켓단을 물리치고 플래시를 얻으세요. 플래시는 보라시티 방면의 어두운 동굴을 통과할 때 필요합니다."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/thunder"
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "restore_power_plant",
+      "text": {
+        "ko_kr": "발전소 던전을 클리어해 플래시 사용 권한 얻기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "variable",
+            "source": "persistent_data",
+            "key": "cobbleventureFieldMove.flash",
+            "operator": ">=",
+            "value": 1
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/rocket_power_plant_officer"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

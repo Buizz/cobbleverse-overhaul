@@ -3,9 +3,38 @@ package dev.buizz.cobbleventure.bootstrap;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.gson.JsonParser;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 final class WorldPlanParserTest {
+    @Test
+    void preservesAuthoredLevelWeightsAndLegacyUniformRanges() {
+        var root = JsonParser.parseString("""
+            {"connections": [{"id":"route_one", "corridor_width_blocks":12,
+              "surface_style":"road", "cells":[{"q":-5,"r":7}],
+              "pokemon_spawns":{"inherit_biome":false,"level_overrides":[
+                {"species":"cobblemon:pidgey","min_level":2,"max_level":5,
+                 "level_weights":{"2":10,"3":35,"4":4,"5":1}},
+                {"species":"cobblemon:rattata","min_level":2,"max_level":4}
+              ],"encounter_pools":{"old_rod":{"level_overrides":[
+                {"species":"cobblemon:magikarp","min_level":5,"max_level":10,
+                 "level_weights":{"5":9,"10":1}}
+              ]}}}
+            }]}
+            """).getAsJsonObject();
+        String boundaryId = "cobbleventure:boundary/dense_tree_line";
+        var boundary = new WorldPlanModels.BoundaryProfile(boundaryId, "tree", 1, 1, 1,
+            "solid", "minecraft:stone", List.of(), null);
+        var spawns = WorldPlanParser.connections(root, Map.of(boundaryId, boundary))
+            .getFirst().pokemonSpawns();
+        assertEquals(Map.of(2, 10, 3, 35, 4, 4, 5, 1),
+            spawns.levelOverrides().get("cobblemon:pidgey").levelWeights());
+        assertEquals(Map.of(), spawns.levelOverrides().get("cobblemon:rattata").levelWeights());
+        assertEquals(Map.of(5, 9, 10, 1), spawns.pool("old_rod")
+            .levelOverrides().get("cobblemon:magikarp").levelWeights());
+    }
+
     @Test
     void parsesBarrierTransitionForCaveEntrance() {
         var root = JsonParser.parseString("""

@@ -211,6 +211,32 @@ EasyNPC 프리셋은 전환 기간 동안 그대로 작동한다.
 현재 오박사 V5 스크립트와 바인딩이 첫 실제 산출 fixture이며, 기존 오박사 V4 JSON과
 EasyNPC 프리셋에는 V5 태그를 아직 추가하지 않는다.
 
+### NPC 승리 상금 연결
+
+NPC의 `npc.battle_rewards.money`가 V5 승리 상금의 NPC별 권위 설정이다.
+프로젝트 컴파일러는 이를 **배포용** `npc_event_binding`의 선택 필드
+`money_reward`로 복사한다. `content/event-bindings` 원본에는 이 필드를
+직접 쓰지 않으며, 웹 NPC 설정에서 수정한 값은 다음 빌드에 반영된다.
+CVES 대사나 행동 프리셋을 재생성하지 않아도 상금 변경이 전달된다.
+
+- 해당 NPC 바인딩과 실행 script ID가 일치하면 NPC 설정을 우선한다.
+  `enabled: false`와 고정 금액 0도 명시적인 설정이며 배틀 프리셋으로 대체하지 않는다.
+- NPC 설정이 없으면 기존 `battle.money_reward`를 사용한다. 두 설정을 합산하지 않는다.
+  양쪽 모두 없으면 자동 상금은 없다. 임의의 전투에 전역 기본 상금을 부여하지 않는다.
+- 일반 배틀 NPC의 누락된 설정은 `regional_level`, `per_level: 20`, `offset: 100`으로
+  콘텐츠에 명시한다. 지역 레벨 조회 실패 시 NPC 예상 레벨을 사용하며,
+  예상 레벨이 자리표시자 1인 던전 NPC는 참조 배틀의 팀 최고 레벨을 사용한다.
+  `cobblemon:amulet_coin` 참여 보너스 2배는 기존 공통 지급 로직을 재사용한다.
+- 관장 8명의 상금은 기존 CVES `give_money`가 담당하므로 자동 상금을 추가하지 않는다.
+  사용자 정의 이벤트에서도 자동 상금과 `give_money`로 같은 보상을 중복 작성하지 않는다.
+- `conditions`는 `flag_equals` 배열(AND)이며 전투 시작 시 해당 플레이어의 플래그로
+  평가한다. 원본의 boolean 또는 0/1은 배포 시 boolean으로 정규화한다.
+  다른 조건 종류는 무시하지 않고 빌드 오류로 알린다.
+- 런타임은 전투 전에 기존 `TrainerMoneyRewards`에 한 번 준비하고,
+  동일 플레이어·배틀 UUID의 승리에서 지급한다. 패배·포기는 기존 준비 취소 경로를 쓴다.
+
+이 필드를 포함한 데이터 모드는 이를 읽는 Adventure 모듈과 함께 업데이트해야 한다.
+
 ## 보상 원자성 경계
 
 `set_flag`, `set_player_variable`, `unlock_feature`, `set_level_cap`은 같은 값을
@@ -498,6 +524,11 @@ V5 바인딩 태그를 가진 로드된 NPC에 대해 `proximity_enter`와 `prox
 - 바깥 범위를 벗어나면 단계와 소비 상태를 초기화하므로 다음 정상 재진입이 가능하다.
 - 이 동작은 `cves_trigger/proximity` 표현 태그가 있는 V5 NPC에만 적용한다. V4의 기존
   EasyNPC proximity 액션은 전환 기간 동안 그대로 보존한다.
+- `cves_trigger/proximity`는 최초 조우 방식이며 영구적인 클릭 금지 태그가 아니다.
+  해당 플레이어에게 선택 가능한 proximity 페이지가 남아 있으면 클릭으로 강제 조우를
+  우회할 수 없다. 승리 플래그 등으로 모든 proximity 페이지 조건이 해제되고 `interact`
+  페이지가 선택되면 클릭 후속 대화를 허용한다. 조건은 기존 page 선택기로 평가하며
+  공유 NPC의 태그를 제거하지 않으므로 다른 플레이어의 조우 상태에는 영향을 주지 않는다.
 
 상호작용과 proximity는 같은 `EventTriggerExecutor`를 사용하므로 page 선택, 영구 세션,
 await 복구, operation journal과 명령 어댑터 동작이 동일하다. trigger instance는

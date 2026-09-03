@@ -1,4 +1,8 @@
 {
+  "item.cobbleventure_bootstrap.poke_flute": "Poké Flute",
+  "item.cobbleventure_bootstrap.poke_flute.desc": "Use near a sleeping Snorlax to awaken it. This tool is reusable.",
+  "message.cobbleventure_bootstrap.poke_flute.no_target": "There is no Pokémon nearby that the flute can awaken.",
+  "message.cobbleventure_bootstrap.poke_flute.awakened": "You played the Poké Flute! Snorlax woke up!",
   "item.cobbleventure_bootstrap.youngster_cap": "Youngster's Cap",
   "block.cobbleventure_bootstrap.strength_boulder": "Strength Boulder",
   "block.cobbleventure_bootstrap.strength_plate": "Strength Plate",

@@ -195,12 +195,10 @@ final class HeadbuttEncounters {
         net.minecraft.resources.ResourceLocation species, Integer averageLevel
     ) {
         AdventureWorldContext.WildSpawnLevelRange override = rule.levelOverrides().get(species);
+        if (override != null) return override.sample(random::nextInt);
         int minimum;
         int maximum;
-        if (override != null) {
-            minimum = override.minLevel();
-            maximum = override.maxLevel();
-        } else if (averageLevel != null) {
+        if (averageLevel != null) {
             minimum = averageLevel - 2;
             maximum = averageLevel + 2;
         } else {

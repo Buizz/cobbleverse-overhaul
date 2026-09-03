@@ -5,7 +5,6 @@ import com.cobblemon.mod.common.api.events.pokemon.TradeEvent;
 import com.cobblemon.mod.common.block.PCBlock;
 import com.cobblemon.mod.common.trade.PlayerTradeParticipant;
 import com.cobblemon.mod.common.trade.TradeManager;
-import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -47,9 +46,10 @@ final class DungeonWaitingPokemonAccess {
         var manager = TradeManager.INSTANCE;
         var outbound = manager.getOutboundRequest(player.getUUID());
         if (outbound != null) manager.cancelRequest(outbound, true);
-        for (var inbound : List.copyOf(manager.getInboundRequests(player.getUUID()))) {
-            manager.cancelRequest(inbound, true);
-        }
+        DungeonTradeRequestCleanup.cancelInboundRequests(
+            manager.getInboundRequests(player.getUUID()),
+            inbound -> manager.cancelRequest(inbound, true)
+        );
     }
 
     static void cancelTradeActivity(ServerPlayer player) {

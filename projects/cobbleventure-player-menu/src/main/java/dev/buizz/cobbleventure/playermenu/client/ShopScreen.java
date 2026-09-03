@@ -20,6 +20,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
@@ -47,6 +48,10 @@ public final class ShopScreen extends Screen {
     private final int ERROR;
     private final int SUCCESS;
     private final List<SellItemButton> sellItemButtons = new ArrayList<>();
+    private final List<OfferButton> buyItemButtons = new ArrayList<>();
+    private List<FormattedCharSequence> descriptionLines = List.of();
+    private ShopNetwork.ClientOffer describedOffer;
+    private int descriptionScroll;
     private List<ShopNetwork.ClientOffer> offers;
     private List<ShopNetwork.ClientOffer> filtered = List.of();
     private String balance;
@@ -102,6 +107,8 @@ public final class ShopScreen extends Screen {
     private void rebuildShopWidgets() {
         clearWidgets();
         sellItemButtons.clear();
+        buyItemButtons.clear();
+        describedOffer = null;
         int leftWidth = ShopLayout.contentWidth(panelWidth);
         int tabsY = panelY + 41;
         int bodyY = panelY + 68;
@@ -182,13 +189,14 @@ public final class ShopScreen extends Screen {
                 int offerPosition = start + visible;
                 if (offerPosition >= filtered.size()) break;
                 ShopNetwork.ClientOffer offer = filtered.get(offerPosition);
-                addRenderableWidget(new OfferButton(
+                OfferButton button = addRenderableWidget(new OfferButton(
                     offer,
                     gridX + (visible % GRID_COLUMNS) * (cardWidth + 1),
                     gridY + (visible / GRID_COLUMNS) * (cardHeight + 1),
                     cardWidth,
                     cardHeight
                 ));
+                buyItemButtons.add(button);
             }
         }
 
@@ -341,12 +349,16 @@ public final class ShopScreen extends Screen {
         drawEmptyState(graphics);
         drawDetail(graphics, panelWidth);
         super.render(graphics, mouseX, mouseY, partialTick);
-        if (selling) {
-            for (SellItemButton button : sellItemButtons) {
-                if (button.visible && button.isMouseOver(mouseX, mouseY)) {
-                    graphics.renderTooltip(font, button.offer.stack(), mouseX, mouseY);
-                    break;
-                }
+        for (SellItemButton button : sellItemButtons) {
+            if (button.visible && button.isMouseOver(mouseX, mouseY)) {
+                drawItemTooltip(graphics, button.offer.stack(), mouseX, mouseY);
+                return;
+            }
+        }
+        for (OfferButton button : buyItemButtons) {
+            if (button.visible && button.isMouseOver(mouseX, mouseY)) {
+                drawItemTooltip(graphics, button.offer.stack(), mouseX, mouseY);
+                return;
             }
         }
     }
@@ -420,44 +432,23 @@ public final class ShopScreen extends Screen {
         int detailWidth = actualWidth - leftWidth - 15;
         int detailTop = panelY + 68;
         int detailBottom = panelY + panelHeight - 10;
-        fillRoundedRect(graphics, detailX, detailTop,
-            detailX + detailWidth, detailBottom, 8, PANEL_LIGHT);
-        fillRoundedRect(graphics, detailX + 2, detailTop + 2,
-            detailX + detailWidth - 2, detailBottom - 2, 7, CARD);
+        ThemedOverlayPanel.draw(graphics, theme, detailX, detailTop, detailWidth, detailBottom - detailTop);
 
         ShopNetwork.ClientOffer offer = selectedOffer();
         if (offer == null) return;
         ItemStack stack = offer.stack();
-        graphics.renderItem(stack, detailX + detailWidth / 2 - 8, detailTop + 10);
-        String itemName = font.plainSubstrByWidth(stack.getHoverName().getString(), detailWidth - 20);
-        graphics.drawString(font, itemName,
-            detailX + (detailWidth - font.width(itemName)) / 2, detailTop + 31, TEXT, false);
-        String unitPrice = format(selling ? offer.sellPrice() : offer.buyPrice());
-        boolean compact = panelHeight < 250;
-        if (compact) {
-            String summary = Component.translatable(
-                "screen.cobbleventure_player_menu.shop.compact_summary", unitPrice, offer.owned()
-            ).getString();
-            graphics.drawString(font, font.plainSubstrByWidth(summary, detailWidth - 20),
-                detailX + 10, detailTop + 49, MUTED, false);
-            graphics.fill(detailX + 10, detailTop + 60, detailX + detailWidth - 10,
-                detailTop + 61, 0x55356A98);
-        } else {
-            graphics.drawString(font,
-                Component.translatable("screen.cobbleventure_player_menu.shop.unit_price", unitPrice),
-                detailX + 10, detailTop + 49, MUTED, false);
-            graphics.drawString(font,
-                Component.translatable("screen.cobbleventure_player_menu.shop.owned", offer.owned()),
-                detailX + 10, detailTop + 63, MUTED, false);
-            graphics.drawString(font,
-                Component.translatable(selling
-                    ? "screen.cobbleventure_player_menu.shop.pending"
-                    : "screen.cobbleventure_player_menu.shop.bundle",
-                    selling ? quantity : offer.count()),
-                detailX + 10, detailTop + 77, MUTED, false);
-            graphics.fill(detailX + 10, detailTop + 92, detailX + detailWidth - 10,
-                detailTop + 93, 0x55356A98);
+        graphics.renderItem(stack, detailX + 8, detailTop + 8);
+        if (!selling && offer.count() > 1) {
+            graphics.renderItemDecorations(font, stack, detailX + 8, detailTop + 8,
+                Integer.toString(offer.count()));
         }
+        drawFittedText(graphics, stack.getHoverName(), detailX + 28, detailTop + 10,
+            detailWidth - 38, MenuTheme.TextRole.LABEL);
+        String unitPrice = format(selling ? offer.sellPrice() : offer.buyPrice());
+        drawFittedText(graphics, Component.translatable(
+            "screen.cobbleventure_player_menu.shop.compact_summary", unitPrice, offer.owned()),
+            detailX + 10, detailTop + 28, detailWidth - 20, MenuTheme.TextRole.CAPTION);
+        drawDescription(graphics, offer);
         String quantityText = Integer.toString(quantity);
         int stepY = detailBottom - 80;
         graphics.drawString(font, quantityText,
@@ -479,6 +470,13 @@ public final class ShopScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        ShopLayout.DescriptionArea area = descriptionArea();
+        if (area.contains(mouseX - panelX, mouseY - panelY)) {
+            descriptionScroll = area.clampScroll(
+                descriptionScroll + (scrollY < 0 ? 1 : scrollY > 0 ? -1 : 0),
+                descriptionLines.size(), descriptionLineHeight());
+            return true;
+        }
         int maxRow = Math.max(0,
             (filtered.size() - 1) / currentGridColumns() - (currentGridRows() - 1));
         int next = Math.clamp(scrollRow + (scrollY < 0 ? 1 : -1), 0, maxRow);
@@ -488,6 +486,105 @@ public final class ShopScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private ShopLayout.DescriptionArea descriptionArea() {
+        return ShopLayout.descriptionArea(panelWidth, panelHeight,
+            theme.textHeight(font, MenuTheme.TextRole.CAPTION));
+    }
+
+    private int descriptionLineHeight() {
+        return Math.max(1, (int) Math.ceil((font.lineHeight + 2)
+            * theme.text(MenuTheme.TextRole.CAPTION).scale()));
+    }
+
+    private List<FormattedCharSequence> wrapDescription(List<Component> paragraphs, int availableWidth) {
+        float scale = theme.text(MenuTheme.TextRole.CAPTION).scale();
+        List<FormattedCharSequence> lines = new ArrayList<>();
+        for (Component paragraph : paragraphs) {
+            // Vanilla tooltip colors are intended for a dark background; use the global theme here.
+            Component text = Component.literal(paragraph.getString())
+                .withStyle(style -> style.withFont(theme.fontResource));
+            lines.addAll(font.split(text, Math.max(1, (int) Math.floor(availableWidth / scale))));
+        }
+        return lines;
+    }
+
+    private void drawDescription(GuiGraphics graphics, ShopNetwork.ClientOffer offer) {
+        ShopLayout.DescriptionArea area = descriptionArea();
+        if (describedOffer != offer) {
+            describedOffer = offer;
+            descriptionScroll = 0;
+            descriptionLines = wrapDescription(ItemDescriptions.forStack(offer.stack(), minecraft.player),
+                area.width() - 5);
+        }
+        if (area.height() <= 0) return;
+        int x = panelX + area.x();
+        int y = panelY + area.y();
+        graphics.fill(x, y - 3, x + area.width(), y - 2, PANEL_LIGHT);
+        drawDescriptionLines(graphics, descriptionLines, descriptionScroll, x, y,
+            area.width() - 5, area.height());
+        int maxScroll = area.clampScroll(Integer.MAX_VALUE, descriptionLines.size(), descriptionLineHeight());
+        if (maxScroll > 0) {
+            int thumbHeight = Math.min(area.height(), Math.max(3,
+                area.height() * area.visibleLines(descriptionLineHeight()) / descriptionLines.size()));
+            int thumbY = y + (area.height() - thumbHeight) * descriptionScroll / maxScroll;
+            graphics.fill(x + area.width() - 2, y, x + area.width(), y + area.height(), PANEL_LIGHT);
+            graphics.fill(x + area.width() - 2, thumbY, x + area.width(), thumbY + thumbHeight, ACCENT);
+        }
+    }
+
+    private void drawDescriptionLines(
+        GuiGraphics graphics, List<FormattedCharSequence> lines, int offset,
+        int x, int y, int textWidth, int textHeight
+    ) {
+        MenuTheme.TextStyle style = theme.text(MenuTheme.TextRole.CAPTION);
+        int lineHeight = descriptionLineHeight();
+        int visible = Math.max(1, textHeight / lineHeight);
+        graphics.enableScissor(x, y, x + textWidth, y + textHeight);
+        graphics.pose().pushPose();
+        graphics.pose().translate(x, y, 0);
+        graphics.pose().scale(style.scale(), style.scale(), 1);
+        for (int index = 0; index < visible && offset + index < lines.size(); index++) {
+            graphics.drawString(font, lines.get(offset + index), 0,
+                Math.round(index * lineHeight / style.scale()), style.color(), style.shadow());
+        }
+        graphics.pose().popPose();
+        graphics.disableScissor();
+    }
+
+    private void drawItemTooltip(GuiGraphics graphics, ItemStack stack, int mouseX, int mouseY) {
+        int tooltipWidth = Math.min(240, width - 16);
+        List<FormattedCharSequence> lines = wrapDescription(
+            ItemDescriptions.forStack(stack, minecraft.player), tooltipWidth - 20);
+        int titleHeight = theme.textHeight(font, MenuTheme.TextRole.LABEL);
+        int hintHeight = theme.textHeight(font, MenuTheme.TextRole.CAPTION);
+        int visible = Math.max(1, Math.min(8,
+            (height - titleHeight - hintHeight - 48) / descriptionLineHeight()));
+        int bodyHeight = Math.min(lines.size(), visible) * descriptionLineHeight();
+        int tooltipHeight = titleHeight + bodyHeight + hintHeight + 28;
+        int x = Math.clamp(mouseX + 12, 8, Math.max(8, width - tooltipWidth - 8));
+        int y = Math.clamp(mouseY + 12, 8, Math.max(8, height - tooltipHeight - 8));
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 400);
+        ThemedOverlayPanel.draw(graphics, theme, x, y, tooltipWidth, tooltipHeight);
+        drawFittedText(graphics, stack.getHoverName(), x + 10, y + 8,
+            tooltipWidth - 20, MenuTheme.TextRole.LABEL);
+        drawDescriptionLines(graphics, lines, 0, x + 10, y + titleHeight + 13,
+            tooltipWidth - 20, bodyHeight);
+        drawFittedText(graphics, Component.translatable("screen.cobbleventure_player_menu.shop.description_hint"),
+            x + 10, y + titleHeight + bodyHeight + 19, tooltipWidth - 20, MenuTheme.TextRole.CAPTION);
+        graphics.pose().popPose();
+    }
+
+    private void drawFittedText(
+        GuiGraphics graphics, Component value, int x, int y, int availableWidth, MenuTheme.TextRole role
+    ) {
+        String text = value.getString();
+        while (!text.isEmpty() && theme.textWidth(font, Component.literal(text), role) > availableWidth) {
+            text = text.substring(0, text.offsetByCodePoints(text.length(), -1));
+        }
+        theme.drawText(graphics, font, Component.literal(text), x, y, role);
     }
 
     @Override

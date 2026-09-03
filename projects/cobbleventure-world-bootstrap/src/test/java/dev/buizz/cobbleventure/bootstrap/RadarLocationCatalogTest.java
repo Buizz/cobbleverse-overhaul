@@ -6,6 +6,14 @@ import org.junit.jupiter.api.Test;
 
 class RadarLocationCatalogTest {
     @Test
+    void facilitiesUseReadableNamesRatherThanStructureIds() {
+        assertEquals("포켓몬센터", RadarLocationCatalog.buildingLabel(
+            "cobbleventure:facilities/pokemon_center"));
+        assertEquals("포켓몬상점", RadarLocationCatalog.buildingLabel(
+            "cobbleventure:facilities/pokemart"));
+    }
+
+    @Test
     void classifiesFacilityStructures() {
         assertEquals(
             RadarLocationCatalog.Kind.POKEMON_CENTER,

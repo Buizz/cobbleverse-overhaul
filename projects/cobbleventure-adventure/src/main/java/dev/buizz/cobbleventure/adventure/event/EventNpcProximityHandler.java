@@ -112,7 +112,8 @@ public final class EventNpcProximityHandler {
         Set<BoundaryKey> observed,
         Set<EncounterGroupKey> observedGroups
     ) {
-        if (!EventNpcTriggerMode.acceptsProximity(npc.getTags())) return;
+        if (EventNpcPartner.owner(npc) != npc
+            || !EventNpcTriggerMode.acceptsProximity(npc.getTags())) return;
         for (EventScript.Event event : script.events()) {
             String trigger = event.trigger().name();
             if (!trigger.equals("proximity_enter") && !trigger.equals("proximity_exit")) {

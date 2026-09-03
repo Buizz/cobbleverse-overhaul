@@ -10,8 +10,13 @@ public interface EventHealingGateway {
     record HealingRequest(
         EventSessionKey sessionKey,
         String sourceDigest,
-        String instructionId
+        String instructionId,
+        boolean fallbackWithoutMachine
     ) {
+        public HealingRequest(EventSessionKey sessionKey, String sourceDigest, String instructionId) {
+            this(sessionKey, sourceDigest, instructionId, false);
+        }
+
         public HealingRequest {
             Objects.requireNonNull(sessionKey, "sessionKey");
             requireText(sourceDigest, "sourceDigest");

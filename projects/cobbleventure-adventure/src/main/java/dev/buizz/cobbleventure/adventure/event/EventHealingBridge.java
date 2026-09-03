@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.adventure.event;
 
 import com.google.gson.JsonObject;
+import com.cobblemon.mod.common.Cobblemon;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.adventure.PokemonCenterHealingService;
 import java.util.HashMap;
@@ -15,7 +16,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
-/** Owns healing-machine completion and resumes the persisted CVES await. */
+/** Owns machine/fallback healing completion and resumes the persisted CVES await. */
 public final class EventHealingBridge {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int SEARCH_RADIUS = 8;
@@ -54,16 +55,30 @@ public final class EventHealingBridge {
             throw new EventRuntimeException("플레이어에게 이미 대기 중인 치료가 있습니다.");
         }
         Entity npc = player.serverLevel().getEntity(request.sessionKey().npcId());
+        HealingOutcome immediateOutcome = null;
         PokemonCenterHealingService.StartResult started = npc == null
             ? new PokemonCenterHealingService.StartResult(
                 PokemonCenterHealingService.StartStatus.HEALING_MACHINE_NOT_FOUND, null
             )
             : PokemonCenterHealingService.start(player, npc.blockPosition(), SEARCH_RADIUS);
+        if (npc != null && shouldFallback(request.fallbackWithoutMachine(), started.status())) {
+            var party = Cobblemon.INSTANCE.getStorage().getParty(player);
+            if (party.iterator().hasNext()) {
+                party.heal();
+                immediateOutcome = HealingOutcome.success();
+            } else {
+                immediateOutcome = HealingOutcome.failure("healing_unavailable");
+            }
+        }
         String token = UUID.randomUUID().toString();
         long expiresAt = System.currentTimeMillis() + TIMEOUT_MILLIS;
-        PendingHealing pending = new PendingHealing(request, token, expiresAt, started);
+        PendingHealing pending = new PendingHealing(request, token, expiresAt, started, immediateOutcome);
         PENDING.put(player.getUUID(), pending);
         return new EventHealingGateway.OpenResult(token, expiresAt);
+    }
+
+    static boolean shouldFallback(boolean enabled, PokemonCenterHealingService.StartStatus status) {
+        return enabled && status == PokemonCenterHealingService.StartStatus.HEALING_MACHINE_NOT_FOUND;
     }
 
     private static void onServerTick(ServerTickEvent.Post event) {
@@ -136,20 +151,25 @@ public final class EventHealingBridge {
         private final String token;
         private final long expiresAtEpochMilli;
         private final PokemonCenterHealingService.StartResult started;
+        private final HealingOutcome immediateOutcome;
 
         private PendingHealing(
             EventHealingGateway.HealingRequest request,
             String token,
             long expiresAtEpochMilli,
-            PokemonCenterHealingService.StartResult started
+            PokemonCenterHealingService.StartResult started,
+            HealingOutcome immediateOutcome
         ) {
             this.request = request;
             this.token = token;
             this.expiresAtEpochMilli = expiresAtEpochMilli;
             this.started = started;
+            this.immediateOutcome = immediateOutcome;
         }
 
         private HealingOutcome outcome(ServerPlayer player) {
+            // Resume on the next server tick, after the interpreter has persisted its await token.
+            if (immediateOutcome != null) return immediateOutcome;
             if (System.currentTimeMillis() >= expiresAtEpochMilli) {
                 return HealingOutcome.failure("healing_timeout");
             }

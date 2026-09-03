@@ -18,6 +18,8 @@ class WorldBootstrapRadarProviderTest {
             WorldBootstrapRadarProvider.markerType("POKEMART"));
         assertEquals(RadarMarkerType.CAVE_ENTRANCE,
             WorldBootstrapRadarProvider.markerType("CAVE_ENTRANCE"));
+        assertEquals(RadarMarkerType.DUNGEON_ENTRANCE,
+            WorldBootstrapRadarProvider.markerType("DUNGEON_ENTRANCE"));
         assertEquals(RadarMarkerType.TRAINER,
             WorldBootstrapRadarProvider.markerType("TRAINER"));
         assertEquals(RadarMarkerType.IMPORTANT_NPC,
@@ -26,6 +28,22 @@ class WorldBootstrapRadarProviderTest {
             WorldBootstrapRadarProvider.markerType("OBJECTIVE"));
         assertEquals(RadarMarkerType.SPECIAL_BUILDING,
             WorldBootstrapRadarProvider.markerType("UNKNOWN"));
+    }
+
+    @Test
+    void prioritizesDungeonEntrancesOverTheirHostBuildingAndCave() {
+        int dungeon = WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.DUNGEON_ENTRANCE, "dungeon/power_plant_front"
+        );
+        assertTrue(dungeon > WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.SPECIAL_BUILDING, "building/power_plant"
+        ));
+        assertTrue(dungeon > WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.CAVE_ENTRANCE, "cave/power_plant"
+        ));
+        assertTrue(dungeon < WorldBootstrapRadarProvider.priority(
+            RadarMarkerType.OBJECTIVE, "objective/power_plant"
+        ));
     }
 
     @Test

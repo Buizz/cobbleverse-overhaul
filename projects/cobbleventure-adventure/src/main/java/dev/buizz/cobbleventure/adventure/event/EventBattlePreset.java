@@ -1,7 +1,9 @@
 package dev.buizz.cobbleventure.adventure.event;
 
 import java.util.Objects;
+import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.resources.ResourceLocation;
 
 /** Runtime projection of an authored battle preset needed to launch TBCS. */
@@ -40,9 +42,18 @@ public record EventBattlePreset(
         int offset,
         boolean heldItemBonus,
         String heldItem,
-        int heldItemMultiplier
+        int heldItemMultiplier,
+        List<RewardFlagCondition> conditions
     ) {
+        public MoneyReward(boolean enabled, String mode, int amount, int fallbackRegionLevel,
+                           int perLevel, int offset, boolean heldItemBonus, String heldItem,
+                           int heldItemMultiplier) {
+            this(enabled, mode, amount, fallbackRegionLevel, perLevel, offset,
+                heldItemBonus, heldItem, heldItemMultiplier, List.of());
+        }
+
         public MoneyReward {
+            conditions = List.copyOf(conditions);
             requireText(mode, "moneyReward.mode");
             if (!mode.equals("fixed") && !mode.equals("regional_level")) {
                 throw new IllegalArgumentException("moneyReward.mode는 fixed 또는 regional_level이어야 합니다.");
@@ -55,13 +66,28 @@ public record EventBattlePreset(
         }
 
         public String prepareCommand(String playerName) {
+            if (!conditions.isEmpty()) {
+                throw new IllegalStateException("조건부 상금은 플레이어 플래그 평가가 필요합니다.");
+            }
+            return prepareCommand(playerName, key -> false);
+        }
+
+        public String prepareCommand(String playerName, Predicate<String> flag) {
             if (!enabled) return null;
+            if (conditions.stream().anyMatch(condition ->
+                flag.test(condition.key()) != condition.value())) return null;
             String base = "cobbleventure_reward prepare " + playerName + " ";
             String calculation = mode.equals("fixed")
                 ? "fixed " + amount
                 : "regional " + fallbackRegionLevel + " " + perLevel + " " + offset;
             return base + calculation + " " + heldItemBonus + " "
                 + (heldItemBonus ? heldItem : "minecraft:air") + " " + heldItemMultiplier;
+        }
+    }
+
+    public record RewardFlagCondition(String key, boolean value) {
+        public RewardFlagCondition {
+            requireResource(key, "moneyReward.conditions.key");
         }
     }
 

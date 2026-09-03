@@ -114,9 +114,10 @@
         "character": "cobbleventure:character/erika",
         "battle_id": "cobbleventure:battle/gym_leader/erika",
         "appearance": {
-          "source": "rct_single",
+          "source": "custom",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_erika"
+          "resource": "cobbleventure:trainer_skin/erika",
+          "arm_model": "classic"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -146,9 +147,10 @@
         "character": "cobbleventure:character/koga",
         "battle_id": "cobbleventure:battle/gym_leader/koga",
         "appearance": {
-          "source": "rct_single",
+          "source": "custom",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_koga"
+          "resource": "cobbleventure:trainer_skin/koga",
+          "arm_model": "classic"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -179,9 +181,10 @@
         "character": "cobbleventure:character/sabrina",
         "battle_id": "cobbleventure:battle/gym_leader/sabrina",
         "appearance": {
-          "source": "rct_single",
+          "source": "custom",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_sabrina"
+          "resource": "cobbleventure:trainer_skin/sabrina",
+          "arm_model": "classic"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -211,9 +214,10 @@
         "character": "cobbleventure:character/blaine",
         "battle_id": "cobbleventure:battle/gym_leader/blaine",
         "appearance": {
-          "source": "rct_single",
+          "source": "custom",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_blaine"
+          "resource": "cobbleventure:trainer_skin/blaine",
+          "arm_model": "classic"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",
@@ -243,9 +247,10 @@
         "character": "cobbleventure:character/giovanni_gym",
         "battle_id": "cobbleventure:battle/gym_leader/giovanni_gym",
         "appearance": {
-          "source": "rct_single",
+          "source": "custom",
           "type": "skin",
-          "resource": "rctmod:trainers/single/kanto_giovanni"
+          "resource": "cobbleventure:trainer_skin/rainbow_rocket_giovanni",
+          "arm_model": "classic"
         },
         "dialogue": {
           "challenge": "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!",

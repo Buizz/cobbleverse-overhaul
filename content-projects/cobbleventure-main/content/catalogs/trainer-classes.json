@@ -159,7 +159,7 @@
      "id": "cobbleventure:trainer_class/hex_maniac", "category": "specialist",
      "display_name": { "ko_kr": "오컬트마니아", "en_us": "Hex Maniac" }, "title_pattern": { "ko_kr": "오컬트마니아 {name}", "en_us": "Hex Maniac {name}" },
      "body": { "age_group": "adult", "height_scale": 0.98, "arm_model": "slim" },
-      "default_appearance": { "source": "rct_single", "type": "skin", "resource": "rctmod:trainers/single/young_couple_nat_047f", "implementation_status": "ready" },
+      "default_appearance": { "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/hex_maniac", "implementation_status": "ready" },
       "appearance_options": [{ "source": "custom", "type": "skin", "resource": "cobbleventure:trainer_skin/hex_maniac", "implementation_status": "ready" }], "tags": ["ghost", "psychic", "specialist"]
     },
     {

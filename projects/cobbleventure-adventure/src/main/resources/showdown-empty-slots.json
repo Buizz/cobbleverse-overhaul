@@ -1,0 +1,12 @@
+{
+  "sim/battle.js": [
+    {"from": "for (const pokemon of side.active) {", "to": "for (const pokemon of side.active) { if (!pokemon) continue; // CV empty active slot"},
+    {"from": "for (let i = 0; i < side.active.length; i++) {", "to": "for (let i = 0; i < side.active.length; i++) { if (!side.pokemon[i]) continue; // CV absent starter slot"}
+  ],
+  "sim/side.js": [
+    {"from": "(this.active[index].fainted || this.active[index].volatiles[\"commanding\"])", "to": "(!this.active[index] || this.active[index].fainted || this.active[index].volatiles[\"commanding\"])"},
+    {"from": "!this.active[index].switchFlag", "to": "!this.active[index]?.switchFlag"},
+    {"from": "if (pokemon.switchFlag) {", "to": "if (pokemon?.switchFlag) {"},
+    {"from": "JSON.stringify(update)", "to": "JSON.stringify(update, (key, value) => key === \"active\" && Array.isArray(value) ? Array.from(value, moveset => moveset ?? {moves: []}) : value)"}
+  ]
+}

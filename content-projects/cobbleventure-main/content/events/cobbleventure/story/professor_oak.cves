@@ -1,8 +1,20 @@
 event interact(range: 4) {
   page when flag("cobbleventure:flag/story/pokedex_received") {
     say npc {
-      ko_kr: "이미 첫 포켓몬을 골랐구나. 그 아이와 함께 멋진 모험을 해 보렴!"
-      en_us: "You've already chosen your first Pokémon. Have a wonderful adventure together!"
+      ko_kr: "잘 왔구나! 포켓몬들을 잠시 쉬게 해 주자꾸나."
+      en_us: "Welcome back! Let's give your Pokémon a little rest."
+    }
+    id "return/heal_party" await heal_party fallback -> healing
+    if healing.healed {
+      say npc {
+        ko_kr: "포켓몬들이 모두 건강해졌구나! 모험하다 지치면 언제든 들르렴."
+        en_us: "Your Pokémon are all healthy again! Come back whenever they need a rest."
+      }
+    } else {
+      say npc {
+        ko_kr: "지금은 치료할 수 없구나. 모두 건강한 상태인지 확인하고, 잠시 후 다시 와 보렴."
+        en_us: "I cannot heal them right now. Check whether they are already healthy, or come back in a moment."
+      }
     }
   }
 

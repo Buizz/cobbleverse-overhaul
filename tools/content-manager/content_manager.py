@@ -1370,8 +1370,20 @@ def validate_hex_worlds(
                 _issue(issues, "error", path, f"{object_path}.properties", "관문 설정 객체가 필요합니다.")
                 continue
             center_placement = properties.get("center_placement")
-            if center_placement not in {"gate", "gate_npc", "npc"}:
-                _issue(issues, "error", path, f"{object_path}.properties.center_placement", "가운데 배치물은 gate, gate_npc, npc 중 하나여야 합니다.")
+            if center_placement not in {"gate", "gate_npc", "npc", "pokemon"}:
+                _issue(issues, "error", path, f"{object_path}.properties.center_placement", "가운데 배치물은 gate, gate_npc, npc, pokemon 중 하나여야 합니다.")
+            if center_placement == "pokemon":
+                _validate_gate_pokemon(properties.get("pokemon"), issues, path, f"{object_path}.properties.pokemon")
+                pokemon_settings = properties.get("pokemon") or {}
+                if isinstance(pokemon_settings, dict):
+                    collision = pokemon_settings.get("collision") or {}
+                    width = collision.get("width") if isinstance(collision, dict) else None
+                    scale = pokemon_settings.get("scale", 1)
+                    passage = properties.get("passage_width", properties.get("opening_width", 7))
+                    if all(isinstance(number, (int, float)) and not isinstance(number, bool) for number in (width, scale, passage)) and width * scale < passage:
+                        _issue(issues, "error", path, f"{object_path}.properties.pokemon.collision.width", "충돌 폭 × 배율이 통로 폭보다 작아 우회할 수 있습니다. 통로 폭을 줄이거나 충돌 폭을 늘려 주세요.")
+            elif "pokemon" in properties:
+                _issue(issues, "error", path, f"{object_path}.properties.pokemon", "포켓몬 설정은 포켓몬 관문에만 사용할 수 있습니다.")
             building_enabled = center_placement in {"gate", "gate_npc"}
             if building_enabled and (not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource)):
                 _issue(issues, "error", path, f"{object_path}.resource", "관문 건물 NBT 리소스 ID가 필요합니다.")
@@ -1412,7 +1424,7 @@ def validate_hex_worlds(
                 _issue(issues, "error", path, f"{object_path}.properties.npc", "올바른 EasyNPC 프리셋 리소스 ID가 필요합니다.")
             if center_placement in {"gate_npc", "npc"} and npc is None:
                 _issue(issues, "error", path, f"{object_path}.properties.npc", "NPC가 포함된 가운데 배치물에는 NPC 프리셋이 필요합니다.")
-            if center_placement == "gate" and npc is not None:
+            if center_placement in {"gate", "pokemon"} and npc is not None:
                 _issue(issues, "error", path, f"{object_path}.properties.npc", "관문만 배치할 때는 NPC를 지정할 수 없습니다.")
             deny_message = properties.get("deny_message")
             if deny_message is not None and (not isinstance(deny_message, str) or not deny_message.strip() or len(deny_message) > 256):
@@ -1433,6 +1445,41 @@ def validate_hex_worlds(
                     condition, issues, path, condition_path
                 )
     return issues
+
+
+def _validate_gate_pokemon(value, issues, path, value_path):
+    if not isinstance(value, dict):
+        _issue(issues, "error", path, value_path, "포켓몬 관문 설정이 필요합니다.")
+        return
+    for field in ("species", "completion_flag", "event_binding", "activation_item"):
+        resource = value.get(field)
+        if field != "species" and resource is None:
+            continue
+        if not isinstance(resource, str) or not RESOURCE_ID.fullmatch(resource):
+            _issue(issues, "error", path, f"{value_path}.{field}", "리소스 ID 형식이 필요합니다.")
+    if value.get("pose", "stand") not in ("stand", "sleep"):
+        _issue(issues, "error", path, f"{value_path}.pose", "자세는 stand 또는 sleep이어야 합니다.")
+    level = value.get("level")
+    if not isinstance(level, int) or isinstance(level, bool) or not 1 <= level <= 100:
+        _issue(issues, "error", path, f"{value_path}.level", "레벨은 1~100 정수여야 합니다.")
+    collision = value.get("collision")
+    if not isinstance(collision, dict):
+        collision = {}
+        _issue(issues, "error", path, f"{value_path}.collision", "충돌 영역 설정이 필요합니다.")
+    for field, number, minimum, maximum in (
+        ("scale", value.get("scale", 1), 0.25, 4),
+        ("collision.width", collision.get("width"), 0.5, 16),
+        ("collision.height", collision.get("height"), 0.5, 8),
+        ("collision.depth", collision.get("depth"), 0.5, 16),
+    ):
+        if not isinstance(number, (int, float)) or isinstance(number, bool) or not minimum <= number <= maximum:
+            _issue(issues, "error", path, f"{value_path}.{field}", f"{minimum}~{maximum} 범위 숫자가 필요합니다.")
+    conditions = value.get("activation_conditions", [])
+    if not isinstance(conditions, list):
+        _issue(issues, "error", path, f"{value_path}.activation_conditions", "상호작용 조건 배열이 필요합니다.")
+    else:
+        for index, condition in enumerate(conditions):
+            _validate_player_condition(condition, issues, path, f"{value_path}.activation_conditions[{index}]")
 
 
 def validate_biome_catalogs(root: Path) -> list[Issue]:
@@ -1680,6 +1727,83 @@ def load_world_layout(root: Path, generation: int = 1) -> dict[str, Any]:
     return data
 
 
+def _apply_route_encounter_locations(locations, connections, route_documents, pokemon_by_id):
+    """Display the same explicit-cell / water-route ownership as RouteEncounterSelector.
+
+    Keep methods independent and preserve the original biome for runtime/fallback use.
+    Missing methods are not inherited from a different route or from its land pool.
+    """
+    ordered = sorted(connections, key=lambda entry: entry.get("surface_style") != "water")
+    explicit, paths = {}, {}
+    for route in ordered:
+        for field, owners in (("encounter_cells", explicit), ("cells", paths)):
+            for cell in route.get(field, []):
+                if isinstance(cell, dict) and isinstance(cell.get("q"), int) and isinstance(cell.get("r"), int):
+                    owners.setdefault((cell["q"], cell["r"]), route)
+    for coordinate in set(locations) | set(paths) | set(explicit):
+        base = locations.get(coordinate, {})
+        town = base.get("kind") == "settlement"
+        land_route = None if town else explicit.get(coordinate, paths.get(coordinate))
+        special_route = explicit.get(coordinate) or (None if town else paths.get(coordinate))
+        methods = {}
+        base_ids = list(base.get("pokemon_ids", []))
+        for method in ("land", "surf", "old_rod", "good_rod", "super_rod", "headbutt"):
+            route = land_route if method == "land" else special_route
+            if route is None:
+                continue
+            document = route_documents.get(route.get("route_preset"), {})
+            settings = document.get("pokemon_spawns")
+            if not isinstance(settings, dict):
+                settings = route.get("pokemon_spawns")
+            if not isinstance(settings, dict):
+                settings = {}
+            pool = settings if method == "land" else settings.get("encounter_pools", {}).get(method)
+            if not isinstance(pool, dict):
+                continue
+            enabled = method == "land" or pool.get("enabled", True) is not False
+            inherited = pool.get("inherit_biome", True) is not False
+            ids = [species for species in base_ids
+                   if inherited and method != "headbutt" and species not in pool.get("excluded_species", [])]
+            for addition in pool.get("additions", []):
+                species = addition.get("species")
+                if species in pokemon_by_id and species not in ids:
+                    ids.append(species)
+            if not enabled:
+                ids = []
+            name = document.get("display_name", {})
+            if isinstance(name, dict):
+                name = name.get("ko_kr") or name.get("en_us")
+            methods[method] = {
+                "route": route.get("id", ""),
+                "route_name": name or route.get("display_name") or route.get("id", ""),
+                "enabled": enabled, "inherit_biome": inherited,
+                "pokemon_ids": ids, "count": len(ids),
+                "custom_level_ranges": {
+                    entry["species"]: {"min_level": entry["min_level"], "max_level": entry["max_level"]}
+                    for entry in pool.get("level_overrides", []) if entry.get("species") in ids
+                },
+            }
+        if not methods:
+            continue
+        biome = base.get("biome", "")
+        aquatic = any(part in biome for part in ("ocean", "river", "beach"))
+        default_method = "surf" if aquatic and "surf" in methods else "land"
+        selected = methods.get(default_method)
+        location = {
+            **base, "q": coordinate[0], "r": coordinate[1],
+            "biome": biome, "profile_ids": base.get("profile_ids", []),
+            "habitat_variants": base.get("habitat_variants", {}),
+            "habitat_labels": base.get("habitat_labels", []),
+            "base_pokemon_ids": base_ids, "encounters": methods,
+            "default_encounter_method": default_method,
+            "unmapped_biome": base.get("unmapped_biome", False),
+        }
+        if selected is not None:
+            location.update(selected)
+            location["kind"] = "route"
+        locations[coordinate] = location
+
+
 def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
     """Resolve the saved world layout into per-cell Pokemon spawn candidates."""
     world = load_world_layout(root, generation)
@@ -1881,73 +2005,7 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
             }
 
     connections = [entry for entry in world.get("connections", []) if isinstance(entry, dict)]
-    connections.sort(key=lambda entry: 0 if entry.get("surface_style") == "water" else 1)
-    routed_cells: set[tuple[int, int]] = set()
-    for connection in connections:
-        route_document = route_documents.get(connection.get("route_preset"), {})
-        settings = route_document.get("pokemon_spawns")
-        if not isinstance(settings, dict):
-            settings = connection.get("pokemon_spawns")
-        if not isinstance(settings, dict):
-            settings = {"inherit_biome": True, "excluded_species": [], "additions": []}
-        route_display_name = route_document.get("display_name", {})
-        if isinstance(route_display_name, dict):
-            route_display_name = route_display_name.get("ko_kr") or route_display_name.get("en_us")
-        if not isinstance(route_display_name, str) or not route_display_name:
-            route_display_name = connection.get("display_name") or connection.get("id", "")
-        inherit_biome = settings.get("inherit_biome", True) is not False
-        excluded = {
-            species for species in settings.get("excluded_species", [])
-            if isinstance(species, str)
-        }
-        additions = [
-            addition for addition in settings.get("additions", [])
-            if isinstance(addition, dict) and addition.get("species") in pokemon_by_id
-        ]
-        level_overrides = {
-            override["species"]: {
-                "min_level": override.get("min_level", 1),
-                "max_level": override.get("max_level", 100),
-            }
-            for override in settings.get("level_overrides", [])
-            if isinstance(override, dict) and override.get("species") in pokemon_by_id
-        }
-        for cell in connection.get("cells", []):
-            if not isinstance(cell, dict) or not isinstance(cell.get("q"), int) or not isinstance(cell.get("r"), int):
-                continue
-            coordinate = (cell["q"], cell["r"])
-            if coordinate in routed_cells:
-                continue
-            base = locations_by_cell.get(coordinate, {})
-            # 마을 범위 안의 도로는 마을 서식지를 덮어쓰지 않는다. 웹 지도에서도
-            # 마을 타일 위에는 길 오버레이를 표시하지 않는 것과 같은 우선순위다.
-            if base.get("kind") == "settlement":
-                continue
-            routed_cells.add(coordinate)
-            base_ids = list(base.get("pokemon_ids", []))
-            selected_ids = [species for species in base_ids if inherit_biome and species not in excluded]
-            for species in (addition["species"] for addition in additions):
-                if species not in selected_ids:
-                    selected_ids.append(species)
-            locations_by_cell[coordinate] = {
-                **base,
-                "q": coordinate[0],
-                "r": coordinate[1],
-                "kind": "route",
-                "route": connection.get("id", ""),
-                "route_name": route_display_name,
-                "biome": base.get("biome", ""),
-                "profile_ids": base.get("profile_ids", []),
-                "habitat_variants": base.get("habitat_variants", {}),
-                "habitat_labels": base.get("habitat_labels", []),
-                "base_pokemon_ids": base_ids,
-                "pokemon_ids": selected_ids,
-                "custom_level_ranges": level_overrides,
-                "count": len(selected_ids),
-                # 길만 놓인 빈 셀은 의도적인 도로 구간이므로 미매핑 바이옴으로
-                # 집계하지 않는다. 기반 바이옴이 있으면 그 상태를 그대로 따른다.
-                "unmapped_biome": base.get("unmapped_biome", False),
-            }
+    _apply_route_encounter_locations(locations_by_cell, connections, route_documents, pokemon_by_id)
 
     area_locations: list[dict[str, Any]] = []
     for kind, document in area_documents:
@@ -2011,7 +2069,8 @@ def world_pokemon_map(root: Path, generation: int = 1) -> dict[str, Any]:
     available_ids = {
         pokemon_id
         for location in [*locations_by_cell.values(), *area_locations]
-        for pokemon_id in location["pokemon_ids"]
+        for encounter in [location, *location.get("encounters", {}).values()]
+        for pokemon_id in encounter["pokemon_ids"]
     }
     available = [dict(entry) for entry in pokemon if entry.get("id") in available_ids]
     unavailable = []
@@ -3184,6 +3243,18 @@ def validate_settlement_file(path: Path) -> tuple[str | None, list[Issue]]:
         slots = _require_list(
             placement.get("trainer_slots"), issues, path, "$.npc_placement.trainer_slots"
         )
+        fixed_npcs = _require_list(
+            placement.get("fixed_npcs", []), issues, path, "$.npc_placement.fixed_npcs"
+        )
+        if fixed_npcs is not None:
+            seen_fixed_npcs: set[str] = set()
+            for index, npc_id in enumerate(fixed_npcs):
+                fixed_path = f"$.npc_placement.fixed_npcs[{index}]"
+                _resource_id(npc_id, issues, path, fixed_path)
+                if isinstance(npc_id, str):
+                    if npc_id in seen_fixed_npcs:
+                        _issue(issues, "error", path, fixed_path, f"중복 고정 NPC: {npc_id}")
+                    seen_fixed_npcs.add(npc_id)
         seen_slots: set[str] = set()
         if slots is not None:
             for index, slot_value in enumerate(slots):
@@ -7548,15 +7619,7 @@ def validate_repository(
             progression = load_json(progression_path)
         except (OSError, json.JSONDecodeError, DuplicateKeyError):
             progression = {}
-        npc_ids: set[str] = set()
-        npc_root = root / "content" / "source"
-        for npc_path in sorted(npc_root.rglob("*.json")) if npc_root.is_dir() else []:
-            try:
-                npc = load_json(npc_path)
-            except (OSError, json.JSONDecodeError, DuplicateKeyError):
-                continue
-            if isinstance(npc, dict) and isinstance(npc.get("id"), str):
-                npc_ids.add(npc["id"])
+        npc_ids = {npc["id"] for npc in _main_quest_npcs(root)}
         for index, step in enumerate(progression.get("steps", [])):
             if not isinstance(step, dict):
                 continue
@@ -7749,6 +7812,10 @@ def validate_repository(
                 for command in event.get("commands", [])
                 if isinstance(command, dict) and command.get("type") == "start_battle"
             ]
+            if content_data.get("event_runtime", {}).get("engine") == "cves_v5":
+                preset_battle = content_data.get("event_design", {}).get("preset", {}).get("battle")
+                if isinstance(preset_battle, str) and preset_battle not in referenced_battles:
+                    referenced_battles.append(preset_battle)
             if not referenced_battles:
                 _issue(
                     issues, "error", path, "$.events",
@@ -7833,6 +7900,11 @@ def validate_repository(
                 if gym.get("enabled") and gym_id not in gym_ids:
                     _issue(issues, "error", path, "$.structure_profile.gym.gym_id", f"존재하지 않는 체육관: {gym_id}")
                 trainer_slots = settlement_data.get("npc_placement", {}).get("trainer_slots", [])
+                fixed_npcs = settlement_data.get("npc_placement", {}).get("fixed_npcs", [])
+                for index, npc_id in enumerate(fixed_npcs if isinstance(fixed_npcs, list) else []):
+                    if isinstance(npc_id, str) and npc_id not in seen_content:
+                        _issue(issues, "error", path, f"$.npc_placement.fixed_npcs[{index}]",
+                               f"존재하지 않는 고정 NPC: {npc_id}")
                 for index, slot in enumerate(trainer_slots):
                     trainer_id = slot.get("trainer_id") if isinstance(slot, dict) else None
                     if isinstance(trainer_id, str) and trainer_id not in seen_content:
@@ -8103,6 +8175,25 @@ def synchronize_spatial_build_files(root: Path) -> int:
     return changed
 
 
+def _validate_pokemon_level_weights(
+    override: dict[str, Any], issues: list[Issue], path: Path, base: str,
+) -> None:
+    if "level_weights" not in override:
+        return
+    weights = override["level_weights"]
+    if not isinstance(weights, dict) or not weights:
+        _issue(issues, "error", path, f"{base}.level_weights", "레벨별 가중치는 비어 있지 않은 객체여야 합니다.")
+        return
+    minimum, maximum = override.get("min_level"), override.get("max_level")
+    for level, weight in weights.items():
+        if not isinstance(level, str) or not re.fullmatch(r"(?:[1-9]|[1-9][0-9]|100)", level):
+            _issue(issues, "error", path, f"{base}.level_weights", "레벨별 가중치의 키는 1~100 레벨이어야 합니다.")
+        elif isinstance(minimum, int) and isinstance(maximum, int) and not minimum <= int(level) <= maximum:
+            _issue(issues, "error", path, f"{base}.level_weights.{level}", "가중치 레벨은 개별 최소·최대 레벨 범위 안이어야 합니다.")
+        if not isinstance(weight, int) or isinstance(weight, bool) or not 1 <= weight <= 10000:
+            _issue(issues, "error", path, f"{base}.level_weights.{level}", "레벨별 가중치는 1~10000 정수여야 합니다.")
+
+
 def _validate_pokemon_level_overrides(
     overrides: Any, issues: list[Issue], path: Path, base: str,
     known_pokemon: set[str] | None = None,
@@ -8124,6 +8215,7 @@ def _validate_pokemon_level_overrides(
             seen.add(species)
         if not isinstance(override, dict):
             continue
+        _validate_pokemon_level_weights(override, issues, path, override_path)
         minimum, maximum = override.get("min_level"), override.get("max_level")
         if (not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100
                 or not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 100
@@ -8705,6 +8797,8 @@ def _validate_route_encounter_pools(
                     _issue(issues, "error", path, entry_path, "포켓몬과 레벨 범위 설정이 필요합니다.")
                     continue
                 _resource_id(entry.get("species"), issues, path, f"{entry_path}.species")
+                if field == "level_overrides":
+                    _validate_pokemon_level_weights(entry, issues, path, entry_path)
                 minimum, maximum = entry.get("min_level"), entry.get("max_level")
                 if not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100:
                     _issue(issues, "error", path, f"{entry_path}.min_level", "최소 레벨은 1~100 정수여야 합니다.")
@@ -8810,6 +8904,8 @@ def validate_route_file(path: Path) -> tuple[str | None, list[Issue]]:
                     _issue(issues, "error", path, base, "포켓몬과 레벨 범위 설정이 필요합니다.")
                     continue
                 _resource_id(entry.get("species"), issues, path, f"{base}.species")
+                if field == "level_overrides":
+                    _validate_pokemon_level_weights(entry, issues, path, base)
                 minimum = entry.get("min_level")
                 maximum = entry.get("max_level")
                 if not isinstance(minimum, int) or isinstance(minimum, bool) or not 1 <= minimum <= 100:
@@ -9920,6 +10016,39 @@ def _list_documents(root: Path, category: str) -> list[dict[str, Any]]:
     return documents
 
 
+def _main_quest_npcs(root: Path) -> list[dict[str, Any]]:
+    """Include catalog-owned Gym leaders without duplicating their NPC sources."""
+    npcs = {item["id"]: item for item in _list_documents(root, "trainers")}
+    league_path = root / "content/catalogs/league-progression.json"
+    if not league_path.is_file():
+        return list(npcs.values())
+    try:
+        league = load_json(league_path)
+    except (OSError, json.JSONDecodeError, DuplicateKeyError):
+        return list(npcs.values())
+    if not isinstance(league, dict) or not isinstance(league.get("entries"), list):
+        return list(npcs.values())
+    gym_battles = {
+        entry.get("encounter", {}).get("battle_id")
+        for entry in league.get("entries", [])
+        if isinstance(entry, dict) and entry.get("role") == "gym_leader"
+        and isinstance(entry.get("encounter"), dict)
+    }
+    for battle in _list_documents(root, "battles"):
+        if battle["id"] not in gym_battles:
+            continue
+        try:
+            data = load_json(root / battle["path"])
+        except (OSError, json.JSONDecodeError, DuplicateKeyError):
+            continue
+        if not isinstance(data, dict) or not isinstance(data.get("battle"), dict):
+            continue
+        npc_id = data["battle"].get("trainer_id")
+        if data.get("enabled") is not False and isinstance(npc_id, str) and RESOURCE_ID.fullmatch(npc_id):
+            npcs.setdefault(npc_id, {"id": npc_id, "name": battle["name"], "path": battle["path"]})
+    return list(npcs.values())
+
+
 def main_quest_progression_payload(root: Path) -> dict[str, Any]:
     path = root / "content" / "catalogs" / "main-quest-progression.json"
     document = load_json(path) if path.is_file() else {
@@ -9932,7 +10061,7 @@ def main_quest_progression_payload(root: Path) -> dict[str, Any]:
         item for item in _list_documents(root, "quests")
         if item.get("category") == "main"
     ]
-    npcs = _list_documents(root, "trainers")
+    npcs = _main_quest_npcs(root)
     return {"document": document, "quests": quests, "npcs": npcs}
 
 
@@ -9949,7 +10078,7 @@ def save_main_quest_progression(root: Path, data: Any) -> list[Issue]:
         item.get("id") for item in _list_documents(root, "quests")
         if item.get("category") == "main"
     }
-    npc_ids = {item.get("id") for item in _list_documents(root, "trainers")}
+    npc_ids = {item.get("id") for item in _main_quest_npcs(root)}
     if isinstance(data, dict):
         for index, step in enumerate(data.get("steps", [])):
             if not isinstance(step, dict):
@@ -12453,6 +12582,19 @@ def validate_loot_tables(
             entry["id"] for entry in catalog.get("items", [])
             if isinstance(entry, dict) and isinstance(entry.get("id"), str)
         }
+        # Project modules can register items newer than the exported dependency catalog.
+        # Loot uses the registered base item, not the authored definition's alias ID.
+        definitions_path = root / "content" / "catalogs" / "game-definitions.json"
+        if definitions_path.is_file():
+            try:
+                definitions = load_json(definitions_path)
+            except (OSError, json.JSONDecodeError, DuplicateKeyError) as error:
+                _issue(issues, "error", definitions_path, "$", f"게임 정의를 읽을 수 없습니다: {error}")
+                return issues
+            known_items.update(
+                entry["base_item"] for entry in definitions.get("items", [])
+                if isinstance(entry, dict) and isinstance(entry.get("base_item"), str)
+            )
 
     source_root = root / "content" / "loot_tables"
     for path in sorted(source_root.rglob("*.json")) if source_root.is_dir() else []:
@@ -15285,6 +15427,7 @@ def create_handler(
                 "/npc-skin-preview.mjs": web_root / "npc-skin-preview.mjs",
                 "/world-map-rendering.mjs": web_root / "world-map-rendering.mjs",
                 "/player-condition-editor.js": web_root / "player-condition-editor.js",
+                "/gate-pokemon-editor.js": web_root / "gate-pokemon-editor.js",
                 "/cves.html": web_root / "cves.html",
                 "/cves-editor.js": web_root / "cves-editor.js",
                 "/cves-editor.css": web_root / "cves-editor.css",

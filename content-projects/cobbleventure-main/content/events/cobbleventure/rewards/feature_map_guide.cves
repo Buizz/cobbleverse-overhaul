@@ -1,24 +1,18 @@
 event interact(range: 4) {
   page when flag("cobbleventure:flag/rewards/feature/map") {
     say npc {
-      ko_kr: "서쪽 관문은 석영고원으로 이어져 있어. 회색·블루·오렌지·무지개·핑크·골드·크림슨·그린배지를 모두 모으면 통과할 수 있어."
+      ko_kr: "길이 헷갈리면 메뉴에서 지도를 펼쳐 봐. 마을과 길의 위치를 확인하면 다음 목적지를 찾기 쉬울 거야."
     }
   }
 
   page default {
     say npc {
-      ko_kr: "상록시티에 처음 왔구나! 관장과 다음 목적지를 찾기 쉽도록 지도와 포켓파인더를 줄게."
+      ko_kr: "상록시티에 처음 왔구나! 여행 중이라면 이 마을지도를 가져가. 처음 가는 길에서도 도움이 될 거야."
     }
-    id "grant/pokefinder" give_item "cobblenav:pokefinder_item" count 1 notify -> pokefinder
-    if pokefinder.remaining_count > 0 {
-      narrate "가방에 빈 공간이 없어 포켓파인더를 받을 수 없습니다."
-      stop
-    }
-    id "grant/pokefinder_state" set_flag "cobbleventure:flag/rewards/item/pokefinder_received" true
     id "grant/feature" unlock_feature map
     id "grant/state" set_flag "cobbleventure:flag/rewards/feature/map" true
     say npc {
-      ko_kr: "이제 메뉴에서 지도를 보고, 포켓파인더로 주변 정보를 확인할 수 있어. 서쪽 관문 너머로 가려면 관동의 여덟 배지를 모두 모아 와."
+      ko_kr: "이제 메뉴에서 지도를 펼칠 수 있어. 마을과 길을 살펴보고 다음 목적지를 정해 봐!"
     }
   }
 }

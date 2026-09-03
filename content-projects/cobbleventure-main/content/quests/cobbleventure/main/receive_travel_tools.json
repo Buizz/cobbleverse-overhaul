@@ -1,0 +1,55 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/receive_travel_tools",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "상록시티에서 마을지도 받기"
+  },
+  "summary": {
+    "ko_kr": "상록시티 마을 안의 여행 안내원에게 마을지도를 받으세요. 지도로 길을 확인하고 회색시티의 첫 체육관으로 향하세요."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "flag",
+          "key": "cobbleventure:flag/story/pokenav_received",
+          "value": true
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "receive_travel_tools",
+      "text": {
+        "ko_kr": "상록시티 마을 안의 여행 안내원에게 마을지도 받기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "flag",
+            "key": "cobbleventure:flag/rewards/feature/map",
+            "value": true
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/rewards/feature_map_guide"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

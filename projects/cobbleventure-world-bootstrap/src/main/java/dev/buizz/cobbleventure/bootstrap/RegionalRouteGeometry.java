@@ -1,5 +1,7 @@
 package dev.buizz.cobbleventure.bootstrap;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** Small route decisions shared by regional-road placement and its tests. */
@@ -51,6 +53,51 @@ final class RegionalRouteGeometry {
             return null;
         }
         return last ? centerline.getLast() : centerline.getFirst();
+    }
+
+    /** Keep the authored bridge intact, extending its ends to the compiled town roads. */
+    static List<CobbleventureBootstrap.Point> connectLogBridgeTownRoads(
+        List<CobbleventureBootstrap.Point> centerline,
+        CobbleventureBootstrap.Point fromRoad,
+        CobbleventureBootstrap.Point toRoad
+    ) {
+        if (centerline.size() < 2) return List.copyOf(centerline);
+        List<CobbleventureBootstrap.Point> connected = new ArrayList<>(centerline);
+        extendBridgeEnd(connected, toRoad);
+        Collections.reverse(connected);
+        extendBridgeEnd(connected, fromRoad);
+        Collections.reverse(connected);
+        return List.copyOf(connected);
+    }
+
+    private static void extendBridgeEnd(
+        List<CobbleventureBootstrap.Point> points,
+        CobbleventureBootstrap.Point road
+    ) {
+        if (road == null || road.equals(points.getLast())) return;
+        CobbleventureBootstrap.Point end = points.getLast();
+        CobbleventureBootstrap.Point previous = points.get(points.size() - 2);
+        boolean alongX = Math.abs(end.x() - previous.x())
+            >= Math.abs(end.z() - previous.z());
+        CobbleventureBootstrap.Point elbow = alongX
+            ? new CobbleventureBootstrap.Point(road.x(), end.z())
+            : new CobbleventureBootstrap.Point(end.x(), road.z());
+        if (!elbow.equals(end)) points.add(elbow);
+        if (!road.equals(points.getLast())) points.add(road);
+    }
+
+    /** Former raised deck height, used only to remove old generated land decks. */
+    static int legacyLogBridgeDeckY(int waterSurfaceY, int groundY) {
+        return Math.max(waterSurfaceY, groundY) + 1;
+    }
+
+    static boolean logBridgeUsesWood(int groundY, int waterTopY) {
+        // A coastal biome can contain both submerged and dry columns.
+        return waterTopY > groundY;
+    }
+
+    static int logBridgeLandSurfaceY(int groundY, boolean ascending) {
+        return groundY + (ascending ? 1 : 0);
     }
 
     private static double distanceToPolyline(

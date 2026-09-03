@@ -13,6 +13,41 @@ import org.junit.jupiter.api.Test;
 
 final class MapContentTest {
     @Test
+    void vermilionSeaDisplaysSurfInsteadOfBiomeAndKeepsRodPoolsSeparate() {
+        MapContent content = MapContent.forGeneration(1);
+        for (MapContent.Hex cell : List.of(new MapContent.Hex(1, 8), new MapContent.Hex(1, 7),
+            new MapContent.Hex(2, 6), new MapContent.Hex(2, 8))) {
+            MapContent.BiomeTile tile = content.tileAt(cell.q(), cell.r());
+            assertEquals("surf", content.defaultEncounterMethod(tile));
+            assertEquals(List.of("cobblemon:tentacool"), ids(content.biome(tile)));
+            assertEquals(List.of("cobblemon:magikarp"), ids(content.encounterBiome(tile, "old_rod")));
+            assertEquals(Set.of("cobblemon:horsea", "cobblemon:krabby", "cobblemon:magikarp"),
+                Set.copyOf(ids(content.encounterBiome(tile, "good_rod"))));
+            assertEquals(Set.of("cobblemon:horsea", "cobblemon:shellder", "cobblemon:gyarados", "cobblemon:psyduck"),
+                Set.copyOf(ids(content.encounterBiome(tile, "super_rod"))));
+            assertEquals(List.of(), ids(content.encounterBiome(tile, "land")));
+            assertTrue(ids(content.spawnBiome(tile)).contains("cobblemon:dragonite"));
+        }
+    }
+
+    @Test
+    void ceruleanExplicitRiverCellsDisplayPsyduckWithoutChangingRouteGeometry() {
+        MapContent content = MapContent.forGeneration(1);
+        MapContent.Route route = content.routes().stream().filter(value -> value.id().equals("route_custom_19")).findFirst().orElseThrow();
+        for (MapContent.Hex cell : List.of(new MapContent.Hex(7, -4), new MapContent.Hex(8, -5), new MapContent.Hex(9, -4))) {
+            MapContent.BiomeTile tile = content.tileAt(cell.q(), cell.r());
+            assertEquals(List.of("cobblemon:psyduck"), ids(content.biome(tile)));
+            assertEquals(List.of("land", "surf", "old_rod", "good_rod", "super_rod"), content.encounterMethods(tile));
+            assertFalse(route.path().contains(cell));
+            assertTrue(ids(content.spawnBiome(tile)).contains("cobblemon:dragonite"));
+        }
+    }
+
+    private static List<String> ids(MapContent.BiomeInfo biome) {
+        return biome.pokemon().stream().map(MapContent.Pokemon::id).toList();
+    }
+
+    @Test
     void indigoPlateauIsATeleportableCenteredWorldObjectInsteadOfATown() {
         MapContent content = MapContent.forGeneration(1);
 

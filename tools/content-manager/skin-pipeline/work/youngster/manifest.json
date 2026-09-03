@@ -1,24 +1,8 @@
 {
   "character": "cobbleventure:character/youngster",
-  "reference": "reference/youngster.png",
-  "reference_label": "Pokémon 본가 youngster 트레이너 스프라이트",
-  "concept_atlas": "concept-v2.png",
-  "generation_mode": "ai-reference-plus-deterministic-auto-uv",
+  "generation_mode": "community-skin",
+  "source_skin": "community.png",
+  "source_url": "https://www.planetminecraft.com/skin/youngster-from-pokemon-npc-trainer/",
   "model": "classic",
-  "auto_layout": "four_row_atlas_v1",
-  "component_minimum_area": 80,
-  "chroma_key": "#ff00ff",
-  "chroma_threshold": 45,
-  "palette_colors": 20,
-  "fallback_color": "#d8a174",
-  "overlay_parts": ["head"],
-  "overlay_colors": ["#173b82", "#294f9a", "#0d204f"],
-  "overlay_tolerance": 64,
-  "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/youngster.png",
-  "equipment_outputs": {
-    "base_skin": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/youngster_equipment.png",
-    "armor_texture": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure_bootstrap/textures/models/armor/youngster_cap_layer_1.png",
-    "item_icon": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure_bootstrap/textures/item/youngster_cap.png"
-  },
-  "item_icon_palette": ["#173b82", "#294f9a", "#0d204f", "#d8a174"]
+  "output": "../../../../../projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer/youngster.png"
 }

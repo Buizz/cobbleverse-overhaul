@@ -21,8 +21,8 @@ class ImportantItemCatalogTests(unittest.TestCase):
             {
                 "cobblemon:pokedex_red",
                 "cobblenav:pokenav_item_red",
-                "cobblenav:pokefinder_item",
                 "cobbleventure_casino:coin_case",
+                "cobbleventure_bootstrap:poke_flute",
             },
             {value["item"] for value in catalog["items"]},
         )

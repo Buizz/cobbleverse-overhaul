@@ -164,7 +164,7 @@ Minecraft 선택자와 명령 실행을 허용하지 않는다. 언어별 텍스
 | `battle` | battle `resource_id` | `battle_result` | 필수 |
 | `starter_roulette` | 선택 정책 | `pokemon_selection` | 필수 |
 | `map_selection` | 지도/목적지 정책 | `location_ref` | 필수 |
-| `heal_party` | NPC 근처 포켓몬센터 치료기 | `healing_result` | 필수 |
+| `heal_party` | NPC 근처 치료기, 선택적 `fallback`으로 치료기 없을 때 직접 회복 | `healing_result` | 필수 |
 | `move`, `teleport`, `enter_space` | 대상 + `location_ref` + 속성 | `movement_result` | 필수 |
 | `give_item` | item `resource_id`, `count`, `notify` | `item_result` | 암시적 대기 가능 |
 | `give_loot` | loot `resource_id`, 추첨 횟수 `count`(1..1024), `notify` | `item_result` | 암시적 대기 가능 |
@@ -258,6 +258,15 @@ label, jump, call, return
 `healing_machine_not_found`, `healing_unavailable`, `healing_interrupted`,
 `healing_timeout` 중 하나다. 포켓몬센터는 반복 이용 서비스이므로 안정 ID는 세션 복구
 anchor로 사용하지만 완료 작업 저널에는 기록하지 않아 다음 방문에도 다시 실행한다.
+`await heal_party fallback -> healing`은 치료기를 **찾지 못했을 때만** Cobblemon의
+파티 전체 회복을 대체 실행한다. 치료기가 있으면 기존 기계 연출을 우선하며,
+사용 중·치료 불가·중단·시간 초과는 대체 회복하지 않는다. 옵션을 생략한 간호순은 기존 동작을 유지한다.
+대체 회복도 같은 await 토큰을 저장한 뒤 다음 서버 틱에 재개하며, 빈 파티는 `healing_unavailable`이다.
+오박사는 도감 수령 완료 플래그가 있는 재방문에서만 이 옵션으로 회복한다.
+스타팅 선택 직후와 가방 공간 부족에 따른 도감 수령 재시도에서는 회복을 끼워 넣지 않는다.
+재방문은 회복 안내 → 회복 → 성공/실패 대사로 끝내며 첫 포켓몬 선택 대사를 반복하지 않는다.
+V4/V5 이관 계약은 스타팅·도감 지급 이야기와 상태를 보존하고, 재방문 서비스 대사는
+동일 문구 비교에서 제외하여 V5 콘텐츠 회귀 테스트로 검증한다.
 `enter_space`의 destination은 반드시 `space(id)`여야 한다. `space(id)`는
 cave·forest처럼 자체 공간 ID를 가진 대상이며 이동 명령의 `anchor`
 속성이 필수다. Cave entrance와 manual layout anchor, forest entrance ID가 권위 있는

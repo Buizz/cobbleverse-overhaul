@@ -27,6 +27,13 @@ public final class EventNpcInteractionHandler {
             return;
         }
         Entity target = event.getTarget();
+        Entity owner = EventNpcPartner.owner(target);
+        if (owner != target) {
+            cancel(event, InteractionResult.SUCCESS);
+            // An unloaded/missing owner must not start an independent partner battle.
+            if (owner != null) startBoundInteraction(player, owner);
+            return;
+        }
         EventNpcBinding binding;
         try {
             Optional<EventNpcBinding> match = EventNpcBindingRepository.instance()
@@ -42,9 +49,6 @@ public final class EventNpcInteractionHandler {
         // A V5 binding owns the interaction, including failure paths, so a legacy
         // representation adapter cannot also open its own dialogue.
         cancel(event, InteractionResult.SUCCESS);
-        if (!EventNpcTriggerMode.acceptsInteraction(target.getTags())) {
-            return;
-        }
         try {
             executeInteract(player, target, binding, true);
         } catch (RuntimeException error) {
@@ -57,7 +61,8 @@ public final class EventNpcInteractionHandler {
      * Programmatic triggers intentionally skip the player's click-range check.
      */
     public static boolean startBoundInteraction(ServerPlayer player, Entity target) {
-        if (!EventNpcTriggerMode.acceptsInteraction(target.getTags())) return false;
+        target = EventNpcPartner.owner(target);
+        if (target == null) return false;
         try {
             Optional<EventNpcBinding> match = EventNpcBindingRepository.instance()
                 .findByEntityTags(target.getTags());
@@ -76,15 +81,18 @@ public final class EventNpcInteractionHandler {
             .orElseThrow(() -> new EventRuntimeException(
                 "바인딩된 CVES 스크립트를 찾을 수 없습니다: " + binding.scriptId()
             ));
+        EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
+            new ServerPlayerEventState(player)
+        );
+        if (!EventNpcTriggerMode.acceptsInteraction(target.getTags(), script, environment)) {
+            return false;
+        }
         EventScript.Event interact = EventNpcInteractionContract
             .uniqueInteractEvent(script)
             .orElseThrow(() -> new EventRuntimeException(
                 "바인딩된 스크립트에 interact 이벤트가 없습니다: " + script.scriptId()
             ));
         if (enforceRange) {
-            EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
-                new ServerPlayerEventState(player)
-            );
             double scriptedRange = EventNpcInteractionContract.interactionRange(
                 interact, environment
             );

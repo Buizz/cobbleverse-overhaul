@@ -10,6 +10,24 @@ CONTENT = ROOT / "content-projects" / "cobbleventure-main" / "content"
 class GenerationOneFireRedSpawnTests(unittest.TestCase):
     """Locks FireRed encounter pools used by newly separated generation-one areas."""
 
+    def test_route_one_uses_firered_level_distribution(self) -> None:
+        spawns = self.load("routes/generation_1/route_custom_03.json")["pokemon_spawns"]
+        self.assertFalse(spawns["inherit_biome"])
+        additions = {entry["species"]: entry for entry in spawns["additions"]}
+        overrides = {entry["species"]: entry for entry in spawns["level_overrides"]}
+        expected = {
+            "cobblemon:pidgey": {"2": 10, "3": 35, "4": 4, "5": 1},
+            "cobblemon:rattata": {"2": 10, "3": 35, "4": 5},
+        }
+        self.assertEqual(set(expected), set(additions))
+        self.assertEqual(set(expected), set(overrides))
+        self.assertEqual(additions["cobblemon:pidgey"].get("weight", 1), additions["cobblemon:rattata"].get("weight", 1))
+        for species, weights in expected.items():
+            self.assertEqual(weights, overrides[species]["level_weights"])
+            for field, value in (("min_level", min(map(int, weights))), ("max_level", max(map(int, weights)))):
+                self.assertEqual(value, overrides[species][field])
+                self.assertEqual(value, additions[species][field])
+
     @staticmethod
     def load(relative: str) -> dict:
         return json.loads((CONTENT / relative).read_text(encoding="utf-8"))
@@ -198,7 +216,8 @@ class GenerationOneFireRedSpawnTests(unittest.TestCase):
         pools = spawns["encounter_pools"]
 
         self.assertEqual(
-            [{"q": 2, "r": 7}, {"q": 3, "r": 7}],
+            [{"q": 1, "r": 8}, {"q": 1, "r": 7}, {"q": 2, "r": 6},
+             {"q": 2, "r": 8}, {"q": 2, "r": 7}, {"q": 3, "r": 7}],
             world_route["encounter_cells"],
         )
         self.assertFalse(spawns["inherit_biome"])

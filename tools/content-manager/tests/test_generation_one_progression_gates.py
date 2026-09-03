@@ -20,6 +20,7 @@ class GenerationOneProgressionGateTests(unittest.TestCase):
             "key": "cobbleventure:flag/story/pokenav_received",
             "value": True,
         }, gate["properties"]["conditions"])
+        self.assertNotIn("pokefinder", json.dumps(gate))
 
     def test_viridian_west_gate_requires_all_kanto_badges(self) -> None:
         world = json.loads(WORLD.read_text(encoding="utf-8"))
@@ -41,9 +42,21 @@ class GenerationOneProgressionGateTests(unittest.TestCase):
             {condition["badge"] for condition in properties["conditions"]},
         )
         self.assertEqual(
-            "easy_npc:preset/encounter/feature_map_guide__v5.npc.snbt",
+            "easy_npc:preset/encounter/viridian_gatekeeper__v5.npc.snbt",
             properties["npc"],
         )
+
+    def test_map_guide_is_fixed_inside_viridian_and_never_a_gate_npc(self) -> None:
+        content = WORLD.parent.parent
+        world = json.loads(WORLD.read_text(encoding="utf-8"))
+        for item in world["objects"]:
+            self.assertNotIn("feature_map_guide", item.get("properties", {}).get("npc", ""))
+        placements = []
+        for path in (content / "settlements").rglob("*.json"):
+            settlement = json.loads(path.read_text(encoding="utf-8"))
+            if "cobbleventure:npc/rewards/feature_map_guide" in settlement.get("npc_placement", {}).get("fixed_npcs", []):
+                placements.append(settlement["id"])
+        self.assertEqual(["cobbleventure:settlement/route_01_town"], placements)
 
 
 if __name__ == "__main__":

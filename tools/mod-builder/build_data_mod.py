@@ -398,6 +398,8 @@ def _npc_placement_profiles(root: Path) -> list[dict[str, object]]:
         }
         if binding_tag is not None:
             runtime["binding_tag"] = binding_tag
+        if isinstance(npc.get("double_battle"), dict):
+            runtime["double_battle"] = copy.deepcopy(npc["double_battle"])
         profiles.append({
             "npc": npc_id,
             "event_engine": event_engine if event_engine in {"easy_npc_v4", "cves_v5"} else "easy_npc_v4",
@@ -659,8 +661,15 @@ def _resolved_town_auto_npcs(
     world_levels: dict[str, int] | None = None,
 ) -> dict[str, object]:
     placement = data.get("npc_placement")
-    if not isinstance(placement, dict) or placement.get("auto_place_npcs") is not True:
+    if not isinstance(placement, dict):
         return {"ambient": [], "trainers": [], "placements": []}
+    fixed_ids = list(dict.fromkeys(placement.get("fixed_npcs", [])))
+    fixed_placements = [
+        {"npc": npc_id, "classification": "ambient", "placement_area": "outdoor"}
+        for npc_id in fixed_ids
+    ]
+    if placement.get("auto_place_npcs") is not True:
+        return {"ambient": [], "trainers": [], "placements": fixed_placements}
     npc_profiles = npc_profiles if npc_profiles is not None else _npc_placement_profiles(root)
     world_levels = world_levels if world_levels is not None else _settlement_world_levels(root)
     level = world_levels.get(str(data.get("id")), 5)
@@ -673,12 +682,14 @@ def _resolved_town_auto_npcs(
         npc_profiles, classification="ambient", level=level,
         biomes=biomes, target="town",
     )[:max(0, int(placement.get("max_ambient_npcs", 0)))]
+    ambient = [npc_id for npc_id in ambient if npc_id not in fixed_ids]
     population = placement.get("trainer_population")
     population = population if isinstance(population, dict) else {}
     trainer_limit = max(0, int(population.get("max_active", 0)))
     trainers = _resolved_trainer_ids(
         npc_profiles, population, level=level, biomes=biomes, target="town",
     )[:trainer_limit] if population.get("enabled", trainer_limit > 0) else []
+    trainers = [npc_id for npc_id in trainers if npc_id not in fixed_ids]
     placement_areas = population.get("placement_areas")
     return {
         "level": level,
@@ -688,7 +699,7 @@ def _resolved_town_auto_npcs(
         "placements": _town_npc_placement_records(
             ambient, trainers,
             placement_areas if isinstance(placement_areas, list) else None,
-        ),
+        ) + fixed_placements,
     }
 
 
@@ -726,7 +737,7 @@ def _package_settlements(
         resolved_auto_npcs = _assign_town_npc_buildings(
             resolved_auto_npcs, capacity,
         )
-        if placement.get("auto_place_npcs") is True:
+        if placement.get("auto_place_npcs") is True or placement.get("fixed_npcs"):
             placement["resolved_auto_npcs"] = resolved_auto_npcs
         if int(compiled_layout.get("reroll_count", 0)) > 0:
             print(

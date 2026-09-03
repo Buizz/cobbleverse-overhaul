@@ -12,7 +12,7 @@
   },
   data:{
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
-    ArmorItems:[{},{},{},{Count:1b,id:"cobbleventure_bootstrap:youngster_cap"}],
+    ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"반바지 꼬마 기본 의상\",\"font\":\"minecraft:uniform\"}",
     EasyNPCVersion:3,
     Invulnerable:1b,

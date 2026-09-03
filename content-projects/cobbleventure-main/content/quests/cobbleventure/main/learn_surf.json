@@ -1,0 +1,60 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/learn_surf",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "독수에게 도전하고 파도타기 얻기"
+  },
+  "summary": {
+    "ko_kr": "무지개배지를 얻었다면 연분홍시티 체육관의 독수에게 도전하세요. 승리하면 핑크배지와 파도타기를 받아 바다를 건너 홍련섬으로 갈 수 있습니다."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/rainbow"
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "learn_surf",
+      "text": {
+        "ko_kr": "연분홍시티 관장 독수를 이기고 핑크배지와 파도타기 얻기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "badge",
+            "badge": "cobbleventure:badge/kanto/soul"
+          },
+          {
+            "type": "variable",
+            "source": "persistent_data",
+            "key": "cobbleventureFieldMove.surf",
+            "operator": ">=",
+            "value": 1
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/gym_leader/koga"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

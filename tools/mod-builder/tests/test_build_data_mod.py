@@ -349,6 +349,32 @@ class TownNpcCapacityUnitTests(unittest.TestCase):
         self.assertEqual(["indoor", "indoor"], [item["placement_area"] for item in placements])
 
 
+class FixedTownNpcPlacementTests(unittest.TestCase):
+    def test_fixed_town_npc_is_outdoors_even_when_automatic_population_is_disabled(self) -> None:
+        resolved = build_data_mod._resolved_town_auto_npcs(PROJECT_ROOT, {
+            "npc_placement": {"auto_place_npcs": False, "fixed_npcs": ["test:npc/guide"]},
+        }, npc_profiles=[], world_levels={})
+        self.assertEqual([
+            {"npc": "test:npc/guide", "classification": "ambient", "placement_area": "outdoor"},
+        ], resolved["placements"])
+
+    def test_viridian_map_guide_is_packaged_once_outdoors(self) -> None:
+        path = PROJECT_ROOT / "content/settlements/generation_1/route_01_town.json"
+        settlement = json.loads(path.read_text(encoding="utf-8"))
+        # Exercise deduplication even if automatic population is enabled later.
+        settlement["npc_placement"].update(auto_place_npcs=True, max_ambient_npcs=1)
+        guide = "cobbleventure:npc/rewards/feature_map_guide"
+        resolved = build_data_mod._resolved_town_auto_npcs(
+            PROJECT_ROOT, settlement,
+            npc_profiles=[{"npc": guide, "classification": "ambient", "automatic_town_placement": True}],
+            world_levels={},
+        )
+        self.assertEqual([
+            {"npc": guide, "classification": "ambient", "placement_area": "outdoor"},
+        ], [entry for entry in resolved["placements"] if entry["npc"] == guide])
+        self.assertNotIn(guide, resolved["ambient"])
+
+
 class DataModBuilderTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -546,7 +572,7 @@ class DataModBuilderTests(unittest.TestCase):
         self.assertIn("Comparator.comparingInt(SettlementPlan::loadOrder)", source)
         self.assertIn("int loadOrder", source)
 
-    def test_log_bridge_keeps_regional_endpoint_at_town_edge(self) -> None:
+    def test_log_bridge_extends_deck_without_moving_regional_endpoint(self) -> None:
         source = (
             REPOSITORY_ROOT
             / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap/CobbleventureBootstrap.java"
@@ -558,6 +584,12 @@ class DataModBuilderTests(unittest.TestCase):
             source,
         )
         self.assertIn("drawConfiguredRoad(\n                level, gateRoad, approach", source)
+        self.assertIn("RegionalRouteGeometry.connectLogBridgeTownRoads(", source)
+        self.assertIn("bridgeCenterline, routeBounds(bridgeCenterline)", source)
+        self.assertIn("drawLogBridge(level, world, connection, connection.bridgeCenterline())", source)
+        self.assertIn("candidate.bridgeCenterline()", source)
+        self.assertIn("route.bridgeBounds().contains(", source)
+        self.assertNotIn("logBridgeNearOceanAlongRoute", source)
 
     def test_packages_generated_rct_trainer_data(self) -> None:
         output = REPOSITORY_ROOT / build_data_mod.OUTPUT

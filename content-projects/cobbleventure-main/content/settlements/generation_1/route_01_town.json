@@ -162,36 +162,22 @@
     "facility_requirements": []
   },
   "npc_placement": {
-    "auto_place_npcs": true,
+    "fixed_npcs": ["cobbleventure:npc/rewards/feature_map_guide"],
+    "auto_place_npcs": false,
     "trainer_population": {
-      "enabled": true,
-      "max_active": 14,
-      "use_biome_defaults": true,
+      "enabled": false,
+      "max_active": 0,
+      "use_biome_defaults": false,
       "direct_trainers": [],
       "placement_areas": [
         "indoor",
         "outdoor"
       ]
     },
-    "max_ambient_npcs": 10,
+    "max_ambient_npcs": 0,
     "default_wander_radius": 7,
     "trainer_slots": [],
-    "zones": [
-      {
-        "id": "town_square",
-        "bounds": {
-          "min_x": 1018,
-          "min_z": -322,
-          "max_x": 1062,
-          "max_z": -278
-        },
-        "max_npcs": 6,
-        "tags": [
-          "ambient",
-          "resident"
-        ]
-      }
-    ]
+    "zones": []
   },
   "town_footprint_shape": "triangle_up",
   "load_order": 2

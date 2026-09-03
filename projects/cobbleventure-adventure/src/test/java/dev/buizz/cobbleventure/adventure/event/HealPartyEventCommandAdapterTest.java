@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import dev.buizz.cobbleventure.adventure.PokemonCenterHealingService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class HealPartyEventCommandAdapterTest {
     private static final String SCRIPT_ID = "cobbleventure:event_script/test/healing";
@@ -23,7 +26,16 @@ final class HealPartyEventCommandAdapterTest {
 
     @Test
     void healingUsesAwaitButRunsAgainOnTheNextInteraction() {
-        EventScript script = script();
+        assertRepeatableHealing(false);
+    }
+
+    @Test
+    void fallbackHealingUsesTheSameAwaitAndRunsOnEveryVisit() {
+        assertRepeatableHealing(true);
+    }
+
+    private void assertRepeatableHealing(boolean fallback) {
+        EventScript script = script(fallback);
         EventSession session = session(script);
         InMemoryEventSessionStore store = new InMemoryEventSessionStore();
         store.putIfAbsent(session);
@@ -33,6 +45,7 @@ final class HealPartyEventCommandAdapterTest {
                 opens.incrementAndGet();
                 assertEquals(session.key(), request.sessionKey());
                 assertEquals("healing/use_machine", request.instructionId());
+                assertEquals(fallback, request.fallbackWithoutMachine());
                 return new EventHealingGateway.OpenResult(
                     "healing-token-" + opens.get(), 0
                 );
@@ -70,10 +83,48 @@ final class HealPartyEventCommandAdapterTest {
         assertEquals(2, opens.get());
     }
 
-    private static EventScript script() {
+    @Test
+    void fallbackOnlyAppliesToMissingMachinesNotBusyOrStartedMachines() {
+        for (var status : PokemonCenterHealingService.StartStatus.values()) {
+            assertFalse(EventHealingBridge.shouldFallback(false, status));
+            assertEquals(status == PokemonCenterHealingService.StartStatus.HEALING_MACHINE_NOT_FOUND,
+                EventHealingBridge.shouldFallback(true, status));
+        }
+    }
+
+    @Test
+    void fallbackFlagRejectsValuesUnknownNamesDuplicatesAndPositionalArguments() {
+        assertFalse(HealPartyEventCommandAdapter.fallbackFlag(new JsonArray()));
+        JsonObject flag = new JsonObject();
+        flag.addProperty("name", "fallback"); flag.add("value", JsonNull.INSTANCE);
+        JsonArray args = new JsonArray(); args.add(flag);
+        assertTrue(HealPartyEventCommandAdapter.fallbackFlag(args));
+        args.add(flag.deepCopy());
+        assertThrows(EventRuntimeException.class, () -> HealPartyEventCommandAdapter.fallbackFlag(args));
+        args.remove(1); flag.addProperty("value", true);
+        assertThrows(EventRuntimeException.class, () -> HealPartyEventCommandAdapter.fallbackFlag(args));
+        flag.add("value", JsonNull.INSTANCE); flag.addProperty("name", "direct");
+        assertThrows(EventRuntimeException.class, () -> HealPartyEventCommandAdapter.fallbackFlag(args));
+        args.remove(0); args.add("fallback");
+        assertThrows(EventRuntimeException.class, () -> HealPartyEventCommandAdapter.fallbackFlag(args));
+    }
+
+    @Test
+    void existingGatewayRequestsKeepMachineOnlyBehavior() {
+        var key = session(script(false)).key();
+        assertFalse(new EventHealingGateway.HealingRequest(key, DIGEST, "heal").fallbackWithoutMachine());
+    }
+
+    private static EventScript script(boolean fallback) {
         JsonObject payload = new JsonObject();
         payload.addProperty("command", "heal_party");
-        payload.add("arguments", new JsonArray());
+        JsonArray arguments = new JsonArray();
+        if (fallback) {
+            JsonObject flag = new JsonObject();
+            flag.addProperty("name", "fallback"); flag.add("value", JsonNull.INSTANCE);
+            arguments.add(flag);
+        }
+        payload.add("arguments", arguments);
         payload.add("properties", new JsonArray());
         payload.addProperty("await", true);
         payload.addProperty("await_explicit", true);

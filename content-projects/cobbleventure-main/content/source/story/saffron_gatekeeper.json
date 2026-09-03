@@ -30,7 +30,8 @@
     "appearance": {
       "source": "custom",
       "type": "skin",
-      "resource": "cobbleventure:trainer_skin/pokemon_ranger_male"
+      "resource": "cobbleventure:trainer_skin/police_officer",
+      "arm_model": "classic"
     },
     "behavior": {
       "movement": "stationary",

@@ -74,6 +74,48 @@ class CvesCompilerTests(unittest.TestCase):
         self.assertEqual("healing", healing["result"])
         self.assertEqual(healing["next"], healing["resume"])
         self.assertNotIn("operation_id", healing)
+        self.assertEqual([], healing['arguments'])  # The nurse still requires a machine.
+
+    def test_oak_heals_only_on_post_pokedex_return_with_missing_machine_fallback(self) -> None:
+        from cves import format_program, editor_contract
+        path = PROJECT_ROOT / 'content/events/cobbleventure/story/professor_oak.cves'
+        source = path.read_text(encoding='utf-8')
+        program = parse(source, str(path))
+        self.assertEqual(source, format_program(program))
+        ir = compile_program(program, 'cobbleventure:event_script/story/professor_oak', self.catalog)
+        instructions = ir['events'][0]['instructions']
+        heals = [value for value in instructions if value.get('command') == 'heal_party']
+        self.assertEqual(['return/heal_party'], [value['instruction_id'] for value in heals])
+        for heal in heals:
+            self.assertTrue(heal['await_explicit'])
+            self.assertEqual([{'name':'fallback','value':None}], heal['arguments'])
+            self.assertEqual('healing', heal['result'])
+            self.assertNotIn('operation_id', heal)
+        pages = ir['events'][0]['pages']
+        self.assertEqual(3, len(pages))
+        for page, flag in zip(pages[:2], ['pokedex_received', 'starter_received']):
+            condition = page['condition']
+            self.assertEqual('call', condition['kind'])
+            self.assertEqual({'kind': 'name', 'name': 'flag'}, condition['callee'])
+            self.assertEqual(1, len(condition['arguments']))
+            self.assertEqual(
+                f'cobbleventure:flag/story/{flag}',
+                condition['arguments'][0]['value']['value'],
+            )
+        self.assertIsNone(pages[2]['condition'])
+        self.assertLess(heals[0]['address'], pages[1]['entry'])
+        # Both starter-selection and full-bag Pokédex retry paths remain reward-only.
+        for page_index in (1, 2):
+            end = pages[page_index + 1]['entry'] if page_index == 1 else len(instructions)
+            commands = [value.get('command') for value in instructions[pages[page_index]['entry']:end]]
+            self.assertIn('give_item', commands)
+            self.assertNotIn('heal_party', commands)
+        return_instructions = instructions[pages[0]['entry']:pages[1]['entry']]
+        self.assertEqual(3, sum(value['op'] == 'say' for value in return_instructions))
+        self.assertNotIn('이미 첫 포켓몬을 골랐구나', source)
+        self.assertIn('모험하다 지치면 언제든 들르렴.', source)
+        contract = next(value for value in editor_contract(self.catalog)['commands'] if value['id'] == 'heal_party')
+        self.assertEqual(['fallback'], contract['flags'])
 
     def test_server_signal_fixture_preserves_typed_trigger_targets(self) -> None:
         program = parse(

@@ -18,7 +18,6 @@ import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.language.I18n;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -488,17 +487,7 @@ public final class BagScreen extends Screen {
     }
 
     private void renderDescription(GuiGraphics graphics, ItemStack stack, int x, int y, int width) {
-        List<Component> tooltip = stack.getTooltipLines(Item.TooltipContext.EMPTY, minecraft.player, TooltipFlag.NORMAL);
-        List<Component> description = new ArrayList<>();
-        for (int index = 1; index < tooltip.size(); index++) {
-            if (!tooltip.get(index).getString().isBlank()) description.add(tooltip.get(index));
-        }
-        if (description.isEmpty()) description.addAll(translatedDescription(stack));
-        if (description.isEmpty()) {
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            description.add(Component.translatable(
-                "screen.cobbleventure_player_menu.bag.no_description", itemId));
-        }
+        List<Component> description = ItemDescriptions.forStack(stack, minecraft.player);
 
         int renderedLines = 0;
         for (Component component : description) {
@@ -507,23 +496,6 @@ public final class BagScreen extends Screen {
                 if (++renderedLines >= 2) return;
             }
         }
-    }
-
-    private List<Component> translatedDescription(ItemStack stack) {
-        String descriptionId = stack.getDescriptionId();
-        List<Component> result = new ArrayList<>();
-
-        addTranslatedLine(result, descriptionId + ".tooltip");
-        for (int index = 1; index <= 4; index++) {
-            addTranslatedLine(result, descriptionId + ".tooltip_" + index);
-        }
-        if (result.isEmpty()) addTranslatedLine(result, descriptionId + ".description");
-        if (result.isEmpty()) addTranslatedLine(result, descriptionId + ".desc");
-        return result;
-    }
-
-    private static void addTranslatedLine(List<Component> result, String translationKey) {
-        if (I18n.exists(translationKey)) result.add(Component.translatable(translationKey));
     }
 
     private void refreshItems(boolean resetScroll) {

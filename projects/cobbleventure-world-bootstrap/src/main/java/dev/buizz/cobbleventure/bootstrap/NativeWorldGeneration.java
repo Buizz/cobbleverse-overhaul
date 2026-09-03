@@ -291,14 +291,15 @@ final class NativeWorldGeneration {
             CobbleventureBootstrap.LogBridgeDeckPlan deck =
                 CobbleventureBootstrap.logBridgeDeckAt(world, worldX, worldZ);
             if (deck != null) {
-                if (!deck.overOcean()) {
+                if (!deck.overWater()) {
                     setBlock(
                         chunk, position, oceanFloor, worldSurface,
-                        localX, groundY, localZ,
-                        CobbleventureBootstrap.worldRoadSurfaceBlock(
-                            world, worldX, worldZ
-                        )
+                        localX, deck.groundY(), localZ, deck.groundState()
                     );
+                    for (int y = deck.y() + 1; y <= groundY; y++) {
+                        setBlock(chunk, position, oceanFloor, worldSurface,
+                            localX, y, localZ, Blocks.AIR.defaultBlockState());
+                    }
                 }
                 if (deck.support()) {
                     for (int y = groundY + 1; y < deck.y(); y++) {

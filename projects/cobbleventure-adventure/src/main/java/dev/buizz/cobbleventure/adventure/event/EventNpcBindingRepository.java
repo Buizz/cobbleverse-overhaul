@@ -28,7 +28,7 @@ public final class EventNpcBindingRepository extends SimplePreparableReloadListe
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final EventNpcBindingRepository INSTANCE = new EventNpcBindingRepository();
     private static final String DIRECTORY = "npc_event_binding";
-    private static final Set<String> FIELDS = Set.of("schema_version", "script_id");
+    private static final Set<String> FIELDS = Set.of("schema_version", "script_id", "money_reward");
     private static final Pattern SCRIPT_ID = Pattern.compile(
         "[a-z0-9_.-]+:event_script/[a-z0-9_./-]+"
     );
@@ -119,7 +119,11 @@ public final class EventNpcBindingRepository extends SimplePreparableReloadListe
             }
             String bindingId = id.getNamespace() + ":" + id.getPath();
             String entityTag = "cves_binding/" + id.getNamespace() + "/" + id.getPath();
-            EventNpcBinding binding = new EventNpcBinding(bindingId, entityTag, scriptId);
+            EventBattlePreset.MoneyReward moneyReward = object.has("money_reward")
+                ? EventBattlePresetRepository.moneyReward(
+                    requireObject(object.get("money_reward"), path + ".money_reward"),
+                    path + ".money_reward") : null;
+            EventNpcBinding binding = new EventNpcBinding(bindingId, entityTag, scriptId, moneyReward);
             if (loaded.putIfAbsent(entityTag, binding) != null) {
                 throw new EventScriptFormatException(path + ": 중복 entity tag입니다: " + entityTag);
             }

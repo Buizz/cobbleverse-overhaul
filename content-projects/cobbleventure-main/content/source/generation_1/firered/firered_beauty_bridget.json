@@ -25,6 +25,19 @@
     "automatic_route_placement": true
   },
   "npc": {
+    "battle_rewards": {
+      "money": {
+        "enabled": true,
+        "mode": "regional_level",
+        "fallback_region_level": 21,
+        "per_level": 20,
+        "offset": 100,
+        "held_item_bonus": true,
+        "held_item": "cobblemon:amulet_coin",
+        "held_item_multiplier": 2,
+        "conditions": []
+      }
+    },
     "display_name": {
       "ko_kr": "아가씨 브리짓",
       "en_us": "Beauty Bridget"

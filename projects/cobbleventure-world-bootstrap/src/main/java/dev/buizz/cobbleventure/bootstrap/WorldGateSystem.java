@@ -121,7 +121,7 @@ final class WorldGateSystem {
                 value.has("rotation") ? value.get("rotation").getAsInt() : 0,
                 optionalString(properties, "facing", "north"),
                 centerPlacement(properties),
-                !centerPlacement(properties).equals("npc"),
+                List.of("gate", "gate_npc").contains(centerPlacement(properties)),
                 surroundingType(properties),
                 optionalString(properties, "wall_block", "minecraft:stone_bricks"),
                 optionalString(properties, "tree_log", "minecraft:oak_log"),
@@ -139,7 +139,9 @@ final class WorldGateSystem {
                 nullableString(properties, "npc"),
                 nullableString(properties, "destination_forest"),
                 nullableString(properties, "destination_entrance"),
-                null, null, null
+                null, null, null,
+                centerPlacement(properties).equals("pokemon")
+                    ? GatePokemonConfig.parse(properties, requiredString(value, "id")) : null
             ));
         }
         return List.copyOf(gates);
@@ -173,7 +175,7 @@ final class WorldGateSystem {
                 optionalInt(value, "barrier_height", 32),
                 "all", List.of(), "숲 입구입니다.", "greeting", null,
                 requiredString(value, "forest"), requiredString(value, "entrance"),
-                null, null, null
+                null, null, null, null
             ));
         }
         return List.copyOf(gates);
@@ -384,7 +386,7 @@ final class WorldGateSystem {
      * Every gate consumer uses this point, keeping the structure, NPC,
      * collision threshold, radar marker, and approach road together.
      */
-    private static CobbleventureBootstrap.Point alignedGateCenter(
+    static CobbleventureBootstrap.Point alignedGateCenter(
         HexWorldPlan world, Gate gate
     ) {
         if (gate.destinationForest() != null) {
@@ -1751,7 +1753,7 @@ final class WorldGateSystem {
     }
 
     static void placeForestDimensionGates(
-        ServerLevel level, List<Gate> gates
+        ServerLevel level, List<Gate> gates, Map<String, JsonObject> forests
     ) {
         FOREST_EXIT_MARKERS.clear();
         for (Gate gate : gates) {
@@ -1766,13 +1768,30 @@ final class WorldGateSystem {
             Direction inward = horizontalDirection(
                 destination.x() - portal.x(), destination.z() - portal.z()
             );
-            int gateY = safeForestGateStandY(
-                level, portal.x(), portal.z(), portal.y()
+            JsonObject forest = forests.get(gate.destinationForest());
+            if (forest == null) {
+                throw new IllegalStateException("Forest terrain definition is missing: " + gate.id());
+            }
+            ForestGateGeometry geometry = new ForestGateGeometry(
+                portal.x(), portal.z(), inward
+            );
+            ForestTemplatePlacement provisional = forestTemplatePlacement(level, gate, geometry, 0);
+            if (provisional == null) {
+                throw new IllegalStateException("Forest gate template is invalid: " + gate.id());
+            }
+            List<GateEntrancePlacement> playableAnchors = placedForestRoadAnchors(gate, provisional)
+                .stream().filter(anchor -> anchor.outward() == inward).toList();
+            if (playableAnchors.isEmpty()) {
+                throw new IllegalStateException("Forest gate has no road anchor facing its path: " + gate.id());
+            }
+            GateEntrancePlacement roadAnchor = nearestForestRoadAnchor(
+                playableAnchors, new CobbleventureBootstrap.Point(destination.x(), destination.z())
+            );
+            int originY = forestGateRoadAlignedOriginY(
+                forest, roadAnchor.x(), roadAnchor.z(), roadAnchor.surfaceY()
             );
             ForestTemplatePlacement placement = forestTemplatePlacement(
-                level, gate,
-                new ForestGateGeometry(portal.x(), portal.z(), inward),
-                gateY - 1
+                level, gate, geometry, originY
             );
             if (placement == null || !placement.template().placeInWorld(
                 level, placement.origin(), placement.origin(), placement.settings(),
@@ -1798,8 +1817,9 @@ final class WorldGateSystem {
             FOREST_EXIT_MARKERS.put(gate.id(), exit);
             level.setBlock(exit.position(), Blocks.AIR.defaultBlockState(), 2);
             LOGGER.info(
-                "Forest dimension gate placed on terrain: gate={}, entry={}, groundY={}, inward={}, origin={}",
-                gate.id(), exit.position(), gateY - 1, exit.inward(), placement.origin()
+                "Forest dimension gate aligned to road: gate={}, entry={}, roadAnchor=({}, {}, {}), inward={}, origin={}",
+                gate.id(), exit.position(), roadAnchor.x(), originY + roadAnchor.surfaceY(),
+                roadAnchor.z(), exit.inward(), placement.origin()
             );
         }
     }
@@ -2249,6 +2269,7 @@ final class WorldGateSystem {
         for (GateNpcAnchor anchor : anchors) {
             Entity existing = nearby.stream()
                 .filter(entity -> !claimed.contains(entity.getUUID()))
+                .filter(entity -> !isObsoleteGateNpc(gate.id(), entity.getTags()))
                 .filter(entity -> entity.distanceToSqr(
                     Vec3.atCenterOf(anchor.position())
                 ) <= 2.25D)
@@ -2280,6 +2301,11 @@ final class WorldGateSystem {
         }
     }
 
+    static boolean isObsoleteGateNpc(String gateId, Set<String> tags) {
+        return gateId.equals("viridian_gate")
+            && tags.contains("cves_binding/cobbleventure/rewards/feature_map_guide");
+    }
+
     private static boolean isEasyNpc(Entity entity) {
         return BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType())
             .getNamespace().equals("easy_npc");
@@ -2293,6 +2319,7 @@ final class WorldGateSystem {
         ServerPlayer player, ServerLevel generationLevel, HexWorldPlan world,
         long gameTime
     ) {
+        GatePokemonSystem.tick(player, generationLevel, world, gameTime);
         HexGrid grid = world.grid();
         List<Gate> gates = world.gates();
         Vec3 previous = LAST_POSITIONS.put(player.getUUID(), player.position());
@@ -2302,7 +2329,7 @@ final class WorldGateSystem {
             return;
         }
         beginPendingEventDialogueDenial(
-            player, generationLevel, world, gameTime
+            player, generationLevel, world, previous, previousCell, gameTime
         );
         if (handlePendingDenial(player, grid, gameTime)) {
             return;
@@ -2317,17 +2344,16 @@ final class WorldGateSystem {
             if (gate.allows(player)) {
                 continue;
             }
+            if (gate.pokemon() != null && GatePokemonSystem.isChallenging(player, gate.id())) continue;
             CobbleventureBootstrap.Point center = alignedGateCenter(world, gate);
-            if (isNpcOnlyGate(gate)) {
-                if (!crossedNpcGateHexBoundary(
-                        gate.anchor(), gate.facing(), previousCell, currentCell
-                    )) {
-                    continue;
-                }
-                beginHexGateDenial(
-                    player, world, gate, center, grid, previousCell, previous, gameTime
+            if (crossedGateHexBoundary(gate, previousCell, currentCell)) {
+                beginGateDenial(
+                    player, world, gate, center, previous, gameTime
                 );
                 return;
+            }
+            if (isNpcOnlyGate(gate) || gate.pokemon() != null) {
+                continue;
             }
             boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
             double normal = horizontal ? player.getZ() - center.z() : player.getX() - center.x();
@@ -2344,12 +2370,8 @@ final class WorldGateSystem {
                 )) {
                 continue;
             }
-            double side = previousNormal == 0.0D
-                ? (gate.facing().equals("north") || gate.facing().equals("west") ? -1.0D : 1.0D)
-                : Math.signum(previousNormal);
             beginGateDenial(
-                player, world, gate, center, horizontal,
-                side, threshold, lateral, previous, gameTime
+                player, world, gate, center, previous, gameTime
             );
             return;
         }
@@ -2359,12 +2381,18 @@ final class WorldGateSystem {
         return gate.npc() != null && gate.centerPlacement().equals("npc");
     }
 
-    /**
-     * NPC-only gates guard the authored edge between hex cells. The check is
-     * independent of the NPC's radial interaction range and therefore cannot
-     * be bypassed by rubbing along one side of a wide road.
-     */
-    static boolean crossedNpcGateHexBoundary(
+    /** All ordinary gate types guard their hex edge, regardless of passage width. */
+    static boolean crossedGateHexBoundary(
+        Gate gate, HexCoord previous, HexCoord current
+    ) {
+        // Forest entrances use their separate portal geometry, not a tile edge.
+        return gate.destinationForest() == null
+            && crossedGateHexBoundary(
+                gate.anchor(), gate.facing(), previous, current
+            );
+    }
+
+    static boolean crossedGateHexBoundary(
         HexCoord anchor, String facing, HexCoord previous, HexCoord current
     ) {
         if (previous.equals(current)) return false;
@@ -2426,122 +2454,87 @@ final class WorldGateSystem {
 
     private static void beginGateDenial(
         ServerPlayer player, HexWorldPlan world, Gate gate,
-        CobbleventureBootstrap.Point center, boolean horizontal,
-        double side, double threshold, double lateral, Vec3 approachPosition,
+        CobbleventureBootstrap.Point center, Vec3 approachPosition,
         long gameTime
     ) {
         PendingGateDenial pending = createGateDenial(
-            player, gate, center, horizontal, side, threshold, lateral,
-            approachPosition.y(), gameTime
+            world.grid(), gate, center, approachPosition, gameTime
         );
-        PENDING_DENIALS.put(player.getUUID(), pending);
-        holdPlayer(player, pending.lockedPosition);
-        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
+        startGateHold(player, world.grid(), pending);
         if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
             player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 20L);
             if (gate.npc() == null || !openGateNpcDialog(player, world, gate)) {
                 player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
                 pending.finished = true;
             }
+        } else {
+            // A repeated attempt still stops locally, but must not wait for a
+            // dialogue that the cooldown intentionally did not open.
+            pending.finished = true;
         }
-    }
-
-    private static void beginHexGateDenial(
-        ServerPlayer player, HexWorldPlan world, Gate gate,
-        CobbleventureBootstrap.Point center, HexGrid grid,
-        HexCoord originCell, Vec3 approachPosition, long gameTime
-    ) {
-        PendingGateDenial pending = createHexGateDenial(
-            player, gate, center, grid, originCell, approachPosition.y(), gameTime
-        );
-        PENDING_DENIALS.put(player.getUUID(), pending);
-        holdPlayer(player, pending.lockedPosition);
-        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
-        LAST_HEX_CELLS.put(player.getUUID(), originCell);
-        if (player.getPersistentData().getLong(DENY_COOLDOWN) <= gameTime) {
-            player.getPersistentData().putLong(DENY_COOLDOWN, gameTime + 20L);
-            if (!openGateNpcDialog(player, world, gate)) {
-                player.sendSystemMessage(Component.literal(gate.denyMessage()), true);
-                pending.finished = true;
-            }
-        }
-    }
-
-    private static PendingGateDenial createHexGateDenial(
-        ServerPlayer player, Gate gate, CobbleventureBootstrap.Point center,
-        HexGrid grid, HexCoord originCell, double preferredY, long gameTime
-    ) {
-        CobbleventureBootstrap.Point tileCenter = grid.worldCenter(originCell);
-        double directionX = tileCenter.x() - center.x();
-        double directionZ = tileCenter.z() - center.z();
-        double directionLength = Math.hypot(directionX, directionZ);
-        if (directionLength < 1.0D) {
-            throw new IllegalStateException(
-                "NPC gate origin cell has no direction from its center: " + gate.id()
-            );
-        }
-        directionX /= directionLength;
-        directionZ /= directionLength;
-        double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
-        Vec3 locked = gatePoint(
-            player.serverLevel(), center, directionX, directionZ,
-            threshold + 0.12D, preferredY
-        );
-        Vec3 retreat = gatePoint(
-            player.serverLevel(), center, directionX, directionZ,
-            threshold + 6.0D, preferredY
-        );
-        return new PendingGateDenial(locked, retreat, originCell, gameTime);
-    }
-
-    private static Vec3 gatePoint(
-        ServerLevel level, CobbleventureBootstrap.Point center,
-        double directionX, double directionZ, double distance, double preferredY
-    ) {
-        double x = center.x() + directionX * distance;
-        double z = center.z() + directionZ * distance;
-        double y = safeStandYNear(
-            level, (int)Math.floor(x), (int)Math.floor(z),
-            (int)Math.floor(preferredY)
-        );
-        return new Vec3(x, y, z);
     }
 
     private static PendingGateDenial createGateDenial(
-        ServerPlayer player, Gate gate, CobbleventureBootstrap.Point center,
-        boolean horizontal, double side, double threshold, double lateral,
-        double preferredY, long gameTime
+        HexGrid grid, Gate gate, CobbleventureBootstrap.Point center,
+        Vec3 approachPosition, long gameTime
     ) {
-        double clampedLateral = Math.max(
-            -gate.openingWidth() / 2.0D + 0.4D,
-            Math.min(gate.openingWidth() / 2.0D - 0.4D, lateral)
-        );
-        double lockedNormal = side * (threshold + 0.12D);
-        double retreatNormal = side * (threshold + 6.0D);
-        double lockedX = horizontal ? center.x() + clampedLateral : center.x() + lockedNormal;
-        double lockedZ = horizontal ? center.z() + lockedNormal : center.z() + clampedLateral;
-        double retreatX = horizontal ? center.x() + clampedLateral : center.x() + retreatNormal;
-        double retreatZ = horizontal ? center.z() + retreatNormal : center.z() + clampedLateral;
-        double lockedY = safeStandYNear(
-            player.serverLevel(), (int)Math.floor(lockedX), (int)Math.floor(lockedZ),
-            (int)Math.floor(preferredY)
-        );
-        double retreatY = safeStandYNear(
-            player.serverLevel(), (int)Math.floor(retreatX), (int)Math.floor(retreatZ),
-            (int)Math.floor(preferredY)
-        );
         return new PendingGateDenial(
-            new Vec3(lockedX, lockedY, lockedZ),
-            new Vec3(retreatX, retreatY, retreatZ), null, gameTime
+            gateDenialStopPosition(grid, gate, center, approachPosition), gameTime
         );
+    }
+
+    /** Keep the actual approach, including fractional stair height and lateral offset. */
+    static Vec3 gateDenialStopPosition(
+        HexGrid grid, Gate gate, CobbleventureBootstrap.Point center, Vec3 approach
+    ) {
+        if (isNpcOnlyGate(gate) || gate.pokemon() != null) return approach;
+        boolean horizontal = gate.facing().equals("north") || gate.facing().equals("south");
+        double normal = horizontal ? approach.z - center.z() : approach.x - center.x();
+        double lateral = horizontal ? approach.x - center.x() : approach.z - center.z();
+        double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
+        if (!insideGateTriggerZone(normal, lateral, threshold, gate.openingWidth())) {
+            return approach;
+        }
+        HexCoord originCell = grid.worldToHex(approach.x, approach.z);
+        CobbleventureBootstrap.Point tile = grid.worldCenter(originCell);
+        double side = normal != 0.0D ? Math.signum(normal)
+            : Math.signum(horizontal ? tile.z() - center.z() : tile.x() - center.x());
+        if (side == 0.0D) side = 1.0D;
+        // Clear the entire trigger band (threshold + 0.35), not just its plane.
+        double stoppedNormal = side * (threshold + 0.65D);
+        Vec3 stopped = horizontal
+            ? new Vec3(approach.x, approach.y, center.z() + stoppedNormal)
+            : new Vec3(center.x() + stoppedNormal, approach.y, approach.z);
+        // Inset north/south gates must never push the player into another cell.
+        return grid.worldToHex(stopped.x, stopped.z).equals(originCell) ? stopped : approach;
+    }
+
+    private static void startGateHold(
+        ServerPlayer player, HexGrid grid, PendingGateDenial pending
+    ) {
+        PENDING_DENIALS.put(player.getUUID(), pending);
+        Vec3 stop = pending.lockedPosition;
+        player.setDeltaMovement(Vec3.ZERO);
+        if (player.position().distanceToSqr(stop) > 1.0E-6D) {
+            player.teleportTo(
+                player.serverLevel(), stop.x, stop.y, stop.z,
+                player.getYRot(), player.getXRot()
+            );
+        }
+        syncGateTracking(player, grid);
+    }
+
+    private static void syncGateTracking(ServerPlayer player, HexGrid grid) {
+        LAST_POSITIONS.put(player.getUUID(), player.position());
+        LAST_HEX_CELLS.put(player.getUUID(), grid.worldToHex(player.getX(), player.getZ()));
     }
 
     private static void beginPendingEventDialogueDenial(
         ServerPlayer player, ServerLevel generationLevel, HexWorldPlan world,
-        long gameTime
+        Vec3 previous, HexCoord previousCell, long gameTime
     ) {
         PendingEventDialogue dialogue = PENDING_EVENT_DIALOGUES.remove(player.getUUID());
-        if (dialogue == null || PENDING_DENIALS.containsKey(player.getUUID())
+        if (dialogue == null || !dialogue.open || PENDING_DENIALS.containsKey(player.getUUID())
             || player.serverLevel() != generationLevel) {
             return;
         }
@@ -2560,29 +2553,25 @@ final class WorldGateSystem {
             if (!insideGateDialogueApproach(normal, lateral, gate.openingWidth())) {
                 continue;
             }
+            HexCoord currentCell = world.grid().worldToHex(player.getX(), player.getZ());
+            double previousNormal = horizontal ? previous.z - center.z() : previous.x - center.x();
+            double previousLateral = horizontal ? previous.x - center.x() : previous.z - center.z();
             double threshold = Math.max(0.45D, gate.wallThickness() / 2.0D - 0.35D);
-            double side = normal == 0.0D
-                ? (gate.facing().equals("north") || gate.facing().equals("west") ? 1.0D : -1.0D)
-                : Math.signum(normal);
-            PendingGateDenial pending = isNpcOnlyGate(gate)
-                ? createHexGateDenial(
-                    player, gate, center, world.grid(),
-                    world.grid().worldToHex(player.getX(), player.getZ()),
-                    player.getY(), gameTime
-                )
-                : createGateDenial(
-                    player, gate, center, horizontal, side, threshold, lateral,
-                    player.getY(), gameTime
+            boolean crossedOpening = !isNpcOnlyGate(gate)
+                && Math.abs(normal - previousNormal) < 12.0D
+                && crossedGateOpening(
+                    previousNormal, previousLateral, normal, lateral,
+                    threshold, gate.openingWidth()
                 );
+            Vec3 approach = crossedOpening || crossedGateHexBoundary(gate, previousCell, currentCell)
+                ? previous : player.position();
+            PendingGateDenial pending = createGateDenial(
+                world.grid(), gate, center, approach, gameTime
+            );
             pending.sawDialogue = true;
             pending.dialogueOpen = dialogue.open;
             pending.finished = !dialogue.open;
-            PENDING_DENIALS.put(player.getUUID(), pending);
-            holdPlayer(player, pending.lockedPosition);
-            LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
-            if (pending.retreatCell != null) {
-                LAST_HEX_CELLS.put(player.getUUID(), pending.retreatCell);
-            }
+            startGateHold(player, world.grid(), pending);
             return;
         }
     }
@@ -2626,39 +2615,32 @@ final class WorldGateSystem {
             || (!pending.sawDialogue && gameTime - pending.startedAt > 80L)
             || gameTime - pending.startedAt > 20L * 90L) {
             PENDING_DENIALS.remove(player.getUUID());
-            player.teleportTo(
-                player.serverLevel(), pending.retreatPosition.x(),
-                pending.retreatPosition.y(), pending.retreatPosition.z(),
-                player.getYRot(), player.getXRot()
-            );
-            player.setDeltaMovement(Vec3.ZERO);
-            LAST_POSITIONS.put(player.getUUID(), pending.retreatPosition);
-            LAST_HEX_CELLS.put(
-                player.getUUID(), pending.retreatCell != null
-                    ? pending.retreatCell
-                    : grid.worldToHex(
-                        pending.retreatPosition.x(), pending.retreatPosition.z()
-                    )
-            );
+            // Release in place: there is no second destination or exit teleport.
+            syncGateTracking(player, grid);
             return true;
         }
         holdPlayer(player, pending.lockedPosition);
-        LAST_POSITIONS.put(player.getUUID(), pending.lockedPosition);
-        if (pending.retreatCell != null) {
-            LAST_HEX_CELLS.put(player.getUUID(), pending.retreatCell);
-        }
+        syncGateTracking(player, grid);
         return true;
     }
 
     private static void holdPlayer(ServerPlayer player, Vec3 position) {
-        player.setDeltaMovement(Vec3.ZERO);
-        player.hurtMarked = true;
-        if (player.position().distanceToSqr(position) > 0.01D) {
+        // Let gravity settle on stairs/slabs; restoring an integer Y every tick
+        // fights normal movement and causes visible rubber-banding.
+        Vec3 velocity = player.getDeltaMovement();
+        player.setDeltaMovement(0.0D, velocity.y, 0.0D);
+        if (gateHoldNeedsCorrection(player.position(), position)) {
             player.teleportTo(
-                player.serverLevel(), position.x(), position.y(), position.z(),
+                player.serverLevel(), position.x(), player.getY(), position.z(),
                 player.getYRot(), player.getXRot()
             );
         }
+    }
+
+    static boolean gateHoldNeedsCorrection(Vec3 current, Vec3 stopped) {
+        double dx = current.x - stopped.x;
+        double dz = current.z - stopped.z;
+        return dx * dx + dz * dz > 1.0E-6D;
     }
 
     static void updateGateDialogueState(ServerPlayer player, boolean open) {
@@ -2800,34 +2782,10 @@ final class WorldGateSystem {
         return startY;
     }
 
-    /** Resolves terrain height before the gate template clears trees and vegetation. */
-    private static int safeForestGateStandY(
-        ServerLevel level, int x, int z, int authoredY
+    static int forestGateRoadAlignedOriginY(
+        JsonObject forest, int roadX, int roadZ, int localAnchorY
     ) {
-        int minimumY = Math.max(level.getMinBuildHeight() + 1, authoredY - 24);
-        int maximumY = Math.min(level.getMaxBuildHeight() - 2, authoredY + 24);
-        int startY = Math.max(minimumY, Math.min(maximumY, authoredY));
-        if (hasNaturalPortalFloor(level, x, startY, z)) return startY;
-        int maximumDistance = Math.max(maximumY - startY, startY - minimumY);
-        for (int distance = 1; distance <= maximumDistance; distance++) {
-            int below = startY - distance;
-            if (below >= minimumY && hasNaturalPortalFloor(level, x, below, z)) return below;
-            int above = startY + distance;
-            if (above <= maximumY && hasNaturalPortalFloor(level, x, above, z)) return above;
-        }
-        return safeForestStandY(level, x, z, authoredY);
-    }
-
-    private static boolean hasNaturalPortalFloor(
-        ServerLevel level, int x, int feetY, int z
-    ) {
-        BlockPos floor = new BlockPos(x, feetY - 1, z);
-        BlockState state = level.getBlockState(floor);
-        return !state.is(BlockTags.LOGS)
-            && !state.is(BlockTags.LEAVES)
-            && !state.is(Blocks.BARRIER)
-            && !state.getCollisionShape(level, floor).isEmpty()
-            && level.getFluidState(floor).isEmpty();
+        return ForestDimensionGenerator.plannedSurfaceY(forest, roadX, roadZ) - localAnchorY;
     }
 
     private static boolean canStandAt(ServerLevel level, int x, int y, int z) {
@@ -3043,9 +3001,12 @@ final class WorldGateSystem {
         String destinationEntrance,
         ResourceKey<Level> forestDimension,
         CobbleventureBootstrap.BlockPoint forestDestination,
-        CobbleventureBootstrap.BlockPoint forestPortalAnchor
+        CobbleventureBootstrap.BlockPoint forestPortalAnchor,
+        GatePokemonConfig pokemon
     ) {
         boolean allows(ServerPlayer player) {
+            if (pokemon != null && !new dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState(player)
+                    .flag(pokemon.completionFlag())) return false;
             if (conditions.isEmpty()) {
                 return true;
             }
@@ -3062,7 +3023,7 @@ final class WorldGateSystem {
                 surroundingType, wallBlock, treeLog, treeLeaves, wallThickness,
                 wallHeight, openingWidth, barrierHeight, conditionMode, conditions,
                 denyMessage, denyDialog, npc, destinationForest, destinationEntrance,
-                dimension, destination, portalAnchor
+                dimension, destination, portalAnchor, pokemon
             );
         }
     }
@@ -3118,20 +3079,15 @@ final class WorldGateSystem {
 
     private static final class PendingGateDenial {
         private final Vec3 lockedPosition;
-        private final Vec3 retreatPosition;
-        private final HexCoord retreatCell;
         private final long startedAt;
         private boolean sawDialogue;
         private boolean dialogueOpen;
         private boolean finished;
 
         private PendingGateDenial(
-            Vec3 lockedPosition, Vec3 retreatPosition,
-            HexCoord retreatCell, long startedAt
+            Vec3 lockedPosition, long startedAt
         ) {
             this.lockedPosition = lockedPosition;
-            this.retreatPosition = retreatPosition;
-            this.retreatCell = retreatCell;
             this.startedAt = startedAt;
         }
     }

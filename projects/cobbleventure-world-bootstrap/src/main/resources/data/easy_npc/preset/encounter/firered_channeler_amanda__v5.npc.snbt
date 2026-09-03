@@ -22,7 +22,7 @@
     ObjectiveData:{HasObjectives:1b,ObjectiveDataSet:[{Type:"LOOK_AT_PLAYER"},{Type:"LOOK_AT_RESET"}]},
     PersistenceRequired:1b,
     PresetUUID:[I;1228728942,-1481420617,-1411562992,1007379203],
-    SkinData:{Type:"CUSTOM",UUID:[I;49304866,-67805395,-1155951672,978954169] },
+    SkinData:{Type:"CUSTOM",UUID:[I;-186733322,-1848552974,-1096927173,1958812360] },
     Tags:["cobbleventure_regional_npc","cves_binding/cobbleventure/generation_1/firered/firered_channeler_amanda"],
     VariantType:"ALEX",
     id:"easy_npc:humanoid"

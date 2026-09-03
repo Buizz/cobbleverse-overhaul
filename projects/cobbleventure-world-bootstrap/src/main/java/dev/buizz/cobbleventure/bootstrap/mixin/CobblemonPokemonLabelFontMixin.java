@@ -3,13 +3,13 @@ package dev.buizz.cobbleventure.bootstrap.mixin;
 import com.cobblemon.mod.common.api.storage.player.client.ClientGeneralPlayerData;
 import com.cobblemon.mod.common.client.render.pokemon.PokemonRenderer;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
-import net.minecraft.network.chat.Component;
+import com.cobblemon.mod.common.util.LocalizationUtilsKt;
+import dev.buizz.cobbleventure.bootstrap.client.PokemonChallengeLabelFont;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -18,8 +18,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class CobblemonPokemonLabelFontMixin {
     private static final ResourceLocation WORLD_LABEL_FONT =
         ResourceLocation.withDefaultNamespace("uniform");
-    private static final ResourceLocation CHALLENGE_LABEL_FONT =
-        ResourceLocation.withDefaultNamespace("default");
 
     @Inject(method = "resolveBaseLabel", at = @At("RETURN"), cancellable = true)
     private void cobbleventure$useWorldLabelFont(
@@ -52,33 +50,16 @@ public abstract class CobblemonPokemonLabelFontMixin {
         return true;
     }
 
-    @ModifyArg(
+    // Resolve the font before width measurement, not just before the draw calls.
+    @Redirect(
         method = "renderNameTag(Lcom/cobblemon/mod/common/entity/pokemon/PokemonEntity;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/Font;drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)I",
-            ordinal = 2
-        ),
-        index = 0
+            target = "Lcom/cobblemon/mod/common/util/LocalizationUtilsKt;lang(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;"
+        )
     )
-    private Component cobbleventure$useDefaultFontForChallengeShadow(Component label) {
-        return useDefaultChallengeFont(label);
-    }
-
-    @ModifyArg(
-        method = "renderNameTag(Lcom/cobblemon/mod/common/entity/pokemon/PokemonEntity;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/Font;drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)I",
-            ordinal = 3
-        ),
-        index = 0
-    )
-    private Component cobbleventure$useDefaultFontForChallenge(Component label) {
-        return useDefaultChallengeFont(label);
-    }
-
-    private static Component useDefaultChallengeFont(Component label) {
-        return label.copy().withStyle(style -> style.withFont(CHALLENGE_LABEL_FONT));
+    private MutableComponent cobbleventure$useVanillaFontForChallenge(String key, Object[] arguments) {
+        MutableComponent label = LocalizationUtilsKt.lang(key, arguments);
+        return "challenge_label".equals(key) ? PokemonChallengeLabelFont.apply(label) : label;
     }
 }

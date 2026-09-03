@@ -36,7 +36,38 @@ public interface AdventureWorldContext {
             weight = Math.max(1, weight);
         }
     }
-    record WildSpawnLevelRange(int minLevel, int maxLevel) {}
+    record WildSpawnLevelRange(int minLevel, int maxLevel, Map<Integer, Integer> levelWeights) {
+        public WildSpawnLevelRange(int minLevel, int maxLevel) {
+            this(minLevel, maxLevel, Map.of());
+        }
+
+        public WildSpawnLevelRange {
+            // Stable order also makes each weighted roll reproducible in regression tests.
+            var sorted = new java.util.TreeMap<>(levelWeights);
+            for (var entry : sorted.entrySet()) {
+                if (entry.getKey() < Math.max(1, minLevel)
+                    || entry.getKey() > Math.min(100, maxLevel)
+                    || entry.getValue() < 1 || entry.getValue() > 10000) {
+                    throw new IllegalArgumentException("Invalid wild encounter level weight: " + entry);
+                }
+            }
+            levelWeights = java.util.Collections.unmodifiableMap(sorted);
+        }
+
+        public int sample(java.util.function.IntUnaryOperator nextInt) {
+            if (!levelWeights.isEmpty()) {
+                int choice = nextInt.applyAsInt(levelWeights.values().stream().mapToInt(Integer::intValue).sum());
+                for (var entry : levelWeights.entrySet()) {
+                    choice -= entry.getValue();
+                    if (choice < 0) return entry.getKey();
+                }
+                throw new IllegalStateException("Wild encounter random roll outside weighted range");
+            }
+            int minimum = Math.max(1, Math.min(100, minLevel));
+            int maximum = Math.max(minimum, Math.min(100, maxLevel));
+            return minimum + nextInt.applyAsInt(maximum - minimum + 1);
+        }
+    }
 
     record FacilityPosition(ResourceLocation dimension, BlockPos position) {}
 

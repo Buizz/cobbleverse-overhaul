@@ -14,7 +14,8 @@ public abstract class GymBlockerPickMixin {
     private void cobbleventure$ignoreHiddenGymBlocker(
         CallbackInfoReturnable<Boolean> callback
     ) {
-        if (GymBlockerVisibility.isHidden((LivingEntity) (Object) this)) {
+        var gatePokemon = dev.buizz.cobbleventure.bootstrap.GatePokemonNetwork.clientView((LivingEntity) (Object) this);
+        if (GymBlockerVisibility.isHidden((LivingEntity) (Object) this) || (gatePokemon != null && gatePokemon.hidden())) {
             callback.setReturnValue(false);
         }
     }

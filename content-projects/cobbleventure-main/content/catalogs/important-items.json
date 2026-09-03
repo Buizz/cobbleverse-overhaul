@@ -3,6 +3,11 @@
   "schema_version": 1,
   "items": [
     {
+      "item": "cobbleventure_bootstrap:poke_flute",
+      "acquisition_flag": "cobbleventure:flag/story/poke_flute_received",
+      "minimum_count": 1
+    },
+    {
       "item": "cobblemon:pokedex_red",
       "acquisition_flag": "cobbleventure:flag/story/pokedex_received",
       "minimum_count": 1
@@ -10,11 +15,6 @@
     {
       "item": "cobblenav:pokenav_item_red",
       "acquisition_flag": "cobbleventure:flag/story/pokenav_received",
-      "minimum_count": 1
-    },
-    {
-      "item": "cobblenav:pokefinder_item",
-      "acquisition_flag": "cobbleventure:flag/rewards/item/pokefinder_received",
       "minimum_count": 1
     },
     {

@@ -142,6 +142,17 @@ class CvesStarterEventMigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "결과 name과 조사"):
             starter_event_contract_from_cves(parse(unsafe, "unsafe-starter.cves"))
 
+    def test_post_pokedex_service_dialogue_can_evolve_without_changing_rewards(self) -> None:
+        source = self.source.replace(
+            "잘 왔구나! 포켓몬들을 잠시 쉬게 해 주자꾸나.",
+            "어서 오너라. 포켓몬들을 돌봐 주마!",
+        )
+        self.assertNotEqual(self.source, source)
+        self.assertEqual((), compare_starter_event_migration(self.legacy, parse(source)))
+        changed_reward = source.replace('"cobblemon:pokedex_red" count 1', '"cobblemon:pokedex_red" count 2')
+        differences = compare_starter_event_migration(self.legacy, parse(changed_reward))
+        self.assertTrue(any('pokedex_count' in difference for difference in differences))
+
     def test_both_pokedex_paths_require_guard_before_completion_state(self) -> None:
         unsafe = self.source.replace(
             '    if pokedex.remaining_count > 0 {\n'
@@ -165,6 +176,30 @@ class CvesStarterTownGatekeeperTests(unittest.TestCase):
         self.assertIn('give_item "cobblenav:pokenav_item_red" count 1 notify', source)
         self.assertIn('set_flag "cobbleventure:flag/story/pokenav_received" true', source)
         self.assertNotIn("give_pokenav", V5_STARTER_SOURCE.read_text(encoding="utf-8"))
+
+    def test_pokefinder_is_not_an_authored_reward_or_quest_requirement(self) -> None:
+        source = V5_GATEKEEPER_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("pokefinder", source)
+        for folder in ["events", "source", "quests"]:
+            for path in (PROJECT_ROOT / "content" / folder).rglob("*"):
+                if path.suffix not in {".cves", ".json"}:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                self.assertNotIn("pokefinder_received", text, str(path))
+                self.assertNotIn("cobblenav:pokefinder_item", text, str(path))
+                if folder == "quests":
+                    self.assertNotIn("포켓파인더", text, str(path))
+
+    def test_map_guide_only_unlocks_map_and_gatekeeper_gives_no_rewards(self) -> None:
+        for relative in ["source/rewards/feature_map_guide.json", "events/cobbleventure/rewards/feature_map_guide.cves"]:
+            source = (PROJECT_ROOT / "content" / relative).read_text(encoding="utf-8")
+            self.assertNotIn("pokefinder", source)
+            self.assertNotIn("give_item", source)
+            self.assertIn("unlock_feature", source)
+        source = (PROJECT_ROOT / "content/events/cobbleventure/story/viridian_gatekeeper.cves").read_text(encoding="utf-8")
+        parse(source)
+        self.assertNotIn("give_item", source)
+        self.assertNotIn("unlock_feature", source)
 
 
 class CvesGymLeaderMigrationTests(unittest.TestCase):

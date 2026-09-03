@@ -12,5 +12,6 @@ public enum RadarMarkerType {
     CAVE_ENTRANCE,
     FOREST_ENTRANCE,
     GATE,
-    OBJECTIVE
+    OBJECTIVE,
+    DUNGEON_ENTRANCE
 }

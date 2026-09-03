@@ -1807,6 +1807,13 @@ body { font-size: 14px; line-height: 1.45; }
 @media (max-width:620px) { .shared-trainer-direct>header{align-items:stretch;flex-direction:column}.trainer-pool-assigned,.trainer-assignment-list{grid-template-columns:1fr}.trainer-assignment-filters{grid-template-columns:1fr}.trainer-assignment-filters .wide{grid-column:auto}.trainer-assignment-shell>footer span{display:none} }
 
 /* Structured pass-condition editor shared by the gate tool and tile inspector. */
+.gate-tool-panel [hidden], .custom-object-fields[data-tile-field="gate"] [hidden] { display:none!important; }
+[data-gate-pokemon]:not([hidden]) { display:grid; gap:12px; min-width:0; }
+[data-gate-pokemon] > h4 { margin:0; }
+[data-gate-pokemon] .inline-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+[data-gate-pokemon] label { min-width:0; }
+[data-gate-pokemon] > small { display:block; line-height:1.6; }
+[data-gate-pokemon] > button { white-space:normal; height:auto; padding:8px; }
 .gate-condition-builder { display:grid; gap:9px; padding:11px; border:1px solid #bdcbc3; border-radius:7px; background:#f5f8f6; }
 .gate-condition-builder[hidden] { display:none!important; }
 .gate-condition-builder > header { display:flex; align-items:center; justify-content:space-between; gap:8px; }

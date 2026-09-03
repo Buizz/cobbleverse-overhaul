@@ -391,7 +391,7 @@
       "theme": "psychic",
       "access": {
         "require_previous_gym": true,
-        "previous_badge": "cobbleventure:badge/kanto/soul",
+        "previous_badge": "cobbleventure:badge/kanto/earth",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [
@@ -575,7 +575,7 @@
       "theme": "ground",
       "access": {
         "require_previous_gym": true,
-        "previous_badge": "cobbleventure:badge/kanto/volcano",
+        "previous_badge": "cobbleventure:badge/kanto/soul",
         "condition_mode": "all",
         "conditions": [],
         "locked_dialogue": [

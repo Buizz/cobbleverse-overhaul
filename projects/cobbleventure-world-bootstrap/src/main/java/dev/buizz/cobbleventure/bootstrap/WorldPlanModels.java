@@ -107,7 +107,15 @@ final class WorldPlanModels {
         int weight
     ) {}
 
-    record PokemonLevelOverride(String species, int minLevel, int maxLevel) {}
+    record PokemonLevelOverride(String species, int minLevel, int maxLevel, Map<Integer, Integer> levelWeights) {
+        PokemonLevelOverride(String species, int minLevel, int maxLevel) {
+            this(species, minLevel, maxLevel, Map.of());
+        }
+
+        PokemonLevelOverride {
+            levelWeights = Map.copyOf(levelWeights);
+        }
+    }
 
     record RoutePokemonPool(
         boolean inheritBiome, Set<String> excludedSpecies,
@@ -160,8 +168,25 @@ final class WorldPlanModels {
         CobbleventureBootstrap.Point fromTownRoad,
         CobbleventureBootstrap.Point toTownRoad,
         RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements,
-        RegionalTrainerPopulation trainerPopulation
-    ) {}
+        RegionalTrainerPopulation trainerPopulation,
+        List<CobbleventureBootstrap.Point> bridgeCenterline, RouteBounds bridgeBounds
+    ) {
+        ConnectionPath(
+            String id, String displayName, String from, String to, String biome, String boundaryProfile,
+            double corridorWidthBlocks, double edgeNoise, TerrainProfile terrainProfile,
+            String surfaceStyle, String accessRequirement, List<HexCoord> cells,
+            List<HexCoord> encounterCells,
+            List<CobbleventureBootstrap.Point> centerline, RouteBounds bounds,
+            CobbleventureBootstrap.Point fromTownRoad, CobbleventureBootstrap.Point toTownRoad,
+            RoutePokemonSpawns pokemonSpawns, List<RouteNpcPlacement> npcPlacements,
+            RegionalTrainerPopulation trainerPopulation
+        ) {
+            this(id, displayName, from, to, biome, boundaryProfile,
+                corridorWidthBlocks, edgeNoise, terrainProfile, surfaceStyle, accessRequirement,
+                cells, encounterCells, centerline, bounds, fromTownRoad, toTownRoad,
+                pokemonSpawns, npcPlacements, trainerPopulation, centerline, bounds);
+        }
+    }
 
     record TerrainProfile(
         int baseHeightOffset, int heightVariation, double noiseScaleBlocks,

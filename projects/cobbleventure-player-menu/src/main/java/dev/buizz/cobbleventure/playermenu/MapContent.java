@@ -21,6 +21,9 @@ import java.util.Set;
 /** Shared, read-only map data packaged from the content editor. */
 public final class MapContent {
     private static final String ROOT = "/data/cobbleventure_player_menu/map/";
+    public static final List<String> ENCOUNTER_METHODS = List.of(
+        "land", "surf", "old_rod", "good_rod", "super_rod", "headbutt"
+    );
     private static final List<MapContent> MAPS = loadAll();
     private static final MapContent INSTANCE = MAPS.getFirst();
 
@@ -46,6 +49,7 @@ public final class MapContent {
     private final Map<String, BiomeInfo> biomes;
     private final Map<Hex, BiomeInfo> tileSpawnHabitats;
     private final Map<Hex, BiomeInfo> tileHabitats;
+    private final Map<String, Map<Hex, BiomeInfo>> methodHabitats;
 
     private MapContent(
         int generation,
@@ -69,7 +73,8 @@ public final class MapContent {
         Map<String, ForestInfo> forests,
         Map<String, BiomeInfo> biomes,
         Map<Hex, BiomeInfo> tileSpawnHabitats,
-        Map<Hex, BiomeInfo> tileHabitats
+        Map<Hex, BiomeInfo> tileHabitats,
+        Map<String, Map<Hex, BiomeInfo>> methodHabitats
     ) {
         this.generation = generation;
         this.displayName = displayName;
@@ -95,6 +100,7 @@ public final class MapContent {
         this.biomes = Map.copyOf(biomes);
         this.tileSpawnHabitats = Map.copyOf(tileSpawnHabitats);
         this.tileHabitats = Map.copyOf(tileHabitats);
+        this.methodHabitats = Map.copyOf(methodHabitats);
     }
 
     public static MapContent instance() {
@@ -189,7 +195,35 @@ public final class MapContent {
     }
 
     public BiomeInfo biome(BiomeTile tile) {
-        return tile == null ? biome("") : tileHabitats.getOrDefault(tile.hex(), biome(tile.biome()));
+        return encounterBiome(tile, defaultEncounterMethod(tile));
+    }
+
+    public String defaultEncounterMethod(BiomeTile tile) {
+        return tile != null && (tile.biome().contains("ocean") || tile.biome().contains("river")
+            || tile.biome().contains("beach")) && methodHabitats.get("surf").containsKey(tile.hex())
+            ? "surf" : "land";
+    }
+
+    public List<String> encounterMethods(BiomeTile tile) {
+        return ENCOUNTER_METHODS.stream().filter(method -> method.equals("land")
+            || tile != null && methodHabitats.get(method).containsKey(tile.hex())).toList();
+    }
+
+    public BiomeInfo encounterBiome(BiomeTile tile, String method) {
+        if (tile == null) return biome("");
+        return method.equals("land") ? tileHabitats.getOrDefault(tile.hex(), biome(tile.biome()))
+            : methodHabitats.getOrDefault(method, Map.of()).getOrDefault(tile.hex(), spawnBiome(tile));
+    }
+
+    public static String encounterMethodName(String method) {
+        return switch (method) {
+            case "surf" -> "파도타기";
+            case "old_rod" -> "낡은낚싯대";
+            case "good_rod" -> "좋은낚싯대";
+            case "super_rod" -> "대단한낚싯대";
+            case "headbutt" -> "박치기";
+            default -> "육상";
+        };
     }
 
     /** Original tile habitat used by runtime spawning, before route display overlays. */
@@ -377,7 +411,7 @@ public final class MapContent {
                 : stringValue(connection, "display_name", connection.get("id").getAsString());
             routeEncounters.add(new RouteEncounter(
                 connection.get("id").getAsString(), routeName, surfaceStyle,
-                List.copyOf(path), encounters
+                List.copyOf(path), hexCoordinates(connection, "encounter_cells"), encounters
             ));
         }
 
@@ -385,8 +419,14 @@ public final class MapContent {
         Map<String, Pokemon> pokemonCatalog = pokemonCatalog();
         LoadedBiomes loadedBiomes = loadBiomes(pokemonGenerations, tiles, world);
         Map<Hex, BiomeInfo> tileHabitats = applyRouteHabitats(
-            loadedBiomes.byTile(), routeEncounters, pokemonCatalog
+            loadedBiomes.byTile(), routeEncounters, pokemonCatalog, towns, "land"
         );
+        Map<String, Map<Hex, BiomeInfo>> methodHabitats = new LinkedHashMap<>();
+        for (String method : ENCOUNTER_METHODS) {
+            methodHabitats.put(method, applyRouteHabitats(
+                loadedBiomes.byTile(), routeEncounters, pokemonCatalog, towns, method
+            ));
+        }
         LoadedCaves loadedCaves = loadCaves(generation, world, loadedBiomes.byBiome(), pokemonCatalog);
         LoadedForests loadedForests = loadForests(generation, world, loadedBiomes.byBiome(), pokemonCatalog);
         return new MapContent(
@@ -401,49 +441,73 @@ public final class MapContent {
             defaultEmptyTerrain, emptyTerrain,
             tiles, towns, objects, routes, loadedCaves.entrances(), loadedCaves.byId(),
             loadedForests.entrances(), loadedForests.byId(),
-            loadedBiomes.byBiome(), loadedBiomes.byTile(), tileHabitats
+            loadedBiomes.byBiome(), loadedBiomes.byTile(), tileHabitats, methodHabitats
         );
     }
 
     private static Map<Hex, BiomeInfo> applyRouteHabitats(
         Map<Hex, BiomeInfo> biomeHabitats,
         List<RouteEncounter> routeEncounters,
-        Map<String, Pokemon> pokemonCatalog
+        Map<String, Pokemon> pokemonCatalog, List<Town> towns, String method
     ) {
-        Map<Hex, BiomeInfo> result = new LinkedHashMap<>(biomeHabitats);
-        Set<Hex> routed = new HashSet<>();
+        boolean land = method.equals("land");
+        Map<Hex, BiomeInfo> result = land ? new LinkedHashMap<>(biomeHabitats) : new LinkedHashMap<>();
         List<RouteEncounter> ordered = new ArrayList<>(routeEncounters);
         ordered.sort(Comparator.comparingInt(route -> "water".equals(route.surfaceStyle()) ? 0 : 1));
+        Map<Hex, RouteEncounter> explicit = new LinkedHashMap<>(), paths = new LinkedHashMap<>();
         for (RouteEncounter route : ordered) {
+            for (Hex cell : route.encounterCells()) explicit.putIfAbsent(cell, route);
+            for (Hex cell : route.path()) paths.putIfAbsent(cell, route);
+        }
+        Set<Hex> cells = new HashSet<>(paths.keySet());
+        cells.addAll(explicit.keySet());
+        for (Hex cell : cells) {
+            boolean town = towns.stream().anyMatch(value -> townContains(value, cell));
+            if (land && town) continue;
+            RouteEncounter route = explicit.getOrDefault(cell, town ? null : paths.get(cell));
+            if (route == null) continue;
             JsonObject settings = route.settings();
-            boolean inheritBiome = booleanValue(settings, "inherit_biome", true);
-            Set<String> excluded = stringSet(settings, "excluded_species");
-            for (Hex cell : route.path()) {
-                if (!routed.add(cell)) continue;
-                BiomeInfo base = biomeHabitats.get(cell);
-                if (base == null) continue;
-                Map<String, Pokemon> selected = new LinkedHashMap<>();
-                if (inheritBiome) {
-                    for (Pokemon pokemon : base.pokemon()) {
-                        if (!excluded.contains(pokemon.id())) selected.put(pokemon.id(), pokemon);
-                    }
-                }
-                if (settings.has("additions")) {
-                    for (JsonElement element : settings.getAsJsonArray("additions")) {
-                        JsonObject addition = element.getAsJsonObject();
-                        Pokemon pokemon = pokemonCatalog.get(stringValue(addition, "species", ""));
-                        if (pokemon != null) selected.putIfAbsent(pokemon.id(), pokemon);
-                    }
-                }
-                List<Pokemon> pokemon = new ArrayList<>(selected.values());
-                pokemon.sort(Comparator.comparingInt(Pokemon::dexNumber));
-                result.put(cell, new BiomeInfo(
-                    "route:" + route.id(), route.name(), base.habitat(), 0,
-                    List.copyOf(pokemon), pokemon.size()
-                ));
+            if (!land) {
+                if (!settings.has("encounter_pools")) continue;
+                JsonObject pools = settings.getAsJsonObject("encounter_pools");
+                if (!pools.has(method)) continue;
+                settings = pools.getAsJsonObject(method);
             }
+            boolean enabled = land || booleanValue(settings, "enabled", true);
+            boolean inheritBiome = booleanValue(settings, "inherit_biome", true) && !method.equals("headbutt");
+            Set<String> excluded = stringSet(settings, "excluded_species");
+            BiomeInfo base = biomeHabitats.get(cell);
+            if (base == null) continue;
+            Map<String, Pokemon> selected = new LinkedHashMap<>();
+            if (enabled && inheritBiome) {
+                for (Pokemon pokemon : base.pokemon()) {
+                    if (!excluded.contains(pokemon.id())) selected.put(pokemon.id(), pokemon);
+                }
+            }
+            if (enabled && settings.has("additions")) {
+                for (JsonElement element : settings.getAsJsonArray("additions")) {
+                    JsonObject addition = element.getAsJsonObject();
+                    Pokemon pokemon = pokemonCatalog.get(stringValue(addition, "species", ""));
+                    if (pokemon != null) selected.putIfAbsent(pokemon.id(), pokemon);
+                }
+            }
+            List<Pokemon> pokemon = new ArrayList<>(selected.values());
+            pokemon.sort(Comparator.comparingInt(Pokemon::dexNumber));
+            result.put(cell, new BiomeInfo(
+                "route:" + route.id(), route.name(), base.habitat(), 0,
+                List.copyOf(pokemon), pokemon.size()
+            ));
         }
         return Map.copyOf(result);
+    }
+
+    private static List<Hex> hexCoordinates(JsonObject object, String key) {
+        List<Hex> cells = new ArrayList<>();
+        if (object.has(key)) for (JsonElement element : object.getAsJsonArray(key)) {
+            JsonObject point = element.getAsJsonObject();
+            cells.add(new Hex(point.get("q").getAsInt(), point.get("r").getAsInt()));
+        }
+        return List.copyOf(cells);
     }
 
     private static String defaultRegionName(int generation) {
@@ -910,7 +974,7 @@ public final class MapContent {
     public record BiomeTile(Hex hex, String biome) {}
     public record Route(String id, String surfaceStyle, List<Hex> path) {}
     private record RouteEncounter(
-        String id, String name, String surfaceStyle, List<Hex> path, JsonObject settings
+        String id, String name, String surfaceStyle, List<Hex> path, List<Hex> encounterCells, JsonObject settings
     ) {}
     public record CaveEntrance(
         String id, String caveId, String entranceId, String name, Hex hex, String facing

@@ -1,4 +1,4 @@
-"""Import a 64x64 community skin while preserving Minecraft arm UV faces."""
+"""Import modern or legacy community skins, preserving Minecraft UV faces."""
 
 from __future__ import annotations
 
@@ -25,8 +25,34 @@ SLIM_FACES = {
 ARM_AREAS = ((40, 16, 56, 48), (32, 48, 48, 64), (48, 48, 64, 64))
 
 
+def modernize_legacy_skin(image: Image.Image) -> Image.Image:
+    source = image.convert("RGBA")
+    if source.size != (64, 32):
+        raise ValueError(f"구형 Minecraft 스킨은 64x32여야 합니다: {source.size}")
+    result = Image.new("RGBA", (64, 64))
+    result.paste(source, (0, 0))
+    # Legacy left limbs reuse mirrored right limbs. Side faces swap places.
+    for source_x, target_x in ((0, 16), (40, 32)):
+        faces = (
+            ((4, 16, 8, 20), (4, 48)), ((8, 16, 12, 20), (8, 48)),
+            ((8, 20, 12, 32), (0, 52)), ((4, 20, 8, 32), (4, 52)),
+            ((0, 20, 4, 32), (8, 52)), ((12, 20, 16, 32), (12, 52)),
+        )
+        for (x1, y1, x2, y2), (tx, ty) in faces:
+            face = source.crop((source_x + x1, y1, source_x + x2, y2))
+            result.paste(face.transpose(Image.Transpose.FLIP_LEFT_RIGHT), (target_x + tx, ty))
+    # Match Minecraft's opaque legacy-hat handling without erasing authored alpha.
+    if source.getchannel("A").crop((32, 0, 64, 32)).getextrema()[0] >= 128:
+        result.paste((0, 0, 0, 0), (32, 0, 64, 16))
+    return result
+
+
 def convert_arm_model(image: Image.Image, source_model: str, target_model: str) -> Image.Image:
     source = image.convert("RGBA")
+    if source.size == (64, 32):
+        if source_model != "classic":
+            raise ValueError("구형 스킨의 원본 팔 모델은 classic이어야 합니다.")
+        source = modernize_legacy_skin(source)
     if source.size != (64, 64):
         raise ValueError(f"Minecraft 스킨은 64x64여야 합니다: {source.size}")
     if source_model == target_model:

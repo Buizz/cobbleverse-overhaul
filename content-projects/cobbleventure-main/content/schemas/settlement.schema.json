@@ -196,6 +196,12 @@
           "type": "array",
           "items": { "$ref": "#/$defs/trainer_slot" }
         },
+        "fixed_npcs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resource_id" },
+          "description": "무작위 인구 설정과 독립적으로 마을 내부 야외 길가에 반드시 배치하는 NPC ID 목록"
+        },
         "zones": {
           "type": "array",
           "items": { "$ref": "#/$defs/npc_zone" }

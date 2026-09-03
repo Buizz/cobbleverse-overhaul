@@ -57,6 +57,7 @@ public final class PlayerMenuScreen extends Screen {
     private static final int PENDING_COLOR = 0xFF8D8D8D;
     private static final int SEPARATOR_COLOR = 0x553F505B;
     private static final int OVERVIEW_HEIGHT = 110;
+    private static final int INFO_HEIGHT = 96;
     private static final int PARTY_ICON_SIZE = 24;
     private static final int PARTY_ICON_GAP = 3;
 
@@ -72,6 +73,7 @@ public final class PlayerMenuScreen extends Screen {
     private int rowHeight;
     private int infoX;
     private int infoWidth;
+    private int backButtonWidth;
     private Component statusMessage;
     private FieldMoveToggleButton rockClimbToggleButton;
     private FieldMoveToggleButton flashToggleButton;
@@ -155,6 +157,11 @@ public final class PlayerMenuScreen extends Screen {
             fieldMoveToggleWidth, 17
         ));
         rockSmashToggleButton.visible = false;
+        backButtonWidth = menuTheme.textWidth(font, MenuBackButton.LABEL, MenuTheme.TextRole.LABEL) + 14;
+        addRenderableWidget(new MenuBackButton(
+            menuTheme, menuX + menuWidth - MENU_PADDING - backButtonWidth,
+            menuY + 3, backButtonWidth, MENU_HEADER_HEIGHT - 6, this::onClose
+        ));
         setFocused(rows.get(selectedIndex));
     }
 
@@ -321,14 +328,20 @@ public final class PlayerMenuScreen extends Screen {
         }
     }
 
-    private void renderQuestSummaryPanel(GuiGraphics graphics) {
-        int availableWidth = infoX - PANEL_GAP - MENU_MARGIN;
-        if (availableWidth < 128) return;
+    private QuestSummaryLayout questSummaryLayout() {
+        return QuestSummaryLayout.calculate(
+            height, infoX, infoWidth, trainerPanelY(), OVERVIEW_HEIGHT,
+            INFO_HEIGHT, MENU_MARGIN, PANEL_GAP
+        );
+    }
 
-        int panelWidth = Math.min(330, availableWidth);
-        int panelHeight = 142;
-        int x = infoX - PANEL_GAP - panelWidth;
-        int y = trainerPanelY();
+    private void renderQuestSummaryPanel(GuiGraphics graphics) {
+        QuestSummaryLayout layout = questSummaryLayout();
+        if (layout.mode() == QuestSummaryLayout.Mode.INLINE) return; // Drawn inside renderInfoPanel.
+        int panelWidth = layout.width();
+        int panelHeight = layout.height();
+        int x = layout.x();
+        int y = layout.y();
         ThemedOverlayPanel.draw(
             graphics, menuTheme, x, y, panelWidth, panelHeight, 1, menuTheme.accent
         );
@@ -337,74 +350,84 @@ public final class PlayerMenuScreen extends Screen {
         if (selected) {
             graphics.fill(x + 2, y + 2, x + 5, y + panelHeight - 2, menuTheme.accent);
         }
-        menuTheme.drawText(
-            graphics, font,
-            Component.translatable("screen.cobbleventure_player_menu.quest_summary.header"),
-            x + 10, y + 9, MenuTheme.TextRole.HEADING,
-            selected ? menuTheme.accent : menuTheme.textColor
+        renderResponsiveQuestSummary(
+            graphics, x + 10, y + 9, panelWidth - 20, panelHeight - 18, layout.mode()
         );
-        graphics.fill(
-            x + 10, y + 23, x + panelWidth - 10, y + 24,
-            ThemedOverlayPanel.withOpacity(menuTheme.border, .33F)
-        );
+    }
 
+    private void renderResponsiveQuestSummary(
+        GuiGraphics graphics, int x, int y, int textWidth, int textHeight, QuestSummaryLayout.Mode mode
+    ) {
+        if (textWidth <= 0 || textHeight <= 0) return;
+        boolean full = mode == QuestSummaryLayout.Mode.FULL;
+        boolean inline = mode == QuestSummaryLayout.Mode.INLINE;
+        MenuTheme.TextRole titleRole = full ? MenuTheme.TextRole.HEADING : MenuTheme.TextRole.LABEL;
+        MenuTheme.TextRole objectiveRole = inline ? MenuTheme.TextRole.CAPTION : MenuTheme.TextRole.LABEL;
+        MenuTheme.TextRole headerRole = full ? MenuTheme.TextRole.HEADING : MenuTheme.TextRole.CAPTION;
         QuestSummaryNetwork.QuestSummary quest = QuestSummaryNetwork.clientSummary();
-        if (!quest.available()) {
-            menuTheme.drawWrappedText(
-                graphics, font,
-                Component.translatable("screen.cobbleventure_player_menu.quest_summary.empty"),
-                x + 10, y + 34, panelWidth - 20,
-                MenuTheme.TextRole.BODY, menuTheme.mutedTextColor, 4
-            );
-            return;
-        }
-
-        Component kind = Component.translatable(
-            "screen.cobbleventure_player_menu.quest_summary.kind." + quest.kind()
-        );
-        menuTheme.drawText(
-            graphics, font, kind, x + 10, y + 31,
-            MenuTheme.TextRole.LABEL, menuTheme.accent
-        );
-        Component state = Component.translatable(
-            "screen.cobbleventure_player_menu.quest_summary.state." + quest.state()
-        );
-        menuTheme.drawText(
-            graphics, font, state,
-            x + panelWidth - 10 - menuTheme.textWidth(font, state, MenuTheme.TextRole.LABEL),
-            y + 31, MenuTheme.TextRole.LABEL,
-            "ready".equals(quest.state()) ? menuTheme.success : menuTheme.mutedTextColor
-        );
-
-        int textY = y + 45 + menuTheme.drawWrappedText(
-            graphics, font, Component.literal(quest.title()), x + 10, y + 45,
-            panelWidth - 20, MenuTheme.TextRole.HEADING, menuTheme.textColor, 2
-        );
-        Component summary = "gym".equals(quest.kind())
-            ? Component.translatable("screen.cobbleventure_player_menu.quest_summary.gym_default")
-            : Component.literal(quest.summary());
-        if (!summary.getString().isBlank()) {
-            textY += 3 + menuTheme.drawWrappedText(
-                graphics, font, summary, x + 10, textY + 3,
-                panelWidth - 20, MenuTheme.TextRole.BODY,
-                menuTheme.secondaryTextColor, 2
-            );
-        }
-        if (!quest.objective().isBlank() && textY < y + panelHeight - 18) {
-            menuTheme.drawWrappedText(
-                graphics, font,
-                Component.translatable(
-                    "screen.cobbleventure_player_menu.quest_summary.objective",
-                    quest.objective()
-                ),
-                x + 10, textY + 5, panelWidth - 20,
-                MenuTheme.TextRole.LABEL, menuTheme.accent, 2
-            );
+        int bottom = y + textHeight;
+        graphics.enableScissor(x, y, x + textWidth, bottom);
+        try {
+            // Prefer actual quest information over decoration when the theme uses larger text.
+            if (!inline && textHeight >= questLineAdvance(headerRole) + questLineAdvance(titleRole)
+                + questLineAdvance(objectiveRole) + 4) {
+                y += drawQuestLines(graphics,
+                    Component.translatable("screen.cobbleventure_player_menu.quest_summary.header"),
+                    x, y, textWidth, bottom, headerRole, menuTheme.accent, 1) + 2;
+            }
+            if (!quest.available()) {
+                drawQuestLines(graphics,
+                    Component.translatable("screen.cobbleventure_player_menu.quest_summary.empty"),
+                    x, y, textWidth, bottom, objectiveRole, menuTheme.mutedTextColor, full ? 3 : 2);
+                return;
+            }
+            if (full && bottom - y >= questLineAdvance(MenuTheme.TextRole.LABEL)
+                + questLineAdvance(titleRole) + questLineAdvance(objectiveRole) + 6) {
+                Component status = Component.translatable(
+                    "screen.cobbleventure_player_menu.quest_summary.kind." + quest.kind()
+                ).append(" · ").append(Component.translatable(
+                    "screen.cobbleventure_player_menu.quest_summary.state." + quest.state()
+                ));
+                y += drawQuestLines(graphics, status, x, y, textWidth, bottom,
+                    MenuTheme.TextRole.LABEL,
+                    "ready".equals(quest.state()) ? menuTheme.success : menuTheme.secondaryTextColor, 1) + 2;
+            }
+            // Reserve a line for the objective before allowing a second title line.
+            int titleBottom = Math.max(y + questLineAdvance(titleRole), bottom - questLineAdvance(objectiveRole) - 2);
+            y += drawQuestLines(graphics, Component.literal(quest.title()), x, y, textWidth,
+                Math.min(bottom, titleBottom), titleRole, menuTheme.textColor, full ? 2 : 1) + 2;
+            Component summary = "gym".equals(quest.kind())
+                ? Component.translatable("screen.cobbleventure_player_menu.quest_summary.gym_default")
+                : Component.literal(quest.summary());
+            Component objective = quest.objective().isBlank() ? summary : Component.literal(quest.objective());
+            y += drawQuestLines(graphics, objective, x, y, textWidth, bottom,
+                objectiveRole, menuTheme.accent, 2) + 2;
+            if (full && !quest.objective().isBlank()) {
+                drawQuestLines(graphics, summary, x, y, textWidth, bottom,
+                    MenuTheme.TextRole.BODY, menuTheme.secondaryTextColor, 2);
+            }
+        } finally {
+            graphics.disableScissor();
         }
     }
 
+    private int questLineAdvance(MenuTheme.TextRole role) {
+        return (int)Math.ceil((font.lineHeight + 2) * menuTheme.text(role).scale());
+    }
+
+    private int drawQuestLines(
+        GuiGraphics graphics, Component text, int x, int y, int textWidth, int bottom,
+        MenuTheme.TextRole role, int color, int maximumLines
+    ) {
+        int lines = QuestSummaryLayout.visibleLines(bottom - y, questLineAdvance(role), maximumLines);
+        if (lines == 0 || text.getString().isBlank()) return 0;
+        return menuTheme.drawWrappedText(
+            graphics, font, text, x, y, textWidth, role, color, lines
+        );
+    }
+
     private void renderInfoPanel(GuiGraphics graphics) {
-        int panelHeight = 96;
+        int panelHeight = INFO_HEIGHT;
         int x = infoX;
         int y = trainerPanelY() + OVERVIEW_HEIGHT + PANEL_GAP;
         drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
@@ -457,7 +480,11 @@ public final class PlayerMenuScreen extends Screen {
         );
         graphics.drawString(font, shortcut, x + 39, y + 36, menuTheme.accent, false);
 
-        if (questEntry) {
+        QuestSummaryLayout questLayout = questSummaryLayout();
+        if (questLayout.mode() == QuestSummaryLayout.Mode.INLINE) {
+            renderResponsiveQuestSummary(graphics, questLayout.x(), questLayout.y(),
+                questLayout.width(), questLayout.height(), questLayout.mode());
+        } else if (questEntry) {
             renderSelectedQuestSummary(graphics, quest, x, y);
         } else {
             Component detail = statusMessage != null ? statusMessage : entry.description();
@@ -510,9 +537,9 @@ public final class PlayerMenuScreen extends Screen {
 
     private void renderMenuPanel(GuiGraphics graphics) {
         drawRibbonPanel(graphics, menuX, menuY, menuWidth, menuHeight);
-        graphics.drawString(font, title,
-            menuX + (menuWidth - font.width(title)) / 2,
-            menuY + 7, menuTheme.textColor, false);
+        menuTheme.drawWrappedText(graphics, font, title,
+            menuX + 10, menuY + 7, menuWidth - backButtonWidth - 24,
+            MenuTheme.TextRole.HEADING, menuTheme.textColor, 1);
         graphics.fill(
             menuX + 12,
             menuY + MENU_HEADER_HEIGHT - 2,
@@ -528,8 +555,10 @@ public final class PlayerMenuScreen extends Screen {
         int x = infoX;
         int y = Math.min(
             height - MENU_MARGIN - panelHeight,
-            trainerPanelY() + OVERVIEW_HEIGHT + PANEL_GAP + 96 + PANEL_GAP
+            trainerPanelY() + OVERVIEW_HEIGHT + PANEL_GAP + INFO_HEIGHT + PANEL_GAP
         );
+        if (!QuestSummaryLayout.controlsFit(y,
+            trainerPanelY() + OVERVIEW_HEIGHT + PANEL_GAP + INFO_HEIGHT, PANEL_GAP)) return;
         drawRibbonPanel(graphics, x, y, infoWidth, panelHeight);
         graphics.drawString(
             font,

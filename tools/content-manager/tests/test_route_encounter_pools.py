@@ -63,6 +63,22 @@ def route_document() -> dict:
 
 
 class RouteEncounterPoolValidationTests(unittest.TestCase):
+    def test_level_weights_validate_for_land_and_special_methods(self):
+        for method in ("land", "old_rod", "headbutt"):
+            for weights, valid in (({"2": 10, "3": 35, "4": 5}, True),
+                                   ({}, False), ({"5": 1}, False), ({"2": 0}, False),
+                                   ({"2": True}, False), ({"02": 1}, False),
+                                   ({"2": 10001}, False), ([], False)):
+                with self.subTest(method=method, weights=weights):
+                    document = route_document()
+                    pool = document["pokemon_spawns"]
+                    if method != "land":
+                        pool = pool["encounter_pools"][method]
+                    pool["level_overrides"] = [{"species": "cobblemon:rattata", "min_level": 2,
+                                                 "max_level": 4, "level_weights": weights}]
+                    errors = [issue for issue in self.validate(document) if issue.level == "error"]
+                    self.assertEqual(valid, not errors, errors)
+
     def validate(self, document: dict):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "route.json"

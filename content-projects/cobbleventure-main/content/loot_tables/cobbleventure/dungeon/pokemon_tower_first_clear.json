@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:gift",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [{ "type": "minecraft:loot_table", "value": "cobbleventure:dungeon/rocket_power_plant_first_clear" }]
+    },
+    {
+      "rolls": 1,
+      "entries": [{ "type": "minecraft:item", "name": "cobbleventure_bootstrap:poke_flute" }]
+    }
+  ]
+}

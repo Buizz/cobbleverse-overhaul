@@ -439,7 +439,8 @@
                 </section>
                 <section class="tool-option-panel gate-tool-panel" data-tool-options="gate" hidden>
                   <label><span>관문 ID</span><input id="object-tool-id" placeholder="route_01_gate"></label>
-                  <label data-gate-mode><span>가운데 배치물</span><select id="object-tool-gate-mode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option></select><small>가운데에 놓을 건물과 관문지기 NPC 조합을 선택합니다.</small></label>
+                  <label data-gate-mode><span>가운데 배치물</span><select id="object-tool-gate-mode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option><option value="pokemon">포켓몬</option></select><small>건물·NPC·이벤트 포켓몬 중 선택합니다.</small></label>
+                  <section id="object-tool-pokemon" data-gate-pokemon hidden></section>
                   <label data-object-resource><span>관문 NBT</span><input id="object-tool-resource" list="world-object-nbt-options" value="cobbleventure:gate/default_gate" placeholder="cobbleventure:gate/default_gate"></label>
                   <datalist id="world-object-nbt-options"></datalist>
                   <div class="inline-fields"><label><span>배치 가장자리</span><select id="object-tool-facing"><option value="north">북쪽 가장자리</option><option value="east">동쪽 면 중앙</option><option value="south">남쪽 가장자리</option><option value="west">서쪽 면 중앙</option></select><small>북·남은 양쪽 이동 가능 면이 열리면 중앙, 한쪽만 열리면 해당 면 중앙에 배치됩니다.</small></label><label><span>NBT 회전</span><select id="object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label></div>
@@ -500,8 +501,9 @@
                 <label data-tile-field="settlement"><span>마을</span><select name="settlement"></select><small>이미 배치된 마을을 선택하면 이 타일로 이동합니다.</small></label>
                 <label data-tile-field="settlement"><span>마을 바이옴</span><select name="townBiome"></select><small>이 월드맵에서 마을 전체에 적용할 바이옴입니다.</small></label>
                 <label data-terrain-connection-field><span>연결 높이 단계</span><input name="connectionHeight" type="number" min="-8" max="8" step="1"><small>같은 단계이면서 이동 조건도 같은 인접 타일끼리만 경계 높이를 이어 줍니다.</small></label>
-                <label data-tile-field="gate" data-gate-mode><span>가운데 배치물</span><select name="objectGateMode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option></select></label>
+                <label data-tile-field="gate" data-gate-mode><span>가운데 배치물</span><select name="objectGateMode"><option value="gate">관문</option><option value="gate_npc">관문 + NPC</option><option value="npc">NPC</option><option value="pokemon">포켓몬</option></select></label>
                 <section data-tile-field="gate" class="custom-object-fields">
+                  <section id="inspector-gate-pokemon" data-gate-pokemon hidden></section>
                   <label><span>오브젝트 ID</span><input name="objectId" placeholder="gate_01"></label>
                   <label><span>타입</span><select name="objectType"><option value="gate">관문</option></select></label>
                   <label data-object-resource><span>오브젝트 NBT</span><input name="objectResource" list="world-object-nbt-options" placeholder="cobbleventure:facilities/gate"></label>
@@ -1654,6 +1656,7 @@
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="/player-condition-editor.js"></script>
+    <script src="/gate-pokemon-editor.js"></script>
     <script type="module" src="/app.js"></script>
     <script type="module" src="/space-connections.js"></script>
   </body>

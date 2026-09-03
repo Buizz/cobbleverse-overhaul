@@ -1,0 +1,55 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/receive_pokenav",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "민호에게 포켓내비 받기"
+  },
+  "summary": {
+    "ko_kr": "태초마을 북쪽 관문의 민호를 만나 포켓내비를 받고 첫 여행을 시작하세요."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "flag",
+          "key": "cobbleventure:flag/story/starter_received",
+          "value": true
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "receive_pokenav",
+      "text": {
+        "ko_kr": "태초마을 북쪽 관문에서 민호에게 포켓내비 받기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "flag",
+            "key": "cobbleventure:flag/story/pokenav_received",
+            "value": true
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/starter_town_gatekeeper_minho"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

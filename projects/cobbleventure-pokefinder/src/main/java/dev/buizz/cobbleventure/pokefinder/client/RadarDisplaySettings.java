@@ -42,10 +42,11 @@ public final class RadarDisplaySettings {
                 && marker.type() != RadarMarkerType.GYM_LEADER);
     }
 
-    /** Major travel facilities keep their labels visible even when generic names are hidden. */
+    /** Travel landmarks keep their labels visible even when generic names are hidden. */
     static boolean isLandmark(RadarMarker marker) {
         return marker.type() == RadarMarkerType.POKEMON_CENTER
             || marker.type() == RadarMarkerType.POKEMART
+            || marker.type() == RadarMarkerType.DUNGEON_ENTRANCE
             || (marker.type() == RadarMarkerType.GYM_LEADER
                 && !marker.id().getPath().startsWith("npc/"));
     }
@@ -59,7 +60,7 @@ public final class RadarDisplaySettings {
             case IMPORTANT_NPC -> Option.IMPORTANT_NPCS;
             case POKEMON_CENTER, POKEMART, CASINO, SPECIAL_BUILDING ->
                 Option.FACILITIES;
-            case CAVE_ENTRANCE, FOREST_ENTRANCE, GATE -> Option.ENTRANCES;
+            case CAVE_ENTRANCE, FOREST_ENTRANCE, GATE, DUNGEON_ENTRANCE -> Option.ENTRANCES;
             case OBJECTIVE -> Option.OBJECTIVES;
         };
     }

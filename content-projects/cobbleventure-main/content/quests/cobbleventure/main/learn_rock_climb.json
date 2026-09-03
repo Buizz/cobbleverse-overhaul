@@ -1,0 +1,60 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/learn_rock_climb",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "비주기를 이기고 락클라임 얻기"
+  },
+  "summary": {
+    "ko_kr": "상록시티 체육관의 비주기에게 도전해 그린배지와 락클라임을 얻으세요. 회색·블루·오렌지·무지개·핑크·그린배지를 모으면 노랑시티 관문도 통과할 수 있습니다. 석영고원으로 가려면 나머지 배지까지 모아야 합니다."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/soul"
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "learn_rock_climb",
+      "text": {
+        "ko_kr": "상록시티 관장 비주기를 이기고 그린배지와 락클라임 얻기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "badge",
+            "badge": "cobbleventure:badge/kanto/earth"
+          },
+          {
+            "type": "variable",
+            "source": "persistent_data",
+            "key": "cobbleventureFieldMove.rock_climb",
+            "operator": ">=",
+            "value": 1
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/gym_leader/giovanni_gym"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

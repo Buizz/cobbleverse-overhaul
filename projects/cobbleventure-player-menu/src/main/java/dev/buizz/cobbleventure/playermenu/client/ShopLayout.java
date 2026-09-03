@@ -27,4 +27,26 @@ final class ShopLayout {
     }
 
     record Panel(int width, int height) {}
+
+    static DescriptionArea descriptionArea(int panelWidth, int panelHeight, int captionHeight) {
+        int leftWidth = contentWidth(panelWidth);
+        int top = 68 + 28 + captionHeight + 6;
+        int bottom = panelHeight - 10 - 80 - 5;
+        return new DescriptionArea(leftWidth + 13, top, panelWidth - leftWidth - 35,
+            Math.max(0, bottom - top));
+    }
+
+    record DescriptionArea(int x, int y, int width, int height) {
+        boolean contains(double mouseX, double mouseY) {
+            return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+        }
+
+        int visibleLines(int lineHeight) {
+            return Math.max(1, height / Math.max(1, lineHeight));
+        }
+
+        int clampScroll(int requested, int totalLines, int lineHeight) {
+            return Math.clamp(requested, 0, Math.max(0, totalLines - visibleLines(lineHeight)));
+        }
+    }
 }

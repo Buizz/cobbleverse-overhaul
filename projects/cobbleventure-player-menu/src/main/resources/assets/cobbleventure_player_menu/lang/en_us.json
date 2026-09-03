@@ -233,6 +233,7 @@
   "screen.cobbleventure_player_menu.shop.owned": "In bag: %s",
   "screen.cobbleventure_player_menu.shop.bundle": "Bundle: %s",
   "screen.cobbleventure_player_menu.shop.compact_summary": "₽ %s · Owned %s",
+  "screen.cobbleventure_player_menu.shop.description_hint": "Select, then scroll the description on the right",
   "screen.cobbleventure_player_menu.shop.card_owned": "Owned %s",
   "screen.cobbleventure_player_menu.shop.total": "Total",
   "screen.cobbleventure_player_menu.shop.buy": "Buy",

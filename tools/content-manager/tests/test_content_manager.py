@@ -3013,6 +3013,33 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".settlement-order-row.is-loading", styles)
         self.assertIn("#selected-settlement-editor.is-loading", styles)
 
+    def test_forest_cleans_dropped_generation_items_without_disabling_vegetation(self) -> None:
+        sources = CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/java/dev/buizz/cobbleventure/bootstrap"
+        generator = (sources / "ForestDimensionGenerator.java").read_text(encoding="utf-8")
+        bootstrap = (sources / "CobbleventureBootstrap.java").read_text(encoding="utf-8")
+        dimension = content_manager.load_json(
+            CORE_ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources/data/cobbleventure/dimension/forests.json"
+        )
+        self.assertTrue(dimension["generator"]["settings"]["features"])
+        self.assertIn("Block.UPDATE_CLIENTS", generator)
+        self.assertIn("| Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS", generator)
+        # Cleanup stays outside generateForest's signature-based early return.
+        generate = generator.split("static void generate(", 1)[1].split(
+            "private static void scheduleForestDebrisCleanup", 1
+        )[0]
+        self.assertLess(generate.index("generateForest("), generate.index("scheduleForestDebrisCleanup("))
+        self.assertIn("scheduleGenerationDebrisCleanup(level, forestId, new AABB(", generator)
+        self.assertIn("scheduleGenerationDebrisCleanup(ServerLevel level, String source, AABB bounds)", bootstrap)
+        self.assertIn("cleanupNaturalGenerationDebris(level, bounds, source)", bootstrap)
+        self.assertIn("scheduleGenerationDebrisCleanupWindow(key, gameTime, false)", bootstrap)
+        debris_filter = bootstrap.split("private static boolean isNaturalGenerationDebris(", 1)[1].split(
+            "static void scheduleGenerationDebrisCleanup(", 1
+        )[0]
+        self.assertIn("if (entity.getOwner() != null)", debris_filter)
+        self.assertIn("state.is(BlockTags.FLOWERS)", debris_filter)
+        self.assertIn("state.is(Blocks.BROWN_MUSHROOM)", debris_filter)
+        self.assertIn("state.is(Blocks.RED_MUSHROOM)", debris_filter)
+
     def test_forest_uses_dedicated_runtime_dimension(self) -> None:
         forest = content_manager.load_json(
             PROJECT_ROOT / "content/forests/generation_1/viridian_forest.json"
@@ -3506,6 +3533,26 @@ class ContentManagerTests(unittest.TestCase):
             issues = content_manager.save_world_layout(candidate_root, invalid, 2)
             self.assertTrue(any("홀수" in issue.message for issue in issues))
             self.assertTrue(any("연산자" in issue.message for issue in issues))
+
+            pokemon_gate = copy.deepcopy(npc_center)
+            pokemon_gate["id"] = "sleeping_snorlax"
+            pokemon_gate["properties"].pop("npc")
+            pokemon_gate["properties"]["center_placement"] = "pokemon"
+            pokemon_gate["properties"]["passage_width"] = 3
+            pokemon_gate["properties"]["pokemon"] = {
+                "species": "cobblemon:snorlax", "level": 30, "pose": "sleep",
+                "collision": {"width": 3, "height": 2, "depth": 4},
+                "activation_conditions": [{"type": "flag", "key": "cobbleventure:flag/story/flute_received", "value": 1}],
+            }
+            pokemon_layout = copy.deepcopy(layout)
+            pokemon_layout["objects"] = [pokemon_gate]
+            self.assertEqual([], content_manager.save_world_layout(candidate_root, pokemon_layout, 2))
+            for field, value in (("level", 30.5), ("pose", "flying"), ("scale", 0), ("collision", {}), ("species", "snorlax")):
+                invalid_pokemon = copy.deepcopy(pokemon_layout)
+                invalid_pokemon["objects"][0]["properties"]["pokemon"][field] = value
+                self.assertTrue(content_manager.save_world_layout(candidate_root, invalid_pokemon, 2), field)
+            pokemon_layout["objects"][0]["properties"]["passage_width"] = 7
+            self.assertTrue(any("우회" in issue.message for issue in content_manager.save_world_layout(candidate_root, pokemon_layout, 2)))
 
     def test_world_gate_editor_controls_are_present(self) -> None:
         root = PROJECT_ROOT

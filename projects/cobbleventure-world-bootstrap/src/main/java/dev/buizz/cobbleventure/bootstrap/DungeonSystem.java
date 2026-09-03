@@ -259,6 +259,22 @@ final class DungeonSystem {
         );
     }
 
+    /** Uses registered entry triggers, never dungeon instance slots or unplaced definitions. */
+    static synchronized List<RadarLocationCatalog.Location> radarLocations(
+        ResourceLocation dimension
+    ) {
+        List<DungeonRadarLocations.Entrance> placed = new ArrayList<>();
+        for (PlacedEntrance active : ACTIVE_ENTRANCES.values()) {
+            DungeonEntranceRef ref = entrances.get(active.entranceId());
+            if (ref == null) continue;
+            placed.add(new DungeonRadarLocations.Entrance(
+                active.entranceId(), ref.definition().id(), ref.definition().displayName(),
+                active.dimension().location(), active.trigger()
+            ));
+        }
+        return DungeonRadarLocations.locations(dimension, placed);
+    }
+
     static synchronized void registerWorldPlacement(
         ServerLevel level,
         WorldStructureSystem.WorldStructure structure,
@@ -3166,6 +3182,10 @@ final class DungeonSystem {
                         + clearCount + "회차)"
                 );
                 grantItems(participant, reward.items());
+                for (ItemStack item : reward.items()) {
+                    String acquisition = dev.buizz.cobbleventure.playermenu.ImportantItemProtection.acquisitionFlag(item);
+                    if (acquisition != null) new ServerPlayerEventState(participant).setFlag(acquisition, true);
+                }
                 DungeonGuideNetwork.openRewards(
                     participant,
                     definition.displayName(),

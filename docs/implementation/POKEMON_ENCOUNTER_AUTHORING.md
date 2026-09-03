@@ -133,6 +133,26 @@
 종별 레벨 강제의 단일 기준은 `level_overrides`다. 그러므로 전용 엔트리는 같은
 종과 범위를 두 배열에 모두 기록한다.
 
+길 풀의 `level_overrides`에는 선택적으로 `level_weights`를 적을 수 있다.
+예: `{"species":"cobblemon:pidgey","min_level":2,"max_level":5,"level_weights":{"2":10,"3":35,"4":4,"5":1}}`.
+키는 범위 안의 정수 레벨 문자열, 값은 1~10000의 상대 가중치다. 이 설정이 있으면
+명시된 레벨만 가중 추첨하고, 없으면 최소~최대 사이를 균등 추첨한다. 종을 뽑는
+`additions.weight`와 그 종의 레벨을 뽑는 `level_weights`는 별개다.
+웹에서 동일 범위를 다시 적용해도 가중치는 보존한다. 범위를 변경하면 기존 가중치를
+해제한다는 안내 후 균등 추첨으로 전환한다. 가중치 자체는 JSON에서 편집한다.
+이 옵션은 길의 육상·파도타기·낚시·박치기 풀에 적용하며 숲·동굴·던전에는 적용하지 않는다.
+
+1번도로(`route_custom_03`)는 파이어레드의 슬롯별 확률을 사용한다.
+구구와 꼬렛은 각각 50%이며 전체 조우 중 Lv.2는 20%, Lv.3은 70%, Lv.4는 9%,
+Lv.5 구구는 1%다. 꼬렛은 Lv.4가 상한이다. 원본:
+[pret/pokefirered wild_encounters.json의 MAP_ROUTE1](https://github.com/pret/pokefirered/blob/master/src/data/wild_encounters.json).
+최소·최대만 맞아도 체감 레벨 분포가 원작과 같지는 않으므로 슬롯별 확률도 확인한다.
+
+마을 셀은 육상 길 풀을 적용하지 않는다. 그곳의 바이옴 자연 출현은 월드 평균 ±2를
+사용할 수 있으므로 길에서 나온 개체와 구분한다. 런타임의 `[Spawn diagnosis] Final wild level`
+로그에서 좌표, 조우 방식, `speciesOverride`, `worldAverage`, 최종 레벨을 확인한다.
+설정 변경 전에 이미 출현한 개체는 새 레벨로 자동 변경되지 않는다.
+
 `spawn_as_evolved: true`는 낮은 레벨의 진화형을 원본 그대로 출현시킬 때 사용한다.
 이를 빠뜨리면 런타임의 레벨 진화 정규화로 다른 진화 단계가 될 수 있다.
 
@@ -214,6 +234,22 @@
 | 던전에서 바이옴 포켓몬이 나옴 | 던전 `random_encounters`와 던전 소유 bounds 확인 |
 | 인접 길의 풀이 적용됨 | 겹친 `cells`/`encounter_cells`, water 경로 우선순위 확인 |
 
+### 지도 표시와 실제 조우를 함께 검증하기
+
+- 웹 `world_pokemon_map`과 인게임 `MapContent`는 `encounter_cells` 우선,
+  같은 영역 종류에서는 water 길 우선으로 소유 길을 고른다. 마을의 일반 육상
+  풀은 유지하고 명시적 특수 조우 영역만 마을 셀을 덮어쓸 수 있다.
+- 바다·강·해변 타일에 `surf` 풀이 있으면 지도 기본 목록은 파도타기다.
+  인게임의 방식 전환 버튼과 웹 타일의 **방식별 출현**에서 낚싯대별 목록을
+  별도로 확인한다. 비활성 풀은 0종이며, 다른 방식의 풀로 대체하지 않는다.
+- 웹 포켓몬 출현처 검색에는 낚시·박치기만으로 출현하는 종도 포함한다.
+  지도 표시용 목록을 원본 바이옴 후보에 덮어쓰지 않는다. 인게임의
+  `spawnBiome`은 자연 스폰용 원본 후보를 계속 유지한다.
+- 물 타일을 추가했으면 기존 `encounter_cells`와 좌표를 다시 대조한다.
+  과거 셀 목록만 그대로 비교하는 테스트는 새 물 타일의 누락을 잡지 못한다.
+- 지도는 표시 검증이며 실제 조우 검증을 대신하지 않는다. 콘텐츠와 지도 모듈을
+  함께 빌드·반영한 뒤 인게임에서 각 방식으로 확인한다.
+
 ## 9. 검증 명령과 회귀 테스트
 
 ```powershell
@@ -222,6 +258,7 @@ python content_manager.py validate --root ..\.. --project content-projects\cobbl
 python tests/test_route_encounter_pools.py
 python tests/test_generation_one_wild_encounters.py
 python tests/test_generation_one_firered_spawns.py
+python tests/test_water_habitat_map.py
 ```
 
 새 장소를 추가하거나 기존 장소를 분리하면 해당 좌표 소유권, `inherit_biome`,

@@ -2746,7 +2746,7 @@ function emptyTerrainTone(type) { return ({ high_forest: "forest", dense_forest:
 function emptyTerrainLabel(type) { return ({ high_forest: "숲", dense_forest: "우거진 숲", ocean: "바다", deep_ocean: "심해", desert: "사막", stone_mountain: "돌산", red_rock_mountain: "적갈색 돌산", snow_mountain: "눈산" })[type] || type; }
 function emptyTerrainSymbol(type) { return ({ high_forest: "♣", dense_forest: "♠", ocean: "≈", deep_ocean: "≋", desert: "·", stone_mountain: "▲", red_rock_mountain: "◆", snow_mountain: "△" })[type] || "×"; }
 function gateCenterPlacement(properties = {}) {
-  if (["gate", "gate_npc", "npc"].includes(properties.center_placement)) return properties.center_placement;
+  if (["gate", "gate_npc", "npc", "pokemon"].includes(properties.center_placement)) return properties.center_placement;
   if (properties.gate_mode === "npc_only") return "npc";
   if (properties.gate_mode === "classic") return properties.npc ? "gate_npc" : "gate";
   return properties.npc ? "npc" : "gate";
@@ -3054,6 +3054,9 @@ function renderHexMapFrame() {
     }
     const centerPlacement = gateCenterPlacement(node.properties);
     const wall = gateMapBoundaryMarkup(node);
+    if (centerPlacement === "pokemon") {
+      return `<g class="hex-custom-object gate-object${state.selectedObjectId === node.id ? " is-selected" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 포켓몬 관문" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle>${wall}<circle r="9"></circle><path d="M-9 0H-3M3 0H9"></path><circle r="3"></circle><text y="27">${escapeHtml(node.id)}</text></g>`;
+    }
     if (centerPlacement === "npc") {
       return `<g class="hex-custom-object gate-object npc-only${state.selectedObjectId === node.id ? " is-selected" : ""}${state.objectDrag?.id === node.id ? " is-drag-source" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} 관문 선택 및 이동" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle>${wall}<circle cy="-6" r="5"></circle><path d="M-8 10Q-7 0 0 0Q7 0 8 10Z"></path><text y="27">${escapeHtml(node.id)}</text></g>`;
     }
@@ -3489,6 +3492,11 @@ function gateProperties(values) {
     deny_dialog: values.denyDialog.trim() || "greeting"
   };
   if (hasNpc) properties.npc = values.npc.trim();
+  if (centerPlacement === "pokemon") {
+    properties.pokemon = values.pokemon;
+    if (values.pokemon.collision.width * values.pokemon.scale < properties.passage_width)
+      throw new Error("포켓몬 충돌 폭보다 통로가 넓습니다. ‘현재 충돌 폭에 통로 맞추기’를 눌러 주세요.");
+  }
   return properties;
 }
 function placeGateWithTool(q, r) {
@@ -3499,10 +3507,10 @@ function placeGateWithTool(q, r) {
   if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
   if (buildingEnabled && !registeredWorldStructure(resource)) { toast("등록된 관문 건물 NBT를 선택해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
-  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);
-  let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, gateMode, surroundingType: $("#object-tool-surrounding-type").value, wallBlock: $("#object-tool-wall-block").value, treeLog: $("#object-tool-tree-log").value, treeLeaves: $("#object-tool-tree-leaves").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: gateConditionsFromEditor("#object-tool-condition-builder"), denyDialog: $("#object-tool-deny-dialog").value, denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value }); } catch (error) { toast(error.message); return; }
+  let properties; try { properties = gateProperties({ facing: $("#object-tool-facing").value, gateMode, surroundingType: $("#object-tool-surrounding-type").value, wallBlock: $("#object-tool-wall-block").value, treeLog: $("#object-tool-tree-log").value, treeLeaves: $("#object-tool-tree-leaves").value, wallThickness: $("#object-tool-wall-thickness").value, wallHeight: $("#object-tool-wall-height").value, openingWidth: $("#object-tool-opening-width").value, barrierHeight: $("#object-tool-barrier-height").value, conditionMode: $("#object-tool-condition-mode").value, conditions: gateConditionsFromEditor("#object-tool-condition-builder"), denyDialog: $("#object-tool-deny-dialog").value, denyMessage: $("#object-tool-deny-message").value, npc: $("#object-tool-npc").value, pokemon: gateMode === "pokemon" ? GatePokemonEditor.read($("#object-tool-pokemon")) : undefined }); } catch (error) { toast(error.message); return; }
   const object = { id, type, anchor: { q, r }, rotation: Number($("#object-tool-rotation").value), properties };
   if (buildingEnabled) object.resource = resource;
+  state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);
   state.worldLayout.objects.push(object); state.selectedEntrance = null; state.selectedObjectId = id; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function placeObjectWithTool(q, r) {
@@ -3541,6 +3549,7 @@ function renderWorldObjectNbtOptions() {
 function updateGateOptionVisibility() {
   const toolPanel = $('[data-tool-options="gate"]');
   const toolMode = $("#object-tool-gate-mode").value;
+  $("#object-tool-pokemon").hidden = toolMode !== "pokemon";
   const toolBuilding = toolMode === "gate" || toolMode === "gate_npc";
   const toolHasNpc = toolMode === "gate_npc" || toolMode === "npc";
   const toolSurrounding = $("#object-tool-surrounding-type").value;
@@ -3563,6 +3572,7 @@ function updateGateOptionVisibility() {
   const objectFields = form.querySelector('section[data-tile-field="gate"]');
   const inspectorIsGate = form.elements.objectType.value === "gate";
   const inspectorMode = form.elements.objectGateMode.value;
+  $("#inspector-gate-pokemon").hidden = !inspectorIsGate || inspectorMode !== "pokemon";
   const inspectorBuilding = inspectorMode === "gate" || inspectorMode === "gate_npc";
   const inspectorHasNpc = inspectorMode === "gate_npc" || inspectorMode === "npc";
   const inspectorSurrounding = form.elements.objectSurroundingType.value;
@@ -3801,6 +3811,19 @@ function renderEncounterPokemonPicker() {
   addButton.textContent = `선택한 ${selectedCount}종 추가`; addButton.disabled = selectedCount === 0;
 }
 function pokemonLevelOverride(settings, species) { return (settings.level_overrides || []).find((entry) => entry.species === species) || null; }
+function updatePokemonLevelRange(settings, species, minimum, maximum) {
+  const previous = pokemonLevelOverride(settings, species);
+  const next = { species, min_level: minimum, max_level: maximum };
+  if (previous?.level_weights) {
+    if (previous.min_level === minimum && previous.max_level === maximum) {
+      next.level_weights = previous.level_weights;
+    } else {
+      toast("레벨 범위가 바뀌어 기존 레벨별 가중치를 해제했습니다. 새 범위에서 균등 출현합니다.");
+    }
+  }
+  settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== species);
+  settings.level_overrides.push(next);
+}
 function pokemonCardLevelLabel(settings, species, defaultRange) {
   const override = pokemonLevelOverride(settings, species);
   const minimum = override?.min_level ?? defaultRange.min;
@@ -3856,8 +3879,7 @@ function handlePokemonCardLevelAction(event, target, render) {
     render();
     return true;
   }
-  settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== species);
-  settings.level_overrides.push({ species, min_level: minimum, max_level: maximum });
+  updatePokemonLevelRange(settings, species, minimum, maximum);
   render();
   return true;
 }
@@ -4092,6 +4114,7 @@ function renderTileInspector() {
   form.elements.objectType.value = customObject?.type || "gate";
   form.elements.objectResource.value = customObject?.resource || "";
   form.elements.objectGateMode.value = gateCenterPlacement(customObject?.properties);
+  GatePokemonEditor.render($("#inspector-gate-pokemon"), customObject?.properties?.pokemon || {});
   form.elements.objectFacing.value = customObject?.properties?.facing || "north";
   form.elements.objectRotation.value = customObject?.rotation || 0;
   form.elements.objectSurroundingType.value = gateSurroundingType(customObject?.properties);
@@ -4133,8 +4156,8 @@ function renderTileInspector() {
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
   const objectSummary = isWorldNbtObjectType(customObject?.type)
     ? `<b>${escapeHtml(customObject.id)}</b><span>NBT 오브젝트 · 월드 구조물 배치</span><small>${escapeHtml(customObject.resource || "NBT 미지정")} · 선택 도구로 이동 가능</small>`
-    : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>관문 · ${{ gate: "관문", gate_npc: "관문 + NPC", npc: "NPC" }[gateCenterPlacement(customObject.properties)]}</span><small>${gateSurroundingType(customObject.properties) === "wall" ? "벽" : "주변 지형형 자연지물"} · 가운데 통로 ${gatePassageWidth(customObject.properties)}블록</small>` : "";
-  $("#tile-summary").innerHTML = (["gate", "object"].includes(kind) ? objectSummary : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote;
+    : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>관문 · ${{ gate: "관문", gate_npc: "관문 + NPC", npc: "NPC", pokemon: "포켓몬" }[gateCenterPlacement(customObject.properties)]}</span><small>${gateSurroundingType(customObject.properties) === "wall" ? "벽" : "주변 지형형 자연지물"} · 가운데 통로 ${gatePassageWidth(customObject.properties)}블록</small>` : "";
+  $("#tile-summary").innerHTML = (["gate", "object"].includes(kind) ? objectSummary : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote + tileEncounterSummary(selected);
   $("#clear-tile").textContent = customObject ? "선택한 오브젝트 삭제" : "기본 지형 비우기";
   renderWorldPokemonPanel();
 }
@@ -4299,8 +4322,7 @@ function applyPokemonLevelOverride(target) {
   const minimum = Math.round(Number($(`#${target}-pokemon-level-min`).value));
   const maximum = Math.round(Number($(`#${target}-pokemon-level-max`).value));
   if (!Number.isInteger(minimum) || !Number.isInteger(maximum) || minimum < 1 || maximum > 100 || minimum > maximum) { toast("레벨은 1~100 범위에서 최소가 최대보다 작거나 같아야 합니다."); return; }
-  settings.level_overrides = settings.level_overrides.filter((entry) => entry.species !== species);
-  settings.level_overrides.push({ species, min_level: minimum, max_level: maximum });
+  updatePokemonLevelRange(settings, species, minimum, maximum);
   settings.level_overrides.sort((left, right) => left.species.localeCompare(right.species));
   if (target === "route") refreshRoutePokemonEditing(); else renderEncounterPokemonDialog();
 }
@@ -4318,6 +4340,21 @@ function pokemonMapMatches(entry, query) {
   const text = [entry.dex_number, entry.id, entry.slug, entry.display_name?.ko_kr, entry.display_name?.en_us].filter(Boolean).join(" ").toLowerCase();
   return text.includes(query.toLowerCase());
 }
+const encounterMethodLabels = { land: "육상", surf: "파도타기", old_rod: "낡은낚싯대", good_rod: "좋은낚싯대", super_rod: "대단한낚싯대", headbutt: "박치기" };
+function tileEncounterSummary(cell) {
+  const location = state.worldPokemonMap?.locations?.find((entry) => entry.q === cell.q && entry.r === cell.r);
+  const methods = Object.entries(location?.encounters || {});
+  if (!methods.length) return "";
+  const byId = worldPokemonById();
+  return `<b>방식별 출현 · 저장된 설정</b>${state.worldDirty ? "<small>저장 전 변경 사항은 아직 반영되지 않았습니다.</small>" : ""}` + methods.map(([method, pool]) => {
+    const names = pool.pokemon_ids.map((id) => {
+      const entry = byId.get(id), range = pool.custom_level_ranges?.[id];
+      return `${entry ? pokemonMapEntryName(entry) : id}${range ? ` Lv.${range.min_level}–${range.max_level}` : ""}`;
+    });
+    return `<small><strong>${escapeHtml(encounterMethodLabels[method] || method)} · ${pool.count}종</strong> — ${escapeHtml(pool.enabled ? names.join(", ") || "출현 없음" : "비활성화")}<br>${escapeHtml(pool.route_name || pool.route)}</small>`;
+  }).join("");
+}
+
 function pokemonMapBiomeName(biome) {
   const labels = (state.biomeCatalog?.profiles || [])
     .filter((profile) => (profile.minecraft_biomes || []).includes(biome))
@@ -4330,7 +4367,7 @@ function pokemonSpawnLocationGroups(species) {
     if (!(location.pokemon_ids || []).includes(species)) return;
     const kind = location.kind || "biome";
     const identity = kind === "settlement" ? location.settlement : kind === "route" ? location.route : location.biome;
-    const key = `${kind}:${identity || "unknown"}`;
+    const key = `${kind}:${identity || "unknown"}:${location.encounter_method || ""}`;
     if (!groups.has(key)) {
       const name = kind === "settlement"
         ? settlementSummary(location.settlement)?.name || location.settlement
@@ -4339,14 +4376,21 @@ function pokemonSpawnLocationGroups(species) {
           return route ? routeDisplayName(route) : location.route_name || location.route;
         })()
           : pokemonMapBiomeName(location.biome);
-      groups.set(key, { kind, name, id: identity || "", biome: location.biome || "", cells: [], levelRanges: [] });
+      groups.set(key, { kind, name: name + (location.encounter_method ? ` · ${encounterMethodLabels[location.encounter_method]}` : ""), id: identity || "", biome: location.biome || "", cells: [], levelRanges: [] });
     }
     const group = groups.get(key);
     group.cells.push({ q: location.q, r: location.r });
     const range = location.custom_level_ranges?.[species];
     if (range) group.levelRanges.push(range);
   };
-  for (const location of state.worldPokemonMap?.locations || []) addCell(location);
+  for (const location of state.worldPokemonMap?.locations || []) {
+    const methods = Object.entries(location.encounters || {});
+    if (!methods.length) addCell(location);
+    else {
+      if (!location.encounters.land && location.default_encounter_method === "land") addCell(location);
+      for (const [method, pool] of methods) addCell({ ...location, ...pool, kind: "route", encounter_method: method });
+    }
+  }
   for (const location of state.worldPokemonMap?.area_locations || []) {
     if (!(location.pokemon_ids || []).includes(species)) continue;
     const range = location.custom_level_ranges?.[species] || { min_level: location.minimum_level, max_level: location.maximum_level };
@@ -4713,15 +4757,15 @@ function applyTilePlacement() {
     if (!/^[a-z0-9_.-]+$/.test(id) || !/^[a-z0-9_.-]+$/.test(type)) { toast("오브젝트 ID와 타입은 영문 소문자, 숫자, ., _, -만 사용할 수 있습니다."); return; }
     const duplicate = state.worldLayout.objects.find((entry) => entry !== selectedObject && entry.id === id);
     if (duplicate) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
-    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry !== selectedObject && entry.id !== id);
     const resource = form.elements.objectResource.value.trim();
     const gateMode = form.elements.objectGateMode.value;
     const buildingEnabled = gateMode === "gate" || gateMode === "gate_npc";
     if (buildingEnabled && !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(resource)) { toast("관문 건물 NBT 리소스 ID를 입력해 주세요."); return; }
     if (buildingEnabled && !registeredWorldStructure(resource)) { toast("등록된 관문 건물 NBT를 선택해 주세요."); return; }
-    let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, gateMode, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: gateConditionsFromEditor("#inspector-gate-condition-builder"), denyDialog: form.elements.objectDenyDialog.value, denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value }); } catch (error) { toast(error.message); return; }
+    let properties; try { properties = gateProperties({ facing: form.elements.objectFacing.value, gateMode, surroundingType: form.elements.objectSurroundingType.value, wallBlock: form.elements.objectWallBlock.value, treeLog: form.elements.objectTreeLog.value, treeLeaves: form.elements.objectTreeLeaves.value, wallThickness: form.elements.objectWallThickness.value, wallHeight: form.elements.objectWallHeight.value, openingWidth: form.elements.objectOpeningWidth.value, barrierHeight: form.elements.objectBarrierHeight.value, conditionMode: form.elements.objectConditionMode.value, conditions: gateConditionsFromEditor("#inspector-gate-condition-builder"), denyDialog: form.elements.objectDenyDialog.value, denyMessage: form.elements.objectDenyMessage.value, npc: form.elements.objectNpc.value, pokemon: gateMode === "pokemon" ? GatePokemonEditor.read($("#inspector-gate-pokemon")) : undefined }); } catch (error) { toast(error.message); return; }
     const object = { id, type, anchor: { q, r }, rotation: Number(form.elements.objectRotation.value), properties };
     if (buildingEnabled) object.resource = resource;
+    state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry !== selectedObject && entry.id !== id);
     state.worldLayout.objects.push(object); state.selectedObjectId = id; markWorldDirty(); renderWorldLayout(); return;
   }
   const previousTile = tileAt(q, r);
@@ -18335,6 +18379,27 @@ $("#edit-object-npc").addEventListener("click", async () => {
   const trainer = state.trainers.find((candidate) => candidate.id?.split("/").at(-1) === slug);
   if (!trainer) { toast("먼저 기존 NPC 프리셋을 선택해 주세요."); return; }
   switchPage("trainers"); await loadDocument("trainers", trainer.path);
+});
+GatePokemonEditor.render($("#object-tool-pokemon"));
+GatePokemonEditor.render($("#inspector-gate-pokemon"));
+for (const [rootId, widthSelector, inspector] of [
+  ["#object-tool-pokemon", "#object-tool-opening-width", false],
+  ["#inspector-gate-pokemon", '[name="objectOpeningWidth"]', true]
+]) {
+  $(rootId).addEventListener("click", event => {
+    if (!event.target.closest("[data-pokemon-fit-passage]")) return;
+    try {
+      const pokemon = GatePokemonEditor.read($(rootId));
+      const width = Math.min(31, Math.floor(pokemon.collision.width * pokemon.scale));
+      const oddWidth = width % 2 ? width : width - 1;
+      if (oddWidth < 3) throw new Error("최소 통로 폭은 3블록입니다. 포켓몬 충돌 폭이나 배율을 늘려 주세요.");
+      $(widthSelector).value = oddWidth;
+      if (inspector) applyTilePlacement();
+    } catch (error) { toast(error.message); }
+  });
+}
+$("#inspector-gate-pokemon").addEventListener("click", event => {
+  if (event.target.closest("[data-gate-condition-add], [data-gate-condition-remove]")) applyTilePlacement();
 });
 initializeGateConditionEditor($("#object-tool-condition-builder"));
 initializeGateConditionEditor($("#inspector-gate-condition-builder"));

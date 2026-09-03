@@ -1,0 +1,54 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/meet_bill",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "이수재의 포켓몬 전송망에 등록하기"
+  },
+  "summary": {
+    "ko_kr": "블루시티 북쪽을 지나 25번도로 끝 이수재의 집을 찾아가세요. PC와 박스 안내를 듣고 어디서든 사용할 수 있는 이동형 PC를 해금하세요."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/boulder"
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "meet_bill",
+      "text": {
+        "ko_kr": "25번도로 끝의 이수재에게 PC 안내를 듣고 전송망에 등록하기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "flag",
+            "key": "cobbleventure:flag/rewards/feature/pc",
+            "value": true
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/rewards/feature_pc_technician"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

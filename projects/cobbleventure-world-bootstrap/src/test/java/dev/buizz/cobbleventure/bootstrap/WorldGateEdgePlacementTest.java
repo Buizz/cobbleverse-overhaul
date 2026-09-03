@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
 final class WorldGateEdgePlacementTest {
@@ -18,6 +19,15 @@ final class WorldGateEdgePlacementTest {
         100, new CobbleventureBootstrap.BlockPoint(0, 64, 0)
     );
     private static final HexCoord ANCHOR = new HexCoord(0, 0);
+
+    @Test
+    void oldMapGuideIsReplacedOnlyAtViridianGate() {
+        Set<String> mapGuide = Set.of("cves_binding/cobbleventure/rewards/feature_map_guide");
+        assertTrue(WorldGateSystem.isObsoleteGateNpc("viridian_gate", mapGuide));
+        assertFalse(WorldGateSystem.isObsoleteGateNpc("starter_town_north_gate", mapGuide));
+        assertFalse(WorldGateSystem.isObsoleteGateNpc("viridian_gate",
+            Set.of("cves_binding/cobbleventure/story/viridian_gatekeeper")));
+    }
 
     @Test
     void legacyDefaultGateResourceResolvesToThePackagedNbt() {
@@ -103,6 +113,83 @@ final class WorldGateEdgePlacementTest {
         assertEquals(65, WorldGateSystem.nextGateApproachY(64, 70));
         assertEquals(63, WorldGateSystem.nextGateApproachY(64, 58));
         assertEquals(64, WorldGateSystem.nextGateApproachY(64, 64));
+    }
+
+    @Test
+    void gateDialogueStopsJustOutsideTheWholeTriggerWithoutRecentering() {
+        var gate = denialGate("east", "gate_npc");
+        var center = new CobbleventureBootstrap.Point(0, 0);
+        Vec3 approach = new Vec3(2.3D, 64.5D, 1.25D);
+        Vec3 stopped = WorldGateSystem.gateDenialStopPosition(GRID, gate, center, approach);
+
+        assertEquals(2.8D, stopped.x, 1.0E-6D);
+        assertEquals(approach.y, stopped.y);
+        assertEquals(approach.z, stopped.z);
+        assertTrue(stopped.distanceTo(approach) < 0.6D);
+        assertFalse(WorldGateSystem.insideGateTriggerZone(stopped.x, stopped.z, 2.15D, 7));
+        assertEquals(stopped, WorldGateSystem.gateDenialStopPosition(GRID, gate, center, stopped));
+    }
+
+    @Test
+    void talkingFromASafeApproachDoesNotMoveThePlayerTowardTheGate() {
+        Vec3 approach = new Vec3(6.0D, 64.5D, 1.25D);
+        assertEquals(approach, WorldGateSystem.gateDenialStopPosition(
+            GRID, denialGate("east", "gate_npc"),
+            new CobbleventureBootstrap.Point(0, 0), approach
+        ));
+    }
+
+    @Test
+    void hexGateDenialKeepsTheActualBypassLocationInsteadOfTheGateCenter() {
+        for (String placement : List.of("npc", "gate_npc", "gate")) {
+            Vec3 approach = new Vec3(-86.4D, 64.5D, 35.0D);
+            var center = new CobbleventureBootstrap.Point(-87, 0);
+            Vec3 stopped = WorldGateSystem.gateDenialStopPosition(
+                GRID, denialGate("west", placement), center, approach
+            );
+            assertEquals(approach, stopped, placement);
+            assertEquals(GRID.worldToHex(approach.x, approach.z), GRID.worldToHex(stopped.x, stopped.z));
+        }
+    }
+
+    @Test
+    void insetNorthSouthGateStopsOnTheSameHexAndPreservesStairHeight() {
+        for (String facing : List.of("north", "south")) {
+            var gate = denialGate(facing, "gate_npc");
+            var center = new CobbleventureBootstrap.Point(0, facing.equals("north") ? -84 : 84);
+            for (double side : new double[] {-1.0D, 1.0D}) {
+                Vec3 approach = new Vec3(1.25D, 64.5D, center.z() + side * 2.3D);
+                Vec3 stopped = WorldGateSystem.gateDenialStopPosition(GRID, gate, center, approach);
+                assertEquals(approach.x, stopped.x);
+                assertEquals(approach.y, stopped.y);
+                assertEquals(GRID.worldToHex(approach.x, approach.z), GRID.worldToHex(stopped.x, stopped.z));
+                assertFalse(WorldGateSystem.insideGateTriggerZone(
+                    stopped.z - center.z(), stopped.x, 2.15D, 7
+                ));
+            }
+        }
+    }
+
+    @Test
+    void gateHoldLetsGravitySettleWithoutVerticalTeleportCorrections() {
+        Vec3 stopped = new Vec3(2.8D, 65.0D, 1.25D);
+        assertFalse(WorldGateSystem.gateHoldNeedsCorrection(stopped, stopped));
+        assertFalse(WorldGateSystem.gateHoldNeedsCorrection(new Vec3(2.8D, 64.5D, 1.25D), stopped));
+        assertTrue(WorldGateSystem.gateHoldNeedsCorrection(new Vec3(2.6D, 64.5D, 1.25D), stopped));
+    }
+
+    private static WorldGateSystem.Gate denialGate(String facing, String placement) {
+        return WorldGateSystem.parse(JsonParser.parseString("""
+            [{
+              "id": "denial_test_gate", "type": "gate",
+              "anchor": {"q": 0, "r": 0},
+              "properties": {
+                "facing": "%s", "center_placement": "%s",
+                "npc": "easy_npc:preset/encounter/test.npc.snbt",
+                "wall_thickness": 5, "passage_width": 7
+              }
+            }]
+            """.formatted(facing, placement)).getAsJsonArray()).getFirst();
     }
 
     @Test
@@ -204,35 +291,67 @@ final class WorldGateEdgePlacementTest {
     }
 
     @Test
-    void npcOnlyGateBlocksTheAuthoredHexBoundaryInBothDirections() {
+    void gateBlocksTheAuthoredHexBoundaryInBothDirections() {
         HexCoord anchor = new HexCoord(0, 0);
 
-        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+        assertTrue(WorldGateSystem.crossedGateHexBoundary(
             anchor, "east", anchor, new HexCoord(1, 0)
         ));
-        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+        assertTrue(WorldGateSystem.crossedGateHexBoundary(
             anchor, "east", new HexCoord(1, 0), anchor
         ));
-        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+        assertTrue(WorldGateSystem.crossedGateHexBoundary(
             anchor, "south", anchor, new HexCoord(-1, 1)
         ));
-        assertTrue(WorldGateSystem.crossedNpcGateHexBoundary(
+        assertTrue(WorldGateSystem.crossedGateHexBoundary(
             anchor, "south", anchor, new HexCoord(0, 1)
         ));
     }
 
     @Test
-    void npcOnlyGateDoesNotReactToMovementWithinOrAlongOtherHexEdges() {
+    void gateDoesNotReactToMovementWithinOrAlongOtherHexEdges() {
         HexCoord anchor = new HexCoord(0, 0);
 
-        assertFalse(WorldGateSystem.crossedNpcGateHexBoundary(
+        assertFalse(WorldGateSystem.crossedGateHexBoundary(
             anchor, "east", anchor, anchor
         ));
-        assertFalse(WorldGateSystem.crossedNpcGateHexBoundary(
+        assertFalse(WorldGateSystem.crossedGateHexBoundary(
             anchor, "east", anchor, new HexCoord(0, 1)
         ));
-        assertFalse(WorldGateSystem.crossedNpcGateHexBoundary(
+        assertFalse(WorldGateSystem.crossedGateHexBoundary(
             anchor, "south", new HexCoord(-1, 1), new HexCoord(0, 1)
         ));
+    }
+
+    @Test
+    void viridianHexBoundaryIsGuardedForEveryOrdinaryGateType() {
+        for (String placement : List.of("gate", "gate_npc", "npc", "pokemon")) {
+            var objects = JsonParser.parseString("""
+                [{
+                  "id": "viridian_gate",
+                  "type": "gate",
+                  "anchor": {"q": -5, "r": 4},
+                  "rotation": 1,
+                  "resource": "cobbleventure:gate/default_gate",
+                  "properties": {
+                    "facing": "west",
+                    "center_placement": "%s",
+                    "passage_width": 7
+                  }
+                }]
+                  """.formatted(placement)).getAsJsonArray();
+            if (placement.equals("pokemon")) objects.get(0).getAsJsonObject().getAsJsonObject("properties")
+                .add("pokemon", JsonParser.parseString("""
+                    {"species":"cobblemon:snorlax","level":30,"collision":{"width":7,"height":2,"depth":4}}
+                    """));
+            var gate = WorldGateSystem.parse(objects).getFirst();
+            HexCoord citySide = new HexCoord(-5, 4);
+            HexCoord leagueSide = new HexCoord(-6, 4);
+
+            assertTrue(WorldGateSystem.crossedGateHexBoundary(gate, citySide, leagueSide), placement);
+            assertTrue(WorldGateSystem.crossedGateHexBoundary(gate, leagueSide, citySide), placement);
+            assertFalse(WorldGateSystem.crossedGateHexBoundary(gate, citySide, citySide), placement);
+            assertFalse(WorldGateSystem.crossedGateHexBoundary(gate, citySide, new HexCoord(-5, 5)), placement);
+        }
     }
 }

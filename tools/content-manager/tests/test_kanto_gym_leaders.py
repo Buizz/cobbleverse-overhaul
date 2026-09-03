@@ -18,11 +18,11 @@ class KantoGymLeaderTests(unittest.TestCase):
             "brock": "kanto_brock",
             "misty": "kanto_misty",
             "lt_surge": "kanto_ltsurge",
-            "erika": "kanto_erika",
-            "koga": "kanto_koga",
-            "sabrina": "kanto_sabrina",
-            "blaine": "kanto_blaine",
-            "giovanni_gym": "kanto_giovanni",
+            "erika": "erika",
+            "koga": "koga",
+            "sabrina": "sabrina",
+            "blaine": "blaine",
+            "giovanni_gym": "rainbow_rocket_giovanni",
         }
         league = content_manager.load_json(PROJECT_ROOT / "content/catalogs/league-progression.json")
         leaders = [entry for entry in league["entries"] if entry["role"] == "gym_leader"]
@@ -46,14 +46,43 @@ class KantoGymLeaderTests(unittest.TestCase):
             / "assets/rctmod/textures/trainers/single"
         )
         for slug in expected.values():
-            texture = texture_root / f"{slug}.png"
+            custom = not slug.startswith("kanto_")
+            texture = (
+                ROOT / "projects/cobbleventure-world-bootstrap/src/main/resources"
+                / "assets/cobbleventure/textures/entity/trainer" / f"{slug}.png"
+                if custom else texture_root / f"{slug}.png"
+            )
             with self.subTest(texture=slug):
                 self.assertTrue(texture.is_file())
                 self.assertEqual(b"\x89PNG\r\n\x1a\n", texture.read_bytes()[:8])
                 self.assertEqual(
                     texture.read_bytes(),
-                    generator.installed_rct_skin(f"rctmod:trainers/single/{slug}"),
+                    generator.local_appearance_skin(f"cobbleventure:trainer_skin/{slug}")
+                    if custom else generator.installed_rct_skin(f"rctmod:trainers/single/{slug}"),
                 )
+
+    def test_custom_leader_skins_match_roster_and_generated_runtime(self) -> None:
+        league = content_manager.load_json(PROJECT_ROOT / "content/catalogs/league-progression.json")
+        roster = content_manager.load_json(PROJECT_ROOT / "content/catalogs/trainer-roster.json")
+        characters = {character["id"]: character for character in roster["league_characters"]}
+        outfits = generator.encounter_outfits_by_class(
+            content_manager.load_json(generator.CATALOG), generator.TRAINER_CLASSES
+        )
+        for entry in league["entries"]:
+            encounter = entry.get("encounter", {})
+            appearance = encounter.get("appearance", {})
+            if appearance.get("source") != "custom":
+                continue
+            with self.subTest(character=encounter["character"]):
+                character = characters[encounter["character"]]
+                self.assertEqual(appearance["resource"], character["appearance"]["resource"])
+                self.assertEqual("classic", appearance["arm_model"])
+                self.assertEqual("classic", character["appearance"]["arm_model"])
+                document = generator.league_encounter_document(entry)
+                outfit = outfits[document["npc"]["trainer_class"]]
+                skin_uuid = generator.encounter_skin_uuid(document, outfit)
+                target = generator.PACK_OVERRIDE / f"config/easy_npc/skin/humanoid/{skin_uuid}.png"
+                self.assertEqual(generator.local_appearance_skin(appearance["resource"]), target.read_bytes())
 
     def test_previous_wrong_skin_uuids_resolve_to_correct_kanto_textures(self) -> None:
         aliases = {

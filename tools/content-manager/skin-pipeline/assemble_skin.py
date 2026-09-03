@@ -398,6 +398,13 @@ def split_overlay(face: Image.Image, selectors: list[tuple[int, int, int]], tole
 def assemble(manifest_path: Path, output_override: Path | None = None) -> Path:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     root = manifest_path.parent
+    # Community skins are already UV-mapped; never regenerate their pixels.
+    if manifest.get("source_skin"):
+        skin = load_manual_retouch(root / manifest["source_skin"])
+        output = (output_override or (root / manifest["output"])).resolve()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        skin.save(output, format="PNG", optimize=True)
+        return output
     atlas = Image.open(root / manifest["concept_atlas"])
     chroma_key = parse_hex(manifest.get("chroma_key", "#ff00ff"))
     chroma_threshold = int(manifest.get("chroma_threshold", 70))

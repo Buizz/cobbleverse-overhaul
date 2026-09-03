@@ -46,6 +46,8 @@ class SimpleDialogueMigrationContract:
 
 @dataclass(frozen=True, slots=True)
 class StarterEventMigrationContract:
+    """Preserved starter/Pokédex story; post-story services evolve independently."""
+
     trigger_range: Decimal
     pokedex_state_key: str
     starter_state_key: str
@@ -53,7 +55,6 @@ class StarterEventMigrationContract:
     starter_repeat_text: tuple[tuple[str, str], ...]
     pokedex_offer_text: tuple[tuple[str, str], ...]
     pokedex_explanation_text: tuple[tuple[str, str], ...]
-    completed_text: tuple[tuple[str, str], ...]
     pokedex_item: str
     pokedex_count: int
 
@@ -239,7 +240,6 @@ def starter_event_contract_from_v4(document: dict[str, Any]) -> StarterEventMigr
             _localized_document(dialogues["starter_chosen_praise"], "starter praise"),
             _localized_document(dialogues["pokedex_offer"], "pokedex offer"),
             _localized_document(dialogues["pokedex_explanation"], "pokedex explanation"),
-            _localized_document(dialogues["starter_received"], "completed text"),
             _string(rewards[0]["item"], "pokedex item"),
             _positive_int(rewards[0]["count"], "pokedex count"),
         )
@@ -256,10 +256,9 @@ def starter_event_contract_from_cves(program: ast.Program) -> StarterEventMigrat
         raise ValueError("V5 starter event의 마지막 페이지는 default여야 합니다.")
     pokedex_state = _flag_condition(completed_page.condition)
     starter_state = _flag_condition(retry_page.condition)
-    completed_says = _direct_says(completed_page.block)
-    retry_says = _direct_says(retry_page.block)
-    first_says = _direct_says(first_page.block)
-    if len(completed_says) != 1 or len(retry_says) != 3 or len(first_says) != 5:
+    retry_says = _starter_story_says(retry_page.block)
+    first_says = _starter_story_says(first_page.block)
+    if len(retry_says) != 3 or len(first_says) != 5:
         raise ValueError("V5 starter event의 페이지별 대사 구성이 올바르지 않습니다.")
     roulette = _single_command(first_page.block, ast.CommandKind.STARTER_ROULETTE)
     if not roulette.awaited or roulette.result is None:
@@ -280,10 +279,27 @@ def starter_event_contract_from_cves(program: ast.Program) -> StarterEventMigrat
         _text_document(retry_says[0].text),
         _text_document(retry_says[1].text),
         _text_document(retry_says[2].text),
-        _text_document(completed_says[0].text),
         retry_reward[0],
         retry_reward[1],
     )
+
+
+def _starter_story_says(block: ast.Block) -> list[ast.SayStatement]:
+    """Compare the preserved V4 story, excluding a new healing-service introduction.
+
+    Only a dialogue immediately followed by heal_party is excluded; ordinary story
+    dialogue and the existing reward guards remain part of the migration contract.
+    Healing itself has separate authored-content and runtime tests.
+    """
+    return [
+        statement for index, statement in enumerate(block.statements)
+        if isinstance(statement, ast.SayStatement)
+        and not (
+            index + 1 < len(block.statements)
+            and isinstance(block.statements[index + 1], ast.CommandStatement)
+            and block.statements[index + 1].kind is ast.CommandKind.HEAL_PARTY
+        )
+    ]
 
 
 def compare_gym_leader_migration(

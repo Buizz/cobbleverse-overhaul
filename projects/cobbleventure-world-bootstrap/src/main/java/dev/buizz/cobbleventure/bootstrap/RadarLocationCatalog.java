@@ -14,6 +14,7 @@ public final class RadarLocationCatalog {
         List<Location> result = new ArrayList<>();
         result.addAll(BuildingRuntimeSystem.radarLocations(player.getServer(), dimension));
         result.addAll(CobbleventureBootstrap.radarWorldLocations(player.serverLevel()));
+        result.addAll(DungeonSystem.radarLocations(dimension));
         return List.copyOf(result);
     }
 
@@ -40,6 +41,16 @@ public final class RadarLocationCatalog {
         return Kind.SPECIAL_BUILDING;
     }
 
+    static String buildingLabel(String structure) {
+        return switch (buildingKind(structure)) {
+            case POKEMON_CENTER -> "포켓몬센터";
+            case POKEMART -> "포켓몬상점";
+            case GYM -> "체육관";
+            case CASINO -> "카지노";
+            default -> structure;
+        };
+    }
+
     public enum Kind {
         GYM,
         POKEMON_CENTER,
@@ -48,7 +59,8 @@ public final class RadarLocationCatalog {
         SPECIAL_BUILDING,
         CAVE_ENTRANCE,
         FOREST_ENTRANCE,
-        GATE
+        GATE,
+        DUNGEON_ENTRANCE
     }
 
     public enum NpcKind {

@@ -13,7 +13,7 @@
   data:{
     ActionData:{ActionEventSet:{},ActionPermissionLevel:2},
     ArmorDropChances:[0.000f,0.000f,0.000f,0.000f],
-    ArmorItems:[{},{},{},{Count:1b,id:"cobbleventure_bootstrap:youngster_cap"}],
+    ArmorItems:[{},{},{},{}],
     CustomName:"{\"text\":\"반바지 꼬마 티미\",\"font\":\"minecraft:uniform\"}",
     DialogData:{DialogDataSet:[],Type:"CUSTOM"},
     EasyNPCVersion:3,

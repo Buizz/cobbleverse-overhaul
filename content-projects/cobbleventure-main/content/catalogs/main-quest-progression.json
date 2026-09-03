@@ -7,6 +7,46 @@
       "id": "choose_starter",
       "quest": "cobbleventure:quest/main/choose_starter",
       "npc": "cobbleventure:npc/professor_oak"
+    },
+    {
+      "id": "receive_pokenav",
+      "quest": "cobbleventure:quest/main/receive_pokenav",
+      "npc": "cobbleventure:npc/starter_town_gatekeeper_minho"
+    },
+    {
+      "id": "receive_travel_tools",
+      "quest": "cobbleventure:quest/main/receive_travel_tools",
+      "npc": "cobbleventure:npc/rewards/feature_map_guide"
+    },
+    {
+      "id": "learn_teleport",
+      "quest": "cobbleventure:quest/main/learn_teleport",
+      "npc": "cobbleventure:npc/rewards/feature_teleport_guide"
+    },
+    {
+      "id": "meet_bill",
+      "quest": "cobbleventure:quest/main/meet_bill",
+      "npc": "cobbleventure:npc/rewards/feature_pc_technician"
+    },
+    {
+      "id": "restore_power_plant",
+      "quest": "cobbleventure:quest/main/restore_power_plant",
+      "npc": "cobbleventure:npc/rocket_power_plant_officer"
+    },
+    {
+      "id": "learn_surf",
+      "quest": "cobbleventure:quest/main/learn_surf",
+      "npc": "cobbleventure:npc/gym_leader/koga"
+    },
+    {
+      "id": "learn_rock_climb",
+      "quest": "cobbleventure:quest/main/learn_rock_climb",
+      "npc": "cobbleventure:npc/gym_leader/giovanni_gym"
+    },
+    {
+      "id": "reach_indigo_plateau",
+      "quest": "cobbleventure:quest/main/reach_indigo_plateau",
+      "npc": "cobbleventure:npc/rewards/field_move_fly_instructor"
     }
   ]
 }

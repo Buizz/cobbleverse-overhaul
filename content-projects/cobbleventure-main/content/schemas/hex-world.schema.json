@@ -437,7 +437,7 @@
             "if": {
               "properties": {
                 "properties": {
-                  "properties": { "center_placement": { "const": "npc" } },
+                  "properties": { "center_placement": { "enum": ["npc", "pokemon"] } },
                   "required": ["center_placement"]
                 }
               }
@@ -481,7 +481,8 @@
       ],
       "properties": {
         "facing": { "enum": ["north", "east", "south", "west"] },
-        "center_placement": { "enum": ["gate", "gate_npc", "npc"] },
+        "center_placement": { "enum": ["gate", "gate_npc", "npc", "pokemon"] },
+        "pokemon": { "$ref": "#/$defs/gate_pokemon" },
         "surrounding_type": { "enum": ["wall", "natural"] },
         "wall_block": { "$ref": "#/$defs/resource_id" },
         "tree_log": { "$ref": "#/$defs/resource_id" },
@@ -512,7 +513,35 @@
           "required": ["center_placement"]
         },
         "then": { "required": ["npc"] }
+      }, {
+        "if": { "properties": { "center_placement": { "const": "pokemon" } }, "required": ["center_placement"] },
+        "then": { "required": ["pokemon"], "not": { "required": ["npc"] } },
+        "else": { "not": { "required": ["pokemon"] } }
       }]
+    },
+    "gate_pokemon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["species", "level", "collision"],
+      "properties": {
+        "species": { "$ref": "#/$defs/resource_id" },
+        "level": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "pose": { "enum": ["stand", "sleep"], "default": "stand" },
+        "scale": { "type": "number", "minimum": 0.25, "maximum": 4, "default": 1 },
+        "completion_flag": { "$ref": "#/$defs/resource_id" },
+        "event_binding": { "$ref": "#/$defs/resource_id" },
+        "activation_item": { "$ref": "#/$defs/resource_id" },
+        "activation_conditions": { "$ref": "player-condition.schema.json#/$defs/condition_list" },
+        "collision": {
+          "type": "object", "additionalProperties": false,
+          "required": ["width", "height", "depth"],
+          "properties": {
+            "width": { "type": "number", "minimum": 0.5, "maximum": 16 },
+            "height": { "type": "number", "minimum": 0.5, "maximum": 8 },
+            "depth": { "type": "number", "minimum": 0.5, "maximum": 16 }
+          }
+        }
+      }
     },
     "cave_entrance": {
       "type": "object",

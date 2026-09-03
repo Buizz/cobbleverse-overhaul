@@ -19,6 +19,7 @@ from .migration import (
 )
 from .parser import parse
 from .presets import preset_program
+from .rewards import npc_money_reward
 
 
 NAMESPACE = re.compile(r"^[a-z0-9_.-]+$")
@@ -103,6 +104,13 @@ def compile_project(
                 raise CvesProjectError(
                     f"{legacy_source}: V4 비교 원본을 읽을 수 없습니다: {error}"
                 ) from error
+            try:
+                money = npc_money_reward(legacy_document)
+            except ValueError as error:
+                raise CvesProjectError(f"{legacy_source}: {error}") from error
+            if money is not None:
+                # Generated deployment metadata, not a second editable source.
+                document["money_reward"] = money
             preset = legacy_document.get("event_design", {}).get("preset", {})
             runtime = legacy_document.get("event_runtime", {})
             if runtime.get("engine") == "cves_v5" and runtime.get("authoring") == "preset":

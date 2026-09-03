@@ -19,7 +19,8 @@ public abstract class GymBlockerEntityRenderMixin {
         PoseStack poseStack, MultiBufferSource buffers, int packedLight,
         CallbackInfo callback
     ) {
-        if (GymBlockerVisibility.isHidden(entity)) {
+        var gatePokemon = dev.buizz.cobbleventure.bootstrap.GatePokemonNetwork.clientView(entity);
+        if (GymBlockerVisibility.isHidden(entity) || (gatePokemon != null && gatePokemon.hidden())) {
             callback.cancel();
         }
     }

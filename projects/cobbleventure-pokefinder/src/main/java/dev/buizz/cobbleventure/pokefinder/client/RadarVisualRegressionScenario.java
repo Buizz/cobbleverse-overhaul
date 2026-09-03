@@ -40,6 +40,8 @@ final class RadarVisualRegressionScenario {
             10.0D, 48.0D, 500, RadarMarkerState.AVAILABLE, 64.0D, true));
         markers.add(marker(dimension, origin, "gate", RadarMarkerType.GATE,
             -18.0D, 45.0D, 500, RadarMarkerState.AVAILABLE, 64.0D, true));
+        markers.add(marker(dimension, origin, "dungeon", RadarMarkerType.DUNGEON_ENTRANCE,
+            18.0D, 10.0D, 600, RadarMarkerState.AVAILABLE, 64.0D, true));
         markers.add(marker(dimension, origin, "objective", RadarMarkerType.OBJECTIVE,
             -42.0D, 28.0D, 1_000, RadarMarkerState.PRIMARY, 64.0D, true));
 

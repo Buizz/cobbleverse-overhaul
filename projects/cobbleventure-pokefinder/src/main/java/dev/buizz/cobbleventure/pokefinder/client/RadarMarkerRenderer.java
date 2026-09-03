@@ -69,7 +69,7 @@ public final class RadarMarkerRenderer {
                 );
             }
             for (RadarMarkerLayout.Placed placed : RadarMarkerLayout.resolve(candidates)) {
-                drawMarkerIcon(graphics, placed.marker(), placed.point());
+                drawMarkerIcon(graphics, layout, placed.marker(), placed.point());
                 drawOverlapIndicator(graphics, placed);
                 drawMarkerDetails(
                     graphics, minecraft, layout, placed.marker(),
@@ -153,13 +153,14 @@ public final class RadarMarkerRenderer {
 
     private static void drawMarkerIcon(
         GuiGraphics graphics,
+        Cobblenav233LayoutAdapter.Layout layout,
         RadarMarker marker,
         Cobblenav233LayoutAdapter.RadarPoint point
     ) {
         int x = (int) Math.floor(point.x());
         int y = (int) Math.floor(point.y());
         int color = markerColor(marker);
-        if (point.edgePinned()) {
+        if (point.edgePinned() && marker.type() != RadarMarkerType.OBJECTIVE) {
             graphics.fill(x - 3, y, x + 4, y + 1, 0xFFFFC44D);
             graphics.fill(x, y - 3, x + 1, y + 4, 0xFFFFC44D);
         }
@@ -172,10 +173,16 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x + 1, y - 1, x + 2, y, 0xFF101820);
             }
             case TRAINER -> {
-                graphics.fill(x - 2, y - 2, x - 1, y + 3, color);
-                graphics.fill(x + 2, y - 2, x + 3, y + 3, color);
-                graphics.fill(x - 1, y - 1, x + 2, y, color);
-                graphics.fill(x - 1, y + 1, x + 2, y + 2, color);
+                for (int row = 0; row < TrainerRadarIcon.PIXELS.size(); row++) {
+                    String pixels = TrainerRadarIcon.PIXELS.get(row);
+                    for (int column = 0; column < pixels.length(); column++) {
+                        char pixel = pixels.charAt(column);
+                        if (pixel == '.') continue;
+                        graphics.fill(x + column - 4, y + row - 4,
+                            x + column - 3, y + row - 3,
+                            pixel == '#' ? 0xFF101820 : color);
+                    }
+                }
             }
             case POKEMON_CENTER -> {
                 drawFacilityPlate(graphics, x, y, color);
@@ -228,6 +235,16 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x - 2, y - 1, x + 3, y + 1, color);
                 graphics.fill(x - 1, y - 3, x + 2, y - 1, color);
             }
+            case DUNGEON_ENTRANCE -> {
+                // Violet arch with descending steps, distinct from the brown cave peak.
+                graphics.fill(x - 4, y - 4, x + 5, y + 5, 0xFF101820);
+                graphics.fill(x - 2, y - 3, x + 3, y - 2, color);
+                graphics.fill(x - 3, y - 2, x - 2, y + 4, color);
+                graphics.fill(x + 3, y - 2, x + 4, y + 4, color);
+                graphics.fill(x - 1, y, x + 1, y + 1, color);
+                graphics.fill(x, y + 1, x + 2, y + 2, color);
+                graphics.fill(x + 1, y + 2, x + 3, y + 3, color);
+            }
             case GATE -> {
                 graphics.fill(x - 2, y - 2, x - 1, y + 3, color);
                 graphics.fill(x + 2, y - 2, x + 3, y + 3, color);
@@ -239,10 +256,27 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x - 1, y - 2, x + 2, y, color);
             }
             case OBJECTIVE -> {
-                graphics.fill(x - 2, y - 2, x + 2, y - 1, color);
-                graphics.fill(x - 2, y - 1, x - 1, y + 2, color);
-                graphics.fill(x - 1, y + 1, x + 3, y + 2, color);
-                graphics.fill(x + 1, y - 1, x + 2, y + 1, color);
+                double centerX = layout.left()
+                    + Cobblenav233LayoutAdapter.WIDTH / 2.0D - 1.0D;
+                double centerY = layout.top()
+                    + Cobblenav233LayoutAdapter.HEIGHT / 2.0D - 1.0D;
+                List<ObjectiveRadarIcon.Pixel> pixels = ObjectiveRadarIcon.oriented(
+                    point.x() - centerX, point.y() - centerY
+                );
+                for (ObjectiveRadarIcon.Pixel pixel : pixels) {
+                    graphics.fill(
+                        x + pixel.x() - 1, y + pixel.y() - 1,
+                        x + pixel.x() + 2, y + pixel.y() + 2,
+                        0xFF101820
+                    );
+                }
+                for (ObjectiveRadarIcon.Pixel pixel : pixels) {
+                    graphics.fill(
+                        x + pixel.x(), y + pixel.y(),
+                        x + pixel.x() + 1, y + pixel.y() + 1,
+                        pixel.head() ? color : 0xFFFFC44D
+                    );
+                }
             }
             default -> {
                 graphics.fill(x - 2, y, x + 3, y + 1, 0xFF101820);
@@ -252,6 +286,8 @@ public final class RadarMarkerRenderer {
         }
         if (marker.state() == RadarMarkerState.DEFEATED
             || marker.state() == RadarMarkerState.COMPLETED) {
+            // Keep the trainer's face and torso readable; place its check beside the silhouette.
+            if (marker.type() == RadarMarkerType.TRAINER) x += 4;
             graphics.fill(x - 3, y + 1, x - 1, y + 2, 0xFFF2F7F5);
             graphics.fill(x - 2, y + 2, x, y + 3, 0xFFF2F7F5);
             graphics.fill(x - 1, y, x + 2, y + 1, 0xFFF2F7F5);
@@ -280,6 +316,7 @@ public final class RadarMarkerRenderer {
             case POKEMART -> 0xFF69A7FF;
             case CASINO -> 0xFFFFC44D;
             case CAVE_ENTRANCE -> 0xFFC3A27A;
+            case DUNGEON_ENTRANCE -> 0xFFB89CFF;
             case FOREST_ENTRANCE -> 0xFF5FD36D;
             case GATE -> 0xFFD7DEE8;
             default -> 0xFF62E6FF;

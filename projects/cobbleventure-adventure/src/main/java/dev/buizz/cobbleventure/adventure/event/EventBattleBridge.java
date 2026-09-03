@@ -109,9 +109,13 @@ public final class EventBattleBridge {
         PENDING.put(player.getUUID(), pending);
         try {
             cancelLegacyProximity(player);
-            if (preset.moneyReward() != null) {
-                String rewardCommand = preset.moneyReward().prepareCommand(
-                    player.getGameProfile().getName()
+            EventBattlePreset.MoneyReward reward = rewardFor(
+                preset, EventNpcBindingRepository.instance().findByEntityTags(opponent.getTags())
+                    .orElse(null), request.sessionKey().scriptId()
+            );
+            if (reward != null) {
+                String rewardCommand = reward.prepareCommand(
+                    player.getGameProfile().getName(), new ServerPlayerEventState(player)::flag
                 );
                 if (rewardCommand != null) {
                     int prepared = player.getServer().getCommands().getDispatcher().execute(
@@ -150,6 +154,14 @@ public final class EventBattleBridge {
         return new EventBattleGateway.OpenResult(
             token, System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
         );
+    }
+
+    static EventBattlePreset.MoneyReward rewardFor(
+        EventBattlePreset preset, EventNpcBinding binding, String scriptId
+    ) {
+        // An explicit NPC override (including disabled) wins; never prepare both.
+        return binding != null && binding.scriptId().equals(scriptId) && binding.moneyReward() != null
+            ? binding.moneyReward() : preset.moneyReward();
     }
 
     private static void cancelLegacyProximity(ServerPlayer player) {

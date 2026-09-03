@@ -3,6 +3,12 @@
   "schema_version": 1,
   "items": [
     {
+      "id": "cobbleventure_bootstrap:poke_flute",
+      "base_item": "cobbleventure_bootstrap:poke_flute",
+      "display_name": { "ko_kr": "포켓몬 피리", "en_us": "Poké Flute" },
+      "description": { "ko_kr": "잠든 잠만보 근처에서 사용하면 잠을 깨웁니다. 사용해도 사라지지 않습니다.", "en_us": "Use near a sleeping Snorlax to awaken it. Reusable." }
+    },
+    {
       "id": "cobbleventure_casino:coin_case",
       "base_item": "cobbleventure_casino:coin_case",
       "display_name": {
@@ -16,6 +22,18 @@
     }
   ],
   "variables": [
+    {
+      "id": "cobbleventure:flag/story/poke_flute_received",
+      "scope": "player", "type": "boolean", "default": false,
+      "display_name": { "ko_kr": "포켓몬 피리 수령", "en_us": "Poké Flute Received" },
+      "description": { "ko_kr": "포켓몬타워 첫 클리어 보상으로 포켓몬 피리를 지급받았는지 기록합니다." }
+    },
+    {
+      "id": "cobbleventure:flag/gate/vermilion_east_snorlax_cleared",
+      "scope": "player", "type": "boolean", "default": false,
+      "display_name": { "ko_kr": "갈색시티 동쪽 잠만보 해결", "en_us": "Vermilion East Snorlax Cleared" },
+      "description": { "ko_kr": "피리로 깨운 잠만보와의 전투에서 승리하거나 포획했는지 기록합니다." }
+    },
     {
       "id": "cobbleventure:flag/story/starter_received",
       "scope": "player",
@@ -205,14 +223,6 @@
       "default": false,
       "display_name": { "ko_kr": "지도 기능 해금", "en_us": "Map Feature Unlocked" },
       "description": { "ko_kr": "플레이어 메뉴의 지도 기능을 해금했는지 기록합니다." }
-    },
-    {
-      "id": "cobbleventure:flag/rewards/item/pokefinder_received",
-      "scope": "player",
-      "type": "boolean",
-      "default": false,
-      "display_name": { "ko_kr": "포켓파인더 획득", "en_us": "Poké Finder Acquired" },
-      "description": { "ko_kr": "플레이어가 상록시티 관문 안내원에게 포켓파인더를 받았는지 기록합니다." }
     },
     {
       "id": "cobbleventure:flag/rewards/item/coin_case_guest",

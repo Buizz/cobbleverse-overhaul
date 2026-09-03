@@ -1,0 +1,91 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/reach_indigo_plateau",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "석영고원에 올라 공중날기 배우기"
+  },
+  "summary": {
+    "ko_kr": "관동의 여덟 배지를 모았습니다. 상록시티 서쪽 관문을 지나 락클라임으로 석영고원에 올라가세요. 도착 길목의 안내 NPC에게 공중날기를 배우면 이전 지역을 편하게 오갈 수 있습니다."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/boulder"
+        },
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/cascade"
+        },
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/thunder"
+        },
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/rainbow"
+        },
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/soul"
+        },
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/marsh"
+        },
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/volcano"
+        },
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/earth"
+        },
+        {
+          "type": "variable",
+          "source": "persistent_data",
+          "key": "cobbleventureFieldMove.rock_climb",
+          "operator": ">=",
+          "value": 1
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "reach_indigo_plateau",
+      "text": {
+        "ko_kr": "락클라임으로 석영고원에 도착해 길목 NPC에게 공중날기 배우기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "variable",
+            "source": "persistent_data",
+            "key": "cobbleventureFieldMove.fly",
+            "operator": ">=",
+            "value": 1
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/rewards/field_move_fly_instructor"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

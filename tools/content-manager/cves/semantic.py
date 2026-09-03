@@ -118,7 +118,7 @@ COMMANDS: dict[ast.CommandKind, CommandContract] = {
     ast.CommandKind.BATTLE: CommandContract((_p("battle", RESOURCE, resource=ResourceKind.BATTLE),), result=ast.ValueType.BATTLE_RESULT),
     ast.CommandKind.STARTER_ROULETTE: CommandContract(result=ast.ValueType.POKEMON_SELECTION),
     ast.CommandKind.MAP_SELECTION: CommandContract(result=ast.ValueType.LOCATION_REF),
-    ast.CommandKind.HEAL_PARTY: CommandContract(result=ast.ValueType.HEALING_RESULT),
+    ast.CommandKind.HEAL_PARTY: CommandContract(flags=frozenset({"fallback"}), result=ast.ValueType.HEALING_RESULT),
     ast.CommandKind.OPEN_DAYCARE: CommandContract(),
     ast.CommandKind.NUMBER_INPUT: CommandContract(
         properties=(

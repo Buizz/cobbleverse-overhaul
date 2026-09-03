@@ -4,6 +4,8 @@
   "package": "dev.buizz.cobbleventure.bootstrap.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "GatePokemonCollisionMixin",
+    "GatePokemonActorMixin",
     "BeehiveDecoratorMixin",
     "FlatLevelSourceMixin",
     "JigsawPlacementPlacerMixin",

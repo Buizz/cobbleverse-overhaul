@@ -9,6 +9,8 @@ import com.mojang.logging.LogUtils;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import net.minecraft.resources.FileToIdConverter;
@@ -129,14 +131,30 @@ public final class EventBattlePresetRepository extends SimplePreparableReloadLis
         presets = Map.copyOf(loaded);
     }
 
-    private static EventBattlePreset.MoneyReward moneyReward(JsonObject value, String path) {
+    static EventBattlePreset.MoneyReward moneyReward(JsonObject value, String path) {
+        try {
+            return parseMoneyReward(value, path);
+        } catch (IllegalArgumentException error) {
+            throw invalid(path, error.getMessage());
+        }
+    }
+
+    private static EventBattlePreset.MoneyReward parseMoneyReward(JsonObject value, String path) {
+        List<EventBattlePreset.RewardFlagCondition> requirements = new ArrayList<>();
         if (value.has("conditions")) {
             JsonElement conditions = value.get("conditions");
             if (!conditions.isJsonArray()) {
                 throw invalid(path, "money_reward conditions 배열이 필요합니다.");
             }
-            if (!conditions.getAsJsonArray().isEmpty()) {
-                throw invalid(path, "CVES battle money_reward conditions는 아직 지원하지 않습니다.");
+            for (int index = 0; index < conditions.getAsJsonArray().size(); index++) {
+                String conditionPath = path + ".conditions[" + index + "]";
+                JsonObject condition = object(conditions.getAsJsonArray().get(index), conditionPath);
+                if (!string(condition, "type", conditionPath).equals("flag_equals")) {
+                    throw invalid(conditionPath, "상금 조건은 flag_equals만 지원합니다.");
+                }
+                requirements.add(new EventBattlePreset.RewardFlagCondition(
+                    string(condition, "key", conditionPath), bool(condition, "value", conditionPath)
+                ));
             }
         }
         String mode = string(value, "mode", path);
@@ -149,7 +167,8 @@ public final class EventBattlePresetRepository extends SimplePreparableReloadLis
             mode.equals("regional_level") ? integer(value, "offset", path) : 0,
             bool(value, "held_item_bonus", path),
             value.has("held_item") ? string(value, "held_item", path) : "minecraft:air",
-            value.has("held_item_multiplier") ? integer(value, "held_item_multiplier", path) : 1
+            value.has("held_item_multiplier") ? integer(value, "held_item_multiplier", path) : 1,
+            requirements
         );
     }
 

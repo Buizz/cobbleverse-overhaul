@@ -22,6 +22,7 @@ final class RadarDisplaySettingsTest {
         EnumMap<Option, Boolean> values = RadarDisplaySettings.decode(properties);
         assertFalse(values.get(Option.TRAINERS));
         assertTrue(values.get(Option.FACILITIES));
+        assertTrue(values.get(Option.ENTRANCES));
         assertFalse(values.get(Option.NAMES));
         assertTrue(values.get(Option.DEFEATED_TRAINERS));
         assertTrue(values.get(Option.PLAYERS));
@@ -41,13 +42,16 @@ final class RadarDisplaySettingsTest {
         assertEquals(Option.ENTRANCES, RadarDisplaySettings.category(
             RadarMarkerType.CAVE_ENTRANCE, "cave/rock_tunnel"
         ));
+        assertEquals(Option.ENTRANCES, RadarDisplaySettings.category(
+            RadarMarkerType.DUNGEON_ENTRANCE, "dungeon/power_plant_front"
+        ));
         assertEquals(Option.OBJECTIVES, RadarDisplaySettings.category(
             RadarMarkerType.OBJECTIVE, "objective/gym/pewter"
         ));
     }
 
     @Test
-    void identifiesOnlyMajorFacilityMarkersAsLandmarks() {
+    void identifiesMajorFacilitiesAndDungeonsAsLandmarks() {
         assertTrue(RadarDisplaySettings.isLandmark(marker(
             "building/pokemon_center", RadarMarkerType.POKEMON_CENTER
         )));
@@ -56,6 +60,9 @@ final class RadarDisplaySettingsTest {
         )));
         assertTrue(RadarDisplaySettings.isLandmark(marker(
             "building/gym", RadarMarkerType.GYM_LEADER
+        )));
+        assertTrue(RadarDisplaySettings.isLandmark(marker(
+            "dungeon/power_plant_front", RadarMarkerType.DUNGEON_ENTRANCE
         )));
         assertFalse(RadarDisplaySettings.isLandmark(marker(
             "npc/gym_leader", RadarMarkerType.GYM_LEADER

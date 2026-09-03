@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import struct
+import tempfile
 import uuid
 import zipfile
 from pathlib import Path
@@ -42,6 +43,26 @@ STARTER_RECEIVED_FLAG = "cobbleventure:flag/story/starter_received"
 STARTER_RECEIVED_OBJECTIVE = "cv_starter_recv"
 SUPPORTED_LANGUAGES = {"ko_kr", "en_us"}
 EXPORT_LANGUAGE = os.environ.get("COBBLEVENTURE_EXPORT_LANGUAGE", "ko_kr")
+
+
+def write_preset(path: Path, source: str) -> None:
+    """Publish a complete preset without truncating the existing destination."""
+    data = source.encode("utf-8")
+    try:
+        if path.read_bytes() == data:
+            return
+    except FileNotFoundError:
+        pass
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=".npc-", suffix=".snbt.tmp", dir=path.parent
+    )
+    try:
+        with os.fdopen(handle, "wb") as output:
+            output.write(data)
+        # Same-directory replacement keeps readers on either the old or new file.
+        os.replace(temporary_name, path)
+    finally:
+        Path(temporary_name).unlink(missing_ok=True)
 
 
 def encounter_skin_uuid(document: dict, outfit: dict) -> str:
@@ -1578,7 +1599,7 @@ def generate(
         adapter = outfit["adapters"]["easy_npc"]
         preset = resource_path(adapter["preset"])
         preset.parent.mkdir(parents=True, exist_ok=True)
-        preset.write_text(preset_snbt(outfit), encoding="utf-8", newline="\n")
+        write_preset(preset, preset_snbt(outfit))
         written.append(preset)
 
         skin_name = outfit["base_skin"].split("/", 1)[-1] + ".png"
@@ -1668,10 +1689,7 @@ def generate(
             primary_source = encounter_preset_snbt(
                 document, outfit, music_defaults=music_defaults
             )
-        preset.write_text(
-            primary_source,
-            encoding="utf-8", newline="\n",
-        )
+        write_preset(preset, primary_source)
         written.append(preset)
         compiled_npc_ids.add(document["id"])
         if isinstance(binding_tag, str):
@@ -1679,10 +1697,7 @@ def generate(
             # Keep the transition-era names as inert compatibility aliases so
             # existing placement data never falls back to executable V4 actions.
             v5_preset = preset.with_name(f"{slug}__v5.npc.snbt")
-            v5_preset.write_text(
-                primary_source,
-                encoding="utf-8", newline="\n",
-            )
+            write_preset(v5_preset, primary_source)
             written.append(v5_preset)
             preset_type = document.get("event_design", {}).get("preset", {}).get("type")
             has_proximity = (
@@ -1698,10 +1713,7 @@ def generate(
             )
             if has_proximity:
                 proximity_preset = preset.with_name(f"{slug}__v5_proximity.npc.snbt")
-                proximity_preset.write_text(
-                    proximity_source,
-                    encoding="utf-8", newline="\n",
-                )
+                write_preset(proximity_preset, proximity_source)
                 written.append(proximity_preset)
             compatibility_sources = {
                 "interact": primary_source,
@@ -1709,7 +1721,7 @@ def generate(
             }
             for suffix, source in compatibility_sources.items():
                 compatibility_preset = preset.with_name(f"{slug}__{suffix}.npc.snbt")
-                compatibility_preset.write_text(source, encoding="utf-8", newline="\n")
+                write_preset(compatibility_preset, source)
                 written.append(compatibility_preset)
         else:
             # Read-only compatibility for projects that have not been migrated.
@@ -1717,12 +1729,11 @@ def generate(
                 override_preset = preset.with_name(
                     f"{slug}__{trigger_override}.npc.snbt"
                 )
-                override_preset.write_text(
+                write_preset(
+                    override_preset,
                     encounter_preset_snbt(
                         document, outfit, trigger_override, music_defaults
                     ),
-                    encoding="utf-8",
-                    newline="\n",
                 )
                 written.append(override_preset)
     required_system_ids = {
@@ -1753,9 +1764,9 @@ def generate(
             / "dungeon_actor" / f"{slug}.npc.snbt"
         )
         preset.parent.mkdir(parents=True, exist_ok=True)
-        preset.write_text(
+        write_preset(
+            preset,
             dungeon_actor_preset_snbt(trainer_class, outfit),
-            encoding="utf-8", newline="\n",
         )
         written.append(preset)
     return written

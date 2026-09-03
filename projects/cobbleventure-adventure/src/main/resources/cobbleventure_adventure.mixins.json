@@ -7,7 +7,12 @@
     "CobbleDollarsBattleRewardsMixin",
     "CobbreedingActivationMixin",
     "DaycareProjectionPokemonMixin",
-    "ForfeitActionResponseMixin"
+    "ForfeitActionResponseMixin",
+    "TrainerDoublesValidationMixin",
+    "ShowdownEmptySlotsMixin"
+  ],
+  "client": [
+    "BattleTargetEmptySlotMixin"
   ],
   "injectors": {
     "defaultRequire": 1

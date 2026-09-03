@@ -223,9 +223,15 @@ final class WorldPlanParser {
         if (value.has("level_overrides")) {
             for (JsonElement element : value.getAsJsonArray("level_overrides")) {
                 JsonObject override = element.getAsJsonObject();
+                Map<Integer, Integer> levelWeights = new java.util.LinkedHashMap<>();
+                if (override.has("level_weights")) {
+                    for (var entry : override.getAsJsonObject("level_weights").entrySet()) {
+                        levelWeights.put(Integer.parseInt(entry.getKey()), entry.getValue().getAsInt());
+                    }
+                }
                 PokemonLevelOverride parsed = new PokemonLevelOverride(
                     required(override, "species"), override.get("min_level").getAsInt(),
-                    override.get("max_level").getAsInt()
+                    override.get("max_level").getAsInt(), levelWeights
                 );
                 levelOverrides.put(parsed.species(), parsed);
             }

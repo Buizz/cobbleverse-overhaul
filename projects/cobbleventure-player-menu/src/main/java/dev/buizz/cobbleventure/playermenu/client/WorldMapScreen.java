@@ -81,6 +81,10 @@ public final class WorldMapScreen extends Screen {
     private boolean selectionCompleted;
     private boolean selectionCancelled;
     private int pokemonScroll;
+    private String encounterMethod;
+    private MapContent.Hex encounterSelection;
+    private int encounterGeneration;
+    private AbstractButton encounterMethodButton;
     private int zoomLevel;
     private int panX;
     private int panY;
@@ -151,6 +155,15 @@ public final class WorldMapScreen extends Screen {
             Component.translatable("screen.cobbleventure_player_menu.world_map.teleport"),
             layout.infoLeft() + 9, layout.bottom() - 28, layout.infoWidth() - 18, 20,
             this::requestDestination));
+        encounterMethodButton = addRenderableWidget(new ThemedButton(
+            menuTheme, Component.empty(), layout.infoLeft() + 10, layout.top(),
+            layout.infoWidth() - 20, 18, MenuTheme.ButtonVariant.SECONDARY, () -> {
+                MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
+                List<String> methods = content.encounterMethods(tile);
+                encounterMethod = methods.get((methods.indexOf(selectedEncounterMethod(tile)) + 1) % methods.size());
+                pokemonScroll = 0;
+            }));
+        encounterMethodButton.visible = false;
         Component closeLabel = Component.translatable(
             parent == null
                 ? "screen.cobbleventure_player_menu.world_map.close"
@@ -286,7 +299,7 @@ public final class WorldMapScreen extends Screen {
             && content.objectAt(selected.q(), selected.r()) == null) {
             MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
             if (tile != null) {
-                int count = content.biome(tile).pokemon().size();
+                int count = content.encounterBiome(tile, selectedEncounterMethod(tile)).pokemon().size();
                 int columns = pokemonColumns(layout.infoWidth() - 20);
                 int maximum = maxPokemonScroll(count, columns);
                 int direction = scrollY > 0.0D ? -1 : 1;
@@ -533,6 +546,7 @@ public final class WorldMapScreen extends Screen {
         MapContent.ForestEntrance hoveredForest
     ) {
         hidePokemonModels();
+        encounterMethodButton.visible = false;
         drawRibbonPanel(graphics, layout.infoLeft(), layout.top(), layout.infoWidth(), layout.height(),
             INFO_BACKGROUND);
         graphics.fill(layout.infoLeft() + 12, layout.top() + 1,
@@ -634,15 +648,23 @@ public final class WorldMapScreen extends Screen {
                 graphics.drawString(font, "순간이동 불가", x, y, MUTED_TEXT, false);
             }
         } else if (tile != null) {
-            MapContent.BiomeInfo biome = content.biome(tile);
-            graphics.drawString(font,
-                biome.name() + (biome.habitatVariant() > 0 ? biome.habitatVariant() : ""),
-                x, y, TEXT, false);
-            y += 15;
-            graphics.drawString(font, tile.biome(), x, y, MUTED_TEXT, false);
-            y += 19;
-            graphics.drawString(font, "서식 포켓몬 " + biome.totalPokemon() + "종 · 휠", x, y, TEXT, false);
-            y += 14;
+            String method = selectedEncounterMethod(tile);
+            MapContent.BiomeInfo biome = content.encounterBiome(tile, method);
+            y += menuTheme.drawWrappedText(graphics, font, Component.literal(
+                biome.name() + (biome.habitatVariant() > 0 ? biome.habitatVariant() : "")),
+                x, y, lineWidth, MenuTheme.TextRole.BODY, menuTheme.textColor, 2) + 4;
+            menuTheme.drawText(graphics, font, Component.literal(tile.biome()),
+                x, y, MenuTheme.TextRole.CAPTION);
+            y += menuTheme.textHeight(font, MenuTheme.TextRole.CAPTION) + 5;
+            if (content.encounterMethods(tile).size() > 1) {
+                encounterMethodButton.setY(y);
+                encounterMethodButton.setMessage(Component.literal(MapContent.encounterMethodName(method) + "  ▸"));
+                encounterMethodButton.visible = true;
+                y += encounterMethodButton.getHeight() + 4;
+            }
+            menuTheme.drawText(graphics, font, Component.literal("서식 포켓몬 " + biome.totalPokemon() + "종 · 휠"),
+                x, y, MenuTheme.TextRole.BODY);
+            y += menuTheme.textHeight(font, MenuTheme.TextRole.BODY) + 5;
             renderPokemonGrid(graphics, layout, biome.pokemon(), x, y, lineWidth, pokemonScroll);
         } else {
             graphics.drawString(font, "미지정 타일", x, y, TEXT, false);
@@ -687,6 +709,17 @@ public final class WorldMapScreen extends Screen {
         char last = value.charAt(value.length() - 1);
         boolean hasFinalConsonant = last >= '가' && last <= '힣' && (last - '가') % 28 != 0;
         return value + (hasFinalConsonant ? "을" : "를");
+    }
+
+    private String selectedEncounterMethod(MapContent.BiomeTile tile) {
+        if (encounterMethod == null || !selected.equals(encounterSelection) || encounterGeneration != content.generation()
+            || !content.encounterMethods(tile).contains(encounterMethod)) {
+            encounterSelection = selected;
+            encounterGeneration = content.generation();
+            encounterMethod = content.defaultEncounterMethod(tile);
+            pokemonScroll = 0;
+        }
+        return encounterMethod;
     }
 
     private void renderPokemonGrid(

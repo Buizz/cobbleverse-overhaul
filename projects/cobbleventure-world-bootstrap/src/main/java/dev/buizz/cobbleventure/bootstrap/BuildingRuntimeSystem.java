@@ -95,6 +95,7 @@ final class BuildingRuntimeSystem {
         ResourceLocation.fromNamespaceAndPath("cobbleventure", "building_interiors")
     );
     private static final Map<String, StructureMetadata> METADATA = new LinkedHashMap<>();
+    private static final Map<String, java.util.Optional<BlockPos>> RADAR_OFFSETS = new HashMap<>();
     private static final Map<String, BuildingSettings> SETTINGS = new LinkedHashMap<>();
     private static final Map<DoorKey, DoorTarget> DOORS = new HashMap<>();
     private static final List<TransitionTarget> TRANSITIONS = new ArrayList<>();
@@ -142,6 +143,7 @@ final class BuildingRuntimeSystem {
 
     static void initialize(MinecraftServer server) {
         METADATA.clear();
+        RADAR_OFFSETS.clear();
         SETTINGS.clear();
         DOORS.clear();
         TRANSITIONS.clear();
@@ -208,6 +210,14 @@ final class BuildingRuntimeSystem {
             settings == null ? Map.of() : settings.fixedGachaMachines, "exterior"
         );
         registerDungeonEntrances(level, structure, metadata, origin.toBlockPos(), rotation);
+        // Open, same-dimension facilities have no portal routes, but their actual
+        // placement must still survive restarts and be available to the radar.
+        if (settings == null || settings.noInteriorSpace || settings.routes.isEmpty()) {
+            data(level.getServer()).rememberBuildingInstance(
+                level.dimension().location().toString(), structure,
+                origin.toBlockPos(), rotationName, eventSpaceId
+            );
+        }
         if (settings != null && settings.noInteriorSpace) {
             return;
         }
@@ -1384,6 +1394,9 @@ final class BuildingRuntimeSystem {
     static boolean spawnNpc(
         ServerLevel level, String npcId, BlockPos position, float yaw
     ) {
+        if (CobbleventureBootstrap.npcPair(level, npcId) != null) {
+            return CobbleventureBootstrap.spawnRegionalNpc(level, npcId, position, yaw, "interact");
+        }
         if (!isNpcSeatBlock(level.getBlockState(position))
             && !canNpcStandAt(level, position)) {
             LOGGER.warn(
@@ -2036,12 +2049,21 @@ final class BuildingRuntimeSystem {
         MinecraftServer server, ResourceLocation dimension
     ) {
         List<RadarLocationCatalog.Location> result = new ArrayList<>();
+        ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, dimension));
+        if (level == null) return List.of();
         for (PersistedBuildingInstance instance : data(server).buildingInstances()) {
             if (!instance.dimension.equals(dimension.toString())) continue;
             if (instance.rotation == null || instance.rotation.isBlank()) continue;
-            BlockPos offset = exteriorDoorApproachOffset(
-                instance.structure, instance.rotation
-            );
+            BlockPos offset = RADAR_OFFSETS.computeIfAbsent(
+                dimension + "|" + instance.structure + "|" + instance.rotation,
+                key -> {
+                    BlockPos door = exteriorDoorApproachOffset(instance.structure, instance.rotation);
+                    // Same-dimension centers and marts author an entrance road jigsaw,
+                    // not a teleport-door anchor. Resolve template geometry, never scan chunks.
+                    return java.util.Optional.ofNullable(door != null ? door
+                        : exteriorRoadAnchorOffset(level, instance.structure, instance.rotation));
+                }
+            ).orElse(null);
             if (offset == null) continue;
             BlockPos entrance = instance.origin.offset(offset);
             String id = "building/" + instance.structure + "/"
@@ -2053,7 +2075,7 @@ final class BuildingRuntimeSystem {
                 entrance.getX() + 0.5D,
                 entrance.getY(),
                 entrance.getZ() + 0.5D,
-                instance.structure,
+                RadarLocationCatalog.buildingLabel(instance.structure),
                 instance.eventSpaceId == null ? "" : instance.eventSpaceId
             ));
         }

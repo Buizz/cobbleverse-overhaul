@@ -1,0 +1,54 @@
+{
+  "$schema": "../../../schemas/quest.schema.json",
+  "schema_version": 1,
+  "id": "cobbleventure:quest/main/learn_teleport",
+  "enabled": true,
+  "category": "main",
+  "display_name": {
+    "ko_kr": "달맞이산 너머 순간이동 배우기"
+  },
+  "summary": {
+    "ko_kr": "회색시티에서 출발해 달맞이산을 건너 블루시티 입구의 초능력자를 만나세요. 순간이동을 배우면 지도에서 이미 방문한 마을로 돌아갈 수 있습니다."
+  },
+  "accept_conditions": {
+    "condition_mode": "all",
+    "conditions": []
+  },
+  "global_activation": {
+    "enabled": true,
+    "conditions": {
+      "condition_mode": "all",
+      "conditions": [
+        {
+          "type": "badge",
+          "badge": "cobbleventure:badge/kanto/boulder"
+        }
+      ]
+    }
+  },
+  "objectives": [
+    {
+      "id": "learn_teleport",
+      "text": {
+        "ko_kr": "블루시티로 들어오는 길의 초능력자에게 순간이동 배우기"
+      },
+      "conditions": {
+        "condition_mode": "all",
+        "conditions": [
+          {
+            "type": "flag",
+            "key": "cobbleventure:flag/rewards/feature/settlement_teleport",
+            "value": true
+          }
+        ]
+      },
+      "marker": {
+        "type": "npc",
+        "target": "cobbleventure:npc/rewards/feature_teleport_guide"
+      }
+    }
+  ],
+  "completion": {
+    "mode": "automatic"
+  }
+}

@@ -31,6 +31,36 @@ COMMUNITY_SPEC.loader.exec_module(import_community_skin)
 
 
 class SkinPipelineTests(unittest.TestCase):
+    def test_legacy_skin_mirrors_left_limbs_and_preserves_authored_hat(self) -> None:
+        source = Image.new("RGBA", (64, 32))
+        for y in range(16, 32):
+            for x in range(64):
+                source.putpixel((x, y), (x, y, 10, 255))
+        source.putpixel((40, 8), (1, 2, 3, 255))
+        result = import_community_skin.convert_arm_model(source, "classic", "classic")
+        self.assertEqual((64, 64), result.size)
+        self.assertEqual(source.tobytes(), result.crop((0, 0, 64, 32)).tobytes())
+        self.assertEqual(source.getpixel((7, 20)), result.getpixel((20, 52)))
+        self.assertEqual(source.getpixel((11, 20)), result.getpixel((16, 52)))
+        self.assertEqual(source.getpixel((47, 20)), result.getpixel((36, 52)))
+        self.assertEqual(source.getpixel((51, 20)), result.getpixel((32, 52)))
+        self.assertIsNone(result.crop((0, 32, 64, 48)).getbbox())
+
+    def test_opaque_legacy_hat_background_is_removed(self) -> None:
+        result = import_community_skin.modernize_legacy_skin(Image.new("RGB", (64, 32), "blue"))
+        self.assertIsNone(result.crop((32, 0, 64, 16)).getbbox())
+        self.assertEqual((0, 0, 255, 255), result.getpixel((44, 20)))
+
+    def test_gatekeepers_use_police_skin_without_changing_behavior(self) -> None:
+        root = Path(__file__).parents[3] / "content-projects/cobbleventure-main/content/source/story"
+        for name in ("gym_guide", "starter_town_gatekeeper_minho", "saffron_gatekeeper", "viridian_gatekeeper"):
+            with self.subTest(npc=name):
+                npc = json.loads((root / f"{name}.json").read_text(encoding="utf-8"))["npc"]
+                self.assertEqual("cobbleventure:trainer_skin/police_officer", npc["appearance"]["resource"])
+                self.assertEqual("classic", npc["appearance"]["arm_model"])
+                self.assertTrue(npc["behavior"]["look_at_player"])
+                self.assertEqual("stationary", npc["behavior"]["movement"])
+
     def test_community_skin_arm_conversion_preserves_nearest_uv(self) -> None:
         source = Image.new("RGBA", (64, 64), (12, 34, 56, 255))
         slim = import_community_skin.convert_arm_model(source, "classic", "slim")
@@ -45,7 +75,10 @@ class SkinPipelineTests(unittest.TestCase):
         project_root = root / "content-projects" / "cobbleventure-main"
         catalog = json.loads((project_root / "content/catalogs/trainer-skin-sources.json").read_text(encoding="utf-8"))
         texture_root = root / "projects/cobbleventure-world-bootstrap/src/main/resources/assets/cobbleventure/textures/entity/trainer"
-        self.assertEqual(26, len(catalog["skins"]))
+        resources = [entry["resource"] for entry in catalog["skins"]]
+        self.assertEqual(len(resources), len(set(resources)))
+        for slug in ("hex_maniac", "youngster", "police_officer"):
+            self.assertIn(f"cobbleventure:trainer_skin/{slug}", resources)
         for entry in catalog["skins"]:
             slug = entry["resource"].rsplit("/", 1)[-1]
             with Image.open(texture_root / f"{slug}.png") as skin:
@@ -133,12 +166,17 @@ class SkinPipelineTests(unittest.TestCase):
 
         self.assertEqual({(230, 170, 120, 255)}, set(head.get_flattened_data()))
 
-    def test_youngster_manifest_covers_every_uv_face(self) -> None:
+    def test_youngster_manifest_uses_community_skin_without_equipment_rebuild(self) -> None:
         manifest_path = PIPELINE_PATH.parent / "work" / "youngster" / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         self.assertEqual("classic", manifest["model"])
-        self.assertEqual("four_row_atlas_v1", manifest["auto_layout"])
-        self.assertEqual(["head"], manifest["overlay_parts"])
+        self.assertEqual("community.png", manifest["source_skin"])
+        self.assertNotIn("equipment_outputs", manifest)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "youngster.png"
+            assemble_skin.assemble(manifest_path, output)
+            with Image.open(output) as actual, Image.open(manifest_path.parent / "community.png") as source:
+                self.assertEqual(source.convert("RGBA").tobytes(), actual.tobytes())
 
     def test_four_view_head_reuses_hair_back_for_top_and_bottom(self) -> None:
         atlas = Image.new("RGBA", (400, 600))
@@ -177,14 +215,15 @@ class SkinPipelineTests(unittest.TestCase):
                 self.assertIsNotNone(armor.getbbox())
                 self.assertEqual((64, 32), armor.size)
 
-    def test_easy_npc_preset_uses_head_slot_custom_skin_and_root_scale(self) -> None:
+    def test_easy_npc_preset_uses_full_skin_without_duplicate_hat(self) -> None:
         root = Path(__file__).parents[3]
         project_root = root / "content-projects" / "cobbleventure-main"
         catalog = json.loads(
             (project_root / "content" / "catalogs" / "trainer-outfits.json").read_text(encoding="utf-8")
         )
         preset = generate_easy_npc_presets.preset_snbt(catalog["outfits"][0])
-        self.assertIn('ArmorItems:[{},{},{},{Count:1b,id:"cobbleventure_bootstrap:youngster_cap"}]', preset)
+        self.assertNotIn('cobbleventure_bootstrap:youngster_cap', preset)
+        self.assertEqual("cobbleventure:trainer_skin/youngster", catalog["outfits"][0]["base_skin"])
         self.assertIn('SkinData:{Type:"CUSTOM",UUID:[I;', preset)
         self.assertIn('ModelData:{Root:{Scale:[0.780f,0.780f,0.780f]}}', preset)
 

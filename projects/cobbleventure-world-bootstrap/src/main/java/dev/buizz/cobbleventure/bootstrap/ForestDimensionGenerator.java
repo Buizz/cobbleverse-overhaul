@@ -14,17 +14,22 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.phys.AABB;
 import org.slf4j.Logger;
 
 /** Builds authored two-dimensional forests inside the dedicated forest dimension. */
 final class ForestDimensionGenerator {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int UPDATE_FLAGS = 2;
+    // Bulk terrain replacement must not uproot neighboring plants via shape updates.
+    // Level strips SUPPRESS_DROPS before forwarding those updates, so skip them too.
+    private static final int UPDATE_FLAGS = Block.UPDATE_CLIENTS
+        | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SUPPRESS_DROPS;
     private static final int LAYOUT_VERSION = 9;
     private static final int MARKER_Y = 210;
     private static final int MINIMUM_OUTER_BARRIER_HEIGHT = 32;
@@ -34,7 +39,45 @@ final class ForestDimensionGenerator {
     static void generate(ServerLevel level, long worldSeed, Map<String, JsonObject> forests) {
         for (Map.Entry<String, JsonObject> entry : forests.entrySet()) {
             generateForest(level, worldSeed ^ entry.getKey().hashCode(), entry.getKey(), entry.getValue());
+            // Also clean old generation debris without rebuilding an existing forest.
+            scheduleForestDebrisCleanup(level, entry.getKey(), entry.getValue());
         }
+    }
+
+    private static void scheduleForestDebrisCleanup(
+        ServerLevel level, String forestId, JsonObject forest
+    ) {
+        JsonObject dimension = forest.getAsJsonObject("dimension");
+        JsonObject origin = dimension.getAsJsonObject("origin");
+        JsonObject bounds = dimension.getAsJsonObject("bounds");
+        int originX = origin.get("x").getAsInt();
+        int originZ = origin.get("z").getAsInt();
+        // Tree crowns reach three blocks beyond the authored bounds.
+        CobbleventureBootstrap.scheduleGenerationDebrisCleanup(level, forestId, new AABB(
+            originX + bounds.get("min_x").getAsInt() - 3, level.getMinBuildHeight(),
+            originZ + bounds.get("min_z").getAsInt() - 3,
+            originX + bounds.get("max_x").getAsInt() + 3, level.getMaxBuildHeight(),
+            originZ + bounds.get("max_z").getAsInt() + 3
+        ));
+    }
+
+    /** The authored road/floor height, independent of already placed structures. */
+    static int plannedSurfaceY(JsonObject forest, int worldX, int worldZ) {
+        JsonObject dimension = forest.getAsJsonObject("dimension");
+        JsonObject origin = dimension.getAsJsonObject("origin");
+        TerrainTiles terrain = terrainTiles(forest);
+        return origin.get("y").getAsInt() - 1 + terrain.heightAt(
+            worldX - origin.get("x").getAsInt(),
+            worldZ - origin.get("z").getAsInt()
+        );
+    }
+
+    private static TerrainTiles terrainTiles(JsonObject forest) {
+        return TerrainTiles.parse(
+            forest.getAsJsonArray("terrain_tiles"),
+            forest.getAsJsonObject("dimension").getAsJsonObject("bounds"),
+            forest.getAsJsonObject("generator").get("cell_size").getAsInt()
+        );
     }
 
     private static void generateForest(
@@ -58,8 +101,6 @@ final class ForestDimensionGenerator {
             return;
         }
 
-        JsonObject generator = forest.getAsJsonObject("generator");
-        int cellSize = generator.get("cell_size").getAsInt();
         JsonObject barrier = forest.getAsJsonObject("tree_barrier");
         int minimumTreeHeight = barrier.get("min_height").getAsInt();
         int maximumTreeHeight = barrier.get("max_height").getAsInt();
@@ -78,9 +119,7 @@ final class ForestDimensionGenerator {
             forest.getAsJsonArray("paths"), forest.getAsJsonArray("entrances"),
             originX, originZ, pathClearance
         );
-        TerrainTiles terrain = TerrainTiles.parse(
-            forest.getAsJsonArray("terrain_tiles"), bounds, cellSize
-        );
+        TerrainTiles terrain = terrainTiles(forest);
         int baseSurfaceY = originY - 1;
         int outerBarrierHeight = Math.max(
             MINIMUM_OUTER_BARRIER_HEIGHT, maximumTreeHeight + 8

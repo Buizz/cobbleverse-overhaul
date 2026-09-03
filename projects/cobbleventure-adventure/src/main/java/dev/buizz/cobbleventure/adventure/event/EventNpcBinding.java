@@ -3,7 +3,12 @@ package dev.buizz.cobbleventure.adventure.event;
 import java.util.Objects;
 
 /** Representation-neutral link between an entity tag and a compiled CVES script. */
-public record EventNpcBinding(String bindingId, String entityTag, String scriptId) {
+public record EventNpcBinding(String bindingId, String entityTag, String scriptId,
+                              EventBattlePreset.MoneyReward moneyReward) {
+    public EventNpcBinding(String bindingId, String entityTag, String scriptId) {
+        this(bindingId, entityTag, scriptId, null);
+    }
+
     public EventNpcBinding {
         requireValue(bindingId, "bindingId");
         requireValue(entityTag, "entityTag");

@@ -116,6 +116,28 @@ class LootTableDocumentTests(unittest.TestCase):
         self.assertEqual(1, len(issues))
         self.assertIn("중복 JSON 키", issues[0].message)
 
+    def test_project_registered_base_items_extend_dependency_catalog_but_not_aliases(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "content/loot_tables/test/reward.json"
+            source.parent.mkdir(parents=True)
+            source.write_text(json.dumps({"pools": [{"rolls": 1, "entries": [
+                {"type": "minecraft:item", "name": "test:registered_flute"},
+                {"type": "minecraft:item", "name": "test:flute_alias"},
+                {"type": "minecraft:item", "name": "test:missing"},
+            ]}]}), encoding="utf-8")
+            definitions = root / "content/catalogs/game-definitions.json"
+            definitions.parent.mkdir(parents=True)
+            definitions.write_text(json.dumps({"items": [
+                {"id": "test:flute_alias", "base_item": "test:registered_flute"},
+            ]}), encoding="utf-8")
+            catalog = root / "items.json"
+            catalog.write_text('{"items": []}', encoding="utf-8")
+            issues = validate_loot_tables(root, catalog)
+        self.assertEqual(2, len(issues))
+        self.assertIn("test:flute_alias", issues[0].message)
+        self.assertIn("test:missing", issues[1].message)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -59,6 +59,7 @@ public final class WorldBootstrapRadarProvider {
             case "POKEMART" -> RadarMarkerType.POKEMART;
             case "CASINO" -> RadarMarkerType.CASINO;
             case "CAVE_ENTRANCE" -> RadarMarkerType.CAVE_ENTRANCE;
+            case "DUNGEON_ENTRANCE" -> RadarMarkerType.DUNGEON_ENTRANCE;
             case "FOREST_ENTRANCE" -> RadarMarkerType.FOREST_ENTRANCE;
             case "GATE" -> RadarMarkerType.GATE;
             default -> RadarMarkerType.SPECIAL_BUILDING;
@@ -147,6 +148,8 @@ public final class WorldBootstrapRadarProvider {
             case OBJECTIVE -> 800;
             case TRAINER, IMPORTANT_NPC -> 400;
             case POKEMON_CENTER, POKEMART -> 700;
+            // A dungeon entrance must not disappear behind its host building or cave.
+            case DUNGEON_ENTRANCE -> 600;
             case CASINO, SPECIAL_BUILDING -> 300;
             case CAVE_ENTRANCE, FOREST_ENTRANCE, GATE -> 200;
             default -> 100;

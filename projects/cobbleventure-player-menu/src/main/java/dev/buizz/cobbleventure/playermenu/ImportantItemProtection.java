@@ -46,6 +46,14 @@ public final class ImportantItemProtection {
         return DEFINITIONS.stream().anyMatch(definition -> definition.item().equals(itemId));
     }
 
+    /** Acquisition is recorded by the reward grant, never by the boss-defeated flag. */
+    public static String acquisitionFlag(ItemStack stack) {
+        if (stack.isEmpty()) return null;
+        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return DEFINITIONS.stream().filter(definition -> definition.item().equals(itemId))
+            .map(Definition::acquisitionFlag).findFirst().orElse(null);
+    }
+
     public static void notifyProtected(ServerPlayer player, ItemStack stack) {
         player.displayClientMessage(Component.translatable(
             "message.cobbleventure_player_menu.important_item.protected",
