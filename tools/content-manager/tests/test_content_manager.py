@@ -282,6 +282,22 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".dungeon-complexity-control", styles)
         self.assertIn(".dungeon-layout-advanced", styles)
 
+    def test_dungeon_editor_separates_topology_from_vertical_layout(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+
+        self.assertIn('name="topologyMode"', markup)
+        self.assertIn('value="room_network"', markup)
+        self.assertIn('value="hub_and_spokes"', markup)
+        self.assertIn('name="verticalMode"', markup)
+        self.assertIn('value="discrete_floors"', markup)
+        self.assertIn('name="floorHeight"', markup)
+        self.assertIn("function dungeonTopology", script)
+        self.assertIn("function dungeonVertical", script)
+        self.assertIn("document.topology =", script)
+        self.assertIn("document.vertical =", script)
+        self.assertIn("vertical.floor_height || 8", script)
+
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
         document["difficulty"]["recommended_min"] = 20

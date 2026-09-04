@@ -221,6 +221,43 @@
         }
       }
     },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "critical_path_rooms", "branch_count", "branch_depth"],
+      "properties": {
+        "mode": {
+          "enum": ["authored", "corridor_spine", "hub_and_spokes", "room_network", "chamber_maze", "natural_network"]
+        },
+        "critical_path_rooms": { "$ref": "#/$defs/room_range" },
+        "branch_count": { "$ref": "#/$defs/nonnegative_range" },
+        "branch_depth": { "$ref": "#/$defs/positive_range" },
+        "loop_chance": {
+          "type": "number", "minimum": 0, "maximum": 1, "default": 0
+        }
+      }
+    },
+    "vertical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["flat", "continuous", "discrete_floors", "authored"] },
+        "direction": { "enum": ["ascending", "descending", "mixed"] },
+        "floor_count": { "$ref": "#/$defs/positive_range" },
+        "floor_height": { "type": "integer", "minimum": 4, "maximum": 64 },
+        "connections_per_floor": { "$ref": "#/$defs/positive_range" }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "mode": { "const": "discrete_floors" } },
+          "required": ["mode"]
+        },
+        "then": {
+          "required": ["direction", "floor_count", "floor_height", "connections_per_floor"]
+        }
+      }]
+    },
     "npc_placement": {
       "type": "object",
       "additionalProperties": false,

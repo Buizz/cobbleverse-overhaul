@@ -286,6 +286,7 @@ final class DungeonDefinitionTest {
     void exposesDistinctMultiplayerModesAndCatchableZapdosBoss() throws Exception {
         DungeonDefinition casino = resource("rocket_casino_hideout");
         DungeonDefinition silph = resource("rocket_silph_company");
+        DungeonDefinition tower = resource("rocket_pokemon_tower");
         DungeonDefinition zapdos = resource("zapdos_storm_chamber");
 
         assertEquals("cooperative", casino.multiplayer().mode());
@@ -315,6 +316,13 @@ final class DungeonDefinitionTest {
         assertEquals(8, silph.encounters().size());
         assertEquals("descending", casino.layout().verticalDirection());
         assertEquals("ascending", silph.layout().verticalDirection());
+        assertEquals("room_network", casino.topology().mode());
+        assertEquals("corridor_spine", silph.topology().mode());
+        assertEquals("corridor_spine", tower.topology().mode());
+        assertEquals("discrete_floors", casino.vertical().mode());
+        assertEquals("discrete_floors", silph.vertical().mode());
+        assertEquals("discrete_floors", tower.vertical().mode());
+        assertEquals(8, silph.vertical().floorHeight());
         assertEquals("procedural_cave", zapdos.terrain().mode());
         assertEquals("rock", zapdos.terrain().caveSettings().style());
         assertEquals(4, zapdos.terrain().caveSettings().mainRooms());

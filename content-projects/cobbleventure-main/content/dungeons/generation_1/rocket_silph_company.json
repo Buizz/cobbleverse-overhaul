@@ -24,6 +24,8 @@
   "plan": { "mode": "runtime", "seed_policy": "random_per_run", "fallback": "use_fallback_plan", "generation_timeout_ms": 1000, "max_attempts": 48 },
   "terrain": { "mode": "nbt_pieces", "piece_pool": "cobbleventure:dungeon_pool/rocket_test", "bounds": [80, 72, 80] },
   "layout": { "mode": "rooms_and_corridors", "critical_path_rooms": [15, 16], "branch_count": [1, 1], "branch_depth": [1, 1], "loop_chance": 0.0, "vertical_direction": "ascending", "floor_changes": [1, 2] },
+  "topology": { "mode": "corridor_spine", "critical_path_rooms": [15, 16], "branch_count": [1, 1], "branch_depth": [1, 1], "loop_chance": 0.0 },
+  "vertical": { "mode": "discrete_floors", "direction": "ascending", "floor_count": [2, 3], "floor_height": 8, "connections_per_floor": [1, 1] },
   "npc_placement": { "capacity_mode": "from_encounters", "minimum_spacing": 4, "maximum_per_room": 3 },
   "encounters": [
     {

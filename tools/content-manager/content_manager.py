@@ -9281,6 +9281,30 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             layout = object_at("layout")
             if layout.get("mode") not in {"fixed", "critical_path_branches", "maze", "rooms_and_corridors"}:
                 _issue(issues, "error", path, "$.layout.mode", "지원하지 않는 경로 형태입니다.")
+            topology = data.get("topology")
+            if topology is not None:
+                if not isinstance(topology, dict):
+                    _issue(issues, "error", path, "$.topology", "동선 계획은 객체여야 합니다.")
+                else:
+                    topology_mode = topology.get("mode")
+                    if topology_mode not in {"authored", "corridor_spine", "hub_and_spokes", "room_network", "chamber_maze", "natural_network"}:
+                        _issue(issues, "error", path, "$.topology.mode", "지원하지 않는 동선 계획입니다.")
+                    if plan.get("mode") == "runtime" and topology_mode in {"authored", "chamber_maze", "natural_network"}:
+                        _issue(issues, "error", path, "$.topology.mode", "이 동선은 아직 전용 공간 제작기가 필요합니다.")
+            vertical = data.get("vertical")
+            if vertical is not None:
+                if not isinstance(vertical, dict):
+                    _issue(issues, "error", path, "$.vertical", "수직 배치 계획은 객체여야 합니다.")
+                else:
+                    vertical_mode = vertical.get("mode")
+                    if vertical_mode not in {"flat", "continuous", "discrete_floors", "authored"}:
+                        _issue(issues, "error", path, "$.vertical.mode", "지원하지 않는 수직 배치 방식입니다.")
+                    if vertical_mode == "discrete_floors":
+                        for key in ("floor_count", "connections_per_floor"):
+                            value = vertical.get(key)
+                            if not isinstance(value, list) or len(value) != 2 or any(not isinstance(item, int) or isinstance(item, bool) or item < 1 for item in value):
+                                _issue(issues, "error", path, f"$.vertical.{key}", "양수 최소·최대 두 값이 필요합니다.")
+                        integer(vertical.get("floor_height"), 4, 64, "$.vertical.floor_height")
 
     completion = object_at("completion")
     if not isinstance(completion.get("repeatable"), bool):
@@ -9846,7 +9870,9 @@ def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
         item["layout_mode"] = (
             terrain.get("generator", {}).get("layout", "natural_network")
             if terrain.get("mode") in {"procedural_cave", "hybrid"}
-            else document.get("layout", {}).get("mode", "fixed")
+            else document.get("topology", {}).get(
+                "mode", document.get("layout", {}).get("mode", "fixed")
+            )
         )
         item["plan_mode"] = document.get("plan", {}).get("mode", "authored")
     return {

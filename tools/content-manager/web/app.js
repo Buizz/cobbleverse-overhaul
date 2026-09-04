@@ -5331,7 +5331,7 @@ function renderDungeonList() {
       const terrain = item.document?.terrain || {};
       const layoutMode = ["procedural_cave", "hybrid"].includes(terrain.mode)
         ? terrain.generator?.layout || "natural_network"
-        : item.layout_mode || "fixed";
+        : item.document?.topology?.mode || item.layout_mode || "fixed";
       return `<button class="document-button ${state.dungeonPath === item.path ? "is-active" : ""}" data-dungeon-path="${escapeHtml(item.path)}"><strong>${escapeHtml(item.name || item.id || "이름 없음")}</strong><small>${escapeHtml(item.id || item.path)} · ${escapeHtml(layoutMode)}</small></button>`;
     }).join("")
     : '<div class="issues empty">등록된 던전이 없습니다.</div>';
@@ -5363,6 +5363,43 @@ function parseDungeonRange(value, fallback, minimum = 0) {
   return normalized[0] <= normalized[1] ? normalized : [normalized[1], normalized[0]];
 }
 
+function dungeonTopology(document = {}) {
+  if (document.topology) return document.topology;
+  const layout = document.layout || {};
+  const mode = ({
+    fixed: "authored",
+    critical_path_branches: "corridor_spine",
+    rooms_and_corridors: "room_network",
+    maze: "room_network",
+  })[layout.mode] || "corridor_spine";
+  return {
+    mode,
+    critical_path_rooms: layout.critical_path_rooms || [5, 7],
+    branch_count: layout.branch_count || [1, 2],
+    branch_depth: layout.branch_depth || [1, 2],
+    loop_chance: layout.loop_chance || 0,
+  };
+}
+
+function dungeonVertical(document = {}) {
+  if (document.vertical) return document.vertical;
+  const layout = document.layout || {};
+  const changes = dungeonRange(layout.floor_changes, [0, 0]);
+  const direction = layout.vertical_direction || "flat";
+  return {
+    mode: direction === "flat" ? "flat" : "discrete_floors",
+    direction: direction === "flat" ? "ascending" : direction,
+    floor_count: changes.map((value) => value + 1),
+    floor_height: 8,
+    connections_per_floor: [1, 1],
+  };
+}
+
+function legacyDungeonLayoutMode(mode) {
+  return ({ authored: "fixed", room_network: "rooms_and_corridors", hub_and_spokes: "rooms_and_corridors" })[mode]
+    || "critical_path_branches";
+}
+
 const dungeonComplexityPresets = {
   simple: { criticalRooms: "6, 8", branchCount: "0, 1", branchDepth: "1, 1", loopChance: 0, floors: "1, 2" },
   standard: { criticalRooms: "9, 12", branchCount: "1, 3", branchDepth: "1, 2", loopChance: .05, floors: "2, 4" },
@@ -5376,12 +5413,12 @@ const dungeonComplexityDescriptions = {
   custom: "상세 생성 옵션에서 직접 지정한 값",
 };
 
-function inferDungeonLayoutComplexity(layout = {}) {
-  const critical = dungeonRange(layout.critical_path_rooms, [5, 7])[1];
-  const branches = dungeonRange(layout.branch_count, [1, 2])[1];
-  const branchDepth = dungeonRange(layout.branch_depth, [1, 2])[1];
-  const floors = layout.vertical_direction === "flat" ? 0 : dungeonRange(layout.floor_changes, [0, 0])[1];
-  const loopChance = Number(layout.loop_chance || 0);
+function inferDungeonLayoutComplexity(topology = {}, vertical = {}) {
+  const critical = dungeonRange(topology.critical_path_rooms, [5, 7])[1];
+  const branches = dungeonRange(topology.branch_count, [1, 2])[1];
+  const branchDepth = dungeonRange(topology.branch_depth, [1, 2])[1];
+  const floors = vertical.mode === "flat" ? 1 : dungeonRange(vertical.floor_count, [1, 1])[1];
+  const loopChance = Number(topology.loop_chance || 0);
   const score = Math.max(
     critical <= 8 ? 0 : critical <= 12 ? 1 : 2,
     branches <= 1 ? 0 : branches <= 3 ? 1 : 2,
@@ -5406,18 +5443,20 @@ function applyDungeonComplexityPreset(level) {
     if (name === "floors") continue;
     form.elements[name].value = value;
   }
-  form.elements.floorChanges.value = form.elements.verticalDirection.value === "flat" ? "0, 0" : preset.floors;
+  form.elements.floorCount.value = form.elements.verticalMode.value === "flat" ? "1, 1" : preset.floors;
   form.elements.layoutComplexity.value = level;
   updateDungeonComplexitySummary();
 }
 
 function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
-  const critical = parseDungeonRange(form?.elements?.criticalRooms?.value || dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]), [5, 7], 3);
-  const branchDepth = parseDungeonRange(form?.elements?.branchDepth?.value || dungeonRangeText(document.layout?.branch_depth, [1, 2]), [1, 2], 1);
-  const floorChanges = parseDungeonRange(form?.elements?.floorChanges?.value || dungeonRangeText(document.layout?.floor_changes, [0, 0]), [0, 0], 0);
+  const topology = dungeonTopology(document);
+  const vertical = dungeonVertical(document);
+  const critical = parseDungeonRange(form?.elements?.criticalRooms?.value || dungeonRangeText(topology.critical_path_rooms, [5, 7]), [5, 7], 3);
+  const branchDepth = parseDungeonRange(form?.elements?.branchDepth?.value || dungeonRangeText(topology.branch_depth, [1, 2]), [1, 2], 1);
+  const floorCount = parseDungeonRange(form?.elements?.floorCount?.value || dungeonRangeText(vertical.floor_count, [1, 1]), [1, 1], 1);
   const horizontalCells = Math.max(6, critical[1] + branchDepth[1] + 2);
-  const verticalLayers = Math.max(2, floorChanges[1] + 2);
-  return [horizontalCells * 16, verticalLayers * 8, horizontalCells * 16];
+  const floorHeight = Math.max(4, Number(form?.elements?.floorHeight?.value || vertical.floor_height || 8));
+  return [horizontalCells * 16, Math.max(16, floorCount[1] * floorHeight), horizontalCells * 16];
 }
 
 const dungeonTemplateSlotLabels = {
@@ -5530,9 +5569,13 @@ function renderDungeonOptionVisibility() {
   $$('[data-dungeon-bounds-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
   $$('[data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
   $$('[data-dungeon-cave-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
-  ["layoutMode", "criticalRooms", "branchCount", "branchDepth", "loopChance", "verticalDirection", "floorChanges"].forEach((name) => {
+  ["topologyMode", "criticalRooms", "branchCount", "branchDepth", "loopChance", "verticalMode", "verticalDirection", "floorCount", "floorHeight"].forEach((name) => {
     const field = form.elements[name]?.closest("label");
     if (field) field.hidden = ["procedural_cave", "hybrid"].includes(terrainMode);
+  });
+  $$('[data-dungeon-vertical-field]').forEach((element) => {
+    element.hidden = ["procedural_cave", "hybrid"].includes(terrainMode)
+      || form.elements.verticalMode.value === "flat";
   });
   $$('[data-dungeon-party-field]').forEach((element) => element.hidden = multiplayerMode === "solo");
   $$('[data-dungeon-tether-field]').forEach((element) => element.hidden = multiplayerMode !== "cooperative");
@@ -5558,6 +5601,8 @@ function renderDungeonForm() {
   const document = state.dungeon;
   if (!document) return;
   const form = $("#dungeon-form");
+  const topology = dungeonTopology(document);
+  const vertical = dungeonVertical(document);
   form.hidden = false;
   const values = {
     dungeonId: document.dungeon_id, nameKo: document.display_name?.ko_kr, nameEn: document.display_name?.en_us,
@@ -5585,10 +5630,10 @@ function renderDungeonForm() {
     planMode: document.plan?.mode || "runtime", seedPolicy: document.plan?.seed_policy || "random_per_run",
     planFallback: document.plan?.fallback || "reject_entry", generationTimeout: document.plan?.generation_timeout_ms ?? 1000,
     maxAttempts: document.plan?.max_attempts ?? 32, planIds: (document.plan?.plan_ids || []).join(", "),
-    layoutMode: document.layout?.mode || "critical_path_branches", layoutComplexity: inferDungeonLayoutComplexity(document.layout), criticalRooms: dungeonRangeText(document.layout?.critical_path_rooms, [5, 7]),
-    branchCount: dungeonRangeText(document.layout?.branch_count, [1, 2]), branchDepth: dungeonRangeText(document.layout?.branch_depth, [1, 2]),
-    loopChance: document.layout?.loop_chance ?? 0, verticalDirection: document.layout?.vertical_direction || "flat",
-    floorChanges: dungeonRangeText(document.layout?.floor_changes, [0, 0]), resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
+    topologyMode: topology.mode || "corridor_spine", layoutComplexity: inferDungeonLayoutComplexity(topology, vertical), criticalRooms: dungeonRangeText(topology.critical_path_rooms, [5, 7]),
+    branchCount: dungeonRangeText(topology.branch_count, [1, 2]), branchDepth: dungeonRangeText(topology.branch_depth, [1, 2]),
+    loopChance: topology.loop_chance ?? 0, verticalMode: vertical.mode || "flat", verticalDirection: vertical.direction || "ascending",
+    floorCount: dungeonRangeText(vertical.floor_count, [1, 1]), floorHeight: vertical.floor_height ?? 8, resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
     npcCapacityMode: document.npc_placement?.capacity_mode || "from_encounters",
     npcRequiredSlots: document.npc_placement?.required_slots ?? 1,
     npcMinimumSpacing: document.npc_placement?.minimum_spacing ?? 4,
@@ -5686,7 +5731,19 @@ function updateDungeonFromForm() {
     }
     document.plan = { ...(document.plan || {}), mode: form.elements.planMode.value, seed_policy: form.elements.seedPolicy.value, fallback: form.elements.planFallback.value, generation_timeout_ms: integer("generationTimeout", 1000), max_attempts: integer("maxAttempts", 32) };
     const planIds = csvValues(form.elements.planIds.value); if (planIds.length) document.plan.plan_ids = planIds; else delete document.plan.plan_ids;
-    if (!["procedural_cave", "hybrid"].includes(terrainMode)) document.layout = { mode: form.elements.layoutMode.value, critical_path_rooms: parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3), branch_count: parseDungeonRange(form.elements.branchCount.value, [1, 2], 0), branch_depth: parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1), loop_chance: Number(form.elements.loopChance.value || 0), vertical_direction: form.elements.verticalDirection.value, floor_changes: parseDungeonRange(form.elements.floorChanges.value, [0, 0], 0) };
+    if (!["procedural_cave", "hybrid"].includes(terrainMode)) {
+      const topologyMode = form.elements.topologyMode.value;
+      const verticalMode = form.elements.verticalMode.value;
+      const criticalPathRooms = parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3);
+      const branchCount = parseDungeonRange(form.elements.branchCount.value, [1, 2], 0);
+      const branchDepth = parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1);
+      const loopChance = Number(form.elements.loopChance.value || 0);
+      const floorCount = verticalMode === "flat" ? [1, 1] : parseDungeonRange(form.elements.floorCount.value, [2, 2], 1);
+      const verticalDirection = verticalMode === "flat" ? "ascending" : form.elements.verticalDirection.value;
+      document.topology = { mode: topologyMode, critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance };
+      document.vertical = { mode: verticalMode, direction: verticalDirection, floor_count: floorCount, floor_height: integer("floorHeight", 8), connections_per_floor: [1, 1] };
+      document.layout = { mode: legacyDungeonLayoutMode(topologyMode), critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance, vertical_direction: verticalMode === "flat" ? "flat" : verticalDirection, floor_changes: floorCount.map((value) => Math.max(0, value - 1)) };
+    }
   }
   document.lifecycle ||= { on_wipe: "reset_run" };
   Object.assign(document.lifecycle, { on_wipe: "reset_run", wipe_return: form.elements.wipeReturn.value, heal_on_wipe: form.elements.healOnWipe.checked, resume_mode: form.elements.resumeMode.value, reconnect_grace_seconds: integer("reconnectGrace", 120) });
@@ -6684,11 +6741,12 @@ function runtimeDungeonPlan(document, seed) {
   const random = seededDungeonRandom(seed);
   const caveTerrain = ["procedural_cave", "hybrid"].includes(document.terrain?.mode);
   const caveGenerator = normalizeNaturalCaveGenerator(document.terrain?.generator);
-  const layout = caveTerrain ? {} : document.layout || {};
-  const mode = caveTerrain ? "natural_network" : layout.mode || "critical_path_branches";
-  const roomsRange = caveTerrain ? [caveGenerator.main_rooms, caveGenerator.main_rooms] : dungeonRange(layout.critical_path_rooms, [5, 7]);
-  const branchesRange = caveTerrain ? [caveGenerator.branch_count, caveGenerator.branch_count] : dungeonRange(layout.branch_count, [1, 2]);
-  const depthRange = caveTerrain ? [1, 1] : dungeonRange(layout.branch_depth, [1, 2]);
+  const topology = caveTerrain ? {} : dungeonTopology(document);
+  const vertical = caveTerrain ? {} : dungeonVertical(document);
+  const mode = caveTerrain ? "natural_network" : topology.mode || "corridor_spine";
+  const roomsRange = caveTerrain ? [caveGenerator.main_rooms, caveGenerator.main_rooms] : dungeonRange(topology.critical_path_rooms, [5, 7]);
+  const branchesRange = caveTerrain ? [caveGenerator.branch_count, caveGenerator.branch_count] : dungeonRange(topology.branch_count, [1, 2]);
+  const depthRange = caveTerrain ? [1, 1] : dungeonRange(topology.branch_depth, [1, 2]);
   const count = Math.max(3, Math.round(roomsRange[0] + random() * (roomsRange[1] - roomsRange[0])));
   const branchCount = Math.max(0, Math.round(branchesRange[0] + random() * (branchesRange[1] - branchesRange[0])));
   const cell = caveTerrain ? 12 : 16;
@@ -6696,11 +6754,10 @@ function runtimeDungeonPlan(document, seed) {
   const maxGridX = Math.max(1, Math.floor(Number(previewBounds[0] || 128) / cell));
   const maxGridZ = Math.max(1, Math.floor(Number(previewBounds[2] || 128) / cell));
   const piecePool = document.terrain?.piece_pool;
-  const ordinaryPieces = [...state.dungeonPieces.values()].filter((piece) => (!piecePool || (piece.tags || []).includes(piecePool)) && !(piece.tags || []).some((tag) => tag.endsWith("/stairs_up") || tag.endsWith("/stairs_down")));
-  const layerHeight = caveTerrain ? 6 : Math.max(1, ...ordinaryPieces.map((piece) => Number(piece.size?.[1] || 0)), 8);
-  const floorRange = caveTerrain ? [0, 0] : dungeonRange(layout.floor_changes, [0, 0]);
-  const requestedFloorChanges = Math.round(floorRange[0] + random() * (floorRange[1] - floorRange[0]));
-  const floorChangeCount = layout.vertical_direction === "flat" ? 0 : Math.min(Math.floor((count - 3) / 2), requestedFloorChanges);
+  const layerHeight = caveTerrain ? 6 : Math.max(4, Number(vertical.floor_height || 8));
+  const floorCountRange = caveTerrain ? [1, 1] : dungeonRange(vertical.floor_count, [1, 1]);
+  const requestedFloorCount = Math.round(floorCountRange[0] + random() * (floorCountRange[1] - floorCountRange[0]));
+  const floorChangeCount = vertical.mode === "flat" ? 0 : Math.min(Math.floor((count - 3) / 2), Math.max(0, requestedFloorCount - 1));
   const grid = [];
   const links = [];
   const occupied = new Set();
@@ -6724,7 +6781,7 @@ function runtimeDungeonPlan(document, seed) {
   for (let index = 0; index < count; index += 1) {
     const needsStairs = floor < floorChangeCount && roomOnFloor >= roomsByFloor[floor];
     if (needsStairs) {
-      const direction = layout.vertical_direction === "descending" ? -1 : layout.vertical_direction === "mixed" && floor % 2 === 1 ? -1 : 1;
+      const direction = vertical.direction === "descending" ? -1 : vertical.direction === "mixed" && floor % 2 === 1 ? -1 : 1;
       const gx = floorStartX + travelX * roomsByFloor[floor];
       const gz = floorStartZ + travelZ * roomsByFloor[floor];
       const placed = addGrid(gx, gy, gz, "corridor", true, { shape: direction > 0 ? "stairs_up" : "stairs_down", verticalTransition: true, floorLevels: [gy, gy + direction], pathDirection: [travelX, travelZ] });
@@ -6738,7 +6795,7 @@ function runtimeDungeonPlan(document, seed) {
     const gx = floorStartX + travelX * roomOnFloor;
     const gz = floorStartZ + travelZ * roomOnFloor;
     const floorLanding = floor > 0 && roomOnFloor === 0;
-    const role = ordinaryIndex === 0 ? "start" : ordinaryIndex === ordinaryCount - 2 ? "boss" : ordinaryIndex === ordinaryCount - 1 ? "exit" : floorLanding ? "corridor" : mode === "maze" ? (ordinaryIndex % 3 === 0 ? "junction" : "corridor") : mode === "rooms_and_corridors" ? (ordinaryIndex % 3 === 0 ? "room" : "corridor") : "room";
+    const role = ordinaryIndex === 0 ? "start" : ordinaryIndex === ordinaryCount - 2 ? "boss" : ordinaryIndex === ordinaryCount - 1 ? "exit" : floorLanding ? "corridor" : mode === "room_network" ? (ordinaryIndex % 2 === 0 ? "room" : "corridor") : mode === "hub_and_spokes" ? (ordinaryIndex === 2 ? "room" : "corridor") : ordinaryIndex % 3 === 0 ? "room" : "corridor";
     const placed = addGrid(gx, gy, gz, role, true);
     if (index) links.push({ from: placed - 1, to: placed, critical: true });
     roomOnFloor += 1; ordinaryIndex += 1;
@@ -6762,7 +6819,7 @@ function runtimeDungeonPlan(document, seed) {
         [dx, dz] = alternative; bx = base.gx + dx * step; bz = base.gz + dz * step;
       }
       if (!insidePreviewBounds(bx, bz)) break;
-      const role = step === depth ? "dead_end" : mode === "maze" ? "corridor" : step % 3 === 0 ? "room" : "corridor";
+      const role = step === depth ? "dead_end" : mode === "room_network" && step % 2 === 1 ? "room" : "corridor";
       const placed = addGrid(bx, base.gy, bz, role, false);
       links.push({ from: previous, to: placed, critical: false });
       previous = placed;
@@ -7082,9 +7139,12 @@ function renderDungeonPreview() {
   $("#dungeon-preview-empty").hidden = true; $("#dungeon-preview-details").hidden = false;
   const layoutMode = ["procedural_cave", "hybrid"].includes(state.dungeon.terrain?.mode)
     ? state.dungeon.terrain?.generator?.layout || "natural_network"
-    : state.dungeon.layout?.mode || "fixed";
+    : dungeonTopology(state.dungeon).mode || "authored";
+  const verticalMode = ["procedural_cave", "hybrid"].includes(state.dungeon.terrain?.mode)
+    ? "natural"
+    : dungeonVertical(state.dungeon).mode || "flat";
   const capacityMetric = plan.npcCapacity ? `<dt>NPC 슬롯</dt><dd class="${plan.npcCapacity.valid ? "" : "dungeon-inline-error"}">${plan.npcCapacity.demand} 필요 / ${plan.npcCapacity.capacity} 가능</dd>` : "";
-  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
+  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>동선 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>층 배치</dt><dd>${escapeHtml(verticalMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
   const visibleMarkers = plan.markers.filter(onSelectedFloor);
   const markerIcons = { entry: "S", exit: "E", encounter: "N", npc_spawn: "P", boss: "B", healing: "+", checkpoint: "C", loot: "L", objective: "!", gate: "G" };
@@ -18115,7 +18175,7 @@ $("#dungeon-form").addEventListener("change", (event) => {
     updateDungeonFromForm();
     state.dungeonDirty = true;
   }
-  if (event.target.name === "verticalDirection" && form.elements.layoutComplexity.value !== "custom") {
+  if (event.target.name === "verticalMode" && form.elements.layoutComplexity.value !== "custom") {
     applyDungeonComplexityPreset(form.elements.layoutComplexity.value);
     updateDungeonFromForm();
     state.dungeonDirty = true;

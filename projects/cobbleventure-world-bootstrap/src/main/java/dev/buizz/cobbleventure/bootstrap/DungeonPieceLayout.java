@@ -49,11 +49,10 @@ record DungeonPieceLayout(
             throw new IllegalStateException("Dungeon piece pool is empty: " + pool);
         }
         DungeonPiecePoolValidator.validate(definition, pieces);
-        DungeonDefinition.Layout layout = definition.layout();
         if (definition.plan().mode().equals("runtime")
-            && layout.mode().equals("fixed")) {
+            && definition.topology().mode().equals("authored")) {
             throw new IllegalStateException(
-                "Dungeon piece layout mode is not implemented yet: " + layout.mode()
+                "Dungeon topology is not available for runtime planning: authored"
             );
         }
         Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
@@ -202,7 +201,8 @@ record DungeonPieceLayout(
             settings.branchDepthMin(), settings.branchDepthMax(),
             settings.loopChance(), 1, settings.layoutMode(),
             settings.verticalDirection(), settings.floorChangesMin(),
-            settings.floorChangesMax()
+            settings.floorChangesMax(), settings.verticalMode(),
+            settings.floorHeight()
         );
     }
 
@@ -273,31 +273,33 @@ record DungeonPieceLayout(
     private static DungeonPiecePlanner.Settings plannerSettings(
         DungeonDefinition definition, boolean safeFallback
     ) {
-        DungeonDefinition.Layout layout = definition.layout();
+        DungeonDefinition.Topology topology = definition.topology();
+        DungeonDefinition.Vertical vertical = definition.vertical();
         int safeCriticalRooms = Math.min(
-            layout.criticalPathRooms().maximum(),
+            topology.criticalPathRooms().maximum(),
             Math.max(
-                Math.max(6, layout.criticalPathRooms().minimum()),
-                layout.floorChanges().minimum() + 3
+                Math.max(6, topology.criticalPathRooms().minimum()),
+                vertical.floorCount().minimum() + 2
             )
         );
-        int safeBranches = layout.branchCount().maximum() > 0
+        int safeBranches = topology.branchCount().maximum() > 0
             && safeCriticalRooms >= 4 ? 1 : 0;
         return new DungeonPiecePlanner.Settings(
             definition.terrain().bounds(),
-            safeFallback ? safeCriticalRooms : layout.criticalPathRooms().minimum(),
-            safeFallback ? safeCriticalRooms : layout.criticalPathRooms().maximum(),
-            safeFallback ? safeBranches : layout.branchCount().minimum(),
-            safeFallback ? safeBranches : layout.branchCount().maximum(),
-            safeFallback ? 1 : layout.branchDepth().minimum(),
-            safeFallback ? 1 : layout.branchDepth().maximum(),
-            safeFallback ? 0.0D : layout.loopChance(),
+            safeFallback ? safeCriticalRooms : topology.criticalPathRooms().minimum(),
+            safeFallback ? safeCriticalRooms : topology.criticalPathRooms().maximum(),
+            safeFallback ? safeBranches : topology.branchCount().minimum(),
+            safeFallback ? safeBranches : topology.branchCount().maximum(),
+            safeFallback ? 1 : topology.branchDepth().minimum(),
+            safeFallback ? 1 : topology.branchDepth().maximum(),
+            safeFallback ? 0.0D : topology.loopChance(),
             safeFallback ? Math.max(64, definition.plan().maxAttempts())
                 : definition.plan().maxAttempts(),
-            safeFallback ? "critical_path_branches" : layout.mode(),
-            layout.verticalDirection(),
-            layout.floorChanges().minimum(),
-            layout.floorChanges().maximum()
+            topology.mode(),
+            vertical.mode().equals("flat") ? "flat" : vertical.direction(),
+            Math.max(0, vertical.floorCount().minimum() - 1),
+            Math.max(0, vertical.floorCount().maximum() - 1),
+            vertical.mode(), vertical.floorHeight()
         );
     }
 
@@ -493,6 +495,8 @@ record DungeonPieceLayout(
             throw new IllegalStateException(
                 "Dungeon cannot reserve an NPC room for encounter: "
                     + definition.id() + " -> " + encounter.id()
+                    + " (encounter markers=" + available.size()
+                    + ", occupied rooms=" + occupancy + ")"
             );
         }
         assigned.put(key, available.remove(selected));

@@ -33,6 +33,8 @@ record DungeonDefinition(
     Plan plan,
     Terrain terrain,
     Layout layout,
+    Topology topology,
+    Vertical vertical,
     NpcPlacement npcPlacement,
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
@@ -322,9 +324,126 @@ record DungeonDefinition(
                 verticalDirection, floorChanges
             );
         }
+        Topology topology;
+        if (root.has("topology")) {
+            JsonObject configured = requiredObject(root, "topology");
+            double loopChance = configured.has("loop_chance")
+                ? configured.get("loop_chance").getAsDouble() : 0.0D;
+            if (loopChance < 0.0D || loopChance > 1.0D) {
+                throw new IllegalStateException(
+                    "Invalid dungeon topology loop_chance: " + id
+                );
+            }
+            topology = new Topology(
+                enumValue(configured, "mode", List.of(
+                    "authored", "corridor_spine", "hub_and_spokes",
+                    "room_network", "chamber_maze", "natural_network"
+                )),
+                integerRange(configured, "critical_path_rooms", 3, 256),
+                integerRange(configured, "branch_count", 0, 128),
+                integerRange(configured, "branch_depth", 1, 64),
+                loopChance
+            );
+        } else if (layout != null) {
+            topology = new Topology(
+                switch (layout.mode()) {
+                    case "fixed" -> "authored";
+                    case "rooms_and_corridors" -> "legacy_rooms_and_corridors";
+                    case "maze" -> "legacy_maze";
+                    default -> "corridor_spine";
+                },
+                layout.criticalPathRooms(), layout.branchCount(),
+                layout.branchDepth(), layout.loopChance()
+            );
+        } else {
+            topology = new Topology(
+                terrainMode.equals("procedural_cave") ? "natural_network" : "authored",
+                new IntRange(3, 3), new IntRange(0, 0),
+                new IntRange(1, 1), 0.0D
+            );
+        }
+
+        Vertical vertical;
+        if (root.has("vertical")) {
+            JsonObject configured = requiredObject(root, "vertical");
+            String mode = enumValue(configured, "mode", List.of(
+                "flat", "continuous", "discrete_floors", "authored"
+            ));
+            String direction = configured.has("direction")
+                ? enumValue(configured, "direction", List.of(
+                    "ascending", "descending", "mixed"
+                )) : "mixed";
+            IntRange floorCount = configured.has("floor_count")
+                ? integerRange(configured, "floor_count", 1, 257)
+                : new IntRange(1, 1);
+            int floorHeight = configured.has("floor_height")
+                ? requiredInt(configured, "floor_height") : 8;
+            IntRange connections = configured.has("connections_per_floor")
+                ? integerRange(configured, "connections_per_floor", 1, 16)
+                : new IntRange(1, 1);
+            if (floorHeight < 4 || floorHeight > 64) {
+                throw new IllegalStateException(
+                    "Invalid dungeon vertical floor_height: " + id
+                );
+            }
+            if (mode.equals("discrete_floors")
+                && (!configured.has("floor_count")
+                    || !configured.has("floor_height")
+                    || !configured.has("connections_per_floor"))) {
+                throw new IllegalStateException(
+                    "discrete_floors requires floor_count, floor_height and connections_per_floor: "
+                        + id
+                );
+            }
+            vertical = new Vertical(
+                mode, direction, floorCount, floorHeight, connections
+            );
+        } else if (layout != null) {
+            vertical = new Vertical(
+                layout.verticalDirection().equals("flat") ? "flat" : "continuous",
+                layout.verticalDirection().equals("flat")
+                    ? "mixed" : layout.verticalDirection(),
+                new IntRange(
+                    layout.floorChanges().minimum() + 1,
+                    layout.floorChanges().maximum() + 1
+                ),
+                8, new IntRange(1, 1)
+            );
+        } else {
+            vertical = new Vertical(
+                "authored", "mixed", new IntRange(1, 1), 8,
+                new IntRange(1, 1)
+            );
+        }
+
+        if (layout == null && root.has("topology")) {
+            layout = new Layout(
+                switch (topology.mode()) {
+                    case "authored" -> "fixed";
+                    case "room_network" -> "rooms_and_corridors";
+                    case "legacy_maze", "chamber_maze" -> "maze";
+                    default -> "critical_path_branches";
+                },
+                topology.criticalPathRooms(), topology.branchCount(),
+                topology.branchDepth(), topology.loopChance(),
+                vertical.mode().equals("flat") ? "flat" : vertical.direction(),
+                new IntRange(
+                    Math.max(0, vertical.floorCount().minimum() - 1),
+                    Math.max(0, vertical.floorCount().maximum() - 1)
+                )
+            );
+        }
         if (terrainMode.equals("nbt_pieces") && layout == null) {
             throw new IllegalStateException(
-                terrainMode + " dungeon requires layout settings: " + id
+                terrainMode + " dungeon requires topology or layout settings: " + id
+            );
+        }
+        if (terrainMode.equals("nbt_pieces") && plan.mode().equals("runtime")
+            && Set.of("authored", "chamber_maze", "natural_network")
+                .contains(topology.mode())) {
+            throw new IllegalStateException(
+                "Dungeon topology requires a dedicated construction planner: "
+                    + id + " -> " + topology.mode()
             );
         }
         List<Encounter> encounters = new ArrayList<>();
@@ -1071,6 +1190,8 @@ record DungeonDefinition(
                 piecePool, caveGenerator, terrainBounds, caveSettings
             ),
             layout,
+            topology,
+            vertical,
             npcPlacement(root, encounters, id),
             List.copyOf(encounters),
             new RandomEncounters(
@@ -1368,6 +1489,20 @@ record DungeonDefinition(
         double loopChance,
         String verticalDirection,
         IntRange floorChanges
+    ) {}
+    record Topology(
+        String mode,
+        IntRange criticalPathRooms,
+        IntRange branchCount,
+        IntRange branchDepth,
+        double loopChance
+    ) {}
+    record Vertical(
+        String mode,
+        String direction,
+        IntRange floorCount,
+        int floorHeight,
+        IntRange connectionsPerFloor
     ) {}
     record NpcPlacement(
         boolean enabled,

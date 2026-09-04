@@ -20,6 +20,8 @@
   "plan": { "mode": "runtime", "seed_policy": "random_per_run", "fallback": "use_fallback_plan", "generation_timeout_ms": 2500, "max_attempts": 128 },
   "terrain": { "mode": "nbt_pieces", "piece_pool": "cobbleventure:dungeon_pool/pokemon_tower_test", "bounds": [128, 24, 80] },
   "layout": { "mode": "critical_path_branches", "critical_path_rooms": [14, 15], "branch_count": [1, 2], "branch_depth": [1, 1], "loop_chance": 0.05, "vertical_direction": "ascending", "floor_changes": [1, 2] },
+  "topology": { "mode": "corridor_spine", "critical_path_rooms": [14, 15], "branch_count": [1, 2], "branch_depth": [1, 1], "loop_chance": 0.05 },
+  "vertical": { "mode": "discrete_floors", "direction": "ascending", "floor_count": [2, 3], "floor_height": 8, "connections_per_floor": [1, 1] },
   "npc_placement": { "capacity_mode": "from_encounters", "minimum_spacing": 4, "maximum_per_room": 3 },
   "encounters": [
     {

@@ -111,9 +111,12 @@ final class DungeonPiecePlannerTest {
             "rocket_casino_hideout", "rocket_silph_company", "rocket_pokemon_tower"
         )) {
             DungeonDefinition dungeon = packagedDungeon(name);
-            DungeonPieceLayout generated = DungeonPieceLayout.generate(
-                dungeon, pieces, 517L
-            );
+            DungeonPieceLayout generated;
+            try {
+                generated = DungeonPieceLayout.generate(dungeon, pieces, 517L);
+            } catch (IllegalStateException failure) {
+                throw new IllegalStateException(name, failure);
+            }
             Map<DungeonPieceLayout.MarkerKey, BlockPos> markers =
                 generated.featureMarkers(dungeon, 517L);
 
@@ -312,6 +315,47 @@ final class DungeonPiecePlannerTest {
         assertTrue(Set.of("room", "junction", "support")
             .contains(plan.placements().get(3).role()));
         assertNoOverlap(plan);
+    }
+
+    @Test
+    void roomNetworkAlternatesNavigableRoomsAndConnectors() {
+        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
+            new BlockPos(112, 16, 112), 7, 7, 1, 1, 1, 1,
+            0.0D, 100, "room_network"
+        );
+
+        DungeonPiecePlan plan = DungeonPiecePlanner.generate(
+            testPieces(), settings, 419L
+        );
+
+        assertEquals("corridor", plan.placements().get(1).role());
+        assertEquals("room", plan.placements().get(2).role());
+        assertEquals("corridor", plan.placements().get(3).role());
+        assertNoOverlap(plan);
+        assertConnected(plan);
+    }
+
+    @Test
+    void hubAndSpokesReservesItsBranchesOnTheCentralRoom() {
+        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
+            new BlockPos(112, 16, 112), 7, 7, 2, 2, 1, 1,
+            0.0D, 100, "hub_and_spokes"
+        );
+
+        DungeonPiecePlan plan = DungeonPiecePlanner.generate(
+            testPieces(), settings, 731L
+        );
+        DungeonPiecePlan.Placement hub = plan.placements().get(2);
+        long branchLinks = plan.links().stream()
+            .filter(link -> !link.criticalPath())
+            .filter(link -> link.fromIndex() == hub.index()
+                || link.toIndex() == hub.index())
+            .count();
+
+        assertEquals("room", hub.role());
+        assertEquals(2, branchLinks);
+        assertNoOverlap(plan);
+        assertConnected(plan);
     }
 
     @Test
