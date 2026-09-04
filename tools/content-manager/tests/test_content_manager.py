@@ -282,56 +282,59 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn(".dungeon-complexity-control", styles)
         self.assertIn(".dungeon-layout-advanced", styles)
 
-    def test_dungeon_editor_separates_topology_from_vertical_layout(self) -> None:
+    def test_dungeon_editor_separates_progression_spatial_and_vertical_layout(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
 
-        self.assertIn('name="topologyMode"', markup)
-        self.assertIn('value="room_network"', markup)
+        self.assertIn('name="progressionPattern"', markup)
+        for pattern in ("linear", "branching", "cyclic", "parallel_gate", "key_lock", "shortcut_loop"):
+            self.assertIn(f'value="{pattern}"', markup)
+        self.assertIn('name="spatialAlgorithm"', markup)
+        for algorithm in ("grid_walk", "socket_accretion", "scatter_graph", "bsp_floor", "hub_and_spokes", "authored"):
+            self.assertIn(f'value="{algorithm}"', markup)
         self.assertIn('value="hub_and_spokes"', markup)
         self.assertIn('name="verticalMode"', markup)
         self.assertIn('value="discrete_floors"', markup)
         self.assertIn('name="floorHeight"', markup)
+        self.assertIn("function dungeonPreviewProgression", script)
+        self.assertIn("function dungeonPreviewSpatialize", script)
+        self.assertIn("document.progression =", script)
+        self.assertIn("document.spatial_layout =", script)
         self.assertIn("function dungeonTopology", script)
         self.assertIn("function dungeonVertical", script)
         self.assertIn("document.topology =", script)
         self.assertIn("document.vertical =", script)
         self.assertIn("vertical.floor_height || 8", script)
 
-    def test_chamber_maze_requires_a_bounded_partition_grid(self) -> None:
+    def test_dungeon_validator_accepts_progression_and_spatial_layout_types(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
-        document["topology"] = {
-            "mode": "chamber_maze", "critical_path_rooms": [7, 7],
-            "branch_count": [2, 2], "branch_depth": [1, 2],
-            "loop_chance": 0.1,
-        }
+        document["progression"] = {"pattern": "parallel_gate", "required_targets": 3}
+        document["spatial_layout"] = {"algorithm": "bsp_floor"}
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dungeon.json"
             path.write_text(json.dumps(document), encoding="utf-8")
-            _, missing_issues = content_manager.validate_dungeon_file(path)
-            document["topology"]["chamber_grid"] = [7, 5]
-            path.write_text(json.dumps(document), encoding="utf-8")
             _, configured_issues = content_manager.validate_dungeon_file(path)
+            document["progression"] = {"pattern": "unknown"}
+            document["spatial_layout"] = {"algorithm": "unknown"}
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, invalid_issues = content_manager.validate_dungeon_file(path)
 
-        self.assertTrue(any(issue.path == "$.topology.chamber_grid" for issue in missing_issues))
-        self.assertFalse(any(issue.path == "$.topology.chamber_grid" for issue in configured_issues))
+        self.assertFalse(any(issue.path.startswith("$.progression") or issue.path.startswith("$.spatial_layout") for issue in configured_issues))
+        self.assertTrue(any(issue.path == "$.progression.pattern" for issue in invalid_issues))
+        self.assertTrue(any(issue.path == "$.spatial_layout.algorithm" for issue in invalid_issues))
 
-    def test_dungeon_editor_previews_chamber_maze_routes_and_partitions(self) -> None:
+    def test_dungeon_editor_does_not_expose_chamber_maze_as_world_layout(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('data-dungeon-chamber-field', markup)
-        self.assertIn('name="chamberWidth"', markup)
-        self.assertIn('name="chamberDepth"', markup)
-        self.assertIn('select.add(new Option("공동 내부 미로", "chamber_maze"))', script)
-        self.assertIn('function chamberMazePreviewPlan(document, seed)', script)
-        self.assertIn('mode === "chamber_maze"', script)
-        self.assertIn('kind: "chamber-maze-preview"', script)
-        self.assertIn('const partitions = []', script)
-        self.assertIn('plan.partitions.forEach', script)
-        self.assertIn('공동 내부 동선·입구·보스·출구와 닫힌 칸막이는 이 시드의 실제 계획', script)
-        self.assertIn('.dungeon-option-grid > [data-dungeon-chamber-field]', styles)
+        self.assertNotIn('data-dungeon-chamber-field', markup)
+        self.assertNotIn('name="chamberWidth"', markup)
+        self.assertNotIn('name="chamberDepth"', markup)
+        self.assertNotIn('select.add(new Option("공동 내부 미로", "chamber_maze"))', script)
+        self.assertIn('if (!template) return null;', script)
+        self.assertIn('전체 세트 NBT를 검색해서 선택하면 실제 절단면을 표시합니다.', script)
+        self.assertIn('#dungeon-preview-empty[hidden],#dungeon-preview-details[hidden]', styles)
 
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))

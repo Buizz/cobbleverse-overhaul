@@ -34,6 +34,8 @@ record DungeonDefinition(
     Terrain terrain,
     Layout layout,
     Topology topology,
+    Progression progression,
+    SpatialLayout spatialLayout,
     Vertical vertical,
     NpcPlacement npcPlacement,
     List<Encounter> encounters,
@@ -385,6 +387,46 @@ record DungeonDefinition(
                 new IntRange(3, 3), new IntRange(0, 0),
                 new IntRange(1, 1), 0.0D
             );
+        }
+
+        Progression progression;
+        if (root.has("progression")) {
+            JsonObject configured = requiredObject(root, "progression");
+            String pattern = enumValue(configured, "pattern", List.of(
+                "linear", "branching", "cyclic", "parallel_gate",
+                "key_lock", "shortcut_loop"
+            ));
+            int requiredTargets = configured.has("required_targets")
+                ? requiredInt(configured, "required_targets") : 2;
+            if (requiredTargets < 1 || requiredTargets > 16) {
+                throw new IllegalStateException(
+                    "Dungeon progression required_targets must be between 1 and 16: " + id
+                );
+            }
+            progression = new Progression(pattern, requiredTargets);
+        } else {
+            String pattern = topology.loopChance() > 0.0D ? "cyclic"
+                : topology.branchCount().maximum() > 0 ? "branching" : "linear";
+            progression = new Progression(pattern, 2);
+        }
+
+        SpatialLayout spatialLayout;
+        if (root.has("spatial_layout")) {
+            JsonObject configured = requiredObject(root, "spatial_layout");
+            spatialLayout = new SpatialLayout(enumValue(
+                configured, "algorithm", List.of(
+                    "grid_walk", "socket_accretion", "scatter_graph",
+                    "bsp_floor", "hub_and_spokes", "authored"
+                )
+            ));
+        } else {
+            spatialLayout = new SpatialLayout(switch (topology.mode()) {
+                case "authored" -> "authored";
+                case "room_network", "chamber_maze" -> "socket_accretion";
+                case "hub_and_spokes" -> "hub_and_spokes";
+                case "natural_network" -> "scatter_graph";
+                default -> "grid_walk";
+            });
         }
 
         Vertical vertical;
@@ -1215,6 +1257,8 @@ record DungeonDefinition(
             ),
             layout,
             topology,
+            progression,
+            spatialLayout,
             vertical,
             npcPlacement(root, encounters, id),
             List.copyOf(encounters),
@@ -1533,6 +1577,8 @@ record DungeonDefinition(
         }
     }
     record ChamberGrid(int width, int depth) {}
+    record Progression(String pattern, int requiredTargets) {}
+    record SpatialLayout(String algorithm) {}
     record Vertical(
         String mode,
         String direction,

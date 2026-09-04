@@ -40,6 +40,8 @@ record DungeonProgressionGraph(
             case "branching" -> branching(settings, seed);
             case "cyclic" -> cyclic(settings, seed);
             case "parallel_gate" -> parallelGate(settings);
+            case "key_lock" -> keyLock(settings);
+            case "shortcut_loop" -> shortcutLoop(settings);
             default -> throw new IllegalArgumentException(
                 "Unsupported dungeon progression pattern: " + settings.pattern()
             );
@@ -122,6 +124,47 @@ record DungeonProgressionGraph(
         int exit = builder.add(EXIT, true, Set.of(), Set.of());
         builder.connect(staging, boss, "gated");
         builder.connect(boss, exit, "critical");
+        return builder.build();
+    }
+
+    private static DungeonProgressionGraph keyLock(Settings settings) {
+        Builder builder = new Builder("key_lock");
+        int start = builder.add(START, true, Set.of(), Set.of());
+        int staging = builder.add(TRAVERSAL, true, Set.of(), Set.of());
+        builder.connect(start, staging, "critical");
+        int previous = staging;
+        for (int depth = 0; depth < settings.branchDepth(); depth++) {
+            boolean terminal = depth == settings.branchDepth() - 1;
+            int node = builder.add(
+                terminal ? OBJECTIVE : TRAVERSAL,
+                false,
+                Set.of(),
+                terminal ? Set.of("key_1") : Set.of()
+            );
+            builder.connect(previous, node, "key_branch");
+            previous = node;
+        }
+        int locked = builder.add(TRAVERSAL, true, Set.of("key_1"), Set.of());
+        int boss = builder.add(BOSS, true, Set.of(), Set.of());
+        int exit = builder.add(EXIT, true, Set.of(), Set.of());
+        builder.connect(staging, locked, "locked");
+        builder.connect(locked, boss, "critical");
+        builder.connect(boss, exit, "critical");
+        return builder.build();
+    }
+
+    private static DungeonProgressionGraph shortcutLoop(Settings settings) {
+        Builder builder = new Builder("shortcut_loop");
+        List<Integer> critical = addCriticalRoute(
+            builder, settings.criticalPathNodes()
+        );
+        int unlockAt = critical.get(Math.max(1, critical.size() - 3));
+        builder.grant(unlockAt, "shortcut_1");
+        int shortcut = builder.add(
+            TRAVERSAL, false, Set.of("shortcut_1"), Set.of()
+        );
+        builder.connect(critical.getFirst(), shortcut, "shortcut");
+        builder.connect(shortcut, unlockAt, "shortcut_rejoin");
         return builder.build();
     }
 
@@ -295,7 +338,10 @@ record DungeonProgressionGraph(
         int requiredTargets
     ) {
         void validate() {
-            if (!Set.of("linear", "branching", "cyclic", "parallel_gate")
+            if (!Set.of(
+                "linear", "branching", "cyclic", "parallel_gate",
+                "key_lock", "shortcut_loop"
+            )
                 .contains(pattern)) {
                 throw new IllegalArgumentException(
                     "Unsupported dungeon progression pattern: " + pattern
@@ -346,6 +392,16 @@ record DungeonProgressionGraph(
 
         private void connect(int from, int to, String kind) {
             edges.add(new Edge(from, to, kind));
+        }
+
+        private void grant(int nodeIndex, String flag) {
+            Node node = nodes.get(nodeIndex);
+            Set<String> grants = new LinkedHashSet<>(node.grants());
+            grants.add(flag);
+            nodes.set(nodeIndex, new Node(
+                node.index(), node.role(), node.criticalPath(),
+                node.requires(), grants
+            ));
         }
 
         private DungeonProgressionGraph build() {

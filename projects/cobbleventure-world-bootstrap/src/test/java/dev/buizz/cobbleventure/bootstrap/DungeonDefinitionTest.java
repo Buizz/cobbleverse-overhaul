@@ -133,6 +133,23 @@ final class DungeonDefinitionTest {
     }
 
     @Test
+    void parsesIndependentProgressionAndSpatialLayoutSettings() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        root.add("progression", JsonParser.parseString("""
+            {"pattern":"parallel_gate","required_targets":3}
+            """).getAsJsonObject());
+        root.add("spatial_layout", JsonParser.parseString("""
+            {"algorithm":"bsp_floor"}
+            """).getAsJsonObject());
+
+        DungeonDefinition definition = DungeonDefinition.parse(root);
+
+        assertEquals("parallel_gate", definition.progression().pattern());
+        assertEquals(3, definition.progression().requiredTargets());
+        assertEquals("bsp_floor", definition.spatialLayout().algorithm());
+    }
+
+    @Test
     void derivesNpcSlotDemandFromEveryTrainerActor() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
         root.add("npc_placement", JsonParser.parseString("""

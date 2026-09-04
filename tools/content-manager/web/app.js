@@ -5329,10 +5329,10 @@ function renderDungeonList() {
   $("#dungeon-list").innerHTML = state.dungeons.length
     ? state.dungeons.map((item) => {
       const terrain = item.document?.terrain || {};
-      const layoutMode = ["procedural_cave", "hybrid"].includes(terrain.mode)
-        ? terrain.generator?.layout || "natural_network"
-        : item.document?.topology?.mode || item.layout_mode || "fixed";
-      return `<button class="document-button ${state.dungeonPath === item.path ? "is-active" : ""}" data-dungeon-path="${escapeHtml(item.path)}"><strong>${escapeHtml(item.name || item.id || "이름 없음")}</strong><small>${escapeHtml(item.id || item.path)} · ${escapeHtml(layoutMode)}</small></button>`;
+      const generationSummary = terrain.mode === "fixed_template" ? "완성 세트"
+        : ["procedural_cave", "hybrid"].includes(terrain.mode) ? `${terrain.mode === "hybrid" ? "혼합형" : "자연동굴"} · ${terrain.generator?.layout || "natural_network"}`
+        : `${dungeonProgressionLabels[dungeonProgression(item.document).pattern] || dungeonProgression(item.document).pattern} · ${dungeonSpatialLabels[dungeonSpatialLayout(item.document).algorithm] || dungeonSpatialLayout(item.document).algorithm}`;
+      return `<button class="document-button ${state.dungeonPath === item.path ? "is-active" : ""}" data-dungeon-path="${escapeHtml(item.path)}"><strong>${escapeHtml(item.name || item.id || "이름 없음")}</strong><small>${escapeHtml(item.id || item.path)} · ${escapeHtml(generationSummary)}</small></button>`;
     }).join("")
     : '<div class="issues empty">등록된 던전이 없습니다.</div>';
   $$("#dungeon-list [data-dungeon-path]").forEach((button) => button.addEventListener("click", () => {
@@ -5381,6 +5381,31 @@ function dungeonTopology(document = {}) {
   };
 }
 
+function dungeonProgression(document = {}) {
+  if (document.progression) return document.progression;
+  const topology = dungeonTopology(document);
+  const branches = dungeonRange(topology.branch_count, [0, 0])[1];
+  return {
+    pattern: topology.loop_chance > 0 ? "cyclic" : branches > 0 ? "branching" : "linear",
+    required_targets: 2,
+  };
+}
+
+function dungeonSpatialLayout(document = {}) {
+  if (document.spatial_layout) return document.spatial_layout;
+  const topology = dungeonTopology(document);
+  return {
+    algorithm: ({
+      corridor_spine: "grid_walk",
+      room_network: "socket_accretion",
+      hub_and_spokes: "hub_and_spokes",
+      authored: "authored",
+      chamber_maze: "socket_accretion",
+      natural_network: "scatter_graph",
+    })[topology.mode] || "grid_walk",
+  };
+}
+
 function dungeonVertical(document = {}) {
   if (document.vertical) return document.vertical;
   const layout = document.layout || {};
@@ -5401,10 +5426,56 @@ function legacyDungeonLayoutMode(mode) {
 }
 
 function ensureDungeonTopologyOptions(form) {
-  const select = form.elements.topologyMode;
-  if (select && ![...select.options].some((option) => option.value === "chamber_maze")) {
-    select.add(new Option("공동 내부 미로", "chamber_maze"));
-  }
+  return form;
+}
+
+function legacyTopologyMode(spatialAlgorithm) {
+  return ({
+    authored: "authored",
+    socket_accretion: "room_network",
+    scatter_graph: "room_network",
+    bsp_floor: "room_network",
+    hub_and_spokes: "hub_and_spokes",
+  })[spatialAlgorithm] || "corridor_spine";
+}
+
+const dungeonProgressionDescriptions = {
+  linear: "시작부터 보스와 출구까지 하나의 주 경로를 만듭니다.",
+  branching: "주 경로에 선택 보상과 탐색용 곁가지를 붙입니다.",
+  cyclic: "갈라진 우회로가 뒤쪽 주 경로에 다시 합류합니다.",
+  parallel_gate: "서로 다른 목표를 모두 완료해야 보스 구역이 열립니다.",
+  key_lock: "잠긴 구역을 먼저 발견하고 다른 경로에서 열쇠를 획득합니다.",
+  shortcut_loop: "긴 구역을 통과한 뒤 앞 구역으로 돌아가는 지름길을 엽니다.",
+};
+
+const dungeonProgressionLabels = {
+  linear: "선형 진행", branching: "선택형 분기", cyclic: "순환 탐험",
+  parallel_gate: "여러 목표 후 보스", key_lock: "열쇠와 잠긴 구역",
+  shortcut_loop: "진행 후 지름길 개방",
+};
+
+const dungeonSpatialDescriptions = {
+  grid_walk: "격자에 보장된 주 경로를 먼저 놓고 가지를 붙입니다.",
+  socket_accretion: "공동 NBT의 사용하지 않은 연결점에 다음 공동을 붙입니다.",
+  scatter_graph: "크기가 다른 공동을 분산 배치한 뒤 전체 연결과 일부 순환로를 만듭니다.",
+  bsp_floor: "한정된 건물 외곽을 구획으로 나눠 공동과 복도를 채웁니다.",
+  hub_and_spokes: "큰 중앙 공동의 연결점에서 여러 주변 구역이 뻗어 나갑니다.",
+  authored: "웹에서 확정한 공동 위치와 연결을 그대로 사용합니다.",
+};
+
+const dungeonSpatialLabels = {
+  grid_walk: "격자 주 경로", socket_accretion: "연결점 누적 배치",
+  scatter_graph: "공동 분산 + 연결망", bsp_floor: "건물 층 분할",
+  hub_and_spokes: "중앙 공동 + 주변 방", authored: "직접 만든 배치",
+};
+
+function updateDungeonGenerationSummaries() {
+  const form = $("#dungeon-form");
+  if (!form) return;
+  const progression = $("#dungeon-progression-summary");
+  const spatial = $("#dungeon-spatial-summary");
+  if (progression) progression.textContent = dungeonProgressionDescriptions[form.elements.progressionPattern.value] || "진행 구조를 선택하세요.";
+  if (spatial) spatial.textContent = dungeonSpatialDescriptions[form.elements.spatialAlgorithm.value] || "공간 배치 방식을 선택하세요.";
 }
 
 const dungeonComplexityPresets = {
@@ -5458,13 +5529,6 @@ function applyDungeonComplexityPreset(level) {
 function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
   const topology = dungeonTopology(document);
   const vertical = dungeonVertical(document);
-  const topologyMode = form?.elements?.topologyMode?.value || topology.mode;
-  if (topologyMode === "chamber_maze") {
-    const width = Math.max(3, Number(form?.elements?.chamberWidth?.value || topology.chamber_grid?.[0] || 7));
-    const depth = Math.max(3, Number(form?.elements?.chamberDepth?.value || topology.chamber_grid?.[1] || 5));
-    const floorHeight = Math.max(4, Number(form?.elements?.floorHeight?.value || vertical.floor_height || 8));
-    return [width * 8, Math.max(8, floorHeight), depth * 8];
-  }
   const critical = parseDungeonRange(form?.elements?.criticalRooms?.value || dungeonRangeText(topology.critical_path_rooms, [5, 7]), [5, 7], 3);
   const branchDepth = parseDungeonRange(form?.elements?.branchDepth?.value || dungeonRangeText(topology.branch_depth, [1, 2]), [1, 2], 1);
   const floorCount = parseDungeonRange(form?.elements?.floorCount?.value || dungeonRangeText(vertical.floor_count, [1, 1]), [1, 1], 1);
@@ -5579,12 +5643,18 @@ function renderDungeonOptionVisibility() {
   [...form.elements.planMode.options].forEach((option) => {
     option.disabled = terrainMode === "procedural_cave" && option.value !== "runtime";
   });
+  [...form.elements.spatialAlgorithm.options].forEach((option) => {
+    option.disabled = form.elements.planMode.value === "runtime" && option.value === "authored";
+  });
+  if (form.elements.planMode.value === "runtime" && form.elements.spatialAlgorithm.value === "authored") {
+    form.elements.spatialAlgorithm.value = "grid_walk";
+  }
   $$('[data-dungeon-fixed-field]').forEach((element) => element.hidden = terrainMode !== "fixed_template");
   $$('[data-dungeon-piece-field]').forEach((element) => element.hidden = !["nbt_pieces", "hybrid"].includes(terrainMode));
   $$('[data-dungeon-bounds-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
   $$('[data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
   $$('[data-dungeon-cave-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
-  ["topologyMode", "criticalRooms", "branchCount", "branchDepth", "loopChance", "verticalMode", "verticalDirection", "floorCount", "floorHeight"].forEach((name) => {
+  ["progressionPattern", "spatialAlgorithm", "requiredTargets", "criticalRooms", "branchCount", "branchDepth", "loopChance", "verticalMode", "verticalDirection", "floorCount", "floorHeight"].forEach((name) => {
     const field = form.elements[name]?.closest("label");
     if (field) field.hidden = ["procedural_cave", "hybrid"].includes(terrainMode);
   });
@@ -5592,16 +5662,10 @@ function renderDungeonOptionVisibility() {
     element.hidden = ["procedural_cave", "hybrid"].includes(terrainMode)
       || form.elements.verticalMode.value === "flat";
   });
-  $$('[data-dungeon-chamber-field]').forEach((element) => {
-    element.hidden = terrainMode !== "nbt_pieces"
-      || form.elements.topologyMode.value !== "chamber_maze";
+  $$('[data-dungeon-gate-target-field]').forEach((element) => {
+    element.hidden = ["procedural_cave", "hybrid"].includes(terrainMode)
+      || form.elements.progressionPattern.value !== "parallel_gate";
   });
-  const chamberSummary = $("#dungeon-chamber-summary");
-  if (chamberSummary) {
-    const width = Math.max(3, Number(form.elements.chamberWidth.value || 7));
-    const depth = Math.max(3, Number(form.elements.chamberDepth.value || 5));
-    chamberSummary.textContent = `${width}×${depth} · ${(width * depth).toLocaleString()}개 셀`;
-  }
   $$('[data-dungeon-party-field]').forEach((element) => element.hidden = multiplayerMode === "solo");
   $$('[data-dungeon-tether-field]').forEach((element) => element.hidden = multiplayerMode !== "cooperative");
   $$('[data-dungeon-repeat-field]').forEach((element) => element.hidden = !form.elements.repeatable.checked);
@@ -5620,6 +5684,7 @@ function renderDungeonOptionVisibility() {
     if (workspace) workspace.hidden = false;
     if (workspace && anchor && workspace.parentElement !== anchor) anchor.append(workspace);
   }
+  updateDungeonGenerationSummaries();
 }
 
 function renderDungeonForm() {
@@ -5629,6 +5694,8 @@ function renderDungeonForm() {
   ensureDungeonTopologyOptions(form);
   const topology = dungeonTopology(document);
   const vertical = dungeonVertical(document);
+  const progression = dungeonProgression(document);
+  const spatialLayout = dungeonSpatialLayout(document);
   form.hidden = false;
   const values = {
     dungeonId: document.dungeon_id, nameKo: document.display_name?.ko_kr, nameEn: document.display_name?.en_us,
@@ -5656,7 +5723,8 @@ function renderDungeonForm() {
     planMode: document.plan?.mode || "runtime", seedPolicy: document.plan?.seed_policy || "random_per_run",
     planFallback: document.plan?.fallback || "reject_entry", generationTimeout: document.plan?.generation_timeout_ms ?? 1000,
     maxAttempts: document.plan?.max_attempts ?? 32, planIds: (document.plan?.plan_ids || []).join(", "),
-    topologyMode: topology.mode || "corridor_spine", chamberWidth: topology.chamber_grid?.[0] ?? 7, chamberDepth: topology.chamber_grid?.[1] ?? 5, layoutComplexity: inferDungeonLayoutComplexity(topology, vertical), criticalRooms: dungeonRangeText(topology.critical_path_rooms, [5, 7]),
+    progressionPattern: progression.pattern || "linear", requiredTargets: progression.required_targets ?? 2,
+    spatialAlgorithm: spatialLayout.algorithm || "grid_walk", layoutComplexity: inferDungeonLayoutComplexity(topology, vertical), criticalRooms: dungeonRangeText(topology.critical_path_rooms, [5, 7]),
     branchCount: dungeonRangeText(topology.branch_count, [1, 2]), branchDepth: dungeonRangeText(topology.branch_depth, [1, 2]),
     loopChance: topology.loop_chance ?? 0, verticalMode: vertical.mode || "flat", verticalDirection: vertical.direction || "ascending",
     floorCount: dungeonRangeText(vertical.floor_count, [1, 1]), floorHeight: vertical.floor_height ?? 8, resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
@@ -5758,7 +5826,9 @@ function updateDungeonFromForm() {
     document.plan = { ...(document.plan || {}), mode: form.elements.planMode.value, seed_policy: form.elements.seedPolicy.value, fallback: form.elements.planFallback.value, generation_timeout_ms: integer("generationTimeout", 1000), max_attempts: integer("maxAttempts", 32) };
     const planIds = csvValues(form.elements.planIds.value); if (planIds.length) document.plan.plan_ids = planIds; else delete document.plan.plan_ids;
     if (!["procedural_cave", "hybrid"].includes(terrainMode)) {
-      const topologyMode = form.elements.topologyMode.value;
+      const progressionPattern = form.elements.progressionPattern.value;
+      const spatialAlgorithm = form.elements.spatialAlgorithm.value;
+      const topologyMode = legacyTopologyMode(spatialAlgorithm);
       const verticalMode = form.elements.verticalMode.value;
       const criticalPathRooms = parseDungeonRange(form.elements.criticalRooms.value, [5, 7], 3);
       const branchCount = parseDungeonRange(form.elements.branchCount.value, [1, 2], 0);
@@ -5766,12 +5836,12 @@ function updateDungeonFromForm() {
       const loopChance = Number(form.elements.loopChance.value || 0);
       const floorCount = verticalMode === "flat" ? [1, 1] : parseDungeonRange(form.elements.floorCount.value, [2, 2], 1);
       const verticalDirection = verticalMode === "flat" ? "ascending" : form.elements.verticalDirection.value;
+      document.progression = {
+        pattern: progressionPattern,
+        required_targets: integer("requiredTargets", 2),
+      };
+      document.spatial_layout = { algorithm: spatialAlgorithm };
       document.topology = { mode: topologyMode, critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance };
-      if (topologyMode === "chamber_maze") {
-        document.topology.chamber_grid = [
-          integer("chamberWidth", 7), integer("chamberDepth", 5)
-        ];
-      }
       document.vertical = { mode: verticalMode, direction: verticalDirection, floor_count: floorCount, floor_height: integer("floorHeight", 8), connections_per_floor: [1, 1] };
       document.layout = { mode: legacyDungeonLayoutMode(topologyMode), critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance, vertical_direction: verticalMode === "flat" ? "flat" : verticalDirection, floor_changes: floorCount.map((value) => Math.max(0, value - 1)) };
     }
@@ -6626,7 +6696,8 @@ async function saveDungeonPlan() {
 }
 
 function fixedDungeonPlan(document) {
-  const template = document.terrain?.template || "fixed_template";
+  const template = document.terrain?.template;
+  if (!template) return null;
   const metadata = state.structureSizes?.[template] || {};
   const markerKind = (kind) => kind === "healing_station" ? "healing" : kind;
   const markers = (metadata.dungeon_markers?.markers || []).map((marker) => ({
@@ -6863,9 +6934,139 @@ function chamberMazePreviewPlan(document, seed) {
   };
 }
 
+function dungeonPreviewProgression(document, random) {
+  const topology = dungeonTopology(document);
+  const progression = dungeonProgression(document);
+  const criticalRange = dungeonRange(topology.critical_path_rooms, [5, 7]);
+  const branchRange = dungeonRange(topology.branch_count, [1, 2]);
+  const depthRange = dungeonRange(topology.branch_depth, [1, 2]);
+  const criticalCount = Math.max(3, Math.round(criticalRange[0] + random() * (criticalRange[1] - criticalRange[0])));
+  const branchCount = Math.max(1, Math.round(branchRange[0] + random() * (branchRange[1] - branchRange[0])));
+  const branchDepth = Math.max(1, Math.round(depthRange[0] + random() * (depthRange[1] - depthRange[0])));
+  const nodes = []; const links = [];
+  const add = (role, critical = false, extra = {}) => { const index = nodes.length; nodes.push({ index, role, critical, ...extra }); return index; };
+  const connect = (from, to, kind = "branch") => links.push({ from, to, kind, critical: kind === "critical" });
+  const criticalRoute = (count = criticalCount) => {
+    const route = Array.from({ length: count }, (_, index) => add(index === 0 ? "start" : index === count - 2 ? "boss" : index === count - 1 ? "exit" : "traversal", true));
+    route.slice(1).forEach((node, index) => connect(route[index], node, "critical"));
+    return route;
+  };
+  if (progression.pattern === "parallel_gate") {
+    const start = add("start", true); const staging = add("traversal", true); connect(start, staging, "critical");
+    const targets = Math.max(1, Number(progression.required_targets || 2));
+    for (let target = 0; target < targets; target += 1) {
+      let previous = staging;
+      for (let depth = 0; depth < branchDepth; depth += 1) {
+        const node = add(depth === branchDepth - 1 ? "objective" : "traversal", false, depth === branchDepth - 1 ? { grants: [`target_${target + 1}`] } : {});
+        connect(previous, node, "objective_branch"); previous = node;
+      }
+    }
+    const boss = add("boss", true, { requires: Array.from({ length: targets }, (_, index) => `target_${index + 1}`) });
+    const exit = add("exit", true); connect(staging, boss, "gated"); connect(boss, exit, "critical");
+  } else if (progression.pattern === "key_lock") {
+    const start = add("start", true); const staging = add("traversal", true); connect(start, staging, "critical");
+    let previous = staging;
+    for (let depth = 0; depth < branchDepth; depth += 1) {
+      const node = add(depth === branchDepth - 1 ? "objective" : "traversal", false, depth === branchDepth - 1 ? { grants: ["key_1"] } : {});
+      connect(previous, node, "key_branch"); previous = node;
+    }
+    const locked = add("traversal", true, { requires: ["key_1"] }); const boss = add("boss", true); const exit = add("exit", true);
+    connect(staging, locked, "locked"); connect(locked, boss, "critical"); connect(boss, exit, "critical");
+  } else {
+    const route = criticalRoute();
+    const wantedBranches = progression.pattern === "linear" || progression.pattern === "shortcut_loop" ? 0 : branchCount;
+    for (let branch = 0; branch < wantedBranches; branch += 1) {
+      const hostOffset = 1 + branch % Math.max(1, route.length - 3); let previous = route[hostOffset];
+      for (let depth = 0; depth < branchDepth; depth += 1) {
+        const terminal = depth === branchDepth - 1;
+        const node = add(terminal && progression.pattern === "branching" ? "reward" : "traversal", false);
+        connect(previous, node, progression.pattern === "cyclic" ? "detour" : "branch"); previous = node;
+      }
+      if (progression.pattern === "cyclic") connect(previous, route[Math.min(route.length - 2, hostOffset + 2)], "rejoin");
+    }
+    if (progression.pattern === "shortcut_loop") {
+      const unlockAt = route[Math.max(2, route.length - 3)]; nodes[unlockAt].grants = ["shortcut_1"];
+      const shortcut = add("shortcut", false, { requires: ["shortcut_1"] });
+      connect(route[0], shortcut, "shortcut"); connect(shortcut, unlockAt, "shortcut_rejoin");
+    }
+  }
+  return { pattern: progression.pattern, nodes, links };
+}
+
+function dungeonPreviewSpatialize(graph, algorithm, random) {
+  const positions = new Map(); const occupied = new Set(); const key = (x, z) => `${x},${z}`;
+  const place = (index, x, z) => { let nx = x; let nz = z; while (occupied.has(key(nx, nz))) nz += 1; positions.set(index, [nx, nz]); occupied.add(key(nx, nz)); };
+  const adjacency = new Map(graph.nodes.map((node) => [node.index, []]));
+  graph.links.forEach((link) => { adjacency.get(link.from).push(link.to); adjacency.get(link.to).push(link.from); });
+  if (algorithm === "grid_walk") {
+    const critical = graph.nodes.filter((node) => node.critical);
+    critical.forEach((node, index) => place(node.index, index, 0));
+    graph.nodes.filter((node) => !node.critical).forEach((node, index) => {
+      const linked = graph.links.find((link) => positions.has(link.from) && link.to === node.index || positions.has(link.to) && link.from === node.index);
+      const host = positions.get(linked ? (positions.has(linked.from) ? linked.from : linked.to) : critical[0].index) || [0, 0];
+      place(node.index, host[0], host[1] + (index % 2 ? -1 : 1) * (1 + Math.floor(index / 2)));
+    });
+  } else if (algorithm === "socket_accretion") {
+    const queue = [graph.nodes[0].index]; place(queue[0], 0, 0); const directions = [[1,0],[0,1],[-1,0],[0,-1]];
+    while (queue.length) {
+      const current = queue.shift(); const base = positions.get(current);
+      for (const next of adjacency.get(current)) {
+        if (positions.has(next)) continue;
+        const start = Math.floor(random() * directions.length);
+        const direction = Array.from({ length: directions.length }, (_, offset) => directions[(start + offset) % directions.length]).find(([dx,dz]) => !occupied.has(key(base[0] + dx, base[1] + dz))) || [1, 1];
+        place(next, base[0] + direction[0], base[1] + direction[1]); queue.push(next);
+      }
+    }
+  } else if (algorithm === "hub_and_spokes") {
+    const hub = [...graph.nodes].sort((left, right) => adjacency.get(right.index).length - adjacency.get(left.index).length)[0];
+    place(hub.index, 0, 0); const others = graph.nodes.filter((node) => node.index !== hub.index);
+    others.forEach((node, index) => { const angle = index * Math.PI * 2 / Math.max(1, others.length); const radius = 2 + Math.floor(index / 8); place(node.index, Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)); });
+  } else if (algorithm === "bsp_floor") {
+    const columns = Math.ceil(Math.sqrt(graph.nodes.length * 1.6));
+    graph.nodes.forEach((node, index) => place(node.index, index % columns * 2, Math.floor(index / columns) * 2));
+  } else if (algorithm === "scatter_graph") {
+    const radius = Math.max(3, Math.ceil(Math.sqrt(graph.nodes.length)) * 2);
+    graph.nodes.forEach((node, index) => {
+      const angle = index * 2.399963229728653 + random() * .35; const distance = 1 + radius * Math.sqrt((index + 1) / graph.nodes.length);
+      place(node.index, Math.round(Math.cos(angle) * distance), Math.round(Math.sin(angle) * distance));
+    });
+  } else {
+    graph.nodes.forEach((node, index) => place(node.index, index, 0));
+  }
+  return positions;
+}
+
+function runtimeNbtDungeonPlan(document, seed, random) {
+  const topology = dungeonTopology(document); const vertical = dungeonVertical(document);
+  const algorithm = dungeonSpatialLayout(document).algorithm || "grid_walk";
+  const graph = dungeonPreviewProgression(document, random); const coordinates = dungeonPreviewSpatialize(graph, algorithm, random);
+  const cell = 16; const layerHeight = Math.max(4, Number(vertical.floor_height || 8));
+  const floorRange = dungeonRange(vertical.floor_count, [1, 1]); const floorCount = vertical.mode === "flat" ? 1 : Math.max(1, Math.round(floorRange[0] + random() * (floorRange[1] - floorRange[0])));
+  const criticalOrder = new Map(graph.nodes.filter((node) => node.critical).map((node, index) => [node.index, index]));
+  const floorFor = (node) => node.critical ? Math.min(floorCount - 1, Math.floor((criticalOrder.get(node.index) || 0) * floorCount / Math.max(1, criticalOrder.size))) : 0;
+  const xs = [...coordinates.values()].map(([x]) => x); const zs = [...coordinates.values()].map(([,z]) => z); const minX = Math.min(...xs); const minZ = Math.min(...zs);
+  const grid = graph.nodes.map((node) => { const [gx, gz] = coordinates.get(node.index); return { ...node, gx, gz, gy: floorFor(node), role: ({ traversal: node.index % 2 ? "corridor" : "room", reward: "dead_end", objective: "room", shortcut: "corridor" })[node.role] || node.role }; });
+  const placements = grid.map((value) => {
+    const selection = dungeonRuntimePreviewPiece(document, value.role, random, "", [], ""); const piece = selection?.piece;
+    const size = piece?.size?.map(Number) || [cell, layerHeight, cell];
+    return { index: value.index, pieceId: piece?.piece_id || `preview:${value.role}`, structure: piece?.structure || "", role: value.role,
+      minimum: [(value.gx - minX) * cell, value.gy * layerHeight, (value.gz - minZ) * cell], size, rotation: selection?.rotation || "none",
+      critical: value.critical, floorYs: [value.gy * layerHeight], connectorMismatch: selection?.missingFacings || [], piece };
+  });
+  const bounds = [Math.max(...placements.map((value) => value.minimum[0] + value.size[0])), Math.max(16, ...placements.map((value) => value.minimum[1] + value.size[1])), Math.max(...placements.map((value) => value.minimum[2] + value.size[2]))];
+  const markers = runtimeDungeonContentMarkers(document, placements);
+  graph.nodes.forEach((node) => {
+    const placement = placements[node.index]; const position = [placement.minimum[0] + placement.size[0] / 2, placement.minimum[1] + 1, placement.minimum[2] + placement.size[2] / 2];
+    if (node.role === "objective" || node.grants?.length) markers.push({ kind: "objective", position, label: node.grants?.join(", ") || "필수 목표" });
+    if (node.requires?.length) markers.push({ kind: "gate", position, label: `${node.requires.join(", ")} 필요` });
+  });
+  return { kind: `runtime-${algorithm}`, exact: false, conceptual: !["grid_walk", "socket_accretion"].includes(algorithm), seed, bounds, placements, links: graph.links, markers, npcCapacity: markers.npcCapacity, planId: "runtime", progressionPattern: graph.pattern, spatialAlgorithm: algorithm };
+}
+
 function runtimeDungeonPlan(document, seed) {
   const random = seededDungeonRandom(seed);
   const caveTerrain = ["procedural_cave", "hybrid"].includes(document.terrain?.mode);
+  if (!caveTerrain) return runtimeNbtDungeonPlan(document, seed, random);
   const caveGenerator = normalizeNaturalCaveGenerator(document.terrain?.generator);
   const topology = caveTerrain ? {} : dungeonTopology(document);
   const vertical = caveTerrain ? {} : dungeonVertical(document);
@@ -7182,7 +7383,19 @@ function renderDungeonPreview() {
   const canvas = $("#dungeon-plan-canvas");
   const plan = selectedDungeonPlan();
   state.dungeonPreview.plan = plan;
-  if (!plan) return;
+  if (!plan) {
+    const context = canvas.getContext("2d");
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    state.dungeonPreview.hitTargets = [];
+    $("#dungeon-preview-empty").hidden = false;
+    $("#dungeon-preview-details").hidden = true;
+    $("#dungeon-preview-status").textContent = state.dungeon?.terrain?.mode === "fixed_template"
+      ? "전체 세트 NBT를 검색해서 선택하면 실제 절단면을 표시합니다."
+      : state.dungeon?.plan?.mode === "runtime"
+        ? "미리보기 계획을 만들 수 없습니다. 생성 설정을 확인하세요."
+        : "게시형 계획을 새로 만들거나 이 던전에 연결된 계획을 선택하세요.";
+    return;
+  }
   const floors = syncDungeonFloorChoice(plan);
   const selectedFloor = state.dungeonPreview.floor === "all" ? null : Number(state.dungeonPreview.floor);
   const onSelectedFloor = (value) => {
@@ -7277,14 +7490,16 @@ function renderDungeonPreview() {
   const criticalCount = plan.placements.filter((value) => value.critical).length;
   const selected = plan.placements.find((value) => value.index === state.dungeonPreview.selected);
   $("#dungeon-preview-empty").hidden = true; $("#dungeon-preview-details").hidden = false;
-  const layoutMode = ["procedural_cave", "hybrid"].includes(state.dungeon.terrain?.mode)
-    ? state.dungeon.terrain?.generator?.layout || "natural_network"
-    : dungeonTopology(state.dungeon).mode || "authored";
-  const verticalMode = ["procedural_cave", "hybrid"].includes(state.dungeon.terrain?.mode)
+  const naturalTerrain = ["procedural_cave", "hybrid"].includes(state.dungeon.terrain?.mode);
+  const rawProgressionPattern = dungeonProgression(state.dungeon).pattern || "linear";
+  const rawSpatialAlgorithm = dungeonSpatialLayout(state.dungeon).algorithm || "authored";
+  const progressionPattern = naturalTerrain ? "자연 동굴 네트워크" : dungeonProgressionLabels[rawProgressionPattern] || rawProgressionPattern;
+  const spatialAlgorithm = naturalTerrain ? state.dungeon.terrain?.generator?.layout || "natural_network" : dungeonSpatialLabels[rawSpatialAlgorithm] || rawSpatialAlgorithm;
+  const verticalMode = naturalTerrain
     ? "natural"
     : dungeonVertical(state.dungeon).mode || "flat";
   const capacityMetric = plan.npcCapacity ? `<dt>NPC 슬롯</dt><dd class="${plan.npcCapacity.valid ? "" : "dungeon-inline-error"}">${plan.npcCapacity.demand} 필요 / ${plan.npcCapacity.capacity} 가능</dd>` : "";
-  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>동선 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>층 배치</dt><dd>${escapeHtml(verticalMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
+  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>진행 구조</dt><dd>${escapeHtml(progressionPattern)}</dd><dt>공간 배치</dt><dd>${escapeHtml(spatialAlgorithm)}</dd><dt>층 배치</dt><dd>${escapeHtml(verticalMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
   const visibleMarkers = plan.markers.filter(onSelectedFloor);
   const markerIcons = { entry: "S", exit: "E", encounter: "N", npc_spawn: "P", boss: "B", healing: "+", checkpoint: "C", loot: "L", objective: "!", gate: "G" };
@@ -7297,7 +7512,9 @@ function renderDungeonPreview() {
   const capacityProblem = plan.npcCapacity && !plan.npcCapacity.valid ? ` NPC를 배치할 수 있는 유효한 마커가 ${capacityDeficit}개 부족하여 이 계획은 컴파일되지 않습니다.` : "";
   $("#dungeon-preview-status").textContent = (placementProblems.size
     ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.`
-    : plan.topologyExact
+    : plan.conceptual
+      ? `${floorStatus} 진행 조건과 공간 알고리즘의 개념 배치입니다. 실제 NBT 시공 전 연결 경로와 충돌 검증이 추가로 필요합니다.`
+      : plan.topologyExact
       ? `${floorStatus} 공동 내부 동선·입구·보스·출구와 닫힌 칸막이는 이 시드의 실제 계획입니다. 공동 NBT 외형 시공은 아직 연결 전입니다.`
       : plan.exact
         ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.`

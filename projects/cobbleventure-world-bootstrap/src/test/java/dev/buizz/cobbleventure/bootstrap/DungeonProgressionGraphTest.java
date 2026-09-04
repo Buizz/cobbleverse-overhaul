@@ -87,4 +87,35 @@ final class DungeonProgressionGraphTest {
             ))
         );
     }
+
+    @Test
+    void keyLockPlacesItsKeyOnAnAccessibleSideBranch() {
+        DungeonProgressionGraph graph = DungeonProgressionGraph.generate(
+            new DungeonProgressionGraph.Settings("key_lock", 6, 1, 2, 1),
+            10L
+        );
+
+        assertTrue(graph.nodes().stream().anyMatch(node ->
+            node.grants().contains("key_1") && !node.criticalPath()
+        ));
+        assertTrue(graph.nodes().stream().anyMatch(node ->
+            node.requires().contains("key_1") && node.criticalPath()
+        ));
+    }
+
+    @Test
+    void shortcutRemainsLockedUntilTheLongRouteWasTraversed() {
+        DungeonProgressionGraph graph = DungeonProgressionGraph.generate(
+            new DungeonProgressionGraph.Settings("shortcut_loop", 8, 1, 1, 1),
+            10L
+        );
+
+        assertTrue(graph.hasCycle());
+        assertTrue(graph.nodes().stream().anyMatch(node ->
+            node.requires().contains("shortcut_1") && !node.criticalPath()
+        ));
+        assertTrue(graph.criticalPath().stream().anyMatch(node ->
+            node.grants().contains("shortcut_1")
+        ));
+    }
 }

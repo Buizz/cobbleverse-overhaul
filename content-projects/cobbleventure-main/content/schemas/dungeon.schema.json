@@ -248,6 +248,36 @@
         "then": { "required": ["chamber_grid"] }
       }]
     },
+    "progression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pattern"],
+      "properties": {
+        "pattern": {
+          "enum": ["linear", "branching", "cyclic", "parallel_gate", "key_lock", "shortcut_loop"]
+        },
+        "required_targets": {
+          "type": "integer", "minimum": 1, "maximum": 16, "default": 2
+        }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "pattern": { "const": "parallel_gate" } },
+          "required": ["pattern"]
+        },
+        "then": { "required": ["required_targets"] }
+      }]
+    },
+    "spatial_layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm"],
+      "properties": {
+        "algorithm": {
+          "enum": ["grid_walk", "socket_accretion", "scatter_graph", "bsp_floor", "hub_and_spokes", "authored"]
+        }
+      }
+    },
     "vertical": {
       "type": "object",
       "additionalProperties": false,

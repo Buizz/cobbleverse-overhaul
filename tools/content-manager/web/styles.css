@@ -2016,6 +2016,7 @@ body { font-size: 14px; line-height: 1.45; }
 .dungeon-save-state.is-dirty { color:#a16018; font-weight:700; }
 .dungeon-settings { display:grid; gap:10px; padding:16px; border-top:1px solid #d3ded8; background:#edf3f0; }
 .dungeon-settings[hidden] { display:none; }
+#dungeon-preview-empty[hidden],#dungeon-preview-details[hidden] { display:none!important; }
 .dungeon-overview-card { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; overflow:hidden; border:1px solid #bdccc5; border-radius:5px; background:#bdccc5; }
 .dungeon-overview-card div { display:grid; gap:5px; padding:12px; background:#fff; }
 .dungeon-overview-card span { color:#76877f; font-size:8px; letter-spacing:.06em; }

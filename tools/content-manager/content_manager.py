@@ -9298,6 +9298,27 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                         and all(isinstance(value, int) and 3 <= value <= 64 for value in chamber_grid)
                     ):
                         _issue(issues, "error", path, "$.topology.chamber_grid", "공동 미로는 3~64 범위의 가로·세로 셀 수가 필요합니다.")
+            progression = data.get("progression")
+            if progression is not None:
+                if not isinstance(progression, dict):
+                    _issue(issues, "error", path, "$.progression", "진행 구조는 객체여야 합니다.")
+                else:
+                    pattern = progression.get("pattern")
+                    if pattern not in {"linear", "branching", "cyclic", "parallel_gate", "key_lock", "shortcut_loop"}:
+                        _issue(issues, "error", path, "$.progression.pattern", "지원하지 않는 진행 구조입니다.")
+                    if pattern == "parallel_gate":
+                        integer(progression.get("required_targets"), 1, 16, "$.progression.required_targets")
+            spatial_layout = data.get("spatial_layout")
+            if spatial_layout is not None:
+                if not isinstance(spatial_layout, dict):
+                    _issue(issues, "error", path, "$.spatial_layout", "공간 배치는 객체여야 합니다.")
+                elif spatial_layout.get("algorithm") not in {
+                    "grid_walk", "socket_accretion", "scatter_graph",
+                    "bsp_floor", "hub_and_spokes", "authored",
+                }:
+                    _issue(issues, "error", path, "$.spatial_layout.algorithm", "지원하지 않는 공간 배치 방식입니다.")
+                elif plan.get("mode") == "runtime" and spatial_layout.get("algorithm") == "authored":
+                    _issue(issues, "error", path, "$.spatial_layout.algorithm", "직접 만든 공간 배치는 웹에서 직접 조립 계획을 선택해야 합니다.")
             vertical = data.get("vertical")
             if vertical is not None:
                 if not isinstance(vertical, dict):
