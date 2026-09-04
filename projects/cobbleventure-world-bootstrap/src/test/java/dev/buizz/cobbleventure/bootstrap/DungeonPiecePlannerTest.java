@@ -35,6 +35,7 @@ final class DungeonPiecePlannerTest {
                     assertConnected(generated.plan());
                     assertNoOpenConnectors(generated.plan(), pieces);
                     assertRequiredFeatures(dungeon, generated, seed);
+                    assertEncountersUseDistinctSections(dungeon, generated, seed);
                 }
                 assertEquals(
                     DungeonPieceLayout.generate(dungeon, pieces, 17L),
@@ -460,6 +461,43 @@ final class DungeonPiecePlannerTest {
         }
         layout.requiredMarker("entry", null);
         layout.requiredMarker("exit", null);
+    }
+
+    private static void assertEncountersUseDistinctSections(
+        DungeonDefinition dungeon, DungeonPieceLayout layout, long seed
+    ) {
+        Map<DungeonPieceLayout.MarkerKey, BlockPos> features =
+            layout.featureMarkers(dungeon, seed);
+        List<Integer> encounterPlacements = dungeon.encounters().stream()
+            .filter(encounter -> !encounter.boss())
+            .map(encounter -> features.get(new DungeonPieceLayout.MarkerKey(
+                "encounter", encounter.id()
+            )))
+            .map(position -> layout.plan().placements().stream()
+                .filter(placement -> contains(placement, position))
+                .map(DungeonPiecePlan.Placement::index)
+                .findFirst().orElseThrow())
+            .toList();
+        Map<Integer, Long> occupancy = encounterPlacements.stream().collect(
+            java.util.stream.Collectors.groupingBy(
+                index -> index, java.util.stream.Collectors.counting()
+            )
+        );
+        assertTrue(occupancy.size() >= 2,
+            "Dungeon encounters used only one section for seed " + seed);
+        assertTrue(occupancy.values().stream().allMatch(count -> count <= 2),
+            "More than two encounters shared a section for seed " + seed
+                + ": " + occupancy);
+    }
+
+    private static boolean contains(
+        DungeonPiecePlan.Placement placement, BlockPos position
+    ) {
+        BlockPos minimum = placement.minimum();
+        BlockPos maximum = minimum.offset(placement.size());
+        return position.getX() >= minimum.getX() && position.getX() < maximum.getX()
+            && position.getY() >= minimum.getY() && position.getY() < maximum.getY()
+            && position.getZ() >= minimum.getZ() && position.getZ() < maximum.getZ();
     }
 
     private static List<DungeonPieceDefinition> testPieces() {

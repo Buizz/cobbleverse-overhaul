@@ -58,5 +58,15 @@
       ]
     }
   ],
-  "markers": []
+  "markers": [
+    {
+      "id": "encounter_slot",
+      "kind": "encounter",
+      "position": [
+        8,
+        1,
+        8
+      ]
+    }
+  ]
 }

@@ -387,7 +387,29 @@ record DungeonPieceLayout(
         if (assigned.containsKey(key)) return;
         List<ResolvedMarker> available = candidates.getOrDefault(kind, List.of());
         if (!available.isEmpty()) {
-            assigned.put(key, available.removeLast());
+            int selected = available.size() - 1;
+            if (kind.equals("encounter")) {
+                Map<Integer, Long> occupancy = assigned.values().stream()
+                    .filter(marker -> marker.kind().equals("encounter"))
+                    .map(ResolvedMarker::placementIndex)
+                    .filter(index -> index >= 0)
+                    .collect(java.util.stream.Collectors.groupingBy(
+                        index -> index, java.util.stream.Collectors.counting()
+                    ));
+                long minimumOccupancy = available.stream()
+                    .mapToLong(marker -> occupancy.getOrDefault(
+                        marker.placementIndex(), 0L
+                    )).min().orElse(0L);
+                for (int index = available.size() - 1; index >= 0; index--) {
+                    if (occupancy.getOrDefault(
+                        available.get(index).placementIndex(), 0L
+                    ) == minimumOccupancy) {
+                        selected = index;
+                        break;
+                    }
+                }
+            }
+            assigned.put(key, available.remove(selected));
             return;
         }
         throw new IllegalStateException(

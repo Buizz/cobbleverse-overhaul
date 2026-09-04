@@ -48,6 +48,21 @@ final class DungeonSoloConfigurationTest {
     }
 
     @Test
+    void pokemonTowerUsesDungeonOwnedProximityEncounters() throws Exception {
+        DungeonDefinition tower = packagedDungeon("rocket_pokemon_tower");
+
+        assertEquals(5, tower.encounters().size());
+        assertTrue(tower.encounters().stream().allMatch(encounter ->
+            encounter.trainers().size() == 1
+                && encounter.trigger() != null
+                && encounter.trigger().type().equals("proximity")
+                && encounter.trigger().leader() == 0
+                && encounter.trigger().warningTrack()
+                    .equals("encounter.trainer_bad_guys")
+        ));
+    }
+
+    @Test
     void soloDungeonsExerciseBothFixedAndGeneratedTerrainContracts() throws Exception {
         assertEquals("fixed_template", packagedDungeon("rocket_power_plant")
             .terrain().mode());

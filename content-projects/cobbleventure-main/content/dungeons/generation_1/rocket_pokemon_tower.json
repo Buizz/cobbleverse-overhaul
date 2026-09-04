@@ -24,27 +24,37 @@
     {
       "id": "memorial_guard_1", "display_name": { "ko_kr": "추모층 로켓단 1", "en_us": "Memorial Floor Grunt 1" },
       "trainers": [{ "id": "memorial_guard_1", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_tower_grunt_low" }],
-      "requires": [], "yaw": 180, "boss": false
+      "requires": [],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["추모하러 온 녀석인가? 여기서 돌아가라!"], "win_lines": ["이 층을 지키지 못하다니..."], "loss_lines": ["로켓단의 일을 방해하지 마라!"] },
+      "yaw": 180, "boss": false
     },
     {
       "id": "memorial_guard_2", "display_name": { "ko_kr": "추모층 로켓단 2", "en_us": "Memorial Floor Grunt 2" },
       "trainers": [{ "id": "memorial_guard_2", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_tower_grunt_high" }],
-      "requires": [], "yaw": 90, "boss": false
+      "requires": [],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["이 위층은 우리 로켓단이 점거했다!"], "win_lines": ["동료들에게 알려야 하는데..."], "loss_lines": ["포켓몬타워도 이제 우리 구역이다!"] },
+      "yaw": 90, "boss": false
     },
     {
       "id": "upper_guard_1", "display_name": { "ko_kr": "상층 로켓단 1", "en_us": "Upper Floor Grunt 1" },
       "trainers": [{ "id": "upper_guard_1", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_tower_grunt_low" }],
-      "requires": ["memorial_guard_1"], "yaw": -90, "boss": false
+      "requires": ["memorial_guard_1"],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["아래층 경비를 쓰러뜨렸다고 끝난 줄 알았나?"], "win_lines": ["상층까지 올라오다니..."], "loss_lines": ["여기서 네 진격도 끝이다!"] },
+      "yaw": -90, "boss": false
     },
     {
       "id": "upper_guard_2", "display_name": { "ko_kr": "상층 로켓단 2", "en_us": "Upper Floor Grunt 2" },
       "trainers": [{ "id": "upper_guard_2", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_tower_grunt_high" }],
-      "requires": ["memorial_guard_2"], "yaw": 180, "boss": false
+      "requires": ["memorial_guard_2"],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["간부님께는 한 발짝도 접근할 수 없다!"], "win_lines": ["간부님을 지켜야 하는데..."], "loss_lines": ["명령대로 침입자를 막아냈다!"] },
+      "yaw": 180, "boss": false
     },
     {
       "id": "tower_admin", "display_name": { "ko_kr": "최상층 로켓단 간부", "en_us": "Tower Admin" },
       "trainers": [{ "id": "tower_admin", "display_name": { "ko_kr": "로켓단 간부", "en_us": "Team Rocket Admin" }, "trainer_class": "cobbleventure:trainer_class/villain_admin", "battle": "cobbleventure:battle/rocket_tower_admin" }],
-      "requires": ["upper_guard_1", "upper_guard_2"], "yaw": 180, "boss": true
+      "requires": ["upper_guard_1", "upper_guard_2"],
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["여기까지 올라온 집념만큼은 인정하지."], "win_lines": ["포켓몬타워에서 철수하겠다..."], "loss_lines": ["로켓단의 계획은 누구도 막을 수 없다!"] },
+      "yaw": 180, "boss": true
     }
   ],
   "random_encounters": { "enabled": false, "minimum_distance": 6, "maximum_distance": 12, "max_active": 1, "spawn_interval_ticks": 100, "spawn_bounds": { "min": [2, 1, 2], "max": [125, 22, 77] }, "additions": [] },
