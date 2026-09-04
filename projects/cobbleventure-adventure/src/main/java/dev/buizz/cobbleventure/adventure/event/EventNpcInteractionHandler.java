@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.adventure.event;
 
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import java.util.Optional;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -49,6 +50,9 @@ public final class EventNpcInteractionHandler {
         // A V5 binding owns the interaction, including failure paths, so a legacy
         // representation adapter cannot also open its own dialogue.
         cancel(event, InteractionResult.SUCCESS);
+        if (PokemonCenterDefeatReturn.blocksNewNpcEvents(player)) {
+            return;
+        }
         try {
             executeInteract(player, target, binding, true);
         } catch (RuntimeException error) {

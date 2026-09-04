@@ -51,8 +51,11 @@ public final class EventInterpreter {
         );
         candidate.start();
         EventSession active = store.putIfAbsent(candidate);
-        if (active != candidate && isTerminal(active.status())) {
+        if (active == candidate) {
+            EventFacingBridge.beginDialogueSequence(key);
+        } else if (isTerminal(active.status())) {
             active.restart(script, eventIndex, page.orElseThrow().entry());
+            EventFacingBridge.beginDialogueSequence(key);
         } else if (active != candidate) {
             active.relocate(script, eventIndex);
         }

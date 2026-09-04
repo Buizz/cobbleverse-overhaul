@@ -1,6 +1,7 @@
 package dev.buizz.cobbleventure.adventure.event;
 
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,6 +47,9 @@ public final class EventNpcProximityHandler {
         List<BoundNpc> allBoundNpcs = boundNpcs.values().stream()
             .flatMap(List::stream).toList();
         for (ServerPlayer player : tick.getServer().getPlayerList().getPlayers()) {
+            if (PokemonCenterDefeatReturn.blocksNewNpcEvents(player)) {
+                continue;
+            }
             EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
                 new ServerPlayerEventState(player)
             );

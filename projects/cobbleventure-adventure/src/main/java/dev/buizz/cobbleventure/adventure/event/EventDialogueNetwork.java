@@ -42,6 +42,19 @@ public final class EventDialogueNetwork {
             if (!request.sessionKey().playerId().equals(player.getUUID())) {
                 throw new EventRuntimeException("대화 요청의 player와 gateway player가 다릅니다.");
             }
+            if (request.kind() == EventDialogueGateway.Kind.SAY) {
+                try {
+                    EventFacingBridge.faceDialogueNpcIfOutsideView(
+                        player, request.sessionKey()
+                    );
+                } catch (RuntimeException error) {
+                    // Camera assistance must never prevent the authored dialogue itself.
+                    LOGGER.warn(
+                        "Could not face player toward CVES dialogue NPC: player={}, npc={}",
+                        player.getGameProfile().getName(), request.sessionKey().npcId(), error
+                    );
+                }
+            }
             String token = UUID.randomUUID().toString();
             JsonObject locals = locals(player, request.locals());
             PacketDistributor.sendToPlayer(player, new OpenPayload(

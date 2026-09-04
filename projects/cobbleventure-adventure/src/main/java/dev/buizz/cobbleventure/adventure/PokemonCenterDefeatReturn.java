@@ -97,6 +97,28 @@ public final class PokemonCenterDefeatReturn {
         defeatRecoveryOverride = override == null ? player -> false : override;
     }
 
+    /**
+     * Prevents a nearby NPC from opening a fresh event after defeat while the
+     * player is still standing at the battle site. The battle result dialogue
+     * is already running when the pending return is registered and may finish
+     * normally; only subsequent trigger attempts are rejected.
+     */
+    public static boolean blocksNewNpcEvents(ServerPlayer player) {
+        PendingReturn pending = PENDING_RETURNS.get(player.getUUID());
+        RecoverySequence recovery = ACTIVE_RECOVERIES.get(player.getUUID());
+        return blocksNewNpcEvents(
+            pending != null,
+            recovery != null,
+            recovery != null && recovery.teleported
+        );
+    }
+
+    static boolean blocksNewNpcEvents(
+        boolean pendingReturn, boolean activeRecovery, boolean teleported
+    ) {
+        return pendingReturn || (activeRecovery && !teleported);
+    }
+
     static boolean shouldRecordForfeit(boolean wildBattle) {
         return !wildBattle;
     }

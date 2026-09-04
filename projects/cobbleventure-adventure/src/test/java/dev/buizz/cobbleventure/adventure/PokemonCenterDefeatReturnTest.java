@@ -15,4 +15,12 @@ final class PokemonCenterDefeatReturnTest {
     void wildEscapeIsNotRecordedAsForcedDefeat() {
         assertFalse(PokemonCenterDefeatReturn.shouldRecordForfeit(true));
     }
+
+    @Test
+    void npcEventsStayBlockedUntilDefeatRecoveryHasTeleportedThePlayer() {
+        assertTrue(PokemonCenterDefeatReturn.blocksNewNpcEvents(true, false, false));
+        assertTrue(PokemonCenterDefeatReturn.blocksNewNpcEvents(false, true, false));
+        assertFalse(PokemonCenterDefeatReturn.blocksNewNpcEvents(false, true, true));
+        assertFalse(PokemonCenterDefeatReturn.blocksNewNpcEvents(false, false, false));
+    }
 }
