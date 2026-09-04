@@ -18,6 +18,7 @@ final class DungeonPieceDefinitionTest {
               "piece_id": "cobbleventure:dungeon_piece/rocket/start",
               "structure": "cobbleventure:dungeon/team_rocket/start",
               "role": "start",
+              "spatial_kind": "chamber",
               "size": [16, 8, 16],
               "weight": 10,
               "allow_rotation": true,
@@ -48,6 +49,7 @@ final class DungeonPieceDefinitionTest {
             """);
 
         assertEquals("start", piece.role());
+        assertEquals("chamber", piece.spatialKind());
         assertEquals(new BlockPos(16, 8, 16), piece.size());
         assertEquals(Direction.NORTH, piece.connectors().getFirst().facing());
         assertEquals("entry", piece.markers().getFirst().kind());
@@ -131,6 +133,27 @@ final class DungeonPieceDefinitionTest {
             "[7, 1, 0]", "north", "room",
             "[{\"id\":\"lock\",\"kind\":\"gate\",\"position\":[7,1,0],"
                 + "\"connector\":\"missing\"}]"
+        )));
+    }
+
+    @Test
+    void infersLegacySpatialKindAndRejectsUnknownKind() {
+        DungeonPieceDefinition corridor = parse(basePiece(
+            "[7, 1, 0]", "north", "corridor", "[]"
+        ));
+        assertEquals("passage", corridor.spatialKind());
+
+        assertThrows(IllegalStateException.class, () -> parse(basePiece(
+            "[7, 1, 0]", "north", "room", "[]"
+        ).replace(
+            "\"role\": \"room\",",
+            "\"role\": \"room\", \"spatial_kind\": \"unknown\","
+        )));
+        assertThrows(IllegalStateException.class, () -> parse(basePiece(
+            "[7, 1, 0]", "north", "room", "[]"
+        ).replace(
+            "\"role\": \"room\",",
+            "\"role\": \"room\", \"spatial_kind\": \"passage\","
         )));
     }
 

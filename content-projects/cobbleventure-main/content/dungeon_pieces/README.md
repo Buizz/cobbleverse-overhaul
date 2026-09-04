@@ -14,6 +14,20 @@
 - `cobbleventure:dungeon_theme/<theme>`: 로켓단·아쿠아단·자연동굴 등의 외형
 - `cobbleventure:dungeon_pool/<theme>_test`: 런타임이 선택할 테마별 조각 풀
 
+각 조각의 `spatial_kind`는 화면 분류명이 아니라 생성기의 시공 계약이다.
+
+- `chamber`: 내부 콘텐츠와 이동 면적을 가진 공동·방 NBT. 시작방, 보스방,
+  일반 방과 보상방이 여기에 해당한다.
+- `passage`: 공동 사이를 실제 블록으로 잇는 직선·코너·T자·십자 통로 NBT.
+- `vertical_transition`: 서로 다른 Y의 포트를 가진 계단·승강 연결 NBT.
+- `terminal`: 사용하지 않는 연결을 안전하게 끝내는 막다른방과 출구 NBT.
+
+진행 그래프의 선은 월드에 생성되는 결과물이 아니다. 생성기는 공동 NBT를 먼저
+선택하고 각 포트 사이를 `passage` 조각의 연속으로 연결한다. 필요한 방향 조합의
+통로가 풀에 없거나 포트 좌표·소켓이 맞지 않으면 임의의 선이나 열린 구멍으로
+대체하지 않고 계획 컴파일을 실패시킨다. 공동의 X/Z 크기는 키트 격자 크기의
+배수일 수 있으며, 실제 NBT 경계 전체를 점유 영역으로 사용한다.
+
 첫 번째 `rocket` 스킨은 테스트용 블록 외형이다. 원본 NBT는
 `content/structures/dungeon_pieces/rocket`에 있으며 구조물 빌더의 `dungeon_pieces`
 구역에 자동 등록된다. 에딧월드에서 수정할 때 외곽 크기와 커넥터 문 위치를 바꾸지 않고

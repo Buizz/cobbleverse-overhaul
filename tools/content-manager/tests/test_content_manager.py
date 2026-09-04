@@ -297,7 +297,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('value="discrete_floors"', markup)
         self.assertIn('name="floorHeight"', markup)
         self.assertIn("function dungeonPreviewProgression", script)
-        self.assertIn("function dungeonPreviewSpatialize", script)
+        self.assertIn("function dungeonPreviewChamberPositions", script)
+        self.assertIn("function dungeonPreviewRoute", script)
+        self.assertIn("function dungeonPreviewPhysicalPlan", script)
+        self.assertIn("physicalPaths: true", script)
+        self.assertNotIn("function dungeonPreviewSpatialize", script)
         self.assertIn("document.progression =", script)
         self.assertIn("document.spatial_layout =", script)
         self.assertIn("function dungeonTopology", script)
@@ -550,7 +554,7 @@ class ContentManagerTests(unittest.TestCase):
         piece = {
             "$schema": "../../schemas/dungeon-piece.schema.json", "schema_version": 1,
             "piece_id": "cobbleventure:dungeon_piece/test_start", "structure": "cobbleventure:test/start",
-            "role": "start", "size": [8, 6, 8], "weight": 1,
+            "role": "start", "spatial_kind": "chamber", "size": [8, 6, 8], "weight": 1,
             "min_per_plan": 1, "max_per_plan": 1, "allow_rotation": True,
             "tags": ["cobbleventure:dungeon/test"],
             "connectors": [{
@@ -584,6 +588,20 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("entry 마커" in message for message in messages))
         self.assertTrue(any("최소 사용 횟수" in message for message in messages))
         self.assertTrue(any("critical_path" in message for message in messages))
+
+        piece["spatial_kind"] = "unknown"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "piece.json"
+            path.write_text(json.dumps(piece), encoding="utf-8")
+            _, spatial_issues = content_manager.validate_dungeon_piece_file(path)
+        self.assertTrue(any(issue.path == "$.spatial_kind" for issue in spatial_issues))
+
+        piece["spatial_kind"] = "passage"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "piece.json"
+            path.write_text(json.dumps(piece), encoding="utf-8")
+            _, contract_issues = content_manager.validate_dungeon_piece_file(path)
+        self.assertTrue(any("공간 용도는 chamber" in issue.message for issue in contract_issues))
         self.assertTrue(any("리소스 ID" in message for message in messages))
         self.assertTrue(any("커넥터 ID" in message for message in messages))
 
@@ -630,8 +648,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("function runtimeDungeonPlan(document, seed)", script)
         self.assertIn("function dungeonRuntimePreviewPiece(document, role, random,", script)
         self.assertIn('if (!options.length) return { piece: null, rotation: "none", missingFacings: required };', script)
-        self.assertIn("Math.min(Math.floor((count - 3) / 2), requestedFloorChanges)", script)
-        self.assertIn("while (roomsByFloor.at(-1) < 3)", script)
+        self.assertIn("function dungeonPreviewPhysicalPlan", script)
+        self.assertIn("function dungeonPreviewRoute", script)
+        self.assertIn("다층 계획은 실제 계단 NBT의 상·하단 포트 계약", script)
+        self.assertIn("서버 런타임의 ${algorithm} 공간 컴파일러는 아직 구현되지 않았습니다", script)
+        self.assertIn("physicalPaths: true", script)
         self.assertIn("function alignRuntimeDungeonPlacements(placements, links)", script)
         self.assertIn("link.fromPosition =", script)
         self.assertIn("function drawDungeonPlacementCutaway", script)

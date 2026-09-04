@@ -23,6 +23,7 @@ record DungeonPieceDefinition(
     String id,
     String structure,
     String role,
+    String spatialKind,
     BlockPos size,
     int weight,
     int minimumPerPlan,
@@ -44,6 +45,9 @@ record DungeonPieceDefinition(
     );
     private static final List<String> PLACEMENT_SCOPES = List.of(
         "any", "critical_path", "branch"
+    );
+    private static final List<String> SPATIAL_KINDS = List.of(
+        "chamber", "passage", "vertical_transition", "terminal"
     );
 
     static Map<String, DungeonPieceDefinition> loadAll(ResourceManager resources) {
@@ -79,6 +83,9 @@ record DungeonPieceDefinition(
         String id = resourceId(root, "piece_id");
         String structure = resourceId(root, "structure");
         String role = enumValue(root, "role", ROLES);
+        String spatialKind = root.has("spatial_kind")
+            ? enumValue(root, "spatial_kind", SPATIAL_KINDS)
+            : inferredSpatialKind(root, role);
         BlockPos size = positivePosition(root, "size");
         if (size.getX() > 128 || size.getY() > 128 || size.getZ() > 128) {
             throw new IllegalStateException("Dungeon piece is larger than 128 blocks: " + id);
@@ -167,6 +174,7 @@ record DungeonPieceDefinition(
         if (connectors.isEmpty()) {
             throw new IllegalStateException("Connectable dungeon piece has no connectors: " + id);
         }
+        validateSpatialKind(id, role, spatialKind, connectors);
 
         List<Marker> markers = new ArrayList<>();
         Set<String> markerIds = new HashSet<>();
@@ -204,6 +212,7 @@ record DungeonPieceDefinition(
             id,
             structure,
             role,
+            spatialKind,
             size,
             weight,
             minimumPerPlan,
@@ -240,6 +249,43 @@ record DungeonPieceDefinition(
             throw new IllegalStateException(
                 "Dungeon " + role + " piece requires exactly one " + requiredKind
                     + " marker: " + id
+            );
+        }
+    }
+
+    private static String inferredSpatialKind(JsonObject root, String role) {
+        if (root.has("tags") && root.get("tags").isJsonArray()) {
+            for (JsonElement element : root.getAsJsonArray("tags")) {
+                String tag = element.getAsString();
+                if (tag.endsWith("/stairs_up") || tag.endsWith("/stairs_down")) {
+                    return "vertical_transition";
+                }
+            }
+        }
+        return switch (role) {
+            case "corridor", "junction" -> "passage";
+            case "dead_end", "exit" -> "terminal";
+            default -> "chamber";
+        };
+    }
+
+    private static void validateSpatialKind(
+        String id,
+        String role,
+        String spatialKind,
+        List<Connector> connectors
+    ) {
+        boolean vertical = connectors.stream().map(connector -> connector.position().getY())
+            .distinct().count() > 1;
+        String expected = vertical ? "vertical_transition" : switch (role) {
+            case "corridor", "junction" -> "passage";
+            case "dead_end", "exit" -> "terminal";
+            default -> "chamber";
+        };
+        if (!spatialKind.equals(expected)) {
+            throw new IllegalStateException(
+                "Dungeon piece spatial kind does not match its role/connectors: "
+                    + id + " -> expected " + expected + ", got " + spatialKind
             );
         }
     }

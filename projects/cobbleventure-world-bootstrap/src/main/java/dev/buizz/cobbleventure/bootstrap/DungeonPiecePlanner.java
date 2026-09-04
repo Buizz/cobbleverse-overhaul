@@ -210,15 +210,20 @@ final class DungeonPiecePlanner {
             pieces.stream().filter(piece -> requiredRole == null
                 ? flexibleRoles.contains(piece.role())
                 : piece.role().equals(requiredRole))
+                .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
                 .filter(piece -> requiredRole != null || (
                     requiresHub
-                        ? piece.connectors().size() >= 4
+                        ? piece.spatialKind().equals("chamber")
+                            && piece.connectors().size() >= 4
                         : requiresRouteRoom
-                            ? piece.connectors().size() == 2
+                            ? piece.spatialKind().equals("chamber")
+                                && piece.connectors().size() == 2
                         : shouldAddVerticalTransition && canAddVerticalTransition
-                        ? isVerticalTransition(piece)
+                        ? piece.spatialKind().equals("vertical_transition")
+                            && isVerticalTransition(piece)
                         : needsBranchConnector && canAddBranchConnector
-                            ? piece.connectors().size() == 3
+                            ? piece.spatialKind().equals("passage")
+                                && piece.connectors().size() == 3
                             : piece.connectors().size() < 3
                 ))
                 .filter(piece -> floorChanges < settings.floorChangesMax()
@@ -404,6 +409,7 @@ final class DungeonPiecePlanner {
         );
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> roles.contains(piece.role()))
+                .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
                 .filter(piece -> remaining == 1
                     ? piece.connectors().size() == 1
                     : piece.connectors().size() == 2)
@@ -455,6 +461,7 @@ final class DungeonPiecePlanner {
         if (open == null) return true;
         List<DungeonPieceDefinition> terminalPool = pieces.stream()
                 .filter(piece -> piece.connectors().size() == 1)
+                .filter(piece -> piece.spatialKind().equals("terminal"))
                 .filter(piece -> !Set.of("start", "boss", "exit").contains(piece.role()))
                 .filter(piece -> piece.allowsPlacement(false))
                 .filter(piece -> canUse(state, piece))
@@ -709,6 +716,23 @@ final class DungeonPiecePlanner {
     private static boolean isVerticalTransition(DungeonPieceDefinition piece) {
         return piece.connectors().stream().map(connector -> connector.position().getY())
             .distinct().count() > 1;
+    }
+
+    /**
+     * Spatial kind is a construction contract, not a preview label. A malformed
+     * piece must never be selected merely because its legacy role happens to fit.
+     */
+    private static boolean hasConsistentSpatialKind(DungeonPieceDefinition piece) {
+        if (isVerticalTransition(piece)) {
+            return piece.spatialKind().equals("vertical_transition");
+        }
+        return switch (piece.role()) {
+            case "corridor", "junction" -> piece.spatialKind().equals("passage");
+            case "dead_end", "exit" -> piece.spatialKind().equals("terminal");
+            case "start", "boss", "room", "support", "treasure" ->
+                piece.spatialKind().equals("chamber");
+            default -> true;
+        };
     }
 
     private static boolean overlapsHorizontally(Box first, Box second) {

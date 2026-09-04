@@ -9007,6 +9007,9 @@ def validate_dungeon_piece_file(path: Path) -> tuple[str | None, list[Issue]]:
     roles = {"start", "room", "corridor", "junction", "dead_end", "support", "treasure", "boss", "exit"}
     if role not in roles:
         _issue(issues, "error", path, "$.role", "지원하지 않는 조각 역할입니다.")
+    spatial_kind = data.get("spatial_kind")
+    if spatial_kind is not None and spatial_kind not in {"chamber", "passage", "vertical_transition", "terminal"}:
+        _issue(issues, "error", path, "$.spatial_kind", "chamber, passage, vertical_transition, terminal 중 하나여야 합니다.")
     size = data.get("size")
     size_valid = isinstance(size, list) and len(size) == 3 and all(
         isinstance(axis, int) and not isinstance(axis, bool) and 1 <= axis <= 128 for axis in size
@@ -9088,6 +9091,34 @@ def validate_dungeon_piece_file(path: Path) -> tuple[str | None, list[Issue]]:
         else:
             for tag_index, tag in enumerate(connector_tags):
                 _resource_id(tag, issues, path, f"{base}.tags[{tag_index}]")
+
+    connector_levels = {
+        connector["position"][1]
+        for connector in connectors
+        if isinstance(connector, dict)
+        and isinstance(connector.get("position"), list)
+        and len(connector["position"]) == 3
+        and isinstance(connector["position"][1], int)
+    }
+    vertical_shape = isinstance(tags, list) and any(
+        isinstance(tag, str) and (
+            tag.endswith("/stairs_up") or tag.endswith("/stairs_down")
+        )
+        for tag in tags
+    )
+    inferred_spatial_kind = (
+        "vertical_transition" if vertical_shape or len(connector_levels) > 1
+        else "passage" if role in {"corridor", "junction"}
+        else "terminal" if role in {"dead_end", "exit"}
+        else "chamber"
+    )
+    if spatial_kind is not None and spatial_kind in {
+        "chamber", "passage", "vertical_transition", "terminal"
+    } and spatial_kind != inferred_spatial_kind:
+        _issue(
+            issues, "error", path, "$.spatial_kind",
+            f"역할·연결점 구조상 공간 용도는 {inferred_spatial_kind}여야 합니다.",
+        )
 
     markers = data.get("markers")
     seen_markers: set[str] = set()
