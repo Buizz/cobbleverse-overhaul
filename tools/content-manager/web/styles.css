@@ -2065,6 +2065,8 @@ body { font-size: 14px; line-height: 1.45; }
 .dungeon-option-grid > [data-dungeon-chamber-field] > legend { padding:0 6px; color:#355246; font-size:10px; font-weight:850; }
 .dungeon-option-grid > [data-dungeon-chamber-field] .cave-field-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 .dungeon-option-grid input,.dungeon-option-grid select,.dungeon-option-grid textarea { width:100%; min-width:0; padding:8px 9px; border:1px solid #afc0b7; border-radius:3px; background:#f9fbfa; color:#263d34; font:inherit; }
+.dungeon-floor-range { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:7px; }
+.dungeon-floor-range i { color:#61756c; font-style:normal; font-weight:800; }
 .dungeon-option-grid textarea { resize:vertical; }
 .dungeon-option-grid label.toggle { display:flex; align-items:center; align-self:end; min-height:34px; padding:8px 10px; border:1px solid #ccd8d2; border-radius:3px; background:#f4f8f6; }
 .dungeon-option-grid label.toggle input { width:auto; }

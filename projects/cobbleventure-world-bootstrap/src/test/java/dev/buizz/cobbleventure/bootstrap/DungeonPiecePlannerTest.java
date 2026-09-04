@@ -54,6 +54,7 @@ final class DungeonPiecePlannerTest {
             "rocket_casino_hideout", "rocket_silph_company", "rocket_pokemon_tower"
         )) {
             DungeonDefinition dungeon = packagedDungeon(name);
+            Set<Integer> observedFloorCounts = new java.util.HashSet<>();
             for (long seed = 1; seed <= 4; seed++) {
                 DungeonPieceLayout generated;
                 try {
@@ -82,7 +83,10 @@ final class DungeonPiecePlannerTest {
                     name + " did not align floors to the regular NBT piece height");
                 assertEquals(changes + 1, elevations.stream().distinct().count(),
                     name + " did not build each floor before joining them");
+                observedFloorCounts.add(changes + 1);
             }
+            assertTrue(observedFloorCounts.size() > 1,
+                name + " ignored the configured floor-count range");
         }
     }
 
@@ -114,6 +118,12 @@ final class DungeonPiecePlannerTest {
         )) {
             DungeonDefinition dungeon = packagedDungeon(name);
             DungeonDefinition runDungeon = dungeon.materializeGeneratedTrainers(517L);
+            DungeonPiecePlanner.Settings plannerSettings = DungeonPieceLayout
+                .plannerSettings(runDungeon, pieces.stream().filter(piece ->
+                    piece.tags().contains(runDungeon.terrain().piecePool())
+                ).toList(), false);
+            assertTrue(plannerSettings.chamberCount()
+                <= runDungeon.vertical().floorCount().maximum(), name);
             DungeonPieceLayout generated;
             try {
                 generated = DungeonPieceLayout.generate(runDungeon, pieces, 517L);
@@ -137,6 +147,42 @@ final class DungeonPiecePlannerTest {
                         DungeonPieceLayout.npcMarkerReference(encounter.id(), actor)
                     )), name + " -> " + encounter.id() + "#" + actor);
                 }
+            }
+            List<BlockPos> npcPositions = markers.entrySet().stream()
+                .filter(entry -> entry.getKey().kind().equals("npc_spawn"))
+                .map(Map.Entry::getValue).toList();
+            Map<Integer, Long> npcByFloor = generated.plan().placements().stream()
+                .filter(placement -> !placement.pieceId().contains("/stairs_"))
+                .map(placement -> placement.minimum().getY()).distinct()
+                .collect(java.util.stream.Collectors.toMap(
+                    floorY -> floorY,
+                    floorY -> npcPositions.stream().filter(position ->
+                        position.getY() >= floorY
+                            && position.getY() < floorY + runDungeon.vertical().floorHeight()
+                    ).count()
+                ));
+            long minimumFloorNpcs = npcByFloor.values().stream()
+                .mapToLong(Long::longValue).min().orElse(0L);
+            long maximumFloorNpcs = npcByFloor.values().stream()
+                .mapToLong(Long::longValue).max().orElse(0L);
+            assertTrue(maximumFloorNpcs - minimumFloorNpcs <= 1,
+                name + " did not distribute NPCs evenly by floor: " + npcByFloor);
+
+            Set<Integer> occupiedNpcPlacements = generated.markers().stream()
+                .filter(marker -> marker.kind().equals("npc_spawn")
+                    && npcPositions.contains(marker.position()))
+                .map(DungeonPieceLayout.ResolvedMarker::placementIndex)
+                .collect(java.util.stream.Collectors.toSet());
+            for (DungeonPiecePlan.Placement chamber : generated.plan().placements()
+                .stream().filter(placement -> placement.role().equals("room")).toList()) {
+                assertTrue(occupiedNpcPlacements.contains(chamber.index()),
+                    name + " generated an empty ordinary chamber at "
+                    + chamber.minimum() + "; occupied=" + occupiedNpcPlacements
+                    + "; rooms=" + generated.plan().placements().stream()
+                        .filter(placement -> placement.role().equals("room"))
+                        .map(placement -> placement.index() + ":" + placement.pieceId()
+                            + "@" + placement.minimum())
+                        .toList());
             }
         }
     }
@@ -395,8 +441,8 @@ final class DungeonPiecePlannerTest {
             DungeonDefinition.parse(expandedRoot), pieces, false
         );
 
-        assertEquals(15, compact.criticalPathMin());
-        assertEquals(24, expanded.criticalPathMin());
+        assertEquals(12, compact.criticalPathMin());
+        assertEquals(21, expanded.criticalPathMin());
         assertEquals(3, compact.chamberCount());
         assertEquals(3, expanded.chamberCount());
         assertTrue(expanded.criticalPathMin() > compact.criticalPathMin());

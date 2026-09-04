@@ -207,6 +207,19 @@ final class NaturalCaveGenerator {
         BlockPos bounds,
         Settings configured
     ) {
+        return generateInstance(level, caveId, seed, origin, bounds, configured, null, null);
+    }
+
+    static InstanceResult generateInstance(
+        ServerLevel level,
+        String caveId,
+        long seed,
+        BlockPos origin,
+        BlockPos bounds,
+        Settings configured,
+        BlockPos configuredEntryPosition,
+        BlockPos configuredExitPosition
+    ) {
         long effectiveSeed = seed ^ configured.seedSalt();
         InstancePlan planned = planInstance(
             caveId, effectiveSeed, origin, bounds, "critical_path_branches",
@@ -237,11 +250,25 @@ final class NaturalCaveGenerator {
             instanceLayout, configured.internalBiomes(),
             configured.roomTypes(), configured.pathTypes(), configured.decorations()
         );
+        BlockPos entryPosition = configuredEntryPosition != null
+            ? configuredEntryPosition : planned.entryPosition();
+        BlockPos exitPosition = configuredExitPosition != null
+            ? configuredExitPosition : planned.exitPosition();
+        Map<String, BlockPos> configuredPositions = Map.of(
+            "entry", entryPosition, "exit", exitPosition
+        );
         List<Entrance> entrances = planned.entrances().stream()
-            .map(entrance -> new Entrance(
-                entrance.id(), entrance.cave(), entrance.destination(),
-                entrance.portalAnchor(), effective
-            ))
+            .map(entrance -> {
+                BlockPos position = origin.offset(
+                    configuredPositions.get(entrance.id())
+                ).below();
+                BlockPoint point = new BlockPoint(
+                    position.getX(), position.getY(), position.getZ()
+                );
+                return new Entrance(
+                    entrance.id(), entrance.cave(), point, point, effective
+                );
+            })
             .toList();
         generateCave(level, caveId, effectiveSeed, entrances, effective);
         List<BlockPos> mainRooms = instanceLayout.anchors().stream()
@@ -255,7 +282,7 @@ final class NaturalCaveGenerator {
                 .subtract(origin))
             .toList();
         return new InstanceResult(
-            planned.entryPosition(), planned.exitPosition(), mainRooms, branchRooms
+            entryPosition, exitPosition, mainRooms, branchRooms
         );
     }
 

@@ -1257,7 +1257,8 @@ final class DungeonSystem {
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
-            definition.terrain().caveSettings()
+            definition.terrain().caveSettings(), definition.terrain().entryPosition(),
+            definition.terrain().exitPosition()
         );
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
         if (elapsedMs > definition.plan().generationTimeoutMs()) {
@@ -1292,7 +1293,8 @@ final class DungeonSystem {
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
-            definition.terrain().caveSettings()
+            definition.terrain().caveSettings(), definition.terrain().entryPosition(),
+            definition.terrain().exitPosition()
         );
         DungeonHybridLandmarkLayout.Result landmarks = DungeonHybridLandmarkLayout.plan(
             definition, pieceDefinitions.values(), generated.mainRoomPositions(),

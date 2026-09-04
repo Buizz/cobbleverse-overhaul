@@ -215,7 +215,7 @@ record DungeonPieceLayout(
             settings.verticalDirection(), settings.floorChangesMin(),
             settings.floorChangesMax(), settings.verticalMode(),
             settings.floorHeight(), settings.requiredChamberPieces(),
-            settings.chamberCount()
+            settings.chamberCount(), settings.exactChamberCount()
         );
     }
 
@@ -304,18 +304,36 @@ record DungeonPieceLayout(
         DungeonDefinition.Vertical vertical = definition.vertical();
         String layoutMode = definition.spatialLayout().algorithm().equals("corridor_halls")
             ? "corridor_spine" : "room_network";
-        Set<String> selectedChambers = Set.copyOf(
-            definition.spatialLayout().chamberPieces()
-        );
+        boolean encounterSized = definition.npcPlacement().enabled()
+            && definition.npcPlacement().capacityMode().equals("from_encounters");
+        List<String> selectedChambers = definition.spatialLayout().chamberPieces()
+            .stream().filter(id -> {
+                DungeonPieceDefinition piece = pieces.stream()
+                    .filter(candidate -> candidate.id().equals(id))
+                    .findFirst().orElse(null);
+                return piece != null && (!encounterSized || piece.markers().stream()
+                    .anyMatch(marker -> marker.kind().equals("npc_spawn")));
+            }).toList();
         int minimumChambers = vertical.mode().equals("discrete_floors")
             ? vertical.floorCount().maximum() : 1;
-        int chamberCount = selectedChambers.isEmpty() ? 0
-            : minimumChambers;
+        int ordinaryNpcDemand = definition.encounters().stream()
+            .filter(encounter -> encounter.kind().equals("trainer")
+                && !encounter.boss())
+            .mapToInt(DungeonDefinition.Encounter::actorCount).sum();
+        boolean generatedPopulationMaterialized = definition.encounters().stream()
+            .anyMatch(encounter -> encounter.generatedTrainer() != null);
+        if (definition.generatedTrainers().enabled()
+            && !generatedPopulationMaterialized) {
+            ordinaryNpcDemand += definition.generatedTrainers().count().maximum();
+        }
+        int chamberCount = selectedChambers.isEmpty() ? 0 : encounterSized
+            ? Math.min(minimumChambers, ordinaryNpcDemand) : minimumChambers;
         // Every ordinary passage contributes exactly one fallback NPC slot.
-        // Explicit chamber markers are preferred at assignment time, but are
-        // not assumed here because selected chambers may intentionally have none.
+        // Each encounter-sized chamber is guaranteed to contribute at least one
+        // marker because markerless chamber choices were filtered above.
         int npcPassagePlacements = definition.npcPlacement().enabled()
-            ? definition.npcPlacement().requiredSlots() : 0;
+            ? Math.max(0, definition.npcPlacement().requiredSlots() - chamberCount)
+            : 0;
         int requestedMinimum = topology.criticalPathRooms().minimum()
             + npcPassagePlacements;
         int requestedMaximum = Math.max(
@@ -347,7 +365,7 @@ record DungeonPieceLayout(
             Math.max(0, vertical.floorCount().minimum() - 1),
             Math.max(0, vertical.floorCount().maximum() - 1),
             vertical.mode(), vertical.floorHeight(),
-            definition.spatialLayout().chamberPieces(), chamberCount
+            selectedChambers, chamberCount, encounterSized
         );
     }
 
@@ -513,6 +531,7 @@ record DungeonPieceLayout(
         }
 
         Map<Integer, Integer> occupancy = new HashMap<>();
+        Map<Integer, Integer> floorOccupancy = new HashMap<>();
         List<ResolvedMarker> used = new ArrayList<>();
         List<DungeonDefinition.Encounter> ordered = definition.encounters().stream()
             .filter(encounter -> encounter.kind().equals("trainer"))
@@ -527,8 +546,8 @@ record DungeonPieceLayout(
             ));
             int preferredPlacement = anchor == null ? -1 : anchor.placementIndex();
             List<ResolvedMarker> selected = selectNpcGroup(
-                available, used, occupancy, encounter.actorCount(),
-                preferredPlacement, settings, encounterIndex, ordered.size()
+                available, used, occupancy, floorOccupancy, encounter.actorCount(),
+                preferredPlacement, settings
             );
             if (selected.size() != encounter.actorCount()) {
                 throw new IllegalStateException(
@@ -541,6 +560,7 @@ record DungeonPieceLayout(
                 available.remove(marker);
                 used.add(marker);
                 occupancy.merge(marker.placementIndex(), 1, Integer::sum);
+                floorOccupancy.merge(floorY(marker.placementIndex()), 1, Integer::sum);
                 assigned.put(
                     new MarkerKey("npc_spawn", npcMarkerReference(encounter.id(), index)),
                     marker
@@ -567,25 +587,23 @@ record DungeonPieceLayout(
         List<ResolvedMarker> available,
         List<ResolvedMarker> used,
         Map<Integer, Integer> occupancy,
+        Map<Integer, Integer> floorOccupancy,
         int actorCount,
         int preferredPlacement,
-        DungeonDefinition.NpcPlacement settings,
-        int encounterIndex,
-        int encounterCount
+        DungeonDefinition.NpcPlacement settings
     ) {
-        int targetPlacement = Math.round(
-            (encounterIndex + 1) * Math.max(0, plan.placements().size() - 1)
-                / (float) Math.max(1, encounterCount + 1)
-        );
         List<Integer> placements = available.stream()
             .map(ResolvedMarker::placementIndex)
             .distinct()
             .filter(index -> preferredPlacement < 0 || index == preferredPlacement)
             .sorted(java.util.Comparator
-                .comparingInt((Integer index) -> occupancy.getOrDefault(index, 0))
+                .comparingInt((Integer index) -> floorOccupancy.getOrDefault(
+                    floorY(index), 0
+                ))
                 .thenComparingInt(index -> index == preferredPlacement ? 0
                     : isOrdinaryChamber(index) ? 1 : 2)
-                .thenComparingInt(index -> Math.abs(index - targetPlacement)))
+                .thenComparingInt(index -> occupancy.getOrDefault(index, 0))
+                .thenComparingInt(Integer::intValue))
             .toList();
         for (int placement : placements) {
             List<ResolvedMarker> room = available.stream()
@@ -597,6 +615,13 @@ record DungeonPieceLayout(
             )) return List.copyOf(selected);
         }
         return List.of();
+    }
+
+    private int floorY(int placementIndex) {
+        return plan.placements().stream()
+            .filter(placement -> placement.index() == placementIndex)
+            .map(placement -> placement.minimum().getY())
+            .findFirst().orElse(Integer.MIN_VALUE);
     }
 
     private boolean isOrdinaryChamber(int placementIndex) {

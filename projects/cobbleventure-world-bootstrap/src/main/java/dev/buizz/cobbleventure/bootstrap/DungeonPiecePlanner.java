@@ -134,7 +134,9 @@ final class DungeonPiecePlanner {
             if (System.nanoTime() >= deadlineNanos) break;
             Random layoutRandom = new Random(mixSeed(seed, attempt));
             try {
-                int floorCount = settings.floorChangesMax() + 1;
+                int floorCount = randomRange(
+                    layoutRandom, settings.floorChangesMin(), settings.floorChangesMax()
+                ) + 1;
                 FloorAllocation allocation = allocateFloors(
                     planningPieces, settings, floorCount, layoutRandom
                 );
@@ -357,7 +359,8 @@ final class DungeonPiecePlanner {
             source.branchCountMin(), source.branchCountMax(),
             source.branchDepthMin(), source.branchDepthMax(), source.loopChance(),
             1, source.layoutMode(), "flat", 0, 0, "flat",
-            source.floorHeight(), source.requiredChamberPieces(), chamberCount
+            source.floorHeight(), source.requiredChamberPieces(), chamberCount,
+            source.exactChamberCount()
         );
     }
 
@@ -427,11 +430,17 @@ final class DungeonPiecePlanner {
             .collect(java.util.stream.Collectors.toSet());
         int remainingRoomSlots = (int) roles.subList(index, roles.size()).stream()
             .filter(role -> role.equals("room") || role.equals("flexible")).count();
+        long reservedChamberSlots = roles.subList(index, roles.size()).stream()
+            .filter(role -> role.equals("room")).count();
         Set<String> configuredRoles = criticalRoles(settings.layoutMode(), index);
         Set<String> flexible = new HashSet<>(configuredRoles);
         boolean hasSelectableChambers = pieces.stream()
             .anyMatch(piece -> piece.role().equals("room"));
-        if (!hasSelectableChambers
+        long placedChambers = state.placements.stream()
+            .filter(placed -> placed.definition().role().equals("room"))
+            .count();
+        if ((!settings.exactChamberCount() || !hasSelectableChambers
+            || placedChambers + reservedChamberSlots >= settings.chamberCount())
             && configuredRoles.contains("room")) {
             flexible.add("corridor"); flexible.add("junction");
         }
@@ -442,6 +451,11 @@ final class DungeonPiecePlanner {
                     || firstFloor && flexible.contains("room")
                         && piece.role().equals("support")
                 : piece.role().equals(wanted))
+            .filter(piece -> !settings.exactChamberCount()
+                || !wanted.equals("flexible")
+                || !piece.role().equals("room")
+                || placedChambers + reservedChamberSlots
+                    < settings.chamberCount())
             .filter(piece -> !isVerticalTransition(piece))
             .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
             .filter(piece -> piece.allowsPlacement(true))
@@ -1570,7 +1584,9 @@ final class DungeonPiecePlanner {
         long placed = state.placements.stream()
             .filter(value -> value.definition().role().equals("room"))
             .count();
-        return placed >= settings.chamberCount();
+        return settings.exactChamberCount()
+            ? placed == settings.chamberCount()
+            : placed >= settings.chamberCount();
     }
 
     private static Set<String> criticalRoles(String layoutMode, int depth) {
@@ -1747,7 +1763,8 @@ final class DungeonPiecePlanner {
         String verticalMode,
         int floorHeight,
         List<String> requiredChamberPieces,
-        int chamberCount
+        int chamberCount,
+        boolean exactChamberCount
     ) {
         Settings {
             requiredChamberPieces = requiredChamberPieces == null
@@ -1764,7 +1781,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, "corridor_spine", "mixed", 0, 256,
-                "continuous", 8, List.of(), 0
+                "continuous", 8, List.of(), 0, false
             );
         }
 
@@ -1778,7 +1795,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, "mixed", 0, 256,
-                "continuous", 8, List.of(), 0
+                "continuous", 8, List.of(), 0, false
             );
         }
 
@@ -1794,7 +1811,7 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, "continuous", 8,
-                List.of(), 0
+                List.of(), 0, false
             );
         }
 
@@ -1811,7 +1828,7 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, verticalMode, floorHeight,
-                List.of(), 0
+                List.of(), 0, false
             );
         }
 
@@ -1830,7 +1847,26 @@ final class DungeonPiecePlanner {
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, verticalMode, floorHeight,
                 requiredChamberPieces,
-                requiredChamberPieces == null ? 0 : requiredChamberPieces.size()
+                requiredChamberPieces == null ? 0 : requiredChamberPieces.size(),
+                false
+            );
+        }
+
+        Settings(
+            BlockPos bounds, int criticalPathMin, int criticalPathMax,
+            int branchCountMin, int branchCountMax,
+            int branchDepthMin, int branchDepthMax,
+            double loopChance, int maxAttempts, String layoutMode,
+            String verticalDirection, int floorChangesMin, int floorChangesMax,
+            String verticalMode, int floorHeight,
+            List<String> requiredChamberPieces, int chamberCount
+        ) {
+            this(
+                bounds, criticalPathMin, criticalPathMax,
+                branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
+                loopChance, maxAttempts, layoutMode, verticalDirection,
+                floorChangesMin, floorChangesMax, verticalMode, floorHeight,
+                requiredChamberPieces, chamberCount, false
             );
         }
 

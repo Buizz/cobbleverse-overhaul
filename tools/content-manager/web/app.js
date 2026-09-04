@@ -2252,7 +2252,10 @@ function loadSectionData(section, force = false) {
   if (section === "biomes") return loadBiomeData(force);
   if (section === "caves" || section === "forests") return loadBiomeData(force);
   if (section === "underground-roads") return loadStructureData(force).then(renderUndergroundRoad);
-  if (section === "dungeons") return Promise.all([loadStructureData(force), loadTrainerData(force)]).then(renderDungeonContentEditor);
+  if (section === "dungeons") return Promise.all([loadStructureData(force), loadTrainerData(force)]).then(() => {
+    renderDungeonContentEditor();
+    renderDungeonGeneratedPopulation();
+  });
   if (section === "dungeon-pieces" || section === "dungeon-chambers") return loadStructureData(force).then(renderDungeonPieceEditor);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
@@ -5363,8 +5366,9 @@ function dungeonRangeText(value, fallback) {
 
 function parseDungeonRange(value, fallback, minimum = 0) {
   const parsed = csvValues(value).slice(0, 2).map((entry) => Math.round(Number(entry)));
-  if (parsed.length !== 2 || parsed.some((entry) => !Number.isFinite(entry))) return [...fallback];
+  if (!parsed.length || parsed.some((entry) => !Number.isFinite(entry))) return [...fallback];
   const normalized = parsed.map((entry) => Math.max(minimum, entry));
+  if (normalized.length === 1) return [normalized[0], normalized[0]];
   return normalized[0] <= normalized[1] ? normalized : [normalized[1], normalized[0]];
 }
 
@@ -5431,6 +5435,11 @@ function legacyDungeonLayoutMode(mode) {
 }
 
 function ensureDungeonTopologyOptions(form) {
+  const legacyFloorCount = form?.elements?.floorCount;
+  if (legacyFloorCount) {
+    const field = legacyFloorCount.closest("label");
+    field.innerHTML = '<span>층 수 범위</span><div class="dungeon-floor-range"><input name="floorCountMin" type="number" min="1" max="64" step="1" aria-label="최소 층 수"><i aria-hidden="true">~</i><input name="floorCountMax" type="number" min="1" max="64" step="1" aria-label="최대 층 수"></div><small>같은 수를 입력하면 층 수가 고정됩니다.</small>';
+  }
   return form;
 }
 
@@ -5516,19 +5525,18 @@ const dungeonComplexityDescriptions = {
 };
 
 function inferDungeonLayoutComplexity(topology = {}, vertical = {}) {
-  const critical = dungeonRange(topology.critical_path_rooms, [5, 7])[1];
-  const branches = dungeonRange(topology.branch_count, [1, 2])[1];
-  const branchDepth = dungeonRange(topology.branch_depth, [1, 2])[1];
-  const floors = vertical.mode === "flat" ? 1 : dungeonRange(vertical.floor_count, [1, 1])[1];
-  const loopChance = Number(topology.loop_chance || 0);
-  const score = Math.max(
-    critical <= 8 ? 0 : critical <= 12 ? 1 : 2,
-    branches <= 1 ? 0 : branches <= 3 ? 1 : 2,
-    branchDepth <= 1 ? 0 : branchDepth <= 2 ? 1 : 2,
-    floors <= 2 ? 0 : floors <= 4 ? 1 : 2,
-    loopChance <= .01 ? 0 : loopChance <= .08 ? 1 : 2,
-  );
-  return ["simple", "standard", "complex"][score];
+  const equalsRange = (actual, expected) => {
+    const left = dungeonRange(actual, [0, 0]);
+    const right = parseDungeonRange(expected, [0, 0]);
+    return left[0] === right[0] && left[1] === right[1];
+  };
+  return Object.entries(dungeonComplexityPresets).find(([, preset]) => (
+    equalsRange(topology.critical_path_rooms, preset.criticalRooms)
+      && equalsRange(topology.branch_count, preset.branchCount)
+      && equalsRange(topology.branch_depth, preset.branchDepth)
+      && Math.abs(Number(topology.loop_chance || 0) - preset.loopChance) < 1e-9
+      && (vertical.mode === "flat" || equalsRange(vertical.floor_count, preset.floors))
+  ))?.[0] || "custom";
 }
 
 function updateDungeonComplexitySummary() {
@@ -5545,7 +5553,10 @@ function applyDungeonComplexityPreset(level) {
     if (name === "floors") continue;
     form.elements[name].value = value;
   }
-  form.elements.floorCount.value = form.elements.verticalMode.value === "flat" ? "1, 1" : preset.floors;
+  const floors = form.elements.verticalMode.value === "flat" ? [1, 1]
+    : parseDungeonRange(preset.floors, [1, 1], 1);
+  form.elements.floorCountMin.value = floors[0];
+  form.elements.floorCountMax.value = floors[1];
   form.elements.layoutComplexity.value = level;
   updateDungeonComplexitySummary();
 }
@@ -5558,11 +5569,36 @@ function dungeonNpcActorDemand(document) {
   return fixed + generated;
 }
 
+function dungeonOrdinaryNpcDemand(document) {
+  const fixed = (document.encounters || []).filter((entry) => entry.kind !== "wild_pokemon" && !entry.boss)
+    .reduce((sum, entry) => sum + (Array.isArray(entry.trainers) ? entry.trainers.length
+      : Array.isArray(entry.npcs) ? entry.npcs.length : 0), 0);
+  const generated = document.generated_trainers?.enabled ? dungeonRange(document.generated_trainers.count, [1, 1])[1] : 0;
+  return fixed + generated;
+}
+
+function dungeonNpcChamberCandidates(document) {
+  const selected = new Set(dungeonSpatialLayout(document).chamber_pieces || []);
+  const encounterSized = document.npc_placement?.capacity_mode === "from_encounters";
+  return [...state.dungeonPieces.values()].filter((piece) => selected.has(piece.piece_id)
+    && (!encounterSized || (piece.markers || []).some((marker) => marker.kind === "npc_spawn")));
+}
+
+function dungeonNpcChamberTarget(document, floorCount) {
+  if (!dungeonNpcChamberCandidates(document).length) return 0;
+  return document.npc_placement?.capacity_mode === "from_encounters"
+    ? Math.min(floorCount, dungeonOrdinaryNpcDemand(document)) : floorCount;
+}
+
 function dungeonNpcRequiredPassages(document) {
   if (!document.npc_placement) return 0;
   const actorDemand = dungeonNpcActorDemand(document);
-  return document.npc_placement.capacity_mode === "fixed"
+  const floorRange = dungeonRange(dungeonVertical(document).floor_count, [1, 1]);
+  const floorCount = dungeonVertical(document).mode === "flat" ? 1 : Math.max(1, floorRange[1]);
+  const chamberSlots = dungeonNpcChamberTarget(document, floorCount);
+  const required = document.npc_placement.capacity_mode === "fixed"
     ? Math.max(actorDemand, Number(document.npc_placement.required_slots || 0)) : actorDemand;
+  return Math.max(0, required - chamberSlots);
 }
 
 function dungeonChamberFootprintCells(piece) {
@@ -5645,7 +5681,11 @@ function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
   const critical = parseDungeonRange(form?.elements?.criticalRooms?.value || dungeonRangeText(topology.critical_path_rooms, [5, 7]), [5, 7], 3);
   const branchCount = parseDungeonRange(form?.elements?.branchCount?.value || dungeonRangeText(topology.branch_count, [1, 2]), [1, 2], 0);
   const branchDepth = parseDungeonRange(form?.elements?.branchDepth?.value || dungeonRangeText(topology.branch_depth, [1, 2]), [1, 2], 1);
-  const floorCount = parseDungeonRange(form?.elements?.floorCount?.value || dungeonRangeText(vertical.floor_count, [1, 1]), [1, 1], 1);
+  const configuredFloors = dungeonRange(vertical.floor_count, [1, 1]);
+  const floorCount = parseDungeonRange(
+    `${form?.elements?.floorCountMin?.value || configuredFloors[0]},${form?.elements?.floorCountMax?.value || configuredFloors[1]}`,
+    configuredFloors, 1,
+  );
   const selectedIds = dungeonSpatialLayout(document).chamber_pieces || [];
   const selected = selectedIds.map((id) => state.dungeonPieces.get(id)).filter(Boolean);
   const largestChamberSpan = Math.max(1, ...selected.map((piece) => Math.ceil(Math.max(Number(piece.size?.[0] || 16), Number(piece.size?.[2] || 16)) / 16)));
@@ -5775,7 +5815,7 @@ function renderDungeonOptionVisibility() {
   $$('[data-dungeon-bounds-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
   $$('[data-dungeon-plan-field]').forEach((element) => element.hidden = terrainMode === "fixed_template");
   $$('[data-dungeon-cave-field]').forEach((element) => element.hidden = !["procedural_cave", "hybrid"].includes(terrainMode));
-  ["progressionPattern", "spatialAlgorithm", "requiredTargets", "criticalRooms", "branchCount", "branchDepth", "loopChance", "verticalMode", "verticalDirection", "floorCount", "floorHeight"].forEach((name) => {
+  ["progressionPattern", "spatialAlgorithm", "requiredTargets", "criticalRooms", "branchCount", "branchDepth", "loopChance", "verticalMode", "verticalDirection", "floorCountMin", "floorHeight"].forEach((name) => {
     const field = form.elements[name]?.closest("label");
     if (field) field.hidden = ["procedural_cave", "hybrid"].includes(terrainMode);
   });
@@ -5851,7 +5891,8 @@ function renderDungeonForm() {
     spatialAlgorithm: spatialLayout.algorithm === "corridor_halls" ? "corridor_halls" : "room_scatter", layoutComplexity: inferDungeonLayoutComplexity(topology, vertical), criticalRooms: dungeonRangeText(topology.critical_path_rooms, [5, 7]),
     branchCount: dungeonRangeText(topology.branch_count, [1, 2]), branchDepth: dungeonRangeText(topology.branch_depth, [1, 2]),
     loopChance: topology.loop_chance ?? 0, verticalMode: vertical.mode || "flat", verticalDirection: vertical.direction || "ascending",
-    floorCount: dungeonRangeText(vertical.floor_count, [1, 1]), floorHeight: vertical.floor_height ?? 8, resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
+    floorCountMin: dungeonRange(vertical.floor_count, [1, 1])[0], floorCountMax: dungeonRange(vertical.floor_count, [1, 1])[1],
+    floorHeight: vertical.floor_height ?? 8, resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
     npcCapacityMode: document.npc_placement?.capacity_mode || "from_encounters",
     npcRequiredSlots: document.npc_placement?.required_slots ?? 1,
     npcMinimumSpacing: document.npc_placement?.minimum_spacing ?? 4,
@@ -5955,7 +5996,10 @@ function updateDungeonFromForm() {
       const branchCount = parseDungeonRange(form.elements.branchCount.value, [1, 2], 0);
       const branchDepth = parseDungeonRange(form.elements.branchDepth.value, [1, 2], 1);
       const loopChance = Number(form.elements.loopChance.value || 0);
-      const floorCount = verticalMode === "flat" ? [1, 1] : parseDungeonRange(form.elements.floorCount.value, [2, 2], 1);
+      const floorCount = verticalMode === "flat" ? [1, 1] : parseDungeonRange(
+        `${form.elements.floorCountMin.value},${form.elements.floorCountMax.value}`,
+        [2, 2], 1,
+      );
       const verticalDirection = verticalMode === "flat" ? "ascending" : form.elements.verticalDirection.value;
       document.progression = {
         pattern: progressionPattern,
@@ -6101,8 +6145,16 @@ function dungeonPresetTrainerFields(entry) {
   return `<section class="wide dungeon-trainer-assignments"><header><div><b>등장 트레이너</b><small>NPC 외형·대화와 실제 배틀 팀을 같은 번호끼리 연결합니다.</small></div></header>${[0, 1].map((index) => `<article data-dungeon-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${dungeonTrainerNpcSelect(`trainerNpc${index}`, npcs[index] || "", "NPC 프리셋", index === 0)}${dungeonBattleSelect(`trainerBattle${index}`, opponents[index] || "", "배틀 프리셋", index === 0)}</article>`).join("")}</section>`;
 }
 
+function dungeonTrainerClassOptions(selected) {
+  const known = state.trainerClasses.some((entry) => entry.id === selected);
+  const unavailable = selected && !known
+    ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} · 카탈로그에 없음</option>`
+    : "";
+  return unavailable + state.trainerClasses.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(entry.display_name?.ko_kr || entry.display_name?.en_us || entry.id)}</option>`).join("");
+}
+
 function dungeonTrainerClassSelect(name, selected) {
-  const options = state.trainerClasses.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</option>`).join("");
+  const options = dungeonTrainerClassOptions(selected);
   return `<label class="dungeon-trainer-select"><span>외형 클래스</span><select data-dungeon-content-field data-dungeon-search-select name="${name}" required>${options}</select></label>`;
 }
 
@@ -6146,9 +6198,8 @@ function renderDungeonGeneratedPopulation() {
   const appearances = config.appearance_pool || [];
   const dialogues = config.dialogue_pool || [];
   const pokemon = config.pokemon_pool || [];
-  const trainerClassOptions = (selected) => state.trainerClasses.map((entry) => `<option value="${escapeHtml(entry.id)}"${entry.id === selected ? " selected" : ""}>${escapeHtml(entry.display_name?.ko_kr || entry.id)}</option>`).join("");
   const removeButton = (pool, index, length) => `<button type="button" data-generated-remove="${pool}" data-index="${index}"${length <= 1 ? " disabled" : ""}>삭제</button>`;
-  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>생성 NPC 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"></label><label><span>생성 NPC 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스를 함께 추첨합니다.</small></div><button type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${trainerClassOptions(entry.trainer_class)}</select></label><label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>NPC마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
+  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>생성 NPC 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"></label><label><span>생성 NPC 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스를 함께 추첨합니다.</small></div><button type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${dungeonTrainerClassOptions(entry.trainer_class)}</select></label><label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>NPC마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
   root.querySelectorAll("[data-dungeon-search-select]").forEach(enhanceMusicSelect);
 }
 
@@ -7755,7 +7806,8 @@ function dungeonPreviewPhysicalPlan(document, graph, algorithm, random) {
 
 function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
   const vertical = dungeonVertical(document); const floorRange = dungeonRange(vertical.floor_count, [1, 1]);
-  const floorCount = vertical.mode === "flat" ? 1 : Math.max(1, floorRange[1]);
+  const floorCount = vertical.mode === "flat" ? 1
+    : Math.max(1, floorRange[0] + Math.floor(random() * (floorRange[1] - floorRange[0] + 1)));
   const configuredAlgorithm = dungeonSpatialLayout(document).algorithm;
   const algorithm = configuredAlgorithm === "corridor_halls" ? "corridor_halls" : "room_scatter";
   if (algorithm === "authored") return null;
@@ -7764,7 +7816,13 @@ function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
   const npcPassages = dungeonNpcRequiredPassages(document);
   const criticalRange = configuredCriticalRange;
   const branchRange = dungeonRange(topology.branch_count, [1, 2]);
-  const selectedChambers = (dungeonSpatialLayout(document).chamber_pieces || []).map((id) => state.dungeonPieces.get(id)).filter(Boolean);
+  const selectedChambers = dungeonNpcChamberCandidates(document);
+  const totalChamberTarget = dungeonNpcChamberTarget(document, floorCount);
+  const chamberTargets = Array.from({ length: floorCount }, () => 0);
+  const chamberFloorOffset = floorCount > 1 ? Math.floor(random() * floorCount) : 0;
+  for (let chamber = 0; chamber < totalChamberTarget; chamber += 1) {
+    chamberTargets[(chamberFloorOffset + chamber) % floorCount] += 1;
+  }
   // Each floor owns at least two ordinary room nodes in addition to its
   // entrance/landing and final transition or boss/exit nodes.
   const floorCriticalCounts = Array.from({ length: floorCount }, (_, floor) => floor === floorCount - 1 ? 5 : 4);
@@ -7801,7 +7859,7 @@ function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
       const swap = Math.floor(floorRandom() * (index + 1));
       [ordinaryChamberSlots[index], ordinaryChamberSlots[swap]] = [ordinaryChamberSlots[swap], ordinaryChamberSlots[index]];
     }
-    const chamberTarget = selectedChambers.length ? 1 : 0;
+    const chamberTarget = chamberTargets[floor];
     const chamberSlots = ordinaryChamberSlots.slice(0, chamberTarget);
     chamberSlots.forEach((node) => {
       node.preferredPieceId = selectedChambers[Math.floor(floorRandom() * selectedChambers.length)].piece_id;
@@ -8129,9 +8187,11 @@ function runtimeDungeonContentMarkers(document, placements) {
   const isNpcChamber = (placement) => placement?.spaceKind === "chamber"
     || (!placement?.spaceKind && placement && !["corridor", "junction"].includes(placement.role));
   const roomOccupancy = new Map();
+  const floorOccupancy = new Map();
   const encounterRooms = new Map();
   const occupiedPositions = [];
   let assignedNpcCount = 0;
+  const floorKey = (placement) => placement?.logicalFloor ?? Number(placement?.minimum?.[1] || 0);
   [...actorEntries.filter(({ entry }) => entry.boss), ...actorEntries.filter(({ entry }) => !entry.boss)].forEach(({ entry, index, count }, encounterIndex, orderedEntries) => {
     if (!document.npc_placement) return;
     const markerKind = entry.boss ? "boss" : "encounter";
@@ -8140,17 +8200,20 @@ function runtimeDungeonContentMarkers(document, placements) {
       return values.length >= count && placement && (!entry.boss || markerPositions(placement, markerKind).length);
     });
     if (!candidates.length) return;
-    const targetRoom = Math.round((encounterIndex + 1) * Math.max(0, placements.length - 1) / Math.max(1, orderedEntries.length + 1));
-    candidates.sort((a, b) => (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0)
+    candidates.sort((a, b) => (floorOccupancy.get(floorKey(placementByIndex.get(a[0]))) || 0)
+      - (floorOccupancy.get(floorKey(placementByIndex.get(b[0]))) || 0)
       || (entry.boss ? 0 : (isNpcChamber(placementByIndex.get(a[0])) ? 0 : 1))
       - (entry.boss ? 0 : (isNpcChamber(placementByIndex.get(b[0])) ? 0 : 1))
-      || Math.abs(a[0] - targetRoom) - Math.abs(b[0] - targetRoom) || a[0] - b[0]);
+      || (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0)
+      || a[0] - b[0]);
     const [room, usableSlots] = candidates[0];
     const selected = usableSlots.slice(0, count);
     const roomSlots = remainingByRoom.get(room);
     selected.forEach((position) => roomSlots.splice(roomSlots.indexOf(position), 1));
     occupiedPositions.push(...selected);
     roomOccupancy.set(room, (roomOccupancy.get(room) || 0) + count);
+    const selectedFloor = floorKey(placementByIndex.get(room));
+    floorOccupancy.set(selectedFloor, (floorOccupancy.get(selectedFloor) || 0) + count);
     encounterRooms.set(index, { room, selected });
     assignedNpcCount += selected.length;
   });
@@ -9027,6 +9090,32 @@ function forestBuildBounds(document = state.forest) {
 function syncCaveBuildBounds() { if (state.cave?.dimension) state.cave.dimension.bounds = caveBuildBounds(state.cave); }
 function syncForestBuildBounds() { if (state.forest?.dimension) state.forest.dimension.bounds = forestBuildBounds(state.forest); }
 
+function syncDungeonCaveBuildBounds(document) {
+  const terrain = state.dungeon?.terrain;
+  if (!terrain || !document || !["procedural_cave", "hybrid"].includes(terrain.mode)) return;
+  if (!document.generator?.manual_layout?.enabled && !terrain.entry_position && !terrain.exit_position) return;
+  const positions = (document.entrances || []).map((entrance) => entrance.destination_anchor || {});
+  const anchors = document.generator?.manual_layout?.anchors || [];
+  const maximumX = Math.max(0, ...positions.map((point) => Number(point.x || 0)), ...anchors.map((anchor) => Number(anchor.position?.x || 0) + Math.max(3, Number(anchor.radius_x || 12))));
+  const maximumY = Math.max(0, ...positions.map((point) => Number(point.y || 0)), ...anchors.map((anchor) => Number(anchor.position?.y || 0) + Math.max(5, Number(anchor.height || 12))));
+  const maximumZ = Math.max(0, ...positions.map((point) => Number(point.z || 0)), ...anchors.map((anchor) => Number(anchor.position?.z || 0) + Math.max(3, Number(anchor.radius_z || 12))));
+  const align = (value, minimum, padding) => Math.ceil(Math.max(minimum, value + padding) / 16) * 16;
+  const current = (terrain.bounds || [128, 48, 128]).map(Number);
+  const manual = Boolean(document.generator?.manual_layout?.enabled);
+  terrain.bounds = [
+    align(maximumX, manual ? 112 : current[0], 14),
+    align(maximumY, manual ? 32 : current[1], 8),
+    align(maximumZ, manual ? 112 : current[2], 14),
+  ];
+  document.dimension.bounds = { min_x: 0, min_z: 0, max_x: terrain.bounds[0], max_z: terrain.bounds[2] };
+  const form = $("#dungeon-form");
+  if (form && !form.hidden) {
+    setFormValue(form, "boundsX", terrain.bounds[0]);
+    setFormValue(form, "boundsY", terrain.bounds[1]);
+    setFormValue(form, "boundsZ", terrain.bounds[2]);
+  }
+}
+
 function renderCaveDimensionSummary() {
   if (!state.cave) return;
   const bounds = state.cave.dimension?.bounds || {};
@@ -9325,13 +9414,14 @@ function renderCaveManualLayoutEditors() {
 }
 
 function handleCaveEditorClick(event) {
-  if (!state.cave) return;
   const selectEntrance = event.target.closest("[data-select-cave-entrance]");
   if (selectEntrance) {
+    if (!activeCaveLayoutDocument()) return;
     state.cavePreview.selected = { source: "entrance", id: selectEntrance.dataset.selectCaveEntrance };
     setCavePreviewTool("select"); renderCaveLayoutPreview();
     return;
   }
+  if (!state.cave) return;
   const addTrainer = event.target.closest("[data-add-cave-trainer]");
   const removeTrainer = event.target.closest("[data-remove-cave-trainer]");
   if (!(addTrainer || removeTrainer)) return;
@@ -9717,13 +9807,19 @@ function activeCaveLayoutDocument() {
   terrain.generator = normalizeNaturalCaveGenerator(terrain.generator);
   const bounds = (terrain.bounds || [128, 48, 128]).map(Number);
   const floorY = Math.max(8, Math.floor(bounds[1] / 3));
-  const entrance = (id, x, label) => ({ id, display_name: label, destination_anchor: { x, y: floorY, z: Math.floor(bounds[2] / 2) }, fallback_anchor: { x, y: floorY, z: Math.floor(bounds[2] / 2) } });
+  const validPosition = (value) => Array.isArray(value) && value.length === 3 && value.every((axis) => Number.isFinite(Number(axis)));
+  const entryPosition = validPosition(terrain.entry_position) ? terrain.entry_position : [14, floorY + 1, Math.floor(bounds[2] / 2)];
+  const exitPosition = validPosition(terrain.exit_position) ? terrain.exit_position : [bounds[0] - 15, floorY + 1, Math.floor(bounds[2] / 2)];
+  const entrance = (id, positionKey, position, label) => {
+    const [x, y, z] = position.map(Number);
+    return { id, display_name: label, destination_anchor: { x, y, z }, fallback_anchor: { x, y, z }, dungeon_position_key: positionKey };
+  };
   return {
     id: dungeon.dungeon_id,
     style: terrain.style || "rock",
     requires_flash: Boolean(terrain.requires_flash),
     generator: terrain.generator,
-    entrances: [entrance("entry", 14, "던전 입구"), entrance("exit", bounds[0] - 15, "던전 출구")],
+    entrances: [entrance("entry", "entry_position", entryPosition, "던전 입구"), entrance("exit", "exit_position", exitPosition, "던전 출구")],
     dimension: { origin: { x: 0, y: floorY, z: 0 }, bounds: { min_x: 0, min_z: 0, max_x: bounds[0], max_z: bounds[2] } },
   };
 }
@@ -9970,7 +10066,9 @@ function mutateSelectedCaveNode(values) {
     }
   } else if (selected.anchor) {
     for (const [field, rawValue] of Object.entries(values)) {
-      const value = Number(rawValue);
+      let value = Number(rawValue);
+      if (["x", "z"].includes(field) && state.cavePreview.context === "dungeon") value = Math.max(Math.ceil(Number(field === "x" ? selected.node.radius_x : selected.node.radius_z) || 3) + 4, value);
+      if (field === "y" && state.cavePreview.context === "dungeon") value = Math.max(4, value);
       if (["x", "y", "z"].includes(field)) selected.node.position[field] = Math.round(value);
       else if (field === "radiusX") selected.node.radius_x = Math.max(3, Math.min(96, value));
       else if (field === "radiusZ") selected.node.radius_z = Math.max(3, Math.min(96, value));
@@ -9980,7 +10078,8 @@ function mutateSelectedCaveNode(values) {
   } else {
     for (const [field, rawValue] of Object.entries(values)) {
       if (["x", "y", "z"].includes(field)) {
-        const value = Math.round(Number(rawValue));
+        const minimum = state.cavePreview.context === "dungeon" ? (field === "y" ? 4 : 8) : -Infinity;
+        const value = Math.max(minimum, Math.round(Number(rawValue)));
         const delta = value - selected.node.destination_anchor[field];
         selected.node.destination_anchor[field] = value;
         selected.node.fallback_anchor[field] += delta;
@@ -10002,6 +10101,13 @@ function mutateSelectedCaveNode(values) {
           if (connection.to === previousId) connection.to = nextId;
         }
         if (state.cavePreview.pathDraft?.id === previousId) state.cavePreview.pathDraft.id = nextId;
+      }
+    }
+    if (state.cavePreview.context === "dungeon" && selected.node.dungeon_position_key) {
+      for (const entrance of document.entrances || []) {
+        if (!entrance.dungeon_position_key) continue;
+        const point = entrance.destination_anchor;
+        state.dungeon.terrain[entrance.dungeon_position_key] = [point.x, point.y, point.z];
       }
     }
   }
@@ -10047,7 +10153,11 @@ function renderCaveNodeInspector() {
     inspector.querySelector('[data-cave-selected-field="displayName"]').value = selected.node.display_name || "";
     inspector.querySelector('[data-cave-selected-field="requiredProgress"]').value = selected.node.required_progress || "";
     for (const field of ["x", "y", "z"]) inspector.querySelector(`[data-cave-selected-field="fallback${field.toUpperCase()}"]`).value = selected.node.fallback_anchor[field];
-    inspector.querySelectorAll('[data-cave-entrance-field] input, [data-cave-position-field] input').forEach((input) => { input.disabled = state.cavePreview.context === "dungeon"; });
+    if (state.cavePreview.context === "dungeon") {
+      inspector.querySelectorAll('[data-cave-entrance-field] input').forEach((input) => { input.disabled = true; });
+      inspector.querySelectorAll('[data-cave-position-field] input').forEach((input) => { input.disabled = false; });
+      $("#cave-node-inspector-help").textContent = "던전 입출구를 드래그하거나 X·Y·Z를 입력해 이동합니다. 영역은 공동과 입출구를 감싸도록 자동 조정됩니다.";
+    }
   }
   $(".cave-layout-preview")?.setAttribute("data-editing-node", "true");
 }
@@ -10232,7 +10342,8 @@ function renderCaveLayoutPreview() {
   const canvas = $("#cave-layout-canvas"); const summary = $("#cave-preview-summary");
   if (!canvas || !summary) return;
   const document = activeCaveLayoutDocument();
-  if (state.cavePreview.context !== "dungeon") { syncCaveBuildBounds(); renderCaveDimensionSummary(); }
+  if (state.cavePreview.context === "dungeon") syncDungeonCaveBuildBounds(document);
+  else { syncCaveBuildBounds(); renderCaveDimensionSummary(); }
   const layout = buildCavePreviewLayout(); const context = canvas.getContext("2d");
   context.clearRect(0, 0, canvas.width, canvas.height);
   state.cavePreview.hitTargets = [];
@@ -10337,7 +10448,7 @@ function renderCaveLayoutPreview() {
   for (const entrance of layout.entrances) {
     const p = project(entrance); const submerged = isSubmergedAt(entrance.y); const isSelected = selected?.source === "entrance" && selected.id === entrance.id; const isDraft = state.cavePreview.pathDraft?.id === entrance.id;
     context.fillStyle = submerged ? (lava ? "#f25c1c" : "#43b8e8") : "#ffce67"; context.strokeStyle = isDraft ? "#b8e86b" : isSelected ? "#ffffff" : "#211b0d"; context.lineWidth = isDraft || isSelected ? 3 : 2; context.beginPath(); context.arc(p.x, p.y, isSelected || isDraft ? 10 : 8, 0, Math.PI * 2); context.fill(); context.stroke();
-    if (entrance.id) state.cavePreview.hitTargets.push({ mode: state.cavePreview.context === "dungeon" ? "select-entrance" : "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 22 });
+    if (entrance.id) state.cavePreview.hitTargets.push({ mode: "move", source: "entrance", id: entrance.id, x: p.x, y: p.y, radius: 22 });
   }
 
   const selectedRoom = selected?.source === "anchor" ? layout.rooms.find((room) => room.id === selected.id) : null;
@@ -19534,6 +19645,11 @@ $("#dungeon-form").addEventListener("change", (event) => {
     updateDungeonFromForm();
   }
   renderDungeonOptionVisibility();
+  if (event.target.name === "layoutComplexity" && event.target.value === "custom") {
+    updateDungeonComplexitySummary();
+    renderDungeonPreview();
+    return;
+  }
   renderDungeon();
 });
 $("#dungeon-content-list").addEventListener("click", (event) => {
@@ -20104,6 +20220,11 @@ $(".cave-layout-preview").addEventListener("input", (event) => {
 $(".cave-layout-preview").addEventListener("change", (event) => {
   if (state.cavePreview.context !== "dungeon") return;
   if (handleCavePlacementInput(event) || handleCavePreviewInspectorInput(event)) markActiveCaveLayoutDirty();
+});
+$(".cave-layout-preview").addEventListener("click", (event) => {
+  if (!event.target.closest("[data-select-cave-entrance]")) return;
+  event.stopPropagation();
+  handleCaveEditorClick(event);
 });
 function prepareUnifiedSpatialEditors() {
   const caveForm = $("#cave-form");
