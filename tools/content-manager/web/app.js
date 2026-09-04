@@ -5400,6 +5400,13 @@ function legacyDungeonLayoutMode(mode) {
     || "critical_path_branches";
 }
 
+function ensureDungeonTopologyOptions(form) {
+  const select = form.elements.topologyMode;
+  if (select && ![...select.options].some((option) => option.value === "chamber_maze")) {
+    select.add(new Option("공동 내부 미로", "chamber_maze"));
+  }
+}
+
 const dungeonComplexityPresets = {
   simple: { criticalRooms: "6, 8", branchCount: "0, 1", branchDepth: "1, 1", loopChance: 0, floors: "1, 2" },
   standard: { criticalRooms: "9, 12", branchCount: "1, 3", branchDepth: "1, 2", loopChance: .05, floors: "2, 4" },
@@ -5451,6 +5458,13 @@ function applyDungeonComplexityPreset(level) {
 function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
   const topology = dungeonTopology(document);
   const vertical = dungeonVertical(document);
+  const topologyMode = form?.elements?.topologyMode?.value || topology.mode;
+  if (topologyMode === "chamber_maze") {
+    const width = Math.max(3, Number(form?.elements?.chamberWidth?.value || topology.chamber_grid?.[0] || 7));
+    const depth = Math.max(3, Number(form?.elements?.chamberDepth?.value || topology.chamber_grid?.[1] || 5));
+    const floorHeight = Math.max(4, Number(form?.elements?.floorHeight?.value || vertical.floor_height || 8));
+    return [width * 8, Math.max(8, floorHeight), depth * 8];
+  }
   const critical = parseDungeonRange(form?.elements?.criticalRooms?.value || dungeonRangeText(topology.critical_path_rooms, [5, 7]), [5, 7], 3);
   const branchDepth = parseDungeonRange(form?.elements?.branchDepth?.value || dungeonRangeText(topology.branch_depth, [1, 2]), [1, 2], 1);
   const floorCount = parseDungeonRange(form?.elements?.floorCount?.value || dungeonRangeText(vertical.floor_count, [1, 1]), [1, 1], 1);
@@ -5559,6 +5573,7 @@ function selectDungeonTemplate(resourceId) {
 
 function renderDungeonOptionVisibility() {
   const form = $("#dungeon-form");
+  ensureDungeonTopologyOptions(form);
   const terrainMode = form.elements.terrainMode.value;
   const multiplayerMode = form.elements.multiplayerMode.value;
   [...form.elements.planMode.options].forEach((option) => {
@@ -5577,6 +5592,16 @@ function renderDungeonOptionVisibility() {
     element.hidden = ["procedural_cave", "hybrid"].includes(terrainMode)
       || form.elements.verticalMode.value === "flat";
   });
+  $$('[data-dungeon-chamber-field]').forEach((element) => {
+    element.hidden = terrainMode !== "nbt_pieces"
+      || form.elements.topologyMode.value !== "chamber_maze";
+  });
+  const chamberSummary = $("#dungeon-chamber-summary");
+  if (chamberSummary) {
+    const width = Math.max(3, Number(form.elements.chamberWidth.value || 7));
+    const depth = Math.max(3, Number(form.elements.chamberDepth.value || 5));
+    chamberSummary.textContent = `${width}×${depth} · ${(width * depth).toLocaleString()}개 셀`;
+  }
   $$('[data-dungeon-party-field]').forEach((element) => element.hidden = multiplayerMode === "solo");
   $$('[data-dungeon-tether-field]').forEach((element) => element.hidden = multiplayerMode !== "cooperative");
   $$('[data-dungeon-repeat-field]').forEach((element) => element.hidden = !form.elements.repeatable.checked);
@@ -5601,6 +5626,7 @@ function renderDungeonForm() {
   const document = state.dungeon;
   if (!document) return;
   const form = $("#dungeon-form");
+  ensureDungeonTopologyOptions(form);
   const topology = dungeonTopology(document);
   const vertical = dungeonVertical(document);
   form.hidden = false;
@@ -5630,7 +5656,7 @@ function renderDungeonForm() {
     planMode: document.plan?.mode || "runtime", seedPolicy: document.plan?.seed_policy || "random_per_run",
     planFallback: document.plan?.fallback || "reject_entry", generationTimeout: document.plan?.generation_timeout_ms ?? 1000,
     maxAttempts: document.plan?.max_attempts ?? 32, planIds: (document.plan?.plan_ids || []).join(", "),
-    topologyMode: topology.mode || "corridor_spine", layoutComplexity: inferDungeonLayoutComplexity(topology, vertical), criticalRooms: dungeonRangeText(topology.critical_path_rooms, [5, 7]),
+    topologyMode: topology.mode || "corridor_spine", chamberWidth: topology.chamber_grid?.[0] ?? 7, chamberDepth: topology.chamber_grid?.[1] ?? 5, layoutComplexity: inferDungeonLayoutComplexity(topology, vertical), criticalRooms: dungeonRangeText(topology.critical_path_rooms, [5, 7]),
     branchCount: dungeonRangeText(topology.branch_count, [1, 2]), branchDepth: dungeonRangeText(topology.branch_depth, [1, 2]),
     loopChance: topology.loop_chance ?? 0, verticalMode: vertical.mode || "flat", verticalDirection: vertical.direction || "ascending",
     floorCount: dungeonRangeText(vertical.floor_count, [1, 1]), floorHeight: vertical.floor_height ?? 8, resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
@@ -5741,6 +5767,11 @@ function updateDungeonFromForm() {
       const floorCount = verticalMode === "flat" ? [1, 1] : parseDungeonRange(form.elements.floorCount.value, [2, 2], 1);
       const verticalDirection = verticalMode === "flat" ? "ascending" : form.elements.verticalDirection.value;
       document.topology = { mode: topologyMode, critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance };
+      if (topologyMode === "chamber_maze") {
+        document.topology.chamber_grid = [
+          integer("chamberWidth", 7), integer("chamberDepth", 5)
+        ];
+      }
       document.vertical = { mode: verticalMode, direction: verticalDirection, floor_count: floorCount, floor_height: integer("floorHeight", 8), connections_per_floor: [1, 1] };
       document.layout = { mode: legacyDungeonLayoutMode(topologyMode), critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance, vertical_direction: verticalMode === "flat" ? "flat" : verticalDirection, floor_changes: floorCount.map((value) => Math.max(0, value - 1)) };
     }
@@ -6737,6 +6768,101 @@ function dungeonRuntimePreviewPiece(document, role, random, shape = "", required
   return best.at(-1);
 }
 
+function chamberMazePreviewPlan(document, seed) {
+  const topology = dungeonTopology(document);
+  const width = Math.max(3, Math.min(64, Number(topology.chamber_grid?.[0] || 7)));
+  const depth = Math.max(3, Math.min(64, Number(topology.chamber_grid?.[1] || 5)));
+  const random = seededDungeonRandom(seed);
+  const cellSize = 8;
+  const cellCount = width * depth;
+  const passages = new Set();
+  const edgeKey = (left, right) => left < right ? `${left}:${right}` : `${right}:${left}`;
+  const neighbors = (cell) => {
+    const x = cell % width; const z = Math.floor(cell / width); const result = [];
+    if (x > 0) result.push(cell - 1);
+    if (x + 1 < width) result.push(cell + 1);
+    if (z > 0) result.push(cell - width);
+    if (z + 1 < depth) result.push(cell + width);
+    return result;
+  };
+  const shuffle = (values) => {
+    for (let index = values.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(random() * (index + 1));
+      [values[index], values[target]] = [values[target], values[index]];
+    }
+    return values;
+  };
+  const visited = new Set([0]); const stack = [0];
+  while (stack.length) {
+    const current = stack.at(-1);
+    const available = shuffle(neighbors(current).filter((value) => !visited.has(value)));
+    if (!available.length) { stack.pop(); continue; }
+    const next = available[0];
+    passages.add(edgeKey(current, next)); visited.add(next); stack.push(next);
+  }
+  const loopChance = Math.max(0, Math.min(1, Number(topology.loop_chance || 0)));
+  for (let cell = 0; cell < cellCount; cell += 1) for (const next of neighbors(cell)) {
+    if (cell < next && !passages.has(edgeKey(cell, next)) && random() < loopChance) passages.add(edgeKey(cell, next));
+  }
+  const distances = Array(cellCount).fill(-1); const parents = Array(cellCount).fill(-1); const queue = [0]; distances[0] = 0;
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor];
+    for (const next of neighbors(current)) if (passages.has(edgeKey(current, next)) && distances[next] < 0) {
+      distances[next] = distances[current] + 1; parents[next] = current; queue.push(next);
+    }
+  }
+  const exit = distances.reduce((best, distance, index) => distance > distances[best] ? index : best, 0);
+  const criticalPath = [];
+  for (let cell = exit; cell >= 0; cell = parents[cell]) { criticalPath.push(cell); if (cell === 0) break; }
+  criticalPath.reverse();
+  const boss = criticalPath.length > 1 ? criticalPath.at(-2) : exit;
+  const criticalCells = new Set(criticalPath); const criticalEdges = new Set(criticalPath.slice(1).map((cell, index) => edgeKey(criticalPath[index], cell)));
+  const pseudoPiece = (role) => ({
+    size: [cellSize, 6, cellSize],
+    markers: [
+      ...(!["start", "exit"].includes(role) ? [{ kind: "npc_spawn", position: [4, 1, 4] }] : []),
+      ...(role === "room" ? [{ kind: "encounter", position: [4, 1, 4] }] : []),
+      ...(role === "boss" ? [{ kind: "boss", position: [4, 1, 4] }] : []),
+    ],
+  });
+  const placements = Array.from({ length: cellCount }, (_, index) => {
+    const role = index === 0 ? "start" : index === exit ? "exit" : index === boss ? "boss" : "room";
+    return {
+      index, pieceId: "preview:chamber_cell", structure: "", role,
+      minimum: [(index % width) * cellSize, 0, Math.floor(index / width) * cellSize],
+      size: [cellSize, 6, cellSize], rotation: "none", critical: criticalCells.has(index), floorYs: [0],
+      piece: pseudoPiece(role),
+    };
+  });
+  const links = [...passages].map((key) => {
+    const [from, to] = key.split(":").map(Number);
+    return { from, to, critical: criticalEdges.has(key) };
+  });
+  const partitions = [];
+  for (let x = 0; x < width; x += 1) {
+    partitions.push({ x1: x * cellSize, z1: 0, x2: (x + 1) * cellSize, z2: 0 });
+    partitions.push({ x1: x * cellSize, z1: depth * cellSize, x2: (x + 1) * cellSize, z2: depth * cellSize });
+  }
+  for (let z = 0; z < depth; z += 1) {
+    partitions.push({ x1: 0, z1: z * cellSize, x2: 0, z2: (z + 1) * cellSize });
+    partitions.push({ x1: width * cellSize, z1: z * cellSize, x2: width * cellSize, z2: (z + 1) * cellSize });
+  }
+  for (let z = 0; z < depth; z += 1) for (let x = 0; x < width; x += 1) {
+    const cell = z * width + x;
+    if (x + 1 < width && !passages.has(edgeKey(cell, cell + 1))) partitions.push({ x1: (x + 1) * cellSize, z1: z * cellSize, x2: (x + 1) * cellSize, z2: (z + 1) * cellSize });
+    if (z + 1 < depth && !passages.has(edgeKey(cell, cell + width))) partitions.push({ x1: x * cellSize, z1: (z + 1) * cellSize, x2: (x + 1) * cellSize, z2: (z + 1) * cellSize });
+  }
+  const markers = runtimeDungeonContentMarkers(document, placements);
+  const center = (cell) => [(cell % width) * cellSize + cellSize / 2, 1, Math.floor(cell / width) * cellSize + cellSize / 2];
+  markers.push({ kind: "entry", position: center(0), label: "입구" }, { kind: "exit", position: center(exit), label: "출구" });
+  placements.forEach((placement) => { delete placement.piece; });
+  return {
+    kind: "chamber-maze-preview", exact: false, topologyExact: true, seed,
+    bounds: [width * cellSize, 6, depth * cellSize], placements, links, partitions, markers,
+    npcCapacity: markers.npcCapacity, planId: "runtime",
+  };
+}
+
 function runtimeDungeonPlan(document, seed) {
   const random = seededDungeonRandom(seed);
   const caveTerrain = ["procedural_cave", "hybrid"].includes(document.terrain?.mode);
@@ -6744,6 +6870,7 @@ function runtimeDungeonPlan(document, seed) {
   const topology = caveTerrain ? {} : dungeonTopology(document);
   const vertical = caveTerrain ? {} : dungeonVertical(document);
   const mode = caveTerrain ? "natural_network" : topology.mode || "corridor_spine";
+  if (!caveTerrain && mode === "chamber_maze") return chamberMazePreviewPlan(document, seed);
   const roomsRange = caveTerrain ? [caveGenerator.main_rooms, caveGenerator.main_rooms] : dungeonRange(topology.critical_path_rooms, [5, 7]);
   const branchesRange = caveTerrain ? [caveGenerator.branch_count, caveGenerator.branch_count] : dungeonRange(topology.branch_count, [1, 2]);
   const depthRange = caveTerrain ? [1, 1] : dungeonRange(topology.branch_depth, [1, 2]);
@@ -6923,7 +7050,9 @@ function runtimeDungeonContentMarkers(document, placements) {
       return values.length >= count && placement && markerPositions(placement, markerKind).length;
     });
     if (!candidates.length) return;
-    candidates.sort((a, b) => (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0) || a[0] - b[0]);
+    const targetRoom = Math.round((index + 1) * Math.max(0, placements.length - 1) / Math.max(1, encounters.length + 1));
+    candidates.sort((a, b) => (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0)
+      || Math.abs(a[0] - targetRoom) - Math.abs(b[0] - targetRoom) || a[0] - b[0]);
     const [room, roomSlots] = candidates[0];
     const selected = roomSlots.splice(0, count);
     roomOccupancy.set(room, (roomOccupancy.get(room) || 0) + count);
@@ -6948,7 +7077,7 @@ function runtimeDungeonContentMarkers(document, placements) {
     ));
   });
   markers.npcCapacity = document.terrain?.mode === "nbt_pieces" && document.npc_placement
-    ? { demand: configuredDemand, actorDemand: npcDemand, capacity: npcCapacity, valid: npcCapacity >= configuredDemand && assignedNpcCount === npcDemand }
+    ? { demand: configuredDemand, actorDemand: npcDemand, assigned: assignedNpcCount, capacity: npcCapacity, valid: npcCapacity >= configuredDemand && assignedNpcCount === npcDemand }
     : null;
   (document.objectives || []).forEach((entry, index) => add("objective", Array.isArray(entry.position) ? entry.position : take(branchSlots, mainSlots), entry.id, { kind: "objective", index }));
   (document.loot?.containers || []).forEach((entry, index) => add("loot", Array.isArray(entry.position) ? entry.position : take(branchSlots, mainSlots), entry.id, { kind: "loot", index }));
@@ -7085,7 +7214,7 @@ function renderDungeonPreview() {
   const point = (position) => { const elevation = stackedView ? Number(position[1] || 0) : 0; return { x: offsetX + (Number(position[0]) + elevation * floorShiftX) * scale, y: offsetY + (Number(position[2]) - elevation * floorShiftY) * scale }; };
   const placementProblems = dungeonPlanPlacementProblems(plan);
   context.strokeStyle = "#294047"; context.lineWidth = 1;
-  if (state.dungeon.terrain?.mode === "nbt_pieces") {
+  if (state.dungeon.terrain?.mode === "nbt_pieces" && !plan.partitions?.length) {
     for (let x = 0; x <= boundsX; x += 16) { const px = offsetX + x * scale; context.beginPath(); context.moveTo(px, offsetY); context.lineTo(px, offsetY + boundsZ * scale); context.stroke(); }
     for (let z = 0; z <= boundsZ; z += 16) { const py = offsetY + z * scale; context.beginPath(); context.moveTo(offsetX, py); context.lineTo(offsetX + boundsX * scale, py); context.stroke(); }
   }
@@ -7103,20 +7232,31 @@ function renderDungeonPreview() {
     context.moveTo(from.x, from.y); context.lineTo(fromPort.x, fromPort.y); context.lineTo(toPort.x, toPort.y); context.lineTo(to.x, to.y); context.stroke();
   });
   const colors = { start: "#64d98a", boss: "#ef5a67", exit: "#f1c75b" };
+  const chamberPreview = plan.kind === "chamber-maze-preview";
   state.dungeonPreview.hitTargets = [];
   visiblePlacements.forEach((placement) => {
     const top = point(placement.minimum); const boxWidth = Math.max(8, placement.size[0] * scale); const boxHeight = Math.max(8, placement.size[2] * scale);
     const problem = placementProblems.get(placement.index);
     context.fillStyle = "#182629"; context.globalAlpha = .72; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1;
     const renderedNbt = drawDungeonPlacementCutaway(context, placement, point, scale, state.dungeonPreview.selected === placement.index ? 1 : .9);
-    if (!renderedNbt) { context.fillStyle = problem ? "#a93e49" : colors[placement.role] || (placement.critical ? "#4d86b8" : "#65757a"); context.globalAlpha = state.dungeonPreview.selected === placement.index ? 1 : .86; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1; }
-    context.strokeStyle = state.dungeonPreview.selected === placement.index ? "#fff" : problem ? "#ff8791" : "#b8d0d1"; context.lineWidth = state.dungeonPreview.selected === placement.index || problem ? 3 : 1; context.strokeRect(top.x, top.y, boxWidth, boxHeight);
-    if (scale >= 2.5 || state.dungeonPreview.selected === placement.index) {
+    if (!renderedNbt) { context.fillStyle = problem ? "#a93e49" : colors[placement.role] || (placement.critical ? "#39799b" : "#34464b"); context.globalAlpha = state.dungeonPreview.selected === placement.index ? 1 : chamberPreview ? .62 : .86; context.fillRect(top.x, top.y, boxWidth, boxHeight); context.globalAlpha = 1; }
+    if (!chamberPreview || state.dungeonPreview.selected === placement.index || problem) {
+      context.strokeStyle = state.dungeonPreview.selected === placement.index ? "#fff" : problem ? "#ff8791" : "#b8d0d1"; context.lineWidth = state.dungeonPreview.selected === placement.index || problem ? 3 : 1; context.strokeRect(top.x, top.y, boxWidth, boxHeight);
+    }
+    if ((!chamberPreview || placement.role !== "room") && (scale >= 2.5 || state.dungeonPreview.selected === placement.index)) {
       context.font = "700 10px sans-serif"; context.fillStyle = "rgba(12,22,24,.82)"; context.fillRect(top.x + 3, top.y + 3, Math.max(36, context.measureText(placement.role).width + 9), 14);
       context.fillStyle = "#fff"; context.fillText(placement.role, top.x + 7, top.y + 14);
     }
     state.dungeonPreview.hitTargets.push({ type: "placement", index: placement.index, x: top.x, y: top.y, width: boxWidth, height: boxHeight });
   });
+  if (plan.partitions?.length) {
+    context.strokeStyle = "#e1d1ae"; context.lineWidth = Math.max(2, Math.min(6, scale * .45)); context.lineCap = "square";
+    plan.partitions.forEach((partition) => {
+      const from = point([partition.x1, 0, partition.z1]); const to = point([partition.x2, 0, partition.z2]);
+      context.beginPath(); context.moveTo(from.x, from.y); context.lineTo(to.x, to.y); context.stroke();
+    });
+    context.lineCap = "butt";
+  }
   if (stackedView) visiblePlacements.filter((placement) => placement.verticalTransition && placement.floorYs?.length > 1).forEach((placement) => {
     const centerX = placement.minimum[0] + placement.size[0] / 2; const centerZ = placement.minimum[2] + placement.size[2] / 2;
     const from = point([centerX, placement.floorYs[0], centerZ]); const to = point([centerX, placement.floorYs.at(-1), centerZ]);
@@ -7153,8 +7293,15 @@ function renderDungeonPreview() {
     : "";
   $("#dungeon-preview-marker-summary").innerHTML = visibleMarkers.map((marker) => `<div class="dungeon-enemy-marker is-${escapeHtml(marker.kind)}"><i>${markerIcons[marker.kind] || "•"}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>${escapeHtml(dungeonMarkerKinds[marker.kind === "healing" ? "healing_station" : marker.kind] || marker.kind)} · X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></div>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 이벤트가 없습니다.</small>';
   const floorStatus = selectedFloor === null ? "모든 층은 같은 X/Z 격자를 사용하며, 높이 구분을 위해 실제 Y값만큼 대각선 원근 이동해 겹쳐 표시합니다. 계단 화살표가 아래층과 위층을 연결합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 원근 이동 없이 정확한 격자에 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
-  const capacityProblem = plan.npcCapacity && !plan.npcCapacity.valid ? ` NPC 슬롯이 ${plan.npcCapacity.demand - plan.npcCapacity.capacity}개 부족하여 이 계획은 컴파일되지 않습니다.` : "";
-  $("#dungeon-preview-status").textContent = (placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.` : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`) + capacityProblem;
+  const capacityDeficit = plan.npcCapacity ? Math.max(0, plan.npcCapacity.demand - plan.npcCapacity.capacity, plan.npcCapacity.actorDemand - (plan.npcCapacity.assigned ?? plan.npcCapacity.actorDemand)) : 0;
+  const capacityProblem = plan.npcCapacity && !plan.npcCapacity.valid ? ` NPC를 배치할 수 있는 유효한 마커가 ${capacityDeficit}개 부족하여 이 계획은 컴파일되지 않습니다.` : "";
+  $("#dungeon-preview-status").textContent = (placementProblems.size
+    ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.`
+    : plan.topologyExact
+      ? `${floorStatus} 공동 내부 동선·입구·보스·출구와 닫힌 칸막이는 이 시드의 실제 계획입니다. 공동 NBT 외형 시공은 아직 연결 전입니다.`
+      : plan.exact
+        ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.`
+        : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`) + capacityProblem;
 }
 
 function dungeonPlanPlacementProblems(plan) {

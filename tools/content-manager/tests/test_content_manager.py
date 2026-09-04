@@ -316,6 +316,23 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any(issue.path == "$.topology.chamber_grid" for issue in missing_issues))
         self.assertFalse(any(issue.path == "$.topology.chamber_grid" for issue in configured_issues))
 
+    def test_dungeon_editor_previews_chamber_maze_routes_and_partitions(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-dungeon-chamber-field', markup)
+        self.assertIn('name="chamberWidth"', markup)
+        self.assertIn('name="chamberDepth"', markup)
+        self.assertIn('select.add(new Option("공동 내부 미로", "chamber_maze"))', script)
+        self.assertIn('function chamberMazePreviewPlan(document, seed)', script)
+        self.assertIn('mode === "chamber_maze"', script)
+        self.assertIn('kind: "chamber-maze-preview"', script)
+        self.assertIn('const partitions = []', script)
+        self.assertIn('plan.partitions.forEach', script)
+        self.assertIn('공동 내부 동선·입구·보스·출구와 닫힌 칸막이는 이 시드의 실제 계획', script)
+        self.assertIn('.dungeon-option-grid > [data-dungeon-chamber-field]', styles)
+
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
         document["difficulty"]["recommended_min"] = 20
