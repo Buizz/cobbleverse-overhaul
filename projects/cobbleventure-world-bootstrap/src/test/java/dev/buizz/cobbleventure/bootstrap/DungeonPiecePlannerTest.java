@@ -400,6 +400,55 @@ final class DungeonPiecePlannerTest {
     }
 
     @Test
+    void buildsIndependentFloorSectionsAndPlacesAMultiCellChamber() throws Exception {
+        List<DungeonPieceDefinition> pieces = packagedRocketPieces().stream()
+            .filter(piece -> piece.id().contains("/rocket/"))
+            .filter(piece -> !piece.role().equals("treasure"))
+            .filter(piece -> !piece.role().equals("room")
+                || piece.connectors().size() != 4
+                || piece.id().endsWith("/empty_chamber_2x2"))
+            .toList();
+        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
+            new BlockPos(192, 32, 192), 14, 14, 0, 0, 1, 1,
+            0.0D, 256, "corridor_spine", "ascending", 2, 2,
+            "discrete_floors", 8,
+            List.of("corridor_spine", "room_network", "hub_and_spokes")
+        );
+
+        DungeonPiecePlan plan = DungeonPiecePlanner.generate(
+            pieces, settings, 9_041L
+        );
+        List<List<DungeonPiecePlan.Placement>> floors = new ArrayList<>();
+        floors.add(new ArrayList<>());
+        int stairs = 0;
+        for (DungeonPiecePlan.Placement placement : plan.placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath).toList()) {
+            if (placement.pieceId().contains("/stairs_")) {
+                stairs++;
+                floors.add(new ArrayList<>());
+            } else {
+                floors.getLast().add(placement);
+            }
+        }
+
+        assertEquals(2, stairs);
+        assertEquals(3, floors.size());
+        assertTrue(floors.stream().allMatch(floor -> floor.size() >= 2));
+        assertEquals("room", floors.get(1).getFirst().role(),
+            "the second floor must restart the room-network cadence");
+        DungeonPiecePlan.Placement hub = floors.get(2).stream()
+            .filter(placement -> placement.pieceId().endsWith("/empty_chamber_2x2"))
+            .findFirst().orElseThrow();
+        assertEquals(new BlockPos(32, 8, 32), hub.size());
+        assertTrue(plan.placements().stream()
+            .filter(placement -> placement.pieceId().contains("/stairs_"))
+            .allMatch(placement -> placement.pieceId().endsWith("/stairs_up")));
+        assertNoOverlap(plan);
+        assertConnected(plan);
+        assertNoOpenConnectors(plan, pieces);
+    }
+
+    @Test
     void assignsMarkerRelativeGateToAReusableRoomSlot() throws Exception {
         var stream = getClass().getClassLoader().getResourceAsStream(
             "data/cobbleventure/dungeons/generation_1/rocket_power_plant.json"
@@ -609,9 +658,9 @@ final class DungeonPiecePlannerTest {
         List<DungeonPieceDefinition> pieces = new ArrayList<>();
         for (String theme : List.of("rocket", "pokemon_tower")) {
             for (String id : List.of(
-                "boss", "corner", "corridor", "dead_end", "encounter_room", "exit",
-                "junction", "room", "route_room", "stairs_down", "stairs_up", "start", "support",
-                "t_junction",
+                "boss", "corner", "corridor", "dead_end", "empty_chamber_1x2",
+                "empty_chamber_2x2", "encounter_room", "exit", "junction", "room",
+                "route_room", "stairs_down", "stairs_up", "start", "support", "t_junction",
                 "treasure"
             )) {
                 pieces.add(DungeonPieceDefinition.parse(resourceJson(

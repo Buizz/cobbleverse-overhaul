@@ -156,6 +156,7 @@ final class DungeonPiecePlanner {
         }
         int remainingPlacements = targetRooms - depth;
         int floorChanges = state.criticalFloorChanges();
+        int floorDepth = state.criticalFloorDepth();
         String layoutMode = settings.layoutModeForFloor(floorChanges);
         if (floorChanges > settings.floorChangesMax()
             || floorChanges + remainingPlacements < settings.floorChangesMin()
@@ -164,11 +165,13 @@ final class DungeonPiecePlanner {
         }
         String requiredRole = depth == targetRooms - 2 ? "boss"
             : depth == targetRooms - 1 ? "exit" : null;
-        Set<String> flexibleRoles = criticalRoles(layoutMode, depth);
+        if (requiredRole != null && settings.floorChangesMin() > 0
+            && floorDepth < minimumCriticalDepth(layoutMode)) return false;
+        Set<String> flexibleRoles = criticalRoles(layoutMode, floorDepth);
         boolean requiresHub = requiredRole == null
-            && layoutMode.equals("hub_and_spokes") && depth == 2;
+            && layoutMode.equals("hub_and_spokes") && floorDepth == 2;
         boolean requiresRouteRoom = requiredRole == null
-            && layoutMode.equals("room_network") && depth % 2 == 0;
+            && layoutMode.equals("room_network") && floorDepth % 2 == 0;
         int branchCapacity = state.branchHostCount();
         boolean needsBranchConnector = requiredRole == null && !requiresHub
             && !layoutMode.equals("hub_and_spokes")
@@ -177,19 +180,36 @@ final class DungeonPiecePlanner {
             0, settings.floorChangesMin() - state.criticalFloorChanges()
         );
         int remainingVerticalSlots = 0;
-        for (int candidateDepth = depth;
-            candidateDepth < targetRooms - 2; candidateDepth++) {
+        for (int candidateDepth = floorDepth;
+            candidateDepth < floorDepth + targetRooms - depth - 2;
+            candidateDepth++) {
             if (criticalRoles(layoutMode, candidateDepth)
                 .contains("corridor")) {
                 remainingVerticalSlots++;
             }
         }
-        boolean shouldAddVerticalTransition = requiredRole == null
+        int remainingAfterCandidate = targetRooms - depth - 1;
+        int minimumFutureFloorPlacements = Math.max(0, neededFloorChanges - 1);
+        for (int future = 1; future <= neededFloorChanges; future++) {
+            minimumFutureFloorPlacements += minimumCriticalDepth(
+                settings.layoutModeForFloor(floorChanges + future)
+            );
+        }
+        boolean floorReadyForTransition = floorDepth
+            >= minimumCriticalDepth(layoutMode)
+            && remainingAfterCandidate >= minimumFutureFloorPlacements;
+        boolean canScheduleVerticalTransition = requiredRole == null
             && neededFloorChanges > 0
+            && floorReadyForTransition;
+        boolean mustAddVerticalTransition = canScheduleVerticalTransition
             && neededFloorChanges >= remainingVerticalSlots;
         boolean canAddVerticalTransition = requiredRole == null && pieces.stream()
             .anyMatch(piece -> flexibleRoles.contains(piece.role())
                 && isVerticalTransition(piece)
+                && verticalTransitionMatchesDirection(
+                    piece, settings.verticalDirection()
+                )
+                && floorReadyForTransition
                 && piece.allowsPlacement(true)
                 && canUse(state, piece));
         boolean canAddBranchConnector = requiredRole == null && pieces.stream()
@@ -202,21 +222,25 @@ final class DungeonPiecePlanner {
                 ? flexibleRoles.contains(piece.role())
                 : piece.role().equals(requiredRole))
                 .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
-                .filter(piece -> requiredRole != null || (
-                    requiresHub
+                .filter(piece -> requiredRole != null
+                    ? !isVerticalTransition(piece)
+                    : isVerticalTransition(piece)
+                    ? canScheduleVerticalTransition && canAddVerticalTransition
+                        && verticalTransitionMatchesDirection(
+                            piece, settings.verticalDirection()
+                        )
+                    : mustAddVerticalTransition ? false
+                    : requiresHub
                         ? piece.spatialKind().equals("chamber")
                             && piece.connectors().size() >= 4
                         : requiresRouteRoom
                             ? piece.spatialKind().equals("chamber")
                                 && piece.connectors().size() == 2
-                        : shouldAddVerticalTransition && canAddVerticalTransition
-                        ? piece.spatialKind().equals("vertical_transition")
-                            && isVerticalTransition(piece)
                         : needsBranchConnector && canAddBranchConnector
                             ? piece.spatialKind().equals("passage")
                                 && piece.connectors().size() == 3
                             : piece.connectors().size() < 3
-                ))
+                )
                 .filter(piece -> floorChanges < settings.floorChangesMax()
                     || !isVerticalTransition(piece))
                 .filter(piece -> piece.allowsPlacement(true))
@@ -640,6 +664,10 @@ final class DungeonPiecePlanner {
         };
     }
 
+    private static int minimumCriticalDepth(String layoutMode) {
+        return layoutMode.equals("hub_and_spokes") ? 3 : 2;
+    }
+
     private static Set<String> branchRoles(
         String layoutMode, int remaining, int depth
     ) {
@@ -717,6 +745,18 @@ final class DungeonPiecePlanner {
     private static boolean isVerticalTransition(DungeonPieceDefinition piece) {
         return piece.connectors().stream().map(connector -> connector.position().getY())
             .distinct().count() > 1;
+    }
+
+    private static boolean verticalTransitionMatchesDirection(
+        DungeonPieceDefinition piece, String direction
+    ) {
+        if (!isVerticalTransition(piece) || direction.equals("mixed")) return true;
+        String requiredShape = direction.equals("ascending")
+            ? "/stairs_up" : direction.equals("descending")
+                ? "/stairs_down" : "";
+        if (requiredShape.isEmpty()) return false;
+        return piece.id().endsWith(requiredShape)
+            || piece.tags().stream().anyMatch(tag -> tag.endsWith(requiredShape));
     }
 
     /**
@@ -969,17 +1009,21 @@ final class DungeonPiecePlanner {
         }
 
         private int criticalFloorChanges() {
-            int changes = 0;
-            Placed previous = null;
-            for (Placed placed : placements) {
+            return (int) placements.stream()
+                .filter(Placed::critical)
+                .filter(placed -> isVerticalTransition(placed.definition()))
+                .count();
+        }
+
+        private int criticalFloorDepth() {
+            int depth = 0;
+            for (int index = placements.size() - 1; index >= 0; index--) {
+                Placed placed = placements.get(index);
                 if (!placed.critical()) continue;
-                if (previous != null
-                    && previous.origin().getY() != placed.origin().getY()) {
-                    changes++;
-                }
-                previous = placed;
+                if (isVerticalTransition(placed.definition())) break;
+                depth++;
             }
-            return changes;
+            return depth;
         }
 
         private DungeonPiecePlan toPlan(long seed, BlockPos bounds) {
