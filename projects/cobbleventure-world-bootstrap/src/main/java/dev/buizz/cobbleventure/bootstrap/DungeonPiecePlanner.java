@@ -151,16 +151,15 @@ final class DungeonPiecePlanner {
                     int floorBranches = branches / floorCount
                         + (floor < branches % floorCount ? 1 : 0);
                     int floorNumber = floor;
-                    List<String> floorRequired = allocation.requiredChambers().get(floor);
+                    int floorChamberCount = allocation.chamberCounts().get(floor);
                     List<DungeonPieceDefinition> floorPieces = planningPieces.stream()
-                        .filter(piece -> floorRequired.contains(piece.id())
-                            || piece.maximumPerPlan() > floorNumber)
+                        .filter(piece -> piece.maximumPerPlan() > floorNumber)
                         .filter(piece -> !piece.role().equals("room")
-                            || !floorRequired.isEmpty())
+                            || floorChamberCount > 0)
                         .toList();
                     FloorResult result = generateFloor(
                         floorPieces, settings, allocation.placementCounts().get(floor),
-                        floorRequired, floor == 0,
+                        floorChamberCount, floor == 0,
                         floor == floorCount - 1, floorBranches, floorRandom,
                         new SearchBudget(deadlineNanos, MAX_SEARCH_NODES_PER_ATTEMPT)
                     );
@@ -194,7 +193,7 @@ final class DungeonPiecePlanner {
             random, settings.criticalPathMin(), settings.criticalPathMax()
         );
         int total = Math.max(
-            requested, minimumPlacements + settings.requiredChamberPieces().size()
+            requested, minimumPlacements
         );
         List<Integer> counts = new ArrayList<>();
         List<Long> occupiedCells = new ArrayList<>();
@@ -204,27 +203,15 @@ final class DungeonPiecePlanner {
             occupiedCells.add((long) base);
         }
 
-        Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
-            java.util.stream.Collectors.toMap(DungeonPieceDefinition::id, value -> value)
-        );
-        List<List<String>> assigned = new ArrayList<>();
+        List<Integer> chamberCounts = new ArrayList<>();
         for (int floor = 0; floor < floorCount; floor++) {
-            assigned.add(new ArrayList<>());
+            chamberCounts.add(0);
         }
-        List<String> largestFirst = settings.requiredChamberPieces().stream()
-            .sorted(Comparator.comparingLong((String id) -> {
-                BlockPos size = byId.get(id).size();
-                return (long) size.getX() * size.getZ();
-            }).reversed()).toList();
-        for (String id : largestFirst) {
+        for (int remaining = settings.chamberCount(); remaining > 0; remaining--) {
             int target = java.util.stream.IntStream.range(0, floorCount).boxed()
                 .min(Comparator.comparingLong(occupiedCells::get)).orElseThrow();
-            assigned.get(target).add(id);
-            BlockPos size = byId.get(id).size();
-            long footprintCells = (long) Math.ceil(size.getX() / 16.0D)
-                * (long) Math.ceil(size.getZ() / 16.0D);
-            counts.set(target, counts.get(target) + 1);
-            occupiedCells.set(target, occupiedCells.get(target) + footprintCells);
+            chamberCounts.set(target, chamberCounts.get(target) + 1);
+            occupiedCells.set(target, occupiedCells.get(target) + 1L);
         }
         for (int remaining = total - counts.stream().mapToInt(Integer::intValue).sum();
              remaining > 0; remaining--) {
@@ -234,7 +221,7 @@ final class DungeonPiecePlanner {
             occupiedCells.set(floor, occupiedCells.get(floor) + 1L);
         }
         return new FloorAllocation(
-            List.copyOf(counts), assigned.stream().map(List::copyOf).toList()
+            List.copyOf(counts), List.copyOf(chamberCounts)
         );
     }
 
@@ -242,7 +229,7 @@ final class DungeonPiecePlanner {
         List<DungeonPieceDefinition> pieces,
         Settings settings,
         int placementCount,
-        List<String> requiredChambers,
+        int chamberCount,
         boolean firstFloor,
         boolean lastFloor,
         int branchCount,
@@ -251,7 +238,7 @@ final class DungeonPiecePlanner {
     ) {
         for (int attempt = 0; attempt < 32; attempt++) {
             FloorResult result = generateFloorAttempt(
-                pieces, settings, placementCount, requiredChambers,
+                pieces, settings, placementCount, chamberCount,
                 firstFloor, lastFloor, branchCount, random, budget
             );
             if (result != null) return result;
@@ -263,7 +250,7 @@ final class DungeonPiecePlanner {
         List<DungeonPieceDefinition> pieces,
         Settings settings,
         int placementCount,
-        List<String> requiredChambers,
+        int chamberCount,
         boolean firstFloor,
         boolean lastFloor,
         int branchCount,
@@ -271,7 +258,7 @@ final class DungeonPiecePlanner {
         SearchBudget budget
     ) {
         int largestWidth = pieces.stream()
-            .filter(piece -> requiredChambers.contains(piece.id()))
+            .filter(piece -> chamberCount > 0 && piece.role().equals("room"))
             .mapToInt(piece -> Math.max(piece.size().getX(), piece.size().getZ()))
             .max().orElse(16);
         int wantedSide = Math.max(
@@ -289,7 +276,9 @@ final class DungeonPiecePlanner {
             settings.floorHeight(),
             Math.min(settings.bounds().getZ(), wantedSide)
         );
-        Settings floorSettings = withBounds(settings, localBounds, requiredChambers);
+        Settings floorSettings = withBounds(
+            settings, localBounds, chamberCount
+        );
         List<String> roles = new ArrayList<>();
         roles.add(firstFloor ? "start" : "corridor");
         int ending = lastFloor ? 2 : 1;
@@ -299,9 +288,17 @@ final class DungeonPiecePlanner {
         } else {
             roles.add("corridor");
         }
+        int ordinarySlots = Math.max(0, roles.size() - ending - 1);
+        if (chamberCount > ordinarySlots) return null;
+        for (int chamber = 0; chamber < chamberCount; chamber++) {
+            int slot = 1 + (int) Math.floor(
+                (chamber + 1.0D) * ordinarySlots / (chamberCount + 1.0D)
+            );
+            roles.set(Math.min(roles.size() - ending - 1, slot), "room");
+        }
         State state = new State();
         StartChoice start = floorStart(
-            pieces, floorSettings, roles.getFirst(), requiredChambers,
+            pieces, floorSettings, roles.getFirst(), List.of(),
             !firstFloor, random
         );
         if (start == null) return null;
@@ -319,7 +316,7 @@ final class DungeonPiecePlanner {
             state.reservedBoxes.add(stairClearance);
         }
         if (!extendFloorPath(
-            state, pieces, floorSettings, roles, 1, requiredChambers,
+            state, pieces, floorSettings, roles, 1, List.of(),
             !lastFloor, branchCount, firstFloor, random, budget
         )) return null;
 
@@ -353,14 +350,14 @@ final class DungeonPiecePlanner {
     }
 
     private static Settings withBounds(
-        Settings source, BlockPos bounds, List<String> required
+        Settings source, BlockPos bounds, int chamberCount
     ) {
         return new Settings(
             bounds, source.criticalPathMin(), source.criticalPathMax(),
             source.branchCountMin(), source.branchCountMax(),
             source.branchDepthMin(), source.branchDepthMax(), source.loopChance(),
             1, source.layoutMode(), "flat", 0, 0, "flat",
-            source.floorHeight(), required
+            source.floorHeight(), source.requiredChamberPieces(), chamberCount
         );
     }
 
@@ -450,7 +447,8 @@ final class DungeonPiecePlanner {
             .filter(piece -> piece.allowsPlacement(true))
             .filter(piece -> canUse(state, piece))
             .filter(piece -> missing.contains(piece.id())
-                || wanted.equals("boss") || wanted.equals("exit")
+                || wanted.equals("room") || wanted.equals("boss")
+                || wanted.equals("exit")
                 || finalPathConnectorCount(piece, needsBranchHost))
             .filter(piece -> missing.size() < remainingRoomSlots
                 || missing.isEmpty() || missing.contains(piece.id()))
@@ -1035,17 +1033,27 @@ final class DungeonPiecePlanner {
             && floorDepth < minimumCriticalDepth(layoutMode)) return false;
         Set<String> configuredRoles = criticalRoles(layoutMode, floorDepth);
         Set<String> flexibleRoles = new HashSet<>(configuredRoles);
-        if (settings.requiredChamberPieces().isEmpty()
-            && configuredRoles.contains("room")) {
+        if (configuredRoles.contains("room")) {
             flexibleRoles.add("corridor"); flexibleRoles.add("junction");
         }
         boolean hasSelectedChambers = pieces.stream()
             .anyMatch(piece -> piece.role().equals("room"));
+        long placedChambers = state.placements.stream()
+            .filter(placed -> placed.definition().role().equals("room"))
+            .count();
+        int neededChambers = Math.max(
+            0, settings.chamberCount() - (int) placedChambers
+        );
+        int remainingOrdinarySlots = Math.max(0, targetRooms - depth - 2);
+        boolean mustAddChamber = requiredRole == null && neededChambers > 0
+            && neededChambers >= remainingOrdinarySlots;
+        boolean chamberLimitReached = placedChambers >= settings.chamberCount();
         boolean requiresHub = requiredRole == null
             && layoutMode.equals("hub_and_spokes")
             && floorDepth == 2;
         boolean requiresRouteRoom = requiredRole == null
-            && hasSelectedChambers && layoutMode.equals("room_network")
+            && neededChambers > 0 && hasSelectedChambers
+            && layoutMode.equals("room_network")
             && roomNetworkRoomDepth(floorDepth);
         int branchCapacity = state.branchHostCount();
         boolean needsBranchConnector = requiredRole == null && !requiresHub
@@ -1092,25 +1100,25 @@ final class DungeonPiecePlanner {
                 && piece.connectors().size() >= 3
                 && piece.allowsPlacement(true)
                 && canUse(state, piece));
-        List<DungeonPieceDefinition> candidates = prioritizeRequiredChambers(
-            state, settings, weightedOrder(
+        List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> requiredRole == null
                 ? flexibleRoles.contains(piece.role())
                 : piece.role().equals(requiredRole))
                 .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
                 .filter(piece -> requiredRole != null
                     ? !isVerticalTransition(piece)
-                    : isRequiredChamber(state, settings, piece)
-                    ? true
                     : isVerticalTransition(piece)
                     ? canScheduleVerticalTransition && canAddVerticalTransition
                         && verticalTransitionMatchesDirection(
                             piece, settings.verticalDirection()
                         )
                     : mustAddVerticalTransition ? false
+                    : mustAddChamber ? piece.role().equals("room")
+                    : chamberLimitReached && piece.role().equals("room") ? false
                     : requiresHub
                         ? piece.spatialKind().equals(
-                            hasSelectedChambers ? "chamber" : "passage"
+                            neededChambers > 0 && hasSelectedChambers
+                                ? "chamber" : "passage"
                           ) && piece.connectors().size() >= 3
                         : requiresRouteRoom
                             ? piece.spatialKind().equals("chamber")
@@ -1125,7 +1133,7 @@ final class DungeonPiecePlanner {
                 .filter(piece -> piece.allowsPlacement(true))
                 .filter(piece -> canUse(state, piece)).toList(),
             random
-        ));
+        );
         if (requiresRouteRoom && state.placements.stream().noneMatch(placed ->
             placed.definition().role().equals("room"))) {
             candidates = prioritizeLargestChamber(
@@ -1315,6 +1323,7 @@ final class DungeonPiecePlanner {
             state, weightedOrder(
             pieces.stream().filter(piece -> roles.contains(piece.role()))
                 .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
+                .filter(piece -> !piece.role().equals("room"))
                 .filter(piece -> remaining == 1
                     ? piece.connectors().size() == 1
                     : piece.connectors().size() == 2)
@@ -1558,33 +1567,10 @@ final class DungeonPiecePlanner {
     }
 
     private static boolean requiredChambersSatisfied(State state, Settings settings) {
-        Set<String> placed = state.placements.stream()
-            .map(value -> value.definition().id())
-            .collect(java.util.stream.Collectors.toSet());
-        return placed.containsAll(settings.requiredChamberPieces());
-    }
-
-    private static boolean isRequiredChamber(
-        State state, Settings settings, DungeonPieceDefinition piece
-    ) {
-        return settings.requiredChamberPieces().contains(piece.id())
-            && state.placements.stream().noneMatch(
-                placed -> placed.definition().id().equals(piece.id())
-            );
-    }
-
-    private static List<DungeonPieceDefinition> prioritizeRequiredChambers(
-        State state, Settings settings, List<DungeonPieceDefinition> candidates
-    ) {
-        Set<String> placed = state.placements.stream()
-            .map(value -> value.definition().id())
-            .collect(java.util.stream.Collectors.toSet());
-        List<DungeonPieceDefinition> result = new ArrayList<>(candidates);
-        result.sort(Comparator.comparingInt(piece ->
-            settings.requiredChamberPieces().contains(piece.id())
-                && !placed.contains(piece.id()) ? 0 : 1
-        ));
-        return result;
+        long placed = state.placements.stream()
+            .filter(value -> value.definition().role().equals("room"))
+            .count();
+        return placed >= settings.chamberCount();
     }
 
     private static Set<String> criticalRoles(String layoutMode, int depth) {
@@ -1760,7 +1746,8 @@ final class DungeonPiecePlanner {
         int floorChangesMax,
         String verticalMode,
         int floorHeight,
-        List<String> requiredChamberPieces
+        List<String> requiredChamberPieces,
+        int chamberCount
     ) {
         Settings {
             requiredChamberPieces = requiredChamberPieces == null
@@ -1777,7 +1764,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, "corridor_spine", "mixed", 0, 256,
-                "continuous", 8, List.of()
+                "continuous", 8, List.of(), 0
             );
         }
 
@@ -1791,7 +1778,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, "mixed", 0, 256,
-                "continuous", 8, List.of()
+                "continuous", 8, List.of(), 0
             );
         }
 
@@ -1807,7 +1794,7 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, "continuous", 8,
-                List.of()
+                List.of(), 0
             );
         }
 
@@ -1824,7 +1811,26 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, verticalMode, floorHeight,
-                List.of()
+                List.of(), 0
+            );
+        }
+
+        Settings(
+            BlockPos bounds, int criticalPathMin, int criticalPathMax,
+            int branchCountMin, int branchCountMax,
+            int branchDepthMin, int branchDepthMax,
+            double loopChance, int maxAttempts, String layoutMode,
+            String verticalDirection, int floorChangesMin, int floorChangesMax,
+            String verticalMode, int floorHeight,
+            List<String> requiredChamberPieces
+        ) {
+            this(
+                bounds, criticalPathMin, criticalPathMax,
+                branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
+                loopChance, maxAttempts, layoutMode, verticalDirection,
+                floorChangesMin, floorChangesMax, verticalMode, floorHeight,
+                requiredChamberPieces,
+                requiredChamberPieces == null ? 0 : requiredChamberPieces.size()
             );
         }
 
@@ -1845,6 +1851,7 @@ final class DungeonPiecePlanner {
                 || requiredChamberPieces == null
                 || requiredChamberPieces.size()
                     != new HashSet<>(requiredChamberPieces).size()
+                || chamberCount < 0
                 || !Set.of(
                     "corridor_spine", "hub_and_spokes", "room_network",
                     "legacy_maze", "legacy_rooms_and_corridors",
@@ -2012,7 +2019,7 @@ final class DungeonPiecePlanner {
     ) {}
     private record FloorAllocation(
         List<Integer> placementCounts,
-        List<List<String>> requiredChambers
+        List<Integer> chamberCounts
     ) {}
     private record StartChoice(
         Placed placed,

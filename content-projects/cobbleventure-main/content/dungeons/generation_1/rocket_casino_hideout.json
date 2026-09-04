@@ -57,7 +57,7 @@
     ]
   },
   "vertical": { "mode": "discrete_floors", "direction": "descending", "floor_count": [2, 3], "floor_height": 8, "connections_per_floor": [1, 1] },
-  "npc_placement": { "capacity_mode": "from_encounters", "minimum_spacing": 4, "maximum_per_room": 2 },
+  "npc_placement": { "capacity_mode": "from_encounters", "minimum_spacing": 4 },
   "generated_trainers": {
     "enabled": true, "count": [3, 5],
     "appearance_pool": [

@@ -1308,7 +1308,7 @@ record DungeonDefinition(
             .equals("from_encounters")
             ? new NpcPlacement(
                 npcPlacement.enabled(), npcPlacement.capacityMode(), actorDemand,
-                npcPlacement.minimumSpacing(), npcPlacement.maximumPerRoom()
+                npcPlacement.minimumSpacing()
             ) : npcPlacement;
         return new DungeonDefinition(
             id, displayName, description, preset, entryUi, difficulty,
@@ -1460,7 +1460,7 @@ record DungeonDefinition(
             .sum() + (generatedTrainers.enabled()
                 ? generatedTrainers.count().maximum() : 0);
         if (!root.has("npc_placement")) {
-            return new NpcPlacement(false, "from_encounters", actorDemand, 4.0D, 2);
+            return new NpcPlacement(false, "from_encounters", actorDemand, 4.0D);
         }
         JsonObject value = requiredObject(root, "npc_placement");
         String capacityMode = enumValue(
@@ -1481,15 +1481,13 @@ record DungeonDefinition(
             );
         }
         double minimumSpacing = requiredDouble(value, "minimum_spacing");
-        int maximumPerRoom = requiredInt(value, "maximum_per_room");
-        if (minimumSpacing < 0.0D || minimumSpacing > 32.0D
-            || maximumPerRoom < 1 || maximumPerRoom > 16) {
+        if (minimumSpacing < 0.0D || minimumSpacing > 32.0D) {
             throw new IllegalStateException(
                 "Invalid dungeon NPC placement limits: " + dungeonId
             );
         }
         return new NpcPlacement(
-            true, capacityMode, requiredSlots, minimumSpacing, maximumPerRoom
+            true, capacityMode, requiredSlots, minimumSpacing
         );
     }
 
@@ -1723,8 +1721,7 @@ record DungeonDefinition(
         boolean enabled,
         String capacityMode,
         int requiredSlots,
-        double minimumSpacing,
-        int maximumPerRoom
+        double minimumSpacing
     ) {}
     record GeneratedTrainers(
         boolean enabled,

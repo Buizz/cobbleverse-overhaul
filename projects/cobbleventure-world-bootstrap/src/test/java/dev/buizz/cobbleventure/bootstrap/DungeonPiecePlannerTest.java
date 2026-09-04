@@ -369,7 +369,7 @@ final class DungeonPiecePlannerTest {
     }
 
     @Test
-    void npcSlotDemandExpandsTheCommonRoomNetwork() throws Exception {
+    void npcSlotDemandExpandsThePassageNetworkWithoutAddingRooms() throws Exception {
         JsonObject base = resourceJson(
             "data/cobbleventure/dungeons/generation_1/rocket_silph_company.json"
         );
@@ -378,13 +378,11 @@ final class DungeonPiecePlannerTest {
         );
         JsonObject compactRoot = base.deepCopy();
         compactRoot.add("npc_placement", JsonParser.parseString("""
-            {"capacity_mode":"fixed","required_slots":9,
-             "minimum_spacing":4,"maximum_per_room":3}
+            {"capacity_mode":"fixed","required_slots":9,"minimum_spacing":4}
             """).getAsJsonObject());
         JsonObject expandedRoot = base.deepCopy();
         expandedRoot.add("npc_placement", JsonParser.parseString("""
-            {"capacity_mode":"fixed","required_slots":18,
-             "minimum_spacing":4,"maximum_per_room":3}
+            {"capacity_mode":"fixed","required_slots":18,"minimum_spacing":4}
             """).getAsJsonObject());
         List<DungeonPieceDefinition> pieces = packagedRocketPieces().stream()
             .filter(piece -> piece.id().contains("/rocket/"))
@@ -399,6 +397,8 @@ final class DungeonPiecePlannerTest {
 
         assertEquals(15, compact.criticalPathMin());
         assertEquals(24, expanded.criticalPathMin());
+        assertEquals(3, compact.chamberCount());
+        assertEquals(3, expanded.chamberCount());
         assertTrue(expanded.criticalPathMin() > compact.criticalPathMin());
     }
 
@@ -631,9 +631,14 @@ final class DungeonPiecePlannerTest {
         );
         assertTrue(occupancy.size() >= 2,
             "Dungeon encounters used only one section for seed " + seed);
-        assertTrue(occupancy.values().stream().allMatch(count -> count <= 2),
-            "More than two encounters shared a section for seed " + seed
-                + ": " + occupancy);
+        Set<Integer> passagePlacements = layout.plan().placements().stream()
+            .filter(placement -> Set.of("corridor", "junction").contains(placement.role()))
+            .map(DungeonPiecePlan.Placement::index).collect(java.util.stream.Collectors.toSet());
+        assertTrue(occupancy.entrySet().stream().allMatch(entry ->
+                !passagePlacements.contains(entry.getKey()) || entry.getValue() <= 1
+            ),
+            "More than one encounter occupied a passage piece for seed "
+                + seed + ": " + occupancy);
     }
 
     private static boolean contains(

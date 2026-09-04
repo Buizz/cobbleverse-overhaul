@@ -9577,7 +9577,6 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             spacing = npc_placement.get("minimum_spacing")
             if not isinstance(spacing, (int, float)) or isinstance(spacing, bool) or not 0 <= spacing <= 32:
                 _issue(issues, "error", path, "$.npc_placement.minimum_spacing", "0~32 숫자여야 합니다.")
-            integer(npc_placement.get("maximum_per_room"), 1, 16, "$.npc_placement.maximum_per_room")
 
     random_encounters = object_at("random_encounters")
     for key, minimum, maximum in (

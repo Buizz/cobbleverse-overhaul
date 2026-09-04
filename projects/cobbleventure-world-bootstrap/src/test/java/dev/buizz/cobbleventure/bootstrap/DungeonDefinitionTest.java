@@ -172,8 +172,7 @@ final class DungeonDefinitionTest {
     void derivesNpcSlotDemandFromEveryTrainerActor() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
         root.add("npc_placement", JsonParser.parseString("""
-            {"capacity_mode":"from_encounters","minimum_spacing":4,
-             "maximum_per_room":2}
+            {"capacity_mode":"from_encounters","minimum_spacing":4}
             """).getAsJsonObject());
 
         DungeonDefinition definition = DungeonDefinition.parse(root);
@@ -181,15 +180,13 @@ final class DungeonDefinitionTest {
         assertTrue(definition.npcPlacement().enabled());
         assertEquals(4, definition.npcPlacement().requiredSlots());
         assertEquals(4.0D, definition.npcPlacement().minimumSpacing());
-        assertEquals(2, definition.npcPlacement().maximumPerRoom());
     }
 
     @Test
     void rejectsFixedNpcSlotCountBelowEncounterDemand() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
         root.add("npc_placement", JsonParser.parseString("""
-            {"capacity_mode":"fixed","required_slots":3,"minimum_spacing":4,
-             "maximum_per_room":2}
+            {"capacity_mode":"fixed","required_slots":3,"minimum_spacing":4}
             """).getAsJsonObject());
 
         IllegalStateException error = assertThrows(

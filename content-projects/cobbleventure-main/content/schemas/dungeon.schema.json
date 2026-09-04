@@ -313,7 +313,7 @@
     "npc_placement": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["capacity_mode", "minimum_spacing", "maximum_per_room"],
+      "required": ["capacity_mode", "minimum_spacing"],
       "properties": {
         "capacity_mode": { "enum": ["fixed", "from_encounters"] },
         "required_slots": {
@@ -321,9 +321,6 @@
         },
         "minimum_spacing": {
           "type": "number", "minimum": 0, "maximum": 32
-        },
-        "maximum_per_room": {
-          "type": "integer", "minimum": 1, "maximum": 16
         }
       },
       "allOf": [{

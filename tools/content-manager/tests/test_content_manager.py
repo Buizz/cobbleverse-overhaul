@@ -107,7 +107,7 @@ class ContentManagerTests(unittest.TestCase):
         ).read_text(encoding="utf-8"))
         document["npc_placement"] = {
             "capacity_mode": "fixed", "required_slots": 4,
-            "minimum_spacing": 4, "maximum_per_room": 2,
+            "minimum_spacing": 4,
         }
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dungeon.json"
@@ -168,8 +168,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="npcCapacityMode"', markup)
         self.assertIn('name="npcRequiredSlots"', markup)
         self.assertIn('name="npcMinimumSpacing"', markup)
+        self.assertNotIn('name="npcMaximumPerRoom"', markup)
         self.assertIn('document.npc_placement = {', script)
         self.assertIn('markerPositions(placement, "npc_spawn")', script)
+        self.assertNotIn("maximum_per_room", script)
         self.assertIn('NPC 슬롯', script)
         self.assertNotIn('name="randomMinX"', markup)
         self.assertNotIn('name="randomMaxZ"', markup)
@@ -305,9 +307,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("data-remove-dungeon-chamber", script)
         self.assertIn('id="dungeon-chamber-dialog"', markup)
         self.assertIn('id="dungeon-chamber-theme-filter"', markup)
-        self.assertIn("const requiredByFloor", script)
-        self.assertIn("chamberSlots[index].requiredPieceId = pieceId", script)
-        self.assertIn("const selectedChambers = requiredChambers", script)
+        self.assertIn("const chamberTarget = selectedChambers.length", script)
+        self.assertIn("const chamberTarget = selectedChambers.length ? 1 : 0", script)
+        self.assertIn("node.preferredPieceId = selectedChambers", script)
+        self.assertIn("function dungeonPreviewCollapsePassageNodes(graph)", script)
+        self.assertIn("<dt>일반 공동</dt>", script)
         self.assertNotIn("const automaticChambers", script)
         self.assertIn("Math.max(1, floorRange[1])", script)
         vertical = schema["properties"]["vertical"]["properties"]
@@ -356,8 +360,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('const columns = columnChoices[Math.floor(random() * columnChoices.length)];', script)
         self.assertIn('const horizontalSign = random() < .5 ? -1 : 1;', script)
         self.assertIn('const ordinaryChamberSlots = graph.nodes.filter', script)
-        self.assertIn('function dungeonNpcRequiredChambers(document)', script)
-        self.assertIn('configuredCriticalRange[0] + npcChambers * 3', script)
+        self.assertIn('function dungeonNpcRequiredPassages(document)', script)
+        self.assertIn('requestedCritical + npcPassages', script)
         self.assertIn('node.role === "traversal" && (adjacencyCount.get(node.index) || 0) <= 2', script)
         self.assertIn('<dt>공동</dt><dd>${visibleChamberCount} / ${totalChamberCount}</dd>', script)
         self.assertIn('name="verticalMode"', markup)
@@ -741,7 +745,7 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("function dungeonPreviewNormalizeProgressionGraph(graph)", script)
         self.assertIn('pattern: branches > 0 ? "branching" : "linear"', script)
         self.assertIn('node.role === "traversal" && !node.forcePassage', script)
-        self.assertIn('const spaceKind = node.requiredPieceId ? "chamber"', script)
+        self.assertIn('const spaceKind = node.requiredPieceId || node.preferredPieceId ? "chamber"', script)
         self.assertIn('spaceKind: "terminal", closesChamberPort: true', script)
         self.assertIn("const externalConnectorReserve =", script)
         self.assertIn("lane 7 to lane 8", script)
@@ -753,8 +757,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("const fourWayLandingChambers =", script)
         self.assertIn("index < 2 && expandedChambers.length", script)
         self.assertIn("<dt>중·대형 공동</dt>", script)
-        self.assertIn("const npcRoomsByFloor =", script)
-        self.assertIn('kind: "npc_room"', script)
+        self.assertNotIn("const npcRoomsByFloor =", script)
+        self.assertNotIn('kind: "npc_room"', script)
         self.assertIn("const floorVariant =", script)
         self.assertIn("graph.orientationOffset = Math.abs(Math.trunc(seed)) % 2", script)
         self.assertIn("const alongHorizontal = (floorVariant + orientationOffset) % 2 === 0", script)

@@ -5490,7 +5490,7 @@ function renderDungeonChamberSelection() {
       : "카탈로그에서 찾을 수 없는 공동";
     return `<article class="dungeon-chamber-selected"><span><strong>${escapeHtml(id)}</strong><small>${escapeHtml(detail)}</small></span><button class="button danger" type="button" data-remove-dungeon-chamber="${escapeHtml(id)}">삭제</button></article>`;
   }).join("");
-  container.innerHTML = `<header><div><strong>사용할 공동 · ${selectedIds.length}개</strong><small>여기에 추가한 공동만 일반 공동으로 배치됩니다. 시작·보스·출구는 별도 필수 조각입니다.</small></div><button class="button secondary" id="open-dungeon-chamber-dialog" type="button">＋ 공동 추가</button></header><div class="dungeon-chamber-selection-list">${rows || "<p>선택된 공동이 없습니다. 현재 던전은 통로와 필수 단말 공간만 사용합니다.</p>"}</div>`;
+  container.innerHTML = `<header><div><strong>사용할 공동 후보 · ${selectedIds.length}종</strong><small>층마다 공동 후보를 배치합니다. NPC는 공동의 npc_spawn 마커를 먼저 사용하고, 남으면 일반 통로에 한 명씩 배치합니다.</small></div><button class="button secondary" id="open-dungeon-chamber-dialog" type="button">＋ 공동 추가</button></header><div class="dungeon-chamber-selection-list">${rows || "<p>선택된 공동이 없습니다. 현재 던전은 통로와 필수 단말 공간만 사용합니다.</p>"}</div>`;
 }
 
 function updateDungeonGenerationSummaries() {
@@ -5558,18 +5558,11 @@ function dungeonNpcActorDemand(document) {
   return fixed + generated;
 }
 
-function dungeonNpcRequiredChambers(document) {
+function dungeonNpcRequiredPassages(document) {
   if (!document.npc_placement) return 0;
   const actorDemand = dungeonNpcActorDemand(document);
-  const demand = document.npc_placement.capacity_mode === "fixed"
+  return document.npc_placement.capacity_mode === "fixed"
     ? Math.max(actorDemand, Number(document.npc_placement.required_slots || 0)) : actorDemand;
-  const selected = new Set(dungeonSpatialLayout(document).chamber_pieces || []);
-  const maximumPerRoom = Math.max(1, Number(document.npc_placement.maximum_per_room || 1));
-  const usablePerRoom = Math.max(0, ...[...state.dungeonPieces.values()]
-    .filter((piece) => selected.has(piece.piece_id))
-    .map((piece) => Math.min(maximumPerRoom, (piece.markers || []).filter((marker) => marker.kind === "npc_spawn").length)));
-  if (!demand || !usablePerRoom) return 0;
-  return Math.ceil(demand / usablePerRoom);
 }
 
 function dungeonChamberFootprintCells(piece) {
@@ -5657,10 +5650,8 @@ function derivedDungeonGridBounds(document, form = $("#dungeon-form")) {
   const selected = selectedIds.map((id) => state.dungeonPieces.get(id)).filter(Boolean);
   const largestChamberSpan = Math.max(1, ...selected.map((piece) => Math.ceil(Math.max(Number(piece.size?.[0] || 16), Number(piece.size?.[2] || 16)) / 16)));
   const selectedExtraCells = selected.reduce((sum, piece) => sum + Math.max(0, Math.ceil(Number(piece.size?.[0] || 16) / 16) * Math.ceil(Number(piece.size?.[2] || 16) / 16) - 1), 0);
-  const npcChambers = dungeonNpcRequiredChambers(document);
-  // One NPC chamber also needs the two corridor cells leading to the next
-  // chamber, so capacity changes must expand both rooms and traversal space.
-  const plannedCells = critical[1] + npcChambers * 3 + branchCount[1] * branchDepth[1] + selectedExtraCells;
+  const npcPassages = dungeonNpcRequiredPassages(document);
+  const plannedCells = critical[1] + npcPassages + branchCount[1] * branchDepth[1] + selectedExtraCells;
   const cellsPerFloor = Math.ceil(plannedCells / Math.max(1, floorCount[1]));
   const horizontalCells = Math.max(8, Math.ceil(Math.sqrt(cellsPerFloor * 3)) + largestChamberSpan + 4);
   const floorHeight = Math.max(4, Number(form?.elements?.floorHeight?.value || vertical.floor_height || 8));
@@ -5864,7 +5855,6 @@ function renderDungeonForm() {
     npcCapacityMode: document.npc_placement?.capacity_mode || "from_encounters",
     npcRequiredSlots: document.npc_placement?.required_slots ?? 1,
     npcMinimumSpacing: document.npc_placement?.minimum_spacing ?? 4,
-    npcMaximumPerRoom: document.npc_placement?.maximum_per_room ?? 2,
     reconnectGrace: document.lifecycle?.reconnect_grace_seconds ?? 120, wipeReturn: document.lifecycle?.wipe_return || "source_entrance",
     healOnWipe: document.lifecycle?.heal_on_wipe, lootOwnership: document.loot?.ownership || "per_player",
     lootOnFailure: document.loot?.on_failure || "grant_on_clear_only", repeatable: document.completion?.repeatable,
@@ -5930,7 +5920,6 @@ function updateDungeonFromForm() {
   document.npc_placement = {
     capacity_mode: form.elements.npcCapacityMode.value,
     minimum_spacing: Number(form.elements.npcMinimumSpacing.value || 4),
-    maximum_per_room: integer("npcMaximumPerRoom", 2),
   };
   if (document.npc_placement.capacity_mode === "fixed") {
     document.npc_placement.required_slots = integer("npcRequiredSlots", 1);
@@ -7216,7 +7205,8 @@ function dungeonPreviewNormalizeProgressionGraph(graph) {
   const connectorLimits = { start: 1, boss: 2, exit: 1, objective: 1, reward: 1 };
   const linksFor = (nodeIndex) => graph.links.filter((link) => link.from === nodeIndex || link.to === nodeIndex);
   for (const node of [...graph.nodes]) {
-    const requiredPiece = node.requiredPieceId ? state.dungeonPieces.get(node.requiredPieceId) : null;
+    const chamberPieceId = node.requiredPieceId || node.preferredPieceId;
+    const requiredPiece = chamberPieceId ? state.dungeonPieces.get(chamberPieceId) : null;
     const externalConnectorReserve = Number(Boolean(node.stairLanding)) + Number(node.role === "start");
     const limit = node.stairLanding ? 1 : requiredPiece
       ? Math.max(1, (requiredPiece.connectors || []).length - externalConnectorReserve)
@@ -7243,6 +7233,35 @@ function dungeonPreviewNormalizeProgressionGraph(graph) {
   return graph;
 }
 
+function dungeonPreviewCollapsePassageNodes(graph) {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const node of [...graph.nodes]) {
+      if (node.role !== "traversal" || node.requiredPieceId || node.preferredPieceId
+        || node.stairLanding || node.forcePassage) continue;
+      const incident = graph.links.filter((link) => link.from === node.index || link.to === node.index);
+      if (incident.length !== 2) continue;
+      const neighbor = (link) => link.from === node.index ? link.to : link.from;
+      const left = neighbor(incident[0]); const right = neighbor(incident[1]);
+      if (left === right) continue;
+      graph.links = graph.links.filter((link) => !incident.includes(link));
+      graph.links.push({
+        from: left, to: right,
+        kind: incident.every((link) => link.critical) ? "critical" : incident.find((link) => !link.critical)?.kind || "branch",
+        critical: incident.every((link) => link.critical),
+      });
+      graph.nodes = graph.nodes.filter((candidate) => candidate !== node);
+      changed = true;
+      break;
+    }
+  }
+  const remap = new Map(graph.nodes.map((node, index) => [node.index, index]));
+  graph.nodes.forEach((node, index) => { node.index = index; });
+  graph.links.forEach((link) => { link.from = remap.get(link.from); link.to = remap.get(link.to); });
+  return graph;
+}
+
 const dungeonGridDirections = [
   { facing: "north", opposite: "south", dx: 0, dz: -1 },
   { facing: "east", opposite: "west", dx: 1, dz: 0 },
@@ -7256,7 +7275,8 @@ function dungeonPreviewChamberPositions(graph, algorithm, random) {
   const orientationOffset = Math.max(0, Number(graph.orientationOffset || 0));
   const nodeByIndex = new Map(graph.nodes.map((node) => [node.index, node]));
   const footprintFor = (index) => {
-    const node = nodeByIndex.get(index); const piece = node?.requiredPieceId ? state.dungeonPieces.get(node.requiredPieceId) : null;
+    const node = nodeByIndex.get(index); const pieceId = node?.requiredPieceId || node?.preferredPieceId;
+    const piece = pieceId ? state.dungeonPieces.get(pieceId) : null;
     return [Math.max(1, Math.ceil(Number(piece?.size?.[0] || 16) / 16)), Math.max(1, Math.ceil(Number(piece?.size?.[2] || 16) / 16))];
   };
   const fits = (index, candidate) => {
@@ -7595,7 +7615,7 @@ function dungeonPreviewPhysicalPlan(document, graph, algorithm, random) {
     if (["clockwise_90", "counterclockwise_90"].includes(selection?.rotation)) [size[0], size[2]] = [size[2], size[0]];
     return { index, logicalNode: cell.node?.index, pieceId: piece?.piece_id || `missing:${role}`, structure: piece?.structure || "", role,
       minimum: [(cell.position[0] - minX) * cellSize, 0, (cell.position[1] - minZ) * cellSize], size, rotation: selection?.rotation || "none",
-      critical: cell.critical, floorYs: [0], connectorMismatch: piece ? [] : selection?.missingFacings || requiredFacings, piece, facings: requiredFacings, spaceKind: cell.spaceKind, requiredChamber: Boolean(requiredPieceId), anchorChamber: Boolean(cell.node?.preferredPieceId) };
+      critical: cell.critical, floorYs: [0], connectorMismatch: piece ? [] : selection?.missingFacings || requiredFacings, piece, facings: requiredFacings, spaceKind: cell.spaceKind, requiredChamber: Boolean(requiredPieceId), anchorChamber: Boolean(cell.node?.preferredPieceId), ordinaryChamber: Boolean(cell.node?.preferredPieceId && !cell.node?.stairLanding) };
   });
   const placementByCell = new Map(placements.map((placement) => [key(placement.minimum[0] / cellSize + minX, placement.minimum[2] / cellSize + minZ), placement]));
   const requiredPlacements = placements.filter((placement) => placement.requiredChamber || placement.anchorChamber);
@@ -7741,31 +7761,19 @@ function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
   if (algorithm === "authored") return null;
   const topology = dungeonTopology(document);
   const configuredCriticalRange = dungeonRange(topology.critical_path_rooms, [6, 8]);
-  const npcChambers = dungeonNpcRequiredChambers(document);
+  const npcPassages = dungeonNpcRequiredPassages(document);
   const criticalRange = configuredCriticalRange;
   const branchRange = dungeonRange(topology.branch_count, [1, 2]);
-  const requiredChambers = (dungeonSpatialLayout(document).chamber_pieces || []).map((id) => state.dungeonPieces.get(id)).filter(Boolean).sort((left, right) => Number(right.size?.[0] || 0) * Number(right.size?.[2] || 0) - Number(left.size?.[0] || 0) * Number(left.size?.[2] || 0));
-  const requiredByFloor = Array.from({ length: floorCount }, () => []);
+  const selectedChambers = (dungeonSpatialLayout(document).chamber_pieces || []).map((id) => state.dungeonPieces.get(id)).filter(Boolean);
   // Each floor owns at least two ordinary room nodes in addition to its
   // entrance/landing and final transition or boss/exit nodes.
   const floorCriticalCounts = Array.from({ length: floorCount }, (_, floor) => floor === floorCount - 1 ? 5 : 4);
   const occupiedCells = floorCriticalCounts.map(Number);
-  requiredChambers.forEach((piece) => {
-    const floor = occupiedCells.indexOf(Math.min(...occupiedCells));
-    requiredByFloor[floor].push(piece.piece_id);
-    floorCriticalCounts[floor] += 1;
-    occupiedCells[floor] += Math.ceil(Number(piece.size?.[0] || 16) / 16) * Math.ceil(Number(piece.size?.[2] || 16) / 16);
-  });
   const requestedCritical = Math.round(criticalRange[0] + random() * (criticalRange[1] - criticalRange[0]));
   const minimumCritical = floorCriticalCounts.reduce((sum, count) => sum + count, 0);
-  for (let remaining = Math.max(requestedCritical, minimumCritical) - minimumCritical; remaining > 0; remaining -= 1) {
+  for (let remaining = Math.max(requestedCritical + npcPassages, minimumCritical) - minimumCritical; remaining > 0; remaining -= 1) {
     const floor = occupiedCells.indexOf(Math.min(...occupiedCells));
     floorCriticalCounts[floor] += 1; occupiedCells[floor] += 1;
-  }
-  const npcRoomsByFloor = Array.from({ length: floorCount }, () => 0);
-  for (let remaining = npcChambers; remaining > 0; remaining -= 1) {
-    const floor = occupiedCells.indexOf(Math.min(...occupiedCells));
-    npcRoomsByFloor[floor] += 1; occupiedCells[floor] += 1;
   }
   const floorDocuments = Array.from({ length: floorCount }, (_, floor) => {
     const copy = structuredClone(document);
@@ -7788,37 +7796,27 @@ function compileRuntimeNbtDungeonPlan(document, seed, random, attempt = 0) {
     }
     if (floor > 0 && first) first.stairLanding = true;
     if (floor < floorCount - 1 && last) last.stairLanding = true;
-    const npcHosts = critical.slice(1, Math.max(2, critical.length - 1));
-    const hostOffset = npcHosts.length ? Math.floor(floorRandom() * npcHosts.length) : 0;
-    for (let index = 0; index < npcRoomsByFloor[floor]; index += 1) {
-      const host = npcHosts.length ? npcHosts[(hostOffset + index) % npcHosts.length] : critical[0];
-      if (!host) break;
-      const room = { index: graph.nodes.length, role: "traversal", critical: false, npcDriven: true };
-      graph.nodes.push(room);
-      graph.links.push({ from: host.index, to: room.index, kind: "npc_room", critical: false });
-    }
     const ordinaryChamberSlots = graph.nodes.filter((node) => node.role === "traversal" && !node.forcePassage && !node.stairLanding);
     for (let index = ordinaryChamberSlots.length - 1; index > 0; index -= 1) {
       const swap = Math.floor(floorRandom() * (index + 1));
       [ordinaryChamberSlots[index], ordinaryChamberSlots[swap]] = [ordinaryChamberSlots[swap], ordinaryChamberSlots[index]];
     }
-    const chamberSlots = [
-      ...ordinaryChamberSlots,
-      ...graph.nodes.filter((node) => node.role === "traversal" && !node.forcePassage && node.stairLanding),
-    ];
-    requiredByFloor[floor].forEach((pieceId, index) => { if (chamberSlots[index]) chamberSlots[index].requiredPieceId = pieceId; });
-    const selectedChambers = requiredChambers;
-    const fourWaySelected = selectedChambers.filter((piece) => (piece.connectors || []).length >= 4);
-    graph.nodes.filter((node) => node.stairLanding && !node.requiredPieceId).forEach((node) => {
-      const source = fourWaySelected.length ? fourWaySelected : selectedChambers;
+    const chamberTarget = selectedChambers.length ? 1 : 0;
+    const chamberSlots = ordinaryChamberSlots.slice(0, chamberTarget);
+    chamberSlots.forEach((node) => {
+      node.preferredPieceId = selectedChambers[Math.floor(floorRandom() * selectedChambers.length)].piece_id;
+    });
+    const landingCandidates = selectedChambers.filter((piece) => (piece.connectors || []).length >= 3);
+    graph.nodes.filter((node) => node.stairLanding).forEach((node) => {
+      const source = landingCandidates.length ? landingCandidates : selectedChambers;
       if (source.length) node.preferredPieceId = source[Math.floor(floorRandom() * source.length)].piece_id;
     });
-    ordinaryChamberSlots.filter((node) => !node.requiredPieceId).forEach((node) => {
-      if (selectedChambers.length) node.preferredPieceId = selectedChambers[Math.floor(floorRandom() * selectedChambers.length)].piece_id;
-    });
+    dungeonPreviewCollapsePassageNodes(graph);
+    graph.nodes.filter((node) => node.role === "traversal" && !node.preferredPieceId)
+      .forEach((node) => { node.forcePassage = true; });
     dungeonPreviewNormalizeProgressionGraph(graph);
     const physical = dungeonPreviewPhysicalPlan(floorDocument, graph, algorithm, floorRandom);
-    if (requiredByFloor[floor].length > chamberSlots.length) physical.errors.push(`${floor + 1}층에 선택 공동을 배치할 공간이 부족합니다.`);
+    if (chamberTarget > chamberSlots.length) physical.errors.push(`${floor + 1}층에 일반 공동을 배치할 공간이 부족합니다.`);
     physical.placements.forEach((placement) => { placement.logicalFloor = floor; });
     return { graph, physical, firstNode: first?.index, lastNode: last?.index };
   });
@@ -8097,7 +8095,6 @@ function runtimeDungeonContentMarkers(document, placements) {
   const generatedEncounters = Array.from({ length: generatedCount }, (_, index) => ({ id: `random_trainer_${index + 1}`, display_name: { ko_kr: `자동 NPC ${index + 1}` }, trainers: [{ id: `random_trainer_${index + 1}` }], boss: false }));
   const encounters = [...fixedEncounters, ...generatedEncounters].map((entry, index) => ({ entry, index }));
   const spacing = Math.max(0, Number(document.npc_placement?.minimum_spacing ?? 4));
-  const maximumPerRoom = Math.max(1, Number(document.npc_placement?.maximum_per_room ?? 2));
   const markerPositions = (placement, kind) => {
     const piece = placement.piece || state.dungeonPieces.get(placement.pieceId);
     if (!piece) return [];
@@ -8110,10 +8107,12 @@ function runtimeDungeonContentMarkers(document, placements) {
   };
   const npcSlotsByRoom = new Map();
   placements.forEach((placement) => {
-    const slots = markerPositions(placement, "npc_spawn");
+    const piece = placement.piece || state.dungeonPieces.get(placement.pieceId);
+    const passage = !placement.verticalTransition && (placement.spaceKind === "passage"
+      || (!placement.spaceKind && piece && dungeonPieceSpatialKind(piece) === "passage"));
+    const slots = passage ? [center(placement)] : markerPositions(placement, "npc_spawn");
     const accepted = [];
     slots.forEach((position) => {
-      if (accepted.length >= maximumPerRoom) return;
       if (accepted.every((other) => Math.hypot(position[0] - other[0], position[1] - other[1], position[2] - other[2]) >= spacing)) accepted.push(position);
     });
     if (accepted.length) npcSlotsByRoom.set(placement.index, accepted);
@@ -8127,22 +8126,30 @@ function runtimeDungeonContentMarkers(document, placements) {
   const npcCapacity = [...npcSlotsByRoom.values()].reduce((sum, slotsInRoom) => sum + slotsInRoom.length, 0);
   const remainingByRoom = new Map([...npcSlotsByRoom].map(([room, values]) => [room, [...values]]));
   const placementByIndex = new Map(placements.map((placement) => [placement.index, placement]));
+  const isNpcChamber = (placement) => placement?.spaceKind === "chamber"
+    || (!placement?.spaceKind && placement && !["corridor", "junction"].includes(placement.role));
   const roomOccupancy = new Map();
   const encounterRooms = new Map();
+  const occupiedPositions = [];
   let assignedNpcCount = 0;
-  actorEntries.forEach(({ entry, index, count }) => {
+  [...actorEntries.filter(({ entry }) => entry.boss), ...actorEntries.filter(({ entry }) => !entry.boss)].forEach(({ entry, index, count }, encounterIndex, orderedEntries) => {
     if (!document.npc_placement) return;
     const markerKind = entry.boss ? "boss" : "encounter";
-    const candidates = [...remainingByRoom.entries()].filter(([room, values]) => {
+    const candidates = [...remainingByRoom.entries()].map(([room, values]) => [room, values.filter((position) => occupiedPositions.every((other) => Math.hypot(position[0] - other[0], position[1] - other[1], position[2] - other[2]) >= spacing))]).filter(([room, values]) => {
       const placement = placementByIndex.get(room);
-      return values.length >= count && placement && markerPositions(placement, markerKind).length;
+      return values.length >= count && placement && (!entry.boss || markerPositions(placement, markerKind).length);
     });
     if (!candidates.length) return;
-    const targetRoom = Math.round((index + 1) * Math.max(0, placements.length - 1) / Math.max(1, encounters.length + 1));
+    const targetRoom = Math.round((encounterIndex + 1) * Math.max(0, placements.length - 1) / Math.max(1, orderedEntries.length + 1));
     candidates.sort((a, b) => (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0)
+      || (entry.boss ? 0 : (isNpcChamber(placementByIndex.get(a[0])) ? 0 : 1))
+      - (entry.boss ? 0 : (isNpcChamber(placementByIndex.get(b[0])) ? 0 : 1))
       || Math.abs(a[0] - targetRoom) - Math.abs(b[0] - targetRoom) || a[0] - b[0]);
-    const [room, roomSlots] = candidates[0];
-    const selected = roomSlots.splice(0, count);
+    const [room, usableSlots] = candidates[0];
+    const selected = usableSlots.slice(0, count);
+    const roomSlots = remainingByRoom.get(room);
+    selected.forEach((position) => roomSlots.splice(roomSlots.indexOf(position), 1));
+    occupiedPositions.push(...selected);
     roomOccupancy.set(room, (roomOccupancy.get(room) || 0) + count);
     encounterRooms.set(index, { room, selected });
     assignedNpcCount += selected.length;
@@ -8151,9 +8158,10 @@ function runtimeDungeonContentMarkers(document, placements) {
     if (Array.isArray(entry.position)) return add(entry.boss ? "boss" : "encounter", entry.position, entry.display_name?.ko_kr || entry.id, { kind: "encounter", index });
     const assignment = encounterRooms.get(index);
     const assignedRoom = assignment ? placementByIndex.get(assignment.room) : null;
-    const exactMarker = assignedRoom ? markerPositions(assignedRoom, entry.boss ? "boss" : "encounter")[0] : null;
+    const exactMarker = entry.boss && assignedRoom ? markerPositions(assignedRoom, "boss")[0] : null;
     const bossRoom = [...mainRooms].reverse().find((value) => value.role === "boss") || mainRooms.at(-1);
-    const position = exactMarker || (entry.boss && bossRoom ? take([center(bossRoom)], mainSlots) : take(mainSlots, branchSlots));
+    const position = exactMarker || assignment?.selected?.[0]
+      || (entry.boss && bossRoom ? take([center(bossRoom)], mainSlots) : take(mainSlots, branchSlots));
     add(entry.boss ? "boss" : "encounter", position, entry.display_name?.ko_kr || entry.id, { kind: "encounter", index });
   });
   actorEntries.forEach(({ entry, index }) => {
@@ -8294,7 +8302,17 @@ function setDungeonPreviewZoom(nextZoom, anchorX = null, anchorY = null) {
 
 function renderDungeonPreview() {
   const canvas = $("#dungeon-plan-canvas");
-  const plan = selectedDungeonPlan();
+  let plan;
+  try {
+    plan = selectedDungeonPlan();
+  } catch (error) {
+    state.dungeonPreview.plan = null;
+    $("#dungeon-preview-empty").hidden = false;
+    $("#dungeon-preview-details").hidden = true;
+    $("#dungeon-preview-status").textContent = `미리보기 생성 오류: ${error.message}`;
+    console.error("Dungeon preview generation failed", error);
+    return;
+  }
   state.dungeonPreview.plan = plan;
   ["#dungeon-preview-zoom-out", "#dungeon-preview-zoom-reset", "#dungeon-preview-zoom-in"].forEach((selector) => { $(selector).disabled = !plan; });
   if (!plan) {
@@ -8416,6 +8434,8 @@ function renderDungeonPreview() {
   const criticalCount = plan.placements.filter((value) => value.critical).length;
   const totalChamberCount = plan.placements.filter((value) => value.spaceKind === "chamber").length;
   const visibleChamberCount = visiblePlacements.filter((value) => value.spaceKind === "chamber").length;
+  const totalOrdinaryChamberCount = plan.placements.filter((value) => value.ordinaryChamber).length;
+  const visibleOrdinaryChamberCount = visiblePlacements.filter((value) => value.ordinaryChamber).length;
   const totalExpandedChamberCount = plan.placements.filter((value) => value.spaceKind === "chamber"
     && (Number(value.size?.[0] || 0) > 16 || Number(value.size?.[2] || 0) > 16)).length;
   const visibleExpandedChamberCount = visiblePlacements.filter((value) => value.spaceKind === "chamber"
@@ -8431,7 +8451,7 @@ function renderDungeonPreview() {
     ? "natural"
     : dungeonVertical(state.dungeon).mode || "flat";
   const capacityMetric = plan.npcCapacity ? `<dt>NPC 슬롯</dt><dd class="${plan.npcCapacity.valid ? "" : "dungeon-inline-error"}">${plan.npcCapacity.demand} 필요 / ${plan.npcCapacity.capacity} 가능</dd>` : "";
-  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>진행 구조</dt><dd>${escapeHtml(progressionPattern)}</dd><dt>공간 배치</dt><dd>${escapeHtml(spatialAlgorithm)}</dd><dt>층 배치</dt><dd>${escapeHtml(verticalMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>공동</dt><dd>${visibleChamberCount} / ${totalChamberCount}</dd><dt>중·대형 공동</dt><dd>${visibleExpandedChamberCount} / ${totalExpandedChamberCount}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
+  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>진행 구조</dt><dd>${escapeHtml(progressionPattern)}</dd><dt>공간 배치</dt><dd>${escapeHtml(spatialAlgorithm)}</dd><dt>층 배치</dt><dd>${escapeHtml(verticalMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>일반 공동</dt><dd>${visibleOrdinaryChamberCount} / ${totalOrdinaryChamberCount}</dd><dt>공동 전체</dt><dd>${visibleChamberCount} / ${totalChamberCount}</dd><dt>중·대형 공동</dt><dd>${visibleExpandedChamberCount} / ${totalExpandedChamberCount}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
   const visibleMarkers = plan.markers.filter(onSelectedFloor);
   const markerIcons = { entry: "S", exit: "E", encounter: "N", npc_spawn: "P", boss: "B", healing: "+", checkpoint: "C", loot: "L", objective: "!", gate: "G" };

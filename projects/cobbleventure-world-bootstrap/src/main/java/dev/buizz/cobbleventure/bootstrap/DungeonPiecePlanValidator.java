@@ -167,17 +167,19 @@ final class DungeonPiecePlanValidator {
         Map<String, DungeonPieceDefinition> pieces,
         List<String> requiredChambers
     ) {
-        Set<String> placed = plan.placements().stream()
-            .map(DungeonPiecePlan.Placement::pieceId)
-            .collect(java.util.stream.Collectors.toSet());
         for (String required : requiredChambers) {
             DungeonPieceDefinition piece = pieces.get(required);
             if (piece == null || !piece.spatialKind().equals("chamber")
                 || !piece.role().equals("room")) {
                 throw invalid("selected piece is not an ordinary chamber: " + required);
             }
-            if (!placed.contains(required)) {
-                throw invalid("selected chamber is missing: " + required);
+        }
+        Set<String> selected = Set.copyOf(requiredChambers);
+        for (DungeonPiecePlan.Placement placement : plan.placements()) {
+            DungeonPieceDefinition piece = pieces.get(placement.pieceId());
+            if (piece != null && piece.role().equals("room")
+                && !selected.contains(piece.id())) {
+                throw invalid("plan uses an unselected ordinary chamber: " + piece.id());
             }
         }
     }
