@@ -46,7 +46,14 @@ SHAPES = {
     "room": Shape(
         "room", ("west", "east", "north", "south"), 3,
         markers=(
-            ("encounter_slot", "encounter", (8, 1, 8), None),
+            ("npc_spawn_1", "npc_spawn", (5, 1, 6), None),
+            ("npc_spawn_2", "npc_spawn", (10, 1, 6), None),
+            ("npc_spawn_3", "npc_spawn", (5, 1, 10), None),
+            ("npc_spawn_4", "npc_spawn", (10, 1, 10), None),
+            ("encounter_slot_1", "encounter", (5, 1, 6), None),
+            ("encounter_slot_2", "encounter", (10, 1, 6), None),
+            ("encounter_slot_3", "encounter", (5, 1, 10), None),
+            ("encounter_slot_4", "encounter", (10, 1, 10), None),
             ("loot_slot", "loot", (5, 1, 5), None),
             ("gate_slot", "gate", (15, 1, 7), None),
         ),
@@ -55,7 +62,14 @@ SHAPES = {
     "route_room": Shape(
         "room", ("west", "east"), 3,
         markers=(
-            ("encounter_slot", "encounter", (8, 1, 8), None),
+            ("npc_spawn_1", "npc_spawn", (5, 1, 6), None),
+            ("npc_spawn_2", "npc_spawn", (10, 1, 6), None),
+            ("npc_spawn_3", "npc_spawn", (5, 1, 10), None),
+            ("npc_spawn_4", "npc_spawn", (10, 1, 10), None),
+            ("encounter_slot_1", "encounter", (5, 1, 6), None),
+            ("encounter_slot_2", "encounter", (10, 1, 6), None),
+            ("encounter_slot_3", "encounter", (5, 1, 10), None),
+            ("encounter_slot_4", "encounter", (10, 1, 10), None),
             ("loot_slot", "loot", (5, 1, 5), None),
             ("gate_slot", "gate", (15, 1, 7), None),
         ),
@@ -63,7 +77,16 @@ SHAPES = {
     ),
     "encounter_room": Shape(
         "room", ("west", "east", "north", "south"), 3,
-        markers=(("encounter_slot", "encounter", (8, 1, 8), None),),
+        markers=(
+            ("npc_spawn_1", "npc_spawn", (5, 1, 6), None),
+            ("npc_spawn_2", "npc_spawn", (10, 1, 6), None),
+            ("npc_spawn_3", "npc_spawn", (5, 1, 10), None),
+            ("npc_spawn_4", "npc_spawn", (10, 1, 10), None),
+            ("encounter_slot_1", "encounter", (5, 1, 6), None),
+            ("encounter_slot_2", "encounter", (10, 1, 6), None),
+            ("encounter_slot_3", "encounter", (5, 1, 10), None),
+            ("encounter_slot_4", "encounter", (10, 1, 10), None),
+        ),
         weight=5,
     ),
     "stairs_up": Shape(
@@ -91,7 +114,11 @@ SHAPES = {
     ),
     "boss": Shape(
         "boss", ("west", "east"), 2,
-        markers=(("boss_slot", "boss", (8, 1, 8), None),),
+        markers=(
+            ("npc_spawn_1", "npc_spawn", (5, 1, 8), None),
+            ("npc_spawn_2", "npc_spawn", (11, 1, 8), None),
+            ("boss_slot", "boss", (8, 1, 8), None),
+        ),
         weight=1, placement_scope="critical_path",
     ),
     "exit": Shape(

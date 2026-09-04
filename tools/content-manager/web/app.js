@@ -5537,6 +5537,7 @@ function renderDungeonOptionVisibility() {
   $$('[data-dungeon-party-field]').forEach((element) => element.hidden = multiplayerMode === "solo");
   $$('[data-dungeon-tether-field]').forEach((element) => element.hidden = multiplayerMode !== "cooperative");
   $$('[data-dungeon-repeat-field]').forEach((element) => element.hidden = !form.elements.repeatable.checked);
+  $$('[data-dungeon-npc-fixed-field]').forEach((element) => element.hidden = form.elements.npcCapacityMode.value !== "fixed");
   const workspace = $("#dungeon-preview-workspace");
   const anchor = $("#dungeon-preview-anchor");
   const naturalCave = ["procedural_cave", "hybrid"].includes(terrainMode);
@@ -5588,6 +5589,10 @@ function renderDungeonForm() {
     branchCount: dungeonRangeText(document.layout?.branch_count, [1, 2]), branchDepth: dungeonRangeText(document.layout?.branch_depth, [1, 2]),
     loopChance: document.layout?.loop_chance ?? 0, verticalDirection: document.layout?.vertical_direction || "flat",
     floorChanges: dungeonRangeText(document.layout?.floor_changes, [0, 0]), resumeMode: document.lifecycle?.resume_mode || "keep_until_timeout",
+    npcCapacityMode: document.npc_placement?.capacity_mode || "from_encounters",
+    npcRequiredSlots: document.npc_placement?.required_slots ?? 1,
+    npcMinimumSpacing: document.npc_placement?.minimum_spacing ?? 4,
+    npcMaximumPerRoom: document.npc_placement?.maximum_per_room ?? 2,
     reconnectGrace: document.lifecycle?.reconnect_grace_seconds ?? 120, wipeReturn: document.lifecycle?.wipe_return || "source_entrance",
     healOnWipe: document.lifecycle?.heal_on_wipe, lootOwnership: document.loot?.ownership || "per_player",
     lootOnFailure: document.loot?.on_failure || "grant_on_clear_only", repeatable: document.completion?.repeatable,
@@ -5651,6 +5656,14 @@ function updateDungeonFromForm() {
   if (multiplayerMode !== "solo") document.multiplayer.battle_join = form.elements.battleJoin.value;
   if (multiplayerMode === "cooperative") document.multiplayer.tether = { warn_distance: integer("warnDistance", 24), max_distance: integer("maxDistance", 40), on_exceed: "return_to_partner" };
   document.match = { required_players: integer("requiredPlayers", 1), scope: "same_entrance", timeout_seconds: integer("matchTimeout", 300), on_timeout: form.elements.matchTimeoutAction.value, stay_radius: integer("stayRadius", 8) };
+  document.npc_placement = {
+    capacity_mode: form.elements.npcCapacityMode.value,
+    minimum_spacing: Number(form.elements.npcMinimumSpacing.value || 4),
+    maximum_per_room: integer("npcMaximumPerRoom", 2),
+  };
+  if (document.npc_placement.capacity_mode === "fixed") {
+    document.npc_placement.required_slots = integer("npcRequiredSlots", 1);
+  }
   const terrainMode = form.elements.terrainMode.value;
   document.terrain ||= {};
   document.terrain.mode = terrainMode;
@@ -6122,7 +6135,7 @@ function seededDungeonRandom(seed) {
 }
 
 const dungeonPieceRoles = { start: "시작", room: "방", corridor: "통로", junction: "교차로", dead_end: "막다른 방", support: "지원실", treasure: "보물방", boss: "보스방", exit: "출구" };
-const dungeonMarkerKinds = { entry: "입구", exit: "출구", encounter: "조우", boss: "보스", loot: "전리품", healing_station: "치료소", gate: "관문", checkpoint: "체크포인트", wild_spawn: "야생 스폰", objective: "목표", trace: "전설의 흔적" };
+const dungeonMarkerKinds = { entry: "입구", exit: "출구", encounter: "조우", boss: "보스", npc_spawn: "NPC 자리", loot: "전리품", healing_station: "치료소", gate: "관문", checkpoint: "체크포인트", wild_spawn: "야생 스폰", objective: "목표", trace: "전설의 흔적" };
 const dungeonPieceThemeNames = { rocket: "로켓단", aqua: "아쿠아단", magma: "마그마단", galactic: "갤럭시단", plasma: "플라스마단", flare: "플레어단", aether: "에테르재단", skull: "스컬단", yell: "옐단", star: "스타단", cave: "자연동굴" };
 
 function currentDungeonPiece() { return state.dungeonPieces.get(state.dungeonPieceId) || null; }
@@ -6786,7 +6799,7 @@ function runtimeDungeonPlan(document, seed) {
     Math.max(...placements.map((value) => value.minimum[2] + value.size[2])),
   ];
   const markers = runtimeDungeonContentMarkers(document, placements);
-  return { kind: caveTerrain ? "cave-preview" : "grid-runtime", exact: false, seed, bounds, placements, links, markers, planId: "runtime" };
+  return { kind: caveTerrain ? "cave-preview" : "grid-runtime", exact: false, seed, bounds, placements, links, markers, npcCapacity: markers.npcCapacity, planId: "runtime" };
 }
 
 function runtimeDungeonContentMarkers(document, placements) {
@@ -6811,12 +6824,75 @@ function runtimeDungeonContentMarkers(document, placements) {
   };
   const add = (kind, position, label, content) => { if (position) markers.push({ kind, position, label, content }); };
   const encounters = (document.encounters || []).map((entry, index) => ({ entry, index }));
+  const spacing = Math.max(0, Number(document.npc_placement?.minimum_spacing ?? 4));
+  const maximumPerRoom = Math.max(1, Number(document.npc_placement?.maximum_per_room ?? 2));
+  const markerPositions = (placement, kind) => {
+    const piece = placement.piece;
+    if (!piece) return [];
+    const originalSize = (piece.size || placement.size || [16, 8, 16]).map(Number);
+    return (piece.markers || []).filter((marker) => marker.kind === kind).map((marker) => {
+      const local = (marker.position || [0, 0, 0]).map(Number);
+      const rotated = rotateMinecraftTopBlock(local[0], local[2], originalSize[0], originalSize[2], placement.rotation);
+      return [placement.minimum[0] + rotated.x, placement.minimum[1] + local[1], placement.minimum[2] + rotated.z];
+    });
+  };
+  const npcSlotsByRoom = new Map();
+  placements.forEach((placement) => {
+    const slots = markerPositions(placement, "npc_spawn");
+    const accepted = [];
+    slots.forEach((position) => {
+      if (accepted.length >= maximumPerRoom) return;
+      if (accepted.every((other) => Math.hypot(position[0] - other[0], position[1] - other[1], position[2] - other[2]) >= spacing)) accepted.push(position);
+    });
+    if (accepted.length) npcSlotsByRoom.set(placement.index, accepted);
+  });
+  const actorEntries = encounters.filter(({ entry }) => entry.kind !== "wild_pokemon").map(({ entry, index }) => ({
+    entry, index, count: Array.isArray(entry.trainers) ? entry.trainers.length : Array.isArray(entry.npcs) ? entry.npcs.length : 0,
+  })).filter((value) => value.count > 0);
+  const npcDemand = actorEntries.reduce((sum, value) => sum + value.count, 0);
+  const configuredDemand = document.npc_placement?.capacity_mode === "fixed"
+    ? Math.max(npcDemand, Number(document.npc_placement.required_slots || 0)) : npcDemand;
+  const npcCapacity = [...npcSlotsByRoom.values()].reduce((sum, slotsInRoom) => sum + slotsInRoom.length, 0);
+  const remainingByRoom = new Map([...npcSlotsByRoom].map(([room, values]) => [room, [...values]]));
+  const placementByIndex = new Map(placements.map((placement) => [placement.index, placement]));
+  const roomOccupancy = new Map();
+  const encounterRooms = new Map();
+  let assignedNpcCount = 0;
+  actorEntries.forEach(({ entry, index, count }) => {
+    if (!document.npc_placement) return;
+    const markerKind = entry.boss ? "boss" : "encounter";
+    const candidates = [...remainingByRoom.entries()].filter(([room, values]) => {
+      const placement = placementByIndex.get(room);
+      return values.length >= count && placement && markerPositions(placement, markerKind).length;
+    });
+    if (!candidates.length) return;
+    candidates.sort((a, b) => (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0) || a[0] - b[0]);
+    const [room, roomSlots] = candidates[0];
+    const selected = roomSlots.splice(0, count);
+    roomOccupancy.set(room, (roomOccupancy.get(room) || 0) + count);
+    encounterRooms.set(index, { room, selected });
+    assignedNpcCount += selected.length;
+  });
   [...encounters.filter(({ entry }) => entry.boss), ...encounters.filter(({ entry }) => !entry.boss)].forEach(({ entry, index }) => {
     if (Array.isArray(entry.position)) return add(entry.boss ? "boss" : "encounter", entry.position, entry.display_name?.ko_kr || entry.id, { kind: "encounter", index });
+    const assignment = encounterRooms.get(index);
+    const assignedRoom = assignment ? placementByIndex.get(assignment.room) : null;
+    const exactMarker = assignedRoom ? markerPositions(assignedRoom, entry.boss ? "boss" : "encounter")[0] : null;
     const bossRoom = [...mainRooms].reverse().find((value) => value.role === "boss") || mainRooms.at(-1);
-    const position = entry.boss && bossRoom ? take([center(bossRoom)], mainSlots) : take(mainSlots, branchSlots);
+    const position = exactMarker || (entry.boss && bossRoom ? take([center(bossRoom)], mainSlots) : take(mainSlots, branchSlots));
     add(entry.boss ? "boss" : "encounter", position, entry.display_name?.ko_kr || entry.id, { kind: "encounter", index });
   });
+  actorEntries.forEach(({ entry, index }) => {
+    const selected = encounterRooms.get(index)?.selected || [];
+    selected.forEach((position, actor) => add(
+      "npc_spawn", position,
+      `${entry.display_name?.ko_kr || entry.id} · NPC ${actor + 1}`,
+      { kind: "encounter", index }
+    ));
+  });
+  markers.npcCapacity = document.terrain?.mode === "nbt_pieces" && document.npc_placement
+    ? { demand: configuredDemand, actorDemand: npcDemand, capacity: npcCapacity, valid: npcCapacity >= configuredDemand && assignedNpcCount === npcDemand }
+    : null;
   (document.objectives || []).forEach((entry, index) => add("objective", Array.isArray(entry.position) ? entry.position : take(branchSlots, mainSlots), entry.id, { kind: "objective", index }));
   (document.loot?.containers || []).forEach((entry, index) => add("loot", Array.isArray(entry.position) ? entry.position : take(branchSlots, mainSlots), entry.id, { kind: "loot", index }));
   return markers;
@@ -6992,7 +7068,7 @@ function renderDungeonPreview() {
     const angle = Math.atan2(to.y - from.y, to.x - from.x); context.fillStyle = "#e4ffb7"; context.beginPath(); context.moveTo(to.x, to.y); context.lineTo(to.x - Math.cos(angle - .55) * 9, to.y - Math.sin(angle - .55) * 9); context.lineTo(to.x - Math.cos(angle + .55) * 9, to.y - Math.sin(angle + .55) * 9); context.closePath(); context.fill();
     context.fillStyle = "#eaffc5"; context.font = "800 9px sans-serif"; context.fillText("계단", to.x + 7, to.y - 6);
   });
-  const markerColors = { boss: "#ff5968", encounter: "#ff9c54", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", objective: "#df7cff", gate: "#b6c1c8" };
+  const markerColors = { boss: "#ff5968", encounter: "#ff9c54", npc_spawn: "#ffcf70", entry: "#68e194", exit: "#ffd76d", healing: "#5ee0d4", checkpoint: "#a88cff", loot: "#f2c14d", objective: "#df7cff", gate: "#b6c1c8" };
   plan.markers.filter(onSelectedFloor).forEach((marker) => {
     const target = point(marker.position);
     const selectedMarker = marker.content && state.dungeonContentSelection?.kind === marker.content.kind && state.dungeonContentSelection?.index === marker.content.index;
@@ -7007,16 +7083,18 @@ function renderDungeonPreview() {
   const layoutMode = ["procedural_cave", "hybrid"].includes(state.dungeon.terrain?.mode)
     ? state.dungeon.terrain?.generator?.layout || "natural_network"
     : state.dungeon.layout?.mode || "fixed";
-  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd><dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
+  const capacityMetric = plan.npcCapacity ? `<dt>NPC 슬롯</dt><dd class="${plan.npcCapacity.valid ? "" : "dungeon-inline-error"}">${plan.npcCapacity.demand} 필요 / ${plan.npcCapacity.capacity} 가능</dd>` : "";
+  $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>경로 형태</dt><dd>${escapeHtml(layoutMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
   const visibleMarkers = plan.markers.filter(onSelectedFloor);
-  const markerIcons = { entry: "S", exit: "E", encounter: "N", boss: "B", healing: "+", checkpoint: "C", loot: "L", objective: "!", gate: "G" };
+  const markerIcons = { entry: "S", exit: "E", encounter: "N", npc_spawn: "P", boss: "B", healing: "+", checkpoint: "C", loot: "L", objective: "!", gate: "G" };
   const randomEncounterText = state.dungeon.random_encounters?.enabled
     ? `<div class="dungeon-enemy-marker is-random"><i>?</i><span><b>랜덤 야생 조우</b><small>간격 ${Number(state.dungeon.random_encounters.minimum_distance || 0)}~${Number(state.dungeon.random_encounters.maximum_distance || 0)} · 최대 ${Number(state.dungeon.random_encounters.max_active || 0)}마리</small></span></div>`
     : "";
   $("#dungeon-preview-marker-summary").innerHTML = visibleMarkers.map((marker) => `<div class="dungeon-enemy-marker is-${escapeHtml(marker.kind)}"><i>${markerIcons[marker.kind] || "•"}</i><span><b>${escapeHtml(marker.label || marker.kind)}</b><small>${escapeHtml(dungeonMarkerKinds[marker.kind === "healing" ? "healing_station" : marker.kind] || marker.kind)} · X ${marker.position[0]} · Y ${marker.position[1]} · Z ${marker.position[2]}</small></span></div>`).join("") + randomEncounterText || '<small class="dungeon-preview-no-markers">이 층에 예정된 이벤트가 없습니다.</small>';
   const floorStatus = selectedFloor === null ? "모든 층은 같은 X/Z 격자를 사용하며, 높이 구분을 위해 실제 Y값만큼 대각선 원근 이동해 겹쳐 표시합니다. 계단 화살표가 아래층과 위층을 연결합니다." : `${floors.indexOf(selectedFloor) + 1}층(Y ${selectedFloor})만 원근 이동 없이 정확한 격자에 표시합니다. 수직 연결 조각은 연결되는 양쪽 층에 나타납니다.`;
-  $("#dungeon-preview-status").textContent = placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.` : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`;
+  const capacityProblem = plan.npcCapacity && !plan.npcCapacity.valid ? ` NPC 슬롯이 ${plan.npcCapacity.demand - plan.npcCapacity.capacity}개 부족하여 이 계획은 컴파일되지 않습니다.` : "";
+  $("#dungeon-preview-status").textContent = (placementProblems.size ? `${floorStatus} 배치 오류가 있는 조각 ${placementProblems.size}개가 있습니다.` : plan.exact ? `${floorStatus} 실제 NBT를 내부가 보이는 중간 단면으로 절단해 표시합니다.` : `${floorStatus} 선택된 실제 NBT 조각의 내부 단면이며 런타임 배치는 달라질 수 있습니다.`) + capacityProblem;
 }
 
 function dungeonPlanPlacementProblems(plan) {

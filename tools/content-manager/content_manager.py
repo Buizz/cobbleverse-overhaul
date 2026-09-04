@@ -9092,7 +9092,7 @@ def validate_dungeon_piece_file(path: Path) -> tuple[str | None, list[Issue]]:
     markers = data.get("markers")
     seen_markers: set[str] = set()
     marker_counts: dict[str, int] = {}
-    marker_kinds = {"entry", "exit", "encounter", "boss", "loot", "healing_station", "gate", "checkpoint", "wild_spawn", "objective", "trace"}
+    marker_kinds = {"entry", "exit", "encounter", "boss", "npc_spawn", "loot", "healing_station", "gate", "checkpoint", "wild_spawn", "objective", "trace"}
     if not isinstance(markers, list):
         _issue(issues, "error", path, "$.markers", "마커 목록은 배열이어야 합니다.")
         markers = []
@@ -9309,6 +9309,7 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             seen.add(value)
 
     seen_encounters: set[str] = set()
+    npc_actor_demand = 0
     encounters = data.get("encounters")
     if not isinstance(encounters, list) or not encounters:
         _issue(issues, "error", path, "$.encounters", "고정 조우가 하나 이상 필요합니다.")
@@ -9343,6 +9344,7 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                     if not isinstance(trainers, list) or not 1 <= len(trainers) <= 2:
                         _issue(issues, "error", path, f"{base}.trainers", "던전 생성 트레이너가 1~2명 필요합니다.")
                     else:
+                        npc_actor_demand += len(trainers)
                         seen_actors: set[str] = set()
                         for actor_index, actor in enumerate(trainers):
                             actor_path = f"{base}.trainers[{actor_index}]"
@@ -9368,6 +9370,7 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                 if not isinstance(values, list) or not 1 <= len(values) <= 2:
                     _issue(issues, "error", path, f"{base}.npcs", "리소스 ID가 1~2개 필요합니다.")
                 else:
+                    npc_actor_demand += len(values)
                     for value_index, value in enumerate(values):
                         _resource_id(value, issues, path, f"{base}.npcs[{value_index}]")
                 opponents = encounter.get("opponents")
@@ -9422,6 +9425,29 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                         lines = generated.get(field)
                         if not isinstance(lines, list) or not lines or any(not isinstance(line, str) or not line.strip() for line in lines):
                             _issue(issues, "error", path, f"{base}.trainer_generation.{field}", "비어 있지 않은 대사 목록이 필요합니다.")
+
+    npc_placement = data.get("npc_placement")
+    if npc_placement is not None:
+        if not isinstance(npc_placement, dict):
+            _issue(issues, "error", path, "$.npc_placement", "NPC 배치 수용량 설정은 객체여야 합니다.")
+        else:
+            capacity_mode = npc_placement.get("capacity_mode")
+            if capacity_mode not in {"fixed", "from_encounters"}:
+                _issue(issues, "error", path, "$.npc_placement.capacity_mode", "fixed 또는 from_encounters여야 합니다.")
+            required_slots = npc_placement.get("required_slots")
+            if capacity_mode == "fixed":
+                integer(required_slots, 1, 256, "$.npc_placement.required_slots")
+                if isinstance(required_slots, int) and not isinstance(required_slots, bool) and required_slots < npc_actor_demand:
+                    _issue(
+                        issues, "error", path, "$.npc_placement.required_slots",
+                        f"현재 조우 NPC {npc_actor_demand}명을 배치하려면 최소 {npc_actor_demand}개 슬롯이 필요합니다.",
+                    )
+            elif required_slots is not None:
+                _issue(issues, "error", path, "$.npc_placement.required_slots", "from_encounters는 조우 NPC 수에서 슬롯 수를 자동 계산합니다.")
+            spacing = npc_placement.get("minimum_spacing")
+            if not isinstance(spacing, (int, float)) or isinstance(spacing, bool) or not 0 <= spacing <= 32:
+                _issue(issues, "error", path, "$.npc_placement.minimum_spacing", "0~32 숫자여야 합니다.")
+            integer(npc_placement.get("maximum_per_room"), 1, 16, "$.npc_placement.maximum_per_room")
 
     random_encounters = object_at("random_encounters")
     for key, minimum, maximum in (

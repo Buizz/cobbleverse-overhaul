@@ -1464,12 +1464,24 @@ final class DungeonSystem {
                 DungeonEncounterFormation.create(
                     authoredPosition, encounter.yaw(), encounter.actorCount()
                 );
+            List<BlockPos> opponentPositions = new ArrayList<>();
+            for (int index = 0; index < encounter.actorCount(); index++) {
+                BlockPos relativeNpcSlot = featurePosition(
+                    terrain, "npc_spawn",
+                    DungeonPieceLayout.npcMarkerReference(encounter.id(), index),
+                    null
+                );
+                opponentPositions.add(relativeNpcSlot == null
+                    ? formation.opponents().get(index)
+                    : origin.offset(relativeNpcSlot));
+            }
             validateEncounterFormation(
-                level, definition, encounter, formation, origin, terrain.size()
+                level, definition, encounter, formation, opponentPositions,
+                origin, terrain.size()
             );
             for (int index = 0; index < encounter.actorCount(); index++) {
                 int opponentIndex = index;
-                BlockPos position = formation.opponents().get(opponentIndex);
+                BlockPos position = opponentPositions.get(opponentIndex);
                 boolean placed = encounter.trainers().isEmpty()
                     ? CobbleventureBootstrap.spawnRegionalNpc(
                         level, encounter.npcs().get(opponentIndex), position,
@@ -1560,10 +1572,11 @@ final class DungeonSystem {
         DungeonDefinition definition,
         DungeonDefinition.Encounter encounter,
         DungeonEncounterFormation.Formation formation,
+        List<BlockPos> opponentPositions,
         BlockPos origin,
         BlockPos size
     ) {
-        List<BlockPos> reserved = new ArrayList<>(formation.opponents());
+        List<BlockPos> reserved = new ArrayList<>(opponentPositions);
         if (definition.multiplayer().mode().equals("cooperative")) {
             reserved.addAll(formation.players());
         }

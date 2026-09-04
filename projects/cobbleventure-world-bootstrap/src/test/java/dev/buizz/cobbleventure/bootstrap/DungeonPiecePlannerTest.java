@@ -104,6 +104,37 @@ final class DungeonPiecePlannerTest {
         });
     }
 
+    @Test
+    void assignsEveryRuntimeDungeonTrainerActorToAConfiguredNpcSlot() throws Exception {
+        List<DungeonPieceDefinition> pieces = packagedRocketPieces();
+        for (String name : List.of(
+            "rocket_casino_hideout", "rocket_silph_company", "rocket_pokemon_tower"
+        )) {
+            DungeonDefinition dungeon = packagedDungeon(name);
+            DungeonPieceLayout generated = DungeonPieceLayout.generate(
+                dungeon, pieces, 517L
+            );
+            Map<DungeonPieceLayout.MarkerKey, BlockPos> markers =
+                generated.featureMarkers(dungeon, 517L);
+
+            long assignedNpcSlots = markers.keySet().stream()
+                .filter(key -> key.kind().equals("npc_spawn"))
+                .count();
+            assertEquals(
+                dungeon.npcPlacement().requiredSlots(), assignedNpcSlots, name
+            );
+            for (DungeonDefinition.Encounter encounter : dungeon.encounters()) {
+                if (!encounter.kind().equals("trainer")) continue;
+                for (int actor = 0; actor < encounter.actorCount(); actor++) {
+                    assertTrue(markers.containsKey(new DungeonPieceLayout.MarkerKey(
+                        "npc_spawn",
+                        DungeonPieceLayout.npcMarkerReference(encounter.id(), actor)
+                    )), name + " -> " + encounter.id() + "#" + actor);
+                }
+            }
+        }
+    }
+
     private static void assertSparseRoomCadence(DungeonPiecePlan plan, String name) {
         List<String> roles = plan.placements().stream()
             .filter(DungeonPiecePlan.Placement::criticalPath)

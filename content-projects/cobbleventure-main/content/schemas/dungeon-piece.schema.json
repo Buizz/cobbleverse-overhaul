@@ -113,6 +113,7 @@
             "exit",
             "encounter",
             "boss",
+            "npc_spawn",
             "loot",
             "healing_station",
             "gate",

@@ -41,6 +41,7 @@ final class DungeonAuthoredPlanDefinitionTest {
         root.getAsJsonArray("encounters").add(boss);
         root.getAsJsonArray("gates").get(0).getAsJsonObject()
             .add("requires", JsonParser.parseString("[\"encounter_1\"]"));
+        root.remove("npc_placement");
         var dungeon = DungeonDefinition.parse(root);
         var layout = new DungeonPieceLayout(null, List.of(
             new DungeonPieceLayout.ResolvedMarker("encounter", null, new BlockPos(2, 1, 2)),
@@ -124,7 +125,7 @@ final class DungeonAuthoredPlanDefinitionTest {
     }
 
     @Test
-    void rejectsGateWhoseRequiredEncounterIsBehindItsBlockedConnector() throws Exception {
+    void rejectsGateWhenNoMarkerKeepsItsRequirementReachable() throws Exception {
         Map<String, DungeonPieceDefinition> pieces = pokemonTowerPieces();
         DungeonAuthoredPlanDefinition authored = DungeonAuthoredPlanDefinition.parse(
             resourceJson(
@@ -145,7 +146,9 @@ final class DungeonAuthoredPlanDefinitionTest {
             )
         );
 
-        assertTrue(error.getMessage().contains("behind the gate"));
+        assertTrue(error.getMessage().contains(
+            "no gate marker with reachable requirements"
+        ));
     }
 
     private static void useAuthoredTowerPlan(com.google.gson.JsonObject root) {

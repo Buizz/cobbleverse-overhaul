@@ -134,7 +134,7 @@ record DungeonPieceLayout(
                 DungeonPiecePlanValidator.validateNoOpenConnectors(plan, byId);
                 return resolveMarkers(definition, plan, byId, seed);
             } catch (IllegalStateException failure) {
-                lastFailure = failure;
+                lastFailure = preferPlanningFailure(lastFailure, failure);
             }
         }
         if (definition.plan().fallback().equals("use_last_valid")) {
@@ -163,7 +163,9 @@ record DungeonPieceLayout(
                     );
                     return resolveMarkers(definition, fallback, byId, seed);
                 } catch (IllegalStateException failure) {
-                    fallbackFailure = failure;
+                    fallbackFailure = preferPlanningFailure(
+                        fallbackFailure, failure
+                    );
                 }
             }
             if (fallbackFailure != null && lastFailure != null) {
@@ -178,6 +180,17 @@ record DungeonPieceLayout(
     private static long saturatedDeadline(long startedAt, long timeoutNanos) {
         if (timeoutNanos >= Long.MAX_VALUE - startedAt) return Long.MAX_VALUE;
         return startedAt + timeoutNanos;
+    }
+
+    private static IllegalStateException preferPlanningFailure(
+        IllegalStateException current, IllegalStateException candidate
+    ) {
+        if (current == null) return candidate;
+        boolean currentIsCapacity = current.getMessage() != null
+            && current.getMessage().contains("NPC");
+        boolean candidateIsCapacity = candidate.getMessage() != null
+            && candidate.getMessage().contains("NPC");
+        return candidateIsCapacity || !currentIsCapacity ? candidate : current;
     }
 
     private static DungeonPiecePlanner.Settings singleAttempt(
@@ -326,11 +339,18 @@ record DungeonPieceLayout(
         }
 
         for (DungeonDefinition.Encounter encounter : definition.encounters()) {
-            assignFeature(
-                assigned, candidates, encounter.boss() ? "boss" : "encounter",
-                encounter.id(), encounter.position(), definition.id()
-            );
+            if (definition.npcPlacement().enabled()
+                && encounter.kind().equals("trainer") && !encounter.boss()
+                && encounter.position() == null) {
+                assignEncounterCenter(assigned, candidates, definition, encounter);
+            } else {
+                assignFeature(
+                    assigned, candidates, encounter.boss() ? "boss" : "encounter",
+                    encounter.id(), encounter.position(), definition.id()
+                );
+            }
         }
+        assignNpcSlots(assigned, candidates, definition);
         for (DungeonDefinition.LootContainer container : definition.loot().containers()) {
             assignFeature(
                 assigned, candidates, "loot", container.id(),
@@ -357,11 +377,266 @@ record DungeonPieceLayout(
         }
         for (DungeonDefinition.Gate gate : definition.gates()) {
             if (!gate.placement().equals("marker")) continue;
+            assignGateFeature(assigned, candidates, definition, gate);
+        }
+        return Map.copyOf(assigned);
+    }
+
+    private void assignGateFeature(
+        Map<MarkerKey, ResolvedMarker> assigned,
+        Map<String, List<ResolvedMarker>> candidates,
+        DungeonDefinition definition,
+        DungeonDefinition.Gate gate
+    ) {
+        MarkerKey key = new MarkerKey("gate", gate.id());
+        if (assigned.containsKey(key)) return;
+        if (plan == null) {
             assignFeature(
                 assigned, candidates, "gate", gate.id(), null, definition.id()
             );
+            return;
         }
-        return Map.copyOf(assigned);
+        int start = plan.placements().stream()
+            .filter(placement -> placement.role().equals("start"))
+            .map(DungeonPiecePlan.Placement::index).findFirst().orElseThrow();
+        List<ResolvedMarker> available = candidates.getOrDefault("gate", List.of());
+        for (int index = available.size() - 1; index >= 0; index--) {
+            ResolvedMarker marker = available.get(index);
+            DungeonPiecePlan.Link blocked = linkedAt(marker).orElse(null);
+            if (blocked == null) continue;
+            Set<Integer> reachable = reachable(start, graphWithout(blocked));
+            if (!gateRequirementsReachable(gate, definition, assigned, reachable)) {
+                continue;
+            }
+            assigned.put(key, available.remove(index));
+            return;
+        }
+        throw new IllegalStateException(
+            "Dungeon has no gate marker with reachable requirements: "
+                + definition.id() + " -> " + gate.id()
+        );
+    }
+
+    private static boolean gateRequirementsReachable(
+        DungeonDefinition.Gate gate,
+        DungeonDefinition definition,
+        Map<MarkerKey, ResolvedMarker> assigned,
+        Set<Integer> reachable
+    ) {
+        for (DungeonDefinition.GateRequirement requirement : gate.requirements()) {
+            if (requirement.type().equals("item")) continue;
+            String kind = requirement.type();
+            if (kind.equals("encounter")) {
+                DungeonDefinition.Encounter encounter = definition.encounters().stream()
+                    .filter(value -> value.id().equals(requirement.reference()))
+                    .findFirst().orElseThrow();
+                kind = encounter.boss() ? "boss" : "encounter";
+            }
+            ResolvedMarker required = assigned.get(new MarkerKey(
+                kind, requirement.reference()
+            ));
+            if (required != null && required.placementIndex() >= 0
+                && !reachable.contains(required.placementIndex())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void assignEncounterCenter(
+        Map<MarkerKey, ResolvedMarker> assigned,
+        Map<String, List<ResolvedMarker>> candidates,
+        DungeonDefinition definition,
+        DungeonDefinition.Encounter encounter
+    ) {
+        MarkerKey key = new MarkerKey("encounter", encounter.id());
+        if (assigned.containsKey(key)) return;
+        Map<String, Integer> actorCounts = definition.encounters().stream().collect(
+            java.util.stream.Collectors.toMap(
+                DungeonDefinition.Encounter::id,
+                DungeonDefinition.Encounter::actorCount
+            )
+        );
+        Map<Integer, Integer> occupancy = new HashMap<>();
+        for (Map.Entry<MarkerKey, ResolvedMarker> entry : assigned.entrySet()) {
+            if (!entry.getKey().kind().equals("encounter")) continue;
+            occupancy.merge(
+                entry.getValue().placementIndex(),
+                actorCounts.getOrDefault(entry.getKey().reference(), 1),
+                Integer::sum
+            );
+        }
+        List<ResolvedMarker> available = candidates.getOrDefault(
+            "encounter", List.of()
+        );
+        int selected = -1;
+        int minimumOccupancy = Integer.MAX_VALUE;
+        for (int index = available.size() - 1; index >= 0; index--) {
+            ResolvedMarker marker = available.get(index);
+            int roomOccupancy = occupancy.getOrDefault(marker.placementIndex(), 0);
+            int roomCapacity = npcSlotCapacity(
+                candidates.getOrDefault("npc_spawn", List.of()).stream()
+                    .filter(slot -> slot.placementIndex() == marker.placementIndex())
+                    .toList(),
+                definition.npcPlacement()
+            );
+            if (roomOccupancy + encounter.actorCount()
+                > Math.min(definition.npcPlacement().maximumPerRoom(), roomCapacity)) {
+                continue;
+            }
+            if (roomOccupancy < minimumOccupancy) {
+                selected = index;
+                minimumOccupancy = roomOccupancy;
+            }
+        }
+        if (selected < 0) {
+            throw new IllegalStateException(
+                "Dungeon cannot reserve an NPC room for encounter: "
+                    + definition.id() + " -> " + encounter.id()
+            );
+        }
+        assigned.put(key, available.remove(selected));
+    }
+
+    private static void assignNpcSlots(
+        Map<MarkerKey, ResolvedMarker> assigned,
+        Map<String, List<ResolvedMarker>> candidates,
+        DungeonDefinition definition
+    ) {
+        if (!definition.npcPlacement().enabled()) return;
+        List<ResolvedMarker> available = candidates.getOrDefault(
+            "npc_spawn", new ArrayList<>()
+        );
+        DungeonDefinition.NpcPlacement settings = definition.npcPlacement();
+        int capacity = npcSlotCapacity(available, settings);
+        if (capacity < settings.requiredSlots()) {
+            throw new IllegalStateException(
+                "Dungeon NPC slot capacity is insufficient: " + definition.id()
+                    + " requires " + settings.requiredSlots() + " but plan provides "
+                    + capacity
+            );
+        }
+
+        Map<Integer, Integer> occupancy = new HashMap<>();
+        List<ResolvedMarker> used = new ArrayList<>();
+        for (DungeonDefinition.Encounter encounter : definition.encounters()) {
+            if (!encounter.kind().equals("trainer")) continue;
+            ResolvedMarker anchor = assigned.get(new MarkerKey(
+                encounter.boss() ? "boss" : "encounter", encounter.id()
+            ));
+            int preferredPlacement = anchor == null ? -1 : anchor.placementIndex();
+            List<ResolvedMarker> selected = selectNpcGroup(
+                available, used, occupancy, encounter.actorCount(),
+                preferredPlacement, settings
+            );
+            if (selected.size() != encounter.actorCount()) {
+                throw new IllegalStateException(
+                    "Dungeon cannot place encounter NPCs in one safe room: "
+                        + definition.id() + " -> " + encounter.id()
+                );
+            }
+            for (int index = 0; index < selected.size(); index++) {
+                ResolvedMarker marker = selected.get(index);
+                available.remove(marker);
+                used.add(marker);
+                occupancy.merge(marker.placementIndex(), 1, Integer::sum);
+                assigned.put(
+                    new MarkerKey("npc_spawn", npcMarkerReference(encounter.id(), index)),
+                    marker
+                );
+            }
+        }
+    }
+
+    static String npcMarkerReference(String encounterId, int actorIndex) {
+        return encounterId + "#" + actorIndex;
+    }
+
+    private static List<ResolvedMarker> selectNpcGroup(
+        List<ResolvedMarker> available,
+        List<ResolvedMarker> used,
+        Map<Integer, Integer> occupancy,
+        int actorCount,
+        int preferredPlacement,
+        DungeonDefinition.NpcPlacement settings
+    ) {
+        List<Integer> placements = available.stream()
+            .map(ResolvedMarker::placementIndex)
+            .distinct()
+            .filter(index -> preferredPlacement < 0 || index == preferredPlacement)
+            .sorted(java.util.Comparator.comparingInt(index ->
+                index == preferredPlacement ? Integer.MIN_VALUE
+                    : occupancy.getOrDefault(index, 0)
+            ))
+            .toList();
+        for (int placement : placements) {
+            if (occupancy.getOrDefault(placement, 0) + actorCount
+                > settings.maximumPerRoom()) continue;
+            List<ResolvedMarker> room = available.stream()
+                .filter(marker -> marker.placementIndex() == placement)
+                .toList();
+            List<ResolvedMarker> selected = new ArrayList<>();
+            if (selectCompatibleSlots(
+                room, 0, actorCount, used, selected, settings.minimumSpacing()
+            )) return List.copyOf(selected);
+        }
+        return List.of();
+    }
+
+    private static int npcSlotCapacity(
+        List<ResolvedMarker> available,
+        DungeonDefinition.NpcPlacement settings
+    ) {
+        Map<Integer, List<ResolvedMarker>> byRoom = available.stream().collect(
+            java.util.stream.Collectors.groupingBy(ResolvedMarker::placementIndex)
+        );
+        int capacity = 0;
+        for (List<ResolvedMarker> room : byRoom.values()) {
+            int roomMaximum = Math.min(settings.maximumPerRoom(), room.size());
+            for (int target = roomMaximum; target > 0; target--) {
+                if (selectCompatibleSlots(
+                    room, 0, target, List.of(), new ArrayList<>(),
+                    settings.minimumSpacing()
+                )) {
+                    capacity += target;
+                    break;
+                }
+            }
+        }
+        return capacity;
+    }
+
+    private static boolean selectCompatibleSlots(
+        List<ResolvedMarker> candidates,
+        int start,
+        int target,
+        List<ResolvedMarker> fixed,
+        List<ResolvedMarker> selected,
+        double minimumSpacing
+    ) {
+        if (selected.size() == target) return true;
+        for (int index = start; index < candidates.size(); index++) {
+            ResolvedMarker candidate = candidates.get(index);
+            if (!farEnough(candidate, fixed, minimumSpacing)
+                || !farEnough(candidate, selected, minimumSpacing)) continue;
+            selected.add(candidate);
+            if (selectCompatibleSlots(
+                candidates, index + 1, target, fixed, selected, minimumSpacing
+            )) return true;
+            selected.removeLast();
+        }
+        return false;
+    }
+
+    private static boolean farEnough(
+        ResolvedMarker candidate,
+        List<ResolvedMarker> others,
+        double minimumSpacing
+    ) {
+        double requiredSquared = minimumSpacing * minimumSpacing;
+        return others.stream().allMatch(other ->
+            candidate.position().distSqr(other.position()) >= requiredSquared
+        );
     }
 
     private static long markerSeed(long seed, String kind) {

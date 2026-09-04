@@ -101,6 +101,25 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertFalse(any(issue.level == "error" for issue in issues), issues)
 
+    def test_dungeon_npc_capacity_rejects_fixed_slots_below_actor_count(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/dungeons/generation_1/rocket_casino_hideout.json"
+        ).read_text(encoding="utf-8"))
+        document["npc_placement"] = {
+            "capacity_mode": "fixed", "required_slots": 4,
+            "minimum_spacing": 4, "maximum_per_room": 2,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        self.assertTrue(any(
+            issue.path == "$.npc_placement.required_slots"
+            and "NPC 5명" in issue.message
+            for issue in issues
+        ), issues)
+
     def test_fixed_dungeon_rejects_missing_encounter_and_loot_positions(self) -> None:
         document = json.loads((
             PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json"
@@ -147,6 +166,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="maximumPartySize"', markup)
         self.assertIn('name="requireUsablePokemon"', markup)
         self.assertIn('maximum_party_size: integer("maximumPartySize", 6)', script)
+        self.assertIn('name="npcCapacityMode"', markup)
+        self.assertIn('name="npcRequiredSlots"', markup)
+        self.assertIn('name="npcMinimumSpacing"', markup)
+        self.assertIn('document.npc_placement = {', script)
+        self.assertIn('markerPositions(placement, "npc_spawn")', script)
+        self.assertIn('NPC 슬롯', script)
 
     def test_dungeon_cave_requires_the_shared_cave_generator_document(self) -> None:
         document = json.loads((

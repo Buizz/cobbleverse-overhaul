@@ -39,7 +39,7 @@ record DungeonPieceDefinition(
         "treasure", "boss", "exit"
     );
     private static final List<String> MARKER_KINDS = List.of(
-        "entry", "exit", "encounter", "boss", "loot", "healing_station",
+        "entry", "exit", "encounter", "boss", "npc_spawn", "loot", "healing_station",
         "gate", "checkpoint", "wild_spawn", "objective", "trace"
     );
     private static final List<String> PLACEMENT_SCOPES = List.of(

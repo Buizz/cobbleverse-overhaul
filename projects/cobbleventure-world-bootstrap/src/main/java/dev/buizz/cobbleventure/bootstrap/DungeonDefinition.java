@@ -33,6 +33,7 @@ record DungeonDefinition(
     Plan plan,
     Terrain terrain,
     Layout layout,
+    NpcPlacement npcPlacement,
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
     Support support,
@@ -1070,6 +1071,7 @@ record DungeonDefinition(
                 piecePool, caveGenerator, terrainBounds, caveSettings
             ),
             layout,
+            npcPlacement(root, encounters, id),
             List.copyOf(encounters),
             new RandomEncounters(
                 randomEncountersEnabled,
@@ -1130,6 +1132,47 @@ record DungeonDefinition(
         return terrainMode.equals("fixed_template")
             ? new Plan("authored", List.of(), "fixed", "reject_entry", 1000, 1)
             : new Plan("runtime", List.of(), "random_per_run", "reject_entry", 1000, 32);
+    }
+
+    private static NpcPlacement npcPlacement(
+        JsonObject root, List<Encounter> encounters, String dungeonId
+    ) {
+        int actorDemand = encounters.stream()
+            .filter(encounter -> encounter.kind().equals("trainer"))
+            .mapToInt(Encounter::actorCount)
+            .sum();
+        if (!root.has("npc_placement")) {
+            return new NpcPlacement(false, "from_encounters", actorDemand, 4.0D, 2);
+        }
+        JsonObject value = requiredObject(root, "npc_placement");
+        String capacityMode = enumValue(
+            value, "capacity_mode", List.of("fixed", "from_encounters")
+        );
+        if (capacityMode.equals("from_encounters") && value.has("required_slots")) {
+            throw new IllegalStateException(
+                "from_encounters dungeon NPC placement cannot declare required_slots: "
+                    + dungeonId
+            );
+        }
+        int requiredSlots = capacityMode.equals("fixed")
+            ? requiredInt(value, "required_slots") : actorDemand;
+        if (requiredSlots < actorDemand || requiredSlots > 256) {
+            throw new IllegalStateException(
+                "Dungeon NPC placement requires at least " + actorDemand
+                    + " slots but configured " + requiredSlots + ": " + dungeonId
+            );
+        }
+        double minimumSpacing = requiredDouble(value, "minimum_spacing");
+        int maximumPerRoom = requiredInt(value, "maximum_per_room");
+        if (minimumSpacing < 0.0D || minimumSpacing > 32.0D
+            || maximumPerRoom < 1 || maximumPerRoom > 16) {
+            throw new IllegalStateException(
+                "Invalid dungeon NPC placement limits: " + dungeonId
+            );
+        }
+        return new NpcPlacement(
+            true, capacityMode, requiredSlots, minimumSpacing, maximumPerRoom
+        );
     }
 
     private static IntRange integerRange(
@@ -1325,6 +1368,13 @@ record DungeonDefinition(
         double loopChance,
         String verticalDirection,
         IntRange floorChanges
+    ) {}
+    record NpcPlacement(
+        boolean enabled,
+        String capacityMode,
+        int requiredSlots,
+        double minimumSpacing,
+        int maximumPerRoom
     ) {}
     record IntRange(int minimum, int maximum) {}
     record Encounter(

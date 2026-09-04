@@ -40,10 +40,11 @@
     "bounds": [128, 48, 128]
   },
   "layout": {
-    "mode": "rooms_and_corridors", "critical_path_rooms": [9, 10],
+    "mode": "rooms_and_corridors", "critical_path_rooms": [12, 13],
     "branch_count": [1, 2], "branch_depth": [1, 2], "loop_chance": 0.06,
     "vertical_direction": "descending", "floor_changes": [1, 2]
   },
+  "npc_placement": { "capacity_mode": "from_encounters", "minimum_spacing": 4, "maximum_per_room": 2 },
   "encounters": [
     {
       "id": "basement_guard", "display_name": { "ko_kr": "지하 창고 경비", "en_us": "Basement Guard" },

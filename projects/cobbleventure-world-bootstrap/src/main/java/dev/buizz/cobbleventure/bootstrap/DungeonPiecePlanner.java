@@ -508,6 +508,8 @@ final class DungeonPiecePlanner {
             case "rooms_and_corridors" -> depth % 3 == 0
                 ? Set.of("room", "junction", "support")
                 : depth % 3 == 1 ? Set.of("corridor", "junction") : Set.of("corridor");
+            case "critical_path_branches" -> depth % 3 == 2
+                ? Set.of("room") : Set.of("corridor", "junction");
             default -> Set.of("room", "corridor", "junction", "support");
         };
     }
