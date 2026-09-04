@@ -9291,6 +9291,13 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                         _issue(issues, "error", path, "$.topology.mode", "지원하지 않는 동선 계획입니다.")
                     if plan.get("mode") == "runtime" and topology_mode in {"authored", "chamber_maze", "natural_network"}:
                         _issue(issues, "error", path, "$.topology.mode", "이 동선은 아직 전용 공간 제작기가 필요합니다.")
+                    chamber_grid = topology.get("chamber_grid")
+                    if topology_mode == "chamber_maze" and not (
+                        isinstance(chamber_grid, list)
+                        and len(chamber_grid) == 2
+                        and all(isinstance(value, int) and 3 <= value <= 64 for value in chamber_grid)
+                    ):
+                        _issue(issues, "error", path, "$.topology.chamber_grid", "공동 미로는 3~64 범위의 가로·세로 셀 수가 필요합니다.")
             vertical = data.get("vertical")
             if vertical is not None:
                 if not isinstance(vertical, dict):

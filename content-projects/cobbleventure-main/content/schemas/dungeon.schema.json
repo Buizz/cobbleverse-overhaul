@@ -232,10 +232,21 @@
         "critical_path_rooms": { "$ref": "#/$defs/room_range" },
         "branch_count": { "$ref": "#/$defs/nonnegative_range" },
         "branch_depth": { "$ref": "#/$defs/positive_range" },
+        "chamber_grid": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": { "type": "integer", "minimum": 3, "maximum": 64 }
+        },
         "loop_chance": {
           "type": "number", "minimum": 0, "maximum": 1, "default": 0
         }
-      }
+      },
+      "allOf": [{
+        "if": {
+          "properties": { "mode": { "const": "chamber_maze" } },
+          "required": ["mode"]
+        },
+        "then": { "required": ["chamber_grid"] }
+      }]
     },
     "vertical": {
       "type": "object",

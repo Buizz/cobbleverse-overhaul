@@ -298,6 +298,24 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("document.vertical =", script)
         self.assertIn("vertical.floor_height || 8", script)
 
+    def test_chamber_maze_requires_a_bounded_partition_grid(self) -> None:
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
+        document["topology"] = {
+            "mode": "chamber_maze", "critical_path_rooms": [7, 7],
+            "branch_count": [2, 2], "branch_depth": [1, 2],
+            "loop_chance": 0.1,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, missing_issues = content_manager.validate_dungeon_file(path)
+            document["topology"]["chamber_grid"] = [7, 5]
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, configured_issues = content_manager.validate_dungeon_file(path)
+
+        self.assertTrue(any(issue.path == "$.topology.chamber_grid" for issue in missing_issues))
+        self.assertFalse(any(issue.path == "$.topology.chamber_grid" for issue in configured_issues))
+
     def test_dungeon_validator_checks_cross_field_party_and_level_rules(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
         document["difficulty"]["recommended_min"] = 20

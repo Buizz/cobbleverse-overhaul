@@ -17,6 +17,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
     @Test
+    void chamberMazeRequiresAnExplicitPartitionGrid() throws Exception {
+        JsonObject configured = resourceObject("rocket_pokemon_tower");
+        configured.add("topology", JsonParser.parseString("""
+            {"mode":"chamber_maze","critical_path_rooms":[7,7],
+             "branch_count":[2,2],"branch_depth":[1,2],
+             "loop_chance":0.1,"chamber_grid":[7,5]}
+            """).getAsJsonObject());
+        configured.getAsJsonObject("plan").addProperty("mode", "authored");
+        configured.getAsJsonObject("plan").add(
+            "plan_ids",
+            JsonParser.parseString("[\"cobbleventure:dungeon_plan/test\"]")
+                .getAsJsonArray()
+        );
+
+        DungeonDefinition definition = DungeonDefinition.parse(configured);
+
+        assertEquals("chamber_maze", definition.topology().mode());
+        assertEquals(7, definition.topology().chamberGrid().width());
+        assertEquals(5, definition.topology().chamberGrid().depth());
+
+        configured.getAsJsonObject("topology").remove("chamber_grid");
+        assertThrows(
+            IllegalStateException.class,
+            () -> DungeonDefinition.parse(configured)
+        );
+    }
+
+    @Test
     void powerPlantUsesFourDungeonOwnedTrainers() throws Exception {
         DungeonDefinition definition = DungeonDefinition.parse(
             resourceObject("rocket_power_plant")

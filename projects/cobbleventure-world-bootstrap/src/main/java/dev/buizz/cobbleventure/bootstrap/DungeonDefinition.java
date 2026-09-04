@@ -334,15 +334,39 @@ record DungeonDefinition(
                     "Invalid dungeon topology loop_chance: " + id
                 );
             }
-            topology = new Topology(
-                enumValue(configured, "mode", List.of(
+            String topologyMode = enumValue(configured, "mode", List.of(
                     "authored", "corridor_spine", "hub_and_spokes",
                     "room_network", "chamber_maze", "natural_network"
-                )),
+                ));
+            ChamberGrid chamberGrid = null;
+            if (configured.has("chamber_grid")) {
+                JsonArray grid = requiredArray(configured, "chamber_grid");
+                if (grid.size() != 2) {
+                    throw new IllegalStateException(
+                        "Dungeon chamber_grid must contain width and depth: " + id
+                    );
+                }
+                int width = grid.get(0).getAsInt();
+                int depth = grid.get(1).getAsInt();
+                if (width < 3 || width > 64 || depth < 3 || depth > 64) {
+                    throw new IllegalStateException(
+                        "Dungeon chamber_grid must be between 3 and 64 cells: " + id
+                    );
+                }
+                chamberGrid = new ChamberGrid(width, depth);
+            }
+            if (topologyMode.equals("chamber_maze") && chamberGrid == null) {
+                throw new IllegalStateException(
+                    "chamber_maze requires chamber_grid: " + id
+                );
+            }
+            topology = new Topology(
+                topologyMode,
                 integerRange(configured, "critical_path_rooms", 3, 256),
                 integerRange(configured, "branch_count", 0, 128),
                 integerRange(configured, "branch_depth", 1, 64),
-                loopChance
+                loopChance,
+                chamberGrid
             );
         } else if (layout != null) {
             topology = new Topology(
@@ -1495,8 +1519,20 @@ record DungeonDefinition(
         IntRange criticalPathRooms,
         IntRange branchCount,
         IntRange branchDepth,
-        double loopChance
-    ) {}
+        double loopChance,
+        ChamberGrid chamberGrid
+    ) {
+        Topology(
+            String mode, IntRange criticalPathRooms, IntRange branchCount,
+            IntRange branchDepth, double loopChance
+        ) {
+            this(
+                mode, criticalPathRooms, branchCount, branchDepth,
+                loopChance, null
+            );
+        }
+    }
+    record ChamberGrid(int width, int depth) {}
     record Vertical(
         String mode,
         String direction,
