@@ -410,7 +410,7 @@ public final class WorldMapScreen extends Screen {
                 point.x() + marker + 1, point.y() + marker + 1, ACCENT_COLOR);
             graphics.fill(point.x() - marker + 2, point.y() - marker + 2,
                 point.x() + marker - 1, point.y() + marker - 1, 0xFF30251A);
-            String label = font.plainSubstrByWidth(object.name(), Math.max(42, size * 7));
+            String label = font.plainSubstrByWidth(objectDisplayName(object), Math.max(42, size * 7));
             int labelWidth = font.width(label);
             int labelX = point.x() - labelWidth / 2;
             int labelY = point.y() - marker - 11;
@@ -631,7 +631,7 @@ public final class WorldMapScreen extends Screen {
             }
         } else if (object != null) {
             boolean visited = snapshot.visited().contains(object.id());
-            graphics.drawString(font, object.name(), x, y, TEXT, false);
+            graphics.drawString(font, objectDisplayName(object), x, y, TEXT, false);
             y += 14;
             graphics.drawString(font, "월드 오브젝트", x, y, MUTED_TEXT, false);
             y += 15;
@@ -1330,6 +1330,12 @@ public final class WorldMapScreen extends Screen {
     private static int withOpacity(int color, float opacity) {
         int alpha = Math.round(((color >>> 24) & 0xFF) * Math.max(0.0F, Math.min(1.0F, opacity)));
         return color & 0x00FFFFFF | alpha << 24;
+    }
+
+    private String objectDisplayName(MapContent.MapObject object) {
+        String language = minecraft == null
+            ? "ko_kr" : minecraft.getLanguageManager().getSelected();
+        return object.name(language);
     }
 
     private final class RibbonButton extends AbstractButton {

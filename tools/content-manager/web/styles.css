@@ -890,8 +890,10 @@ body {
 .legend-dot { width: 8px; height: 8px; border-radius: 2px; background: #29342d; }.legend-dot.village { border-radius: 50%; background: var(--accent); }.legend-dot.biome { background: #60905c; }.legend-dot.empty { border: 1px solid #465249; background: transparent; }.legend-line { width: 14px; height: 3px; border-radius: 3px; background: #e6c77b; }
 .map-tool { min-width: 30px; height: 28px; border: 1px solid #34433a; background: #18201b; color: #c9d0cb; cursor: pointer; }.map-tool.fit { padding: 0 10px; }.map-toolbar output { min-width: 42px; text-align: center; }
 .empty-brush-controls select,.empty-brush-controls input { height: 28px; border: 1px solid #34433a; border-radius: 3px; background: #18201b; color: #c9d0cb; }.empty-brush-controls input { width: 44px; padding: 0 5px; }.empty-brush-controls label { display: flex; align-items: center; gap: 5px; }.map-tool[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }.world-map-viewport svg.is-painting { cursor: crosshair; }
-.world-map-viewport { min-height: 0; overflow: hidden; background: radial-gradient(circle at center,rgba(62,83,68,.15),transparent 53%),#0d1310; }
-.world-map-viewport svg { display: block; width: 100%; height: 100%; min-height: 0; cursor: grab; touch-action: none; user-select: none; }
+.world-map-viewport { position: relative; min-height: 0; overflow: hidden; background: radial-gradient(circle at center,rgba(62,83,68,.15),transparent 53%),#0d1310; }
+.world-map-viewport canvas,.world-map-viewport svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-height: 0; }
+.world-map-viewport canvas { pointer-events: none; }
+.world-map-viewport svg { cursor: grab; touch-action: none; user-select: none; }
 .hex-cell polygon { fill: #18201b; stroke: #344239; stroke-width: 1.35; transition: fill .12s,stroke .12s,filter .12s; cursor: pointer; }
 .hex-cell:focus,.hex-cell:focus-visible { outline: none; }
 .hex-cell:hover polygon,.hex-cell:focus polygon { stroke: #d79a47; stroke-width: 2; filter: brightness(1.18); }.hex-cell.is-selected polygon { stroke: #ffb24d; stroke-width: 3; filter: brightness(1.13); }

@@ -463,6 +463,7 @@
                 </section>
                 <section class="tool-option-panel" data-tool-options="object" hidden>
                   <label><span>오브젝트 ID</span><input id="generic-object-tool-id" placeholder="rocket_hideout"></label>
+                  <div class="inline-fields"><label><span>한국어 표시 이름</span><input id="generic-object-tool-name-ko" placeholder="발전소"></label><label><span>영문 표시 이름</span><input id="generic-object-tool-name-en" placeholder="Power Plant"></label></div>
                   <label><span>배치 종류</span><input value="NBT 오브젝트" readonly></label>
                   <label><span>오브젝트 NBT</span><span class="nbt-picker-control"><input id="generic-object-tool-resource" placeholder="NBT를 선택하세요" readonly><button class="button secondary" id="choose-generic-object-tool-resource" type="button">NBT 선택</button></span></label>
                   <label><span>NBT 회전</span><select id="generic-object-tool-rotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>
@@ -485,7 +486,8 @@
                 <label class="level-overlay-toggle"><input id="level-overlay-toggle" type="checkbox"><span>레벨링 오버레이</span><i></i></label>
               </div>
               <div class="world-map-viewport" id="world-map-viewport">
-                <svg id="world-hex-map" viewBox="0 0 980 660" role="img" aria-label="육각형 기반 월드 미니맵"></svg>
+                <canvas id="world-hex-tiles" aria-hidden="true"></canvas>
+                <svg id="world-hex-map" viewBox="0 0 980 660" role="application" tabindex="0" aria-label="육각형 기반 월드 미니맵"></svg>
               </div>
               <div class="map-status"><span id="map-tile-count">0개 타일</span><span id="map-interaction-help">선택 도구 · 빈 지도 드래그: 이동 · 마을/입구 드래그: 위치 이동</span></div>
             </div>
@@ -526,6 +528,7 @@
                 <section data-tile-field="object" class="custom-object-fields">
                   <div class="route-inspector-badge"><span>오브젝트 속성</span><b>WORLD OBJECT</b></div>
                   <label><span>오브젝트 ID</span><input name="genericObjectId" placeholder="rocket_power_plant"></label>
+                  <div class="inline-fields"><label><span>한국어 표시 이름</span><input name="genericObjectNameKo" placeholder="발전소"></label><label><span>영문 표시 이름</span><input name="genericObjectNameEn" placeholder="Power Plant"></label></div>
                   <label><span>배치 종류</span><input value="NBT 오브젝트" readonly></label>
                   <label><span>오브젝트 NBT</span><span class="nbt-picker-control"><input name="genericObjectResource" placeholder="NBT를 선택하세요" readonly><button class="button secondary" id="choose-selected-object-resource" type="button">NBT 선택</button></span></label>
                   <label><span>NBT 회전</span><select name="genericObjectRotation"><option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option></select></label>

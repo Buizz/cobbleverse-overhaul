@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -370,7 +371,11 @@ public final class MapContent {
                 String id = placed.get("id").getAsString();
                 objects.add(new MapObject(
                     id,
-                    stringValue(properties, "display_name", readableId(id)),
+                    localizedNames(
+                        placed.has("display_name") ? placed.get("display_name")
+                            : properties.get("display_name"),
+                        readableId(id)
+                    ),
                     new Hex(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
                     properties.has("teleportable") && properties.get("teleportable").getAsBoolean(),
                     properties.has("show_on_minimap") && properties.get("show_on_minimap").getAsBoolean()
@@ -945,6 +950,24 @@ public final class MapContent {
         return fallback;
     }
 
+    private static Map<String, String> localizedNames(JsonElement value, String fallback) {
+        Map<String, String> names = new LinkedHashMap<>();
+        if (value != null && !value.isJsonNull()) {
+            if (value.isJsonObject()) {
+                for (Map.Entry<String, JsonElement> entry : value.getAsJsonObject().entrySet()) {
+                    if (!entry.getValue().isJsonPrimitive()) continue;
+                    String name = entry.getValue().getAsString().strip();
+                    if (!name.isEmpty()) names.put(entry.getKey().toLowerCase(Locale.ROOT), name);
+                }
+            } else if (value.isJsonPrimitive()) {
+                String legacyName = value.getAsString().strip();
+                if (!legacyName.isEmpty()) names.put("ko_kr", legacyName);
+            }
+        }
+        if (names.isEmpty()) names.put("ko_kr", fallback);
+        return Map.copyOf(names);
+    }
+
     private static String readableId(String id) {
         String value = id.substring(Math.max(id.lastIndexOf(':'), id.lastIndexOf('/')) + 1);
         return value.replace('_', ' ');
@@ -1014,11 +1037,38 @@ public final class MapContent {
             fieldMoveNpcs = List.copyOf(fieldMoveNpcs);
         }
     }
-    public record MapObject(String id, String name, Hex hex, boolean teleportable, boolean showOnMinimap) {
+    public record MapObject(
+        String id, Map<String, String> displayNames, Hex hex,
+        boolean teleportable, boolean showOnMinimap
+    ) {
         public MapObject {
             Objects.requireNonNull(id);
-            Objects.requireNonNull(name);
+            displayNames = displayNames == null || displayNames.isEmpty()
+                ? Map.of("ko_kr", readableId(id)) : Map.copyOf(displayNames);
             Objects.requireNonNull(hex);
+        }
+
+        public String name() { return name("ko_kr"); }
+
+        public String name(String language) {
+            String normalized = language == null ? "" : language.toLowerCase(Locale.ROOT);
+            String exact = displayNames.get(normalized);
+            if (exact != null && !exact.isBlank()) return exact;
+            int separator = normalized.indexOf('_');
+            if (separator > 0) {
+                String prefix = normalized.substring(0, separator);
+                for (Map.Entry<String, String> entry : displayNames.entrySet()) {
+                    if (entry.getKey().startsWith(prefix + "_") && !entry.getValue().isBlank()) {
+                        return entry.getValue();
+                    }
+                }
+            }
+            String korean = displayNames.get("ko_kr");
+            if (korean != null && !korean.isBlank()) return korean;
+            String english = displayNames.get("en_us");
+            if (english != null && !english.isBlank()) return english;
+            return displayNames.values().stream().filter(value -> !value.isBlank())
+                .findFirst().orElse(readableId(id));
         }
     }
 }

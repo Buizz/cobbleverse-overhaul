@@ -392,7 +392,8 @@ public final class MapNetwork {
                     pending.town == null
                         ? pending.object == null
                             ? "선택 타일로 이동했습니다."
-                            : pending.object.name() + "(으)로 이동했습니다."
+                            : pending.object.name(player.clientInformation().language())
+                                + "(으)로 이동했습니다."
                         : pending.town.name() + "(으)로 이동했습니다."
                 ));
             }

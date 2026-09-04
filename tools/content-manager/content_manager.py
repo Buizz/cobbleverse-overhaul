@@ -1261,6 +1261,9 @@ def validate_hex_worlds(
                 _issue(issues, "error", path, f"{object_path}.id", "유일한 오브젝트 ID가 필요합니다.")
             else:
                 seen_objects.add(object_id)
+            display_name = custom_object.get("display_name")
+            if display_name is not None:
+                _localized_text(display_name, issues, path, f"{object_path}.display_name")
             object_type = custom_object.get("type")
             if not isinstance(object_type, str) or not CHOICE_ID.fullmatch(object_type):
                 _issue(issues, "error", path, f"{object_path}.type", "올바른 오브젝트 타입이 필요합니다.")

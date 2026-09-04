@@ -56,8 +56,24 @@ final class MapContentTest {
         assertNotNull(plateau);
         assertEquals("indigo_plateau", plateau.id());
         assertEquals("석영고원", plateau.name());
+        assertEquals("Indigo Plateau", plateau.name("en_us"));
         assertTrue(plateau.teleportable());
         assertTrue(plateau.showOnMinimap());
+    }
+
+    @Test
+    void worldObjectsResolveConfiguredNamesForTheActiveLanguage() {
+        MapContent content = MapContent.forGeneration(1);
+
+        MapContent.MapObject powerPlant = content.objectAt(12, -2);
+        assertNotNull(powerPlant);
+        assertEquals("발전소", powerPlant.name("ko_kr"));
+        assertEquals("Power Plant", powerPlant.name("en_us"));
+
+        MapContent.MapObject daycare = content.objectAt(6, 0);
+        assertNotNull(daycare);
+        assertEquals("키우미집", daycare.name("ko_kr"));
+        assertEquals("Pokémon Day Care", daycare.name("en_us"));
     }
 
     @Test

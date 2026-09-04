@@ -1,5 +1,5 @@
 import { skinPreviewHtml, initializeSkinPreviews, updateSkinPreview } from "/npc-skin-preview.mjs";
-import { worldMapViewBox, buildWorldRenderIndex, createFrameScheduler, reconcileHexTiles } from "/world-map-rendering.mjs";
+import { worldMapViewBox, buildWorldRenderIndex, createFrameScheduler, drawWorldMapTiles } from "/world-map-rendering.mjs";
 
 import {
   createPartyClipboardEntry,
@@ -2310,6 +2310,12 @@ function selectedEntrance() {
 }
 function objectsAt(q, r) { return (state.worldLayout?.objects || []).filter((node) => node.anchor?.q === q && node.anchor?.r === r); }
 function selectedWorldObject() { return (state.worldLayout?.objects || []).find((node) => node.id === state.selectedObjectId) || null; }
+function worldObjectDisplayName(object) {
+  const names = object?.display_name;
+  if (names && typeof names === "object" && !Array.isArray(names))
+    return names.ko_kr || names.en_us || Object.values(names).find((value) => typeof value === "string" && value.trim()) || object.id;
+  return typeof names === "string" && names.trim() ? names : object?.properties?.display_name || object?.id || "오브젝트";
+}
 function normalizeTownCellCount(value) { const count = Number(value); return count === 3 || count === 5 || count === 7 || count === 19 ? count : 1; }
 function settlementPresetRadius(settlementId) { return normalizeTownCellCount(settlementSummary(settlementId)?.town_radius_cells); }
 function normalizeTownFootprintShape(value) { return ["triangle_up", "triangle_down", "line_q", "line_r", "line_s", "five_up", "five_down", "custom"].includes(value) ? value : "line_q"; }
@@ -2416,6 +2422,7 @@ function renderWorldLayout() {
   if (!layout) {
     renderGenerationTabs();
     $("#world-hex-map").innerHTML = "";
+    const tileCanvas = $("#world-hex-tiles"); tileCanvas.width = 1; tileCanvas.height = 1; worldMapTileFrame = null;
     $("#world-map-title").textContent = "월드맵이 없습니다";
     $("#world-layout-issues").className = "issues empty";
     $("#world-layout-issues").textContent = "＋ 세대 추가 버튼으로 새 월드맵을 만들 수 있습니다.";
@@ -2967,6 +2974,8 @@ function renderWorldDragPreview() {
 
 const scheduleHexMapRender = createFrameScheduler(renderHexMapFrame);
 function renderHexMap() { scheduleHexMapRender(); }
+let worldMapTileFrame = null;
+let worldMapOverlayMarkup = null;
 const renderWorldMapPreview = createFrameScheduler(() => {
   const layer = $("#world-hex-map .hex-transient-layer");
   if (layer && state.worldLayout) layer.innerHTML = renderBrushPreview() + renderWorldDragPreview();
@@ -2993,8 +3002,12 @@ function renderHexMapFrame() {
     const climateLabel = environment ? `, 기후 ${environment.temperature || "기본"}/${environment.humidity || "기본"}/${environment.weather || "기본"}` : "";
     const levelLabel = leveling ? `, 평균 레벨 ${leveling.average_level}` : "";
     const label = (route ? `${baseLabel}, 길 ${route.id}` : baseLabel) + climateLabel + levelLabel;
-    const isEmpty = !townArea && !tile; const polygon = hexPolygon(x, y);
-    return { key, markup: `<g class="hex-cell ${selected ? "is-selected" : ""} ${route ? "is-route-terrain" : ""} ${environment ? "has-climate-override" : ""} ${isEmpty ? `is-empty-terrain empty-type-${emptyType}` : ""} tone-${tone}" data-hex-q="${q}" data-hex-r="${r}" tabindex="0" role="button" aria-label="Q ${q}, R ${r}, ${escapeHtml(label)}"><polygon points="${polygon}"></polygon>${isEmpty ? `<path class="empty-terrain-hatch" d="M${polygon}Z"></path><text class="empty-terrain-symbol" x="${x}" y="${y + 3}">${emptyTerrainSymbol(emptyType)}</text>` : ""}${tile && !townArea ? `<circle class="biome-pin" cx="${x}" cy="${y}" r="3"></circle>` : ""}${environment ? `<path class="climate-pin" d="M${x - 7} ${y - 12}h14v5h-14z"></path>` : ""}</g>` };
+    const isEmpty = !townArea && !tile;
+    return {
+      key, q, r, x, y, radius: mapHexSize() - 2, tone, selected, environment: Boolean(environment), route: Boolean(route),
+      isEmpty, emptyType, emptyFill: ({ high_forest: "#66836b", dense_forest: "#274e32", ocean: "#70a9c4", deep_ocean: "#5e91ae", desert: "#d2a15f", stone_mountain: "#918f8a", snow_mountain: "#c6dce2" })[emptyType],
+      symbol: emptyTerrainSymbol(emptyType), hasTile: Boolean(tile), townArea: Boolean(townArea), label,
+    };
   });
   const levelOverlay = renderLevelOverlay(cells);
   const townAreas = cells.map(({ q, r }) => {
@@ -3050,7 +3063,8 @@ function renderHexMapFrame() {
       ? gateMapPoint(node)
       : hexPoint(node.anchor.q, node.anchor.r);
     if (node.type !== "gate") {
-      return `<g class="hex-custom-object nbt-structure-object${state.selectedObjectId === node.id ? " is-selected" : ""}${state.objectDrag?.id === node.id ? " is-drag-source" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(node.id)} NBT 오브젝트 선택 및 이동" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle><path d="M-12 8V-8H12V8ZM-7-8V-14H7V-8ZM-7 2H-2V8H-7ZM2-3H8V2H2Z"></path><text y="25">${escapeHtml(node.id)}</text></g>`;
+      const name = worldObjectDisplayName(node);
+      return `<g class="hex-custom-object nbt-structure-object${state.selectedObjectId === node.id ? " is-selected" : ""}${state.objectDrag?.id === node.id ? " is-drag-source" : ""}" data-select-object="${escapeHtml(node.id)}" data-drag-object="${escapeHtml(node.id)}" tabindex="0" role="button" aria-label="${escapeHtml(name)} NBT 오브젝트 선택 및 이동" transform="translate(${x} ${y})"><circle class="object-marker-hit" r="20"></circle><path d="M-12 8V-8H12V8ZM-7-8V-14H7V-8ZM-7 2H-2V8H-7ZM2-3H8V2H2Z"></path><text y="25">${escapeHtml(name)}</text></g>`;
     }
     const centerPlacement = gateCenterPlacement(node.properties);
     const wall = gateMapBoundaryMarkup(node);
@@ -3084,11 +3098,18 @@ function renderHexMapFrame() {
   }).join("");
   const brushPreview = renderBrushPreview();
   const dragPreview = renderWorldDragPreview();
-  if (!svg.querySelector(".hex-tile-layer")) {
-    svg.innerHTML = `<defs><pattern id="empty-terrain-red-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#d52828" stroke-width="2.2" opacity=".78"></line></pattern></defs><g class="hex-map-layer"><g class="hex-tile-layer"></g><g class="hex-overlay-layer"></g><g class="hex-transient-layer" pointer-events="none"></g></g>`;
+  if (!svg.querySelector(".hex-overlay-layer")) {
+    svg.innerHTML = `<g class="hex-map-layer"><g class="hex-overlay-layer"></g><g class="hex-transient-layer" pointer-events="none"></g></g>`;
+    worldMapOverlayMarkup = null;
   }
-  reconcileHexTiles(svg.querySelector(".hex-tile-layer"), tiles);
-  svg.querySelector(".hex-overlay-layer").innerHTML = `${levelOverlay}${townAreas}${routes}${draftRoute}${towns}${objects}${entranceUnderlays}${caveEntrances}${forestEntrances}${routeAnchors}`;
+  worldMapTileFrame = { view, viewport, tiles };
+  drawWorldMapTiles($("#world-hex-tiles"), view, viewport, tiles);
+  const nextOverlayMarkup = `${levelOverlay}${townAreas}${routes}${draftRoute}${towns}${objects}${entranceUnderlays}${caveEntrances}${forestEntrances}${routeAnchors}`;
+  const overlayChanged = nextOverlayMarkup !== worldMapOverlayMarkup;
+  if (overlayChanged) {
+    svg.querySelector(".hex-overlay-layer").innerHTML = nextOverlayMarkup;
+    worldMapOverlayMarkup = nextOverlayMarkup;
+  }
   svg.querySelector(".hex-transient-layer").innerHTML = brushPreview + dragPreview;
   svg.dataset.renderMs = (performance.now() - renderStarted).toFixed(1);
   const routeCellCount = index.routeCells.size;
@@ -3097,6 +3118,7 @@ function renderHexMapFrame() {
   const objectCount = (state.worldLayout.objects || []).length - gateCount;
   $("#map-tile-count").textContent = `${cells.length}개 표시 · 바이옴 ${(state.worldLayout.tiles || []).length}개 · 길 ${routeCellCount}칸 · 기후 ${(state.worldLayout.environment_overrides || []).length}칸 · 레벨 ${(state.worldLayout.level_overrides || []).length}칸 · 마을 ${(state.worldLayout.settlements || []).length}곳 · 관문 ${gateCount}곳 · 오브젝트 ${objectCount}곳 · 동굴 입구 ${(state.worldLayout.cave_entrances || []).length}곳 · 숲 입구 ${forestEntranceCount}곳`;
   $("#map-zoom").textContent = `${Math.round(state.mapZoom * 100)}%`;
+  if (overlayChanged) {
   $$("[data-drag-settlement]").forEach((marker) => marker.addEventListener("pointerdown", (event) => beginSettlementDrag(event, marker.dataset.dragSettlement)));
   $$("[data-drag-settlement]").forEach((marker) => marker.addEventListener("click", (event) => {
     if (!["select", "route"].includes(state.activeMapTool) || state.suppressMapClick) return;
@@ -3184,6 +3206,7 @@ function renderHexMapFrame() {
     button.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); removeRouteConnection(button.dataset.deleteRouteInline); });
     button.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); removeRouteConnection(button.dataset.deleteRouteInline); } });
   });
+  }
 }
 
 async function saveWorldLayout(options = {}) {
@@ -3516,7 +3539,10 @@ function placeGateWithTool(q, r) {
 function placeObjectWithTool(q, r) {
   const id = $("#generic-object-tool-id").value.trim();
   const resource = $("#generic-object-tool-resource").value.trim();
+  const nameKo = $("#generic-object-tool-name-ko").value.trim();
+  const nameEn = $("#generic-object-tool-name-en").value.trim();
   if (!/^[a-z0-9_.-]+$/.test(id)) { toast("오브젝트 ID를 영문 소문자 형식으로 입력해 주세요."); return; }
+  if (!nameKo && !nameEn) { toast("오브젝트 표시 이름을 하나 이상 입력해 주세요."); return; }
   if (!gateResourceIdPattern.test(resource)) { toast("배치할 NBT를 선택해 주세요."); return; }
   if (state.worldLayout.objects.some((entry) => entry.id === id && (entry.anchor.q !== q || entry.anchor.r !== r))) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
   const centerPlacement = $("#generic-object-tool-center-placement").checked;
@@ -3529,7 +3555,8 @@ function placeObjectWithTool(q, r) {
   if (!worldObjectAvoidsRoad(resource, q, r, baseProperties)) { toast("길 셀에는 road_anchor 또는 외부 문 앵커가 있는 NBT만 배치할 수 있습니다."); return; }
   state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry.id !== id);
   const properties = worldObjectPlacementProperties(resource, q, r, baseProperties);
-  state.worldLayout.objects.push({ id, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number($("#generic-object-tool-rotation").value), ...(Object.keys(properties).length ? { properties } : {}) });
+  const display_name = { ...(nameKo ? { ko_kr: nameKo } : {}), ...(nameEn ? { en_us: nameEn } : {}) };
+  state.worldLayout.objects.push({ id, display_name, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number($("#generic-object-tool-rotation").value), ...(Object.keys(properties).length ? { properties } : {}) });
   state.selectedEntrance = null; state.selectedObjectId = id; state.selectedHex = { q, r }; markWorldDirty(); renderWorldLayout();
 }
 function markWorldDirty() { state.worldDirty = true; updateWorldSaveState(); }
@@ -3611,7 +3638,7 @@ function routePlaceFromId(endpointId) {
   const forestEntrance = (state.worldLayout?.forest_entrances || []).find((entry) => entry.id === endpointId);
   if (forestEntrance) return { id: forestEntrance.forest, name: forestSummary(forestEntrance.forest)?.name || forestEntrance.forest, kind: "forest" };
   const object = (state.worldLayout?.objects || []).find((entry) => entry.id === endpointId && entry.type !== "gate");
-  if (object) return { id: object.id, name: object.properties?.display_name || object.id, kind: "object" };
+  if (object) return { id: object.id, name: worldObjectDisplayName(object), kind: "object" };
   return null;
 }
 function routePlaceAtCell(cell) {
@@ -4066,7 +4093,8 @@ function renderTilePlacementPanel(q, r) {
   if (panel.hidden) { $("#tile-placement-list").innerHTML = ""; return; }
   const objectItems = objects.map((object) => {
     const label = worldObjectTypeLabel(object.type);
-    return `<button type="button" class="${state.selectedObjectId === object.id ? "is-selected" : ""}" data-tile-object-id="${escapeHtml(object.id)}"><b>${object.type === "gate" ? "▥" : "◆"}</b><span>${escapeHtml(object.id)}</span><small>${escapeHtml(label)} · 별도 배치 오브젝트</small></button>`;
+    const name = object.type === "gate" ? object.id : worldObjectDisplayName(object);
+    return `<button type="button" class="${state.selectedObjectId === object.id ? "is-selected" : ""}" data-tile-object-id="${escapeHtml(object.id)}"><b>${object.type === "gate" ? "▥" : "◆"}</b><span>${escapeHtml(name)}</span><small>${escapeHtml(label)} · ${escapeHtml(object.id)}</small></button>`;
   }).join("");
   const entranceItems = entrances.map(({ kind, entrance }) => {
     const underground = kind === "cave" && Boolean(entrance.underground_road);
@@ -4095,7 +4123,7 @@ function renderTileInspector() {
   const selectedSettlement = town?.settlement || townArea?.settlement;
   setWorldManagementTarget(selectedSettlement ? "settlements" : "", selectedSettlement || "");
   $("#selection-inspector-kind").textContent = customObject ? "PLACED OBJECT" : "SELECTED TILE";
-  $("#selected-tile-title").textContent = customObject ? customObject.id : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
+  $("#selected-tile-title").textContent = customObject ? worldObjectDisplayName(customObject) : town ? (settlementSummary(town.settlement)?.name || "마을 타일") : tile ? tile.biome.replace("minecraft:", "") : emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r));
   $("#selected-tile-coord").textContent = `Q ${selected.q} · R ${selected.r}`;
   form.elements.kind.value = kind;
   form.elements.biome.innerHTML = worldBiomeOptions(tile?.biome || "minecraft:plains");
@@ -4132,6 +4160,8 @@ function renderTileInspector() {
   form.elements.objectDenyMessage.value = customObject?.properties?.deny_message || "아직 이 관문을 통과할 수 없습니다.";
   const dungeonConnection = customObject?.connections?.find((connection) => connection.target?.type === "dungeon");
   form.elements.genericObjectId.value = customObject?.type !== "gate" ? customObject?.id || "" : "";
+  form.elements.genericObjectNameKo.value = customObject?.type !== "gate" ? customObject?.display_name?.ko_kr || "" : "";
+  form.elements.genericObjectNameEn.value = customObject?.type !== "gate" ? customObject?.display_name?.en_us || "" : "";
   form.elements.genericObjectResource.value = customObject?.type !== "gate" ? customObject?.resource || "" : "";
   form.elements.genericObjectRotation.value = customObject?.type !== "gate" ? customObject?.rotation || 0 : 0;
   form.elements.genericObjectTeleportable.checked = customObject?.type !== "gate" && customObject?.properties?.teleportable === true;
@@ -4155,7 +4185,7 @@ function renderTileInspector() {
   const levelNote = leveling ? `<small class="level-override-note">레벨링 오버레이 · 지역 평균 Lv.${leveling.average_level} · 야생 스폰은 평균 ±2 적용</small>` : "";
   const townAreaNote = townArea && !town ? `<small class="town-area-warning">실제 생성: ${escapeHtml(settlementSummary(townArea.settlement)?.name || townArea.settlement)} 사용 범위 · 이 타일의 바이옴 배치는 무시됩니다.</small>` : "";
   const objectSummary = isWorldNbtObjectType(customObject?.type)
-    ? `<b>${escapeHtml(customObject.id)}</b><span>NBT 오브젝트 · 월드 구조물 배치</span><small>${escapeHtml(customObject.resource || "NBT 미지정")} · 선택 도구로 이동 가능</small>`
+    ? `<b>${escapeHtml(worldObjectDisplayName(customObject))}</b><span>NBT 오브젝트 · ${escapeHtml(customObject.id)}</span><small>${escapeHtml(customObject.resource || "NBT 미지정")} · 선택 도구로 이동 가능</small>`
     : customObject ? `<b>${escapeHtml(customObject.id)}</b><span>관문 · ${{ gate: "관문", gate_npc: "관문 + NPC", npc: "NPC", pokemon: "포켓몬" }[gateCenterPlacement(customObject.properties)]}</span><small>${gateSurroundingType(customObject.properties) === "wall" ? "벽" : "주변 지형형 자연지물"} · 가운데 통로 ${gatePassageWidth(customObject.properties)}블록</small>` : "";
   $("#tile-summary").innerHTML = (["gate", "object"].includes(kind) ? objectSummary : kind === "settlement" ? `<b>마을 중심 타일</b><span>${escapeHtml(town.settlement)}</span><small>마을 크기 ${worldSettlementCellCount(town)}칸 · 마커를 드래그해 이동</small>` : kind === "biome" ? `<b>${escapeHtml(tile.biome)}</b><span>직접 배치된 기본 바이옴</span><small>길 유무와 관계없이 월드 지형에 적용됩니다.</small>` : `<b>${escapeHtml(emptyTerrainLabel(emptyTerrainAt(selected.q, selected.r)))}</b><span>접근 불가 배경 지형</span><small>바이옴과 길은 각각 별도로 배치할 수 있습니다.</small>`) + townAreaNote + routeNote + climateNote + levelNote + tileEncounterSummary(selected);
   $("#clear-tile").textContent = customObject ? "선택한 오브젝트 삭제" : "기본 지형 비우기";
@@ -4712,7 +4742,10 @@ function applyTilePlacement() {
   if (kind === "object") {
     const id = form.elements.genericObjectId.value.trim();
     const resource = form.elements.genericObjectResource.value.trim();
+    const nameKo = form.elements.genericObjectNameKo.value.trim();
+    const nameEn = form.elements.genericObjectNameEn.value.trim();
     if (!/^[a-z0-9_.-]+$/.test(id)) { toast("오브젝트 ID를 영문 소문자 형식으로 입력해 주세요."); return; }
+    if (!nameKo && !nameEn) { toast("오브젝트 표시 이름을 하나 이상 입력해 주세요."); return; }
     if (!gateResourceIdPattern.test(resource)) { toast("배치할 NBT를 선택해 주세요."); return; }
     const duplicate = state.worldLayout.objects.find((entry) => entry !== selectedObject && entry.id === id);
     if (duplicate) { toast("이미 사용 중인 오브젝트 ID입니다."); return; }
@@ -4746,7 +4779,8 @@ function applyTilePlacement() {
     if (dungeonEntrance && !gateResourceIdPattern.test(dungeonEntrance)) { toast("던전 입구 ID를 리소스 ID 형식으로 입력해 주세요."); return; }
     properties = worldObjectPlacementProperties(resource, q, r, properties);
     if (!worldObjectAvoidsRoad(resource, q, r, properties)) { toast("길 셀에는 road_anchor 또는 외부 문 앵커가 있는 NBT만 배치할 수 있습니다."); return; }
-    const object = { id, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number(form.elements.genericObjectRotation.value) };
+    const display_name = { ...(nameKo ? { ko_kr: nameKo } : {}), ...(nameEn ? { en_us: nameEn } : {}) };
+    const object = { id, display_name, type: genericWorldObjectType, anchor: { q, r }, resource, rotation: Number(form.elements.genericObjectRotation.value) };
     if (properties && Object.keys(properties).length) object.properties = properties;
     if (connectionAnchor) object.connections = [{ from: connectionAnchor, target: { type: "dungeon", entrance_id: dungeonEntrance } }];
     state.worldLayout.objects = state.worldLayout.objects.filter((entry) => entry !== selectedObject && entry.id !== id);
@@ -5095,6 +5129,7 @@ function moveMapPan(event) {
   if (!pan.moved) return;
   state.mapCenter = { x: pan.centerX - dx * view.width / rect.width, y: pan.centerY - dy * view.height / rect.height };
   const next = mapViewBox(); svg.setAttribute("viewBox", `${next.x} ${next.y} ${next.width} ${next.height}`);
+  if (worldMapTileFrame) drawWorldMapTiles($("#world-hex-tiles"), next, rect, worldMapTileFrame.tiles);
   if (Math.hypot(state.mapCenter.x - pan.lastRenderX, state.mapCenter.y - pan.lastRenderY) >= mapHexSize() * 2) {
     pan.lastRenderX = state.mapCenter.x; pan.lastRenderY = state.mapCenter.y;
     renderHexMap();
@@ -18865,13 +18900,16 @@ $("#fit-map").addEventListener("click", () => { fitMapToContent(); renderHexMap(
 $("#world-hex-map").addEventListener("wheel", handleWorldMapWheel, { passive: false });
 $("#world-hex-map").addEventListener("click", handleWorldLayerPlacement, true);
 function handleWorldTileActivation(event) {
-  const cell = event.target.closest?.("[data-hex-q]");
-  if (!cell || state.suppressMapClick) return;
+  if (state.suppressMapClick) return;
   if (event.type === "keydown") {
-    if (event.key !== "Enter" && event.key !== " ") return;
+    if ((event.key !== "Enter" && event.key !== " ") || event.target !== event.currentTarget || !state.selectedHex) return;
     event.preventDefault();
+    handleHexSelection(state.selectedHex.q, state.selectedHex.r);
+    return;
   }
-  handleHexSelection(Number(cell.dataset.hexQ), Number(cell.dataset.hexR));
+  if (event.target.closest?.("[data-drag-settlement], [data-drag-entrance-id], [data-drag-object], [data-select-route], [data-route-anchor-index], [data-insert-route-anchor], [data-delete-route-inline]")) return;
+  const cell = nearestHexFromPointer(event);
+  handleHexSelection(cell.q, cell.r);
 }
 $("#world-hex-map").addEventListener("click", handleWorldTileActivation);
 $("#world-hex-map").addEventListener("keydown", handleWorldTileActivation);

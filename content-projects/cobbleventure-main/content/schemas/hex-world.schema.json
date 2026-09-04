@@ -399,6 +399,7 @@
       "required": ["id", "type", "anchor"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
+        "display_name": { "$ref": "#/$defs/localized_text" },
         "type": { "type": "string", "pattern": "^[a-z0-9_.-]+$" },
         "anchor": { "$ref": "#/$defs/axial_coordinate" },
         "resource": { "$ref": "#/$defs/resource_id" },

@@ -3812,6 +3812,10 @@
     },
     {
       "id": "indigo_plateau",
+      "display_name": {
+        "ko_kr": "석영고원",
+        "en_us": "Indigo Plateau"
+      },
       "type": "structure",
       "anchor": {
         "q": -6,
@@ -3820,7 +3824,6 @@
       "resource": "cobbleventure:league/kanto_league",
       "rotation": 0,
       "properties": {
-        "display_name": "석영고원",
         "teleportable": true,
         "show_on_minimap": true,
         "center_placement": true,
@@ -3869,6 +3872,10 @@
     },
     {
       "id": "rocket_power_plant",
+      "display_name": {
+        "ko_kr": "발전소",
+        "en_us": "Power Plant"
+      },
       "type": "villain_base",
       "anchor": {
         "q": 12,
@@ -4136,6 +4143,10 @@
     },
     {
       "id": "daycare",
+      "display_name": {
+        "ko_kr": "키우미집",
+        "en_us": "Pokémon Day Care"
+      },
       "type": "structure",
       "anchor": {
         "q": 6,

@@ -3389,9 +3389,13 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("function beginObjectDrag(event, id)", script)
         self.assertIn("function finishObjectDrag(event)", script)
         self.assertIn('id="generic-object-tool-teleportable"', page)
+        self.assertIn('id="generic-object-tool-name-ko"', page)
+        self.assertIn('id="generic-object-tool-name-en"', page)
         self.assertIn('id="generic-object-tool-show-on-minimap"', page)
         self.assertIn('id="generic-object-tool-center-placement"', page)
         self.assertIn('name="genericObjectTeleportable"', page)
+        self.assertIn('name="genericObjectNameKo"', page)
+        self.assertIn('name="genericObjectNameEn"', page)
         self.assertIn('name="genericObjectShowOnMinimap"', page)
         self.assertIn('name="genericObjectCenterPlacement"', page)
         self.assertIn('properties.teleportable = true', script)
@@ -3482,10 +3486,15 @@ class ContentManagerTests(unittest.TestCase):
             generic_structure = json.loads(json.dumps(layout))
             generic_structure["objects"][-1] = {
                 "id": "power_plant", "type": "structure", "anchor": {"q": 3, "r": 0},
+                "display_name": {"ko_kr": "발전소", "en_us": "Power Plant"},
                 "resource": "cobbleventure:placeholder/power_plant", "rotation": 0,
                 "properties": {"teleportable": True, "show_on_minimap": True, "center_placement": True, "placement_anchor": "center"},
             }
             self.assertEqual([], content_manager.save_world_layout(candidate_root, generic_structure, 2))
+            invalid_name = json.loads(json.dumps(generic_structure))
+            invalid_name["objects"][-1]["display_name"] = {"korean": "발전소"}
+            issues = content_manager.save_world_layout(candidate_root, invalid_name, 2)
+            self.assertTrue(any(".display_name." in issue.path for issue in issues))
             invalid_teleportable = json.loads(json.dumps(generic_structure))
             invalid_teleportable["objects"][-1]["properties"]["teleportable"] = "yes"
             issues = content_manager.save_world_layout(candidate_root, invalid_teleportable, 2)
@@ -3624,9 +3633,12 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('section data-tile-field="gate" class="custom-object-fields"', page)
         self.assertIn('section data-tile-field="object" class="custom-object-fields"', page)
         self.assertIn('name="genericObjectProperties"', page)
+        self.assertIn('name="genericObjectNameKo"', page)
+        self.assertIn('name="genericObjectNameEn"', page)
         self.assertIn('name="genericObjectConnectionAnchor"', page)
         self.assertIn('name="genericObjectDungeonEntrance"', page)
         self.assertIn('form.elements.genericObjectProperties.value = customObject?.type !== "gate"', script)
+        self.assertIn('form.elements.genericObjectNameKo.value = customObject?.type !== "gate"', script)
         self.assertIn('properties = JSON.parse(propertySource)', script)
         self.assertIn('object.connections = [{ from: connectionAnchor, target: { type: "dungeon", entrance_id: dungeonEntrance } }]', script)
         self.assertIn("field.dataset.tileField !== kind", script)

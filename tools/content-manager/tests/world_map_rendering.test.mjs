@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { worldMapViewBox, buildWorldRenderIndex, createFrameScheduler } from '../web/world-map-rendering.mjs';
+import { worldMapViewBox, buildWorldRenderIndex, createFrameScheduler, drawWorldMapTiles } from '../web/world-map-rendering.mjs';
 
 test('viewBox matches wide, narrow and resized viewports without letterboxing', () => {
   for (const viewport of [{width:1600,height:650},{width:350,height:900},{width:980,height:360}]) {
@@ -57,10 +57,33 @@ test('render requests coalesce per animation frame and schedule again afterward'
   schedule();queue.shift()();assert.equal(draws,2);
 });
 
-test('editor observes its viewport, reuses tile nodes and delegates activation', () => {
+test('canvas renderer applies one transform and draws all visible tiles', () => {
+  const calls=[];
+  const context=new Proxy({}, {get(target,key) {
+    if (!(key in target)) target[key]=(...args)=>calls.push([key,...args]);
+    return target[key];
+  },set(target,key,value){target[key]=value;calls.push(['set',key,value]);return true;}});
+  const hatchContext={beginPath(){},moveTo(){},lineTo(){},stroke(){}};
+  const canvas={width:0,height:0,dataset:{},ownerDocument:{createElement:()=>({getContext:()=>hatchContext})},getContext:()=>context};
+  drawWorldMapTiles(canvas,{x:0,y:0,width:400,height:200},{width:800,height:400},[
+    {x:10,y:10,radius:8,tone:'forest',isEmpty:false,hasTile:true},
+    {x:30,y:10,radius:8,tone:'water',isEmpty:true,symbol:'≈'},
+  ],{pixelRatio:1});
+  assert.deepEqual([canvas.width,canvas.height],[800,400]);
+  assert.equal(canvas.dataset.tileCount,'2');
+  assert.equal(calls.filter(([name])=>name==='setTransform').length,1);
+  assert.equal(calls.filter(([name])=>name==='fill').length,4);
+  assert.ok(calls.some(([name])=>name==='fillText'));
+});
+
+test('editor observes its viewport, uses a canvas tile layer and delegates activation', () => {
   const source=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
+  const markup=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
   assert.ok(source.includes('worldMapResizeObserver.observe($("#world-hex-map"))'));
-  assert.ok(source.includes('reconcileHexTiles(svg.querySelector(".hex-tile-layer"), tiles)'));
+  assert.ok(source.includes('drawWorldMapTiles($("#world-hex-tiles"), view, viewport, tiles)'));
+  assert.ok(source.includes('const overlayChanged = nextOverlayMarkup !== worldMapOverlayMarkup'));
+  assert.ok(!source.includes('reconcileHexTiles(svg.querySelector'));
+  assert.ok(markup.includes('<canvas id="world-hex-tiles" aria-hidden="true"></canvas>'));
   assert.ok(source.includes('addEventListener("keydown", handleWorldTileActivation)'));
   const hover=source.slice(source.indexOf('function updateBrushPreview('),source.indexOf('function beginMapPan('));
   assert.ok(hover.includes('renderWorldMapPreview()'));
