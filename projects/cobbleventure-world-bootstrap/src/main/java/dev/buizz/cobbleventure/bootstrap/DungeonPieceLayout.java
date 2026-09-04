@@ -202,7 +202,7 @@ record DungeonPieceLayout(
             settings.loopChance(), 1, settings.layoutMode(),
             settings.verticalDirection(), settings.floorChangesMin(),
             settings.floorChangesMax(), settings.verticalMode(),
-            settings.floorHeight()
+            settings.floorHeight(), settings.floorLayoutModes()
         );
     }
 
@@ -275,23 +275,10 @@ record DungeonPieceLayout(
     ) {
         DungeonDefinition.Topology topology = definition.topology();
         DungeonDefinition.Vertical vertical = definition.vertical();
-        String layoutMode = switch (definition.spatialLayout().algorithm()) {
-            case "grid_walk" -> java.util.Set.of(
-                "legacy_maze", "legacy_rooms_and_corridors",
-                "critical_path_branches", "maze", "rooms_and_corridors"
-            ).contains(topology.mode()) ? topology.mode() : "corridor_spine";
-            case "socket_accretion" -> "room_network";
-            case "hub_and_spokes" -> "hub_and_spokes";
-            case "authored" -> topology.mode();
-            case "scatter_graph", "bsp_floor" -> throw new IllegalStateException(
-                "Dungeon spatial algorithm is not available at runtime yet: "
-                    + definition.spatialLayout().algorithm()
-            );
-            default -> throw new IllegalStateException(
-                "Unknown dungeon spatial algorithm: "
-                    + definition.spatialLayout().algorithm()
-            );
-        };
+        List<String> floorLayoutModes = vertical.floorAlgorithms().stream()
+            .map(algorithm -> runtimeLayoutMode(algorithm, topology.mode()))
+            .toList();
+        String layoutMode = floorLayoutModes.getFirst();
         int safeCriticalRooms = Math.min(
             topology.criticalPathRooms().maximum(),
             Math.max(
@@ -316,8 +303,29 @@ record DungeonPieceLayout(
             vertical.mode().equals("flat") ? "flat" : vertical.direction(),
             Math.max(0, vertical.floorCount().minimum() - 1),
             Math.max(0, vertical.floorCount().maximum() - 1),
-            vertical.mode(), vertical.floorHeight()
+            vertical.mode(), vertical.floorHeight(), floorLayoutModes
         );
+    }
+
+    private static String runtimeLayoutMode(
+        String algorithm, String topologyMode
+    ) {
+        return switch (algorithm) {
+            case "grid_walk" -> java.util.Set.of(
+                "legacy_maze", "legacy_rooms_and_corridors",
+                "critical_path_branches", "maze", "rooms_and_corridors"
+            ).contains(topologyMode) ? topologyMode : "corridor_spine";
+            case "socket_accretion" -> "room_network";
+            case "hub_and_spokes" -> "hub_and_spokes";
+            case "authored" -> topologyMode;
+            case "scatter_graph", "bsp_floor" -> throw new IllegalStateException(
+                "Dungeon spatial algorithm is not available at runtime yet: "
+                    + algorithm
+            );
+            default -> throw new IllegalStateException(
+                "Unknown dungeon spatial algorithm: " + algorithm
+            );
+        };
     }
 
     BlockPos requiredMarker(String kind, String reference) {

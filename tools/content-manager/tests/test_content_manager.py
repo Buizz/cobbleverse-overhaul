@@ -230,7 +230,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('data-section="dungeon-pieces"', markup)
         self.assertIn('id="dungeon-piece-theme"', markup)
         self.assertIn('id="dungeon-piece-theme-summary"', markup)
-        self.assertIn('if (section === "dungeon-pieces")', script)
+        self.assertIn('section === "dungeon-pieces" || section === "dungeon-chambers"', script)
+        self.assertIn('data-section="dungeon-chambers"', markup)
+        self.assertIn('function dungeonPieceMatchesCatalog(piece)', script)
         self.assertIn('function dungeonPieceTheme(piece)', script)
         self.assertIn('function changeDungeonPieceTheme(theme)', script)
         self.assertIn('const shape = dungeonPieceShape(currentDungeonPiece())', script)
@@ -248,7 +250,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("plan.markers.filter(onSelectedFloor)", script)
         self.assertIn("수직 연결 조각은 연결되는 양쪽 층", script)
         self.assertIn('name="verticalDirection"', markup)
-        self.assertIn('name="floorChanges"', markup)
+        self.assertIn('name="floorCount"', markup)
+        self.assertIn('kind: `compiled-floors`', script)
+        self.assertIn("stairLanding", script)
+        self.assertIn("state.dungeonPieces.get(placement.pieceId)", script)
         self.assertIn('id="dungeon-preview-anchor"', markup)
         self.assertIn('id="dungeon-preview-marker-summary"', markup)
         self.assertIn("function snapDungeonGrid", script)
@@ -261,11 +266,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("[travelX, travelZ] = [-travelZ, travelX]", script)
         self.assertIn("floorLanding ? \"corridor\"", script)
         self.assertIn("insidePreviewBounds", script)
-        self.assertIn("floorYs, verticalTransition: Boolean(value.verticalTransition)", script)
+        self.assertIn("verticalTransition: Boolean(value.verticalTransition)", script)
         self.assertIn("const stackedView = selectedFloor === null && floors.length > 1", script)
         self.assertIn("placement.verticalTransition && placement.floorYs?.length > 1", script)
-        self.assertIn("모든 층을 실제 높이에 따라 겹쳐 표시합니다", script)
+        self.assertIn("모든 층은 같은 X/Z 격자를 사용하며", script)
         self.assertIn('event.target.closest("#dungeon-preview-workspace")', script)
+
+    def test_dungeon_floors_have_independent_spatial_algorithms(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        schema = json.loads((CORE_ROOT / "content-projects/cobbleventure-main/content/schemas/dungeon.schema.json").read_text(encoding="utf-8"))
+
+        self.assertIn("function renderDungeonFloorAlgorithms()", script)
+        self.assertIn("vertical.floor_algorithms", script)
+        self.assertIn("계단 NBT로만 연결됩니다", script)
+        vertical = schema["properties"]["vertical"]["properties"]
+        self.assertIn("floor_algorithms", vertical)
 
     def test_dungeon_layout_uses_simple_complexity_presets_and_advanced_details(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")

@@ -150,6 +150,24 @@ final class DungeonDefinitionTest {
     }
 
     @Test
+    void parsesAnIndependentAlgorithmForEveryDungeonFloor() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+        root.add("vertical", JsonParser.parseString("""
+            {"mode":"discrete_floors","direction":"ascending",
+             "floor_count":[3,3],"floor_height":8,
+             "connections_per_floor":[1,1],
+             "floor_algorithms":["grid_walk","socket_accretion","hub_and_spokes"]}
+            """).getAsJsonObject());
+
+        DungeonDefinition definition = DungeonDefinition.parse(root);
+
+        assertEquals(
+            List.of("grid_walk", "socket_accretion", "hub_and_spokes"),
+            definition.vertical().floorAlgorithms()
+        );
+    }
+
+    @Test
     void derivesNpcSlotDemandFromEveryTrainerActor() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
         root.add("npc_placement", JsonParser.parseString("""

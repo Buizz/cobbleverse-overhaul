@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/rocket/stairs_up",
   "structure": "cobbleventure:dungeon_pieces/rocket/stairs_up",
   "role": "corridor",
+  "spatial_kind": "vertical_transition",
   "size": [
     16,
     16,

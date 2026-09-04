@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/rocket/junction",
   "structure": "cobbleventure:dungeon_pieces/rocket/junction",
   "role": "junction",
+  "spatial_kind": "passage",
   "size": [
     16,
     8,

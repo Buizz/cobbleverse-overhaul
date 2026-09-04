@@ -58,6 +58,8 @@ class StructureBuilderTests(unittest.TestCase):
             "boss": ("x", "z"), "stairs_up": ("z",),
             "stairs_down": ("z",), "dead_end": ("z",),
             "treasure": ("x",), "exit": ("z",), "corner": ("diagonal",),
+            "empty_chamber_1x2": ("x", "z"),
+            "empty_chamber_2x2": ("x", "z"),
         }
         for shape_name, axes in symmetry_axes.items():
             payload = dungeon_piece_skin_generator._build_nbt(
@@ -177,6 +179,18 @@ class StructureBuilderTests(unittest.TestCase):
             )
             self.assertEqual([16, 16, 16], stairs["size"])
             self.assertEqual({1, 9}, {connector["position"][1] for connector in stairs["connectors"]})
+            for shape_name, expected_size in {
+                "empty_chamber_1x2": [16, 8, 32],
+                "empty_chamber_2x2": [32, 8, 32],
+            }.items():
+                chamber = json.loads(
+                    (definition_root / "rocket" / f"{shape_name}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                self.assertEqual("chamber", chamber["spatial_kind"])
+                self.assertEqual(expected_size, chamber["size"])
+                self.assertEqual([], chamber["markers"])
 
     def test_generated_underground_entrance_has_road_anchor_and_transition_barriers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

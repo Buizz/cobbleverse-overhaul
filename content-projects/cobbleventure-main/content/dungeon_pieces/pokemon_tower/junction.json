@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/junction",
   "structure": "cobbleventure:dungeon_pieces/pokemon_tower/junction",
   "role": "junction",
+  "spatial_kind": "passage",
   "size": [
     16,
     8,

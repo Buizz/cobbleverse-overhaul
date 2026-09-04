@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/rocket/exit",
   "structure": "cobbleventure:dungeon_pieces/rocket/exit",
   "role": "exit",
+  "spatial_kind": "terminal",
   "size": [
     16,
     8,

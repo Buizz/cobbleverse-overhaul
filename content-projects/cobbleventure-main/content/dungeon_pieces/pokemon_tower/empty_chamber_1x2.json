@@ -1,21 +1,21 @@
 {
   "$schema": "../../schemas/dungeon-piece.schema.json",
   "schema_version": 1,
-  "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/support",
-  "structure": "cobbleventure:dungeon_pieces/pokemon_tower/support",
-  "role": "support",
+  "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/empty_chamber_1x2",
+  "structure": "cobbleventure:dungeon_pieces/pokemon_tower/empty_chamber_1x2",
+  "role": "room",
   "spatial_kind": "chamber",
   "size": [
     16,
     8,
-    16
+    32
   ],
-  "weight": 5,
+  "weight": 3,
   "allow_rotation": true,
   "tags": [
     "cobbleventure:dungeon_kit/standard_16",
     "cobbleventure:dungeon_theme/pokemon_tower",
-    "cobbleventure:dungeon_shape/support",
+    "cobbleventure:dungeon_shape/empty_chamber_1x2",
     "cobbleventure:dungeon_pool/pokemon_tower_test"
   ],
   "connectors": [
@@ -24,7 +24,7 @@
       "position": [
         0,
         1,
-        7
+        15
       ],
       "facing": "west",
       "socket": "cobbleventure:dungeon_socket/standard_6",
@@ -37,24 +37,40 @@
       "position": [
         15,
         1,
-        7
+        15
       ],
       "facing": "east",
       "socket": "cobbleventure:dungeon_socket/standard_6",
       "tags": [
         "cobbleventure:dungeon_kit/standard_16"
       ]
-    }
-  ],
-  "markers": [
+    },
     {
-      "id": "healing_station_slot",
-      "kind": "healing_station",
+      "id": "north",
       "position": [
-        8,
+        7,
         1,
-        8
+        0
+      ],
+      "facing": "north",
+      "socket": "cobbleventure:dungeon_socket/standard_6",
+      "tags": [
+        "cobbleventure:dungeon_kit/standard_16"
+      ]
+    },
+    {
+      "id": "south",
+      "position": [
+        7,
+        1,
+        31
+      ],
+      "facing": "south",
+      "socket": "cobbleventure:dungeon_socket/standard_6",
+      "tags": [
+        "cobbleventure:dungeon_kit/standard_16"
       ]
     }
-  ]
+  ],
+  "markers": []
 }

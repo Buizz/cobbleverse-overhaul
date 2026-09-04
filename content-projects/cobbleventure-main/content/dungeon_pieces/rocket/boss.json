@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/rocket/boss",
   "structure": "cobbleventure:dungeon_pieces/rocket/boss",
   "role": "boss",
+  "spatial_kind": "chamber",
   "size": [
     16,
     8,
@@ -47,8 +48,24 @@
     }
   ],
   "markers": [
-    { "id": "npc_spawn_1", "kind": "npc_spawn", "position": [5, 1, 8] },
-    { "id": "npc_spawn_2", "kind": "npc_spawn", "position": [11, 1, 8] },
+    {
+      "id": "npc_spawn_1",
+      "kind": "npc_spawn",
+      "position": [
+        5,
+        1,
+        8
+      ]
+    },
+    {
+      "id": "npc_spawn_2",
+      "kind": "npc_spawn",
+      "position": [
+        11,
+        1,
+        8
+      ]
+    },
     {
       "id": "boss_slot",
       "kind": "boss",

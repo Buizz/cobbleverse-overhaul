@@ -53,7 +53,7 @@ final class DungeonPiecePlanner {
             if (System.nanoTime() >= deadlineNanos) break;
             SearchBudget budget = new SearchBudget(
                 deadlineNanos,
-                settings.layoutMode().equals("room_network")
+                settings.floorLayoutModes().contains("room_network")
                     ? MAX_SEARCH_NODES_PER_ATTEMPT * 5
                     : MAX_SEARCH_NODES_PER_ATTEMPT
             );
@@ -74,14 +74,6 @@ final class DungeonPiecePlanner {
                 budget
             )) {
                 lastStage = "critical_path";
-                continue;
-            }
-            if (!Set.of("room_network", "hub_and_spokes")
-                .contains(settings.layoutMode())
-                && !attachBranches(
-                    state, pieces, settings, random, targetBranches, budget
-                )) {
-                lastStage = "branches";
                 continue;
             }
             DungeonPiecePlan looped = DungeonPieceLoops.add(
@@ -155,8 +147,6 @@ final class DungeonPiecePlanner {
                 && stackedFootprintSatisfied(state, settings))) {
                 return false;
             }
-            if (!Set.of("room_network", "hub_and_spokes")
-                .contains(settings.layoutMode())) return true;
             State beforeBranches = state.copy();
             if (attachBranches(
                 state, pieces, settings, random, targetBranches, budget
@@ -166,6 +156,7 @@ final class DungeonPiecePlanner {
         }
         int remainingPlacements = targetRooms - depth;
         int floorChanges = state.criticalFloorChanges();
+        String layoutMode = settings.layoutModeForFloor(floorChanges);
         if (floorChanges > settings.floorChangesMax()
             || floorChanges + remainingPlacements < settings.floorChangesMin()
             || state.branchHostCount() + remainingPlacements < targetBranches) {
@@ -173,14 +164,14 @@ final class DungeonPiecePlanner {
         }
         String requiredRole = depth == targetRooms - 2 ? "boss"
             : depth == targetRooms - 1 ? "exit" : null;
-        Set<String> flexibleRoles = criticalRoles(settings.layoutMode(), depth);
+        Set<String> flexibleRoles = criticalRoles(layoutMode, depth);
         boolean requiresHub = requiredRole == null
-            && settings.layoutMode().equals("hub_and_spokes") && depth == 2;
+            && layoutMode.equals("hub_and_spokes") && depth == 2;
         boolean requiresRouteRoom = requiredRole == null
-            && settings.layoutMode().equals("room_network") && depth % 2 == 0;
+            && layoutMode.equals("room_network") && depth % 2 == 0;
         int branchCapacity = state.branchHostCount();
         boolean needsBranchConnector = requiredRole == null && !requiresHub
-            && !settings.layoutMode().equals("hub_and_spokes")
+            && !layoutMode.equals("hub_and_spokes")
             && branchCapacity < targetBranches;
         int neededFloorChanges = Math.max(
             0, settings.floorChangesMin() - state.criticalFloorChanges()
@@ -188,7 +179,7 @@ final class DungeonPiecePlanner {
         int remainingVerticalSlots = 0;
         for (int candidateDepth = depth;
             candidateDepth < targetRooms - 2; candidateDepth++) {
-            if (criticalRoles(settings.layoutMode(), candidateDepth)
+            if (criticalRoles(layoutMode, candidateDepth)
                 .contains("corridor")) {
                 remainingVerticalSlots++;
             }
@@ -260,7 +251,7 @@ final class DungeonPiecePlanner {
         attachments.sort(Comparator.comparingInt(attachment ->
             compactnessScore(state, attachment.placed())
         ));
-        int explorationLimit = switch (settings.layoutMode()) {
+        int explorationLimit = switch (layoutMode) {
             case "room_network" -> 24;
             case "hub_and_spokes" -> 16;
             default -> 8;
@@ -286,7 +277,7 @@ final class DungeonPiecePlanner {
         int requiredBranches,
         boolean criticalComplete
     ) {
-        if (!settings.layoutMode().equals("room_network")) return true;
+        if (!settings.layoutModeForFloor(state.criticalFloorChanges()).equals("room_network")) return true;
         if (requiredBranches == 0) return true;
         State projected = state.copy();
         projected.add(criticalAttachment);
@@ -363,7 +354,9 @@ final class DungeonPiecePlanner {
         List<Integer> hosts = new ArrayList<>();
         for (int index = 0; index < state.placements.size() - 2; index++) {
             Placed placed = state.placements.get(index);
-            if (!settings.layoutMode().equals("hub_and_spokes")
+            if (isVerticalTransition(placed.definition())) continue;
+            String hostMode = settings.layoutModeForPlacement(state, placed);
+            if (!hostMode.equals("hub_and_spokes")
                 || (placed.definition().role().equals("room")
                     && placed.definition().connectors().size() >= 4)) {
                 hosts.add(index);
@@ -372,7 +365,9 @@ final class DungeonPiecePlanner {
         hosts = shuffled(hosts, random);
         for (int host : hosts) {
             if (completed >= targetBranches) break;
-            int attempts = settings.layoutMode().equals("hub_and_spokes")
+            int attempts = settings.layoutModeForPlacement(
+                state, state.placements.get(host)
+            ).equals("hub_and_spokes")
                 ? targetBranches - completed : 1;
             for (int attempt = 0; attempt < attempts; attempt++) {
                 int depth = randomRange(
@@ -405,7 +400,9 @@ final class DungeonPiecePlanner {
         if (!budget.tryVisit()) return false;
         if (remaining == 0) return true;
         Set<String> roles = branchRoles(
-            settings.layoutMode(), remaining, branchDepth
+            settings.layoutModeForPlacement(
+                state, state.placements.get(currentIndex)
+            ), remaining, branchDepth
         );
         List<DungeonPieceDefinition> candidates = weightedOrder(
             pieces.stream().filter(piece -> roles.contains(piece.role()))
@@ -682,6 +679,10 @@ final class DungeonPiecePlanner {
         for (Placed placed : state.placements) {
             if (!placed.critical()) continue;
             if (previous != null && previous.origin().getY() != placed.origin().getY()) {
+                if (!isVerticalTransition(previous.definition())
+                    && !isVerticalTransition(placed.definition())) {
+                    return false;
+                }
                 if (settings.verticalMode().equals("discrete_floors")
                     && Math.abs(placed.origin().getY() - previous.origin().getY())
                         != settings.floorHeight()) {
@@ -765,8 +766,14 @@ final class DungeonPiecePlanner {
         int floorChangesMin,
         int floorChangesMax,
         String verticalMode,
-        int floorHeight
+        int floorHeight,
+        List<String> floorLayoutModes
     ) {
+        Settings {
+            floorLayoutModes = floorLayoutModes == null
+                ? List.of() : List.copyOf(floorLayoutModes);
+        }
+
         Settings(
             BlockPos bounds, int criticalPathMin, int criticalPathMax,
             int branchCountMin, int branchCountMax,
@@ -777,7 +784,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, "corridor_spine", "mixed", 0, 256,
-                "continuous", 8
+                "continuous", 8, repeatedModes("corridor_spine", 257)
             );
         }
 
@@ -791,7 +798,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, "mixed", 0, 256,
-                "continuous", 8
+                "continuous", 8, repeatedModes(layoutMode, 257)
             );
         }
 
@@ -806,8 +813,42 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
-                floorChangesMin, floorChangesMax, "continuous", 8
+                floorChangesMin, floorChangesMax, "continuous", 8,
+                repeatedModes(layoutMode, floorChangesMax + 1)
             );
+        }
+
+        Settings(
+            BlockPos bounds, int criticalPathMin, int criticalPathMax,
+            int branchCountMin, int branchCountMax,
+            int branchDepthMin, int branchDepthMax,
+            double loopChance, int maxAttempts, String layoutMode,
+            String verticalDirection, int floorChangesMin, int floorChangesMax,
+            String verticalMode, int floorHeight
+        ) {
+            this(
+                bounds, criticalPathMin, criticalPathMax,
+                branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
+                loopChance, maxAttempts, layoutMode, verticalDirection,
+                floorChangesMin, floorChangesMax, verticalMode, floorHeight,
+                repeatedModes(layoutMode, floorChangesMax + 1)
+            );
+        }
+
+        private static List<String> repeatedModes(String mode, int count) {
+            return List.copyOf(java.util.Collections.nCopies(count, mode));
+        }
+
+        String layoutModeForFloor(int floor) {
+            return floorLayoutModes.get(Math.min(
+                Math.max(0, floor), floorLayoutModes.size() - 1
+            ));
+        }
+
+        String layoutModeForPlacement(State state, Placed placement) {
+            int startY = state.placements.getFirst().origin().getY();
+            int floor = Math.abs(placement.origin().getY() - startY) / floorHeight;
+            return layoutModeForFloor(floor);
         }
 
         private void validate() {
@@ -824,6 +865,13 @@ final class DungeonPiecePlanner {
                 || !Set.of("flat", "continuous", "discrete_floors", "authored")
                     .contains(verticalMode)
                 || floorHeight < 4 || floorHeight > 64
+                || floorLayoutModes == null || floorLayoutModes.isEmpty()
+                || floorLayoutModes.size() <= floorChangesMax
+                || floorLayoutModes.stream().anyMatch(mode -> !Set.of(
+                    "corridor_spine", "hub_and_spokes", "room_network",
+                    "legacy_maze", "legacy_rooms_and_corridors",
+                    "critical_path_branches", "maze", "rooms_and_corridors"
+                ).contains(mode))
                 || !Set.of(
                     "corridor_spine", "hub_and_spokes", "room_network",
                     "legacy_maze", "legacy_rooms_and_corridors",

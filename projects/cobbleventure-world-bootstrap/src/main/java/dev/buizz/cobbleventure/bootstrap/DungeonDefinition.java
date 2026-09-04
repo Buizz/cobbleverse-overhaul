@@ -447,6 +447,30 @@ record DungeonDefinition(
             IntRange connections = configured.has("connections_per_floor")
                 ? integerRange(configured, "connections_per_floor", 1, 16)
                 : new IntRange(1, 1);
+            List<String> floorAlgorithms = new ArrayList<>();
+            if (configured.has("floor_algorithms")) {
+                for (JsonElement element : requiredArray(configured, "floor_algorithms")) {
+                    String algorithm = element.getAsString();
+                    if (!List.of(
+                        "grid_walk", "socket_accretion", "scatter_graph",
+                        "bsp_floor", "hub_and_spokes", "authored"
+                    ).contains(algorithm)) {
+                        throw new IllegalStateException(
+                            "Invalid dungeon floor algorithm: " + id + " -> " + algorithm
+                        );
+                    }
+                    floorAlgorithms.add(algorithm);
+                }
+                if (floorAlgorithms.size() < floorCount.maximum()) {
+                    throw new IllegalStateException(
+                        "Dungeon floor_algorithms must cover maximum floor_count: " + id
+                    );
+                }
+            } else {
+                for (int floor = 0; floor < floorCount.maximum(); floor++) {
+                    floorAlgorithms.add(spatialLayout.algorithm());
+                }
+            }
             if (floorHeight < 4 || floorHeight > 64) {
                 throw new IllegalStateException(
                     "Invalid dungeon vertical floor_height: " + id
@@ -462,23 +486,29 @@ record DungeonDefinition(
                 );
             }
             vertical = new Vertical(
-                mode, direction, floorCount, floorHeight, connections
+                mode, direction, floorCount, floorHeight, connections,
+                List.copyOf(floorAlgorithms)
             );
         } else if (layout != null) {
+            int maximumFloors = layout.floorChanges().maximum() + 1;
             vertical = new Vertical(
                 layout.verticalDirection().equals("flat") ? "flat" : "continuous",
                 layout.verticalDirection().equals("flat")
                     ? "mixed" : layout.verticalDirection(),
                 new IntRange(
                     layout.floorChanges().minimum() + 1,
-                    layout.floorChanges().maximum() + 1
+                    maximumFloors
                 ),
-                8, new IntRange(1, 1)
+                8, new IntRange(1, 1), List.copyOf(
+                    java.util.Collections.nCopies(
+                        maximumFloors, spatialLayout.algorithm()
+                    )
+                )
             );
         } else {
             vertical = new Vertical(
                 "authored", "mixed", new IntRange(1, 1), 8,
-                new IntRange(1, 1)
+                new IntRange(1, 1), List.of(spatialLayout.algorithm())
             );
         }
 
@@ -1584,7 +1614,8 @@ record DungeonDefinition(
         String direction,
         IntRange floorCount,
         int floorHeight,
-        IntRange connectionsPerFloor
+        IntRange connectionsPerFloor,
+        List<String> floorAlgorithms
     ) {}
     record NpcPlacement(
         boolean enabled,

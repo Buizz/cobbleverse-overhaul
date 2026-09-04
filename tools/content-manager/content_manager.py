@@ -9364,6 +9364,21 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                             if not isinstance(value, list) or len(value) != 2 or any(not isinstance(item, int) or isinstance(item, bool) or item < 1 for item in value):
                                 _issue(issues, "error", path, f"$.vertical.{key}", "양수 최소·최대 두 값이 필요합니다.")
                         integer(vertical.get("floor_height"), 4, 64, "$.vertical.floor_height")
+                    floor_algorithms = vertical.get("floor_algorithms")
+                    if floor_algorithms is not None:
+                        supported_floor_algorithms = {
+                            "grid_walk", "socket_accretion", "scatter_graph",
+                            "bsp_floor", "hub_and_spokes", "authored",
+                        }
+                        if not isinstance(floor_algorithms, list) or not floor_algorithms:
+                            _issue(issues, "error", path, "$.vertical.floor_algorithms", "층별 공간 배치 방식이 하나 이상 필요합니다.")
+                        else:
+                            for index, algorithm in enumerate(floor_algorithms):
+                                if algorithm not in supported_floor_algorithms:
+                                    _issue(issues, "error", path, f"$.vertical.floor_algorithms[{index}]", "지원하지 않는 층 공간 배치 방식입니다.")
+                            floor_count = vertical.get("floor_count")
+                            if isinstance(floor_count, list) and len(floor_count) == 2 and isinstance(floor_count[1], int) and len(floor_algorithms) < floor_count[1]:
+                                _issue(issues, "error", path, "$.vertical.floor_algorithms", "가능한 최대 층 수만큼 공간 배치 방식을 지정해야 합니다.")
 
     completion = object_at("completion")
     if not isinstance(completion.get("repeatable"), bool):

@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/rocket/dead_end",
   "structure": "cobbleventure:dungeon_pieces/rocket/dead_end",
   "role": "dead_end",
+  "spatial_kind": "terminal",
   "size": [
     16,
     8,

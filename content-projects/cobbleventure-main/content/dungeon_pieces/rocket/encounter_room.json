@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/rocket/encounter_room",
   "structure": "cobbleventure:dungeon_pieces/rocket/encounter_room",
   "role": "room",
+  "spatial_kind": "chamber",
   "size": [
     16,
     8,
@@ -72,13 +73,77 @@
     }
   ],
   "markers": [
-    { "id": "npc_spawn_1", "kind": "npc_spawn", "position": [5, 1, 6] },
-    { "id": "npc_spawn_2", "kind": "npc_spawn", "position": [10, 1, 6] },
-    { "id": "npc_spawn_3", "kind": "npc_spawn", "position": [5, 1, 10] },
-    { "id": "npc_spawn_4", "kind": "npc_spawn", "position": [10, 1, 10] },
-    { "id": "encounter_slot_1", "kind": "encounter", "position": [5, 1, 6] },
-    { "id": "encounter_slot_2", "kind": "encounter", "position": [10, 1, 6] },
-    { "id": "encounter_slot_3", "kind": "encounter", "position": [5, 1, 10] },
-    { "id": "encounter_slot_4", "kind": "encounter", "position": [10, 1, 10] }
+    {
+      "id": "npc_spawn_1",
+      "kind": "npc_spawn",
+      "position": [
+        5,
+        1,
+        6
+      ]
+    },
+    {
+      "id": "npc_spawn_2",
+      "kind": "npc_spawn",
+      "position": [
+        10,
+        1,
+        6
+      ]
+    },
+    {
+      "id": "npc_spawn_3",
+      "kind": "npc_spawn",
+      "position": [
+        5,
+        1,
+        10
+      ]
+    },
+    {
+      "id": "npc_spawn_4",
+      "kind": "npc_spawn",
+      "position": [
+        10,
+        1,
+        10
+      ]
+    },
+    {
+      "id": "encounter_slot_1",
+      "kind": "encounter",
+      "position": [
+        5,
+        1,
+        6
+      ]
+    },
+    {
+      "id": "encounter_slot_2",
+      "kind": "encounter",
+      "position": [
+        10,
+        1,
+        6
+      ]
+    },
+    {
+      "id": "encounter_slot_3",
+      "kind": "encounter",
+      "position": [
+        5,
+        1,
+        10
+      ]
+    },
+    {
+      "id": "encounter_slot_4",
+      "kind": "encounter",
+      "position": [
+        10,
+        1,
+        10
+      ]
+    }
   ]
 }

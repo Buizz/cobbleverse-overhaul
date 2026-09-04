@@ -89,6 +89,14 @@ SHAPES = {
         ),
         weight=5,
     ),
+    "empty_chamber_1x2": Shape(
+        "room", ("west", "east", "north", "south"), 3,
+        weight=3, size=(16, 8, 32),
+    ),
+    "empty_chamber_2x2": Shape(
+        "room", ("west", "east", "north", "south"), 3,
+        weight=2, size=(32, 8, 32),
+    ),
     "stairs_up": Shape(
         "corridor", ("west", "east"), connector_heights=(("west", 1), ("east", 9)),
         weight=5, size=(16, 16, 16),
@@ -134,6 +142,18 @@ SHAPES = {
 
 SKINS = {
     "rocket": {
+        "floor": "minecraft:polished_deepslate",
+        "floor_alt": "minecraft:deepslate_tiles",
+        "wall": "minecraft:light_gray_concrete",
+        "wall_alt": "minecraft:gray_concrete",
+        "ceiling": "minecraft:smooth_stone",
+        "accent": "minecraft:red_concrete",
+        "lamp": "minecraft:sea_lantern",
+    },
+    # Pokemon Tower currently shares the facility geometry and palette.  It is
+    # still emitted as a complete, independent skin so every shared chamber
+    # shape can be switched as one set and edited separately later.
+    "pokemon_tower": {
         "floor": "minecraft:polished_deepslate",
         "floor_alt": "minecraft:deepslate_tiles",
         "wall": "minecraft:light_gray_concrete",
@@ -257,26 +277,37 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
 
     # Sparse lamps and a red center emblem make the first skin identifiable,
     # while leaving all gameplay marker positions as walkable air.
-    for x, z in ((5, 5), (10, 5), (5, 10), (10, 10)):
-        if (x, z) in footprint:
-            ceiling_y = _stair_level(shape_name, x, width, heights) + CEILING_OFFSET \
-                if stairs else height - 1
-            blocks[(x, ceiling_y, z)] = _block(skin["lamp"])
+    lamp_x = ((width - 1) // 3, width - 1 - (width - 1) // 3)
+    lamp_z = ((depth - 1) // 3, depth - 1 - (depth - 1) // 3)
+    for x in lamp_x:
+        for z in lamp_z:
+            if (x, z) in footprint:
+                ceiling_y = _stair_level(shape_name, x, width, heights) + CEILING_OFFSET \
+                    if stairs else height - 1
+                blocks[(x, ceiling_y, z)] = _block(skin["lamp"])
     if shape.room_margin is not None:
-        for x, z in ((7, 7), (8, 7), (7, 8), (8, 8)):
-            blocks[(x, 0, z)] = _block(skin["accent"])
+        center_x = (width // 2 - 1, width // 2)
+        center_z = (depth // 2 - 1, depth // 2)
+        for x in center_x:
+            for z in center_z:
+                blocks[(x, 0, z)] = _block(skin["accent"])
     return serialize_structure(shape.size, blocks)
 
 
 def _definition(shape_name: str, shape: Shape, skin_name: str) -> dict[str, object]:
     heights = dict(shape.connector_heights)
     theme_tag = f"cobbleventure:dungeon_theme/{skin_name}"
+    spatial_kind = "vertical_transition" if shape_name in {"stairs_up", "stairs_down"} \
+        else "passage" if shape.role in {"corridor", "junction"} \
+        else "terminal" if shape.role in {"dead_end", "exit"} \
+        else "chamber"
     return {
         "$schema": "../../schemas/dungeon-piece.schema.json",
         "schema_version": 1,
         "piece_id": f"cobbleventure:dungeon_piece/{skin_name}/{shape_name}",
         "structure": f"cobbleventure:dungeon_pieces/{skin_name}/{shape_name}",
         "role": shape.role,
+        "spatial_kind": spatial_kind,
         "size": list(shape.size),
         "weight": shape.weight,
         **({"min_per_plan": shape.min_per_plan} if shape.min_per_plan else {}),

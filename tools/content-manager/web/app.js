@@ -39,7 +39,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonPieceId: "", dungeonPieceTheme: "", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonPieceId: "", dungeonPieceTheme: "", dungeonPieceCatalogMode: "pieces", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -918,13 +918,17 @@ function deleteStarterGeneration() {
 }
 
 function switchPage(section) {
+  if (["dungeon-pieces", "dungeon-chambers"].includes(section)) {
+    state.dungeonPieceCatalogMode = section === "dungeon-chambers" ? "chambers" : "pieces";
+  }
   const navigationSection = ["gyms", "trainer-card"].includes(section) ? "league" : section;
   $$(".nav-item").forEach((button) => button.classList.toggle("is-active", button.dataset.section === navigationSection));
   $$(".nav-link").forEach((link) => link.classList.remove("is-active"));
   const activeNavigationItem = $(`.nav-item[data-section="${navigationSection}"]`);
   if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
-  $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === section));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", "system-npcs": "시스템 NPC", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "dungeon-pieces": "던전 조각 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
+  const contentSection = section === "dungeon-chambers" ? "dungeon-pieces" : section;
+  $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === contentSection));
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", "system-npcs": "시스템 NPC", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "dungeon-chambers": "공동 관리", "dungeon-pieces": "던전 조각 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -2249,7 +2253,7 @@ function loadSectionData(section, force = false) {
   if (section === "caves" || section === "forests") return loadBiomeData(force);
   if (section === "underground-roads") return loadStructureData(force).then(renderUndergroundRoad);
   if (section === "dungeons") return Promise.all([loadStructureData(force), loadTrainerData(force)]).then(renderDungeonContentEditor);
-  if (section === "dungeon-pieces") return loadStructureData(force).then(renderDungeonPieceEditor);
+  if (section === "dungeon-pieces" || section === "dungeon-chambers") return loadStructureData(force).then(renderDungeonPieceEditor);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
   if (section === "gyms") return loadGymStructureData(force).then(renderGymEditor);
@@ -5469,6 +5473,34 @@ const dungeonSpatialLabels = {
   hub_and_spokes: "중앙 공동 + 주변 방", authored: "직접 만든 배치",
 };
 
+function dungeonFloorAlgorithms(document = state.dungeon, maximumFloors = null) {
+  const vertical = dungeonVertical(document || {});
+  const fallback = dungeonSpatialLayout(document || {}).algorithm || "grid_walk";
+  const wanted = Math.max(1, Number(maximumFloors || dungeonRange(vertical.floor_count, [1, 1])[1]));
+  const configured = Array.isArray(vertical.floor_algorithms) ? vertical.floor_algorithms : [];
+  return Array.from({ length: wanted }, (_, index) => configured[index] || configured.at(-1) || fallback);
+}
+
+function renderDungeonFloorAlgorithms() {
+  const form = $("#dungeon-form");
+  if (!form) return;
+  const verticalModeLabel = form.elements.verticalMode.closest("label");
+  const floorCountLabel = form.elements.floorCount.closest("label");
+  if (verticalModeLabel && floorCountLabel && floorCountLabel.closest("details")) {
+    verticalModeLabel.after(floorCountLabel);
+  }
+  let panel = $("#dungeon-floor-algorithms");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "dungeon-floor-algorithms";
+    panel.className = "wide dungeon-floor-algorithms";
+    floorCountLabel.after(panel);
+  }
+  const maximumFloors = form.elements.verticalMode.value === "flat" ? 1 : parseDungeonRange(form.elements.floorCount.value, [2, 2], 1)[1];
+  const algorithms = dungeonFloorAlgorithms(state.dungeon, maximumFloors);
+  panel.innerHTML = `<span>층별 공간 배치</span><small>각 층은 별도의 2D 공간으로 생성되며 계단 NBT로만 연결됩니다.</small><div id="dungeon-floor-algorithm-list">${algorithms.map((algorithm, index) => `<label><span>${index + 1}층</span><select data-dungeon-floor-algorithm="${index}">${Object.entries(dungeonSpatialLabels).filter(([value]) => value !== "authored").map(([value, label]) => `<option value="${value}"${value === algorithm ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>`).join("")}</div>`;
+}
+
 function updateDungeonGenerationSummaries() {
   const form = $("#dungeon-form");
   if (!form) return;
@@ -5662,6 +5694,9 @@ function renderDungeonOptionVisibility() {
     element.hidden = ["procedural_cave", "hybrid"].includes(terrainMode)
       || form.elements.verticalMode.value === "flat";
   });
+  const floorAlgorithms = $("#dungeon-floor-algorithms");
+  if (floorAlgorithms) floorAlgorithms.hidden = ["procedural_cave", "hybrid"].includes(terrainMode)
+    || form.elements.verticalMode.value === "flat";
   $$('[data-dungeon-gate-target-field]').forEach((element) => {
     element.hidden = ["procedural_cave", "hybrid"].includes(terrainMode)
       || form.elements.progressionPattern.value !== "parallel_gate";
@@ -5745,6 +5780,7 @@ function renderDungeonForm() {
     randomMaxY: document.random_encounters?.spawn_bounds?.max?.[1] ?? 1, randomMaxZ: document.random_encounters?.spawn_bounds?.max?.[2] ?? 32,
   };
   Object.entries(values).forEach(([name, value]) => setFormValue(form, name, value));
+  renderDungeonFloorAlgorithms();
   updateDungeonComplexitySummary();
   form.elements.terrainTemplate.defaultValue = values.terrainTemplate;
   renderDungeonOptionVisibility();
@@ -5842,7 +5878,8 @@ function updateDungeonFromForm() {
       };
       document.spatial_layout = { algorithm: spatialAlgorithm };
       document.topology = { mode: topologyMode, critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance };
-      document.vertical = { mode: verticalMode, direction: verticalDirection, floor_count: floorCount, floor_height: integer("floorHeight", 8), connections_per_floor: [1, 1] };
+      const floorAlgorithms = [...form.querySelectorAll("[data-dungeon-floor-algorithm]")].map((select) => select.value);
+      document.vertical = { mode: verticalMode, direction: verticalDirection, floor_count: floorCount, floor_height: integer("floorHeight", 8), connections_per_floor: [1, 1], floor_algorithms: verticalMode === "flat" ? [spatialAlgorithm] : floorAlgorithms };
       document.layout = { mode: legacyDungeonLayoutMode(topologyMode), critical_path_rooms: criticalPathRooms, branch_count: branchCount, branch_depth: branchDepth, loop_chance: loopChance, vertical_direction: verticalMode === "flat" ? "flat" : verticalDirection, floor_changes: floorCount.map((value) => Math.max(0, value - 1)) };
     }
   }
@@ -6321,10 +6358,14 @@ function dungeonPieceThemeLabel(theme) {
   return dungeonPieceThemeNames[theme] || theme.split(/[_.-]+/).filter(Boolean).map((part) => part[0]?.toUpperCase() + part.slice(1)).join(" ") || "미분류";
 }
 function dungeonPieceThemes() {
-  return [...new Set([...state.dungeonPieces.values()].map(dungeonPieceTheme))].sort((left, right) => dungeonPieceThemeLabel(left).localeCompare(dungeonPieceThemeLabel(right), "ko"));
+  return [...new Set([...state.dungeonPieces.values()].filter(dungeonPieceMatchesCatalog).map(dungeonPieceTheme))].sort((left, right) => dungeonPieceThemeLabel(left).localeCompare(dungeonPieceThemeLabel(right), "ko"));
+}
+function dungeonPieceMatchesCatalog(piece) {
+  const chamber = dungeonPieceSpatialKind(piece) === "chamber";
+  return state.dungeonPieceCatalogMode === "chambers" ? chamber : !chamber;
 }
 function dungeonPiecesForTheme(theme = state.dungeonPieceTheme) {
-  return [...state.dungeonPieces.values()].filter((piece) => dungeonPieceTheme(piece) === theme);
+  return [...state.dungeonPieces.values()].filter((piece) => dungeonPieceTheme(piece) === theme && dungeonPieceMatchesCatalog(piece));
 }
 function renderDungeonPieceThemePicker() {
   const select = $("#dungeon-piece-theme");
@@ -6341,7 +6382,7 @@ function renderDungeonPieceThemePicker() {
   select.disabled = themes.length === 0;
   const shapes = new Set(pieces.map(dungeonPieceShape));
   const kit = dungeonPieceTagValue(pieces[0], "kit");
-  $("#dungeon-piece-theme-summary").textContent = pieces.length ? `${pieces.length}개 조각 · ${shapes.size}개 형태${kit ? ` · ${kit}` : ""}` : "이 스킨에 등록된 조각이 없습니다.";
+  $("#dungeon-piece-theme-summary").textContent = pieces.length ? `${pieces.length}개 ${state.dungeonPieceCatalogMode === "chambers" ? "공동" : "연결 조각"} · ${shapes.size}개 형태${kit ? ` · ${kit}` : ""}` : "이 스킨에 등록된 항목이 없습니다.";
 }
 function changeDungeonPieceTheme(theme) {
   if (theme === state.dungeonPieceTheme) return;
@@ -6395,6 +6436,10 @@ function dungeonPieceRow(kind, entry, index, selected) {
   return `<article class="dungeon-piece-row${selected ? " is-selected" : ""}" data-piece-kind="marker" data-piece-index="${index}"><label><span>ID</span><input name="id" value="${escapeHtml(entry.id || "")}"></label><label><span>종류</span><select name="kind">${Object.entries(dungeonMarkerKinds).map(([value,label]) => `<option value="${value}"${entry.kind === value ? " selected" : ""}>${label}</option>`).join("")}</select></label><label><span>참조</span><input name="reference" value="${escapeHtml(entry.reference || "")}" placeholder="선택 사항"></label><label><span>차단 통로</span><select name="connector"${entry.kind === "gate" ? "" : " disabled"}>${connectorOptions.join("")}</select></label><button type="button" data-remove-piece-row aria-label="마커 삭제">×</button>${["X","Y","Z"].map((axis, coordinate) => `<label><span>${axis}</span><input name="position${coordinate}" type="number" min="0" value="${Number(position[coordinate] || 0)}"></label>`).join("")}</article>`;
 }
 async function renderDungeonPieceEditor() {
+  const chamberCatalog = state.dungeonPieceCatalogMode === "chambers";
+  $("#dungeon-piece-eyebrow").textContent = chamberCatalog ? "SHARED DUNGEON CHAMBERS" : "SHARED DUNGEON PIECES";
+  $("#dungeon-piece-catalog-title").textContent = chamberCatalog ? "NBT 공동 라이브러리" : "NBT 연결 조각 라이브러리";
+  $("#new-dungeon-piece").textContent = chamberCatalog ? "새 공동" : "새 연결 조각";
   renderDungeonPieceList();
   const piece = currentDungeonPiece();
   const form = $("#dungeon-piece-form");
@@ -6424,13 +6469,16 @@ function createDungeonPiece() {
   const theme = state.dungeonPieceTheme || dungeonPieceThemes()[0] || "new_skin";
   const themePieces = dungeonPiecesForTheme(theme);
   const structures = Object.keys(state.structureSizes || {}).filter((id) => id.startsWith(`cobbleventure:dungeon_pieces/${theme}/`)).sort(); const structure = structures[0] || ""; const metadata = state.structureSizes[structure] || {};
-  let suffix = themePieces.length + 1, pieceId; do { pieceId = `cobbleventure:dungeon_piece/${theme}/new_room_${suffix++}`; } while (state.dungeonPieces.has(pieceId));
+  const chamberCatalog = state.dungeonPieceCatalogMode === "chambers";
+  const baseName = chamberCatalog ? "new_chamber" : "new_passage";
+  let suffix = themePieces.length + 1, pieceId; do { pieceId = `cobbleventure:dungeon_piece/${theme}/${baseName}_${suffix++}`; } while (state.dungeonPieces.has(pieceId));
   const pool = themePieces.flatMap((entry) => entry.tags || []).find((tag) => tag.startsWith("cobbleventure:dungeon_pool/"));
   const kit = dungeonPieceTagValue(themePieces[0], "kit") || "standard_16";
   const socket = themePieces.flatMap((entry) => entry.connectors || []).find(Boolean)?.socket || "cobbleventure:dungeon_socket/standard_6";
-  const tags = [`cobbleventure:dungeon_kit/${kit}`, `cobbleventure:dungeon_theme/${theme}`, "cobbleventure:dungeon_shape/room", ...(pool ? [pool] : [])];
-  const piece = { "$schema": "../../schemas/dungeon-piece.schema.json", schema_version: 1, piece_id: pieceId, structure, role: "room", spatial_kind: "chamber", size: [Number(metadata.width || 1), Number(metadata.height || 1), Number(metadata.depth || 1)], weight: 1, min_per_plan: 0, max_per_plan: 256, placement_scope: "any", forbid_adjacent_tags: [], allow_rotation: true, tags, connectors: [{ id: "north", position: [0, 0, 0], facing: "north", socket, tags: [`cobbleventure:dungeon_kit/${kit}`] }], markers: [] }; snapDungeonConnector(piece.connectors[0], piece.size);
-  state.dungeonPieces.set(pieceId, piece); state.dungeonPiecePaths.set(pieceId, `content/dungeon_pieces/${theme}/new_room_${suffix - 1}.json`); state.dungeonPieceId = pieceId; state.dungeonPieceDirty = true; state.dungeonPieceEditor = { selectedKind: "connector", selectedIndex: 0, transform: null }; renderDungeonPieceEditor(); renderDungeonPlanEditor();
+  const role = chamberCatalog ? "room" : "corridor", spatialKind = chamberCatalog ? "chamber" : "passage", shape = chamberCatalog ? "room" : "corridor";
+  const tags = [`cobbleventure:dungeon_kit/${kit}`, `cobbleventure:dungeon_theme/${theme}`, `cobbleventure:dungeon_shape/${shape}`, ...(pool ? [pool] : [])];
+  const piece = { "$schema": "../../schemas/dungeon-piece.schema.json", schema_version: 1, piece_id: pieceId, structure, role, spatial_kind: spatialKind, size: [Number(metadata.width || 1), Number(metadata.height || 1), Number(metadata.depth || 1)], weight: 1, min_per_plan: 0, max_per_plan: 256, placement_scope: "any", forbid_adjacent_tags: [], allow_rotation: true, tags, connectors: [{ id: "north", position: [0, 0, 0], facing: "north", socket, tags: [`cobbleventure:dungeon_kit/${kit}`] }], markers: [] }; snapDungeonConnector(piece.connectors[0], piece.size);
+  state.dungeonPieces.set(pieceId, piece); state.dungeonPiecePaths.set(pieceId, `content/dungeon_pieces/${theme}/${baseName}_${suffix - 1}.json`); state.dungeonPieceId = pieceId; state.dungeonPieceDirty = true; state.dungeonPieceEditor = { selectedKind: "connector", selectedIndex: 0, transform: null }; renderDungeonPieceEditor(); renderDungeonPlanEditor();
 }
 function addDungeonPieceItem(kind) { const piece = currentDungeonPiece(); if (!piece) return; const list = kind === "connector" ? piece.connectors : piece.markers; const index = list.length; if (kind === "connector") { const facing = ["north","east","south","west"][index % 4]; const entry = { id: `connector_${index + 1}`, position: [Math.floor(piece.size[0] / 2), 0, Math.floor(piece.size[2] / 2)], facing, socket: "cobbleventure:dungeon/door", tags: [] }; snapDungeonConnector(entry, piece.size); list.push(entry); } else list.push({ id: `marker_${index + 1}`, kind: "encounter", position: [Math.floor(piece.size[0] / 2), 0, Math.floor(piece.size[2] / 2)] }); state.dungeonPieceEditor.selectedKind = kind; state.dungeonPieceEditor.selectedIndex = index; markDungeonPieceDirty(); renderDungeonPieceEditor(); }
 function dungeonConnectorPreviewPosition(entry, piece) {
@@ -6817,10 +6865,12 @@ function alignRuntimeDungeonPlacements(placements, links) {
   placements.forEach((placement) => { delete placement.piece; delete placement.grid; delete placement.floorOffsets; });
 }
 
-function dungeonRuntimePreviewPiece(document, role, random, shape = "", requiredFacings = [], preferredRotation = "", allowedExtraConnectors = 0, spatialKind = "") {
+function dungeonRuntimePreviewPiece(document, role, random, shape = "", requiredFacings = [], preferredRotation = "", allowedExtraConnectors = 0, spatialKind = "", footprintSize = 0) {
   const pool = document.terrain?.piece_pool;
   const shapeTag = shape ? `cobbleventure:dungeon_shape/${shape}` : "";
-  const suitable = (piece) => (!pool || (piece.tags || []).includes(pool)) && (!spatialKind || dungeonPieceSpatialKind(piece) === spatialKind);
+  const suitable = (piece) => (!pool || (piece.tags || []).includes(pool))
+    && (!spatialKind || dungeonPieceSpatialKind(piece) === spatialKind)
+    && (!footprintSize || (Number(piece.size?.[0]) === footprintSize && Number(piece.size?.[2]) === footprintSize));
   const candidates = [...state.dungeonPieces.values()].filter((piece) => suitable(piece) && (shapeTag ? (piece.tags || []).includes(shapeTag) : piece.role === role));
   const fallbacks = role === "corridor" ? ["junction", "room"] : ["room", "corridor"];
   for (const fallback of fallbacks) {
@@ -7121,7 +7171,7 @@ function dungeonPreviewPhysicalPlan(document, graph, algorithm, random) {
   const cells = new Map();
   const adjacencyCount = new Map(graph.nodes.map((node) => [node.index, 0]));
   graph.links.forEach((link) => { adjacencyCount.set(link.from, (adjacencyCount.get(link.from) || 0) + 1); adjacencyCount.set(link.to, (adjacencyCount.get(link.to) || 0) + 1); });
-  const chamberNode = (node) => ["start", "boss", "objective", "reward"].includes(node.role)
+  const chamberNode = (node) => node.stairLanding || ["start", "boss", "objective", "reward"].includes(node.role)
     || Boolean(node.requires?.length || node.grants?.length)
     || node.role === "traversal" && node.index % 3 === 0 && (adjacencyCount.get(node.index) || 0) <= 2
     || algorithm === "bsp_floor"
@@ -7141,8 +7191,9 @@ function dungeonPreviewPhysicalPlan(document, graph, algorithm, random) {
   };
   routes.forEach(({ logicalLink, cells: path }) => path.slice(1).forEach((position, index) => connectCells(path[index], position, logicalLink.critical)));
   const poolPieces = [...state.dungeonPieces.values()].filter((piece) => !document.terrain?.piece_pool || (piece.tags || []).includes(document.terrain.piece_pool));
-  const cellSize = poolPieces.length ? Math.max(...poolPieces.map((piece) => Number(piece.size?.[0] || 16))) : 16;
-  const floorHeight = poolPieces.length ? Math.max(...poolPieces.map((piece) => Number(piece.size?.[1] || 8))) : 8;
+  const gridPieces = poolPieces.filter((piece) => dungeonPieceSpatialKind(piece) !== "vertical_transition" && Number(piece.size?.[0]) === Number(piece.size?.[2]));
+  const cellSize = gridPieces.length ? Math.min(...gridPieces.map((piece) => Number(piece.size[0]))) : 16;
+  const floorHeight = Math.max(4, Number(dungeonVertical(document).floor_height || 8));
   const minX = Math.min(...[...cells.values()].map((cell) => cell.position[0])); const minZ = Math.min(...[...cells.values()].map((cell) => cell.position[1]));
   const roleFor = (cell) => {
     if (!cell.node || cell.spaceKind === "passage") {
@@ -7156,8 +7207,8 @@ function dungeonPreviewPhysicalPlan(document, graph, algorithm, random) {
     const requiredFacings = [...cell.facings]; const role = roleFor(cell);
     const passage = cell.spaceKind === "passage";
     const shape = passage && requiredFacings.length === 2 && dungeonPreviewOppositeFacing[requiredFacings[0]] !== requiredFacings[1] ? "corner" : "";
-    const externalConnectorAllowance = role === "start" ? 1 : 0;
-    const selection = dungeonRuntimePreviewPiece(document, role, random, shape, requiredFacings, "", externalConnectorAllowance, cell.spaceKind); const piece = selection?.piece;
+    const externalConnectorAllowance = role === "start" || cell.node?.stairLanding ? 1 : 0;
+    const selection = dungeonRuntimePreviewPiece(document, role, random, shape, requiredFacings, "", externalConnectorAllowance, cell.spaceKind, cellSize); const piece = selection?.piece;
     if (!piece) errors.push(`${cell.spaceKind === "chamber" ? "공동" : "복도"} ${cell.position.join(",")}에 필요한 포트(${requiredFacings.join(", ") || "없음"})를 가진 ${role} 조각이 없습니다.`);
     const size = piece?.size?.map(Number) || [cellSize, floorHeight, cellSize];
     if (piece && (size[0] !== cellSize || size[2] !== cellSize)) errors.push(`${piece.piece_id} 크기 ${size[0]}×${size[2]}가 계획 격자 ${cellSize}×${cellSize}와 맞지 않습니다.`);
@@ -7189,16 +7240,138 @@ function dungeonPreviewPhysicalPlan(document, graph, algorithm, random) {
 }
 
 function runtimeNbtDungeonPlan(document, seed, random) {
-  const algorithm = dungeonSpatialLayout(document).algorithm || "grid_walk";
-  if (algorithm === "authored") return null;
   const vertical = dungeonVertical(document); const floorRange = dungeonRange(vertical.floor_count, [1, 1]);
-  const requestedFloors = vertical.mode === "flat" ? 1 : Math.max(1, floorRange[0]);
-  const graph = dungeonPreviewProgression(document, random); const physical = dungeonPreviewPhysicalPlan(document, graph, algorithm, random);
-  if (["scatter_graph", "bsp_floor"].includes(algorithm)) physical.errors.push(`서버 런타임의 ${algorithm} 공간 컴파일러는 아직 구현되지 않았습니다. 이 배치를 저장해도 던전 입장은 거부됩니다.`);
-  if (requestedFloors > 1) physical.errors.push("다층 계획은 실제 계단 NBT의 상·하단 포트 계약이 연결된 뒤에만 컴파일할 수 있습니다. 현재 미리보기는 1층만 표시합니다.");
-  return { kind: `compiled-${algorithm}`, exact: false, conceptual: false, physicalPaths: true, compileErrors: physical.errors, seed,
-    bounds: physical.bounds, placements: physical.placements, links: physical.links, markers: physical.markers,
-    npcCapacity: physical.markers.npcCapacity, planId: "runtime", progressionPattern: graph.pattern, spatialAlgorithm: algorithm };
+  const floorCount = vertical.mode === "flat" ? 1 : Math.max(1, floorRange[0]);
+  const algorithms = dungeonFloorAlgorithms(document, floorCount);
+  if (algorithms.some((algorithm) => algorithm === "authored")) return null;
+  const topology = dungeonTopology(document);
+  const criticalRange = dungeonRange(topology.critical_path_rooms, [6, 8]);
+  const branchRange = dungeonRange(topology.branch_count, [1, 2]);
+  const floorDocuments = Array.from({ length: floorCount }, (_, floor) => {
+    const copy = structuredClone(document);
+    copy.topology = { ...dungeonTopology(copy),
+      critical_path_rooms: [Math.max(4, Math.ceil(criticalRange[0] / floorCount)), Math.max(4, Math.ceil(criticalRange[1] / floorCount))],
+      branch_count: [Math.floor(branchRange[0] / floorCount) + (floor < branchRange[0] % floorCount ? 1 : 0), Math.ceil(branchRange[1] / floorCount)],
+    };
+    return copy;
+  });
+  const floorPlans = floorDocuments.map((floorDocument, floor) => {
+    const graph = dungeonPreviewProgression(floorDocument, random);
+    const critical = graph.nodes.filter((node) => node.critical).sort((left, right) => left.index - right.index);
+    const first = critical[0]; const last = critical.at(-1);
+    if (floor > 0 && first) first.role = "traversal";
+    if (floor < floorCount - 1) {
+      critical.slice(-2).forEach((node) => { node.role = "traversal"; delete node.requires; delete node.grants; });
+    }
+    if (floor > 0 && first) first.stairLanding = true;
+    if (floor < floorCount - 1 && last) last.stairLanding = true;
+    const physical = dungeonPreviewPhysicalPlan(floorDocument, graph, algorithms[floor], random);
+    physical.placements.forEach((placement) => { placement.logicalFloor = floor; });
+    return { graph, physical, firstNode: first?.index, lastNode: last?.index };
+  });
+  const placements = []; const links = []; const errors = [];
+  for (const [floor, floorPlan] of floorPlans.entries()) {
+    const offset = placements.length;
+    const remap = new Map(floorPlan.physical.placements.map((placement, index) => [placement.index, offset + index]));
+    floorPlan.physical.placements.forEach((placement, index) => placements.push({ ...placement, index: offset + index }));
+    floorPlan.physical.links.forEach((link) => links.push({ ...link, from: remap.get(link.from), to: remap.get(link.to) }));
+    floorPlan.firstPlacement = placements.find((placement) => placement.logicalFloor === floor && placement.logicalNode === floorPlan.firstNode);
+    floorPlan.lastPlacement = placements.find((placement) => placement.logicalFloor === floor && placement.logicalNode === floorPlan.lastNode);
+    errors.push(...floorPlan.physical.errors.map((error) => `${floor + 1}층: ${error}`));
+    if (["scatter_graph", "bsp_floor"].includes(algorithms[floor])) errors.push(`${floor + 1}층: 서버 런타임의 ${algorithms[floor]} 공간 컴파일러는 아직 구현되지 않았습니다.`);
+  }
+  const rotationNames = ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"];
+  const connectorById = (placement, connectorId) => {
+    const piece = state.dungeonPieces.get(placement?.pieceId);
+    const connector = (piece?.connectors || []).find((candidate) => candidate.id === connectorId);
+    return connector ? dungeonPreviewRotatedConnector(piece, placement.rotation, dungeonPreviewRotateFacing(connector.facing, placement.rotation)) : null;
+  };
+  const usedConnectorIds = (placement) => new Set(links.flatMap((link) => link.from === placement.index ? [link.fromConnector] : link.to === placement.index ? [link.toConnector] : []).filter(Boolean));
+  const openConnectors = (placement) => {
+    const piece = state.dungeonPieces.get(placement?.pieceId); const used = usedConnectorIds(placement);
+    return (piece?.connectors || []).map((connector) => dungeonPreviewRotatedConnector(piece, placement.rotation, dungeonPreviewRotateFacing(connector.facing, placement.rotation))).filter((connector) => connector && !used.has(connector.id));
+  };
+  const stairShape = vertical.direction === "descending" ? "stairs_down" : "stairs_up";
+  const pool = document.terrain?.piece_pool;
+  const stairPiece = [...state.dungeonPieces.values()].find((piece) => dungeonPieceSpatialKind(piece) === "vertical_transition" && dungeonPieceShape(piece) === stairShape && (!pool || (piece.tags || []).includes(pool)));
+  for (let floor = 0; floor < floorCount - 1; floor += 1) {
+    const lower = floorPlans[floor].lastPlacement; const upper = floorPlans[floor + 1].firstPlacement;
+    if (!lower || !upper || !stairPiece) { errors.push(`${floor + 1}층과 ${floor + 2}층을 잇는 ${stairShape} NBT가 없습니다.`); continue; }
+    const lowerOpen = openConnectors(lower)[0];
+    if (!lowerOpen) { errors.push(`${floor + 1}층 계단 착지실에 남은 연결점이 없습니다.`); continue; }
+    const rotations = stairPiece.allow_rotation === false ? ["none"] : ["none", "clockwise_90", "clockwise_180", "counterclockwise_90"];
+    let stairRotation = null; let stairFrom = null; let stairTo = null;
+    for (const rotation of rotations) {
+      const connectors = (stairPiece.connectors || []).map((connector) => dungeonPreviewRotatedConnector(stairPiece, rotation, dungeonPreviewRotateFacing(connector.facing, rotation))).sort((left, right) => left.position[1] - right.position[1]);
+      if (connectors.length < 2) continue;
+      const from = vertical.direction === "descending" ? connectors.at(-1) : connectors[0];
+      const to = vertical.direction === "descending" ? connectors[0] : connectors.at(-1);
+      if (from.facing === dungeonPreviewOppositeFacing[lowerOpen.facing]) { stairRotation = rotation; stairFrom = from; stairTo = to; break; }
+    }
+    if (!stairRotation) { errors.push(`${floor + 1}층 계단을 착지실 방향에 맞게 회전할 수 없습니다.`); continue; }
+    const lowerVector = dungeonPreviewFacingVectors[lowerOpen.facing];
+    const stairMinimum = [0, 1, 2].map((axis) => lower.minimum[axis] + lowerOpen.position[axis] + lowerVector[axis] - stairFrom.position[axis]);
+    const wantedUpperFacing = dungeonPreviewOppositeFacing[stairTo.facing];
+    let upperOpen = openConnectors(upper).find((connector) => connector.facing === wantedUpperFacing) || openConnectors(upper)[0];
+    if (upperOpen && upperOpen.facing !== wantedUpperFacing) {
+      const facingOrder = ["north", "east", "south", "west"];
+      const turns = (facingOrder.indexOf(wantedUpperFacing) - facingOrder.indexOf(upperOpen.facing) + 4) % 4;
+      const pivot = [upper.minimum[0] + upperOpen.position[0], upper.minimum[2] + upperOpen.position[2]];
+      const rotatePoint = (x, z) => {
+        let dx = x - pivot[0], dz = z - pivot[1];
+        for (let turn = 0; turn < turns; turn += 1) [dx, dz] = [-dz, dx];
+        return [pivot[0] + dx, pivot[1] + dz];
+      };
+      const nextFloorPlacements = placements.filter((placement) => placement.logicalFloor === floor + 1);
+      nextFloorPlacements.forEach((placement) => {
+        const x0 = placement.minimum[0], z0 = placement.minimum[2];
+        const x1 = x0 + placement.size[0] - 1, z1 = z0 + placement.size[2] - 1;
+        const corners = [rotatePoint(x0, z0), rotatePoint(x1, z0), rotatePoint(x0, z1), rotatePoint(x1, z1)];
+        placement.minimum[0] = Math.min(...corners.map((point) => point[0]));
+        placement.minimum[2] = Math.min(...corners.map((point) => point[1]));
+        placement.rotation = rotationNames[(rotationNames.indexOf(placement.rotation) + turns) % 4];
+        const piece = state.dungeonPieces.get(placement.pieceId);
+        const sourceSize = piece?.size?.map(Number) || placement.size;
+        placement.size = [...sourceSize];
+        if (["clockwise_90", "counterclockwise_90"].includes(placement.rotation)) [placement.size[0], placement.size[2]] = [placement.size[2], placement.size[0]];
+      });
+      upperOpen = connectorById(upper, upperOpen.id);
+      if (upperOpen) {
+        const correction = [pivot[0] - (upper.minimum[0] + upperOpen.position[0]), pivot[1] - (upper.minimum[2] + upperOpen.position[2])];
+        nextFloorPlacements.forEach((placement) => { placement.minimum[0] += correction[0]; placement.minimum[2] += correction[1]; });
+        upperOpen = connectorById(upper, upperOpen.id);
+      }
+    }
+    if (!upperOpen || upperOpen.facing !== wantedUpperFacing) { errors.push(`${floor + 2}층 계단 착지실을 ${wantedUpperFacing} 방향으로 정렬할 수 없습니다.`); continue; }
+    const toVector = dungeonPreviewFacingVectors[stairTo.facing];
+    const wantedUpperConnector = [0, 1, 2].map((axis) => stairMinimum[axis] + stairTo.position[axis] + toVector[axis]);
+    const currentUpperConnector = [0, 1, 2].map((axis) => upper.minimum[axis] + upperOpen.position[axis]);
+    const shift = wantedUpperConnector.map((value, axis) => value - currentUpperConnector[axis]);
+    placements.filter((placement) => placement.logicalFloor === floor + 1).forEach((placement) => {
+      placement.minimum = placement.minimum.map((value, axis) => value + shift[axis]);
+      placement.floorYs = (placement.floorYs || [placement.minimum[1]]).map((value) => value + shift[1]);
+    });
+    const rotatedSize = [...stairPiece.size].map(Number);
+    if (["clockwise_90", "counterclockwise_90"].includes(stairRotation)) [rotatedSize[0], rotatedSize[2]] = [rotatedSize[2], rotatedSize[0]];
+    const stairIndex = placements.length;
+    placements.push({ index: stairIndex, pieceId: stairPiece.piece_id, structure: stairPiece.structure, role: "corridor", minimum: stairMinimum, size: rotatedSize, rotation: stairRotation, critical: true, logicalFloor: floor, floorYs: [lower.minimum[1], upper.minimum[1]], verticalTransition: true });
+    links.push({ from: lower.index, to: stairIndex, fromConnector: lowerOpen.id, toConnector: stairFrom.id, critical: true });
+    links.push({ from: stairIndex, to: upper.index, fromConnector: stairTo.id, toConnector: upperOpen.id, critical: true });
+  }
+  const minima = [0, 1, 2].map((axis) => Math.min(0, ...placements.map((placement) => Number(placement.minimum[axis] || 0))));
+  placements.forEach((placement) => { placement.minimum = placement.minimum.map((value, axis) => value - minima[axis]); placement.floorYs = (placement.floorYs || [placement.minimum[1]]).map((value) => value - minima[1]); });
+  const byIndex = new Map(placements.map((placement) => [placement.index, placement]));
+  links.forEach((link) => {
+    const from = byIndex.get(link.from); const to = byIndex.get(link.to);
+    const fromConnector = connectorById(from, link.fromConnector); const toConnector = connectorById(to, link.toConnector);
+    link.fromPosition = from && fromConnector ? from.minimum.map((value, axis) => value + fromConnector.position[axis]) : undefined;
+    link.toPosition = to && toConnector ? to.minimum.map((value, axis) => value + toConnector.position[axis]) : undefined;
+  });
+  const bounds = [0, 1, 2].map((axis) => Math.max(1, ...placements.map((placement) => placement.minimum[axis] + placement.size[axis])));
+  const markers = runtimeDungeonContentMarkers(document, placements);
+  return { kind: `compiled-floors`, exact: false, conceptual: false, physicalPaths: true, compileErrors: errors, seed,
+    bounds, placements, links, markers, npcCapacity: markers.npcCapacity, planId: "runtime",
+    progressionPattern: dungeonProgression(document).pattern, spatialAlgorithm: algorithms.join(" / ") };
 }
 
 function runtimeDungeonPlan(document, seed) {
@@ -7350,7 +7523,7 @@ function runtimeDungeonContentMarkers(document, placements) {
   const spacing = Math.max(0, Number(document.npc_placement?.minimum_spacing ?? 4));
   const maximumPerRoom = Math.max(1, Number(document.npc_placement?.maximum_per_room ?? 2));
   const markerPositions = (placement, kind) => {
-    const piece = placement.piece;
+    const piece = placement.piece || state.dungeonPieces.get(placement.pieceId);
     if (!piece) return [];
     const originalSize = (piece.size || placement.size || [16, 8, 16]).map(Number);
     return (piece.markers || []).filter((marker) => marker.kind === kind).map((marker) => {

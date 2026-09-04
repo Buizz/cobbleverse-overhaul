@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/t_junction",
   "structure": "cobbleventure:dungeon_pieces/pokemon_tower/t_junction",
   "role": "junction",
+  "spatial_kind": "passage",
   "size": [
     16,
     8,
@@ -58,15 +59,5 @@
       ]
     }
   ],
-  "markers": [
-    {
-      "id": "encounter_slot",
-      "kind": "encounter",
-      "position": [
-        8,
-        1,
-        8
-      ]
-    }
-  ]
+  "markers": []
 }

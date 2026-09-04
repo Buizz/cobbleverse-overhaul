@@ -386,6 +386,20 @@ final class DungeonPiecePlannerTest {
     }
 
     @Test
+    void selectsTheConfiguredLayoutModeForEachIndependentFloor() {
+        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
+            new BlockPos(96, 32, 96), 8, 10, 0, 1, 1, 1,
+            0.0D, 16, "corridor_spine", "ascending", 2, 2,
+            "discrete_floors", 8,
+            List.of("corridor_spine", "room_network", "hub_and_spokes")
+        );
+
+        assertEquals("corridor_spine", settings.layoutModeForFloor(0));
+        assertEquals("room_network", settings.layoutModeForFloor(1));
+        assertEquals("hub_and_spokes", settings.layoutModeForFloor(2));
+    }
+
+    @Test
     void assignsMarkerRelativeGateToAReusableRoomSlot() throws Exception {
         var stream = getClass().getClassLoader().getResourceAsStream(
             "data/cobbleventure/dungeons/generation_1/rocket_power_plant.json"

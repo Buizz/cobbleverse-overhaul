@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/start",
   "structure": "cobbleventure:dungeon_pieces/pokemon_tower/start",
   "role": "start",
+  "spatial_kind": "chamber",
   "size": [
     16,
     8,

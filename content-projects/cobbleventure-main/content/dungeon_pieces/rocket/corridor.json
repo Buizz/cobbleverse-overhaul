@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/rocket/corridor",
   "structure": "cobbleventure:dungeon_pieces/rocket/corridor",
   "role": "corridor",
+  "spatial_kind": "passage",
   "size": [
     16,
     8,

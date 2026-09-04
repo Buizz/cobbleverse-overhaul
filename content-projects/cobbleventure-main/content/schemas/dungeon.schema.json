@@ -287,7 +287,13 @@
         "direction": { "enum": ["ascending", "descending", "mixed"] },
         "floor_count": { "$ref": "#/$defs/positive_range" },
         "floor_height": { "type": "integer", "minimum": 4, "maximum": 64 },
-        "connections_per_floor": { "$ref": "#/$defs/positive_range" }
+        "connections_per_floor": { "$ref": "#/$defs/positive_range" },
+        "floor_algorithms": {
+          "type": "array", "minItems": 1, "maxItems": 257,
+          "items": {
+            "enum": ["grid_walk", "socket_accretion", "scatter_graph", "bsp_floor", "hub_and_spokes", "authored"]
+          }
+        }
       },
       "allOf": [{
         "if": {

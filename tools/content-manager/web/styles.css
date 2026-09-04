@@ -2030,6 +2030,11 @@ body { font-size: 14px; line-height: 1.45; }
 .dungeon-option-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; padding:14px; }
 .dungeon-option-grid label { display:grid; align-content:start; gap:5px; min-width:0; color:#61756c; font-size:9px; }
 .dungeon-option-grid label.wide { grid-column:span 2; }
+.dungeon-floor-algorithms { grid-column:1/-1; display:grid; gap:7px; padding:10px; border:1px solid #c7d5ce; border-radius:4px; background:#f3f8f5; }
+.dungeon-floor-algorithms > span { color:#355246; font-size:10px; font-weight:800; }
+.dungeon-floor-algorithms > small { color:#71847b; font-size:9px; }
+#dungeon-floor-algorithm-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:8px; }
+#dungeon-floor-algorithm-list label { padding:8px; border:1px solid #d4dfda; border-radius:3px; background:#fff; }
 .dungeon-complexity-control { padding:10px 12px; border:1px solid #b9cbc1; border-radius:5px; background:linear-gradient(135deg,#eef7f1,#fbfdfc); }
 .dungeon-complexity-control > span { color:#345849; font-weight:850; }
 .dungeon-complexity-control small { color:#667d71; font-size:8px; line-height:1.45; }

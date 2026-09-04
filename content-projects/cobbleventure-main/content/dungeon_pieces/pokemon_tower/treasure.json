@@ -4,6 +4,7 @@
   "piece_id": "cobbleventure:dungeon_piece/pokemon_tower/treasure",
   "structure": "cobbleventure:dungeon_pieces/pokemon_tower/treasure",
   "role": "treasure",
+  "spatial_kind": "chamber",
   "size": [
     16,
     8,
@@ -39,18 +40,6 @@
     }
   ],
   "markers": [
-    {
-      "id": "encounter_slot_1",
-      "kind": "encounter",
-      "position": [
-        5,
-        1,
-        5
-      ]
-    },
-    { "id": "encounter_slot_2", "kind": "encounter", "position": [11, 1, 5] },
-    { "id": "encounter_slot_3", "kind": "encounter", "position": [5, 1, 10] },
-    { "id": "encounter_slot_4", "kind": "encounter", "position": [11, 1, 10] },
     {
       "id": "loot_slot",
       "kind": "loot",
