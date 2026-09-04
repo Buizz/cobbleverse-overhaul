@@ -66,7 +66,6 @@ final class WorldGateSystem {
     private static final String ROAD_ANCHOR_MARKER = "cobbleventure:road_anchor";
     private static final String NPC_ANCHOR_TYPE = "npc_position";
     private static final int MAX_NATURAL_GATE_FUNNEL_DEPTH = 8;
-    private static final int GATE_STRUCTURE_NATURAL_CLEARANCE = 3;
     private static final int MIN_GATE_APPROACH_DEPTH = 8;
     private static final int MAX_GATE_APPROACH_DEPTH = 24;
     /**
@@ -998,13 +997,13 @@ final class WorldGateSystem {
         StructureFootprint structureFootprint = gate.buildingEnabled()
             ? plannedStructureFootprint(level, gate, center)
             : null;
-        StructureFootprint treeProtection = structureFootprint;
-        if (treeProtection != null) {
-            treeProtection = treeProtection.expanded(
-                GATE_STRUCTURE_NATURAL_CLEARANCE
-            );
-        }
-        final StructureFootprint decorationBoundary = treeProtection;
+        // Protect only the actual NBT footprint. A blanket three-block margin
+        // left a clearly walkable-looking strip between Saffron's gatehouses
+        // and their forest walls even though invisible barriers sealed it.
+        // Trees are laid before the NBT, so the template clips any crown that
+        // crosses its footprint while trunks immediately outside can still
+        // meet the facade without placing blocks inside the building.
+        final StructureFootprint decorationBoundary = structureFootprint;
         // The post-structure pass recalculates collision against the now-visible
         // facade, so discard only barriers from the earlier pass.
         for (NaturalGateColumn column : columns) {
@@ -3044,13 +3043,6 @@ final class WorldGateSystem {
         private boolean containsInterior(int x, int z, int margin) {
             return x >= minX + margin && x <= maxX - margin
                 && z >= minZ + margin && z <= maxZ - margin;
-        }
-
-        private StructureFootprint expanded(int margin) {
-            return new StructureFootprint(
-                minX - margin, minZ - margin,
-                maxX + margin, maxZ + margin
-            );
         }
 
     }
