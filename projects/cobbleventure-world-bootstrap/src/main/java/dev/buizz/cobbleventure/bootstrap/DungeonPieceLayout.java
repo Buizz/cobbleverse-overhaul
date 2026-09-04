@@ -600,9 +600,12 @@ record DungeonPieceLayout(
                 .comparingInt((Integer index) -> floorOccupancy.getOrDefault(
                     floorY(index), 0
                 ))
+                .thenComparingInt(index -> occupancy.getOrDefault(index, 0))
                 .thenComparingInt(index -> index == preferredPlacement ? 0
                     : isOrdinaryChamber(index) ? 1 : 2)
-                .thenComparingInt(index -> occupancy.getOrDefault(index, 0))
+                .thenComparingDouble(index -> -npcPlacementSeparationSquared(
+                    index, available, used
+                ))
                 .thenComparingInt(Integer::intValue))
             .toList();
         for (int placement : placements) {
@@ -615,6 +618,20 @@ record DungeonPieceLayout(
             )) return List.copyOf(selected);
         }
         return List.of();
+    }
+
+    private static double npcPlacementSeparationSquared(
+        int placementIndex,
+        List<ResolvedMarker> available,
+        List<ResolvedMarker> used
+    ) {
+        if (used.isEmpty()) return Double.POSITIVE_INFINITY;
+        return available.stream()
+            .filter(marker -> marker.placementIndex() == placementIndex)
+            .mapToDouble(marker -> used.stream()
+                .mapToDouble(other -> marker.position().distSqr(other.position()))
+                .min().orElse(0.0D))
+            .max().orElse(0.0D);
     }
 
     private int floorY(int placementIndex) {

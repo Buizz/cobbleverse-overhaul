@@ -6217,6 +6217,9 @@ function updateDungeonGeneratedPopulationFromEditor() {
     team_size: [number("generatedTeamMin", 1), number("generatedTeamMax", 3)],
     allow_duplicates: Boolean(root.querySelector('[name="generatedAllowDuplicates"]')?.checked),
   };
+  if (state.dungeon.terrain?.mode === "nbt_pieces") {
+    state.dungeon.terrain.bounds = derivedDungeonGridBounds(state.dungeon);
+  }
 }
 
 function markDungeonContentDirty() {
@@ -8192,6 +8195,10 @@ function runtimeDungeonContentMarkers(document, placements) {
   const occupiedPositions = [];
   let assignedNpcCount = 0;
   const floorKey = (placement) => placement?.logicalFloor ?? Number(placement?.minimum?.[1] || 0);
+  const separationFromAssigned = (positions) => occupiedPositions.length
+    ? Math.max(...positions.map((position) => Math.min(...occupiedPositions.map((other) =>
+      Math.hypot(position[0] - other[0], position[1] - other[1], position[2] - other[2])))))
+    : Number.POSITIVE_INFINITY;
   [...actorEntries.filter(({ entry }) => entry.boss), ...actorEntries.filter(({ entry }) => !entry.boss)].forEach(({ entry, index, count }, encounterIndex, orderedEntries) => {
     if (!document.npc_placement) return;
     const markerKind = entry.boss ? "boss" : "encounter";
@@ -8202,9 +8209,10 @@ function runtimeDungeonContentMarkers(document, placements) {
     if (!candidates.length) return;
     candidates.sort((a, b) => (floorOccupancy.get(floorKey(placementByIndex.get(a[0]))) || 0)
       - (floorOccupancy.get(floorKey(placementByIndex.get(b[0]))) || 0)
+      || (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0)
       || (entry.boss ? 0 : (isNpcChamber(placementByIndex.get(a[0])) ? 0 : 1))
       - (entry.boss ? 0 : (isNpcChamber(placementByIndex.get(b[0])) ? 0 : 1))
-      || (roomOccupancy.get(a[0]) || 0) - (roomOccupancy.get(b[0]) || 0)
+      || separationFromAssigned(b[1]) - separationFromAssigned(a[1])
       || a[0] - b[0]);
     const [room, usableSlots] = candidates[0];
     const selected = usableSlots.slice(0, count);
@@ -8513,7 +8521,7 @@ function renderDungeonPreview() {
   const verticalMode = naturalTerrain
     ? "natural"
     : dungeonVertical(state.dungeon).mode || "flat";
-  const capacityMetric = plan.npcCapacity ? `<dt>NPC 슬롯</dt><dd class="${plan.npcCapacity.valid ? "" : "dungeon-inline-error"}">${plan.npcCapacity.demand} 필요 / ${plan.npcCapacity.capacity} 가능</dd>` : "";
+  const capacityMetric = plan.npcCapacity ? `<dt>NPC 배치·공간</dt><dd class="${plan.npcCapacity.valid ? "" : "dungeon-inline-error"}">${plan.npcCapacity.actorDemand}명 배치 · ${plan.npcCapacity.demand}자리 필요 / ${plan.npcCapacity.capacity}자리 생성</dd>` : "";
   $("#dungeon-preview-metrics").innerHTML = `<dt>계획 방식</dt><dd>${escapeHtml(plan.kind)}</dd><dt>진행 구조</dt><dd>${escapeHtml(progressionPattern)}</dd><dt>공간 배치</dt><dd>${escapeHtml(spatialAlgorithm)}</dd><dt>층 배치</dt><dd>${escapeHtml(verticalMode)}</dd><dt>조회 층</dt><dd>${selectedFloor === null ? `전체 ${floors.length || 1}개 층` : `${floors.indexOf(selectedFloor) + 1}층 · Y ${selectedFloor}`}</dd><dt>표시 구획</dt><dd>${visiblePlacements.length} / ${plan.placements.length}</dd><dt>일반 공동</dt><dd>${visibleOrdinaryChamberCount} / ${totalOrdinaryChamberCount}</dd><dt>공동 전체</dt><dd>${visibleChamberCount} / ${totalChamberCount}</dd><dt>중·대형 공동</dt><dd>${visibleExpandedChamberCount} / ${totalExpandedChamberCount}</dd><dt>주 경로</dt><dd>${criticalCount}</dd><dt>곁가지</dt><dd>${plan.placements.length - criticalCount}</dd>${capacityMetric}<dt>경계</dt><dd>${plan.bounds.join(" × ")}</dd>`;
   $("#dungeon-preview-selection").innerHTML = selected ? `<b>${escapeHtml(selected.role)}</b><br>${escapeHtml(selected.pieceId)}<br>원점 ${selected.minimum.join(", ")} · 크기 ${selected.size.join(" × ")}<br>회전 ${escapeHtml(selected.rotation)}${placementProblems.has(selected.index) ? `<br><strong class="dungeon-inline-error">${escapeHtml(placementProblems.get(selected.index).join(" · "))}</strong>` : ""}` : "평면도의 방을 선택하면 조각 ID, 좌표, 크기와 회전을 표시합니다.";
   const visibleMarkers = plan.markers.filter(onSelectedFloor);

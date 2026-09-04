@@ -685,6 +685,13 @@ final class DungeonPiecePlannerTest {
             ),
             "More than one encounter occupied a passage piece for seed "
                 + seed + ": " + occupancy);
+        long chamberCount = layout.plan().placements().stream()
+            .filter(placement -> placement.role().equals("room")).count();
+        if (encounterPlacements.size() > chamberCount && !passagePlacements.isEmpty()) {
+            assertTrue(encounterPlacements.stream().anyMatch(passagePlacements::contains),
+                "Encounters filled chamber slots instead of using passages for seed "
+                    + seed + ": " + occupancy);
+        }
     }
 
     private static boolean contains(
