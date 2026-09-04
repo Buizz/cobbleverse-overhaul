@@ -116,7 +116,7 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertTrue(any(
             issue.path == "$.npc_placement.required_slots"
-            and "NPC 5명" in issue.message
+            and "NPC 6명" in issue.message
             for issue in issues
         ), issues)
 
@@ -124,8 +124,6 @@ class ContentManagerTests(unittest.TestCase):
         document = json.loads((
             PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json"
         ).read_text(encoding="utf-8"))
-        document["encounters"][0].pop("position")
-        document["loot"]["containers"][0].pop("position")
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dungeon.json"
             path.write_text(json.dumps(document), encoding="utf-8")
@@ -142,15 +140,16 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("생성된 방·조각 마커에 자동 배치", script)
         self.assertIn('delete entry.position', script)
         self.assertIn("절차 동굴의 생성된 방에 NPC와 보상을 자동 배치", markup)
-        self.assertIn("trainer_generation", script)
-        self.assertIn("battle_start_lines", script)
-        self.assertIn("battle_end_lines", script)
+        self.assertIn("generated_trainers", script)
+        self.assertIn("appearance_pool", script)
+        self.assertIn("dialogue_pool", script)
+        self.assertIn("team_size", script)
         self.assertIn("function dungeonTrainerModeFields", script)
         self.assertIn("function dungeonPresetTrainerFields", script)
-        self.assertIn("function dungeonGeneratedTrainerFields", script)
+        self.assertIn("function renderDungeonGeneratedPopulation", script)
         self.assertIn("function dungeonPokemonPoolOptions", script)
         self.assertIn('data-dungeon-trainer-mode="${value}"', script)
-        self.assertIn('name="poolAddSpecies"', script)
+        self.assertIn('name="generatedPokemonAdd"', script)
         self.assertIn("loadTrainerData(force)", script)
         self.assertNotIn('contentField("NPC ID — 쉼표 구분"', script)
         self.assertIn("장치·조사 목표", markup)
@@ -172,6 +171,27 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('document.npc_placement = {', script)
         self.assertIn('markerPositions(placement, "npc_spawn")', script)
         self.assertIn('NPC 슬롯', script)
+        self.assertNotIn('name="randomMinX"', markup)
+        self.assertNotIn('name="randomMaxZ"', markup)
+        self.assertIn("delete document.random_encounters.spawn_bounds", script)
+
+    def test_dungeon_random_encounters_do_not_require_authored_spawn_bounds(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json"
+        ).read_text(encoding="utf-8"))
+        schema = json.loads((
+            PROJECT_ROOT / "content/schemas/dungeon.schema.json"
+        ).read_text(encoding="utf-8"))
+
+        self.assertNotIn("spawn_bounds", document["random_encounters"])
+        self.assertNotIn("spawn_bounds", schema["properties"]["random_encounters"]["required"])
+        self.assertNotIn("spawn_bounds", schema["properties"]["random_encounters"]["properties"])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        self.assertFalse(any(issue.level == "error" for issue in issues), issues)
 
     def test_dungeon_cave_requires_the_shared_cave_generator_document(self) -> None:
         document = json.loads((
@@ -272,15 +292,32 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("모든 층은 같은 X/Z 격자를 사용하며", script)
         self.assertIn('event.target.closest("#dungeon-preview-workspace")', script)
 
-    def test_dungeon_floors_have_independent_spatial_algorithms(self) -> None:
+    def test_dungeon_uses_one_spatial_algorithm_and_selected_chambers(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         schema = json.loads((CORE_ROOT / "content-projects/cobbleventure-main/content/schemas/dungeon.schema.json").read_text(encoding="utf-8"))
 
-        self.assertIn("function renderDungeonFloorAlgorithms()", script)
-        self.assertIn("vertical.floor_algorithms", script)
-        self.assertIn("계단 NBT로만 연결됩니다", script)
+        self.assertNotIn("function renderDungeonFloorAlgorithms()", script)
+        self.assertNotIn("vertical.floor_algorithms", script)
+        self.assertIn("function renderDungeonChamberSelection()", script)
+        self.assertIn("function renderDungeonChamberDialog()", script)
+        self.assertIn("data-add-dungeon-chamber", script)
+        self.assertIn("data-remove-dungeon-chamber", script)
+        self.assertIn('id="dungeon-chamber-dialog"', markup)
+        self.assertIn('id="dungeon-chamber-theme-filter"', markup)
+        self.assertIn("const requiredByFloor", script)
+        self.assertIn("chamberSlots[index].requiredPieceId = pieceId", script)
+        self.assertIn("const selectedChambers = requiredChambers", script)
+        self.assertNotIn("const automaticChambers", script)
+        self.assertIn("Math.max(1, floorRange[1])", script)
         vertical = schema["properties"]["vertical"]["properties"]
-        self.assertIn("floor_algorithms", vertical)
+        self.assertNotIn("floor_algorithms", vertical)
+        spatial = schema["properties"]["spatial_layout"]["properties"]
+        self.assertIn("chamber_pieces", spatial)
+        self.assertEqual(
+            ["room_scatter", "corridor_halls", "socket_accretion"],
+            spatial["algorithm"]["enum"],
+        )
 
     def test_dungeon_layout_uses_simple_complexity_presets_and_advanced_details(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -302,12 +339,27 @@ class ContentManagerTests(unittest.TestCase):
         markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
 
         self.assertIn('name="progressionPattern"', markup)
+        self.assertIn('name="encounterOrder"', markup)
+        self.assertIn('value="boss_only"', markup)
+        self.assertIn('value="sequential"', markup)
+        self.assertIn('encounter_order: form.elements.encounterOrder.value', script)
         for pattern in ("linear", "branching", "cyclic", "parallel_gate", "key_lock", "shortcut_loop"):
             self.assertIn(f'value="{pattern}"', markup)
         self.assertIn('name="spatialAlgorithm"', markup)
-        for algorithm in ("grid_walk", "socket_accretion", "scatter_graph", "bsp_floor", "hub_and_spokes", "authored"):
-            self.assertIn(f'value="{algorithm}"', markup)
-        self.assertIn('value="hub_and_spokes"', markup)
+        self.assertIn('<option value="room_scatter">공동 분산형</option>', script)
+        self.assertIn('<option value="corridor_halls">중앙 복도형</option>', script)
+        self.assertIn('algorithm === "room_scatter"', script)
+        self.assertIn('algorithm === "corridor_halls"', script)
+        self.assertIn('const remainingInRow = columns - lastBodyOffset - 1;', script)
+        self.assertIn('const tailStart = continueSameRow', script)
+        self.assertNotIn('const tailZ = Math.max(1, Math.ceil(body.length / columns)) * 4;', script)
+        self.assertIn('const columns = columnChoices[Math.floor(random() * columnChoices.length)];', script)
+        self.assertIn('const horizontalSign = random() < .5 ? -1 : 1;', script)
+        self.assertIn('const ordinaryChamberSlots = graph.nodes.filter', script)
+        self.assertIn('function dungeonNpcRequiredChambers(document)', script)
+        self.assertIn('configuredCriticalRange[0] + npcChambers * 3', script)
+        self.assertIn('node.role === "traversal" && (adjacencyCount.get(node.index) || 0) <= 2', script)
+        self.assertIn('<dt>공동</dt><dd>${visibleChamberCount} / ${totalChamberCount}</dd>', script)
         self.assertIn('name="verticalMode"', markup)
         self.assertIn('value="discrete_floors"', markup)
         self.assertIn('name="floorHeight"', markup)
@@ -327,20 +379,53 @@ class ContentManagerTests(unittest.TestCase):
 
     def test_dungeon_validator_accepts_progression_and_spatial_layout_types(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
-        document["progression"] = {"pattern": "parallel_gate", "required_targets": 3}
-        document["spatial_layout"] = {"algorithm": "bsp_floor"}
+        document["progression"] = {
+            "pattern": "parallel_gate", "required_targets": 3,
+            "encounter_order": "sequential",
+        }
+        document["spatial_layout"] = {
+            "algorithm": "room_scatter",
+            "chamber_pieces": ["cobbleventure:dungeon_piece/rocket/empty_chamber_2x2"],
+        }
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dungeon.json"
             path.write_text(json.dumps(document), encoding="utf-8")
             _, configured_issues = content_manager.validate_dungeon_file(path)
-            document["progression"] = {"pattern": "unknown"}
+            document["spatial_layout"]["algorithm"] = "corridor_halls"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, halls_issues = content_manager.validate_dungeon_file(path)
+            document["progression"] = {
+                "pattern": "unknown", "encounter_order": "unknown",
+            }
             document["spatial_layout"] = {"algorithm": "unknown"}
             path.write_text(json.dumps(document), encoding="utf-8")
             _, invalid_issues = content_manager.validate_dungeon_file(path)
 
         self.assertFalse(any(issue.path.startswith("$.progression") or issue.path.startswith("$.spatial_layout") for issue in configured_issues))
+        self.assertFalse(any(issue.path.startswith("$.spatial_layout") for issue in halls_issues))
         self.assertTrue(any(issue.path == "$.progression.pattern" for issue in invalid_issues))
+        self.assertTrue(any(issue.path == "$.progression.encounter_order" for issue in invalid_issues))
         self.assertTrue(any(issue.path == "$.spatial_layout.algorithm" for issue in invalid_issues))
+
+    def test_dungeon_npc_progression_can_be_optional_or_sequential(self) -> None:
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        markup = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        schema = json.loads((
+            PROJECT_ROOT / "content/schemas/dungeon.schema.json"
+        ).read_text(encoding="utf-8"))
+
+        self.assertIn('name="encounterOrder"', markup)
+        self.assertIn('value="boss_only"', markup)
+        self.assertIn('value="sequential"', markup)
+        self.assertIn('encounterOrder: progression.encounter_order || "boss_only"', script)
+        self.assertIn('encounter_order: form.elements.encounterOrder.value', script)
+        self.assertEqual(
+            ["boss_only", "sequential"],
+            schema["properties"]["progression"]["properties"]["encounter_order"]["enum"],
+        )
+        for path in (PROJECT_ROOT / "content/dungeons").rglob("*.json"):
+            document = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual("boss_only", document["progression"]["encounter_order"], path)
 
     def test_dungeon_editor_does_not_expose_chamber_maze_as_world_layout(self) -> None:
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
@@ -414,11 +499,11 @@ class ContentManagerTests(unittest.TestCase):
         self.assertFalse(any(issue.level == "error" for issue in issues), issues)
 
     def test_dungeon_document_can_be_validated_and_saved(self) -> None:
-        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
         document["entry_ui"]["info_mode"] = "mystery"
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            relative = "content/dungeons/generation_1/rocket_power_plant.json"
+            relative = "content/dungeons/generation_1/rocket_pokemon_tower.json"
 
             target, issues = content_manager._save_document(root, "dungeons", relative, document)
 
@@ -444,39 +529,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertTrue(any("최소 레벨" in message for message in messages))
         self.assertTrue(any("정수 좌표 3개" in message for message in messages))
 
-    def test_dungeon_accepts_pool_generated_trainer_and_rejects_conflicts(self) -> None:
-        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
-        encounter = document["encounters"][0]
-        encounter.pop("opponents")
-        encounter["trainer_generation"] = {
-            "pokemon_pool": [
-                {"species": "cobblemon:rattata", "weight": 4},
-                {"species": "cobblemon:zubat", "weight": 2},
-            ],
-            "team_size": [1, 2],
-            "allow_duplicates": False,
-            "battle_start_lines": ["침입자다!"],
-            "battle_end_lines": ["후퇴한다!"],
-        }
+    def test_dungeon_accepts_global_generated_trainer_pools_and_rejects_duplicates(self) -> None:
+        document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "dungeon.json"
             path.write_text(json.dumps(document), encoding="utf-8")
             _, issues = content_manager.validate_dungeon_file(path)
             self.assertFalse(any(issue.level == "error" for issue in issues), issues)
 
-            encounter["opponents"] = ["cobbleventure:battle/test"]
-            encounter["trainer_generation"]["pokemon_pool"].append(
+            document["generated_trainers"]["pokemon_pool"].append(
                 {"species": "cobblemon:rattata", "weight": 1}
             )
             path.write_text(json.dumps(document), encoding="utf-8")
-            _, conflict_issues = content_manager.validate_dungeon_file(path)
-
-            encounter.pop("opponents")
-            path.write_text(json.dumps(document), encoding="utf-8")
             _, duplicate_issues = content_manager.validate_dungeon_file(path)
 
-        self.assertTrue(any("동시에 사용할 수 없습니다" in issue.message for issue in conflict_issues))
-        self.assertTrue(any("같은 종을 중복 선언" in issue.message for issue in duplicate_issues))
+        self.assertTrue(any("같은 종은 한 번만" in issue.message for issue in duplicate_issues))
 
     def test_dungeon_gate_can_use_piece_marker_relative_bounds(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_pokemon_tower.json").read_text(encoding="utf-8"))
@@ -659,28 +726,68 @@ class ContentManagerTests(unittest.TestCase):
 
         self.assertIn('id="dungeon-plan-canvas"', html)
         self.assertIn('id="dungeon-preview-seed"', html)
+        self.assertIn('id="dungeon-preview-zoom-out"', html)
+        self.assertIn('id="dungeon-preview-zoom-reset"', html)
+        self.assertIn('id="dungeon-preview-zoom-in"', html)
         self.assertIn("function authoredDungeonPlan(document, planId)", script)
         self.assertIn("function runtimeDungeonPlan(document, seed)", script)
         self.assertIn("function dungeonRuntimePreviewPiece(document, role, random,", script)
+        self.assertIn(': spatialKind === "passage"', script)
+        self.assertIn("Infer the required openings from the routed cell", script)
+        self.assertIn("const rolePenalty = piece.role === role ? 0 : 10;", script)
         self.assertIn('if (!options.length) return { piece: null, rotation: "none", missingFacings: required };', script)
         self.assertIn("function dungeonPreviewPhysicalPlan", script)
         self.assertIn("function dungeonPreviewRoute", script)
-        self.assertIn("다층 계획은 실제 계단 NBT의 상·하단 포트 계약", script)
-        self.assertIn("서버 런타임의 ${algorithm} 공간 컴파일러는 아직 구현되지 않았습니다", script)
+        self.assertIn("function dungeonPreviewNormalizeProgressionGraph(graph)", script)
+        self.assertIn('pattern: branches > 0 ? "branching" : "linear"', script)
+        self.assertIn('node.role === "traversal" && !node.forcePassage', script)
+        self.assertIn('const spaceKind = node.requiredPieceId ? "chamber"', script)
+        self.assertIn('spaceKind: "terminal", closesChamberPort: true', script)
+        self.assertIn("const externalConnectorReserve =", script)
+        self.assertIn("lane 7 to lane 8", script)
+        self.assertIn("const corridorCount = 2 + (Math.abs((parentIndex ?? 0) + node.index) % 2);", script)
+        self.assertIn("const parentSize = footprintFor(parentIndex)", script)
+        self.assertIn("const fixedChambers = new Map();", script)
+        self.assertIn("const chamberNode = (node) => !node.forcePassage && node.role !== \"exit\";", script)
+        self.assertIn("const expandedChambers = automaticChambers.filter", script)
+        self.assertIn("const fourWayLandingChambers =", script)
+        self.assertIn("index < 2 && expandedChambers.length", script)
+        self.assertIn("<dt>중·대형 공동</dt>", script)
+        self.assertIn("const npcRoomsByFloor =", script)
+        self.assertIn('kind: "npc_room"', script)
+        self.assertIn("const floorVariant =", script)
+        self.assertIn("graph.orientationOffset = Math.abs(Math.trunc(seed)) % 2", script)
+        self.assertIn("const alongHorizontal = (floorVariant + orientationOffset) % 2 === 0", script)
+        self.assertIn("const endpointOptions = (nodeIndex) =>", script)
+        self.assertIn("const placementCells = [...cells.values()].filter", script)
+        self.assertIn("실제 포트 사이에 복도를 만들 수 없습니다", script)
+        self.assertIn("const connectorDistance =", script)
+        self.assertIn("const wantedMinimum =", script)
+        self.assertIn("고립되었거나 한쪽이 막혀 있습니다", script)
+        self.assertIn("시작점에서 도달할 수 없습니다", script)
+        self.assertIn("실제 NBT 점유 영역이 겹칩니다", script)
+        self.assertIn("for (let attempt = 0; attempt < 16; attempt += 1)", script)
         self.assertIn("physicalPaths: true", script)
         self.assertIn("function alignRuntimeDungeonPlacements(placements, links)", script)
         self.assertIn("link.fromPosition =", script)
         self.assertIn("function drawDungeonPlacementCutaway", script)
+        self.assertIn("function resetDungeonPreviewView()", script)
+        self.assertIn("function setDungeonPreviewZoom(", script)
+        self.assertIn('$("#dungeon-plan-canvas").addEventListener("wheel"', script)
+        self.assertIn("state.dungeonPreview.panDrag =", script)
         self.assertIn("metadata?.cutaway_view", script)
         self.assertIn("piece?.structure", script)
 
-    def test_dungeon_piece_editor_exposes_complete_nbt_authoring_flow(self) -> None:
+    def test_dungeon_piece_editor_derives_passage_connections_automatically(self) -> None:
         html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
         script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
 
         self.assertIn('id="dungeon-piece-form"', html)
         self.assertIn('id="dungeon-piece-canvas"', html)
+        piece_form = html[html.index('id="dungeon-piece-form"'):html.index('id="dungeon-piece-issues"')]
+        self.assertLess(piece_form.index('class="dungeon-piece-map"'), piece_form.index('class="dungeon-piece-fields"'))
         self.assertIn('id="add-dungeon-connector"', html)
+        self.assertIn('<section hidden><header><div><strong>자동 연결 정보</strong>', html)
         self.assertIn('id="add-dungeon-marker"', html)
         self.assertIn('name="minPerPlan"', html)
         self.assertIn('name="maxPerPlan"', html)
@@ -690,6 +797,8 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("piece.max_per_plan", script)
         self.assertIn("piece.placement_scope", script)
         self.assertIn("piece.forbid_adjacent_tags", script)
+        self.assertIn("function automaticDungeonPieceConnectors(piece)", script)
+        self.assertIn("piece.connectors = automaticDungeonPieceConnectors(piece)", script)
         self.assertIn('name="connector"', script)
         self.assertIn("marker.connector", script)
         self.assertIn("?.cutaway_view", script)

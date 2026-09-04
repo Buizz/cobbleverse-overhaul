@@ -944,31 +944,37 @@ final class DungeonSystem {
         Map<String, BlockPos> objectivePositions;
         Map<String, CheckpointPosition> checkpointPositions;
         Map<String, GateBounds> gateBounds;
+        long runSeed = dungeonPlanSeed(
+            dungeonLevel, definition, origin, first.player().getUUID()
+        );
+        DungeonDefinition runDefinition = definition.materializeGeneratedTrainers(
+            runSeed
+        );
         try {
             terrain = prepareTerrain(
-                dungeonLevel, definition, origin, first.player().getUUID()
+                dungeonLevel, runDefinition, origin, runSeed
             );
             size = terrain.size();
-            gateBounds = resolveGateBounds(definition, origin, terrain);
-            placeGates(dungeonLevel, definition, gateBounds);
-            clearExit = placeClearExit(dungeonLevel, definition, origin, terrain);
+            gateBounds = resolveGateBounds(runDefinition, origin, terrain);
+            placeGates(dungeonLevel, runDefinition, gateBounds);
+            clearExit = placeClearExit(dungeonLevel, runDefinition, origin, terrain);
             healingPositions = placeHealingStations(
-                dungeonLevel, definition, origin, terrain
+                dungeonLevel, runDefinition, origin, terrain
             );
             objectivePositions = placeObjectives(
-                dungeonLevel, definition, origin, terrain
+                dungeonLevel, runDefinition, origin, terrain
             );
             lootPositions = placeLootContainers(
-                dungeonLevel, definition, origin, terrain
+                dungeonLevel, runDefinition, origin, terrain
             );
             checkpointPositions = resolveCheckpointPositions(
-                definition, origin, terrain
+                runDefinition, origin, terrain
             );
             spawnedEncounters = spawnEncounters(
-                dungeonLevel, definition, origin, terrain
+                dungeonLevel, runDefinition, origin, terrain
             );
             randomEncounters = createRandomEncounterConfig(
-                definition, origin, size, slot
+                runDefinition, origin, size, slot
             );
         } catch (RuntimeException error) {
             ACTIVE_SLOTS.remove(slot);
@@ -982,7 +988,7 @@ final class DungeonSystem {
         for (MatchedEntry entry : entries) {
             pushReturnFrame(entry.player(), entry.pending().placement().safeReturn());
             ServerPlayerEventState state = new ServerPlayerEventState(entry.player());
-            definition.encounters().stream()
+            runDefinition.encounters().stream()
                 .flatMap(encounter -> encounter.runStateKeys().stream())
                 .distinct()
                 .forEach(key -> state.setFlag(key, false));
@@ -1002,7 +1008,7 @@ final class DungeonSystem {
             clearExit, cooldown, randomEncounters, new HashMap<>(), participantIds,
             new HashMap<>(),
             new EncounterRuntime(
-                spawnedEncounters.entities(), definition.encounters(),
+                spawnedEncounters.entities(), runDefinition.encounters(),
                 spawnedEncounters.positions()
             ),
             new DungeonLootClaims(), new DungeonLootLedger(), lootPositions,
@@ -1109,7 +1115,7 @@ final class DungeonSystem {
     }
 
     private static PreparedTerrain prepareFixedTemplate(
-        ServerLevel level, DungeonDefinition definition, BlockPos origin
+        ServerLevel level, DungeonDefinition definition, BlockPos origin, long seed
     ) {
         ResourceLocation templateId = ResourceLocation.parse(
             definition.terrain().template()
@@ -1123,7 +1129,7 @@ final class DungeonSystem {
         ExplicitAirPlacementProcessor.configure(template, settings);
         if (!template.placeInWorld(
             level, origin, origin, settings,
-            RandomSource.create(level.getSeed() ^ origin.asLong()), 2
+            RandomSource.create(seed), 2
         )) {
             throw new IllegalStateException(
                 "Dungeon template placement failed: " + definition.id()
@@ -1150,8 +1156,7 @@ final class DungeonSystem {
             definition, size, metadata
         );
         return new PreparedTerrain(
-            size, layout.entry(), layout.exit(), layout.markers(),
-            level.getSeed() ^ origin.asLong()
+            size, layout.entry(), layout.exit(), layout.markers(), seed
         );
     }
 
@@ -1159,20 +1164,20 @@ final class DungeonSystem {
         ServerLevel level,
         DungeonDefinition definition,
         BlockPos origin,
-        UUID playerId
+        long seed
     ) {
         if (definition.terrain().mode().equals("fixed_template")) {
-            return prepareFixedTemplate(level, definition, origin);
+            return prepareFixedTemplate(level, definition, origin, seed);
         }
         return switch (definition.terrain().mode()) {
             case "nbt_pieces" -> prepareNbtPieces(
-                level, definition, origin, playerId
+                level, definition, origin, seed
             );
             case "procedural_cave" -> prepareProceduralCave(
-                level, definition, origin, playerId
+                level, definition, origin, seed
             );
             case "hybrid" -> prepareHybrid(
-                level, definition, origin, playerId
+                level, definition, origin, seed
             );
             default -> throw new IllegalStateException(
                 "Unsupported dungeon terrain mode: " + definition.terrain().mode()
@@ -1184,9 +1189,8 @@ final class DungeonSystem {
         ServerLevel level,
         DungeonDefinition definition,
         BlockPos origin,
-        UUID playerId
+        long seed
     ) {
-        long seed = dungeonPlanSeed(level, definition, origin, playerId);
         long startedAt = System.nanoTime();
         DungeonPieceLayout layout = DungeonPieceLayout.generate(
             definition, pieceDefinitions.values(), authoredPlans, seed
@@ -1248,9 +1252,8 @@ final class DungeonSystem {
         ServerLevel level,
         DungeonDefinition definition,
         BlockPos origin,
-        UUID playerId
+        long seed
     ) {
-        long seed = dungeonPlanSeed(level, definition, origin, playerId);
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
@@ -1284,9 +1287,8 @@ final class DungeonSystem {
         ServerLevel level,
         DungeonDefinition definition,
         BlockPos origin,
-        UUID playerId
+        long seed
     ) {
-        long seed = dungeonPlanSeed(level, definition, origin, playerId);
         long startedAt = System.nanoTime();
         NaturalCaveGenerator.InstanceResult generated = NaturalCaveGenerator.generateInstance(
             level, definition.id(), seed, origin, definition.terrain().bounds(),
@@ -2020,9 +2022,7 @@ final class DungeonSystem {
         String encounterId = entityRef.encounterId();
         DungeonDefinition definition = definitions.get(run.dungeonId());
         DungeonDefinition.Encounter encounter = definition == null ? null
-            : definition.encounters().stream()
-                .filter(candidate -> candidate.id().equals(encounterId))
-                .findFirst().orElse(null);
+            : run.encounters().encounter(encounterId);
         if (encounter == null) {
             initiator.sendSystemMessage(Component.literal(
                 "던전 조우 설정을 찾을 수 없습니다."
@@ -2036,10 +2036,11 @@ final class DungeonSystem {
             ), true);
             return true;
         }
-        List<String> missingRequirements = encounter.requires().stream()
+        List<String> missingRequirements = definition.progression()
+            .usesEncounterPrerequisites() ? encounter.requires().stream()
             .filter(required -> run.encounters().statusById.get(required)
                 != EncounterStatus.DEFEATED)
-            .toList();
+            .toList() : List.of();
         if (!missingRequirements.isEmpty()) {
             initiator.displayClientMessage(Component.literal(
                 "[던전] 먼저 완료해야 할 조우: "
@@ -2081,17 +2082,13 @@ final class DungeonSystem {
         if (entityRef.opponentIndex() != 0) return false;
         DungeonDefinition definition = definitions.get(run.dungeonId());
         DungeonDefinition.Encounter encounter = definition == null ? null
-            : definition.encounters().stream()
-                .filter(candidate -> candidate.id().equals(entityRef.encounterId()))
-                .findFirst().orElse(null);
+            : run.encounters().encounter(entityRef.encounterId());
         if (encounter == null) return false;
         EncounterRuntime runtime = run.encounters();
         return runtime.statusById.get(encounter.id()) == EncounterStatus.AVAILABLE
             && runtime.pendingEncounterId == null
             && !runtime.statusById.containsValue(EncounterStatus.ACTIVE)
-            && encounter.requires().stream().allMatch(required ->
-                runtime.statusById.get(required) == EncounterStatus.DEFEATED
-            );
+            && encounterRequirementsSatisfied(definition, encounter, runtime);
     }
 
     /**
@@ -2112,9 +2109,9 @@ final class DungeonSystem {
         }
         EncounterEntityRef entityRef = encounterEntityRef(run, opponent);
         if (entityRef == null) return false;
-        DungeonDefinition.Encounter encounter = definition.encounters().stream()
-            .filter(candidate -> candidate.id().equals(entityRef.encounterId()))
-            .findFirst().orElse(null);
+        DungeonDefinition.Encounter encounter = run.encounters().encounter(
+            entityRef.encounterId()
+        );
         if (encounter == null || encounter.generatedTrainer() != null
             || entityRef.opponentIndex() >= encounter.opponents().size()
             || !encounter.opponents().get(entityRef.opponentIndex())
@@ -2129,8 +2126,7 @@ final class DungeonSystem {
                 "Dungeon cooperative encounter is already active: " + encounter.id()
             );
         }
-        if (encounter.requires().stream().anyMatch(required ->
-            runtime.statusById.get(required) != EncounterStatus.DEFEATED)) {
+        if (!encounterRequirementsSatisfied(definition, encounter, runtime)) {
             throw new IllegalStateException(
                 "Dungeon cooperative encounter requirements are not met: "
                     + encounter.id()
@@ -2422,7 +2418,7 @@ final class DungeonSystem {
             runtime.encounterByEntity.values()
         );
         Candidate nearest = null;
-        for (DungeonDefinition.Encounter encounter : definition.encounters()) {
+        for (DungeonDefinition.Encounter encounter : runtime.definitions) {
             BlockPos authored = runtime.positionsById.get(encounter.id());
             if (authored == null) continue;
             for (int index = 0; index < encounter.actorCount(); index++) {
@@ -2541,9 +2537,9 @@ final class DungeonSystem {
         );
         if (pokemonEntityId == null) return false;
         EncounterEntityRef ref = run.encounters().encounterByEntity.get(pokemonEntityId);
-        DungeonDefinition.Encounter encounter = definition.encounters().stream()
-            .filter(candidate -> candidate.id().equals(ref.encounterId()))
-            .findFirst().orElse(null);
+        DungeonDefinition.Encounter encounter = run.encounters().encounter(
+            ref.encounterId()
+        );
         if (encounter == null || !encounter.kind().equals("wild_pokemon")
             || run.encounters().statusById.get(encounter.id())
                 != EncounterStatus.AVAILABLE) {
@@ -2580,15 +2576,14 @@ final class DungeonSystem {
         EncounterEntityRef ref = opponent == null ? null
             : encounterEntityRef(run, opponent);
         DungeonDefinition.Encounter encounter = ref == null ? null
-            : definition.encounters().stream()
-                .filter(candidate -> candidate.id().equals(ref.encounterId()))
-                .findFirst().orElse(null);
+            : run.encounters().encounter(ref.encounterId());
         if (encounter == null
             || !encounter.opponents().contains(context.battleId())
             || run.encounters().statusById.get(encounter.id())
                 != EncounterStatus.AVAILABLE
-            || encounter.requires().stream().anyMatch(required ->
-                run.encounters().statusById.get(required) != EncounterStatus.DEFEATED)) {
+            || !encounterRequirementsSatisfied(
+                definition, encounter, run.encounters()
+            )) {
             return;
         }
         run.encounters().statusById.put(encounter.id(), EncounterStatus.ACTIVE);
@@ -2621,9 +2616,7 @@ final class DungeonSystem {
         );
         DungeonDefinition definition = activeDefinition;
         DungeonDefinition.Encounter encounter = definition == null ? null
-            : definition.encounters().stream()
-                .filter(candidate -> candidate.id().equals(encounterId))
-                .findFirst().orElse(null);
+            : run.encounters().encounter(encounterId);
         updateEncounterRunState(run, encounter, won);
         String generatedEndLine = run.encounters().generatedEndLines.get(encounterId);
         cleanupGeneratedEncounter(run.encounters(), encounterId);
@@ -2682,7 +2675,7 @@ final class DungeonSystem {
         if (level == null) return;
         for (DungeonDefinition.Gate gate : definition.gates()) {
             if (run.openedGates().contains(gate.id())
-                || !gateRequirementsSatisfied(run, gate)) {
+                || !gateRequirementsSatisfied(run, definition, gate)) {
                 continue;
             }
             GateBounds bounds = run.gateBounds().get(gate.id());
@@ -2717,13 +2710,19 @@ final class DungeonSystem {
     }
 
     private static boolean gateRequirementsSatisfied(
-        ActiveRun run, DungeonDefinition.Gate gate
+        ActiveRun run, DungeonDefinition definition, DungeonDefinition.Gate gate
     ) {
         for (DungeonDefinition.GateRequirement requirement : gate.requirements()) {
             switch (requirement.type()) {
                 case "encounter" -> {
-                    if (run.encounters().statusById.get(requirement.reference())
-                        != EncounterStatus.DEFEATED) return false;
+                    DungeonDefinition.Encounter requiredEncounter = run.encounters()
+                        .encounter(requirement.reference());
+                    boolean optionalNpc = !definition.progression()
+                        .usesEncounterPrerequisites()
+                        && requiredEncounter != null && !requiredEncounter.boss();
+                    if (!optionalNpc && run.encounters().statusById.get(
+                        requirement.reference()
+                    ) != EncounterStatus.DEFEATED) return false;
                 }
                 case "objective" -> {
                     if (!run.completedObjectives().contains(requirement.reference())) return false;
@@ -2743,6 +2742,17 @@ final class DungeonSystem {
             }
         }
         return true;
+    }
+
+    private static boolean encounterRequirementsSatisfied(
+        DungeonDefinition definition,
+        DungeonDefinition.Encounter encounter,
+        EncounterRuntime runtime
+    ) {
+        return !definition.progression().usesEncounterPrerequisites()
+            || encounter.requires().stream().allMatch(required ->
+                runtime.statusById.get(required) == EncounterStatus.DEFEATED
+            );
     }
 
     private static int participantItemCount(ActiveRun run, Item item) {
@@ -2793,9 +2803,7 @@ final class DungeonSystem {
         String generatedEndLine = run.encounters().generatedEndLines.get(encounterId);
         DungeonDefinition definition = definitions.get(run.dungeonId());
         DungeonDefinition.Encounter encounter = definition == null ? null
-            : definition.encounters().stream()
-                .filter(candidate -> candidate.id().equals(encounterId))
-                .findFirst().orElse(null);
+            : run.encounters().encounter(encounterId);
         updateEncounterRunState(run, encounter, false);
         cleanupGeneratedEncounter(run.encounters(), encounterId);
         run.encounters().statusById.put(encounterId, EncounterStatus.AVAILABLE);
@@ -2863,24 +2871,31 @@ final class DungeonSystem {
             ), true);
             return;
         }
-        long defeated = definition.encounters().stream()
+        List<DungeonDefinition.Encounter> encounters = run.encounters().definitions;
+        long defeated = encounters.stream()
             .filter(encounter -> run.encounters().statusById.get(encounter.id())
                 == EncounterStatus.DEFEATED)
             .count();
-        List<String> available = definition.encounters().stream()
+        List<String> available = encounters.stream()
             .filter(encounter -> run.encounters().statusById.get(encounter.id())
                 == EncounterStatus.AVAILABLE)
-            .filter(encounter -> encounter.requires().stream().allMatch(required ->
-                run.encounters().statusById.get(required) == EncounterStatus.DEFEATED
+            .filter(encounter -> definition.progression().usesEncounterPrerequisites()
+                || encounter.boss())
+            .filter(encounter -> encounterRequirementsSatisfied(
+                definition, encounter, run.encounters()
             ))
             .map(DungeonDefinition.Encounter::displayName)
             .toList();
         String objective = available.isEmpty()
             ? "목표 상태를 갱신하는 중입니다."
             : String.join(" / ", available);
+        String progress = definition.progression().usesEncounterPrerequisites()
+            ? "필수 조우 " + defeated + "/" + encounters.size()
+            : "선택 조우 " + Math.min(
+                defeated, Math.max(0, encounters.size() - 1)
+            ) + "/" + Math.max(0, encounters.size() - 1);
         player.displayClientMessage(Component.literal(
-            "[던전] 필수 조우 " + defeated + "/" + definition.encounters().size()
-                + " | 현재 목표: " + objective
+            "[던전] " + progress + " | 현재 목표: " + objective
         ), true);
     }
 
@@ -2998,23 +3013,14 @@ final class DungeonSystem {
     ) {
         DungeonDefinition.RandomEncounters settings = definition.randomEncounters();
         if (!settings.enabled()) return null;
-        BlockPos maximum = settings.maximumPosition();
-        if (maximum.getX() >= size.getX() || maximum.getY() >= size.getY()
-            || maximum.getZ() >= size.getZ()) {
-            throw new IllegalStateException(
-                "Dungeon random encounter bounds exceed the template: " + definition.id()
-            );
-        }
+        PursuitEncounterSystem.SpawnBounds bounds = randomEncounterBounds(origin, size);
         return new PursuitEncounterSystem.Config(
             definition.id() + "#slot-" + slot,
             settings.minimumDistance(),
             settings.maximumDistance(),
             settings.maxActive(),
             settings.spawnIntervalTicks(),
-            new PursuitEncounterSystem.SpawnBounds(
-                origin.offset(settings.minimumPosition()),
-                origin.offset(settings.maximumPosition())
-            ),
+            bounds,
             settings.additions().stream().map(species ->
                 new PursuitEncounterSystem.SpeciesChoice(
                     species.species(),
@@ -3024,6 +3030,19 @@ final class DungeonSystem {
                     species.spawnAsEvolved()
                 )
             ).toList()
+        );
+    }
+
+    static PursuitEncounterSystem.SpawnBounds randomEncounterBounds(
+        BlockPos origin, BlockPos size
+    ) {
+        return new PursuitEncounterSystem.SpawnBounds(
+            origin,
+            origin.offset(
+                Math.max(0, size.getX() - 1),
+                Math.max(0, size.getY() - 1),
+                Math.max(0, size.getZ() - 1)
+            )
         );
     }
 
@@ -3457,7 +3476,7 @@ final class DungeonSystem {
         ActiveRun run, DungeonDefinition definition
     ) {
         EncounterRuntime runtime = run.encounters();
-        for (DungeonDefinition.Encounter encounter : definition.encounters()) {
+        for (DungeonDefinition.Encounter encounter : runtime.definitions) {
             DungeonDefinition.EncounterTrigger trigger = encounter.trigger();
             if (trigger == null) continue;
             Entity leader = generatedEncounterEntity(run, encounter, trigger.leader());
@@ -3467,9 +3486,7 @@ final class DungeonSystem {
                 && runtime.pendingEncounterId == null
                 && runtime.dialogueEncounterId == null
                 && !runtime.statusById.containsValue(EncounterStatus.ACTIVE)
-                && encounter.requires().stream().allMatch(required ->
-                    runtime.statusById.get(required) == EncounterStatus.DEFEATED
-                );
+                && encounterRequirementsSatisfied(definition, encounter, runtime);
             double triggerSquared = trigger.range() * trigger.range();
             double warningRange = trigger.range() + trigger.warningOffset();
             double warningSquared = warningRange * warningRange;
@@ -3652,8 +3669,10 @@ final class DungeonSystem {
                     reservedSlot = -1;
                     continue;
                 }
+                DungeonDefinition runDefinition = definition
+                    .materializeGeneratedTrainers(tag.getLong("seed"));
                 EncounterRuntime encounterRuntime = new EncounterRuntime(
-                    getEncounterEntities(tag), definition.encounters(),
+                    getEncounterEntities(tag), runDefinition.encounters(),
                     getBlockPositionMap(tag, "encounterPositions")
                 );
                 getStringSet(tag, "defeatedEncounters").forEach(id -> {
@@ -4744,6 +4763,7 @@ final class DungeonSystem {
     }
 
     private static final class EncounterRuntime {
+        private final List<DungeonDefinition.Encounter> definitions;
         private final Map<UUID, EncounterEntityRef> encounterByEntity;
         private final Map<String, BlockPos> positionsById;
         private final Map<String, EncounterStatus> statusById = new HashMap<>();
@@ -4761,11 +4781,18 @@ final class DungeonSystem {
             List<DungeonDefinition.Encounter> encounters,
             Map<String, BlockPos> positionsById
         ) {
+            this.definitions = List.copyOf(encounters);
             this.encounterByEntity = new HashMap<>(encounterByEntity);
             this.positionsById = Map.copyOf(positionsById);
             encounters.forEach(encounter ->
                 statusById.put(encounter.id(), EncounterStatus.AVAILABLE)
             );
+        }
+
+        private DungeonDefinition.Encounter encounter(String id) {
+            return definitions.stream()
+                .filter(encounter -> encounter.id().equals(id))
+                .findFirst().orElse(null);
         }
     }
 

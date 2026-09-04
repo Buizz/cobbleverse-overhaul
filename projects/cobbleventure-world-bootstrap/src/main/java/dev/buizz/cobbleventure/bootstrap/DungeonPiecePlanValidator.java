@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -157,6 +158,26 @@ final class DungeonPiecePlanValidator {
                             + placement.index() + "/" + connector.id()
                     );
                 }
+            }
+        }
+    }
+
+    static void validateRequiredChambers(
+        DungeonPiecePlan plan,
+        Map<String, DungeonPieceDefinition> pieces,
+        List<String> requiredChambers
+    ) {
+        Set<String> placed = plan.placements().stream()
+            .map(DungeonPiecePlan.Placement::pieceId)
+            .collect(java.util.stream.Collectors.toSet());
+        for (String required : requiredChambers) {
+            DungeonPieceDefinition piece = pieces.get(required);
+            if (piece == null || !piece.spatialKind().equals("chamber")
+                || !piece.role().equals("room")) {
+                throw invalid("selected piece is not an ordinary chamber: " + required);
+            }
+            if (!placed.contains(required)) {
+                throw invalid("selected chamber is missing: " + required);
             }
         }
     }

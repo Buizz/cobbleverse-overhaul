@@ -48,17 +48,34 @@ final class DungeonPiecePlanner {
                 DungeonPieceDefinition::id, piece -> piece
             )
         );
+        validateRequiredChambers(byId, settings.requiredChamberPieces());
+        if (settings.verticalMode().equals("discrete_floors")
+            && settings.floorChangesMax() > 0) {
+            return generateSeparateFloors(
+                pieces, settings, seed, deadlineNanos
+            );
+        }
+        return generateContinuous(pieces, byId, settings, seed, deadlineNanos);
+    }
+
+    private static DungeonPiecePlan generateContinuous(
+        List<DungeonPieceDefinition> pieces,
+        Map<String, DungeonPieceDefinition> byId,
+        Settings settings,
+        long seed,
+        long deadlineNanos
+    ) {
+        List<DungeonPieceDefinition> planningPieces = selectablePieces(
+            pieces, settings
+        );
         String lastStage = "start";
         for (int attempt = 0; attempt < settings.maxAttempts(); attempt++) {
             if (System.nanoTime() >= deadlineNanos) break;
             SearchBudget budget = new SearchBudget(
-                deadlineNanos,
-                settings.floorLayoutModes().contains("room_network")
-                    ? MAX_SEARCH_NODES_PER_ATTEMPT * 5
-                    : MAX_SEARCH_NODES_PER_ATTEMPT
+                deadlineNanos, MAX_SEARCH_NODES_PER_ATTEMPT
             );
             Random random = new Random(mixSeed(seed, attempt));
-            State state = startState(pieces, settings, random);
+            State state = startState(planningPieces, settings, random);
             if (state == null) {
                 lastStage = "start";
                 continue;
@@ -70,7 +87,7 @@ final class DungeonPiecePlanner {
                 random, settings.branchCountMin(), settings.branchCountMax()
             );
             if (!extendCritical(
-                state, pieces, settings, random, targetRooms, targetBranches, 1,
+                state, planningPieces, settings, random, targetRooms, targetBranches, 1,
                 budget
             )) {
                 lastStage = "critical_path";
@@ -82,12 +99,12 @@ final class DungeonPiecePlanner {
             );
             state.absorbAdditionalLinks(looped.links());
             if (!completeOpenConnectors(
-                state, pieces, settings, random, budget
+                state, planningPieces, settings, random, budget
             )) {
                 lastStage = "open_connectors";
                 continue;
             }
-            if (!usageSatisfied(state, pieces)) {
+            if (!usageSatisfied(state, planningPieces)) {
                 lastStage = "piece_usage";
                 continue;
             }
@@ -96,6 +113,854 @@ final class DungeonPiecePlanner {
         throw new IllegalStateException(
             "Dungeon piece planning failed after " + settings.maxAttempts()
                 + " attempts at " + lastStage
+        );
+    }
+
+    /**
+     * Builds every horizontal floor as a complete local plan first. Only after all
+     * floors succeed are their reserved ports aligned with rotated stair pieces.
+     */
+    private static DungeonPiecePlan generateSeparateFloors(
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        long seed,
+        long deadlineNanos
+    ) {
+        List<DungeonPieceDefinition> planningPieces = selectablePieces(
+            pieces, settings
+        );
+        IllegalStateException lastFailure = null;
+        for (int attempt = 0; attempt < settings.maxAttempts(); attempt++) {
+            if (System.nanoTime() >= deadlineNanos) break;
+            Random layoutRandom = new Random(mixSeed(seed, attempt));
+            try {
+                int floorCount = settings.floorChangesMax() + 1;
+                FloorAllocation allocation = allocateFloors(
+                    planningPieces, settings, floorCount, layoutRandom
+                );
+                int branches = randomRange(
+                    layoutRandom, settings.branchCountMin(), settings.branchCountMax()
+                );
+                List<FloorResult> floors = new ArrayList<>();
+                for (int floor = 0; floor < floorCount; floor++) {
+                    // A floor owns its random stream. Equal room counts must not make
+                    // later floors replay the same compact attachment choices.
+                    Random floorRandom = new Random(mixSeed(
+                        mixSeed(seed, attempt), floor + 1
+                    ));
+                    int floorBranches = branches / floorCount
+                        + (floor < branches % floorCount ? 1 : 0);
+                    int floorNumber = floor;
+                    List<String> floorRequired = allocation.requiredChambers().get(floor);
+                    List<DungeonPieceDefinition> floorPieces = planningPieces.stream()
+                        .filter(piece -> floorRequired.contains(piece.id())
+                            || piece.maximumPerPlan() > floorNumber)
+                        .filter(piece -> !piece.role().equals("room")
+                            || !floorRequired.isEmpty())
+                        .toList();
+                    FloorResult result = generateFloor(
+                        floorPieces, settings, allocation.placementCounts().get(floor),
+                        floorRequired, floor == 0,
+                        floor == floorCount - 1, floorBranches, floorRandom,
+                        new SearchBudget(deadlineNanos, MAX_SEARCH_NODES_PER_ATTEMPT)
+                    );
+                    if (result == null) {
+                        throw new IllegalStateException(
+                            "Dungeon floor planning failed: " + (floor + 1)
+                        );
+                    }
+                    floors.add(result);
+                }
+                return connectFloors(floors, planningPieces, settings, seed);
+            } catch (IllegalStateException failure) {
+                lastFailure = failure;
+            }
+        }
+        if (lastFailure != null) throw lastFailure;
+        throw new IllegalStateException("Dungeon separate-floor planning timed out");
+    }
+
+    private static FloorAllocation allocateFloors(
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        int floorCount,
+        Random random
+    ) {
+        // Every floor needs enough path depth for its routes. Ordinary chamber
+        // pieces are opt-in through requiredChamberPieces; start, boss and exit
+        // remain structural endpoints.
+        int minimumPlacements = floorCount * 10 + 1;
+        int requested = randomRange(
+            random, settings.criticalPathMin(), settings.criticalPathMax()
+        );
+        int total = Math.max(
+            requested, minimumPlacements + settings.requiredChamberPieces().size()
+        );
+        List<Integer> counts = new ArrayList<>();
+        List<Long> occupiedCells = new ArrayList<>();
+        for (int floor = 0; floor < floorCount; floor++) {
+            int base = floor == floorCount - 1 ? 11 : 10;
+            counts.add(base);
+            occupiedCells.add((long) base);
+        }
+
+        Map<String, DungeonPieceDefinition> byId = pieces.stream().collect(
+            java.util.stream.Collectors.toMap(DungeonPieceDefinition::id, value -> value)
+        );
+        List<List<String>> assigned = new ArrayList<>();
+        for (int floor = 0; floor < floorCount; floor++) {
+            assigned.add(new ArrayList<>());
+        }
+        List<String> largestFirst = settings.requiredChamberPieces().stream()
+            .sorted(Comparator.comparingLong((String id) -> {
+                BlockPos size = byId.get(id).size();
+                return (long) size.getX() * size.getZ();
+            }).reversed()).toList();
+        for (String id : largestFirst) {
+            int target = java.util.stream.IntStream.range(0, floorCount).boxed()
+                .min(Comparator.comparingLong(occupiedCells::get)).orElseThrow();
+            assigned.get(target).add(id);
+            BlockPos size = byId.get(id).size();
+            long footprintCells = (long) Math.ceil(size.getX() / 16.0D)
+                * (long) Math.ceil(size.getZ() / 16.0D);
+            counts.set(target, counts.get(target) + 1);
+            occupiedCells.set(target, occupiedCells.get(target) + footprintCells);
+        }
+        for (int remaining = total - counts.stream().mapToInt(Integer::intValue).sum();
+             remaining > 0; remaining--) {
+            int floor = java.util.stream.IntStream.range(0, floorCount)
+                .boxed().min(Comparator.comparingLong(occupiedCells::get)).orElseThrow();
+            counts.set(floor, counts.get(floor) + 1);
+            occupiedCells.set(floor, occupiedCells.get(floor) + 1L);
+        }
+        return new FloorAllocation(
+            List.copyOf(counts), assigned.stream().map(List::copyOf).toList()
+        );
+    }
+
+    private static FloorResult generateFloor(
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        int placementCount,
+        List<String> requiredChambers,
+        boolean firstFloor,
+        boolean lastFloor,
+        int branchCount,
+        Random random,
+        SearchBudget budget
+    ) {
+        for (int attempt = 0; attempt < 32; attempt++) {
+            FloorResult result = generateFloorAttempt(
+                pieces, settings, placementCount, requiredChambers,
+                firstFloor, lastFloor, branchCount, random, budget
+            );
+            if (result != null) return result;
+        }
+        return null;
+    }
+
+    private static FloorResult generateFloorAttempt(
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        int placementCount,
+        List<String> requiredChambers,
+        boolean firstFloor,
+        boolean lastFloor,
+        int branchCount,
+        Random random,
+        SearchBudget budget
+    ) {
+        int largestWidth = pieces.stream()
+            .filter(piece -> requiredChambers.contains(piece.id()))
+            .mapToInt(piece -> Math.max(piece.size().getX(), piece.size().getZ()))
+            .max().orElse(16);
+        int wantedSide = Math.max(
+            64, (int) Math.ceil(Math.sqrt(placementCount * 2.0D)) * 16
+                + largestWidth + 32
+        );
+        if (largestWidth > 16) {
+            wantedSide = Math.max(
+                wantedSide,
+                Math.min(settings.bounds().getX(), settings.bounds().getZ())
+            );
+        }
+        BlockPos localBounds = new BlockPos(
+            Math.min(settings.bounds().getX(), wantedSide),
+            settings.floorHeight(),
+            Math.min(settings.bounds().getZ(), wantedSide)
+        );
+        Settings floorSettings = withBounds(settings, localBounds, requiredChambers);
+        List<String> roles = new ArrayList<>();
+        roles.add(firstFloor ? "start" : "corridor");
+        int ending = lastFloor ? 2 : 1;
+        while (roles.size() < placementCount - ending) roles.add("flexible");
+        if (lastFloor) {
+            roles.add("boss"); roles.add("exit");
+        } else {
+            roles.add("corridor");
+        }
+        State state = new State();
+        StartChoice start = floorStart(
+            pieces, floorSettings, roles.getFirst(), requiredChambers,
+            !firstFloor, random
+        );
+        if (start == null) return null;
+        state.placements.add(start.placed());
+        if (start.reservedIncoming() != null) {
+            state.usedConnectors.add(new ConnectorKey(
+                start.placed(), start.reservedIncoming().id()
+            ));
+            Box stairClearance = incomingStairBox(
+                start.placed(), start.reservedIncoming(), pieces,
+                settings.verticalDirection()
+            );
+            if (stairClearance == null
+                || overlapsAny(stairClearance, state.placements)) return null;
+            state.reservedBoxes.add(stairClearance);
+        }
+        if (!extendFloorPath(
+            state, pieces, floorSettings, roles, 1, requiredChambers,
+            !lastFloor, branchCount, firstFloor, random, budget
+        )) return null;
+
+        Placed last = state.placements.getLast();
+        DungeonPieceDefinition.Connector outgoing = null;
+        if (!lastFloor) {
+            outgoing = openForStair(
+                last, state, floorSettings.bounds(), pieces,
+                settings.verticalDirection()
+            );
+            if (outgoing == null) return null;
+            state.usedConnectors.add(new ConnectorKey(last, outgoing.id()));
+        }
+        if (!attachBranches(
+            state, pieces, floorSettings,
+            random, branchCount, budget
+        )) return null;
+        if (!completeOpenConnectors(
+            state, pieces, floorSettings, random, budget
+        )) return null;
+        if (!requiredChambersSatisfied(
+            state, floorSettings
+        )) return null;
+        if (!usageSatisfied(state, pieces)) return null;
+        return new FloorResult(
+            state, start.placed(), last,
+            start.reservedIncoming() == null ? null
+                : start.reservedIncoming().id(),
+            outgoing == null ? null : outgoing.id()
+        );
+    }
+
+    private static Settings withBounds(
+        Settings source, BlockPos bounds, List<String> required
+    ) {
+        return new Settings(
+            bounds, source.criticalPathMin(), source.criticalPathMax(),
+            source.branchCountMin(), source.branchCountMax(),
+            source.branchDepthMin(), source.branchDepthMax(), source.loopChance(),
+            1, source.layoutMode(), "flat", 0, 0, "flat",
+            source.floorHeight(), required
+        );
+    }
+
+    private static StartChoice floorStart(
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        String role,
+        List<String> required,
+        boolean reserveIncoming,
+        Random random
+    ) {
+        List<DungeonPieceDefinition> candidates = prioritizeIds(
+            weightedOrder(pieces.stream()
+                .filter(piece -> piece.role().equals(role))
+                .filter(piece -> !isVerticalTransition(piece))
+                .filter(piece -> piece.allowsPlacement(true))
+                .filter(piece -> piece.maximumPerPlan() >= 1).toList(), random),
+            required
+        );
+        for (DungeonPieceDefinition piece : candidates) {
+            for (Rotation rotation : rotationOrder(piece, random)) {
+                DungeonPieceDefinition.Connector incoming = reserveIncoming
+                    ? shuffled(piece.connectors(), random).stream().findFirst().orElse(null)
+                    : null;
+                if (reserveIncoming && incoming == null) continue;
+                if (reserveIncoming && piece.connectors().size() < 2) continue;
+                LocalBounds local = localBounds(piece.size(), rotation);
+                BlockPos minimum = new BlockPos(
+                    (settings.bounds().getX() - local.size().getX()) / 2,
+                    0,
+                    (settings.bounds().getZ() - local.size().getZ()) / 2
+                );
+                Placed placed = placed(
+                    piece, minimum.subtract(local.minimum()), rotation, true
+                );
+                if (inside(placed.box(), settings.bounds())) {
+                    return new StartChoice(placed, incoming);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean extendFloorPath(
+        State state,
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        List<String> roles,
+        int index,
+        List<String> required,
+        boolean reserveOutgoing,
+        int branchCount,
+        boolean firstFloor,
+        Random random,
+        SearchBudget budget
+    ) {
+        if (!budget.tryVisit()) return false;
+        if (index >= roles.size()) {
+            Set<String> placed = state.placements.stream()
+                .map(value -> value.definition().id())
+                .collect(java.util.stream.Collectors.toSet());
+            return placed.containsAll(required);
+        }
+        String wanted = roles.get(index);
+        Set<String> missing = required.stream().filter(id -> state.placements.stream()
+            .noneMatch(value -> value.definition().id().equals(id)))
+            .collect(java.util.stream.Collectors.toSet());
+        int remainingRoomSlots = (int) roles.subList(index, roles.size()).stream()
+            .filter(role -> role.equals("room") || role.equals("flexible")).count();
+        Set<String> configuredRoles = criticalRoles(settings.layoutMode(), index);
+        Set<String> flexible = new HashSet<>(configuredRoles);
+        boolean hasSelectableChambers = pieces.stream()
+            .anyMatch(piece -> piece.role().equals("room"));
+        if (!hasSelectableChambers
+            && configuredRoles.contains("room")) {
+            flexible.add("corridor"); flexible.add("junction");
+        }
+        boolean needsBranchHost = state.branchHostCount() < branchCount;
+        List<DungeonPieceDefinition> candidates = pieces.stream()
+            .filter(piece -> wanted.equals("flexible")
+                ? flexible.contains(piece.role()) || missing.contains(piece.id())
+                    || firstFloor && flexible.contains("room")
+                        && piece.role().equals("support")
+                : piece.role().equals(wanted))
+            .filter(piece -> !isVerticalTransition(piece))
+            .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
+            .filter(piece -> piece.allowsPlacement(true))
+            .filter(piece -> canUse(state, piece))
+            .filter(piece -> missing.contains(piece.id())
+                || wanted.equals("boss") || wanted.equals("exit")
+                || finalPathConnectorCount(piece, needsBranchHost))
+            .filter(piece -> missing.size() < remainingRoomSlots
+                || missing.isEmpty() || missing.contains(piece.id()))
+            .toList();
+        candidates = prioritizeIds(weightedOrder(candidates, random), missing);
+        long expandedChambers = state.placements.stream()
+            .filter(placed -> placed.definition().spatialKind().equals("chamber"))
+            .filter(placed -> horizontalFootprintCells(placed.definition()) >= 2)
+            .count();
+        if (expandedChambers < 2 && (wanted.equals("room")
+            || wanted.equals("flexible") && flexible.contains("room"))) {
+            candidates = prioritizeLargestChamber(candidates, missing);
+        }
+        boolean needsSupport = firstFloor && state.placements.stream()
+            .noneMatch(placed -> placed.definition().role().equals("support"));
+        if (needsSupport && (wanted.equals("room")
+            || wanted.equals("flexible") && flexible.contains("room"))) {
+            candidates = prioritizeSupportChamber(candidates, missing);
+        }
+        Placed current = state.placements.getLast();
+        boolean finalPlacement = index == roles.size() - 1;
+        List<Attachment> attachments = new ArrayList<>();
+        for (DungeonPieceDefinition.Connector from : connectorOrder(current, state, random)) {
+            for (DungeonPieceDefinition piece : candidates) {
+                for (Rotation rotation : rotationOrder(piece, random)) {
+                    if (finalPlacement && reserveOutgoing
+                        && piece.connectors().size() < 2) continue;
+                    for (DungeonPieceDefinition.Connector to
+                        : shuffled(piece.connectors(), random)) {
+                        Attachment attachment = attachment(
+                            current, from, piece, to, rotation, true
+                        );
+                        if (attachment == null
+                            || !inside(attachment.placed().box(), settings.bounds())
+                            || overlapsState(attachment.placed().box(), state)) continue;
+                        attachments.add(attachment);
+                    }
+                }
+            }
+        }
+        attachments.sort(Comparator.comparingInt(attachment ->
+            compactnessScore(state, attachment.placed())
+        ));
+        int explored = 0;
+        for (Attachment attachment : attachments) {
+            if (explored++ >= 24) break;
+            state.add(attachment);
+            if (extendFloorPath(
+                state, pieces, settings, roles, index + 1, required,
+                reserveOutgoing, branchCount, firstFloor, random, budget
+            )) return true;
+            state.removeLast(attachment);
+        }
+        return false;
+    }
+
+    private static boolean finalPathConnectorCount(
+        DungeonPieceDefinition piece, boolean needsBranchHost
+    ) {
+        return needsBranchHost ? piece.connectors().size() >= 3
+            : piece.connectors().size() <= 2;
+    }
+
+    private static List<DungeonPieceDefinition> prioritizeIds(
+        List<DungeonPieceDefinition> candidates, Collection<String> preferred
+    ) {
+        List<DungeonPieceDefinition> result = new ArrayList<>(candidates);
+        result.sort(Comparator.comparingInt(piece -> preferred.contains(piece.id()) ? 0 : 1));
+        return result;
+    }
+
+    private static List<DungeonPieceDefinition> prioritizeMinimumUsage(
+        State state, List<DungeonPieceDefinition> candidates
+    ) {
+        List<DungeonPieceDefinition> result = new ArrayList<>(candidates);
+        result.sort(Comparator.comparingInt(piece ->
+            state.placements.stream().filter(placed ->
+                placed.definition().id().equals(piece.id())
+            ).count() < piece.minimumPerPlan() ? 0 : 1
+        ));
+        return result;
+    }
+
+    private static List<DungeonPieceDefinition> prioritizeLargestChamber(
+        List<DungeonPieceDefinition> candidates, Collection<String> required
+    ) {
+        List<DungeonPieceDefinition> result = new ArrayList<>(candidates);
+        result.sort(Comparator
+            .comparingInt((DungeonPieceDefinition piece) ->
+                required.contains(piece.id()) ? 0 : 1)
+            .thenComparingInt(piece -> horizontalFootprintCells(piece) >= 2 ? 0 : 1));
+        return result;
+    }
+
+    private static List<DungeonPieceDefinition> prioritizeSupportChamber(
+        List<DungeonPieceDefinition> candidates, Collection<String> required
+    ) {
+        List<DungeonPieceDefinition> result = new ArrayList<>(candidates);
+        result.sort(Comparator.comparingInt(piece ->
+            required.contains(piece.id()) ? 0
+                : piece.role().equals("support") ? 1 : 2
+        ));
+        return result;
+    }
+
+    private static long horizontalFootprintCells(DungeonPieceDefinition piece) {
+        return (long) Math.ceil(piece.size().getX() / 16.0D)
+            * (long) Math.ceil(piece.size().getZ() / 16.0D);
+    }
+
+    private static DungeonPieceDefinition.Connector connectorFacing(
+        DungeonPieceDefinition piece, Rotation rotation, Direction facing
+    ) {
+        return piece.connectors().stream()
+            .filter(connector -> rotation.rotate(connector.facing()) == facing)
+            .findFirst().orElse(null);
+    }
+
+    private static DungeonPieceDefinition.Connector openForStair(
+        Placed placed,
+        State state,
+        BlockPos bounds,
+        List<DungeonPieceDefinition> pieces,
+        String verticalDirection
+    ) {
+        String shape = verticalDirection.equals("descending")
+            ? "stairs_down" : "stairs_up";
+        DungeonPieceDefinition stair = pieces.stream()
+            .filter(DungeonPiecePlanner::isVerticalTransition)
+            .filter(piece -> piece.id().endsWith("/" + shape)
+                || piece.tags().stream().anyMatch(tag -> tag.endsWith("/" + shape)))
+            .findFirst().orElse(null);
+        if (stair == null) return null;
+        DungeonPieceDefinition.Connector stairFrom = stair.connectors().stream()
+            .filter(connector -> connector.facing() == Direction.WEST)
+            .findFirst().orElse(null);
+        if (stairFrom == null) return null;
+        BlockPos center = new BlockPos(bounds.getX() / 2, 0, bounds.getZ() / 2);
+        return placed.definition().connectors().stream()
+            .filter(connector -> !state.usedConnectors.contains(
+                new ConnectorKey(placed, connector.id())
+            )).filter(connector -> {
+                Direction facing = placed.rotation().rotate(connector.facing());
+                Rotation stairRotation = ROTATIONS.stream().filter(rotation ->
+                    rotation.rotate(stairFrom.facing()) == facing.getOpposite()
+                ).findFirst().orElse(null);
+                if (stairRotation == null) return false;
+                BlockPos position = connectorPosition(
+                    placed, connector, BlockPos.ZERO
+                );
+                BlockPos origin = position.relative(facing).subtract(
+                    transform(stairFrom.position(), stairRotation)
+                );
+                return !overlapsState(
+                    placed(stair, origin, stairRotation, true).box(), state
+                );
+            }).min(Comparator.comparingInt(connector -> {
+                Direction facing = placed.rotation().rotate(connector.facing());
+                BlockPos position = connectorPosition(
+                    placed, connector, BlockPos.ZERO
+                ).relative(facing);
+                return Math.abs(position.getX() - center.getX())
+                    + Math.abs(position.getZ() - center.getZ());
+            })).orElse(null);
+    }
+
+    private static Box incomingStairBox(
+        Placed incomingPiece,
+        DungeonPieceDefinition.Connector incoming,
+        List<DungeonPieceDefinition> pieces,
+        String verticalDirection
+    ) {
+        String shape = verticalDirection.equals("descending")
+            ? "stairs_down" : "stairs_up";
+        DungeonPieceDefinition stair = pieces.stream()
+            .filter(DungeonPiecePlanner::isVerticalTransition)
+            .filter(piece -> piece.id().endsWith("/" + shape)
+                || piece.tags().stream().anyMatch(tag -> tag.endsWith("/" + shape)))
+            .findFirst().orElse(null);
+        if (stair == null) return null;
+        Direction incomingFacing = incomingPiece.rotation().rotate(incoming.facing());
+        DungeonPieceDefinition.Connector stairTo = stair.connectors().stream()
+            .filter(connector -> connector.facing() == Direction.EAST)
+            .findFirst().orElse(null);
+        if (stairTo == null) return null;
+        Rotation stairRotation = ROTATIONS.stream().filter(rotation ->
+            rotation.rotate(stairTo.facing()) == incomingFacing.getOpposite()
+        ).findFirst().orElse(null);
+        if (stairRotation == null) return null;
+        BlockPos incomingPosition = connectorPosition(
+            incomingPiece, incoming, BlockPos.ZERO
+        );
+        BlockPos stairOrigin = incomingPosition.relative(incomingFacing)
+            .subtract(transform(stairTo.position(), stairRotation));
+        return placed(stair, stairOrigin, stairRotation, true).box();
+    }
+
+    private static DungeonPiecePlan connectFloors(
+        List<FloorResult> floors,
+        List<DungeonPieceDefinition> pieces,
+        Settings settings,
+        long seed
+    ) {
+        boolean descending = settings.verticalDirection().equals("descending");
+        String stairShape = descending ? "stairs_down" : "stairs_up";
+        DungeonPieceDefinition stair = pieces.stream()
+            .filter(DungeonPiecePlanner::isVerticalTransition)
+            .filter(piece -> piece.id().endsWith("/" + stairShape)
+                || piece.tags().stream().anyMatch(tag ->
+                    tag.endsWith("/" + stairShape)))
+            .findFirst().orElseThrow(() -> new IllegalStateException(
+                "Dungeon piece pool has no " + stairShape + " piece"
+            ));
+        DungeonPieceDefinition.Connector stairWest = connectorFacing(
+            stair, Rotation.NONE, Direction.WEST
+        );
+        DungeonPieceDefinition.Connector stairEast = connectorFacing(
+            stair, Rotation.NONE, Direction.EAST
+        );
+        if (stairWest == null || stairEast == null) {
+            throw new IllegalStateException(
+                "Dungeon stair requires west and east connectors: " + stair.id()
+            );
+        }
+
+        List<FloorTransform> transforms = new ArrayList<>();
+        List<StairJoin> joins = new ArrayList<>();
+        int firstY = descending
+            ? (floors.size() - 1) * settings.floorHeight() : 0;
+        transforms.add(new FloorTransform(
+            Rotation.NONE, new BlockPos(0, firstY, 0)
+        ));
+        for (int floor = 0; floor < floors.size() - 1; floor++) {
+            FloorResult current = floors.get(floor);
+            FloorResult next = floors.get(floor + 1);
+            DungeonPieceDefinition.Connector outgoing = connector(
+                current.outgoingPiece().definition(), current.outgoingConnector()
+            );
+            FloorTransform currentTransform = transforms.get(floor);
+            BlockPos outgoingPosition = transformedConnectorPosition(
+                current.outgoingPiece(), outgoing, currentTransform
+            );
+            Direction outgoingFacing = currentTransform.rotation().rotate(
+                current.outgoingPiece().rotation().rotate(outgoing.facing())
+            );
+            Rotation stairRotation = ROTATIONS.stream().filter(rotation ->
+                rotation.rotate(stairWest.facing()) == outgoingFacing.getOpposite()
+            ).findFirst().orElseThrow();
+            BlockPos stairOrigin = outgoingPosition.relative(outgoingFacing)
+                .subtract(transform(stairWest.position(), stairRotation));
+            DungeonPieceDefinition.Connector incoming = connector(
+                next.incomingPiece().definition(), next.incomingConnector()
+            );
+            Direction stairToFacing = stairRotation.rotate(stairEast.facing());
+            BlockPos wantedIncoming = stairOrigin.offset(
+                transform(stairEast.position(), stairRotation)
+            ).relative(stairToFacing);
+            Direction localIncomingFacing = next.incomingPiece().rotation().rotate(
+                incoming.facing()
+            );
+            Rotation nextRotation = ROTATIONS.stream().filter(rotation ->
+                rotation.rotate(localIncomingFacing) == stairToFacing.getOpposite()
+            ).findFirst().orElseThrow();
+            BlockPos localIncoming = next.incomingPiece().origin().offset(
+                transform(incoming.position(), next.incomingPiece().rotation())
+            );
+            BlockPos nextShift = wantedIncoming.subtract(
+                transform(localIncoming, nextRotation)
+            );
+            int expectedY = descending
+                ? firstY - (floor + 1) * settings.floorHeight()
+                : (floor + 1) * settings.floorHeight();
+            if (nextShift.getY() != expectedY) {
+                throw new IllegalStateException(
+                    "Dungeon stair height differs from configured floor height"
+                );
+            }
+            transforms.add(new FloorTransform(nextRotation, nextShift));
+            joins.add(new StairJoin(
+                floor, stairOrigin, stair, stairRotation,
+                stairWest.id(), stairEast.id()
+            ));
+        }
+
+        List<DungeonPiecePlan.Placement> placements = new ArrayList<>();
+        List<DungeonPiecePlan.Link> links = new ArrayList<>();
+        List<Map<Placed, Integer>> indices = new ArrayList<>();
+        List<Integer> stairIndices = new ArrayList<>();
+        for (int floor = 0; floor < floors.size(); floor++) {
+            FloorResult result = floors.get(floor);
+            FloorTransform floorTransform = transforms.get(floor);
+            Map<Placed, Integer> floorIndices = new java.util.HashMap<>();
+            for (Placed placed : result.state().placements) {
+                int index = placements.size();
+                floorIndices.put(placed, index);
+                placements.add(toPlacement(index, placed, floorTransform));
+            }
+            for (PlanLink link : result.state().links) {
+                Placed from = result.state().placements.get(link.fromIndex());
+                Placed to = result.state().placements.get(link.toIndex());
+                links.add(new DungeonPiecePlan.Link(
+                    floorIndices.get(from), link.fromConnector(),
+                    floorIndices.get(to), link.toConnector(), link.critical()
+                ));
+            }
+            indices.add(floorIndices);
+            if (floor < joins.size()) {
+                StairJoin join = joins.get(floor);
+                int stairIndex = placements.size();
+                Placed stairPlaced = placed(
+                    join.piece(), join.origin(), join.rotation(), true
+                );
+                placements.add(toPlacement(
+                    stairIndex, stairPlaced,
+                    new FloorTransform(Rotation.NONE, BlockPos.ZERO)
+                ));
+                stairIndices.add(stairIndex);
+            }
+        }
+        for (StairJoin join : joins) {
+            int index = stairIndices.get(join.floor());
+            FloorResult current = floors.get(join.floor());
+            FloorResult next = floors.get(join.floor() + 1);
+            links.add(new DungeonPiecePlan.Link(
+                indices.get(join.floor()).get(current.outgoingPiece()),
+                current.outgoingConnector(), index, join.fromConnector(), true
+            ));
+            links.add(new DungeonPiecePlan.Link(
+                index, join.toConnector(),
+                indices.get(join.floor() + 1).get(next.incomingPiece()),
+                next.incomingConnector(), true
+            ));
+        }
+
+        int minimumX = placements.stream().mapToInt(value -> value.minimum().getX())
+            .min().orElse(0);
+        int minimumZ = placements.stream().mapToInt(value -> value.minimum().getZ())
+            .min().orElse(0);
+        int maximumX = placements.stream().mapToInt(value ->
+            value.minimum().getX() + value.size().getX()).max().orElse(0);
+        int maximumZ = placements.stream().mapToInt(value ->
+            value.minimum().getZ() + value.size().getZ()).max().orElse(0);
+        BlockPos normalization = new BlockPos(
+            minimumX < 0 ? -minimumX
+                : maximumX > settings.bounds().getX()
+                    ? settings.bounds().getX() - maximumX : 0,
+            0,
+            minimumZ < 0 ? -minimumZ
+                : maximumZ > settings.bounds().getZ()
+                    ? settings.bounds().getZ() - maximumZ : 0
+        );
+        if (!normalization.equals(BlockPos.ZERO)) {
+            placements = placements.stream().map(value -> translate(value, normalization))
+                .toList();
+        }
+        for (DungeonPiecePlan.Placement placement : placements) {
+            if (!inside(placement, settings.bounds())) {
+                throw new IllegalStateException(
+                    "Connected dungeon floors exceed dungeon bounds at "
+                        + placement.minimum() + " + " + placement.size()
+                        + " within " + settings.bounds()
+                );
+            }
+        }
+        for (int first = 0; first < placements.size(); first++) {
+            for (int second = first + 1; second < placements.size(); second++) {
+                if (overlaps(placements.get(first), placements.get(second))) {
+                    throw new IllegalStateException(
+                        "Connected dungeon floors overlap after stair alignment: "
+                            + first + "/" + placements.get(first).pieceId()
+                            + " at " + placements.get(first).minimum()
+                            + " and " + second + "/"
+                            + placements.get(second).pieceId() + " at "
+                            + placements.get(second).minimum()
+                    );
+                }
+            }
+        }
+        Map<String, Long> usage = placements.stream().collect(
+            java.util.stream.Collectors.groupingBy(
+                DungeonPiecePlan.Placement::pieceId,
+                java.util.stream.Collectors.counting()
+            )
+        );
+        List<String> usageViolations = pieces.stream().filter(piece -> {
+            long count = usage.getOrDefault(piece.id(), 0L);
+            return count < piece.minimumPerPlan() || count > piece.maximumPerPlan();
+        }).map(piece -> piece.id() + "=" + usage.getOrDefault(piece.id(), 0L)
+            + "/" + piece.minimumPerPlan() + ".." + piece.maximumPerPlan())
+            .toList();
+        if (!usageViolations.isEmpty()) {
+            throw new IllegalStateException(
+                "Connected dungeon floors violate piece usage limits: "
+                    + String.join(", ", usageViolations)
+            );
+        }
+        return new DungeonPiecePlan(
+            seed, settings.bounds(), List.copyOf(placements), List.copyOf(links)
+        );
+    }
+
+    private static DungeonPiecePlan.Placement toPlacement(
+        int index, Placed placed, FloorTransform floorTransform
+    ) {
+        Rotation rotation = combine(
+            floorTransform.rotation(), placed.rotation()
+        );
+        BlockPos origin = transform(
+            placed.origin(), floorTransform.rotation()
+        ).offset(floorTransform.translation());
+        Placed transformed = placed(
+            placed.definition(), origin, rotation, placed.critical()
+        );
+        BlockPos size = transformed.box().maximumExclusive().subtract(
+            transformed.box().minimum()
+        );
+        return new DungeonPiecePlan.Placement(
+            index, placed.definition().id(), placed.definition().role(),
+            origin, rotation, transformed.box().minimum(), size, placed.critical()
+        );
+    }
+
+    private static BlockPos transformedConnectorPosition(
+        Placed placed,
+        DungeonPieceDefinition.Connector connector,
+        FloorTransform floorTransform
+    ) {
+        BlockPos local = placed.origin().offset(
+            transform(connector.position(), placed.rotation())
+        );
+        return transform(local, floorTransform.rotation())
+            .offset(floorTransform.translation());
+    }
+
+    private static Rotation combine(Rotation outer, Rotation inner) {
+        return rotationByTurns(rotationTurns(outer) + rotationTurns(inner));
+    }
+
+    private static int rotationTurns(Rotation rotation) {
+        return switch (rotation) {
+            case NONE -> 0;
+            case CLOCKWISE_90 -> 1;
+            case CLOCKWISE_180 -> 2;
+            case COUNTERCLOCKWISE_90 -> 3;
+        };
+    }
+
+    private static Rotation rotationByTurns(int turns) {
+        return switch (Math.floorMod(turns, 4)) {
+            case 0 -> Rotation.NONE;
+            case 1 -> Rotation.CLOCKWISE_90;
+            case 2 -> Rotation.CLOCKWISE_180;
+            default -> Rotation.COUNTERCLOCKWISE_90;
+        };
+    }
+
+    private static DungeonPiecePlan.Placement translate(
+        DungeonPiecePlan.Placement placement, BlockPos shift
+    ) {
+        return new DungeonPiecePlan.Placement(
+            placement.index(), placement.pieceId(), placement.role(),
+            placement.templateOrigin().offset(shift), placement.rotation(),
+            placement.minimum().offset(shift), placement.size(),
+            placement.criticalPath()
+        );
+    }
+
+    private static boolean inside(
+        DungeonPiecePlan.Placement placement, BlockPos bounds
+    ) {
+        BlockPos maximum = placement.minimum().offset(placement.size());
+        return placement.minimum().getX() >= 0
+            && placement.minimum().getY() >= 0
+            && placement.minimum().getZ() >= 0
+            && maximum.getX() <= bounds.getX()
+            && maximum.getY() <= bounds.getY()
+            && maximum.getZ() <= bounds.getZ();
+    }
+
+    private static boolean overlaps(
+        DungeonPiecePlan.Placement first,
+        DungeonPiecePlan.Placement second
+    ) {
+        BlockPos firstMaximum = first.minimum().offset(first.size());
+        BlockPos secondMaximum = second.minimum().offset(second.size());
+        return first.minimum().getX() < secondMaximum.getX()
+            && firstMaximum.getX() > second.minimum().getX()
+            && first.minimum().getY() < secondMaximum.getY()
+            && firstMaximum.getY() > second.minimum().getY()
+            && first.minimum().getZ() < secondMaximum.getZ()
+            && firstMaximum.getZ() > second.minimum().getZ();
+    }
+
+    private static DungeonPieceDefinition.Connector connector(
+        DungeonPieceDefinition piece, String id
+    ) {
+        return piece.connectors().stream()
+            .filter(value -> value.id().equals(id)).findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "Dungeon piece connector is missing: " + piece.id() + "/" + id
+            ));
+    }
+
+    private static BlockPos connectorPosition(
+        Placed placed,
+        DungeonPieceDefinition.Connector connector,
+        BlockPos shift
+    ) {
+        return placed.origin().offset(shift).offset(
+            transform(connector.position(), placed.rotation())
         );
     }
 
@@ -144,7 +1009,8 @@ final class DungeonPiecePlanner {
         if (!budget.tryVisit()) return false;
         if (depth >= targetRooms) {
             if (!(verticalProfileSatisfied(state, settings)
-                && stackedFootprintSatisfied(state, settings))) {
+                && stackedFootprintSatisfied(state, settings)
+                && requiredChambersSatisfied(state, settings))) {
                 return false;
             }
             State beforeBranches = state.copy();
@@ -157,7 +1023,7 @@ final class DungeonPiecePlanner {
         int remainingPlacements = targetRooms - depth;
         int floorChanges = state.criticalFloorChanges();
         int floorDepth = state.criticalFloorDepth();
-        String layoutMode = settings.layoutModeForFloor(floorChanges);
+        String layoutMode = settings.layoutMode();
         if (floorChanges > settings.floorChangesMax()
             || floorChanges + remainingPlacements < settings.floorChangesMin()
             || state.branchHostCount() + remainingPlacements < targetBranches) {
@@ -167,11 +1033,20 @@ final class DungeonPiecePlanner {
             : depth == targetRooms - 1 ? "exit" : null;
         if (requiredRole != null && settings.floorChangesMin() > 0
             && floorDepth < minimumCriticalDepth(layoutMode)) return false;
-        Set<String> flexibleRoles = criticalRoles(layoutMode, floorDepth);
+        Set<String> configuredRoles = criticalRoles(layoutMode, floorDepth);
+        Set<String> flexibleRoles = new HashSet<>(configuredRoles);
+        if (settings.requiredChamberPieces().isEmpty()
+            && configuredRoles.contains("room")) {
+            flexibleRoles.add("corridor"); flexibleRoles.add("junction");
+        }
+        boolean hasSelectedChambers = pieces.stream()
+            .anyMatch(piece -> piece.role().equals("room"));
         boolean requiresHub = requiredRole == null
-            && layoutMode.equals("hub_and_spokes") && floorDepth == 2;
+            && layoutMode.equals("hub_and_spokes")
+            && floorDepth == 2;
         boolean requiresRouteRoom = requiredRole == null
-            && layoutMode.equals("room_network") && floorDepth % 2 == 0;
+            && hasSelectedChambers && layoutMode.equals("room_network")
+            && roomNetworkRoomDepth(floorDepth);
         int branchCapacity = state.branchHostCount();
         boolean needsBranchConnector = requiredRole == null && !requiresHub
             && !layoutMode.equals("hub_and_spokes")
@@ -192,7 +1067,7 @@ final class DungeonPiecePlanner {
         int minimumFutureFloorPlacements = Math.max(0, neededFloorChanges - 1);
         for (int future = 1; future <= neededFloorChanges; future++) {
             minimumFutureFloorPlacements += minimumCriticalDepth(
-                settings.layoutModeForFloor(floorChanges + future)
+                settings.layoutMode()
             );
         }
         boolean floorReadyForTransition = floorDepth
@@ -217,13 +1092,16 @@ final class DungeonPiecePlanner {
                 && piece.connectors().size() >= 3
                 && piece.allowsPlacement(true)
                 && canUse(state, piece));
-        List<DungeonPieceDefinition> candidates = weightedOrder(
+        List<DungeonPieceDefinition> candidates = prioritizeRequiredChambers(
+            state, settings, weightedOrder(
             pieces.stream().filter(piece -> requiredRole == null
                 ? flexibleRoles.contains(piece.role())
                 : piece.role().equals(requiredRole))
                 .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
                 .filter(piece -> requiredRole != null
                     ? !isVerticalTransition(piece)
+                    : isRequiredChamber(state, settings, piece)
+                    ? true
                     : isVerticalTransition(piece)
                     ? canScheduleVerticalTransition && canAddVerticalTransition
                         && verticalTransitionMatchesDirection(
@@ -231,11 +1109,12 @@ final class DungeonPiecePlanner {
                         )
                     : mustAddVerticalTransition ? false
                     : requiresHub
-                        ? piece.spatialKind().equals("chamber")
-                            && piece.connectors().size() >= 4
+                        ? piece.spatialKind().equals(
+                            hasSelectedChambers ? "chamber" : "passage"
+                          ) && piece.connectors().size() >= 3
                         : requiresRouteRoom
                             ? piece.spatialKind().equals("chamber")
-                                && piece.connectors().size() == 2
+                                && piece.connectors().size() >= 2
                         : needsBranchConnector && canAddBranchConnector
                             ? piece.spatialKind().equals("passage")
                                 && piece.connectors().size() == 3
@@ -246,7 +1125,13 @@ final class DungeonPiecePlanner {
                 .filter(piece -> piece.allowsPlacement(true))
                 .filter(piece -> canUse(state, piece)).toList(),
             random
-        );
+        ));
+        if (requiresRouteRoom && state.placements.stream().noneMatch(placed ->
+            placed.definition().role().equals("room"))) {
+            candidates = prioritizeLargestChamber(
+                candidates, settings.requiredChamberPieces()
+            );
+        }
         Placed current = state.placements.getLast();
         List<Attachment> attachments = new ArrayList<>();
         for (DungeonPieceDefinition.Connector from : connectorOrder(current, state, random)) {
@@ -260,7 +1145,7 @@ final class DungeonPiecePlanner {
                                 current, attachment.placed(), settings.verticalDirection()
                             )
                             || !inside(attachment.placed().box(), settings.bounds())
-                            || overlapsAny(attachment.placed().box(), state.placements)
+                            || overlapsState(attachment.placed().box(), state)
                             || !preservesBranchSites(
                                 state, attachment, pieces, settings,
                                 targetBranches, depth + 1 >= targetRooms
@@ -301,7 +1186,7 @@ final class DungeonPiecePlanner {
         int requiredBranches,
         boolean criticalComplete
     ) {
-        if (!settings.layoutModeForFloor(state.criticalFloorChanges()).equals("room_network")) return true;
+        if (!settings.layoutMode().equals("room_network")) return true;
         if (requiredBranches == 0) return true;
         State projected = state.copy();
         projected.add(criticalAttachment);
@@ -330,9 +1215,7 @@ final class DungeonPiecePlanner {
                         );
                         if (branch != null
                             && inside(branch.placed().box(), settings.bounds())
-                            && !overlapsAny(
-                                branch.placed().box(), projected.placements
-                            )) {
+                            && !overlapsState(branch.placed().box(), projected)) {
                             fits = true;
                             break;
                         }
@@ -363,7 +1246,9 @@ final class DungeonPiecePlanner {
             maxX = Math.max(maxX, placed.box().maximumExclusive().getX());
             maxZ = Math.max(maxZ, placed.box().maximumExclusive().getZ());
         }
-        return (stacked ? -1_000_000 : 0) + (maxX - minX) * (maxZ - minZ);
+        int width = maxX - minX;
+        int depth = maxZ - minZ;
+        return (stacked ? -1_000_000 : 0) + width * width + depth * depth;
     }
 
     private static boolean attachBranches(
@@ -379,19 +1264,19 @@ final class DungeonPiecePlanner {
         for (int index = 0; index < state.placements.size() - 2; index++) {
             Placed placed = state.placements.get(index);
             if (isVerticalTransition(placed.definition())) continue;
-            String hostMode = settings.layoutModeForPlacement(state, placed);
+            String hostMode = settings.layoutMode();
             if (!hostMode.equals("hub_and_spokes")
-                || (placed.definition().role().equals("room")
-                    && placed.definition().connectors().size() >= 4)) {
+                || (pieces.stream().noneMatch(piece -> piece.role().equals("room"))
+                    ? placed.definition().connectors().size() >= 3
+                    : placed.definition().role().equals("room")
+                        && placed.definition().connectors().size() >= 4)) {
                 hosts.add(index);
             }
         }
         hosts = shuffled(hosts, random);
         for (int host : hosts) {
             if (completed >= targetBranches) break;
-            int attempts = settings.layoutModeForPlacement(
-                state, state.placements.get(host)
-            ).equals("hub_and_spokes")
+            int attempts = settings.layoutMode().equals("hub_and_spokes")
                 ? targetBranches - completed : 1;
             for (int attempt = 0; attempt < attempts; attempt++) {
                 int depth = randomRange(
@@ -424,11 +1309,10 @@ final class DungeonPiecePlanner {
         if (!budget.tryVisit()) return false;
         if (remaining == 0) return true;
         Set<String> roles = branchRoles(
-            settings.layoutModeForPlacement(
-                state, state.placements.get(currentIndex)
-            ), remaining, branchDepth
+            settings.layoutMode(), remaining, branchDepth
         );
-        List<DungeonPieceDefinition> candidates = weightedOrder(
+        List<DungeonPieceDefinition> candidates = prioritizeMinimumUsage(
+            state, weightedOrder(
             pieces.stream().filter(piece -> roles.contains(piece.role()))
                 .filter(DungeonPiecePlanner::hasConsistentSpatialKind)
                 .filter(piece -> remaining == 1
@@ -436,7 +1320,7 @@ final class DungeonPiecePlanner {
                     : piece.connectors().size() == 2)
                 .filter(piece -> piece.allowsPlacement(false))
                 .filter(piece -> canUse(state, piece)).toList(), random
-        );
+        ));
         Placed current = state.placements.get(currentIndex);
         for (DungeonPieceDefinition.Connector from : connectorOrder(current, state, random)) {
             for (DungeonPieceDefinition piece : candidates) {
@@ -448,7 +1332,7 @@ final class DungeonPiecePlanner {
                         );
                         if (attachment == null
                             || !inside(attachment.placed().box(), settings.bounds())
-                            || overlapsAny(attachment.placed().box(), state.placements)) {
+                            || overlapsState(attachment.placed().box(), state)) {
                             continue;
                         }
                         state.add(attachment);
@@ -500,7 +1384,7 @@ final class DungeonPiecePlanner {
                 );
                 if (attachment == null
                     || !inside(attachment.placed().box(), settings.bounds())
-                    || overlapsAny(attachment.placed().box(), state.placements)) {
+                    || overlapsState(attachment.placed().box(), state)) {
                     continue;
                 }
                 state.add(attachment);
@@ -591,6 +1475,11 @@ final class DungeonPiecePlanner {
         return placements.stream().anyMatch(placed -> box.overlaps(placed.box()));
     }
 
+    private static boolean overlapsState(Box box, State state) {
+        return overlapsAny(box, state.placements)
+            || state.reservedBoxes.stream().anyMatch(box::overlaps);
+    }
+
     private static List<DungeonPieceDefinition.Connector> connectorOrder(
         Placed placed, State state, Random random
     ) {
@@ -648,10 +1537,61 @@ final class DungeonPiecePlanner {
         });
     }
 
+    private static void validateRequiredChambers(
+        Map<String, DungeonPieceDefinition> pieces, List<String> required
+    ) {
+        for (String id : required) {
+            DungeonPieceDefinition piece = pieces.get(id);
+            if (piece == null) {
+                throw new IllegalStateException(
+                    "Dungeon selected chamber is outside its piece pool: " + id
+                );
+            }
+            if (!piece.spatialKind().equals("chamber")
+                || !piece.role().equals("room")
+                || piece.maximumPerPlan() < 1) {
+                throw new IllegalStateException(
+                    "Dungeon selected piece is not a placeable chamber: " + id
+                );
+            }
+        }
+    }
+
+    private static boolean requiredChambersSatisfied(State state, Settings settings) {
+        Set<String> placed = state.placements.stream()
+            .map(value -> value.definition().id())
+            .collect(java.util.stream.Collectors.toSet());
+        return placed.containsAll(settings.requiredChamberPieces());
+    }
+
+    private static boolean isRequiredChamber(
+        State state, Settings settings, DungeonPieceDefinition piece
+    ) {
+        return settings.requiredChamberPieces().contains(piece.id())
+            && state.placements.stream().noneMatch(
+                placed -> placed.definition().id().equals(piece.id())
+            );
+    }
+
+    private static List<DungeonPieceDefinition> prioritizeRequiredChambers(
+        State state, Settings settings, List<DungeonPieceDefinition> candidates
+    ) {
+        Set<String> placed = state.placements.stream()
+            .map(value -> value.definition().id())
+            .collect(java.util.stream.Collectors.toSet());
+        List<DungeonPieceDefinition> result = new ArrayList<>(candidates);
+        result.sort(Comparator.comparingInt(piece ->
+            settings.requiredChamberPieces().contains(piece.id())
+                && !placed.contains(piece.id()) ? 0 : 1
+        ));
+        return result;
+    }
+
     private static Set<String> criticalRoles(String layoutMode, int depth) {
         return switch (layoutMode) {
             case "legacy_maze", "maze" -> Set.of("corridor", "junction");
-            case "room_network" -> depth % 2 == 0
+            // Room anchors recur after two, then three, passage pieces.
+            case "room_network" -> roomNetworkRoomDepth(depth)
                 ? Set.of("room") : Set.of("corridor", "junction");
             case "corridor_spine", "legacy_rooms_and_corridors", "rooms_and_corridors" -> depth % 3 == 0
                 ? Set.of("room", "junction", "support")
@@ -664,6 +1604,11 @@ final class DungeonPiecePlanner {
         };
     }
 
+    private static boolean roomNetworkRoomDepth(int depth) {
+        int cycle = Math.floorMod(depth, 7);
+        return cycle == 0 || cycle == 3;
+    }
+
     private static int minimumCriticalDepth(String layoutMode) {
         return layoutMode.equals("hub_and_spokes") ? 3 : 2;
     }
@@ -674,7 +1619,7 @@ final class DungeonPiecePlanner {
         if (remaining == 1) return Set.of("dead_end", "treasure", "support");
         return switch (layoutMode) {
             case "legacy_maze", "maze", "hub_and_spokes" -> Set.of("corridor", "junction");
-            case "room_network" -> depth % 2 == 1
+            case "room_network" -> roomNetworkRoomDepth(depth)
                 ? Set.of("room") : Set.of("corridor", "junction");
             case "legacy_rooms_and_corridors", "rooms_and_corridors" -> depth % 3 == 2
                 ? Set.of("room", "junction") : Set.of("corridor", "junction");
@@ -776,6 +1721,14 @@ final class DungeonPiecePlanner {
         };
     }
 
+    private static List<DungeonPieceDefinition> selectablePieces(
+        List<DungeonPieceDefinition> pieces, Settings settings
+    ) {
+        Set<String> selected = Set.copyOf(settings.requiredChamberPieces());
+        return pieces.stream().filter(piece -> !piece.role().equals("room")
+            || selected.contains(piece.id())).toList();
+    }
+
     private static boolean overlapsHorizontally(Box first, Box second) {
         return first.minimum().getX() < second.maximumExclusive().getX()
             && first.maximumExclusive().getX() > second.minimum().getX()
@@ -807,11 +1760,11 @@ final class DungeonPiecePlanner {
         int floorChangesMax,
         String verticalMode,
         int floorHeight,
-        List<String> floorLayoutModes
+        List<String> requiredChamberPieces
     ) {
         Settings {
-            floorLayoutModes = floorLayoutModes == null
-                ? List.of() : List.copyOf(floorLayoutModes);
+            requiredChamberPieces = requiredChamberPieces == null
+                ? List.of() : List.copyOf(requiredChamberPieces);
         }
 
         Settings(
@@ -824,7 +1777,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, "corridor_spine", "mixed", 0, 256,
-                "continuous", 8, repeatedModes("corridor_spine", 257)
+                "continuous", 8, List.of()
             );
         }
 
@@ -838,7 +1791,7 @@ final class DungeonPiecePlanner {
                 bounds, criticalPathMin, criticalPathMax,
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, "mixed", 0, 256,
-                "continuous", 8, repeatedModes(layoutMode, 257)
+                "continuous", 8, List.of()
             );
         }
 
@@ -854,7 +1807,7 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, "continuous", 8,
-                repeatedModes(layoutMode, floorChangesMax + 1)
+                List.of()
             );
         }
 
@@ -871,24 +1824,8 @@ final class DungeonPiecePlanner {
                 branchCountMin, branchCountMax, branchDepthMin, branchDepthMax,
                 loopChance, maxAttempts, layoutMode, verticalDirection,
                 floorChangesMin, floorChangesMax, verticalMode, floorHeight,
-                repeatedModes(layoutMode, floorChangesMax + 1)
+                List.of()
             );
-        }
-
-        private static List<String> repeatedModes(String mode, int count) {
-            return List.copyOf(java.util.Collections.nCopies(count, mode));
-        }
-
-        String layoutModeForFloor(int floor) {
-            return floorLayoutModes.get(Math.min(
-                Math.max(0, floor), floorLayoutModes.size() - 1
-            ));
-        }
-
-        String layoutModeForPlacement(State state, Placed placement) {
-            int startY = state.placements.getFirst().origin().getY();
-            int floor = Math.abs(placement.origin().getY() - startY) / floorHeight;
-            return layoutModeForFloor(floor);
         }
 
         private void validate() {
@@ -905,13 +1842,9 @@ final class DungeonPiecePlanner {
                 || !Set.of("flat", "continuous", "discrete_floors", "authored")
                     .contains(verticalMode)
                 || floorHeight < 4 || floorHeight > 64
-                || floorLayoutModes == null || floorLayoutModes.isEmpty()
-                || floorLayoutModes.size() <= floorChangesMax
-                || floorLayoutModes.stream().anyMatch(mode -> !Set.of(
-                    "corridor_spine", "hub_and_spokes", "room_network",
-                    "legacy_maze", "legacy_rooms_and_corridors",
-                    "critical_path_branches", "maze", "rooms_and_corridors"
-                ).contains(mode))
+                || requiredChamberPieces == null
+                || requiredChamberPieces.size()
+                    != new HashSet<>(requiredChamberPieces).size()
                 || !Set.of(
                     "corridor_spine", "hub_and_spokes", "room_network",
                     "legacy_maze", "legacy_rooms_and_corridors",
@@ -927,6 +1860,7 @@ final class DungeonPiecePlanner {
         private final List<Placed> placements = new ArrayList<>();
         private final List<PlanLink> links = new ArrayList<>();
         private final Set<ConnectorKey> usedConnectors = new HashSet<>();
+        private final List<Box> reservedBoxes = new ArrayList<>();
 
         private void add(Attachment attachment) {
             int fromIndex = placements.indexOf(attachment.fromPiece());
@@ -956,6 +1890,7 @@ final class DungeonPiecePlanner {
             copy.placements.addAll(placements);
             copy.links.addAll(links);
             copy.usedConnectors.addAll(usedConnectors);
+            copy.reservedBoxes.addAll(reservedBoxes);
             return copy;
         }
 
@@ -963,6 +1898,7 @@ final class DungeonPiecePlanner {
             placements.clear(); placements.addAll(snapshot.placements);
             links.clear(); links.addAll(snapshot.links);
             usedConnectors.clear(); usedConnectors.addAll(snapshot.usedConnectors);
+            reservedBoxes.clear(); reservedBoxes.addAll(snapshot.reservedBoxes);
         }
 
         private void absorbAdditionalLinks(List<DungeonPiecePlan.Link> additional) {
@@ -1074,6 +2010,30 @@ final class DungeonPiecePlanner {
     private record OpenConnector(
         Placed piece, DungeonPieceDefinition.Connector connector
     ) {}
+    private record FloorAllocation(
+        List<Integer> placementCounts,
+        List<List<String>> requiredChambers
+    ) {}
+    private record StartChoice(
+        Placed placed,
+        DungeonPieceDefinition.Connector reservedIncoming
+    ) {}
+    private record FloorResult(
+        State state,
+        Placed incomingPiece,
+        Placed outgoingPiece,
+        String incomingConnector,
+        String outgoingConnector
+    ) {}
+    private record StairJoin(
+        int floor,
+        BlockPos origin,
+        DungeonPieceDefinition piece,
+        Rotation rotation,
+        String fromConnector,
+        String toConnector
+    ) {}
+    private record FloorTransform(Rotation rotation, BlockPos translation) {}
     private static final class SearchBudget {
         private final long deadlineNanos;
         private int remainingNodes;

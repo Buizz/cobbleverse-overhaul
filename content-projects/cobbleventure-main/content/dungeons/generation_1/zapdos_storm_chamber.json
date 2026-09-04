@@ -63,6 +63,7 @@
     "generation_timeout_ms": 1000,
     "max_attempts": 32
   },
+  "progression": { "pattern": "linear", "encounter_order": "boss_only" },
   "terrain": {
     "mode": "procedural_cave",
     "cave_generator": "minecraft_worldgen",
@@ -125,18 +126,6 @@
     "maximum_distance": 22,
     "max_active": 2,
     "spawn_interval_ticks": 160,
-    "spawn_bounds": {
-      "min": [
-        4,
-        1,
-        4
-      ],
-      "max": [
-        123,
-        44,
-        123
-      ]
-    },
     "additions": [
       {
         "species": "cobblemon:zubat",

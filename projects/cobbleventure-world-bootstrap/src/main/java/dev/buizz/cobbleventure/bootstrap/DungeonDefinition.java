@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
@@ -38,6 +39,7 @@ record DungeonDefinition(
     SpatialLayout spatialLayout,
     Vertical vertical,
     NpcPlacement npcPlacement,
+    GeneratedTrainers generatedTrainers,
     List<Encounter> encounters,
     RandomEncounters randomEncounters,
     Support support,
@@ -398,35 +400,47 @@ record DungeonDefinition(
             ));
             int requiredTargets = configured.has("required_targets")
                 ? requiredInt(configured, "required_targets") : 2;
+            String encounterOrder = configured.has("encounter_order")
+                ? enumValue(configured, "encounter_order", List.of(
+                    "boss_only", "sequential"
+                ))
+                : "boss_only";
             if (requiredTargets < 1 || requiredTargets > 16) {
                 throw new IllegalStateException(
                     "Dungeon progression required_targets must be between 1 and 16: " + id
                 );
             }
-            progression = new Progression(pattern, requiredTargets);
+            progression = new Progression(pattern, requiredTargets, encounterOrder);
         } else {
-            String pattern = topology.loopChance() > 0.0D ? "cyclic"
-                : topology.branchCount().maximum() > 0 ? "branching" : "linear";
-            progression = new Progression(pattern, 2);
+            String pattern = topology.branchCount().maximum() > 0
+                ? "branching" : "linear";
+            progression = new Progression(pattern, 2, "boss_only");
         }
 
         SpatialLayout spatialLayout;
         if (root.has("spatial_layout")) {
             JsonObject configured = requiredObject(root, "spatial_layout");
-            spatialLayout = new SpatialLayout(enumValue(
+            String algorithm = enumValue(
                 configured, "algorithm", List.of(
-                    "grid_walk", "socket_accretion", "scatter_graph",
-                    "bsp_floor", "hub_and_spokes", "authored"
+                    "room_scatter", "corridor_halls", "socket_accretion"
                 )
-            ));
+            );
+            List<String> chamberPieces = new ArrayList<>();
+            if (configured.has("chamber_pieces")) {
+                Set<String> unique = new HashSet<>();
+                for (JsonElement element : requiredArray(configured, "chamber_pieces")) {
+                    String pieceId = element.getAsString();
+                    if (ResourceLocation.tryParse(pieceId) == null || !unique.add(pieceId)) {
+                        throw new IllegalStateException(
+                            "Invalid or duplicate dungeon chamber piece: " + id + " -> " + pieceId
+                        );
+                    }
+                    chamberPieces.add(pieceId);
+                }
+            }
+            spatialLayout = new SpatialLayout(algorithm, List.copyOf(chamberPieces));
         } else {
-            spatialLayout = new SpatialLayout(switch (topology.mode()) {
-                case "authored" -> "authored";
-                case "room_network", "chamber_maze" -> "socket_accretion";
-                case "hub_and_spokes" -> "hub_and_spokes";
-                case "natural_network" -> "scatter_graph";
-                default -> "grid_walk";
-            });
+            spatialLayout = new SpatialLayout("socket_accretion", List.of());
         }
 
         Vertical vertical;
@@ -447,30 +461,6 @@ record DungeonDefinition(
             IntRange connections = configured.has("connections_per_floor")
                 ? integerRange(configured, "connections_per_floor", 1, 16)
                 : new IntRange(1, 1);
-            List<String> floorAlgorithms = new ArrayList<>();
-            if (configured.has("floor_algorithms")) {
-                for (JsonElement element : requiredArray(configured, "floor_algorithms")) {
-                    String algorithm = element.getAsString();
-                    if (!List.of(
-                        "grid_walk", "socket_accretion", "scatter_graph",
-                        "bsp_floor", "hub_and_spokes", "authored"
-                    ).contains(algorithm)) {
-                        throw new IllegalStateException(
-                            "Invalid dungeon floor algorithm: " + id + " -> " + algorithm
-                        );
-                    }
-                    floorAlgorithms.add(algorithm);
-                }
-                if (floorAlgorithms.size() < floorCount.maximum()) {
-                    throw new IllegalStateException(
-                        "Dungeon floor_algorithms must cover maximum floor_count: " + id
-                    );
-                }
-            } else {
-                for (int floor = 0; floor < floorCount.maximum(); floor++) {
-                    floorAlgorithms.add(spatialLayout.algorithm());
-                }
-            }
             if (floorHeight < 4 || floorHeight > 64) {
                 throw new IllegalStateException(
                     "Invalid dungeon vertical floor_height: " + id
@@ -486,8 +476,7 @@ record DungeonDefinition(
                 );
             }
             vertical = new Vertical(
-                mode, direction, floorCount, floorHeight, connections,
-                List.copyOf(floorAlgorithms)
+                mode, direction, floorCount, floorHeight, connections
             );
         } else if (layout != null) {
             int maximumFloors = layout.floorChanges().maximum() + 1;
@@ -499,16 +488,12 @@ record DungeonDefinition(
                     layout.floorChanges().minimum() + 1,
                     maximumFloors
                 ),
-                8, new IntRange(1, 1), List.copyOf(
-                    java.util.Collections.nCopies(
-                        maximumFloors, spatialLayout.algorithm()
-                    )
-                )
+                8, new IntRange(1, 1)
             );
         } else {
             vertical = new Vertical(
                 "authored", "mixed", new IntRange(1, 1), 8,
-                new IntRange(1, 1), List.of(spatialLayout.algorithm())
+                new IntRange(1, 1)
             );
         }
 
@@ -555,6 +540,12 @@ record DungeonDefinition(
             String encounterKind = encounter.has("kind")
                 ? enumValue(encounter, "kind", List.of("trainer", "wild_pokemon"))
                 : "trainer";
+            if (encounter.has("trainer_generation")) {
+                throw new IllegalStateException(
+                    "Per-encounter trainer_generation was removed; use dungeon-wide "
+                        + "generated_trainers: " + id + " -> " + encounterId
+                );
+            }
             List<String> npcs = new ArrayList<>();
             for (JsonElement npc : encounter.has("npcs")
                 ? encounter.getAsJsonArray("npcs") : List.<JsonElement>of()) {
@@ -601,7 +592,7 @@ record DungeonDefinition(
                 ));
             }
             if (!trainers.isEmpty() && (!npcs.isEmpty()
-                || encounter.has("opponents") || encounter.has("trainer_generation"))) {
+                || encounter.has("opponents"))) {
                 throw new IllegalStateException(
                     "Dungeon-owned trainers cannot mix legacy NPC or opponent fields: "
                         + id + " -> " + encounterId
@@ -630,56 +621,7 @@ record DungeonDefinition(
                 trainers.forEach(trainer -> opponents.add(trainer.battle()));
             }
             GeneratedTrainer generatedTrainer = null;
-            if (encounterKind.equals("trainer") && encounter.has("trainer_generation")) {
-                if (!opponents.isEmpty()) {
-                    throw new IllegalStateException(
-                        "Generated dungeon trainer cannot define battle presets: "
-                            + id + " -> " + encounterId
-                    );
-                }
-                JsonObject generation = requiredObject(encounter, "trainer_generation");
-                List<WeightedSpecies> pokemonPool = new ArrayList<>();
-                Set<String> poolSpecies = new HashSet<>();
-                for (JsonElement poolElement : requiredArray(generation, "pokemon_pool")) {
-                    JsonObject poolEntry = poolElement.getAsJsonObject();
-                    int weight = requiredInt(poolEntry, "weight");
-                    if (weight < 1 || weight > 1000) {
-                        throw new IllegalStateException(
-                            "Generated dungeon Pokemon weight must be 1..1000: "
-                                + id + " -> " + encounterId
-                        );
-                    }
-                    String species = resourceId(poolEntry, "species");
-                    if (!poolSpecies.add(species)) {
-                        throw new IllegalStateException(
-                            "Generated dungeon Pokemon pool contains duplicate species: "
-                                + id + " -> " + encounterId + " -> " + species
-                        );
-                    }
-                    pokemonPool.add(new WeightedSpecies(species, weight));
-                }
-                if (pokemonPool.isEmpty()) {
-                    throw new IllegalStateException(
-                        "Generated dungeon trainer Pokemon pool is empty: "
-                            + id + " -> " + encounterId
-                    );
-                }
-                IntRange teamSize = integerRange(generation, "team_size", 1, 6);
-                if (!requiredBoolean(generation, "allow_duplicates")
-                    && teamSize.maximum() > pokemonPool.size()) {
-                    throw new IllegalStateException(
-                        "Generated dungeon trainer team exceeds its unique Pokemon pool: "
-                            + id + " -> " + encounterId
-                    );
-                }
-                generatedTrainer = new GeneratedTrainer(
-                    List.copyOf(pokemonPool), teamSize,
-                    requiredBoolean(generation, "allow_duplicates"),
-                    nonEmptyStrings(generation, "battle_start_lines"),
-                    nonEmptyStrings(generation, "battle_end_lines")
-                );
-            }
-            if (encounterKind.equals("trainer") && generatedTrainer == null
+            if (encounterKind.equals("trainer")
                 && (opponents.isEmpty() || opponents.size() > maximumActors)) {
                 throw new IllegalStateException(
                     "Dungeon " + multiplayerMode + " encounter requires 1.."
@@ -814,6 +756,7 @@ record DungeonDefinition(
                 "Dungeon requires exactly one boss encounter: " + id
             );
         }
+        GeneratedTrainers generatedTrainers = generatedTrainers(root, id);
         JsonObject randomEncounters = requiredObject(root, "random_encounters");
         int minimumDistance = requiredInt(randomEncounters, "minimum_distance");
         int maximumDistance = requiredInt(randomEncounters, "maximum_distance");
@@ -835,18 +778,6 @@ record DungeonDefinition(
             throw new IllegalStateException(
                 "Invalid dungeon random encounter spawn_interval_ticks: "
                     + spawnIntervalTicks
-            );
-        }
-        JsonObject spawnBounds = requiredObject(randomEncounters, "spawn_bounds");
-        BlockPos minimumPosition = blockPosition(spawnBounds, "min");
-        BlockPos maximumPosition = blockPosition(spawnBounds, "max");
-        if (minimumPosition.getX() < 0 || minimumPosition.getY() < 0
-            || minimumPosition.getZ() < 0
-            || minimumPosition.getX() > maximumPosition.getX()
-            || minimumPosition.getY() > maximumPosition.getY()
-            || minimumPosition.getZ() > maximumPosition.getZ()) {
-            throw new IllegalStateException(
-                "Invalid dungeon random encounter spawn_bounds: " + id
             );
         }
         List<WildSpecies> wildSpecies = new ArrayList<>();
@@ -1290,7 +1221,8 @@ record DungeonDefinition(
             progression,
             spatialLayout,
             vertical,
-            npcPlacement(root, encounters, id),
+            npcPlacement(root, encounters, generatedTrainers, id),
+            generatedTrainers,
             List.copyOf(encounters),
             new RandomEncounters(
                 randomEncountersEnabled,
@@ -1298,8 +1230,6 @@ record DungeonDefinition(
                 maximumDistance,
                 maxActive,
                 spawnIntervalTicks,
-                minimumPosition,
-                maximumPosition,
                 List.copyOf(wildSpecies)
             ),
             new Support(List.copyOf(healingStations), List.copyOf(checkpoints)),
@@ -1339,6 +1269,88 @@ record DungeonDefinition(
             .findFirst().orElse(null);
     }
 
+    DungeonDefinition materializeGeneratedTrainers(long seed) {
+        if (!generatedTrainers.enabled()) return this;
+        Random random = new Random(seed ^ 0x4e50435f504f4f4cL);
+        int count = randomRange(random, generatedTrainers.count());
+        List<Encounter> resolved = new ArrayList<>(encounters);
+        Set<String> ids = new HashSet<>();
+        encounters.forEach(encounter -> ids.add(encounter.id()));
+        for (int index = 0; index < count; index++) {
+            GeneratedAppearance appearance = weightedAppearance(
+                generatedTrainers.appearancePool(), random
+            );
+            GeneratedDialogue dialogue = weightedDialogue(
+                generatedTrainers.dialoguePool(), random
+            );
+            String encounterId = "random_trainer_" + (index + 1);
+            while (!ids.add(encounterId)) encounterId += "_generated";
+            TrainerActor actor = new TrainerActor(
+                encounterId, appearance.displayName(),
+                appearance.trainerClass(), ""
+            );
+            GeneratedTrainer generated = new GeneratedTrainer(
+                generatedTrainers.pokemonPool(), generatedTrainers.teamSize(),
+                generatedTrainers.allowDuplicates(),
+                List.of(dialogue.battleStartLine()),
+                List.of(dialogue.battleEndLine())
+            );
+            resolved.add(new Encounter(
+                encounterId, appearance.displayName(), "trainer", List.of(),
+                List.of(actor), List.of(), generated, null, List.of(), List.of(),
+                null, null, random.nextInt(4) * 90.0F, false
+            ));
+        }
+        int actorDemand = resolved.stream()
+            .filter(encounter -> encounter.kind().equals("trainer"))
+            .mapToInt(Encounter::actorCount).sum();
+        NpcPlacement resolvedPlacement = npcPlacement.capacityMode()
+            .equals("from_encounters")
+            ? new NpcPlacement(
+                npcPlacement.enabled(), npcPlacement.capacityMode(), actorDemand,
+                npcPlacement.minimumSpacing(), npcPlacement.maximumPerRoom()
+            ) : npcPlacement;
+        return new DungeonDefinition(
+            id, displayName, description, preset, entryUi, difficulty,
+            eligibility, multiplayer, match, battleRules, plan, terrain, layout,
+            topology, progression, spatialLayout, vertical, resolvedPlacement,
+            generatedTrainers, List.copyOf(resolved), randomEncounters, support,
+            objectives, gates, loot, rewards, lifecycle, completion, entrances
+        );
+    }
+
+    private static int randomRange(Random random, IntRange range) {
+        return range.minimum() + random.nextInt(
+            range.maximum() - range.minimum() + 1
+        );
+    }
+
+    private static GeneratedAppearance weightedAppearance(
+        List<GeneratedAppearance> pool, Random random
+    ) {
+        int roll = random.nextInt(pool.stream().mapToInt(
+            GeneratedAppearance::weight
+        ).sum());
+        for (GeneratedAppearance entry : pool) {
+            roll -= entry.weight();
+            if (roll < 0) return entry;
+        }
+        throw new IllegalStateException("Generated dungeon appearance pool is empty");
+    }
+
+    private static GeneratedDialogue weightedDialogue(
+        List<GeneratedDialogue> pool, Random random
+    ) {
+        int roll = random.nextInt(pool.stream().mapToInt(
+            GeneratedDialogue::weight
+        ).sum());
+        for (GeneratedDialogue entry : pool) {
+            roll -= entry.weight();
+            if (roll < 0) return entry;
+        }
+        throw new IllegalStateException("Generated dungeon dialogue pool is empty");
+    }
+
     private static void validateRange(String name, int minimum, int maximum) {
         if (minimum < 1 || maximum > 100 || minimum > maximum) {
             throw new IllegalStateException(
@@ -1353,13 +1365,100 @@ record DungeonDefinition(
             : new Plan("runtime", List.of(), "random_per_run", "reject_entry", 1000, 32);
     }
 
+    private static GeneratedTrainers generatedTrainers(
+        JsonObject root, String dungeonId
+    ) {
+        if (!root.has("generated_trainers")) return GeneratedTrainers.disabled();
+        JsonObject value = requiredObject(root, "generated_trainers");
+        boolean enabled = requiredBoolean(value, "enabled");
+        if (!enabled) return GeneratedTrainers.disabled();
+        IntRange count = integerRange(value, "count", 1, 256);
+        IntRange teamSize = integerRange(value, "team_size", 1, 6);
+        boolean allowDuplicates = requiredBoolean(value, "allow_duplicates");
+
+        List<GeneratedAppearance> appearances = new ArrayList<>();
+        for (JsonElement element : requiredArray(value, "appearance_pool")) {
+            JsonObject entry = element.getAsJsonObject();
+            int weight = requiredInt(entry, "weight");
+            if (weight < 1 || weight > 1000) {
+                throw new IllegalStateException(
+                    "Generated dungeon appearance weight must be 1..1000: "
+                        + dungeonId
+                );
+            }
+            String trainerClass = resourceId(entry, "trainer_class");
+            if (!trainerClass.contains(":trainer_class/")) {
+                throw new IllegalStateException(
+                    "Generated dungeon appearance requires a trainer_class: "
+                        + dungeonId + " -> " + trainerClass
+                );
+            }
+            appearances.add(new GeneratedAppearance(
+                localized(requiredObject(entry, "display_name"), "ko_kr", "en_us"),
+                trainerClass, weight
+            ));
+        }
+        if (appearances.isEmpty()) {
+            throw new IllegalStateException(
+                "Generated dungeon appearance pool is empty: " + dungeonId
+            );
+        }
+
+        List<GeneratedDialogue> dialogues = new ArrayList<>();
+        for (JsonElement element : requiredArray(value, "dialogue_pool")) {
+            JsonObject entry = element.getAsJsonObject();
+            int weight = requiredInt(entry, "weight");
+            if (weight < 1 || weight > 1000) {
+                throw new IllegalStateException(
+                    "Generated dungeon dialogue weight must be 1..1000: "
+                        + dungeonId
+                );
+            }
+            dialogues.add(new GeneratedDialogue(
+                requiredString(entry, "battle_start_line"),
+                requiredString(entry, "battle_end_line"), weight
+            ));
+        }
+        if (dialogues.isEmpty()) {
+            throw new IllegalStateException(
+                "Generated dungeon dialogue pool is empty: " + dungeonId
+            );
+        }
+
+        List<WeightedSpecies> pokemon = new ArrayList<>();
+        Set<String> species = new HashSet<>();
+        for (JsonElement element : requiredArray(value, "pokemon_pool")) {
+            JsonObject entry = element.getAsJsonObject();
+            String speciesId = resourceId(entry, "species");
+            int weight = requiredInt(entry, "weight");
+            if (!species.add(speciesId) || weight < 1 || weight > 1000) {
+                throw new IllegalStateException(
+                    "Invalid generated dungeon Pokemon pool entry: "
+                        + dungeonId + " -> " + speciesId
+                );
+            }
+            pokemon.add(new WeightedSpecies(speciesId, weight));
+        }
+        if (pokemon.isEmpty() || (!allowDuplicates && teamSize.maximum() > pokemon.size())) {
+            throw new IllegalStateException(
+                "Generated dungeon Pokemon pool cannot satisfy team_size: " + dungeonId
+            );
+        }
+        return new GeneratedTrainers(
+            true, count, List.copyOf(appearances), List.copyOf(dialogues),
+            List.copyOf(pokemon), teamSize, allowDuplicates
+        );
+    }
+
     private static NpcPlacement npcPlacement(
-        JsonObject root, List<Encounter> encounters, String dungeonId
+        JsonObject root, List<Encounter> encounters,
+        GeneratedTrainers generatedTrainers, String dungeonId
     ) {
         int actorDemand = encounters.stream()
             .filter(encounter -> encounter.kind().equals("trainer"))
             .mapToInt(Encounter::actorCount)
-            .sum();
+            .sum() + (generatedTrainers.enabled()
+                ? generatedTrainers.count().maximum() : 0);
         if (!root.has("npc_placement")) {
             return new NpcPlacement(false, "from_encounters", actorDemand, 4.0D, 2);
         }
@@ -1607,15 +1706,18 @@ record DungeonDefinition(
         }
     }
     record ChamberGrid(int width, int depth) {}
-    record Progression(String pattern, int requiredTargets) {}
-    record SpatialLayout(String algorithm) {}
+    record Progression(String pattern, int requiredTargets, String encounterOrder) {
+        boolean usesEncounterPrerequisites() {
+            return encounterOrder.equals("sequential");
+        }
+    }
+    record SpatialLayout(String algorithm, List<String> chamberPieces) {}
     record Vertical(
         String mode,
         String direction,
         IntRange floorCount,
         int floorHeight,
-        IntRange connectionsPerFloor,
-        List<String> floorAlgorithms
+        IntRange connectionsPerFloor
     ) {}
     record NpcPlacement(
         boolean enabled,
@@ -1624,6 +1726,24 @@ record DungeonDefinition(
         double minimumSpacing,
         int maximumPerRoom
     ) {}
+    record GeneratedTrainers(
+        boolean enabled,
+        IntRange count,
+        List<GeneratedAppearance> appearancePool,
+        List<GeneratedDialogue> dialoguePool,
+        List<WeightedSpecies> pokemonPool,
+        IntRange teamSize,
+        boolean allowDuplicates
+    ) {
+        static GeneratedTrainers disabled() {
+            return new GeneratedTrainers(
+                false, new IntRange(0, 0), List.of(), List.of(), List.of(),
+                new IntRange(1, 1), false
+            );
+        }
+    }
+    record GeneratedAppearance(String displayName, String trainerClass, int weight) {}
+    record GeneratedDialogue(String battleStartLine, String battleEndLine, int weight) {}
     record IntRange(int minimum, int maximum) {}
     record Encounter(
         String id,
@@ -1676,8 +1796,6 @@ record DungeonDefinition(
         int maximumDistance,
         int maxActive,
         int spawnIntervalTicks,
-        BlockPos minimumPosition,
-        BlockPos maximumPosition,
         List<WildSpecies> additions
     ) {}
     record WildSpecies(

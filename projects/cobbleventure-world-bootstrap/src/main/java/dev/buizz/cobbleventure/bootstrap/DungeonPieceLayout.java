@@ -67,6 +67,9 @@ record DungeonPieceLayout(
         DungeonPiecePlanValidator.validate(
             plan, byId, definition.terrain().piecePool(), definition.terrain().bounds()
         );
+        DungeonPiecePlanValidator.validateRequiredChambers(
+            plan, byId, definition.spatialLayout().chamberPieces()
+        );
         return resolveMarkers(definition, plan, byId, seed);
     }
 
@@ -94,6 +97,9 @@ record DungeonPieceLayout(
                 DungeonPiecePlanValidator.validate(
                     plan, byId, dungeon.terrain().piecePool(), dungeon.terrain().bounds()
                 );
+                DungeonPiecePlanValidator.validateRequiredChambers(
+                    plan, byId, dungeon.spatialLayout().chamberPieces()
+                );
                 resolveMarkers(dungeon, plan, byId, plan.seed());
             }
         }
@@ -116,7 +122,7 @@ record DungeonPieceLayout(
             : deadline;
         IllegalStateException lastFailure = null;
         DungeonPiecePlanner.Settings settings = singleAttempt(
-            plannerSettings(definition, false)
+            plannerSettings(definition, pieces, false)
         );
         for (int attempt = 0; attempt < definition.plan().maxAttempts(); attempt++) {
             if (System.nanoTime() >= primaryDeadline) break;
@@ -131,6 +137,9 @@ record DungeonPieceLayout(
                     definition.terrain().bounds()
                 );
                 DungeonPiecePlanValidator.validateNoOpenConnectors(plan, byId);
+                DungeonPiecePlanValidator.validateRequiredChambers(
+                    plan, byId, definition.spatialLayout().chamberPieces()
+                );
                 return resolveMarkers(definition, plan, byId, seed);
             } catch (IllegalStateException failure) {
                 lastFailure = preferPlanningFailure(lastFailure, failure);
@@ -143,7 +152,7 @@ record DungeonPieceLayout(
         if (definition.plan().fallback().equals("use_fallback_plan")) {
             IllegalStateException fallbackFailure = null;
             DungeonPiecePlanner.Settings fallbackSettings = singleAttempt(
-                plannerSettings(definition, true)
+                plannerSettings(definition, pieces, true)
             );
             for (int attempt = 0; attempt < definition.plan().maxAttempts(); attempt++) {
                 if (System.nanoTime() >= deadline) break;
@@ -159,6 +168,9 @@ record DungeonPieceLayout(
                     );
                     DungeonPiecePlanValidator.validateNoOpenConnectors(
                         fallback, byId
+                    );
+                    DungeonPiecePlanValidator.validateRequiredChambers(
+                        fallback, byId, definition.spatialLayout().chamberPieces()
                     );
                     return resolveMarkers(definition, fallback, byId, seed);
                 } catch (IllegalStateException failure) {
@@ -202,7 +214,7 @@ record DungeonPieceLayout(
             settings.loopChance(), 1, settings.layoutMode(),
             settings.verticalDirection(), settings.floorChangesMin(),
             settings.floorChangesMax(), settings.verticalMode(),
-            settings.floorHeight(), settings.floorLayoutModes()
+            settings.floorHeight(), settings.requiredChamberPieces()
         );
     }
 
@@ -270,19 +282,44 @@ record DungeonPieceLayout(
         return generated;
     }
 
-    private static DungeonPiecePlanner.Settings plannerSettings(
-        DungeonDefinition definition, boolean safeFallback
+    static DungeonPiecePlanner.Settings plannerSettings(
+        DungeonDefinition definition,
+        List<DungeonPieceDefinition> pieces,
+        boolean safeFallback
     ) {
         DungeonDefinition.Topology topology = definition.topology();
         DungeonDefinition.Vertical vertical = definition.vertical();
-        List<String> floorLayoutModes = vertical.floorAlgorithms().stream()
-            .map(algorithm -> runtimeLayoutMode(algorithm, topology.mode()))
-            .toList();
-        String layoutMode = floorLayoutModes.getFirst();
+        String layoutMode = definition.spatialLayout().algorithm().equals("corridor_halls")
+            ? "corridor_spine" : "room_network";
+        Set<String> selectedChambers = Set.copyOf(
+            definition.spatialLayout().chamberPieces()
+        );
+        int usableNpcSlotsPerRoom = pieces.stream()
+            .filter(piece -> selectedChambers.contains(piece.id()))
+            .mapToInt(piece -> (int) piece.markers().stream()
+                .filter(marker -> marker.kind().equals("npc_spawn")).count())
+            .map(value -> Math.min(
+                definition.npcPlacement().maximumPerRoom(), value
+            )).max().orElse(0);
+        int npcRooms = definition.npcPlacement().enabled()
+            && definition.npcPlacement().requiredSlots() > 0
+            && usableNpcSlotsPerRoom > 0
+            ? (definition.npcPlacement().requiredSlots()
+                + usableNpcSlotsPerRoom - 1) / usableNpcSlotsPerRoom
+            : 0;
+        // NPC capacity is additive: every required NPC chamber contributes
+        // its room plus two connecting corridor pieces to the base layout.
+        int npcDrivenPlacements = npcRooms * 3;
+        int requestedMinimum = topology.criticalPathRooms().minimum()
+            + npcDrivenPlacements;
+        int requestedMaximum = Math.max(
+            topology.criticalPathRooms().maximum() + npcDrivenPlacements,
+            requestedMinimum
+        );
         int safeCriticalRooms = Math.min(
-            topology.criticalPathRooms().maximum(),
+            requestedMaximum,
             Math.max(
-                Math.max(6, topology.criticalPathRooms().minimum()),
+                Math.max(6, requestedMinimum),
                 vertical.floorCount().minimum() + 2
             )
         );
@@ -290,8 +327,8 @@ record DungeonPieceLayout(
             && safeCriticalRooms >= 4 ? 1 : 0;
         return new DungeonPiecePlanner.Settings(
             definition.terrain().bounds(),
-            safeFallback ? safeCriticalRooms : topology.criticalPathRooms().minimum(),
-            safeFallback ? safeCriticalRooms : topology.criticalPathRooms().maximum(),
+            safeFallback ? safeCriticalRooms : requestedMinimum,
+            safeFallback ? safeCriticalRooms : requestedMaximum,
             safeFallback ? safeBranches : topology.branchCount().minimum(),
             safeFallback ? safeBranches : topology.branchCount().maximum(),
             safeFallback ? 1 : topology.branchDepth().minimum(),
@@ -303,29 +340,9 @@ record DungeonPieceLayout(
             vertical.mode().equals("flat") ? "flat" : vertical.direction(),
             Math.max(0, vertical.floorCount().minimum() - 1),
             Math.max(0, vertical.floorCount().maximum() - 1),
-            vertical.mode(), vertical.floorHeight(), floorLayoutModes
+            vertical.mode(), vertical.floorHeight(),
+            definition.spatialLayout().chamberPieces()
         );
-    }
-
-    private static String runtimeLayoutMode(
-        String algorithm, String topologyMode
-    ) {
-        return switch (algorithm) {
-            case "grid_walk" -> java.util.Set.of(
-                "legacy_maze", "legacy_rooms_and_corridors",
-                "critical_path_branches", "maze", "rooms_and_corridors"
-            ).contains(topologyMode) ? topologyMode : "corridor_spine";
-            case "socket_accretion" -> "room_network";
-            case "hub_and_spokes" -> "hub_and_spokes";
-            case "authored" -> topologyMode;
-            case "scatter_graph", "bsp_floor" -> throw new IllegalStateException(
-                "Dungeon spatial algorithm is not available at runtime yet: "
-                    + algorithm
-            );
-            default -> throw new IllegalStateException(
-                "Unknown dungeon spatial algorithm: " + algorithm
-            );
-        };
     }
 
     BlockPos requiredMarker(String kind, String reference) {

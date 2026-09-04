@@ -9,6 +9,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonGeneratedTrainerTest {
     @Test
+    void selectsPokemonCountInsideTheConfiguredRange() {
+        var generation = new DungeonDefinition.GeneratedTrainer(
+            List.of(
+                new DungeonDefinition.WeightedSpecies("cobblemon:rattata", 1),
+                new DungeonDefinition.WeightedSpecies("cobblemon:koffing", 1),
+                new DungeonDefinition.WeightedSpecies("cobblemon:zubat", 1),
+                new DungeonDefinition.WeightedSpecies("cobblemon:ekans", 1)
+            ),
+            new DungeonDefinition.IntRange(1, 4), false,
+            List.of("시작"), List.of("종료")
+        );
+        var difficulty = new DungeonDefinition.Difficulty(10, 10, 10, 10);
+
+        var sizes = java.util.stream.LongStream.range(0, 64)
+            .mapToObj(seed -> DungeonGeneratedTrainer.generate(
+                generation, difficulty, seed * 104729L
+            ).team().size())
+            .collect(java.util.stream.Collectors.toSet());
+
+        assertTrue(sizes.stream().allMatch(size -> size >= 1 && size <= 4));
+        assertTrue(sizes.size() > 1);
+    }
+
+    @Test
     void resolvesAStableUniqueTeamAndDialogueFromTheConfiguredPool() {
         var generation = new DungeonDefinition.GeneratedTrainer(
             List.of(

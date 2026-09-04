@@ -58,8 +58,10 @@ class StructureBuilderTests(unittest.TestCase):
             "boss": ("x", "z"), "stairs_up": ("z",),
             "stairs_down": ("z",), "dead_end": ("z",),
             "treasure": ("x",), "exit": ("z",), "corner": ("diagonal",),
-            "empty_chamber_1x2": ("x", "z"),
-            "empty_chamber_2x2": ("x", "z"),
+            "empty_chamber_1x2": ("x",),
+            # Doors use the first standard_16 lane, not the geometric centre
+            # of the complete multi-cell footprint.
+            "empty_chamber_2x2": (),
         }
         for shape_name, axes in symmetry_axes.items():
             payload = dungeon_piece_skin_generator._build_nbt(
@@ -191,6 +193,9 @@ class StructureBuilderTests(unittest.TestCase):
                 self.assertEqual("chamber", chamber["spatial_kind"])
                 self.assertEqual(expected_size, chamber["size"])
                 self.assertEqual([], chamber["markers"])
+                for connector in chamber["connectors"]:
+                    lateral_axis = 2 if connector["facing"] in {"west", "east"} else 0
+                    self.assertEqual(7, connector["position"][lateral_axis] % 16)
 
     def test_generated_underground_entrance_has_road_anchor_and_transition_barriers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

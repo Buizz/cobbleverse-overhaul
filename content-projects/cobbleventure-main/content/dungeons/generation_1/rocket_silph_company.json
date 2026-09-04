@@ -22,54 +22,51 @@
   "match": { "required_players": 2, "scope": "same_entrance", "timeout_seconds": 300, "on_timeout": "keep_waiting", "stay_radius": 8 },
   "battle": { "allow_flee": false, "allow_capture": true, "allow_items": true, "allow_escape_actions": false },
   "plan": { "mode": "runtime", "seed_policy": "random_per_run", "fallback": "use_fallback_plan", "generation_timeout_ms": 1000, "max_attempts": 48 },
-  "terrain": { "mode": "nbt_pieces", "piece_pool": "cobbleventure:dungeon_pool/rocket_test", "bounds": [80, 72, 80] },
+  "progression": { "pattern": "branching", "encounter_order": "boss_only" },
+  "terrain": { "mode": "nbt_pieces", "piece_pool": "cobbleventure:dungeon_pool/rocket_test", "bounds": [192, 72, 192] },
   "layout": { "mode": "rooms_and_corridors", "critical_path_rooms": [15, 16], "branch_count": [1, 1], "branch_depth": [1, 1], "loop_chance": 0.0, "vertical_direction": "ascending", "floor_changes": [1, 2] },
   "topology": { "mode": "corridor_spine", "critical_path_rooms": [15, 16], "branch_count": [1, 1], "branch_depth": [1, 1], "loop_chance": 0.0 },
+  "spatial_layout": {
+    "algorithm": "corridor_halls",
+    "chamber_pieces": [
+      "cobbleventure:dungeon_piece/rocket/room",
+      "cobbleventure:dungeon_piece/rocket/route_room",
+      "cobbleventure:dungeon_piece/rocket/encounter_room",
+      "cobbleventure:dungeon_piece/rocket/empty_chamber_1x2",
+      "cobbleventure:dungeon_piece/rocket/empty_chamber_2x2"
+    ]
+  },
   "vertical": { "mode": "discrete_floors", "direction": "ascending", "floor_count": [2, 3], "floor_height": 8, "connections_per_floor": [1, 1] },
   "npc_placement": { "capacity_mode": "from_encounters", "minimum_spacing": 4, "maximum_per_room": 3 },
+  "generated_trainers": {
+    "enabled": true, "count": [5, 8],
+    "appearance_pool": [
+      { "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "weight": 5 },
+      { "display_name": { "ko_kr": "로켓단 협력 과학자", "en_us": "Rocket Scientist" }, "trainer_class": "cobbleventure:trainer_class/scientist", "weight": 2 }
+    ],
+    "dialogue_pool": [
+      { "battle_start_line": "실프주식회사는 지금 로켓단이 통제한다!", "battle_end_line": "통제를 빼앗기다니...", "weight": 2 },
+      { "battle_start_line": "이 위층에는 올라갈 수 없다!", "battle_end_line": "경비를 뚫고 가다니...", "weight": 2 },
+      { "battle_start_line": "우리 연구를 방해하지 마라!", "battle_end_line": "실험이 실패하다니...", "weight": 1 },
+      { "battle_start_line": "워프 패널에서 물러서라!", "battle_end_line": "침입자를 놓쳤군...", "weight": 1 }
+    ],
+    "pokemon_pool": [
+      { "species": "cobblemon:raticate", "weight": 2 }, { "species": "cobblemon:zubat", "weight": 2 },
+      { "species": "cobblemon:machop", "weight": 1 }, { "species": "cobblemon:drowzee", "weight": 1 },
+      { "species": "cobblemon:magnemite", "weight": 1 }, { "species": "cobblemon:koffing", "weight": 1 },
+      { "species": "cobblemon:electrode", "weight": 1 }
+    ],
+    "team_size": [2, 4], "allow_duplicates": false
+  },
   "encounters": [
-    {
-      "id": "lobby_guard", "display_name": { "ko_kr": "저층 로비 경비", "en_us": "Lobby Guard" },
-      "trainers": [{ "id": "lobby_guard", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_silph_grunt" }],
-      "requires": [], "yaw": 180, "boss": false
-    },
-    {
-      "id": "office_guard", "display_name": { "ko_kr": "중층 사무실 경비", "en_us": "Office Guard" },
-      "trainers": [{ "id": "office_guard", "display_name": { "ko_kr": "로켓단 경비", "en_us": "Team Rocket Guard" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_silph_guard" }],
-      "requires": ["lobby_guard"], "yaw": 90, "boss": false
-    },
-    {
-      "id": "lab_scientist", "display_name": { "ko_kr": "연구실 협력 과학자", "en_us": "Laboratory Scientist" },
-      "trainers": [{ "id": "lab_scientist", "display_name": { "ko_kr": "로켓단 협력 과학자", "en_us": "Rocket Scientist" }, "trainer_class": "cobbleventure:trainer_class/scientist", "battle": "cobbleventure:battle/rocket_silph_scientist" }],
-      "requires": ["office_guard"], "yaw": -90, "boss": false
-    },
-    {
-      "id": "warehouse_guard", "display_name": { "ko_kr": "물류층 경비", "en_us": "Warehouse Guard" },
-      "trainers": [{ "id": "warehouse_guard", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_silph_grunt" }],
-      "requires": ["office_guard"], "yaw": 180, "boss": false
-    },
-    {
-      "id": "teleporter_guard", "display_name": { "ko_kr": "워프 패널 경비", "en_us": "Warp Panel Guard" },
-      "trainers": [{ "id": "teleporter_guard", "display_name": { "ko_kr": "로켓단 경비", "en_us": "Team Rocket Guard" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_silph_guard" }],
-      "requires": ["lab_scientist", "warehouse_guard"], "yaw": 90, "boss": false
-    },
-    {
-      "id": "conference_guard", "display_name": { "ko_kr": "회의실 경비", "en_us": "Conference Room Guard" },
-      "trainers": [{ "id": "conference_guard", "display_name": { "ko_kr": "로켓단 조무래기", "en_us": "Team Rocket Grunt" }, "trainer_class": "cobbleventure:trainer_class/villain_grunt", "battle": "cobbleventure:battle/rocket_silph_grunt" }],
-      "requires": ["teleporter_guard"], "yaw": -90, "boss": false
-    },
-    {
-      "id": "executive_scientist", "display_name": { "ko_kr": "임원층 협력 과학자", "en_us": "Executive Floor Scientist" },
-      "trainers": [{ "id": "executive_scientist", "display_name": { "ko_kr": "로켓단 협력 과학자", "en_us": "Rocket Scientist" }, "trainer_class": "cobbleventure:trainer_class/scientist", "battle": "cobbleventure:battle/rocket_silph_scientist" }],
-      "requires": ["conference_guard"], "yaw": 180, "boss": false
-    },
     {
       "id": "executive_floor_admin", "display_name": { "ko_kr": "최상층 로켓단 간부", "en_us": "Executive Floor Admin" },
       "trainers": [{ "id": "executive_floor_admin", "display_name": { "ko_kr": "로켓단 간부", "en_us": "Team Rocket Admin" }, "trainer_class": "cobbleventure:trainer_class/villain_admin", "battle": "cobbleventure:battle/rocket_silph_admin" }],
-      "requires": ["executive_scientist"], "yaw": 180, "boss": true
+      "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["여기까지 올라온 실력은 인정하지."], "win_lines": ["실프주식회사에서 철수하겠다..."], "loss_lines": ["로켓단의 계획은 막을 수 없다!"] },
+      "requires": [], "yaw": 180, "boss": true
     }
   ],
-  "random_encounters": { "enabled": false, "minimum_distance": 6, "maximum_distance": 12, "max_active": 1, "spawn_interval_ticks": 100, "spawn_bounds": { "min": [2, 1, 2], "max": [77, 69, 77] }, "additions": [] },
+  "random_encounters": { "enabled": false, "minimum_distance": 6, "maximum_distance": 12, "max_active": 1, "spawn_interval_ticks": 100, "additions": [] },
   "support": { "healing_stations": [{ "id": "mid_floor_station", "block": "minecraft:lodestone", "uses_per_run": 1, "restore_hp": true, "restore_status": true, "restore_pp": true }] },
   "gates": [],
   "loot": { "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies", "ownership": "per_player", "on_failure": "grant_on_clear_only", "containers": [{ "id": "executive_safe", "block": "chest", "facing": "west", "requires_completion": true }] },

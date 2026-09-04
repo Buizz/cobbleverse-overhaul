@@ -58,36 +58,40 @@ final class DungeonDefinitionTest {
     }
 
     @Test
-    void parsesPoolGeneratedTrainerWithoutBattlePreset() throws Exception {
+    void materializesDungeonWideGeneratedTrainerPoolsDeterministically() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
-        JsonObject encounter = root.getAsJsonArray("encounters")
-            .get(0).getAsJsonObject();
-        encounter.remove("trainers");
-        encounter.add("npcs", JsonParser.parseString(
-            "[\"cobbleventure:npc/rocket_power_plant_grunt\"]"
-        ).getAsJsonArray());
-        encounter.remove("opponents");
-        encounter.add("trainer_generation", JsonParser.parseString("""
+        root.add("generated_trainers", JsonParser.parseString("""
             {
+              "enabled":true,
+              "count":[2,4],
+              "appearance_pool":[
+                {"display_name":{"ko_kr":"로켓단 조무래기"},
+                 "trainer_class":"cobbleventure:trainer_class/villain_grunt","weight":1}
+              ],
+              "dialogue_pool":[
+                {"battle_start_line":"침입자다!","battle_end_line":"후퇴한다!","weight":1}
+              ],
               "pokemon_pool": [
                 {"species":"cobblemon:rattata","weight":10},
                 {"species":"cobblemon:koffing","weight":5}
               ],
-              "team_size":[1,2],
-              "allow_duplicates":false,
-              "battle_start_lines":["침입자다!", "여기서 멈춰라!"],
-              "battle_end_lines":["후퇴한다!", "이럴 수가…"]
+              "team_size":[1,2], "allow_duplicates":false
             }
             """).getAsJsonObject());
 
         DungeonDefinition definition = DungeonDefinition.parse(root);
-        DungeonDefinition.GeneratedTrainer generated = definition.encounters()
-            .getFirst().generatedTrainer();
+        DungeonDefinition first = definition.materializeGeneratedTrainers(17L);
+        DungeonDefinition second = definition.materializeGeneratedTrainers(17L);
+        List<DungeonDefinition.Encounter> generated = first.encounters().stream()
+            .filter(encounter -> encounter.id().startsWith("random_trainer_"))
+            .toList();
 
-        assertEquals(2, generated.pokemonPool().size());
-        assertEquals(1, generated.teamSize().minimum());
-        assertEquals(2, generated.teamSize().maximum());
-        assertTrue(definition.encounters().getFirst().opponents().isEmpty());
+        assertTrue(generated.size() >= 2 && generated.size() <= 4);
+        assertEquals(first.encounters(), second.encounters());
+        assertEquals(2, generated.getFirst().generatedTrainer().pokemonPool().size());
+        assertEquals(1, generated.getFirst().generatedTrainer().teamSize().minimum());
+        assertEquals(2, generated.getFirst().generatedTrainer().teamSize().maximum());
+        assertEquals(4 + generated.size(), first.npcPlacement().requiredSlots());
     }
 
     @Test
@@ -136,34 +140,31 @@ final class DungeonDefinitionTest {
     void parsesIndependentProgressionAndSpatialLayoutSettings() throws Exception {
         JsonObject root = resourceObject("rocket_power_plant");
         root.add("progression", JsonParser.parseString("""
-            {"pattern":"parallel_gate","required_targets":3}
+            {"pattern":"parallel_gate","required_targets":3,
+             "encounter_order":"sequential"}
             """).getAsJsonObject());
         root.add("spatial_layout", JsonParser.parseString("""
-            {"algorithm":"bsp_floor"}
+            {"algorithm":"room_scatter","chamber_pieces":[
+              "cobbleventure:dungeon_piece/rocket/empty_chamber_2x2"]}
             """).getAsJsonObject());
 
         DungeonDefinition definition = DungeonDefinition.parse(root);
 
         assertEquals("parallel_gate", definition.progression().pattern());
         assertEquals(3, definition.progression().requiredTargets());
-        assertEquals("bsp_floor", definition.spatialLayout().algorithm());
-    }
-
-    @Test
-    void parsesAnIndependentAlgorithmForEveryDungeonFloor() throws Exception {
-        JsonObject root = resourceObject("rocket_power_plant");
-        root.add("vertical", JsonParser.parseString("""
-            {"mode":"discrete_floors","direction":"ascending",
-             "floor_count":[3,3],"floor_height":8,
-             "connections_per_floor":[1,1],
-             "floor_algorithms":["grid_walk","socket_accretion","hub_and_spokes"]}
-            """).getAsJsonObject());
-
-        DungeonDefinition definition = DungeonDefinition.parse(root);
-
+        assertEquals("sequential", definition.progression().encounterOrder());
+        assertTrue(definition.progression().usesEncounterPrerequisites());
+        assertEquals("room_scatter", definition.spatialLayout().algorithm());
         assertEquals(
-            List.of("grid_walk", "socket_accretion", "hub_and_spokes"),
-            definition.vertical().floorAlgorithms()
+            List.of("cobbleventure:dungeon_piece/rocket/empty_chamber_2x2"),
+            definition.spatialLayout().chamberPieces()
+        );
+
+        root.getAsJsonObject("spatial_layout")
+            .addProperty("algorithm", "corridor_halls");
+        assertEquals(
+            "corridor_halls",
+            DungeonDefinition.parse(root).spatialLayout().algorithm()
         );
     }
 
@@ -355,11 +356,11 @@ final class DungeonDefinitionTest {
         assertEquals("cooperative", casino.multiplayer().mode());
         assertEquals(2, casino.match().requiredPlayers());
         assertEquals("summon_all", casino.multiplayer().battleJoin());
-        assertEquals(5, casino.encounters().size());
+        assertEquals(1, casino.encounters().size());
         assertTrue(casino.encounters().stream().allMatch(encounter ->
             encounter.trainers().size() == 1
         ));
-        assertEquals(5, casino.encounters().stream()
+        assertEquals(1, casino.encounters().stream()
             .flatMap(encounter -> encounter.trainers().stream())
             .map(DungeonDefinition.TrainerActor::id).distinct().count());
         assertTrue(casino.encounters().stream().allMatch(encounter ->
@@ -372,11 +373,19 @@ final class DungeonDefinitionTest {
             "cobbleventure:trainer_class/villain_admin",
             casino.encounters().getLast().trainers().getFirst().trainerClass()
         );
-        assertEquals(List.of("admin_guard"), casino.encounters().getLast().requires());
+        assertEquals(List.of(), casino.encounters().getLast().requires());
+        assertTrue(casino.generatedTrainers().enabled());
+        assertEquals(3, casino.generatedTrainers().count().minimum());
+        assertEquals(5, casino.generatedTrainers().count().maximum());
+        assertEquals(1, casino.generatedTrainers().teamSize().minimum());
+        assertEquals(3, casino.generatedTrainers().teamSize().maximum());
+        assertEquals("boss_only", casino.progression().encounterOrder());
+        assertFalse(casino.progression().usesEncounterPrerequisites());
         assertEquals("independent", silph.multiplayer().mode());
         assertEquals(2, silph.match().requiredPlayers());
         assertEquals("initiator_only", silph.multiplayer().battleJoin());
-        assertEquals(8, silph.encounters().size());
+        assertEquals(1, silph.encounters().size());
+        assertTrue(silph.generatedTrainers().enabled());
         assertEquals("descending", casino.layout().verticalDirection());
         assertEquals("ascending", silph.layout().verticalDirection());
         assertEquals("room_network", casino.topology().mode());
@@ -413,7 +422,7 @@ final class DungeonDefinitionTest {
         assertEquals("marker", gate.placement());
         assertEquals(-2, gate.minimum().getZ());
         assertEquals(2, gate.maximum().getZ());
-        assertEquals(List.of("memorial_guard_1", "memorial_guard_2"), gate.requires());
+        assertEquals(List.of(), gate.requires());
         assertEquals(1, tower.objectives().size());
         assertEquals("security_switch", tower.objectives().getFirst().id());
         assertEquals("objective", gate.requirements().getLast().type());
@@ -556,10 +565,6 @@ final class DungeonDefinitionTest {
                     "maximum_distance": 16,
                     "max_active": 2,
                     "spawn_interval_ticks": 100,
-                    "spawn_bounds": {
-                      "min": [2, 1, 11],
-                      "max": [45, 1, 45]
-                    },
                     "additions": [{
                       "species": "cobblemon:magnemite",
                       "min_level": 24,
@@ -668,7 +673,6 @@ final class DungeonDefinitionTest {
             "cobblemon:magnemite",
             definition.randomEncounters().additions().getFirst().species()
         );
-        assertEquals(45, definition.randomEncounters().maximumPosition().getX());
         assertEquals(
             "pre_boss_station",
             definition.support().healingStations().getFirst().id()
@@ -780,15 +784,16 @@ final class DungeonDefinitionTest {
     }
 
     @Test
-    void limitsRandomEncounterCandidatesToTheConfiguredDungeonFloor() {
-        PursuitEncounterSystem.SpawnBounds bounds = new PursuitEncounterSystem.SpawnBounds(
-            new net.minecraft.core.BlockPos(32770, 81, 11),
-            new net.minecraft.core.BlockPos(32813, 81, 45)
+    void derivesRandomEncounterBoundsFromTheGeneratedDungeonSize() {
+        PursuitEncounterSystem.SpawnBounds bounds = DungeonSystem.randomEncounterBounds(
+            new net.minecraft.core.BlockPos(32768, 80, 0),
+            new net.minecraft.core.BlockPos(48, 24, 48)
         );
 
-        assertTrue(bounds.contains(new net.minecraft.core.BlockPos(32790, 81, 30)));
-        assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32790, 82, 30)));
-        assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32769, 81, 30)));
+        assertTrue(bounds.contains(new net.minecraft.core.BlockPos(32768, 80, 0)));
+        assertTrue(bounds.contains(new net.minecraft.core.BlockPos(32815, 103, 47)));
+        assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32816, 103, 47)));
+        assertFalse(bounds.contains(new net.minecraft.core.BlockPos(32815, 104, 47)));
     }
 
     @Test

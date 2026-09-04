@@ -65,6 +65,7 @@
     "allow_items": true,
     "allow_escape_actions": false
   },
+  "progression": { "pattern": "branching", "encounter_order": "boss_only" },
   "terrain": {
     "mode": "fixed_template",
     "template": "cobbleventure:placeholder/power_plant"
@@ -128,10 +129,6 @@
     "maximum_distance": 16,
     "max_active": 2,
     "spawn_interval_ticks": 100,
-    "spawn_bounds": {
-      "min": [2, 1, 11],
-      "max": [45, 1, 45]
-    },
     "additions": [
       {
         "species": "cobblemon:voltorb",

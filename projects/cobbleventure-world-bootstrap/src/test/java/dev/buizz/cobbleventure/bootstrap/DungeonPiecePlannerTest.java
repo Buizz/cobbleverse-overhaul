@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -25,17 +26,18 @@ final class DungeonPiecePlannerTest {
             for (String name : List.of("rocket_pokemon_tower")) {
                 DungeonDefinition dungeon = packagedDungeon(name);
                 for (long seed = 0; seed < 32; seed++) {
+                    DungeonDefinition runDungeon = dungeon.materializeGeneratedTrainers(seed);
                     DungeonPieceLayout generated;
                     try {
-                        generated = DungeonPieceLayout.generate(dungeon, pieces, seed);
+                        generated = DungeonPieceLayout.generate(runDungeon, pieces, seed);
                     } catch (IllegalStateException failure) {
                         throw new IllegalStateException(name + " seed=" + seed, failure);
                     }
                     assertNoOverlap(generated.plan());
                     assertConnected(generated.plan());
                     assertNoOpenConnectors(generated.plan(), pieces);
-                    assertRequiredFeatures(dungeon, generated, seed);
-                    assertEncountersUseDistinctSections(dungeon, generated, seed);
+                    assertRequiredFeatures(runDungeon, generated, seed);
+                    assertEncountersUseDistinctSections(runDungeon, generated, seed);
                 }
                 assertEquals(
                     DungeonPieceLayout.generate(dungeon, pieces, 17L),
@@ -78,8 +80,8 @@ final class DungeonPiecePlannerTest {
                 assertTrue(changes <= dungeon.layout().floorChanges().maximum(), name);
                 assertTrue(elevations.stream().allMatch(y -> y % 8 == 0),
                     name + " did not align floors to the regular NBT piece height");
-                assertTrue(hasStackedFloorFootprint(generated.plan()),
-                    name + " expanded every floor sideways instead of stacking it");
+                assertEquals(changes + 1, elevations.stream().distinct().count(),
+                    name + " did not build each floor before joining them");
             }
         }
     }
@@ -111,22 +113,23 @@ final class DungeonPiecePlannerTest {
             "rocket_casino_hideout", "rocket_silph_company", "rocket_pokemon_tower"
         )) {
             DungeonDefinition dungeon = packagedDungeon(name);
+            DungeonDefinition runDungeon = dungeon.materializeGeneratedTrainers(517L);
             DungeonPieceLayout generated;
             try {
-                generated = DungeonPieceLayout.generate(dungeon, pieces, 517L);
+                generated = DungeonPieceLayout.generate(runDungeon, pieces, 517L);
             } catch (IllegalStateException failure) {
                 throw new IllegalStateException(name, failure);
             }
             Map<DungeonPieceLayout.MarkerKey, BlockPos> markers =
-                generated.featureMarkers(dungeon, 517L);
+                generated.featureMarkers(runDungeon, 517L);
 
             long assignedNpcSlots = markers.keySet().stream()
                 .filter(key -> key.kind().equals("npc_spawn"))
                 .count();
             assertEquals(
-                dungeon.npcPlacement().requiredSlots(), assignedNpcSlots, name
+                runDungeon.npcPlacement().requiredSlots(), assignedNpcSlots, name
             );
-            for (DungeonDefinition.Encounter encounter : dungeon.encounters()) {
+            for (DungeonDefinition.Encounter encounter : runDungeon.encounters()) {
                 if (!encounter.kind().equals("trainer")) continue;
                 for (int actor = 0; actor < encounter.actorCount(); actor++) {
                     assertTrue(markers.containsKey(new DungeonPieceLayout.MarkerKey(
@@ -150,26 +153,6 @@ final class DungeonPiecePlannerTest {
                 && !roomRoles.contains(roles.get(index - 2))),
                 name + " placed rooms too densely on the critical route");
         }
-    }
-
-    private static boolean hasStackedFloorFootprint(DungeonPiecePlan plan) {
-        List<DungeonPiecePlan.Placement> rooms = plan.placements().stream()
-            .filter(DungeonPiecePlan.Placement::criticalPath)
-            .filter(placement -> !placement.pieceId().contains("/stairs_"))
-            .toList();
-        for (int first = 0; first < rooms.size(); first++) {
-            DungeonPiecePlan.Placement a = rooms.get(first);
-            for (int second = first + 1; second < rooms.size(); second++) {
-                DungeonPiecePlan.Placement b = rooms.get(second);
-                if (a.minimum().getY() == b.minimum().getY()) continue;
-                boolean overlapsX = a.minimum().getX() < b.minimum().getX() + b.size().getX()
-                    && a.minimum().getX() + a.size().getX() > b.minimum().getX();
-                boolean overlapsZ = a.minimum().getZ() < b.minimum().getZ() + b.size().getZ()
-                    && a.minimum().getZ() + a.size().getZ() > b.minimum().getZ();
-                if (overlapsX && overlapsZ) return true;
-            }
-        }
-        return false;
     }
 
     @Test
@@ -312,13 +295,13 @@ final class DungeonPiecePlannerTest {
 
         assertTrue(Set.of("corridor", "junction").contains(plan.placements().get(1).role()));
         assertEquals("corridor", plan.placements().get(2).role());
-        assertTrue(Set.of("room", "junction", "support")
+        assertTrue(Set.of("corridor", "junction")
             .contains(plan.placements().get(3).role()));
         assertNoOverlap(plan);
     }
 
     @Test
-    void roomNetworkAlternatesNavigableRoomsAndConnectors() {
+    void roomNetworkUsesTwoOrThreeRoutePiecesBetweenRooms() {
         DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
             new BlockPos(112, 16, 112), 7, 7, 1, 1, 1, 1,
             0.0D, 100, "room_network"
@@ -329,8 +312,9 @@ final class DungeonPiecePlannerTest {
         );
 
         assertEquals("corridor", plan.placements().get(1).role());
-        assertEquals("room", plan.placements().get(2).role());
-        assertEquals("corridor", plan.placements().get(3).role());
+        assertEquals("corridor", plan.placements().get(2).role());
+        assertTrue(Set.of("corridor", "junction")
+            .contains(plan.placements().get(3).role()));
         assertNoOverlap(plan);
         assertConnected(plan);
     }
@@ -352,14 +336,14 @@ final class DungeonPiecePlannerTest {
                 || link.toIndex() == hub.index())
             .count();
 
-        assertEquals("room", hub.role());
+        assertEquals("junction", hub.role());
         assertEquals(2, branchLinks);
         assertNoOverlap(plan);
         assertConnected(plan);
     }
 
     @Test
-    void runtimeLayoutPassesConfiguredGenerationModeToPlanner() throws Exception {
+    void runtimeLayoutsUseTheSameRoomNetworkCadence() throws Exception {
         DungeonPieceLayout maze = DungeonPieceLayout.generate(
             pieceDungeon("reject_entry", 7, 7, 0, 100, 80, "maze"),
             testPieces(), 8128L
@@ -372,35 +356,54 @@ final class DungeonPiecePlannerTest {
             testPieces(), 9921L
         );
 
-        assertTrue(maze.plan().placements().stream()
-            .filter(DungeonPiecePlan.Placement::criticalPath)
-            .filter(placement -> !Set.of("start", "boss", "exit")
-                .contains(placement.role()))
-            .allMatch(placement -> Set.of("corridor", "junction")
-                .contains(placement.role())));
-        assertTrue(Set.of("corridor", "junction")
-            .contains(rooms.plan().placements().get(1).role()));
-        assertEquals("corridor", rooms.plan().placements().get(2).role());
-        assertTrue(Set.of("room", "junction", "support")
-            .contains(rooms.plan().placements().get(3).role()));
+        for (DungeonPieceLayout layout : List.of(maze, rooms)) {
+            assertTrue(Set.of("corridor", "junction")
+                .contains(layout.plan().placements().get(1).role()));
+            assertTrue(Set.of("corridor", "junction")
+                .contains(layout.plan().placements().get(2).role()));
+            assertTrue(Set.of("corridor", "junction")
+                .contains(layout.plan().placements().get(3).role()));
+            assertNoOverlap(layout.plan());
+            assertConnected(layout.plan());
+        }
     }
 
     @Test
-    void selectsTheConfiguredLayoutModeForEachIndependentFloor() {
-        DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
-            new BlockPos(96, 32, 96), 8, 10, 0, 1, 1, 1,
-            0.0D, 16, "corridor_spine", "ascending", 2, 2,
-            "discrete_floors", 8,
-            List.of("corridor_spine", "room_network", "hub_and_spokes")
+    void npcSlotDemandExpandsTheCommonRoomNetwork() throws Exception {
+        JsonObject base = resourceJson(
+            "data/cobbleventure/dungeons/generation_1/rocket_silph_company.json"
+        );
+        base.getAsJsonObject("topology").add(
+            "critical_path_rooms", JsonParser.parseString("[6,6]")
+        );
+        JsonObject compactRoot = base.deepCopy();
+        compactRoot.add("npc_placement", JsonParser.parseString("""
+            {"capacity_mode":"fixed","required_slots":9,
+             "minimum_spacing":4,"maximum_per_room":3}
+            """).getAsJsonObject());
+        JsonObject expandedRoot = base.deepCopy();
+        expandedRoot.add("npc_placement", JsonParser.parseString("""
+            {"capacity_mode":"fixed","required_slots":18,
+             "minimum_spacing":4,"maximum_per_room":3}
+            """).getAsJsonObject());
+        List<DungeonPieceDefinition> pieces = packagedRocketPieces().stream()
+            .filter(piece -> piece.id().contains("/rocket/"))
+            .toList();
+
+        DungeonPiecePlanner.Settings compact = DungeonPieceLayout.plannerSettings(
+            DungeonDefinition.parse(compactRoot), pieces, false
+        );
+        DungeonPiecePlanner.Settings expanded = DungeonPieceLayout.plannerSettings(
+            DungeonDefinition.parse(expandedRoot), pieces, false
         );
 
-        assertEquals("corridor_spine", settings.layoutModeForFloor(0));
-        assertEquals("room_network", settings.layoutModeForFloor(1));
-        assertEquals("hub_and_spokes", settings.layoutModeForFloor(2));
+        assertEquals(15, compact.criticalPathMin());
+        assertEquals(24, expanded.criticalPathMin());
+        assertTrue(expanded.criticalPathMin() > compact.criticalPathMin());
     }
 
     @Test
-    void buildsIndependentFloorSectionsAndPlacesAMultiCellChamber() throws Exception {
+    void placesASelectedMultiCellChamberWithoutOverlap() throws Exception {
         List<DungeonPieceDefinition> pieces = packagedRocketPieces().stream()
             .filter(piece -> piece.id().contains("/rocket/"))
             .filter(piece -> !piece.role().equals("treasure"))
@@ -410,33 +413,33 @@ final class DungeonPiecePlannerTest {
             .toList();
         DungeonPiecePlanner.Settings settings = new DungeonPiecePlanner.Settings(
             new BlockPos(192, 32, 192), 14, 14, 0, 0, 1, 1,
-            0.0D, 256, "corridor_spine", "ascending", 2, 2,
+            0.0D, 256, "room_network", "ascending", 2, 2,
             "discrete_floors", 8,
-            List.of("corridor_spine", "room_network", "hub_and_spokes")
+            List.of("cobbleventure:dungeon_piece/rocket/empty_chamber_2x2")
         );
 
         DungeonPiecePlan plan = DungeonPiecePlanner.generate(
             pieces, settings, 9_041L
         );
-        List<List<DungeonPiecePlan.Placement>> floors = new ArrayList<>();
-        floors.add(new ArrayList<>());
-        int stairs = 0;
-        for (DungeonPiecePlan.Placement placement : plan.placements().stream()
-            .filter(DungeonPiecePlan.Placement::criticalPath).toList()) {
-            if (placement.pieceId().contains("/stairs_")) {
-                stairs++;
-                floors.add(new ArrayList<>());
-            } else {
-                floors.getLast().add(placement);
-            }
-        }
+        Map<Integer, List<DungeonPiecePlan.Placement>> floors = plan.placements().stream()
+            .filter(DungeonPiecePlan.Placement::criticalPath)
+            .filter(placement -> !placement.pieceId().contains("/stairs_"))
+            .collect(java.util.stream.Collectors.groupingBy(
+                placement -> placement.minimum().getY()
+            ));
+        long stairs = plan.placements().stream()
+            .filter(placement -> placement.pieceId().contains("/stairs_"))
+            .count();
 
         assertEquals(2, stairs);
         assertEquals(3, floors.size());
-        assertTrue(floors.stream().allMatch(floor -> floor.size() >= 2));
-        assertEquals("room", floors.get(1).getFirst().role(),
-            "the second floor must restart the room-network cadence");
-        DungeonPiecePlan.Placement hub = floors.get(2).stream()
+        assertTrue(floors.values().stream().allMatch(floor -> floor.size() >= 10));
+        assertTrue(plan.placements().stream()
+            .filter(placement -> placement.role().equals("room"))
+            .allMatch(placement -> placement.pieceId()
+                .endsWith("/empty_chamber_2x2")),
+            "an unselected ordinary chamber was placed");
+        DungeonPiecePlan.Placement hub = plan.placements().stream()
             .filter(placement -> placement.pieceId().endsWith("/empty_chamber_2x2"))
             .findFirst().orElseThrow();
         assertEquals(new BlockPos(32, 8, 32), hub.size());
@@ -464,6 +467,11 @@ final class DungeonPiecePlannerTest {
             root.add("terrain", JsonParser.parseString("""
                 {"mode":"nbt_pieces","piece_pool":"cobbleventure:theme/test",
                  "bounds":[80,16,80]}
+                """).getAsJsonObject());
+            root.add("spatial_layout", JsonParser.parseString("""
+                {"algorithm":"room_scatter","chamber_pieces":[
+                  "cobbleventure:dungeon_piece/test/route_room"
+                ]}
                 """).getAsJsonObject());
             root.add("layout", JsonParser.parseString("""
                 {"mode":"rooms_and_corridors","critical_path_rooms":[6,6],

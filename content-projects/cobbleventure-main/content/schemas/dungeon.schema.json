@@ -17,6 +17,7 @@
     "display_name": { "$ref": "#/$defs/localized_text" },
     "description": { "$ref": "#/$defs/localized_text" },
     "preset": { "$ref": "#/$defs/resource_id" },
+    "generated_trainers": { "$ref": "#/$defs/generated_trainers" },
     "entrances": {
       "type": "array",
       "minItems": 1,
@@ -258,6 +259,10 @@
         },
         "required_targets": {
           "type": "integer", "minimum": 1, "maximum": 16, "default": 2
+        },
+        "encounter_order": {
+          "enum": ["boss_only", "sequential"],
+          "default": "boss_only"
         }
       },
       "allOf": [{
@@ -274,7 +279,13 @@
       "required": ["algorithm"],
       "properties": {
         "algorithm": {
-          "enum": ["grid_walk", "socket_accretion", "scatter_graph", "bsp_floor", "hub_and_spokes", "authored"]
+          "enum": ["room_scatter", "corridor_halls", "socket_accretion"]
+        },
+        "chamber_pieces": {
+          "type": "array",
+          "description": "이 던전에서 일반 공동으로 사용할 명시적 후보 목록입니다. 빈 목록이면 일반 공동을 자동 배치하지 않습니다.",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/resource_id" }
         }
       }
     },
@@ -287,13 +298,7 @@
         "direction": { "enum": ["ascending", "descending", "mixed"] },
         "floor_count": { "$ref": "#/$defs/positive_range" },
         "floor_height": { "type": "integer", "minimum": 4, "maximum": 64 },
-        "connections_per_floor": { "$ref": "#/$defs/positive_range" },
-        "floor_algorithms": {
-          "type": "array", "minItems": 1, "maxItems": 257,
-          "items": {
-            "enum": ["grid_walk", "socket_accretion", "scatter_graph", "bsp_floor", "hub_and_spokes", "authored"]
-          }
-        }
+        "connections_per_floor": { "$ref": "#/$defs/positive_range" }
       },
       "allOf": [{
         "if": {
@@ -340,7 +345,7 @@
       "additionalProperties": false,
       "required": [
         "enabled", "minimum_distance", "maximum_distance", "max_active",
-        "spawn_interval_ticks", "spawn_bounds", "additions"
+        "spawn_interval_ticks", "additions"
       ],
       "properties": {
         "enabled": { "type": "boolean" },
@@ -348,15 +353,6 @@
         "maximum_distance": { "type": "integer", "minimum": 1, "maximum": 128 },
         "max_active": { "type": "integer", "minimum": 1, "maximum": 16 },
         "spawn_interval_ticks": { "type": "integer", "minimum": 20, "maximum": 12000 },
-        "spawn_bounds": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["min", "max"],
-          "properties": {
-            "min": { "$ref": "#/$defs/block_position" },
-            "max": { "$ref": "#/$defs/block_position" }
-          }
-        },
         "additions": {
           "type": "array",
           "items": { "$ref": "#/$defs/wild_species" }
@@ -626,7 +622,6 @@
           "maxItems": 2,
           "items": { "$ref": "#/$defs/resource_id" }
         },
-        "trainer_generation": { "$ref": "#/$defs/trainer_generation" },
         "trigger": { "$ref": "#/$defs/encounter_trigger" },
         "pokemon": {
           "type": "object",
@@ -670,21 +665,13 @@
             {
               "required": ["trainers", "trigger"],
               "not": { "anyOf": [
-                { "required": ["npcs"] }, { "required": ["opponents"] },
-                { "required": ["trainer_generation"] }
+                { "required": ["npcs"] }, { "required": ["opponents"] }
               ] }
             },
             {
               "required": ["npcs", "opponents"],
               "not": { "anyOf": [
-                { "required": ["trainers"] }, { "required": ["trainer_generation"] },
-                { "required": ["trigger"] }
-              ] }
-            },
-            {
-              "required": ["npcs", "trainer_generation"],
-              "not": { "anyOf": [
-                { "required": ["trainers"] }, { "required": ["opponents"] },
+                { "required": ["trainers"] },
                 { "required": ["trigger"] }
               ] }
             }
@@ -738,14 +725,50 @@
         }
       }
     },
-    "trainer_generation": {
+    "generated_trainers": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "pokemon_pool", "team_size", "allow_duplicates",
-        "battle_start_lines", "battle_end_lines"
+        "enabled", "count", "appearance_pool", "dialogue_pool",
+        "pokemon_pool", "team_size", "allow_duplicates"
       ],
       "properties": {
+        "enabled": { "type": "boolean" },
+        "count": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "prefixItems": [
+            { "type": "integer", "minimum": 1, "maximum": 256 },
+            { "type": "integer", "minimum": 1, "maximum": 256 }
+          ],
+          "items": false
+        },
+        "appearance_pool": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["display_name", "trainer_class", "weight"],
+            "properties": {
+              "display_name": { "$ref": "#/$defs/localized_text" },
+              "trainer_class": {
+                "type": "string",
+                "pattern": "^[a-z0-9_.-]+:trainer_class/[a-z0-9_./-]+$"
+              },
+              "weight": { "type": "integer", "minimum": 1, "maximum": 1000 }
+            }
+          }
+        },
+        "dialogue_pool": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["battle_start_line", "battle_end_line", "weight"],
+            "properties": {
+              "battle_start_line": { "type": "string", "minLength": 1 },
+              "battle_end_line": { "type": "string", "minLength": 1 },
+              "weight": { "type": "integer", "minimum": 1, "maximum": 1000 }
+            }
+          }
+        },
         "pokemon_pool": {
           "type": "array",
           "minItems": 1,
@@ -769,17 +792,7 @@
           ],
           "items": false
         },
-        "allow_duplicates": { "type": "boolean" },
-        "battle_start_lines": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
-        },
-        "battle_end_lines": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
-        }
+        "allow_duplicates": { "type": "boolean" }
       }
     },
     "loot_container": {

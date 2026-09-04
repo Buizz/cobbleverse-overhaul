@@ -40,17 +40,20 @@ class DungeonOwnedTrainerTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn('option("dungeon", "던전 자동 NPC"', script)
+        self.assertIn('option("dungeon", "던전 소유 NPC"', script)
         self.assertIn("function dungeonOwnedTrainerFields", script)
+        self.assertIn("function renderDungeonGeneratedPopulation", script)
+        self.assertIn("generatedTeamMin", script)
+        self.assertIn("generatedTeamMax", script)
         self.assertIn("ownedTrainerClass", script)
         self.assertIn("triggerWarningTrack", script)
 
-    def test_generation_one_rocket_dungeons_use_requested_rosters_and_compact_bounds(self) -> None:
+    def test_generation_one_rocket_dungeons_use_requested_rosters_and_room_capacity(self) -> None:
         expected = {
-            "rocket_power_plant": 4,
-            "rocket_pokemon_tower": 5,
-            "rocket_casino_hideout": 5,
-            "rocket_silph_company": 8,
+            "rocket_power_plant": {"fixed": 4, "generated": 0},
+            "rocket_pokemon_tower": {"fixed": 1, "generated": 5},
+            "rocket_casino_hideout": {"fixed": 1, "generated": 5},
+            "rocket_silph_company": {"fixed": 1, "generated": 8},
         }
         original_layout = {
             "rocket_pokemon_tower": {"rooms": 11, "branches": 4, "depth": 2},
@@ -58,7 +61,7 @@ class DungeonOwnedTrainerTests(unittest.TestCase):
             "rocket_silph_company": {"rooms": 12, "branches": 1, "depth": 1},
         }
 
-        for slug, trainer_count in expected.items():
+        for slug, counts in expected.items():
             dungeon = json.loads((
                 self.CONTENT / "dungeons" / "generation_1" / f"{slug}.json"
             ).read_text(encoding="utf-8"))
@@ -67,7 +70,9 @@ class DungeonOwnedTrainerTests(unittest.TestCase):
                 for encounter in dungeon["encounters"]
                 for trainer in encounter.get("trainers", [])
             ]
-            self.assertEqual(trainer_count, len(actors), slug)
+            self.assertEqual(counts["fixed"], len(actors), slug)
+            generated = dungeon.get("generated_trainers")
+            self.assertEqual(counts["generated"], generated["count"][1] if generated else 0, slug)
             self.assertGreater(dungeon["difficulty"]["internal_min"], 1, slug)
 
             for actor in actors:
@@ -83,7 +88,12 @@ class DungeonOwnedTrainerTests(unittest.TestCase):
             if slug in original_layout:
                 previous = original_layout[slug]
                 layout = dungeon["layout"]
-                self.assertLess(layout["critical_path_rooms"][1], previous["rooms"], slug)
+                maximum_per_room = dungeon["npc_placement"]["maximum_per_room"]
+                total_demand = counts["fixed"] + counts["generated"]
+                npc_rooms = (total_demand + maximum_per_room - 1) // maximum_per_room
+                self.assertGreaterEqual(
+                    layout["critical_path_rooms"][1], npc_rooms + 3, slug
+                )
                 self.assertLessEqual(layout["branch_count"][1], previous["branches"], slug)
                 self.assertLessEqual(layout["branch_depth"][1], previous["depth"], slug)
 

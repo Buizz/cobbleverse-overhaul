@@ -24,7 +24,7 @@
       "position": [
         0,
         1,
-        15
+        7
       ],
       "facing": "west",
       "socket": "cobbleventure:dungeon_socket/standard_6",
@@ -37,7 +37,7 @@
       "position": [
         31,
         1,
-        15
+        7
       ],
       "facing": "east",
       "socket": "cobbleventure:dungeon_socket/standard_6",
@@ -48,7 +48,7 @@
     {
       "id": "north",
       "position": [
-        15,
+        7,
         1,
         0
       ],
@@ -61,7 +61,7 @@
     {
       "id": "south",
       "position": [
-        15,
+        7,
         1,
         31
       ],

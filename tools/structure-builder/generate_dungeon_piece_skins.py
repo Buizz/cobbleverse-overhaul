@@ -173,10 +173,18 @@ def _center_span(length: int, width: int = CORRIDOR_WIDTH) -> range:
     return range(start, start + width)
 
 
+def _grid_lane_span(length: int, width: int = CORRIDOR_WIDTH) -> range:
+    """Return the standard_16 lane inside the first 16x16 footprint cell."""
+    if length < 16 or length % 16:
+        return _center_span(length, width)
+    start = 7 - (width - 1) // 2
+    return range(start, start + width)
+
+
 def _arms(directions: tuple[str, ...], size: tuple[int, int, int] = SIZE) -> set[tuple[int, int]]:
     width, _, depth = size
-    center_x = _center_span(width)
-    center_z = _center_span(depth)
+    center_x = _grid_lane_span(width)
+    center_z = _grid_lane_span(depth)
     cells = {
         (x, z)
         for x in center_x
@@ -207,7 +215,8 @@ def _footprint(shape: Shape) -> set[tuple[int, int]]:
 
 def _connector_position(direction: str, y: int, size: tuple[int, int, int] = SIZE) -> tuple[int, int, int]:
     width, _, depth = size
-    cx, cz = (width - 1) // 2, (depth - 1) // 2
+    cx = 7 if width >= 16 and width % 16 == 0 else (width - 1) // 2
+    cz = 7 if depth >= 16 and depth % 16 == 0 else (depth - 1) // 2
     return {
         "west": (0, y, cz), "east": (width - 1, y, cz),
         "north": (cx, y, 0), "south": (cx, y, depth - 1),
@@ -259,8 +268,9 @@ def _build_nbt(shape_name: str, shape: Shape, skin: dict[str, str]) -> bytes:
     for direction in shape.directions:
         y = heights.get(direction, 1)
         x, _, z = _connector_position(direction, y, shape.size)
-        # The even-width opening is centred on the 7.5 block axis of standard_16.
-        lateral_span = _center_span(depth if direction in {"west", "east"} else width)
+        # Every opening stays on the 7.5 axis of a standard_16 grid cell,
+        # including chambers that occupy several cells.
+        lateral_span = _grid_lane_span(depth if direction in {"west", "east"} else width)
         for lateral in lateral_span:
             for door_y in range(y, min(height - 1, y + 3)):
                 door_x = x if direction in {"west", "east"} else lateral
@@ -356,7 +366,7 @@ def generate(root: Path = ROOT) -> list[Path]:
             nbt_path.write_bytes(_build_nbt(shape_name, shape, skin))
             json_path.write_text(
                 json.dumps(_definition(shape_name, shape, skin_name), ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
+                encoding="utf-8", newline="\n",
             )
             written.extend((nbt_path, json_path))
     return written
