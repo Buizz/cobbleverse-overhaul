@@ -116,7 +116,7 @@
       },
       "trainers": [{
         "id": "control_room_officer", "display_name": { "ko_kr": "발전소 로켓단 간부", "en_us": "Power Plant Team Rocket Officer" },
-        "trainer_class": "cobbleventure:trainer_class/villain_admin", "battle": "cobbleventure:battle/rocket_power_plant_officer"
+        "trainer_class": "cobbleventure:trainer_class/villain_admin", "character": "cobbleventure:character/archer", "battle": "cobbleventure:battle/rocket_power_plant_officer"
       }],
       "requires": ["west_grunt", "central_technician", "east_grunt"],
       "yaw": 180,
@@ -211,8 +211,15 @@
     ]
   },
   "rewards": {
-    "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
-    "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear",
+    "first_clear": [
+      { "rolls": 1, "entries": [{ "item": "cobblemon:rare_candy", "min_count": 2, "max_count": 2, "weight": 1 }] },
+      { "rolls": 1, "entries": [{ "item": "cobblemon:great_ball", "min_count": 5, "max_count": 5, "weight": 1 }] }
+    ],
+    "repeat_clear": [{ "rolls": 1, "entries": [
+      { "item": "cobblemon:super_potion", "min_count": 2, "max_count": 2, "weight": 50 },
+      { "item": "cobblemon:great_ball", "min_count": 3, "max_count": 3, "weight": 40 },
+      { "item": "cobblemon:rare_candy", "min_count": 1, "max_count": 1, "weight": 10 }
+    ] }],
     "first_clear_field_moves": ["flash"]
   },
   "lifecycle": {

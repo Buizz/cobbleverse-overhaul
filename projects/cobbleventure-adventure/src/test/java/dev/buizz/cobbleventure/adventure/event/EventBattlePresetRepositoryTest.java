@@ -117,6 +117,22 @@ final class EventBattlePresetRepositoryTest {
         assertTrue(repository.find("cobbleventure:battle/invalid").isEmpty());
     }
 
+    @Test
+    void runtimePresetCanBeInstalledAndRemovedWithoutReloadingDataPresets() {
+        EventBattlePresetRepository repository = new EventBattlePresetRepository();
+        EventBattlePreset runtime = new EventBattlePreset(
+            "cobbleventure:battle/dungeon_generated/test",
+            "cobbleventure:dungeon_generated/test/0",
+            "GEN_9_SINGLES", "fixed", 0, 1, null, null
+        );
+
+        repository.installRuntime(runtime);
+        assertEquals(runtime, repository.find(runtime.battleId()).orElseThrow());
+
+        repository.removeRuntime(runtime.battleId());
+        assertTrue(repository.find(runtime.battleId()).isEmpty());
+    }
+
     private static com.google.gson.JsonElement document(
         String battleId, String levelMode, int offset, int level, Integer maxItems
     ) {

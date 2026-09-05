@@ -37,13 +37,22 @@
         "species": "cobblemon:pidgey",
         "min_level": 2,
         "max_level": 5,
-        "level_weights": { "2": 10, "3": 35, "4": 4, "5": 1 }
+        "level_weights": {
+          "2": 10,
+          "3": 35,
+          "4": 4,
+          "5": 1
+        }
       },
       {
         "species": "cobblemon:rattata",
         "min_level": 2,
         "max_level": 4,
-        "level_weights": { "2": 10, "3": 35, "4": 5 }
+        "level_weights": {
+          "2": 10,
+          "3": 35,
+          "4": 5
+        }
       }
     ]
   },

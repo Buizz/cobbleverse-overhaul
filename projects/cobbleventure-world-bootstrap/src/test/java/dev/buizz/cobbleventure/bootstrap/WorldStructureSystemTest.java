@@ -23,6 +23,7 @@ final class WorldStructureSystemTest {
                   "anchor": {"q": 12, "r": -2},
                   "resource": "cobbleventure:placeholder/power_plant",
                   "rotation": 0,
+                  "properties": {"suppress_natural_spawns": true},
                   "connections": [{
                     "from": "structure:dungeon_entry",
                     "target": {
@@ -38,6 +39,7 @@ final class WorldStructureSystemTest {
         assertEquals(12, structures.getFirst().anchor().q());
         assertEquals(-2, structures.getFirst().anchor().r());
         assertEquals("center", structures.getFirst().placementAnchor());
+        assertTrue(structures.getFirst().suppressNaturalSpawns());
         assertEquals("dungeon_entry", structures.getFirst().dungeonConnections().getFirst().anchorId());
     }
 

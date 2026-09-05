@@ -135,9 +135,9 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/sample_fisherman_minsu",
-      "cobbleventure:npc/kanto_sailor_junho",
-      "cobbleventure:npc/kanto_swimmer_taejin"
+      "cobbleventure:npc/firered_black_belt_atsushi",
+      "cobbleventure:npc/firered_burglar_ramon",
+      "cobbleventure:npc/firered_super_nerd_derek"
     ],
     "trigger_override": "proximity"
   }

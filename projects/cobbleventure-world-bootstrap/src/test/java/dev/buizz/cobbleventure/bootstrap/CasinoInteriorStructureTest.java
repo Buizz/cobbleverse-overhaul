@@ -17,6 +17,43 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 final class CasinoInteriorStructureTest {
     @Test
+    void authoredNpcPositionsHaveFloorSupport() throws Exception {
+        CompoundTag structure;
+        try (InputStream input = getClass().getResourceAsStream(
+            "/data/cobbleventure/structure/interiors/casino.nbt"
+        )) {
+            assertNotNull(input);
+            structure = NbtIo.readCompressed(input, NbtAccounter.unlimitedHeap());
+        }
+
+        try (InputStream input = getClass().getResourceAsStream(
+            "/data/cobbleventure/structure_metadata/interiors/casino.structure.json"
+        )) {
+            assertNotNull(input);
+            var metadata = JsonParser.parseReader(
+                new InputStreamReader(input, StandardCharsets.UTF_8)
+            ).getAsJsonObject();
+            for (var anchorElement : metadata.getAsJsonArray("anchors")) {
+                var anchor = anchorElement.getAsJsonObject();
+                if (!"npc_position".equals(anchor.get("type").getAsString())) {
+                    continue;
+                }
+                var position = anchor.getAsJsonArray("position");
+                int x = position.get(0).getAsInt();
+                int y = position.get(1).getAsInt();
+                int z = position.get(2).getAsInt();
+                assertFalse(
+                    stateAt(structure, x, y - 1, z).endsWith(":air"),
+                    () -> "Unsupported casino NPC position "
+                        + anchor.get("label") + ": " + x + "," + y + "," + z
+                        + "; nearest supported positions: "
+                        + supportedNear(structure, x, y - 1, z)
+                );
+            }
+        }
+    }
+
+    @Test
     void authoredTeleportDestinationsHaveFloorSupport() throws Exception {
         CompoundTag structure;
         try (InputStream input = getClass().getResourceAsStream(

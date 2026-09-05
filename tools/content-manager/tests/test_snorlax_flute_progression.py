@@ -35,14 +35,14 @@ class SnorlaxFluteProgressionTests(unittest.TestCase):
 
     def test_tower_first_clear_adds_one_flute_without_changing_repeat_rewards(self):
         tower = read("dungeons/generation_1/rocket_pokemon_tower.json")
-        self.assertEqual("cobbleventure:dungeon/pokemon_tower_first_clear", tower["rewards"]["first_clear_table"])
-        self.assertEqual("cobbleventure:dungeon/rocket_power_plant_repeat_clear", tower["rewards"]["repeat_table"])
-        reward = read("loot_tables/cobbleventure/dungeon/pokemon_tower_first_clear.json")
-        self.assertEqual([
-            {"rolls": 1, "entries": [{"type": "minecraft:loot_table", "value": "cobbleventure:dungeon/rocket_power_plant_first_clear"}]},
-            {"rolls": 1, "entries": [{"type": "minecraft:item", "name": FLUTE}]},
-        ], reward["pools"])
-        self.assertNotIn(FLUTE, json.dumps(read("loot_tables/cobbleventure/dungeon/rocket_power_plant_repeat_clear.json")))
+        first_clear = tower["rewards"]["first_clear"]
+        repeat_clear = tower["rewards"]["repeat_clear"]
+        self.assertEqual(1, sum(
+            entry["min_count"]
+            for pool in first_clear for entry in pool["entries"]
+            if entry["item"] == FLUTE
+        ))
+        self.assertNotIn(FLUTE, json.dumps(repeat_clear))
 
     def test_flute_acquisition_is_distinct_from_boss_victory_and_snorlax_clear(self):
         item = next(value for value in read("catalogs/important-items.json")["items"] if value["item"] == FLUTE)

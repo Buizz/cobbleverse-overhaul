@@ -41,6 +41,8 @@ def synchronize(
             }
         if document.get("event_runtime", {}).get("engine") != "cves_v5":
             continue
+        if document.get("event_runtime", {}).get("authoring") != "preset":
+            continue
         plan = content_manager._prepare_v5_preset_sync(
             root, source, document,
             allow_managed_upgrade=upgrade_managed,

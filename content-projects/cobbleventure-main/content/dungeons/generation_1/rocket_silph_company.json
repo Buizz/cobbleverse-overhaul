@@ -61,7 +61,7 @@
   "encounters": [
     {
       "id": "executive_floor_admin", "display_name": { "ko_kr": "최상층 로켓단 간부", "en_us": "Executive Floor Admin" },
-      "trainers": [{ "id": "executive_floor_admin", "display_name": { "ko_kr": "로켓단 간부", "en_us": "Team Rocket Admin" }, "trainer_class": "cobbleventure:trainer_class/villain_admin", "battle": "cobbleventure:battle/rocket_silph_admin" }],
+      "trainers": [{ "id": "executive_floor_admin", "display_name": { "ko_kr": "로켓단 간부", "en_us": "Team Rocket Admin" }, "trainer_class": "cobbleventure:trainer_class/villain_admin", "character": "cobbleventure:character/archer", "battle": "cobbleventure:battle/rocket_silph_admin" }],
       "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["여기까지 올라온 실력은 인정하지."], "win_lines": ["실프주식회사에서 철수하겠다..."], "loss_lines": ["로켓단의 계획은 막을 수 없다!"] },
       "requires": [], "yaw": 180, "boss": true
     }
@@ -70,7 +70,18 @@
   "support": { "healing_stations": [{ "id": "mid_floor_station", "block": "minecraft:lodestone", "uses_per_run": 1, "restore_hp": true, "restore_status": true, "restore_pp": true }] },
   "gates": [],
   "loot": { "loot_table": "cobbleventure:dungeon/rocket_power_plant_supplies", "ownership": "per_player", "on_failure": "grant_on_clear_only", "containers": [{ "id": "executive_safe", "block": "chest", "facing": "west", "requires_completion": true }] },
-  "rewards": { "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear", "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear", "first_clear_field_moves": [] },
+  "rewards": {
+    "first_clear": [
+      { "rolls": 1, "entries": [{ "item": "cobblemon:rare_candy", "min_count": 2, "max_count": 2, "weight": 1 }] },
+      { "rolls": 1, "entries": [{ "item": "cobblemon:great_ball", "min_count": 5, "max_count": 5, "weight": 1 }] }
+    ],
+    "repeat_clear": [{ "rolls": 1, "entries": [
+      { "item": "cobblemon:super_potion", "min_count": 2, "max_count": 2, "weight": 50 },
+      { "item": "cobblemon:great_ball", "min_count": 3, "max_count": 3, "weight": 40 },
+      { "item": "cobblemon:rare_candy", "min_count": 1, "max_count": 1, "weight": 10 }
+    ] }],
+    "first_clear_field_moves": []
+  },
   "lifecycle": { "on_wipe": "reset_run", "wipe_return": "source_entrance", "heal_on_wipe": true, "reconnect_grace_seconds": 120 },
   "completion": { "victory_flag": "cobbleventure:flag/dungeon/rocket_silph_company/boss_defeated", "repeatable": true, "return_trigger": "clear_exit", "clear_exit_block": "minecraft:lodestone" }
 }

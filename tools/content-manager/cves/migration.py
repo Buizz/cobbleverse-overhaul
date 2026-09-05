@@ -362,11 +362,21 @@ def gym_leader_contract_from_cves(program: ast.Program) -> GymLeaderMigrationCon
     if outcome is None or outcome.else_block is None \
             or not _is_outcome_win(outcome.condition, battle.result):
         raise ValueError("V5 gym leader battle 결과는 outcome == \"win\" if/else여야 합니다.")
-    state = _single_command(outcome.then_block, ast.CommandKind.SET_FLAG)
+    states = _find_commands(outcome.then_block, ast.CommandKind.SET_FLAG)
+    progression_states = [
+        command for command in states
+        if _positional_literal(command.arguments, 0)
+        != "cobbleventure:runtime/npc_instance_defeated"
+    ]
+    if len(progression_states) != 1:
+        raise ValueError("V5 gym leader 승리에는 진행 상태 플래그 하나가 필요합니다.")
+    state = progression_states[0]
     badge = _single_command(outcome.then_block, ast.CommandKind.GRANT_BADGE)
     cap = _single_command(outcome.then_block, ast.CommandKind.SET_LEVEL_CAP)
-    if _positional_literal(state.arguments, 0) != defeated_state \
-            or _positional_literal(state.arguments, 1) is not True:
+    progression_state = _positional_literal(state.arguments, 0)
+    if defeated_state not in {
+        progression_state, "cobbleventure:runtime/npc_instance_defeated"
+    } or _positional_literal(state.arguments, 1) is not True:
         raise ValueError("V5 gym leader 승리 상태가 클리어 페이지 조건과 다릅니다.")
     victory_says = _direct_says(outcome.then_block)
     defeat_says = _direct_says(outcome.else_block)
@@ -374,7 +384,7 @@ def gym_leader_contract_from_cves(program: ast.Program) -> GymLeaderMigrationCon
         raise ValueError("V5 gym leader 승패 대사가 필요합니다.")
     return GymLeaderMigrationContract(
         Decimal(str(_named_literal(event.trigger.arguments, "range", 4))),
-        defeated_state,
+        progression_state,
         tuple(_text_document(value.text) for value in challenge_says),
         _string(_positional_literal(battle.arguments, 0), "battle"),
         tuple(_text_document(value.text) for value in victory_says),
@@ -444,11 +454,13 @@ def battle_event_contract_from_cves(
     repeat_say = next((value for value in repeat_page.block.statements if isinstance(value, ast.SayStatement)), None)
     if repeat_say is None or _text_document(repeat_say.text) != default_path[7]:
         raise ValueError("V5 반복 페이지와 승리 대사가 다릅니다.")
-    if repeat_state != default_path[5]:
+    if repeat_state not in {
+        default_path[5], "cobbleventure:runtime/npc_instance_defeated"
+    }:
         raise ValueError("V5 반복 페이지 조건과 승리 플래그가 다릅니다.")
     return BattleEventMigrationContract(
         Decimal(str(_named_literal(event.trigger.arguments, "range", 4))),
-        repeat_state,
+        default_path[5],
         prepared_item,
         prepared_count,
         default_path[0],
@@ -482,12 +494,17 @@ def _battle_path(block: ast.Block) -> tuple:
         raise ValueError("V5 battle 결과는 outcome == \"win\" if/else로 처리해야 합니다.")
     loot_commands = _find_commands(outcome.then_block, ast.CommandKind.GIVE_LOOT)
     flag_commands = _find_commands(outcome.then_block, ast.CommandKind.SET_FLAG)
-    if len(loot_commands) != 1 or len(flag_commands) != 1:
+    progression_flags = [
+        command for command in flag_commands
+        if _positional_literal(command.arguments, 0)
+        != "cobbleventure:runtime/npc_instance_defeated"
+    ]
+    if len(loot_commands) != 1 or len(progression_flags) != 1:
         raise ValueError("V5 승리 분기에 give_loot와 상태 플래그가 필요합니다.")
     loot = loot_commands[0]
     if loot.result is None or not any(_is_remaining_guard(value, loot.result) for value in outcome.then_block.statements):
         raise ValueError("V5 give_loot에는 remaining_count 실패·중단 분기가 필요합니다.")
-    victory_flag = _positional_literal(flag_commands[0].arguments, 0)
+    victory_flag = _positional_literal(progression_flags[0].arguments, 0)
     victory_say = next((value for value in outcome.then_block.statements if isinstance(value, ast.SayStatement)), None)
     defeat_say = next((value for value in outcome.else_block.statements if isinstance(value, ast.SayStatement)), None)
     if victory_flag is None or victory_say is None or defeat_say is None:

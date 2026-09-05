@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -32,6 +33,8 @@ public final class EventBattlePresetRepository extends SimplePreparableReloadLis
     private static final String DIRECTORY = "battles";
 
     private volatile Map<String, EventBattlePreset> presets = Map.of();
+    private final Map<String, EventBattlePreset> runtimePresets =
+        new ConcurrentHashMap<>();
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(EventBattlePresetRepository::onAddReloadListeners);
@@ -40,7 +43,18 @@ public final class EventBattlePresetRepository extends SimplePreparableReloadLis
     public static EventBattlePresetRepository instance() { return INSTANCE; }
 
     public Optional<EventBattlePreset> find(String battleId) {
-        return Optional.ofNullable(presets.get(battleId));
+        EventBattlePreset runtime = runtimePresets.get(battleId);
+        return Optional.ofNullable(runtime == null ? presets.get(battleId) : runtime);
+    }
+
+    /** Installs an ephemeral preset owned by a live gameplay session. */
+    public void installRuntime(EventBattlePreset preset) {
+        runtimePresets.put(preset.battleId(), preset);
+    }
+
+    /** Removes an ephemeral preset without affecting data-pack presets. */
+    public void removeRuntime(String battleId) {
+        runtimePresets.remove(battleId);
     }
 
     public Map<String, EventBattlePreset> presets() { return presets; }

@@ -17,6 +17,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DungeonDefinitionTest {
     @Test
+    void pokefinderVisibilityDefaultsToShownAndCanBeDisabled() throws Exception {
+        JsonObject root = resourceObject("rocket_power_plant");
+
+        root.remove("show_in_pokefinder");
+        assertTrue(DungeonDefinition.parse(root).showInPokefinder());
+
+        root.addProperty("show_in_pokefinder", false);
+        assertFalse(DungeonDefinition.parse(root).showInPokefinder());
+    }
+
+    @Test
     void chamberMazeRequiresAnExplicitPartitionGrid() throws Exception {
         JsonObject configured = resourceObject("rocket_pokemon_tower");
         configured.add("topology", JsonParser.parseString("""
@@ -91,6 +102,11 @@ final class DungeonDefinitionTest {
         assertEquals(2, generated.getFirst().generatedTrainer().pokemonPool().size());
         assertEquals(1, generated.getFirst().generatedTrainer().teamSize().minimum());
         assertEquals(2, generated.getFirst().generatedTrainer().teamSize().maximum());
+        assertEquals("proximity", generated.getFirst().trigger().type());
+        assertEquals(6.0D, generated.getFirst().trigger().range());
+        assertEquals(List.of("침입자다!"), generated.getFirst().trigger().startLines());
+        assertEquals(List.of("후퇴한다!"), generated.getFirst().trigger().winLines());
+        assertFalse(generated.getFirst().trigger().lossLines().contains("후퇴한다!"));
         assertEquals(4 + generated.size(), first.npcPlacement().requiredSlots());
     }
 
@@ -367,8 +383,18 @@ final class DungeonDefinitionTest {
                 && encounter.trigger().leader() == 0
         ));
         assertEquals(
-            "cobbleventure:trainer_class/villain_admin",
+            "cobbleventure:trainer_class/villain_boss",
             casino.encounters().getLast().trainers().getFirst().trainerClass()
+        );
+        assertEquals(
+            "cobbleventure:character/giovanni",
+            casino.encounters().getLast().trainers().getFirst().character()
+        );
+        assertEquals(
+            "character/cobbleventure/giovanni",
+            DungeonSystem.dungeonActorPresetPath(
+                casino.encounters().getLast().trainers().getFirst()
+            )
         );
         assertEquals(List.of(), casino.encounters().getLast().requires());
         assertTrue(casino.generatedTrainers().enabled());
@@ -539,6 +565,7 @@ final class DungeonDefinitionTest {
                   },
                   "encounters": [{
                     "id": "boss",
+                    "cooperative_battle": true,
                     "display_name": {
                       "ko_kr": "제어실 로켓단 간부",
                       "en_us": "Control Room Team Rocket Officer"
@@ -601,8 +628,24 @@ final class DungeonDefinitionTest {
                     }]
                   },
                   "rewards": {
-                    "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
-                    "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear",
+                    "first_clear": [{
+                      "rolls": 1,
+                      "entries": [{
+                        "item": "cobblemon:rare_candy",
+                        "min_count": 2,
+                        "max_count": 2,
+                        "weight": 1
+                      }]
+                    }],
+                    "repeat_clear": [{
+                      "rolls": 1,
+                      "entries": [{
+                        "item": "cobblemon:super_potion",
+                        "min_count": 1,
+                        "max_count": 2,
+                        "weight": 10
+                      }]
+                    }],
                     "first_clear_field_moves": ["flash"]
                   },
                   "lifecycle": {
@@ -647,6 +690,7 @@ final class DungeonDefinitionTest {
         assertEquals(4, definition.terrain().entryPosition().getZ());
         assertEquals(0, definition.terrain().exitPosition().getZ());
         assertEquals("boss", definition.encounters().getFirst().id());
+        assertTrue(definition.encounters().getFirst().cooperativeBattle());
         assertEquals(
             "제어실 로켓단 간부", definition.encounters().getFirst().displayName()
         );
@@ -693,14 +737,12 @@ final class DungeonDefinitionTest {
         assertEquals("source_entrance", definition.lifecycle().wipeReturn());
         assertTrue(definition.lifecycle().healOnWipe());
         assertEquals(120, definition.lifecycle().reconnectGraceSeconds());
-        assertEquals(
-            "cobbleventure:dungeon/rocket_power_plant_first_clear",
-            definition.rewards().firstClearTable()
-        );
-        assertEquals(
-            "cobbleventure:dungeon/rocket_power_plant_repeat_clear",
-            definition.rewards().repeatTable()
-        );
+        assertEquals("cobblemon:rare_candy", definition.rewards()
+            .firstClear().getFirst().entries().getFirst().item());
+        assertEquals(2, definition.rewards().firstClear().getFirst()
+            .entries().getFirst().minimum());
+        assertEquals("cobblemon:super_potion", definition.rewards()
+            .repeatClear().getFirst().entries().getFirst().item());
         assertEquals("flash", definition.rewards().firstClearFieldMoves().getFirst());
         assertEquals("clear_exit", definition.completion().returnTrigger());
         assertEquals(43, definition.completion().clearExitPosition().getZ());

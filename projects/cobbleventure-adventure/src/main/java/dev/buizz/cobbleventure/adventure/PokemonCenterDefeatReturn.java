@@ -9,6 +9,7 @@ import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import dev.buizz.cobbleventure.adventure.event.EventDialogueLifecycle;
+import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
 import dev.buizz.cobbleventure.adventure.event.EventNpcInteractionHandler;
 import dev.buizz.cobbleventure.adventure.event.EventSessionKey;
 import java.util.HashMap;
@@ -192,7 +193,10 @@ public final class PokemonCenterDefeatReturn {
                 iterator.remove();
                 continue;
             }
-            if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            if (shouldDeferRecovery(
+                BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null,
+                EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+            )) {
                 pending.returnAt = gameTime + 1L;
                 continue;
             }
@@ -353,6 +357,12 @@ public final class PokemonCenterDefeatReturn {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null) {
                 iterator.remove();
+                continue;
+            }
+            if (shouldDeferRecovery(
+                BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null,
+                EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+            )) {
                 continue;
             }
             RecoverySequence recovery = entry.getValue();
@@ -557,6 +567,12 @@ public final class PokemonCenterDefeatReturn {
             0.0F
         );
         player.resetFallDistance();
+    }
+
+    static boolean shouldDeferRecovery(
+        boolean registeredBattle, boolean pendingTrainerBattle
+    ) {
+        return registeredBattle || pendingTrainerBattle;
     }
 
     private static void saveCheckpoint(

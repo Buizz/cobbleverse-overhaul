@@ -6,6 +6,7 @@ import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
+import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -67,7 +68,8 @@ final class HeadbuttEncounters {
         consumeInteraction(event);
 
         long now = level.getGameTime();
-        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+        if (EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+            || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
             message(player, "전투 중에는 박치기를 사용할 수 없다.");
             return;
         }
@@ -134,7 +136,11 @@ final class HeadbuttEncounters {
             return;
         }
         level.getServer().execute(() -> {
-            if (entity.isAlive() && player.isAlive()) entity.forceBattle(player);
+            if (entity.isAlive() && player.isAlive()
+                && !EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+                && BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) == null) {
+                entity.forceBattle(player);
+            }
         });
     }
 

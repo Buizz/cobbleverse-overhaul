@@ -349,7 +349,7 @@ public final class BattleIntro {
         long gameTime = event.getServer().overworld().getGameTime();
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
             UUID playerId = player.getUUID();
-            if (BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) {
+            if (BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
                 ACTIVE_BATTLE_PLAYERS.add(playerId);
             } else if (ACTIVE_BATTLE_PLAYERS.remove(playerId)) {
                 POST_BATTLE_PROXIMITY_GRACE.put(
@@ -406,7 +406,7 @@ public final class BattleIntro {
                 || DIALOGUE_PENDING.keySet().stream().anyMatch(
                     key -> key.playerId.equals(playerId)
                 )
-                || BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) {
+                || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
                 PROXIMITY_EXIT_BLOCKED.put(entry.getKey(), opponent);
                 proximityIterator.remove();
                 dismissWarning(player);

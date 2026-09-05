@@ -1381,13 +1381,23 @@ def v5_entity_preset_snbt(
 '''
 
 
-def dungeon_actor_preset_snbt(trainer_class: str, outfit: dict) -> str:
+def dungeon_actor_preset_snbt(
+    trainer_class: str,
+    outfit: dict,
+    document: dict | None = None,
+    preset_slug: str | None = None,
+) -> str:
     """Render an inert class appearance used by dungeon-owned trainer actors."""
     adapter = outfit["adapters"]["easy_npc"]
     display = localized(outfit.get("display_name")) or trainer_class.rsplit("/", 1)[-1]
-    slug = trainer_class.rsplit("/", 1)[-1]
+    class_slug = trainer_class.rsplit("/", 1)[-1]
+    slug = preset_slug or class_slug
+    document = document or {
+        "npc": {"appearance": {"resource": outfit["base_skin"]}}
+    }
+    preset_identity = trainer_class if slug == class_slug else slug
     preset_uuid = str(uuid.uuid5(
-        uuid.NAMESPACE_URL, trainer_class + "/easy_npc_dungeon_actor"
+        uuid.NAMESPACE_URL, preset_identity + "/easy_npc_dungeon_actor"
     ))
     variant = "ALEX" if outfit.get("arm_model") == "slim" else "STEVE"
     scale = float(adapter["root_scale"])
@@ -1415,8 +1425,8 @@ def dungeon_actor_preset_snbt(trainer_class: str, outfit: dict) -> str:
     ObjectiveData:{{HasObjectives:1b,ObjectiveDataSet:[{{Type:"LOOK_AT_PLAYER"}},{{Type:"LOOK_AT_RESET"}}]}},
     PersistenceRequired:1b,
     PresetUUID:{uuid_int_array(preset_uuid)},
-    SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid({"npc": {"appearance": {"resource": outfit["base_skin"]}}}, outfit))} }},
-    Tags:["cobbleventure_dungeon_actor","cobbleventure_dungeon_actor_template/{slug}"],
+    SkinData:{{Type:"CUSTOM",UUID:{uuid_int_array(encounter_skin_uuid(document, outfit))} }},
+    Tags:["cobbleventure_dungeon_actor","cobbleventure_dungeon_actor_template/{class_slug}"],
     VariantType:"{variant}",
     id:{quote(adapter["entity_type"])}
   }}
@@ -1424,18 +1434,33 @@ def dungeon_actor_preset_snbt(trainer_class: str, outfit: dict) -> str:
 '''
 
 
-def dungeon_actor_classes(dungeon_root: Path = DUNGEON_ROOT) -> set[str]:
-    classes: set[str] = set()
+def dungeon_actor_variants(
+    dungeon_root: Path = DUNGEON_ROOT,
+) -> set[tuple[str, str]]:
+    variants: set[tuple[str, str]] = set()
     if not dungeon_root.is_dir():
-        return classes
+        return variants
     for source in sorted(dungeon_root.rglob("*.json")):
         document = json.loads(source.read_text(encoding="utf-8"))
         for encounter in document.get("encounters", []):
             for trainer in encounter.get("trainers", []):
                 trainer_class = trainer.get("trainer_class")
                 if isinstance(trainer_class, str):
-                    classes.add(trainer_class)
-    return classes
+                    character = trainer.get("character", "")
+                    variants.add((trainer_class, character if isinstance(character, str) else ""))
+        for appearance in document.get("generated_trainers", {}).get("appearance_pool", []):
+            trainer_class = appearance.get("trainer_class")
+            if isinstance(trainer_class, str):
+                character = appearance.get("character", "")
+                variants.add((trainer_class, character if isinstance(character, str) else ""))
+    return variants
+
+
+def dungeon_actor_preset_slug(trainer_class: str, character: str = "") -> str:
+    if not character:
+        return trainer_class.rsplit("/", 1)[-1]
+    namespace, path = character.split(":", 1)
+    return f"character/{namespace}/{path.removeprefix('character/')}"
 
 
 def cves_binding_tag(content_root: Path, source: Path, document: dict) -> str | None:
@@ -1747,14 +1772,32 @@ def generate(
         raise ValueError(
             "시스템 NPC EasyNPC 프리셋 생성 누락: " + ", ".join(missing_system_ids)
         )
-    for trainer_class in sorted(dungeon_actor_classes()):
-        outfit = outfits_by_class.get(trainer_class)
-        if outfit is None:
+    for trainer_class, character_id in sorted(dungeon_actor_variants()):
+        base_outfit = outfits_by_class.get(trainer_class)
+        if base_outfit is None:
             raise ValueError(f"던전 NPC 트레이너 클래스 외형이 없습니다: {trainer_class}")
-        slug = trainer_class.rsplit("/", 1)[-1]
+        outfit = copy.deepcopy(base_outfit)
+        appearance = {"resource": outfit["base_skin"]}
+        if character_id:
+            character = characters_by_id.get(character_id)
+            if character is None:
+                raise ValueError(f"던전 NPC 세부 외형이 트레이너 명단에 없습니다: {character_id}")
+            appearance = character.get("appearance", {})
+            resource = appearance.get("resource")
+            if not isinstance(resource, str) or not resource:
+                raise ValueError(f"던전 NPC 세부 외형 리소스가 없습니다: {character_id}")
+            outfit["display_name"] = character.get("display_name", outfit["display_name"])
+            outfit["base_skin"] = resource
+            body = character.get("body", {})
+            arm_model = body.get("arm_model") or appearance.get("arm_model")
+            if arm_model:
+                outfit["arm_model"] = "slim" if arm_model == "slim" else "classic"
+            if "height_scale" in body:
+                outfit["adapters"]["easy_npc"]["root_scale"] = float(body["height_scale"])
+        slug = dungeon_actor_preset_slug(trainer_class, character_id)
         document = {
             "id": f"cobbleventure:npc/dungeon_actor/{slug}",
-            "npc": {"appearance": {"resource": outfit["base_skin"]}},
+            "npc": {"appearance": appearance},
         }
         skin_path = prepare_encounter_skin(document, outfit)
         if skin_path is not None:
@@ -1766,7 +1809,7 @@ def generate(
         preset.parent.mkdir(parents=True, exist_ok=True)
         write_preset(
             preset,
-            dungeon_actor_preset_snbt(trainer_class, outfit),
+            dungeon_actor_preset_snbt(trainer_class, outfit, document, slug),
         )
         written.append(preset)
     return written

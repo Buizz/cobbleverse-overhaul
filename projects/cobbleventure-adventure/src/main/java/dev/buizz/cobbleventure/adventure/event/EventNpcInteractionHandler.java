@@ -86,7 +86,7 @@ public final class EventNpcInteractionHandler {
                 "바인딩된 CVES 스크립트를 찾을 수 없습니다: " + binding.scriptId()
             ));
         EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
-            new ServerPlayerEventState(player)
+            new ServerPlayerEventState(player, target.getUUID())
         );
         if (!EventNpcTriggerMode.acceptsInteraction(target.getTags(), script, environment)) {
             return false;

@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_rival_cerulean_charmander/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_rival_cerulean_charmander/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "어이! 잘 지냈냐? 네 실력이 늘었는지 확인하러 왔어!"
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_rival_cerulean_charmander" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_rival_cerulean_charmander/defeated" true
       say npc {
         ko_kr: "흥! 너무 힘을 뺐나? 이수재에게 가는 길이라면 아직 멀었어. 냄새나 맡고 있어!"
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/firered_rival_cerulean_charmander/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "흥! 너무 힘을 뺐나? 이수재에게 가는 길이라면 아직 멀었어. 냄새나 맡고 있어!"
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/firered_rival_cerulean_charmander" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_rival_cerulean_charmander/defeated" true
           say npc {
             ko_kr: "흥! 너무 힘을 뺐나? 이수재에게 가는 길이라면 아직 멀었어. 냄새나 맡고 있어!"

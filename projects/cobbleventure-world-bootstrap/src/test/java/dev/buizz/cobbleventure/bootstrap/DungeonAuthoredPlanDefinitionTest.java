@@ -25,6 +25,7 @@ final class DungeonAuthoredPlanDefinitionTest {
         var firstEncounter = root.getAsJsonArray("encounters")
             .get(0).getAsJsonObject().deepCopy();
         firstEncounter.addProperty("id", "encounter_1");
+        firstEncounter.addProperty("boss", false);
         firstEncounter.add("requires", JsonParser.parseString("[]"));
         var secondEncounter = firstEncounter.deepCopy();
         secondEncounter.addProperty("id", "encounter_2");
@@ -76,7 +77,8 @@ final class DungeonAuthoredPlanDefinitionTest {
     void loadsPokemonTowerSkinPlanFromPackagedResources() throws Exception {
         var pieces = new HashMap<String, DungeonPieceDefinition>();
         for (String id : new String[] {
-            "start", "encounter_room", "stairs_up", "room", "boss", "exit", "treasure"
+            "start", "encounter_room", "stairs_up", "room", "route_room",
+            "empty_chamber_1x2", "empty_chamber_2x2", "boss", "exit", "treasure"
         }) {
             var piece = DungeonPieceDefinition.parse(resourceJson(
                 "data/cobbleventure/dungeon_pieces/pokemon_tower/" + id + ".json"
@@ -103,13 +105,6 @@ final class DungeonAuthoredPlanDefinitionTest {
             new BlockPos(73, 10, 9),
             features.get(new DungeonPieceLayout.MarkerKey("boss", "tower_admin"))
         );
-        for (String encounter : List.of(
-            "memorial_guard_1", "memorial_guard_2", "upper_guard_1", "upper_guard_2"
-        )) {
-            assertNotNull(features.get(
-                new DungeonPieceLayout.MarkerKey("encounter", encounter)
-            ), encounter);
-        }
         assertEquals(
             new BlockPos(57, 10, 27),
             features.get(new DungeonPieceLayout.MarkerKey(
@@ -332,7 +327,8 @@ final class DungeonAuthoredPlanDefinitionTest {
     private Map<String, DungeonPieceDefinition> pokemonTowerPieces() throws Exception {
         var pieces = new HashMap<String, DungeonPieceDefinition>();
         for (String id : new String[] {
-            "start", "encounter_room", "stairs_up", "room", "boss", "exit", "treasure"
+            "start", "encounter_room", "stairs_up", "room", "route_room",
+            "empty_chamber_1x2", "empty_chamber_2x2", "boss", "exit", "treasure"
         }) {
             var piece = DungeonPieceDefinition.parse(resourceJson(
                 "data/cobbleventure/dungeon_pieces/pokemon_tower/" + id + ".json"

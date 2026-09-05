@@ -3,6 +3,10 @@
   "values": [
     "cobbleventure_player_menu:world_map",
     {
+      "id": "cobblenav:pokenav_item_red",
+      "required": false
+    },
+    {
       "id": "cobbleventure_casino:coin_case",
       "required": false
     },

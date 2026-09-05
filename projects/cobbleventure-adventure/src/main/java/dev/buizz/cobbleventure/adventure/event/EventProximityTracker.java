@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.adventure.event;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /** Edge detector that fires enter initially-inside and exit only after observed-inside. */
 final class EventProximityTracker<K> {
@@ -19,6 +20,12 @@ final class EventProximityTracker<K> {
 
     void retainAll(Set<K> observed) {
         inside.keySet().retainAll(observed);
+    }
+
+    void retainAll(Set<K> observed, Predicate<K> preserveWhileSuspended) {
+        inside.keySet().removeIf(key ->
+            !observed.contains(key) && !preserveWhileSuspended.test(key)
+        );
     }
 
     int size() {

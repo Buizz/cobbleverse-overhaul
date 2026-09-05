@@ -72,6 +72,7 @@
             <button class="nav-item" data-section="definitions">게임 데이터</button>
             <button class="nav-item" data-section="economy">경제 · 제작</button>
             <button class="nav-item" data-section="casino-config">카지노 설정</button>
+            <button class="nav-item" data-section="pokefinder-icons">포켓파인더 아이콘</button>
           </div>
         </section>
         <section class="nav-group" data-nav-group="story">
@@ -634,6 +635,7 @@
                     <label><span>세대</span><select id="route-pokemon-picker-generation"></select></label>
                     <label><span>타입</span><select id="route-pokemon-picker-type"></select></label>
                     <label><span>주 서식지</span><select id="route-pokemon-picker-habitat"></select></label>
+                    <label><span>출현 시간</span><select id="route-pokemon-picker-time"></select></label>
                     <label><span>희귀도</span><select id="route-pokemon-picker-rarity"></select></label>
                     <label><span>분류</span><select id="route-pokemon-picker-special"><option value="all">모든 분류</option><option value="regular">일반 포켓몬</option><option value="legendary">전설의 포켓몬</option><option value="mythical">환상의 포켓몬</option></select></label>
                     <label><span>월드 출현</span><select id="route-pokemon-picker-availability"><option value="all">전체 도감</option><option value="available">현재 월드 출현 가능</option><option value="unavailable">현재 월드 미출현</option></select></label>
@@ -706,7 +708,7 @@
             <form id="dungeon-form" class="dungeon-settings" hidden>
               <section class="dungeon-overview-card"><div><span>던전 유형</span><strong id="dungeon-type-summary">—</strong></div><div><span>입장 인원</span><strong id="dungeon-party-summary">—</strong></div><div><span>권장 레벨</span><strong id="dungeon-level-summary">—</strong></div><div><span>재도전</span><strong id="dungeon-repeat-summary">—</strong></div></section>
               <details open><summary><span>기본 정보와 입장 안내</span><small>플레이어에게 표시되는 정보</small></summary><div class="dungeon-option-grid">
-                <label class="wide"><span>던전 ID</span><input name="dungeonId" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label><span>한국어 이름</span><input name="nameKo" required></label><label><span>영문 이름</span><input name="nameEn"></label><label class="wide"><span>한국어 설명</span><textarea name="descriptionKo" rows="2" required></textarea></label><label class="wide"><span>프리셋</span><input name="preset" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label><span>입장 정보 공개</span><select name="infoMode"><option value="exact">정확히 공개</option><option value="summary">요약 공개</option><option value="mystery">미공개</option></select></label><label class="toggle"><input name="confirmRequired" type="checkbox"><span>입장 전 확인창 표시</span></label>
+                <label class="wide"><span>던전 ID</span><input name="dungeonId" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label><span>한국어 이름</span><input name="nameKo" required></label><label><span>영문 이름</span><input name="nameEn"></label><label class="wide"><span>한국어 설명</span><textarea name="descriptionKo" rows="2" required></textarea></label><label class="wide"><span>프리셋</span><input name="preset" required pattern="[a-z0-9_.-]+:[a-z0-9_./-]+"></label><label><span>입장 정보 공개</span><select name="infoMode"><option value="exact">정확히 공개</option><option value="summary">요약 공개</option><option value="mystery">미공개</option></select></label><label class="toggle"><input name="confirmRequired" type="checkbox"><span>입장 전 확인창 표시</span></label><label class="toggle"><input name="showInPokefinder" type="checkbox"><span>포켓파인더에 표시</span><small>끄면 배치된 입구가 포켓파인더에 나타나지 않습니다.</small></label>
               </div></details>
               <details open><summary><span>난이도와 전투 규칙</span><small>권장치와 실제 내부 레벨은 별도</small></summary><div class="dungeon-option-grid">
                 <label><span>권장 최소 레벨</span><input name="recommendedMin" type="number" min="1" max="100" required></label><label><span>권장 최대 레벨</span><input name="recommendedMax" type="number" min="1" max="100" required></label><label><span>내부 최소 레벨</span><input name="internalMin" type="number" min="1" max="100" required></label><label><span>내부 최대 레벨</span><input name="internalMax" type="number" min="1" max="100" required></label><label><span>최소 휴대 포켓몬</span><input name="minimumPartySize" type="number" min="1" max="6" required></label><label><span>최대 휴대 포켓몬</span><input name="maximumPartySize" type="number" min="1" max="6" required></label><label class="toggle"><input name="requireUsablePokemon" type="checkbox"><span>전투 가능 포켓몬 필요</span></label><label><span>레벨 측정</span><select name="levelMeasure"><option value="average">파티 평균</option><option value="highest">최고 레벨</option></select></label><label><span>권장 레벨 처리</span><select name="levelPolicy"><option value="ignore">무시</option><option value="warn">경고</option><option value="enforce">입장 제한</option></select></label><label class="toggle"><input name="allowFlee" type="checkbox"><span>도망 허용</span></label><label class="toggle"><input name="allowCapture" type="checkbox"><span>포획 허용</span></label><label class="toggle"><input name="allowItems" type="checkbox"><span>아이템 허용</span></label><label class="toggle"><input name="allowEscapeActions" type="checkbox"><span>탈출 행동 허용</span></label>
@@ -721,7 +723,7 @@
               </div></details>
               <div id="dungeon-preview-anchor"></div>
               <details open><summary><span>실패·재개·보상</span><small>챌린지 초기화와 반복 클리어 정책</small></summary><div class="dungeon-option-grid">
-                <label><span>재접속/재입장</span><select name="resumeMode"><option value="full_reset">항상 완전 초기화</option><option value="checkpoint">체크포인트부터</option><option value="keep_until_timeout">유예 시간 동안 유지</option></select></label><label><span>재접속 유예(초)</span><input name="reconnectGrace" type="number" min="0" max="3600" required></label><label><span>전멸 복귀 지점</span><select name="wipeReturn"><option value="source_entrance">입장한 곳</option><option value="pokemon_center">포켓몬센터</option></select></label><label class="toggle"><input name="healOnWipe" type="checkbox"><span>전멸 시 회복</span></label><label><span>전리품 소유권</span><select name="lootOwnership"><option value="per_player">개인별</option><option value="run_shared">실행 공유</option><option value="first_claim">먼저 획득</option></select></label><label><span>실패 시 전리품</span><select name="lootOnFailure"><option value="keep_collected">획득분 유지</option><option value="remove_run_loot">던전 전리품 회수</option><option value="grant_on_clear_only">클리어 시에만 지급</option></select></label><label class="toggle"><input name="repeatable" type="checkbox"><span>여러 번 클리어 가능</span></label><label><span>클리어 후 복귀</span><select name="returnTrigger"><option value="automatic">자동 복귀</option><option value="clear_exit">출구로 복귀</option></select></label><input name="firstClearTable" type="hidden"><input name="repeatTable" type="hidden"><label class="wide"><span>최초 클리어 비전머신</span><input name="firstClearFieldMoves" placeholder="예: flash, strength"><small>쉼표로 구분하며 최초 클리어 때만 지급합니다.</small></label><div id="dungeon-rewards-editor" class="dungeon-rewards-editor"><section data-dungeon-reward-kind="first"><header><div><strong>최초 클리어 보상</strong><small>첫 클리어 때 플레이어에게 직접 지급합니다.</small></div><button class="button secondary" type="button" data-add-dungeon-reward-pool="first">＋ 보상 묶음</button></header><div data-dungeon-reward-list="first"></div></section><section data-dungeon-reward-kind="repeat" data-dungeon-repeat-field><header><div><strong>반복 클리어 보상</strong><small>두 번째 클리어부터 지급합니다.</small></div><button class="button secondary" type="button" data-add-dungeon-reward-pool="repeat">＋ 보상 묶음</button></header><div data-dungeon-reward-list="repeat"></div></section></div>
+                <label><span>재접속/재입장</span><select name="resumeMode"><option value="full_reset">항상 완전 초기화</option><option value="checkpoint">체크포인트부터</option><option value="keep_until_timeout">유예 시간 동안 유지</option></select></label><label><span>재접속 유예(초)</span><input name="reconnectGrace" type="number" min="0" max="3600" required></label><label><span>전멸 복귀 지점</span><select name="wipeReturn"><option value="source_entrance">입장한 곳</option><option value="pokemon_center">포켓몬센터</option></select></label><label class="toggle"><input name="healOnWipe" type="checkbox"><span>전멸 시 회복</span></label><label><span>전리품 소유권</span><select name="lootOwnership"><option value="per_player">개인별</option><option value="run_shared">실행 공유</option><option value="first_claim">먼저 획득</option></select></label><label><span>실패 시 전리품</span><select name="lootOnFailure"><option value="keep_collected">획득분 유지</option><option value="remove_run_loot">던전 전리품 회수</option><option value="grant_on_clear_only">클리어 시에만 지급</option></select></label><label class="toggle"><input name="repeatable" type="checkbox"><span>여러 번 클리어 가능</span></label><label><span>클리어 후 복귀</span><select name="returnTrigger"><option value="automatic">자동 복귀</option><option value="clear_exit">출구로 복귀</option></select></label><label class="wide"><span>최초 클리어 비전머신</span><input name="firstClearFieldMoves" placeholder="예: flash, strength"><small>쉼표로 구분하며 최초 클리어 때만 지급합니다.</small></label><div id="dungeon-rewards-editor" class="dungeon-rewards-editor"><section data-dungeon-reward-kind="first"><header><div><strong>최초 클리어 보상</strong><small>첫 클리어 때 플레이어에게 직접 지급합니다.</small></div><button class="button secondary" type="button" data-add-dungeon-reward-pool="first">＋ 보상 묶음</button></header><div data-dungeon-reward-list="first"></div></section><section data-dungeon-reward-kind="repeat" data-dungeon-repeat-field><header><div><strong>반복 클리어 보상</strong><small>두 번째 클리어부터 지급합니다.</small></div><button class="button secondary" type="button" data-add-dungeon-reward-pool="repeat">＋ 보상 묶음</button></header><div data-dungeon-reward-list="repeat"></div></section></div>
               </div></details>
               <details open><summary><span>야생 포켓몬 출현</span><small>던전 전역의 주변 랜덤 조우</small></summary><div class="dungeon-option-grid">
                 <label class="toggle"><input name="randomEnabled" type="checkbox"><span>주변 야생 포켓몬 출현</span></label><label><span>최소 스폰 거리</span><input name="randomMinDistance" type="number" min="1" max="128"></label><label><span>최대 스폰 거리</span><input name="randomMaxDistance" type="number" min="1" max="128"></label><label><span>최대 동시 출현</span><input name="randomMaxActive" type="number" min="1" max="16"></label><label><span>출현 간격(틱)</span><input name="randomInterval" type="number" min="20" max="12000"></label>
@@ -1047,6 +1049,15 @@
                   </div>
                   <small>내부공간은 현재 층수를 유지하므로 새 높이가 층수로 나누어져야 합니다. 변경 후 건축 팩을 다시 빌드하세요.</small>
                 </section>
+                <section class="building-space-editor" id="building-radar-section">
+                  <header><div><strong>포켓파인더 표시</strong><small>파일명이 아니라 이 NBT의 명시적 설정으로 레이더 표시를 결정합니다.</small></div></header>
+                  <label class="toggle"><input type="checkbox" id="building-radar-enabled"><span>포켓파인더에 이 건물 표시</span></label>
+                  <div id="building-radar-fields" class="form-grid compact-grid" hidden>
+                    <label><span>분류</span><select id="building-radar-category"><option value="GYM">체육관</option><option value="POKEMON_CENTER">포켓몬센터</option><option value="POKEMART">포켓몬상점</option><option value="CASINO">카지노</option><option value="SPECIAL_BUILDING">특수 건물</option><option value="CAVE_ENTRANCE">동굴 입구</option><option value="FOREST_ENTRANCE">숲 입구</option><option value="GATE">관문</option><option value="DUNGEON_ENTRANCE">던전 입구</option></select></label>
+                    <label><span>표시 이름</span><input id="building-radar-label" maxlength="64" placeholder="건물 이름"></label>
+                    <label class="wide"><span>표시 위치 앵커</span><select id="building-radar-anchor"></select></label>
+                  </div>
+                </section>
                 <section class="building-space-editor" id="building-residential-section">
                   <header><div><strong>주택 자동 배치 카탈로그</strong><small>층수·파일명에 관계없이 이 NBT를 주택 자동 배치 후보로 등록합니다.</small></div></header>
                   <label class="toggle"><input type="checkbox" id="building-residential-enabled"><span>주택 자동 배치에 사용</span></label>
@@ -1085,6 +1096,18 @@
               </div>
             </aside>
           </div>
+        </div>
+      </section>
+
+      <section class="page" id="pokefinder-icons">
+        <div class="panel pokefinder-icon-manager">
+          <div class="panel-heading">
+            <div><p class="eyebrow">POKEFINDER ICON SYSTEM</p><h2>포켓파인더 아이콘</h2><p>트레이너·시설·목표 분류별 픽셀 모양과 색상을 직접 편집합니다.</p></div>
+            <div class="editor-heading-actions"><span class="path-label" id="pokefinder-icons-path">content/catalogs/pokefinder-icons.json</span><button class="button primary" id="save-pokefinder-icons" type="button">아이콘 설정 저장</button></div>
+          </div>
+          <div class="pokefinder-icon-help"><strong>건물에는 여기서 만든 분류를 배정합니다.</strong><span>NBT 건물 설정에서 포켓몬상점·카지노 등의 분류와 표시 이름, 위치 앵커를 선택하세요.</span></div>
+          <div class="pokefinder-icon-grid" id="pokefinder-icon-settings"><div class="issues empty">아이콘 설정을 불러오는 중입니다.</div></div>
+          <div id="pokefinder-icon-issues" class="issues empty">변경 사항이 없습니다.</div>
         </div>
       </section>
 
@@ -1527,6 +1550,7 @@
               <label><span>세대</span><select id="encounter-pokemon-picker-generation"></select></label>
               <label><span>타입</span><select id="encounter-pokemon-picker-type"></select></label>
               <label><span>주 서식지</span><select id="encounter-pokemon-picker-habitat"></select></label>
+              <label><span>출현 시간</span><select id="encounter-pokemon-picker-time"></select></label>
               <label><span>희귀도</span><select id="encounter-pokemon-picker-rarity"></select></label>
               <label><span>분류</span><select id="encounter-pokemon-picker-special"><option value="all">모든 분류</option><option value="regular">일반 포켓몬</option><option value="legendary">전설의 포켓몬</option><option value="mythical">환상의 포켓몬</option></select></label>
               <label><span>월드 출현</span><select id="encounter-pokemon-picker-availability"><option value="all">전체 도감</option><option value="available">현재 월드 출현 가능</option><option value="unavailable">현재 월드 미출현</option></select></label>
@@ -1619,6 +1643,15 @@
         </div>
         <div class="dungeon-template-result"><span id="dungeon-chamber-count">0개</span><small>선택하지 않은 일반 공동은 자동 배치되지 않습니다.</small></div>
         <div class="dungeon-template-list dungeon-chamber-dialog-list" id="dungeon-chamber-dialog-list"><p>등록된 공동이 없습니다.</p></div>
+      </div>
+    </dialog>
+    <dialog id="dungeon-team-dialog" class="dungeon-team-dialog">
+      <div class="dungeon-team-dialog-shell">
+        <header><div><p class="eyebrow">DUNGEON TRAINER TEAM</p><h2 id="dungeon-team-dialog-title">포켓몬 팀 상세 설정</h2><small>공통 팀 편집기로 포켓몬과 기술·능력치를 설정합니다.</small></div><button id="dungeon-team-dialog-close" type="button" aria-label="닫기">×</button></header>
+        <nav id="dungeon-team-dialog-tabs" aria-label="편집할 트레이너 선택"></nav>
+        <div class="dungeon-inline-team-actions"><button type="button" class="button secondary" data-dungeon-team-action="reference">참고 엔트리 불러오기</button><button type="button" class="button secondary" data-dungeon-team-action="copy">엔트리 JSON 복사</button><button type="button" class="button secondary" data-dungeon-team-action="paste">엔트리 JSON 붙여넣기</button><button type="button" class="button secondary" data-dungeon-team-action="add">포켓몬 추가</button></div>
+        <div id="dungeon-team-list" class="team-list dungeon-team-list"></div>
+        <footer><span>변경 내용은 던전 저장 시 함께 저장됩니다.</span><button id="dungeon-team-dialog-done" class="button primary" type="button">완료</button></footer>
       </div>
     </dialog>
     <dialog id="create-dialog" class="create-dialog">

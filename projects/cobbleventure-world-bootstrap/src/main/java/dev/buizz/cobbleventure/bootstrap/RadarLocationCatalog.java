@@ -32,25 +32,6 @@ public final class RadarLocationCatalog {
         return GymInteriorSystem.radarObjectives(player);
     }
 
-    public static Kind buildingKind(String structure) {
-        String normalized = structure.toLowerCase(java.util.Locale.ROOT);
-        if (normalized.contains("pokemon_center")) return Kind.POKEMON_CENTER;
-        if (normalized.contains("pokemart")) return Kind.POKEMART;
-        if (normalized.contains("casino")) return Kind.CASINO;
-        if (normalized.contains("gym")) return Kind.GYM;
-        return Kind.SPECIAL_BUILDING;
-    }
-
-    static String buildingLabel(String structure) {
-        return switch (buildingKind(structure)) {
-            case POKEMON_CENTER -> "포켓몬센터";
-            case POKEMART -> "포켓몬상점";
-            case GYM -> "체육관";
-            case CASINO -> "카지노";
-            default -> structure;
-        };
-    }
-
     public enum Kind {
         GYM,
         POKEMON_CENTER,

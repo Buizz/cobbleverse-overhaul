@@ -1,11 +1,11 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/ai_test/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/ai_test/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     if has_item("cobblemon:potion", 1) {
       say npc "상처약까지 챙겼구나! 준비가 철저한데? 바로 승부하자!"
     } else {
@@ -18,6 +18,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
         narrate "가방에 빈 공간이 없어 승리 보상을 모두 받을 수 없습니다."
         stop
       }
+      id "proximity/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/set_defeated" set_flag "cobbleventure:flag/trainer/ai_test/defeated" true
       say npc "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘."
     } else {
@@ -27,7 +28,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/ai_test/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘."
     choice "" {
       "다음에 또 보자" {
@@ -48,6 +49,7 @@ event interact(range: 4) {
               narrate "가방에 빈 공간이 없어 승리 보상을 모두 받을 수 없습니다."
               stop
             }
+            id "prepared/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
             id "prepared/set_defeated" set_flag "cobbleventure:flag/trainer/ai_test/defeated" true
             say npc "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘."
           } else {
@@ -66,6 +68,7 @@ event interact(range: 4) {
               narrate "가방에 빈 공간이 없어 승리 보상을 모두 받을 수 없습니다."
               stop
             }
+            id "default/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
             id "default/set_defeated" set_flag "cobbleventure:flag/trainer/ai_test/defeated" true
             say npc "졌지만 좋은 승부였어! 다음에도 다시 상대해 줘."
           } else {

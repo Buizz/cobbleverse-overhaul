@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.adventure.event;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /** Ephemeral per-player/NPC state for staged proximity encounters. */
 final class EventProximityEncounterTracker<K> {
@@ -54,6 +55,12 @@ final class EventProximityEncounterTracker<K> {
 
     void retainAll(Set<K> observed) {
         states.keySet().retainAll(observed);
+    }
+
+    void retainAll(Set<K> observed, Predicate<K> preserveWhileSuspended) {
+        states.keySet().removeIf(key ->
+            !observed.contains(key) && !preserveWhileSuspended.test(key)
+        );
     }
 
     private static final class State {

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cobbleventure.local/schemas/pokefinder-icons.schema.json",
+  "title": "Cobbleventure Pokefinder icon settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "categories"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "categories": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z][A-Z_]*$" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["primary", "secondary", "outline", "pixels"],
+        "properties": {
+          "priority": { "type": "integer", "description": "이전 버전 호환용이며 런타임에서 사용하지 않음" },
+          "primary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "secondary": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "outline": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "pixels": { "type": "array", "minItems": 9, "maxItems": 9, "items": { "type": "string", "pattern": "^[.#xo]{9}$" } }
+        }
+      }
+    }
+  }
+}

@@ -292,7 +292,7 @@ public final class FieldMoveRidingAccess {
         }
 
         OceanBattleSafety battleSafety = OCEAN_BATTLE_SAFETY.get(playerId);
-        boolean inBattle = BattleRegistry.getBattleByParticipatingPlayer(player) != null;
+        boolean inBattle = BattleRegistry.getBattleByParticipatingPlayerId(playerId) != null;
         if (battleSafety != null) {
             if (!player.level().dimension().equals(battleSafety.dimension())) {
                 OCEAN_BATTLE_SAFETY.remove(playerId);

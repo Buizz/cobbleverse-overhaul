@@ -232,6 +232,8 @@ def _load_npc_preset_flags(directory: Path, catalog: ResourceCatalog) -> None:
             continue
         preset_type = preset.get("type")
         keys = [preset.get("state_key"), preset.get("victory_state_key"), preset.get("clear_key")]
+        if preset_type in {"battle", "gym", "elite", "champion"}:
+            keys.append("cobbleventure:runtime/npc_instance_defeated")
         if preset_type in {"repeat", "item"} and not preset.get("state_key"):
             document_id = data.get("id")
             if isinstance(document_id, str) and ":" in document_id:

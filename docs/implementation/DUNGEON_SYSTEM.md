@@ -292,6 +292,7 @@ DungeonEntrance
 |------|---------|-------------------|--------|
 | 정체성 | `preset` | 자연·빌런·유적·전설·다인 프리셋 ID | 필수 선택 |
 | 정체성 | `environment_profile` | 숲, 동굴, 해저, 화산, 시설 등 환경 프로필 ID | 프리셋 상속 |
+| 정체성 | `show_in_pokefinder` | 배치된 던전 입구를 포켓파인더에 노출할지 여부 | `true` |
 | 입구 | `entrances[].entrance_id` | 전역 고유 ID, 한 배치만 참조 | 하나 이상 |
 | 입구 | `entrances[].activation` | `interact`, `cross`, `portal`, `proximity` | `interact` |
 | 입구 | `entrances[].visibility` | `always`, `discovered`, `conditioned`, `hidden` | `always` |
@@ -990,13 +991,14 @@ NBT 조각과 공동 NBT는 명시적인 NPC 마커 여러 개 또는 NPC 배치
 여기서 `GEN_9_MULTI`는 플레이어 두 명이 한 캐릭터를 같이 조작한다는 뜻이 아니다. `플레이어 A + 플레이어 B`가 한 편, `NPC 트레이너 A + NPC 트레이너 B`가 반대편이 되어 각 참가자가 자기 포켓몬 한 마리씩 내보내는 네 참가자 전투다. 화면에는 양쪽 두 마리씩 나오므로 더블 필드가 된다.
 
 - 참가자를 정확히 두 명으로 고정한다.
-- 지정된 모든 적대 트레이너 조우를 `doubles` 성격의 협동 조우로 만든다.
+- 조우의 `cooperative_battle: true`가 지정된 전투만 `doubles` 성격의 협동 조우로 만든다.
 - `two_player_multi`에서는 플레이어 두 명과 상대 트레이너 두 명을 묶어 `GEN_9_MULTI`로 시작한다.
-- 단독 NPC만 지정된 일반 조우에는 같은 등급의 파트너 풀을 사용해 상대 두 명을 자동 편성한다.
-- 파트너를 편성할 수 없는 조우는 싱글로 조용히 낮추지 않고 게시 전 검증 오류로 표시한다.
+- 협동 전투는 NPC와 배틀 프리셋을 정확히 두 개 지정해야 하며, 콘텐츠 관리 UI에서 체크할 때만 두 번째 트레이너 입력을 연다.
+- `cooperative_battle`이 없는 단독 NPC 조우는 시작한 플레이어가 진행하는 일반 전투로 유지한다.
+- 협동 전투인데 두 번째 트레이너가 비어 있으면 게시 전 검증 오류로 표시한다.
 - 보스가 다른 형식을 요구하면 던전 정의에 명시적 예외가 있어야 한다.
 
-협력형의 일반 적 조우는 기본적으로 모두 이 `2인 플레이어 대 NPC 2명` 구성을 사용한다. `independent` 던전에서는 조우한 플레이어가 NPC 한 명과 별도의 더블배틀을 진행하며, 다른 플레이어를 끌어오지 않는다. 이 구분으로 별도의 모호한 2인 참여 방식을 추가하지 않는다.
+협력형에서도 조우별 체크 여부에 따라 `2인 플레이어 대 NPC 2명` 또는 일반 단독 전투를 선택한다. `independent` 던전에서는 협동 전투를 설정할 수 없으며, 조우한 플레이어가 NPC 한 명과 별도 전투를 진행한다.
 
 세션 생성, UUID 소유권, 참가자 검증, 재접속과 네 액터 전투 구성은 [특수 던전 2인 협동 멀티배틀](COOPERATIVE_DUNGEON_BATTLES.md)을 따른다. 향후 3인 이상 동시 참가는 Cobblemon 전투 엔진 검증 전까지 허용하지 않는다.
 
@@ -1035,7 +1037,7 @@ NBT 조각과 공동 NBT는 명시적인 NPC 마커 여러 개 또는 NPC 배치
 
 프로토타입의 최종 귀환은 `completion.return_trigger`로 선택한다. `automatic`은 승리 플래그가 켜지는 즉시 보상 지급과 귀환을 실행한다. `clear_exit`은 `clear_exit_position`에 `clear_exit_block`을 배치하고, 승리 후 참가자가 그 장치에 접근해야 클리어를 확정한다. 이 방식에서는 보스전 뒤 클리어 방과 상자를 살펴볼 시간이 보장된다. 목표를 달성한 뒤 입구 쪽 기존 출구로 되돌아가도 성공 귀환으로 처리하며, 목표 달성 전 사용하면 도전 포기로 처리한다.
 
-직접 지급 보상은 `rewards.first_clear_table`과 `rewards.repeat_table`로 분리한다. `first_clear_field_moves`는 최초 클리어에서만 지급하며, 아이템은 보상 테이블을 던전 내부에서 확정한 뒤 안전 귀환 후 인벤토리에 넣는다. 공간이 부족한 나머지는 귀환 지점에 소유자 우선 드롭해 슬롯 초기화로 사라지지 않게 한다. 반복 가능한 던전은 반복 테이블이 필수이고, 반복 불가 던전은 생략할 수 있다.
+직접 지급 보상은 던전 JSON 내부의 `rewards.first_clear`와 `rewards.repeat_clear`로 분리한다. 각 배열은 추첨 횟수와 아이템·최소/최대 수량·가중치를 가진 보상 묶음을 직접 포함하며 별도 전리품 테이블을 참조하지 않는다. `first_clear_field_moves`는 최초 클리어에서만 지급하며, 아이템은 안전 귀환 후 인벤토리에 넣는다. 공간이 부족한 나머지는 귀환 지점에 소유자 우선 드롭해 슬롯 초기화로 사라지지 않게 한다. 반복 가능한 던전은 반복 보상이 필수이고, 반복 불가 던전은 생략할 수 있다.
 
 ### 8.2 전리품 테이블과 상자
 
@@ -1237,8 +1239,14 @@ LOBBY
   },
   "rewards": {
     "mode": "per_player",
-    "first_clear_table": "cobbleventure:rocket_hideout_first_clear",
-    "repeat_table": "cobbleventure:rocket_hideout_repeat"
+    "first_clear": [{
+      "rolls": 1,
+      "entries": [{ "item": "cobblemon:rare_candy", "min_count": 1, "max_count": 2, "weight": 1 }]
+    }],
+    "repeat_clear": [{
+      "rolls": 1,
+      "entries": [{ "item": "cobblemon:super_potion", "min_count": 1, "max_count": 1, "weight": 1 }]
+    }]
   },
   "loot": {
     "ownership": "per_player",

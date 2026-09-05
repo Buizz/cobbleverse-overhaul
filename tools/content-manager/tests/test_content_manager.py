@@ -46,6 +46,46 @@ def dungeon_cave_terrain(bounds: list[int]) -> dict[str, object]:
 
 
 class ContentManagerTests(unittest.TestCase):
+    def test_pokefinder_building_and_icon_settings_roundtrip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            structure = root / "content/structures/facilities/store.nbt"
+            structure.parent.mkdir(parents=True)
+            structure.write_bytes(self._structure_nbt((20, 12, 20)))
+            issues = content_manager.save_building_settings(root, {
+                "schema_version": 1,
+                "buildings": {
+                    "cobbleventure:facilities/store": {
+                        "radar": {"enabled": True, "category": "POKEMART", "label": "포켓몬상점", "anchor": "auto"}
+                    }
+                },
+            })
+            self.assertFalse([issue for issue in issues if issue.level == "error"], issues)
+            radar = content_manager.building_settings_payload(root)["structures"]["cobbleventure:facilities/store"]["settings"]["radar"]
+            self.assertEqual("POKEMART", radar["category"])
+            self.assertEqual("포켓몬상점", radar["label"])
+
+            icon_issues = content_manager.save_pokefinder_icons(root, {
+                "schema_version": 1,
+                "categories": {"TRAINER": {
+                    "primary": "#ff0000", "secondary": "#ffffff", "outline": "#000000",
+                    "pixels": ["........."] * 9,
+                }},
+            })
+            self.assertFalse([issue for issue in icon_issues if issue.level == "error"], icon_issues)
+            self.assertNotIn("priority", content_manager.pokefinder_icons_payload(root)["categories"]["TRAINER"])
+
+    def test_pokefinder_icon_page_edits_pixels_instead_of_selecting_presets(self):
+        page = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
+        script = (CORE_ROOT / "tools/content-manager/web/app.js").read_text(encoding="utf-8")
+        styles = (CORE_ROOT / "tools/content-manager/web/styles.css").read_text(encoding="utf-8")
+        self.assertIn('data-section="pokefinder-icons"', page)
+        self.assertIn('id="pokefinder-icons"', page)
+        self.assertIn('data-pokefinder-pixel=', script)
+        self.assertIn('data-pokefinder-tool=', script)
+        self.assertNotIn("pokefinderIconChoices", script)
+        self.assertIn(".pokefinder-pixel-grid", styles)
+
     def test_residential_catalog_settings_roundtrip_and_lightweight_listing(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -147,12 +187,17 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("team_size", script)
         self.assertIn("function dungeonTrainerModeFields", script)
         self.assertIn("function dungeonPresetTrainerFields", script)
-        self.assertIn("function dungeonInlineTeamEditor", script)
+        self.assertIn("function dungeonTeamCompactPreview", script)
+        self.assertIn("function openDungeonTeamDialog", script)
         self.assertIn('renderTeam("#dungeon-team-list")', script)
         self.assertIn('data-dungeon-battle-source="${value}"', script)
-        self.assertIn('data-dungeon-team-action="add"', script)
+        self.assertIn('data-dungeon-team-action="add"', markup)
+        self.assertIn('id="dungeon-team-dialog"', markup)
+        self.assertIn("repeat(6,minmax(52px,1fr))", styles)
         self.assertIn("function renderDungeonGeneratedPopulation", script)
         self.assertIn("function dungeonTrainerClassOptions", script)
+        self.assertIn("function dungeonTrainerCharacterSelect", script)
+        self.assertIn('name="generatedAppearanceCharacter"', script)
         self.assertIn("renderDungeonContentEditor();\n    renderDungeonGeneratedPopulation();", script)
         self.assertIn("function syncDungeonCaveBuildBounds", script)
         self.assertIn('dungeon_position_key: positionKey', script)
@@ -183,6 +228,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('name="npcCapacityMode"', markup)
         self.assertIn('name="npcRequiredSlots"', markup)
         self.assertIn('name="npcMinimumSpacing"', markup)
+        self.assertIn('name="showInPokefinder"', markup)
+        self.assertIn('document.show_in_pokefinder !== false', script)
+        self.assertIn('document.show_in_pokefinder = form.elements.showInPokefinder.checked', script)
         self.assertNotIn('name="npcMaximumPerRoom"', markup)
         self.assertIn('document.npc_placement = {', script)
         self.assertIn('markerPositions(placement, "npc_spawn")', script)
@@ -192,6 +240,21 @@ class ContentManagerTests(unittest.TestCase):
         self.assertNotIn('name="randomMinX"', markup)
         self.assertNotIn('name="randomMaxZ"', markup)
         self.assertIn("delete document.random_encounters.spawn_bounds", script)
+
+    def test_dungeon_pokefinder_visibility_must_be_boolean(self) -> None:
+        document = json.loads((
+            PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json"
+        ).read_text(encoding="utf-8"))
+        document["show_in_pokefinder"] = "hidden"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dungeon.json"
+            path.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(path)
+
+        self.assertTrue(any(
+            issue.path == "$.show_in_pokefinder" and issue.level == "error"
+            for issue in issues
+        ), issues)
 
     def test_dungeon_random_encounters_do_not_require_authored_spawn_bounds(self) -> None:
         document = json.loads((
@@ -589,38 +652,12 @@ class ContentManagerTests(unittest.TestCase):
             for issue in issues
         ), issues)
 
-    def test_dungeon_workspace_loads_editable_clear_reward_tables(self) -> None:
+    def test_dungeon_workspace_uses_inline_clear_rewards(self) -> None:
         workspace = content_manager.dungeon_workspace_payload(PROJECT_ROOT)
-        rewards = {entry["id"]: entry for entry in workspace["reward_tables"]}
-
-        reward_id = "cobbleventure:dungeon/rocket_power_plant_first_clear"
-        self.assertIn(reward_id, rewards)
-        self.assertEqual(
-            "content/loot_tables/cobbleventure/dungeon/rocket_power_plant_first_clear.json",
-            rewards[reward_id]["path"],
-        )
-        self.assertEqual("minecraft:gift", rewards[reward_id]["document"]["type"])
-
-    def test_dungeon_clear_reward_table_can_be_validated_and_saved(self) -> None:
-        reward = {
-            "type": "minecraft:gift",
-            "pools": [{
-                "rolls": 1,
-                "entries": [{
-                    "type": "minecraft:item", "name": "cobblemon:rare_candy",
-                    "functions": [{"function": "minecraft:set_count", "count": 2}],
-                }],
-            }],
-        }
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            relative = "content/loot_tables/cobbleventure/dungeon/test_first_clear.json"
-
-            target, issues = content_manager._save_document(root, "loot-tables", relative, reward)
-
-            self.assertIsNotNone(target)
-            self.assertFalse(any(issue.level == "error" for issue in issues), issues)
-            self.assertEqual(reward, json.loads((root / relative).read_text(encoding="utf-8")))
+        self.assertNotIn("reward_tables", workspace)
+        tower = next(item["document"] for item in workspace["items"] if item["id"].endswith("rocket_pokemon_tower"))
+        self.assertTrue(tower["rewards"]["first_clear"])
+        self.assertTrue(tower["rewards"]["repeat_clear"])
 
     def test_dungeon_editor_exposes_direct_clear_reward_authoring(self) -> None:
         html = (CORE_ROOT / "tools/content-manager/web/index.html").read_text(encoding="utf-8")
@@ -629,9 +666,9 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn('id="dungeon-rewards-editor"', html)
         self.assertIn('name="firstClearFieldMoves"', html)
         self.assertIn("function renderDungeonRewards()", script)
-        self.assertIn("function saveDungeonRewardDocuments()", script)
-        self.assertIn('category=loot-tables', script)
-        self.assertIn("공용 보상", script)
+        self.assertIn('kind === "repeat" ? "repeat_clear" : "first_clear"', script)
+        self.assertNotIn('name="firstClearTable"', html)
+        self.assertNotIn("saveDungeonRewardDocuments", script)
 
     def test_dungeon_validator_checks_internal_content_entries(self) -> None:
         document = json.loads((PROJECT_ROOT / "content/dungeons/generation_1/rocket_power_plant.json").read_text(encoding="utf-8"))
@@ -4003,8 +4040,10 @@ class ContentManagerTests(unittest.TestCase):
         self.assertIn("function worldObjectPlacementProperties(resource, q, r, properties = {})", script)
         self.assertIn('result.placement_anchor = "road_anchor"', script)
         self.assertIn('result.placement_anchor = "door"', script)
-        self.assertIn("worldObjectAvoidsRoad(resource, q, r)", script)
-        self.assertIn("worldObjectAvoidsRoad(object.resource, target.q, target.r, object.properties)", script)
+        self.assertIn("function worldObjectAvoidsRoad(resource, q, r, properties = {})", script)
+        self.assertIn('return object?.type === "gate" || worldObjectAvoidsRoad', script)
+        self.assertIn("worldObjectCanMoveTo(object, target.q, target.r)", script)
+        self.assertIn('object.type === "gate"', script)
 
     def test_world_gate_denial_opens_easy_npc_dialog_and_uses_organic_forest_edge(self) -> None:
         runtime = (

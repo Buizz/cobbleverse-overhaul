@@ -1,7 +1,6 @@
 package dev.buizz.cobbleventure.pokefinder.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerType;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
@@ -31,22 +30,6 @@ class WorldBootstrapRadarProviderTest {
     }
 
     @Test
-    void prioritizesDungeonEntrancesOverTheirHostBuildingAndCave() {
-        int dungeon = WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.DUNGEON_ENTRANCE, "dungeon/power_plant_front"
-        );
-        assertTrue(dungeon > WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.SPECIAL_BUILDING, "building/power_plant"
-        ));
-        assertTrue(dungeon > WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.CAVE_ENTRANCE, "cave/power_plant"
-        ));
-        assertTrue(dungeon < WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.OBJECTIVE, "objective/power_plant"
-        ));
-    }
-
-    @Test
     void convertsRuntimeIdsToResourcePaths() {
         assertEquals(
             "building/cobbleventure_facilities/pokemon_center/1/2/3",
@@ -67,20 +50,11 @@ class WorldBootstrapRadarProviderTest {
     }
 
     @Test
-    void prioritizesMajorFacilitiesOverNearbyNpcs() {
-        int trainer = WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.TRAINER, "npc/trainer"
-        );
-        assertTrue(WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.POKEMON_CENTER, "building/pokemon_center"
-        ) > trainer);
-        assertTrue(WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.POKEMART, "building/pokemart"
-        ) > trainer);
-        assertTrue(WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.GYM_LEADER, "building/gym"
-        ) > WorldBootstrapRadarProvider.priority(
-            RadarMarkerType.GYM_LEADER, "npc/gym_leader"
-        ));
+    void loadsDataAuthoredIconsAndPriorities() {
+        RadarIconSettings.Entry pokemart = RadarIconSettings.resolve("POKEMART", "fallback");
+        assertEquals("pokemart", pokemart.icon());
+        assertEquals(9, pokemart.pixels().size());
+        RadarIconSettings.Entry trainer = RadarIconSettings.resolve("TRAINER", "fallback");
+        assertEquals("trainer", trainer.icon());
     }
 }

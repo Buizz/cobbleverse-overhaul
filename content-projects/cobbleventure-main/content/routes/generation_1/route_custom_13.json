@@ -101,9 +101,9 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/kanto_psychic_seon",
-      "cobbleventure:npc/kanto_gentleman_doyoung",
-      "cobbleventure:npc/sample_bird_keeper_ara"
+      "cobbleventure:npc/firered_juggler_kayden",
+      "cobbleventure:npc/firered_super_nerd_avery",
+      "cobbleventure:npc/firered_tamer_phil"
     ],
     "trigger_override": "proximity"
   }

@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.adventure.event;
 
+import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.mojang.logging.LogUtils;
 import dev.buizz.cobbleventure.adventure.PokemonCenterDefeatReturn;
 import java.util.ArrayList;
@@ -43,27 +44,32 @@ public final class EventNpcProximityHandler {
         if (Math.floorMod(gameTime, SCAN_INTERVAL_TICKS) != 0) return;
         Set<BoundaryKey> observed = new HashSet<>();
         Set<EncounterGroupKey> observedGroups = new HashSet<>();
+        Set<UUID> suspendedPlayers = new HashSet<>();
         Map<ServerLevel, List<BoundNpc>> boundNpcs = loadedBoundNpcs(tick);
         List<BoundNpc> allBoundNpcs = boundNpcs.values().stream()
             .flatMap(List::stream).toList();
         for (ServerPlayer player : tick.getServer().getPlayerList().getPlayers()) {
-            if (PokemonCenterDefeatReturn.blocksNewNpcEvents(player)) {
+            if (PokemonCenterDefeatReturn.blocksNewNpcEvents(player)
+                || EventTriggerExecutor.blocksEventStart(
+                    player.getUUID(),
+                    playerId -> BattleRegistry.getBattleByParticipatingPlayerId(playerId) != null,
+                    EventBattleBridge::hasPendingTrainerBattle
+                )) {
+                suspendedPlayers.add(player.getUUID());
                 continue;
             }
-            EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
-                new ServerPlayerEventState(player)
-            );
             for (BoundNpc bound : boundNpcs.getOrDefault(player.serverLevel(), List.of())) {
                 observe(
                     player, bound.entity(), bound.binding(), bound.script(),
-                    environment, gameTime, observed, observedGroups
+                    environment(player, bound.entity()), gameTime, observed, observedGroups
                 );
             }
             try {
                 EventBoundaryProviderRegistry.snapshot(player).ifPresent(snapshot -> {
                     for (BoundNpc bound : allBoundNpcs) {
                         observeIndexed(
-                            player, bound, snapshot, environment, gameTime, observed
+                            player, bound, snapshot, environment(player, bound.entity()),
+                            gameTime, observed
                         );
                     }
                 });
@@ -74,8 +80,18 @@ public final class EventNpcProximityHandler {
                 );
             }
         }
-        TRACKER.retainAll(observed);
-        ENCOUNTERS.retainAll(observedGroups);
+        TRACKER.retainAll(observed, key -> suspendedPlayers.contains(key.playerId()));
+        ENCOUNTERS.retainAll(
+            observedGroups, key -> suspendedPlayers.contains(key.playerId())
+        );
+    }
+
+    private static EventStateExpressionEnvironment environment(
+        ServerPlayer player, Entity npc
+    ) {
+        return new EventStateExpressionEnvironment(
+            new ServerPlayerEventState(player, npc.getUUID())
+        );
     }
 
     private static Map<ServerLevel, List<BoundNpc>> loadedBoundNpcs(

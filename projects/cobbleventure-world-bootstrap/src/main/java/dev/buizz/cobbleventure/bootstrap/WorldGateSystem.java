@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -637,7 +638,8 @@ final class WorldGateSystem {
     private static void decorateNaturalShoulderColumn(
         ServerLevel level, HexWorldPlan world, Gate gate, String terrainType,
         CobbleventureBootstrap.Point center,
-        int x, int z, int distance, int offset, boolean treePass
+        int x, int z, int distance, int offset, int halfOpening,
+        int maximumDepth, boolean treePass
     ) {
         int groundY = naturalBarrierGroundY(level, x, z);
         long hash = mixGateSeed(world.seed(), x, z, distance, offset);
@@ -702,27 +704,103 @@ final class WorldGateSystem {
             return;
         }
         if (treePass) return;
-        // Non-forest surroundings already provide their natural terrain. Add a
-        // few irregular boulders instead of extruding every column into a wall.
-        if (Math.floorMod((int) hash, 11) != 0) {
-            return;
+        placeNaturalTerrainFormation(
+            level, world, terrainType, x, z, distance, offset,
+            halfOpening, maximumDepth, hash
+        );
+    }
+
+    /**
+     * Gives every inaccessible terrain its own visible continuation beside a
+     * gate. Collision still finishes the seal, but is hidden inside a landform
+     * instead of standing alone in an apparently walkable strip.
+     */
+    private static void placeNaturalTerrainFormation(
+        ServerLevel level, HexWorldPlan world, String terrainType,
+        int x, int z, int distance, int offset, int halfOpening,
+        int maximumDepth, long hash
+    ) {
+        int nativeGroundY = CobbleventureBootstrap.nativeTerrainColumn(
+            world, x, z
+        ).groundY();
+        int visibleHeight = naturalGateFormationHeight(
+            terrainType, distance, halfOpening, offset, maximumDepth, hash
+        );
+        int topY;
+        int bottomY = nativeGroundY + 1;
+        if (terrainType.equals("ocean") || terrainType.equals("deep_ocean")) {
+            // Raise a broken reef from the sea floor. Most columns meet the
+            // waterline and scattered ones form low sea stacks, making the
+            // blocked coast readable from both land and water. The max keeps
+            // the same profile visible where the wedge overlaps a high shore.
+            topY = Math.max(
+                nativeGroundY + visibleHeight,
+                CobbleventureBootstrap.WATER_SURFACE_Y + visibleHeight - 1
+            );
+        } else {
+            topY = nativeGroundY + visibleHeight;
         }
-        int boulderHeight = 1 + Math.floorMod((int) (hash >>> 12), 3);
-        for (int height = 1; height <= boulderHeight; height++) {
-            BlockPos position = new BlockPos(x, groundY + height, z);
-            if (!level.getBlockState(position).canBeReplaced()) {
-                break;
-            }
-            BlockState state = switch (terrainType) {
-                case "desert" -> Blocks.SANDSTONE.defaultBlockState();
-                case "red_rock_mountain" -> Blocks.RED_SANDSTONE.defaultBlockState();
-                case "snow_mountain" -> height == boulderHeight
-                    ? Blocks.SNOW_BLOCK.defaultBlockState()
-                    : Blocks.STONE.defaultBlockState();
-                default -> Blocks.MOSSY_COBBLESTONE.defaultBlockState();
-            };
-            level.setBlock(position, state, 2);
+        for (int y = bottomY; y <= topY; y++) {
+            BlockPos position = new BlockPos(x, y, z);
+            BlockState existing = level.getBlockState(position);
+            if (!existing.isAir() && !existing.canBeReplaced()) continue;
+            level.setBlock(
+                position,
+                naturalGateFormationBlock(world, terrainType, x, y, z, topY, hash),
+                2
+            );
         }
+    }
+
+    static int naturalGateFormationHeight(
+        String terrainType, int distance, int halfOpening, int offset,
+        int maximumDepth, long hash
+    ) {
+        int run = Math.max(0, distance - halfOpening - 1);
+        int depth = Math.max(0, maximumDepth - Math.abs(offset));
+        int variation = Math.floorMod((int) (hash >>> 20), 3);
+        return switch (terrainType) {
+            // Two-block terraces cannot be walked up like ordinary slopes and
+            // rise steadily into the already-high outer mountain terrain.
+            case "stone_mountain", "red_rock_mountain" ->
+                2 + Math.min(14, (run / 2) * 2) + Math.min(2, depth / 3);
+            case "snow_mountain" ->
+                2 + Math.min(12, (run / 2) * 2) + Math.min(2, depth / 4);
+            // Sand alone would become a climbable staircase, so the desert
+            // shoulder is a compact sandstone mesa with an uneven sand cap.
+            case "desert" -> 2 + Math.min(5, run / 3) + (variation == 2 ? 1 : 0);
+            // Deep water gets the darker, slightly taller sea-stack profile.
+            case "deep_ocean" -> 1 + (variation == 2 ? 2 : 0);
+            case "ocean" -> 1 + (variation == 2 ? 1 : 0);
+            default -> 0;
+        };
+    }
+
+    private static BlockState naturalGateFormationBlock(
+        HexWorldPlan world, String terrainType,
+        int x, int y, int z, int topY, long hash
+    ) {
+        return switch (terrainType) {
+            case "stone_mountain" -> CobbleventureBootstrap.oceanCliffRock(
+                world, x, y, z
+            );
+            case "red_rock_mountain" -> CobbleventureBootstrap.redRockMountainBlock(
+                world, x, y, z
+            );
+            case "snow_mountain" -> y == topY
+                ? Blocks.SNOW_BLOCK.defaultBlockState()
+                : CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
+            case "desert" -> y == topY
+                ? Blocks.SAND.defaultBlockState()
+                : Math.floorMod((int) (hash ^ y * 31L), 7) == 0
+                    ? Blocks.CUT_SANDSTONE.defaultBlockState()
+                    : Blocks.SANDSTONE.defaultBlockState();
+            case "deep_ocean" -> Math.floorMod((int) (hash ^ y * 17L), 4) == 0
+                ? Blocks.TUFF.defaultBlockState()
+                : Blocks.COBBLED_DEEPSLATE.defaultBlockState();
+            case "ocean" -> CobbleventureBootstrap.oceanCliffRock(world, x, y, z);
+            default -> Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+        };
     }
 
     private static boolean hasNaturalGateTreeOverhead(
@@ -997,6 +1075,9 @@ final class WorldGateSystem {
         StructureFootprint structureFootprint = gate.buildingEnabled()
             ? plannedStructureFootprint(level, gate, center)
             : null;
+        Set<BlockPos> authoredBarriers = authoredGateBarrierPositions(
+            level, world, gate, center, structureFootprint
+        );
         // Protect only the actual NBT footprint. A blanket three-block margin
         // left a clearly walkable-looking strip between Saffron's gatehouses
         // and their forest walls even though invisible barriers sealed it.
@@ -1008,7 +1089,7 @@ final class WorldGateSystem {
         // facade, so discard only barriers from the earlier pass.
         for (NaturalGateColumn column : columns) {
             clearNaturalWedgeBarriers(
-                level, gate, column.x(), column.z()
+                level, gate, column.x(), column.z(), authoredBarriers
             );
         }
         List<NaturalGateColumn> decorationColumns = decorationBoundary == null
@@ -1030,7 +1111,8 @@ final class WorldGateSystem {
             decorateNaturalShoulderColumn(
                 level, world, gate, column.terrainType(),
                 center,
-                column.x(), column.z(), column.distance(), column.offset(), true
+                column.x(), column.z(), column.distance(), column.offset(),
+                halfOpening, maximumDepth, true
             );
         }
         // Pass 2: add ground cover only after every crown is known. Columns
@@ -1039,7 +1121,8 @@ final class WorldGateSystem {
             decorateNaturalShoulderColumn(
                 level, world, gate, column.terrainType(),
                 center,
-                column.x(), column.z(), column.distance(), column.offset(), false
+                column.x(), column.z(), column.distance(), column.offset(),
+                halfOpening, maximumDepth, false
             );
         }
         // Pass 3: fill every remaining replaceable space in the wedge with an
@@ -1104,15 +1187,40 @@ final class WorldGateSystem {
     }
 
     private static void clearNaturalWedgeBarriers(
-        ServerLevel level, Gate gate, int x, int z
+        ServerLevel level, Gate gate, int x, int z, Set<BlockPos> authoredBarriers
     ) {
         int groundY = naturalBarrierGroundY(level, x, z);
         for (int height = 1; height <= gate.barrierHeight(); height++) {
             BlockPos position = new BlockPos(x, groundY + height, z);
-            if (level.getBlockState(position).is(Blocks.BARRIER)) {
+            if (level.getBlockState(position).is(Blocks.BARRIER)
+                && !authoredBarriers.contains(position)) {
                 level.setBlock(position, Blocks.AIR.defaultBlockState(), 2);
             }
         }
+    }
+
+    private static Set<BlockPos> authoredGateBarrierPositions(
+        ServerLevel level, HexWorldPlan world, Gate gate,
+        CobbleventureBootstrap.Point center, StructureFootprint footprint
+    ) {
+        if (footprint == null || gate.structure() == null) return Set.of();
+        ResourceLocation structureId = ResourceLocation.tryParse(gate.structure());
+        if (structureId == null) return Set.of();
+        var optionalTemplate = level.getStructureManager().get(structureId);
+        if (optionalTemplate.isEmpty()) return Set.of();
+        StructureTemplate template = optionalTemplate.orElseThrow();
+        Rotation rotation = rotation(gate.rotation());
+        int originY = roadAlignedGateOriginY(
+            level, world, gate, footprint, groundY(level, center.x(), center.z())
+        );
+        BlockPos origin = rotatedTemplateOrigin(
+            footprint.minX(), originY, footprint.minZ(),
+            template.getSize().getX(), template.getSize().getZ(), rotation
+        );
+        StructurePlaceSettings settings = new StructurePlaceSettings().setRotation(rotation);
+        return template.filterBlocks(origin, settings, Blocks.BARRIER).stream()
+            .map(StructureTemplate.StructureBlockInfo::pos)
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     private static int naturalBarrierGroundY(ServerLevel level, int x, int z) {
@@ -2496,8 +2604,11 @@ final class WorldGateSystem {
         }
         HexCoord originCell = grid.worldToHex(approach.x, approach.z);
         CobbleventureBootstrap.Point tile = grid.worldCenter(originCell);
-        double side = normal != 0.0D ? Math.signum(normal)
-            : Math.signum(horizontal ? tile.z() - center.z() : tile.x() - center.x());
+        // Choose the side from the cell center, not the player's position in the
+        // opening. A fast crossing can already be beyond the plane; the cell
+        // center still points back toward the safe interior of that cell.
+        double tileNormal = horizontal ? tile.z() - center.z() : tile.x() - center.x();
+        double side = tileNormal != 0.0D ? Math.signum(tileNormal) : Math.signum(normal);
         if (side == 0.0D) side = 1.0D;
         // Clear the entire trigger band (threshold + 0.35), not just its plane.
         double stoppedNormal = side * (threshold + 0.65D);

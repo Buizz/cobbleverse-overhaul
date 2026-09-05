@@ -6,6 +6,7 @@
   "display_name": { "ko_kr": "카지노 지하 로켓단 기지", "en_us": "Rocket Casino Hideout" },
   "description": { "ko_kr": "무지개시티 카지노 아래의 로켓단 비밀기지를 공략합니다.", "en_us": "Raid Team Rocket's hideout beneath the Celadon casino." },
   "preset": "cobbleventure:team_rocket_facility",
+  "show_in_pokefinder": false,
   "entrances": [{
     "entrance_id": "cobbleventure:entrance/casino_hideout",
     "destination_entry": "main", "activation": "proximity",
@@ -80,7 +81,7 @@
   "encounters": [
     {
       "id": "hideout_admin", "display_name": { "ko_kr": "로켓단 보스 비주기", "en_us": "Team Rocket Boss Giovanni" },
-      "trainers": [{ "id": "hideout_admin", "display_name": { "ko_kr": "비주기", "en_us": "Giovanni" }, "trainer_class": "cobbleventure:trainer_class/villain_admin", "battle": "cobbleventure:battle/rocket_casino_admin" }],
+      "trainers": [{ "id": "hideout_admin", "display_name": { "ko_kr": "비주기", "en_us": "Giovanni" }, "trainer_class": "cobbleventure:trainer_class/villain_boss", "character": "cobbleventure:character/giovanni", "battle": "cobbleventure:battle/rocket_casino_admin" }],
       "requires": [],
       "trigger": { "type": "proximity", "leader": 0, "range": 6, "warning_offset": 3, "warning_track": "encounter.trainer_bad_guys", "start_lines": ["여기까지 온 실력은 인정하지. 하지만 이곳이 끝이다."], "win_lines": ["이번에는 물러나도록 하지."], "loss_lines": ["조직적인 전투가 무엇인지 이제 알겠나?"] },
       "yaw": 180, "boss": true
@@ -98,8 +99,16 @@
     "containers": [{ "id": "hideout_vault", "block": "chest", "facing": "west", "requires_completion": true }]
   },
   "rewards": {
-    "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
-    "repeat_table": "cobbleventure:dungeon/rocket_power_plant_repeat_clear", "first_clear_field_moves": []
+    "first_clear": [
+      { "rolls": 1, "entries": [{ "item": "cobblemon:rare_candy", "min_count": 2, "max_count": 2, "weight": 1 }] },
+      { "rolls": 1, "entries": [{ "item": "cobblemon:great_ball", "min_count": 5, "max_count": 5, "weight": 1 }] }
+    ],
+    "repeat_clear": [{ "rolls": 1, "entries": [
+      { "item": "cobblemon:super_potion", "min_count": 2, "max_count": 2, "weight": 50 },
+      { "item": "cobblemon:great_ball", "min_count": 3, "max_count": 3, "weight": 40 },
+      { "item": "cobblemon:rare_candy", "min_count": 1, "max_count": 1, "weight": 10 }
+    ] }],
+    "first_clear_field_moves": []
   },
   "lifecycle": { "on_wipe": "reset_run", "wipe_return": "source_entrance", "heal_on_wipe": true, "reconnect_grace_seconds": 120 },
   "completion": {

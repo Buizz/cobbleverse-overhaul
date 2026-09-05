@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_channeler_stacy/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_channeler_stacy/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "포켓몬은 트레이너를 닮는대. 그렇다면 네 포켓몬은 강하겠구나!"
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_channeler_stacy" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_channeler_stacy/defeated" true
       say npc {
         ko_kr: "역시 그랬군! 아직 배울 게 많아… 사이코키네시스를 익혀 포켓몬에게 가르쳐야 해…"
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/firered_channeler_stacy/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "역시 그랬군! 아직 배울 게 많아… 사이코키네시스를 익혀 포켓몬에게 가르쳐야 해…"
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/firered_channeler_stacy" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_channeler_stacy/defeated" true
           say npc {
             ko_kr: "역시 그랬군! 아직 배울 게 많아… 사이코키네시스를 익혀 포켓몬에게 가르쳐야 해…"

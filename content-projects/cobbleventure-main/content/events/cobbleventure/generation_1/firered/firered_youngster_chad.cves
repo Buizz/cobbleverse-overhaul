@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_youngster_chad/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_youngster_chad/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "느낌이 왔어… 너와 꼭 싸워야 할 것 같았어!"
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_youngster_chad" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_youngster_chad/defeated" true
       say npc {
         ko_kr: "질 것 같더라! 포켓몬이 혼란에 빠지면 교체하는 것도 좋은 전술이야."
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/firered_youngster_chad/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "질 것 같더라! 포켓몬이 혼란에 빠지면 교체하는 것도 좋은 전술이야."
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/firered_youngster_chad" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_youngster_chad/defeated" true
           say npc {
             ko_kr: "질 것 같더라! 포켓몬이 혼란에 빠지면 교체하는 것도 좋은 전술이야."

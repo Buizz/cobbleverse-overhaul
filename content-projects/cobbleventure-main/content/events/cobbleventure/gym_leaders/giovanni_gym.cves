@@ -1,11 +1,12 @@
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/gym/kanto/giovanni_gym/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc "이미 실력을 증명했군. 다음 목표를 향해 나아가라."
   }
   page default {
     say npc "체육관에 온 것을 환영한다. 준비가 됐다면 승부하자!"
     id "challenge/battle" await battle "cobbleventure:battle/gym_leader/giovanni_gym" -> result
     if result.outcome == "win" {
+      id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "victory/set_defeated" set_flag "cobbleventure:flag/gym/kanto/giovanni_gym/defeated" true
       id "victory/give_money" give_money 5000
       id "victory/grant_badge" grant_badge "cobbleventure:badge/kanto/earth"

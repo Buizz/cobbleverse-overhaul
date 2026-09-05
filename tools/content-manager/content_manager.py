@@ -9184,6 +9184,13 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
     dungeon_id = data.get("dungeon_id")
     _resource_id(dungeon_id, issues, path, "$.dungeon_id")
     _resource_id(data.get("preset"), issues, path, "$.preset")
+    if "show_in_pokefinder" in data and not isinstance(
+        data.get("show_in_pokefinder"), bool
+    ):
+        _issue(
+            issues, "error", path, "$.show_in_pokefinder",
+            "불리언이어야 합니다."
+        )
     for field in ("display_name", "description"):
         value = data.get(field)
         if not isinstance(value, dict) or not isinstance(value.get("ko_kr"), str) or not value["ko_kr"].strip():
@@ -9385,8 +9392,36 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
     if completion.get("return_trigger") not in {"automatic", "clear_exit"}:
         _issue(issues, "error", path, "$.completion.return_trigger", "automatic 또는 clear_exit여야 합니다.")
     rewards = object_at("rewards")
-    if completion.get("repeatable") is True and not isinstance(rewards.get("repeat_table"), str):
-        _issue(issues, "error", path, "$.rewards.repeat_table", "반복 클리어 던전에는 반복 보상 테이블이 필요합니다.")
+    for reward_key in ("first_clear", "repeat_clear"):
+        pools = rewards.get(reward_key)
+        if reward_key == "repeat_clear" and completion.get("repeatable") is not True and pools is None:
+            continue
+        if not isinstance(pools, list) or not pools:
+            _issue(issues, "error", path, f"$.rewards.{reward_key}", "클리어 보상 묶음이 하나 이상 필요합니다.")
+            continue
+        for pool_index, pool in enumerate(pools):
+            pool_path = f"$.rewards.{reward_key}[{pool_index}]"
+            if not isinstance(pool, dict):
+                _issue(issues, "error", path, pool_path, "보상 묶음은 객체여야 합니다.")
+                continue
+            integer(pool.get("rolls"), 1, 64, f"{pool_path}.rolls")
+            entries = pool.get("entries")
+            if not isinstance(entries, list) or not entries:
+                _issue(issues, "error", path, f"{pool_path}.entries", "보상 아이템이 하나 이상 필요합니다.")
+                continue
+            for entry_index, entry in enumerate(entries):
+                entry_path = f"{pool_path}.entries[{entry_index}]"
+                if not isinstance(entry, dict):
+                    _issue(issues, "error", path, entry_path, "보상 아이템은 객체여야 합니다.")
+                    continue
+                _resource_id(entry.get("item"), issues, path, f"{entry_path}.item")
+                minimum = entry.get("min_count")
+                maximum = entry.get("max_count")
+                integer(minimum, 1, 6400, f"{entry_path}.min_count")
+                integer(maximum, 1, 6400, f"{entry_path}.max_count")
+                if isinstance(minimum, int) and isinstance(maximum, int) and minimum > maximum:
+                    _issue(issues, "error", path, f"{entry_path}.max_count", "최대 수량은 최소 수량 이상이어야 합니다.")
+                integer(entry.get("weight"), 1, 100000, f"{entry_path}.weight")
     lifecycle = object_at("lifecycle")
     if lifecycle.get("resume_mode", "keep_until_timeout") not in {"full_reset", "checkpoint", "keep_until_timeout"}:
         _issue(issues, "error", path, "$.lifecycle.resume_mode", "지원하지 않는 재개 방식입니다.")
@@ -9501,6 +9536,13 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                 _issue(issues, "error", path, f"{base}.position", "자동 생성 지형이 아닌 던전은 고정 좌표가 필요합니다.")
             if not isinstance(encounter.get("boss"), bool):
                 _issue(issues, "error", path, f"{base}.boss", "true 또는 false여야 합니다.")
+            cooperative_battle = encounter.get("cooperative_battle", False)
+            if not isinstance(cooperative_battle, bool):
+                _issue(issues, "error", path, f"{base}.cooperative_battle", "true 또는 false여야 합니다.")
+                cooperative_battle = False
+            if cooperative_battle and mode != "cooperative":
+                _issue(issues, "error", path, f"{base}.cooperative_battle", "협동 전투는 던전 행동 방식이 cooperative일 때만 사용할 수 있습니다.")
+            expected_trainers = 2 if cooperative_battle else 1
             requirements = encounter.get("requires")
             if not isinstance(requirements, list) or any(not isinstance(value, str) or not CHOICE_ID.fullmatch(value) for value in requirements):
                 _issue(issues, "error", path, f"{base}.requires", "선행 조우 ID 배열이어야 합니다.")
@@ -9516,8 +9558,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
             else:
                 trainers = encounter.get("trainers")
                 if trainers is not None:
-                    if not isinstance(trainers, list) or not 1 <= len(trainers) <= 2:
-                        _issue(issues, "error", path, f"{base}.trainers", "던전 생성 트레이너가 1~2명 필요합니다.")
+                    if not isinstance(trainers, list) or len(trainers) != expected_trainers:
+                        _issue(issues, "error", path, f"{base}.trainers", f"이 조우에는 던전 생성 트레이너가 {expected_trainers}명 필요합니다.")
                     else:
                         npc_actor_demand += len(trainers)
                         seen_actors: set[str] = set()
@@ -9528,6 +9570,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                                 continue
                             local_id(actor.get("id"), f"{actor_path}.id", seen_actors)
                             _resource_id(actor.get("trainer_class"), issues, path, f"{actor_path}.trainer_class")
+                            if actor.get("character") is not None:
+                                _resource_id(actor.get("character"), issues, path, f"{actor_path}.character")
                             _resource_id(actor.get("battle"), issues, path, f"{actor_path}.battle")
                             if not isinstance(actor.get("display_name"), dict) or not actor["display_name"].get("ko_kr"):
                                 _issue(issues, "error", path, f"{actor_path}.display_name", "한국어 표시 이름이 필요합니다.")
@@ -9561,15 +9605,15 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                     if not isinstance(trigger, dict):
                         _issue(issues, "error", path, f"{base}.trigger", "던전 생성 트레이너에는 근접 조우 설정이 필요합니다.")
                     else:
-                        integer(trigger.get("leader"), 0, 1, f"{base}.trigger.leader")
+                        integer(trigger.get("leader"), 0, expected_trainers - 1, f"{base}.trigger.leader")
                         for field in ("start_lines", "win_lines", "loss_lines"):
                             lines = trigger.get(field)
                             if not isinstance(lines, list) or not lines or any(not isinstance(line, str) or not line.strip() for line in lines):
                                 _issue(issues, "error", path, f"{base}.trigger.{field}", "비어 있지 않은 대사 목록이 필요합니다.")
                     continue
                 values = encounter.get("npcs")
-                if not isinstance(values, list) or not 1 <= len(values) <= 2:
-                    _issue(issues, "error", path, f"{base}.npcs", "리소스 ID가 1~2개 필요합니다.")
+                if not isinstance(values, list) or len(values) != expected_trainers:
+                    _issue(issues, "error", path, f"{base}.npcs", f"이 조우에는 NPC 프리셋이 {expected_trainers}개 필요합니다.")
                 else:
                     npc_actor_demand += len(values)
                     for value_index, value in enumerate(values):
@@ -9577,8 +9621,8 @@ def validate_dungeon_file(path: Path) -> tuple[str | None, list[Issue]]:
                 if "trainer_generation" in encounter:
                     _issue(issues, "error", path, f"{base}.trainer_generation", "자동 NPC 풀은 던전 전역 generated_trainers에서 설정해야 합니다.")
                 opponents = encounter.get("opponents")
-                if not isinstance(opponents, list) or not 1 <= len(opponents) <= 2:
-                    _issue(issues, "error", path, f"{base}.opponents", "배틀 프리셋 ID가 1~2개 필요합니다.")
+                if not isinstance(opponents, list) or len(opponents) != expected_trainers:
+                    _issue(issues, "error", path, f"{base}.opponents", f"이 조우에는 배틀 프리셋 ID가 {expected_trainers}개 필요합니다.")
                 else:
                     for value_index, value in enumerate(opponents):
                         _resource_id(value, issues, path, f"{base}.opponents[{value_index}]")
@@ -9988,27 +10032,6 @@ def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
     dungeons, dungeon_errors = documents(content / "dungeons", "dungeon_id")
     plans, plan_errors = documents(content / "dungeon_plans", "plan_id")
     pieces, piece_errors = documents(content / "dungeon_pieces", "piece_id")
-    reward_tables: list[dict[str, Any]] = []
-    reward_table_errors: list[dict[str, str]] = []
-    reward_root = content / "loot_tables"
-    for path in sorted(reward_root.rglob("*.json")) if reward_root.is_dir() else []:
-        relative = path.relative_to(reward_root)
-        if len(relative.parts) < 2:
-            continue
-        resource_id = f"{relative.parts[0]}:{Path(*relative.parts[1:]).with_suffix('').as_posix()}"
-        try:
-            document = load_json(path)
-            if not isinstance(document, dict):
-                raise ValueError("JSON 최상위 값은 객체여야 합니다.")
-            reward_tables.append({
-                "path": path.relative_to(root).as_posix(),
-                "id": resource_id,
-                "document": document,
-            })
-        except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
-            reward_table_errors.append({
-                "path": path.relative_to(root).as_posix(), "error": str(error),
-            })
     for item in dungeons:
         document = item["document"]
         item["name"] = _localized_value(document.get("display_name")) or item["id"]
@@ -10026,8 +10049,7 @@ def dungeon_workspace_payload(root: Path) -> dict[str, Any]:
         "items": dungeons,
         "plans": plans,
         "pieces": pieces,
-        "reward_tables": reward_tables,
-        "errors": dungeon_errors + plan_errors + piece_errors + reward_table_errors,
+        "errors": dungeon_errors + plan_errors + piece_errors,
     }
 
 
@@ -13440,7 +13462,53 @@ STRUCTURE_VIEWER_REQUIRED_EXTERNAL = {
     "bca:default/centers/center_department_store",
 }
 BUILDING_SETTINGS_PATH = Path("content/catalogs/building-settings.json")
+POKEFINDER_ICONS_PATH = Path("content/catalogs/pokefinder-icons.json")
 SPACE_CONNECTIONS_PATH = Path("content/catalogs/space-connections.json")
+POKEFINDER_MARKER_CATEGORIES = {
+    "PLAYER", "TRAINER", "GYM_LEADER", "IMPORTANT_NPC", "OBJECTIVE", "GYM",
+    "POKEMON_CENTER", "POKEMART", "CASINO", "SPECIAL_BUILDING",
+    "CAVE_ENTRANCE", "FOREST_ENTRANCE", "GATE", "DUNGEON_ENTRANCE",
+}
+def pokefinder_icons_payload(root: Path) -> dict[str, Any]:
+    path = root / POKEFINDER_ICONS_PATH
+    data = load_json(path) if path.is_file() else {"schema_version": 1, "categories": {}}
+    return {**data, "path": POKEFINDER_ICONS_PATH.as_posix()}
+
+
+def save_pokefinder_icons(root: Path, data: Any) -> list[Issue]:
+    path = root / POKEFINDER_ICONS_PATH
+    issues: list[Issue] = []
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        return [Issue("error", path.as_posix(), "$.schema_version", "버전 1이 필요합니다.")]
+    categories = data.get("categories")
+    if not isinstance(categories, dict):
+        return [Issue("error", path.as_posix(), "$.categories", "아이콘 분류 설정 객체가 필요합니다.")]
+    normalized: dict[str, dict[str, Any]] = {}
+    for category, value in sorted(categories.items()):
+        item_path = f"$.categories.{category}"
+        if category not in POKEFINDER_MARKER_CATEGORIES or not isinstance(value, dict):
+            _issue(issues, "error", path, item_path, "지원하는 포켓파인더 분류가 아닙니다.")
+            continue
+        colors = {key: value.get(key) for key in ("primary", "secondary", "outline")}
+        pixels = value.get("pixels")
+        if any(not isinstance(color, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", color) for color in colors.values()):
+            _issue(issues, "error", path, item_path, "주색·보조색·외곽선은 #RRGGBB 색상이어야 합니다.")
+        if not isinstance(pixels, list) or len(pixels) != 9 or any(
+            not isinstance(row, str) or not re.fullmatch(r"[.#xo]{9}", row) for row in pixels
+        ):
+            _issue(issues, "error", path, f"{item_path}.pixels", "아이콘은 . # x o 문자로 작성한 9×9 픽셀이어야 합니다.")
+        if (
+            all(isinstance(color, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", color) for color in colors.values())
+            and isinstance(pixels, list) and len(pixels) == 9
+            and all(isinstance(row, str) and re.fullmatch(r"[.#xo]{9}", row) for row in pixels)
+        ):
+            normalized[category] = {**colors, "pixels": pixels}
+    if any(issue.level == "error" for issue in issues):
+        return issues
+    document = {"$schema": "../schemas/pokefinder-icons.schema.json", "schema_version": 1, "categories": normalized}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return issues
 STRUCTURE_CATEGORY_LABELS = {
     "building": "일반 건물",
     "residential": "주택",
@@ -14228,6 +14296,17 @@ def building_settings_payload(
                     "note": "",
                     "color": "#64748b",
                 },
+                "radar": entry.get("radar", {
+                    "enabled": False,
+                    "category": "SPECIAL_BUILDING",
+                    "label": "",
+                    "anchor": "auto",
+                }) if isinstance(entry.get("radar", {}), dict) else {
+                    "enabled": False,
+                    "category": "SPECIAL_BUILDING",
+                    "label": "",
+                    "anchor": "auto",
+                },
                 "fixed_npcs": entry.get("fixed_npcs", {})
                 if isinstance(entry.get("fixed_npcs", {}), dict) else {},
                 "fixed_pokemon": entry.get("fixed_pokemon", {})
@@ -14249,6 +14328,7 @@ def building_settings_payload(
         "facility_defaults": settings["facility_defaults"],
         "structures": structures,
         "npcs": _list_documents(root, "trainers"),
+        "radar_icons": pokefinder_icons_payload(root),
         "path": BUILDING_SETTINGS_PATH.as_posix(),
     }
 
@@ -14761,6 +14841,32 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
             _issue(issues, "error", path, f"{entry_path}.town_placement.note", "96자 이하의 설명이 필요합니다.")
         if not isinstance(town_color, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", town_color):
             _issue(issues, "error", path, f"{entry_path}.town_placement.color", "#RRGGBB 형식의 색상이 필요합니다.")
+        radar = settings.get("radar", {})
+        if not isinstance(radar, dict):
+            _issue(issues, "error", path, f"{entry_path}.radar", "포켓파인더 설정은 객체여야 합니다.")
+            radar = {}
+        radar_enabled = radar.get("enabled", False)
+        radar_category = radar.get("category", "SPECIAL_BUILDING")
+        radar_label = radar.get("label", "")
+        radar_anchor = radar.get("anchor", "auto")
+        building_radar_categories = POKEFINDER_MARKER_CATEGORIES - {
+            "PLAYER", "TRAINER", "GYM_LEADER", "IMPORTANT_NPC", "OBJECTIVE",
+        }
+        if not isinstance(radar_enabled, bool):
+            _issue(issues, "error", path, f"{entry_path}.radar.enabled", "참/거짓 값이어야 합니다.")
+        if radar_category not in building_radar_categories:
+            _issue(issues, "error", path, f"{entry_path}.radar.category", "건물에 사용할 수 있는 분류를 선택하세요.")
+        if not isinstance(radar_label, str) or len(radar_label) > 64:
+            _issue(issues, "error", path, f"{entry_path}.radar.label", "표시 이름은 64자 이하여야 합니다.")
+        anchor_ids = {
+            item["label"] for item in _structure_named_anchors(
+                structure, {"door", "transition", "arrival", "exterior_spawn"}
+            )
+        }
+        if not isinstance(radar_anchor, str) or (
+            radar_anchor not in {"", "auto"} and radar_anchor not in anchor_ids
+        ):
+            _issue(issues, "error", path, f"{entry_path}.radar.anchor", "NBT에 있는 기준 앵커를 선택하세요.")
         interiors = settings.get("interiors", [])
         if not isinstance(interiors, list):
             _issue(issues, "error", path, f"{entry_path}.interiors", "내부공간 목록은 배열이어야 합니다.")
@@ -14963,6 +15069,14 @@ def save_building_settings(root: Path, data: Any) -> list[Issue]:
                 if town_enabled
                 else {}
             ),
+            **({
+                "radar": {
+                    "enabled": radar_enabled,
+                    "category": radar_category,
+                    "label": radar_label.strip(),
+                    "anchor": radar_anchor or "auto",
+                }
+            } if radar_enabled else {}),
             "fixed_npcs": {} if citizen_placement_allowed else normalized_fixed,
             "fixed_pokemon": normalized_fixed_pokemon,
             "fixed_gacha_machines": normalized_fixed_gacha,
@@ -16226,6 +16340,12 @@ def create_handler(
                 except (OSError, ValueError, EOFError, struct.error, json.JSONDecodeError, DuplicateKeyError) as error:
                     self._json(500, {"error": str(error)})
                 return
+            if request.path == "/api/pokefinder-icons":
+                try:
+                    self._json(200, pokefinder_icons_payload(root))
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(500, {"error": str(error)})
+                return
             if request.path == "/api/space-connections":
                 try:
                     # Space editing must see NBTs and sidecar anchors created while
@@ -17036,6 +17156,19 @@ def create_handler(
                 errors = sum(issue.level == "error" for issue in issues)
                 if errors == 0:
                     schedule_structure_cache_refresh()
+                self._json(
+                    200 if errors == 0 else 422,
+                    {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]},
+                )
+                return
+            if request.path == "/api/pokefinder-icons":
+                try:
+                    payload = self._read_json()
+                    issues = save_pokefinder_icons(root, payload)
+                except (OSError, ValueError, json.JSONDecodeError, DuplicateKeyError) as error:
+                    self._json(400, {"error": str(error)})
+                    return
+                errors = sum(issue.level == "error" for issue in issues)
                 self._json(
                     200 if errors == 0 else 422,
                     {"saved": errors == 0, "valid": errors == 0, "issues": [asdict(issue) for issue in issues]},

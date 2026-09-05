@@ -64,6 +64,18 @@ final class FacilityVendorOwnershipTest {
     }
 
     @Test
+    void customVendorActivatesCleanupWithoutOwningABaseMerchant() {
+        FacilityVendorOwnership ownership = new FacilityVendorOwnership();
+        ownership.begin(ORIGIN, BOUNDS);
+        ownership.activateCustomVendor(ORIGIN);
+
+        assertFalse(ownership.activeBounds().isEmpty());
+        assertTrue(ownership.isObsolete(
+            Vec3.atBottomCenterOf(COUNTER), UUID.randomUUID()
+        ));
+    }
+
+    @Test
     void refreshInvalidatesOldOwnersButLeavesOutsideMerchantsAlone() {
         FacilityVendorOwnership ownership = new FacilityVendorOwnership();
         ownership.begin(ORIGIN, BOUNDS);

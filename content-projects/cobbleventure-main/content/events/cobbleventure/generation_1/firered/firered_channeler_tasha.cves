@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_channeler_tasha/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_channeler_tasha/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "너와 나, 그리고 우리 포켓몬들이 승부한다!"
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_channeler_tasha" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_channeler_tasha/defeated" true
       say npc {
         ko_kr: "결국 져 버렸군! 이런 일이 일어날 줄 알고 있었어."
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/firered_channeler_tasha/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "결국 져 버렸군! 이런 일이 일어날 줄 알고 있었어."
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/firered_channeler_tasha" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_channeler_tasha/defeated" true
           say npc {
             ko_kr: "결국 져 버렸군! 이런 일이 일어날 줄 알고 있었어."

@@ -136,8 +136,10 @@ public final class EventStarterRouletteBridge {
                     EventSession.CompletionKind.COMPLETED, result
                 ),
                 script,
-                new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
-                EventDialogueNetwork.serverAdapter(player),
+                new EventStateExpressionEnvironment(new ServerPlayerEventState(
+                    player, key.orElseThrow().npcId()
+                )),
+                EventDialogueNetwork.serverAdapter(player, key.orElseThrow().npcId()),
                 store,
                 MAX_RESUME_STEPS
             );

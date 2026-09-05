@@ -13,7 +13,6 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 public final class LoopingMusic {
     private static final float DEFAULT_VOLUME = 0.6F;
     private static final int TRANSITION_TICKS = 30;
-    private static final int START_GRACE_TICKS = 20;
     private static FadingLoopingMusic current;
     private static ResourceLocation requestedSoundEvent;
     private static int ticksSinceStart;
@@ -51,11 +50,10 @@ public final class LoopingMusic {
             return;
         }
         if (!authoredMusicActive || requestedSoundEvent == null || current == null) return;
-        if (ticksSinceStart < START_GRACE_TICKS) {
-            ticksSinceStart++;
-            return;
-        }
-        if (!minecraft.getSoundManager().isActive(current)) {
+        ticksSinceStart++;
+        if (MusicLoopPolicy.shouldRestartPass(
+            ticksSinceStart, minecraft.getSoundManager().isActive(current)
+        )) {
             // Restart only after the streamed OGG has completed as a whole. This
             // avoids OpenAL's partial-buffer loop while keeping authored BGM continuous.
             startPass(minecraft, requestedSoundEvent);

@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.buizz.cobbleventure.adventure.FieldMoveRidingAccess;
+import dev.buizz.cobbleventure.adventure.TrainerBattleState;
 import fr.harmex.cobbledollars.common.utils.extensions.PlayerExtensionKt;
 import java.lang.reflect.Method;
 import java.math.BigInteger;
@@ -13,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
+import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -37,9 +39,15 @@ public final class ServerPlayerEventState implements EventStateAccess {
     private static final Gson GSON = new Gson();
 
     private final ServerPlayer player;
+    private final UUID npcId;
 
     public ServerPlayerEventState(ServerPlayer player) {
+        this(player, null);
+    }
+
+    public ServerPlayerEventState(ServerPlayer player, UUID npcId) {
         this.player = Objects.requireNonNull(player, "player");
+        this.npcId = npcId;
     }
 
     @Override
@@ -49,6 +57,9 @@ public final class ServerPlayerEventState implements EventStateAccess {
 
     @Override
     public boolean flag(String resourceId) {
+        if (resourceId.equals(INSTANCE_DEFEATED_FLAG) && npcId != null) {
+            return TrainerBattleState.isDefeated(player, npcId);
+        }
         String objectiveName = flagObjective(resourceId);
         Objective objective = player.getScoreboard().getObjective(objectiveName);
         return objective != null
@@ -126,6 +137,10 @@ public final class ServerPlayerEventState implements EventStateAccess {
 
     @Override
     public void setFlag(String resourceId, boolean value) {
+        if (resourceId.equals(INSTANCE_DEFEATED_FLAG) && npcId != null) {
+            TrainerBattleState.setDefeated(player, npcId, value);
+            return;
+        }
         String objectiveName = flagObjective(resourceId);
         Scoreboard scoreboard = player.getScoreboard();
         Objective objective = scoreboard.getObjective(objectiveName);

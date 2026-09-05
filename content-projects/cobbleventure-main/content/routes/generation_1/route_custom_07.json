@@ -82,9 +82,9 @@
     "use_biome_defaults": false,
     "direct_trainers": [
       "cobbleventure:npc/kanto_biker_gangho",
-      "cobbleventure:npc/kanto_beauty_sora",
-      "cobbleventure:npc/sample_bird_keeper_ara",
-      "cobbleventure:npc/sample_picnicker_hana"
+      "cobbleventure:npc/firered_beauty_lori",
+      "cobbleventure:npc/firered_gentleman_tucker",
+      "cobbleventure:npc/firered_picnicker_tina"
     ],
     "trigger_override": "proximity"
   }

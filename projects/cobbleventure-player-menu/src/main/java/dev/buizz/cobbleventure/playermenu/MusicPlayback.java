@@ -132,7 +132,9 @@ public final class MusicPlayback {
     }
 
     static void cancelEncounter(ServerPlayer player) {
-        if (ENCOUNTER_MUSIC.remove(player.getUUID()) != null) {
+        UUID playerId = player.getUUID();
+        String removed = ENCOUNTER_MUSIC.remove(playerId);
+        if (MusicPlaybackPolicy.shouldInvalidatePlayingTrack(removed, PLAYING.get(playerId))) {
             PLAYING.remove(player.getUUID());
         }
     }
@@ -143,7 +145,10 @@ public final class MusicPlayback {
         String resolved = MusicData.first(track, music.defaults.get("building"));
         if (resolved == null) return;
         INTERIOR_MUSIC.put(player.getUUID(), resolved);
-        play(player, music, resolved);
+        // Interior sync runs repeatedly. Resolve the full priority stack here so
+        // it cannot replace an active battle/victory/encounter track and make
+        // the client restart two alternating streams from their intros.
+        tickPriority(player, music);
     }
 
     /** Starts one of the authored facility defaults, such as pokemon_center or pokemart. */
@@ -154,13 +159,15 @@ public final class MusicPlayback {
         );
         if (resolved == null) return;
         INTERIOR_MUSIC.put(player.getUUID(), resolved);
-        play(player, music, resolved);
+        tickPriority(player, music);
     }
 
     /** Returns music ownership to the world-location resolver. */
     public static void leaveInterior(ServerPlayer player) {
-        if (INTERIOR_MUSIC.remove(player.getUUID()) != null) {
-            PLAYING.remove(player.getUUID());
+        UUID playerId = player.getUUID();
+        String removed = INTERIOR_MUSIC.remove(playerId);
+        if (MusicPlaybackPolicy.shouldInvalidatePlayingTrack(removed, PLAYING.get(playerId))) {
+            PLAYING.remove(playerId);
         }
     }
 
@@ -229,7 +236,7 @@ public final class MusicPlayback {
             VICTORY_MUSIC.remove(playerId);
         }
         BattleMusic battleMusic = BATTLE_MUSIC.get(playerId);
-        var activeBattle = BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player);
+        var activeBattle = BattleRegistry.getBattleByParticipatingPlayerId(playerId);
         boolean battling = activeBattle != null;
         if (battling) {
             if (battleMusic == null) {

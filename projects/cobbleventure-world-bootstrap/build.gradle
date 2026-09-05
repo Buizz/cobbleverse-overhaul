@@ -230,6 +230,10 @@ processResources {
     filesMatching('data/cobbleventure/economy/export-language.txt') {
         expand properties
     }
+    from(new File(contentDir, 'catalogs/pokefinder-icons.json')) {
+        into 'data/cobbleventure'
+        rename { 'pokefinder_icons.json' }
+    }
     from(new File(contentDir, 'caves')) {
         into 'data/cobbleventure/caves'
         include '**/*.json'

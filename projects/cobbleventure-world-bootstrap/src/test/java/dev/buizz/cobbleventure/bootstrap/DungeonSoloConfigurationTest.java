@@ -26,8 +26,8 @@ final class DungeonSoloConfigurationTest {
             assertFalse(dungeon.battleRules().allowFlee());
             assertFalse(dungeon.battleRules().allowEscapeActions());
             assertTrue(dungeon.completion().repeatable());
-            assertNotNull(dungeon.rewards().firstClearTable());
-            assertNotNull(dungeon.rewards().repeatTable());
+            assertFalse(dungeon.rewards().firstClear().isEmpty());
+            assertFalse(dungeon.rewards().repeatClear().isEmpty());
             assertEquals("clear_exit", dungeon.completion().returnTrigger());
         }
     }
@@ -51,7 +51,8 @@ final class DungeonSoloConfigurationTest {
     void pokemonTowerUsesDungeonOwnedProximityEncounters() throws Exception {
         DungeonDefinition tower = packagedDungeon("rocket_pokemon_tower");
 
-        assertEquals(5, tower.encounters().size());
+        assertEquals(1, tower.encounters().size());
+        assertEquals(5, tower.generatedTrainers().count().maximum());
         assertTrue(tower.encounters().stream().allMatch(encounter ->
             encounter.trainers().size() == 1
                 && encounter.trigger() != null

@@ -2188,11 +2188,11 @@ public final class CobbleventureBootstrap {
         Point offsetCenter = grid.worldCenter(new HexCoord(
             entrance.anchor().q() + offset.q(), entrance.anchor().r() + offset.r()
         ));
-        double deltaX = offsetCenter.x() - entranceCenter.x();
-        double deltaZ = offsetCenter.z() - entranceCenter.z();
-        double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
-        int centerX = entranceCenter.x() + (int) Math.round(deltaX / length * 28.0D);
-        int centerZ = entranceCenter.z() + (int) Math.round(deltaZ / length * 28.0D);
+        CavePokemonCenterPlacement.Site site = cavePokemonCenterSite(
+            entrance, entranceCenter, offsetCenter, approachRoad
+        );
+        int centerX = site.center().x();
+        int centerZ = site.center().z();
         String structure = entrance.pokemonCenterStructure();
         ResourceLocation structureId = ResourceLocation.tryParse(structure);
         if (structureId == null || level.getStructureManager().get(structureId).isEmpty()) {
@@ -2203,9 +2203,7 @@ public final class CobbleventureBootstrap {
             return;
         }
         var size = level.getStructureManager().get(structureId).orElseThrow().getSize();
-        Direction roadFacing = horizontalDirection(
-            entranceCenter.x() - centerX, entranceCenter.z() - centerZ
-        );
+        Direction roadFacing = site.roadFacing();
         String rotation = pokemonCenterRotation(roadFacing);
         boolean quarterTurn = rotation.equals("clockwise_90")
             || rotation.equals("counterclockwise_90");
@@ -2255,12 +2253,10 @@ public final class CobbleventureBootstrap {
             return;
         }
         Point facilityEntrance = new Point(roadAnchor.getX(), roadAnchor.getZ());
-        // The cave mountain is raised after the base terrain is generated. A direct
-        // diagonal from the mouth to the facility can therefore cut straight through
-        // that mountain. Follow the authored approach back into the entrance tile
-        // first, then turn toward the facility on ordinary terrain.
+        // Join the entrance to the nearby route point instead of cutting a diagonal
+        // shortcut from the cave through the mountain terrain.
         drawCaveAccessRoad(
-            level, world, approachRoad, entranceCenter, facilityEntrance
+            level, world, approachRoad, site.roadPoint(), facilityEntrance
         );
         LOGGER.info(
             "Existing Pokemon Center NBT placed for cave entrance: entrance={}, structure={}, origin={}, facing={}, rotation={}",
@@ -2286,11 +2282,12 @@ public final class CobbleventureBootstrap {
             Point offsetCenter = world.grid().worldCenter(new HexCoord(
                 entrance.anchor().q() + offset.q(), entrance.anchor().r() + offset.r()
             ));
-            double deltaX = offsetCenter.x() - entranceCenter.x();
-            double deltaZ = offsetCenter.z() - entranceCenter.z();
-            double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
-            int centerX = entranceCenter.x() + (int) Math.round(deltaX / length * 28.0D);
-            int centerZ = entranceCenter.z() + (int) Math.round(deltaZ / length * 28.0D);
+            CavePokemonCenterPlacement.Site site = cavePokemonCenterSite(
+                entrance, entranceCenter, offsetCenter,
+                caveEntranceRoad(world, entrance)
+            );
+            int centerX = site.center().x();
+            int centerZ = site.center().z();
             String structure = entrance.pokemonCenterStructure();
             ResourceLocation structureId = ResourceLocation.tryParse(structure);
             var template = structureId == null
@@ -2304,9 +2301,7 @@ public final class CobbleventureBootstrap {
                 continue;
             }
             var size = template.orElseThrow().getSize();
-            Direction roadFacing = horizontalDirection(
-                entranceCenter.x() - centerX, entranceCenter.z() - centerZ
-            );
+            Direction roadFacing = site.roadFacing();
             String rotation = pokemonCenterRotation(roadFacing);
             boolean quarterTurn = rotation.equals("clockwise_90")
                 || rotation.equals("counterclockwise_90");
@@ -2346,6 +2341,19 @@ public final class CobbleventureBootstrap {
             case SOUTH -> "counterclockwise_90";
             default -> "none";
         };
+    }
+
+    private static CavePokemonCenterPlacement.Site cavePokemonCenterSite(
+        CaveEntrancePlan entrance, Point entranceCenter, Point preferredCenter,
+        ConnectionPath approachRoad
+    ) {
+        boolean entranceAtStart = approachRoad != null
+            && entrance.id().equals(approachRoad.from());
+        List<Point> centerline = approachRoad == null
+            ? List.of() : approachRoad.centerline();
+        return CavePokemonCenterPlacement.resolve(
+            entranceCenter, preferredCenter, centerline, entranceAtStart
+        );
     }
 
     private static void drawCaveAccessRoad(
@@ -3587,6 +3595,10 @@ public final class CobbleventureBootstrap {
                     continue;
                 }
                 beginFacilityVendorOwnership(level, facility, origin);
+                if (isPokemartFacility(facility.id())) {
+                    activateCustomPokemartVendorCleanup(level, facility, origin);
+                    continue;
+                }
                 String rotation = facilityRuntimeRotation(settlement, facility);
                 var template = level.getStructureManager().get(ResourceLocation.parse(facility.structure()));
                 int width = template.map(value -> value.getSize().getX()).orElse(facility.footprintWidth());
@@ -3623,14 +3635,40 @@ public final class CobbleventureBootstrap {
         ServerLevel level, FacilityPlacement facility, BlockPoint origin
     ) {
         if (!isPokemartFacility(facility.id()) && !isDepartmentStoreFacility(facility.id())) return;
-        int extent = Math.max(facility.footprintWidth(), facility.footprintDepth());
+        AABB bounds = facilityVendorBounds(facility, origin);
         FACILITY_VENDOR_OWNERSHIP.computeIfAbsent(level, ignored -> new FacilityVendorOwnership())
-            .begin(origin.toBlockPos(), new AABB(
-                origin.x() - 12, origin.y() - 4, origin.z() - 12,
-                origin.x() + extent + 12,
-                origin.y() + Math.max(16, facility.footprintHeight()) + 4,
-                origin.z() + extent + 12
-            ));
+            .begin(origin.toBlockPos(), bounds);
+    }
+
+    private static AABB facilityVendorBounds(
+        FacilityPlacement facility, BlockPoint origin
+    ) {
+        int extent = Math.max(facility.footprintWidth(), facility.footprintDepth());
+        return new AABB(
+            origin.x() - 12, origin.y() - 4, origin.z() - 12,
+            origin.x() + extent + 12,
+            origin.y() + Math.max(16, facility.footprintHeight()) + 4,
+            origin.z() + extent + 12
+        );
+    }
+
+    private static void activateCustomPokemartVendorCleanup(
+        ServerLevel level, FacilityPlacement facility, BlockPoint origin
+    ) {
+        boolean customClerkPresent = !level.getEntities(
+            (Entity) null, facilityVendorBounds(facility, origin),
+            entity -> entity.getTags().contains(
+                "cobbleventure_npc/cobbleventure/npc/pokemart_clerk"
+            )
+        ).isEmpty();
+        if (customClerkPresent) {
+            FACILITY_VENDOR_OWNERSHIP.get(level).activateCustomVendor(origin.toBlockPos());
+        } else {
+            LOGGER.warn(
+                "Custom Pokemart clerk is missing; retaining the legacy merchant as a fallback: {}",
+                origin
+            );
+        }
     }
 
     private static void reconcileFacilityVendors(MinecraftServer server) {
@@ -3842,6 +3880,12 @@ public final class CobbleventureBootstrap {
         ServerLevel level, FacilityPlacement facility,
         List<ShopVendorAssignment> assignments, List<String> configuredVendors
     ) {
+        // Pokemarts use the authored EasyNPC clerk bound to the `counter` anchor.
+        // Its CVES script opens the configured Pokemart catalog, so spawning the
+        // CobbleDollars merchant here would replace the custom appearance.
+        if (isPokemartFacility(facility.id())) {
+            return List.of();
+        }
         boolean usesAuthoredWorkerSlots = isPokemartFacility(facility.id())
             || isDepartmentStoreFacility(facility.id())
                 && !facility.structure().equals("bca:default/centers/center_department_store");
@@ -6449,9 +6493,11 @@ public final class CobbleventureBootstrap {
                     level.getServer(), level.dimension(), facility.structure(), eventSpaceId
                 );
             BlockPoint origin;
+            BlockPoint runtimeOrigin;
             String placementRotation;
             if (placed != null) {
                 origin = placed.origin();
+                runtimeOrigin = origin;
                 placementRotation = placed.rotation();
             } else {
                 int originX = settlement.center().x() + (int) Math.round(center.x());
@@ -6461,6 +6507,9 @@ public final class CobbleventureBootstrap {
                     level, facility, originX,
                     loadedRoadSurfaceY(level, entranceX, entranceZ),
                     originZ, placementRotation
+                );
+                runtimeOrigin = facilityPlacementOrigin(
+                    level, facility, origin, placementRotation
                 );
             }
             BlockPos recoveryOffset = BuildingRuntimeSystem.exteriorNpcApproachOffset(
@@ -6479,7 +6528,7 @@ public final class CobbleventureBootstrap {
             PokemonCenterDefeatReturn.recordCenterVisit(
                 player,
                 level,
-                origin.toBlockPos().offset(recoveryOffset),
+                runtimeOrigin.toBlockPos().offset(recoveryOffset),
                 exit
             );
             return;
@@ -6497,11 +6546,12 @@ public final class CobbleventureBootstrap {
             Point offsetCenter = world.grid().worldCenter(new HexCoord(
                 entrance.anchor().q() + offset.q(), entrance.anchor().r() + offset.r()
             ));
-            double deltaX = offsetCenter.x() - entranceCenter.x();
-            double deltaZ = offsetCenter.z() - entranceCenter.z();
-            double length = Math.max(1.0D, Math.sqrt(deltaX * deltaX + deltaZ * deltaZ));
-            int centerX = entranceCenter.x() + (int) Math.round(deltaX / length * 28.0D);
-            int centerZ = entranceCenter.z() + (int) Math.round(deltaZ / length * 28.0D);
+            CavePokemonCenterPlacement.Site site = cavePokemonCenterSite(
+                entrance, entranceCenter, offsetCenter,
+                caveEntranceRoad(world, entrance)
+            );
+            int centerX = site.center().x();
+            int centerZ = site.center().z();
             double dx = player.getX() - centerX;
             double dz = player.getZ() - centerZ;
             if (dx * dx + dz * dz <= 144.0D) {
@@ -6511,9 +6561,7 @@ public final class CobbleventureBootstrap {
                     continue;
                 }
                 var size = level.getStructureManager().get(structureId).orElseThrow().getSize();
-                Direction roadFacing = horizontalDirection(
-                    entranceCenter.x() - centerX, entranceCenter.z() - centerZ
-                );
+                Direction roadFacing = site.roadFacing();
                 String rotation = pokemonCenterRotation(roadFacing);
                 boolean quarterTurn = rotation.equals("clockwise_90")
                     || rotation.equals("counterclockwise_90");
@@ -6530,6 +6578,9 @@ public final class CobbleventureBootstrap {
                     level, facility,
                     centerX - footprintWidth / 2, groundY,
                     centerZ - footprintDepth / 2, rotation
+                );
+                BlockPoint runtimeOrigin = facilityPlacementOrigin(
+                    level, facility, origin, rotation
                 );
                 BlockPos roadAnchor = facilityRoadAnchorWorldPosition(
                     level, facility, origin, rotation
@@ -6553,7 +6604,7 @@ public final class CobbleventureBootstrap {
                 }
                 PokemonCenterDefeatReturn.recordCenterVisit(
                     player, level,
-                    origin.toBlockPos().offset(recoveryOffset),
+                    runtimeOrigin.toBlockPos().offset(recoveryOffset),
                     surfacePosition(level, roadAnchor.getX(), roadAnchor.getZ())
                 );
                 return;
@@ -10127,6 +10178,20 @@ public final class CobbleventureBootstrap {
             return null;
         }
         return world.levelOverrides().get(world.grid().worldToHex(x, z));
+    }
+
+    static boolean suppressesNaturalSpawns(ServerLevel level, double x, double z) {
+        if (!level.dimension().equals(GENERATION_ONE)) {
+            return false;
+        }
+        HexWorldPlan world = activeHexWorld;
+        if (world == null) {
+            return false;
+        }
+        HexCoord cell = world.grid().worldToHex(x, z);
+        return world.worldStructures().stream().anyMatch(structure ->
+            structure.suppressNaturalSpawns() && structure.anchor().equals(cell)
+        );
     }
 
     static AdventureWorldContext.WildSpawnRule wildSpawnRule(

@@ -3,6 +3,7 @@ package dev.buizz.cobbleventure.bootstrap;
 import com.cobblemon.mod.common.api.pokemon.PokemonProperties;
 import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
+import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
@@ -220,7 +221,10 @@ final class PursuitEncounterSystem {
             return "ineligible:creative";
         }
         if (!player.isAlive()) return "ineligible:not-alive";
-        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+        if (EventBattleBridge.hasPendingTrainerBattle(player.getUUID())) {
+            return "ineligible:trainer-battle-pending";
+        }
+        if (BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
             return "ineligible:already-battling";
         }
         return null;
@@ -457,6 +461,11 @@ final class PursuitEncounterSystem {
                 return;
             }
             if (gameTime < state.battleStartTick) return;
+            if (EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+                || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
+                state.battleStartTick = -1L;
+                return;
+            }
             boolean started;
             try {
                 started = entity.forceBattle(player);

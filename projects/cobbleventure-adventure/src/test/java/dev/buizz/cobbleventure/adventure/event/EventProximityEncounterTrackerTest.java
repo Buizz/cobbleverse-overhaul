@@ -1,5 +1,6 @@
 package dev.buizz.cobbleventure.adventure.event;
 
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,6 +57,19 @@ final class EventProximityEncounterTrackerTest {
         assertEquals(
             EventProximityEncounterTracker.Decision.FIRE,
             tracker.observe("npc", WARNING, true, EventProximityTracker.Transition.ENTER, 6)
+        );
+    }
+
+    @Test
+    void suspendedPlayerKeepsEncounterArmingStateWhileBattleIsRunning() {
+        EventProximityEncounterTracker<String> tracker = new EventProximityEncounterTracker<>();
+        tracker.observe("npc", WARNING, false, EventProximityTracker.Transition.NONE, 1);
+
+        tracker.retainAll(Set.of(), "npc"::equals);
+
+        assertEquals(
+            EventProximityEncounterTracker.Decision.FIRE,
+            tracker.observe("npc", WARNING, true, EventProximityTracker.Transition.ENTER, 2)
         );
     }
 }

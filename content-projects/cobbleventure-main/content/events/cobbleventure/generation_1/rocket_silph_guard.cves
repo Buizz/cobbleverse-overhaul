@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/rocket_silph_guard/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_bad_guys"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/rocket_silph_guard/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "엘리베이터는 봉쇄됐다. 계단으로도 위에는 못 간다!"
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_grunt" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_silph_guard/defeated" true
       say npc {
         ko_kr: "최상층 경비를 불러야 해…"
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/rocket_silph_guard/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "최상층 경비를 불러야 해…"
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/rocket_power_plant_grunt" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/rocket_silph_guard/defeated" true
           say npc {
             ko_kr: "최상층 경비를 불러야 해…"

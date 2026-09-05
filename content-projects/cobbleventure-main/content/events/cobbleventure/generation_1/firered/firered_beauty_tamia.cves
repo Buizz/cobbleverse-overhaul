@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_beauty_tamia/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_beauty_tamia/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "내 포켓몬 좀 봐! 키우기 쉬운 풀타입이 정말 좋아."
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_beauty_tamia" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_beauty_tamia/defeated" true
       say npc {
         ko_kr: "안 돼! 우리 체육관은 꽃꽂이에도 쓰려고 풀타입 포켓몬만 키워."
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/firered_beauty_tamia/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "안 돼! 우리 체육관은 꽃꽂이에도 쓰려고 풀타입 포켓몬만 키워."
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/firered_beauty_tamia" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_beauty_tamia/defeated" true
           say npc {
             ko_kr: "안 돼! 우리 체육관은 꽃꽂이에도 쓰려고 풀타입 포켓몬만 키워."

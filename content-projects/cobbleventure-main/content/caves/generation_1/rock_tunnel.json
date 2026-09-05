@@ -254,10 +254,10 @@
   "trainer_settings": {
     "enabled": true,
     "max_active": 6,
-    "use_biome_defaults": true,
+    "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/sample_hiker_seok",
-      "cobbleventure:npc/sample_veteran_taeho"
+      "cobbleventure:npc/firered_hiker_franklin",
+      "cobbleventure:npc/firered_picnicker_diana"
     ],
     "trigger_override": "proximity",
     "class_pool": [

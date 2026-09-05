@@ -27,4 +27,14 @@ final class EventProximityTrackerTest {
         assertEquals(1, tracker.size());
         assertEquals(EventProximityTracker.Transition.ENTER, tracker.observe("other", true));
     }
+
+    @Test
+    void suspendedPlayerKeepsItsInsideStateWhileBattleIsRunning() {
+        EventProximityTracker<String> tracker = new EventProximityTracker<>();
+        tracker.observe("npc", true);
+
+        tracker.retainAll(Set.of(), "npc"::equals);
+
+        assertEquals(EventProximityTracker.Transition.NONE, tracker.observe("npc", true));
+    }
 }

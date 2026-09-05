@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 final class RadarMarkerLayoutTest {
     @Test
-    void keepsHighestPriorityMarkerAndReportsHiddenOverlap() {
+    void keepsAndFansOutEveryOverlappingMarker() {
         var point = point(50.0D, 50.0D);
         List<RadarMarkerLayout.Placed> placed = RadarMarkerLayout.resolve(List.of(
             candidate(marker("gate", RadarMarkerType.GATE, 200), point),
@@ -20,13 +20,13 @@ final class RadarMarkerLayoutTest {
             candidate(marker("objective", RadarMarkerType.OBJECTIVE, 600), point)
         ));
 
-        assertEquals(1, placed.size());
-        assertEquals(RadarMarkerType.OBJECTIVE, placed.getFirst().marker().type());
-        assertEquals(2, placed.getFirst().overlapCount());
+        assertEquals(3, placed.size());
+        assertEquals(3, placed.stream().map(value -> value.marker().type()).distinct().count());
+        assertEquals(3, placed.stream().map(RadarMarkerLayout.Placed::point).distinct().count());
     }
 
     @Test
-    void keepsSeparatedMarkersAndReturnsLowToHighDrawOrder() {
+    void keepsSeparatedMarkersInStableIdOrder() {
         List<RadarMarkerLayout.Placed> placed = RadarMarkerLayout.resolve(List.of(
             candidate(marker("objective", RadarMarkerType.OBJECTIVE, 600), point(20, 20)),
             candidate(marker("gate", RadarMarkerType.GATE, 200), point(40, 40)),
@@ -34,7 +34,7 @@ final class RadarMarkerLayoutTest {
         ));
 
         assertEquals(List.of(
-            RadarMarkerType.GATE, RadarMarkerType.TRAINER, RadarMarkerType.OBJECTIVE
+            RadarMarkerType.GATE, RadarMarkerType.OBJECTIVE, RadarMarkerType.TRAINER
         ), placed.stream().map(value -> value.marker().type()).toList());
     }
 

@@ -109,6 +109,55 @@ final class WorldGateEdgePlacementTest {
     }
 
     @Test
+    void mountainGateShouldersRiseInUnclimbableTerraces() {
+        int near = WorldGateSystem.naturalGateFormationHeight(
+            "stone_mountain", 4, 3, 0, 8, 0L
+        );
+        int middle = WorldGateSystem.naturalGateFormationHeight(
+            "stone_mountain", 8, 3, 0, 8, 0L
+        );
+        int far = WorldGateSystem.naturalGateFormationHeight(
+            "stone_mountain", 20, 3, 0, 8, 0L
+        );
+
+        assertTrue(near >= 2);
+        assertTrue(middle - near >= 2);
+        assertTrue(far > middle);
+        assertTrue(far <= 18);
+    }
+
+    @Test
+    void eachNonForestTerrainGetsAVisibleGateFormation() {
+        for (String terrain : List.of(
+            "ocean", "deep_ocean", "desert", "stone_mountain",
+            "red_rock_mountain", "snow_mountain"
+        )) {
+            assertTrue(
+                WorldGateSystem.naturalGateFormationHeight(
+                    terrain, 9, 3, 1, 8, 0x1234ABCDL
+                ) > 0,
+                terrain
+            );
+        }
+        assertEquals(0, WorldGateSystem.naturalGateFormationHeight(
+            "high_forest", 9, 3, 1, 8, 0L
+        ));
+    }
+
+    @Test
+    void redRockAndSnowMountainsShareTheSteepMountainRise() {
+        for (String terrain : List.of("red_rock_mountain", "snow_mountain")) {
+            int near = WorldGateSystem.naturalGateFormationHeight(
+                terrain, 4, 3, 2, 8, 7L
+            );
+            int far = WorldGateSystem.naturalGateFormationHeight(
+                terrain, 14, 3, 2, 8, 7L
+            );
+            assertTrue(far >= near + 6, terrain);
+        }
+    }
+
+    @Test
     void gateApproachNeverChangesMoreThanOneBlockAtATime() {
         assertEquals(65, WorldGateSystem.nextGateApproachY(64, 70));
         assertEquals(63, WorldGateSystem.nextGateApproachY(64, 58));

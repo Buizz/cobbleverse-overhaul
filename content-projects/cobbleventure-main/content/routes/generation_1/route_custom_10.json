@@ -111,10 +111,10 @@
     "count": 4,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/kanto_biker_gangho",
-      "cobbleventure:npc/sample_bird_keeper_ara",
-      "cobbleventure:npc/sample_fisherman_minsu",
-      "cobbleventure:npc/kanto_swimmer_taejin"
+      "cobbleventure:npc/firered_beauty_tamia",
+      "cobbleventure:npc/firered_lass_lisa",
+      "cobbleventure:npc/firered_channeler_tasha",
+      "cobbleventure:npc/firered_psychic_cameron"
     ],
     "trigger_override": "proximity"
   }

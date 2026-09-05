@@ -174,6 +174,31 @@ class EasyNpcEncounterPresetTests(unittest.TestCase):
         self.assertNotIn("ON_INTERACTION", preset)
         self.assertNotIn("ON_DISTANCE", preset)
 
+    def test_dungeon_actor_character_uses_distinct_skin_and_nested_preset(self) -> None:
+        trainer_class = "cobbleventure:trainer_class/villain_admin"
+        document = {"npc": {"appearance": {
+            "resource": "rctmod:trainers/single/rocket_admin_ariana_0029"
+        }}}
+        preset = generator.dungeon_actor_preset_snbt(
+            trainer_class, self.outfit, document,
+            "character/cobbleventure/ariana",
+        )
+
+        self.assertEqual(
+            "character/cobbleventure/ariana",
+            generator.dungeon_actor_preset_slug(
+                trainer_class, "cobbleventure:character/ariana"
+            ),
+        )
+        self.assertIn(
+            generator.uuid_int_array(
+                generator.encounter_skin_uuid(document, self.outfit)
+            ), preset
+        )
+        self.assertIn(
+            '"cobbleventure_dungeon_actor_template/villain_admin"', preset
+        )
+
     def test_event_preset_can_generate_a_unique_state_key_from_the_npc_id(self) -> None:
         document = {
             "id": "cobbleventure:npc/test/researcher",

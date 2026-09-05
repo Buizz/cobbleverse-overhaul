@@ -39,7 +39,7 @@ final class BattleMovementBoundary {
     }
 
     private static void tick(ServerPlayer player, MinecraftServer server) {
-        PokemonBattle battle = BattleRegistry.getBattleByParticipatingPlayer(player);
+        PokemonBattle battle = BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID());
         if (battle == null) {
             BOUNDARIES.remove(player.getUUID());
             return;
@@ -71,7 +71,7 @@ final class BattleMovementBoundary {
 
     private static void onTeleport(EntityTeleportEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
-            || BattleRegistry.getBattleByParticipatingPlayer(player) == null) {
+            || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) == null) {
             return;
         }
         event.setCanceled(true);

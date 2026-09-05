@@ -23,4 +23,12 @@ final class PokemonCenterDefeatReturnTest {
         assertFalse(PokemonCenterDefeatReturn.blocksNewNpcEvents(false, true, true));
         assertFalse(PokemonCenterDefeatReturn.blocksNewNpcEvents(false, false, false));
     }
+
+    @Test
+    void defeatRecoveryWaitsForRegisteredOrPendingTrainerBattle() {
+        assertTrue(PokemonCenterDefeatReturn.shouldDeferRecovery(true, false));
+        assertTrue(PokemonCenterDefeatReturn.shouldDeferRecovery(false, true));
+        assertTrue(PokemonCenterDefeatReturn.shouldDeferRecovery(true, true));
+        assertFalse(PokemonCenterDefeatReturn.shouldDeferRecovery(false, false));
+    }
 }

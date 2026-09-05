@@ -5,6 +5,7 @@ import dev.buizz.cobbleventure.pokefinder.marker.RadarMarker;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerState;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarMarkerType;
 import dev.buizz.cobbleventure.pokefinder.marker.RadarRanges;
+import dev.buizz.cobbleventure.pokefinder.server.RadarIconSettings;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -81,6 +82,7 @@ public final class RadarMarkerRenderer {
     }
 
     private static RadarMarker playerMarker(AbstractClientPlayer player) {
+        RadarIconSettings.Entry icon = RadarIconSettings.resolve("PLAYER", "player");
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(
             CobbleventurePokefinder.MOD_ID,
             "player/" + player.getUUID().toString().toLowerCase(java.util.Locale.ROOT)
@@ -92,9 +94,9 @@ public final class RadarMarkerRenderer {
             player.position(),
             player.getGameProfile().getName(),
             ResourceLocation.fromNamespaceAndPath(
-                CobbleventurePokefinder.MOD_ID, "radar/player"
+                CobbleventurePokefinder.MOD_ID, "radar/" + icon.icon()
             ),
-            1_000,
+            0,
             RadarMarkerState.AVAILABLE,
             "",
             RadarRanges.DEFAULT_LOCAL,
@@ -164,7 +166,13 @@ public final class RadarMarkerRenderer {
             graphics.fill(x - 3, y, x + 4, y + 1, 0xFFFFC44D);
             graphics.fill(x, y - 3, x + 1, y + 4, 0xFFFFC44D);
         }
-        switch (marker.type()) {
+        RadarIconSettings.Entry authored = authoredIcon(marker);
+        if (authored != null && !authored.pixels().isEmpty()) {
+            drawAuthoredIcon(graphics, x, y, marker, authored);
+            drawCompletionMark(graphics, x, y, marker);
+            return;
+        }
+        switch (iconType(marker)) {
             case PLAYER -> {
                 graphics.fill(x - 3, y - 3, x + 4, y + 4, 0xFF101820);
                 graphics.fill(x - 2, y - 2, x + 3, y + 1, color);
@@ -199,8 +207,20 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x - 1, y - 1, x + 2, y + 1, 0xFFF7FBFF);
             }
             case SPECIAL_BUILDING -> {
-                graphics.fill(x - 2, y - 2, x + 3, y + 3, 0xFF101820);
-                graphics.fill(x - 1, y - 1, x + 2, y + 2, color);
+                for (int row = 0; row < DoorRadarIcon.PIXELS.size(); row++) {
+                    String pixels = DoorRadarIcon.PIXELS.get(row);
+                    for (int column = 0; column < pixels.length(); column++) {
+                        char pixel = pixels.charAt(column);
+                        if (pixel == '.') continue;
+                        int pixelColor = switch (pixel) {
+                            case '#' -> 0xFF101820;
+                            case 'o' -> 0xFFF7FBFF;
+                            default -> color;
+                        };
+                        graphics.fill(x + column - 4, y + row - 4,
+                            x + column - 3, y + row - 3, pixelColor);
+                    }
+                }
             }
             case GYM_LEADER -> {
                 if (RadarDisplaySettings.isLandmark(marker)) {
@@ -284,14 +304,46 @@ public final class RadarMarkerRenderer {
                 graphics.fill(x, y, x + 1, y + 1, color);
             }
         }
-        if (marker.state() == RadarMarkerState.DEFEATED
-            || marker.state() == RadarMarkerState.COMPLETED) {
-            // Keep the trainer's face and torso readable; place its check beside the silhouette.
-            if (marker.type() == RadarMarkerType.TRAINER) x += 4;
-            graphics.fill(x - 3, y + 1, x - 1, y + 2, 0xFFF2F7F5);
-            graphics.fill(x - 2, y + 2, x, y + 3, 0xFFF2F7F5);
-            graphics.fill(x - 1, y, x + 2, y + 1, 0xFFF2F7F5);
+        drawCompletionMark(graphics, x, y, marker);
+    }
+
+    private static RadarIconSettings.Entry authoredIcon(RadarMarker marker) {
+        String path = marker.icon().getPath();
+        return RadarIconSettings.style(path.substring(path.lastIndexOf('/') + 1));
+    }
+
+    private static void drawAuthoredIcon(
+        GuiGraphics graphics, int x, int y, RadarMarker marker,
+        RadarIconSettings.Entry style
+    ) {
+        int primary = marker.state() == RadarMarkerState.DEFEATED ? 0xFF68717D
+            : marker.state() == RadarMarkerState.COMPLETED ? 0xFF668276 : style.primary();
+        for (int row = 0; row < style.pixels().size(); row++) {
+            String pixels = style.pixels().get(row);
+            for (int column = 0; column < pixels.length(); column++) {
+                int color = switch (pixels.charAt(column)) {
+                    case '#' -> style.outline();
+                    case 'x' -> primary;
+                    case 'o' -> style.secondary();
+                    default -> 0;
+                };
+                if (color != 0) graphics.fill(
+                    x + column - 4, y + row - 4,
+                    x + column - 3, y + row - 3, color
+                );
+            }
         }
+    }
+
+    private static void drawCompletionMark(
+        GuiGraphics graphics, int x, int y, RadarMarker marker
+    ) {
+        if (marker.state() != RadarMarkerState.DEFEATED
+            && marker.state() != RadarMarkerState.COMPLETED) return;
+        if (marker.type() == RadarMarkerType.TRAINER) x += 4;
+        graphics.fill(x - 3, y + 1, x - 1, y + 2, 0xFFF2F7F5);
+        graphics.fill(x - 2, y + 2, x, y + 3, 0xFFF2F7F5);
+        graphics.fill(x - 1, y, x + 2, y + 1, 0xFFF2F7F5);
     }
 
     private static void drawFacilityPlate(
@@ -306,7 +358,7 @@ public final class RadarMarkerRenderer {
     private static int markerColor(RadarMarker marker) {
         if (marker.state() == RadarMarkerState.DEFEATED) return 0xFF68717D;
         if (marker.state() == RadarMarkerState.COMPLETED) return 0xFF668276;
-        return switch (marker.type()) {
+        return switch (iconType(marker)) {
             case PLAYER -> 0xFF53E1D4;
             case TRAINER -> 0xFFFF8A65;
             case GYM_LEADER -> 0xFFFFD35A;
@@ -321,5 +373,15 @@ public final class RadarMarkerRenderer {
             case GATE -> 0xFFD7DEE8;
             default -> 0xFF62E6FF;
         };
+    }
+
+    private static RadarMarkerType iconType(RadarMarker marker) {
+        String path = marker.icon().getPath();
+        String icon = path.substring(path.lastIndexOf('/') + 1).toUpperCase(java.util.Locale.ROOT);
+        try {
+            return RadarMarkerType.valueOf(icon);
+        } catch (IllegalArgumentException ignored) {
+            return marker.type();
+        }
     }
 }

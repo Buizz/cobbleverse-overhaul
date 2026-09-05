@@ -92,6 +92,19 @@
               "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
             }
           },
+          "radar": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["enabled", "category", "label", "anchor"],
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "category": {
+                "enum": ["GYM", "POKEMON_CENTER", "POKEMART", "CASINO", "SPECIAL_BUILDING", "CAVE_ENTRANCE", "FOREST_ENTRANCE", "GATE", "DUNGEON_ENTRANCE"]
+              },
+              "label": { "type": "string", "maxLength": 64 },
+              "anchor": { "type": "string", "maxLength": 64 }
+            }
+          },
           "fixed_npcs": {
             "type": "object",
             "propertyNames": {

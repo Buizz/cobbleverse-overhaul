@@ -45,6 +45,47 @@ def load(path: Path) -> dict:
 
 
 class GenerationOneTrainerTests(unittest.TestCase):
+    def test_active_regional_trainer_assignments_are_globally_unique(self) -> None:
+        assigned: dict[str, Path] = {}
+        region_paths = [
+            *sorted((CONTENT / "routes" / "generation_1").glob("*.json")),
+            *sorted((CONTENT / "forests" / "generation_1").glob("*.json")),
+            *sorted((CONTENT / "caves" / "generation_1").glob("*.json")),
+        ]
+        for region_path in region_paths:
+            document = load(region_path)
+            population = document.get(
+                "automatic_npc_placement", document.get("trainer_settings", {})
+            )
+            if not population.get("enabled", True):
+                continue
+            self.assertFalse(
+                population.get("use_biome_defaults", False),
+                f"{region_path.name} can add an untracked duplicate trainer",
+            )
+            for trainer_id in population.get("direct_trainers", []):
+                self.assertNotIn(
+                    trainer_id,
+                    assigned,
+                    f"{trainer_id} is assigned by both {assigned.get(trainer_id)} "
+                    f"and {region_path}",
+                )
+                assigned[trainer_id] = region_path
+
+        self.assertEqual(85, len(assigned))
+
+    def test_viridian_forest_approaches_do_not_duplicate_forest_trainers(self) -> None:
+        forest = load(CONTENT / "forests" / "generation_1" / "viridian_forest.json")
+        forest_trainers = set(forest["trainer_settings"]["direct_trainers"])
+        self.assertTrue(forest_trainers)
+        for route_id in ("route_custom_04", "route_viridian_forest_north"):
+            with self.subTest(route=route_id):
+                route = load(CONTENT / "routes" / "generation_1" / f"{route_id}.json")
+                population = route["automatic_npc_placement"]
+                self.assertFalse(population["enabled"])
+                self.assertEqual(0, population["count"])
+                self.assertEqual(set(), forest_trainers & set(population["direct_trainers"]))
+
     def test_kanto_trainers_use_matching_classes_and_generation_one_teams(self) -> None:
         for slug, trainer_class in TRAINER_SLUGS.items():
             with self.subTest(slug=slug):
@@ -73,18 +114,20 @@ class GenerationOneTrainerTests(unittest.TestCase):
 
     def test_every_generation_one_route_has_a_bounded_trainer_pool(self) -> None:
         route_paths = sorted((CONTENT / "routes" / "generation_1").glob("*.json"))
-        self.assertEqual(20, len(route_paths))
+        self.assertEqual(23, len(route_paths))
         expanded_test_routes = {
             "route_custom_05": 12,
             "route_custom_19": 17,
         }
-
         for route_path in route_paths:
             with self.subTest(route=route_path.stem):
                 route = load(route_path)
                 population = route["automatic_npc_placement"]
-                trainers = population["direct_trainers"]
+                trainers = population.get("direct_trainers", [])
 
+                if not population["enabled"]:
+                    self.assertEqual([], trainers)
+                    continue
                 self.assertTrue(population["enabled"])
                 self.assertEqual("proximity", population["trigger_override"])
                 self.assertGreaterEqual(population["count"], 2)
@@ -103,10 +146,10 @@ class GenerationOneTrainerTests(unittest.TestCase):
         battles = sorted((CONTENT / "battles" / "generation_1" / "firered").glob("*.json"))
         events = sorted((CONTENT / "events" / "cobbleventure" / "generation_1" / "firered").glob("*.cves"))
         bindings = sorted((CONTENT / "event-bindings" / "cobbleventure" / "generation_1" / "firered").glob("*.json"))
-        self.assertEqual(70, len(trainers))
+        self.assertEqual(71, len(trainers))
         self.assertEqual(70, len(battles))
         self.assertEqual(70, len(events))
-        self.assertEqual(70, len(bindings))
+        self.assertEqual(71, len(bindings))
 
         first_texts = set()
         for trainer_path in trainers:

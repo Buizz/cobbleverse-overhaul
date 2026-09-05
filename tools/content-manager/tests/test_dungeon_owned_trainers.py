@@ -46,7 +46,38 @@ class DungeonOwnedTrainerTests(unittest.TestCase):
         self.assertIn("generatedTeamMin", script)
         self.assertIn("generatedTeamMax", script)
         self.assertIn("ownedTrainerClass", script)
+        self.assertIn("ownedTrainerCharacter", script)
+        self.assertIn("function dungeonTrainerAppearance", script)
+        self.assertIn("function dungeonCooperativeBattleField", script)
+        self.assertIn('name="cooperativeBattle"', script)
+        self.assertIn("cooperative_battle", script)
+        self.assertIn("initializeSkinPreviews(root)", script)
         self.assertIn("triggerWarningTrack", script)
+
+    def test_cooperative_battle_requires_exactly_two_trainers(self) -> None:
+        source = self.CONTENT / "dungeons" / "generation_1" / "rocket_casino_hideout.json"
+        document = json.loads(source.read_text(encoding="utf-8"))
+        encounter = document["encounters"][0]
+        encounter["cooperative_battle"] = True
+        partner = json.loads(json.dumps(encounter["trainers"][0]))
+        partner["id"] = "hideout_partner"
+        partner["display_name"] = {"ko_kr": "로켓단 지원 간부"}
+        encounter["trainers"].append(partner)
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "dungeon.json"
+            target.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(target)
+            self.assertFalse([issue for issue in issues if issue.level == "error"], issues)
+
+            encounter["trainers"].pop()
+            target.write_text(json.dumps(document), encoding="utf-8")
+            _, issues = content_manager.validate_dungeon_file(target)
+
+        self.assertTrue(any(
+            issue.level == "error" and issue.path.endswith(".trainers")
+            for issue in issues
+        ), issues)
 
     def test_generation_one_rocket_dungeons_use_requested_rosters_and_room_capacity(self) -> None:
         expected = {

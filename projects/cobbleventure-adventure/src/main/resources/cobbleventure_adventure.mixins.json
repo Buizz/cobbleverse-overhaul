@@ -9,6 +9,7 @@
     "DaycareProjectionPokemonMixin",
     "ForfeitActionResponseMixin",
     "TrainerDoublesValidationMixin",
+    "WildBattleDuringTrainerLaunchMixin",
     "ShowdownEmptySlotsMixin"
   ],
   "client": [

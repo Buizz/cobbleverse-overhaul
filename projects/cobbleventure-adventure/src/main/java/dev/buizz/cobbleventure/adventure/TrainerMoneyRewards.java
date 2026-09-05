@@ -75,7 +75,7 @@ final class TrainerMoneyRewards {
             entry -> entry.getValue().battleId == null && entry.getValue().expiresAt < gameTime
         );
         for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
-            PokemonBattle battle = BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player);
+            PokemonBattle battle = BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID());
             if (battle == null) continue;
             PlayerBattleActor actor = playerActor(battle, player);
             if (actor != null) recordActiveItems(player.getUUID(), battle.getBattleId(), actor, gameTime);

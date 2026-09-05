@@ -10,6 +10,7 @@ from . import ast
 
 
 BATTLE_PRESETS = frozenset({"battle", "gym", "elite", "champion"})
+INSTANCE_DEFEATED_FLAG = "cobbleventure:runtime/npc_instance_defeated"
 
 
 def _required_state_condition(preset: Mapping[str, Any]) -> ast.Expression | None:
@@ -112,6 +113,10 @@ def _battle_pages(
         or automatic_state_key(document.get("id"), "defeated")
     )
     victory: list[ast.Statement] = []
+    victory.append(_command(
+        ast.CommandKind.SET_FLAG, _string(INSTANCE_DEFEATED_FLAG), _boolean(True),
+        stable_id="victory/set_instance_defeated",
+    ))
     for key in dict.fromkeys(filter(None, (state_key, preset.get("clear_key")))):
         victory.append(_command(
             ast.CommandKind.SET_FLAG, _string(key), _boolean(True),
@@ -167,7 +172,10 @@ def _battle_pages(
     )
     required = _required_state_condition(preset)
     return (
-        _page(_call("flag", _string(state_key)), *_says(preset.get("win_text"), "좋은 승부였어!")),
+        _page(
+            _call("flag", _string(INSTANCE_DEFEATED_FLAG)),
+            *_says(preset.get("win_text"), "좋은 승부였어!"),
+        ),
         _page(required, *_says(preset.get("first_text"), "안녕하세요!"), choice),
     )
 
@@ -190,13 +198,8 @@ def _battle_proximity_events(
     group = str(proximity.get("group", "trainer_battle"))
     warning_stage = str(proximity.get("warning_stage", "warning"))
     track = str(proximity.get("warning_track", _encounter_warning_track(document)))
-    state_key = str(
-        preset.get("victory_state_key")
-        or preset.get("clear_key")
-        or automatic_state_key(document.get("id"), "defeated")
-    )
     undefeated: ast.Expression = ast.UnaryExpression(
-        "!", _call("flag", _string(state_key))
+        "!", _call("flag", _string(INSTANCE_DEFEATED_FLAG))
     )
     required = _required_state_condition(preset)
     if required is not None:

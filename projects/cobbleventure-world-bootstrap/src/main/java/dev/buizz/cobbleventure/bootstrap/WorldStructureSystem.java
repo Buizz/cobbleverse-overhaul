@@ -56,6 +56,8 @@ final class WorldStructureSystem {
                 ? "center"
                 : properties.has("placement_anchor")
                     ? requiredString(properties, "placement_anchor") : "center";
+            boolean suppressNaturalSpawns = properties.has("suppress_natural_spawns")
+                && properties.get("suppress_natural_spawns").getAsBoolean();
             if (!List.of("center", "road_anchor", "door").contains(placementAnchor)) {
                 throw new IllegalStateException(
                     "Invalid world structure placement anchor: " + placementAnchor
@@ -86,6 +88,7 @@ final class WorldStructureSystem {
                 resource,
                 value.has("rotation") ? value.get("rotation").getAsInt() : 0,
                 placementAnchor,
+                suppressNaturalSpawns,
                 List.copyOf(connections)
             ));
         }
@@ -721,6 +724,7 @@ final class WorldStructureSystem {
         String structure,
         int rotation,
         String placementAnchor,
+        boolean suppressNaturalSpawns,
         List<DungeonConnection> dungeonConnections
     ) {}
 

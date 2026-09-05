@@ -45,6 +45,11 @@ public final class HabitatSpawnRules {
         if (DungeonSystem.ownsRandomEncountersAt(level, x, z)) {
             return Set.of();
         }
+        // Some overworld structures are only entrances/facades for authored dungeon
+        // encounters. Their dedicated cell must not inherit its terrain biome pool.
+        if (CobbleventureBootstrap.suppressesNaturalSpawns(level, x, z)) {
+            return Set.of();
+        }
         // Authored cave/forest encounters are spawned only by PursuitEncounterSystem.
         // An empty natural pool prevents Cobblemon's independent spawner from duplicating them.
         if (CobbleventureBootstrap.authoredEncounterWeights(level, x, z) != null) {

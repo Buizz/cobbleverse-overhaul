@@ -5,21 +5,17 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/** Resolves projected icon collisions while retaining deterministic priority order. */
+/** Keeps every projected icon visible and fans out markers that occupy the same spot. */
 final class RadarMarkerLayout {
     static final double ICON_SEPARATION = 7.0D;
-    private static final Comparator<Candidate> PICK_ORDER = Comparator
-        .comparingInt((Candidate candidate) -> candidate.marker.priority()).reversed()
-        .thenComparing(candidate -> candidate.marker.id().toString());
-    private static final Comparator<Placed> DRAW_ORDER = Comparator
-        .comparingInt((Placed placed) -> placed.marker.priority())
-        .thenComparing(placed -> placed.marker.id().toString());
+    private static final Comparator<Candidate> STABLE_ORDER = Comparator
+        .comparing(candidate -> candidate.marker.id().toString());
 
     private RadarMarkerLayout() {}
 
     static List<Placed> resolve(List<Candidate> candidates) {
         List<Candidate> ordered = new ArrayList<>(candidates);
-        ordered.sort(PICK_ORDER);
+        ordered.sort(STABLE_ORDER);
         List<Group> groups = new ArrayList<>();
         double minimumSquared = ICON_SEPARATION * ICON_SEPARATION;
         for (Candidate candidate : ordered) {
@@ -28,15 +24,34 @@ final class RadarMarkerLayout {
                 .findFirst()
                 .orElse(null);
             if (collision == null) {
-                groups.add(new Group(candidate.marker, candidate.point));
+                groups.add(new Group(candidate));
             } else {
-                collision.overlapCount++;
+                collision.candidates.add(candidate);
             }
         }
-        List<Placed> result = groups.stream()
-            .map(group -> new Placed(group.marker, group.point, group.overlapCount))
-            .sorted(DRAW_ORDER)
-            .toList();
+        List<Placed> result = new ArrayList<>();
+        for (Group group : groups) {
+            int count = group.candidates.size();
+            if (count == 1) {
+                Candidate candidate = group.candidates.getFirst();
+                result.add(new Placed(candidate.marker, candidate.point, 0));
+                continue;
+            }
+            double radius = ICON_SEPARATION + Math.max(0, count - 6) * 1.5D;
+            for (int index = 0; index < count; index++) {
+                Candidate candidate = group.candidates.get(index);
+                double angle = -Math.PI / 2.0D + Math.PI * 2.0D * index / count;
+                result.add(new Placed(
+                    candidate.marker,
+                    new Cobblenav233LayoutAdapter.RadarPoint(
+                        group.point.x() + Math.cos(angle) * radius,
+                        group.point.y() + Math.sin(angle) * radius,
+                        candidate.point.visible(), candidate.point.edgePinned()
+                    ),
+                    0
+                ));
+            }
+        }
         return List.copyOf(result);
     }
 
@@ -60,13 +75,12 @@ final class RadarMarkerLayout {
     ) {}
 
     private static final class Group {
-        final RadarMarker marker;
         final Cobblenav233LayoutAdapter.RadarPoint point;
-        int overlapCount;
+        final List<Candidate> candidates = new ArrayList<>();
 
-        Group(RadarMarker marker, Cobblenav233LayoutAdapter.RadarPoint point) {
-            this.marker = marker;
-            this.point = point;
+        Group(Candidate candidate) {
+            this.point = candidate.point;
+            this.candidates.add(candidate);
         }
     }
 }

@@ -17,6 +17,7 @@
     "display_name": { "$ref": "#/$defs/localized_text" },
     "description": { "$ref": "#/$defs/localized_text" },
     "preset": { "$ref": "#/$defs/resource_id" },
+    "show_in_pokefinder": { "type": "boolean", "default": true },
     "generated_trainers": { "$ref": "#/$defs/generated_trainers" },
     "entrances": {
       "type": "array",
@@ -402,10 +403,10 @@
     "rewards": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["first_clear_table", "first_clear_field_moves"],
+      "required": ["first_clear", "first_clear_field_moves"],
       "properties": {
-        "first_clear_table": { "$ref": "#/$defs/resource_id" },
-        "repeat_table": { "$ref": "#/$defs/resource_id" },
+        "first_clear": { "$ref": "#/$defs/clear_rewards" },
+        "repeat_clear": { "$ref": "#/$defs/clear_rewards" },
         "first_clear_field_moves": {
           "type": "array",
           "uniqueItems": true,
@@ -493,7 +494,7 @@
       },
       "then": {
         "properties": {
-          "rewards": { "required": ["repeat_table"] }
+          "rewards": { "required": ["repeat_clear"] }
         }
       }
     },
@@ -620,6 +621,7 @@
           "items": { "$ref": "#/$defs/resource_id" }
         },
         "trigger": { "$ref": "#/$defs/encounter_trigger" },
+        "cooperative_battle": { "type": "boolean", "default": false },
         "pokemon": {
           "type": "object",
           "additionalProperties": false,
@@ -674,7 +676,48 @@
             }
           ]
         }
+      }, {
+        "if": {
+          "properties": { "cooperative_battle": { "const": true } },
+          "required": ["cooperative_battle"]
+        },
+        "then": {
+          "properties": {
+            "npcs": { "minItems": 2, "maxItems": 2 },
+            "trainers": { "minItems": 2, "maxItems": 2 },
+            "opponents": { "minItems": 2, "maxItems": 2 }
+          }
+        }
       }]
+    },
+    "clear_rewards": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/clear_reward_pool" }
+    },
+    "clear_reward_pool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rolls", "entries"],
+      "properties": {
+        "rolls": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/clear_reward_entry" }
+        }
+      }
+    },
+    "clear_reward_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "min_count", "max_count", "weight"],
+      "properties": {
+        "item": { "$ref": "#/$defs/resource_id" },
+        "min_count": { "type": "integer", "minimum": 1, "maximum": 6400 },
+        "max_count": { "type": "integer", "minimum": 1, "maximum": 6400 },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 100000 }
+      }
     },
     "trainer_actor": {
       "type": "object",
@@ -686,6 +729,10 @@
         "trainer_class": {
           "type": "string",
           "pattern": "^[a-z0-9_.-]+:trainer_class/[a-z0-9_./-]+$"
+        },
+        "character": {
+          "type": "string",
+          "pattern": "^[a-z0-9_.-]+:character/[a-z0-9_./-]+$"
         },
         "battle": {
           "type": "string",
@@ -752,6 +799,10 @@
               "trainer_class": {
                 "type": "string",
                 "pattern": "^[a-z0-9_.-]+:trainer_class/[a-z0-9_./-]+$"
+              },
+              "character": {
+                "type": "string",
+                "pattern": "^[a-z0-9_.-]+:character/[a-z0-9_./-]+$"
               },
               "weight": { "type": "integer", "minimum": 1, "maximum": 1000 }
             }

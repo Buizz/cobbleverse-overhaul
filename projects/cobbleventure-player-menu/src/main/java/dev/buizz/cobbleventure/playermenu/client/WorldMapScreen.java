@@ -295,8 +295,7 @@ public final class WorldMapScreen extends Screen {
         }
         if (mouseX >= layout.infoLeft() && mouseX < layout.infoRight()
             && mouseY >= layout.top() && mouseY < layout.bottom()
-            && content.townAt(selected.q(), selected.r()) == null
-            && content.objectAt(selected.q(), selected.r()) == null) {
+            && content.townAt(selected.q(), selected.r()) == null) {
             MapContent.BiomeTile tile = content.tileAt(selected.q(), selected.r());
             if (tile != null) {
                 int count = content.encounterBiome(tile, selectedEncounterMethod(tile)).pokemon().size();
@@ -640,32 +639,27 @@ public final class WorldMapScreen extends Screen {
                     x, y, visited ? SUCCESS_TEXT : WARNING_TEXT, false);
                 if (!visited && !snapshot.administrator() && !snapshot.creative()) {
                     y += 16;
-                    graphics.drawWordWrap(font, Component.literal(
-                        "이 장소를 직접 방문하면 빠른 이동이 해금됩니다."
-                    ), x, y, lineWidth, MUTED_TEXT);
+                    y += menuTheme.drawWrappedText(
+                        graphics, font, Component.literal(
+                            "이 장소를 직접 방문하면 빠른 이동이 해금됩니다."
+                        ), x, y, lineWidth, MenuTheme.TextRole.CAPTION,
+                        menuTheme.mutedTextColor, 2
+                    );
                 }
             } else {
                 graphics.drawString(font, "순간이동 불가", x, y, MUTED_TEXT, false);
             }
-        } else if (tile != null) {
-            String method = selectedEncounterMethod(tile);
-            MapContent.BiomeInfo biome = content.encounterBiome(tile, method);
-            y += menuTheme.drawWrappedText(graphics, font, Component.literal(
-                biome.name() + (biome.habitatVariant() > 0 ? biome.habitatVariant() : "")),
-                x, y, lineWidth, MenuTheme.TextRole.BODY, menuTheme.textColor, 2) + 4;
-            menuTheme.drawText(graphics, font, Component.literal(tile.biome()),
-                x, y, MenuTheme.TextRole.CAPTION);
-            y += menuTheme.textHeight(font, MenuTheme.TextRole.CAPTION) + 5;
-            if (content.encounterMethods(tile).size() > 1) {
-                encounterMethodButton.setY(y);
-                encounterMethodButton.setMessage(Component.literal(MapContent.encounterMethodName(method) + "  ▸"));
-                encounterMethodButton.visible = true;
-                y += encounterMethodButton.getHeight() + 4;
+            if (tile != null) {
+                y += 19;
+                menuTheme.drawText(
+                    graphics, font, Component.literal("현재 서식지"),
+                    x, y, MenuTheme.TextRole.LABEL
+                );
+                y += menuTheme.textHeight(font, MenuTheme.TextRole.LABEL) + 5;
+                drawHabitatInfo(graphics, layout, tile, x, y, lineWidth);
             }
-            menuTheme.drawText(graphics, font, Component.literal("서식 포켓몬 " + biome.totalPokemon() + "종 · 휠"),
-                x, y, MenuTheme.TextRole.BODY);
-            y += menuTheme.textHeight(font, MenuTheme.TextRole.BODY) + 5;
-            renderPokemonGrid(graphics, layout, biome.pokemon(), x, y, lineWidth, pokemonScroll);
+        } else if (tile != null) {
+            drawHabitatInfo(graphics, layout, tile, x, y, lineWidth);
         } else {
             graphics.drawString(font, "미지정 타일", x, y, TEXT, false);
             y += 16;
@@ -683,6 +677,36 @@ public final class WorldMapScreen extends Screen {
         } else if (snapshot.creative()) {
             graphics.drawString(font, "크리에이티브 자유 이동 활성", x, layout.bottom() - 39, SUCCESS_TEXT, false);
         }
+    }
+
+    private int drawHabitatInfo(
+        GuiGraphics graphics, Layout layout, MapContent.BiomeTile tile,
+        int x, int y, int lineWidth
+    ) {
+        String method = selectedEncounterMethod(tile);
+        MapContent.BiomeInfo biome = content.encounterBiome(tile, method);
+        y += menuTheme.drawWrappedText(graphics, font, Component.literal(
+            biome.name() + (biome.habitatVariant() > 0 ? biome.habitatVariant() : "")),
+            x, y, lineWidth, MenuTheme.TextRole.BODY, menuTheme.textColor, 2) + 4;
+        menuTheme.drawText(graphics, font, Component.literal(tile.biome()),
+            x, y, MenuTheme.TextRole.CAPTION);
+        y += menuTheme.textHeight(font, MenuTheme.TextRole.CAPTION) + 5;
+        if (content.encounterMethods(tile).size() > 1) {
+            encounterMethodButton.setY(y);
+            encounterMethodButton.setMessage(Component.literal(
+                MapContent.encounterMethodName(method) + "  ▸"
+            ));
+            encounterMethodButton.visible = true;
+            y += encounterMethodButton.getHeight() + 4;
+        }
+        menuTheme.drawText(graphics, font, Component.literal(
+            "서식 포켓몬 " + biome.totalPokemon() + "종 · 휠"
+        ), x, y, MenuTheme.TextRole.BODY);
+        y += menuTheme.textHeight(font, MenuTheme.TextRole.BODY) + 5;
+        renderPokemonGrid(
+            graphics, layout, biome.pokemon(), x, y, lineWidth, pokemonScroll
+        );
+        return y;
     }
 
     private static MapContent.Hex screenPointToHex(

@@ -11,6 +11,7 @@ import com.cobblemon.mod.common.battles.actor.PlayerBattleActor;
 import com.cobblemon.mod.common.entity.PoseType;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.mojang.logging.LogUtils;
+import dev.buizz.cobbleventure.adventure.event.EventBattleBridge;
 import dev.buizz.cobbleventure.adventure.event.EventNpcInteractionHandler;
 import dev.buizz.cobbleventure.adventure.event.ServerPlayerEventState;
 import dev.buizz.cobbleventure.playermenu.PlayerConditions;
@@ -186,7 +187,8 @@ public final class GatePokemonSystem {
         if (actor == null || actor.gate.allows(player) || CHALLENGES.containsKey(player.getUUID())
                 || player.isSpectator() || player.distanceToSqr(actor.entity) > 8 * 8
                 || actor.entity.level() != player.level() || !player.hasLineOfSight(actor.entity)
-                || BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) return false;
+                || EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+                || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) return false;
         GatePokemonConfig config = actor.gate.pokemon();
         if (new ServerPlayerEventState(player).flag(config.completionFlag())) {
             player.displayClientMessage(Component.literal(actor.gate.denyMessage()), true);
@@ -218,6 +220,12 @@ public final class GatePokemonSystem {
         if (!player.isAlive() || player.serverLevel() != challenge.actor.entity.level()) {
             finish(player, false); return;
         }
+        if (challenge.entity == null
+            && (EventBattleBridge.hasPendingTrainerBattle(player.getUUID())
+                || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null)) {
+            finish(player, false);
+            return;
+        }
         if (challenge.entity == null && time >= challenge.startAt) {
             try {
                 var entity = createPokemon(player.serverLevel(), challenge.actor.gate.pokemon());
@@ -237,7 +245,7 @@ public final class GatePokemonSystem {
                 player.displayClientMessage(Component.literal("관문 전투를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요."), true);
             }
         } else if (challenge.entity != null && time > challenge.startAt + 40
-                && BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) == null) {
+                && BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) == null) {
             finish(player, false);
         }
     }

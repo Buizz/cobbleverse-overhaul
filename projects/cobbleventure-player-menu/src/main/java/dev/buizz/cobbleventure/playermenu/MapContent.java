@@ -378,7 +378,9 @@ public final class MapContent {
                     ),
                     new Hex(anchor.get("q").getAsInt(), anchor.get("r").getAsInt()),
                     properties.has("teleportable") && properties.get("teleportable").getAsBoolean(),
-                    properties.has("show_on_minimap") && properties.get("show_on_minimap").getAsBoolean()
+                    properties.has("show_on_minimap") && properties.get("show_on_minimap").getAsBoolean(),
+                    properties.has("suppress_natural_spawns")
+                        && properties.get("suppress_natural_spawns").getAsBoolean()
                 ));
             }
         }
@@ -423,13 +425,22 @@ public final class MapContent {
         Set<Integer> pokemonGenerations = integerSet(world, "pokemon_generations", generation);
         Map<String, Pokemon> pokemonCatalog = pokemonCatalog();
         LoadedBiomes loadedBiomes = loadBiomes(pokemonGenerations, tiles, world);
+        Map<Hex, BiomeInfo> spawnBiomes = new LinkedHashMap<>(loadedBiomes.byTile());
+        for (MapObject object : objects) {
+            if (object.suppressNaturalSpawns()) {
+                spawnBiomes.put(object.hex(), new BiomeInfo(
+                    "cobbleventure:no_natural_spawns", "출현 없음", "", 0,
+                    List.of(), 0
+                ));
+            }
+        }
         Map<Hex, BiomeInfo> tileHabitats = applyRouteHabitats(
-            loadedBiomes.byTile(), routeEncounters, pokemonCatalog, towns, "land"
+            spawnBiomes, routeEncounters, pokemonCatalog, towns, "land"
         );
         Map<String, Map<Hex, BiomeInfo>> methodHabitats = new LinkedHashMap<>();
         for (String method : ENCOUNTER_METHODS) {
             methodHabitats.put(method, applyRouteHabitats(
-                loadedBiomes.byTile(), routeEncounters, pokemonCatalog, towns, method
+                spawnBiomes, routeEncounters, pokemonCatalog, towns, method
             ));
         }
         LoadedCaves loadedCaves = loadCaves(generation, world, loadedBiomes.byBiome(), pokemonCatalog);
@@ -446,7 +457,7 @@ public final class MapContent {
             defaultEmptyTerrain, emptyTerrain,
             tiles, towns, objects, routes, loadedCaves.entrances(), loadedCaves.byId(),
             loadedForests.entrances(), loadedForests.byId(),
-            loadedBiomes.byBiome(), loadedBiomes.byTile(), tileHabitats, methodHabitats
+            loadedBiomes.byBiome(), spawnBiomes, tileHabitats, methodHabitats
         );
     }
 
@@ -1039,7 +1050,7 @@ public final class MapContent {
     }
     public record MapObject(
         String id, Map<String, String> displayNames, Hex hex,
-        boolean teleportable, boolean showOnMinimap
+        boolean teleportable, boolean showOnMinimap, boolean suppressNaturalSpawns
     ) {
         public MapObject {
             Objects.requireNonNull(id);

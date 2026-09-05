@@ -17,8 +17,8 @@ final class DefaultPlayerMovementSpeed {
             "default_player_movement_speed"
         );
 
-    // Equivalent to `/effect give @s minecraft:speed infinite 2 true` (Speed III).
-    private static final double SPEED_MULTIPLIER = 0.60D;
+    // Equivalent to `/effect give @s minecraft:speed infinite 0 true` (Speed I).
+    private static final double SPEED_MULTIPLIER = 0.20D;
 
     private DefaultPlayerMovementSpeed() {}
 

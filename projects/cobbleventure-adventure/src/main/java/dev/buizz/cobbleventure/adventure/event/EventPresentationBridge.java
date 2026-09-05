@@ -118,8 +118,12 @@ public final class EventPresentationBridge {
                         new JsonPrimitive(succeeded)
                     ),
                     script,
-                    new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
-                    EventDialogueNetwork.serverAdapter(player),
+                    new EventStateExpressionEnvironment(new ServerPlayerEventState(
+                        player, pending.request.sessionKey().npcId()
+                    )),
+                    EventDialogueNetwork.serverAdapter(
+                        player, pending.request.sessionKey().npcId()
+                    ),
                     SavedEventSessionStore.get(player.getServer()),
                     MAX_RESUME_STEPS
                 );

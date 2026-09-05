@@ -73,6 +73,11 @@ neoForge {
 }
 
 processResources {
+    def contentProjectDir = file(System.getenv('COBBLEVENTURE_PROJECT_PATH') ?: rootProject.file('../../content-projects/cobbleventure-main'))
+    from(new File(contentProjectDir, 'content/catalogs/pokefinder-icons.json')) {
+        into 'data/cobbleventure'
+        rename { 'pokefinder_icons.json' }
+    }
     def properties = [
         minecraft_version_range: minecraft_version_range,
         neo_version: neo_version,

@@ -52,7 +52,7 @@
   "trainer_settings": {
     "enabled": true,
     "max_active": 4,
-    "use_biome_defaults": true,
+    "use_biome_defaults": false,
     "direct_trainers": [
       "cobbleventure:npc/sample_bug_catcher_doyun",
       "cobbleventure:npc/sample_lass_yuna",

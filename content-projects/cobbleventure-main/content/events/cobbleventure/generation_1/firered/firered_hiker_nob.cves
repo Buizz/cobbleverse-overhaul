@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_hiker_nob/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_boy"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_hiker_nob/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "곶에 사는 포켓몬 매니아의 수집품을 보러 가는 길이야."
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_hiker_nob" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_hiker_nob/defeated" true
       say npc {
         ko_kr: "제대로 당했군! 그 포켓몬 매니아는 이름값을 해. 희귀한 포켓몬도 많이 모았대."
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/firered_hiker_nob/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "제대로 당했군! 그 포켓몬 매니아는 이름값을 해. 희귀한 포켓몬도 많이 모았대."
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/firered_hiker_nob" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_hiker_nob/defeated" true
           say npc {
             ko_kr: "제대로 당했군! 그 포켓몬 매니아는 이름값을 해. 희귀한 포켓몬도 많이 모았대."

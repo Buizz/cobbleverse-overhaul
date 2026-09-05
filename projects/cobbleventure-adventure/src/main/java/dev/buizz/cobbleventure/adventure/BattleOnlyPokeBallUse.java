@@ -2,6 +2,8 @@ package dev.buizz.cobbleventure.adventure;
 
 import com.cobblemon.mod.common.battles.BattleRegistry;
 import com.cobblemon.mod.common.item.PokeBallItem;
+import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -20,7 +22,9 @@ final class BattleOnlyPokeBallUse {
         if (event.getLevel().isClientSide()
             || !(event.getEntity() instanceof ServerPlayer player)
             || !(event.getItemStack().getItem() instanceof PokeBallItem)
-            || BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+            || hasActiveBattle(player.getUUID(), playerId ->
+                BattleRegistry.getBattleByParticipatingPlayerId(playerId) != null
+            )) {
             return;
         }
 
@@ -36,5 +40,10 @@ final class BattleOnlyPokeBallUse {
         player.displayClientMessage(Component.translatable(
             "message.cobbleventure_bootstrap.poke_ball_requires_battle"
         ), true);
+    }
+
+    /** Keeps the gate keyed to the player who actually used the ball. */
+    static boolean hasActiveBattle(UUID playerId, Predicate<UUID> battleLookup) {
+        return battleLookup.test(playerId);
     }
 }

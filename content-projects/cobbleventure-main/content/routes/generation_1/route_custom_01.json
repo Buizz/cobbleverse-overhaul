@@ -71,8 +71,8 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/sample_hiker_seok",
-      "cobbleventure:npc/sample_camper_jun",
+      "cobbleventure:npc/firered_hiker_nob",
+      "cobbleventure:npc/firered_camper_flint",
       "cobbleventure:npc/sample_picnicker_hana"
     ],
     "trigger_override": "proximity"

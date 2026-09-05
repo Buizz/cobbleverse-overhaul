@@ -22,7 +22,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /** Stores trainer completion per player and per spawned EasyNPC entity. */
-final class TrainerBattleState {
+public final class TrainerBattleState {
     static final String DIALOG_OBJECTIVE = "cv_npc_defeated";
     private static final String DATA_FILE = "cobbleventure_trainer_battles";
 
@@ -59,13 +59,13 @@ final class TrainerBattleState {
     }
 
     private static int prepare(UUID npc, ServerPlayer player) {
-        boolean defeated = data(player).isDefeated(player.getUUID(), npc);
+        boolean defeated = isDefeated(player, npc);
         setDialogScore(player, defeated ? 1 : 0);
         return defeated ? 1 : 0;
     }
 
     private static int complete(UUID npc, ServerPlayer player) {
-        data(player).markDefeated(player.getUUID(), npc);
+        setDefeated(player, npc, true);
         setDialogScore(player, 1);
         return 1;
     }
@@ -75,6 +75,14 @@ final class TrainerBattleState {
             new SavedData.Factory<>(BattleData::new, BattleData::load),
             DATA_FILE
         );
+    }
+
+    public static boolean isDefeated(ServerPlayer player, UUID npc) {
+        return data(player).isDefeated(player.getUUID(), npc);
+    }
+
+    public static void setDefeated(ServerPlayer player, UUID npc, boolean defeated) {
+        data(player).setDefeated(player.getUUID(), npc, defeated);
     }
 
     private static void setDialogScore(ServerPlayer player, int value) {
@@ -117,8 +125,11 @@ final class TrainerBattleState {
             return defeated.contains(new BattleKey(player, npc));
         }
 
-        void markDefeated(UUID player, UUID npc) {
-            if (defeated.add(new BattleKey(player, npc))) {
+        void setDefeated(UUID player, UUID npc, boolean value) {
+            boolean changed = value
+                ? defeated.add(new BattleKey(player, npc))
+                : defeated.remove(new BattleKey(player, npc));
+            if (changed) {
                 setDirty();
             }
         }

@@ -1065,11 +1065,6 @@
         "type": "dense_forest"
       },
       {
-        "q": -1,
-        "r": 0,
-        "type": "dense_forest"
-      },
-      {
         "q": -2,
         "r": 11,
         "type": "ocean"
@@ -1353,6 +1348,31 @@
         "q": 11,
         "r": 0,
         "type": "stone_mountain"
+      },
+      {
+        "q": 5,
+        "r": 5,
+        "type": "red_rock_mountain"
+      },
+      {
+        "q": 5,
+        "r": 4,
+        "type": "red_rock_mountain"
+      },
+      {
+        "q": 6,
+        "r": 5,
+        "type": "red_rock_mountain"
+      },
+      {
+        "q": 0,
+        "r": -1,
+        "type": "red_rock_mountain"
+      },
+      {
+        "q": 0,
+        "r": 0,
+        "type": "red_rock_mountain"
       }
     ]
   },
@@ -2220,6 +2240,30 @@
         "height_variation": 3,
         "noise_scale_blocks": 96,
         "connection_height": 7
+      }
+    },
+    {
+      "q": -1,
+      "r": 0,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
+      }
+    },
+    {
+      "q": -1,
+      "r": 1,
+      "biome": "minecraft:plains",
+      "boundary_profile": "cobbleventure:boundary/earthwork",
+      "terrain_profile": {
+        "base_height_offset": 0,
+        "height_variation": 3,
+        "noise_scale_blocks": 96,
+        "connection_height": 0
       }
     }
   ],
@@ -3781,36 +3825,6 @@
   ],
   "objects": [
     {
-      "id": "vermilion_east_snorlax",
-      "type": "gate",
-      "anchor": { "q": 6, "r": 6 },
-      "rotation": 0,
-      "properties": {
-        "facing": "east",
-        "center_placement": "pokemon",
-        "surrounding_type": "natural",
-        "wall_thickness": 5,
-        "wall_height": 7,
-        "passage_width": 3,
-        "barrier_height": 24,
-        "condition_mode": "all",
-        "conditions": [],
-        "deny_message": "잠만보가 잠들어 길을 막고 있습니다. 포켓몬타워에서 얻은 포켓몬 피리를 근처에서 사용해 보세요.",
-        "pokemon": {
-          "species": "cobblemon:snorlax",
-          "level": 30,
-          "pose": "sleep",
-          "scale": 1,
-          "collision": { "width": 3, "height": 2, "depth": 4 },
-          "completion_flag": "cobbleventure:flag/gate/vermilion_east_snorlax_cleared",
-          "activation_item": "cobbleventure_bootstrap:poke_flute",
-          "activation_conditions": [
-            { "type": "item", "item": "cobbleventure_bootstrap:poke_flute", "count": 1 }
-          ]
-        }
-      }
-    },
-    {
       "id": "indigo_plateau",
       "display_name": {
         "ko_kr": "석영고원",
@@ -3884,7 +3898,8 @@
       "resource": "cobbleventure:placeholder/power_plant",
       "rotation": 0,
       "properties": {
-        "terrain_fit": "foundation"
+        "terrain_fit": "foundation",
+        "suppress_natural_spawns": true
       },
       "connections": [
         {
@@ -4242,6 +4257,51 @@
         "deny_message": "석영고원 비행 안내 NPC입니다.",
         "deny_dialog": "greeting",
         "npc": "easy_npc:preset/encounter/field_move_fly_instructor__v5.npc.snbt"
+      }
+    },
+    {
+      "id": "vermilion_east_snorlax",
+      "type": "gate",
+      "anchor": {
+        "q": 6,
+        "r": 6
+      },
+      "rotation": 0,
+      "properties": {
+        "facing": "west",
+        "center_placement": "pokemon",
+        "surrounding_type": "natural",
+        "wall_block": "minecraft:stone_bricks",
+        "tree_log": "minecraft:oak_log",
+        "tree_leaves": "minecraft:oak_leaves",
+        "wall_thickness": 5,
+        "wall_height": 7,
+        "passage_width": 3,
+        "barrier_height": 24,
+        "condition_mode": "all",
+        "conditions": [],
+        "deny_message": "잠만보가 잠들어 길을 막고 있습니다. 포켓몬타워에서 얻은 포켓몬 피리를 근처에서 사용해 보세요.",
+        "deny_dialog": "greeting",
+        "pokemon": {
+          "species": "cobblemon:snorlax",
+          "level": 30,
+          "pose": "sleep",
+          "scale": 1,
+          "collision": {
+            "width": 3,
+            "height": 2,
+            "depth": 4
+          },
+          "activation_conditions": [
+            {
+              "type": "item",
+              "item": "cobbleventure_bootstrap:poke_flute",
+              "count": 1
+            }
+          ],
+          "completion_flag": "cobbleventure:flag/gate/vermilion_east_snorlax_cleared",
+          "activation_item": "cobbleventure_bootstrap:poke_flute"
+        }
       }
     }
   ],

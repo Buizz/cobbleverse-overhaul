@@ -680,6 +680,20 @@ final class BuildingRuntimeSystem {
                         ));
                     }
                 }
+                RadarSetting radar = null;
+                if (value.has("radar")) {
+                    JsonObject configuredRadar = value.getAsJsonObject("radar");
+                    radar = new RadarSetting(
+                        configuredRadar.has("enabled")
+                            && configuredRadar.get("enabled").getAsBoolean(),
+                        configuredRadar.has("category")
+                            ? configuredRadar.get("category").getAsString() : "SPECIAL_BUILDING",
+                        configuredRadar.has("label")
+                            ? configuredRadar.get("label").getAsString() : entry.getKey(),
+                        configuredRadar.has("anchor")
+                            ? configuredRadar.get("anchor").getAsString() : ""
+                    );
+                }
                 SETTINGS.put(entry.getKey(), new BuildingSettings(
                     value.has("placement_y_offset")
                         ? value.get("placement_y_offset").getAsInt() : 0,
@@ -694,7 +708,8 @@ final class BuildingRuntimeSystem {
                         : value.has("random_citizen_eligible")
                             && value.get("random_citizen_eligible").getAsBoolean(),
                     List.copyOf(interiors), Map.copyOf(routes),
-                    value.has("music_track") ? value.get("music_track").getAsString() : null
+                    value.has("music_track") ? value.get("music_track").getAsString() : null,
+                    radar
                 ));
             }
         } catch (IOException | RuntimeException error) {
@@ -2054,32 +2069,50 @@ final class BuildingRuntimeSystem {
         for (PersistedBuildingInstance instance : data(server).buildingInstances()) {
             if (!instance.dimension.equals(dimension.toString())) continue;
             if (instance.rotation == null || instance.rotation.isBlank()) continue;
-            BlockPos offset = RADAR_OFFSETS.computeIfAbsent(
-                dimension + "|" + instance.structure + "|" + instance.rotation,
-                key -> {
-                    BlockPos door = exteriorDoorApproachOffset(instance.structure, instance.rotation);
-                    // Same-dimension centers and marts author an entrance road jigsaw,
-                    // not a teleport-door anchor. Resolve template geometry, never scan chunks.
-                    return java.util.Optional.ofNullable(door != null ? door
-                        : exteriorRoadAnchorOffset(level, instance.structure, instance.rotation));
-                }
-            ).orElse(null);
-            if (offset == null) continue;
+            BuildingSettings settings = SETTINGS.get(instance.structure);
+            RadarSetting radar = settings == null ? null : settings.radar;
+            if (radar == null || !radar.enabled) continue;
+            BlockPos offset = radarAnchorOffset(level, instance, radar.anchor);
             BlockPos entrance = instance.origin.offset(offset);
             String id = "building/" + instance.structure + "/"
                 + entrance.getX() + "/" + entrance.getY() + "/" + entrance.getZ();
             result.add(new RadarLocationCatalog.Location(
                 id,
-                RadarLocationCatalog.buildingKind(instance.structure),
+                RadarLocationCatalog.Kind.valueOf(radar.category),
                 dimension,
                 entrance.getX() + 0.5D,
                 entrance.getY(),
                 entrance.getZ() + 0.5D,
-                RadarLocationCatalog.buildingLabel(instance.structure),
+                radar.label.isBlank() ? instance.structure : radar.label,
                 instance.eventSpaceId == null ? "" : instance.eventSpaceId
             ));
         }
         return List.copyOf(result);
+    }
+
+    private static BlockPos radarAnchorOffset(
+        ServerLevel level, PersistedBuildingInstance instance, String anchorId
+    ) {
+        Rotation rotation = rotation(instance.rotation);
+        if (anchorId != null && !anchorId.isBlank() && !anchorId.equals("auto")) {
+            StructureMetadata metadata = METADATA.get(instance.structure);
+            if (metadata != null) {
+                Anchor anchor = metadata.anchors.stream()
+                    .filter(candidate -> candidate.id.equals(anchorId))
+                    .findFirst().orElse(null);
+                if (anchor != null) {
+                    return transform(BlockPos.ZERO, anchor.position, rotation);
+                }
+            }
+        }
+        return RADAR_OFFSETS.computeIfAbsent(
+            level.dimension().location() + "|" + instance.structure + "|" + instance.rotation,
+            key -> {
+                BlockPos door = exteriorDoorApproachOffset(instance.structure, instance.rotation);
+                return java.util.Optional.ofNullable(door != null ? door
+                    : exteriorRoadAnchorOffset(level, instance.structure, instance.rotation));
+            }
+        ).orElse(BlockPos.ZERO);
     }
 
     private static RuntimeData data(MinecraftServer server) {
@@ -2147,7 +2180,12 @@ final class BuildingRuntimeSystem {
         Map<String, String> fixedVendors, Map<String, String> fixedGachaMachines,
         boolean citizenPlacementAllowed,
         List<InteriorSetting> interiors, Map<String, RouteTarget> routes,
-        String musicTrack
+        String musicTrack, RadarSetting radar
+    ) {
+    }
+
+    private record RadarSetting(
+        boolean enabled, String category, String label, String anchor
     ) {
     }
 

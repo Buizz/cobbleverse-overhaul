@@ -137,7 +137,11 @@ public final class EventDialogueNetwork {
     }
 
     static EventCommandAdapter serverAdapter(ServerPlayer player) {
-        ServerPlayerEventState state = new ServerPlayerEventState(player);
+        return serverAdapter(player, null);
+    }
+
+    static EventCommandAdapter serverAdapter(ServerPlayer player, UUID npcId) {
+        ServerPlayerEventState state = new ServerPlayerEventState(player, npcId);
         EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(state);
         EventCommandAdapter unsupported = context -> {
             String command = context.instruction().command();
@@ -277,7 +281,7 @@ public final class EventDialogueNetwork {
         EventScript.Instruction instruction = script.events().get(session.eventIndex())
             .instruction(session.programCounter());
         EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
-            new ServerPlayerEventState(player)
+            new ServerPlayerEventState(player, key.npcId())
         );
         NumberInputEventCommandAdapter.Bounds bounds = NumberInputEventCommandAdapter.bounds(
             instruction, environment, session.locals()
@@ -291,8 +295,10 @@ public final class EventDialogueNetwork {
             player.getUUID(), key, payload.token(), new EventSession.AwaitCompletion(
                 EventSession.CompletionKind.COMPLETED, new JsonPrimitive(payload.value())
             ), script,
-            new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
-            serverAdapter(player), store, 10_000
+            new EventStateExpressionEnvironment(
+                new ServerPlayerEventState(player, key.npcId())
+            ),
+            serverAdapter(player, key.npcId()), store, 10_000
         );
     }
 
@@ -325,7 +331,7 @@ public final class EventDialogueNetwork {
             return;
         }
         EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
-            new ServerPlayerEventState(player)
+            new ServerPlayerEventState(player, key.npcId())
         );
         try {
             EventAwaitCompletionService.Outcome outcome =
@@ -343,7 +349,7 @@ public final class EventDialogueNetwork {
                     ),
                     script,
                     environment,
-                    serverAdapter(player),
+                    serverAdapter(player, key.npcId()),
                     sessionStore,
                     10_000
                 );
@@ -391,8 +397,10 @@ public final class EventDialogueNetwork {
                         payload.cancelled() ? null : payload.selectedIndex()
                     ),
                     script,
-                    new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
-                    serverAdapter(player),
+                    new EventStateExpressionEnvironment(
+                        new ServerPlayerEventState(player, key.npcId())
+                    ),
+                    serverAdapter(player, key.npcId()),
                     SavedEventSessionStore.get(player.getServer()),
                     10_000
                 );

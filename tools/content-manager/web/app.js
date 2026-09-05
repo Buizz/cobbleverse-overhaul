@@ -39,7 +39,7 @@ const structureViewPitch = {
 const state = {
   project: null,
   trainers: [], battles: [], routes: [], settlements: [], caves: [], dungeons: [], "underground-roads": [], forests: [], trainer: null, battlePreset: null, routePreset: null, settlement: null, cave: null, dungeon: null, undergroundRoad: null, forest: null, settlementOrderSaving: false, settlementLoading: { path: "", requestId: 0 },
-  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonRewardTables: new Map(), dungeonRewardTablePaths: new Map(), dungeonRewardDirty: new Set(), dungeonPieceId: "", dungeonPieceTheme: "", dungeonPieceCatalogMode: "pieces", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonTeamActorIndex: 0, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null, zoom: 1, panX: 0, panY: 0, panDrag: null, suppressClick: false },
+  dungeonPath: "", dungeonPlans: new Map(), dungeonPlanPaths: new Map(), dungeonPieces: new Map(), dungeonPiecePaths: new Map(), dungeonBattlePreviewCache: new Map(), dungeonPieceId: "", dungeonPieceTheme: "", dungeonPieceCatalogMode: "pieces", dungeonDirty: false, dungeonPlanDirty: false, dungeonPieceDirty: false, dungeonContentSelection: null, dungeonTeamActorIndex: 0, dungeonPieceEditor: { selectedKind: "", selectedIndex: -1, transform: null }, dungeonPlanEditor: { selectedPlacement: -1, drag: null }, dungeonPreview: { seed: 1, planId: "", floor: "all", selected: -1, hitTargets: [], plan: null, transform: null, zoom: 1, panX: 0, panY: 0, panDrag: null, suppressClick: false },
   gymCatalog: { schema_version: 1, gyms: [], leagues: [] }, selectedGymId: "",
   trainerPath: "", battlePath: "", routePresetPath: "", settlementPath: "", cavePath: "", undergroundRoadPath: "", forestPath: "", buildCommands: [], exportLanguages: [], cobblemonBuildTargets: [], trainerClasses: [], trainerRoster: { organizations: [], league_characters: [] },
   trainerReferences: { sources: [], entries: [] },
@@ -56,9 +56,9 @@ const state = {
   selectedHex: null, selectedEntrance: null, selectedObjectId: null, mapRadius: 6, mapZoom: 1, mapCenter: { x: 490, y: 330 }, mapViewInitialized: false,
   mapPan: null, suppressMapClick: false, draggedSettlement: null, entranceDrag: null, objectDrag: null, routeDraft: null, worldDirty: false,
   activeMapTool: "select", paintStroke: null, brushPreview: null, levelOverlayVisible: false, spacePanActive: false, selectedRouteId: null, routeAnchorDrag: null, routeAnchorInsertRouteId: null, routePokemonQuery: "",
-  routePokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
+  routePokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", time: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   routePokemonTarget: "world", routePokemonMethod: "land", routePokemonLevelSpecies: null, routePokemonEditingCard: null, routeFinalizing: false, encounterPokemonTarget: null, encounterPokemonQuery: "", encounterPokemonLevelSpecies: null, encounterPokemonEditingCard: null,
-  encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
+  encounterPokemonPicker: { query: "", generation: "all", type: "all", habitat: "all", time: "all", rarity: "all", special: "all", availability: "all", selected: new Set() },
   structureSizes: {}, villageView: { zoom: 1, panX: 0, panY: 0, drag: null },
   structurePreviewPromises: new Map(),
   undergroundModuleEditor: { selectedId: null, placing: false, transform: null },
@@ -66,7 +66,7 @@ const state = {
   villageGpuView: { renderer: null, models: new Map(), yaw: -.72, pitch: -.68, distance: 260, targetY: 8, drag: null, autoRotate: false, frame: 0, requestId: 0, atmosphere: "day" },
   townManualEditor: { library: "building", tool: "select", asset: null, selected: null, hover: null, roadStart: null, roadWidth: 7, drag: null, view3d: false, zoom: 1, panX: 0, panY: 0, hitTargets: [], draft: null },
   gymLayout: { selected: null, drag: null, hitTargets: [] },
-  buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], facilityDefaults: {}, yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
+  buildingSettings: { query: "", category: "all", selected: "", model: null, structures: {}, npcs: [], facilityDefaults: {}, radarIcons: { categories: {} }, radarIconCategory: "", radarPixelTool: "x", yaw: -.75, pitch: structureViewPitch.default, zoom: 1, drag: null, requestId: 0, dirty: false },
   cavePreview: { yaw: -.72, pitch: -.52, zoom: 1, view: "perspective", tool: "select", pathDraft: null, drag: null, selected: null, hitTargets: [], projection: null, placement: { anchor: { idPrefix: "anchor", kind: "room", radiusX: 12, radiusZ: 12, height: 12 }, entrance: { idPrefix: "entrance", displayName: "입출구", requiredProgress: "", fallbackX: 4, fallbackY: 1, fallbackZ: 0 }, path: { idPrefix: "connection", kind: "tunnel", width: 5 } } },
   forestPreview: { selectedPath: null, selectedAnchor: null, selectedEntranceIndex: null, seedOffset: 0, tool: "select", zoom: 1, panX: 0, panY: 0, heightBrushRadius: 0, heightBrushTarget: 1, brushHover: null, stairPlacement: { kind: "stairs", direction: "auto", block: "minecraft:oak_stairs" }, drag: null, hitTargets: [] },
   customTownTool: "cell",
@@ -928,7 +928,7 @@ function switchPage(section) {
   if (activeNavigationItem) openNavigationGroup(activeNavigationItem.closest(".nav-group"));
   const contentSection = section === "dungeon-chambers" ? "dungeon-pieces" : section;
   $$(".page").forEach((page) => page.classList.toggle("is-active", page.id === contentSection));
-  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", "system-npcs": "시스템 NPC", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "dungeon-chambers": "공동 관리", "dungeon-pieces": "던전 조각 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", builds: "빌드 및 검사" };
+  const titles = { dashboard: "프로젝트 현황", trainers: "트레이너풀", "system-npcs": "시스템 NPC", battles: "배틀 프리셋", routes: "길 관리", league: "리그 운영 · 구성원", "trainer-card": "리그 운영 · 자동 카드", worlds: "세대별 월드맵", "starter-settings": "스타팅 설정", caves: "동굴 관리", dungeons: "던전 관리", "dungeon-chambers": "공동 관리", "dungeon-pieces": "던전 조각 관리", "underground-roads": "지하통로 관리", forests: "숲 관리", settlements: "마을 관리", gyms: "리그 운영 · 체육관 시설", "space-connections": "공간 연결 관계", structures: "NBT 건물 설정", "live-nbt-editor": "라이브 NBT 편집", biomes: "바이옴 관리", definitions: "아이템 · 진행 변수", economy: "상점 · 드롭 · NPC 제작", music: "음악 배정 · 기본값", "global-resources": "전역 리소스", "casino-config": "카지노 콘텐츠 설정", "pokefinder-icons": "포켓파인더 아이콘", builds: "빌드 및 검사" };
   $("#page-title").textContent = titles[section];
   if (section === "worlds") requestAnimationFrame(resizeWorldMapWorkspace);
   if (section === "structures") requestAnimationFrame(renderBuildingModel);
@@ -1131,8 +1131,6 @@ async function loadLists() {
     state.dungeonPlanPaths = new Map((dungeons.data.plans || []).map((item) => [item.id, item.path]));
     state.dungeonPieces = new Map((dungeons.data.pieces || []).map((item) => [item.id, item.document]));
     state.dungeonPiecePaths = new Map((dungeons.data.pieces || []).map((item) => [item.id, item.path]));
-    state.dungeonRewardTables = new Map((dungeons.data.reward_tables || []).map((item) => [item.id, item.document]));
-    state.dungeonRewardTablePaths = new Map((dungeons.data.reward_tables || []).map((item) => [item.id, item.path]));
     renderDungeonList();
     const errors = dungeons.data.errors || [];
     $("#dungeon-issues").className = errors.length ? "issues" : "issues empty";
@@ -1570,6 +1568,7 @@ async function loadBuildingSettingsData(force = false) {
     const result = await requestStructureCache("/api/building-settings", force, "NBT 건물 설정");
     state.buildingSettings.structures = result.data.structures || {};
     state.buildingSettings.npcs = result.data.npcs || [];
+    state.buildingSettings.radarIcons = result.data.radar_icons || { schema_version: 1, categories: {} };
     state.buildingSettings.facilityDefaults = {
       ...fallbackFacilityStructures,
       ...(result.data.facility_defaults || {})
@@ -1581,6 +1580,7 @@ async function loadBuildingSettingsData(force = false) {
     $("#building-settings-path").textContent = `${result.data.path || "content/catalogs/building-settings.json"}${cacheLabel}`;
     lazyDataLoaded.buildingSettings = true;
     renderFacilityStructureControls();
+    renderPokefinderIconSettings();
     renderBuildingList();
     if (state.settlement) renderFacilityOptions();
     const entries = buildingEntries();
@@ -2261,6 +2261,7 @@ function loadSectionData(section, force = false) {
   if (section === "dungeon-pieces" || section === "dungeon-chambers") return loadStructureData(force).then(renderDungeonPieceEditor);
   if (section === "worlds") return loadStructureData(force).then(() => { renderWorldObjectNbtOptions(); renderMapToolOptions(); });
   if (section === "structures") return loadBuildingSettingsData(force);
+  if (section === "pokefinder-icons") return loadBuildingSettingsData(force).then(renderPokefinderIconSettings);
   if (section === "gyms") return loadGymStructureData(force).then(renderGymEditor);
   if (section === "settlements") return Promise.all([loadBiomeData(force), loadStructureData(force), loadEconomy(force), loadResidentialCatalog()]);
   if (section === "starter-settings") return Promise.all([loadBuildingSettingsData(force), loadStarterSettingsData(force)]).then(renderStarterSettings);
@@ -3505,6 +3506,9 @@ function worldObjectAvoidsRoad(resource, q, r, properties = {}) {
   const placement = worldObjectPlacementProperties(resource, q, r, properties).placement_anchor;
   return placement === "road_anchor" || placement === "door";
 }
+function worldObjectCanMoveTo(object, q, r) {
+  return object?.type === "gate" || worldObjectAvoidsRoad(object?.resource, q, r, object?.properties);
+}
 function gateProperties(values) {
   const centerPlacement = values.gateMode || "gate";
   const hasNpc = centerPlacement === "gate_npc" || centerPlacement === "npc";
@@ -3827,10 +3831,12 @@ function renderEncounterPokemonPicker() {
   routePokemonFilterOptions("#encounter-pokemon-picker-generation", "모든 세대", unique(catalog.map((entry) => entry.generation)), (value) => `${value}세대`);
   routePokemonFilterOptions("#encounter-pokemon-picker-type", "모든 타입", unique(catalog.flatMap((entry) => entry.types || [])), (value) => pokemonTypeLabels[value] || value);
   routePokemonFilterOptions("#encounter-pokemon-picker-habitat", "모든 서식지", unique(catalog.map((entry) => entry.habitats?.primary)), (value) => pokemonHabitatLabels[value] || value);
+  routePokemonFilterOptions("#encounter-pokemon-picker-time", "모든 시간", unique(catalog.map((entry) => entry.preferences?.time)), (value) => Object.fromEntries(biomeChoices.time)[value] || value);
   routePokemonFilterOptions("#encounter-pokemon-picker-rarity", "모든 희귀도", unique(catalog.map((entry) => entry.preferences?.rarity)), (value) => pokemonRarityLabels[value] || value);
   $("#encounter-pokemon-picker-generation").value = picker.generation;
   $("#encounter-pokemon-picker-type").value = picker.type;
   $("#encounter-pokemon-picker-habitat").value = picker.habitat;
+  $("#encounter-pokemon-picker-time").value = picker.time;
   $("#encounter-pokemon-picker-rarity").value = picker.rarity;
   $("#encounter-pokemon-picker-special").value = picker.special;
   $("#encounter-pokemon-picker-availability").value = picker.availability;
@@ -3986,7 +3992,7 @@ function renderEncounterPokemonDialog() {
   baseList.scrollTop = baseScrollTop; directList.scrollTop = directScrollTop;
   renderEncounterSummary(target);
 }
-function openEncounterPokemonDialog(target) { state.encounterPokemonTarget = target; state.encounterPokemonLevelSpecies = null; state.encounterPokemonEditingCard = null; $("#encounter-pokemon-dialog").dataset.target = target; state.encounterPokemonQuery = ""; state.encounterPokemonPicker = { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() }; $("#encounter-biome-pokemon-search").value = ""; renderEncounterPokemonDialog(); $("#encounter-pokemon-dialog").showModal(); }
+function openEncounterPokemonDialog(target) { state.encounterPokemonTarget = target; state.encounterPokemonLevelSpecies = null; state.encounterPokemonEditingCard = null; $("#encounter-pokemon-dialog").dataset.target = target; state.encounterPokemonQuery = ""; state.encounterPokemonPicker = { query: "", generation: "all", type: "all", habitat: "all", time: "all", rarity: "all", special: "all", availability: "all", selected: new Set() }; $("#encounter-biome-pokemon-search").value = ""; renderEncounterPokemonDialog(); $("#encounter-pokemon-dialog").showModal(); }
 function addSelectedEncounterPokemon() {
   const settings = encounterSettings(); if (!settings) return;
   const existing = new Set(settings.additions.map((addition) => addition.species));
@@ -4228,6 +4234,7 @@ function pokemonPickerMatches(entry, picker) {
   if (picker.generation !== "all" && String(entry.generation) !== picker.generation) return false;
   if (picker.type !== "all" && !(entry.types || []).includes(picker.type)) return false;
   if (picker.habitat !== "all" && entry.habitats?.primary !== picker.habitat) return false;
+  if (picker.time !== "all" && entry.preferences?.time !== picker.time) return false;
   if (picker.rarity !== "all" && entry.preferences?.rarity !== picker.rarity) return false;
   if (picker.special === "legendary" && !entry.is_legendary) return false;
   if (picker.special === "mythical" && !entry.is_mythical) return false;
@@ -4265,10 +4272,12 @@ function renderRoutePokemonPicker() {
   routePokemonFilterOptions("#route-pokemon-picker-generation", "모든 세대", unique(catalog.map((entry) => entry.generation)), (value) => `${value}세대`);
   routePokemonFilterOptions("#route-pokemon-picker-type", "모든 타입", unique(catalog.flatMap((entry) => entry.types || [])), (value) => pokemonTypeLabels[value] || value);
   routePokemonFilterOptions("#route-pokemon-picker-habitat", "모든 서식지", unique(catalog.map((entry) => entry.habitats?.primary)), (value) => pokemonHabitatLabels[value] || value);
+  routePokemonFilterOptions("#route-pokemon-picker-time", "모든 시간", unique(catalog.map((entry) => entry.preferences?.time)), (value) => Object.fromEntries(biomeChoices.time)[value] || value);
   routePokemonFilterOptions("#route-pokemon-picker-rarity", "모든 희귀도", unique(catalog.map((entry) => entry.preferences?.rarity)), (value) => pokemonRarityLabels[value] || value);
   $("#route-pokemon-picker-generation").value = picker.generation;
   $("#route-pokemon-picker-type").value = picker.type;
   $("#route-pokemon-picker-habitat").value = picker.habitat;
+  $("#route-pokemon-picker-time").value = picker.time;
   $("#route-pokemon-picker-rarity").value = picker.rarity;
   $("#route-pokemon-picker-special").value = picker.special;
   $("#route-pokemon-picker-availability").value = picker.availability;
@@ -4329,7 +4338,7 @@ function openRoutePokemonDialog(target = "world") {
   state.routePokemonLevelSpecies = null;
   state.routePokemonEditingCard = null;
   state.routePokemonQuery = "";
-  state.routePokemonPicker = { query: "", generation: "all", type: "all", habitat: "all", rarity: "all", special: "all", availability: "all", selected: new Set() };
+  state.routePokemonPicker = { query: "", generation: "all", type: "all", habitat: "all", time: "all", rarity: "all", special: "all", availability: "all", selected: new Set() };
   $("#route-biome-pokemon-search").value = "";
   renderRoutePokemonDialog(); $("#route-pokemon-dialog").showModal();
 }
@@ -5067,7 +5076,7 @@ function moveWorldPlacementDrag(event) {
   if (objectDrag?.pointerId === event.pointerId) {
     const object = (state.worldLayout.objects || []).find((entry) => entry.id === objectDrag.id); const target = nearestHexFromPointer(event);
     objectDrag.target = target; objectDrag.moved ||= Math.hypot(event.clientX - objectDrag.startX, event.clientY - objectDrag.startY) >= 4;
-    objectDrag.valid = Boolean(object) && worldObjectAvoidsRoad(object.resource, target.q, target.r, object.properties);
+    objectDrag.valid = Boolean(object) && worldObjectCanMoveTo(object, target.q, target.r);
     renderHexMap(); return true;
   }
   return false;
@@ -5092,7 +5101,9 @@ function finishObjectDrag(event) {
   const object = (state.worldLayout.objects || []).find((entry) => entry.id === drag.id); const target = drag.target;
   if (!object || !target || !drag.valid) { toast("오브젝트를 이동할 수 없습니다."); renderHexMap(); return; }
   object.anchor = { ...target };
-  const properties = worldObjectPlacementProperties(object.resource, target.q, target.r, object.properties);
+  const properties = object.type === "gate"
+    ? { ...(object.properties || {}) }
+    : worldObjectPlacementProperties(object.resource, target.q, target.r, object.properties);
   if (Object.keys(properties).length) object.properties = properties;
   state.selectedHex = { ...target }; state.selectedEntrance = null; state.selectedObjectId = object.id; state.selectedRouteId = null;
   state.suppressMapClick = true; setTimeout(() => { state.suppressMapClick = false; }, 0);
@@ -5350,7 +5361,6 @@ function renderDungeonList() {
     state.dungeon = item.document;
     state.dungeonPath = item.path;
     state.dungeonDirty = false;
-    state.dungeonRewardDirty.clear();
     state.dungeonPlanDirty = false;
     state.dungeonContentSelection = null;
     state.dungeonPlanEditor.selectedPlacement = -1;
@@ -5910,6 +5920,7 @@ function renderDungeonForm() {
   const values = {
     dungeonId: document.dungeon_id, nameKo: document.display_name?.ko_kr, nameEn: document.display_name?.en_us,
     descriptionKo: document.description?.ko_kr, preset: document.preset,
+    showInPokefinder: document.show_in_pokefinder !== false,
     infoMode: document.entry_ui?.info_mode || "summary", confirmRequired: document.entry_ui?.confirm_required !== false,
     recommendedMin: document.difficulty?.recommended_min ?? 1, recommendedMax: document.difficulty?.recommended_max ?? 1,
     internalMin: document.difficulty?.internal_min ?? 1, internalMax: document.difficulty?.internal_max ?? 1,
@@ -5946,8 +5957,7 @@ function renderDungeonForm() {
     reconnectGrace: document.lifecycle?.reconnect_grace_seconds ?? 120, wipeReturn: document.lifecycle?.wipe_return || "source_entrance",
     healOnWipe: document.lifecycle?.heal_on_wipe, lootOwnership: document.loot?.ownership || "per_player",
     lootOnFailure: document.loot?.on_failure || "grant_on_clear_only", repeatable: document.completion?.repeatable,
-    returnTrigger: document.completion?.return_trigger || "clear_exit", firstClearTable: document.rewards?.first_clear_table || "",
-    repeatTable: document.rewards?.repeat_table || "",
+    returnTrigger: document.completion?.return_trigger || "clear_exit",
     firstClearFieldMoves: (document.rewards?.first_clear_field_moves || []).join(", "),
     randomEnabled: document.random_encounters?.enabled, randomMinDistance: document.random_encounters?.minimum_distance ?? 8,
     randomMaxDistance: document.random_encounters?.maximum_distance ?? 16, randomMaxActive: document.random_encounters?.max_active ?? 1,
@@ -5970,79 +5980,24 @@ function renderDungeonForm() {
   $("#dungeon-save-state").classList.toggle("is-dirty", state.dungeonDirty);
 }
 
-function dungeonRewardTableId(kind) {
-  return kind === "repeat" ? state.dungeon?.rewards?.repeat_table : state.dungeon?.rewards?.first_clear_table;
-}
-
-function dungeonRewardTablePath(resourceId) {
-  const [namespace, value] = String(resourceId || "").split(":", 2);
-  return `content/loot_tables/${namespace}/${value}.json`;
-}
-
-function dungeonRewardReferenceCount(resourceId) {
-  return state.dungeons.reduce((count, item) => count
-    + Number(item.document?.rewards?.first_clear_table === resourceId)
-    + Number(item.document?.rewards?.repeat_table === resourceId), 0);
-}
-
-function uniqueDungeonRewardTableId(kind) {
-  const dungeonId = state.dungeon?.dungeon_id || "cobbleventure:dungeon/new";
-  const namespace = dungeonId.split(":", 1)[0] || "cobbleventure";
-  const slug = dungeonId.split("/").at(-1) || "dungeon";
-  const suffix = kind === "repeat" ? "repeat_clear" : "first_clear";
-  const base = `${namespace}:dungeon/${slug}_${suffix}`;
-  if (!state.dungeonRewardTables.has(base)) return base;
-  let index = 2;
-  while (state.dungeonRewardTables.has(`${base}_${index}`)) index += 1;
-  return `${base}_${index}`;
-}
-
-function ensureEditableDungeonRewardTable(kind) {
+function dungeonRewardPools(kind, create = false) {
+  const key = kind === "repeat" ? "repeat_clear" : "first_clear";
+  const existing = state.dungeon?.rewards?.[key];
+  if (Array.isArray(existing)) return existing;
+  if (!create) return [];
   state.dungeon.rewards ||= { first_clear_field_moves: [] };
-  let resourceId = dungeonRewardTableId(kind);
-  let table = state.dungeonRewardTables.get(resourceId);
-  if (!table) {
-    resourceId = uniqueDungeonRewardTableId(kind);
-    table = { type: "minecraft:gift", pools: [] };
-    state.dungeonRewardTables.set(resourceId, table);
-    state.dungeonRewardTablePaths.set(resourceId, dungeonRewardTablePath(resourceId));
-    if (kind === "repeat") state.dungeon.rewards.repeat_table = resourceId;
-    else state.dungeon.rewards.first_clear_table = resourceId;
-    setFormValue($("#dungeon-form"), kind === "repeat" ? "repeatTable" : "firstClearTable", resourceId);
-    state.dungeonRewardDirty.add(resourceId);
-  } else if (dungeonRewardReferenceCount(resourceId) > 1 && !state.dungeonRewardDirty.has(resourceId)) {
-    const previousId = resourceId;
-    resourceId = uniqueDungeonRewardTableId(kind);
-    table = structuredClone(table);
-    state.dungeonRewardTables.set(resourceId, table);
-    state.dungeonRewardTablePaths.set(resourceId, dungeonRewardTablePath(resourceId));
-    if (kind === "repeat") state.dungeon.rewards.repeat_table = resourceId;
-    else state.dungeon.rewards.first_clear_table = resourceId;
-    setFormValue($("#dungeon-form"), kind === "repeat" ? "repeatTable" : "firstClearTable", resourceId);
-    state.dungeonRewardDirty.add(resourceId);
-    toast(`공용 보상 ${previousId}을 이 던전 전용 구성으로 복사했습니다.`);
-  }
-  table.pools ||= [];
-  return { resourceId, table };
+  state.dungeon.rewards[key] = [];
+  return state.dungeon.rewards[key];
 }
 
 function dungeonRewardCount(entry) {
-  const count = (entry.functions || []).find((value) => value.function === "minecraft:set_count")?.count;
-  if (typeof count === "number") return [count, count];
-  if (count?.type === "minecraft:uniform") return [Number(count.min || 1), Number(count.max || count.min || 1)];
-  return [1, 1];
+  const minimum = Math.max(1, Number(entry.min_count) || 1);
+  return [minimum, Math.max(minimum, Number(entry.max_count) || minimum)];
 }
 
 function setDungeonRewardCount(entry, minimum, maximum) {
-  entry.functions ||= [];
-  let operation = entry.functions.find((value) => value.function === "minecraft:set_count");
-  if (minimum === 1 && maximum === 1) {
-    entry.functions = entry.functions.filter((value) => value !== operation);
-    if (!entry.functions.length) delete entry.functions;
-    return;
-  }
-  if (!operation) { operation = { function: "minecraft:set_count", count: 1 }; entry.functions.push(operation); }
-  operation.count = minimum === maximum ? minimum : { type: "minecraft:uniform", min: minimum, max: maximum };
+  entry.min_count = minimum;
+  entry.max_count = maximum;
 }
 
 function dungeonRewardItemLabel(itemId) {
@@ -6053,29 +6008,25 @@ function renderDungeonRewards() {
   for (const kind of ["first", "repeat"]) {
     const root = $(`[data-dungeon-reward-list="${kind}"]`);
     if (!root) continue;
-    const resourceId = dungeonRewardTableId(kind);
-    const table = state.dungeonRewardTables.get(resourceId);
-    if (!table) {
-      root.innerHTML = `<div class="dungeon-reward-empty"><p>연결된 보상 구성이 없습니다.</p><code>${escapeHtml(resourceId || "보상 ID 없음")}</code></div>`;
+    const pools = dungeonRewardPools(kind);
+    if (!pools.length) {
+      root.innerHTML = '<div class="dungeon-reward-empty"><p>등록된 클리어 보상이 없습니다. 보상 묶음을 추가하세요.</p></div>';
       continue;
     }
-    const shared = dungeonRewardReferenceCount(resourceId);
-    root.innerHTML = `<div class="dungeon-reward-source"><code>${escapeHtml(resourceId)}</code><small>${shared > 1 ? `${shared}곳에서 공유 중 · 수정하면 이 던전 전용으로 자동 복사` : "이 던전 전용 보상"}</small></div>` + (table.pools || []).map((pool, poolIndex) => `
+    root.innerHTML = pools.map((pool, poolIndex) => `
       <article class="dungeon-reward-pool" data-dungeon-reward-pool="${poolIndex}">
         <header><strong>보상 묶음 ${poolIndex + 1}</strong><label><span>추첨 횟수</span><input type="number" min="1" max="64" value="${Number(pool.rolls) || 1}" data-dungeon-reward-field="rolls"></label><button type="button" class="button secondary" data-add-dungeon-reward-item>＋ 아이템</button><button type="button" class="button danger" data-delete-dungeon-reward-pool>묶음 삭제</button></header>
         <small class="dungeon-reward-pool-help">아이템이 하나면 확정 지급, 여러 개면 가중치에 따라 하나를 선택합니다.</small>
         <div class="dungeon-reward-entries">${(pool.entries || []).map((entry, entryIndex) => {
-          if (entry.type !== "minecraft:item") return `<div class="dungeon-reward-reference" data-dungeon-reward-entry="${entryIndex}"><span><strong>연결된 고급 보상</strong><code>${escapeHtml(entry.value || entry.name || entry.type || "알 수 없음")}</code></span><button type="button" class="button danger" data-delete-dungeon-reward-entry>삭제</button></div>`;
           const [minimum, maximum] = dungeonRewardCount(entry);
           const inputId = `dungeon-reward-${kind}-${poolIndex}-${entryIndex}`;
-          return `<div class="dungeon-reward-row" data-dungeon-reward-entry="${entryIndex}"><label class="dungeon-reward-item"><span>아이템</span><div><input id="${inputId}" value="${escapeHtml(entry.name || "")}" data-dungeon-reward-field="item"><button type="button" class="button secondary" data-choose-dungeon-reward-item="${inputId}">검색</button></div><small>${escapeHtml(dungeonRewardItemLabel(entry.name || ""))}</small></label><label><span>최소 수량</span><input type="number" min="1" max="6400" value="${minimum}" data-dungeon-reward-field="min"></label><label><span>최대 수량</span><input type="number" min="1" max="6400" value="${maximum}" data-dungeon-reward-field="max"></label><label><span>가중치</span><input type="number" min="1" max="100000" value="${Number(entry.weight) || 1}" data-dungeon-reward-field="weight"></label><button type="button" class="button danger" data-delete-dungeon-reward-entry>삭제</button></div>`;
+          return `<div class="dungeon-reward-row" data-dungeon-reward-entry="${entryIndex}"><label class="dungeon-reward-item"><span>아이템</span><div><input id="${inputId}" value="${escapeHtml(entry.item || "")}" data-dungeon-reward-field="item"><button type="button" class="button secondary" data-choose-dungeon-reward-item="${inputId}">검색</button></div><small>${escapeHtml(dungeonRewardItemLabel(entry.item || ""))}</small></label><label><span>최소 수량</span><input type="number" min="1" max="6400" value="${minimum}" data-dungeon-reward-field="min"></label><label><span>최대 수량</span><input type="number" min="1" max="6400" value="${maximum}" data-dungeon-reward-field="max"></label><label><span>가중치</span><input type="number" min="1" max="100000" value="${Number(entry.weight) || 1}" data-dungeon-reward-field="weight"></label><button type="button" class="button danger" data-delete-dungeon-reward-entry>삭제</button></div>`;
         }).join("") || '<div class="dungeon-reward-empty">이 묶음에 아이템을 추가하세요.</div>'}</div>
       </article>`).join("") || '<div class="dungeon-reward-empty">보상 묶음을 추가하면 아이템과 수량을 설정할 수 있습니다.</div>';
   }
 }
 
-function markDungeonRewardChanged(kind, resourceId) {
-  state.dungeonRewardDirty.add(resourceId);
+function markDungeonRewardChanged() {
   state.dungeonDirty = true;
   $("#dungeon-save-state").textContent = "저장하지 않은 변경";
   $("#dungeon-save-state").classList.add("is-dirty");
@@ -6102,6 +6053,7 @@ function updateDungeonFromForm() {
   const nameEn = form.elements.nameEn.value.trim(); if (nameEn) document.display_name.en_us = nameEn; else delete document.display_name.en_us;
   document.description = { ...(document.description || {}), ko_kr: form.elements.descriptionKo.value.trim() };
   document.preset = form.elements.preset.value.trim();
+  document.show_in_pokefinder = form.elements.showInPokefinder.checked;
   document.entry_ui = { info_mode: form.elements.infoMode.value, confirm_required: form.elements.confirmRequired.checked };
   document.difficulty = { recommended_min: integer("recommendedMin", 1), recommended_max: integer("recommendedMax", 1), internal_min: integer("internalMin", 1), internal_max: integer("internalMax", 1) };
   document.eligibility ||= { minimum_party_size: 1, maximum_party_size: 6, require_usable_pokemon: true };
@@ -6182,8 +6134,6 @@ function updateDungeonFromForm() {
   document.loot ||= { loot_table: "cobbleventure:dungeon/default", containers: [] };
   Object.assign(document.loot, { ownership: form.elements.lootOwnership.value, on_failure: form.elements.lootOnFailure.value });
   document.rewards ||= { first_clear_field_moves: [] };
-  document.rewards.first_clear_table = form.elements.firstClearTable.value.trim();
-  const repeatTable = form.elements.repeatTable.value.trim(); if (repeatTable) document.rewards.repeat_table = repeatTable; else delete document.rewards.repeat_table;
   document.rewards.first_clear_field_moves = csvValues(form.elements.firstClearFieldMoves.value);
   document.completion ||= { victory_flag: `${document.dungeon_id}/cleared` };
   Object.assign(document.completion, { repeatable: form.elements.repeatable.checked, return_trigger: form.elements.returnTrigger.value });
@@ -6292,6 +6242,12 @@ function dungeonTrainerModeFields(mode) {
   return `<fieldset class="wide dungeon-trainer-mode"><legend>고정 트레이너 구성 방식</legend><input data-dungeon-content-field type="hidden" name="trainerMode" value="${mode}">${option("dungeon", "던전 소유 NPC", "이 던전에서만 쓰는 고정 NPC와 배틀을 직접 만듭니다.")}${option("preset", "기존 NPC 연결", "이미 제작된 NPC와 배틀 프리셋을 직접 짝지어 배치합니다.")}</fieldset>`;
 }
 
+function dungeonCooperativeBattleField(entry) {
+  const available = state.dungeon?.multiplayer?.mode === "cooperative";
+  const checked = available && entry.cooperative_battle === true;
+  return `<div class="wide dungeon-cooperative-battle${available ? "" : " is-disabled"}"><label class="toggle"><input data-dungeon-content-field name="cooperativeBattle" type="checkbox"${checked ? " checked" : ""}${available ? "" : " disabled"}><span>협동 전투</span></label><small>${available ? "체크하면 두 명의 플레이어가 두 트레이너를 상대하며, 두 번째 트레이너 설정이 열립니다." : "던전 행동 방식을 ‘협동’으로 설정해야 사용할 수 있습니다."}</small></div>`;
+}
+
 function dungeonTrainerNpcSelect(name, selected, label, required = false) {
   return `<label class="dungeon-trainer-select"><span>${label}</span><select data-dungeon-content-field data-dungeon-search-select data-dungeon-trainer-npc name="${name}"${required ? " required" : ""}>${routeNpcOptions(selected)}</select>${trainerPartyStrip(selected)}</label>`;
 }
@@ -6307,7 +6263,8 @@ function dungeonInlineBattleId(entry, actor, index) {
 }
 
 function dungeonInlineBattleTemplate(entry, actor, index) {
-  const referenced = state.battles.find((candidate) => candidate.id === actor?.battle)?.document?.battle;
+  const referenced = state.dungeonBattlePreviewCache.get(actor?.battle)?.battle
+    || state.battles.find((candidate) => candidate.id === actor?.battle)?.document?.battle;
   const battle = referenced ? structuredClone(referenced) : {
     trainer_id: "cobbleventure:trainer/dungeon_inline",
     format: "GEN_9_SINGLES", battle_type: "singles",
@@ -6329,20 +6286,67 @@ function dungeonInlineBattleTemplate(entry, actor, index) {
 function dungeonBattleSourceFields(entry, actor, index) {
   const mode = actor.inline_battle ? "direct" : "preset";
   const option = (value, title, description) => `<button type="button" data-dungeon-battle-source="${value}" data-index="${index}" aria-pressed="${mode === value}" class="dungeon-trainer-mode-option${mode === value ? " is-active" : ""}"><b>${title}</b><small>${description}</small></button>`;
-  return `<fieldset class="wide dungeon-trainer-mode dungeon-battle-source"><legend>포켓몬 팀 구성</legend><input type="hidden" name="ownedTrainerBattleMode${index}" value="${mode}">${option("preset", "배틀 프리셋", "기존 배틀 프리셋의 팀과 규칙을 사용합니다.")}${option("direct", "직접 팀 구성", "공통 포켓몬 팀 편집기로 이 보스의 팀을 직접 만듭니다.")}</fieldset>`;
+  return `<fieldset class="wide dungeon-trainer-mode dungeon-battle-source"><legend>포켓몬 팀 구성</legend><input type="hidden" name="ownedTrainerBattleMode${index}" value="${mode}">${option("preset", "배틀 프리셋", "기존 배틀 프리셋의 팀과 규칙을 사용합니다.")}${option("direct", "직접 팀 구성", "공통 포켓몬 팀 편집기로 팀을 직접 만듭니다.")}</fieldset>`;
 }
 
-function dungeonInlineTeamEditor(entry) {
-  const direct = (entry.trainers || []).map((actor, index) => ({ actor, index })).filter(({ actor }) => actor.inline_battle);
-  if (!direct.length) return "";
+function dungeonTrainerTeam(actor) {
+  if (actor?.inline_battle) return actor.inline_battle.team || [];
+  return state.dungeonBattlePreviewCache.get(actor?.battle)?.battle?.team || [];
+}
+
+function dungeonTeamCompactPreview(actor, index) {
+  const direct = Boolean(actor.inline_battle);
+  const team = dungeonTrainerTeam(actor);
+  return `<section class="dungeon-team-compact" data-dungeon-team-preview="${index}" data-battle-id="${escapeHtml(actor.battle || "")}"><header><div><b>포켓몬 팀</b><small>${direct ? "직접 구성 · 눌러서 상세 설정" : "배틀 프리셋 팀 미리보기"}</small></div>${direct ? `<button type="button" class="button secondary" data-open-dungeon-team="${index}">팀 상세 설정</button>` : ""}</header><div class="dungeon-team-preview-slots">${trainerPartyStrip({ id: actor.id, name: actor.display_name?.ko_kr, team })}</div></section>`;
+}
+
+async function hydrateDungeonBattlePreviews(root) {
+  for (const preview of root.querySelectorAll('[data-dungeon-team-preview]')) {
+    const index = Number(preview.dataset.dungeonTeamPreview);
+    const selected = selectedDungeonContent();
+    const actor = selected?.entry?.trainers?.[index];
+    if (!actor || actor.inline_battle || !actor.battle) continue;
+    if (!state.dungeonBattlePreviewCache.has(actor.battle)) {
+      const summary = state.battles.find((entry) => entry.id === actor.battle);
+      if (!summary) continue;
+      const result = await request(`/api/battles?path=${encodeURIComponent(summary.path)}`);
+      if (!result.ok) continue;
+      state.dungeonBattlePreviewCache.set(actor.battle, result.data.document);
+    }
+    if (!preview.isConnected || preview.dataset.battleId !== actor.battle) continue;
+    preview.querySelector('.dungeon-team-preview-slots').innerHTML = trainerPartyStrip({ id: actor.id, name: actor.display_name?.ko_kr, team: dungeonTrainerTeam(actor) });
+  }
+}
+
+function renderDungeonTeamDialog() {
+  const selected = selectedDungeonContent();
+  const trainers = selected?.entry?.trainers || [];
+  const direct = trainers.map((actor, index) => ({ actor, index })).filter(({ actor }) => actor.inline_battle);
+  if (!direct.length) return;
   if (!direct.some(({ index }) => index === state.dungeonTeamActorIndex)) state.dungeonTeamActorIndex = direct[0].index;
-  return `<section class="wide dungeon-inline-team-editor"><header><div><b>보스 포켓몬 팀</b><small>NPC·배틀·리그 편집기와 같은 공통 팀 컨트롤입니다.</small></div><nav>${direct.map(({ actor, index }) => `<button type="button" data-dungeon-team-actor="${index}" class="${index === state.dungeonTeamActorIndex ? "is-active" : ""}">${index + 1}번 · ${escapeHtml(actor.display_name?.ko_kr || actor.id)}</button>`).join("")}</nav></header><div class="dungeon-inline-team-actions"><button type="button" class="button secondary" data-dungeon-team-action="reference">참고 엔트리 불러오기</button><button type="button" class="button secondary" data-dungeon-team-action="copy">엔트리 JSON 복사</button><button type="button" class="button secondary" data-dungeon-team-action="paste">엔트리 JSON 붙여넣기</button><button type="button" class="button secondary" data-dungeon-team-action="add">포켓몬 추가</button></div><div id="dungeon-team-list" class="team-list dungeon-team-list"></div></section>`;
+  const actor = trainers[state.dungeonTeamActorIndex];
+  $("#dungeon-team-dialog-title").textContent = `${actor.display_name?.ko_kr || actor.id} · 포켓몬 팀`;
+  $("#dungeon-team-dialog-tabs").innerHTML = direct.map(({ actor: member, index }) => `<button type="button" data-dungeon-team-actor="${index}" class="${index === state.dungeonTeamActorIndex ? "is-active" : ""}">${index + 1}번 · ${escapeHtml(member.display_name?.ko_kr || member.id)}</button>`).join("");
+  state.teamEditorTarget = "#dungeon-team-list";
+  renderTeam("#dungeon-team-list");
+}
+
+function openDungeonTeamDialog(index) {
+  updateDungeonContentFromEditor();
+  state.dungeonTeamActorIndex = index;
+  renderDungeonTeamDialog();
+  $("#dungeon-team-dialog").showModal();
+}
+
+function closeDungeonTeamDialog() {
+  $("#dungeon-team-dialog").close();
 }
 
 function dungeonPresetTrainerFields(entry) {
   const npcs = entry.npcs || [];
   const opponents = entry.opponents || [];
-  return `<section class="wide dungeon-trainer-assignments"><header><div><b>등장 트레이너</b><small>NPC 외형·대화와 실제 배틀 팀을 같은 번호끼리 연결합니다.</small></div></header>${[0, 1].map((index) => `<article data-dungeon-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${dungeonTrainerNpcSelect(`trainerNpc${index}`, npcs[index] || "", "NPC 프리셋", index === 0)}${dungeonBattleSelect(`trainerBattle${index}`, opponents[index] || "", "배틀 프리셋", index === 0)}</article>`).join("")}</section>`;
+  const count = entry.cooperative_battle ? 2 : 1;
+  return `${dungeonCooperativeBattleField(entry)}<section class="wide dungeon-trainer-assignments"><header><div><b>등장 트레이너</b><small>NPC 외형·대화와 실제 배틀 팀을 같은 번호끼리 연결합니다.</small></div></header>${Array.from({ length: count }, (_, index) => `<article data-dungeon-trainer-slot="${index}"><strong>${index + 1}번 상대</strong>${dungeonTrainerNpcSelect(`trainerNpc${index}`, npcs[index] || "", "NPC 프리셋", true)}${dungeonBattleSelect(`trainerBattle${index}`, opponents[index] || "", "배틀 프리셋", true)}</article>`).join("")}</section>`;
 }
 
 function dungeonTrainerClassOptions(selected) {
@@ -6358,15 +6362,34 @@ function dungeonTrainerClassSelect(name, selected) {
   return `<label class="dungeon-trainer-select"><span>외형 클래스</span><select data-dungeon-content-field data-dungeon-search-select name="${name}" required>${options}</select></label>`;
 }
 
+function dungeonTrainerCharacterSelect(name, trainerClass, selected) {
+  if (!rosterCharactersForClass(trainerClass).length) return "";
+  return `<label class="dungeon-trainer-select"><span>세부 외형</span><select data-dungeon-content-field data-dungeon-search-select name="${name}">${rosterCharacterOptions(trainerClass, selected, "클래스 기본 외형")}</select></label>`;
+}
+
+function dungeonTrainerAppearance(actor, index) {
+  const trainerClass = state.trainerClasses.find((entry) => entry.id === actor?.trainer_class);
+  const character = rosterCharacters().find((entry) => entry.id === actor?.character);
+  const appearance = character ? effectiveCharacterAppearance(character) : (trainerClass?.default_appearance || {});
+  const skinUrl = trainerSkinUrl(appearance);
+  const body = { ...(trainerClass?.body || {}), ...(character?.body || {}) };
+  if (!skinUrl) return `<section class="dungeon-trainer-appearance"><div class="dungeon-trainer-appearance-empty">외형 미리보기 없음</div><small>${escapeHtml(character?.display_name?.ko_kr || trainerClass?.display_name?.ko_kr || actor?.trainer_class || "외형 미지정")}</small></section>`;
+  return `<section class="dungeon-trainer-appearance" data-dungeon-appearance-preview="${index}">${skinPreviewHtml(skinUrl, body, { size: 132, label: `${actor?.display_name?.ko_kr || actor?.id || "던전 트레이너"} 외형 미리보기` })}<small>${escapeHtml(character?.display_name?.ko_kr || trainerClass?.display_name?.ko_kr || actor?.trainer_class)}</small></section>`;
+}
+
 function dungeonOwnedTrainerFields(entry) {
   const trainers = entry.trainers || [];
   const trigger = entry.trigger || {};
   const actor = (index) => {
     const value = trainers[index] || {};
     const battle = value.inline_battle ? "" : dungeonBattleSelect(`ownedTrainerBattle${index}`, value.battle || "", "배틀 프리셋", index === 0);
-    return `<article data-dungeon-owned-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong>${contentField("내부 ID", `ownedTrainerId${index}`, value.id || "", { required: index === 0 })}${contentField("표시 이름", `ownedTrainerName${index}`, value.display_name?.ko_kr || "", { required: index === 0 })}${dungeonTrainerClassSelect(`ownedTrainerClass${index}`, value.trainer_class || "cobbleventure:trainer_class/villain_grunt")}${dungeonBattleSourceFields(entry, value, index)}${battle}</article>`;
+    const preview = value.id || value.battle || value.inline_battle ? dungeonTeamCompactPreview(value, index) : "";
+    const trainerClass = value.trainer_class || "cobbleventure:trainer_class/villain_grunt";
+    const appearance = value.id || value.trainer_class ? dungeonTrainerAppearance({ ...value, trainer_class: trainerClass }, index) : "";
+    return `<article data-dungeon-owned-trainer-slot="${index}"><strong>${index + 1}번 상대${index ? " · 선택" : ""}</strong><div class="dungeon-trainer-identity">${contentField("내부 ID", `ownedTrainerId${index}`, value.id || "", { required: index === 0 })}${contentField("표시 이름", `ownedTrainerName${index}`, value.display_name?.ko_kr || "", { required: index === 0 })}${dungeonTrainerClassSelect(`ownedTrainerClass${index}`, trainerClass)}${dungeonTrainerCharacterSelect(`ownedTrainerCharacter${index}`, trainerClass, value.character || "")}</div>${appearance}${dungeonBattleSourceFields(entry, value, index)}${battle}${preview}</article>`;
   };
-  return `<section class="wide dungeon-trainer-assignments"><header><div><b>던전 생성 트레이너</b><small>별도 NPC 파일이나 V5 이벤트 없이 이 설정만으로 생성·조우합니다.</small></div></header>${actor(0)}${actor(1)}</section>${dungeonInlineTeamEditor(entry)}<section class="wide dungeon-generated-trainer"><header><div><b>근접 조우 연출</b><small>선두 NPC에 접근하면 경고 음악과 공용 V5 대사 뒤 전투가 시작됩니다.</small></div></header>${contentField("선두 번호 (0부터)", "triggerLeader", trigger.leader ?? 0, { type: "number", min: 0, max: 1, required: true })}${contentField("조우 거리", "triggerRange", trigger.range ?? 6, { type: "number", min: 1, max: 32, required: true })}${contentField("경고 추가 거리", "triggerWarningOffset", trigger.warning_offset ?? 3, { type: "number", min: 0, max: 32, required: true })}${contentField("경고 음악", "triggerWarningTrack", trigger.warning_track || "encounter.trainer_bad_guys", { required: true })}${contentField("시작 대사 — 한 줄에 하나", "triggerStartLines", (trigger.start_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("승리 대사 — 한 줄에 하나", "triggerWinLines", (trigger.win_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("패배 대사 — 한 줄에 하나", "triggerLossLines", (trigger.loss_lines || []).join("\n"), { wide: true, multiline: true, required: true })}</section>`;
+  const count = entry.cooperative_battle ? 2 : 1;
+  return `${dungeonCooperativeBattleField(entry)}<section class="wide dungeon-trainer-assignments"><header><div><b>던전 생성 트레이너</b><small>별도 NPC 파일이나 V5 이벤트 없이 이 설정만으로 생성·조우합니다.</small></div></header>${Array.from({ length: count }, (_, index) => actor(index)).join("")}</section><section class="wide dungeon-generated-trainer"><header><div><b>근접 조우 연출</b><small>선두 NPC에 접근하면 경고 음악과 공용 V5 대사 뒤 전투가 시작됩니다.</small></div></header>${contentField("선두 번호 (0부터)", "triggerLeader", trigger.leader ?? 0, { type: "number", min: 0, max: count - 1, required: true })}${contentField("조우 거리", "triggerRange", trigger.range ?? 6, { type: "number", min: 1, max: 32, required: true })}${contentField("경고 추가 거리", "triggerWarningOffset", trigger.warning_offset ?? 3, { type: "number", min: 0, max: 32, required: true })}${contentField("경고 음악", "triggerWarningTrack", trigger.warning_track || "encounter.trainer_bad_guys", { required: true })}${contentField("시작 대사 — 한 줄에 하나", "triggerStartLines", (trigger.start_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("승리 대사 — 한 줄에 하나", "triggerWinLines", (trigger.win_lines || []).join("\n"), { wide: true, multiline: true, required: true })}${contentField("패배 대사 — 한 줄에 하나", "triggerLossLines", (trigger.loss_lines || []).join("\n"), { wide: true, multiline: true, required: true })}</section>`;
 }
 
 function dungeonPokemonPoolOptions(pool) {
@@ -6400,8 +6423,9 @@ function renderDungeonGeneratedPopulation() {
   const dialogues = config.dialogue_pool || [];
   const pokemon = config.pokemon_pool || [];
   const removeButton = (pool, index, length) => `<button class="button danger dungeon-generated-button" type="button" data-generated-remove="${pool}" data-index="${index}"${length <= 1 ? " disabled" : ""}>삭제</button>`;
-  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>생성 NPC 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"></label><label><span>생성 NPC 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스를 함께 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${dungeonTrainerClassOptions(entry.trainer_class)}</select></label><label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>NPC마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
+  root.innerHTML = `<div class="dungeon-generated-population-controls"><label class="toggle"><input name="generatedEnabled" type="checkbox"${config.enabled ? " checked" : ""}><span>자동 NPC 생성 사용</span></label><label><span>생성 NPC 최소 수</span><input name="generatedCountMin" type="number" min="1" max="256" value="${count[0]}"></label><label><span>생성 NPC 최대 수</span><input name="generatedCountMax" type="number" min="1" max="256" value="${count[1]}"></label><label><span>NPC당 포켓몬 최소 수</span><input name="generatedTeamMin" type="number" min="1" max="6" value="${team[0]}"></label><label><span>NPC당 포켓몬 최대 수</span><input name="generatedTeamMax" type="number" min="1" max="6" value="${team[1]}"></label><label class="toggle"><input name="generatedAllowDuplicates" type="checkbox"${config.allow_duplicates ? " checked" : ""}><span>한 팀에서 같은 종 중복 허용</span></label></div><div class="dungeon-generated-pools${config.enabled ? "" : " is-disabled"}"><section><header><div><b>외형 풀</b><small>표시 이름과 외형 클래스·세부 타입을 함께 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="appearance">＋ 외형</button></header>${appearances.map((entry, index) => `<article data-generated-row="appearance"><label><span>표시 이름</span><input name="generatedAppearanceName" value="${escapeHtml(entry.display_name?.ko_kr || "")}"></label><label><span>외형 클래스</span><select name="generatedAppearanceClass" data-dungeon-search-select>${dungeonTrainerClassOptions(entry.trainer_class)}</select></label>${rosterCharactersForClass(entry.trainer_class).length ? `<label><span>세부 외형</span><select name="generatedAppearanceCharacter" data-dungeon-search-select>${rosterCharacterOptions(entry.trainer_class, entry.character || "", "클래스 기본 외형")}</select></label>` : ""}<label><span>가중치</span><input name="generatedAppearanceWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label><div class="dungeon-generated-appearance-preview">${dungeonTrainerAppearance(entry, `generated-${index}`)}</div>${removeButton("appearance", index, appearances.length)}</article>`).join("")}</section><section><header><div><b>대사 풀</b><small>NPC마다 전투 시작·종료 대사 한 쌍을 추첨합니다.</small></div><button class="button secondary dungeon-generated-button" type="button" data-generated-add="dialogue">＋ 대사</button></header>${dialogues.map((entry, index) => `<article data-generated-row="dialogue"><label><span>전투 시작 대사</span><input name="generatedStartLine" value="${escapeHtml(entry.battle_start_line || "")}"></label><label><span>전투 종료 대사</span><input name="generatedEndLine" value="${escapeHtml(entry.battle_end_line || "")}"></label><label><span>가중치</span><input name="generatedDialogueWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("dialogue", index, dialogues.length)}</article>`).join("")}</section><section><header><div><b>포켓몬 풀</b><small>가중치에 따라 팀을 만들며 위의 NPC당 포켓몬 수 범위를 따릅니다.</small></div><label><span>포켓몬 추가</span><select name="generatedPokemonAdd" data-dungeon-search-select>${dungeonPokemonPoolOptions(pokemon)}</select></label></header>${pokemon.map((entry, index) => `<article data-generated-row="pokemon"><label><span>포켓몬 종</span><input name="generatedPokemonSpecies" value="${escapeHtml(entry.species || "")}"></label><label><span>가중치</span><input name="generatedPokemonWeight" type="number" min="1" max="1000" value="${Number(entry.weight || 1)}"></label>${removeButton("pokemon", index, pokemon.length)}</article>`).join("")}</section></div>`;
   root.querySelectorAll("[data-dungeon-search-select]").forEach(enhanceMusicSelect);
+  initializeSkinPreviews(root);
 }
 
 function updateDungeonGeneratedPopulationFromEditor() {
@@ -6412,7 +6436,12 @@ function updateDungeonGeneratedPopulationFromEditor() {
   state.dungeon.generated_trainers = {
     enabled: Boolean(root.querySelector('[name="generatedEnabled"]')?.checked),
     count: [number("generatedCountMin", 3), number("generatedCountMax", 5)],
-    appearance_pool: rows("appearance").map((row) => ({ display_name: { ko_kr: row.querySelector('[name="generatedAppearanceName"]').value.trim() }, trainer_class: row.querySelector('[name="generatedAppearanceClass"]').value, weight: Math.max(1, Math.round(Number(row.querySelector('[name="generatedAppearanceWeight"]').value) || 1)) })),
+    appearance_pool: rows("appearance").map((row) => {
+      const appearance = { display_name: { ko_kr: row.querySelector('[name="generatedAppearanceName"]').value.trim() }, trainer_class: row.querySelector('[name="generatedAppearanceClass"]').value, weight: Math.max(1, Math.round(Number(row.querySelector('[name="generatedAppearanceWeight"]').value) || 1)) };
+      const character = row.querySelector('[name="generatedAppearanceCharacter"]')?.value;
+      if (character && rosterCharactersForClass(appearance.trainer_class).some((entry) => entry.id === character)) appearance.character = character;
+      return appearance;
+    }),
     dialogue_pool: rows("dialogue").map((row) => ({ battle_start_line: row.querySelector('[name="generatedStartLine"]').value.trim(), battle_end_line: row.querySelector('[name="generatedEndLine"]').value.trim(), weight: Math.max(1, Math.round(Number(row.querySelector('[name="generatedDialogueWeight"]').value) || 1)) })),
     pokemon_pool: rows("pokemon").map((row) => ({ species: row.querySelector('[name="generatedPokemonSpecies"]').value.trim(), weight: Math.max(1, Math.round(Number(row.querySelector('[name="generatedPokemonWeight"]').value) || 1)) })),
     team_size: [number("generatedTeamMin", 1), number("generatedTeamMax", 3)],
@@ -6548,25 +6577,16 @@ function renderDungeonContentProperties() {
   }
   root.innerHTML = `<header class="dungeon-content-property-head"><div><strong>${escapeHtml(dungeonContentLabel(kind, entry))}</strong><small>${escapeHtml(dungeonContentKinds[kind].label)} 속성</small></div><span>${escapeHtml(dungeonContentSubtitle(kind, entry))}</span></header><div class="dungeon-content-fields">${fields}</div>`;
   root.querySelectorAll("[data-dungeon-search-select]").forEach(enhanceMusicSelect);
-  if (root.querySelector("#dungeon-team-list")) renderTeam("#dungeon-team-list");
   root.querySelectorAll("[data-dungeon-battle-source]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
     switchDungeonBattleSource(Number(button.dataset.index), button.dataset.dungeonBattleSource);
   }));
-  root.querySelectorAll("[data-dungeon-team-actor]").forEach((button) => button.addEventListener("click", (event) => {
+  root.querySelectorAll("[data-open-dungeon-team]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
-    updateFocusedPokemon();
-    state.dungeonTeamActorIndex = Number(button.dataset.dungeonTeamActor);
-    renderDungeonContentProperties();
+    openDungeonTeamDialog(Number(button.dataset.openDungeonTeam));
   }));
-  root.querySelectorAll("[data-dungeon-team-action]").forEach((button) => button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    state.teamEditorTarget = "#dungeon-team-list";
-    if (button.dataset.dungeonTeamAction === "reference") openChoiceDialog("trainer_reference");
-    else if (button.dataset.dungeonTeamAction === "copy") copyTeamJson();
-    else if (button.dataset.dungeonTeamAction === "paste") pasteTeamJson();
-    else if (button.dataset.dungeonTeamAction === "add") addPokemon();
-  }));
+  initializeSkinPreviews(root);
+  hydrateDungeonBattlePreviews(root);
 }
 
 function renderDungeonContentEditor() {
@@ -6607,10 +6627,13 @@ function updateDungeonContentFromEditor() {
       delete entry.trigger; delete entry.trainer_generation;
     } else {
       const trainerMode = textValue("trainerMode");
+      const cooperativeBattle = checked("cooperativeBattle");
+      if (cooperativeBattle) entry.cooperative_battle = true;
+      else delete entry.cooperative_battle;
       if (trainerMode === "dungeon") {
         const lines = (name) => (control(name)?.value || "").split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
         const previousTrainers = entry.trainers || [];
-        entry.trainers = [0, 1].map((index) => {
+        const editedTrainers = Array.from({ length: cooperativeBattle ? 2 : 1 }, (_, index) => {
           const actor = previousTrainers[index] || {};
           const id = textValue(`ownedTrainerId${index}`);
           const direct = textValue(`ownedTrainerBattleMode${index}`) === "direct";
@@ -6619,9 +6642,14 @@ function updateDungeonContentFromEditor() {
             trainer_class: textValue(`ownedTrainerClass${index}`),
             battle: direct ? dungeonInlineBattleId(entry, { ...actor, id }, index) : textValue(`ownedTrainerBattle${index}`),
           };
+          const character = textValue(`ownedTrainerCharacter${index}`);
+          if (character && rosterCharactersForClass(next.trainer_class).some((entry) => entry.id === character)) next.character = character;
           if (direct) next.inline_battle = actor.inline_battle || dungeonInlineBattleTemplate(entry, next, index);
           return next;
-        }).filter((actor) => actor.id && actor.display_name.ko_kr && actor.battle);
+        });
+        entry.trainers = cooperativeBattle
+          ? editedTrainers
+          : editedTrainers.filter((actor) => actor.id && actor.display_name.ko_kr && actor.battle);
         entry.trigger = { type: "proximity", leader: numberValue("triggerLeader"), range: Number(control("triggerRange")?.value || 6), warning_offset: Number(control("triggerWarningOffset")?.value || 3), warning_track: textValue("triggerWarningTrack"), start_lines: lines("triggerStartLines"), win_lines: lines("triggerWinLines"), loss_lines: lines("triggerLossLines") };
         delete entry.npcs; delete entry.opponents; delete entry.trainer_generation;
       } else {
@@ -12404,13 +12432,13 @@ function characterAppearanceLabel(character) {
   return character?.appearance?.asset_status === "definition_only" ? "정의만 확인" : "전용 스킨 준비 중";
 }
 
-function rosterCharacterOptions(classId) {
+function rosterCharacterOptions(classId, selected = "", emptyLabel = "직접 설정") {
   const allowedIds = new Set(rosterCharactersForClass(classId).map((character) => character.id));
   const organizationGroups = (state.trainerRoster.organizations || []).map((organization) => {
     const characters = [...(organization.grunt_variants || []), ...(organization.named_characters || [])]
       .filter((character) => allowedIds.has(character.id));
     return characters.length ? `<optgroup label="${escapeHtml(organization.display_name?.ko_kr || organization.id)}">${characters.map((character) =>
-      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${characterAppearanceLabel(character)}</option>`
+      `<option value="${escapeHtml(character.id)}"${character.id === selected ? " selected" : ""}>${escapeHtml(character.display_name?.ko_kr || character.id)} · ${characterAppearanceLabel(character)}</option>`
     ).join("")}</optgroup>` : "";
   }).join("");
   const regionNames = { kanto: "관동 리그", johto: "성도 리그", hoenn: "호연 리그", sinnoh: "신오 리그" };
@@ -12418,10 +12446,10 @@ function rosterCharacterOptions(classId) {
     const characters = (state.trainerRoster.league_characters || [])
       .filter((entry) => entry.region === region && allowedIds.has(entry.id));
     return characters.length ? `<optgroup label="${label}">${characters.map((character) =>
-      `<option value="${escapeHtml(character.id)}">${escapeHtml(character.display_name?.ko_kr || character.id)} · ${characterAppearanceLabel(character)}</option>`
+      `<option value="${escapeHtml(character.id)}"${character.id === selected ? " selected" : ""}>${escapeHtml(character.display_name?.ko_kr || character.id)} · ${characterAppearanceLabel(character)}</option>`
     ).join("")}</optgroup>` : "";
   }).join("");
-  return '<option value="">직접 설정</option>' + organizationGroups + leagueGroups;
+  return `<option value=""${selected ? "" : " selected"}>${escapeHtml(emptyLabel)}</option>` + organizationGroups + leagueGroups;
 }
 
 function applyRosterCharacter() {
@@ -15041,6 +15069,18 @@ function renderBuildingEditor() {
   const league = metadata.category === "league";
   const interior = ["interior", "gym_interior"].includes(metadata.category);
   const residentialPlacement = metadata.settings?.residential_placement || {};
+  const radar = { enabled: false, category: "SPECIAL_BUILDING", label: "", anchor: "auto", ...(metadata.settings?.radar || {}) };
+  const radarAnchors = [
+    ...(metadata.door_anchors || []),
+    ...(metadata.transition_anchors || []),
+    ...(metadata.arrival_anchors || []),
+  ];
+  $("#building-radar-enabled").checked = radar.enabled === true;
+  $("#building-radar-fields").hidden = !radar.enabled;
+  $("#building-radar-category").value = radar.category;
+  $("#building-radar-label").value = radar.label || "";
+  $("#building-radar-anchor").innerHTML = `<option value="auto">자동 (출입구, 없으면 건물 원점)</option>${radarAnchors.map((anchor) => `<option value="${escapeHtml(anchor.label)}">${escapeHtml(anchor.label)} · ${escapeHtml(anchor.position.join(", "))}</option>`).join("")}`;
+  $("#building-radar-anchor").value = radarAnchors.some((anchor) => anchor.label === radar.anchor) ? radar.anchor : "auto";
   $("#building-residential-section").hidden = interior;
   $("#building-residential-enabled").checked = residentialPlacement.enabled === true;
   $("#building-residential-fields").hidden = !residentialPlacement.enabled;
@@ -15143,6 +15183,56 @@ function markBuildingSettingsDirty() {
   renderBuildingList(); renderBuildingEditor(); renderBuildingModel();
 }
 
+const pokefinderCategoryLabels = {
+  PLAYER:"플레이어", TRAINER:"트레이너", GYM_LEADER:"체육관 관장", IMPORTANT_NPC:"중요 NPC", OBJECTIVE:"목표",
+  GYM:"체육관", POKEMON_CENTER:"포켓몬센터", POKEMART:"포켓몬상점", CASINO:"카지노", SPECIAL_BUILDING:"특수 건물",
+  CAVE_ENTRANCE:"동굴 입구", FOREST_ENTRANCE:"숲 입구", GATE:"관문", DUNGEON_ENTRANCE:"던전 입구"
+};
+function pokefinderPixelColor(setting, value) {
+  return value === "#" ? setting.outline : value === "x" ? setting.primary : value === "o" ? setting.secondary : "transparent";
+}
+function renderPokefinderIconSettings() {
+  const catalog = state.buildingSettings.radarIcons || { categories:{} };
+  $("#pokefinder-icons-path").textContent = catalog.path || "content/catalogs/pokefinder-icons.json";
+  const entries = Object.entries(catalog.categories || {});
+  if (!entries.length) {
+    $("#pokefinder-icon-settings").innerHTML = '<div class="issues empty">아이콘 설정이 없습니다.</div>';
+    return;
+  }
+  if (!catalog.categories[state.buildingSettings.radarIconCategory]) state.buildingSettings.radarIconCategory = entries[0][0];
+  const category = state.buildingSettings.radarIconCategory;
+  const setting = catalog.categories[category];
+  const tool = state.buildingSettings.radarPixelTool;
+  const pixelButtons = setting.pixels.flatMap((row, y) => [...row].map((pixel, x) => `<button type="button" data-pokefinder-pixel="${y * 9 + x}" data-pixel-value="${pixel}" style="--pixel-color:${pokefinderPixelColor(setting, pixel)}" title="${x + 1}, ${y + 1}"></button>`)).join("");
+  $("#pokefinder-icon-settings").innerHTML = `
+    <aside class="pokefinder-category-list">${entries.map(([id, entry]) => `<button type="button" class="${id === category ? "is-active" : ""}" data-pokefinder-select="${id}"><span class="pokefinder-mini-preview">${entry.pixels.flatMap((row) => [...row].map((pixel) => `<i style="background:${pokefinderPixelColor(entry, pixel)}"></i>`)).join("")}</span><span><strong>${escapeHtml(pokefinderCategoryLabels[id] || id)}</strong><code>${id}</code></span></button>`).join("")}</aside>
+    <section class="pokefinder-pixel-editor">
+      <header><div><strong>${escapeHtml(pokefinderCategoryLabels[category] || category)}</strong><code>${category}</code></div></header>
+      <div class="pokefinder-pixel-workspace">
+        <div class="pokefinder-pixel-grid" aria-label="9×9 아이콘 픽셀 편집기">${pixelButtons}</div>
+        <div class="pokefinder-pixel-controls">
+          <div class="pokefinder-palette">
+            <button type="button" class="${tool === "." ? "is-active" : ""}" data-pokefinder-tool="."><i class="transparent"></i><span>지우개</span></button>
+            <button type="button" class="${tool === "#" ? "is-active" : ""}" data-pokefinder-tool="#"><i style="background:${setting.outline}"></i><span>외곽선</span></button>
+            <button type="button" class="${tool === "x" ? "is-active" : ""}" data-pokefinder-tool="x"><i style="background:${setting.primary}"></i><span>주색</span></button>
+            <button type="button" class="${tool === "o" ? "is-active" : ""}" data-pokefinder-tool="o"><i style="background:${setting.secondary}"></i><span>보조색</span></button>
+          </div>
+          <div class="pokefinder-color-fields"><label><span>외곽선</span><input type="color" value="${setting.outline}" data-pokefinder-field="outline"></label><label><span>주색</span><input type="color" value="${setting.primary}" data-pokefinder-field="primary"></label><label><span>보조색</span><input type="color" value="${setting.secondary}" data-pokefinder-field="secondary"></label></div>
+          <small>팔레트를 고른 뒤 픽셀을 눌러 그립니다. 투명 픽셀은 체크무늬로 표시됩니다.</small>
+        </div>
+      </div>
+    </section>`;
+}
+async function savePokefinderIcons() {
+  const catalog = state.buildingSettings.radarIcons;
+  const result = await request("/api/pokefinder-icons", { method:"PUT", body:JSON.stringify({ schema_version:1, categories:catalog.categories }) });
+  showIssues("#pokefinder-icon-issues", result.data);
+  if (!result.ok) return toast(result.data.error || result.data.issues?.[0]?.message || "아이콘 시스템 설정을 저장하지 못했습니다.");
+  $("#pokefinder-icon-issues").className = "issues empty";
+  $("#pokefinder-icon-issues").textContent = "저장된 설정입니다. 다음 모드 빌드에 포함됩니다.";
+  toast("포켓파인더 아이콘 시스템 설정을 저장했습니다.");
+}
+
 async function saveBuildingSettings() {
   const buildings = {};
   for (const [id, metadata] of Object.entries(state.buildingSettings.structures)) {
@@ -15157,6 +15247,7 @@ async function saveBuildingSettings() {
         ...(metadata.settings?.town_placement || {}),
         enabled: Boolean(metadata.settings?.town_placement?.enabled),
       },
+      radar: { enabled:false, category:"SPECIAL_BUILDING", label:"", anchor:"auto", ...(metadata.settings?.radar || {}) },
       fixed_npcs: metadata.settings?.citizen_placement_allowed
         ? {} : { ...(metadata.settings?.fixed_npcs || {}) },
       fixed_pokemon: { ...(metadata.settings?.fixed_pokemon || {}) },
@@ -18086,46 +18177,6 @@ function parseEditor(selector) {
   catch (error) { toast(`JSON 문법 오류: ${error.message}`); return null; }
 }
 
-function activeDungeonRewardDocuments() {
-  if (!state.dungeon) return [];
-  const ids = [state.dungeon.rewards?.first_clear_table];
-  if (state.dungeon.completion?.repeatable) ids.push(state.dungeon.rewards?.repeat_table);
-  return [...new Set(ids.filter(Boolean))].map((id) => ({
-    id,
-    document: state.dungeonRewardTables.get(id),
-    path: state.dungeonRewardTablePaths.get(id) || dungeonRewardTablePath(id),
-  }));
-}
-
-async function validateDungeonRewardDocuments() {
-  const records = activeDungeonRewardDocuments();
-  const missing = records.filter((record) => !record.document).map((record) => ({
-    level: "error", path: "$.rewards", message: `보상 구성을 찾을 수 없습니다: ${record.id}`,
-  }));
-  const results = await Promise.all(records.filter((record) => record.document).map(async (record) => ({
-    record,
-    result: await request("/api/document-validation?category=loot-tables", {
-      method: "POST", body: JSON.stringify(record.document),
-    }),
-  })));
-  const issues = [...missing, ...results.flatMap(({ record, result }) => (result.data.issues || []).map((issue) => ({
-    ...issue, path: `${record.id} ${issue.path || "$"}`,
-  })))];
-  return { valid: !missing.length && results.every(({ result }) => result.ok), issues };
-}
-
-async function saveDungeonRewardDocuments() {
-  for (const record of activeDungeonRewardDocuments()) {
-    if (!state.dungeonRewardDirty.has(record.id)) continue;
-    const result = await request(`/api/loot-tables?path=${encodeURIComponent(record.path)}`, {
-      method: "PUT", body: JSON.stringify(record.document),
-    });
-    if (!result.ok) return result;
-    state.dungeonRewardDirty.delete(record.id);
-  }
-  return { ok: true, data: { valid: true, issues: [] } };
-}
-
 async function validateDocument(category) {
   const singular = documentSingular(category);
   if (category === "settlements") {
@@ -18141,14 +18192,6 @@ async function validateDocument(category) {
   const document = category === "caves" ? state.cave : category === "dungeons" ? state.dungeon : category === "underground-roads" ? state.undergroundRoad : category === "forests" ? state.forest : category === "routes" ? state.routePreset : parseEditor(`#${singular}-json`);
   if (!document) return false;
   const result = await request(`/api/document-validation?category=${category}`, { method: "POST", body: JSON.stringify(document) });
-  if (result.ok && category === "dungeons") {
-    const rewards = await validateDungeonRewardDocuments();
-    if (!rewards.valid) {
-      showIssues(`#${singular}-issues`, rewards);
-      toast("클리어 보상 구성에 수정이 필요한 항목이 있습니다.");
-      return false;
-    }
-  }
   if (result.ok && category === "trainers" && state.battlePreset) {
     const battleResult = await request("/api/document-validation?category=battles", { method: "POST", body: JSON.stringify(state.battlePreset) });
     if (!battleResult.ok) {
@@ -18188,24 +18231,6 @@ async function saveDocument(category) {
   const originalLabel = saveButton.textContent;
   saveButton.disabled = true;
   saveButton.textContent = "저장 중…";
-  if (category === "dungeons") {
-    const rewardValidation = await validateDungeonRewardDocuments();
-    if (!rewardValidation.valid) {
-      saveButton.disabled = false;
-      saveButton.textContent = originalLabel;
-      showIssues(`#${singular}-issues`, rewardValidation);
-      toast("클리어 보상 검증 오류로 저장하지 않았습니다.");
-      return;
-    }
-    const rewardSave = await saveDungeonRewardDocuments();
-    if (!rewardSave.ok) {
-      saveButton.disabled = false;
-      saveButton.textContent = originalLabel;
-      showIssues(`#${singular}-issues`, rewardSave.data);
-      toast("클리어 보상 구성을 저장하지 못했습니다.");
-      return;
-    }
-  }
   if (category === "trainers" && state.battlePreset) {
     const battleValidation = await request("/api/document-validation?category=battles", { method: "POST", body: JSON.stringify(state.battlePreset) });
     if (!battleValidation.ok) {
@@ -19910,6 +19935,54 @@ $("#building-town-placement-enabled").addEventListener("change", (event) => {
   };
   markBuildingSettingsDirty();
 });
+$("#building-radar-enabled").addEventListener("change", (event) => {
+  const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+  if (!metadata) return;
+  metadata.settings.radar = { enabled:false, category:"SPECIAL_BUILDING", label:"", anchor:"auto", ...(metadata.settings.radar || {}), enabled:event.target.checked };
+  markBuildingSettingsDirty();
+});
+for (const [selector, field] of [["#building-radar-category", "category"], ["#building-radar-label", "label"], ["#building-radar-anchor", "anchor"]]) {
+  $(selector).addEventListener("change", (event) => {
+    const metadata = state.buildingSettings.structures[state.buildingSettings.selected];
+    if (!metadata) return;
+    metadata.settings.radar ||= { enabled:true, category:"SPECIAL_BUILDING", label:"", anchor:"auto" };
+    metadata.settings.radar[field] = event.target.value.trim();
+    markBuildingSettingsDirty();
+  });
+}
+$("#pokefinder-icon-settings").addEventListener("click", (event) => {
+  const select = event.target.closest("[data-pokefinder-select]");
+  if (select) {
+    state.buildingSettings.radarIconCategory = select.dataset.pokefinderSelect;
+    renderPokefinderIconSettings();
+    return;
+  }
+  const palette = event.target.closest("[data-pokefinder-tool]");
+  if (palette) {
+    state.buildingSettings.radarPixelTool = palette.dataset.pokefinderTool;
+    renderPokefinderIconSettings();
+    return;
+  }
+  const pixel = event.target.closest("[data-pokefinder-pixel]");
+  if (!pixel) return;
+  const setting = state.buildingSettings.radarIcons.categories[state.buildingSettings.radarIconCategory];
+  const index = Number(pixel.dataset.pokefinderPixel);
+  const y = Math.floor(index / 9), x = index % 9;
+  setting.pixels[y] = `${setting.pixels[y].slice(0, x)}${state.buildingSettings.radarPixelTool}${setting.pixels[y].slice(x + 1)}`;
+  renderPokefinderIconSettings();
+  $("#pokefinder-icon-issues").className = "issues empty";
+  $("#pokefinder-icon-issues").textContent = "저장되지 않은 변경 사항이 있습니다.";
+});
+$("#pokefinder-icon-settings").addEventListener("change", (event) => {
+  const field = event.target.dataset.pokefinderField;
+  if (!field) return;
+  const setting = state.buildingSettings.radarIcons.categories[state.buildingSettings.radarIconCategory];
+  setting[field] = event.target.value;
+  renderPokefinderIconSettings();
+  $("#pokefinder-icon-issues").className = "issues empty";
+  $("#pokefinder-icon-issues").textContent = "저장되지 않은 변경 사항이 있습니다.";
+});
+$("#save-pokefinder-icons").addEventListener("click", savePokefinderIcons);
 for (const [selector, field] of [
   ["#building-town-placement-id", "id"],
   ["#building-town-placement-label", "label"],
@@ -20034,21 +20107,21 @@ $("#dungeon-rewards-editor").addEventListener("click", (event) => {
     });
     return;
   }
-  const editable = ensureEditableDungeonRewardTable(kind);
+  const pools = dungeonRewardPools(kind, true);
   const poolElement = event.target.closest("[data-dungeon-reward-pool]");
   const poolIndex = Number(poolElement?.dataset.dungeonRewardPool);
   if (event.target.closest("[data-add-dungeon-reward-pool]")) {
-    editable.table.pools.push({ rolls: 1, entries: [] });
-  } else if (event.target.closest("[data-add-dungeon-reward-item]") && editable.table.pools[poolIndex]) {
-    editable.table.pools[poolIndex].entries ||= [];
-    editable.table.pools[poolIndex].entries.push({ type: "minecraft:item", name: "cobblemon:poke_ball" });
-  } else if (event.target.closest("[data-delete-dungeon-reward-entry]") && editable.table.pools[poolIndex]) {
+    pools.push({ rolls: 1, entries: [] });
+  } else if (event.target.closest("[data-add-dungeon-reward-item]") && pools[poolIndex]) {
+    pools[poolIndex].entries ||= [];
+    pools[poolIndex].entries.push({ item: "cobblemon:poke_ball", min_count: 1, max_count: 1, weight: 1 });
+  } else if (event.target.closest("[data-delete-dungeon-reward-entry]") && pools[poolIndex]) {
     const entryIndex = Number(event.target.closest("[data-dungeon-reward-entry]").dataset.dungeonRewardEntry);
-    editable.table.pools[poolIndex].entries.splice(entryIndex, 1);
+    pools[poolIndex].entries.splice(entryIndex, 1);
   } else if (event.target.closest("[data-delete-dungeon-reward-pool]")) {
-    editable.table.pools.splice(poolIndex, 1);
+    pools.splice(poolIndex, 1);
   } else return;
-  markDungeonRewardChanged(kind, editable.resourceId);
+  markDungeonRewardChanged();
   renderDungeonRewards();
 });
 $("#dungeon-rewards-editor").addEventListener("input", (event) => {
@@ -20057,16 +20130,15 @@ $("#dungeon-rewards-editor").addEventListener("input", (event) => {
   const poolElement = event.target.closest("[data-dungeon-reward-pool]");
   if (!field || !section || !poolElement || !state.dungeon) return;
   const kind = section.dataset.dungeonRewardKind;
-  const editable = ensureEditableDungeonRewardTable(kind);
-  const pool = editable.table.pools[Number(poolElement.dataset.dungeonRewardPool)];
+  const pool = dungeonRewardPools(kind, true)[Number(poolElement.dataset.dungeonRewardPool)];
   if (!pool) return;
   if (field.dataset.dungeonRewardField === "rolls") {
     pool.rolls = Math.max(1, Math.round(Number(field.value || 1)));
   } else {
     const row = field.closest("[data-dungeon-reward-entry]");
     const entry = pool.entries?.[Number(row?.dataset.dungeonRewardEntry)];
-    if (!entry || entry.type !== "minecraft:item") return;
-    if (field.dataset.dungeonRewardField === "item") entry.name = field.value.trim();
+    if (!entry) return;
+    if (field.dataset.dungeonRewardField === "item") entry.item = field.value.trim();
     else if (field.dataset.dungeonRewardField === "weight") entry.weight = Math.max(1, Math.round(Number(field.value || 1)));
     else {
       const minimum = Math.max(1, Math.round(Number(row.querySelector('[data-dungeon-reward-field="min"]').value || 1)));
@@ -20074,7 +20146,7 @@ $("#dungeon-rewards-editor").addEventListener("input", (event) => {
       setDungeonRewardCount(entry, minimum, maximum);
     }
   }
-  markDungeonRewardChanged(kind, editable.resourceId);
+  markDungeonRewardChanged();
 });
 $("#dungeon-rewards-editor").addEventListener("change", (event) => {
   event.target.dispatchEvent(new Event("input", { bubbles: true }));
@@ -20109,6 +20181,25 @@ $("#dungeon-content-properties").addEventListener("click", (event) => {
   const mode = event.target.closest("[data-dungeon-trainer-mode]");
   if (mode) { switchDungeonTrainerMode(mode.dataset.dungeonTrainerMode); return; }
 });
+$("#dungeon-team-dialog-tabs").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-dungeon-team-actor]");
+  if (!button) return;
+  updateFocusedPokemon();
+  state.dungeonTeamActorIndex = Number(button.dataset.dungeonTeamActor);
+  renderDungeonTeamDialog();
+});
+$("#dungeon-team-dialog").addEventListener("click", (event) => {
+  const action = event.target.closest("[data-dungeon-team-action]");
+  if (!action) return;
+  state.teamEditorTarget = "#dungeon-team-list";
+  if (action.dataset.dungeonTeamAction === "reference") openChoiceDialog("trainer_reference");
+  else if (action.dataset.dungeonTeamAction === "copy") copyTeamJson();
+  else if (action.dataset.dungeonTeamAction === "paste") pasteTeamJson();
+  else if (action.dataset.dungeonTeamAction === "add") addPokemon();
+});
+$("#dungeon-team-dialog-close").addEventListener("click", closeDungeonTeamDialog);
+$("#dungeon-team-dialog-done").addEventListener("click", closeDungeonTeamDialog);
+$("#dungeon-team-dialog").addEventListener("close", renderDungeonContentProperties);
 $("#dungeon-generated-population").addEventListener("input", () => {
   updateDungeonGeneratedPopulationFromEditor(); markDungeonContentDirty(); renderDungeonPreview();
 });
@@ -20743,7 +20834,7 @@ $("#encounter-biome-pokemon-list").addEventListener("change", (event) => handleP
 $("#encounter-pokemon-picker-search").addEventListener("input", (event) => { state.encounterPokemonPicker.query = event.target.value.trim(); renderEncounterPokemonPicker(); });
 for (const [selector, field] of [
   ["#encounter-pokemon-picker-generation", "generation"], ["#encounter-pokemon-picker-type", "type"],
-  ["#encounter-pokemon-picker-habitat", "habitat"], ["#encounter-pokemon-picker-rarity", "rarity"],
+  ["#encounter-pokemon-picker-habitat", "habitat"], ["#encounter-pokemon-picker-time", "time"], ["#encounter-pokemon-picker-rarity", "rarity"],
   ["#encounter-pokemon-picker-special", "special"], ["#encounter-pokemon-picker-availability", "availability"],
 ]) $(selector).addEventListener("change", (event) => { state.encounterPokemonPicker[field] = event.target.value; renderEncounterPokemonPicker(); });
 $("#encounter-pokemon-picker-list").addEventListener("click", (event) => {
@@ -20878,7 +20969,7 @@ $("#route-biome-pokemon-list").addEventListener("change", (event) => handlePokem
 $("#route-pokemon-picker-search").addEventListener("input", (event) => { state.routePokemonPicker.query = event.target.value.trim(); renderRoutePokemonPicker(); });
 for (const [selector, field] of [
   ["#route-pokemon-picker-generation", "generation"], ["#route-pokemon-picker-type", "type"],
-  ["#route-pokemon-picker-habitat", "habitat"], ["#route-pokemon-picker-rarity", "rarity"],
+  ["#route-pokemon-picker-habitat", "habitat"], ["#route-pokemon-picker-time", "time"], ["#route-pokemon-picker-rarity", "rarity"],
   ["#route-pokemon-picker-special", "special"], ["#route-pokemon-picker-availability", "availability"],
 ]) $(selector).addEventListener("change", (event) => { state.routePokemonPicker[field] = event.target.value; renderRoutePokemonPicker(); });
 $("#route-pokemon-picker-list").addEventListener("click", (event) => {

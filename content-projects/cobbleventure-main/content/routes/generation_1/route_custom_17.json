@@ -71,9 +71,9 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/sample_hiker_seok",
-      "cobbleventure:npc/kanto_psychic_seon",
-      "cobbleventure:npc/sample_bird_keeper_ara"
+      "cobbleventure:npc/firered_cooltrainer_samuel",
+      "cobbleventure:npc/firered_cooltrainer_warren",
+      "cobbleventure:npc/firered_tamer_cole"
     ],
     "trigger_override": "proximity"
   }

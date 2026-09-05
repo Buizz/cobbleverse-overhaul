@@ -330,9 +330,9 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/kanto_swimmer_taejin",
-      "cobbleventure:npc/kanto_swimmer_nari",
-      "cobbleventure:npc/sample_fisherman_minsu"
+      "cobbleventure:npc/firered_super_nerd_zac",
+      "cobbleventure:npc/firered_black_belt_takashi",
+      "cobbleventure:npc/firered_channeler_stacy"
     ],
     "trigger_override": "proximity"
   }

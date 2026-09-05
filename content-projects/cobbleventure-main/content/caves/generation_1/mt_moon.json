@@ -290,7 +290,7 @@
   "trainer_settings": {
     "enabled": true,
     "max_active": 8,
-    "use_biome_defaults": true,
+    "use_biome_defaults": false,
     "direct_trainers": [
       "cobbleventure:npc/sample_hiker_seok",
       "cobbleventure:npc/sample_veteran_taeho"

@@ -25,6 +25,7 @@ record DungeonDefinition(
     String displayName,
     String description,
     String preset,
+    boolean showInPokefinder,
     EntryUi entryUi,
     Difficulty difficulty,
     Eligibility eligibility,
@@ -92,6 +93,8 @@ record DungeonDefinition(
             );
         }
         String id = resourceId(root, "dungeon_id");
+        boolean showInPokefinder = !root.has("show_in_pokefinder")
+            || requiredBoolean(root, "show_in_pokefinder");
         JsonObject displayName = requiredObject(root, "display_name");
         JsonObject entryUi = requiredObject(root, "entry_ui");
         JsonObject difficulty = requiredObject(root, "difficulty");
@@ -540,6 +543,14 @@ record DungeonDefinition(
             String encounterKind = encounter.has("kind")
                 ? enumValue(encounter, "kind", List.of("trainer", "wild_pokemon"))
                 : "trainer";
+            boolean cooperativeBattle = encounter.has("cooperative_battle")
+                && requiredBoolean(encounter, "cooperative_battle");
+            if (cooperativeBattle && !multiplayerMode.equals("cooperative")) {
+                throw new IllegalStateException(
+                    "Cooperative dungeon battle requires cooperative multiplayer mode: "
+                        + id + " -> " + encounterId
+                );
+            }
             if (encounter.has("trainer_generation")) {
                 throw new IllegalStateException(
                     "Per-encounter trainer_generation was removed; use dungeon-wide "
@@ -557,7 +568,7 @@ record DungeonDefinition(
                 }
                 npcs.add(npcId);
             }
-            int maximumActors = multiplayerMode.equals("cooperative") ? 2 : 1;
+            int maximumActors = cooperativeBattle ? 2 : 1;
             List<TrainerActor> trainers = new ArrayList<>();
             Set<String> trainerActorIds = new HashSet<>();
             for (JsonElement trainerElement : encounter.has("trainers")
@@ -581,14 +592,23 @@ record DungeonDefinition(
                 if (!battle.contains(":battle/")) {
                     throw new IllegalStateException(
                         "Dungeon trainer actor battle must use namespace:battle/path: "
-                            + battle
+                        + battle
+                    );
+                }
+                String character = trainer.has("character")
+                    ? resourceId(trainer, "character") : "";
+                if (!character.isEmpty() && !character.contains(":character/")) {
+                    throw new IllegalStateException(
+                        "Dungeon trainer actor character must use namespace:character/path: "
+                            + character
                     );
                 }
                 trainers.add(new TrainerActor(
                     actorId,
                     localized(requiredObject(trainer, "display_name"), "ko_kr", "en_us"),
                     trainerClass,
-                    battle
+                    battle,
+                    character
                 ));
             }
             if (!trainers.isEmpty() && (!npcs.isEmpty()
@@ -604,6 +624,12 @@ record DungeonDefinition(
                 throw new IllegalStateException(
                     "Dungeon " + multiplayerMode + " encounter requires 1.."
                         + maximumActors + " trainer actor(s): " + id + " -> " + encounterId
+                );
+            }
+            if (cooperativeBattle && actorCount != 2) {
+                throw new IllegalStateException(
+                    "Cooperative dungeon battle requires exactly two trainer actors: "
+                        + id + " -> " + encounterId
                 );
             }
             List<String> opponents = new ArrayList<>();
@@ -742,7 +768,8 @@ record DungeonDefinition(
                 trigger,
                 encounter.has("position") ? blockPosition(encounter, "position") : null,
                 encounter.has("yaw") ? encounter.get("yaw").getAsFloat() : 0.0F,
-                requiredBoolean(encounter, "boss")
+                requiredBoolean(encounter, "boss"),
+                cooperativeBattle
             ));
         }
         Map<String, List<String>> encounterRequirements = new LinkedHashMap<>();
@@ -1114,8 +1141,12 @@ record DungeonDefinition(
             }
             firstClearFieldMoves.add(move);
         }
-        String repeatTable = rewards.has("repeat_table")
-            ? resourceId(rewards, "repeat_table") : null;
+        List<RewardPool> firstClearRewards = rewardPools(
+            requiredArray(rewards, "first_clear"), id, "first_clear"
+        );
+        List<RewardPool> repeatClearRewards = rewards.has("repeat_clear")
+            ? rewardPools(requiredArray(rewards, "repeat_clear"), id, "repeat_clear")
+            : List.of();
         JsonObject lifecycle = requiredObject(root, "lifecycle");
         String resumeMode = lifecycle.has("resume_mode")
             ? enumValue(lifecycle, "resume_mode", List.of(
@@ -1161,9 +1192,9 @@ record DungeonDefinition(
                 "Dungeon clear exit overlaps a reserved position: " + id
             );
         }
-        if (repeatable && repeatTable == null) {
+        if (repeatable && repeatClearRewards.isEmpty()) {
             throw new IllegalStateException(
-                "Repeatable dungeon requires rewards.repeat_table: " + id
+                "Repeatable dungeon requires rewards.repeat_clear: " + id
             );
         }
         return new DungeonDefinition(
@@ -1171,6 +1202,7 @@ record DungeonDefinition(
             localized(displayName, "ko_kr", "en_us"),
             localized(requiredObject(root, "description"), "ko_kr", "en_us"),
             resourceId(root, "preset"),
+            showInPokefinder,
             new EntryUi(
                 enumValue(entryUi, "info_mode", List.of("exact", "summary", "mystery")),
                 requiredBoolean(entryUi, "confirm_required"),
@@ -1239,8 +1271,8 @@ record DungeonDefinition(
                 List.copyOf(lootContainers)
             ),
             new Rewards(
-                resourceId(rewards, "first_clear_table"),
-                repeatTable,
+                firstClearRewards,
+                repeatClearRewards,
                 List.copyOf(firstClearFieldMoves)
             ),
             new Lifecycle(
@@ -1287,7 +1319,7 @@ record DungeonDefinition(
             while (!ids.add(encounterId)) encounterId += "_generated";
             TrainerActor actor = new TrainerActor(
                 encounterId, appearance.displayName(),
-                appearance.trainerClass(), ""
+                appearance.trainerClass(), "", appearance.character()
             );
             GeneratedTrainer generated = new GeneratedTrainer(
                 generatedTrainers.pokemonPool(), generatedTrainers.teamSize(),
@@ -1295,10 +1327,17 @@ record DungeonDefinition(
                 List.of(dialogue.battleStartLine()),
                 List.of(dialogue.battleEndLine())
             );
+            EncounterTrigger trigger = new EncounterTrigger(
+                "proximity", 0, 6.0D, 3.0D,
+                "encounter.trainer_bad_guys",
+                List.of(dialogue.battleStartLine()),
+                List.of(dialogue.battleEndLine()),
+                List.of("다시 준비해서 도전해라.")
+            );
             resolved.add(new Encounter(
                 encounterId, appearance.displayName(), "trainer", List.of(),
                 List.of(actor), List.of(), generated, null, List.of(), List.of(),
-                null, null, random.nextInt(4) * 90.0F, false
+                trigger, null, random.nextInt(4) * 90.0F, false, false
             ));
         }
         int actorDemand = resolved.stream()
@@ -1311,7 +1350,8 @@ record DungeonDefinition(
                 npcPlacement.minimumSpacing()
             ) : npcPlacement;
         return new DungeonDefinition(
-            id, displayName, description, preset, entryUi, difficulty,
+            id, displayName, description, preset, showInPokefinder,
+            entryUi, difficulty,
             eligibility, multiplayer, match, battleRules, plan, terrain, layout,
             topology, progression, spatialLayout, vertical, resolvedPlacement,
             generatedTrainers, List.copyOf(resolved), randomEncounters, support,
@@ -1323,6 +1363,51 @@ record DungeonDefinition(
         return range.minimum() + random.nextInt(
             range.maximum() - range.minimum() + 1
         );
+    }
+
+    private static List<RewardPool> rewardPools(
+        JsonArray values, String dungeonId, String field
+    ) {
+        List<RewardPool> pools = new ArrayList<>();
+        for (JsonElement element : values) {
+            if (!element.isJsonObject()) {
+                throw new IllegalStateException(
+                    "Dungeon reward pool is not an object: " + dungeonId + " -> " + field
+                );
+            }
+            JsonObject pool = element.getAsJsonObject();
+            int rolls = requiredInt(pool, "rolls");
+            if (rolls < 1 || rolls > 64) {
+                throw new IllegalStateException("Invalid dungeon reward rolls: " + rolls);
+            }
+            List<RewardEntry> entries = new ArrayList<>();
+            for (JsonElement entryElement : requiredArray(pool, "entries")) {
+                JsonObject entry = entryElement.getAsJsonObject();
+                int minimum = requiredInt(entry, "min_count");
+                int maximum = requiredInt(entry, "max_count");
+                int weight = requiredInt(entry, "weight");
+                if (minimum < 1 || maximum < minimum || maximum > 6400 || weight < 1) {
+                    throw new IllegalStateException(
+                        "Invalid dungeon reward entry: " + dungeonId + " -> " + field
+                    );
+                }
+                entries.add(new RewardEntry(
+                    resourceId(entry, "item"), minimum, maximum, weight
+                ));
+            }
+            if (entries.isEmpty()) {
+                throw new IllegalStateException(
+                    "Dungeon reward pool is empty: " + dungeonId + " -> " + field
+                );
+            }
+            pools.add(new RewardPool(rolls, List.copyOf(entries)));
+        }
+        if (pools.isEmpty()) {
+            throw new IllegalStateException(
+                "Dungeon clear rewards are empty: " + dungeonId + " -> " + field
+            );
+        }
+        return List.copyOf(pools);
     }
 
     private static GeneratedAppearance weightedAppearance(
@@ -1393,9 +1478,19 @@ record DungeonDefinition(
                         + dungeonId + " -> " + trainerClass
                 );
             }
+            String character = entry.has("character")
+                ? resourceId(entry, "character") : "";
+            if (!character.isEmpty() && !character.contains(":character/")) {
+                throw new IllegalStateException(
+                    "Generated dungeon appearance character must use namespace:character/path: "
+                        + dungeonId + " -> " + character
+                );
+            }
             appearances.add(new GeneratedAppearance(
                 localized(requiredObject(entry, "display_name"), "ko_kr", "en_us"),
-                trainerClass, weight
+                trainerClass,
+                character,
+                weight
             ));
         }
         if (appearances.isEmpty()) {
@@ -1739,7 +1834,12 @@ record DungeonDefinition(
             );
         }
     }
-    record GeneratedAppearance(String displayName, String trainerClass, int weight) {}
+    record GeneratedAppearance(
+        String displayName,
+        String trainerClass,
+        String character,
+        int weight
+    ) {}
     record GeneratedDialogue(String battleStartLine, String battleEndLine, int weight) {}
     record IntRange(int minimum, int maximum) {}
     record Encounter(
@@ -1756,7 +1856,8 @@ record DungeonDefinition(
         EncounterTrigger trigger,
         BlockPos position,
         float yaw,
-        boolean boss
+        boolean boss,
+        boolean cooperativeBattle
     ) {
         int actorCount() {
             return trainers.isEmpty() ? npcs.size() : trainers.size();
@@ -1766,7 +1867,8 @@ record DungeonDefinition(
         String id,
         String displayName,
         String trainerClass,
-        String battle
+        String battle,
+        String character
     ) {}
     record EncounterTrigger(
         String type,
@@ -1855,10 +1957,12 @@ record DungeonDefinition(
         String lootTable
     ) {}
     record Rewards(
-        String firstClearTable,
-        String repeatTable,
+        List<RewardPool> firstClear,
+        List<RewardPool> repeatClear,
         List<String> firstClearFieldMoves
     ) {}
+    record RewardPool(int rolls, List<RewardEntry> entries) {}
+    record RewardEntry(String item, int minimum, int maximum, int weight) {}
     record Lifecycle(
         String onWipe,
         String wipeReturn,

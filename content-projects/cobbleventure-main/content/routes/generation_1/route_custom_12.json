@@ -81,9 +81,9 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/kanto_psychic_seon",
-      "cobbleventure:npc/sample_lass_yuna",
-      "cobbleventure:npc/sample_picnicker_hana"
+      "cobbleventure:npc/firered_juggler_nate",
+      "cobbleventure:npc/firered_juggler_shawn",
+      "cobbleventure:npc/firered_psychic_tyron"
     ],
     "trigger_override": "proximity"
   }

@@ -57,7 +57,7 @@ public final class QuestEventHooks {
             return;
         }
         if (EventAwaitInputLockService.isLocked(player.getUUID()) || hasActiveSession(store, player.getUUID())
-            || BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) return;
+            || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) return;
         EventScript script = EventScriptRepository.instance().find(entry.hook().scriptId()).orElse(null);
         if (script == null) { update(player, entry, QuestHookJournal.Status.FAILED, "script_missing"); return; }
         var events = script.events().stream().filter(event -> event.trigger().name().equals("quest")).toList();
@@ -69,7 +69,9 @@ public final class QuestEventHooks {
                 .thenComparing(entity -> entity.getUUID().toString())).orElse(null);
         // FIFO remains pending until the authored NPC is loaded in the player's dimension.
         if (npc == null) return;
-        EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(new ServerPlayerEventState(player));
+        EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
+            new ServerPlayerEventState(player, npc.getUUID())
+        );
         java.util.Optional<EventSession> session;
         try {
             session = EventInterpreter.startSession(script, events.getFirst().index(), key(player, entry, npc.getUUID()), environment, store);
@@ -112,8 +114,9 @@ public final class QuestEventHooks {
         try {
             EventScript script = EventScriptRepository.instance().find(entry.hook().scriptId()).orElseThrow();
             if (session.status() == EventSession.Status.READY) session.start();
-            EventInterpreter.run(script, session, new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
-                EventDialogueNetwork.serverAdapter(player), store, 10_000);
+            EventInterpreter.run(script, session, new EventStateExpressionEnvironment(
+                    new ServerPlayerEventState(player, session.key().npcId())),
+                EventDialogueNetwork.serverAdapter(player, session.key().npcId()), store, 10_000);
         } catch (RuntimeException error) {
             session.terminate(EventSession.CompletionKind.FAILED); store.save(session);
             update(player, entry, QuestHookJournal.Status.FAILED, "execution_failed");

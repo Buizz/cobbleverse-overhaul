@@ -1,7 +1,10 @@
 package dev.buizz.cobbleventure.adventure.event;
 
+import com.cobblemon.mod.common.battles.BattleRegistry;
 import java.util.Optional;
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.Predicate;
 import com.google.gson.JsonElement;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -34,13 +37,18 @@ final class EventTriggerExecutor {
         String triggerInstance,
         Map<String, JsonElement> initialLocals
     ) {
+        if (blocksEventStart(
+            player.getUUID(),
+            playerId -> BattleRegistry.getBattleByParticipatingPlayerId(playerId) != null,
+            EventBattleBridge::hasPendingTrainerBattle
+        )) return false;
         if (!binding.scriptId().equals(script.scriptId())) {
             throw new EventRuntimeException(
                 "NPC 바인딩과 실행 스크립트가 다릅니다: " + binding.bindingId()
             );
         }
         EventStateExpressionEnvironment environment = new EventStateExpressionEnvironment(
-            new ServerPlayerEventState(player)
+            new ServerPlayerEventState(player, npc.getUUID())
         );
         EventSessionStore store = SavedEventSessionStore.get(player.getServer());
         EventSessionKey key = new EventSessionKey(
@@ -61,11 +69,24 @@ final class EventTriggerExecutor {
             script,
             session.orElseThrow(),
             environment,
-            EventDialogueNetwork.serverAdapter(player),
+            EventDialogueNetwork.serverAdapter(player, npc.getUUID()),
             store,
             MAX_STEPS
         );
         return true;
+    }
+
+    static boolean hasActiveBattle(UUID playerId, Predicate<UUID> lookup) {
+        return lookup.test(playerId);
+    }
+
+    static boolean blocksEventStart(
+        UUID playerId,
+        Predicate<UUID> activeBattleLookup,
+        Predicate<UUID> pendingTrainerBattleLookup
+    ) {
+        return activeBattleLookup.test(playerId)
+            || pendingTrainerBattleLookup.test(playerId);
     }
 
     private static void resetRecoverableAwait(EventSessionStore store, EventSessionKey key) {

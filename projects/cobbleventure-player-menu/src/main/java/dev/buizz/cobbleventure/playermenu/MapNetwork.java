@@ -261,7 +261,7 @@ public final class MapNetwork {
             context.reply(new MapTeleportResultPayload(false, "장소 순간이동 기능을 아직 사용할 수 없습니다."));
             return;
         }
-        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+        if (BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
             context.reply(new MapTeleportResultPayload(false, "전투 중에는 순간이동할 수 없습니다."));
             return;
         }
@@ -406,7 +406,7 @@ public final class MapNetwork {
     }
 
     private static String performTeleport(ServerPlayer player, PendingTeleport pending) {
-        if (BattleRegistry.getBattleByParticipatingPlayer(player) != null) {
+        if (BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
             return "전투 중에는 순간이동할 수 없습니다.";
         }
         String guarded = teleportDenialReason(player);

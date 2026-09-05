@@ -11,6 +11,7 @@
     "en_us": "Powerful currents and an unknown cry echo beyond Rock Tunnel."
   },
   "preset": "cobbleventure:legendary_encounter",
+  "show_in_pokefinder": false,
   "entrances": [
     {
       "entrance_id": "cobbleventure:entrance/zapdos_storm_chamber",
@@ -197,7 +198,10 @@
     ]
   },
   "rewards": {
-    "first_clear_table": "cobbleventure:dungeon/rocket_power_plant_first_clear",
+    "first_clear": [
+      { "rolls": 1, "entries": [{ "item": "cobblemon:rare_candy", "min_count": 2, "max_count": 2, "weight": 1 }] },
+      { "rolls": 1, "entries": [{ "item": "cobblemon:great_ball", "min_count": 5, "max_count": 5, "weight": 1 }] }
+    ],
     "first_clear_field_moves": []
   },
   "lifecycle": {

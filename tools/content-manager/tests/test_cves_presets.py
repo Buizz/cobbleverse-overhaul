@@ -218,6 +218,19 @@ class CvesBehaviorPresetTests(unittest.TestCase):
         self.assertNotIn("choice", proximity_challenge)
         self.assertIn('await battle "cobbleventure:battle/sample_youngster_minjun" -> battle_result', source)
         self.assertIn('if battle_result.outcome == "win" {', source)
+        self.assertIn(
+            'set_flag "cobbleventure:runtime/npc_instance_defeated" true', source
+        )
+        self.assertIn(
+            'page when flag("cobbleventure:runtime/npc_instance_defeated")', source
+        )
+        self.assertIn(
+            '!flag("cobbleventure:runtime/npc_instance_defeated")', source
+        )
+        self.assertIn(
+            'set_flag "cobbleventure:flag/trainer/sample_youngster_minjun/defeated" true',
+            source,
+        )
         self.assertNotIn("\n    label ", source)
         self.assertNotIn("\n    jump ", source)
 
@@ -233,7 +246,7 @@ class CvesBehaviorPresetTests(unittest.TestCase):
             source,
         )
         self.assertIn(
-            '!flag("cobbleventure:flag/dungeon/rocket_power_plant/boss_defeated") &&',
+            '!flag("cobbleventure:runtime/npc_instance_defeated") &&',
             source,
         )
 

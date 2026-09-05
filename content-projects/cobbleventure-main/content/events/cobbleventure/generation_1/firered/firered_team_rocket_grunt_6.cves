@@ -1,16 +1,17 @@
 event proximity_enter(range: 9, group: "trainer_battle", stage: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     encounter_warning "encounter.trainer_bad_guys"
   }
 }
 
 event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
-  page when !flag("cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated") {
+  page when !flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "우리 로켓단에 들어오지 않겠어? 싫다고? 그렇다면 억지로라도 설득해 주지!"
     }
     id "proximity/challenge/battle" await battle "cobbleventure:battle/firered_team_rocket_grunt_6" -> battle_result
     if battle_result.outcome == "win" {
+      id "proximity/victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
       id "proximity/victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated" true
       say npc {
         ko_kr: "으악! 제법이군! 네 실력이라면 로켓단의 간부도 될 수 있을 텐데. 기회를 놓치지 마!"
@@ -24,7 +25,7 @@ event proximity_enter(range: 6, group: "trainer_battle", after: "warning") {
 }
 
 event interact(range: 4) {
-  page when flag("cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated") {
+  page when flag("cobbleventure:runtime/npc_instance_defeated") {
     say npc {
       ko_kr: "으악! 제법이군! 네 실력이라면 로켓단의 간부도 될 수 있을 텐데. 기회를 놓치지 마!"
     }
@@ -38,6 +39,7 @@ event interact(range: 4) {
       { ko_kr: "승부한다" } {
         id "challenge/battle" await battle "cobbleventure:battle/firered_team_rocket_grunt_6" -> battle_result
         if battle_result.outcome == "win" {
+          id "victory/set_instance_defeated" set_flag "cobbleventure:runtime/npc_instance_defeated" true
           id "victory/set_defeated" set_flag "cobbleventure:flag/trainer/firered_team_rocket_grunt_6/defeated" true
           say npc {
             ko_kr: "으악! 제법이군! 네 실력이라면 로켓단의 간부도 될 수 있을 텐데. 기회를 놓치지 마!"

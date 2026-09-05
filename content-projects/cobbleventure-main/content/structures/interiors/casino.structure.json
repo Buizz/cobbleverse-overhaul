@@ -53,9 +53,9 @@
       "label": "retired_guest",
       "type": "npc_position",
       "position": [
-        34,
+        30,
         6,
-        20
+        10
       ],
       "facing": "west"
     },

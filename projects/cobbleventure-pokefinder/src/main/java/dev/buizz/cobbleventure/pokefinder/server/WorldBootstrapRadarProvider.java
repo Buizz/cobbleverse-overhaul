@@ -102,6 +102,7 @@ public final class WorldBootstrapRadarProvider {
             RadarMarkerType markerType = markerType(
                 type.getMethod("kind").invoke(entry).toString()
             );
+            String category = type.getMethod("kind").invoke(entry).toString();
             ResourceLocation dimension = (ResourceLocation)
                 type.getMethod("dimension").invoke(entry);
             double x = (double) type.getMethod("x").invoke(entry);
@@ -117,6 +118,10 @@ public final class WorldBootstrapRadarProvider {
             } catch (NoSuchMethodException ignored) {
                 // Static location records predate player-specific marker state.
             }
+            RadarIconSettings.Entry iconSettings = RadarIconSettings.resolve(
+                category,
+                markerType.name().toLowerCase(Locale.ROOT)
+            );
             return new RadarMarker(
                 ResourceLocation.fromNamespaceAndPath(
                     CobbleventurePokefinder.MOD_ID, safePath(rawId)
@@ -127,9 +132,9 @@ public final class WorldBootstrapRadarProvider {
                 label,
                 ResourceLocation.fromNamespaceAndPath(
                     CobbleventurePokefinder.MOD_ID,
-                    "radar/" + markerType.name().toLowerCase(Locale.ROOT)
+                    "radar/" + safePath(iconSettings.icon())
                 ),
-                priority(markerType, rawId),
+                0,
                 state,
                 areaId,
                 RadarRanges.DEFAULT_LOCAL,
@@ -140,19 +145,4 @@ public final class WorldBootstrapRadarProvider {
         }
     }
 
-    static int priority(RadarMarkerType type, String rawId) {
-        if (type == RadarMarkerType.GYM_LEADER
-            && !safePath(rawId).startsWith("npc/")) return 700;
-        return switch (type) {
-            case GYM_LEADER -> 500;
-            case OBJECTIVE -> 800;
-            case TRAINER, IMPORTANT_NPC -> 400;
-            case POKEMON_CENTER, POKEMART -> 700;
-            // A dungeon entrance must not disappear behind its host building or cave.
-            case DUNGEON_ENTRANCE -> 600;
-            case CASINO, SPECIAL_BUILDING -> 300;
-            case CAVE_ENTRANCE, FOREST_ENTRANCE, GATE -> 200;
-            default -> 100;
-        };
-    }
 }

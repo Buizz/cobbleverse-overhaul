@@ -81,8 +81,8 @@
     "count": 3,
     "use_biome_defaults": false,
     "direct_trainers": [
-      "cobbleventure:npc/sample_hiker_seok",
-      "cobbleventure:npc/sample_picnicker_hana",
+      "cobbleventure:npc/firered_cooltrainer_yuji",
+      "cobbleventure:npc/firered_psychic_preston",
       "cobbleventure:npc/sample_ace_jiwon"
     ],
     "trigger_override": "proximity"

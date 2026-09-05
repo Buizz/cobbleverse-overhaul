@@ -69,6 +69,10 @@ final class MapContentTest {
         assertNotNull(powerPlant);
         assertEquals("발전소", powerPlant.name("ko_kr"));
         assertEquals("Power Plant", powerPlant.name("en_us"));
+        assertTrue(powerPlant.suppressNaturalSpawns());
+        MapContent.BiomeTile powerPlantTile = content.tileAt(12, -2);
+        assertEquals(List.of(), ids(content.spawnBiome(powerPlantTile)));
+        assertEquals(List.of(), ids(content.encounterBiome(powerPlantTile, "land")));
 
         MapContent.MapObject daycare = content.objectAt(6, 0);
         assertNotNull(daycare);

@@ -77,6 +77,11 @@ public final class EventBattleBridge {
         ));
     }
 
+    /** True from the authored launch request until its trainer battle resolves or times out. */
+    public static boolean hasPendingTrainerBattle(UUID playerId) {
+        return PENDING.containsKey(playerId);
+    }
+
     public record BattleContext(UUID npcId, String battleId) {}
 
     private static EventBattleGateway.OpenResult open(
@@ -86,7 +91,7 @@ public final class EventBattleBridge {
             throw new EventRuntimeException("battle 요청의 player와 gateway player가 다릅니다.");
         }
         if (PENDING.containsKey(player.getUUID())
-            || BattleRegistry.INSTANCE.getBattleByParticipatingPlayer(player) != null) {
+            || BattleRegistry.getBattleByParticipatingPlayerId(player.getUUID()) != null) {
             throw new EventRuntimeException("플레이어가 이미 배틀을 시작했거나 진행 중입니다.");
         }
         EventBattlePreset preset = EventBattlePresetRepository.instance()
@@ -115,7 +120,8 @@ public final class EventBattleBridge {
             );
             if (reward != null) {
                 String rewardCommand = reward.prepareCommand(
-                    player.getGameProfile().getName(), new ServerPlayerEventState(player)::flag
+                        player.getGameProfile().getName(),
+                        new ServerPlayerEventState(player, request.sessionKey().npcId())::flag
                 );
                 if (rewardCommand != null) {
                     int prepared = player.getServer().getCommands().getDispatcher().execute(
@@ -188,17 +194,35 @@ public final class EventBattleBridge {
     }
 
     private static void onBattleStarted(BattleStartedEvent.Post event) {
+        boolean attachableTrainerBattle = shouldAttachTrainerBattle(
+            event.getBattle().isPvW()
+        );
         UUID battleId = event.getBattle().getBattleId();
         for (BattleActor actor : event.getBattle().getActors()) {
             if (!(actor instanceof PlayerBattleActor playerActor)) continue;
             PendingBattle pending = PENDING.get(playerActor.getUuid());
             if (pending == null || pending.battleInstanceId != null) continue;
+            if (!attachableTrainerBattle) {
+                LOGGER.warn(
+                    "Ignoring non-trainer battle while CVES trainer launch is pending: player={}, battle={}",
+                    playerActor.getUuid(), battleId
+                );
+                continue;
+            }
             pending.battleInstanceId = battleId;
-            LOGGER.debug(
+            LOGGER.info(
                 "CVES battle attached: player={}, preset={}, battle={}",
                 playerActor.getUuid(), pending.preset.battleId(), battleId
             );
         }
+    }
+
+    static boolean shouldAttachTrainerBattle(boolean playerVersusWild) {
+        // RCT/TBCS trainer actors are not consistently exposed as one concrete
+        // actor class. PvW is the stable distinction we need: never steal a
+        // wild battle, but accept the authored non-wild battle launched while
+        // this exact player has a CVES reservation.
+        return !playerVersusWild;
     }
 
     private static void onBattleVictory(BattleVictoryEvent event) {
@@ -206,12 +230,27 @@ public final class EventBattleBridge {
         List<BattleActor> winners = event.getWinners();
         for (BattleActor actor : event.getBattle().getActors()) {
             if (!(actor instanceof PlayerBattleActor playerActor)) continue;
-            PendingBattle pending = matching(playerActor.getUuid(), battleId);
+            PendingBattle pending = PENDING.get(playerActor.getUuid());
+            if (pending != null && pending.battleInstanceId == null
+                && shouldAttachTrainerBattle(event.getBattle().isPvW())) {
+                // Recover if a mod integration skipped/reordered BATTLE_STARTED_POST.
+                pending.battleInstanceId = battleId;
+                LOGGER.warn(
+                    "Recovered missing CVES battle attachment from victory: player={}, preset={}, battle={}",
+                    playerActor.getUuid(), pending.preset.battleId(), battleId
+                );
+            }
+            pending = matching(playerActor.getUuid(), battleId);
             if (pending == null) continue;
             PENDING.remove(playerActor.getUuid(), pending);
             ServerPlayer player = playerActor.getEntity();
             if (player == null) continue;
             boolean won = winners.contains(actor);
+            LOGGER.info(
+                "CVES battle completed: player={}, preset={}, battle={}, outcome={}",
+                playerActor.getUuid(), pending.preset.battleId(), battleId,
+                won ? "win" : "loss"
+            );
             complete(
                 player, pending, won ? "win" : "loss",
                 won ? EventSession.CompletionKind.COMPLETED
@@ -222,7 +261,13 @@ public final class EventBattleBridge {
 
     private static void onBattleFled(BattleFledEvent event) {
         UUID playerId = event.getPlayer().getUuid();
-        PendingBattle pending = matching(playerId, event.getBattle().getBattleId());
+        UUID battleId = event.getBattle().getBattleId();
+        PendingBattle pending = PENDING.get(playerId);
+        if (pending != null && pending.battleInstanceId == null
+            && shouldAttachTrainerBattle(event.getBattle().isPvW())) {
+            pending.battleInstanceId = battleId;
+        }
+        pending = matching(playerId, battleId);
         if (pending == null) return;
         PENDING.remove(playerId, pending);
         ServerPlayer player = event.getPlayer().getEntity();
@@ -274,8 +319,10 @@ public final class EventBattleBridge {
                     player.getUUID(), pending.key, pending.token,
                     new EventSession.AwaitCompletion(kind, result),
                     script,
-                    new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
-                    EventDialogueNetwork.serverAdapter(player),
+                    new EventStateExpressionEnvironment(
+                        new ServerPlayerEventState(player, pending.key.npcId())
+                    ),
+                    EventDialogueNetwork.serverAdapter(player, pending.key.npcId()),
                     SavedEventSessionStore.get(player.getServer()),
                     MAX_RESUME_STEPS
                 );

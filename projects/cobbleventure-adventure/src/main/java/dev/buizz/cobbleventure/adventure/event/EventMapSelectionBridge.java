@@ -100,8 +100,10 @@ public final class EventMapSelectionBridge {
                     EventSession.CompletionKind.COMPLETED, result.toJson()
                 ),
                 callback.script(),
-                new EventStateExpressionEnvironment(new ServerPlayerEventState(player)),
-                EventDialogueNetwork.serverAdapter(player),
+                new EventStateExpressionEnvironment(
+                    new ServerPlayerEventState(player, callback.key().npcId())
+                ),
+                EventDialogueNetwork.serverAdapter(player, callback.key().npcId()),
                 callback.store(), MAX_RESUME_STEPS
             );
         if (outcome.status() != EventAwaitCompletionService.Status.STALE) {
