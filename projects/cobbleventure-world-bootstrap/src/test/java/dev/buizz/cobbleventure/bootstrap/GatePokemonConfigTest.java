@@ -106,7 +106,7 @@ final class GatePokemonConfigTest {
         assertEquals("stand", standing.poseWhileChallenged(true));
     }
 
-    @Test void gateBattleStartsOnlyAfterTheSpawnTickReturns() throws Exception {
+    @Test void gateBattleUsesTheSameNextTickLaunchAsPursuitEncounters() throws Exception {
         try (var stream = getClass().getClassLoader().getResourceAsStream(
             "dev/buizz/cobbleventure/bootstrap/GatePokemonSystem.class"
         )) {
@@ -123,7 +123,17 @@ final class GatePokemonConfigTest {
             assertFalse(hasForceBattleCall(tickChallenge),
                 "The entity-spawn tick must not register an incomplete battle opponent");
             assertTrue(hasForceBattleCall(startBattle),
-                "The deferred server task must own battle registration");
+                "The delayed battle-start method must own battle registration");
+            assertFalse(java.util.Arrays.stream(tickChallenge.instructions.toArray())
+                .anyMatch(instruction -> instruction instanceof MethodInsnNode call
+                    && call.owner.equals("net/minecraft/server/MinecraftServer")
+                    && call.name.equals("execute")),
+                "MinecraftServer.execute does not guarantee a later server tick");
+            assertTrue(java.util.Arrays.stream(tickChallenge.instructions.toArray())
+                .anyMatch(instruction -> instruction instanceof MethodInsnNode call
+                    && call.owner.equals("dev/buizz/cobbleventure/bootstrap/GatePokemonSystem")
+                    && call.name.equals("startBattle")),
+                "A later player tick must launch the pending gate battle");
         }
     }
 

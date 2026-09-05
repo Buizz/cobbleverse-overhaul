@@ -245,17 +245,20 @@ public final class GatePokemonSystem {
                     player.displayClientMessage(Component.literal("전투를 시작할 수 없습니다. 싸울 수 있는 포켓몬을 준비해 주세요."), true);
                     return;
                 }
-                // addFreshEntity has not completed entity tracking and Pokemon
-                // synchronization until this server task returns. Starting the
-                // battle inline produced an opponent slot before its Pokemon
-                // payload existed on the client.
-                player.getServer().execute(() -> startBattle(player, challenge));
+                // Match the proven pursuit encounter lifecycle: let one full
+                // server tick publish the entity before registering its battle.
+                challenge.battleStartTick = time + 1L;
             } catch (RuntimeException error) {
                 LOGGER.warn("Could not start gate Pokemon battle: {}", challenge.actor.gate.id(), error);
                 finish(player, false);
                 player.displayClientMessage(Component.literal("관문 전투를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요."), true);
             }
         } else if (challenge.entity != null) {
+            if (challenge.battleId == null && time >= challenge.battleStartTick) {
+                challenge.battleStartTick = Long.MAX_VALUE;
+                startBattle(player, challenge);
+                return;
+            }
             if (challenge.battleId == null && challenge.entity.getBattleId() != null) {
                 challenge.battleId = challenge.entity.getBattleId();
             }
@@ -285,6 +288,12 @@ public final class GatePokemonSystem {
                 return;
             }
             challenge.battleId = challenge.entity.getBattleId();
+            LOGGER.info(
+                "Gate Pokemon battle started: gate={}, player={}, species={}, entity={}, battle={}",
+                challenge.actor.gate.id(), player.getGameProfile().getName(),
+                challenge.entity.getPokemon().getSpecies().getResourceIdentifier(),
+                challenge.entity.getUUID(), challenge.battleId
+            );
         } catch (RuntimeException error) {
             LOGGER.warn(
                 "Could not start gate Pokemon battle: {}",
@@ -368,6 +377,7 @@ public final class GatePokemonSystem {
         PokemonEntity entity;
         UUID pokemonId;
         UUID battleId;
+        long battleStartTick = Long.MAX_VALUE;
         Challenge(Actor actor, long startAt) { this.actor = actor; this.startAt = startAt; }
     }
 }

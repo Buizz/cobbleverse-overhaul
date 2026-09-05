@@ -118,6 +118,8 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.ChunkWatchEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -459,6 +461,8 @@ public final class CobbleventureBootstrap {
         DoorTransitionSound.register();
         StarterSpawnSystem.register();
         BattleMovementBoundary.register();
+        NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onAttackPokemon);
+        NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPokemonIncomingDamage);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onPlayerLoggedOut);
         NeoForge.EVENT_BUS.addListener(CobbleventureBootstrap::onEntityJoinLevel);
@@ -470,6 +474,25 @@ public final class CobbleventureBootstrap {
 
     private static void onCommonSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(DeferredXpBarRegistration::register);
+    }
+
+    /**
+     * Enforce the adventure-pack rule in server code instead of relying only on
+     * Cobblemon's generated configuration. Existing installations keep their
+     * old main.json when a pack update is installed.
+     */
+    private static void onAttackPokemon(AttackEntityEvent event) {
+        if (event.getTarget() instanceof PokemonEntity) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** Also covers player-owned projectiles and other player-attributed damage. */
+    private static void onPokemonIncomingDamage(LivingIncomingDamageEvent event) {
+        if (event.getEntity() instanceof PokemonEntity
+            && event.getSource().getEntity() instanceof net.minecraft.world.entity.player.Player) {
+            event.setCanceled(true);
+        }
     }
 
     private static EventLocationResolverRegistry.Resolution resolveEventSettlement(
@@ -710,9 +733,11 @@ public final class CobbleventureBootstrap {
             pokemonEntity.setNoAi(true);
             pokemonEntity.setDeltaMovement(Vec3.ZERO);
         }
-        if (joinedType.getNamespace().equals("cobblemon")
-            && (!(event.getEntity() instanceof PokemonEntity pokemonEntity)
-                || pokemonEntity.getPokemon().isWild())
+        // Only suppress unmanaged wild Pokemon. Cobblemon also owns capture
+        // projectiles such as empty_pokeball; canceling those consumes the item
+        // while preventing the ball from ever reaching the battle target.
+        if (event.getEntity() instanceof PokemonEntity pokemonEntity
+            && pokemonEntity.getPokemon().isWild()
             && !event.getEntity().getTags().contains(PursuitEncounterSystem.ENTITY_TAG)
             && !event.getEntity().getTags().contains(GatePokemonSystem.ACTOR_TAG)
             && !event.getEntity().getPersistentData().hasUUID(GatePokemonSystem.CHALLENGER_KEY)
@@ -748,10 +773,7 @@ public final class CobbleventureBootstrap {
         if (activeHexWorld == null) {
             return;
         }
-        ResourceLocation entityType = BuiltInRegistries.ENTITY_TYPE.getKey(
-            event.getEntity().getType()
-        );
-        if (entityType.getNamespace().equals("cobblemon")
+        if (event.getEntity() instanceof PokemonEntity
             && terrainAt(activeHexWorld, event.getEntity().getX(), event.getEntity().getZ()) == null) {
             logBlockedPokemon(event.getEntity(), "outside-playable-terrain", ++blockedOutsideTerrainPokemon);
             event.setCanceled(true);
